@@ -70,14 +70,13 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
 
     const script = document.createElement("script");
     script.id = "wynos-maplibre-module";
-    script.type = "module";
-    script.textContent = `
-      import * as maplibregl from "https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.mjs";
-      window.maplibregl = maplibregl;
-      window.dispatchEvent(new Event("wynos:maplibre-ready"));
-    `;
+    // Use the browser/UMD build rather than a cross-origin ES module. On iOS
+    // Safari the module build can initialize while its worker never paints,
+    // leaving a blank map canvas. The browser build owns its worker bootstrap.
+    script.src = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js`;
+    script.async = true;
+    script.addEventListener("load", ready, { once: true });
     script.addEventListener("error", () => reject(new Error("MapLibre failed to load")), { once: true });
-    window.addEventListener("wynos:maplibre-ready", ready, { once: true });
     document.head.appendChild(script);
   });
 
@@ -160,18 +159,30 @@ export function FoodDeliveryMapPicker({
           reverseTimerRef.current = window.setTimeout(() => void reverse(next), 650);
         };
 
+        const onLoad = () => {
+          map?.resize();
+          if (live) {
+            setMapReady(true);
+            setStatus("");
+          }
+        };
+        const onError = () => {
+          if (live && !mapReady) setStatus("โหลดแผนที่ไม่สำเร็จ กรุณาลองใหม่");
+        };
+
         map.on("dragstart", onDragStart);
         map.on("moveend", onMoveEnd);
-        window.setTimeout(() => {
-          map?.resize();
-          if (live) setMapReady(true);
-        }, 80);
+        map.on("load", onLoad);
+        map.on("error", onError);
+        window.setTimeout(() => map?.resize(), 80);
 
         if (initialLocation) void reverse(initialLocation);
 
         return () => {
           map?.off("dragstart", onDragStart);
           map?.off("moveend", onMoveEnd);
+          map?.off("load", onLoad);
+          map?.off("error", onError);
         };
       })
       .catch(() => {
