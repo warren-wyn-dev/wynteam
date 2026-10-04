@@ -254,16 +254,25 @@ async function photon(url: URL) {
   if (!(await reservePhoton())) throw new Error("photon busy");
   return await fetchJson(url, {
     Accept: "application/json",
-    "Accept-Language": "th,en;q=0.8",
     "User-Agent": APP_USER_AGENT,
   });
+}
+
+function nearbyBbox(location: { lat: number; lon: number }, radiusKm = 80) {
+  const latDelta = radiusKm / 111;
+  const lonDelta = radiusKm / Math.max(20, 111 * Math.cos(location.lat * Math.PI / 180));
+  const minLon = Math.max(97.343, location.lon - lonDelta);
+  const minLat = Math.max(5.61, location.lat - latDelta);
+  const maxLon = Math.min(105.636, location.lon + lonDelta);
+  const maxLat = Math.min(20.465, location.lat + latDelta);
+  return `${minLon.toFixed(5)},${minLat.toFixed(5)},${maxLon.toFixed(5)},${maxLat.toFixed(5)}`;
 }
 
 async function photonSearch(query: string, location?: { lat: number; lon: number }) {
   const url = new URL(`${PHOTON_BASE}/api`);
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "10");
-  url.searchParams.set("bbox", THAILAND_BBOX);
+  url.searchParams.set("bbox", location ? nearbyBbox(location) : THAILAND_BBOX);
   if (location) {
     url.searchParams.set("lat", String(location.lat));
     url.searchParams.set("lon", String(location.lon));
