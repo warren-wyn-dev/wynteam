@@ -139,13 +139,6 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
   return window.__wynosMapLibrePromise;
 }
 
-function placeText(place: FoodPlace | null, location: FoodLocation | null) {
-  if (place?.address) return [place.name, place.address].filter(Boolean).join(" · ");
-  if (place?.name) return place.name;
-  if (location) return `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`;
-  return "เลื่อนแผนที่หรือค้นหาสถานที่";
-}
-
 function placeCategory(place: FoodPlace) {
   if (place.category === "restaurant") return "ร้านอาหาร";
   if (place.category === "pickup_point") return "จุดรับอาหาร";
@@ -173,6 +166,7 @@ export function FoodDeliveryMapPicker({
   const mapRef = useRef<MapInstance | null>(null);
   const dragRef = useRef(false);
   const reverseTimerRef = useRef<number | null>(null);
+  const reverseRequestRef = useRef(0);
   const nearbyRequestRef = useRef(0);
   const nearbyMarkersRef = useRef<MarkerInstance[]>([]);
   const autoLocateRef = useRef(false);
@@ -188,17 +182,22 @@ export function FoodDeliveryMapPicker({
   } | null>(null);
   const [status, setStatus] = useState("");
   const [working, setWorking] = useState(false);
+  const [resolvingPlace, setResolvingPlace] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   const [mapAttempt, setMapAttempt] = useState(0);
   const [chosen, setChosen] = useState(Boolean(initialLocation));
 
   const reverse = useCallback(async (next: FoodLocation) => {
+    const requestId = ++reverseRequestRef.current;
+    setResolvingPlace(true);
     try {
       const found = await reverseFoodPlace(client, next);
-      setPlace(found);
+      if (reverseRequestRef.current === requestId) setPlace(found);
     } catch {
-      setPlace(null);
+      if (reverseRequestRef.current === requestId) setPlace(null);
+    } finally {
+      if (reverseRequestRef.current === requestId) setResolvingPlace(false);
     }
   }, [client]);
 
@@ -213,9 +212,11 @@ export function FoodDeliveryMapPicker({
   }, [client]);
 
   const moveTo = useCallback((next: FoodLocation, nextPlace?: FoodPlace) => {
+    reverseRequestRef.current += 1;
     setLocation(next);
     setChosen(true);
     setPlace(nextPlace ?? null);
+    setResolvingPlace(false);
     setActiveNearbyPlace(null);
     mapRef.current?.flyTo({
       center: [next.longitude, next.latitude],
@@ -293,12 +294,14 @@ export function FoodDeliveryMapPicker({
           void loadNearby(next);
           if (!dragRef.current) return;
           dragRef.current = false;
+          reverseRequestRef.current += 1;
           setLocation(next);
           setChosen(true);
           setPlace(null);
+          setResolvingPlace(true);
           setActiveNearbyPlace(null);
           if (reverseTimerRef.current) window.clearTimeout(reverseTimerRef.current);
-          reverseTimerRef.current = window.setTimeout(() => void reverse(next), 650);
+          reverseTimerRef.current = window.setTimeout(() => void reverse(next), 450);
         };
 
         const onError = () => {
@@ -332,6 +335,7 @@ export function FoodDeliveryMapPicker({
       if (fallbackTimer) window.clearTimeout(fallbackTimer);
       if (failureTimer) window.clearTimeout(failureTimer);
       if (reverseTimerRef.current) window.clearTimeout(reverseTimerRef.current);
+      reverseRequestRef.current += 1;
       nearbyRequestRef.current += 1;
       nearbyMarkersRef.current.forEach((marker) => marker.remove());
       nearbyMarkersRef.current = [];
@@ -537,7 +541,18 @@ export function FoodDeliveryMapPicker({
           <span><MapPin size={18} /></span>
           <div>
             <small>ตำแหน่งจัดส่ง</small>
-            <strong>{placeText(place, location)}</strong>
+            <strong>
+              {place?.name
+                || (resolvingPlace
+                  ? "กำลังค้นหาชื่อสถานที่…"
+                  : location
+                    ? "ไม่พบชื่อสถานที่"
+                    : "เลื่อนแผนที่หรือค้นหาสถานที่")}
+            </strong>
+            {place?.address ? <p className="wf-map-confirm-address">{place.address}</p> : null}
+            {!place && location && !resolvingPlace ? (
+              <code className="wf-map-confirm-coordinates">{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</code>
+            ) : null}
           </div>
         </div>
         {status ? <p role="status">{status}</p> : null}
