@@ -1198,6 +1198,7 @@ export const EN_EXACT: Record<string, string> = {
   "หรือค้นหาสถานที่ เช่น ชื่อหมู่บ้าน คอนโด": "Or search for a place, e.g. village or condo name",
   "ค้นหาสถานที่": "Search places",
   "ปักหมุดตำแหน่งร้านแล้ว อย่าลืมกดบันทึก": "Store location pinned. Remember to save",
+  "ซ่อน WYNOS Food จากหน้าหลัก": "Hide WYNOS Food from Home",
   "WYNOS Food เปิดให้บริการเฉพาะจังหวัดมหาสารคาม": "WYNOS Food is only available in Maha Sarakham province",
   "ตำแหน่งของคุณอยู่นอกจังหวัดมหาสารคาม ตอนนี้ยังสั่งอาหารไม่ได้ เรากำลังขยายพื้นที่ให้บริการ": "Your location is outside Maha Sarakham, so you can't order yet. We're expanding our service area.",
   "อนุญาตให้ใช้ตำแหน่ง หรือเลือกตำแหน่งบนแผนที่ เพื่อเช็กว่าคุณอยู่ในพื้นที่ให้บริการ": "Allow location access or pick a spot on the map to check that you're in the service area",

@@ -480,3 +480,17 @@
   2. Dispatch `food-apply-wyn211.yml` with `APPLY-WYN-211`.
 - Rollback: `public_enabled = false` and revert; or re-apply the previous `food_delivery_fee` and readiness definitions.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-212 Home Food banner only for people in Maha Sarakham (PR #867)
+
+- Founder request:
+  - "กลัวไปรบกวน คนอื่น" about the Home Food banner.
+  - Approved points 1–3.
+- Change:
+  - Food stays in the drawer for everyone.
+  - The Home banner shows only when Food's area check or the user's saved delivery pin is inside Maha Sarakham.
+  - The banner has an ✕ to hide it.
+  - Frontend only.
+- Release: merge PR #867. Web auto-deploys.
+- Rollback: revert PR #867.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04

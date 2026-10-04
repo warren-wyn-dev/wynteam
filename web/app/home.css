@@ -234,30 +234,52 @@
   background: var(--wyn-text);
 }
 
-/* ---------- WYN-195 WYNOS Food entry (developer accounts) ---------- */
+/* ---------- WYN-195 WYNOS Food entry (WYN-212: people in Maha Sarakham, can be hidden) ---------- */
 
 .wyn-home-food-shortcut {
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 12px;
   width: 100%;
   min-height: 56px;
-  padding: 10px 16px;
   border-bottom: 1px solid var(--wyn-border);
   background: var(--wyn-bg);
+}
+
+.wyn-home-food-shortcut-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px 10px 16px;
   color: var(--wyn-text);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-.wyn-home-food-shortcut:focus-visible {
+.wyn-home-food-shortcut-link:focus-visible,
+.wyn-home-food-shortcut-close:focus-visible {
   outline: 2px solid var(--wyn-text);
   outline-offset: -3px;
 }
 
-.wyn-home-food-shortcut:active {
+.wyn-home-food-shortcut-link:active,
+.wyn-home-food-shortcut-close:active {
   opacity: 0.75;
+}
+
+.wyn-home-food-shortcut-close {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  margin-right: 6px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wyn-text-secondary);
+  display: grid;
+  place-items: center;
 }
 
 .wyn-home-food-shortcut-icon {

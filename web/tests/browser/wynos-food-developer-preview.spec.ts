@@ -156,13 +156,13 @@ test("Food checkout previews Campaign Center savings but revalidates them on the
   expect(sql).toContain("usage_count=usage_count+1");
 });
 
-test("WYN-195 WYNOS Food entry sits under the Home tabs and in the drawer (WYN-211: for everyone)", () => {
+test("WYN-195 WYNOS Food entry sits under the Home tabs and in the drawer (WYN-211/212)", () => {
   const home = read("components/home/home-screen.tsx");
   const drawer = read("components/home/home-drawer.tsx");
   const shortcut = read("components/home/home-food-shortcut.tsx");
 
   expect(home).toContain("const showFood = Boolean(userId);");
-  expect(home).toContain("{showFood ? <HomeFoodShortcut /> : null}");
+  expect(home).toContain("{foodShortcut.visible ? <HomeFoodShortcut onHide={foodShortcut.hide} /> : null}");
   expect(home).toContain("showFood={showFood}");
   expect(shortcut).toContain('href="/food"');
   expect(drawer).toContain("showFood = false");
@@ -250,4 +250,25 @@ test("WYN-211 WYNOS Food is open to everyone; ordering only in Maha Sarakham", (
   expect(lib).toContain('if (message.includes("outside service area")) return "ตอนนี้ WYNOS Food ส่งได้เฉพาะในจังหวัดมหาสารคาม";');
   expect(panels).toContain('service_area: "ปักหมุดร้านในจังหวัดมหาสารคาม",');
   expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-211'");
+});
+
+test("WYN-212 Home Food banner only for people known in Maha Sarakham; drawer for all", () => {
+  const home = read("components/home/home-screen.tsx");
+  const shortcut = read("components/home/home-food-shortcut.tsx");
+  const memory = read("lib/food-area-memory.ts");
+  const app = read("components/food/wynos-food-developer-app.tsx");
+
+  // Drawer keeps Food for every signed-in user; the banner is gated.
+  expect(home).toContain("const showFood = Boolean(userId);");
+  expect(home).toContain("showFood={showFood}");
+  expect(home).toContain("const foodShortcut = useHomeFoodShortcut(client, userId);");
+  // Home never asks for GPS: Food's own check or the saved delivery pin.
+  expect(memory).not.toContain("geolocation");
+  expect(memory).toContain('client.rpc("food_service_area_check"');
+  expect(memory).toContain('.from("food_customer_addresses")');
+  expect(memory).toContain("? Promise.resolve(memory.area === \"inside\")");
+  expect(app).toContain('rememberFoodArea(userId, inside ? "inside" : "outside");');
+  // The banner can be hidden for good.
+  expect(shortcut).toContain('aria-label="ซ่อน WYNOS Food จากหน้าหลัก" onClick={onHide}');
+  expect(memory).toContain('write(hiddenKey(userId), "1");');
 });

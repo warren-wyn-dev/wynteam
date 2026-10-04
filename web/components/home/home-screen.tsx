@@ -12,6 +12,7 @@ import { MaterialNavGlyph } from "@/components/bottom-navigation";
 import { ClubFeedPost } from "@/components/home/club-feed-post";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomeFoodShortcut } from "@/components/home/home-food-shortcut";
+import { useHomeFoodShortcut } from "@/lib/food-area-memory";
 import { HomeQuickCompose } from "@/components/home/home-quick-compose";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { QuoteFeedCard } from "@/components/quote-feed-card";
@@ -324,6 +325,9 @@ export function HomeScreen({ session }: { session: Session }) {
   // WYN-211: WYNOS Food is open to everyone (Founder, 2026-10-04); ordering
   // is limited to Maha Sarakham inside Food and on the server.
   const showFood = Boolean(userId);
+  // WYN-212: the banner under the tabs only for people known to be in
+  // Maha Sarakham (they can hide it); everyone has Food in the drawer.
+  const foodShortcut = useHomeFoodShortcut(client, userId);
 
   // Plays a directional slide the moment the visible tab's content actually
   // lands (tap or swipe both funnel through switchMode, which records the
@@ -957,7 +961,7 @@ export function HomeScreen({ session }: { session: Session }) {
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchCancel}
       >
-        {showFood ? <HomeFoodShortcut /> : null}
+        {foodShortcut.visible ? <HomeFoodShortcut onHide={foodShortcut.hide} /> : null}
         {visibleMode !== "clubs" ? (
           <HomeQuickCompose
             avatarUrl={identity?.avatar_url}
