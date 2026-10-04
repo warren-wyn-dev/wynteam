@@ -369,6 +369,7 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
 test("WYN-205 Merchant finance page and the store's own promotions", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
 
+  // Until the Founder opens WYN-210 to everyone, non-developer stores keep this page.
   // Money comes from the store's own orders: paid, waiting for slip check, refunded.
   expect(app).toContain("function FinancePanel(");
   expect(app).toContain('const paid = orders.filter((order) => order.payment_status === "paid");');
@@ -456,4 +457,47 @@ test("WYN-209 Merchant app icon: complete PNGs at every size, separate maskable 
     expect(png.readUInt32BE(20)).toBe(size);
     expect(png.subarray(png.length - 8, png.length - 4).toString("latin1")).toBe("IEND");
   }
+});
+
+test("WYN-210 finance: any period, net sales and income worked out on the server", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const page = read("components/merchant/merchant-finance.tsx");
+  const lib = read("lib/merchant-finance.ts");
+  const migration = read("../supabase/migrations_wynos_merchant_finance_v1.sql");
+  const workflow = read("../.github/workflows/food-apply-wyn210.yml");
+
+  // Periods: today, yesterday, this week, this month, or a calendar range.
+  expect(page).toContain('{ id: "yesterday", label: "เมื่อวาน" },');
+  expect(page).toContain('onPick={(next) => { setPicking(false); setPeriod("custom"); setSummary(null); setRange(next); }}');
+  expect(page).toContain("disabled={day > today}");
+  expect(lib).toContain('return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok"');
+  // Two headline numbers, each with the lines that make it up.
+  expect(page).toContain("<small>ยอดขายสุทธิ</small><strong>{money(current.sales_net)}</strong>");
+  expect(page).toContain("<small>รายได้ร้าน</small><strong>{money(current.income)}</strong>");
+  // The WYNOS line only shows when there is money, with the plain-language name.
+  expect(page).toContain("{current.platform_owed > 0 ? (");
+  expect(page).toContain("<strong>เงินที่ WYNOS จะโอนให้ร้าน</strong>");
+  // Numbers from an older range are never shown for the new one.
+  expect(page).toContain("const current = summary && summary.from === range.from && summary.to === range.to ? summary : null;");
+  // Staged rollout (WYN-125): developers get the new page, everyone else the previous one.
+  expect(app).toContain("const isDeveloper = useIsDeveloperAccount(client, userId);");
+  expect(app).toContain("isDeveloper\n            ? <MerchantFinance client={client} store={store} refreshKey={orders}");
+  expect(app).toContain(": <FinancePanel store={store} orders={orders} onEditStore={() => setStoreEditing(true)} />");
+  // The calendar sheet takes focus, closes on Escape and keeps Tab inside.
+  expect(page).toContain('<section ref={sheetRef} tabIndex={-1} className="wm-sheet" role="dialog" aria-modal="true"');
+  expect(page).toContain('if (event.key === "Escape") { event.preventDefault(); closeRef.current(); return; }');
+  expect(page).toContain("return () => {\n      document.removeEventListener(\"keydown\", onKey);\n      if (opener?.isConnected) opener.focus();");
+  // Pull to refresh still reloads the finance page.
+  expect(app).toContain("refreshKey={orders}");
+  // CSV opens in Excel with Thai (UTF-8 BOM) and carries a total row.
+  expect(lib).toContain("return `\\uFEFF${");
+  // Server: manager roles only, read only, Bangkok days, bounded range.
+  // Not merchant_has_store_role(): it lets developers into any store and ignores legacy staff roles.
+  expect(migration).toContain("and mm.role in ('owner', 'admin', 'manager')");
+  expect(migration).toContain("and fs.role = 'owner'");
+  expect(migration).not.toContain("merchant_has_store_role(p_store_id");
+  expect(migration).toContain("paid_total - refunds - ad_spend + platform_funded as income");
+  expect(migration).toContain("if v_days > 366 then");
+  expect(migration).toContain("revoke all on function public.merchant_finance_summary(uuid, date, date) from public, anon;");
+  expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-210'");
 });

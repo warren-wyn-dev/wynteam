@@ -1,0 +1,73 @@
+name: Food -- apply WYN-210 merchant finance summary
+
+# Applies supabase/migrations_wynos_merchant_finance_v1.sql (WYN-210): one
+# read-only RPC, merchant_finance_summary(store, from, to), that the Wynos
+# Merchant finance page uses for today / yesterday / week / month / a picked
+# range. Manual dispatch on main only, after the Founder approves production.
+# Behaviour test: supabase/tests/wynos_merchant_finance_test.sh.
+#
+# SAFETY: additive and read only. No table, column, policy or data changes.
+# Only the store's owner, admin or manager can call it, for their own store
+# (developer accounts get no cross-store access).
+# ROLLBACK (Founder, SQL editor): drop function
+# public.merchant_finance_summary(uuid, date, date); the finance page then
+# shows "ระบบการเงินยังไม่เปิดใช้งาน" until the web change is reverted.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-WYN-210 to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-210'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_merchant_finance_v1.sql)
+          commit;" >/dev/null
+          # Definitions and privileges only; no personal data is read.
+          run_sql "select
+              (select count(*) from pg_proc where proname = 'merchant_finance_summary' and prosecdef and provolatile = 's') as fn_ready,
+              has_function_privilege('anon', 'public.merchant_finance_summary(uuid,date,date)', 'execute') as anon_can_call,
+              has_function_privilege('authenticated', 'public.merchant_finance_summary(uuid,date,date)', 'execute') as members_can_call,
+              (select pg_get_functiondef('public.merchant_finance_summary(uuid,date,date)'::regprocedure)
+                 like '%mm.role in (''owner'', ''admin'', ''manager'')%') as manager_only,
+              (select pg_get_functiondef('public.merchant_finance_summary(uuid,date,date)'::regprocedure)
+                 like '%merchant_has_store_role(p_store_id%') as uses_broad_helper;" \
+            | tee result.json | jq .
+          jq -e '.[0].fn_ready == 1 and .[0].anon_can_call == false and .[0].members_can_call == true and .[0].manager_only == true and .[0].uses_broad_helper == false' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "WYN-210 finance summary is installed."

@@ -441,3 +441,22 @@
 - Release: merge PR #841. Web auto-deploys.
 - Rollback: revert PR #841.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-210 Wynos Merchant finance summary (PR #849)
+
+- Founder request:
+  - A new finance page, without copying the reference app.
+  - "การเงิน / สรุป": วันนี้ เมื่อวาน สัปดาห์นี้ เดือนนี้, plus a calendar range.
+  - Headline numbers ยอดขายสุทธิ and รายได้.
+  - "เงินที่ WYNOS จะโอนให้ร้าน" shown only when it is above 0.
+- Change:
+  - New read-only RPC `merchant_finance_summary`: store owner/admin/manager only, explicit role check, no developer cross-store access.
+  - The new page is staged: developer accounts first; other stores keep the previous page until the Founder says "เปิดให้ทุกคน".
+- Security decisions accepted:
+  - Finance access is narrowed to managers.
+  - No table, policy or data changes.
+- Release:
+  1. Merge PR #849 (web auto-deploys).
+  2. Dispatch `food-apply-wyn210.yml` with `APPLY-WYN-210`.
+- Rollback: revert PR #849; `drop function public.merchant_finance_summary(uuid, date, date)`.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04

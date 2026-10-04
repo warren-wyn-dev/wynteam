@@ -34,6 +34,7 @@ import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { MerchantAds } from "@/components/merchant/merchant-ads";
+import { MerchantFinance } from "@/components/merchant/merchant-finance";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
@@ -68,6 +69,7 @@ import {
   type FoodStorePlace,
   type MenuDraft,
 } from "@/lib/food-merchant";
+import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation } from "@/lib/food-customer";
 
@@ -273,6 +275,7 @@ function MerchantInner({
   signOut: () => Promise<void>;
 }) {
   const [tab, setTab] = useState<MerchantTab>("home");
+  const isDeveloper = useIsDeveloperAccount(client, userId);
   const [store, setStore] = useState<FoodStore | null>(null);
   const [menu, setMenu] = useState<FoodMenuItem[]>([]);
   const [orders, setOrders] = useState<FoodOrder[]>([]);
@@ -596,7 +599,13 @@ function MerchantInner({
 
         {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
 
-        {tab === "finance" && store ? <FinancePanel store={store} orders={orders} onEditStore={() => setStoreEditing(true)} /> : null}
+        {tab === "finance" && store ? (
+          // WYN-210 staged rollout (WYN-125): developer accounts see the new
+          // finance summary; everyone else keeps the previous page.
+          isDeveloper
+            ? <MerchantFinance client={client} store={store} refreshKey={orders} onEditStore={() => setStoreEditing(true)} onOpenTab={setTab} />
+            : <FinancePanel store={store} orders={orders} onEditStore={() => setStoreEditing(true)} />
+        ) : null}
 
         {tab === "promotions" && store ? (
           <>
@@ -1037,6 +1046,7 @@ function MenuPanel({
 }
 
 /** WYN-205: money in and out, from the orders already loaded in Merchant. */
+// The finance page everyone sees until the Founder opens WYN-210 to all stores.
 function FinancePanel({ store, orders, onEditStore }: { store: FoodStore; orders: FoodOrder[]; onEditStore: () => void }) {
   const now = new Date();
   const week = startOfWeek();
