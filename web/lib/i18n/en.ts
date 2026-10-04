@@ -1778,6 +1778,8 @@ Object.assign(EN_EXACT, {
   "ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก": "Search for a place, road, village or dorm",
   "ค้นหาสถานที่หรือที่อยู่": "Search for a place or address",
   "กำลังโหลดแผนที่…": "Loading map…",
+  "แผนที่ยังโหลดไม่สำเร็จ": "The map still couldn't load",
+  "ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง": "Check your internet connection and try again",
   "ตำแหน่งปัจจุบัน": "Current location",
   "ยืนยันตำแหน่งนี้": "Confirm this location",
   "ตำแหน่งนี้จะใช้คำนวณระยะทางและส่งอาหาร": "This location is used to calculate distance and deliver your order",

@@ -36,7 +36,17 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
 
   expect(app).toContain("ค้นหาและปักหมุดบนแผนที่");
   expect(app).toContain("<FoodDeliveryMapPicker");
+  const css = read("app/food/food.css");
+
   expect(map).toContain("https://tiles.openfreemap.org/styles/liberty");
+  expect(map).toContain("maplibre-gl@");
+  expect(map).toContain("/dist/maplibre-gl.js");
+  expect(map).toContain("https://tile.openstreetmap.org/{z}/{x}/{y}.png");
+  expect(map).toContain("map.setStyle(FALLBACK_MAP_STYLE)");
+  expect(map).toContain('map.on("style.load", markReady)');
+  expect(map).toContain("แผนที่ยังโหลดไม่สำเร็จ");
+  expect(css).toContain(".wf-map-canvas.maplibregl-map");
+  expect(css).toContain(".wf-map-loading--error");
   expect(map).toContain("Search by LocationIQ.com");
   expect(map).toContain("เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร");
   expect(map).toContain("currentFoodLocation()");

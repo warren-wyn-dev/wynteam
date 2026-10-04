@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Check, LocateFixed, MapPin, Search, X } from "lucide-react";
+import { Check, LocateFixed, MapPin, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -14,23 +14,41 @@ import {
 } from "@/lib/food-customer";
 
 type MapCenter = { lat: number; lng: number };
+type MapStyle = string | {
+  version: 8;
+  sources: Record<string, {
+    type: "raster";
+    tiles: string[];
+    tileSize: number;
+    attribution: string;
+  }>;
+  layers: Array<{
+    id: string;
+    type: "raster";
+    source: string;
+    minzoom: number;
+    maxzoom: number;
+  }>;
+};
+
 type MapInstance = {
   getCenter: () => MapCenter;
   flyTo: (options: { center: [number, number]; zoom?: number; essential?: boolean }) => void;
-  on: (event: string, handler: () => void) => void;
-  off: (event: string, handler: () => void) => void;
+  on: (event: string, handler: (event?: unknown) => void) => void;
+  off: (event: string, handler: (event?: unknown) => void) => void;
   remove: () => void;
   resize: () => void;
+  setStyle: (style: MapStyle) => void;
 };
+
 type MapLibreGlobal = {
   Map: new (options: {
     container: HTMLElement;
-    style: string;
+    style: MapStyle;
     center: [number, number];
     zoom: number;
     attributionControl?: boolean;
   }) => MapInstance;
-  AttributionControl: new (options?: { compact?: boolean }) => unknown;
 };
 
 declare global {
@@ -40,8 +58,30 @@ declare global {
   }
 }
 
-const MAPLIBRE_VERSION = "6.11.2";
+const MAPLIBRE_VERSION = "5.12.0";
+const MAPLIBRE_JS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js`;
+const MAPLIBRE_CSS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const FALLBACK_MAP_STYLE: MapStyle = {
+  version: 8,
+  sources: {
+    osm: {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm",
+      type: "raster",
+      source: "osm",
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
 
 function loadMapLibre(): Promise<MapLibreGlobal> {
   if (window.maplibregl) return Promise.resolve(window.maplibregl);
@@ -53,28 +93,34 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
       const link = document.createElement("link");
       link.id = cssId;
       link.rel = "stylesheet";
-      link.href = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
+      link.href = MAPLIBRE_CSS;
       document.head.appendChild(link);
     }
 
-    const existing = document.getElementById("wynos-maplibre-module");
     const ready = () => {
       if (window.maplibregl) resolve(window.maplibregl);
       else reject(new Error("MapLibre did not load"));
     };
+
+    const existing = document.getElementById("wynos-maplibre-script") as HTMLScriptElement | null;
     if (existing) {
-      window.addEventListener("wynos:maplibre-ready", ready, { once: true });
-      window.setTimeout(ready, 80);
+      if (window.maplibregl) {
+        resolve(window.maplibregl);
+        return;
+      }
+      existing.addEventListener("load", ready, { once: true });
+      existing.addEventListener("error", () => reject(new Error("MapLibre failed to load")), { once: true });
+      window.setTimeout(() => {
+        if (window.maplibregl) resolve(window.maplibregl);
+      }, 250);
       return;
     }
 
     const script = document.createElement("script");
-    script.id = "wynos-maplibre-module";
-    // Use the browser/UMD build rather than a cross-origin ES module. On iOS
-    // Safari the module build can initialize while its worker never paints,
-    // leaving a blank map canvas. The browser build owns its worker bootstrap.
-    script.src = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js`;
+    script.id = "wynos-maplibre-script";
+    script.src = MAPLIBRE_JS;
     script.async = true;
+    script.crossOrigin = "anonymous";
     script.addEventListener("load", ready, { once: true });
     script.addEventListener("error", () => reject(new Error("MapLibre failed to load")), { once: true });
     document.head.appendChild(script);
@@ -114,6 +160,8 @@ export function FoodDeliveryMapPicker({
   const [status, setStatus] = useState("");
   const [working, setWorking] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
+  const [mapAttempt, setMapAttempt] = useState(0);
   const [chosen, setChosen] = useState(Boolean(initialLocation));
 
   const reverse = useCallback(async (next: FoodLocation) => {
@@ -128,13 +176,20 @@ export function FoodDeliveryMapPicker({
   useEffect(() => {
     let live = true;
     let map: MapInstance | null = null;
+    let fallbackApplied = false;
+    let styleLoaded = false;
+    let fallbackTimer: number | null = null;
+    let failureTimer: number | null = null;
 
     void loadMapLibre()
       .then((maplibre) => {
         if (!live || !mapNode.current) return;
+
+        mapNode.current.replaceChildren();
         const start = initialLocation
           ? [initialLocation.longitude, initialLocation.latitude] as [number, number]
           : [100.5018, 13.7563] as [number, number];
+
         map = new maplibre.Map({
           container: mapNode.current,
           style: MAP_STYLE,
@@ -143,6 +198,23 @@ export function FoodDeliveryMapPicker({
           attributionControl: true,
         });
         mapRef.current = map;
+
+        const markReady = () => {
+          if (!live) return;
+          styleLoaded = true;
+          setMapReady(true);
+          setMapFailed(false);
+        };
+
+        const applyFallback = () => {
+          if (!live || !map || styleLoaded || fallbackApplied) return;
+          fallbackApplied = true;
+          try {
+            map.setStyle(FALLBACK_MAP_STYLE);
+          } catch {
+            setMapFailed(true);
+          }
+        };
 
         const onDragStart = () => {
           dragRef.current = true;
@@ -159,43 +231,41 @@ export function FoodDeliveryMapPicker({
           reverseTimerRef.current = window.setTimeout(() => void reverse(next), 650);
         };
 
-        const onLoad = () => {
-          map?.resize();
-          if (live) {
-            setMapReady(true);
-            setStatus("");
-          }
-        };
         const onError = () => {
-          if (live && !mapReady) setStatus("โหลดแผนที่ไม่สำเร็จ กรุณาลองใหม่");
+          if (!styleLoaded) applyFallback();
         };
 
+        map.on("style.load", markReady);
+        map.on("load", markReady);
         map.on("dragstart", onDragStart);
         map.on("moveend", onMoveEnd);
-        map.on("load", onLoad);
         map.on("error", onError);
-        window.setTimeout(() => map?.resize(), 80);
+
+        window.setTimeout(() => map?.resize(), 60);
+        window.setTimeout(() => map?.resize(), 450);
+
+        fallbackTimer = window.setTimeout(applyFallback, 3000);
+        failureTimer = window.setTimeout(() => {
+          if (!styleLoaded && live) setMapFailed(true);
+        }, 8500);
 
         if (initialLocation) void reverse(initialLocation);
-
-        return () => {
-          map?.off("dragstart", onDragStart);
-          map?.off("moveend", onMoveEnd);
-          map?.off("load", onLoad);
-          map?.off("error", onError);
-        };
       })
       .catch(() => {
-        if (live) setStatus("โหลดแผนที่ไม่สำเร็จ กรุณาลองใหม่");
+        if (!live) return;
+        setMapFailed(true);
+        setStatus("โหลดแผนที่ไม่สำเร็จ กรุณาลองใหม่");
       });
 
     return () => {
       live = false;
+      if (fallbackTimer) window.clearTimeout(fallbackTimer);
+      if (failureTimer) window.clearTimeout(failureTimer);
       if (reverseTimerRef.current) window.clearTimeout(reverseTimerRef.current);
       map?.remove();
       mapRef.current = null;
     };
-  }, [initialLocation, reverse]);
+  }, [initialLocation, mapAttempt, reverse]);
 
   const moveTo = (next: FoodLocation, nextPlace?: FoodPlace) => {
     setLocation(next);
@@ -285,7 +355,20 @@ export function FoodDeliveryMapPicker({
 
       <div className="wf-map-canvas-wrap">
         <div ref={mapNode} className="wf-map-canvas" />
-        {!mapReady ? <div className="wf-map-loading">กำลังโหลดแผนที่…</div> : null}
+        {!mapReady && !mapFailed ? <div className="wf-map-loading">กำลังโหลดแผนที่…</div> : null}
+        {mapFailed ? (
+          <div className="wf-map-loading wf-map-loading--error">
+            <MapPin size={30} />
+            <strong>แผนที่ยังโหลดไม่สำเร็จ</strong>
+            <small>ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง</small>
+            <button type="button" onClick={() => {
+              setMapReady(false);
+              setMapFailed(false);
+              setStatus("");
+              setMapAttempt((value) => value + 1);
+            }}><RefreshCw size={16} /> ลองใหม่</button>
+          </div>
+        ) : null}
         <div className="wf-map-center-pin" aria-hidden="true"><MapPin size={42} fill="currentColor" /></div>
         <button className="wf-map-current" type="button" disabled={working} onClick={() => void pickCurrentLocation()}>
           <LocateFixed size={19} /> <span>ตำแหน่งปัจจุบัน</span>
