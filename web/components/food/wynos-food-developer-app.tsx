@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
@@ -47,9 +48,6 @@ import {
   foodPublicUrl,
   quoteFoodCustomerOrder,
   addressLocation,
-  currentFoodLocation,
-  searchFoodPlaces,
-  searchStorePlaces,
   fetchStorePlatformCampaigns,
   fetchFoodStoreDirectory,
   recordFoodAdClick,
@@ -716,9 +714,8 @@ function ItemSheet({
 }
 
 /**
- * WYN-196: pin the delivery point with GPS or a place search.
- * WYN-197: the search looks in the store's own place list first (free), then
- * falls back to the location-search Edge Function.
+ * Delivery coordinates are chosen on an interactive map. Search uses the
+ * server-side LocationIQ proxy; map rendering uses MapLibre + OpenFreeMap.
  */
 function DeliveryPinPicker({
   client,
@@ -731,75 +728,35 @@ function DeliveryPinPicker({
   location: FoodLocation | null;
   onChange: (location: FoodLocation | null, place?: FoodPlace) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<FoodPlace[]>([]);
-  const [status, setStatus] = useState("");
-  const [working, setWorking] = useState(false);
-
-  const pickCurrent = async () => {
-    setWorking(true);
-    setStatus("");
-    try {
-      onChange(await currentFoodLocation());
-      setResults([]);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "หาตำแหน่งไม่สำเร็จ");
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const search = async () => {
-    setWorking(true);
-    setStatus("");
-    try {
-      let next = storeId ? (await searchStorePlaces(client, storeId, query)) ?? [] : [];
-      if (!next.length && query.trim()) {
-        // The store list is the free path; the geocoder is optional extra.
-        next = await searchFoodPlaces(client, query).catch(() => []);
-      }
-      setResults(next);
-      if (!next.length) setStatus("ไม่พบสถานที่นี้ ลองพิมพ์ชื่ออื่นหรือใช้ตำแหน่งปัจจุบัน");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "ค้นหาไม่สำเร็จ");
-    } finally {
-      setWorking(false);
-    }
-  };
+  const [mapOpen, setMapOpen] = useState(false);
 
   return (
-    <div className="wf-pin">
-      <strong>ตำแหน่งจัดส่ง</strong>
-      {location ? (
-        <div className="wf-pin-set">
-          <MapPin size={16} />
-          <span>ปักหมุดแล้ว</span><small data-i18n-skip="">{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</small>
-          <button type="button" onClick={() => onChange(null)}>ล้าง</button>
+    <div className="wf-pin wf-pin--map">
+      <div className="wf-pin-summary">
+        <span className={location ? "is-ready" : ""}><MapPin size={18} /></span>
+        <div>
+          <strong>{location ? "ปักหมุดแล้ว" : "ยังไม่ได้ปักหมุด"}</strong>
+          <small>{location ? "ตำแหน่งนี้จะใช้คำนวณระยะทางและส่งอาหาร" : "ค้นหาที่อยู่แล้วเลื่อนแผนที่ให้ตรงจุดรับอาหาร"}</small>
+          {location ? <em data-i18n-skip="">{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</em> : null}
         </div>
-      ) : <small>ใช้คำนวณระยะทางและค่าส่ง</small>}
-      <button className="wf-secondary wf-full" type="button" disabled={working} onClick={() => void pickCurrent()}>
-        <LocateFixed size={16} /> {working ? "กำลังหาตำแหน่ง…" : "ใช้ตำแหน่งปัจจุบัน"}
-      </button>
-      <div className="wf-pin-search">
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void search(); } }}
-          placeholder="หรือค้นหา เช่น ชื่อหอพัก คอนโด หมู่บ้าน"
-          aria-label="ค้นหาสถานที่"
-        />
-        <button type="button" aria-label="ค้นหา" disabled={working} onClick={() => void search()}><Search size={16} /></button>
       </div>
-      {results.length ? (
-        <div className="wf-pin-results" role="list">
-          {results.map((place) => (
-            <button key={`${place.latitude},${place.longitude}`} role="listitem" type="button" onClick={() => { onChange({ latitude: place.latitude, longitude: place.longitude }, place); setResults([]); }}>
-              <strong>{place.name || "สถานที่"}</strong>{place.address ? <small>{place.address}</small> : null}
-            </button>
-          ))}
-        </div>
+      <button className="wf-secondary wf-full" type="button" onClick={() => setMapOpen(true)}>
+        <MapPin size={17} /> {location ? "แก้ไขหมุดบนแผนที่" : "ค้นหาและปักหมุดบนแผนที่"}
+      </button>
+      {location ? <button className="wf-pin-clear" type="button" onClick={() => onChange(null)}>ล้างตำแหน่ง</button> : null}
+
+      {mapOpen ? (
+        <FoodDeliveryMapPicker
+          client={client}
+          storeId={storeId}
+          initialLocation={location}
+          onClose={() => setMapOpen(false)}
+          onConfirm={(next, place) => {
+            onChange(next, place);
+            setMapOpen(false);
+          }}
+        />
       ) : null}
-      {status ? <p className="wf-pin-status" role="status">{status}</p> : null}
     </div>
   );
 }
