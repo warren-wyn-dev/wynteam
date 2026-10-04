@@ -29,6 +29,24 @@ test("WYNOS Food hides the persistent Social bottom navigation", () => {
   expect(host).toContain("if (hideForFood || !navState?.visible || !navState.userId) return null;");
 });
 
+test("WYNOS Food profile is delivery-specific and separate from Social profile", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const data = read("lib/food-customer.ts");
+
+  expect(app).toContain("โปรไฟล์ WYNOS Food");
+  expect(app).toContain("ข้อมูลสำหรับการสั่งและจัดส่งอาหารเท่านั้น");
+  expect(app).toContain("ชื่อผู้รับ");
+  expect(app).toContain("เบอร์โทร");
+  expect(app).toContain("ที่อยู่หลัก");
+  expect(app).toContain("โลเคชั่น");
+  expect(app).toContain("รายละเอียดเพิ่มเติม");
+  expect(app).toContain("ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS");
+  expect(app).toContain("showPin={true}");
+  expect(app).not.toContain('href="/profile/');
+  expect(data).toContain('.from("food_customer_addresses")');
+  expect(data).toContain('client.rpc("food_upsert_customer_address"');
+});
+
 test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
 
