@@ -7,14 +7,15 @@ Date: 2026-10-04
 ## Founder direction
 
 - "ออกแบบไอคอนแอป Wynos Merchant ให้ด้วย".
-- Standing direction: simple and easy to understand, Wynos red leads, no rainbow.
+- After seeing a new storefront design, the Founder asked for the original artwork instead: "ชอบแบบเดิม ไม่มีขอบขาว และอยากให้เพิ่มคำว่า Merchant บนไอคอน".
 
 ## Design
 
-- Flat Wynos-red square (light-to-deep red gradient).
-- A white storefront with a striped awning, and a red "W" on the shop front.
-- Same storefront language as the WYN-208 bottom-bar home icon.
-- Source art: `web/public/icons/merchant/v15-source.svg`.
+- The original glossy red icon with the white W and the shop under the middle peak, redrawn as a vector so every size is sharp.
+  - The only intact copies of the old artwork were 180–192px; every larger file was corrupted.
+- Full-bleed red with no white border around the icon.
+- The word **Merchant** in white under the W.
+- Source art: `web/public/icons/merchant/v15-source.svg`. Its text uses Liberation Sans Bold; the shipped PNGs are pre-rendered.
 
 ## Files
 
@@ -22,7 +23,7 @@ Date: 2026-10-04
 |---|---|---|
 | `v15-180.png` | iPhone (apple-touch-icon) | Full-bleed square; iOS rounds it |
 | `v15-192.png`, `v15-512.png` | Manifest / browser "any" | Rounded |
-| `v15-maskable-512.png` | Android | Full bleed; the shop sits inside the 80% safe zone |
+| `v15-maskable-512.png` | Android | Full bleed; the W and the word sit inside the 80% safe zone |
 
 - Manifest URL bumped to `?v=15`, so installed phones fetch the new icon.
 
