@@ -215,7 +215,7 @@ language plpgsql
 stable
 security definer
 set search_path = ''
-as $
+as $directory$
 declare
   v_query text := nullif(btrim(coalesce(p_query, '')), '');
 begin
@@ -243,7 +243,7 @@ begin
            s.name
   limit 50;
 end;
-$;
+$directory$;
 
 revoke all on function public.food_store_directory(text) from public, anon;
 grant execute on function public.food_store_directory(text) to authenticated;
