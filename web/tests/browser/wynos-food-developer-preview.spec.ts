@@ -429,3 +429,23 @@ test("WYNOS Food storefront uses compact search and keeps favorite off the categ
   expect(css).toContain(".wf-store-favorite");
 });
 
+test("WYNOS Food menu search shows popular, recent and compact result rows", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const css = read("app/food/food.css");
+  const en = read("lib/i18n/en.ts");
+
+  expect(app).toContain("<h3>เมนูยอดนิยม</h3>");
+  expect(app).toContain("<h3>คำค้นหาล่าสุด</h3>");
+  expect(app).toContain('className="wf-menu-popular"');
+  expect(app).toContain('className="wf-menu-recent"');
+  expect(app).toContain('className="wf-menu-search-row"');
+  expect(app).toContain('className="wf-menu-search-add"');
+  expect(app).toContain("wynos-food-menu-search-v1:");
+  expect(css).toContain(".wf-menu-popular");
+  expect(css).toContain(".wf-menu-recent");
+  expect(css).toContain(".wf-menu-search-row");
+  expect(css).toContain(".wf-menu-search-add");
+  expect(en).toContain('"เมนูยอดนิยม": "Popular menu"');
+  expect(en).toContain('"คำค้นหาล่าสุด": "Recent searches"');
+});
+
