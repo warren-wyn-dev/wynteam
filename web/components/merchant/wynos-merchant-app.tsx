@@ -3,7 +3,6 @@
 
 import {
   Bell,
-  BellRing,
   Check,
   ChevronLeft,
   ChevronRight,
