@@ -2986,6 +2986,8 @@
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  white-space: normal;
+  text-overflow: clip;
   word-break: break-word;
 }
 .wf-menu-search-main small {
