@@ -1759,6 +1759,8 @@ Object.assign(EN_EXACT, {
   "กรุณากรอกข้อมูลที่อยู่ให้ครบ": "Please complete the address information",
   "กรุณาเลือกรูปสลิป": "Please choose a payment slip image",
   "เข้าสู่ระบบ WYNOS Food": "Sign in to WYNOS Food",
+  "เข้าสู่ระบบ — WYNOS Food": "Sign in — WYNOS Food",
+  "สมัคร — WYNOS Food": "Sign up — WYNOS Food",
   "สั่งอาหารและติดตามออเดอร์ด้วย WYNOS Account ของคุณ": "Order food and track orders with your WYNOS Account",
   "ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS Food": "WYNOS Food account connection is not configured",
   "WYNOS Food ยังเชื่อมต่อระบบบัญชีไม่ได้": "WYNOS Food can't connect to the account system yet",
