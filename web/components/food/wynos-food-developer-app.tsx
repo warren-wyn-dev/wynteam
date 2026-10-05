@@ -602,12 +602,12 @@ function StoreDirectory({
       </div>
 
       <div className="wf-fulfillment-tabs" aria-label="รูปแบบการรับอาหาร">
-        <button type="button" className="is-active"><Bike size={18} />จัดส่ง</button>
+        <button type="button" className="is-active"><Bike size={15} />จัดส่ง</button>
         <button
           type="button"
           onClick={() => onMessage("รับเองที่ร้านกำลังเตรียมเปิดให้บริการ")}
           aria-label="รับเองที่ร้าน"
-        ><Store size={18} />รับเองที่ร้าน</button>
+        ><Store size={15} />รับเองที่ร้าน</button>
       </div>
 
       {query.trim() ? (
