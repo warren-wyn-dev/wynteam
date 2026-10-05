@@ -4,6 +4,7 @@ import { BellRing } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { money, type FoodOrder } from "@/lib/food-merchant";
+import { MERCHANT_ALERT_PREFS_EVENT, merchantAlertQuietNow, readMerchantAlertPreferences, type MerchantAlertPreferences } from "@/lib/merchant-notification-preferences";
 
 /**
  * WYN-198: a loud, full-screen alert for orders that need the store now.
@@ -142,6 +143,7 @@ export function NewOrderAlert({
 }) {
   const openRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [alertPrefs, setAlertPrefs] = useState<MerchantAlertPreferences>(readMerchantAlertPreferences);
 
   // WYN-202 (Founder): it rings until the store opens the order or the order
   // is accepted, so there is no close button and Escape does nothing. Focus
@@ -171,10 +173,24 @@ export function NewOrderAlert({
   }, []);
 
   useEffect(() => {
+    const syncPrefs = () => setAlertPrefs(readMerchantAlertPreferences());
+    window.addEventListener(MERCHANT_ALERT_PREFS_EVENT, syncPrefs);
+    window.addEventListener("storage", syncPrefs);
+    return () => {
+      window.removeEventListener(MERCHANT_ALERT_PREFS_EVENT, syncPrefs);
+      window.removeEventListener("storage", syncPrefs);
+    };
+  }, []);
+
+  useEffect(() => {
     openRef.current?.focus();
     const ring = () => {
-      playChime();
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([300, 120, 300]);
+      const prefs = readMerchantAlertPreferences();
+      if (merchantAlertQuietNow(prefs)) return;
+      if (prefs.sound_enabled) playChime();
+      if (prefs.vibration_enabled && typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate?.([300, 120, 300]);
+      }
     };
     ring();
     // No time limit: rings until this alert unmounts (order opened or accepted).
@@ -193,7 +209,8 @@ export function NewOrderAlert({
         <strong className="wm-alert-number">#{order.order_number}</strong>
         <p>{`${order.recipient_name} · ${items} รายการ · ${money(order.total)}`}</p>
         {count > 1 ? <small>{`มีอีก ${count - 1} ออเดอร์รออยู่`}</small> : null}
-        {!soundReady ? <small>แตะที่หน้าจอหนึ่งครั้งเพื่อเปิดเสียงแจ้งเตือน</small> : null}
+        {alertPrefs.sound_enabled && !merchantAlertQuietNow(alertPrefs) && !soundReady ? <small>แตะที่หน้าจอหนึ่งครั้งเพื่อเปิดเสียงแจ้งเตือน</small> : null}
+        {merchantAlertQuietNow(alertPrefs) ? <small>Quiet Hours เปิดอยู่ — ระบบยังแสดงออเดอร์ แต่ไม่ส่งเสียงหรือสั่น</small> : null}
         <button ref={openRef} className="wm-primary wm-full" type="button" onClick={onOpen}>
           {slipWaiting ? "ดูสลิปและรับออเดอร์" : "ดูออเดอร์"}
         </button>
