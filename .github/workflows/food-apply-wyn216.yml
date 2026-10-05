@@ -1,15 +1,16 @@
 name: Food -- apply WYN-216 verified store reviews
 
 # Applies supabase/migrations_wynos_food_store_reviews_v1.sql.
-# Additive: one private RLS table plus four authenticated RPCs. Customers can
-# review only their own delivered orders; the public feed returns masked labels
-# and never exposes buyer/order IDs. Merchant owner/admin/manager may reply.
+# Additive: one private RLS table plus five authenticated RPCs. Customers can
+# review only their own delivered orders; customer and merchant feeds return
+# masked labels and never expose buyer/order IDs. Merchant owner/admin/manager
+# may reply.
 # Behaviour test: supabase/tests/wynos_food_store_reviews_test.sh.
 #
 # ROLLBACK: revoke/drop public.food_submit_store_review,
 # public.food_my_store_reviews, public.food_store_review_feed,
-# public.food_reply_store_review, internal.food_mask_reviewer_name, then drop
-# public.food_store_reviews.
+# public.merchant_store_reviews, public.food_reply_store_review,
+# internal.food_mask_reviewer_name, then drop public.food_store_reviews.
 on:
   workflow_dispatch:
     inputs:
@@ -37,31 +38,59 @@ jobs:
           SUPABASE_URL=$(clean "$SUPABASE_URL")
           SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
-            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"
+            exit 1
           fi
+
           PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
           API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
           run_sql() {
             local body out code
             body=$(jq -n --arg q "$1" '{query: $q}')
             out=$(mktemp)
-            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API"               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"               -H "Content-Type: application/json" -d "$body")
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$body")
             if [ "$code" != "200" ] && [ "$code" != "201" ]; then
-              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+              echo "::error::HTTP $code" >&2
+              cat "$out" >&2
+              rm -f "$out"
+              return 1
             fi
-            cat "$out"; rm -f "$out"
+            cat "$out"
+            rm -f "$out"
           }
+
           run_sql "begin;
           $(cat supabase/migrations_wynos_food_store_reviews_v1.sql)
           commit;" >/dev/null
+
           run_sql "select
               to_regclass('public.food_store_reviews') is not null as table_ready,
               has_table_privilege('authenticated','public.food_store_reviews','select') as direct_select,
               has_function_privilege('authenticated','public.food_submit_store_review(uuid,integer,text,text[],boolean)','execute') as submit_exec,
               has_function_privilege('authenticated','public.food_store_review_feed(uuid,integer)','execute') as feed_exec,
+              has_function_privilege('authenticated','public.merchant_store_reviews(uuid,integer)','execute') as merchant_feed_exec,
+              has_function_privilege('authenticated','public.food_reply_store_review(uuid,text)','execute') as reply_exec,
               has_function_privilege('anon','public.food_store_review_feed(uuid,integer)','execute') as anon_feed,
-              (pg_get_functiondef('public.food_submit_store_review(uuid,integer,text,text[],boolean)'::regprocedure) like '%status <> ''delivered''%') as delivered_only;"             | tee result.json | jq .
-          jq -e '.[0].table_ready == true and .[0].direct_select == false
-                 and .[0].submit_exec == true and .[0].feed_exec == true
-                 and .[0].anon_feed == false and .[0].delivered_only == true' result.json >/dev/null             || { echo "::error::Verification failed"; exit 1; }
+              has_function_privilege('anon','public.merchant_store_reviews(uuid,integer)','execute') as anon_merchant_feed,
+              (pg_get_functiondef('public.food_submit_store_review(uuid,integer,text,text[],boolean)'::regprocedure)
+                like '%status <> ''delivered''%') as delivered_only,
+              (select internal.food_mask_reviewer_name('กานต์') = 'ก**ต์') as thai_mask_ok;" \
+            | tee result.json | jq .
+
+          jq -e '.[0].table_ready == true
+                 and .[0].direct_select == false
+                 and .[0].submit_exec == true
+                 and .[0].feed_exec == true
+                 and .[0].merchant_feed_exec == true
+                 and .[0].reply_exec == true
+                 and .[0].anon_feed == false
+                 and .[0].anon_merchant_feed == false
+                 and .[0].delivered_only == true
+                 and .[0].thai_mask_ok == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+
           echo "WYN-216 verified WYNOS Food reviews are installed."
