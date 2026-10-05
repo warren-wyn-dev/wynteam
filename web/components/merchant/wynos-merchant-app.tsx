@@ -2148,6 +2148,7 @@ function StoreEditor({
       <div className="wm-form wm-store-settings-form">
         <nav className="wm-store-settings-nav" aria-label="หมวดการตั้งค่าร้าน">
           <button type="button" onClick={() => document.getElementById("wm-store-section-info")?.scrollIntoView({ behavior: "smooth", block: "start" })}><Store size={16} /> ข้อมูลร้าน</button>
+          <button type="button" onClick={() => document.getElementById("wm-store-section-media")?.scrollIntoView({ behavior: "smooth", block: "start" })}><ImagePlus size={16} /> รูปภาพร้าน</button>
           <button type="button" onClick={() => document.getElementById("wm-store-section-hours")?.scrollIntoView({ behavior: "smooth", block: "start" })}><CalendarDays size={16} /> เวลาเปิด–ปิด</button>
           <button type="button" onClick={() => document.getElementById("wm-store-section-delivery")?.scrollIntoView({ behavior: "smooth", block: "start" })}><MapPin size={16} /> ตำแหน่งและจัดส่ง</button>
           <button type="button" onClick={() => document.getElementById("wm-store-section-payment")?.scrollIntoView({ behavior: "smooth", block: "start" })}><CircleDollarSign size={16} /> การชำระเงิน</button>
@@ -2156,40 +2157,49 @@ function StoreEditor({
         <section className="wm-settings-category" id="wm-store-section-info">
           <div className="wm-settings-category-head">
             <span className="wm-settings-category-icon"><Store size={20} /></span>
-            <span><strong>ข้อมูลร้านและภาพลักษณ์</strong><small>ชื่อร้าน รายละเอียด ช่องทางติดต่อ รูปโปรไฟล์ และรูปปก</small></span>
+            <span><strong>ข้อมูลร้าน</strong><small>ชื่อร้าน รายละเอียด และช่องทางติดต่อหลัก</small></span>
           </div>
           <div className="wm-settings-category-body">
-        <section className="wm-store-brand-editor">
-          <div className="wm-store-brand-heading">
-            <span><strong>รูปโปรไฟล์และรูปปกร้าน</strong><small>รูปเหล่านี้จะแสดงบนหน้าร้านใน WYNOS Food</small></span>
-          </div>
-          <div className="wm-store-brand-preview">
-            <div className="wm-store-brand-cover">
-              {coverPreview ? <img src={coverPreview} alt="รูปปกร้านตัวอย่าง" /> : <span><Store size={34} /><small>รูปปกร้าน</small></span>}
-            </div>
-            <div className="wm-store-brand-logo">
-              {logoPreview ? <img src={logoPreview} alt="รูปโปรไฟล์ร้านตัวอย่าง" /> : <Store size={28} />}
-            </div>
-          </div>
-          <div className="wm-store-brand-fields">
-            <div className="wm-store-brand-field">
-              <div><strong>รูปโปรไฟล์ร้าน</strong><small>แนะนำรูปสี่เหลี่ยม 1:1</small></div>
-              <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => chooseBrandImage("logo", e.target.files?.[0] ?? null)} /><Upload size={18} /><span>{logoPreview ? "เปลี่ยนรูปโปรไฟล์ร้าน" : "เพิ่มรูปโปรไฟล์ร้าน"}</span></label>
-              <div className={`wm-upload-status is-${logoState}`}>{brandStatus(logoState)}</div>
-              {logoPreview ? <button className="wm-inline-danger" type="button" disabled={busy} onClick={() => removeBrandImage("logo")}>ลบรูปโปรไฟล์ร้าน</button> : null}
-            </div>
-            <div className="wm-store-brand-field">
-              <div><strong>รูปปกร้าน</strong><small>แนะนำรูปแนวนอน 16:9</small></div>
-              <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => chooseBrandImage("cover", e.target.files?.[0] ?? null)} /><Upload size={18} /><span>{coverPreview ? "เปลี่ยนรูปปกร้าน" : "เพิ่มรูปปกร้าน"}</span></label>
-              <div className={`wm-upload-status is-${coverState}`}>{brandStatus(coverState)}</div>
-              {coverPreview ? <button className="wm-inline-danger" type="button" disabled={busy} onClick={() => removeBrandImage("cover")}>ลบรูปปกร้าน</button> : null}
-            </div>
+            <label>ชื่อร้าน<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+            <label>รายละเอียด<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
+            <label>เบอร์ร้าน<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" /></label>
           </div>
         </section>
-        <label>ชื่อร้าน<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-        <label>รายละเอียด<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
-        <label>เบอร์ร้าน<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" /></label>
-        </div>
+
+        <section className="wm-settings-category" id="wm-store-section-media">
+          <div className="wm-settings-category-head">
+            <span className="wm-settings-category-icon"><ImagePlus size={20} /></span>
+            <span><strong>รูปภาพร้าน</strong><small>รูปโปรไฟล์และรูปปกที่ลูกค้าจะเห็นบน WYNOS Food</small></span>
+          </div>
+          <div className="wm-settings-category-body">
+            <section className="wm-store-brand-editor">
+              <div className="wm-store-brand-heading">
+                <span><strong>รูปโปรไฟล์และรูปปกร้าน</strong><small>ตรวจ Preview ให้เรียบร้อยก่อนกดบันทึก</small></span>
+              </div>
+              <div className="wm-store-brand-preview">
+                <div className="wm-store-brand-cover">
+                  {coverPreview ? <img src={coverPreview} alt="รูปปกร้านตัวอย่าง" /> : <span><Store size={34} /><small>รูปปกร้าน</small></span>}
+                </div>
+                <div className="wm-store-brand-logo">
+                  {logoPreview ? <img src={logoPreview} alt="รูปโปรไฟล์ร้านตัวอย่าง" /> : <Store size={28} />}
+                </div>
+              </div>
+              <div className="wm-store-brand-fields">
+                <div className="wm-store-brand-field">
+                  <div><strong>รูปโปรไฟล์ร้าน</strong><small>แนะนำรูปสี่เหลี่ยม 1:1</small></div>
+                  <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => chooseBrandImage("logo", e.target.files?.[0] ?? null)} /><Upload size={18} /><span>{logoPreview ? "เปลี่ยนรูปโปรไฟล์ร้าน" : "เพิ่มรูปโปรไฟล์ร้าน"}</span></label>
+                  <div className={`wm-upload-status is-${logoState}`}>{brandStatus(logoState)}</div>
+                  {logoPreview ? <button className="wm-inline-danger" type="button" disabled={busy} onClick={() => removeBrandImage("logo")}>ลบรูปโปรไฟล์ร้าน</button> : null}
+                </div>
+                <div className="wm-store-brand-field">
+                  <div><strong>รูปปกร้าน</strong><small>แนะนำรูปแนวนอน 16:9</small></div>
+                  <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => chooseBrandImage("cover", e.target.files?.[0] ?? null)} /><Upload size={18} /><span>{coverPreview ? "เปลี่ยนรูปปกร้าน" : "เพิ่มรูปปกร้าน"}</span></label>
+                  <div className={`wm-upload-status is-${coverState}`}>{brandStatus(coverState)}</div>
+                  {coverPreview ? <button className="wm-inline-danger" type="button" disabled={busy} onClick={() => removeBrandImage("cover")}>ลบรูปปกร้าน</button> : null}
+                </div>
+              </div>
+            </section>
+          </div>
         </section>
 
         <section className="wm-settings-category" id="wm-store-section-hours">
