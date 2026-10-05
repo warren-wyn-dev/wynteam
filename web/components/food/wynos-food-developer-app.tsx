@@ -1433,14 +1433,14 @@ function ItemSheet({
   client,
   item,
   existing,
-  storeOpen,
+  store,
   onClose,
   onAdd,
 }: {
   client: SupabaseClient;
   item: FoodCustomerMenuItem;
   existing: FoodCartLine | null;
-  storeOpen: boolean;
+  store: FoodCustomerStore;
   onClose: () => void;
   onAdd: (line: FoodCartLine) => void;
 }) {
@@ -1448,33 +1448,69 @@ function ItemSheet({
   const [note, setNote] = useState(existing?.note ?? "");
   const image = foodPublicUrl(client, item.image_path);
   const itemAvailable = foodMenuIsEffectivelyAvailable(item);
+  const storeOpen = foodStoreIsEffectivelyOpen(store);
   const canAdd = itemAvailable && storeOpen;
+  const total = Number(item.price) * quantity;
+  const statusText = foodStoreStatusText(store);
 
   return (
-    <Sheet title={item.name} onClose={onClose}>
-      <div className="wf-item-detail">
-        <div className="wf-item-photo">
-          {image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt="" />
-          ) : <UtensilsCrossed size={40} strokeWidth={1.35} />}
+    <div className="wf-item-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="wf-item-sheet" role="dialog" aria-modal="true" aria-label={item.name}>
+        <div className="wf-item-sheet-scroll">
+          <div className="wf-item-hero">
+            {image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={image} alt="" />
+            ) : <UtensilsCrossed size={46} strokeWidth={1.3} />}
+            <button className="wf-item-close" type="button" aria-label="ปิด" onClick={onClose}><X size={25} /></button>
+          </div>
+
+          <div className="wf-item-sheet-body">
+            <div className="wf-item-title wf-item-title--hero">
+              <div>
+                <h3>{item.name}</h3>
+                <p>{item.description || item.category}</p>
+                {item.description && item.category ? <small>{item.category}</small> : null}
+                {item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
+              </div>
+              <strong>{foodMoney(item.price)}</strong>
+            </div>
+
+            {!itemAvailable ? (
+              <div className="wf-item-status is-unavailable"><Clock3 size={18} /><strong>เมนูนี้หมดชั่วคราว</strong></div>
+            ) : !storeOpen ? (
+              <div className="wf-item-status"><Clock3 size={18} /><strong>{statusText}</strong></div>
+            ) : null}
+
+            <label className="wf-item-note">
+              <span><strong>หมายเหตุถึงร้าน</strong><small>(ไม่บังคับ)</small><b>{note.length}/200</b></span>
+              <textarea
+                maxLength={200}
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="เช่น ไม่ใส่ผัก"
+              />
+              <small>ร้านอาจไม่สามารถทำตามคำขอได้ทุกกรณี</small>
+            </label>
+          </div>
         </div>
-        <div className="wf-item-title"><div><h3>{item.name}</h3><p>{item.description || item.category}</p>{item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}</div><strong>{foodMoney(item.price)}</strong></div>
-        {!itemAvailable ? <div className="wf-inline-warning">เมนูนี้หมดชั่วคราว</div> : null}
-        {!storeOpen ? <div className="wf-inline-warning">ร้านยังไม่เปิดรับออเดอร์</div> : null}
-        <label className="wf-field">หมายเหตุถึงร้าน<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น ไม่ใส่ผัก" /></label>
-        <div className="wf-item-actions">
+
+        <div className="wf-item-actions wf-item-actions--fixed">
           <div className="wf-qty wf-qty--large">
-            <button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))}><Minus size={16} /></button>
+            <button type="button" aria-label="ลดจำนวน" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={!canAdd || quantity <= 1}><Minus size={18} /></button>
             <b>{quantity}</b>
-            <button type="button" onClick={() => setQuantity((value) => Math.min(99, value + 1))}><Plus size={16} /></button>
+            <button type="button" aria-label="เพิ่มจำนวน" onClick={() => setQuantity((value) => Math.min(99, value + 1))} disabled={!canAdd}><Plus size={18} /></button>
           </div>
           <button className="wf-primary" type="button" disabled={!canAdd} onClick={() => onAdd({ menu_item_id: item.id, quantity, note: note.trim() })}>
-            {existing ? "อัปเดตตะกร้า" : "เพิ่มลงตะกร้า"} · {foodMoney(Number(item.price) * quantity)}
+            {!itemAvailable
+              ? "เมนูหมดชั่วคราว"
+              : !storeOpen
+                ? statusText
+                : `${existing ? "อัปเดตตะกร้า" : "เพิ่มลงตะกร้า"} · ${foodMoney(total)}`}
           </button>
         </div>
-      </div>
-    </Sheet>
+      </section>
+    </div>
   );
 }
 
@@ -2558,7 +2594,7 @@ function FoodCustomerInner({
           client={client}
           item={selectedItem}
           existing={cart.find((line) => line.menu_item_id === selectedItem.id) ?? null}
-          storeOpen={foodStoreIsEffectivelyOpen(store)}
+          store={store}
           onClose={() => setSelectedItem(null)}
           onAdd={addItem}
         />
