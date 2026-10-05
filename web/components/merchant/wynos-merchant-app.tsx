@@ -527,6 +527,246 @@ function MerchantInner({
       void load(true);
     }
   };
+
+  // WYN-201: pull down to refresh on the list tabs (forms and sheets are
+  // excluded by the hook: dialogs and inputs never start a pull).
+  const pull = usePullToRefresh({
+    enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports" || tab === "finance",
+    onRefresh: async () => { await load(true); },
+  });
+
+  if (loading && access === null) return <MerchantLoading />;
+  if (access === false) return <MerchantBlocked signOut={signOut} />;
+
+  return (
+    <main className="wyn-merchant">
+      <header className="wm-header">
+        <div className="wm-brand">
+          <span>WYNOS</span>
+          <b>Merchant</b>
+        </div>
+        <div className="wm-header-actions">
+          <button
+            className={`wm-icon-button ${notificationsEnabled ? "is-active" : ""}`}
+            type="button"
+            aria-label="เปิดการแจ้งเตือน"
+            onClick={() => setNotifyPrompt("bell")}
+          >
+            <Bell size={21} strokeWidth={1.8} />
+          </button>
+          {refreshing ? <span className="wm-mini-loader" aria-label="กำลังอัปเดต" /> : (
+            <button className="wm-icon-button" type="button" aria-label="อัปเดตข้อมูล" onClick={() => void load(true)}>
+              <Clock3 size={21} strokeWidth={1.8} />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {message ? (
+        <div className="wm-toast" role="status">
+          <span>{message}</span>
+          <button type="button" aria-label="ปิด" onClick={() => setMessage("")}><X size={16} /></button>
+        </div>
+      ) : null}
+
+      <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดตข้อมูลร้าน" />
+      <section className="wm-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
+        {tab === "home" && store ? (
+          <HomePanel
+            client={client}
+            store={store}
+            menu={menu}
+            todayOrders={todayOrders}
+            todaySales={todaySales}
+            installPrompt={installPrompt}
+            onInstall={() => void install()}
+            onReload={() => void load(true)}
+            onOpenTab={setTab}
+            onEditStore={() => setStoreEditing(true)}
+            onMessage={setMessage}
+          />
+        ) : null}
+
+        {tab === "orders" && store ? (
+          <OrdersPanel
+            orders={filteredOrders}
+            allOrders={orders}
+            filter={orderFilter}
+            onFilter={setOrderFilter}
+            onOpen={setSelectedOrder}
+            onAction={(order) => void quickAction(order)}
+            actedFrom={actedFrom}
+          />
+        ) : null}
+
+        {tab === "menu" && store ? (
+          <MenuPanel
+            client={client}
+            store={store}
+            menu={menu}
+            query={menuQuery}
+            onQuery={setMenuQuery}
+            onEdit={(item) => setMenuDraft({
+              id: item.id,
+              name: item.name,
+              category: item.category,
+              description: item.description ?? "",
+              price: String(item.price),
+              image_path: item.image_path,
+              options: Array.isArray(item.options) ? item.options : [],
+              is_available: item.is_available,
+            })}
+            onAdd={() => setMenuDraft({ ...EMPTY_MENU_DRAFT })}
+            onToggle={async (item) => {
+              try {
+                await setMenuAvailability(client, store.id, item.id, !item.is_available);
+                await load(true);
+              } catch (error) { setMessage(merchantError(error)); }
+            }}
+            onSoldOut={async (item, soldOut) => {
+              try {
+                await setMenuSoldOutToday(client, store.id, item.id, soldOut);
+                setMessage(soldOut ? "ตั้งเมนูหมดวันนี้แล้ว ระบบจะเปิดให้อัตโนมัติวันถัดไป" : "เปิดเมนูกลับแล้ว");
+                await load(true);
+              } catch (error) { setMessage(merchantError(error)); }
+            }}
+            onReorder={async (ids) => {
+              try { await saveMenuSortOrder(client, store.id, ids); await load(true); }
+              catch (error) { setMessage(merchantError(error)); }
+            }}
+            onCategoryOrder={async (categories) => {
+              try { await saveMenuCategoryOrder(client, store.id, categories); await load(true); }
+              catch (error) { setMessage(merchantError(error)); }
+            }}
+          />
+        ) : null}
+
+        {MORE_PAGES.has(tab) && tab !== "more" ? (
+          <button className="wm-back" type="button" onClick={() => setTab("more")}><ChevronLeft size={20} />เพิ่มเติม</button>
+        ) : null}
+
+        {tab === "more" && store ? (
+          <MorePanel
+            client={client}
+            store={store}
+            installPrompt={installPrompt}
+            onInstall={() => void install()}
+            onOpenTab={setTab}
+            onNotifications={() => setNotifyPrompt("bell")}
+            onMessage={setMessage}
+            onSignOut={() => void signOut()}
+          />
+        ) : null}
+
+        {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
+
+        {tab === "finance" && store ? <MerchantFinance client={client} store={store} refreshKey={orders} onEditStore={() => setStoreEditing(true)} onOpenTab={setTab} /> : null}
+
+        {tab === "promotions" && store ? (
+          <>
+            <div className="wm-page-heading"><div><small>ส่วนลดที่ร้านตั้งเอง</small><h1>โปรโมชั่น</h1></div></div>
+            <MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={setMessage} />
+          </>
+        ) : null}
+
+        {tab === "campaigns" && store ? (
+          <>
+            <div className="wm-page-heading"><div><small>จาก WYNOS</small><h1>แคมเปญ</h1></div></div>
+            <MerchantPlatformCampaigns client={client} store={store} onMessage={setMessage} />
+          </>
+        ) : null}
+
+        {tab === "ads" && store ? (
+          <>
+            <div className="wm-page-heading"><div><small>ดันร้านให้ลูกค้าเห็นก่อน</small><h1>โฆษณา</h1></div></div>
+            <MerchantAds client={client} store={store} onMessage={setMessage} />
+          </>
+        ) : null}
+
+        {tab === "store" && store ? (
+          <StorePanel
+            client={client}
+            store={store}
+            menu={menu}
+            userId={userId}
+            installPrompt={installPrompt}
+            onInstall={() => void install()}
+            onEdit={() => setStoreEditing(true)}
+            onReload={() => void load(true)}
+            onMessage={setMessage}
+            onSignOut={() => void signOut()}
+          />
+        ) : null}
+
+        {!store && access ? (
+          <div className="wm-empty">
+            <Store size={38} strokeWidth={1.5} />
+            <strong>ยังไม่พบร้านค้า</strong>
+            <p>ฐานข้อมูล Merchant ยังไม่มีร้านที่บัญชีนี้เข้าถึงได้</p>
+          </div>
+        ) : null}
+      </section>
+
+      <nav className="wm-nav" aria-label="WYNOS Merchant">
+        <NavButton active={tab === "home"} label="หน้าหลัก" icon={<MerchantNavIcon name="home" active={tab === "home"} />} onClick={() => setTab("home")} />
+        <NavButton active={tab === "orders"} label="รับออเดอร์" icon={<MerchantNavIcon name="orders" active={tab === "orders"} />} badge={activeOrderCount} onClick={() => setTab("orders")} />
+        <NavButton active={tab === "menu"} label="เมนู" icon={<MerchantNavIcon name="menu" active={tab === "menu"} />} onClick={() => setTab("menu")} />
+        <NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม" icon={<MerchantNavIcon name="more" active={MORE_PAGES.has(tab)} />} onClick={() => setTab("more")} />
+      </nav>
+
+      {notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
+        <MerchantNotificationPrompt
+          key={notifyPrompt}
+          client={client}
+          userId={userId}
+          forceOpen={notifyPrompt === "bell"}
+          onClose={() => setNotifyPrompt(null)}
+          onEnabled={() => setNotificationsEnabled(true)}
+        />
+      ) : null}
+
+      {alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
+        <NewOrderAlert
+          key={alertKey(alertOrder)}
+          order={alertOrder}
+          count={alertQueue.length}
+          soundReady={soundReady}
+          onOpen={() => { markAlertSeen(alertOrder); setSelectedOrder(alertOrder); }}
+        />
+      ) : null}
+
+      {selectedOrder && store ? (
+        <OrderSheet
+          client={client}
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onReload={() => void load(true)}
+          onMessage={setMessage}
+        />
+      ) : null}
+
+      {menuDraft && store ? (
+        <MenuEditor
+          client={client}
+          store={store}
+          draft={menuDraft}
+          onClose={() => setMenuDraft(null)}
+          onSaved={async () => { setMenuDraft(null); await load(true); }}
+          onMessage={setMessage}
+        />
+      ) : null}
+
+      {storeEditing && store ? (
+        <StoreEditor
+          client={client}
+          store={store}
+          onClose={() => setStoreEditing(false)}
+          onSaved={async () => { setStoreEditing(false); await load(true); }}
+          onMessage={setMessage}
+        />
+      ) : null}
+    </main>
+  );
 }
 
 function NavButton({
