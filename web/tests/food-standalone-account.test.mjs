@@ -67,3 +67,22 @@ test("Food Public Beta has no user-facing Developer Preview copy", async () => {
   assert.match(staticManifest, /"description": "WYNOS Food Public Beta"/);
   assert.doesNotMatch(manifest + staticManifest, /Developer Preview/);
 });
+
+test("Food reviews are verified, masked and use yellow five-star UI", async () => {
+  const source = await read("components/food/wynos-food-developer-app.tsx");
+  const data = await read("lib/food-customer.ts");
+  const css = await read("app/food/food.css");
+  const migration = await read("../supabase/migrations_wynos_food_store_reviews_v1.sql");
+  assert.match(source, /สั่งจริงกับ WYNOS Food/);
+  assert.match(source, /อาหารเป็นอย่างไรบ้าง\?/);
+  assert.match(source, /FOOD_REVIEW_TAGS/);
+  assert.match(source, /submitFoodStoreReview/);
+  assert.match(data, /food_store_review_feed/);
+  assert.match(data, /food_submit_store_review/);
+  assert.match(data, /maskFoodReviewerName/);
+  assert.match(css, /\.wf-review-stars[\s\S]*?#f4b400/);
+  assert.match(migration, /status <> 'delivered'/);
+  assert.match(migration, /internal\.food_mask_reviewer_name/);
+  assert.match(migration, /revoke all on table public\.food_store_reviews from public, anon, authenticated/);
+  assert.doesNotMatch(migration, /select .*username|avatar_url/i);
+});
