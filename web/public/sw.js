@@ -67,6 +67,9 @@ self.addEventListener("fetch", (event) => {
 const PUSH_UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 function pushTarget(data) {
   if (data?.merchant_test === "1") return "/merchant?notification-test=1";
+  // Food and Merchant notifications open their own app (Founder, 2026-10-05).
+  if (data?.app === "merchant") return "/merchant";
+  if (data?.app === "food") return "/food";
   if (data?.type === "daily_follow_suggestion") {
     const delivery = typeof data?.delivery_id === "string" && PUSH_UUID.test(data.delivery_id)
       ? data.delivery_id

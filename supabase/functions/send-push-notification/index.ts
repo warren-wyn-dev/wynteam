@@ -16,12 +16,14 @@ import {
   isRetryableFcmStatus,
   type FcmServiceAccount,
   messageFor,
+  pushAppForNotification,
+  pushMessageForApp,
   pushPreferenceCategory,
   pushLanguageFrom,
   type PushLanguage,
   safeErrorMessage,
-  splitPushMessage,
   summariseOutcomes,
+  tokensForApp,
   type NotificationRow,
   type WebhookPayload,
   webPushTopic,
@@ -39,6 +41,18 @@ async function supabaseRestGet(path: string): Promise<unknown[]> {
   });
   if (!response.ok) return [];
   return await response.json();
+}
+
+// Tokens with the app that registered them. Until the push_tokens.app
+// migration is applied the column is missing; read without it (every token
+// then counts as the Social app, which is how Push worked before).
+async function pushTokensFor(recipientId: string): Promise<unknown[]> {
+  const base = `push_tokens?user_id=eq.${encodeURIComponent(recipientId)}&select=id,token,platform`;
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${base},app`, {
+    headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+  });
+  if (response.ok) return await response.json();
+  return await supabaseRestGet(base);
 }
 
 async function supabaseRestWrite(
@@ -230,15 +244,20 @@ async function handleWebhook(req: Request): Promise<Response> {
     row.actor_id
       ? supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`)
       : Promise.resolve([]),
-    supabaseRestGet(`push_tokens?user_id=eq.${row.recipient_id}&select=id,token,platform`),
+    pushTokensFor(row.recipient_id),
     recipientLanguage(row.recipient_id),
     webPushPolicy(row),
   ]);
-  if (tokenRows.length === 0) {
+  // Send only to the app this notification belongs to (Social, Food or
+  // Merchant), so one order event is not repeated in every installed app.
+  const app = pushAppForNotification(row);
+  const typedTokens = tokensForApp(
+    tokenRows as { id: string; token: string; platform: string; app?: string | null }[],
+    app,
+  );
+  if (typedTokens.length === 0) {
     return new Response("No registered devices", { status: 200 });
   }
-
-  const typedTokens = tokenRows as { id: string; token: string; platform: string }[];
 
   const actor = actorRows[0] as { username: string; display_name: string | null } | undefined;
   const actorName = actor
@@ -261,7 +280,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     dmPreview,
     lang,
   );
-  const { title, body: pushBody } = splitPushMessage(body, actorName);
+  const { title, body: pushBody } = pushMessageForApp(app, body, actorName);
   const data = buildDataPayload(row);
   const collapseKey = collapseKeyFor(row);
 

@@ -1,0 +1,70 @@
+name: Push -- apply WYN-215 per-app notifications and 4-digit order numbers
+
+# Applies supabase/migrations_wynos_push_app_routing_v1.sql (WYN-215):
+# push_tokens.app (social / food / merchant, NULL for older tokens) and
+# food_next_order_number() giving WF0015-style numbers. Additive: one
+# nullable column with a check, one function body; no rows change.
+# Manual dispatch on main only, after the Founder approves production.
+# Then run deploy-edge-functions.yml for send-push-notification.
+# Behaviour test: supabase/tests/wynos_push_app_routing_test.sh.
+# ROLLBACK: alter table public.push_tokens drop column app; and re-run
+#   public.food_next_order_number from migrations_wynos_food_merchant_v1.sql.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-WYN-215 to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-215'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_push_app_routing_v1.sql)
+          commit;" >/dev/null
+          # Definitions only; no personal data is read.
+          run_sql "select
+              exists (select 1 from information_schema.columns
+                      where table_schema = 'public' and table_name = 'push_tokens' and column_name = 'app') as app_column,
+              exists (select 1 from pg_constraint
+                      where conname = 'push_tokens_app_check' and conrelid = 'public.push_tokens'::regclass) as app_check,
+              (pg_get_functiondef('public.food_next_order_number()'::regprocedure) like '%greatest(4%') as four_digit_orders,
+              has_function_privilege('authenticated', 'public.food_next_order_number()', 'execute') as authenticated_order_number;" \
+            | tee result.json | jq .
+          jq -e '.[0].app_column == true and .[0].app_check == true
+                 and .[0].four_digit_orders == true and .[0].authenticated_order_number == false' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "WYN-215 is installed. Next: deploy-edge-functions.yml (send-push-notification), then reopen each app once."
