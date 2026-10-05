@@ -453,7 +453,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 .wm-nav > button {
   min-width: 0;
