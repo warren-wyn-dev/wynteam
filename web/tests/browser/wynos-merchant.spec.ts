@@ -51,6 +51,29 @@ test("Merchant can upload and preview store profile and cover images", () => {
   expect(food).toContain("foodPublicUrl(client, store.logo_path)");
 });
 
+test("Merchant uses interactive maps for store, pickup and frequent delivery places", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const data = read("lib/food-merchant.ts");
+  const layout = read("app/merchant/layout.tsx");
+  const sql = read("../supabase/migrations_wynos_food_store_pickup_point_v1.sql");
+
+  expect(layout).toContain('import "../food/food.css"');
+  expect(app).toContain("FoodLocationMapPreview");
+  expect(app).toContain("FoodDeliveryMapPicker");
+  expect(app).toContain("checkFoodServiceArea");
+  expect(app).toContain('setMapTarget("store")');
+  expect(app).toContain('setMapTarget("pickup")');
+  expect(app).toContain("จุดรับอาหาร / ทางเข้าร้านสำหรับไรเดอร์");
+  expect(app).toContain("ค้นหาและเลือกบนแผนที่");
+  expect(app).toContain("ร้านอยู่นอกพื้นที่ให้บริการปัจจุบัน");
+  expect(data).toContain("pickup_latitude: patch.pickup_latitude");
+  expect(data).toContain("pickup_longitude: patch.pickup_longitude");
+  expect(data).toContain("pickup_note: patch.pickup_note");
+  expect(sql).toContain("add column if not exists pickup_latitude");
+  expect(sql).toContain("entrance_latitude = new.pickup_latitude");
+  expect(sql).toContain("create or replace function public.wynos_place_details");
+});
+
 test("Merchant receives orders from WYNOS Food only while keeping delivery workflow", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
