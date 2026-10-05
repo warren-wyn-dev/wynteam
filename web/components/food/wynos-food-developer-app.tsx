@@ -1334,11 +1334,23 @@ function CheckoutSheet({
   const maxDays = Math.max(1, Number(store.scheduled_max_days ?? 7));
   const [scheduleMode, setScheduleMode] = useState<"asap" | "scheduled">("asap");
   const [scheduledLocal, setScheduledLocal] = useState("");
+  const [scheduleError, setScheduleError] = useState("");
   const scheduledDate = scheduledLocal ? new Date(scheduledLocal) : null;
-  const scheduledMs = scheduledDate?.getTime() ?? Number.NaN;
-  const minScheduledMs = Date.now() + minNotice * 60_000;
-  const maxScheduledMs = Date.now() + maxDays * 24 * 60 * 60_000;
-  const scheduledValid = scheduleMode === "asap" || (Number.isFinite(scheduledMs) && scheduledMs >= minScheduledMs && scheduledMs <= maxScheduledMs);
+  const scheduledValid = scheduleMode === "asap" || (!!scheduledDate && !scheduleError);
+  const chooseScheduledLocal = (value: string) => {
+    setScheduledLocal(value);
+    if (!value) {
+      setScheduleError("กรุณาเลือกวันและเวลา");
+      return;
+    }
+    const selected = new Date(value).getTime();
+    const now = Date.now();
+    if (!Number.isFinite(selected) || selected < now + minNotice * 60_000 || selected > now + maxDays * 24 * 60 * 60_000) {
+      setScheduleError("เวลาที่เลือกอยู่นอกช่วงที่ร้านรับออเดอร์ล่วงหน้า");
+      return;
+    }
+    setScheduleError("");
+  };
   const address = addresses.find((row) => row.id === addressId) ?? null;
   const subtotal = cart.reduce((sum, line) => {
     const item = itemFor(menu, line.menu_item_id);
@@ -1397,9 +1409,9 @@ function CheckoutSheet({
             <button className={scheduleMode === "scheduled" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("scheduled")}><CalendarDays size={17} /><span><strong>สั่งล่วงหน้า</strong><small>เลือกวันและเวลา</small></span></button>
           </div>
           {scheduleMode === "scheduled" ? <>
-            <label className="wf-field">เลือกวันและเวลา<input type="datetime-local" value={scheduledLocal} onChange={(event) => setScheduledLocal(event.target.value)} /></label>
+            <label className="wf-field">เลือกวันและเวลา<input type="datetime-local" value={scheduledLocal} onChange={(event) => chooseScheduledLocal(event.target.value)} /></label>
             <small className="wf-schedule-hint">ต้องล่วงหน้าอย่างน้อย {minNotice} นาที และไม่เกิน {maxDays} วัน</small>
-            {scheduledLocal && !scheduledValid ? <div className="wf-inline-warning">เวลาที่เลือกอยู่นอกช่วงที่ร้านรับออเดอร์ล่วงหน้า</div> : null}
+            {scheduleMode === "scheduled" && scheduleError ? <div className="wf-inline-warning">{scheduleError}</div> : null}
           </> : null}
         </section> : null}
 
