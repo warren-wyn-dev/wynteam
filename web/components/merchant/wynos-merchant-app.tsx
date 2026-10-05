@@ -2172,7 +2172,11 @@ function MenuCategoryManager({
     }
     setBusy(true);
     try {
-      const renameMap = new Map(rows.filter((row) => row.original && row.original !== row.name.trim()).map((row) => [row.original as string, row.name.trim()]));
+      const renameMap = new Map<string, string>(
+        rows
+          .filter((row) => row.original && row.original !== row.name.trim())
+          .map((row) => [row.original as string, row.name.trim()] as const),
+      );
       const affected = menu.filter((item) => renameMap.has(item.category));
       for (const item of affected) {
         await saveMenuItem(client, store.id, { ...menuDraftFromItem(item), category: renameMap.get(item.category) ?? item.category });
