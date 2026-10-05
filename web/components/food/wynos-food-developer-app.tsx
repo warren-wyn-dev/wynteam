@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Bell,
+  Bike,
   CalendarDays,
   Check,
   ChevronRight,
@@ -401,6 +402,11 @@ function FoodDirectoryStoreRow({
   const categories = Array.isArray(store.categories) ? store.categories.slice(0, 3) : [];
   const eta = foodEstimateDeliveryRange(store, distance);
   const promo = foodPromoLabel(store);
+  const distanceLabel = distance == null
+    ? "ดูระยะทางในร้าน"
+    : distance < 0.1
+      ? "ใกล้คุณ"
+      : `${distance < 10 ? distance.toFixed(1) : Math.round(distance)} กม.`;
   return (
     <button className="wf-home-store-row" type="button" onClick={onPick}>
       <span className="wf-home-store-photo">
@@ -433,9 +439,9 @@ function FoodDirectoryStoreRow({
           {categories.length ? <span>{categories.join(" · ")}</span> : <span>อาหารและเครื่องดื่ม</span>}
         </span>
         <span className="wf-home-store-meta">
-          <span><MapPin size={13} />{distance == null ? "ดูระยะทางในร้าน" : `${distance < 10 ? distance.toFixed(1) : Math.round(distance)} กม.`}</span>
+          <span><MapPin size={13} />{distanceLabel}</span>
           <span><Clock3 size={13} />{eta.min}–{eta.max} นาที</span>
-          <span><span aria-hidden="true">🛵</span>ค่าส่ง {foodMoney(store.delivery_fee)}</span>
+          <span><Bike size={13} />ค่าส่ง {foodMoney(store.delivery_fee)}</span>
         </span>
         {promo ? <span className="wf-home-promo-badge">{promo}</span> : null}
       </span>
@@ -596,7 +602,7 @@ function StoreDirectory({
       </div>
 
       <div className="wf-fulfillment-tabs" aria-label="รูปแบบการรับอาหาร">
-        <button type="button" className="is-active"><span aria-hidden="true">🛵</span>จัดส่ง</button>
+        <button type="button" className="is-active"><Bike size={18} />จัดส่ง</button>
         <button
           type="button"
           onClick={() => onMessage("รับเองที่ร้านกำลังเตรียมเปิดให้บริการ")}
