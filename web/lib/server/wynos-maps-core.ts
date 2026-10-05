@@ -49,6 +49,13 @@ function normalizeGeoRow(row: NominatimRow): GeoPlace | null {
   };
 }
 
+// Shared secret the self-hosted gateway requires, so geo/routing cannot be
+// called directly around this API's rate limit.
+function upstreamTokenHeader(): Record<string, string> {
+  const token = process.env.WYNOS_MAPS_UPSTREAM_TOKEN?.trim();
+  return token ? { "X-WYNOS-Maps-Token": token } : {};
+}
+
 async function fetchJson(url: URL, init?: RequestInit) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5500);
@@ -59,6 +66,7 @@ async function fetchJson(url: URL, init?: RequestInit) {
       headers: {
         Accept: "application/json",
         "X-WYNOS-Maps": "core-api-v1",
+        ...upstreamTokenHeader(),
         ...init?.headers,
       },
       cache: "no-store",

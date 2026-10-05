@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { mapsRateLimitResponse } from "@/lib/server/maps-rate-limit-response";
 import { searchWynosGeo } from "@/lib/server/wynos-maps-core";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,9 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
   if (!query) return NextResponse.json({ results: [] });
+
+  const limited = mapsRateLimitResponse(request, "search", { results: [] });
+  if (limited) return limited;
 
   try {
     const results = await searchWynosGeo(query);

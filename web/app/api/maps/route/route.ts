@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { mapsRateLimitResponse } from "@/lib/server/maps-rate-limit-response";
 import { routeWynosMaps } from "@/lib/server/wynos-maps-core";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,9 @@ type RouteBody = {
 };
 
 export async function POST(request: Request) {
+  const limited = mapsRateLimitResponse(request, "route", {});
+  if (limited) return limited;
+
   let body: RouteBody;
   try {
     body = await request.json() as RouteBody;
