@@ -292,7 +292,7 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
 
   // The card runs simple steps; the slip and the delivery photo still need the order open.
   expect(app).toContain('if (next.step === "check_slip" || next.step === "deliver") {');
-  expect(app).toContain('await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? 30);');
+  expect(app).toContain('await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? Number(store?.prep_time_max_minutes ?? 30));');
 
   // One button confirms the payment and accepts; accepting still needs a paid order.
   expect(app).toContain('await setFoodPaymentStatus(client, order.id, "paid");\n                    await transitionFoodOrder(client, order.id, "preparing", eta);');
