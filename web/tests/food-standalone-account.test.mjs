@@ -9,6 +9,7 @@ test("Food signed-out users stay in the Food auth flow", async () => {
   assert.match(source, /DeveloperRouteGate signedOutPath="\/food\/login" afterSignOutPath="\/food\/login"/);
   assert.match(source, /onSignOut=\{\(\) => void signOut\(\)\}/);
   assert.match(source, /href="https:\/\/wynos\.online\/login"/);
+  assert.match(source, /href="https:\/\/wynos\.online\/" aria-label="ออกจาก WYNOS Food"/);
 });
 
 test("Food signup creates only the central auth account", async () => {
