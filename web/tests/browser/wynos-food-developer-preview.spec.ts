@@ -90,6 +90,12 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(map).toContain("wf-map-confirm-coordinates");
   expect(map).not.toContain("function placeText(");
   expect(map).toContain("autoLocate = false");
+  expect(map).toContain("FoodLocationMapPreview");
+  expect(map).toContain("fetchWynosPlaceDetails");
+  expect(map).toContain("wf-map-store-cover");
+  expect(map).toContain("wf-map-entrance-marker");
+  expect(map).toContain("ดูจุดรับอาหารบนแผนที่");
+  expect(map).toContain("เลื่อนแผนที่เพื่อปรับหมุดให้ตรงตำแหน่งจริง");
   expect(map).toContain('if (standalone) setSheetDetent("half");');
   expect(mapsV4Css).toContain(".wf-map-sheet.is-searching");
   expect(mapsV4Css).toContain("max-height: min(52dvh, 430px)");
