@@ -220,9 +220,9 @@ function FoodHeader({
 }) {
   return (
     <header className="wf-header">
-      <Link className="wf-exit-button" href="/" aria-label="ออกจาก WYNOS Food">
+      <a className="wf-exit-button" href="https://wynos.online/" aria-label="ออกจาก WYNOS Food">
         <ArrowLeft size={21} strokeWidth={2} />
-      </Link>
+      </a>
       <div className="wf-brand">
         <span>WYNOS</span>
         <b>Food</b>
