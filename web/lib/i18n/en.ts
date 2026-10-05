@@ -1834,6 +1834,8 @@ Object.assign(EN_EXACT, {
   "ตำแหน่งปัจจุบัน": "Current location",
   "ค้นหาใน WYNOS Maps": "Search WYNOS Maps",
   "ค้นหา สำรวจ และเลือกตำแหน่ง": "Search, explore and choose a location",
+  "ค้นหา สำรวจ และเลือกตำแหน่งบน WYNOS Maps": "Search, explore and choose a location on WYNOS Maps",
+  "หมวดหมู่สถานที่": "Place categories",
   "ตำแหน่งที่เลือก": "Selected location",
   "ค้นหาหรือเลื่อนแผนที่": "Search or move the map",
   "บันทึกตำแหน่งแล้ว": "Location saved",
