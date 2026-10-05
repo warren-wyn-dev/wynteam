@@ -118,6 +118,34 @@ export type FoodCustomerOrder = {
 };
 
 
+export type FoodCustomerOwnReview = {
+  review_id: string;
+  order_id: string;
+  store_id: string;
+  rating: number;
+  created_at: string;
+};
+
+export type FoodStoreReview = {
+  id: string;
+  rating: number;
+  review_text: string | null;
+  tags: string[];
+  reviewer_label: string;
+  verified_order: boolean;
+  created_at: string;
+  merchant_reply: string | null;
+  merchant_replied_at: string | null;
+};
+
+export type FoodStoreReviewFeed = {
+  average: number;
+  count: number;
+  reviews: FoodStoreReview[];
+};
+
+export const FOOD_REVIEW_TAGS = ["อร่อย", "ปริมาณดี", "แพ็กดี", "ตรงปก", "คุ้มราคา", "ส่งเร็ว"] as const;
+
 
 export type FoodCustomerAddress = {
   id: string;
@@ -185,6 +213,7 @@ export type FoodCustomerSnapshot = {
   menu: FoodCustomerMenuItem[];
   orders: FoodCustomerOrder[];
   addresses: FoodCustomerAddress[];
+  ownReviews: FoodCustomerOwnReview[];
 };
 
 export type FoodAddressDraft = {
@@ -244,7 +273,7 @@ export async function fetchFoodCustomerSnapshot(
   ]);
   const developer = !developerCheck.error && developerCheck.data === true;
   if (!developer && (access.error || access.data !== true)) {
-    return { allowed: false, developer: false, store: null, menu: [], orders: [], addresses: [] };
+    return { allowed: false, developer: false, store: null, menu: [], orders: [], addresses: [], ownReviews: [] };
   }
 
   // WYN-207: the customer can pick a store from the directory; without a
@@ -263,7 +292,7 @@ export async function fetchFoodCustomerSnapshot(
   if (storeResult.error) throw new Error(storeResult.error.message);
 
   const store = (storeResult.data as FoodCustomerStore | null) ?? null;
-  const [menuResult, ordersResult, addressesResult] = await Promise.all([
+  const [menuResult, ordersResult, addressesResult, ownReviewsResult] = await Promise.all([
     store
       ? client
           .from("food_menu_items")
@@ -284,6 +313,7 @@ export async function fetchFoodCustomerSnapshot(
       .eq("user_id", userId)
       .order("is_default", { ascending: false })
       .order("created_at", { ascending: false }),
+    client.rpc("food_my_store_reviews"),
   ]);
 
   if (menuResult.error) throw new Error(menuResult.error.message);
@@ -297,7 +327,76 @@ export async function fetchFoodCustomerSnapshot(
     menu: (menuResult.data ?? []) as FoodCustomerMenuItem[],
     orders: (ordersResult.data ?? []) as FoodCustomerOrder[],
     addresses: (addressesResult.data ?? []) as FoodCustomerAddress[],
+    ownReviews: ownReviewsResult.error ? [] : (ownReviewsResult.data ?? []) as FoodCustomerOwnReview[],
   };
+}
+
+export function maskFoodReviewerName(name: string) {
+  const firstWord = name.trim().split(/\s+/)[0] ?? "";
+  if (!firstWord) return "ผู้ใช้ WYNOS Food";
+  const segments = typeof Intl.Segmenter === "function"
+    ? Array.from(new Intl.Segmenter("th", { granularity: "grapheme" }).segment(firstWord), (part) => part.segment)
+    : Array.from(firstWord);
+  if (segments.length === 1) return `${segments[0]}***`;
+  if (segments.length === 2) return `${segments[0]}**`;
+  return `${segments[0]}${"*".repeat(Math.min(4, Math.max(2, segments.length - 2)))}${segments.at(-1)}`;
+}
+
+export async function fetchFoodStoreReviewFeed(
+  client: SupabaseClient,
+  storeId: string,
+  limit = 20,
+): Promise<FoodStoreReviewFeed> {
+  const { data, error } = await client.rpc("food_store_review_feed", {
+    p_store_id: storeId,
+    p_limit: limit,
+  });
+  if (error || !data || typeof data !== "object") {
+    return { average: 0, count: 0, reviews: [] };
+  }
+  const raw = data as { average?: unknown; count?: unknown; reviews?: unknown };
+  const reviews = Array.isArray(raw.reviews)
+    ? raw.reviews.map((row) => {
+        const review = row as Partial<FoodStoreReview>;
+        return {
+          id: String(review.id ?? ""),
+          rating: Number(review.rating ?? 0),
+          review_text: typeof review.review_text === "string" ? review.review_text : null,
+          tags: Array.isArray(review.tags) ? review.tags.map(String) : [],
+          reviewer_label: typeof review.reviewer_label === "string" ? review.reviewer_label : "ผู้ใช้ WYNOS Food",
+          verified_order: review.verified_order === true,
+          created_at: typeof review.created_at === "string" ? review.created_at : new Date(0).toISOString(),
+          merchant_reply: typeof review.merchant_reply === "string" ? review.merchant_reply : null,
+          merchant_replied_at: typeof review.merchant_replied_at === "string" ? review.merchant_replied_at : null,
+        } satisfies FoodStoreReview;
+      }).filter((review) => review.id && review.rating >= 1 && review.rating <= 5)
+    : [];
+  return {
+    average: Number(raw.average ?? 0),
+    count: Number(raw.count ?? 0),
+    reviews,
+  };
+}
+
+export async function submitFoodStoreReview(
+  client: SupabaseClient,
+  input: {
+    orderId: string;
+    rating: number;
+    reviewText?: string;
+    tags: string[];
+    anonymous: boolean;
+  },
+) {
+  const { data, error } = await client.rpc("food_submit_store_review", {
+    p_order_id: input.orderId,
+    p_rating: input.rating,
+    p_review_text: input.reviewText?.trim() || null,
+    p_tags: input.tags,
+    p_anonymous: input.anonymous,
+  });
+  if (error) throw new Error(error.message);
+  return String(data);
 }
 
 /**
