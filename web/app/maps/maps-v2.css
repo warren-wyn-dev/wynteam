@@ -383,6 +383,12 @@
   background: rgb(32 33 36 / 15%);
 }
 
+.wynos-maps-page .wf-map-center-pin.is-current-location {
+  opacity: 0;
+  transform: translate(-50%, -100%) scale(.88);
+  pointer-events: none;
+}
+
 .wynos-maps-page .wf-map-current {
   right: 14px;
   bottom: calc(178px + env(safe-area-inset-bottom));
