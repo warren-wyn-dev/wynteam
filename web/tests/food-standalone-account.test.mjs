@@ -9,7 +9,6 @@ test("Food signed-out users stay in the Food auth flow", async () => {
   assert.match(source, /DeveloperRouteGate signedOutPath="\/food\/login" afterSignOutPath="\/food\/login"/);
   assert.match(source, /onSignOut=\{\(\) => void signOut\(\)\}/);
   assert.match(source, /href="https:\/\/wynos\.online\/login"/);
-  assert.match(source, /href="https:\/\/wynos\.online\/" aria-label="ออกจาก WYNOS Food"/);
 });
 
 test("Food signup creates only the central auth account", async () => {
@@ -43,4 +42,16 @@ test("Food menu card photos stay square at every responsive width", async () => 
   const css = await read("app/food/food.css");
   assert.match(css, /\.wf-menu-image\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*auto;[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
   assert.doesNotMatch(css, /\.wf-menu-image\s*\{\s*height:\s*(?:120|170)px;/);
+});
+
+test("Food Home removes preview UI, promotes Social and hides the back button", async () => {
+  const source = await read("components/food/wynos-food-developer-app.tsx");
+  const css = await read("app/food/food.css");
+  assert.doesNotMatch(source, /<small>Developer Preview<\/small>/);
+  assert.doesNotMatch(source, /Developer Preview เท่านั้น/);
+  assert.match(source, /className="wf-social-promo" href="https:\/\/wynos\.online\/" aria-label="เปิด WYNOS Social"/);
+  assert.match(source, /โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos\.online/);
+  assert.match(source, /showBack=\{tab !== "home"\}/);
+  assert.match(source, /onBack=\{\(\) => setTab\("home"\)\}/);
+  assert.match(css, /\.wf-header--home\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\) auto;/);
 });

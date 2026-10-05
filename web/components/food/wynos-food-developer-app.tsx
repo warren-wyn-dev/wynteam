@@ -218,24 +218,29 @@ function FoodServiceAreaIntro({
 
 function FoodHeader({
   cartCount,
+  showBack,
+  onBack,
   onCart,
   onRefresh,
   refreshing,
 }: {
   cartCount: number;
+  showBack: boolean;
+  onBack: () => void;
   onCart: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 }) {
   return (
-    <header className="wf-header">
-      <a className="wf-exit-button" href="https://wynos.online/" aria-label="ออกจาก WYNOS Food">
-        <ArrowLeft size={21} strokeWidth={2} />
-      </a>
+    <header className={`wf-header${showBack ? "" : " wf-header--home"}`}>
+      {showBack ? (
+        <button className="wf-exit-button" type="button" aria-label="กลับหน้าหลัก WYNOS Food" onClick={onBack}>
+          <ArrowLeft size={21} strokeWidth={2} />
+        </button>
+      ) : null}
       <div className="wf-brand">
         <span>WYNOS</span>
         <b>Food</b>
-        <small>Developer Preview</small>
       </div>
       <div className="wf-header-actions">
         <button className="wf-icon-button wf-cart-button" type="button" aria-label={cartCount ? `ตะกร้า ${cartCount} รายการ` : "ตะกร้า"} onClick={onCart}>
@@ -420,10 +425,14 @@ function HomePanel({
 
   return (
     <>
-      <div className="wf-preview-banner">
-        <span>DEV</span>
-        <div><strong>Developer Preview เท่านั้น</strong><small>ร้านนี้ยังไม่เปิดให้ผู้ใช้ทั่วไปและไม่ถูกแสดงใน WYNOS</small></div>
-      </div>
+      <a className="wf-social-promo" href="https://wynos.online/" aria-label="เปิด WYNOS Social">
+        <span className="wf-social-promo-mark">W</span>
+        <span className="wf-social-promo-copy">
+          <strong>WYNOS Social</strong>
+          <small>โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos.online</small>
+        </span>
+        <span className="wf-social-promo-action">เปิด <ChevronRight size={17} /></span>
+      </a>
 
       <StoreDirectory client={client} currentStoreId={store.id} onPick={onPickStore} />
 
@@ -1627,7 +1636,14 @@ function FoodCustomerInner({
 
   return (
     <main className="wyn-food">
-      <FoodHeader cartCount={cartCount} onCart={() => setTab("cart")} onRefresh={() => void load(true)} refreshing={refreshing} />
+      <FoodHeader
+        cartCount={cartCount}
+        showBack={tab !== "home"}
+        onBack={() => setTab("home")}
+        onCart={() => setTab("cart")}
+        onRefresh={() => void load(true)}
+        refreshing={refreshing}
+      />
       {message ? <div className="wf-toast" role="status"><span>{message}</span><button type="button" aria-label="ปิด" onClick={() => setMessage("")}><X size={16} /></button></div> : null}
 
       <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดต WYNOS Food" />
