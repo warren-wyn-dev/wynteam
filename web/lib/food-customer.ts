@@ -937,6 +937,37 @@ export async function searchStorePlaces(client: SupabaseClient, storeId: string,
  * WYN-197: read a pin pasted from a map app, e.g. "13.75631, 100.50176" or a
  * Google Maps link with "@13.75,100.50" or "q=13.75,100.50".
  */
+export type WynosPlaceSuggestionInput = {
+  name: string;
+  category: "place" | "restaurant" | "store" | "building" | "residence" | "poi";
+  address?: string;
+  note?: string;
+  location: FoodLocation;
+};
+
+export async function submitWynosPlaceSuggestion(
+  client: SupabaseClient,
+  input: WynosPlaceSuggestionInput,
+): Promise<string> {
+  const { data, error } = await client.rpc("submit_wynos_place_suggestion", {
+    p_name: input.name.trim(),
+    p_category: input.category,
+    p_address: input.address?.trim() || null,
+    p_note: input.note?.trim() || null,
+    p_latitude: input.location.latitude,
+    p_longitude: input.location.longitude,
+  });
+  if (error) {
+    const message = error.message ?? "";
+    if (message.includes("authentication required")) throw new Error("กรุณาเข้าสู่ระบบก่อนเพิ่มสถานที่");
+    if (message.includes("daily suggestion limit reached")) throw new Error("วันนี้ส่งสถานที่ครบจำนวนแล้ว ลองใหม่พรุ่งนี้");
+    if (message.includes("duplicate pending suggestion")) throw new Error("สถานที่นี้ถูกส่งเข้าตรวจสอบแล้ว");
+    if (message.includes("place name is required")) throw new Error("กรุณาใส่ชื่อสถานที่");
+    throw new Error(foodCustomerError(error, "ส่งสถานที่ไม่สำเร็จ"));
+  }
+  return String(data);
+}
+
 export function parseFoodLocation(text: string): FoodLocation | null {
   const match = text.match(/(?:^|[^\d.])(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)(?![\d.])/);
   if (!match) return null;
