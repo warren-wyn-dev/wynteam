@@ -455,6 +455,7 @@
     <string name="chat_no_results">No messages found</string>
     <string name="chat_empty">No messages yet</string>
     <string name="chat_all_seen">You\'re all caught up</string>
+    <string name="chat_online">Online</string>
     <string name="chat_unread">Unread</string>
     <string name="chat_accept">Accept</string>
     <string name="chat_decline_confirm">Delete this message request?</string>

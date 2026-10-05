@@ -152,6 +152,7 @@ Still open in M1:
   A person you cannot message cannot be sent to.
 - Updates arrive through pushes, when the screen comes back, and a check every 5 s (conversation) / 24 s (inbox)
   while the app is on screen. Realtime (Supabase channels) and online dots are not in this milestone.
+  **Update 2026-10-05:** both are now in (see "Chat realtime and online status" below).
 - Beta 2 chat features (reactions, pins, forward, edit, reply, hide, report message) stay off, as on the web
   (`BETA2_RELEASED.chatThreads = false`). Wynii (the chat pet) comes with M7.
 
@@ -228,3 +229,19 @@ Still open in M1:
 - Drift from the web: new web features must be added to Android too. Mitigation: every web feature PR notes its Android
   status; this document tracks parity.
 - Behaviour mismatches (push, account switching, drafts). Mitigation: port the web's rules and tests, not just the UI.
+
+## Chat realtime and online status (2026-10-05)
+
+- New and changed messages arrive at once over Supabase Realtime, like the web: the open conversation listens to
+  `messages` for its id (web `subscribeConversationMessages`) and the inbox to new messages the account can see
+  (web `subscribeMyMessages`, scoped by RLS). Only while the app is on screen. The regular checks stay as a fallback
+  (conversation every 15 s instead of 5 s; inbox unchanged), and a refresh asked for while one runs runs again after it.
+- Online status joins the web's presence channel `wynos:online-presence` keyed by user id, so web and Android see each
+  other. The account is shown online only while the app is open and only when "show online status" is on (a failed
+  check counts as off). A person stays online while any of their sessions is there.
+- Shown as on the web: a green dot on online people in the chat list and on the conversation avatar, and "ออนไลน์" in
+  place of @username in the conversation header.
+- No backend change: `supabase-kt` Realtime module (same BOM) over the existing realtime publication and RLS.
+- Check on real phones (internal testing): a message from the web appears in the app within a second or two, and
+  the online dot appears/disappears when the other person opens/leaves the app or the web.
+

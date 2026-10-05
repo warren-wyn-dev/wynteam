@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -108,6 +109,8 @@ fun ConversationScreen(
     chat: ChatRepository,
     onBack: () -> Unit,
     onOpenProfile: (String) -> Unit,
+    /** The other person is online now (web presence). */
+    online: Boolean = false,
 ) {
     val c = Wyn.colors
     val context = LocalContext.current
@@ -141,10 +144,18 @@ fun ConversationScreen(
                     Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button) { onOpenProfile(person.id) }.padding(start = 6.dp, top = 4.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    WynAvatar(person.avatarUrl, 44, contentDescription = stringResource(R.string.profile_photo_of, person.username))
+                    Box {
+                        WynAvatar(person.avatarUrl, 44, contentDescription = stringResource(R.string.profile_photo_of, person.username))
+                        if (online) OnlineDot(11.dp, Modifier.align(Alignment.BottomEnd).offset(1.dp, 1.dp))
+                    }
                     Column(Modifier.padding(start = 10.dp)) {
                         Text(person.label, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("@${person.username}", color = c.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        // web conversation header: "online" takes the @username's place while they are online.
+                        if (online) {
+                            Text(stringResource(R.string.chat_online), color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        } else {
+                            Text("@${person.username}", color = c.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             } else {

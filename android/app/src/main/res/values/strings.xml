@@ -461,6 +461,7 @@
     <string name="chat_no_results">ไม่พบข้อความ</string>
     <string name="chat_empty">ยังไม่มีข้อความ</string>
     <string name="chat_all_seen">เห็นข้อความล่าสุดแล้ว</string>
+    <string name="chat_online">ออนไลน์</string>
     <string name="chat_unread">ยังไม่อ่าน</string>
     <string name="chat_accept">ยอมรับ</string>
     <string name="chat_decline_confirm">ลบคำขอข้อความนี้?</string>
