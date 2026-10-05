@@ -396,7 +396,6 @@ function FoodDirectoryStoreRow({
   onPick: () => void;
 }) {
   const cover = foodPublicUrl(client, store.cover_path);
-  const logo = foodPublicUrl(client, store.logo_path);
   const rating = Number(store.rating_average ?? 0);
   const ratingCount = Number(store.rating_count ?? 0);
   const categories = Array.isArray(store.categories) ? store.categories.slice(0, 3) : [];
@@ -418,12 +417,6 @@ function FoodDirectoryStoreRow({
       </span>
       <span className="wf-home-store-body">
         <span className="wf-home-store-head">
-          <span className="wf-home-store-logo">
-            {logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} alt="" />
-            ) : <Store size={18} strokeWidth={1.5} />}
-          </span>
           <span className="wf-home-store-title">
             <strong>{store.name}</strong>
             <small>{store.address || (store.is_open ? "เปิดรับออเดอร์" : "ปิดอยู่")}</small>
