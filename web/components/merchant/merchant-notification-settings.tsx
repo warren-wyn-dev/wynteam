@@ -8,7 +8,6 @@ import { MerchantNotificationTest } from "@/components/merchant/merchant-notific
 import { previewMerchantOrderSound } from "@/components/merchant/merchant-order-alert";
 import type { FoodStore } from "@/lib/food-merchant";
 import {
-  DEFAULT_MERCHANT_ALERT_PREFS,
   readMerchantAlertPreferences,
   saveMerchantAlertPreferences,
   type MerchantAlertPreferences,
@@ -55,13 +54,12 @@ export function MerchantNotificationSettings({
   onPushChange: (enabled: boolean) => void;
   onReload: () => Promise<void> | void;
 }) {
-  const [prefs, setPrefs] = useState<MerchantAlertPreferences>(DEFAULT_MERCHANT_ALERT_PREFS);
+  const [prefs, setPrefs] = useState<MerchantAlertPreferences>(readMerchantAlertPreferences);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [checkingPush, setCheckingPush] = useState(true);
   const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
-    setPrefs(readMerchantAlertPreferences());
     let live = true;
     void isCurrentDevicePushEnabled(client, userId).then((enabled) => {
       if (!live) return;
