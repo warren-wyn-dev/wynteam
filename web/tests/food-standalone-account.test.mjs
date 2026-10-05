@@ -51,8 +51,9 @@ test("Food Home removes preview UI, promotes Social and hides the back button", 
   assert.doesNotMatch(source, /Developer Preview เท่านั้น/);
   assert.match(source, /className="wf-social-promo" href="https:\/\/wynos\.online\/" aria-label="เปิด WYNOS Social"/);
   assert.match(source, /โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos\.online/);
-  assert.match(source, /showBack=\{tab !== "home"\}/);
-  assert.match(source, /onBack=\{\(\) => setTab\("home"\)\}/);
+  assert.match(source, /showBack=\{tab !== "home" \|\| storefrontOpen\}/);
+  assert.match(source, /if \(tab === "home" && storefrontOpen\)/);
+  assert.match(source, /setStorefrontOpen\(false\)/);
   assert.match(css, /\.wf-header--home\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\) auto;/);
 });
 
