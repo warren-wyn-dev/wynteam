@@ -25,6 +25,7 @@ test("Merchant keeps store tenancy separate from the shared WYNOS identity", () 
 const core = fs.readFileSync(new URL("../components/merchant/merchant-core-panels.tsx", import.meta.url), "utf8");
 const coreData = fs.readFileSync(new URL("../lib/merchant-core.ts", import.meta.url), "utf8");
 const migration = fs.readFileSync(new URL("../../supabase/migrations_wynos_merchant_core_completion_v1.sql", import.meta.url), "utf8");
+const reviewMigration = fs.readFileSync(new URL("../../supabase/migrations_wynos_food_store_reviews_v1.sql", import.meta.url), "utf8");
 
 test("Merchant core completion adds staff roles, refunds, readiness, notifications and activity", () => {
   assert.match(core, /MerchantStoreTools/);
@@ -37,6 +38,18 @@ test("Merchant core completion adds staff roles, refunds, readiness, notificatio
   assert.match(migration, /merchant_activity_log/);
   assert.match(migration, /refund_status/);
   assert.match(migration, /trg_food_store_publish_guard/);
+});
+
+test("Merchant can view sanitized verified reviews and reply from store settings", () => {
+  assert.match(core, /รีวิวร้าน/);
+  assert.match(core, /สั่งจริงกับ WYNOS Food/);
+  assert.match(core, /ตอบกลับรีวิว/);
+  assert.match(coreData, /merchant_store_reviews/);
+  assert.match(coreData, /food_reply_store_review/);
+  assert.match(reviewMigration, /create or replace function public\.merchant_store_reviews/);
+  assert.match(reviewMigration, /merchant_has_store_role\(v_review\.store_id,array\['owner','admin','manager'\]\)/);
+  assert.match(reviewMigration, /revoke all on table public\.food_store_reviews from public, anon, authenticated/);
+  assert.doesNotMatch(reviewMigration, /select[\s\S]*username|avatar_url/i);
 });
 
 test("Merchant orders expose search plus payment and date filters", () => {
