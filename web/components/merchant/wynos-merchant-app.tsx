@@ -1353,11 +1353,12 @@ function MenuPanel({
                     const optionCount = Array.isArray(item.options)
                       ? item.options.reduce((sum, group) => sum + (Array.isArray(group.choices) ? group.choices.length : 0), 0)
                       : 0;
+                    const available = foodMenuIsEffectivelyAvailable(item);
                     const soldOutToday = Boolean(item.sold_out_until && Date.parse(item.sold_out_until) > Date.now());
                     const actionOpen = openActionId === item.id;
                     return (
                       <article
-                        className={`wm-menu-row ${item.is_available ? "" : "is-off"} ${soldOutToday ? "is-sold-out" : ""} ${sortMode ? "is-sorting" : ""}`}
+                        className={`wm-menu-row ${available ? "" : "is-off"} ${soldOutToday ? "is-sold-out" : ""} ${sortMode ? "is-sorting" : ""}`}
                         key={item.id}
                         draggable={sortMode && !q}
                         onDragStart={(event) => event.dataTransfer.setData("text/wynos-menu", item.id)}
