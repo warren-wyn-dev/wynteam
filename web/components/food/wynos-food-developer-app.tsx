@@ -45,6 +45,13 @@ import {
 import { shareOrCopyLink } from "@/lib/share";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
+  foodEstimateDeliveryRange,
+  foodMenuIsEffectivelyAvailable,
+  foodStoreIsEffectivelyOpen,
+  foodStoreStatusText,
+  foodStoreTodayHoursText,
+} from "@/lib/food-store-availability";
+import {
   cancelFoodCustomerOrder,
   createFoodCustomerOrder,
   deleteFoodCustomerAddress,
@@ -283,9 +290,10 @@ function FoodNav({
 }
 
 function FoodStatus({ store }: { store: FoodCustomerStore }) {
+  const open = foodStoreIsEffectivelyOpen(store);
   return (
-    <span className={`wf-store-status ${store.is_open ? "is-open" : ""}`}>
-      <i />{store.is_open ? "เปิดรับออเดอร์" : "ปิดรับออเดอร์"}
+    <span className={`wf-store-status ${open ? "is-open" : ""}`}>
+      <i />{foodStoreStatusText(store)}
     </span>
   );
 }
@@ -400,7 +408,12 @@ function HomePanel({
     void fetchStorePlatformCampaigns(client, storeId).then((names) => { if (live) setCampaigns(names); });
     return () => { live = false; };
   }, [client, storeId]);
-  const categories = useMemo(() => ["ทั้งหมด", ...new Set(menu.map((item) => item.category))], [menu]);
+  const categories = useMemo(() => {
+    const present = Array.from(new Set(menu.map((item) => item.category)));
+    const preferred = Array.isArray(store?.menu_category_order) ? store.menu_category_order : [];
+    const ordered = [...preferred.filter((name) => present.includes(name)), ...present.filter((name) => !preferred.includes(name))];
+    return ["ทั้งหมด", ...ordered];
+  }, [menu, store]);
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("th-TH");
     return menu.filter((item) => {
@@ -460,7 +473,8 @@ function HomePanel({
             ) : null}
             {store.description ? <p>{store.description}</p> : null}
             <div className="wf-store-meta">
-              {store.business_hours ? <span><Clock3 size={14} />{store.business_hours}</span> : null}
+              {foodStoreTodayHoursText(store) ? <span><Clock3 size={14} />{foodStoreTodayHoursText(store)}</span> : store.business_hours ? <span><Clock3 size={14} />{store.business_hours}</span> : null}
+              <span><Clock3 size={14} />เตรียมประมาณ {Number(store.prep_time_min_minutes ?? 15)}–{Number(store.prep_time_max_minutes ?? 30)} นาที</span>
               <span><MapPin size={14} />ค่าส่ง {foodMoney(store.delivery_fee)}</span>
               {Number(store.minimum_order) > 0 ? <span>ขั้นต่ำ {foodMoney(store.minimum_order)}</span> : null}
             </div>
@@ -488,19 +502,23 @@ function HomePanel({
 
       {visible.length ? (
         <div className="wf-menu-list">
-          {visible.map((item) => (
-            <button key={item.id} type="button" className={`wf-menu-row ${item.is_available ? "" : "is-off"}`} onClick={() => onItem(item)}>
+          {visible.map((item) => {
+            const available = foodMenuIsEffectivelyAvailable(item);
+            return (
+            <button key={item.id} type="button" className={`wf-menu-row ${available ? "" : "is-off"}`} onClick={() => onItem(item)}>
               <MenuImage client={client} item={item} />
               <span className="wf-menu-copy">
                 <strong>{item.name}</strong>
                 {item.description ? <small>{item.description}</small> : <small>{item.category}</small>}
+                {item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
                 <b>{foodMoney(item.price)}</b>
               </span>
-              <span className={item.is_available ? "wf-add" : "wf-soldout"}>
-                {item.is_available ? <Plus size={18} /> : "หมดชั่วคราว"}
+              <span className={available ? "wf-add" : "wf-soldout"}>
+                {available ? <Plus size={18} /> : "หมดชั่วคราว"}
               </span>
             </button>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="wf-empty wf-empty--compact">
@@ -533,9 +551,10 @@ function CartPanel({
   const campaignDiscount = Number(quote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(quote?.delivery_discount ?? 0);
   const total = quote?.total ?? subtotal + delivery;
-  const hasUnavailable = priced.some((row) => !row.item?.is_available);
+  const hasUnavailable = priced.some((row) => !row.item || !foodMenuIsEffectivelyAvailable(row.item));
   const belowMinimum = subtotal < Number(store?.minimum_order ?? 0);
-  const canCheckout = !!store && store.is_open && cart.length > 0 && !hasUnavailable && !belowMinimum;
+  const storeOpen = !!store && foodStoreIsEffectivelyOpen(store);
+  const canCheckout = !!store && storeOpen && cart.length > 0 && !hasUnavailable && !belowMinimum;
 
   const changeQuantity = (id: string, delta: number) => {
     onCart(cart
@@ -560,12 +579,12 @@ function CartPanel({
         <>
           <div className="wf-cart-list">
             {priced.map(({ line, item }) => (
-              <article key={line.menu_item_id} className={`wf-cart-row ${item?.is_available ? "" : "is-off"}`}>
+              <article key={line.menu_item_id} className={`wf-cart-row ${item && foodMenuIsEffectivelyAvailable(item) ? "" : "is-off"}`}>
                 <div className="wf-cart-copy">
                   <strong>{item?.name ?? "เมนูไม่พร้อมใช้งาน"}</strong>
                   {line.note ? <small>{line.note}</small> : null}
                   <b>{item ? foodMoney(Number(item.price) * line.quantity) : "—"}</b>
-                  {!item?.is_available ? <em>เมนูนี้หมดชั่วคราว กรุณานำออกจากตะกร้า</em> : null}
+                  {!item || !foodMenuIsEffectivelyAvailable(item) ? <em>เมนูนี้หมดชั่วคราว กรุณานำออกจากตะกร้า</em> : null}
                 </div>
                 <div className="wf-qty">
                   <button type="button" aria-label="ลดจำนวน" onClick={() => changeQuantity(line.menu_item_id, -1)}>
@@ -592,7 +611,7 @@ function CartPanel({
           {belowMinimum && store ? (
             <div className="wf-inline-warning">ยอดขั้นต่ำของร้านคือ {foodMoney(store.minimum_order)}</div>
           ) : null}
-          {!store?.is_open ? <div className="wf-inline-warning">ร้านยังไม่เปิดรับออเดอร์</div> : null}
+          {store && !storeOpen ? <div className="wf-inline-warning">{foodStoreStatusText(store)}</div> : null}
 
           <button className="wf-primary wf-full" type="button" disabled={!canCheckout} onClick={onCheckout}>
             ไปชำระเงิน · {foodMoney(total)}
@@ -803,7 +822,8 @@ function ItemSheet({
   const [quantity, setQuantity] = useState(existing?.quantity ?? 1);
   const [note, setNote] = useState(existing?.note ?? "");
   const image = foodPublicUrl(client, item.image_path);
-  const canAdd = item.is_available && storeOpen;
+  const itemAvailable = foodMenuIsEffectivelyAvailable(item);
+  const canAdd = itemAvailable && storeOpen;
 
   return (
     <Sheet title={item.name} onClose={onClose}>
@@ -814,8 +834,8 @@ function ItemSheet({
             <img src={image} alt="" />
           ) : <UtensilsCrossed size={40} strokeWidth={1.35} />}
         </div>
-        <div className="wf-item-title"><div><h3>{item.name}</h3><p>{item.description || item.category}</p></div><strong>{foodMoney(item.price)}</strong></div>
-        {!item.is_available ? <div className="wf-inline-warning">เมนูนี้หมดชั่วคราว</div> : null}
+        <div className="wf-item-title"><div><h3>{item.name}</h3><p>{item.description || item.category}</p>{item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}</div><strong>{foodMoney(item.price)}</strong></div>
+        {!itemAvailable ? <div className="wf-inline-warning">เมนูนี้หมดชั่วคราว</div> : null}
         {!storeOpen ? <div className="wf-inline-warning">ร้านยังไม่เปิดรับออเดอร์</div> : null}
         <label className="wf-field">หมายเหตุถึงร้าน<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น ไม่ใส่ผัก" /></label>
         <div className="wf-item-actions">
@@ -1026,6 +1046,7 @@ function CheckoutSheet({
   const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
   const total = effectiveQuote?.total ?? subtotal + deliveryFee;
+  const eta = foodEstimateDeliveryRange(store, effectiveQuote?.delivery_distance_km);
 
   return (
     <Sheet title="Checkout" onClose={onClose}>
@@ -1057,6 +1078,7 @@ function CheckoutSheet({
           <div><span>ค่าส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{foodMoney(deliveryFee)}</b></div>
           {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
           <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(total)}</b></div>
+          <div><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>
         </div>
         {blockedReason ? <div className="wf-inline-warning" role="alert">{blockedReason}</div> : null}
         {effectiveQuote?.campaign_name ? <div className="wf-promo-applied"><strong>แคมเปญ {effectiveQuote.campaign_name}</strong><small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small></div> : null}
@@ -1689,7 +1711,7 @@ function FoodCustomerInner({
           client={client}
           item={selectedItem}
           existing={cart.find((line) => line.menu_item_id === selectedItem.id) ?? null}
-          storeOpen={store.is_open}
+          storeOpen={foodStoreIsEffectivelyOpen(store)}
           onClose={() => setSelectedItem(null)}
           onAdd={addItem}
         />

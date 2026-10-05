@@ -2,6 +2,7 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
+import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 
@@ -15,6 +16,13 @@ export type FoodCustomerStore = {
   logo_path: string | null;
   cover_path: string | null;
   business_hours: string | null;
+  business_schedule?: FoodBusinessSchedule | Record<string, unknown>;
+  special_closed_dates?: string[];
+  temporary_closed_until?: string | null;
+  temporary_closed_reason?: string | null;
+  prep_time_min_minutes?: number;
+  prep_time_max_minutes?: number;
+  menu_category_order?: string[];
   delivery_area: string | null;
   delivery_fee: number | string;
   minimum_order: number | string;
@@ -49,6 +57,8 @@ export type FoodCustomerMenuItem = {
   image_path: string | null;
   options: unknown[];
   is_available: boolean;
+  sold_out_until?: string | null;
+  daily_stock_limit?: number | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -606,8 +616,10 @@ export function foodPaymentStatusLabel(status: FoodCustomerOrder["payment_status
 export function foodCustomerError(error: unknown, fallback = "ดำเนินการไม่สำเร็จ") {
   const message = error instanceof Error ? error.message : String(error ?? "");
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
+  if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";
   if (message.includes("menu item is unavailable")) return "มีเมนูที่ไม่พร้อมขาย กรุณาตรวจตะกร้าอีกครั้ง";
+  if (message.includes("menu item daily stock exceeded")) return "เมนูจำนวนจำกัดขายครบสำหรับวันนี้แล้ว กรุณาตรวจตะกร้าอีกครั้ง";
   if (message.includes("order cannot be cancelled by customer")) return "ออเดอร์นี้ยกเลิกเองไม่ได้แล้ว กรุณาติดต่อร้าน";
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";

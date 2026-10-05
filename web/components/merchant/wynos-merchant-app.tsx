@@ -7,10 +7,17 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   CircleDollarSign,
   Clock3,
   ImagePlus,
   LogOut,
+  GripVertical,
+  Eye,
+  CalendarDays,
+  History,
+  AlertTriangle,
   MapPin,
   Menu as MenuIcon,
   PackageCheck,
@@ -51,6 +58,9 @@ import {
   deleteStorePlace,
   fetchStorePlaces,
   fetchMerchantSnapshot,
+  fetchMerchantStoreReadiness,
+  fetchMerchantAuditHistory,
+  checkMerchantLocationQuality,
   foodPrivateSignedUrl,
   foodPublicUrl,
   merchantError,
@@ -58,6 +68,9 @@ import {
   paymentLabel,
   saveMenuItem,
   saveStorePlace,
+  saveMenuSortOrder,
+  saveMenuCategoryOrder,
+  setMenuSoldOutToday,
   setFoodPaymentStatus,
   setMenuAvailability,
   statusLabel,
@@ -72,10 +85,21 @@ import {
   type FoodOrder,
   type FoodStore,
   type FoodStorePlace,
+  type MerchantAuditEntry,
+  type MerchantLocationQuality,
+  type MerchantStoreReadiness,
   type MenuDraft,
 } from "@/lib/food-merchant";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { checkFoodServiceArea, currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation, type FoodPlace } from "@/lib/food-customer";
+import {
+  FOOD_DAY_KEYS,
+  defaultFoodBusinessSchedule,
+  foodMenuIsEffectivelyAvailable,
+  foodStoreIsEffectivelyOpen,
+  foodStoreStatusText,
+  type FoodBusinessSchedule,
+} from "@/lib/food-store-availability";
 
 // WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
 // and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
@@ -97,10 +121,29 @@ const EMPTY_MENU_DRAFT: MenuDraft = {
   image_path: null,
   options: [],
   is_available: true,
+  daily_stock_limit: "",
 };
 
 function menuOptionId(prefix: "group" | "choice") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+const FOOD_DAY_LABELS: Record<string, string> = {
+  mon: "จันทร์", tue: "อังคาร", wed: "พุธ", thu: "พฤหัสบดี", fri: "ศุกร์", sat: "เสาร์", sun: "อาทิตย์",
+};
+
+function localDateTimeInput(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+}
+
+function localFutureInput(minutes: number) {
+  const date = new Date(Date.now() + minutes * 60000);
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
 }
 
 // WYN-198: four simple tabs, in the order the store works through them.
@@ -470,7 +513,7 @@ function MerchantInner({
     setActedFrom((current) => new Map(current).set(order.id, order.status));
     try {
       if (next.step === "accept") {
-        await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? 30);
+        await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? Number(store?.prep_time_max_minutes ?? 30));
         setMessage(`รับออเดอร์ #${order.order_number} แล้ว`);
       } else if (next.step === "ready") {
         await transitionFoodOrder(client, order.id, "ready_for_delivery");
@@ -487,10 +530,6 @@ function MerchantInner({
       void load(true);
     }
   };
-  const visibleMenu = useMemo(() => {
-    const q = menuQuery.trim().toLocaleLowerCase("th-TH");
-    return q ? menu.filter((item) => `${item.name} ${item.category}`.toLocaleLowerCase("th-TH").includes(q)) : menu;
-  }, [menu, menuQuery]);
 
   // WYN-201: pull down to refresh on the list tabs (forms and sheets are
   // excluded by the hook: dialogs and inputs never start a pull).
@@ -566,7 +605,8 @@ function MerchantInner({
         {tab === "menu" && store ? (
           <MenuPanel
             client={client}
-            menu={visibleMenu}
+            store={store}
+            menu={menu}
             query={menuQuery}
             onQuery={setMenuQuery}
             onEdit={(item) => setMenuDraft({
@@ -578,6 +618,7 @@ function MerchantInner({
               image_path: item.image_path,
               options: Array.isArray(item.options) ? item.options : [],
               is_available: item.is_available,
+              daily_stock_limit: item.daily_stock_limit == null ? "" : String(item.daily_stock_limit),
             })}
             onAdd={() => setMenuDraft({ ...EMPTY_MENU_DRAFT })}
             onToggle={async (item) => {
@@ -585,6 +626,21 @@ function MerchantInner({
                 await setMenuAvailability(client, store.id, item.id, !item.is_available);
                 await load(true);
               } catch (error) { setMessage(merchantError(error)); }
+            }}
+            onSoldOut={async (item, soldOut) => {
+              try {
+                await setMenuSoldOutToday(client, store.id, item.id, soldOut);
+                setMessage(soldOut ? "ตั้งเมนูหมดวันนี้แล้ว ระบบจะเปิดให้อัตโนมัติวันถัดไป" : "เปิดเมนูกลับแล้ว");
+                await load(true);
+              } catch (error) { setMessage(merchantError(error)); }
+            }}
+            onReorder={async (ids) => {
+              try { await saveMenuSortOrder(client, store.id, ids); await load(true); }
+              catch (error) { setMessage(merchantError(error)); }
+            }}
+            onCategoryOrder={async (categories) => {
+              try { await saveMenuCategoryOrder(client, store.id, categories); await load(true); }
+              catch (error) { setMessage(merchantError(error)); }
             }}
           />
         ) : null}
@@ -635,6 +691,7 @@ function MerchantInner({
           <StorePanel
             client={client}
             store={store}
+            menu={menu}
             userId={userId}
             installPrompt={installPrompt}
             onInstall={() => void install()}
@@ -1032,28 +1089,76 @@ function OrdersPanel({
 }
 function MenuPanel({
   client,
+  store,
   menu,
   query,
   onQuery,
   onEdit,
   onAdd,
   onToggle,
+  onSoldOut,
+  onReorder,
+  onCategoryOrder,
 }: {
   client: SupabaseClient;
+  store: FoodStore;
   menu: FoodMenuItem[];
   query: string;
   onQuery: (value: string) => void;
   onEdit: (item: FoodMenuItem) => void;
   onAdd: () => void;
   onToggle: (item: FoodMenuItem) => void;
+  onSoldOut: (item: FoodMenuItem, soldOut: boolean) => void;
+  onReorder: (ids: string[]) => void;
+  onCategoryOrder: (categories: string[]) => void;
 }) {
-  const categories = Array.from(menu.reduce((groups, item) => {
-    const category = item.category.trim() || "อื่น ๆ";
-    const rows = groups.get(category) ?? [];
-    rows.push(item);
-    groups.set(category, rows);
-    return groups;
-  }, new Map<string, FoodMenuItem[]>()).entries());
+  const q = query.trim().toLocaleLowerCase("th-TH");
+  const displayMenu = q
+    ? menu.filter((item) => `${item.name} ${item.category} ${item.description ?? ""}`.toLocaleLowerCase("th-TH").includes(q))
+    : menu;
+  const presentCategories = Array.from(new Set(menu.map((item) => item.category.trim() || "อื่น ๆ")));
+  const preferred = Array.isArray(store.menu_category_order) ? store.menu_category_order : [];
+  const categoryOrder = [...preferred.filter((name) => presentCategories.includes(name)), ...presentCategories.filter((name) => !preferred.includes(name))];
+  const categories = categoryOrder
+    .map((category) => [category, displayMenu.filter((item) => (item.category.trim() || "อื่น ๆ") === category)] as const)
+    .filter(([, items]) => items.length);
+
+  const moveItem = (dragId: string, targetId: string) => {
+    if (q || dragId === targetId) return;
+    const ids = menu.map((item) => item.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    const next = [...ids];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    onReorder(next);
+  };
+
+  const moveCategory = (dragCategory: string, targetCategory: string) => {
+    if (q || dragCategory === targetCategory) return;
+    const next = [...categoryOrder];
+    const from = next.indexOf(dragCategory);
+    const to = next.indexOf(targetCategory);
+    if (from < 0 || to < 0) return;
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    onCategoryOrder(next);
+  };
+
+  const shiftCategory = (category: string, delta: -1 | 1) => {
+    const index = categoryOrder.indexOf(category);
+    const target = index + delta;
+    if (q || index < 0 || target < 0 || target >= categoryOrder.length) return;
+    const next = [...categoryOrder];
+    [next[index], next[target]] = [next[target], next[index]];
+    onCategoryOrder(next);
+  };
+
+  const shiftItem = (items: FoodMenuItem[], itemId: string, delta: -1 | 1) => {
+    const index = items.findIndex((item) => item.id === itemId);
+    const target = index + delta;
+    if (q || index < 0 || target < 0 || target >= items.length) return;
+    moveItem(itemId, items[target].id);
+  };
 
   return (
     <>
@@ -1062,30 +1167,65 @@ function MenuPanel({
         <button className="wm-small-primary" type="button" onClick={onAdd}><Plus size={17} /> เพิ่มเมนู</button>
       </div>
       <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="ค้นหาเมนูหรือหมวดหมู่" /></label>
+      {!q && menu.length ? <div className="wm-menu-sort-hint"><GripVertical size={15} /> ลากหมวดหมู่หรือเมนูเพื่อจัดลำดับหน้าร้าน</div> : null}
       <div className="wm-menu-categories">
-        {categories.map(([category, items]) => (
-          <section className="wm-menu-category" key={category}>
+        {categories.map(([category, items], categoryIndex) => (
+          <section
+            className="wm-menu-category"
+            key={category}
+            draggable={!q}
+            onDragStart={(event) => event.dataTransfer.setData("text/wynos-category", category)}
+            onDragOver={(event) => { if (event.dataTransfer.types.includes("text/wynos-category")) event.preventDefault(); }}
+            onDrop={(event) => {
+              const source = event.dataTransfer.getData("text/wynos-category");
+              if (source) { event.preventDefault(); moveCategory(source, category); }
+            }}
+          >
             <div className="wm-menu-category-heading">
-              <strong>{category}</strong>
-              <span>{items.length} เมนู</span>
+              <span><GripVertical size={16} /><strong>{category}</strong></span>
+              <span className="wm-sort-controls">
+                <button type="button" aria-label="เลื่อนหมวดหมู่ขึ้น" disabled={Boolean(q) || categoryIndex === 0} onClick={() => shiftCategory(category, -1)}><ChevronUp size={14} /></button>
+                <button type="button" aria-label="เลื่อนหมวดหมู่ลง" disabled={Boolean(q) || categoryIndex === categories.length - 1} onClick={() => shiftCategory(category, 1)}><ChevronDown size={14} /></button>
+                <em>{items.length} เมนู</em>
+              </span>
             </div>
             <div className="wm-menu-list">
-              {items.map((item) => {
+              {items.map((item, itemIndex) => {
                 const image = foodPublicUrl(client, item.image_path);
                 const optionCount = Array.isArray(item.options)
                   ? item.options.reduce((sum, group) => sum + (Array.isArray(group.choices) ? group.choices.length : 0), 0)
                   : 0;
+                const available = foodMenuIsEffectivelyAvailable(item);
+                const soldOutToday = Boolean(item.sold_out_until && Date.parse(item.sold_out_until) > Date.now());
                 return (
-                  <article className={`wm-menu-row ${item.is_available ? "" : "is-off"}`} key={item.id}>
+                  <article
+                    className={`wm-menu-row ${available ? "" : "is-off"}`}
+                    key={item.id}
+                    draggable={!q}
+                    onDragStart={(event) => event.dataTransfer.setData("text/wynos-menu", item.id)}
+                    onDragOver={(event) => { if (event.dataTransfer.types.includes("text/wynos-menu")) event.preventDefault(); }}
+                    onDrop={(event) => {
+                      const source = event.dataTransfer.getData("text/wynos-menu");
+                      if (source) { event.preventDefault(); moveItem(source, item.id); }
+                    }}
+                  >
+                    <span className="wm-menu-drag" aria-hidden="true"><GripVertical size={17} /></span>
                     <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
                       <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
                       <span className="wm-menu-copy">
                         <strong>{item.name}</strong>
-                        <small>{optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
+                        <small>{soldOutToday ? "หมดวันนี้ · เปิดอัตโนมัติวันถัดไป" : item.daily_stock_limit ? `จำกัด ${item.daily_stock_limit} ชิ้น/วัน` : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
                         <b>{money(item.price)}</b>
                       </span>
                     </button>
-                    <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขายชั่วคราว" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
+                    <div className="wm-menu-row-actions">
+                      <span className="wm-sort-controls">
+                        <button type="button" aria-label="เลื่อนเมนูขึ้น" disabled={Boolean(q) || itemIndex === 0} onClick={() => shiftItem(items, item.id, -1)}><ChevronUp size={13} /></button>
+                        <button type="button" aria-label="เลื่อนเมนูลง" disabled={Boolean(q) || itemIndex === items.length - 1} onClick={() => shiftItem(items, item.id, 1)}><ChevronDown size={13} /></button>
+                      </span>
+                      <button className={soldOutToday ? "is-active" : ""} type="button" onClick={() => onSoldOut(item, !soldOutToday)}>{soldOutToday ? "ยกเลิกหมดวันนี้" : "หมดวันนี้"}</button>
+                      <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขาย" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
+                    </div>
                   </article>
                 );
               })}
@@ -1136,6 +1276,7 @@ function ReportsPanel({ orders }: { orders: FoodOrder[] }) {
 function StorePanel({
   client,
   store,
+  menu,
   userId,
   installPrompt,
   onInstall,
@@ -1146,6 +1287,7 @@ function StorePanel({
 }: {
   client: SupabaseClient;
   store: FoodStore;
+  menu: FoodMenuItem[];
   userId: string;
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
@@ -1155,7 +1297,47 @@ function StorePanel({
   onSignOut: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [readiness, setReadiness] = useState<MerchantStoreReadiness | null>(null);
+  const [audit, setAudit] = useState<MerchantAuditEntry[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void Promise.all([
+      fetchMerchantStoreReadiness(client, store.id),
+      fetchMerchantAuditHistory(client, store.id),
+    ]).then(([nextReadiness, nextAudit]) => {
+      if (!live) return;
+      setReadiness(nextReadiness);
+      setAudit(nextAudit);
+    }).catch(() => {
+      if (live) { setReadiness(null); setAudit([]); }
+    });
+    return () => { live = false; };
+  }, [client, store.id, store.updated_at, menu.length]);
+
+  const checklistLabels: Record<string, string> = {
+    name: "ชื่อร้าน",
+    description: "รายละเอียดร้าน",
+    phone: "เบอร์ติดต่อ",
+    address: "ที่อยู่ร้าน",
+    logo: "รูปโปรไฟล์",
+    cover: "รูปปก",
+    location: "ตำแหน่งร้าน",
+    schedule: "เวลาเปิด–ปิด",
+    prep_time: "เวลาเตรียมอาหาร",
+    payment: "ข้อมูลรับชำระเงิน",
+    menu: "เมนูอาหาร",
+  };
+  const entries = readiness ? Object.entries(readiness.checks) : [];
+  const completed = entries.filter(([, ready]) => ready).length;
+  const progress = entries.length ? Math.round((completed / entries.length) * 100) : 0;
+
   const togglePublished = async () => {
+    if (!store.is_published && readiness && !readiness.ready) {
+      onMessage("กรุณาตั้งค่าร้านให้ครบก่อนเผยแพร่");
+      return;
+    }
     setBusy(true);
     try {
       await setMerchantStorePublished(client, store.id, !store.is_published);
@@ -1163,19 +1345,34 @@ function StorePanel({
     } catch (error) { onMessage(merchantError(error)); onReload(); }
     finally { setBusy(false); }
   };
+
   return (
     <>
       <div className="wm-page-heading"><div><small>การตั้งค่า</small><h1>ร้านค้า</h1></div></div>
+
+      <section className="wm-onboarding-card">
+        <div className="wm-onboarding-head">
+          <span><strong>ความพร้อมของร้าน</strong><small>{readiness?.ready ? "พร้อมเผยแพร่และรับออเดอร์" : "ตั้งค่าร้านให้ครบก่อนเปิดใช้งานจริง"}</small></span>
+          <b>{progress}%</b>
+        </div>
+        <div className="wm-onboarding-progress"><i style={{ width: `${progress}%` }} /></div>
+        <div className="wm-onboarding-checks">
+          {entries.map(([key, ready]) => <span key={key} className={ready ? "is-ready" : ""}>{ready ? <Check size={13} /> : <AlertTriangle size={13} />}{checklistLabels[key] ?? key}</span>)}
+        </div>
+        {!readiness?.ready ? <button className="wm-secondary wm-full" type="button" onClick={onEdit}>ตั้งค่าร้านให้ครบ</button> : null}
+      </section>
+
       <section className="wm-store-brand-card">
         <div className="wm-store-brand-card-cover">
           {store.cover_path ? <img src={foodPublicUrl(client, store.cover_path) ?? ""} alt="" /> : <Store size={40} strokeWidth={1.4} />}
         </div>
         <div className="wm-store-brand-card-main">
           <div className="wm-store-avatar">{store.logo_path ? <img src={foodPublicUrl(client, store.logo_path) ?? ""} alt="" /> : <Store size={30} strokeWidth={1.6} />}</div>
-          <div><strong>{store.name}</strong><small>{store.address || "ยังไม่ได้ใส่ที่อยู่ร้าน"}</small></div>
+          <div><strong>{store.name}</strong><small>{foodStoreStatusText(store)} · {store.address || "ยังไม่ได้ใส่ที่อยู่ร้าน"}</small></div>
           <button type="button" onClick={onEdit}>แก้ไข</button>
         </div>
       </section>
+
       {store.latitude != null && store.longitude != null ? (
         <section className="wm-store-location-card">
           <div className="wm-store-location-card-head">
@@ -1195,19 +1392,91 @@ function StorePanel({
           <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น WYNOS Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={onEdit}>เพิ่มตำแหน่ง</button>
         </section>
       )}
+
       <section className="wm-settings-list">
-        <button type="button" onClick={() => void togglePublished()} disabled={busy || Boolean(store.admin_suspended_at)}>
-          <span><strong>เผยแพร่ WYNOS Food</strong><small>{store.is_published ? "ลูกค้าเห็นร้านได้แล้ว" : "ร้านยังซ่อนจากลูกค้า"}</small></span>
+        <button type="button" onClick={() => void togglePublished()} disabled={busy || Boolean(store.admin_suspended_at) || (!store.is_published && readiness !== null && !readiness.ready)}>
+          <span><strong>เผยแพร่ WYNOS Food</strong><small>{store.is_published ? "ลูกค้าเห็นร้านได้แล้ว" : readiness?.ready ? "พร้อมเปิดร้านให้ลูกค้าเห็น" : "ต้องตั้งค่าร้านให้ครบก่อน"}</small></span>
           <span className={`wm-switch ${store.is_published ? "is-on" : ""}`}><i /></span>
         </button>
-        <button type="button" onClick={onEdit}><span><strong>ข้อมูลร้านและการจัดส่ง</strong><small>เวลาเปิด · พื้นที่ส่ง · ค่าส่ง · ยอดขั้นต่ำ</small></span><ChevronRight size={19} /></button>
+        <button type="button" onClick={() => setPreviewOpen(true)}><span><strong>ดูแบบลูกค้า</strong><small>Preview หน้าร้านก่อนเผยแพร่จริง</small></span><Eye size={19} /></button>
+        <button type="button" onClick={onEdit}><span><strong>ข้อมูลร้านและการจัดส่ง</strong><small>เวลาเปิด · ETA · ตำแหน่ง · ค่าส่ง</small></span><ChevronRight size={19} /></button>
         <button type="button" onClick={onEdit}><span><strong>รับชำระเงิน</strong><small>PromptPay · บัญชีธนาคาร · QR</small></span><ChevronRight size={19} /></button>
         <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span><strong>เสียงแจ้งเตือนออเดอร์</strong><small>แตะเพื่อลองฟังเสียงของ Wynos Merchant</small></span><BellRing size={19} /></button>
         {installPrompt ? <button type="button" onClick={onInstall}><span><strong>ติดตั้งเป็นแอป</strong><small>เพิ่ม WYNOS Merchant ไว้บนหน้าจอหลัก</small></span><ChevronRight size={19} /></button> : null}
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><ChevronRight size={19} /></button>
       </section>
+
+      <section className="wm-audit-card">
+        <div className="wm-section-title"><h2><History size={18} /> ประวัติการแก้ไขร้าน</h2><small>{audit.length} รายการล่าสุด</small></div>
+        {audit.length ? <div className="wm-audit-list">{audit.slice(0, 12).map((entry) => (
+          <div key={entry.id}>
+            <span><strong>{merchantAuditLabel(entry.event_type)}</strong><small>{entry.actor_username ? `โดย @${entry.actor_username}` : "โดยทีมร้าน"}</small></span>
+            <time>{new Date(entry.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</time>
+          </div>
+        ))}</div> : <small>ยังไม่มีประวัติการแก้ไขในระบบใหม่</small>}
+      </section>
+
       <MerchantStoreTools client={client} store={store} userId={userId} onMessage={onMessage} />
+
+      {previewOpen ? <MerchantStorefrontPreview client={client} store={store} menu={menu} onClose={() => setPreviewOpen(false)} /> : null}
     </>
+  );
+}
+
+function merchantAuditLabel(eventType: string) {
+  if (eventType === "merchant_store_published") return "เผยแพร่ร้าน";
+  if (eventType === "merchant_store_unpublished") return "ซ่อนร้าน";
+  if (eventType === "merchant_menu_created") return "เพิ่มเมนู";
+  if (eventType === "merchant_menu_deleted") return "ลบเมนู";
+  if (eventType === "merchant_menu_reordered") return "จัดลำดับเมนู";
+  if (eventType === "merchant_menu_updated") return "แก้ไขเมนู";
+  return "แก้ไขข้อมูลร้าน";
+}
+
+function MerchantStorefrontPreview({
+  client,
+  store,
+  menu,
+  onClose,
+}: {
+  client: SupabaseClient;
+  store: FoodStore;
+  menu: FoodMenuItem[];
+  onClose: () => void;
+}) {
+  const preferred = Array.isArray(store.menu_category_order) ? store.menu_category_order : [];
+  const categories = Array.from(new Set(menu.map((item) => item.category)));
+  categories.sort((a, b) => {
+    const ai = preferred.indexOf(a);
+    const bi = preferred.indexOf(b);
+    if (ai < 0 && bi < 0) return 0;
+    if (ai < 0) return 1;
+    if (bi < 0) return -1;
+    return ai - bi;
+  });
+  return (
+    <Sheet title="Preview หน้าร้าน" onClose={onClose} wide>
+      <div className="wm-customer-preview">
+        <div className="wm-preview-cover">{store.cover_path ? <img src={foodPublicUrl(client, store.cover_path) ?? ""} alt="" /> : <Store size={42} />}</div>
+        <div className="wm-preview-store">
+          <span>{store.logo_path ? <img src={foodPublicUrl(client, store.logo_path) ?? ""} alt="" /> : <Store size={25} />}</span>
+          <div><h3>{store.name}</h3><small className={foodStoreIsEffectivelyOpen(store) ? "is-open" : ""}>{foodStoreStatusText(store)}</small><p>{store.description || "ยังไม่มีรายละเอียดร้าน"}</p></div>
+        </div>
+        <div className="wm-preview-meta"><span>เตรียม {Number(store.prep_time_min_minutes ?? 15)}–{Number(store.prep_time_max_minutes ?? 30)} นาที</span><span>ค่าส่งเริ่มต้น {money(store.delivery_fee)}</span></div>
+        {categories.map((category) => (
+          <section key={category}>
+            <h4>{category}</h4>
+            {menu.filter((item) => item.category === category).map((item) => {
+              const available = foodMenuIsEffectivelyAvailable(item);
+              return <div className={`wm-preview-menu ${available ? "" : "is-off"}`} key={item.id}>
+                <span>{item.image_path ? <img src={foodPublicUrl(client, item.image_path) ?? ""} alt="" /> : <UtensilsCrossed size={22} />}</span>
+                <div><strong>{item.name}</strong><small>{item.description || (available ? "พร้อมขาย" : "หมดชั่วคราว")}</small><b>{money(item.price)}</b></div>
+              </div>;
+            })}
+          </section>
+        ))}
+      </div>
+    </Sheet>
   );
 }
 
@@ -1645,6 +1914,11 @@ function MenuEditor({
           )) : <div className="wm-option-empty">ยังไม่มีตัวเลือกเสริม กด “เพิ่มกลุ่ม” เพื่อเริ่มเพิ่มได้</div>}
         </section>
 
+        <section className="wm-menu-stock-editor">
+          <div><strong>จำนวนขายต่อวัน</strong><small>เว้นว่าง = ไม่จำกัด ระบบนับใหม่ทุกวันตามเวลาไทย</small></div>
+          <label>สูงสุดต่อวัน<input type="number" min="1" max="9999" inputMode="numeric" value={form.daily_stock_limit ?? ""} onChange={(e) => setForm({ ...form, daily_stock_limit: e.target.value })} placeholder="ไม่จำกัด" /></label>
+          <small>ถ้ายอดครบ ระบบจะไม่รับออเดอร์เพิ่มของเมนูนี้จนถึงวันถัดไป</small>
+        </section>
         <label className="wm-check-row"><input type="checkbox" checked={form.is_available} onChange={(e) => setForm({ ...form, is_available: e.target.checked })} /><span><strong>เปิดขาย</strong><small>ปิดได้ทันทีเมื่อเมนูหมด</small></span></label>
         <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกเมนู"}</button>
         {form.id ? <button className="wm-danger-link" type="button" disabled={busy} onClick={() => void remove()}>ลบเมนู</button> : null}
@@ -1672,6 +1946,9 @@ function StoreEditor({
     phone: store.phone ?? "",
     address: store.address ?? "",
     business_hours: store.business_hours ?? "",
+    temporary_closed_reason: store.temporary_closed_reason ?? "",
+    prep_time_min_minutes: String(store.prep_time_min_minutes ?? 15),
+    prep_time_max_minutes: String(store.prep_time_max_minutes ?? 30),
     delivery_area: store.delivery_area ?? "",
     delivery_fee: String(store.delivery_fee),
     minimum_order: String(store.minimum_order),
@@ -1696,6 +1973,13 @@ function StoreEditor({
   const [coverState, setCoverState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(store.cover_path ? "uploaded" : "idle");
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [schedule, setSchedule] = useState<FoodBusinessSchedule>(() => {
+    const current = store.business_schedule as FoodBusinessSchedule | undefined;
+    return current?.weekly ? current : defaultFoodBusinessSchedule();
+  });
+  const [specialClosedDates, setSpecialClosedDates] = useState<string[]>(() => Array.isArray(store.special_closed_dates) ? store.special_closed_dates : []);
+  const [newClosedDate, setNewClosedDate] = useState("");
+  const [temporaryClosedUntil, setTemporaryClosedUntil] = useState(() => localDateTimeInput(store.temporary_closed_until));
   // WYN-196: pinned store location for the delivery radius and per-km fee.
   const [pin, setPin] = useState<FoodLocation | null>(
     store.latitude != null && store.longitude != null ? { latitude: Number(store.latitude), longitude: Number(store.longitude) } : null,
@@ -1715,6 +1999,8 @@ function StoreEditor({
   const serviceAreaKey = pin ? `${pin.latitude.toFixed(6)},${pin.longitude.toFixed(6)}` : "";
   const serviceAreaState: "idle" | "checking" | "inside" | "outside" | "error" =
     !pin ? "idle" : serviceAreaCheck?.key === serviceAreaKey ? serviceAreaCheck.status : "checking";
+  const [locationQualityState, setLocationQualityState] = useState<{ key: string; value: MerchantLocationQuality | null } | null>(null);
+  const locationQuality = locationQualityState?.key === serviceAreaKey ? locationQualityState.value : null;
 
   useEffect(() => {
     return () => {
@@ -1732,6 +2018,16 @@ function StoreEditor({
       .catch(() => { if (live) setServiceAreaCheck({ key, status: "error" }); });
     return () => { live = false; };
   }, [client, pin]);
+
+  useEffect(() => {
+    if (!pin) return;
+    let live = true;
+    const key = `${pin.latitude.toFixed(6)},${pin.longitude.toFixed(6)}`;
+    void checkMerchantLocationQuality(client, store.id, pin.latitude, pin.longitude, form.name)
+      .then((value) => { if (live) setLocationQualityState({ key, value }); })
+      .catch(() => { if (live) setLocationQualityState({ key, value: null }); });
+    return () => { live = false; };
+  }, [client, form.name, pin, store.id]);
 
   const chooseBrandImage = (kind: "logo" | "cover", file: File | null) => {
     if (!file) return;
@@ -1809,6 +2105,12 @@ function StoreEditor({
         phone: form.phone.trim() || null,
         address: form.address.trim() || null,
         business_hours: form.business_hours.trim() || null,
+        business_schedule: schedule,
+        special_closed_dates: specialClosedDates,
+        temporary_closed_until: temporaryClosedUntil ? new Date(temporaryClosedUntil).toISOString() : null,
+        temporary_closed_reason: form.temporary_closed_reason.trim() || null,
+        prep_time_min_minutes: Number(form.prep_time_min_minutes || 15),
+        prep_time_max_minutes: Number(form.prep_time_max_minutes || 30),
         delivery_area: form.delivery_area.trim() || null,
         delivery_fee: Number(form.delivery_fee || 0),
         minimum_order: Number(form.minimum_order || 0),
@@ -1876,7 +2178,44 @@ function StoreEditor({
         <label>รายละเอียด<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
         <label>เบอร์ร้าน<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" /></label>
         <label>ที่อยู่ร้าน<textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
-        <label>เวลาเปิด–ปิด<input value={form.business_hours} onChange={(e) => setForm({ ...form, business_hours: e.target.value })} placeholder="เช่น ทุกวัน 10:00–20:00" /></label>
+        <label>ข้อความสรุปเวลา <small>ไม่บังคับ</small><input value={form.business_hours} onChange={(e) => setForm({ ...form, business_hours: e.target.value })} placeholder="เช่น เปิดทุกวัน" /></label>
+        <section className="wm-schedule-editor">
+          <div className="wm-schedule-heading"><span><CalendarDays size={18} /><strong>เวลาเปิด–ปิดรายวัน</strong></span><small>ระบบจะเปิด/ปิดการรับออเดอร์ตามเวลาไทยอัตโนมัติ</small></div>
+          <div className="wm-schedule-days">
+            {FOOD_DAY_KEYS.map((key) => {
+              const day = schedule.weekly[key] ?? { enabled: false, open: "09:00", close: "21:00" };
+              return <div className="wm-schedule-day" key={key}>
+                <label className="wm-check-row"><input type="checkbox" checked={day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, enabled: e.target.checked } } }))} /><span><strong>{FOOD_DAY_LABELS[key]}</strong><small>{day.enabled ? "เปิด" : "ปิด"}</small></span></label>
+                <input type="time" value={day.open} disabled={!day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, open: e.target.value } } }))} />
+                <span>–</span>
+                <input type="time" value={day.close} disabled={!day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, close: e.target.value } } }))} />
+              </div>;
+            })}
+          </div>
+          <div className="wm-special-days">
+            <strong>วันหยุดพิเศษ</strong>
+            <div className="wm-two-actions">
+              <input type="date" value={newClosedDate} onChange={(e) => setNewClosedDate(e.target.value)} />
+              <button className="wm-secondary" type="button" disabled={!newClosedDate || specialClosedDates.includes(newClosedDate)} onClick={() => { setSpecialClosedDates((rows) => [...rows, newClosedDate].sort()); setNewClosedDate(""); }}>เพิ่มวันหยุด</button>
+            </div>
+            {specialClosedDates.length ? <div className="wm-date-chips">{specialClosedDates.map((date) => <button type="button" key={date} onClick={() => setSpecialClosedDates((rows) => rows.filter((row) => row !== date))}>{date} <X size={13} /></button>)}</div> : <small>ยังไม่มีวันหยุดพิเศษ</small>}
+          </div>
+          <div className="wm-temporary-close">
+            <strong>ปิดชั่วคราว</strong>
+            <div className="wm-quick-close">
+              <button type="button" onClick={() => setTemporaryClosedUntil(localFutureInput(30))}>30 นาที</button>
+              <button type="button" onClick={() => setTemporaryClosedUntil(localFutureInput(60))}>1 ชั่วโมง</button>
+              <button type="button" onClick={() => setTemporaryClosedUntil(localFutureInput(180))}>3 ชั่วโมง</button>
+              <button type="button" onClick={() => setTemporaryClosedUntil("")}>ยกเลิก</button>
+            </div>
+            <label>ปิดถึง<input type="datetime-local" value={temporaryClosedUntil} onChange={(e) => setTemporaryClosedUntil(e.target.value)} /></label>
+            <label>เหตุผล<input value={form.temporary_closed_reason} onChange={(e) => setForm({ ...form, temporary_closed_reason: e.target.value })} maxLength={200} placeholder="เช่น วัตถุดิบหมด / พักร้านชั่วคราว" /></label>
+          </div>
+          <div className="wm-form-grid">
+            <label>เตรียมอาหารเร็วสุด (นาที)<input type="number" min="1" max="240" value={form.prep_time_min_minutes} onChange={(e) => setForm({ ...form, prep_time_min_minutes: e.target.value })} /></label>
+            <label>เตรียมอาหารช้าสุด (นาที)<input type="number" min="1" max="240" value={form.prep_time_max_minutes} onChange={(e) => setForm({ ...form, prep_time_max_minutes: e.target.value })} /></label>
+          </div>
+        </section>
         <h3>การจัดส่ง</h3>
         <label>พื้นที่จัดส่ง<textarea value={form.delivery_area} onChange={(e) => setForm({ ...form, delivery_area: e.target.value })} placeholder="เช่น รัศมี 5 กม. / เขตที่ให้บริการ" /></label>
         <div className="wm-form-grid"><label>ค่าส่งเริ่มต้น<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label><label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label></div>
@@ -1899,6 +2238,9 @@ function StoreEditor({
             </div>
           ) : null}
           {pinStatus ? <p role="status">{pinStatus}</p> : null}
+          {pin && locationQuality ? <div className={`wm-location-quality ${locationQuality.warnings.length ? "has-warning" : "is-good"}`}>
+            <span><strong>คุณภาพตำแหน่ง {locationQuality.score}/100</strong><small>{locationQuality.warnings.includes("possible_duplicate") ? "พบร้านชื่อเดียวกันใกล้จุดนี้ อาจเป็นร้านซ้ำ" : locationQuality.warnings.includes("very_close_to_another_store") ? "มีร้านอื่นอยู่ใกล้มาก โปรดตรวจหมุดให้ตรงหน้าร้าน" : locationQuality.warnings.includes("pickup_far_from_store") ? "จุดรับอาหารอยู่ห่างจากร้านมากผิดปกติ" : "ตำแหน่งดูปกติ ✓"}</small></span>
+          </div> : null}
 
           <div className="wm-form-grid">
             <label>ส่งไกลสุด (กม.)<input type="number" min="0.5" max="50" step="0.5" inputMode="decimal" value={form.delivery_radius_km} onChange={(e) => setForm({ ...form, delivery_radius_km: e.target.value })} /></label>

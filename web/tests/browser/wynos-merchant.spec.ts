@@ -74,6 +74,34 @@ test("Merchant uses interactive maps for store, pickup and frequent delivery pla
   expect(sql).toContain("create or replace function public.wynos_place_details");
 });
 
+test("Merchant production readiness suite covers hours, publish gate, ETA, ordering and audit", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const merchant = read("lib/food-merchant.ts");
+  const availability = read("lib/food-store-availability.ts");
+  const sql = read("../supabase/migrations_wynos_merchant_production_readiness_v1.sql");
+
+  expect(app).toContain("ความพร้อมของร้าน");
+  expect(app).toContain("เวลาเปิด–ปิดรายวัน");
+  expect(app).toContain("วันหยุดพิเศษ");
+  expect(app).toContain("ปิดชั่วคราว");
+  expect(app).toContain("Preview หน้าร้าน");
+  expect(app).toContain("หมดวันนี้");
+  expect(app).toContain("draggable={!q}");
+  expect(app).toContain("ประวัติการแก้ไขร้าน");
+  expect(app).toContain("checkMerchantLocationQuality");
+  expect(merchant).toContain("food_store_publish_readiness");
+  expect(merchant).toContain("merchant_store_audit_history");
+  expect(merchant).toContain("sold_out_until");
+  expect(availability).toContain("foodEstimateDeliveryRange");
+  expect(availability).toContain("foodStoreIsEffectivelyOpen");
+  expect(sql).toContain("food_stores_guard_publish_readiness");
+  expect(sql).toContain("food_orders_guard_store_schedule");
+  expect(sql).toContain("food_order_items_guard_availability");
+  expect(sql).toContain("daily_stock_limit");
+  expect(app).toContain("จำนวนขายต่อวัน");
+  expect(sql).toContain("merchant_menu_reordered");
+});
+
 test("Merchant receives orders from WYNOS Food only while keeping delivery workflow", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
@@ -264,7 +292,7 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
 
   // The card runs simple steps; the slip and the delivery photo still need the order open.
   expect(app).toContain('if (next.step === "check_slip" || next.step === "deliver") {');
-  expect(app).toContain('await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? 30);');
+  expect(app).toContain('await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? Number(store?.prep_time_max_minutes ?? 30));');
 
   // One button confirms the payment and accepts; accepting still needs a paid order.
   expect(app).toContain('await setFoodPaymentStatus(client, order.id, "paid");\n                    await transitionFoodOrder(client, order.id, "preparing", eta);');
