@@ -18,6 +18,7 @@ import {
   Phone,
   Plus,
   Search,
+  Share2,
   ShoppingBag,
   Store,
   Truck,
@@ -38,6 +39,8 @@ import { MerchantFinance } from "@/components/merchant/merchant-finance";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
+import { foodStoreShareData } from "@/lib/food-share";
+import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NewOrderAlert, previewMerchantOrderSound, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
@@ -792,7 +795,13 @@ function HomePanel({
       <section className="wm-hero">
         <div className="wm-hero-top">
           <div><small>ร้านของคุณ</small><h1>{store.name}</h1></div>
-          <button className="wm-hero-edit" type="button" aria-label="แก้ไขร้าน" onClick={onEditStore}><Pencil size={19} /></button>
+          <span className="wm-hero-actions">
+            {/* Only a published store is visible to customers on WYNOS Food. */}
+            {store.is_published && !store.admin_suspended_at ? (
+              <button className="wm-hero-edit" type="button" aria-label="แชร์ลิงก์ร้านให้ลูกค้าสั่งอาหาร" onClick={() => void shareOrCopyLink(foodStoreShareData(store), onMessage)}><Share2 size={19} /></button>
+            ) : null}
+            <button className="wm-hero-edit" type="button" aria-label="แก้ไขร้าน" onClick={onEditStore}><Pencil size={19} /></button>
+          </span>
         </div>
         <button className="wm-hero-sales" type="button" onClick={() => onOpenTab("reports")}>
           <small>ยอดขายวันนี้</small>

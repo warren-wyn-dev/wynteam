@@ -1934,6 +1934,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-hero-top > div { min-width: 0; }
 .wm-hero-top small { opacity: .85; font-size: 12.5px; }
 .wm-hero-top h1 { margin: 2px 0 0; overflow-wrap: anywhere; font-size: 23px; line-height: 1.25; letter-spacing: -.4px; }
+.wm-hero-actions { flex: 0 0 auto; display: flex; gap: 8px; }
 .wm-hero-edit { flex: 0 0 44px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .2); color: #fff; display: grid; place-items: center; }
 .wm-hero-sales { margin-top: 14px; padding: 0; border: 0; background: transparent; color: #fff; display: grid; justify-items: start; gap: 2px; text-align: left; }
 .wm-hero-sales small { opacity: .88; font-size: 13px; }

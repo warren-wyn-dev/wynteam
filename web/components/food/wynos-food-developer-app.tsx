@@ -15,6 +15,7 @@ import {
   Plus,
   ReceiptText,
   Search,
+  Share2,
   ShoppingBag,
   Store,
   Trash2,
@@ -27,12 +28,20 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { rememberFoodArea } from "@/lib/food-area-memory";
+import {
+  clearSharedFoodStore,
+  foodStoreShareData,
+  pendingSharedFoodStore,
+  rememberSharedFoodStore,
+  sharedFoodStoreId,
+} from "@/lib/food-share";
+import { shareOrCopyLink } from "@/lib/share";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   cancelFoodCustomerOrder,
@@ -365,12 +374,14 @@ function HomePanel({
   menu,
   onItem,
   onPickStore,
+  onShareStore,
 }: {
   client: SupabaseClient;
   store: FoodCustomerStore | null;
   menu: FoodCustomerMenuItem[];
   onItem: (item: FoodCustomerMenuItem) => void;
   onPickStore: (store: FoodDirectoryStore, placement: "home" | "search") => void;
+  onShareStore: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("ทั้งหมด");
@@ -416,6 +427,9 @@ function HomePanel({
       <StoreDirectory client={client} currentStoreId={store.id} onPick={onPickStore} />
 
       <section className="wf-store-hero">
+        <button className="wf-store-share" type="button" aria-label={`แชร์ลิงก์ร้าน ${store.name}`} onClick={onShareStore}>
+          <Share2 size={16} strokeWidth={2} />แชร์ร้าน
+        </button>
         <div className="wf-store-cover">
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1311,22 +1325,37 @@ function FoodCustomerInner({
   };
   // WYN-207: the store picked from the directory (remembered on this device).
   const storeKey = `wynos-food-store-v1:${userId}`;
-  const [initialPickedStore] = useState(() => {
-    if (typeof window === "undefined") return "";
+  // A shared link (?store=, or one kept across sign-in) wins over the pick
+  // remembered on this device. Opening another store empties the cart, the
+  // same as picking a different store from the directory.
+  const [opening] = useState(() => {
+    if (typeof window === "undefined") return { storeId: "", fromLink: false, cartCleared: false };
+    let remembered = "";
+    try { remembered = localStorage.getItem(storeKey) ?? ""; } catch { /* private mode */ }
+    const shared = sharedFoodStoreId(window.location.search) ?? pendingSharedFoodStore();
+    if (!shared) return { storeId: remembered, fromLink: false, cartCleared: false };
+    let hasCart = false;
     try {
-      const requested = new URLSearchParams(window.location.search).get("store")?.trim() ?? "";
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requested)) {
-        return requested;
-      }
-      return localStorage.getItem(storeKey) ?? "";
-    } catch {
-      return "";
-    }
+      const saved = JSON.parse(localStorage.getItem(`wynos-food-cart-v1:${userId}`) ?? "[]");
+      hasCart = Array.isArray(saved) && saved.length > 0;
+    } catch { /* unreadable cart is treated as empty */ }
+    return { storeId: shared, fromLink: true, cartCleared: hasCart && shared !== remembered };
   });
-  const pickedStoreRef = useRef<string>(initialPickedStore);
+  const pickedStoreRef = useRef<string>(opening.storeId);
+  useEffect(() => {
+    if (!opening.fromLink) return;
+    clearSharedFoodStore();
+    try { localStorage.setItem(storeKey, opening.storeId); } catch { /* private mode */ }
+    // Drop ?store= so a later pick from the directory survives a reload.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("store")) {
+      url.searchParams.delete("store");
+      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  }, [opening, storeKey]);
   const [tab, setTab] = useState<FoodTab>("home");
   const [cart, setCart] = useState<FoodCartLine[]>(() => {
-    if (typeof window === "undefined") return [];
+    if (typeof window === "undefined" || opening.cartCleared) return [];
     try {
       const raw = localStorage.getItem(`wynos-food-cart-v1:${userId}`);
       const parsed = raw ? JSON.parse(raw) : [];
@@ -1340,7 +1369,7 @@ function FoodCustomerInner({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quote, setQuote] = useState<FoodOrderQuote | null>(null);
   const [addressDraft, setAddressDraft] = useState<FoodAddressDraft | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(() => opening.cartCleared ? "เปิดร้านจากลิงก์ที่แชร์ ตะกร้าเดิมถูกล้างแล้ว" : "");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
@@ -1568,6 +1597,10 @@ function FoodCustomerInner({
     window.scrollTo({ top: 0, behavior: "smooth" });
     void load(true);
   };
+  const shareStore = () => {
+    if (!store) return;
+    void shareOrCopyLink(foodStoreShareData(store), setMessage);
+  };
   const pull = usePullToRefresh({ enabled: tab === "home" || tab === "orders", onRefresh: async () => { await load(true); } });
 
   if (!snapshot) return <FoodLoading />;
@@ -1590,7 +1623,7 @@ function FoodCustomerInner({
 
       <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดต WYNOS Food" />
       <section className="wf-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
-        {tab === "home" ? <HomePanel client={client} store={store} menu={menu} onItem={setSelectedItem} onPickStore={pickStore} /> : null}
+        {tab === "home" ? <HomePanel client={client} store={store} menu={menu} onItem={setSelectedItem} onPickStore={pickStore} onShareStore={shareStore} /> : null}
         {tab === "orders" ? <OrdersPanel orders={orders} onOrder={setSelectedOrder} /> : null}
         {tab === "messages" ? <MessagesPanel /> : null}
         {tab === "cart" ? <CartPanel store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}
@@ -1672,6 +1705,14 @@ function FoodCustomerInner({
 }
 
 export function WynosFoodDeveloperApp() {
+  // A layout effect runs before the sign-in redirect (a passive effect in the
+  // gate) leaves this page, so a signed-out customer who tapped a shared store
+  // link still opens that store after signing in. It also runs before the
+  // signed-in app clears the kept store once it has opened it.
+  useLayoutEffect(() => {
+    const shared = sharedFoodStoreId(window.location.search);
+    if (shared) rememberSharedFoodStore(shared);
+  }, []);
   return (
     <DeveloperRouteGate>
       {({ client, userId }) => <FoodCustomerInner key={userId} client={client} userId={userId} />}
