@@ -109,6 +109,9 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
   assert.match(source, /wf-store-favorite/);
   const homeRows = source.slice(source.indexOf("function FoodDirectoryStoreRow"), source.indexOf("function FavoriteStoresSheet"));
   assert.doesNotMatch(homeRows, /<Heart\b/);
+  assert.doesNotMatch(homeRows, /wf-home-store-logo/);
+  assert.doesNotMatch(css, /\.wf-home-store-logo/);
+  assert.match(css, /\.wf-home-store-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 17px;/);
 
   assert.match(css, /\.wf-home-store-photo\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
   assert.match(css, /\.wf-recent-store > span\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
