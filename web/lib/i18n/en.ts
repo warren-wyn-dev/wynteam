@@ -2464,6 +2464,8 @@ Object.assign(EN_EXACT, {
   "ประกาศสำคัญ": "Important announcements",
   "Quiet Hours เปิดอยู่ — ระบบยังแสดงออเดอร์ แต่ไม่ส่งเสียงหรือสั่น": "Quiet Hours is on — orders still appear, but there is no sound or vibration",
   "เลือกที่อยู่จัดส่ง": "Choose delivery address",
+  "จัดส่ง": "Delivery",
+  "ยังไม่มีร้านโปรด": "No favorite stores yet",
   "จัดส่งที่": "Deliver to",
   "ร้านโปรด": "Favorite stores",
   "รับเองที่ร้านกำลังเตรียมเปิดให้บริการ": "Store pickup is being prepared",
