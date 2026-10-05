@@ -163,6 +163,7 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(publicGeocoder).toContain("LOCATIONIQ_API_KEY");
   expect(map).toContain("Geocoding by Photon");
   expect(map).toContain("© OpenStreetMap contributors");
+  expect(map).toContain("Places: Overture Maps Foundation");
   expect(map).toContain("wf-map-attribution-button");
   expect(map).toContain("wf-map-attribution-panel");
   expect(map).toContain("ข้อมูลแผนที่และแหล่งข้อมูล");
