@@ -1382,6 +1382,7 @@ export function FoodDeliveryMapPicker({
               <a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a>
               <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">© OpenMapTiles</a>
               <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
+              <a href="https://overturemaps.org" target="_blank" rel="noreferrer">Places: Overture Maps Foundation</a>
               {showPhotonAttribution ? (
                 <a href="https://photon.komoot.io" target="_blank" rel="noreferrer">Geocoding by Photon</a>
               ) : null}
