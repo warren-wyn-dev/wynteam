@@ -1179,7 +1179,8 @@
 .wf-menu-image {
   grid-area: image;
   width: 100%;
-  height: 132px;
+  height: auto;
+  aspect-ratio: 1 / 1;
   border-radius: 0;
 }
 .wf-menu-copy {
@@ -1242,11 +1243,9 @@
   .wf-header-actions .wf-icon-button { width: 36px; height: 36px; }
   .wf-brand span { font-size: 19px; }
   .wf-brand b { font-size: 15px; }
-  .wf-menu-image { height: 120px; }
 }
 @media (max-width: 340px) {
   .wf-menu-list { grid-template-columns: 1fr; }
-  .wf-menu-image { height: 170px; }
 }
 
 
