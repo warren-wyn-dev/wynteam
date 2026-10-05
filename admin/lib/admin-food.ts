@@ -307,3 +307,30 @@ export async function fetchAdminWynosPlaceForStore(storeId: string): Promise<Adm
   if (error) throw error;
   return (data as AdminWynosStorePlace | null) ?? null;
 }
+
+
+export type AdminWynosPlaceSuggestion = {
+  id: string;
+  user_id: string;
+  name: string;
+  category: string;
+  address: string | null;
+  note: string | null;
+  latitude: number;
+  longitude: number;
+  status: "pending" | "approved" | "rejected";
+  place_id: string | null;
+  created_at: string;
+};
+
+export async function fetchAdminWynosPlaceSuggestions(
+  status: "pending" | "approved" | "rejected" | "" = "pending",
+): Promise<AdminWynosPlaceSuggestion[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_wynos_place_suggestions", {
+    p_status: status || null,
+    p_limit: 200,
+  });
+  if (error) throw error;
+  return (data ?? []) as AdminWynosPlaceSuggestion[];
+}
