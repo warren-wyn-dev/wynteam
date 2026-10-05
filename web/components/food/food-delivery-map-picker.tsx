@@ -892,7 +892,7 @@ export function FoodDeliveryMapPicker({
             }}><RefreshCw size={16} /> ลองใหม่</button>
           </div>
         ) : null}
-        <div className={mapDragging ? "wf-map-center-pin is-dragging" : "wf-map-center-pin"} aria-hidden="true">
+        <div className={`wf-map-center-pin${mapDragging ? " is-dragging" : ""}${currentLocationSelected ? " is-current-location" : ""}`} aria-hidden="true">
           <MapPin size={standalone ? 36 : 42} fill="currentColor" />
         </div>
         {standalone && serviceAreaBoundary ? (
