@@ -3011,3 +3011,23 @@
   .wf-menu-search-add { width: 38px; height: 38px; }
 }
 
+
+/* Scheduled ordering. */
+.wf-schedule-order { margin-top: 16px; padding: 13px; border: 1px solid var(--wf-border); border-radius: 16px; background: var(--wf-bg); }
+.wf-schedule-order .wf-section-title { margin-top: 0; }
+.wf-schedule-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wf-schedule-choice button {
+  min-width: 0; min-height: 62px; padding: 10px 11px; border: 1px solid var(--wf-border); border-radius: 14px;
+  background: var(--wf-bg); color: var(--wf-text); display: flex; align-items: center; gap: 8px; text-align: left;
+}
+.wf-schedule-choice button.is-active { border-color: var(--wf-red); background: var(--wf-red-soft); }
+.wf-schedule-choice button > span { min-width: 0; display: grid; gap: 2px; }
+.wf-schedule-choice strong { font-size: 11.5px; }
+.wf-schedule-choice small, .wf-schedule-hint { color: var(--wf-secondary); font-size: 9.5px; line-height: 1.4; }
+.wf-schedule-order .wf-field { margin-top: 10px; }
+.wf-order-scheduled { padding: 7px 9px; border-radius: 10px; background: var(--wf-red-soft); color: var(--wf-red); display: flex; align-items: center; gap: 6px; font-size: 9.5px; }
+.wf-order-scheduled b { margin-left: auto; color: var(--wf-text); font-size: 9.5px; }
+.wf-scheduled-banner { margin: 10px 0 2px; padding: 11px 12px; border: 1px solid #f4c8cc; border-radius: 13px; background: var(--wf-red-soft); color: var(--wf-red); display: flex; align-items: center; gap: 9px; }
+.wf-scheduled-banner span { display: grid; gap: 2px; color: var(--wf-text); }
+.wf-scheduled-banner strong { font-size: 11.5px; }
+.wf-scheduled-banner small { color: var(--wf-secondary); font-size: 9.5px; }
