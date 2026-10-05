@@ -162,10 +162,14 @@ export type FoodOrder = {
 
 export type MerchantSnapshot = {
   access: boolean;
+  stores: FoodStore[];
   store: FoodStore | null;
   menu: FoodMenuItem[];
   orders: FoodOrder[];
+  has_more_orders: boolean;
 };
+
+export const MERCHANT_ORDER_PAGE_SIZE = 100;
 
 export type MenuDraft = {
   id?: string;
@@ -210,45 +214,64 @@ export async function foodPrivateSignedUrl(client: SupabaseClient, path: string 
   return data.signedUrl;
 }
 
-export async function fetchMerchantSnapshot(client: SupabaseClient): Promise<MerchantSnapshot> {
+export async function fetchMerchantOrdersPage(
+  client: SupabaseClient,
+  storeId: string,
+  offset = 0,
+  limit = MERCHANT_ORDER_PAGE_SIZE,
+): Promise<{ orders: FoodOrder[]; hasMore: boolean }> {
+  const safeOffset = Math.max(0, Math.floor(offset));
+  const safeLimit = Math.max(1, Math.min(250, Math.floor(limit)));
+  const { data, error } = await client
+    .from("food_orders")
+    .select("*,food_order_items(*),food_delivery_proofs(*)")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false })
+    // Supabase range is inclusive, so request one extra row to detect more.
+    .range(safeOffset, safeOffset + safeLimit);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as FoodOrder[];
+  return { orders: rows.slice(0, safeLimit), hasMore: rows.length > safeLimit };
+}
+
+export async function fetchMerchantSnapshot(
+  client: SupabaseClient,
+  preferredStoreId?: string | null,
+): Promise<MerchantSnapshot> {
   const accessResult = await client.rpc("food_has_merchant_access", { p_store_id: null });
   if (accessResult.error) throw new Error(accessResult.error.message);
   const access = accessResult.data === true;
-  if (!access) return { access: false, store: null, menu: [], orders: [] };
+  if (!access) return { access: false, stores: [], store: null, menu: [], orders: [], has_more_orders: false };
 
-  const storeResult = await client
+  // RLS limits this list to stores the signed-in Merchant member may access.
+  const storesResult = await client
     .from("food_stores")
     .select("*")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (storeResult.error) throw new Error(storeResult.error.message);
-  const store = (storeResult.data as FoodStore | null) ?? null;
-  if (!store) return { access: true, store: null, menu: [], orders: [] };
+    .order("created_at", { ascending: true });
+  if (storesResult.error) throw new Error(storesResult.error.message);
+  const stores = (storesResult.data ?? []) as FoodStore[];
+  const store = stores.find((item) => item.id === preferredStoreId) ?? stores[0] ?? null;
+  if (!store) return { access: true, stores: [], store: null, menu: [], orders: [], has_more_orders: false };
 
-  const [menuResult, ordersResult] = await Promise.all([
+  const [menuResult, orderPage] = await Promise.all([
     client
       .from("food_menu_items")
       .select("*")
       .eq("store_id", store.id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true }),
-    client
-      .from("food_orders")
-      .select("*,food_order_items(*),food_delivery_proofs(*)")
-      .eq("store_id", store.id)
-      .order("created_at", { ascending: false })
-      .limit(250),
+    fetchMerchantOrdersPage(client, store.id),
   ]);
 
   if (menuResult.error) throw new Error(menuResult.error.message);
-  if (ordersResult.error) throw new Error(ordersResult.error.message);
 
   return {
     access: true,
+    stores,
     store,
     menu: (menuResult.data ?? []) as FoodMenuItem[],
-    orders: (ordersResult.data ?? []) as FoodOrder[],
+    orders: orderPage.orders,
+    has_more_orders: orderPage.hasMore,
   };
 }
 

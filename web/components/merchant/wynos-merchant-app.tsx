@@ -22,6 +22,7 @@ import {
   Menu as MenuIcon,
   PackageCheck,
   Pencil,
+  Printer,
   Phone,
   Plus,
   Search,
@@ -58,6 +59,7 @@ import {
   deleteStorePlace,
   fetchStorePlaces,
   fetchMerchantSnapshot,
+  fetchMerchantOrdersPage,
   fetchMerchantStoreReadiness,
   fetchMerchantAuditHistory,
   checkMerchantLocationQuality,
@@ -89,6 +91,7 @@ import {
   type MerchantLocationQuality,
   type MerchantStoreReadiness,
   type MenuDraft,
+  MERCHANT_ORDER_PAGE_SIZE,
 } from "@/lib/food-merchant";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { checkFoodServiceArea, currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation, type FoodPlace } from "@/lib/food-customer";
@@ -104,8 +107,9 @@ import {
 // WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
 // and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
 // WYN-205: finance, ads, WYNOS campaigns and the store's own promotions.
-type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions";
-const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions"]);
+type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions" | "help";
+const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help"]);
+const MERCHANT_STORE_KEY = "wynos-merchant-store-v1";
 type OrderFilter = "new" | "cooking" | "delivery" | "done";
 
 type InstallPromptEvent = Event & {
@@ -327,9 +331,16 @@ function MerchantInner({
   signOut: () => Promise<void>;
 }) {
   const [tab, setTab] = useState<MerchantTab>("home");
+  const [stores, setStores] = useState<FoodStore[]>([]);
   const [store, setStore] = useState<FoodStore | null>(null);
   const [menu, setMenu] = useState<FoodMenuItem[]>([]);
   const [orders, setOrders] = useState<FoodOrder[]>([]);
+  const [ordersHasMore, setOrdersHasMore] = useState(false);
+  const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(MERCHANT_STORE_KEY);
+  });
   const [access, setAccess] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -372,11 +383,14 @@ function MerchantInner({
     else setRefreshing(true);
     if (!quiet) setMessage("");
     try {
-      const next = await fetchMerchantSnapshot(client);
+      const next = await fetchMerchantSnapshot(client, selectedStoreId);
       setAccess(next.access);
+      setStores(next.stores);
       setStore(next.store);
       setMenu(next.menu);
       setOrders(next.orders);
+      setOrdersHasMore(next.has_more_orders);
+      if (next.store && next.store.id !== selectedStoreId) setSelectedStoreId(next.store.id);
       paymentStatusRef.current = new Map(next.orders.map((order) => [order.id, order.payment_status]));
       setSelectedOrder((current) => current ? next.orders.find((order) => order.id === current.id) ?? null : null);
       return next;
@@ -391,9 +405,14 @@ function MerchantInner({
         void loadRef.current?.(true);
       }
     }
-  }, [client]);
+  }, [client, selectedStoreId]);
   const loadRef = useRef<typeof load | null>(null);
   useEffect(() => { loadRef.current = load; }, [load]);
+
+  useEffect(() => {
+    if (!selectedStoreId || typeof window === "undefined") return;
+    window.localStorage.setItem(MERCHANT_STORE_KEY, selectedStoreId);
+  }, [selectedStoreId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -486,6 +505,35 @@ function MerchantInner({
     setInstallPrompt(null);
   };
 
+  const chooseStore = (storeId: string) => {
+    if (!storeId || storeId === store?.id) return;
+    setSelectedOrder(null);
+    setMenuDraft(null);
+    setStoreEditing(false);
+    setSeenAlerts(new Set<string>());
+    setActedFrom(new Map<string, FoodOrder["status"]>());
+    setOrderFilter("new");
+    setTab("home");
+    setSelectedStoreId(storeId);
+  };
+
+  const loadMoreOrders = async () => {
+    if (!store || loadingMoreOrders || !ordersHasMore) return;
+    setLoadingMoreOrders(true);
+    try {
+      const page = await fetchMerchantOrdersPage(client, store.id, orders.length, MERCHANT_ORDER_PAGE_SIZE);
+      setOrders((current) => {
+        const known = new Set(current.map((order) => order.id));
+        return [...current, ...page.orders.filter((order) => !known.has(order.id))];
+      });
+      setOrdersHasMore(page.hasMore);
+    } catch (error) {
+      setMessage(merchantError(error, "โหลดออเดอร์เพิ่มเติมไม่สำเร็จ"));
+    } finally {
+      setLoadingMoreOrders(false);
+    }
+  };
+
   const todayOrders = useMemo(() => orders.filter((order) => sameLocalDay(order.created_at)), [orders]);
   const todayDelivered = useMemo(() => todayOrders.filter((order) => order.status === "delivered"), [todayOrders]);
   const todaySales = useMemo(() => todayDelivered.reduce((sum, order) => sum + Number(order.total), 0), [todayDelivered]);
@@ -544,9 +592,20 @@ function MerchantInner({
   return (
     <main className="wyn-merchant">
       <header className="wm-header">
-        <div className="wm-brand">
-          <span>WYNOS</span>
-          <b>Merchant</b>
+        <div className="wm-brand-stack">
+          <div className="wm-brand">
+            <span>WYNOS</span>
+            <b>Merchant</b>
+          </div>
+          {stores.length > 1 ? (
+            <label className="wm-store-switcher">
+              <Store size={13} strokeWidth={1.8} />
+              <span className="sr-only">เลือกร้าน</span>
+              <select value={selectedStoreId ?? store?.id ?? ""} onChange={(event) => chooseStore(event.target.value)}>
+                {stores.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+          ) : null}
         </div>
         <div className="wm-header-actions">
           <button
@@ -599,6 +658,9 @@ function MerchantInner({
             onOpen={setSelectedOrder}
             onAction={(order) => void quickAction(order)}
             actedFrom={actedFrom}
+            hasMore={ordersHasMore}
+            loadingMore={loadingMoreOrders}
+            onLoadMore={() => void loadMoreOrders()}
           />
         ) : null}
 
@@ -663,6 +725,8 @@ function MerchantInner({
         ) : null}
 
         {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
+
+        {tab === "help" && store ? <HelpPanel store={store} onMessage={setMessage} /> : null}
 
         {tab === "finance" && store ? <MerchantFinance client={client} store={store} refreshKey={orders} onEditStore={() => setStoreEditing(true)} onOpenTab={setTab} /> : null}
 
@@ -964,6 +1028,7 @@ function MorePanel({
           <button type="button" onClick={() => onOpenTab("campaigns")}><span className="wm-tile-icon"><MerchantIcon3D name="campaign" size={52} /></span>แคมเปญ</button>
           <button type="button" onClick={() => onOpenTab("ads")}><span className="wm-tile-icon"><MerchantIcon3D name="ads" size={52} /></span>โฆษณา</button>
           <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon"><MerchantIcon3D name="store" size={52} /></span>ตั้งค่าร้าน</button>
+          <button type="button" onClick={() => onOpenTab("help")}><span className="wm-tile-icon"><MerchantIcon3D name="store" size={52} /></span>ช่วยเหลือ</button>
           <button type="button" onClick={onNotifications}><span className="wm-tile-icon"><MerchantIcon3D name="bell" size={52} /></span>การแจ้งเตือน</button>
           <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span className="wm-tile-icon"><MerchantIcon3D name="sound" size={52} /></span>ลองเสียงออเดอร์</button>
           {installPrompt ? <button type="button" onClick={onInstall}><span className="wm-tile-icon"><MerchantIcon3D name="install" size={52} /></span>ติดตั้งแอป</button> : null}
@@ -995,6 +1060,45 @@ function MorePanel({
   );
 }
 
+function HelpPanel({ store, onMessage }: { store: FoodStore; onMessage: (message: string) => void }) {
+  const copyDiagnostics = async () => {
+    const detail = [
+      "WYNOS Merchant",
+      `ร้าน: ${store.name}`,
+      `Store ID: ${store.id}`,
+      `สถานะ: ${store.is_open ? "เปิดร้าน" : "ปิดร้าน"} / ${store.is_published ? "เผยแพร่แล้ว" : "ยังไม่เผยแพร่"}`,
+      `เวลา: ${new Date().toISOString()}`,
+      typeof navigator !== "undefined" ? `อุปกรณ์: ${navigator.userAgent}` : "",
+    ].filter(Boolean).join("\n");
+    try {
+      await navigator.clipboard.writeText(detail);
+      onMessage("คัดลอกข้อมูลสำหรับแจ้งปัญหาแล้ว");
+    } catch {
+      onMessage("คัดลอกไม่สำเร็จ กรุณาจด Store ID จากหน้านี้");
+    }
+  };
+  return (
+    <>
+      <div className="wm-page-heading"><div><small>ศูนย์ช่วยเหลือร้านค้า</small><h1>ช่วยเหลือ</h1></div></div>
+      <section className="wm-help-card">
+        <strong>ต้องการความช่วยเหลือ?</strong>
+        <p>ติดต่อบัญชี Official <b>@wynos_s</b> ใน WYNOS พร้อมส่งชื่อร้านและ Store ID เพื่อให้ทีมตรวจสอบได้เร็วขึ้น</p>
+        <div className="wm-help-actions">
+          <a className="wm-primary" href="https://wynos.online" target="_blank" rel="noreferrer">เปิด WYNOS</a>
+          <button className="wm-secondary" type="button" onClick={() => void copyDiagnostics()}>คัดลอกข้อมูลร้าน</button>
+        </div>
+        <small>Store ID: {store.id}</small>
+      </section>
+      <section className="wm-settings-list wm-help-list">
+        <div><span><strong>ออเดอร์ไม่ดัง</strong><small>ตรวจว่าเปิดการแจ้งเตือนของ WYNOS Merchant และมือถือไม่ได้ปิดเสียง</small></span></div>
+        <div><span><strong>สลิปไม่ขึ้น</strong><small>ปิดออเดอร์แล้วเปิดใหม่ หากยังไม่ขึ้นให้คัดลอกข้อมูลร้านส่งทีม WYNOS</small></span></div>
+        <div><span><strong>ร้านไม่ขึ้น WYNOS Food</strong><small>ตรวจความพร้อมร้าน ช่องทางรับเงิน เมนู ตำแหน่ง และสถานะเผยแพร่</small></span></div>
+        <div><span><strong>ยอดขายหรือการเงินไม่ตรง</strong><small>ใช้หน้า “การเงิน” เลือกช่วงวันที่และดาวน์โหลด CSV เพื่อตรวจรายการ</small></span></div>
+      </section>
+    </>
+  );
+}
+
 function OrdersPanel({
   orders,
   allOrders,
@@ -1003,6 +1107,9 @@ function OrdersPanel({
   onOpen,
   onAction,
   actedFrom,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: {
   orders: FoodOrder[];
   allOrders: FoodOrder[];
@@ -1011,6 +1118,9 @@ function OrdersPanel({
   onOpen: (order: FoodOrder) => void;
   onAction: (order: FoodOrder) => void;
   actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
 }) {
   const [showTools, setShowTools] = useState(false);
   const [query, setQuery] = useState("");
@@ -1084,6 +1194,11 @@ function OrdersPanel({
       {visibleOrders.length ? <div className="wm-order-list wm-order-list--page">{visibleOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} onAction={onAction} acting={actedFrom.get(order.id) === order.status} />)}</div> : (
         <div className="wm-empty"><ShoppingBag size={38} strokeWidth={1.5} /><strong>{query || paymentFilter !== "all" || dateFilter !== "all" ? "ไม่พบออเดอร์ที่ตรงกับตัวกรอง" : "ไม่มีออเดอร์ในแท็บนี้"}</strong></div>
       )}
+      {hasMore ? (
+        <button className="wm-secondary wm-full wm-load-more" type="button" disabled={loadingMore} onClick={onLoadMore}>
+          {loadingMore ? "กำลังโหลด…" : "โหลดออเดอร์เก่ากว่านี้"}
+        </button>
+      ) : allOrders.length >= MERCHANT_ORDER_PAGE_SIZE ? <p className="wm-list-end">แสดงออเดอร์ทั้งหมดที่โหลดได้แล้ว</p> : null}
     </>
   );
 }
@@ -1582,6 +1697,7 @@ function OrderSheet({
         <div><OrderStatus order={order} /><PaymentStatus order={order} /></div>
         <strong>{money(order.total)}</strong>
         <small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</small>
+        <button className="wm-secondary wm-print-order" type="button" onClick={() => window.print()}><Printer size={17} /> พิมพ์ใบออเดอร์ / ใบเสร็จอย่างย่อ</button>
       </div>
 
       {order.status === "pending_acceptance" ? (

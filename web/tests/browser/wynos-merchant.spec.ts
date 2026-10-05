@@ -34,6 +34,25 @@ test("Merchant data layer uses dedicated Food RPCs, secure evidence storage and 
   expect(data).toContain("withoutLocation(file, contentType)");
 });
 
+test("Merchant production polish supports multiple stores, paged orders, help and printing", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const data = read("lib/food-merchant.ts");
+  const css = read("app/merchant/merchant.css");
+
+  expect(data).toContain("stores: FoodStore[]");
+  expect(data).toContain("fetchMerchantOrdersPage");
+  expect(data).toContain(".range(safeOffset, safeOffset + safeLimit)");
+  expect(data).not.toContain(".limit(250)");
+  expect(app).toContain('MERCHANT_STORE_KEY = "wynos-merchant-store-v1"');
+  expect(app).toContain('className="wm-store-switcher"');
+  expect(app).toContain("setSelectedStoreId(storeId)");
+  expect(app).toContain("โหลดออเดอร์เก่ากว่านี้");
+  expect(app).toContain("function HelpPanel");
+  expect(app).toContain("@wynos_s");
+  expect(app).toContain("window.print()");
+  expect(css).toContain("@media print");
+});
+
 test("Merchant can upload and preview store profile and cover images", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
