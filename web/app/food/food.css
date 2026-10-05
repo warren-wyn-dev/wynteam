@@ -3362,23 +3362,11 @@
 .wf-home-store-head {
   min-width: 0;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 17px;
+  grid-template-columns: minmax(0, 1fr) 17px;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
 .wf-home-store-head > svg { color: var(--wf-muted); }
-.wf-home-store-logo {
-  width: 32px;
-  height: 32px;
-  border: 1px solid #ededee;
-  border-radius: 10px;
-  background: #fff;
-  color: var(--wf-red);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-}
-.wf-home-store-logo img { width: 100%; height: 100%; object-fit: cover; }
 .wf-home-store-title { min-width: 0; display: grid; gap: 2px; }
 .wf-home-store-title strong,
 .wf-home-store-title small {
