@@ -1140,10 +1140,6 @@ function OrdersPanel({
   loadingMore: boolean;
   onLoadMore: () => void;
 }) {
-  const [showTools, setShowTools] = useState(false);
-  const [query, setQuery] = useState("");
-  const [paymentFilter, setPaymentFilter] = useState<"all" | FoodOrder["payment_status"]>("all");
-  const [dateFilter, setDateFilter] = useState<"all" | "today" | "7d" | "30d">("all");
   // "Done" keeps growing, so only the working tabs show a count.
   const counts: Record<OrderFilter, number> = {
     new: allOrders.filter((o) => orderInFilter(o, "new")).length,
@@ -1151,38 +1147,8 @@ function OrdersPanel({
     delivery: allOrders.filter((o) => orderInFilter(o, "delivery")).length,
     done: 0,
   };
-  const visibleOrders = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase("th-TH");
-    const now = new Date().getTime();
-    const day = 24 * 60 * 60 * 1000;
-    return orders.filter((order) => {
-      if (paymentFilter !== "all" && order.payment_status !== paymentFilter) return false;
-      if (dateFilter === "today" && !sameLocalDay(order.created_at)) return false;
-      if (dateFilter === "7d" && new Date(order.created_at).getTime() < now - 7 * day) return false;
-      if (dateFilter === "30d" && new Date(order.created_at).getTime() < now - 30 * day) return false;
-      if (!q) return true;
-      const haystack = [
-        order.order_number,
-        order.recipient_name,
-        order.recipient_phone,
-        ...(order.food_order_items ?? []).map((item) => item.item_name),
-      ].join(" ").toLocaleLowerCase("th-TH");
-      return haystack.includes(q);
-    });
-  }, [dateFilter, orders, paymentFilter, query]);
-
   return (
     <>
-      <div className="wm-page-heading">
-        <div><small>ออเดอร์จาก WYNOS Food</small><h1>ออเดอร์</h1></div>
-        <button className={`wm-icon-button ${showTools ? "is-active" : ""}`} type="button" aria-label="ค้นหาและตัวกรอง" aria-expanded={showTools} onClick={() => {
-          // Closing the tools clears them, so no hidden filter is left on.
-          if (showTools) { setQuery(""); setPaymentFilter("all"); setDateFilter("all"); }
-          setShowTools(!showTools);
-        }}>
-          <Search size={21} strokeWidth={1.8} />
-        </button>
-      </div>
       <div className="wm-filter-tabs wm-filter-tabs--simple" role="group" aria-label="สถานะออเดอร์">
         {ORDER_FILTERS.map((item) => (
           <button key={item.key} className={filter === item.key ? "is-active" : ""} type="button" aria-pressed={filter === item.key} onClick={() => onFilter(item.key)}>
@@ -1190,27 +1156,8 @@ function OrdersPanel({
           </button>
         ))}
       </div>
-      {showTools ? <div className="wm-order-search-tools">
-        <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="เลขออเดอร์ · ชื่อลูกค้า · เบอร์โทร · เมนู" /></label>
-        <div className="wm-order-selects">
-          <select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as "all" | FoodOrder["payment_status"])}>
-            <option value="all">การชำระเงินทั้งหมด</option>
-            <option value="pending">รอชำระเงิน</option>
-            <option value="submitted">รอตรวจสลิป</option>
-            <option value="paid">ชำระแล้ว</option>
-            <option value="issue">มีปัญหา</option>
-            <option value="refunded">คืนเงินแล้ว</option>
-          </select>
-          <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value as "all" | "today" | "7d" | "30d")}>
-            <option value="all">ทุกช่วงเวลา</option>
-            <option value="today">วันนี้</option>
-            <option value="7d">7 วันล่าสุด</option>
-            <option value="30d">30 วันล่าสุด</option>
-          </select>
-        </div>
-      </div> : null}
-      {visibleOrders.length ? <div className="wm-order-list wm-order-list--page">{visibleOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} onAction={onAction} acting={actedFrom.get(order.id) === order.status} />)}</div> : (
-        <div className="wm-empty"><ShoppingBag size={38} strokeWidth={1.5} /><strong>{query || paymentFilter !== "all" || dateFilter !== "all" ? "ไม่พบออเดอร์ที่ตรงกับตัวกรอง" : "ไม่มีออเดอร์ในแท็บนี้"}</strong></div>
+      {orders.length ? <div className="wm-order-list wm-order-list--page">{orders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} onAction={onAction} acting={actedFrom.get(order.id) === order.status} />)}</div> : (
+        <div className="wm-empty"><ShoppingBag size={38} strokeWidth={1.5} /><strong>ไม่มีออเดอร์ในแท็บนี้</strong></div>
       )}
       {hasMore ? (
         <button className="wm-secondary wm-full wm-load-more" type="button" disabled={loadingMore} onClick={onLoadMore}>
