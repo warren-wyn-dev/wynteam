@@ -412,3 +412,20 @@ test("WYNOS Food home separates store discovery from the storefront", () => {
   expect(css).toContain(".wf-store-cart-bar");
 });
 
+test("WYNOS Food storefront uses compact search and keeps favorite off the category row", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const css = read("app/food/food.css");
+
+  expect(app).toContain('className="wf-menu-search-trigger"');
+  expect(app).toContain('aria-label="ค้นหาเมนูอาหาร"');
+  expect(app).toContain('className="wf-store-favorite');
+  expect(app).toContain('aria-label="รายการโปรด"');
+  expect(app).toContain('aria-pressed={favorite}');
+  expect(app).toContain('<Sheet title="ค้นหาเมนูอาหาร"');
+  expect(app).not.toContain('<label className="wf-search">\n        <Search size={19} strokeWidth={1.7} />\n        <input value={query}');
+  expect(app).not.toContain('>ร้านโปรด</button>');
+  expect(css).toContain(".wf-menu-filter-bar");
+  expect(css).toContain(".wf-menu-search-trigger");
+  expect(css).toContain(".wf-store-favorite");
+});
+
