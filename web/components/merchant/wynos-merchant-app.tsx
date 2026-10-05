@@ -1910,6 +1910,9 @@ function StoreEditor({
           client={client}
           storeId={null}
           initialLocation={mapTarget === "store" ? pin : pickupPin}
+          title={mapTarget === "store" ? "ตำแหน่งร้าน" : "จุดรับอาหาร / ทางเข้าร้าน"}
+          subtitle={mapTarget === "store" ? "ค้นหาแล้วเลื่อนหมุดให้ตรงหน้าร้านจริง" : "กำหนดจุดที่ไรเดอร์ควรมารับอาหาร"}
+          confirmLabel={mapTarget === "store" ? "ใช้เป็นตำแหน่งร้าน" : "ใช้เป็นจุดรับอาหาร"}
           onClose={() => setMapTarget(null)}
           onConfirm={(location, place) => {
             if (mapTarget === "store") {
@@ -2061,6 +2064,9 @@ function StorePlacesEditor({
           client={client}
           storeId={null}
           initialLocation={formPin}
+          title="สถานที่ที่ร้านส่งบ่อย"
+          subtitle="ค้นหาและเลื่อนหมุดให้ตรงสถานที่จริง"
+          confirmLabel="ใช้ตำแหน่งนี้"
           onClose={() => setMapOpen(false)}
           onConfirm={(location, place) => {
             setForm((current) => current ? {
