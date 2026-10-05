@@ -3327,3 +3327,173 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   justify-content: flex-end;
   gap: 9px;
 }
+
+
+/* Store settings information architecture */
+.wm-store-settings-form {
+  gap: 14px;
+}
+
+.wm-store-settings-nav {
+  position: sticky;
+  top: -1px;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: -2px 0 2px;
+  padding: 8px;
+  border: 1px solid var(--wm-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--wm-surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.wm-store-settings-nav button {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--wm-secondary);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.wm-store-settings-nav button:hover,
+.wm-store-settings-nav button:focus-visible {
+  background: var(--wm-bg);
+  color: var(--wm-text);
+}
+
+.wm-settings-category {
+  scroll-margin-top: 70px;
+  overflow: hidden;
+  border: 1px solid var(--wm-border);
+  border-radius: 18px;
+  background: var(--wm-surface);
+}
+
+.wm-settings-category-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 13px;
+  border-bottom: 1px solid var(--wm-border);
+  background: var(--wm-bg);
+}
+
+.wm-settings-category-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--wm-surface);
+  color: var(--wm-text);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 4%);
+}
+
+.wm-settings-category-head > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.wm-settings-category-head strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.wm-settings-category-head small {
+  color: var(--wm-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.wm-settings-category-body {
+  display: grid;
+  gap: 11px;
+  padding: 13px;
+}
+
+.wm-settings-category-body > .wm-store-brand-editor,
+.wm-settings-category-body > .wm-schedule-editor,
+.wm-settings-category-body > .wm-zone {
+  margin: 0;
+}
+
+.wm-settings-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 2px -2px -2px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  border: 1px solid var(--wm-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--wm-surface) 96%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 -8px 30px rgb(0 0 0 / 6%);
+}
+
+.wm-settings-savebar > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.wm-settings-savebar strong {
+  font-size: 12px;
+}
+
+.wm-settings-savebar small {
+  color: var(--wm-muted);
+  font-size: 9.5px;
+}
+
+.wm-settings-savebar .wm-primary {
+  min-width: 150px;
+  padding-inline: 16px;
+}
+
+@media (max-width: 720px) {
+  .wm-store-settings-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wm-store-settings-nav button {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .wm-store-settings-nav {
+    position: static;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .wm-settings-category-head {
+    align-items: start;
+  }
+
+  .wm-settings-savebar {
+    grid-template-columns: 1fr;
+  }
+
+  .wm-settings-savebar .wm-primary {
+    width: 100%;
+  }
+}
