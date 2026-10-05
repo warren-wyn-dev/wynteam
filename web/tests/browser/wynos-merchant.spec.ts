@@ -670,3 +670,4 @@ test("WYN-214 Admin merchant polish: service area, order money, refunds, safe ap
   expect(card).toContain("if (!window.confirm(`${what}? อนุมัติแล้วย้อนกลับไม่ได้`)) return;");
   expect(card).toContain('return "คำขอนี้อนุมัติไปแล้ว เปลี่ยนไม่ได้";');
 });
+
