@@ -539,3 +539,18 @@
 - Release: merge. Web auto-deploys.
 - Rollback: revert the PR (the old page comes back).
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### APPROVAL — [2026-10-05] WYNOS Food share link previews read store profile without sign-in
+
+- Founder: "อนุมัติ ทำเลย" (AskUserQuestion, after seeing that LINE fetches previews signed out and this opens an anon read).
+- Change:
+  - New RPC `food_store_share_preview(uuid)`, executable by `anon`.
+  - Returns only the name, the description (cut to 160 characters), and the logo and cover paths.
+  - Only for published stores that are not suspended.
+  - Never returns the phone, address, payment details, owner, menu or orders.
+  - `/food?store=<id>` builds its link preview (og/twitter) from the RPC, using the publishable key only.
+- Release:
+  1. Merge the PR. Web auto-deploys and falls back to the generic preview until the migration runs.
+  2. Dispatch `food-apply-share-preview.yml` with `APPLY-FOOD-SHARE-PREVIEW`.
+- Rollback: `drop function public.food_store_share_preview(uuid);` and/or revert the PR.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-05

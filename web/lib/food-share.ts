@@ -57,3 +57,28 @@ export function pendingSharedFoodStore(): string | null {
 export function clearSharedFoodStore(): void {
   try { window.sessionStorage.removeItem(PENDING_KEY); } catch { /* storage unavailable */ }
 }
+
+export type FoodStoreSharePreview = {
+  id: string;
+  name: string;
+  description: string | null;
+  logo_path: string | null;
+  cover_path: string | null;
+};
+
+/** Public URL of a file in the food-public bucket (store logos and covers). */
+export function foodPublicFileUrl(supabaseUrl: string, path: string): string {
+  const encoded = path.split("/").map(encodeURIComponent).join("/");
+  return `${supabaseUrl.replace(/\/+$/, "")}/storage/v1/object/public/food-public/${encoded}`;
+}
+
+/** Link-preview title, text and image for a shared store. */
+export function foodStorePreviewContent(store: FoodStoreSharePreview, supabaseUrl: string) {
+  const image = store.cover_path ?? store.logo_path;
+  return {
+    title: `${store.name} | WYNOS Food`,
+    description: store.description ?? `สั่งอาหารร้าน ${store.name} ผ่าน WYNOS Food`,
+    imageUrl: image ? foodPublicFileUrl(supabaseUrl, image) : null,
+    largeImage: Boolean(store.cover_path),
+  };
+}

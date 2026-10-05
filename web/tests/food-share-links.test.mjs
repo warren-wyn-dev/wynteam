@@ -18,7 +18,7 @@ function load(now = () => 1_000_000) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const mod = { exports: {} };
-  runInNewContext(out, { module: mod, exports: mod.exports, window, JSON, URLSearchParams, encodeURIComponent, Date: { now } });
+  runInNewContext(out, { module: mod, exports: mod.exports, window, JSON, URLSearchParams, encodeURIComponent, Boolean, Date: { now } });
   return { ...mod.exports, store };
 }
 
@@ -66,4 +66,36 @@ test("Food and Merchant are wired to the share link", () => {
   assert.match(food, /shareOrCopyLink\(foodStoreShareData\(store\), setMessage\)/);
   // Merchants can share only a store customers can actually see.
   assert.match(merchant, /store\.is_published && !store\.admin_suspended_at \? \([\s\S]*?shareOrCopyLink\(foodStoreShareData\(store\), onMessage\)/);
+});
+
+test("link preview uses the store's name, description and cover from the public bucket", () => {
+  const { foodStorePreviewContent, foodPublicFileUrl } = load();
+  const base = { id: STORE, name: "มะละป๊อกป๊อก", description: null, logo_path: null, cover_path: null };
+  const supa = "https://abc.supabase.co/";
+  assert.equal(foodPublicFileUrl(supa, "stores/a b/cover.jpg"), "https://abc.supabase.co/storage/v1/object/public/food-public/stores/a%20b/cover.jpg");
+  const withCover = foodStorePreviewContent({ ...base, description: "ส้มตำ", logo_path: "l.png", cover_path: "c.jpg" }, supa);
+  assert.equal(withCover.title, "มะละป๊อกป๊อก | WYNOS Food");
+  assert.equal(withCover.description, "ส้มตำ");
+  assert.match(withCover.imageUrl, /food-public\/c\.jpg$/);
+  assert.equal(withCover.largeImage, true);
+  const logoOnly = foodStorePreviewContent({ ...base, logo_path: "l.png" }, supa);
+  assert.match(logoOnly.imageUrl, /food-public\/l\.png$/);
+  assert.equal(logoOnly.largeImage, false);
+  assert.match(logoOnly.description, /มะละป๊อกป๊อก/);
+  assert.equal(foodStorePreviewContent(base, supa).imageUrl, null);
+});
+
+test("share preview reads only the public RPC with the publishable key", () => {
+  const preview = read("../lib/food-share-preview.ts");
+  const page = read("../app/food/page.tsx");
+  const sql = readFileSync(new URL("../../supabase/migrations_wynos_food_share_preview_v1.sql", import.meta.url), "utf8");
+  assert.match(page, /generateMetadata[\s\S]*foodStoreShareMetadata\(store\)\) \?\? \{\}/);
+  assert.match(preview, /rest\/v1\/rpc\/food_store_share_preview/);
+  assert.match(preview, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+  assert.doesNotMatch(preview, /SERVICE_ROLE/i);
+  assert.match(preview, /if \(!isFoodStoreId\(storeId\)\) return null;/);
+  // Published, non-suspended stores only; no contact or payment columns.
+  assert.match(sql, /s\.is_published\s+and s\.admin_suspended_at is null/);
+  assert.doesNotMatch(sql.replace(/^--.*$/gm, ""), /phone|address|promptpay|bank|owner/i);
+  assert.match(sql, /grant execute on function public\.food_store_share_preview\(uuid\) to anon, authenticated;/);
 });
