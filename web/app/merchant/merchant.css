@@ -2699,3 +2699,129 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
     width: 100%;
   }
 }
+
+
+/* WYN-216: verified store reviews inside Merchant settings. */
+.wm-review-section {
+  background: #fff;
+}
+.wm-review-unanswered {
+  min-width: max-content;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--wm-red-soft);
+  color: var(--wm-red-text);
+  font-size: 10px;
+}
+.wm-review-list {
+  display: grid;
+  gap: 10px;
+}
+.wm-review-card {
+  padding: 12px;
+  border: 1px solid var(--wm-border);
+  border-radius: 14px;
+  background: var(--wm-surface);
+}
+.wm-review-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.wm-review-card-head > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.wm-review-card-head strong {
+  font-size: 12px;
+}
+.wm-review-card-head small {
+  color: var(--wm-muted);
+  font-size: 10px;
+}
+.wm-review-stars {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 1px;
+  color: #f4b400;
+}
+.wm-review-card > p {
+  margin: 9px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.wm-review-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.wm-review-tags span {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #fff4cf;
+  color: #765600;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.wm-review-existing-reply {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-left: 3px solid var(--wm-red);
+  border-radius: 0 10px 10px 0;
+  background: #fff;
+}
+.wm-review-existing-reply strong {
+  font-size: 10px;
+}
+.wm-review-existing-reply p {
+  margin: 4px 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.wm-review-existing-reply small {
+  color: var(--wm-muted);
+  font-size: 9px;
+}
+.wm-review-reply-button {
+  min-height: 36px;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--wm-red);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+}
+.wm-review-reply-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.wm-review-reply-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--wm-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+.wm-review-reply-form textarea {
+  min-height: 84px;
+  resize: vertical;
+  border: 1px solid var(--wm-border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--wm-text);
+  padding: 10px 11px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.wm-review-reply-form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
