@@ -1710,19 +1710,24 @@ function StoreEditor({
 
   const save = async () => {
     setBusy(true);
+    let activeBrandUpload: "logo" | "cover" | null = null;
     try {
       let qr = form.payment_qr_path;
       let logo = form.logo_path;
       let cover = form.cover_path;
       if (logoFile) {
+        activeBrandUpload = "logo";
         setLogoState("uploading");
         logo = await uploadFoodPublicImage(client, logoFile, `stores/${store.id}/profile`);
         setLogoState("uploaded");
+        activeBrandUpload = null;
       }
       if (coverFile) {
+        activeBrandUpload = "cover";
         setCoverState("uploading");
         cover = await uploadFoodPublicImage(client, coverFile, `stores/${store.id}/cover`);
         setCoverState("uploaded");
+        activeBrandUpload = null;
       }
       if (qrFile) qr = await uploadFoodPublicImage(client, qrFile, `stores/${store.id}/payment`);
       await updateFoodStore(client, store.id, {
@@ -1753,8 +1758,8 @@ function StoreEditor({
       onMessage("บันทึกข้อมูลร้านแล้ว");
       await onSaved();
     } catch (error) {
-      if (logoFile && logoState === "uploading") setLogoState("error");
-      if (coverFile && coverState === "uploading") setCoverState("error");
+      if (activeBrandUpload === "logo") setLogoState("error");
+      if (activeBrandUpload === "cover") setCoverState("error");
       onMessage(merchantError(error));
     }
     finally { setBusy(false); }
