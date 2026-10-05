@@ -3141,3 +3141,32 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
     white-space: normal;
   }
 }
+
+
+.wm-menu-stock-editor {
+  display: grid;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid var(--wm-border);
+  border-radius: 13px;
+  background: var(--wm-bg);
+}
+
+.wm-menu-stock-editor > div {
+  display: grid;
+  gap: 2px;
+}
+
+.wm-menu-stock-editor strong {
+  font-size: 12px;
+}
+
+.wm-menu-stock-editor small {
+  color: var(--wm-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.wm-menu-stock-editor label {
+  max-width: 220px;
+}
