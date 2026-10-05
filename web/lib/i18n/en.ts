@@ -2193,6 +2193,7 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["แคมเปญ WYNOS · {0}", "WYNOS campaign · {0}"],
   ["แชร์ลิงก์ร้าน {0}", "Share link to {0}"],
   ["สั่งอาหารร้าน {0} ผ่าน WYNOS Food กดลิงก์นี้ได้เลย", "Order from {0} on WYNOS Food. Just tap this link"],
+  ["สั่งอาหารร้าน {0} ผ่าน WYNOS Food", "Order from {0} on WYNOS Food"],
   ["{0} โปรโมชั่นกำลังใช้งาน", "{0} active promotions"],
   ["ลบโปรโมชั่น “{0}”?", "Delete promotion “{0}”?"],
   ["โปรโมชั่น · {0}", "Promotion · {0}"],

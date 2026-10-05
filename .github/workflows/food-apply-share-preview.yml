@@ -1,0 +1,66 @@
+name: Food -- apply share link previews
+
+# Applies supabase/migrations_wynos_food_share_preview_v1.sql: adds
+# food_store_share_preview(uuid), which returns only the public profile
+# (name, short description, logo and cover paths) of a published,
+# non-suspended store, so LINE/Messenger previews of
+# food.wynos.online/?store=<id> show the store. Founder approved the anon
+# read on 2026-10-05. Manual dispatch on main only. The web code falls back
+# to the generic WYNOS Food preview until this has run.
+# Behaviour test: supabase/tests/wynos_food_share_preview_test.sh.
+# ROLLBACK: drop function public.food_store_share_preview(uuid);
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-FOOD-SHARE-PREVIEW to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-FOOD-SHARE-PREVIEW'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_food_share_preview_v1.sql)
+          commit;" >/dev/null
+          # Definitions and privileges only; no store data is read.
+          run_sql "select
+              has_function_privilege('anon', 'public.food_store_share_preview(uuid)', 'execute') as anon_preview,
+              (pg_get_functiondef('public.food_store_share_preview(uuid)'::regprocedure) like '%admin_suspended_at is null%') as hides_suspended,
+              (pg_get_functiondef('public.food_store_share_preview(uuid)'::regprocedure) ~* 'phone|address|promptpay|bank') as leaks_private;" \
+            | tee result.json | jq .
+          jq -e '.[0].anon_preview == true and .[0].hides_suspended == true and .[0].leaks_private == false' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "Food share previews are installed."
