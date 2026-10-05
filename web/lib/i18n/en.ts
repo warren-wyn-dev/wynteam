@@ -2384,10 +2384,16 @@ Object.assign(EN_EXACT, {
   "ยอดขายหรือการเงินไม่ตรง": "Sales or finance totals look wrong",
   "ใช้หน้า “การเงิน” เลือกช่วงวันที่และดาวน์โหลด CSV เพื่อตรวจรายการ": "Use Finance to select a date range and download CSV for reconciliation",
   "พิมพ์ใบออเดอร์ / ใบเสร็จอย่างย่อ": "Print order / simple receipt",
+  "เผยแพร่แล้ว": "Published",
+  "ยังไม่เผยแพร่": "Not published",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["ร้าน: {0}", "Store: {0}"],
+  ["สถานะ: {0} / {1}", "Status: {0} / {1}"],
+  ["เวลา: {0}", "Time: {0}"],
+  ["อุปกรณ์: {0}", "Device: {0}"],
   ["ตะกร้า {0} รายการ", "Cart, {0} items"],
   ["{0} แคมเปญกำลังใช้งาน", "{0} active campaigns"],
   ["แคมเปญ WYNOS · {0}", "WYNOS campaign · {0}"],
