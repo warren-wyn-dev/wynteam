@@ -1987,6 +1987,8 @@ Object.assign(EN_EXACT, {
   "กรุณาเข้าสู่ระบบก่อนเพิ่มสถานที่": "Sign in before adding a place",
   "วันนี้ส่งสถานที่ครบจำนวนแล้ว ลองใหม่พรุ่งนี้": "You reached today's place suggestion limit. Try again tomorrow.",
   "สถานที่นี้ถูกส่งเข้าตรวจสอบแล้ว": "This place has already been submitted for review",
+  "ส่งสถานที่ไม่สำเร็จ": "Could not submit this place",
+  "ปิดฟอร์มเพิ่มสถานที่": "Close add-place form",
   "กำลังค้นหาชื่อสถานที่…": "Finding place name…",
   "ไม่พบชื่อสถานที่": "Place name unavailable",
   "ยังไม่ปักหมุด: ร้านจะยังไม่ขึ้น WYNOS Maps": "No pin yet: the store will not appear on WYNOS Maps",
