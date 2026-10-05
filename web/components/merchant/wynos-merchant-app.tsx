@@ -832,14 +832,14 @@ function HomePanel({
       onReload();
     } finally { setBusy(false); }
   };
-  const availableMenu = menu.filter((item) => item.is_available).length;
-  // WYN-204: "เตรียมร้านให้พร้อม" uses the same rules as the publish check
-  // (internal.food_store_readiness_missing), so a ticked list can publish.
+  // Keep the Home checklist aligned with the server-side publish gate.
   const filled = (value: string | null | undefined) => Boolean(value?.trim());
+  const hasSchedule = Boolean((store.business_schedule as FoodBusinessSchedule | undefined)?.weekly);
   const checklist = [
-    { key: "info", label: "ใส่เบอร์ ที่อยู่ เวลาเปิด และพื้นที่ส่ง", done: filled(store.phone) && filled(store.address) && filled(store.business_hours) && filled(store.delivery_area), action: "แก้ไขร้าน", onGo: onEditStore },
-    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
-    { key: "menu", label: "เปิดขายเมนูอย่างน้อย 1 รายการ", done: availableMenu > 0, action: "ไปที่เมนู", onGo: () => onOpenTab("menu") },
+    { key: "info", label: "ข้อมูลร้าน รูป และตำแหน่งครบ", done: filled(store.name) && filled(store.description) && filled(store.phone) && filled(store.address) && filled(store.logo_path) && filled(store.cover_path) && store.latitude != null && store.longitude != null, action: "แก้ไขร้าน", onGo: onEditStore },
+    { key: "hours", label: "ตั้งเวลาเปิด–ปิดและเวลาเตรียมอาหาร", done: hasSchedule && Number(store.prep_time_min_minutes ?? 0) > 0 && Number(store.prep_time_max_minutes ?? 0) >= Number(store.prep_time_min_minutes ?? 0), action: "ตั้งเวลา", onGo: onEditStore },
+    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: filled(store.promptpay_id) || filled(store.bank_account_number), action: "ตั้งค่า", onGo: onEditStore },
+    { key: "menu", label: "เพิ่มเมนูอาหารอย่างน้อย 1 รายการ", done: menu.length > 0, action: "ไปที่เมนู", onGo: () => onOpenTab("menu") },
     { key: "publish", label: "เผยแพร่ร้านบน WYNOS Food", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
   ];
   const checklistDone = checklist.filter((item) => item.done).length;
@@ -867,15 +867,15 @@ function HomePanel({
           <span>{todayOrders.length} ออเดอร์ <ChevronRight size={14} /></span>
         </button>
         <button
-          className={`wm-open-switch ${store.is_open ? "is-open" : ""}`}
+          className={`wm-open-switch ${foodStoreIsEffectivelyOpen(store) ? "is-open" : ""}`}
           type="button"
           role="switch"
           aria-checked={store.is_open}
-          aria-label={store.is_open ? "เปิดร้านอยู่ กดเพื่อปิดรับออเดอร์" : "ปิดร้านอยู่ กดเพื่อเปิดรับออเดอร์"}
+          aria-label={store.is_open ? "เปิดสวิตช์ร้านอยู่ กดเพื่อปิดรับออเดอร์" : "ปิดร้านอยู่ กดเพื่อเปิดตามตารางเวลา"}
           disabled={busy || Boolean(store.admin_suspended_at)} onClick={() => void toggleOpen()}
         >
           <i className="wm-open-dot" />
-          <span><b>{store.is_open ? "เปิดรับออเดอร์" : "ปิดร้านอยู่"}</b><small>{store.is_open ? "แตะเพื่อปิดร้าน" : "แตะเพื่อเปิดรับออเดอร์"}</small></span>
+          <span><b>{foodStoreStatusText(store)}</b><small>{store.is_open ? (foodStoreIsEffectivelyOpen(store) ? "แตะเพื่อปิดร้าน" : "เปิดสวิตช์แล้ว · ระบบจะเปิดตามเวลา") : "แตะเพื่อเปิดตามตารางเวลา"}</small></span>
           <span className={`wm-switch ${store.is_open ? "is-on" : ""}`}><i /></span>
         </button>
       </section>
