@@ -741,7 +741,7 @@ function MerchantInner({
             userId={userId}
             onMessage={setMessage}
             onPushChange={setNotificationsEnabled}
-            onReload={() => load(true)}
+            onReload={async () => { await load(true); }}
           />
         ) : null}
 
