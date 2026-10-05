@@ -616,8 +616,10 @@ export function foodPaymentStatusLabel(status: FoodCustomerOrder["payment_status
 export function foodCustomerError(error: unknown, fallback = "ดำเนินการไม่สำเร็จ") {
   const message = error instanceof Error ? error.message : String(error ?? "");
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
+  if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";
   if (message.includes("menu item is unavailable")) return "มีเมนูที่ไม่พร้อมขาย กรุณาตรวจตะกร้าอีกครั้ง";
+  if (message.includes("menu item daily stock exceeded")) return "เมนูจำนวนจำกัดขายครบสำหรับวันนี้แล้ว กรุณาตรวจตะกร้าอีกครั้ง";
   if (message.includes("order cannot be cancelled by customer")) return "ออเดอร์นี้ยกเลิกเองไม่ได้แล้ว กรุณาติดต่อร้าน";
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";
