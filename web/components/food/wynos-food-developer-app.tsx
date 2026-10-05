@@ -1334,11 +1334,24 @@ function CheckoutSheet({
   const maxDays = Math.max(1, Number(store.scheduled_max_days ?? 7));
   const [scheduleMode, setScheduleMode] = useState<"asap" | "scheduled">("asap");
   const [scheduledLocal, setScheduledLocal] = useState("");
+  const [clockMs, setClockMs] = useState<number | null>(null);
+  useEffect(() => {
+    const updateClock = () => setClockMs(Date.now());
+    const kickoff = window.setTimeout(updateClock, 0);
+    const timer = window.setInterval(updateClock, 30_000);
+    return () => {
+      window.clearTimeout(kickoff);
+      window.clearInterval(timer);
+    };
+  }, []);
   const scheduledDate = scheduledLocal ? new Date(scheduledLocal) : null;
   const scheduledMs = scheduledDate?.getTime() ?? Number.NaN;
-  const minScheduledMs = Date.now() + minNotice * 60_000;
-  const maxScheduledMs = Date.now() + maxDays * 24 * 60 * 60_000;
-  const scheduledValid = scheduleMode === "asap" || (Number.isFinite(scheduledMs) && scheduledMs >= minScheduledMs && scheduledMs <= maxScheduledMs);
+  const scheduledValid = scheduleMode === "asap" || (
+    clockMs !== null
+    && Number.isFinite(scheduledMs)
+    && scheduledMs >= clockMs + minNotice * 60_000
+    && scheduledMs <= clockMs + maxDays * 24 * 60 * 60_000
+  );
   const address = addresses.find((row) => row.id === addressId) ?? null;
   const subtotal = cart.reduce((sum, line) => {
     const item = itemFor(menu, line.menu_item_id);
