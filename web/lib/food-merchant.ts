@@ -2,6 +2,8 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
+import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
+import { foodSoldOutUntilTomorrowBangkok } from "@/lib/food-store-availability";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 
@@ -16,6 +18,13 @@ export type FoodStore = {
   logo_path: string | null;
   cover_path: string | null;
   business_hours: string | null;
+  business_schedule?: FoodBusinessSchedule | Record<string, unknown>;
+  special_closed_dates?: string[];
+  temporary_closed_until?: string | null;
+  temporary_closed_reason?: string | null;
+  prep_time_min_minutes?: number;
+  prep_time_max_minutes?: number;
+  menu_category_order?: string[];
   delivery_area: string | null;
   delivery_fee: number | string;
   minimum_order: number | string;
@@ -68,6 +77,7 @@ export type FoodMenuItem = {
   image_path: string | null;
   options: FoodMenuOptionGroup[];
   is_available: boolean;
+  sold_out_until?: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -163,6 +173,7 @@ export type MenuDraft = {
   image_path?: string | null;
   options: FoodMenuOptionGroup[];
   is_available: boolean;
+  sold_out_until?: string | null;
 };
 
 
@@ -246,6 +257,13 @@ export async function updateFoodStore(client: SupabaseClient, storeId: string, p
     logo_path: patch.logo_path,
     cover_path: patch.cover_path,
     business_hours: patch.business_hours,
+    business_schedule: patch.business_schedule,
+    special_closed_dates: patch.special_closed_dates,
+    temporary_closed_until: patch.temporary_closed_until,
+    temporary_closed_reason: patch.temporary_closed_reason,
+    prep_time_min_minutes: patch.prep_time_min_minutes,
+    prep_time_max_minutes: patch.prep_time_max_minutes,
+    menu_category_order: patch.menu_category_order,
     delivery_area: patch.delivery_area,
     delivery_fee: patch.delivery_fee,
     minimum_order: patch.minimum_order,
@@ -355,6 +373,7 @@ export async function saveMenuItem(client: SupabaseClient, storeId: string, draf
         .filter((choice) => choice.name),
     })).filter((group) => group.name && group.choices.length),
     is_available: draft.is_available,
+    sold_out_until: draft.sold_out_until ?? null,
   };
   const query = draft.id
     ? client.from("food_menu_items").update(payload).eq("id", draft.id).eq("store_id", storeId)
@@ -485,4 +504,93 @@ export function merchantError(error: unknown, fallback = "ดำเนินก�
   if (message.includes("store suspension can only be changed by WYNOS admin")) return "การระงับร้านเปลี่ยนได้โดยทีม WYNOS เท่านั้น";
   if (message.includes("store is suspended")) return "ร้านถูกระงับโดยทีม WYNOS เปิดร้านหรือเผยแพร่ไม่ได้จนกว่าจะยกเลิกการระงับ";
   return message;
+}
+
+
+export type MerchantStoreReadiness = {
+  ready: boolean;
+  checks: Record<string, boolean>;
+  missing: string[];
+};
+
+export type MerchantLocationQuality = {
+  score: number;
+  nearby_store_count: number;
+  possible_duplicate_count: number;
+  pickup_distance_km: number | null;
+  warnings: string[];
+};
+
+export type MerchantAuditEntry = {
+  id: string;
+  actor_id: string | null;
+  actor_username: string | null;
+  event_type: string;
+  detail: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export async function fetchMerchantStoreReadiness(client: SupabaseClient, storeId: string): Promise<MerchantStoreReadiness> {
+  const { data, error } = await client.rpc("food_store_publish_readiness", { p_store_id: storeId });
+  if (error) throw new Error(error.message);
+  const raw = (data ?? {}) as Partial<MerchantStoreReadiness>;
+  return {
+    ready: raw.ready === true,
+    checks: raw.checks ?? {},
+    missing: Array.isArray(raw.missing) ? raw.missing.map(String) : [],
+  };
+}
+
+export async function checkMerchantLocationQuality(
+  client: SupabaseClient,
+  storeId: string,
+  latitude: number,
+  longitude: number,
+  name: string,
+): Promise<MerchantLocationQuality> {
+  const { data, error } = await client.rpc("food_store_location_quality", {
+    p_store_id: storeId,
+    p_latitude: latitude,
+    p_longitude: longitude,
+    p_name: name,
+  });
+  if (error) throw new Error(error.message);
+  const raw = (data ?? {}) as Partial<MerchantLocationQuality>;
+  return {
+    score: Number(raw.score ?? 0),
+    nearby_store_count: Number(raw.nearby_store_count ?? 0),
+    possible_duplicate_count: Number(raw.possible_duplicate_count ?? 0),
+    pickup_distance_km: raw.pickup_distance_km == null ? null : Number(raw.pickup_distance_km),
+    warnings: Array.isArray(raw.warnings) ? raw.warnings.map(String) : [],
+  };
+}
+
+export async function fetchMerchantAuditHistory(client: SupabaseClient, storeId: string): Promise<MerchantAuditEntry[]> {
+  const { data, error } = await client.rpc("merchant_store_audit_history", { p_store_id: storeId, p_limit: 60 });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MerchantAuditEntry[];
+}
+
+export async function setMenuSoldOutToday(client: SupabaseClient, storeId: string, itemId: string, soldOut: boolean) {
+  const { error } = await client
+    .from("food_menu_items")
+    .update({ sold_out_until: soldOut ? foodSoldOutUntilTomorrowBangkok() : null })
+    .eq("id", itemId)
+    .eq("store_id", storeId);
+  if (error) throw new Error(error.message);
+}
+
+export async function saveMenuSortOrder(client: SupabaseClient, storeId: string, orderedIds: string[]) {
+  const updates = orderedIds.map((id, index) =>
+    client.from("food_menu_items").update({ sort_order: index }).eq("id", id).eq("store_id", storeId),
+  );
+  const results = await Promise.all(updates);
+  const failure = results.find((result) => result.error);
+  if (failure?.error) throw new Error(failure.error.message);
+}
+
+export async function saveMenuCategoryOrder(client: SupabaseClient, storeId: string, categories: string[]) {
+  const unique = Array.from(new Set(categories.map((value) => value.trim()).filter(Boolean)));
+  const { error } = await client.from("food_stores").update({ menu_category_order: unique }).eq("id", storeId);
+  if (error) throw new Error(error.message);
 }
