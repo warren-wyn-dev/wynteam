@@ -517,6 +517,7 @@ export function FoodDeliveryMapPicker({
     setSuggestionAddress(place?.address ?? "");
     setSuggestionNote("");
     setShowSuggestion(true);
+    if (standalone) setSheetExpanded(true);
   };
 
   const submitSuggestion = async () => {
