@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, Building2, Check, Clock, Coffee, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Share, ShoppingBag, Store, Utensils, X } from "lucide-react";
+import { ArrowLeft, Briefcase, Building2, Check, Clock, Coffee, Home, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -16,6 +16,14 @@ import {
   type FoodLocation,
   type FoodPlace,
 } from "@/lib/food-customer";
+import {
+  deleteSavedPlace,
+  loadSavedPlaces,
+  saveMapPlace,
+  type SavedPlace,
+  type SavedPlaceKind,
+  type SavedPlacesState,
+} from "@/lib/maps-saved-places";
 import {
   clearRecentPlaces,
   formatDistanceKm,
@@ -335,6 +343,15 @@ export function FoodDeliveryMapPicker({
   // Standalone Maps hides the sheet by default, so search feedback shows under the search box.
   const [searchStatus, setSearchStatus] = useState("");
   const [recentPlaces, setRecentPlaces] = useState<MapsRecentPlace[]>([]);
+  const [saved, setSaved] = useState<SavedPlacesState>({ status: "unavailable" });
+  const [saveTarget, setSaveTarget] = useState<{
+    name: string;
+    address: string | null;
+    placeId: string | null;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [savingPlace, setSavingPlace] = useState(false);
   const [showAttribution, setShowAttribution] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestionName, setSuggestionName] = useState("");
@@ -424,6 +441,20 @@ export function FoodDeliveryMapPicker({
     const timer = window.setTimeout(() => setRecentPlaces(loadRecentPlaces(mapsStorage())), 0);
     return () => window.clearTimeout(timer);
   }, [standalone]);
+
+  const refreshSaved = useCallback(async () => {
+    if (!standalone) return;
+    try {
+      setSaved(await loadSavedPlaces(client));
+    } catch {
+      // Keep whatever was shown; saved places are optional.
+    }
+  }, [client, standalone]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void refreshSaved(), 0);
+    return () => window.clearTimeout(timer);
+  }, [refreshSaved]);
 
   useEffect(() => {
     if (!standalone) return;
@@ -878,6 +909,62 @@ export function FoodDeliveryMapPicker({
   const searchActive = standalone && searchFocused;
   const showRecents = standalone && searchFocused && !query.trim() && !results.length && recentPlaces.length > 0;
 
+  const savedPlaces = saved.status === "ready" ? saved.places : [];
+  const savedHome = savedPlaces.find((item) => item.kind === "home") ?? null;
+  const savedWork = savedPlaces.find((item) => item.kind === "work") ?? null;
+  const savedFavorites = savedPlaces.filter((item) => item.kind === "favorite");
+  const showSaved = standalone && searchFocused && !query.trim() && !results.length && saved.status !== "unavailable";
+
+  const openSaved = (item: SavedPlace) => {
+    setSearchFocused(false);
+    setQuery("");
+    setSearchStatus("");
+    moveTo(
+      { latitude: item.latitude, longitude: item.longitude },
+      { placeId: item.placeId, name: item.name, address: item.address, latitude: item.latitude, longitude: item.longitude, source: "wynos" },
+    );
+    setSheetDetent("half");
+  };
+
+  const startSave = (target: { name?: string | null; address?: string | null; placeId?: string | null; latitude: number; longitude: number }) => {
+    if (saved.status === "signed-out") {
+      setStatus("เข้าสู่ระบบ WYNOS ก่อน จึงจะบันทึกสถานที่ได้");
+      return;
+    }
+    setSaveTarget({
+      name: target.name?.trim() || "ตำแหน่งที่ปักหมุด",
+      address: target.address ?? null,
+      placeId: target.placeId ?? null,
+      latitude: target.latitude,
+      longitude: target.longitude,
+    });
+    setSheetDetent("full");
+  };
+
+  const saveTo = async (kind: SavedPlaceKind) => {
+    if (!saveTarget) return;
+    setSavingPlace(true);
+    try {
+      await saveMapPlace(client, { ...saveTarget, kind });
+      setSaveTarget(null);
+      setStatus(kind === "home" ? "บันทึกเป็นบ้านแล้ว" : kind === "work" ? "บันทึกเป็นที่ทำงานแล้ว" : "เพิ่มในรายการโปรดแล้ว");
+      await refreshSaved();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "บันทึกสถานที่ไม่สำเร็จ");
+    } finally {
+      setSavingPlace(false);
+    }
+  };
+
+  const removeSaved = async (item: SavedPlace) => {
+    try {
+      await deleteSavedPlace(client, item.id);
+      await refreshSaved();
+    } catch (error) {
+      setSearchStatus(error instanceof Error ? error.message : "ลบสถานที่ไม่สำเร็จ");
+    }
+  };
+
   const sharePlace = async (target: { name?: string | null; latitude: number; longitude: number }) => {
     const url = mapsShareUrl(window.location.origin, target.latitude, target.longitude);
     const title = target.name?.trim() || "ตำแหน่งบน WYNOS Maps";
@@ -965,6 +1052,58 @@ export function FoodDeliveryMapPicker({
         <p className="wf-map-search-status" role="status" aria-live="polite">
           {searching ? "กำลังค้นหา…" : searchStatus}
         </p>
+      ) : null}
+      {showSaved ? (
+        <div className="wf-map-saved-places">
+          <div className="wf-map-recents-head">
+            <strong>รายการโปรด</strong>
+          </div>
+          {saved.status === "signed-out" ? (
+            <p className="wf-map-saved-hint">เข้าสู่ระบบ WYNOS เพื่อบันทึกบ้าน ที่ทำงาน และรายการโปรด</p>
+          ) : (
+            <>
+              <div className="wf-map-saved-tiles">
+                {([["home", savedHome, "บ้าน"], ["work", savedWork, "ที่ทำงาน"]] as const).map(([kind, item, label]) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    className={item ? "wf-map-saved-tile" : "wf-map-saved-tile is-empty"}
+                    onClick={() => (item
+                      ? openSaved(item)
+                      : setSearchStatus(`ปักหมุดที่${label} แล้วกดปุ่มดาวเพื่อบันทึก`))}
+                  >
+                    <span>{kind === "home" ? <Home size={18} /> : <Briefcase size={18} />}</span>
+                    <strong>{label}</strong>
+                    <small>{item ? item.name : "ยังไม่ได้ตั้ง"}</small>
+                  </button>
+                ))}
+              </div>
+              {savedFavorites.length ? (
+                <div className="wf-map-results wf-map-favorites">
+                  {savedFavorites.map((item) => (
+                    <div key={item.id} className="wf-map-favorite-row">
+                      <button type="button" onClick={() => openSaved(item)}>
+                        <Star size={17} />
+                        <span>
+                          <strong>{item.name}</strong>
+                          {item.address ? <small>{item.address}</small> : null}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="wf-map-favorite-remove"
+                        aria-label={`ลบ ${item.name} ออกจากรายการโปรด`}
+                        onClick={() => void removeSaved(item)}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
       ) : null}
       {showRecents ? (
         <div className="wf-map-recents">
@@ -1198,6 +1337,11 @@ export function FoodDeliveryMapPicker({
               >
                 ใช้ตำแหน่งนี้
               </button>
+              {standalone && saved.status !== "unavailable" ? (
+                <button type="button" className="wf-map-share" onClick={() => startSave(activeNearbyPlace)}>
+                  <Star size={15} /> บันทึก
+                </button>
+              ) : null}
               {standalone ? (
                 <button type="button" className="wf-map-share" onClick={() => void sharePlace(activeNearbyPlace)}>
                   <Share size={15} /> แชร์
@@ -1240,16 +1384,45 @@ export function FoodDeliveryMapPicker({
             ) : null}
           </div>
           {standalone && location ? (
-            <button
-              type="button"
-              className="wf-map-confirm-share"
-              aria-label="แชร์ตำแหน่งนี้"
-              onClick={() => void sharePlace({ name: place?.name, latitude: location.latitude, longitude: location.longitude })}
-            >
-              <Share size={18} />
-            </button>
+            <div className="wf-map-confirm-tools">
+              {saved.status !== "unavailable" ? (
+                <button
+                  type="button"
+                  className="wf-map-confirm-share"
+                  aria-label="บันทึกตำแหน่งนี้"
+                  onClick={() => startSave({
+                    name: place?.name,
+                    address: place?.address,
+                    placeId: place?.placeId,
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                  })}
+                >
+                  <Star size={18} />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="wf-map-confirm-share"
+                aria-label="แชร์ตำแหน่งนี้"
+                onClick={() => void sharePlace({ name: place?.name, latitude: location.latitude, longitude: location.longitude })}
+              >
+                <Share size={18} />
+              </button>
+            </div>
           ) : null}
         </div>
+        {standalone && saveTarget ? (
+          <div className="wf-map-save-menu" role="group" aria-label="บันทึกสถานที่">
+            <strong>{`บันทึก “${saveTarget.name}” เป็น`}</strong>
+            <div>
+              <button type="button" disabled={savingPlace} onClick={() => void saveTo("home")}><Home size={17} /> บ้าน</button>
+              <button type="button" disabled={savingPlace} onClick={() => void saveTo("work")}><Briefcase size={17} /> ที่ทำงาน</button>
+              <button type="button" disabled={savingPlace} onClick={() => void saveTo("favorite")}><Star size={17} /> รายการโปรด</button>
+            </div>
+            <button type="button" className="wf-map-save-cancel" onClick={() => setSaveTarget(null)}>ยกเลิก</button>
+          </div>
+        ) : null}
         {status ? <p role="status">{status}</p> : null}
 
         {showSuggestion ? (
