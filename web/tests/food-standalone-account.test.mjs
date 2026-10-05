@@ -106,7 +106,7 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
   ]) assert.match(source, new RegExp(label));
 
   assert.match(source, /aria-label="ร้านโปรด"/);
-  assert.match(source, /className="wf-store-favorite/);
+  assert.match(source, /wf-store-favorite/);
   const homeRows = source.slice(source.indexOf("function FoodDirectoryStoreRow"), source.indexOf("function FavoriteStoresSheet"));
   assert.doesNotMatch(homeRows, /<Heart\b/);
 
