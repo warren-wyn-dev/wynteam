@@ -119,6 +119,7 @@ const EMPTY_MENU_DRAFT: MenuDraft = {
   image_path: null,
   options: [],
   is_available: true,
+  daily_stock_limit: "",
 };
 
 function menuOptionId(prefix: "group" | "choice") {
@@ -510,7 +511,7 @@ function MerchantInner({
     setActedFrom((current) => new Map(current).set(order.id, order.status));
     try {
       if (next.step === "accept") {
-        await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? 30);
+        await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? Number(store?.prep_time_max_minutes ?? 30));
         setMessage(`รับออเดอร์ #${order.order_number} แล้ว`);
       } else if (next.step === "ready") {
         await transitionFoodOrder(client, order.id, "ready_for_delivery");
@@ -615,6 +616,7 @@ function MerchantInner({
               image_path: item.image_path,
               options: Array.isArray(item.options) ? item.options : [],
               is_available: item.is_available,
+              daily_stock_limit: item.daily_stock_limit == null ? "" : String(item.daily_stock_limit),
             })}
             onAdd={() => setMenuDraft({ ...EMPTY_MENU_DRAFT })}
             onToggle={async (item) => {
@@ -1190,7 +1192,7 @@ function MenuPanel({
                       <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
                       <span className="wm-menu-copy">
                         <strong>{item.name}</strong>
-                        <small>{soldOutToday ? "หมดวันนี้ · เปิดอัตโนมัติวันถัดไป" : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
+                        <small>{soldOutToday ? "หมดวันนี้ · เปิดอัตโนมัติวันถัดไป" : item.daily_stock_limit ? `จำกัด ${item.daily_stock_limit} ชิ้น/วัน` : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
                         <b>{money(item.price)}</b>
                       </span>
                     </button>
@@ -1886,6 +1888,11 @@ function MenuEditor({
           )) : <div className="wm-option-empty">ยังไม่มีตัวเลือกเสริม กด “เพิ่มกลุ่ม” เพื่อเริ่มเพิ่มได้</div>}
         </section>
 
+        <section className="wm-menu-stock-editor">
+          <div><strong>จำนวนขายต่อวัน</strong><small>เว้นว่าง = ไม่จำกัด ระบบนับใหม่ทุกวันตามเวลาไทย</small></div>
+          <label>สูงสุดต่อวัน<input type="number" min="1" max="9999" inputMode="numeric" value={form.daily_stock_limit ?? ""} onChange={(e) => setForm({ ...form, daily_stock_limit: e.target.value })} placeholder="ไม่จำกัด" /></label>
+          <small>ถ้ายอดครบ ระบบจะไม่รับออเดอร์เพิ่มของเมนูนี้จนถึงวันถัดไป</small>
+        </section>
         <label className="wm-check-row"><input type="checkbox" checked={form.is_available} onChange={(e) => setForm({ ...form, is_available: e.target.checked })} /><span><strong>เปิดขาย</strong><small>ปิดได้ทันทีเมื่อเมนูหมด</small></span></label>
         <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกเมนู"}</button>
         {form.id ? <button className="wm-danger-link" type="button" disabled={busy} onClick={() => void remove()}>ลบเมนู</button> : null}
