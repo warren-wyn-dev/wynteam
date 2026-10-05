@@ -38,6 +38,9 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(app).toContain("<FoodDeliveryMapPicker");
   const css = read("app/food/food.css");
   const mapsCss = read("app/maps/maps.css");
+  const serviceArea = JSON.parse(read("public/maps/food-service-area-maha-sarakham.json")) as {
+    geometry?: { coordinates?: number[][][] };
+  };
 
   expect(map).toContain('const MAP_STYLE = "/maps/wynos-green.json";');
   expect(map).toContain("maplibre-gl@");
@@ -50,6 +53,16 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(mapsCss).toContain("touch-action: none !important");
   expect(mapsCss).toContain("overscroll-behavior: none");
   expect(map).toContain('map.on("style.load", markReady)');
+  expect(map).toContain('const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";');
+  expect(map).toContain("pointInServiceArea(location, serviceAreaBoundary)");
+  expect(map).toContain("map.addSource(SERVICE_AREA_SOURCE");
+  expect(map).toContain("SERVICE_AREA_FILL_LAYER");
+  expect(map).toContain("SERVICE_AREA_LINE_LAYER");
+  expect(map).toContain('serviceAreaState === "outside"');
+  expect(map).toContain("ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ");
+  expect(mapsCss).toContain(".wf-map-service-area");
+  expect(mapsCss).toContain(".wf-map-service-area-warning");
+  expect(serviceArea.geometry?.coordinates?.[0]?.length ?? 0).toBeGreaterThan(1000);
   expect(map).toContain("แผนที่ยังโหลดไม่สำเร็จ");
   expect(css).toContain(".wf-map-canvas.maplibregl-map");
   expect(css).toContain(".wf-map-loading--error");

@@ -35,6 +35,21 @@ type MapStyle = string | {
   }>;
 };
 
+type ServiceAreaFeature = {
+  type: "Feature";
+  properties: {
+    code?: string;
+    name?: string;
+    service?: string;
+    source?: string;
+    attribution?: string;
+  };
+  geometry: {
+    type: "Polygon";
+    coordinates: number[][][];
+  };
+};
+
 type MapInstance = {
   getCenter: () => MapCenter;
   getZoom: () => number;
@@ -44,6 +59,15 @@ type MapInstance = {
   remove: () => void;
   resize: () => void;
   setStyle: (style: MapStyle) => void;
+  getSource: (id: string) => unknown;
+  getLayer: (id: string) => unknown;
+  addSource: (id: string, source: { type: "geojson"; data: ServiceAreaFeature }) => void;
+  addLayer: (layer: {
+    id: string;
+    type: "fill" | "line";
+    source: string;
+    paint: Record<string, string | number>;
+  }) => void;
 };
 
 type MarkerInstance = {
@@ -77,6 +101,10 @@ const MAPLIBRE_VERSION = "5.12.0";
 const MAPLIBRE_JS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js`;
 const MAPLIBRE_CSS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
 const MAP_STYLE = "/maps/wynos-green.json";
+const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";
+const SERVICE_AREA_SOURCE = "wynos-food-service-area";
+const SERVICE_AREA_FILL_LAYER = "wynos-food-service-area-fill";
+const SERVICE_AREA_LINE_LAYER = "wynos-food-service-area-line";
 const FALLBACK_MAP_STYLE: MapStyle = {
   version: 8,
   sources: {
@@ -152,6 +180,34 @@ function nearbyRadiusForZoom(zoom: number) {
   return 25;
 }
 
+function isServiceAreaFeature(value: unknown): value is ServiceAreaFeature {
+  if (!value || typeof value !== "object") return false;
+  const feature = value as Partial<ServiceAreaFeature>;
+  return feature.type === "Feature"
+    && feature.geometry?.type === "Polygon"
+    && Array.isArray(feature.geometry.coordinates?.[0])
+    && feature.geometry.coordinates[0].length >= 3;
+}
+
+function pointInServiceArea(location: FoodLocation, feature: ServiceAreaFeature) {
+  const ring = feature.geometry.coordinates[0] ?? [];
+  if (ring.length < 3) return false;
+  const x = location.longitude;
+  const y = location.latitude;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i]?.[0];
+    const yi = ring[i]?.[1];
+    const xj = ring[j]?.[0];
+    const yj = ring[j]?.[1];
+    if (xi == null || yi == null || xj == null || yj == null) continue;
+    const crosses = (yi > y) !== (yj > y)
+      && x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
 function placeCategory(place: FoodPlace) {
   if (place.category === "restaurant") return "ร้านอาหาร";
   if (place.category === "pickup_point") return "จุดรับอาหาร";
@@ -222,6 +278,12 @@ export function FoodDeliveryMapPicker({
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [currentLocationSelected, setCurrentLocationSelected] = useState(false);
   const [mapDragging, setMapDragging] = useState(false);
+  const [mapStyleRevision, setMapStyleRevision] = useState(0);
+  const [serviceAreaBoundary, setServiceAreaBoundary] = useState<ServiceAreaFeature | null>(null);
+
+  const serviceAreaState = standalone && location && serviceAreaBoundary
+    ? (pointInServiceArea(location, serviceAreaBoundary) ? "inside" : "outside")
+    : "unknown";
 
   const reverse = useCallback(async (next: FoodLocation) => {
     const requestId = ++reverseRequestRef.current;
@@ -279,6 +341,25 @@ export function FoodDeliveryMapPicker({
   }, [moveTo, reverse]);
 
   useEffect(() => {
+    if (!standalone) return;
+    let live = true;
+    void fetch(SERVICE_AREA_URL, { cache: "force-cache" })
+      .then((response) => {
+        if (!response.ok) throw new Error("service area unavailable");
+        return response.json() as Promise<unknown>;
+      })
+      .then((value) => {
+        if (live && isServiceAreaFeature(value)) setServiceAreaBoundary(value);
+      })
+      .catch(() => {
+        if (live) setServiceAreaBoundary(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [standalone]);
+
+  useEffect(() => {
     let live = true;
     let map: MapInstance | null = null;
     let fallbackApplied = false;
@@ -323,6 +404,7 @@ export function FoodDeliveryMapPicker({
           styleLoaded = true;
           setMapReady(true);
           setMapFailed(false);
+          setMapStyleRevision((value) => value + 1);
           void loadNearby({ latitude: start[1], longitude: start[0] });
         };
 
@@ -402,6 +484,41 @@ export function FoodDeliveryMapPicker({
       mapRef.current = null;
     };
   }, [initialLocation, loadNearby, mapAttempt, reverse]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!standalone || !mapReady || !map || !serviceAreaBoundary) return;
+    try {
+      if (!map.getSource(SERVICE_AREA_SOURCE)) {
+        map.addSource(SERVICE_AREA_SOURCE, { type: "geojson", data: serviceAreaBoundary });
+      }
+      if (!map.getLayer(SERVICE_AREA_FILL_LAYER)) {
+        map.addLayer({
+          id: SERVICE_AREA_FILL_LAYER,
+          type: "fill",
+          source: SERVICE_AREA_SOURCE,
+          paint: {
+            "fill-color": "#159447",
+            "fill-opacity": 0.09,
+          },
+        });
+      }
+      if (!map.getLayer(SERVICE_AREA_LINE_LAYER)) {
+        map.addLayer({
+          id: SERVICE_AREA_LINE_LAYER,
+          type: "line",
+          source: SERVICE_AREA_SOURCE,
+          paint: {
+            "line-color": "#0b7f3b",
+            "line-width": 2,
+            "line-opacity": 0.72,
+          },
+        });
+      }
+    } catch {
+      // The picker remains usable if the optional service-area overlay cannot render.
+    }
+  }, [mapReady, mapStyleRevision, serviceAreaBoundary, standalone]);
 
   useEffect(() => {
     if (!mapReady || !autoLocate || initialLocation || autoLocateRef.current) return;
@@ -654,6 +771,22 @@ export function FoodDeliveryMapPicker({
         <div className={mapDragging ? "wf-map-center-pin is-dragging" : "wf-map-center-pin"} aria-hidden="true">
           <MapPin size={42} fill="currentColor" />
         </div>
+        {standalone && serviceAreaBoundary ? (
+          <div
+            className={`wf-map-service-area${serviceAreaState === "inside" ? " is-inside" : serviceAreaState === "outside" ? " is-outside" : ""}`}
+            role="status"
+          >
+            <span className="wf-map-service-area-dot" />
+            <strong>
+              {serviceAreaState === "inside"
+                ? "อยู่ในพื้นที่ให้บริการ"
+                : serviceAreaState === "outside"
+                  ? "นอกพื้นที่ให้บริการ"
+                  : "พื้นที่ให้บริการ WYNOS Food"}
+            </strong>
+            <small>มหาสารคาม</small>
+          </div>
+        ) : null}
         <div className="wf-map-attribution">
           {showAttribution ? (
             <div className="wf-map-attribution-panel" role="dialog" aria-label="ข้อมูลแผนที่และแหล่งข้อมูล">
@@ -776,6 +909,16 @@ export function FoodDeliveryMapPicker({
           </article>
         ) : null}
 
+        {standalone && serviceAreaState === "outside" ? (
+          <div className="wf-map-service-area-warning" role="alert">
+            <MapPin size={18} />
+            <div>
+              <strong>นอกพื้นที่ให้บริการ</strong>
+              <span>ตอนนี้ WYNOS Food ให้บริการในจังหวัดมหาสารคาม</span>
+            </div>
+          </div>
+        ) : null}
+
         <div className="wf-map-confirm-copy">
           <span><MapPin size={18} /></span>
           <div>
@@ -849,13 +992,13 @@ export function FoodDeliveryMapPicker({
         <button
           className="wf-primary wf-full"
           type="button"
-          disabled={!chosen || !location}
+          disabled={!chosen || !location || (standalone && serviceAreaState === "outside")}
           onClick={() => {
-            if (!location) return;
+            if (!location || (standalone && serviceAreaState === "outside")) return;
             onConfirm(location, place ?? undefined);
           }}
         >
-          <Check size={18} /> ยืนยันตำแหน่งนี้
+          <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : "ยืนยันตำแหน่งนี้"}
         </button>
 
       </section>
