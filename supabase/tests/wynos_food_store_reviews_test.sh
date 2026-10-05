@@ -115,6 +115,7 @@ O4=44444444-0000-0000-0000-000000000000
 
 expect_eq "$C1" "select has_table_privilege('authenticated','public.food_store_reviews','select')" "f" "review table is not directly readable"
 expect_eq "$C1" "reset role; select internal.food_mask_reviewer_name('กานต์')" "ก**ต์" "Thai combining marks stay attached to the visible last character"
+expect_eq "$C1" "reset role; select internal.food_mask_reviewer_name('พล')" "พ**ล" "short names keep the first and last visible characters"
 expect_fail "$C1" "select public.food_submit_store_review('$O2',5,null,array[]::text[],false)" "non-delivered order cannot be reviewed" "only delivered orders can be reviewed"
 expect_fail "$C1" "select public.food_submit_store_review('$O3',5,null,array[]::text[],false)" "another buyer's order cannot be reviewed" "order not found"
 expect_fail "$C1" "select public.food_submit_store_review('$O1',6,null,array[]::text[],false)" "rating must be one to five" "invalid review rating"
