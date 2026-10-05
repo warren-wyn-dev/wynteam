@@ -141,6 +141,14 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
   return window.__wynosMapLibrePromise;
 }
 
+function nearbyRadiusForZoom(zoom: number) {
+  if (zoom >= 17.5) return 1.5;
+  if (zoom >= 16) return 3;
+  if (zoom >= 14.5) return 7;
+  if (zoom >= 13) return 15;
+  return 25;
+}
+
 function placeCategory(place: FoodPlace) {
   if (place.category === "restaurant") return "ร้านอาหาร";
   if (place.category === "pickup_point") return "จุดรับอาหาร";
@@ -213,13 +221,14 @@ export function FoodDeliveryMapPicker({
 
   const loadNearby = useCallback(async (center: FoodLocation) => {
     const requestId = ++nearbyRequestRef.current;
+    const zoom = mapRef.current?.getZoom() ?? (initialLocation ? 16 : 5.4);
     try {
-      const places = await fetchNearbyWynosPlaces(client, center, 25);
+      const places = await fetchNearbyWynosPlaces(client, center, nearbyRadiusForZoom(zoom));
       if (nearbyRequestRef.current === requestId) setNearbyPlaces(places);
     } catch {
       if (nearbyRequestRef.current === requestId) setNearbyPlaces([]);
     }
-  }, [client]);
+  }, [client, initialLocation]);
 
   const moveTo = useCallback((next: FoodLocation, nextPlace?: FoodPlace) => {
     reverseRequestRef.current += 1;
