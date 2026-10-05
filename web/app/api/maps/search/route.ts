@@ -5,11 +5,16 @@ import { searchWynosGeo } from "@/lib/server/wynos-maps-core";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+  const params = new URL(request.url).searchParams;
+  const query = params.get("q")?.trim() ?? "";
   if (!query) return NextResponse.json({ results: [] });
 
+  const lat = Number(params.get("lat"));
+  const lon = Number(params.get("lon"));
+  const location = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+
   try {
-    const results = await searchWynosGeo(query);
+    const results = await searchWynosGeo(query, location);
     if (results === null) {
       return NextResponse.json(
         { error: "WYNOS_GEO_NOT_CONFIGURED", results: [] },
