@@ -1646,6 +1646,7 @@ Object.assign(EN_EXACT, {
   "เวลาเปิด–ปิดและการเตรียมอาหาร": "Opening hours and preparation",
   "กำหนดเวลารายวัน วันหยุด ปิดชั่วคราว และเวลาเตรียมออเดอร์": "Set daily hours, holidays, temporary closures and order preparation time",
   "ตำแหน่งและการจัดส่ง": "Location and delivery",
+  "ตำแหน่งและจัดส่ง": "Location & delivery",
   "ที่อยู่ร้าน หมุดบนแผนที่ ระยะส่ง ค่าส่ง จุดรับอาหาร และพื้นที่ที่ส่งบ่อย": "Store address, map pin, delivery range, fees, pickup point and frequent delivery places",
   "การรับชำระเงิน": "Payments",
   "PromptPay บัญชีธนาคาร และ QR สำหรับรับเงินเข้าร้าน": "PromptPay, bank account and QR payment details",
