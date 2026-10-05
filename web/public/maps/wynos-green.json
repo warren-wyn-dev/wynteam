@@ -4275,7 +4275,6 @@
         "text-font": [
           "Noto Sans Regular"
         ],
-        "text-letter-spacing": 0.2,
         "text-max-width": 5,
         "text-size": 14
       },
@@ -4322,7 +4321,6 @@
         "text-font": [
           "Noto Sans Regular"
         ],
-        "text-letter-spacing": 0.2,
         "text-max-width": 5,
         "text-size": [
           "interpolate",
@@ -4383,7 +4381,6 @@
         "text-font": [
           "Noto Sans Regular"
         ],
-        "text-letter-spacing": 0.2,
         "text-max-width": 5,
         "text-size": 14
       },
@@ -5250,7 +5247,6 @@
         "text-font": [
           "Noto Sans Regular"
         ],
-        "text-letter-spacing": 0.1,
         "text-max-width": 9,
         "text-size": [
           "interpolate",
@@ -5447,7 +5443,6 @@
         "text-font": [
           "Noto Sans Regular"
         ],
-        "text-letter-spacing": 0.2,
         "text-max-width": 9,
         "text-size": [
           "interpolate",
