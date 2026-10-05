@@ -7,11 +7,12 @@ import { useMemo, useState, useTransition } from "react";
 import {
   adminWynosPlaceError,
   importWynosPlaces,
+  reviewWynosPlaceSuggestion,
   saveWynosPlace,
   setWynosPlaceActive,
   type WynosPlaceInput,
 } from "@/lib/admin-food-actions";
-import type { AdminWynosPlace } from "@/lib/admin-food";
+import type { AdminWynosPlace, AdminWynosPlaceSuggestion } from "@/lib/admin-food";
 
 const CATEGORIES = [
   ["place", "สถานที่"], ["restaurant", "ร้านอาหาร"], ["store", "ร้านค้า"],
@@ -72,7 +73,13 @@ function verificationLabel(value: string) {
   return "ยังไม่ยืนยัน";
 }
 
-export function WynosPlacesManager({ places }: { places: AdminWynosPlace[] }) {
+export function WynosPlacesManager({
+  places,
+  suggestions,
+}: {
+  places: AdminWynosPlace[];
+  suggestions: AdminWynosPlaceSuggestion[];
+}) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [importText, setImportText] = useState("");
@@ -128,6 +135,16 @@ export function WynosPlacesManager({ places }: { places: AdminWynosPlace[] }) {
     }
   });
 
+  const reviewSuggestion = (suggestionId: string, approve: boolean) => startTransition(async () => {
+    try {
+      await reviewWynosPlaceSuggestion(suggestionId, approve);
+      setMessage(approve ? "อนุมัติสถานที่และเพิ่มลง WYNOS Maps แล้ว" : "ปฏิเสธคำขอแล้ว");
+      router.refresh();
+    } catch (error) {
+      setMessage(adminWynosPlaceError(error));
+    }
+  });
+
   const runImport = () => startTransition(async () => {
     try {
       const parsed = JSON.parse(importText) as unknown;
@@ -154,6 +171,35 @@ export function WynosPlacesManager({ places }: { places: AdminWynosPlace[] }) {
             <p className="mt-1 text-xl font-semibold tabular-nums">{Number(value).toLocaleString("th-TH")}</p>
           </div>
         ))}
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-xl border p-4">
+        <div>
+          <h3 className="font-semibold">คำขอเพิ่มสถานที่</h3>
+          <p className="text-xs text-muted-foreground">ผู้ใช้ส่งจากหมุดบน WYNOS Maps สถานที่จะไม่ขึ้นสาธารณะจนกว่า Admin อนุมัติ</p>
+        </div>
+        {suggestions.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">ไม่มีคำขอที่รอตรวจสอบ</div>
+        ) : (
+          <div className="grid gap-3">
+            {suggestions.map((item) => (
+              <article key={item.id} className="grid gap-2 rounded-lg border p-3 md:grid-cols-[1fr_auto]">
+                <div className="min-w-0">
+                  <div className="font-medium">{item.name}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {item.category} · {item.latitude.toFixed(5)}, {item.longitude.toFixed(5)}
+                  </div>
+                  {item.address ? <div className="mt-1 text-xs">{item.address}</div> : null}
+                  {item.note ? <div className="mt-1 text-xs text-muted-foreground">หมายเหตุ: {item.note}</div> : null}
+                </div>
+                <div className="flex items-start gap-2">
+                  <button type="button" disabled={pending} className="h-9 rounded-md border px-3 text-xs" onClick={() => reviewSuggestion(item.id, false)}>ปฏิเสธ</button>
+                  <button type="button" disabled={pending} className="h-9 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground" onClick={() => reviewSuggestion(item.id, true)}>อนุมัติ</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-3 rounded-xl border p-4">
