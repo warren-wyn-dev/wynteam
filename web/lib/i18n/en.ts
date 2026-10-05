@@ -2428,6 +2428,7 @@ Object.assign(EN_EXACT, {
   "เปิดขาย": "Enable item",
   "ปิดขาย": "Disable item",
   "จำนวนขายต่อวัน": "Daily quantity limit",
+  "จำนวนจำกัด": "Limited quantity",
   "เว้นว่าง = ไม่จำกัด ระบบนับใหม่ทุกวันตามเวลาไทย": "Leave blank for unlimited. The count resets each day in Thailand time",
   "สูงสุดต่อวัน": "Maximum per day",
   "ถ้ายอดครบ ระบบจะไม่รับออเดอร์เพิ่มของเมนูนี้จนถึงวันถัดไป": "When the limit is reached, this item cannot be ordered again until the next day",
@@ -2606,4 +2607,5 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["เปิด{0} {1}", "Opens {0} {1}"],
   ["{0}–{1} นาที", "{0}–{1} min"],
   ["จำกัด {0} ชิ้น/วัน", "Limited to {0} items/day"],
+  ["จำนวนจำกัด · สูงสุด {0} ชิ้น/วัน", "Limited quantity · up to {0} items/day"],
 ];
