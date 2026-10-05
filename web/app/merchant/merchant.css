@@ -3538,37 +3538,65 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   }
 }
 
+
+/* Merchant kitchen / KDS, scheduled orders and printable receipts. */
+.wm-kitchen-note { margin: -5px 0 14px; color: var(--wm-secondary); font-size: 11.5px; line-height: 1.5; }
+.wm-kitchen-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.wm-kitchen-column { min-width: 0; padding: 10px; border: 1px solid var(--wm-border); border-radius: 17px; background: var(--wm-surface); }
+.wm-kitchen-column > header { min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wm-kitchen-column > header strong { font-size: 12.5px; }
+.wm-kitchen-column > header b { min-width: 25px; height: 25px; padding: 0 7px; border-radius: 999px; background: var(--wm-bg); display: grid; place-items: center; font-size: 10px; }
+.wm-kitchen-stack { display: grid; gap: 8px; }
+.wm-kitchen-ticket { overflow: hidden; border: 1px solid var(--wm-border); border-radius: 14px; background: var(--wm-bg); }
+.wm-kitchen-ticket.is-scheduled { border-color: color-mix(in srgb, var(--wm-red) 34%, var(--wm-border)); }
+.wm-kitchen-ticket-open { width: 100%; padding: 11px; border: 0; background: transparent; color: var(--wm-text); display: grid; gap: 8px; text-align: left; }
+.wm-kitchen-ticket-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wm-kitchen-ticket-head strong { font-size: 14px; }
+.wm-kitchen-ticket-head b { color: var(--wm-secondary); font-size: 9.5px; }
+.wm-kitchen-scheduled { padding: 6px 7px; border-radius: 9px; background: #fff1f2; color: var(--wm-red); display: flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 750; }
+.wm-kitchen-items { display: grid; gap: 5px; }
+.wm-kitchen-items > span { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; font-size: 11px; }
+.wm-kitchen-items > span > b { color: var(--wm-red); }
+.wm-kitchen-items > span > span { display: grid; gap: 1px; }
+.wm-kitchen-items small, .wm-kitchen-customer-note { color: var(--wm-secondary); font-size: 9px; line-height: 1.4; }
+.wm-kitchen-ticket > .wm-primary { border-radius: 0; min-height: 43px; }
+.wm-kitchen-empty { min-height: 74px; display: grid; place-items: center; color: var(--wm-muted); font-size: 10px; }
+.wm-scheduled-order-banner { margin: 10px 0; padding: 11px 12px; border: 1px solid #f2c9cd; border-radius: 13px; background: #fff1f2; color: var(--wm-red); display: flex; align-items: center; gap: 9px; }
+.wm-scheduled-order-banner span { display: grid; gap: 2px; color: var(--wm-text); }
+.wm-scheduled-order-banner strong { font-size: 11.5px; }
+.wm-scheduled-order-banner small { color: var(--wm-secondary); font-size: 9.5px; }
+.wm-scheduled-settings, .wm-tax-settings { margin-top: 12px; padding: 12px; border: 1px solid var(--wm-border); border-radius: 14px; background: var(--wm-surface); display: grid; gap: 10px; }
+.wm-tax-note { color: var(--wm-secondary); font-size: 9.5px; line-height: 1.5; }
+.wm-print-document { display: none; }
+
+@media (max-width: 760px) {
+  .wm-kitchen-board { grid-template-columns: 1fr; }
+  .wm-kitchen-column { padding: 9px; }
+}
+
 @media print {
+  @page { margin: 10mm; }
   body * { visibility: hidden !important; }
   .wm-sheet-backdrop,
-  .wm-sheet-backdrop *,
   .wm-sheet,
-  .wm-sheet * { visibility: visible !important; }
-  .wm-sheet-backdrop {
-    position: static !important;
-    inset: auto !important;
-    display: block !important;
-    padding: 0 !important;
-    background: #fff !important;
-  }
-  .wm-sheet {
-    position: absolute !important;
-    inset: 0 auto auto 0 !important;
-    width: 100% !important;
-    max-width: none !important;
-    max-height: none !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: #fff !important;
-    color: #000 !important;
-  }
-  .wm-sheet > header button,
-  .wm-print-order,
-  .wm-danger-link,
-  .wm-next-step,
-  .wm-refund-controls,
-  .wm-two-actions { display: none !important; }
-  .wm-sheet-body { max-height: none !important; overflow: visible !important; padding-bottom: 0 !important; }
-  .wm-detail-section { break-inside: avoid; }
+  .wm-sheet-body,
+  .wm-print-document,
+  .wm-print-document * { visibility: visible !important; }
+  .wm-sheet-backdrop { position: static !important; inset: auto !important; display: block !important; padding: 0 !important; background: #fff !important; }
+  .wm-sheet { position: absolute !important; inset: 0 auto auto 0 !important; width: 100% !important; max-width: none !important; max-height: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: #fff !important; color: #000 !important; }
+  .wm-sheet > header,
+  .wm-sheet-body > *:not(.wm-print-document) { display: none !important; }
+  .wm-sheet-body { max-height: none !important; overflow: visible !important; padding: 0 !important; }
+  .wm-print-document { display: grid !important; gap: 12px; width: 100%; color: #000; font-family: system-ui, sans-serif; }
+  .wm-print-brand { padding-bottom: 10px; border-bottom: 2px solid #000; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .wm-print-brand strong { font-size: 20px; }
+  .wm-print-brand small { font-size: 10px; }
+  .wm-print-tax, .wm-print-meta, .wm-print-customer { display: grid; gap: 3px; font-size: 10px; }
+  .wm-print-lines { display: grid; border-top: 1px solid #999; border-bottom: 1px solid #999; }
+  .wm-print-lines > div, .wm-print-totals > div { padding: 6px 0; display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
+  .wm-print-lines span { display: grid; gap: 2px; }
+  .wm-print-lines small { font-size: 9px; }
+  .wm-print-totals { display: grid; }
+  .wm-print-totals .is-total { padding-top: 9px; border-top: 1px solid #000; font-size: 13px; }
+  .wm-print-foot { padding-top: 8px; border-top: 1px solid #bbb; font-size: 8.5px; line-height: 1.4; }
 }
