@@ -1796,6 +1796,7 @@ Object.assign(EN_EXACT, {
   "เปิด WYNOS Social ภายหลังได้ด้วยบัญชีเดิม": "Enable WYNOS Social later with the same account",
   "มี WYNOS Account อยู่แล้ว?": "Already have a WYNOS Account?",
   "สำหรับ Food": "For Food",
+  "เปิด": "Open",
   "เปิด WYNOS Social": "Open WYNOS Social",
   "กลับหน้าหลัก WYNOS Food": "Back to WYNOS Food Home",
   "โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos.online": "Post, chat, follow and discover content on wynos.online",
