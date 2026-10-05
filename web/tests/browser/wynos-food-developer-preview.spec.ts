@@ -449,6 +449,7 @@ test("WYNOS Food menu search shows popular, recent and compact result rows", () 
   expect(css).toContain("min-height: 70px;");
   expect(css).toContain("display: flex;");
   expect(css).toContain("flex: 0 0 60px;");
+  expect(css).toContain("white-space: normal;");
   expect(css).toContain(".wf-menu-search-add");
   expect(css).toContain("width: 36px;");
   expect(en).toContain('"เมนูยอดนิยม": "Popular menu"');
