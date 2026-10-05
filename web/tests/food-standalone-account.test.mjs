@@ -38,3 +38,9 @@ test("Food auth routes are separate from Social onboarding", async () => {
   assert.match(signup, /FoodSignupScreen/);
   assert.doesNotMatch(login + signup, /signup\/step-1|onboarding\/profile/);
 });
+
+test("Food menu card photos stay square at every responsive width", async () => {
+  const css = await read("app/food/food.css");
+  assert.match(css, /\.wf-menu-image\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*auto;[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
+  assert.doesNotMatch(css, /\.wf-menu-image\s*\{\s*height:\s*(?:120|170)px;/);
+});
