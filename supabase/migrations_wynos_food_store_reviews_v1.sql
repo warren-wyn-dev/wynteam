@@ -70,13 +70,465 @@ begin
   end if;
 
   -- Thai combining marks (ั, ิ-ฺ, ็-๎) belong to the base character before
-  -- them. Count base characters for the mask and keep trailing marks attached
-  -- to the last visible character, so "กานต์" never becomes "ก***์".
+  -- them. Count base characters for the mask and keep marks attached to the
+  -- first/last visible character, so "กานต์" becomes "ก**ต์".
   v_visible := regexp_replace(v_name, '[ัิ-ฺ็-๎]', '', 'g');
   v_len := char_length(v_visible);
-  v_first := left(v_visible,1);
+
+  if v_len = 0 then
+    return 'ผู้ใช้ WYNOS Food';
+  end if;
+
+  v_first := substring(v_name from '^([^ัิ-ฺ็-๎][ัิ-ฺ็-๎]*)');
   v_last := substring(v_name from '([^ัิ-ฺ็-๎][ัิ-ฺ็-๎]*)
+revoke all on function internal.food_mask_reviewer_name(text) from public, anon, authenticated;
+
+create or replace function public.food_submit_store_review(
+  p_order_id uuid,
+  p_rating integer,
+  p_review_text text default null,
+  p_tags text[] default '{}'::text[],
+  p_anonymous boolean default false
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_order public.food_orders%rowtype;
+  v_review_id uuid;
+  v_text text := nullif(left(btrim(coalesce(p_review_text,'')),500),'');
+  v_tags text[];
+  v_label text;
+begin
+  if (select auth.uid()) is null or not public.food_customer_access_enabled() then
+    raise exception 'food customer access required';
+  end if;
+  if p_rating is null or p_rating < 1 or p_rating > 5 then
+    raise exception 'invalid review rating';
+  end if;
+
+  select array(
+    select distinct btrim(t)
+    from unnest(coalesce(p_tags,'{}'::text[])) as t
+    where btrim(t) <> ''
+    order by btrim(t)
+  ) into v_tags;
+
+  if cardinality(v_tags) > 5
+     or not (v_tags <@ array['อร่อย','ปริมาณดี','แพ็กดี','ตรงปก','คุ้มราคา','ส่งเร็ว']::text[]) then
+    raise exception 'invalid review tags';
+  end if;
+
+  select * into v_order
+  from public.food_orders
+  where id = p_order_id
+    and buyer_id = (select auth.uid())
+  for share;
+
+  if not found then
+    raise exception 'order not found';
+  end if;
+  if v_order.status <> 'delivered' or v_order.delivered_at is null then
+    raise exception 'only delivered orders can be reviewed';
+  end if;
+  if exists (select 1 from public.food_store_reviews r where r.order_id = p_order_id) then
+    raise exception 'order already reviewed';
+  end if;
+
+  v_label := case
+    when coalesce(p_anonymous,false) then 'ไม่ระบุชื่อ'
+    else internal.food_mask_reviewer_name(v_order.recipient_name)
+  end;
+
+  insert into public.food_store_reviews(
+    order_id, store_id, buyer_id, rating, review_text, tags,
+    reviewer_label, is_anonymous
+  ) values (
+    v_order.id, v_order.store_id, v_order.buyer_id, p_rating, v_text, v_tags,
+    v_label, coalesce(p_anonymous,false)
+  )
+  returning id into v_review_id;
+
+  return v_review_id;
+end;
 $$;
+
+create or replace function public.food_my_store_reviews()
+returns table(
+  review_id uuid,
+  order_id uuid,
+  store_id uuid,
+  rating smallint,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select r.id, r.order_id, r.store_id, r.rating, r.created_at
+  from public.food_store_reviews r
+  where r.buyer_id = (select auth.uid())
+  order by r.created_at desc
+$$;
+
+create or replace function public.food_store_review_feed(
+  p_store_id uuid,
+  p_limit integer default 20
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_limit integer := greatest(1,least(coalesce(p_limit,20),50));
+  v_allowed boolean;
+  v_average numeric;
+  v_count bigint;
+  v_reviews jsonb;
+begin
+  if (select auth.uid()) is null or not public.food_customer_access_enabled() then
+    raise exception 'food customer access required';
+  end if;
+
+  select exists (
+    select 1
+    from public.food_stores s
+    where s.id = p_store_id
+      and s.admin_suspended_at is null
+      and (s.is_published or public.is_developer_account())
+  ) into v_allowed;
+
+  if not v_allowed then
+    raise exception 'store not found';
+  end if;
+
+  select round(avg(r.rating)::numeric,1), count(*)
+  into v_average, v_count
+  from public.food_store_reviews r
+  where r.store_id = p_store_id
+    and not r.is_hidden;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc), '[]'::jsonb)
+  into v_reviews
+  from (
+    select
+      r.id,
+      r.rating,
+      r.review_text,
+      r.tags,
+      r.reviewer_label,
+      true as verified_order,
+      r.created_at,
+      r.merchant_reply,
+      r.merchant_replied_at
+    from public.food_store_reviews r
+    where r.store_id = p_store_id
+      and not r.is_hidden
+    order by r.created_at desc
+    limit v_limit
+  ) x;
+
+  return jsonb_build_object(
+    'average', coalesce(v_average,0),
+    'count', v_count,
+    'reviews', v_reviews
+  );
+end;
+$$;
+
+create or replace function public.food_reply_store_review(
+  p_review_id uuid,
+  p_reply text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_review public.food_store_reviews%rowtype;
+  v_reply text := nullif(left(btrim(coalesce(p_reply,'')),500),'');
+begin
+  if (select auth.uid()) is null then
+    raise exception 'authentication required';
+  end if;
+
+  select * into v_review
+  from public.food_store_reviews
+  where id = p_review_id
+  for update;
+
+  if not found then
+    raise exception 'review not found';
+  end if;
+  if not public.merchant_has_store_role(v_review.store_id,array['owner','admin','manager']) then
+    raise exception 'merchant management role required';
+  end if;
+  if v_reply is null then
+    raise exception 'reply required';
+  end if;
+
+  update public.food_store_reviews
+  set merchant_reply = v_reply,
+      merchant_replied_at = now(),
+      merchant_replied_by = (select auth.uid()),
+      updated_at = now()
+  where id = p_review_id;
+end;
+$$;
+
+revoke all on function public.food_submit_store_review(uuid,integer,text,text[],boolean) from public, anon;
+revoke all on function public.food_my_store_reviews() from public, anon;
+revoke all on function public.food_store_review_feed(uuid,integer) from public, anon;
+revoke all on function public.food_reply_store_review(uuid,text) from public, anon;
+
+grant execute on function public.food_submit_store_review(uuid,integer,text,text[],boolean) to authenticated;
+grant execute on function public.food_my_store_reviews() to authenticated;
+grant execute on function public.food_store_review_feed(uuid,integer) to authenticated;
+grant execute on function public.food_reply_store_review(uuid,text) to authenticated;
+);
+
+  if v_len <= 1 then
+    return v_first || '***';
+  end if;
+  if v_len = 2 then
+    return v_first || '**';
+  end if;
+  return v_first
+    || repeat('*', least(4, greatest(2, v_len - 2)))
+    || coalesce(v_last,right(v_visible,1));
+end;
+$$;
+
+revoke all on function internal.food_mask_reviewer_name(text) from public, anon, authenticated;
+
+create or replace function public.food_submit_store_review(
+  p_order_id uuid,
+  p_rating integer,
+  p_review_text text default null,
+  p_tags text[] default '{}'::text[],
+  p_anonymous boolean default false
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_order public.food_orders%rowtype;
+  v_review_id uuid;
+  v_text text := nullif(left(btrim(coalesce(p_review_text,'')),500),'');
+  v_tags text[];
+  v_label text;
+begin
+  if (select auth.uid()) is null or not public.food_customer_access_enabled() then
+    raise exception 'food customer access required';
+  end if;
+  if p_rating is null or p_rating < 1 or p_rating > 5 then
+    raise exception 'invalid review rating';
+  end if;
+
+  select array(
+    select distinct btrim(t)
+    from unnest(coalesce(p_tags,'{}'::text[])) as t
+    where btrim(t) <> ''
+    order by btrim(t)
+  ) into v_tags;
+
+  if cardinality(v_tags) > 5
+     or not (v_tags <@ array['อร่อย','ปริมาณดี','แพ็กดี','ตรงปก','คุ้มราคา','ส่งเร็ว']::text[]) then
+    raise exception 'invalid review tags';
+  end if;
+
+  select * into v_order
+  from public.food_orders
+  where id = p_order_id
+    and buyer_id = (select auth.uid())
+  for share;
+
+  if not found then
+    raise exception 'order not found';
+  end if;
+  if v_order.status <> 'delivered' or v_order.delivered_at is null then
+    raise exception 'only delivered orders can be reviewed';
+  end if;
+  if exists (select 1 from public.food_store_reviews r where r.order_id = p_order_id) then
+    raise exception 'order already reviewed';
+  end if;
+
+  v_label := case
+    when coalesce(p_anonymous,false) then 'ไม่ระบุชื่อ'
+    else internal.food_mask_reviewer_name(v_order.recipient_name)
+  end;
+
+  insert into public.food_store_reviews(
+    order_id, store_id, buyer_id, rating, review_text, tags,
+    reviewer_label, is_anonymous
+  ) values (
+    v_order.id, v_order.store_id, v_order.buyer_id, p_rating, v_text, v_tags,
+    v_label, coalesce(p_anonymous,false)
+  )
+  returning id into v_review_id;
+
+  return v_review_id;
+end;
+$$;
+
+create or replace function public.food_my_store_reviews()
+returns table(
+  review_id uuid,
+  order_id uuid,
+  store_id uuid,
+  rating smallint,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select r.id, r.order_id, r.store_id, r.rating, r.created_at
+  from public.food_store_reviews r
+  where r.buyer_id = (select auth.uid())
+  order by r.created_at desc
+$$;
+
+create or replace function public.food_store_review_feed(
+  p_store_id uuid,
+  p_limit integer default 20
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_limit integer := greatest(1,least(coalesce(p_limit,20),50));
+  v_allowed boolean;
+  v_average numeric;
+  v_count bigint;
+  v_reviews jsonb;
+begin
+  if (select auth.uid()) is null or not public.food_customer_access_enabled() then
+    raise exception 'food customer access required';
+  end if;
+
+  select exists (
+    select 1
+    from public.food_stores s
+    where s.id = p_store_id
+      and s.admin_suspended_at is null
+      and (s.is_published or public.is_developer_account())
+  ) into v_allowed;
+
+  if not v_allowed then
+    raise exception 'store not found';
+  end if;
+
+  select round(avg(r.rating)::numeric,1), count(*)
+  into v_average, v_count
+  from public.food_store_reviews r
+  where r.store_id = p_store_id
+    and not r.is_hidden;
+
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc), '[]'::jsonb)
+  into v_reviews
+  from (
+    select
+      r.id,
+      r.rating,
+      r.review_text,
+      r.tags,
+      r.reviewer_label,
+      true as verified_order,
+      r.created_at,
+      r.merchant_reply,
+      r.merchant_replied_at
+    from public.food_store_reviews r
+    where r.store_id = p_store_id
+      and not r.is_hidden
+    order by r.created_at desc
+    limit v_limit
+  ) x;
+
+  return jsonb_build_object(
+    'average', coalesce(v_average,0),
+    'count', v_count,
+    'reviews', v_reviews
+  );
+end;
+$$;
+
+create or replace function public.food_reply_store_review(
+  p_review_id uuid,
+  p_reply text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_review public.food_store_reviews%rowtype;
+  v_reply text := nullif(left(btrim(coalesce(p_reply,'')),500),'');
+begin
+  if (select auth.uid()) is null then
+    raise exception 'authentication required';
+  end if;
+
+  select * into v_review
+  from public.food_store_reviews
+  where id = p_review_id
+  for update;
+
+  if not found then
+    raise exception 'review not found';
+  end if;
+  if not public.merchant_has_store_role(v_review.store_id,array['owner','admin','manager']) then
+    raise exception 'merchant management role required';
+  end if;
+  if v_reply is null then
+    raise exception 'reply required';
+  end if;
+
+  update public.food_store_reviews
+  set merchant_reply = v_reply,
+      merchant_replied_at = now(),
+      merchant_replied_by = (select auth.uid()),
+      updated_at = now()
+  where id = p_review_id;
+end;
+$$;
+
+revoke all on function public.food_submit_store_review(uuid,integer,text,text[],boolean) from public, anon;
+revoke all on function public.food_my_store_reviews() from public, anon;
+revoke all on function public.food_store_review_feed(uuid,integer) from public, anon;
+revoke all on function public.food_reply_store_review(uuid,text) from public, anon;
+
+grant execute on function public.food_submit_store_review(uuid,integer,text,text[],boolean) to authenticated;
+grant execute on function public.food_my_store_reviews() to authenticated;
+grant execute on function public.food_store_review_feed(uuid,integer) to authenticated;
+grant execute on function public.food_reply_store_review(uuid,text) to authenticated;
+);
+
+  if v_len = 1 then
+    return coalesce(v_first, v_name) || '***';
+  end if;
+  if v_len = 2 then
+    return coalesce(v_first, left(v_visible,1)) || '**';
+  end if;
+
+  return coalesce(v_first, left(v_visible,1))
+    || repeat('*', least(4, greatest(2, v_len - 2)))
+    || coalesce(v_last, right(v_visible,1));
+end;
+$;
 
 revoke all on function internal.food_mask_reviewer_name(text) from public, anon, authenticated;
 
