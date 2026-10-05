@@ -2373,3 +2373,167 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
     grid-template-columns: minmax(0, 1fr) 80px auto;
   }
 }
+
+
+/* Store branding: profile image + cover image */
+.wm-store-brand-editor {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--wm-border);
+  border-radius: 16px;
+  background: var(--wm-surface);
+  padding: 12px;
+}
+
+.wm-store-brand-heading > span,
+.wm-store-brand-field > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.wm-store-brand-heading strong,
+.wm-store-brand-field strong {
+  font-size: 12.5px;
+}
+
+.wm-store-brand-heading small,
+.wm-store-brand-field small {
+  color: var(--wm-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.wm-store-brand-preview {
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.wm-store-brand-cover {
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  border: 1px solid var(--wm-border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--wm-bg);
+  display: grid;
+  place-items: center;
+  color: var(--wm-muted);
+}
+
+.wm-store-brand-cover > span {
+  display: grid;
+  place-items: center;
+  gap: 5px;
+}
+
+.wm-store-brand-cover img,
+.wm-store-brand-logo img,
+.wm-store-brand-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.wm-store-brand-logo {
+  position: absolute;
+  left: 14px;
+  bottom: 0;
+  width: 64px;
+  height: 64px;
+  border: 4px solid var(--wm-surface);
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--wm-bg);
+  display: grid;
+  place-items: center;
+  color: var(--wm-muted);
+}
+
+.wm-store-brand-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.wm-store-brand-field {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--wm-border);
+  border-radius: 13px;
+  background: var(--wm-bg);
+  padding: 10px;
+}
+
+.wm-store-brand-card {
+  overflow: hidden;
+  border: 1px solid var(--wm-border);
+  border-radius: 18px;
+  background: var(--wm-surface);
+  margin-bottom: 12px;
+}
+
+.wm-store-brand-card-cover {
+  aspect-ratio: 16 / 6;
+  background: var(--wm-bg);
+  display: grid;
+  place-items: center;
+  color: var(--wm-muted);
+  overflow: hidden;
+}
+
+.wm-store-brand-card-main {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+}
+
+.wm-store-brand-card-main .wm-store-avatar {
+  margin-top: -30px;
+  border: 3px solid var(--wm-surface);
+}
+
+.wm-store-brand-card-main > div:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.wm-store-brand-card-main strong {
+  font-size: 14px;
+}
+
+.wm-store-brand-card-main small {
+  color: var(--wm-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wm-store-brand-card-main > button {
+  border: 0;
+  border-radius: 10px;
+  min-height: 34px;
+  padding: 0 11px;
+  background: var(--wm-bg);
+  color: var(--wm-text);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+@media (max-width: 560px) {
+  .wm-store-brand-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .wm-store-brand-cover {
+    aspect-ratio: 16 / 8;
+  }
+}
