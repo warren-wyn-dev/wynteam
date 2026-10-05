@@ -307,6 +307,54 @@ function placeMarkerSvg(kind: MapMarkerKind) {
   return `<svg ${common}><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>`;
 }
 
+export function FoodLocationMapPreview({
+  location,
+  label = "ตำแหน่งร้าน",
+}: {
+  location: FoodLocation;
+  label?: string;
+}) {
+  const node = useRef<HTMLDivElement | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    let map: MapInstance | null = null;
+    void loadMapLibre()
+      .then((maplibre) => {
+        if (!live || !node.current) return;
+        node.current.replaceChildren();
+        map = new maplibre.Map({
+          container: node.current,
+          style: MAP_STYLE,
+          center: [location.longitude, location.latitude],
+          zoom: 16.5,
+          attributionControl: false,
+          dragPan: false,
+          touchZoomRotate: false,
+          touchPitch: false,
+        });
+        const resize = () => map?.resize();
+        map.on("load", resize);
+        window.setTimeout(resize, 80);
+        window.setTimeout(resize, 360);
+      })
+      .catch(() => { if (live) setFailed(true); });
+    return () => {
+      live = false;
+      map?.remove();
+    };
+  }, [location.latitude, location.longitude]);
+
+  return (
+    <div className="wf-location-map-preview" aria-label={label}>
+      <div ref={node} className="wf-location-map-preview-canvas" />
+      <span className="wf-location-map-preview-pin" aria-hidden="true"><MapPin size={28} fill="currentColor" /></span>
+      <small>{failed ? "แผนที่โหลดไม่สำเร็จ" : label}</small>
+    </div>
+  );
+}
+
 export function FoodDeliveryMapPicker({
   client,
   storeId,
