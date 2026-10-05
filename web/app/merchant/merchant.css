@@ -2005,10 +2005,6 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-ready li.is-done .wm-check-mark { border-color: #12a150; background: #12a150; }
 
 .wm-tile-icon { display: grid; place-items: center; line-height: 0; }
-.wm-tile-icon--settings,
-.wm-tile-icon--help { width: 52px; height: 52px; margin-inline: auto; border-radius: 16px; }
-.wm-tile-icon--settings { background: #eef6ff; color: #2f78d0; }
-.wm-tile-icon--help { background: #f3efff; color: #7250c7; }
 .wm-icon-3d { display: block; overflow: visible; }
 
 .wm-back { min-height: 44px; margin: 4px 0 -4px -6px; padding: 0 6px; border: 0; background: transparent; color: var(--wm-secondary); display: inline-flex; align-items: center; gap: 2px; font-size: 14px; font-weight: 600; }
