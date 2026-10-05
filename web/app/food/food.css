@@ -2114,3 +2114,28 @@
 .wf-area-card .wf-primary, .wf-area-card .wf-secondary { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .wf-area-card .wf-primary { background: var(--wf-red); }
 .wf-area-home { margin-top: 4px; color: var(--wf-secondary); font-size: 13px; }
+
+/* Share a store link to a group chat (food.wynos.online/?store=<id>). */
+.wf-store-hero { position: relative; }
+.wf-store-share {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 94%);
+  color: var(--wf-text);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+.wf-store-share svg { color: var(--wf-red); }
+.wf-store-share:active { transform: scale(.96); }
+.wf-store-share:focus-visible { outline: 2px solid var(--wf-red); outline-offset: 2px; }

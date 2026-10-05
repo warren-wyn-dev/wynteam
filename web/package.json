@@ -28,7 +28,7 @@
     "test:push-toggle": "node --test tests/push-toggle-enable.test.mjs tests/push-keep-on.test.mjs tests/push-prompt.test.mjs tests/push-config-bridge.test.mjs",
     "test:club-announcements": "node --test tests/club-announcements.test.mjs",
     "test:club-chat-actions": "node --test tests/club-chat-actions.test.mjs tests/wyn135-sql-approval.test.mjs",
-    "test:share-links": "node --test tests/share-links.test.mjs",
+    "test:share-links": "node --test tests/share-links.test.mjs tests/food-share-links.test.mjs",
     "test:food-account": "node --test tests/food-standalone-account.test.mjs"
   },
   "dependencies": {

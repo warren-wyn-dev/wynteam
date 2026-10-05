@@ -28,11 +28,15 @@ export const metadata: Metadata = {
     siteName: "WYNOS Food",
     title: "WYNOS Food | สั่งอาหารออนไลน์",
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
+    // Shared store links (/?store=<id>) preview in LINE/Messenger with the
+    // Food icon; store details stay behind sign-in.
+    images: [{ url: "/icons/food/icon-512.png", width: 512, height: 512, alt: "WYNOS Food" }],
   },
   twitter: {
     card: "summary",
     title: "WYNOS Food | สั่งอาหารออนไลน์",
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
+    images: ["/icons/food/icon-512.png"],
   },
   manifest: "/food/manifest.webmanifest?v=20261004-7",
   icons: {
