@@ -78,6 +78,7 @@ export type FoodMenuItem = {
   options: FoodMenuOptionGroup[];
   is_available: boolean;
   sold_out_until?: string | null;
+  daily_stock_limit?: number | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -174,6 +175,7 @@ export type MenuDraft = {
   options: FoodMenuOptionGroup[];
   is_available: boolean;
   sold_out_until?: string | null;
+  daily_stock_limit?: string | number | null;
 };
 
 
@@ -374,6 +376,7 @@ export async function saveMenuItem(client: SupabaseClient, storeId: string, draf
     })).filter((group) => group.name && group.choices.length),
     is_available: draft.is_available,
     sold_out_until: draft.sold_out_until ?? null,
+    daily_stock_limit: draft.daily_stock_limit == null || draft.daily_stock_limit === "" ? null : Math.max(1, Number(draft.daily_stock_limit) || 1),
   };
   const query = draft.id
     ? client.from("food_menu_items").update(payload).eq("id", draft.id).eq("store_id", storeId)
