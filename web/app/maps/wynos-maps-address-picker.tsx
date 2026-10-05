@@ -57,9 +57,9 @@ export function WynosMapsAddressPicker() {
   return (
     <main className="wynos-maps-page">
       <div className="wynos-maps-brand-rail" aria-hidden="true">
-        <span>WYNOS FOOD</span>
+        <strong>WYNOS MAPS</strong>
         <i />
-        <strong>MAPS</strong>
+        <span>FOOD</span>
       </div>
 
       <FoodDeliveryMapPicker
@@ -69,6 +69,7 @@ export function WynosMapsAddressPicker() {
         onClose={close}
         onConfirm={confirm}
         autoLocate
+        standalone
       />
 
       {saved ? (

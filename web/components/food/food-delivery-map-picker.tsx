@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Check, Info, LocateFixed, MapPin, Plus, RefreshCw, Search, Store, X } from "lucide-react";
+import { Check, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Store, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -157,6 +157,10 @@ function placeCategory(place: FoodPlace) {
   return "สถานที่";
 }
 
+function placeIdentity(place: FoodPlace) {
+  return place.placeId ?? `${place.latitude.toFixed(6)},${place.longitude.toFixed(6)},${place.name}`;
+}
+
 export function FoodDeliveryMapPicker({
   client,
   storeId,
@@ -164,6 +168,7 @@ export function FoodDeliveryMapPicker({
   onClose,
   onConfirm,
   autoLocate = false,
+  standalone = false,
 }: {
   client: SupabaseClient;
   storeId: string | null;
@@ -171,6 +176,7 @@ export function FoodDeliveryMapPicker({
   onClose: () => void;
   onConfirm: (location: FoodLocation, place?: FoodPlace) => void;
   autoLocate?: boolean;
+  standalone?: boolean;
 }) {
   const mapNode = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapInstance | null>(null);
@@ -180,6 +186,9 @@ export function FoodDeliveryMapPicker({
   const nearbyRequestRef = useRef(0);
   const nearbyMarkersRef = useRef<MarkerInstance[]>([]);
   const autoLocateRef = useRef(false);
+  const searchTimerRef = useRef<number | null>(null);
+  const searchRequestRef = useRef(0);
+  const sheetPointerStartRef = useRef<number | null>(null);
   const [location, setLocation] = useState<FoodLocation | null>(initialLocation);
   const [place, setPlace] = useState<FoodPlace | null>(null);
   const [query, setQuery] = useState("");
@@ -192,6 +201,8 @@ export function FoodDeliveryMapPicker({
   } | null>(null);
   const [status, setStatus] = useState("");
   const [working, setWorking] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [showAttribution, setShowAttribution] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestionName, setSuggestionName] = useState("");
@@ -205,6 +216,8 @@ export function FoodDeliveryMapPicker({
   const [mapFailed, setMapFailed] = useState(false);
   const [mapAttempt, setMapAttempt] = useState(0);
   const [chosen, setChosen] = useState(Boolean(initialLocation));
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [currentLocationSelected, setCurrentLocationSelected] = useState(false);
 
   const reverse = useCallback(async (next: FoodLocation) => {
     const requestId = ++reverseRequestRef.current;
@@ -237,6 +250,7 @@ export function FoodDeliveryMapPicker({
     setPlace(nextPlace ?? null);
     setResolvingPlace(false);
     setActiveNearbyPlace(null);
+    setCurrentLocationSelected(false);
     mapRef.current?.flyTo({
       center: [next.longitude, next.latitude],
       zoom: 17,
@@ -251,6 +265,7 @@ export function FoodDeliveryMapPicker({
     try {
       const next = await currentFoodLocation();
       moveTo(next);
+      setCurrentLocationSelected(true);
       await reverse(next);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "หาตำแหน่งปัจจุบันไม่สำเร็จ");
@@ -305,6 +320,7 @@ export function FoodDeliveryMapPicker({
 
         const onDragStart = () => {
           dragRef.current = true;
+          setCurrentLocationSelected(false);
         };
         const onMoveEnd = () => {
           if (!map) return;
@@ -355,6 +371,8 @@ export function FoodDeliveryMapPicker({
       if (fallbackTimer) window.clearTimeout(fallbackTimer);
       if (failureTimer) window.clearTimeout(failureTimer);
       if (reverseTimerRef.current) window.clearTimeout(reverseTimerRef.current);
+      if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+      searchRequestRef.current += 1;
       reverseRequestRef.current += 1;
       nearbyRequestRef.current += 1;
       nearbyMarkersRef.current.forEach((marker) => marker.remove());
@@ -380,15 +398,20 @@ export function FoodDeliveryMapPicker({
     const markers = nearbyPlaces.map((nearbyPlace, index) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = nearbyPlace.merchantStoreId
+      const selected = activeNearbyPlace
+        ? placeIdentity(activeNearbyPlace) === placeIdentity(nearbyPlace)
+        : false;
+      const markerKind = nearbyPlace.merchantStoreId
         ? "wf-map-place-marker is-food"
         : "wf-map-place-marker is-place";
+      button.className = `${markerKind}${selected ? " is-selected" : ""}`;
       button.setAttribute("aria-label", `${placeCategory(nearbyPlace)} ${nearbyPlace.name}`);
       button.title = nearbyPlace.name;
       const dot = document.createElement("span");
       dot.className = "wf-map-place-dot";
       button.appendChild(dot);
-      if (mapZoom >= 14.5 && index < 24) {
+      const labelLimit = standalone ? 12 : 24;
+      if (selected || (mapZoom >= 14.5 && index < labelLimit)) {
         const label = document.createElement("strong");
         label.className = "wf-map-place-label";
         label.textContent = nearbyPlace.name;
@@ -398,6 +421,7 @@ export function FoodDeliveryMapPicker({
         event.preventDefault();
         event.stopPropagation();
         setActiveNearbyPlace(nearbyPlace);
+        if (standalone) setSheetExpanded(true);
       });
       return new maplibre.Marker({ element: button, anchor: "bottom" })
         .setLngLat([nearbyPlace.longitude, nearbyPlace.latitude])
@@ -409,7 +433,7 @@ export function FoodDeliveryMapPicker({
       markers.forEach((marker) => marker.remove());
       if (nearbyMarkersRef.current === markers) nearbyMarkersRef.current = [];
     };
-  }, [mapReady, mapZoom, nearbyPlaces]);
+  }, [activeNearbyPlace, mapReady, mapZoom, nearbyPlaces, standalone]);
 
   const availabilityKey = activeNearbyPlace?.merchantStoreId && location
     ? `${activeNearbyPlace.merchantStoreId}|${location.latitude},${location.longitude}`
@@ -434,22 +458,48 @@ export function FoodDeliveryMapPicker({
     ? nearbyAvailabilityState.value
     : null;
 
-  const search = async () => {
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    setWorking(true);
-    setStatus("");
+  const runSearch = useCallback(async (rawQuery: string, silent = false) => {
+    const trimmed = rawQuery.trim();
+    if (!trimmed) {
+      setResults([]);
+      return;
+    }
+    const requestId = ++searchRequestRef.current;
+    setSearching(true);
+    if (!silent) setStatus("");
     try {
       let next = storeId ? (await searchStorePlaces(client, storeId, trimmed)) ?? [] : [];
       if (!next.length) next = await searchFoodPlaces(client, trimmed, location);
+      if (searchRequestRef.current !== requestId) return;
       setResults(next);
-      if (!next.length) setStatus("ไม่พบสถานที่ ลองพิมพ์ชื่อถนน หมู่บ้าน หอพัก หรือสถานที่ใกล้เคียง");
+      if (!silent && !next.length) {
+        setStatus("ไม่พบสถานที่ ลองพิมพ์ชื่อถนน หมู่บ้าน หอพัก หรือสถานที่ใกล้เคียง");
+      }
     } catch (error) {
+      if (searchRequestRef.current !== requestId) return;
       setResults([]);
-      setStatus(error instanceof Error ? error.message : "ค้นหาสถานที่ไม่สำเร็จ");
+      if (!silent) setStatus(error instanceof Error ? error.message : "ค้นหาสถานที่ไม่สำเร็จ");
     } finally {
-      setWorking(false);
+      if (searchRequestRef.current === requestId) setSearching(false);
     }
+  }, [client, location, storeId]);
+
+  useEffect(() => {
+    if (!standalone || !searchFocused) return;
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+    if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = window.setTimeout(() => {
+      void runSearch(trimmed, true);
+    }, 280);
+    return () => {
+      if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+    };
+  }, [query, runSearch, searchFocused, standalone]);
+
+  const search = () => {
+    setSearchFocused(true);
+    void runSearch(query, false);
   };
 
   const openSuggestion = () => {
@@ -462,6 +512,7 @@ export function FoodDeliveryMapPicker({
     setSuggestionAddress(place?.address ?? "");
     setSuggestionNote("");
     setShowSuggestion(true);
+    if (standalone) setSheetExpanded(true);
   };
 
   const submitSuggestion = async () => {
@@ -487,8 +538,18 @@ export function FoodDeliveryMapPicker({
 
   const chooseResult = (result: FoodPlace) => {
     setResults([]);
+    setSearchFocused(false);
     setQuery(result.name);
+    setSheetExpanded(false);
     moveTo({ latitude: result.latitude, longitude: result.longitude }, result);
+  };
+
+  const zoomMap = (delta: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const center = map.getCenter();
+    const nextZoom = Math.min(19, Math.max(3, map.getZoom() + delta));
+    map.flyTo({ center: [center.lng, center.lat], zoom: nextZoom, essential: true });
   };
 
   const showLegacySearchAttribution =
@@ -509,24 +570,44 @@ export function FoodDeliveryMapPicker({
           <Search size={18} />
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onChange={(event) => {
+              const nextQuery = event.target.value;
+              setQuery(nextQuery);
+              setSearchFocused(true);
+              if (nextQuery.trim().length < 2) {
+                searchRequestRef.current += 1;
+                setSearching(false);
+                setResults([]);
+              }
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                void search();
+                search();
+              } else if (event.key === "Escape") {
+                setResults([]);
+                setSearchFocused(false);
+                event.currentTarget.blur();
               }
             }}
             placeholder="ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"
             aria-label="ค้นหาสถานที่หรือที่อยู่"
+            autoComplete="off"
           />
-          <button type="button" disabled={working || !query.trim()} onClick={() => void search()}>ค้นหา</button>
+          <button type="button" disabled={searching || !query.trim()} onClick={search}>
+            {searching ? "กำลังค้น…" : "ค้นหา"}
+          </button>
         </div>
         {results.length ? (
           <div className="wf-map-results">
             {results.map((result) => (
               <button key={result.placeId ?? `${result.latitude},${result.longitude},${result.name}`} type="button" onClick={() => chooseResult(result)}>
                 <MapPin size={17} />
-                <span><strong>{result.name || "สถานที่"}</strong>{result.address ? <small>{result.address}</small> : null}</span>
+                <span>
+                  <strong>{result.name || "สถานที่"}</strong>
+                  <small>{placeCategory(result)}{result.address ? ` · ${result.address}` : ""}</small>
+                </span>
               </button>
             ))}
           </div>
@@ -576,15 +657,52 @@ export function FoodDeliveryMapPicker({
             <Info size={14} />
           </button>
         </div>
-        <button className="wf-map-current" type="button" disabled={working} onClick={() => void pickCurrentLocation()}>
-          <LocateFixed size={19} /> <span>ตำแหน่งปัจจุบัน</span>
+        <button
+          className={currentLocationSelected ? "wf-map-current is-active" : "wf-map-current"}
+          type="button"
+          disabled={working}
+          onClick={() => void pickCurrentLocation()}
+        >
+          <LocateFixed size={19} /> <span>{working ? "กำลังระบุตำแหน่ง…" : "ตำแหน่งปัจจุบัน"}</span>
         </button>
+        {standalone ? (
+          <div className="wf-map-zoom-control" aria-label="ควบคุมการซูมแผนที่">
+            <button type="button" aria-label="ซูมเข้า" onClick={() => zoomMap(1)}><Plus size={18} /></button>
+            <button type="button" aria-label="ซูมออก" onClick={() => zoomMap(-1)}><Minus size={18} /></button>
+          </div>
+        ) : null}
       </div>
 
-      <section className="wf-map-confirm">
+      <section className={standalone ? `wf-map-confirm wf-map-sheet${sheetExpanded ? " is-expanded" : ""}` : "wf-map-confirm"}>
+        {standalone ? (
+          <button
+            type="button"
+            className="wf-map-sheet-handle"
+            aria-label={sheetExpanded ? "ย่อรายละเอียดตำแหน่ง" : "ขยายรายละเอียดตำแหน่ง"}
+            aria-expanded={sheetExpanded}
+            onPointerDown={(event) => {
+              sheetPointerStartRef.current = event.clientY;
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerUp={(event) => {
+              const start = sheetPointerStartRef.current;
+              sheetPointerStartRef.current = null;
+              if (start == null) return;
+              const distance = event.clientY - start;
+              if (distance < -28) setSheetExpanded(true);
+              else if (distance > 28) setSheetExpanded(false);
+              else setSheetExpanded((value) => !value);
+            }}
+          >
+            <span />
+          </button>
+        ) : null}
         {activeNearbyPlace ? (
           <article className="wf-map-place-card">
-            <button className="wf-map-place-close" type="button" aria-label="ปิดข้อมูลสถานที่" onClick={() => setActiveNearbyPlace(null)}>
+            <button className="wf-map-place-close" type="button" aria-label="ปิดข้อมูลสถานที่" onClick={() => {
+              setActiveNearbyPlace(null);
+              if (standalone) setSheetExpanded(false);
+            }}>
               <X size={16} />
             </button>
             <div className={activeNearbyPlace.merchantStoreId ? "wf-map-place-icon is-food" : "wf-map-place-icon"}>
@@ -611,10 +729,13 @@ export function FoodDeliveryMapPicker({
             <div className="wf-map-place-actions">
               <button
                 type="button"
-                onClick={() => moveTo(
-                  { latitude: activeNearbyPlace.latitude, longitude: activeNearbyPlace.longitude },
-                  activeNearbyPlace,
-                )}
+                onClick={() => {
+                  moveTo(
+                    { latitude: activeNearbyPlace.latitude, longitude: activeNearbyPlace.longitude },
+                    activeNearbyPlace,
+                  );
+                  if (standalone) setSheetExpanded(false);
+                }}
               >
                 ใช้ตำแหน่งนี้
               </button>
