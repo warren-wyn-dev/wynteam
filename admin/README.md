@@ -33,3 +33,8 @@ Open [http://localhost:3000](http://localhost:3000). Unauthenticated requests to
 ## No service-role key yet
 
 This foundation scope (auth + layout only) never needs to read another user's data, so there is no service-role client anywhere in this app — `profiles`' own RLS policy already lets a signed-in user read their own `platform_role`. The first task that needs to see across users (WYN-051 User Management, most likely) will need to introduce one carefully, server-only (see the Product spec's Risks section on why that key matters).
+
+
+## Production deployment
+
+WYNOS Admin is deployed as its own Vercel project from the `admin/` root, using the same Supabase project as the rest of WYNOS. Production deployment remains manual after the initial project bootstrap.
