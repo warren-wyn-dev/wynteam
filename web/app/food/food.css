@@ -2669,3 +2669,161 @@
   .wf-dir-cover { height: 190px; }
 }
 
+/* WYNOS Food compact in-store search + favorite action. */
+.wf-store-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+}
+.wf-store-actions .wf-store-share,
+.wf-store-favorite {
+  position: static;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 74%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 94%);
+  color: #151515;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+  display: grid;
+  place-items: center;
+  font: inherit;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.wf-store-actions .wf-store-share svg { color: #151515; }
+.wf-store-favorite.is-active { color: var(--wf-red); }
+.wf-store-actions .wf-store-share:active,
+.wf-store-favorite:active { transform: scale(.95); }
+.wf-store-actions .wf-store-share:focus-visible,
+.wf-store-favorite:focus-visible { outline: 2px solid var(--wf-red); outline-offset: 2px; }
+
+.wf-menu-filter-bar {
+  position: sticky;
+  top: calc(112px + env(safe-area-inset-top));
+  z-index: 24;
+  margin: 0 -16px;
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid rgb(237 237 238 / 82%);
+  background: rgb(255 255 255 / 96%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+.wf-menu-search-trigger {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #e4e4e6;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--wf-red);
+  display: grid;
+  place-items: center;
+}
+.wf-menu-search-trigger:active { transform: scale(.95); }
+.wf-menu-filter-bar .wf-category-tabs {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  padding: 0 2px 2px 0;
+}
+.wf-menu-filter-bar .wf-category-tabs button {
+  min-height: 40px;
+  padding-inline: 15px;
+}
+.wf-menu-search-field {
+  min-height: 50px;
+  padding: 0 13px;
+  border: 1px solid #e7e7e9;
+  border-radius: 999px;
+  background: #f7f7f8;
+  color: var(--wf-red);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.wf-menu-search-field input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--wf-text);
+  font: inherit;
+  font-size: 16px;
+}
+.wf-menu-search-field input::placeholder { color: var(--wf-muted); }
+.wf-menu-search-field button {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wf-secondary);
+  display: grid;
+  place-items: center;
+}
+.wf-menu-search-list {
+  margin-top: 12px;
+  display: grid;
+}
+.wf-menu-search-list > button {
+  min-width: 0;
+  min-height: 76px;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid #eeeeef;
+  background: transparent;
+  color: var(--wf-text);
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+}
+.wf-menu-search-list > button:last-child { border-bottom: 0; }
+.wf-menu-search-list > button > span:not(.wf-menu-image) {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.wf-menu-search-list strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-menu-search-list small {
+  overflow: hidden;
+  color: var(--wf-secondary);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-menu-search-list b { color: var(--wf-red); font-size: 12px; }
+.wf-menu-search-image {
+  width: 58px !important;
+  height: 58px !important;
+  aspect-ratio: 1;
+  border-radius: 14px !important;
+}
+.wf-menu-search-list > button > svg { color: var(--wf-muted); }
+
+@media (min-width: 680px) {
+  .wf-menu-filter-bar { margin-inline: -22px; padding-inline: 22px; }
+}
+@media (max-width: 370px) {
+  .wf-menu-filter-bar { margin-inline: -13px; padding-inline: 13px; }
+}
+
