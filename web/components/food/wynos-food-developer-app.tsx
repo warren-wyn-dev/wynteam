@@ -415,7 +415,7 @@ function HomePanel({
       <div className="wf-empty">
         <Store size={40} strokeWidth={1.4} />
         <strong>ยังไม่มีร้านสำหรับ WYNOS Food</strong>
-        <p>สร้างและตั้งค่าร้านจาก WYNOS Merchant ก่อนเริ่มทดสอบฝั่งลูกค้า</p>
+        <p>ร้านค้าสามารถสร้างและตั้งค่าร้านผ่าน WYNOS Merchant เพื่อเริ่มขายบน WYNOS Food</p>
       </div>
     );
   }
@@ -749,7 +749,7 @@ function AccountPanel({
         </button>
         {installPrompt ? (
           <button type="button" onClick={onInstall}>
-            <span><Home size={20} /><div><strong>ติดตั้ง WYNOS Food</strong><small>เพิ่ม Developer Preview ไว้บนหน้าจอหลัก</small></div></span>
+            <span><Home size={20} /><div><strong>ติดตั้ง WYNOS Food</strong><small>เพิ่ม WYNOS Food ไว้บนหน้าจอหลัก</small></div></span>
             <ChevronRight size={18} />
           </button>
         ) : null}
