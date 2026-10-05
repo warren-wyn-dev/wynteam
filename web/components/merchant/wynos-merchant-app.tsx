@@ -2150,7 +2150,8 @@ function StoreEditor({
           <button type="button" onClick={() => document.getElementById("wm-store-section-info")?.scrollIntoView({ behavior: "smooth", block: "start" })}><Store size={16} /> ข้อมูลร้าน</button>
           <button type="button" onClick={() => document.getElementById("wm-store-section-media")?.scrollIntoView({ behavior: "smooth", block: "start" })}><ImagePlus size={16} /> รูปภาพร้าน</button>
           <button type="button" onClick={() => document.getElementById("wm-store-section-hours")?.scrollIntoView({ behavior: "smooth", block: "start" })}><CalendarDays size={16} /> เวลาเปิด–ปิด</button>
-          <button type="button" onClick={() => document.getElementById("wm-store-section-delivery")?.scrollIntoView({ behavior: "smooth", block: "start" })}><MapPin size={16} /> ตำแหน่งและจัดส่ง</button>
+          <button type="button" onClick={() => document.getElementById("wm-store-section-location")?.scrollIntoView({ behavior: "smooth", block: "start" })}><MapPin size={16} /> ตำแหน่งร้าน</button>
+          <button type="button" onClick={() => document.getElementById("wm-store-section-delivery")?.scrollIntoView({ behavior: "smooth", block: "start" })}><Truck size={16} /> การจัดส่ง</button>
           <button type="button" onClick={() => document.getElementById("wm-store-section-payment")?.scrollIntoView({ behavior: "smooth", block: "start" })}><CircleDollarSign size={16} /> การชำระเงิน</button>
         </nav>
 
@@ -2249,57 +2250,70 @@ function StoreEditor({
           </div>
         </section>
 
-        <section className="wm-settings-category" id="wm-store-section-delivery">
+        <section className="wm-settings-category" id="wm-store-section-location">
           <div className="wm-settings-category-head">
             <span className="wm-settings-category-icon"><MapPin size={20} /></span>
-            <span><strong>ตำแหน่งและการจัดส่ง</strong><small>ที่อยู่ร้าน หมุดบนแผนที่ ระยะส่ง ค่าส่ง จุดรับอาหาร และพื้นที่ที่ส่งบ่อย</small></span>
+            <span><strong>ตำแหน่งร้าน</strong><small>ที่อยู่ หมุดร้านบนแผนที่ คุณภาพตำแหน่ง และจุดรับอาหารสำหรับไรเดอร์</small></span>
           </div>
           <div className="wm-settings-category-body">
-        <label>ที่อยู่ร้าน<textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="ที่อยู่ที่ลูกค้าและไรเดอร์ใช้ค้นหาร้าน" /></label>
-        <label>พื้นที่จัดส่ง<textarea value={form.delivery_area} onChange={(e) => setForm({ ...form, delivery_area: e.target.value })} placeholder="เช่น รัศมี 5 กม. / เขตที่ให้บริการ" /></label>
-        <div className="wm-form-grid"><label>ค่าส่งเริ่มต้น<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label><label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label></div>
-        {zoneReady ? <div className="wm-zone">
-          <strong>ตำแหน่งร้านและระยะส่ง</strong>
-          <small>{pin ? "ตำแหน่งร้านถูกปักหมุดแล้ว สามารถค้นหา เลื่อนแผนที่ และปรับหมุดให้ตรงจุดจริงได้" : "ยังไม่ปักหมุด: ร้านจะยังไม่ขึ้น WYNOS Maps"}</small>
-          {pin ? <FoodLocationMapPreview location={pin} label={pinPlace?.name || store.name} /> : null}
-          {pinPlace?.address ? <div className="wm-location-address"><MapPin size={15} /><span><strong>{pinPlace.name}</strong><small>{pinPlace.address}</small></span></div> : null}
-          <div className="wm-two-actions">
-            <button className="wm-secondary" type="button" onClick={() => setMapTarget("store")}><Search size={16} /> {pin ? "แก้ไขตำแหน่งบนแผนที่" : "ค้นหาและปักหมุดบนแผนที่"}</button>
-            <button className="wm-secondary" type="button" onClick={() => void pinStore()}>ใช้ตำแหน่งปัจจุบัน</button>
-          </div>
-          {pin ? <button className="wm-inline-danger" type="button" onClick={() => { setPin(null); setPinPlace(null); setPinStatus("ล้างหมุดแล้ว อย่าลืมกดบันทึก"); }}>ล้างตำแหน่งร้าน</button> : null}
-          {serviceAreaState !== "idle" ? (
-            <div className={`wm-service-area-state is-${serviceAreaState}`} role="status">
-              {serviceAreaState === "checking" ? "กำลังตรวจพื้นที่ให้บริการ…" : null}
-              {serviceAreaState === "inside" ? "ตำแหน่งร้านอยู่ในพื้นที่ให้บริการ WYNOS Food ✓" : null}
-              {serviceAreaState === "outside" ? "ร้านอยู่นอกพื้นที่ให้บริการปัจจุบัน — ยังบันทึกข้อมูลร้านได้ แต่การจัดส่งจะยังไม่เปิดให้ลูกค้า" : null}
-              {serviceAreaState === "error" ? "ตรวจพื้นที่ให้บริการไม่สำเร็จ แต่ยังบันทึกตำแหน่งร้านได้" : null}
-            </div>
-          ) : null}
-          {pinStatus ? <p role="status">{pinStatus}</p> : null}
-          {pin && locationQuality ? <div className={`wm-location-quality ${locationQuality.warnings.length ? "has-warning" : "is-good"}`}>
-            <span><strong>คุณภาพตำแหน่ง {locationQuality.score}/100</strong><small>{locationQuality.warnings.includes("possible_duplicate") ? "พบร้านชื่อเดียวกันใกล้จุดนี้ อาจเป็นร้านซ้ำ" : locationQuality.warnings.includes("very_close_to_another_store") ? "มีร้านอื่นอยู่ใกล้มาก โปรดตรวจหมุดให้ตรงหน้าร้าน" : locationQuality.warnings.includes("pickup_far_from_store") ? "จุดรับอาหารอยู่ห่างจากร้านมากผิดปกติ" : "ตำแหน่งดูปกติ ✓"}</small></span>
-          </div> : null}
+            <label>ที่อยู่ร้าน<textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="ที่อยู่ที่ลูกค้าและไรเดอร์ใช้ค้นหาร้าน" /></label>
+            {zoneReady ? <div className="wm-zone">
+              <strong>หมุดตำแหน่งร้าน</strong>
+              <small>{pin ? "ตำแหน่งร้านถูกปักหมุดแล้ว สามารถค้นหา เลื่อนแผนที่ และปรับหมุดให้ตรงจุดจริงได้" : "ยังไม่ปักหมุด: ร้านจะยังไม่ขึ้น WYNOS Maps"}</small>
+              {pin ? <FoodLocationMapPreview location={pin} label={pinPlace?.name || store.name} /> : null}
+              {pinPlace?.address ? <div className="wm-location-address"><MapPin size={15} /><span><strong>{pinPlace.name}</strong><small>{pinPlace.address}</small></span></div> : null}
+              <div className="wm-two-actions">
+                <button className="wm-secondary" type="button" onClick={() => setMapTarget("store")}><Search size={16} /> {pin ? "แก้ไขตำแหน่งบนแผนที่" : "ค้นหาและปักหมุดบนแผนที่"}</button>
+                <button className="wm-secondary" type="button" onClick={() => void pinStore()}>ใช้ตำแหน่งปัจจุบัน</button>
+              </div>
+              {pin ? <button className="wm-inline-danger" type="button" onClick={() => { setPin(null); setPinPlace(null); setPinStatus("ล้างหมุดแล้ว อย่าลืมกดบันทึก"); }}>ล้างตำแหน่งร้าน</button> : null}
+              {serviceAreaState !== "idle" ? (
+                <div className={`wm-service-area-state is-${serviceAreaState}`} role="status">
+                  {serviceAreaState === "checking" ? "กำลังตรวจพื้นที่ให้บริการ…" : null}
+                  {serviceAreaState === "inside" ? "ตำแหน่งร้านอยู่ในพื้นที่ให้บริการ WYNOS Food ✓" : null}
+                  {serviceAreaState === "outside" ? "ร้านอยู่นอกพื้นที่ให้บริการปัจจุบัน — ยังบันทึกข้อมูลร้านได้ แต่การจัดส่งจะยังไม่เปิดให้ลูกค้า" : null}
+                  {serviceAreaState === "error" ? "ตรวจพื้นที่ให้บริการไม่สำเร็จ แต่ยังบันทึกตำแหน่งร้านได้" : null}
+                </div>
+              ) : null}
+              {pinStatus ? <p role="status">{pinStatus}</p> : null}
+              {pin && locationQuality ? <div className={`wm-location-quality ${locationQuality.warnings.length ? "has-warning" : "is-good"}`}>
+                <span><strong>คุณภาพตำแหน่ง {locationQuality.score}/100</strong><small>{locationQuality.warnings.includes("possible_duplicate") ? "พบร้านชื่อเดียวกันใกล้จุดนี้ อาจเป็นร้านซ้ำ" : locationQuality.warnings.includes("very_close_to_another_store") ? "มีร้านอื่นอยู่ใกล้มาก โปรดตรวจหมุดให้ตรงหน้าร้าน" : locationQuality.warnings.includes("pickup_far_from_store") ? "จุดรับอาหารอยู่ห่างจากร้านมากผิดปกติ" : "ตำแหน่งดูปกติ ✓"}</small></span>
+              </div> : null}
 
-          <div className="wm-form-grid">
-            <label>ส่งไกลสุด (กม.)<input type="number" min="0.5" max="50" step="0.5" inputMode="decimal" value={form.delivery_radius_km} onChange={(e) => setForm({ ...form, delivery_radius_km: e.target.value })} /></label>
-            <label>รวมในค่าส่งเริ่มต้น (กม.)<input type="number" min="0" max="50" step="0.5" inputMode="decimal" value={form.delivery_base_km} onChange={(e) => setForm({ ...form, delivery_base_km: e.target.value })} /></label>
+              <div className="wm-pickup-zone">
+                <strong>จุดรับอาหาร / ทางเข้าร้านสำหรับไรเดอร์</strong>
+                <small>แยกจากตำแหน่งร้านหลัก เหมาะสำหรับร้านในห้าง อาคาร หรือร้านที่มีจุดรับของเฉพาะ</small>
+                {pickupPin ? <FoodLocationMapPreview location={pickupPin} label="จุดรับอาหาร / ทางเข้า" /> : null}
+                <label>รายละเอียดจุดรับอาหาร<textarea value={form.pickup_note} onChange={(e) => setForm({ ...form, pickup_note: e.target.value })} maxLength={500} placeholder="เช่น รับอาหารประตูหลัง ชั้น G ข้างจุดจอดไรเดอร์" /></label>
+                <div className="wm-two-actions">
+                  <button className="wm-secondary" type="button" onClick={() => setMapTarget("pickup")}><MapPin size={16} /> {pickupPin ? "แก้ไขจุดรับอาหาร" : "เพิ่มจุดรับอาหาร"}</button>
+                  {pickupPin ? <button className="wm-secondary" type="button" onClick={() => setPickupPin(null)}>ล้างจุดรับอาหาร</button> : null}
+                </div>
+              </div>
+            </div> : null}
           </div>
-          <label>บาทต่อ กม. ที่เกิน<input type="number" min="0" max="1000" inputMode="decimal" value={form.delivery_fee_per_km} onChange={(e) => setForm({ ...form, delivery_fee_per_km: e.target.value })} /></label>
-          <small>{`ตัวอย่าง: ส่ง 4 กม. ค่าส่ง ${exampleFee(form.delivery_fee, form.delivery_base_km, form.delivery_fee_per_km)} บาท (ส่วนที่เกินคิดต่อ กม. ปัดขึ้นเป็นบาทเต็ม)`}</small>
+        </section>
 
-          <div className="wm-pickup-zone">
-            <strong>จุดรับอาหาร / ทางเข้าร้านสำหรับไรเดอร์</strong>
-            <small>แยกจากตำแหน่งร้านหลัก เหมาะสำหรับร้านในห้าง อาคาร หรือร้านที่มีจุดรับของเฉพาะ</small>
-            {pickupPin ? <FoodLocationMapPreview location={pickupPin} label="จุดรับอาหาร / ทางเข้า" /> : null}
-            <label>รายละเอียดจุดรับอาหาร<textarea value={form.pickup_note} onChange={(e) => setForm({ ...form, pickup_note: e.target.value })} maxLength={500} placeholder="เช่น รับอาหารประตูหลัง ชั้น G ข้างจุดจอดไรเดอร์" /></label>
-            <div className="wm-two-actions">
-              <button className="wm-secondary" type="button" onClick={() => setMapTarget("pickup")}><MapPin size={16} /> {pickupPin ? "แก้ไขจุดรับอาหาร" : "เพิ่มจุดรับอาหาร"}</button>
-              {pickupPin ? <button className="wm-secondary" type="button" onClick={() => setPickupPin(null)}>ล้างจุดรับอาหาร</button> : null}
-            </div>
+        <section className="wm-settings-category" id="wm-store-section-delivery">
+          <div className="wm-settings-category-head">
+            <span className="wm-settings-category-icon"><Truck size={20} /></span>
+            <span><strong>การจัดส่ง</strong><small>พื้นที่ให้บริการ ระยะส่ง ค่าส่ง ยอดขั้นต่ำ และสถานที่ที่ร้านส่งบ่อย</small></span>
           </div>
-        </div> : null}
-        {zoneReady ? <StorePlacesEditor client={client} storeId={store.id} storePin={pin} radiusKm={Number(form.delivery_radius_km || 5)} /> : null}
+          <div className="wm-settings-category-body">
+            <label>พื้นที่จัดส่ง<textarea value={form.delivery_area} onChange={(e) => setForm({ ...form, delivery_area: e.target.value })} placeholder="เช่น เขตที่ให้บริการ หรือรายละเอียดพื้นที่จัดส่ง" /></label>
+            <div className="wm-form-grid">
+              <label>ค่าส่งเริ่มต้น<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label>
+              <label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label>
+            </div>
+            {zoneReady ? <>
+              <div className="wm-form-grid">
+                <label>ส่งไกลสุด (กม.)<input type="number" min="0.5" max="50" step="0.5" inputMode="decimal" value={form.delivery_radius_km} onChange={(e) => setForm({ ...form, delivery_radius_km: e.target.value })} /></label>
+                <label>รวมในค่าส่งเริ่มต้น (กม.)<input type="number" min="0" max="50" step="0.5" inputMode="decimal" value={form.delivery_base_km} onChange={(e) => setForm({ ...form, delivery_base_km: e.target.value })} /></label>
+              </div>
+              <label>บาทต่อ กม. ที่เกิน<input type="number" min="0" max="1000" inputMode="decimal" value={form.delivery_fee_per_km} onChange={(e) => setForm({ ...form, delivery_fee_per_km: e.target.value })} /></label>
+              <small>{`ตัวอย่าง: ส่ง 4 กม. ค่าส่ง ${exampleFee(form.delivery_fee, form.delivery_base_km, form.delivery_fee_per_km)} บาท (ส่วนที่เกินคิดต่อ กม. ปัดขึ้นเป็นบาทเต็ม)`}</small>
+              <StorePlacesEditor client={client} storeId={store.id} storePin={pin} radiusKm={Number(form.delivery_radius_km || 5)} />
+            </> : null}
           </div>
         </section>
 
