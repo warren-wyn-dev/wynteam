@@ -52,11 +52,11 @@ test("Merchant can view sanitized verified reviews and reply from store settings
   assert.doesNotMatch(reviewMigration, /select[\s\S]*username|avatar_url/i);
 });
 
-test("Merchant orders expose search plus payment and date filters", () => {
-  assert.match(app, /wm-order-search-tools/);
-  assert.match(app, /paymentFilter/);
-  assert.match(app, /dateFilter/);
-  assert.match(app, /recipient_phone/);
+test("Merchant orders keep status tabs without search/filter controls", () => {
+  assert.match(app, /ORDER_FILTERS/);
+  assert.doesNotMatch(app, /wm-order-search-tools/);
+  assert.doesNotMatch(app, /paymentFilter/);
+  assert.doesNotMatch(app, /dateFilter/);
 });
 
 
