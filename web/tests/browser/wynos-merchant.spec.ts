@@ -166,6 +166,22 @@ test("Merchant store settings are grouped into clear navigable categories", () =
   expect(css).toContain(".wm-settings-category");
 });
 
+test("Merchant add-menu flow opens a simple three-action hub", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const css = read("app/merchant/merchant.css");
+
+  expect(app).toContain('onAdd={() => setMenuAddOpen(true)}');
+  expect(app).toContain('className="wm-menu-create-hub"');
+  expect(app).toContain("เพิ่มเมนูใหม่");
+  expect(app).toContain("เพิ่มตัวเลือกเสริม");
+  expect(app).toContain("จัดการหมวดหมู่");
+  expect(app).not.toContain("คัดลอกเมนูเดิม");
+  expect(app).toContain("MenuOptionPicker");
+  expect(app).toContain("MenuCategoryManager");
+  expect(css).toContain(".wm-sheet--menu-flow");
+  expect(css).toContain(".wm-menu-create-card");
+});
+
 test("Merchant production readiness suite covers hours, publish gate, ETA, ordering and audit", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const merchant = read("lib/food-merchant.ts");
