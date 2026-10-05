@@ -64,16 +64,19 @@ export async function redeemReferralCode(client: SupabaseClient, code: string): 
   if (result.error) throw result.error;
 }
 
-export function getEmailConfirmationRedirectUrl(): string | undefined {
-  return typeof window === "undefined" ? undefined : `${window.location.origin}/auth/callback`;
+export function getEmailConfirmationRedirectUrl(nextPath?: string): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const url = new URL("/auth/callback", window.location.origin);
+  if (nextPath) url.searchParams.set("next", nextPath);
+  return url.href;
 }
 
-export async function signUpWithEmail(client: SupabaseClient, email: string, password: string) {
+export async function signUpWithEmail(client: SupabaseClient, email: string, password: string, nextPath?: string) {
   if (password.length < MIN_SIGNUP_PASSWORD_LENGTH) throw new SignupPasswordTooShortError();
   const result = await client.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: getEmailConfirmationRedirectUrl() },
+    options: { emailRedirectTo: getEmailConfirmationRedirectUrl(nextPath) },
   });
   if (result.error) {
     const message = result.error.message.toLowerCase();
