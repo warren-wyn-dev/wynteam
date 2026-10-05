@@ -1,6 +1,6 @@
 # Product Task — WYN-215 — Notifications per app + 4-digit order numbers
 
-Status: approved — Founder "อนุมัติ" 2026-10-05; implemented on `feat/push-per-app-order-number`, waiting for QA, CTO review and the production migration
+Status: production rollout verified live 2026-10-05 — `push_tokens.app`, the 4-digit Food order-number function, and `send-push-notification` per-app routing are active in production
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-05
 
