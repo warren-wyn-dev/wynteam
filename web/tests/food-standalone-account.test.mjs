@@ -112,6 +112,12 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
 
   assert.match(css, /\.wf-home-store-photo\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
   assert.match(css, /\.wf-recent-store > span\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
+  assert.match(source, /distance < 0\.1[\s\S]*?"ใกล้คุณ"/);
+  assert.match(source, /<Bike size=\{13\} \/>ค่าส่ง/);
+  assert.match(source, /<Bike size=\{18\} \/>จัดส่ง/);
+  assert.doesNotMatch(source, /🛵/);
+  assert.match(css, /\.wf-home-deals-empty\s*\{[\s\S]*?min-height:\s*42px;/);
+  assert.match(css, /\.wf-home-store-row\s*\{[\s\S]*?min-height:\s*116px;/);
   assert.match(data, /rating_average\?: number \| string \| null/);
   assert.match(migration, /rating_average numeric/);
   assert.match(migration, /delivered_order_count bigint/);
