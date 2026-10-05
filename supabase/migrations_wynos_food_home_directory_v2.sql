@@ -44,7 +44,7 @@ begin
   end if;
 
   if v_query is not null then
-    v_pattern := '%' || replace(replace(replace(v_query, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%';
+    v_pattern := '%' || replace(replace(replace(v_query, E'\\\\', E'\\\\\\\\'), '%', E'\\\\%'), '_', E'\\\\_') || '%';
   end if;
 
   return query
@@ -115,16 +115,16 @@ begin
     and s.admin_suspended_at is null
     and (
       v_query is null
-      or s.name ilike v_pattern escape '\\'
-      or coalesce(s.address, '') ilike v_pattern escape '\\'
+      or s.name ilike v_pattern escape E'\\\\'
+      or coalesce(s.address, '') ilike v_pattern escape E'\\\\'
       or exists (
         select 1
         from public.food_menu_items search_menu
         where search_menu.store_id = s.id
           and search_menu.is_available
           and (
-            search_menu.name ilike v_pattern escape '\\'
-            or search_menu.category ilike v_pattern escape '\\'
+            search_menu.name ilike v_pattern escape E'\\\\'
+            or search_menu.category ilike v_pattern escape E'\\\\'
           )
       )
     )
