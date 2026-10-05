@@ -23,6 +23,7 @@ import {
   UtensilsCrossed,
   X,
   LocateFixed,
+  LogOut,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
@@ -641,6 +642,7 @@ function AccountPanel({
   onDeleteAddress,
   onInstall,
   onNotifications,
+  onSignOut,
 }: {
   addresses: FoodCustomerAddress[];
   installPrompt: InstallPromptEvent | null;
@@ -650,6 +652,7 @@ function AccountPanel({
   onDeleteAddress: (id: string) => void;
   onInstall: () => void;
   onNotifications: () => void;
+  onSignOut: () => void;
 }) {
   const primary = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const primaryLocation = addressLocation(primary);
@@ -665,7 +668,7 @@ function AccountPanel({
             <strong>โปรไฟล์ WYNOS Food</strong>
             <small>ข้อมูลสำหรับการสั่งและจัดส่งอาหารเท่านั้น</small>
           </div>
-          <em>แยกจาก WYNOS</em>
+          <em>สำหรับ Food</em>
         </div>
 
         {primary ? (
@@ -727,10 +730,14 @@ function AccountPanel({
             <ChevronRight size={18} />
           </button>
         ) : null}
-        <Link href="/">
-          <span><ArrowLeft size={20} /><div><strong>กลับไป WYNOS</strong><small>ออกจาก WYNOS Food โดยไม่แก้โปรไฟล์ WYNOS</small></div></span>
+        <a href="https://wynos.online/login">
+          <span><ArrowLeft size={20} /><div><strong>เปิด WYNOS Social</strong><small>ใช้ WYNOS Account เดิม แล้วค่อยตั้งโปรไฟล์ Social เมื่อคุณต้องการ</small></div></span>
           <ChevronRight size={18} />
-        </Link>
+        </a>
+        <button type="button" onClick={onSignOut}>
+          <span><LogOut size={20} /><div><strong>ออกจากระบบ</strong><small>ออกจาก WYNOS Account บนอุปกรณ์นี้</small></div></span>
+          <ChevronRight size={18} />
+        </button>
       </div>
     </>
   );
@@ -1286,9 +1293,11 @@ function OrderDetailSheet({
 function FoodCustomerInner({
   client,
   userId,
+  signOut,
 }: {
   client: SupabaseClient;
   userId: string;
+  signOut: () => Promise<void>;
 }) {
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<FoodCustomerSnapshot | null>(null);
@@ -1619,6 +1628,7 @@ function FoodCustomerInner({
             onDeleteAddress={(id) => void deleteAddress(id)}
             onInstall={() => void install()}
             onNotifications={() => void requestNotifications()}
+            onSignOut={() => void signOut()}
           />
         ) : null}
       </section>
@@ -1673,8 +1683,8 @@ function FoodCustomerInner({
 
 export function WynosFoodDeveloperApp() {
   return (
-    <DeveloperRouteGate>
-      {({ client, userId }) => <FoodCustomerInner key={userId} client={client} userId={userId} />}
+    <DeveloperRouteGate signedOutPath="/food/login" afterSignOutPath="/food/login">
+      {({ client, userId, signOut }) => <FoodCustomerInner key={userId} client={client} userId={userId} signOut={signOut} />}
     </DeveloperRouteGate>
   );
 }
