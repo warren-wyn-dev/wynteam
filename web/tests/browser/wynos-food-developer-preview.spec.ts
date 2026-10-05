@@ -38,6 +38,7 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(app).toContain("<FoodDeliveryMapPicker");
   const css = read("app/food/food.css");
   const mapsCss = read("app/maps/maps.css");
+  const mapsV2Css = read("app/maps/maps-v2.css");
   const serviceArea = JSON.parse(read("public/maps/food-service-area-maha-sarakham.json")) as {
     geometry?: { coordinates?: number[][][] };
   };
@@ -53,6 +54,13 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(mapsCss).toContain("touch-action: none !important");
   expect(mapsCss).toContain("overscroll-behavior: none");
   expect(map).toContain('map.on("style.load", markReady)');
+  expect(map).toContain("map.project([nearbyPlace.longitude, nearbyPlace.latitude])");
+  expect(map).toContain("wf-map-place-symbol");
+  expect(map).toContain("wf-map-user-location");
+  expect(map).toContain('anchor: selected ? "bottom" : "center"');
+  expect(mapsV2Css).toContain(".wf-map-place-marker.is-cafe");
+  expect(mapsV2Css).toContain(".wf-map-user-location");
+
   expect(map).toContain('const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";');
   expect(map).toContain("pointInServiceArea(location, serviceAreaBoundary)");
   expect(map).toContain("map.addSource(SERVICE_AREA_SOURCE");
