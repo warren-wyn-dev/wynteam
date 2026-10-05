@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import "../food/food.css";
 import "./maps.css";
 import "./maps-v2.css";
+import "./maps-v3.css";
 
 export const metadata: Metadata = {
   title: "WYNOS Maps",
