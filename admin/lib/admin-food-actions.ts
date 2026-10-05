@@ -213,3 +213,14 @@ export function adminWynosPlaceError(error: unknown, fallback = "ดำเนิ
   if (message.includes("places payload must be an array")) return "ไฟล์นำเข้าต้องเป็น JSON array";
   return message || fallback;
 }
+
+
+export async function reviewWynosPlaceSuggestion(suggestionId: string, approve: boolean) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("admin_review_wynos_place_suggestion", {
+    p_suggestion_id: suggestionId,
+    p_decision: approve ? "approve" : "reject",
+  });
+  if (error) throw error;
+  return data as string | null;
+}
