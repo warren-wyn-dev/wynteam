@@ -363,6 +363,9 @@ export function FoodDeliveryMapPicker({
   onConfirm,
   autoLocate = false,
   standalone = false,
+  title,
+  subtitle,
+  confirmLabel,
 }: {
   client: SupabaseClient;
   storeId: string | null;
@@ -371,6 +374,9 @@ export function FoodDeliveryMapPicker({
   onConfirm: (location: FoodLocation, place?: FoodPlace) => void;
   autoLocate?: boolean;
   standalone?: boolean;
+  title?: string;
+  subtitle?: string;
+  confirmLabel?: string;
 }) {
   const mapNode = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapInstance | null>(null);
@@ -1327,8 +1333,8 @@ export function FoodDeliveryMapPicker({
           {standalone ? <ArrowLeft size={22} /> : <X size={22} />}
         </button>
         <div>
-          <strong>{standalone ? "WYNOS Maps" : "ปักหมุดตำแหน่งจัดส่ง"}</strong>
-          <small>{standalone ? "ค้นหา สำรวจ และเลือกตำแหน่ง" : "เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร"}</small>
+          <strong>{title ?? (standalone ? "WYNOS Maps" : "ปักหมุดตำแหน่งจัดส่ง")}</strong>
+          <small>{subtitle ?? (standalone ? "ค้นหา สำรวจ และเลือกตำแหน่ง" : "เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร")}</small>
         </div>
         <span />
       </header>
@@ -1691,7 +1697,7 @@ export function FoodDeliveryMapPicker({
             onConfirm(location, place ?? undefined);
           }}
         >
-          <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : standalone ? "ใช้ตำแหน่งนี้" : "ยืนยันตำแหน่งนี้"}
+          <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : confirmLabel ?? (standalone ? "ใช้ตำแหน่งนี้" : "ยืนยันตำแหน่งนี้")}
         </button>
         </div>
       </section>
