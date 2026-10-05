@@ -1308,7 +1308,6 @@ function StorePanel({
   const entries = readiness ? Object.entries(readiness.checks) : [];
   const completed = entries.filter(([, ready]) => ready).length;
   const progress = entries.length ? Math.round((completed / entries.length) * 100) : 0;
-  const effectiveOpen = foodStoreIsEffectivelyOpen(store);
 
   const togglePublished = async () => {
     if (!store.is_published && readiness && !readiness.ready) {
