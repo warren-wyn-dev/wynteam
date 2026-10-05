@@ -1877,8 +1877,8 @@ function FoodCustomerInner({
   // WYN-201: pull down to refresh the store, menu and orders.
   const pickStore = (next: FoodDirectoryStore, placement: "home" | "search") => {
     if (next.is_ad) void recordFoodAdClick(client, next.id, placement).catch(() => undefined);
-    setStorefrontOpen(true);
     if (next.id === store?.id) {
+      setStorefrontOpen(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -1887,7 +1887,9 @@ function FoodCustomerInner({
     pickedStoreRef.current = next.id;
     try { localStorage.setItem(storeKey, next.id); } catch { /* private mode */ }
     window.scrollTo({ top: 0, behavior: "smooth" });
-    void load(true);
+    void load(true).then((nextSnapshot) => {
+      if (nextSnapshot?.store?.id === next.id) setStorefrontOpen(true);
+    });
   };
   const shareStore = () => {
     if (!store) return;
