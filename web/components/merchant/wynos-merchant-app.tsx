@@ -2,6 +2,7 @@
 "use client";
 
 import {
+  ArrowUpDown,
   Bell,
   Check,
   ChevronLeft,
@@ -11,6 +12,7 @@ import {
   CircleDollarSign,
   Clock3,
   ImagePlus,
+  LayoutGrid,
   LogOut,
   GripVertical,
   Eye,
@@ -1285,11 +1287,12 @@ function MenuPanel({
               setOpenActionId(null);
             }}
           >
-            <GripVertical size={17} />
+            <ArrowUpDown size={17} />
             <span>{sortMode ? "เสร็จสิ้น" : "จัดลำดับ"}</span>
+            {sortMode ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
           </button>
           <label className="wm-menu-tool wm-menu-category-filter">
-            <MenuIcon size={17} />
+            <LayoutGrid size={17} />
             <select
               aria-label="กรองตามหมวดหมู่"
               value={categoryFilter}
@@ -1329,7 +1332,8 @@ function MenuPanel({
             >
               <div className="wm-menu-category-heading">
                 <div className="wm-menu-category-title">
-                  {sortMode ? <span className="wm-menu-category-drag" aria-hidden="true"><GripVertical size={17} /></span> : <span className="wm-menu-category-mark"><MenuIcon size={16} /></span>}
+                  <span className={`wm-menu-category-drag ${sortMode ? "is-active" : ""}`} aria-hidden="true"><GripVertical size={17} /></span>
+                  <span className={`wm-menu-category-mark is-tone-${categoryIndex % 3}`} aria-hidden="true"><UtensilsCrossed size={16} /></span>
                   <button type="button" onClick={() => toggleCategory(category)}><strong>{category}</strong></button>
                 </div>
                 <div className="wm-menu-category-meta">
@@ -1373,11 +1377,7 @@ function MenuPanel({
                           <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
                           <span className="wm-menu-copy">
                             <strong>{item.name}</strong>
-                            {soldOutToday ? (
-                              <span className="wm-menu-meta-line"><span className="wm-menu-soldout-badge">หมดวันนี้</span><small>เปิดอัตโนมัติวันถัดไป</small></span>
-                            ) : (
-                              <small>{item.daily_stock_limit ? `จำกัด ${item.daily_stock_limit} ชิ้น/วัน` : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
-                            )}
+                            <small>{item.daily_stock_limit ? `จำกัด ${item.daily_stock_limit} ชิ้น/วัน` : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
                             <b>{money(item.price)}</b>
                           </span>
                         </button>
@@ -1388,7 +1388,13 @@ function MenuPanel({
                               <button type="button" aria-label="เลื่อนเมนูลง" disabled={Boolean(q) || itemIndex === items.length - 1} onClick={() => shiftItem(items, item.id, 1)}><ChevronDown size={13} /></button>
                             </span>
                           ) : null}
-                          <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขาย" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
+                          {soldOutToday && !sortMode ? <span className="wm-menu-soldout-badge">หมดวันนี้</span> : null}
+                          <button
+                            className={`wm-switch ${available ? "is-on" : ""}`}
+                            type="button"
+                            aria-label={available ? "ปิดขาย" : "เปิดขาย"}
+                            onClick={() => soldOutToday ? onSoldOut(item, false) : onToggle(item)}
+                          ><i /></button>
                           {!sortMode ? (
                             <div className="wm-menu-overflow">
                               <button className="wm-menu-more" type="button" aria-label={`ตัวเลือกสำหรับ ${item.name}`} aria-expanded={actionOpen} onClick={() => setOpenActionId(actionOpen ? null : item.id)}>⋯</button>
