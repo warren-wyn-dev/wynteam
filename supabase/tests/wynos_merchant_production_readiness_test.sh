@@ -129,6 +129,8 @@ SQL
 run >/dev/null < "$ROOT/supabase/migrations_wynos_merchant_production_readiness_v1.sql"
 # Migration is intentionally idempotent.
 run >/dev/null < "$ROOT/supabase/migrations_wynos_merchant_production_readiness_v1.sql"
+run >/dev/null < "$ROOT/supabase/migrations_wynos_merchant_production_readiness_hardening_v1.sql"
+expect_db "select has_function_privilege('anon','public.food_store_open_status(uuid)','EXECUTE')" "f" "anonymous cannot execute store open status RPC"
 
 run >/dev/null <<SQL
 select set_config('test.uid','$ACTOR',false);
