@@ -132,7 +132,7 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(nearbyRankingSql).toContain("internal.food_distance_km(p_latitude, p_longitude, p.latitude, p.longitude)");
   expect(nearbyRankingSql).toContain("when p.category = 'residence' then 0");
   expect(map).toContain("nearbyRadiusForZoom");
-  expect(map).toContain("index < labelLimit");
+  expect(map).toContain("index < 24");
   expect(map).toContain("fetchNearbyWynosPlaces");
   expect(map).toContain("wf-map-place-label");
   expect(map).toContain("mapZoom >= 14.5");
