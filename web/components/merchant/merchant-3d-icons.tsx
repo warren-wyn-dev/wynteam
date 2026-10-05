@@ -7,7 +7,7 @@ import { useId } from "react";
  * artwork). Each icon is one object lit from the top-left: a light-to-base
  * top face, a base-to-dark body, a soft white highlight and a floor shadow.
  */
-export type MerchantIcon3DName = "orders" | "ads" | "campaign" | "promotion" | "finance" | "menu" | "store" | "reports" | "bell" | "sound" | "install";
+export type MerchantIcon3DName = "orders" | "ads" | "campaign" | "promotion" | "finance" | "menu" | "store" | "settings" | "help" | "reports" | "bell" | "sound" | "install";
 
 type Tone = "red" | "amber" | "green" | "blue" | "violet";
 
@@ -27,6 +27,8 @@ const TONE_OF: Record<MerchantIcon3DName, Tone> = {
   finance: "green",
   menu: "green",
   store: "blue",
+  settings: "blue",
+  help: "violet",
   reports: "violet",
   bell: "red",
   sound: "violet",
@@ -110,6 +112,24 @@ const SHAPES: Record<MerchantIcon3DName, (p: Paint) => React.ReactNode> = {
       <path d="M7 15.5 10.5 9h27l3.5 6.5v2.3a3.7 3.7 0 0 1-7 1.6 3.7 3.7 0 0 1-6.7 0 3.7 3.7 0 0 1-6.6 0 3.7 3.7 0 0 1-6.7 0 3.7 3.7 0 0 1-7-1.6z" fill={p.top} />
       <path d="M16 10v9.6M24 10v9.6M32 10v9.6" stroke="#fff" strokeOpacity=".7" strokeWidth="3.2" />
       <rect x="9" y="7" width="30" height="3.6" rx="1.8" fill={p.dark} />
+    </>
+  ),
+  settings: (p) => (
+    <>
+      <path d="M20.6 7.5h6.8l1.2 5.2a14.4 14.4 0 0 1 3.2 1.9l5-1.7 3.4 5.9-3.9 3.6c.2 1 .3 2 .3 3.1s-.1 2.1-.3 3.1l3.9 3.6-3.4 5.9-5-1.7a14.4 14.4 0 0 1-3.2 1.9l-1.2 5.2h-6.8l-1.2-5.2a14.4 14.4 0 0 1-3.2-1.9l-5 1.7-3.4-5.9 3.9-3.6a15.6 15.6 0 0 1 0-6.2l-3.9-3.6 3.4-5.9 5 1.7a14.4 14.4 0 0 1 3.2-1.9z" fill={p.body} />
+      <path d="M21.9 9.5h4.2l1 4.4c1.8.5 3.3 1.4 4.7 2.6l4.2-1.4 2.1 3.6-3.3 3.1c.4 1.7.4 3.4 0 5.1l3.3 3.1-2.1 3.6-4.2-1.4a12 12 0 0 1-4.7 2.6l-1 4.4h-4.2l-1-4.4a12 12 0 0 1-4.7-2.6L12 33.6 9.9 30l3.3-3.1a11 11 0 0 1 0-5.1l-3.3-3.1 2.1-3.6 4.2 1.4a12 12 0 0 1 4.7-2.6z" fill={p.top} />
+      <circle cx="24" cy="24.5" r="7.2" fill={p.dark} fillOpacity=".55" />
+      <circle cx="24" cy="23.4" r="5.1" fill="#f8fbff" />
+      <path d="M17.1 16.2c2.2-2.3 4.7-3.4 7.7-3.4" fill="none" stroke={SHINE} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  help: (p) => (
+    <>
+      <path d="M9 11.5a5.5 5.5 0 0 1 5.5-5.5h19A5.5 5.5 0 0 1 39 11.5v18A5.5 5.5 0 0 1 33.5 35H24l-7.4 6.2c-1.3 1.1-3.3.2-3.3-1.5V35A5.4 5.4 0 0 1 9 29.5z" fill={p.body} />
+      <path d="M11 11.5A3.5 3.5 0 0 1 14.5 8h19a3.5 3.5 0 0 1 3.5 3.5v15.7a3.5 3.5 0 0 1-3.5 3.5H22.8l-6.9 5.6v-5.6h-1.4a3.5 3.5 0 0 1-3.5-3.5z" fill={p.top} />
+      <path d="M19.2 18.2c.3-3 2.4-4.9 5.3-4.9 3.1 0 5.3 1.8 5.3 4.5 0 2.1-1.1 3.4-3.3 4.8-1.7 1-2.4 1.8-2.4 3.4" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="24" cy="31" r="1.8" fill="#fff" />
+      <path d="M14.6 11.4h11" stroke={SHINE} strokeWidth="2" strokeLinecap="round" />
     </>
   ),
   reports: (p) => (
