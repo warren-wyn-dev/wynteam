@@ -5,7 +5,6 @@ import {
   Bell,
   BellRing,
   Check,
-  CircleHelp,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -27,7 +26,6 @@ import {
   Phone,
   Plus,
   Search,
-  Settings2,
   Share2,
   ShoppingBag,
   Store,
@@ -1044,8 +1042,8 @@ function MorePanel({
           <button type="button" onClick={() => onOpenTab("promotions")}><span className="wm-tile-icon"><MerchantIcon3D name="promotion" size={52} /></span>โปรโมชั่น</button>
           <button type="button" onClick={() => onOpenTab("campaigns")}><span className="wm-tile-icon"><MerchantIcon3D name="campaign" size={52} /></span>แคมเปญ</button>
           <button type="button" onClick={() => onOpenTab("ads")}><span className="wm-tile-icon"><MerchantIcon3D name="ads" size={52} /></span>โฆษณา</button>
-          <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon wm-tile-icon--settings"><Settings2 size={37} strokeWidth={1.7} /></span>ตั้งค่าร้าน</button>
-          <button type="button" onClick={() => onOpenTab("help")}><span className="wm-tile-icon wm-tile-icon--help"><CircleHelp size={37} strokeWidth={1.7} /></span>ช่วยเหลือ</button>
+          <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon"><MerchantIcon3D name="settings" size={52} /></span>ตั้งค่าร้าน</button>
+          <button type="button" onClick={() => onOpenTab("help")}><span className="wm-tile-icon"><MerchantIcon3D name="help" size={52} /></span>ช่วยเหลือ</button>
           <button type="button" onClick={onNotifications}><span className="wm-tile-icon"><MerchantIcon3D name="bell" size={52} /></span>การแจ้งเตือน</button>
           <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span className="wm-tile-icon"><MerchantIcon3D name="sound" size={52} /></span>ลองเสียงออเดอร์</button>
           {installPrompt ? <button type="button" onClick={onInstall}><span className="wm-tile-icon"><MerchantIcon3D name="install" size={52} /></span>ติดตั้งแอป</button> : null}
