@@ -19,12 +19,12 @@ MENU2=00000000-0000-0000-0000-000000000102
 CAMPAIGN=00000000-0000-0000-0000-000000000201
 
 run >/dev/null <<SQL
-do $$ begin create role anon; exception when duplicate_object then null; end $$;
-do $$ begin create role authenticated; exception when duplicate_object then null; end $$;
+do \$\$ begin create role anon; exception when duplicate_object then null; end \$\$;
+do \$\$ begin create role authenticated; exception when duplicate_object then null; end \$\$;
 create schema auth;
 create schema internal;
-create function auth.uid() returns uuid language sql stable as $$ select '$BUYER'::uuid $$;
-create function public.food_customer_access_enabled() returns boolean language sql stable security definer set search_path = '' as $$ select true $$;
+create function auth.uid() returns uuid language sql stable as \$\$ select '$BUYER'::uuid \$\$;
+create function public.food_customer_access_enabled() returns boolean language sql stable security definer set search_path = '' as \$\$ select true \$\$;
 
 create table public.food_stores(
   id uuid primary key,
@@ -76,9 +76,9 @@ create table public.food_campaigns(
   created_at timestamptz not null default now()
 );
 create function internal.food_store_effectively_open(p_store_id uuid, p_at timestamptz)
-returns boolean language sql stable as $$ select coalesce((select is_open from public.food_stores where id=p_store_id), false) $$;
+returns boolean language sql stable as \$\$ select coalesce((select is_open from public.food_stores where id=p_store_id), false) \$\$;
 create function internal.food_ad_is_live(p_store_id uuid)
-returns boolean language sql stable as $$ select p_store_id = '$STORE2'::uuid $$;
+returns boolean language sql stable as \$\$ select p_store_id = '$STORE2'::uuid \$\$;
 
 grant usage on schema public, auth, internal to authenticated, anon;
 insert into public.food_stores(id,slug,name,address,business_hours,delivery_fee,latitude,longitude,prep_time_min_minutes,prep_time_max_minutes)
