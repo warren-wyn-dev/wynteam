@@ -40,7 +40,21 @@ create function internal.log_audit_event(p_actor_id uuid, p_event_type text, p_t
 create table public.notifications(id bigserial primary key, recipient_id uuid, actor_id uuid, type text, reason text);
 create table public.merchant_memberships(merchant_account_id uuid, user_id uuid, role text, active boolean default true, primary key (merchant_account_id, user_id));
 create table public.food_stores(id uuid primary key, slug text, name text, merchant_account_id uuid, logo_path text, cover_path text,
-  business_hours text, delivery_fee numeric default 20, is_open boolean default true, is_published boolean default true, admin_suspended_at timestamptz);
+  address text, business_hours text, delivery_fee numeric default 20, latitude double precision, longitude double precision,
+  prep_time_min_minutes integer default 15, prep_time_max_minutes integer default 30,
+  is_open boolean default true, is_published boolean default true, admin_suspended_at timestamptz);
+create function internal.food_store_effectively_open(p_store_id uuid, p_at timestamptz default now()) returns boolean
+  language sql stable security definer set search_path = '' as
+  \$\$ select coalesce((select s.is_open from public.food_stores s where s.id=p_store_id), false) \$\$;
+create table public.food_menu_items(id uuid primary key, store_id uuid, category text, name text, is_available boolean default true);
+create table public.food_store_reviews(id uuid primary key, store_id uuid, rating integer);
+create table public.food_orders(id uuid primary key, store_id uuid, status text);
+create table public.food_campaigns(
+  id uuid primary key, store_id uuid, name text, campaign_type text, discount_value numeric default 0,
+  min_subtotal numeric default 0, starts_at timestamptz default now(), ends_at timestamptz,
+  usage_limit integer, usage_count integer default 0, is_active boolean default true, deleted_at timestamptz,
+  created_at timestamptz default now()
+);
 create function public.merchant_has_store_role(p_store_id uuid, p_roles text[] default null) returns boolean language sql stable security definer set search_path = '' as \$\$
   select exists (select 1 from public.food_stores s join public.merchant_memberships m on m.merchant_account_id = s.merchant_account_id
     where s.id = p_store_id and m.user_id = auth.uid() and m.active and (p_roles is null or m.role = any(p_roles))) \$\$;
@@ -59,11 +73,22 @@ insert into auth.users values ('$ADMIN'), ('$MOD'), ('$OWNER'), ('$RIDER'), ('$B
 insert into public.profiles(id, platform_role, food_access) values ('$ADMIN','admin',true), ('$MOD','moderator',true),
   ('$OWNER','user',true), ('$RIDER','user',true), ('$BUYER','user',true), ('$BUYER2','user',true), ('$GUEST','user',false);
 insert into public.merchant_memberships values ('$ACCOUNT','$OWNER','owner',true), ('$ACCOUNT','$RIDER','delivery',true);
-insert into public.food_stores(id, slug, name, merchant_account_id) values ('$STORE','main','ร้านโฆษณา','$ACCOUNT'), ('$OTHER','other','ร้านอื่น',null);
+insert into public.food_stores(id, slug, name, merchant_account_id, address, latitude, longitude)
+  values ('$STORE','main','ร้านโฆษณา','$ACCOUNT','ถนนหลัก มหาสารคาม',16.185,103.301),
+         ('$OTHER','other','ร้านอื่น',null,'ถนนรอง มหาสารคาม',16.190,103.310);
+insert into public.food_menu_items(id,store_id,category,name) values
+  ('00000000-0000-0000-0000-000000000101','$STORE','อาหารไทย','ข้าวผัด'),
+  ('00000000-0000-0000-0000-000000000102','$OTHER','อาหารตามสั่ง','กะเพราไก่');
+insert into public.food_store_reviews values ('00000000-0000-0000-0000-000000000201','$STORE',5);
+insert into public.food_orders values ('00000000-0000-0000-0000-000000000301','$STORE','delivered');
+insert into public.food_campaigns(id,store_id,name,campaign_type,discount_value,min_subtotal)
+  values ('00000000-0000-0000-0000-000000000401','$STORE','ลด 30 บาท','fixed',30,150);
 SQL
 run >/dev/null 2>&1 < "$ROOT/supabase/migrations_wynos_food_ads_v1.sql"
 # The apply workflow can be dispatched again; a re-run must keep every audit type.
 run >/dev/null 2>&1 < "$ROOT/supabase/migrations_wynos_food_ads_v1.sql"
+# Home v2 replaces the directory return shape after the existing ad RPC exists.
+run >/dev/null 2>&1 < "$ROOT/supabase/migrations_wynos_food_home_directory_v2.sql"
 
 as() { run -At -c "select set_config('test.uid','$1',false);" -c "set role authenticated;" -c "$2" 2>&1 | tail -n1; }
 db() { run -At -c "$1" 2>&1 | tail -n1; }
@@ -106,6 +131,9 @@ expect_db "select count(*) from public.notifications where recipient_id = '$OWNE
 # Food directory puts the live ad first; access gate applies.
 expect_eq "$BUYER" "select name || '|' || is_ad from public.food_store_directory() limit 1" "ร้านโฆษณา|true" "the advertised store is first"
 expect_eq "$BUYER" "select count(*) from public.food_store_directory('อื่น')" "1" "search by name"
+expect_eq "$BUYER" "select count(*) from public.food_store_directory('กะเพรา')" "1" "search by menu name"
+expect_eq "$BUYER" "select categories[1] || '|' || rating_average || '|' || rating_count || '|' || delivered_order_count || '|' || promo_type from public.food_store_directory() where id='$STORE'" "อาหารไทย|5.0|1|1|fixed" "home metadata is returned"
+expect_eq "$BUYER" "select address from public.food_store_directory() where id='$STORE'" "ถนนหลัก มหาสารคาม" "store address is returned"
 expect_fail "$GUEST" "select * from public.food_store_directory()" "Food access gate applies" "food access required"
 
 # Clicks: charged once per customer per day, never for the store's own team.
