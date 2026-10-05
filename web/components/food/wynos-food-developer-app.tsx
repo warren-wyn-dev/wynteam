@@ -1709,7 +1709,7 @@ function FoodCustomerInner({
           client={client}
           item={selectedItem}
           existing={cart.find((line) => line.menu_item_id === selectedItem.id) ?? null}
-          storeOpen={store.is_open}
+          storeOpen={foodStoreIsEffectivelyOpen(store)}
           onClose={() => setSelectedItem(null)}
           onAdd={addItem}
         />
