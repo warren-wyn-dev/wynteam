@@ -875,7 +875,7 @@ export function FoodDeliveryMapPicker({
   const quickSearch = (value: string) => {
     setQuery(value);
     setSearchFocused(true);
-    setSheetExpanded(false);
+    if (standalone) setSheetDetent("half");
     void runSearch(value, false);
   };
 
@@ -1054,7 +1054,7 @@ export function FoodDeliveryMapPicker({
           value={query}
           onFocus={() => {
             setSearchFocused(true);
-            if (standalone) setSheetDetent("full");
+            if (standalone) setSheetDetent("half");
           }}
           onChange={(event) => {
             const nextQuery = event.target.value;
