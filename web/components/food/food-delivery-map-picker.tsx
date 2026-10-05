@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, Building2, Check, Coffee, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, ShoppingBag, Store, Utensils, X } from "lucide-react";
+import { ArrowLeft, Briefcase, Building2, Check, Clock, Coffee, Home, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -16,6 +16,22 @@ import {
   type FoodLocation,
   type FoodPlace,
 } from "@/lib/food-customer";
+import {
+  deleteSavedPlace,
+  loadSavedPlaces,
+  saveMapPlace,
+  type SavedPlace,
+  type SavedPlaceKind,
+  type SavedPlacesState,
+} from "@/lib/maps-saved-places";
+import {
+  clearRecentPlaces,
+  formatDistanceKm,
+  loadRecentPlaces,
+  mapsShareUrl,
+  rememberRecentPlace,
+  type MapsRecentPlace,
+} from "@/lib/maps-places";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -103,6 +119,7 @@ const MAPLIBRE_VERSION = "5.12.0";
 const MAPLIBRE_JS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js`;
 const MAPLIBRE_CSS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
 const MAP_STYLE = "/maps/wynos-green.json";
+const MAP_STYLE_DARK = "/maps/wynos-dark.json";
 const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";
 const SERVICE_AREA_SOURCE = "wynos-food-service-area";
 const SERVICE_AREA_FILL_LAYER = "wynos-food-service-area-fill";
@@ -174,6 +191,25 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
   return window.__wynosMapLibrePromise;
 }
 
+// Same rule as the app theme (lib/theme-preference.ts): an explicit
+// data-theme wins, otherwise follow the phone.
+function prefersDarkMap() {
+  const theme = document.documentElement.dataset.theme;
+  if (theme === "dark") return true;
+  if (theme === "light") return false;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+}
+
+type SheetDetent = "peek" | "half" | "full";
+
+function mapsStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
 function nearbyRadiusForZoom(zoom: number) {
   if (zoom >= 17.5) return 1.5;
   if (zoom >= 16) return 3;
@@ -215,6 +251,9 @@ function placeCategory(place: FoodPlace) {
   if (place.category === "pickup_point") return "จุดรับอาหาร";
   if (place.category === "building") return "อาคาร";
   if (place.category === "entrance") return "ทางเข้า";
+  if (place.category === "store") return "ร้านค้า";
+  if (place.category === "residence") return "ที่พัก";
+  if (place.category === "poi") return "จุดสำคัญ";
   return "สถานที่";
 }
 
@@ -303,6 +342,16 @@ export function FoodDeliveryMapPicker({
   const [searchFocused, setSearchFocused] = useState(false);
   // Standalone Maps hides the sheet by default, so search feedback shows under the search box.
   const [searchStatus, setSearchStatus] = useState("");
+  const [recentPlaces, setRecentPlaces] = useState<MapsRecentPlace[]>([]);
+  const [saved, setSaved] = useState<SavedPlacesState>({ status: "unavailable" });
+  const [saveTarget, setSaveTarget] = useState<{
+    name: string;
+    address: string | null;
+    placeId: string | null;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [savingPlace, setSavingPlace] = useState(false);
   const [showAttribution, setShowAttribution] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestionName, setSuggestionName] = useState("");
@@ -316,7 +365,11 @@ export function FoodDeliveryMapPicker({
   const [mapFailed, setMapFailed] = useState(false);
   const [mapAttempt, setMapAttempt] = useState(0);
   const [chosen, setChosen] = useState(Boolean(initialLocation));
-  const [sheetExpanded, setSheetExpanded] = useState(false);
+  // Standalone Maps uses a three-stop sheet: peek (search only), half
+  // (search + selected place) and full (results or place details).
+  const [sheetDetent, setSheetDetent] = useState<SheetDetent>("half");
+  const sheetExpanded = sheetDetent === "full";
+  const setSheetExpanded = useCallback((expanded: boolean) => setSheetDetent(expanded ? "full" : "half"), []);
   const [currentLocationSelected, setCurrentLocationSelected] = useState(false);
   const [userLocation, setUserLocation] = useState<FoodLocation | null>(null);
   const [mapDragging, setMapDragging] = useState(false);
@@ -385,6 +438,26 @@ export function FoodDeliveryMapPicker({
 
   useEffect(() => {
     if (!standalone) return;
+    const timer = window.setTimeout(() => setRecentPlaces(loadRecentPlaces(mapsStorage())), 0);
+    return () => window.clearTimeout(timer);
+  }, [standalone]);
+
+  const refreshSaved = useCallback(async () => {
+    if (!standalone) return;
+    try {
+      setSaved(await loadSavedPlaces(client));
+    } catch {
+      // Keep whatever was shown; saved places are optional.
+    }
+  }, [client, standalone]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void refreshSaved(), 0);
+    return () => window.clearTimeout(timer);
+  }, [refreshSaved]);
+
+  useEffect(() => {
+    if (!standalone) return;
     let live = true;
     void fetch(SERVICE_AREA_URL, { cache: "force-cache" })
       .then((response) => {
@@ -423,7 +496,7 @@ export function FoodDeliveryMapPicker({
 
         map = new maplibre.Map({
           container: mapNode.current,
-          style: MAP_STYLE,
+          style: standalone && prefersDarkMap() ? MAP_STYLE_DARK : MAP_STYLE,
           center: start,
           zoom: initialLocation ? 16 : 5.4,
           attributionControl: false,
@@ -528,7 +601,30 @@ export function FoodDeliveryMapPicker({
       map?.remove();
       mapRef.current = null;
     };
-  }, [initialLocation, loadNearby, mapAttempt, reverse]);
+  }, [initialLocation, loadNearby, mapAttempt, reverse, standalone]);
+
+  useEffect(() => {
+    if (!standalone || !mapReady) return;
+    let dark = prefersDarkMap();
+    const sync = () => {
+      const next = prefersDarkMap();
+      if (next === dark) return;
+      dark = next;
+      try {
+        mapRef.current?.setStyle(next ? MAP_STYLE_DARK : MAP_STYLE);
+      } catch {
+        // Keep the current style if the swap fails.
+      }
+    };
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    media?.addEventListener("change", sync);
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => {
+      media?.removeEventListener("change", sync);
+      observer.disconnect();
+    };
+  }, [mapReady, standalone]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -669,7 +765,7 @@ export function FoodDeliveryMapPicker({
       markers.forEach((marker) => marker.remove());
       if (nearbyMarkersRef.current === markers) nearbyMarkersRef.current = [];
     };
-  }, [activeNearbyPlace, mapReady, mapZoom, nearbyPlaces, standalone]);
+  }, [activeNearbyPlace, mapReady, mapZoom, nearbyPlaces, setSheetExpanded, standalone]);
 
   const availabilityKey = activeNearbyPlace?.merchantStoreId && location
     ? `${activeNearbyPlace.merchantStoreId}|${location.latitude},${location.longitude}`
@@ -791,10 +887,13 @@ export function FoodDeliveryMapPicker({
   };
 
   const chooseResult = (result: FoodPlace) => {
+    if (standalone) setRecentPlaces(rememberRecentPlace(mapsStorage(), result));
     setResults([]);
     setSearchStatus("");
     setSearchFocused(false);
-    setQuery(result.name);
+    // Standalone Maps shows the chosen place in the sheet and keeps the search
+    // field empty, so the next tap opens recents.
+    setQuery(standalone ? "" : result.name);
     setSheetExpanded(false);
     moveTo({ latitude: result.latitude, longitude: result.longitude }, result);
   };
@@ -806,6 +905,256 @@ export function FoodDeliveryMapPicker({
     const nextZoom = Math.min(19, Math.max(3, map.getZoom() + delta));
     map.flyTo({ center: [center.lng, center.lat], zoom: nextZoom, essential: true });
   };
+
+  const searchActive = standalone && searchFocused;
+  const showRecents = standalone && searchFocused && !query.trim() && !results.length && recentPlaces.length > 0;
+
+  const savedPlaces = saved.status === "ready" ? saved.places : [];
+  const savedHome = savedPlaces.find((item) => item.kind === "home") ?? null;
+  const savedWork = savedPlaces.find((item) => item.kind === "work") ?? null;
+  const savedFavorites = savedPlaces.filter((item) => item.kind === "favorite");
+  const showSaved = standalone && searchFocused && !query.trim() && !results.length && saved.status !== "unavailable";
+
+  const openSaved = (item: SavedPlace) => {
+    setSearchFocused(false);
+    setQuery("");
+    setSearchStatus("");
+    moveTo(
+      { latitude: item.latitude, longitude: item.longitude },
+      { placeId: item.placeId, name: item.name, address: item.address, latitude: item.latitude, longitude: item.longitude, source: "wynos" },
+    );
+    setSheetDetent("half");
+  };
+
+  const startSave = (target: { name?: string | null; address?: string | null; placeId?: string | null; latitude: number; longitude: number }) => {
+    if (saved.status === "signed-out") {
+      setStatus("เข้าสู่ระบบ WYNOS ก่อน จึงจะบันทึกสถานที่ได้");
+      return;
+    }
+    setSaveTarget({
+      name: target.name?.trim() || "ตำแหน่งที่ปักหมุด",
+      address: target.address ?? null,
+      placeId: target.placeId ?? null,
+      latitude: target.latitude,
+      longitude: target.longitude,
+    });
+    setSheetDetent("full");
+  };
+
+  const saveTo = async (kind: SavedPlaceKind) => {
+    if (!saveTarget) return;
+    setSavingPlace(true);
+    try {
+      await saveMapPlace(client, { ...saveTarget, kind });
+      setSaveTarget(null);
+      setStatus(kind === "home" ? "บันทึกเป็นบ้านแล้ว" : kind === "work" ? "บันทึกเป็นที่ทำงานแล้ว" : "เพิ่มในรายการโปรดแล้ว");
+      await refreshSaved();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "บันทึกสถานที่ไม่สำเร็จ");
+    } finally {
+      setSavingPlace(false);
+    }
+  };
+
+  const removeSaved = async (item: SavedPlace) => {
+    try {
+      await deleteSavedPlace(client, item.id);
+      await refreshSaved();
+    } catch (error) {
+      setSearchStatus(error instanceof Error ? error.message : "ลบสถานที่ไม่สำเร็จ");
+    }
+  };
+
+  const sharePlace = async (target: { name?: string | null; latitude: number; longitude: number }) => {
+    const url = mapsShareUrl(window.location.origin, target.latitude, target.longitude);
+    const title = target.name?.trim() || "ตำแหน่งบน WYNOS Maps";
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: title, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setStatus("คัดลอกลิงก์ตำแหน่งแล้ว");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setStatus("แชร์ตำแหน่งไม่สำเร็จ");
+    }
+  };
+
+  const cancelSearch = () => {
+    searchRequestRef.current += 1;
+    setQuery("");
+    setResults([]);
+    setSearching(false);
+    setSearchStatus("");
+    setSearchFocused(false);
+    if (standalone) setSheetDetent("half");
+  };
+
+  const searchBlock = (
+    <div className="wf-map-search-wrap">
+      <div className="wf-map-search">
+        <Search size={18} />
+        <input
+          value={query}
+          onFocus={() => {
+            setSearchFocused(true);
+            if (standalone) setSheetDetent("full");
+          }}
+          onChange={(event) => {
+            const nextQuery = event.target.value;
+            setQuery(nextQuery);
+            setSearchFocused(true);
+            setSearchStatus("");
+            if (nextQuery.trim().length < 2) {
+              searchRequestRef.current += 1;
+              setSearching(false);
+              setResults([]);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              search();
+            } else if (event.key === "Escape") {
+              event.currentTarget.blur();
+              cancelSearch();
+            }
+          }}
+          placeholder={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"}
+          aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}
+          autoComplete="off"
+        />
+        <button type="button" disabled={searching || !query.trim()} onClick={search}>
+          {searching ? "กำลังค้น…" : "ค้นหา"}
+        </button>
+        {standalone && (searchFocused || query) ? (
+          <button type="button" className="wf-map-search-cancel" onClick={cancelSearch}>ยกเลิก</button>
+        ) : null}
+      </div>
+      {standalone ? (
+        <div className="wf-map-quick-filters" aria-label="หมวดหมู่สถานที่">
+          <button type="button" className={query === "ร้านอาหาร" ? "is-active" : ""} onClick={() => quickSearch("ร้านอาหาร")}>
+            <Utensils size={16} /><span>ร้านอาหาร</span>
+          </button>
+          <button type="button" className={query === "คาเฟ่" ? "is-active" : ""} onClick={() => quickSearch("คาเฟ่")}>
+            <Coffee size={16} /><span>คาเฟ่</span>
+          </button>
+          <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
+            <Building2 size={16} /><span>หอพัก</span>
+          </button>
+          <button type="button" className={query === "ร้านค้า" ? "is-active" : ""} onClick={() => quickSearch("ร้านค้า")}>
+            <ShoppingBag size={16} /><span>ร้านค้า</span>
+          </button>
+        </div>
+      ) : null}
+      {standalone && !results.length && (searching || searchStatus) ? (
+        <p className="wf-map-search-status" role="status" aria-live="polite">
+          {searching ? "กำลังค้นหา…" : searchStatus}
+        </p>
+      ) : null}
+      {showSaved ? (
+        <div className="wf-map-saved-places">
+          <div className="wf-map-recents-head">
+            <strong>รายการโปรด</strong>
+          </div>
+          {saved.status === "signed-out" ? (
+            <p className="wf-map-saved-hint">เข้าสู่ระบบ WYNOS เพื่อบันทึกบ้าน ที่ทำงาน และรายการโปรด</p>
+          ) : (
+            <>
+              <div className="wf-map-saved-tiles">
+                {([["home", savedHome, "บ้าน"], ["work", savedWork, "ที่ทำงาน"]] as const).map(([kind, item, label]) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    className={item ? "wf-map-saved-tile" : "wf-map-saved-tile is-empty"}
+                    onClick={() => (item
+                      ? openSaved(item)
+                      : setSearchStatus(`ปักหมุดที่${label} แล้วกดปุ่มดาวเพื่อบันทึก`))}
+                  >
+                    <span>{kind === "home" ? <Home size={18} /> : <Briefcase size={18} />}</span>
+                    <strong>{label}</strong>
+                    <small>{item ? item.name : "ยังไม่ได้ตั้ง"}</small>
+                  </button>
+                ))}
+              </div>
+              {savedFavorites.length ? (
+                <div className="wf-map-results wf-map-favorites">
+                  {savedFavorites.map((item) => (
+                    <div key={item.id} className="wf-map-favorite-row">
+                      <button type="button" onClick={() => openSaved(item)}>
+                        <Star size={17} />
+                        <span>
+                          <strong>{item.name}</strong>
+                          {item.address ? <small>{item.address}</small> : null}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="wf-map-favorite-remove"
+                        aria-label={`ลบ ${item.name} ออกจากรายการโปรด`}
+                        onClick={() => void removeSaved(item)}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : null}
+      {showRecents ? (
+        <div className="wf-map-recents">
+          <div className="wf-map-recents-head">
+            <strong>ล่าสุด</strong>
+            <button
+              type="button"
+              onClick={() => {
+                clearRecentPlaces(mapsStorage());
+                setRecentPlaces([]);
+              }}
+            >
+              ล้าง
+            </button>
+          </div>
+          <div className="wf-map-results">
+            {recentPlaces.map((recent) => (
+              <button
+                key={recent.placeId ?? `${recent.latitude},${recent.longitude},${recent.name}`}
+                type="button"
+                onClick={() => chooseResult({ ...recent, source: "wynos" })}
+              >
+                <Clock size={17} />
+                <span>
+                  <strong>{recent.name}</strong>
+                  {recent.address ? <small>{recent.address}</small> : null}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {results.length ? (
+        <div className="wf-map-results">
+          {results.map((result) => (
+            <button key={result.placeId ?? `${result.latitude},${result.longitude},${result.name}`} type="button" onClick={() => chooseResult(result)}>
+              <MapPin size={17} />
+              <span>
+                <strong>{result.name || "สถานที่"}</strong>
+                <small>
+                  {[standalone ? formatDistanceKm(result.distanceKm) : null, placeCategory(result), result.address]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 
   const showLegacySearchAttribution =
     place?.source === "legacy" || results.some((result) => result.source === "legacy");
@@ -830,77 +1179,7 @@ export function FoodDeliveryMapPicker({
         <span />
       </header>
 
-      <div className="wf-map-search-wrap">
-        <div className="wf-map-search">
-          <Search size={18} />
-          <input
-            value={query}
-            onFocus={() => setSearchFocused(true)}
-            onChange={(event) => {
-              const nextQuery = event.target.value;
-              setQuery(nextQuery);
-              setSearchFocused(true);
-              setSearchStatus("");
-              if (nextQuery.trim().length < 2) {
-                searchRequestRef.current += 1;
-                setSearching(false);
-                setResults([]);
-              }
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                search();
-              } else if (event.key === "Escape") {
-                setResults([]);
-                setSearchStatus("");
-                setSearchFocused(false);
-                event.currentTarget.blur();
-              }
-            }}
-            placeholder={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"}
-            aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}
-            autoComplete="off"
-          />
-          <button type="button" disabled={searching || !query.trim()} onClick={search}>
-            {searching ? "กำลังค้น…" : "ค้นหา"}
-          </button>
-        </div>
-        {standalone ? (
-          <div className="wf-map-quick-filters" aria-label="หมวดหมู่สถานที่">
-            <button type="button" className={query === "ร้านอาหาร" ? "is-active" : ""} onClick={() => quickSearch("ร้านอาหาร")}>
-              <Utensils size={16} /><span>ร้านอาหาร</span>
-            </button>
-            <button type="button" className={query === "คาเฟ่" ? "is-active" : ""} onClick={() => quickSearch("คาเฟ่")}>
-              <Coffee size={16} /><span>คาเฟ่</span>
-            </button>
-            <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
-              <Building2 size={16} /><span>หอพัก</span>
-            </button>
-            <button type="button" className={query === "ร้านค้า" ? "is-active" : ""} onClick={() => quickSearch("ร้านค้า")}>
-              <ShoppingBag size={16} /><span>ร้านค้า</span>
-            </button>
-          </div>
-        ) : null}
-        {standalone && !results.length && (searching || searchStatus) ? (
-          <p className="wf-map-search-status" role="status" aria-live="polite">
-            {searching ? "กำลังค้นหา…" : searchStatus}
-          </p>
-        ) : null}
-        {results.length ? (
-          <div className="wf-map-results">
-            {results.map((result) => (
-              <button key={result.placeId ?? `${result.latitude},${result.longitude},${result.name}`} type="button" onClick={() => chooseResult(result)}>
-                <MapPin size={17} />
-                <span>
-                  <strong>{result.name || "สถานที่"}</strong>
-                  <small>{placeCategory(result)}{result.address ? ` · ${result.address}` : ""}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      {standalone ? null : searchBlock}
 
       <div className="wf-map-canvas-wrap">
         <div ref={mapNode} className="wf-map-canvas" />
@@ -979,12 +1258,16 @@ export function FoodDeliveryMapPicker({
         ) : null}
       </div>
 
-      <section className={standalone ? `wf-map-confirm wf-map-sheet${sheetExpanded ? " is-expanded" : ""}` : "wf-map-confirm"}>
+      <section
+        className={standalone
+          ? `wf-map-confirm wf-map-sheet is-${sheetDetent}${sheetExpanded ? " is-expanded" : ""}${searchActive ? " is-searching" : ""}`
+          : "wf-map-confirm"}
+      >
         {standalone ? (
           <button
             type="button"
             className="wf-map-sheet-handle"
-            aria-label={sheetExpanded ? "ย่อรายละเอียดตำแหน่ง" : "ขยายรายละเอียดตำแหน่ง"}
+            aria-label={sheetDetent === "full" ? "ย่อแผง" : "ขยายแผง"}
             aria-expanded={sheetExpanded}
             onPointerDown={(event) => {
               event.preventDefault();
@@ -999,9 +1282,9 @@ export function FoodDeliveryMapPicker({
               sheetPointerStartRef.current = null;
               if (start == null) return;
               const distance = event.clientY - start;
-              if (distance < -28) setSheetExpanded(true);
-              else if (distance > 28) setSheetExpanded(false);
-              else setSheetExpanded((value) => !value);
+              if (distance < -28) setSheetDetent((value) => (value === "peek" ? "half" : "full"));
+              else if (distance > 28) setSheetDetent((value) => (value === "full" ? "half" : "peek"));
+              else setSheetDetent((value) => (value === "full" ? "half" : value === "half" ? "full" : "half"));
             }}
             onPointerCancel={() => {
               sheetPointerStartRef.current = null;
@@ -1010,6 +1293,8 @@ export function FoodDeliveryMapPicker({
             <span />
           </button>
         ) : null}
+        {standalone ? searchBlock : null}
+        <div className="wf-map-sheet-body">
         {activeNearbyPlace ? (
           <article className="wf-map-place-card">
             <button className="wf-map-place-close" type="button" aria-label="ปิดข้อมูลสถานที่" onClick={() => {
@@ -1052,6 +1337,16 @@ export function FoodDeliveryMapPicker({
               >
                 ใช้ตำแหน่งนี้
               </button>
+              {standalone && saved.status !== "unavailable" ? (
+                <button type="button" className="wf-map-share" onClick={() => startSave(activeNearbyPlace)}>
+                  <Star size={15} /> บันทึก
+                </button>
+              ) : null}
+              {standalone ? (
+                <button type="button" className="wf-map-share" onClick={() => void sharePlace(activeNearbyPlace)}>
+                  <Share size={15} /> แชร์
+                </button>
+              ) : null}
               {activeNearbyPlace.merchantStoreId ? (
                 <a href={`/food?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}>ดูร้านใน WYNOS Food</a>
               ) : null}
@@ -1088,7 +1383,46 @@ export function FoodDeliveryMapPicker({
               <code className="wf-map-confirm-coordinates">{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</code>
             ) : null}
           </div>
+          {standalone && location ? (
+            <div className="wf-map-confirm-tools">
+              {saved.status !== "unavailable" ? (
+                <button
+                  type="button"
+                  className="wf-map-confirm-share"
+                  aria-label="บันทึกตำแหน่งนี้"
+                  onClick={() => startSave({
+                    name: place?.name,
+                    address: place?.address,
+                    placeId: place?.placeId,
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                  })}
+                >
+                  <Star size={18} />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="wf-map-confirm-share"
+                aria-label="แชร์ตำแหน่งนี้"
+                onClick={() => void sharePlace({ name: place?.name, latitude: location.latitude, longitude: location.longitude })}
+              >
+                <Share size={18} />
+              </button>
+            </div>
+          ) : null}
         </div>
+        {standalone && saveTarget ? (
+          <div className="wf-map-save-menu" role="group" aria-label="บันทึกสถานที่">
+            <strong>{`บันทึก “${saveTarget.name}” เป็น`}</strong>
+            <div>
+              <button type="button" disabled={savingPlace} onClick={() => void saveTo("home")}><Home size={17} /> บ้าน</button>
+              <button type="button" disabled={savingPlace} onClick={() => void saveTo("work")}><Briefcase size={17} /> ที่ทำงาน</button>
+              <button type="button" disabled={savingPlace} onClick={() => void saveTo("favorite")}><Star size={17} /> รายการโปรด</button>
+            </div>
+            <button type="button" className="wf-map-save-cancel" onClick={() => setSaveTarget(null)}>ยกเลิก</button>
+          </div>
+        ) : null}
         {status ? <p role="status">{status}</p> : null}
 
         {showSuggestion ? (
@@ -1152,7 +1486,7 @@ export function FoodDeliveryMapPicker({
         >
           <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : standalone ? "ใช้ตำแหน่งนี้" : "ยืนยันตำแหน่งนี้"}
         </button>
-
+        </div>
       </section>
     </div>
   );

@@ -5,6 +5,7 @@ import "../food/food.css";
 import "./maps.css";
 import "./maps-v2.css";
 import "./maps-v3.css";
+import "./maps-v4.css";
 
 export const metadata: Metadata = {
   title: "WYNOS Maps",

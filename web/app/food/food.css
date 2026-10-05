@@ -1751,6 +1751,8 @@
   display: grid;
   gap: 9px;
 }
+/* Wrapper the standalone Maps sheet uses to hide its body while searching; layout-neutral elsewhere. */
+.wf-map-sheet-body { display: contents; }
 .wf-map-confirm-copy {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
