@@ -5,6 +5,7 @@ import {
   Bell,
   BellRing,
   Check,
+  CircleHelp,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -26,12 +27,12 @@ import {
   Phone,
   Plus,
   Search,
+  Settings2,
   Share2,
   ShoppingBag,
   Store,
   Truck,
   Upload,
-  UtensilsCrossed,
   X,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -108,8 +109,8 @@ import {
 // WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
 // and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
 // WYN-205: finance, ads, WYNOS campaigns and the store's own promotions.
-type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions" | "help" | "kitchen";
-const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help", "kitchen"]);
+type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions" | "help";
+const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help"]);
 const MERCHANT_STORE_KEY = "wynos-merchant-store-v1";
 type OrderFilter = "new" | "cooking" | "delivery" | "done";
 
@@ -735,16 +736,6 @@ function MerchantInner({
           />
         ) : null}
 
-        {tab === "kitchen" && store ? (
-          <KitchenPanel
-            store={store}
-            orders={orders}
-            onOpen={setSelectedOrder}
-            onAction={(order) => void quickAction(order)}
-            actedFrom={actedFrom}
-          />
-        ) : null}
-
         {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
 
         {tab === "help" && store ? <HelpPanel store={store} onMessage={setMessage} /> : null}
@@ -1047,14 +1038,13 @@ function MorePanel({
       <section className="wm-section">
         <div className="wm-section-title"><h2>เครื่องมือร้าน</h2></div>
         <div className="wm-service-grid">
-          <button type="button" onClick={() => onOpenTab("kitchen")}><span className="wm-tile-icon"><UtensilsCrossed size={35} strokeWidth={1.65} /></span>ครัว / KDS</button>
           <button type="button" onClick={() => onOpenTab("reports")}><span className="wm-tile-icon"><MerchantIcon3D name="reports" size={52} /></span>รายงานยอดขาย</button>
           <button type="button" onClick={() => onOpenTab("finance")}><span className="wm-tile-icon"><MerchantIcon3D name="finance" size={52} /></span>การเงิน</button>
           <button type="button" onClick={() => onOpenTab("promotions")}><span className="wm-tile-icon"><MerchantIcon3D name="promotion" size={52} /></span>โปรโมชั่น</button>
           <button type="button" onClick={() => onOpenTab("campaigns")}><span className="wm-tile-icon"><MerchantIcon3D name="campaign" size={52} /></span>แคมเปญ</button>
           <button type="button" onClick={() => onOpenTab("ads")}><span className="wm-tile-icon"><MerchantIcon3D name="ads" size={52} /></span>โฆษณา</button>
-          <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon"><MerchantIcon3D name="store" size={52} /></span>ตั้งค่าร้าน</button>
-          <button type="button" onClick={() => onOpenTab("help")}><span className="wm-tile-icon"><MerchantIcon3D name="store" size={52} /></span>ช่วยเหลือ</button>
+          <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon wm-tile-icon--settings"><Settings2 size={37} strokeWidth={1.7} /></span>ตั้งค่าร้าน</button>
+          <button type="button" onClick={() => onOpenTab("help")}><span className="wm-tile-icon wm-tile-icon--help"><CircleHelp size={37} strokeWidth={1.7} /></span>ช่วยเหลือ</button>
           <button type="button" onClick={onNotifications}><span className="wm-tile-icon"><MerchantIcon3D name="bell" size={52} /></span>การแจ้งเตือน</button>
           <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span className="wm-tile-icon"><MerchantIcon3D name="sound" size={52} /></span>ลองเสียงออเดอร์</button>
           {installPrompt ? <button type="button" onClick={onInstall}><span className="wm-tile-icon"><MerchantIcon3D name="install" size={52} /></span>ติดตั้งแอป</button> : null}
@@ -1082,91 +1072,6 @@ function MorePanel({
       <section className="wm-settings-list">
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><LogOut size={19} /></button>
       </section>
-    </>
-  );
-}
-
-function KitchenPanel({
-  store,
-  orders,
-  onOpen,
-  onAction,
-  actedFrom,
-}: {
-  store: FoodStore;
-  orders: FoodOrder[];
-  onOpen: (order: FoodOrder) => void;
-  onAction: (order: FoodOrder) => void;
-  actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
-}) {
-  const [clockMs, setClockMs] = useState<number | null>(null);
-  useEffect(() => {
-    const tick = () => setClockMs(Date.now());
-    const first = window.setTimeout(tick, 0);
-    const timer = window.setInterval(tick, 30_000);
-    return () => {
-      window.clearTimeout(first);
-      window.clearInterval(timer);
-    };
-  }, []);
-  const live = orders
-    .filter((order) => !["delivered", "cancelled", "out_for_delivery"].includes(order.status))
-    .sort((a, b) => {
-      const aTime = a.scheduled_for ? new Date(a.scheduled_for).getTime() : new Date(a.created_at).getTime();
-      const bTime = b.scheduled_for ? new Date(b.scheduled_for).getTime() : new Date(b.created_at).getTime();
-      return aTime - bTime;
-    });
-  const prepWindowMs = Math.max(1, Number(store.prep_time_max_minutes ?? 30)) * 60_000;
-  const isScheduledWaiting = (order: FoodOrder) => order.status === "preparing"
-    && !!order.scheduled_for
-    && clockMs !== null
-    && new Date(order.scheduled_for).getTime() - prepWindowMs > clockMs;
-  const columns: Array<{ key: "waiting" | "cooking" | "ready"; label: string; orders: FoodOrder[] }> = [
-    { key: "waiting", label: "รอรับ / รอเริ่ม", orders: live.filter((order) => order.status === "pending_acceptance" || isScheduledWaiting(order)) },
-    { key: "cooking", label: "กำลังทำ", orders: live.filter((order) => order.status === "preparing" && !isScheduledWaiting(order)) },
-    { key: "ready", label: "พร้อมส่ง", orders: live.filter((order) => order.status === "ready_for_delivery") },
-  ];
-  return (
-    <>
-      <div className="wm-page-heading"><div><small>Kitchen Display System</small><h1>ครัว</h1></div></div>
-      <p className="wm-kitchen-note">มุมมองสำหรับหน้าครัว แสดงออเดอร์ตามลำดับเวลาที่ต้องทำและอัปเดตสถานะได้ทันที</p>
-      <div className="wm-kitchen-board">
-        {columns.map((column) => (
-          <section className="wm-kitchen-column" key={column.key}>
-            <header><strong>{column.label}</strong><b>{column.orders.length}</b></header>
-            {column.orders.length ? (
-              <div className="wm-kitchen-stack">
-                {column.orders.map((order) => {
-                  const waitingForScheduledTime = isScheduledWaiting(order);
-                  const next = waitingForScheduledTime ? null : quickStep(order);
-                  return (
-                    <article className={`wm-kitchen-ticket ${order.scheduled_for ? "is-scheduled" : ""}`} key={order.id}>
-                      <button className="wm-kitchen-ticket-open" type="button" onClick={() => onOpen(order)}>
-                        <span className="wm-kitchen-ticket-head">
-                          <strong>#{order.order_number}</strong>
-                          <b>{order.scheduled_for ? "ล่วงหน้า" : shortTime(order.created_at)}</b>
-                        </span>
-                        {order.scheduled_for ? <span className="wm-kitchen-scheduled"><Clock3 size={14} />นัด {new Intl.DateTimeFormat("th-TH", { dateStyle: "short", timeStyle: "short" }).format(new Date(order.scheduled_for))}</span> : null}
-                        <span className="wm-kitchen-items">
-                          {(order.food_order_items ?? []).map((item) => (
-                            <span key={item.id}><b>{item.quantity}×</b><span>{item.item_name}{item.item_note ? <small>{item.item_note}</small> : null}</span></span>
-                          ))}
-                        </span>
-                        {order.customer_note ? <small className="wm-kitchen-customer-note">หมายเหตุ: {order.customer_note}</small> : null}
-                      </button>
-                      {next ? (
-                        <button className="wm-primary wm-full" type="button" disabled={actedFrom.get(order.id) === order.status} onClick={() => onAction(order)}>
-                          {actedFrom.get(order.id) === order.status ? "กำลังบันทึก…" : next.label}
-                        </button>
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
-            ) : <div className="wm-kitchen-empty">ไม่มีออเดอร์</div>}
-          </section>
-        ))}
-      </div>
     </>
   );
 }
