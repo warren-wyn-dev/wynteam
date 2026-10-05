@@ -2386,6 +2386,8 @@ Object.assign(EN_EXACT, {
   "พิมพ์ใบออเดอร์ / ใบเสร็จอย่างย่อ": "Print order / simple receipt",
   "เผยแพร่แล้ว": "Published",
   "ยังไม่เผยแพร่": "Not published",
+  "ติดต่อบัญชี Official": "Contact the Official account",
+  "ใน WYNOS พร้อมส่งชื่อร้านและ Store ID เพื่อให้ทีมตรวจสอบได้เร็วขึ้น": "in WYNOS and include your store name and Store ID so the team can investigate faster",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
