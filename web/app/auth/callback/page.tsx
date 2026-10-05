@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
+import { isSafeReturnPath } from "@/lib/return-to";
 
 /**
  * Email confirmation and installed-iOS Google popup both exchange their
@@ -28,6 +29,7 @@ export default function EmailConfirmationCallbackPage() {
     void (async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
+      const requestedNext = params.get("next");
 
       try {
         if (params.has("error")) throw new Error("Email confirmation failed");
@@ -74,9 +76,13 @@ export default function EmailConfirmationCallbackPage() {
           return;
         }
 
-        // The email-confirmation callback's original onboarding flow remains
-        // unchanged. Signup draft fields survive in sessionStorage.
-        router.replace("/signup/step-1");
+        // Product-specific signup can return to its own surface without
+        // forcing Social onboarding. Only same-origin, non-auth paths are allowed.
+        // The ordinary Social signup still falls back to its existing onboarding.
+        const destination = requestedNext && isSafeReturnPath(requestedNext)
+          ? requestedNext
+          : "/signup/step-1";
+        router.replace(destination);
       } catch {
         window.history.replaceState(null, "", "/auth/callback");
         setError("เข้าสู่ระบบหรือยืนยันอีเมลไม่สำเร็จ กรุณาลองใหม่");
