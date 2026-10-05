@@ -22,11 +22,15 @@ function load(now = () => 1_000_000) {
   return { ...mod.exports, store };
 }
 
-test("share link points at the Food domain with the store id", () => {
-  const { foodStoreShareUrl, foodStoreShareData } = load();
-  assert.equal(foodStoreShareUrl(STORE), `https://food.wynos.online/?store=${STORE}`);
-  const data = foodStoreShareData({ id: STORE, name: "ข้าวมันไก่ป้าแดง" });
-  assert.equal(data.url, `https://food.wynos.online/?store=${STORE}`);
+test("share link is the short /s/<code> link, or ?store=<id> before a store has a code", () => {
+  const { foodStoreShareUrl, foodStoreShareData, isFoodShareCode } = load();
+  assert.equal(foodStoreShareUrl({ id: STORE, share_code: "k7m2qx" }), "https://food.wynos.online/s/k7m2qx");
+  assert.equal(foodStoreShareUrl({ id: STORE, share_code: " K7M2QX " }), "https://food.wynos.online/s/k7m2qx");
+  assert.equal(foodStoreShareUrl({ id: STORE }), `https://food.wynos.online/?store=${STORE}`);
+  assert.equal(foodStoreShareUrl({ id: STORE, share_code: "../x" }), `https://food.wynos.online/?store=${STORE}`);
+  for (const bad of ["", "k7m2q", "k7m2qxx", "k7m2q0", "k7m2ql", "k7m2qi", "k7m2qo", "k7m2q/"]) assert.equal(isFoodShareCode(bad), false, bad);
+  const data = foodStoreShareData({ id: STORE, name: "ข้าวมันไก่ป้าแดง", share_code: "k7m2qx" });
+  assert.equal(data.url, "https://food.wynos.online/s/k7m2qx");
   assert.match(data.text, /ข้าวมันไก่ป้าแดง/);
   assert.match(data.title, /WYNOS Food/);
 });
@@ -90,6 +94,14 @@ test("share preview reads only the public RPC with the publishable key", () => {
   const page = read("../app/food/page.tsx");
   const sql = readFileSync(new URL("../../supabase/migrations_wynos_food_share_preview_v1.sql", import.meta.url), "utf8");
   assert.match(page, /generateMetadata[\s\S]*foodStoreShareMetadata\(store\)\) \?\? \{\}/);
+  // Short links resolve through the public id-only RPC and redirect to the store page.
+  const route = read("../app/food/s/[code]/route.ts");
+  const config = read("../next.config.ts");
+  assert.match(preview, /rest\/v1\/rpc\/food_store_id_by_share_code/);
+  assert.match(preview, /!isFoodShareCode\(code\)\) return null;/);
+  assert.match(route, /resolveFoodShareCode\(code\.trim\(\)\.toLowerCase\(\)\)/);
+  assert.match(route, /if \(storeId\) target\.searchParams\.set\("store", storeId\);/);
+  assert.match(config, /source: "\/s\/:code", has: \[\{ type: "host", value: "food\.wynos\.online" \}\], destination: "\/food\/s\/:code"/);
   assert.match(preview, /rest\/v1\/rpc\/food_store_share_preview/);
   assert.match(preview, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(preview, /SERVICE_ROLE/i);

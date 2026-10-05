@@ -12,15 +12,26 @@ export function isFoodStoreId(value: string): boolean {
   return STORE_ID.test(value);
 }
 
-export function foodStoreShareUrl(storeId: string): string {
-  return `${FOOD_SITE_URL}/?store=${encodeURIComponent(storeId)}`;
+const SHARE_CODE = /^[a-hjkmnp-z2-9]{6}$/;
+
+export function isFoodShareCode(value: string): boolean {
+  return SHARE_CODE.test(value);
 }
 
-export function foodStoreShareData(store: { id: string; name: string }) {
+type ShareableStore = { id: string; share_code?: string | null };
+
+/** food.wynos.online/s/<code>; stores without a code yet keep ?store=<id>. */
+export function foodStoreShareUrl(store: ShareableStore): string {
+  const code = store.share_code?.trim().toLowerCase() ?? "";
+  if (isFoodShareCode(code)) return `${FOOD_SITE_URL}/s/${code}`;
+  return `${FOOD_SITE_URL}/?store=${encodeURIComponent(store.id)}`;
+}
+
+export function foodStoreShareData(store: ShareableStore & { name: string }) {
   return {
     title: `${store.name} | WYNOS Food`,
     text: `สั่งอาหารร้าน ${store.name} ผ่าน WYNOS Food กดลิงก์นี้ได้เลย`,
-    url: foodStoreShareUrl(store.id),
+    url: foodStoreShareUrl(store),
   };
 }
 
@@ -64,6 +75,7 @@ export type FoodStoreSharePreview = {
   description: string | null;
   logo_path: string | null;
   cover_path: string | null;
+  share_code?: string | null;
 };
 
 /** Public URL of a file in the food-public bucket (store logos and covers). */

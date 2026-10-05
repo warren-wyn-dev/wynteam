@@ -5,6 +5,7 @@ import {
   type FoodStoreSharePreview,
   foodStorePreviewContent,
   foodStoreShareUrl,
+  isFoodShareCode,
   isFoodStoreId,
 } from "@/lib/food-share";
 
@@ -33,6 +34,27 @@ async function fetchStoreSharePreview(storeId: string): Promise<FoodStoreSharePr
   }
 }
 
+/** The store id behind a short link, or null when unknown or not public. */
+export async function resolveFoodShareCode(code: string): Promise<string | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key || !isFoodShareCode(code)) return null;
+  try {
+    const response = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/rpc/food_store_id_by_share_code`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_code: code }),
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!response.ok) return null;
+    const id = (await response.json()) as unknown;
+    return typeof id === "string" && isFoodStoreId(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Metadata for /?store=<id>; null keeps the generic WYNOS Food preview. */
 export async function foodStoreShareMetadata(requested: string | string[] | undefined): Promise<Metadata | null> {
   const storeId = typeof requested === "string" ? requested.trim() : "";
@@ -41,7 +63,7 @@ export async function foodStoreShareMetadata(requested: string | string[] | unde
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!store || !supabaseUrl) return null;
   const { title, description, imageUrl, largeImage } = foodStorePreviewContent(store, supabaseUrl);
-  const shareUrl = foodStoreShareUrl(storeId);
+  const shareUrl = foodStoreShareUrl(store);
   const images = imageUrl ? [{ url: imageUrl, alt: store.name }] : [{ url: `${FOOD_SITE_URL}/icons/food/icon-512.png`, width: 512, height: 512, alt: "WYNOS Food" }];
   return {
     title,

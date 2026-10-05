@@ -554,3 +554,18 @@
   2. Dispatch `food-apply-share-preview.yml` with `APPLY-FOOD-SHARE-PREVIEW`.
 - Rollback: `drop function public.food_store_share_preview(uuid);` and/or revert the PR.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-05
+
+### DECISION — [2026-10-05] WYNOS Food short share links (food.wynos.online/s/<code>)
+
+- Founder: "ชื่อลิ้งยาว แก้ได้ไหม", then chose "รหัสสั้น 6 ตัว" over custom names chosen by the store.
+- Change:
+  - Additive column `food_stores.share_code`: 6 random characters (a–z and 2–9, without i, l, o, 0 or 1), unique.
+  - The database assigns the code on insert. No API caller can set or change it (security-definer trigger).
+  - `food_store_id_by_share_code(text)` is executable by `anon` and returns only the store id, only for published, non-suspended stores.
+  - `food_store_share_preview` also returns the code.
+  - Web: `/s/<code>` on the Food host redirects to `/?store=<id>`, and the share buttons use the short link.
+- Release:
+  1. Merge. Web auto-deploys and keeps sharing `?store=` links until the migration runs.
+  2. Dispatch `food-apply-share-code.yml` with `APPLY-FOOD-SHARE-CODE`.
+- Rollback: SQL in the migration header, and/or revert the PR. Old `?store=` links keep working throughout.
+- สถานะ: **อนุมัติแนวทางแล้ว**. วันที่ 2026-10-05
