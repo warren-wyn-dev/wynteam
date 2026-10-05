@@ -486,14 +486,9 @@ export function FoodDeliveryMapPicker({
 
   useEffect(() => {
     if (!standalone || !searchFocused) return;
-    if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      searchRequestRef.current += 1;
-      setSearching(false);
-      setResults([]);
-      return;
-    }
+    if (trimmed.length < 2) return;
+    if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
     searchTimerRef.current = window.setTimeout(() => {
       void runSearch(trimmed, true);
     }, 280);
@@ -577,8 +572,14 @@ export function FoodDeliveryMapPicker({
             value={query}
             onFocus={() => setSearchFocused(true)}
             onChange={(event) => {
-              setQuery(event.target.value);
+              const nextQuery = event.target.value;
+              setQuery(nextQuery);
               setSearchFocused(true);
+              if (nextQuery.trim().length < 2) {
+                searchRequestRef.current += 1;
+                setSearching(false);
+                setResults([]);
+              }
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
