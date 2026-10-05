@@ -1951,6 +1951,7 @@ function StorePlacesEditor({
   const [form, setForm] = useState<StorePlaceForm | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  const [mapOpen, setMapOpen] = useState(false);
 
   const [version, setVersion] = useState(0);
 
@@ -2045,15 +2046,33 @@ function StorePlacesEditor({
           <label>พิกัด<input value={form.coords} inputMode="decimal" onChange={(e) => setForm({ ...form, coords: e.target.value })} placeholder="เช่น 13.75631, 100.50176" /></label>
           <small>{formPin ? distanceText(formPin) || "พิกัดถูกต้อง" : "กดปุ่มด้านล่างตอนอยู่ที่สถานที่ หรือกดค้างบน Google Maps แล้วคัดลอกพิกัดมาวาง"}</small>
           <div className="wm-two-actions">
+            <button className="wm-secondary" type="button" disabled={busy} onClick={() => setMapOpen(true)}><Search size={16} /> ค้นหาและเลือกบนแผนที่</button>
             <button className="wm-secondary" type="button" disabled={busy} onClick={() => void pickCurrent()}><MapPin size={16} /> ใช้ตำแหน่งปัจจุบัน</button>
-            <button className="wm-secondary" type="button" disabled={busy} onClick={() => setForm(null)}>ยกเลิก</button>
           </div>
+          <button className="wm-inline-danger" type="button" disabled={busy} onClick={() => setForm(null)}>ยกเลิก</button>
           <button className="wm-primary wm-full" type="button" disabled={busy || !form.name.trim() || !formPin} onClick={save}>{busy ? "กำลังบันทึก…" : "บันทึกสถานที่"}</button>
         </div>
       ) : (
         <button className="wm-secondary" type="button" disabled={busy || places === undefined} onClick={() => setForm({ name: "", detail: "", coords: "", is_active: true })}><Plus size={16} /> เพิ่มสถานที่</button>
       )}
       {status ? <p role="status">{status}</p> : null}
+      {form && mapOpen ? (
+        <FoodDeliveryMapPicker
+          client={client}
+          storeId={null}
+          initialLocation={formPin}
+          onClose={() => setMapOpen(false)}
+          onConfirm={(location, place) => {
+            setForm((current) => current ? {
+              ...current,
+              name: current.name.trim() ? current.name : (place?.name || current.name),
+              detail: current.detail.trim() ? current.detail : (place?.address || current.detail),
+              coords: `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`,
+            } : current);
+            setMapOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
