@@ -64,6 +64,7 @@ import {
   orderDeliveryProof,
   uploadFoodPublicImage,
   type FoodMenuItem,
+  type FoodMenuOptionGroup,
   type FoodOrder,
   type FoodStore,
   type FoodStorePlace,
@@ -90,8 +91,13 @@ const EMPTY_MENU_DRAFT: MenuDraft = {
   description: "",
   price: "",
   image_path: null,
+  options: [],
   is_available: true,
 };
+
+function menuOptionId(prefix: "group" | "choice") {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 // WYN-198: four simple tabs, in the order the store works through them.
 const ORDER_FILTERS: Array<{ key: OrderFilter; label: string }> = [
@@ -566,6 +572,7 @@ function MerchantInner({
               description: item.description ?? "",
               price: String(item.price),
               image_path: item.image_path,
+              options: Array.isArray(item.options) ? item.options : [],
               is_available: item.is_available,
             })}
             onAdd={() => setMenuDraft({ ...EMPTY_MENU_DRAFT })}
@@ -1011,26 +1018,51 @@ function MenuPanel({
   onAdd: () => void;
   onToggle: (item: FoodMenuItem) => void;
 }) {
+  const categories = Array.from(menu.reduce((groups, item) => {
+    const category = item.category.trim() || "อื่น ๆ";
+    const rows = groups.get(category) ?? [];
+    rows.push(item);
+    groups.set(category, rows);
+    return groups;
+  }, new Map<string, FoodMenuItem[]>()).entries());
+
   return (
     <>
       <div className="wm-page-heading wm-page-heading--action">
         <div><small>รายการขาย</small><h1>เมนูอาหาร</h1></div>
         <button className="wm-small-primary" type="button" onClick={onAdd}><Plus size={17} /> เพิ่มเมนู</button>
       </div>
-      <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="ค้นหาเมนู" /></label>
-      <div className="wm-menu-list">
-        {menu.map((item) => {
-          const image = foodPublicUrl(client, item.image_path);
-          return (
-            <article className={`wm-menu-row ${item.is_available ? "" : "is-off"}`} key={item.id}>
-              <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
-                <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
-                <span className="wm-menu-copy"><strong>{item.name}</strong><small>{item.category}</small><b>{money(item.price)}</b></span>
-              </button>
-              <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขายชั่วคราว" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
-            </article>
-          );
-        })}
+      <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="ค้นหาเมนูหรือหมวดหมู่" /></label>
+      <div className="wm-menu-categories">
+        {categories.map(([category, items]) => (
+          <section className="wm-menu-category" key={category}>
+            <div className="wm-menu-category-heading">
+              <strong>{category}</strong>
+              <span>{items.length} เมนู</span>
+            </div>
+            <div className="wm-menu-list">
+              {items.map((item) => {
+                const image = foodPublicUrl(client, item.image_path);
+                const optionCount = Array.isArray(item.options)
+                  ? item.options.reduce((sum, group) => sum + (Array.isArray(group.choices) ? group.choices.length : 0), 0)
+                  : 0;
+                return (
+                  <article className={`wm-menu-row ${item.is_available ? "" : "is-off"}`} key={item.id}>
+                    <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
+                      <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
+                      <span className="wm-menu-copy">
+                        <strong>{item.name}</strong>
+                        <small>{optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
+                        <b>{money(item.price)}</b>
+                      </span>
+                    </button>
+                    <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขายชั่วคราว" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
       {!menu.length ? <div className="wm-empty"><MenuIcon size={38} strokeWidth={1.5} /><strong>ยังไม่มีเมนู</strong><p>เพิ่มอาหารหรือเครื่องดื่มเพื่อเริ่มรับออเดอร์</p></div> : null}
     </>
@@ -1398,18 +1430,93 @@ function MenuEditor({
 }) {
   const [form, setForm] = useState(draft);
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(() => foodPublicUrl(client, draft.image_path ?? null));
+  const [imageState, setImageState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(draft.image_path ? "uploaded" : "idle");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const chooseImage = (next: File | null) => {
+    if (!next) return;
+    setFile(next);
+    setPreviewUrl(URL.createObjectURL(next));
+    setImageState("selected");
+  };
+
+  const removeImage = () => {
+    setFile(null);
+    setPreviewUrl(null);
+    setImageState("idle");
+    setForm((current) => ({ ...current, image_path: null }));
+  };
+
+  const updateGroup = (groupId: string, patch: Partial<FoodMenuOptionGroup>) => {
+    setForm((current) => ({
+      ...current,
+      options: current.options.map((group) => group.id === groupId ? { ...group, ...patch } : group),
+    }));
+  };
+
+  const addGroup = () => {
+    const group: FoodMenuOptionGroup = {
+      id: menuOptionId("group"),
+      name: "",
+      required: false,
+      max_select: 1,
+      choices: [{ id: menuOptionId("choice"), name: "", price: 0 }],
+    };
+    setForm((current) => ({ ...current, options: [...current.options, group] }));
+  };
+
+  const addChoice = (groupId: string) => {
+    setForm((current) => ({
+      ...current,
+      options: current.options.map((group) => group.id === groupId
+        ? { ...group, choices: [...group.choices, { id: menuOptionId("choice"), name: "", price: 0 }] }
+        : group),
+    }));
+  };
+
+  const updateChoice = (groupId: string, choiceId: string, patch: { name?: string; price?: string | number }) => {
+    setForm((current) => ({
+      ...current,
+      options: current.options.map((group) => group.id === groupId
+        ? { ...group, choices: group.choices.map((choice) => choice.id === choiceId ? { ...choice, ...patch } : choice) }
+        : group),
+    }));
+  };
+
+  const removeChoice = (groupId: string, choiceId: string) => {
+    setForm((current) => ({
+      ...current,
+      options: current.options.map((group) => group.id === groupId
+        ? { ...group, choices: group.choices.filter((choice) => choice.id !== choiceId) }
+        : group),
+    }));
+  };
+
   const save = async () => {
     setBusy(true);
     try {
       let imagePath = form.image_path ?? null;
-      if (file) imagePath = await uploadFoodPublicImage(client, file, `stores/${store.id}/menu`);
+      if (file) {
+        setImageState("uploading");
+        imagePath = await uploadFoodPublicImage(client, file, `stores/${store.id}/menu`);
+        setImageState("uploaded");
+      }
       await saveMenuItem(client, store.id, { ...form, image_path: imagePath });
       onMessage(form.id ? "บันทึกเมนูแล้ว" : "เพิ่มเมนูแล้ว");
       await onSaved();
-    } catch (error) { onMessage(merchantError(error)); }
-    finally { setBusy(false); }
+    } catch (error) {
+      if (file) setImageState("error");
+      onMessage(merchantError(error));
+    } finally { setBusy(false); }
   };
+
   const remove = async () => {
     if (!form.id || !window.confirm("ลบเมนูนี้?")) return;
     setBusy(true);
@@ -1417,13 +1524,74 @@ function MenuEditor({
     catch (error) { onMessage(merchantError(error)); }
     finally { setBusy(false); }
   };
+
   return (
     <Sheet title={form.id ? "แก้ไขเมนู" : "เพิ่มเมนู"} onClose={onClose}>
       <div className="wm-form">
         <label>ชื่อเมนู<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น ข้าวกะเพรา" /></label>
-        <div className="wm-form-grid"><label>หมวด<input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></label><label>ราคา<input type="number" min="0" step="1" inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0" /></label></div>
+        <div className="wm-form-grid">
+          <label>หมวดหมู่
+            <input list="wm-food-categories" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="เลือกหรือพิมพ์หมวดหมู่" />
+            <datalist id="wm-food-categories">
+              <option value="อาหารจานหลัก" />
+              <option value="ของทานเล่น" />
+              <option value="เครื่องดื่ม" />
+              <option value="ของหวาน" />
+              <option value="เมนูแนะนำ" />
+              <option value="อื่น ๆ" />
+            </datalist>
+          </label>
+          <label>ราคา<input type="number" min="0" step="1" inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0" /></label>
+        </div>
         <label>รายละเอียด<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="รายละเอียดอาหาร" /></label>
-        <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /><Upload size={20} /><span>{file ? file.name : "อัปโหลดรูปเมนู"}</span></label>
+
+        <section className="wm-menu-image-editor">
+          <div className="wm-menu-image-heading"><strong>รูปเมนู</strong><small>เห็นสถานะก่อนบันทึกได้ทันที</small></div>
+          {previewUrl ? <div className="wm-menu-image-preview"><img src={previewUrl} alt="ตัวอย่างรูปเมนู" /></div> : null}
+          <label className="wm-upload">
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => chooseImage(e.target.files?.[0] ?? null)} />
+            <Upload size={20} />
+            <span>{file ? "เปลี่ยนรูปที่เลือก" : form.image_path ? "เปลี่ยนรูปเมนู" : "เลือกรูปเมนู"}</span>
+          </label>
+          <div className={`wm-upload-status is-${imageState}`}>
+            {imageState === "selected" ? "เลือกภาพแล้ว · ยังไม่อัปโหลด (จะอัปโหลดเมื่อกดบันทึก)" : null}
+            {imageState === "uploading" ? "กำลังอัปโหลดรูป…" : null}
+            {imageState === "uploaded" ? "รูปอัปโหลดแล้ว ✓" : null}
+            {imageState === "error" ? "อัปโหลดรูปไม่สำเร็จ · ลองใหม่อีกครั้ง" : null}
+            {imageState === "idle" ? "ยังไม่มีรูปเมนู" : null}
+          </div>
+          {previewUrl ? <button className="wm-inline-danger" type="button" disabled={busy} onClick={removeImage}>ลบรูป</button> : null}
+        </section>
+
+        <section className="wm-menu-options-editor">
+          <div className="wm-menu-options-heading">
+            <span><strong>ตัวเลือกเสริม</strong><small>เช่น ขนาด ระดับความเผ็ด ท็อปปิง หรือของเสริม</small></span>
+            <button type="button" onClick={addGroup}><Plus size={15} /> เพิ่มกลุ่ม</button>
+          </div>
+          {form.options.length ? form.options.map((group) => (
+            <div className="wm-option-group" key={group.id}>
+              <div className="wm-option-group-top">
+                <input value={group.name} onChange={(e) => updateGroup(group.id, { name: e.target.value })} placeholder="ชื่อกลุ่ม เช่น ขนาด" />
+                <button type="button" aria-label="ลบกลุ่มตัวเลือก" onClick={() => setForm((current) => ({ ...current, options: current.options.filter((row) => row.id !== group.id) }))}><X size={16} /></button>
+              </div>
+              <div className="wm-option-rules">
+                <label><input type="checkbox" checked={group.required} onChange={(e) => updateGroup(group.id, { required: e.target.checked })} /> บังคับเลือก</label>
+                <label>เลือกได้สูงสุด <input type="number" min="1" max="20" value={group.max_select} onChange={(e) => updateGroup(group.id, { max_select: Math.max(1, Number(e.target.value) || 1) })} /></label>
+              </div>
+              <div className="wm-option-choices">
+                {group.choices.map((choice) => (
+                  <div className="wm-option-choice" key={choice.id}>
+                    <input value={choice.name} onChange={(e) => updateChoice(group.id, choice.id, { name: e.target.value })} placeholder="ตัวเลือก เช่น เพิ่มไข่ดาว" />
+                    <label>+฿<input type="number" min="0" step="1" inputMode="decimal" value={choice.price} onChange={(e) => updateChoice(group.id, choice.id, { price: e.target.value })} /></label>
+                    <button type="button" aria-label="ลบตัวเลือก" onClick={() => removeChoice(group.id, choice.id)}><X size={15} /></button>
+                  </div>
+                ))}
+              </div>
+              <button className="wm-option-add-choice" type="button" onClick={() => addChoice(group.id)}><Plus size={14} /> เพิ่มตัวเลือก</button>
+            </div>
+          )) : <div className="wm-option-empty">ยังไม่มีตัวเลือกเสริม กด “เพิ่มกลุ่ม” เพื่อเริ่มเพิ่มได้</div>}
+        </section>
+
         <label className="wm-check-row"><input type="checkbox" checked={form.is_available} onChange={(e) => setForm({ ...form, is_available: e.target.checked })} /><span><strong>เปิดขาย</strong><small>ปิดได้ทันทีเมื่อเมนูหมด</small></span></label>
         <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกเมนู"}</button>
         {form.id ? <button className="wm-danger-link" type="button" disabled={busy} onClick={() => void remove()}>ลบเมนู</button> : null}
