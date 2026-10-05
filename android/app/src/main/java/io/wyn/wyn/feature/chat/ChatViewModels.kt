@@ -62,8 +62,12 @@ class ChatInboxViewModel(private val repo: ChatRepository, val userId: String) :
 
     val unreadCount: Int get() = rows.count { it.isUnread(userId) }
 
+    /** A load asked for while one runs (e.g. a live update): run once more after it. */
+    private var loadAgain = false
+
     fun load() {
-        if (job?.isActive == true) return
+        if (job?.isActive == true) { loadAgain = true; return }
+        loadAgain = false
         job = viewModelScope.launch {
             try {
                 val open = repo.allowed()
@@ -82,7 +86,7 @@ class ChatInboxViewModel(private val repo: ChatRepository, val userId: String) :
             } finally {
                 loading = false
             }
-        }
+        }.also { it.invokeOnCompletion { if (loadAgain) viewModelScope.launch { load() } } }
     }
 
     fun show(value: InboxView) {
@@ -238,9 +242,14 @@ class ConversationViewModel(
         runCatching { repo.markRead(id) }
     }
 
-    /** A push, the screen coming back, or the regular check while open. */
+    /** A hint that came while a refresh ran: refresh once more after it, so a live update is never lost. */
+    private var hintAgain = false
+
+    /** A live update, a push, the screen coming back, or the regular check while open. */
     fun onHint() {
-        if (composeMode || refreshJob?.isActive == true || sending) return
+        if (composeMode || sending) return
+        if (refreshJob?.isActive == true) { hintAgain = true; return }
+        hintAgain = false
         refreshJob = viewModelScope.launch {
             try {
                 val id = conversationId ?: return@launch
@@ -254,7 +263,7 @@ class ConversationViewModel(
             } catch (e: Exception) {
                 // The next check tries again.
             }
-        }
+        }.also { it.invokeOnCompletion { if (hintAgain) viewModelScope.launch { onHint() } } }
     }
 
     fun loadOlder() {

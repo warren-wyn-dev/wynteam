@@ -2,6 +2,9 @@ package io.wyn.wyn.feature.chat
 
 import android.os.Looper
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -72,5 +75,28 @@ class ChatScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("ดูโปรไฟล์").assertExists()
         compose.onRoot().captureRoboImage("build/screenshots/chat-new-th.png")
+    }
+
+    // web presence: a green dot on online people in the inbox, and "ออนไลน์" in place of @username in the header.
+    @Test @Config(qualifiers = "th-w411dp-h914dp-xxhdpi")
+    fun inboxOnlineThai() {
+        val vm = ChatInboxViewModel(FakeChatRepository(), ChatFixture.ME)
+        settle()
+        compose.setContent { WynosTheme(ThemeChoice.Light) { ChatInboxScreen(vm, setOf(ChatFixture.inbox.first().otherUserId), onOpen = {}) } }
+        compose.waitForIdle()
+        compose.onAllNodesWithContentDescription("ออนไลน์").assertCountEquals(1)
+        compose.onRoot().captureRoboImage("build/screenshots/chat-inbox-online-th.png")
+    }
+
+    @Test @Config(qualifiers = "th-w411dp-h914dp-xxhdpi")
+    fun conversationOnlineThai() {
+        val chat = FakeChatRepository()
+        val vm = ConversationViewModel(chat, profiles, FakeFeedRepository(), ChatFixture.ME, ChatFixture.CONVERSATION, ChatFixture.OTHER)
+        settle()
+        compose.setContent { WynosTheme(ThemeChoice.Light) { ConversationScreen(vm, chat, onBack = {}, onOpenProfile = {}, online = true) } }
+        compose.waitForIdle()
+        compose.onNodeWithText("ออนไลน์").assertExists()
+        compose.onAllNodesWithText("@", substring = true).assertCountEquals(0)
+        compose.onRoot().captureRoboImage("build/screenshots/chat-conversation-online-th.png")
     }
 }

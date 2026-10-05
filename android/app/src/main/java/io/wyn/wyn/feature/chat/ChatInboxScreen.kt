@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -44,6 +45,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.wyn.wyn.R
@@ -74,7 +76,7 @@ fun previewText(row: Conversation): String = when (val preview = previewKind(row
 /** web chat-inbox-parity.tsx: the Chat tab. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatInboxScreen(vm: ChatInboxViewModel, onOpen: (Conversation) -> Unit) {
+fun ChatInboxScreen(vm: ChatInboxViewModel, onlineIds: Set<String> = emptySet(), onOpen: (Conversation) -> Unit) {
     val c = Wyn.colors
     val english = rememberEnglish()
     val requests = vm.view == InboxView.Requests
@@ -162,7 +164,7 @@ fun ChatInboxScreen(vm: ChatInboxViewModel, onOpen: (Conversation) -> Unit) {
                         EmptyState(stringResource(if (vm.query.isNotBlank()) R.string.chat_no_results else R.string.chat_empty), null) {}
                     }
                     else -> {
-                        items(rows, key = { it.id }) { row -> InboxRow(row, row.isUnread(vm.userId), english) { onOpen(row) } }
+                        items(rows, key = { it.id }) { row -> InboxRow(row, row.isUnread(vm.userId), english, online = row.otherUserId in onlineIds) { onOpen(row) } }
                         item(key = "end") {
                             Column(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(Modifier.size(40.dp).clip(CircleShape).background(c.surface), contentAlignment = Alignment.Center) {
@@ -192,13 +194,17 @@ fun ChatInboxScreen(vm: ChatInboxViewModel, onOpen: (Conversation) -> Unit) {
 private fun previewPlain(row: Conversation): String = (previewKind(row) as? Preview.Text)?.text.orEmpty()
 
 @Composable
-private fun InboxRow(row: Conversation, unread: Boolean, english: Boolean, onClick: () -> Unit) {
+private fun InboxRow(row: Conversation, unread: Boolean, english: Boolean, online: Boolean, onClick: () -> Unit) {
     val c = Wyn.colors
     Row(
         Modifier.fillMaxWidth().heightIn(min = 80.dp).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        WynAvatar(row.otherAvatarUrl, 54, contentDescription = row.otherLabel)
+        // web wyn-chat-online-dot.
+        Box {
+            WynAvatar(row.otherAvatarUrl, 54, contentDescription = row.otherLabel)
+            if (online) OnlineDot(13.dp, Modifier.align(Alignment.BottomEnd).offset(1.dp, 1.dp))
+        }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(row.otherLabel, color = c.text, fontSize = 16.sp, fontWeight = if (unread) FontWeight.ExtraBold else FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(previewText(row), color = c.textSecondary, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -233,3 +239,15 @@ private fun RequestRow(row: Conversation, onOpen: () -> Unit, onAccept: () -> Un
         }
     }
 }
+
+/** web wyn-chat-online-dot: green, ringed in the background colour. Read out as "online". */
+@Composable
+internal fun OnlineDot(size: Dp, modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.chat_online)
+    Box(
+        modifier.size(size).clip(CircleShape).background(Wyn.colors.bg).padding(2.dp).clip(CircleShape).background(OnlineGreen)
+            .semantics { contentDescription = label },
+    )
+}
+
+private val OnlineGreen = Color(0xFF34C759)

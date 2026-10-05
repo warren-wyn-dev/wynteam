@@ -16,12 +16,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,10 +37,12 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.jan.supabase.SupabaseClient
 import io.wyn.wyn.R
+import io.wyn.wyn.core.data.ChatLive
 import io.wyn.wyn.core.data.ComposerRepository
 import io.wyn.wyn.core.data.EngagementSync
 import io.wyn.wyn.core.data.FeedRepository
 import io.wyn.wyn.core.data.FollowKind
+import io.wyn.wyn.core.data.NoChatLive
 import io.wyn.wyn.core.data.PostRepository
 import io.wyn.wyn.core.data.ProfileRepository
 import io.wyn.wyn.core.data.QuoteRepository
@@ -51,6 +55,7 @@ import io.wyn.wyn.core.design.Wyn
 import io.wyn.wyn.core.design.WynIcons
 import io.wyn.wyn.core.data.NotificationItem
 import io.wyn.wyn.core.data.ChatRepository
+import io.wyn.wyn.core.data.SupabaseChatLive
 import io.wyn.wyn.core.data.SupabaseChatRepository
 import io.wyn.wyn.core.data.ClubRepository
 import io.wyn.wyn.core.data.SupabaseClubRepository
@@ -109,6 +114,9 @@ import io.wyn.wyn.feature.notifications.UnreadBadge
 import androidx.compose.foundation.border
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import io.wyn.wyn.feature.auth.AccountFlowViewModel
 import io.wyn.wyn.feature.auth.text
@@ -146,6 +154,8 @@ data class Repositories(
     val clubs: ClubRepository,
     val discovery: DiscoveryRepository,
     val settings: SettingsRepository,
+    /** Live chat updates and who is online (none in tests: the regular checks do the work). */
+    val live: ChatLive = NoChatLive,
     val push: PushController? = null,
     /** This phone's theme and language (null in tests: they follow the phone). */
     val device: DevicePreferences? = null,
@@ -163,6 +173,7 @@ data class Repositories(
                 profiles = profiles,
                 notifications = SupabaseNotificationRepository(client),
                 chat = SupabaseChatRepository(client),
+                live = SupabaseChatLive(client),
                 clubs = clubs,
                 discovery = SupabaseDiscoveryRepository(client, profiles, clubs, quotes),
                 settings = SupabaseSettingsRepository(client),
@@ -300,6 +311,7 @@ fun SignedInApp(
         badge.refresh()
         onPauseOrDispose {}
     }
+    val onlineIds by repos.live.onlineIds.collectAsState()
     val inbox: ChatInboxViewModel = viewModel(key = "chat-inbox:$userId", factory = viewModelFactory { initializer { ChatInboxViewModel(repos.chat, userId) } })
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(userId) {
@@ -313,6 +325,13 @@ fun SignedInApp(
         }
         // Only while the app is on screen, like the web's visible-only polling.
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            // web presence.ts: shown online only while the app is open, and only if the setting allows it.
+            launch {
+                val visible = runCatching { repos.settings.showOnline(userId) }.getOrDefault(false)
+                repos.live.presence(userId, visible)
+            }
+            // web subscribeMyMessages: a new message refreshes the inbox at once; the poll stays as a fallback.
+            launch { repos.live.newMessages(userId).collect { inbox.load() } }
             var tick = 0
             while (true) {
                 delay(12_000)
@@ -393,7 +412,7 @@ fun SignedInApp(
                 inbox.load()
                 onPauseOrDispose {}
             }
-            ChatInboxScreen(inbox, onOpen = { row -> push(Screen.Conversation(row.id, row.otherUserId)) })
+            ChatInboxScreen(inbox, onlineIds, onOpen = { row -> push(Screen.Conversation(row.id, row.otherUserId)) })
         },
         clubs = {
             val explore: ExploreClubsViewModel = viewModel(key = "clubs-explore:$userId", factory = viewModelFactory { initializer { ExploreClubsViewModel(repos.clubs, userId) } })
@@ -605,8 +624,15 @@ fun SignedInApp(
                 LaunchedEffect(conversation) {
                     launch { PushEvents.received.collect { recipient -> if (recipient == userId) conversation.onHint() } }
                     lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                        // web subscribeConversationMessages: once the conversation exists, its changes arrive live.
+                        launch {
+                            snapshotFlow { conversation.conversationId }.filterNotNull().distinctUntilChanged().collectLatest { id ->
+                                repos.live.conversationChanges(id).collect { conversation.onHint() }
+                            }
+                        }
+                        // Fallback for a dropped connection.
                         while (true) {
-                            delay(5_000)
+                            delay(15_000)
                             conversation.onHint()
                         }
                     }
@@ -615,6 +641,7 @@ fun SignedInApp(
                     conversation, repos.chat,
                     onBack = { pop(); inbox.load() },
                     onOpenProfile = ::openProfile,
+                    online = conversation.other?.id?.let { it in onlineIds } == true,
                 )
             }
         }
