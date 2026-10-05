@@ -2317,10 +2317,26 @@ Object.assign(EN_EXACT, {
   "ศ.": "Fri",
   "ส.": "Sat",
   "อา.": "Sun",
+  "ตำแหน่งร้าน": "Store location",
+  "การจัดส่ง": "Delivery",
+  "ที่อยู่ หมุดร้านบนแผนที่ คุณภาพตำแหน่ง และจุดรับอาหารสำหรับไรเดอร์": "Address, map pin, location quality and rider pickup point",
+  "พื้นที่ให้บริการ ระยะส่ง ค่าส่ง ยอดขั้นต่ำ และสถานที่ที่ร้านส่งบ่อย": "Service area, delivery range, fees, minimum order and frequent delivery places",
+  "หมุดตำแหน่งร้าน": "Store map pin",
+  "เช่น เขตที่ให้บริการ หรือรายละเอียดพื้นที่จัดส่ง": "For example, service districts or delivery area details",
+  "เตรียมประมาณ": "Prep about",
+  "จำนวนจำกัด · สูงสุด": "Limited quantity · maximum",
+  "ชิ้น/วัน": "items/day",
+  "เตรียม": "Prep",
+  "ไม่บังคับ": "Optional",
+  "เช่น เปิดทุกวัน": "For example, open every day",
+  "คุณภาพตำแหน่ง": "Location quality",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["เปิด {0}", "Opens {0}"],
+  ["ปิด · {0}", "Closed · {0}"],
+
   ["ตะกร้า {0} รายการ", "Cart, {0} items"],
   ["{0} แคมเปญกำลังใช้งาน", "{0} active campaigns"],
   ["แคมเปญ WYNOS · {0}", "WYNOS campaign · {0}"],
