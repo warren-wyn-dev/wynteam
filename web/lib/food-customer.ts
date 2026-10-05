@@ -138,7 +138,12 @@ export type FoodCustomerAddress = {
 };
 
 /** WYN-196: a delivery pin. */
-export type FoodLocation = { latitude: number; longitude: number };
+export type FoodLocation = {
+  latitude: number;
+  longitude: number;
+  /** Browser-reported horizontal accuracy when the point came from GPS. */
+  accuracyMeters?: number | null;
+};
 
 function pinParams(location: FoodLocation | null | undefined) {
   return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};
@@ -635,7 +640,11 @@ export function currentFoodLocation(timeoutMs = 12000): Promise<FoodLocation> {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+      (position) => resolve({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracyMeters: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+      }),
       (error) => reject(new Error(
         error.code === error.PERMISSION_DENIED
           ? "กรุณาอนุญาตให้เข้าถึงตำแหน่งในเบราว์เซอร์"
@@ -792,9 +801,14 @@ async function invokePublicMapsGeocoder(
   }
 }
 
-async function searchWynosMapsApi(query: string): Promise<FoodPlace[] | null> {
+async function searchWynosMapsApi(query: string, location?: FoodLocation | null): Promise<FoodPlace[] | null> {
   try {
-    const response = await fetch(`/api/maps/search?q=${encodeURIComponent(query.slice(0, 200))}`, {
+    const params = new URLSearchParams({ q: query.slice(0, 200) });
+    if (location) {
+      params.set("lat", String(location.latitude));
+      params.set("lon", String(location.longitude));
+    }
+    const response = await fetch(`/api/maps/search?${params.toString()}`, {
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
@@ -824,6 +838,69 @@ async function reverseWynosMapsApi(location: FoodLocation): Promise<FoodPlace[] 
  * WYNOS Places is searched first. WYNOS Geo is next, and the legacy
  * location-search Edge Function remains only as a rollout fallback.
  */
+function normalizedPlaceText(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("th-TH")
+    .replace(/[\s\-_/.,()]+/g, " ")
+    .trim();
+}
+
+function searchPlaceScore(place: FoodPlace, query: string, location?: FoodLocation | null) {
+  const q = normalizedPlaceText(query);
+  const name = normalizedPlaceText(place.name);
+  const address = normalizedPlaceText(place.address);
+  let score = 0;
+
+  if (name === q) score += 220;
+  else if (name.startsWith(q)) score += 150;
+  else if (name.includes(q)) score += 110;
+  if (address.includes(q)) score += 45;
+
+  const words = q.split(" ").filter(Boolean);
+  if (words.length > 1) {
+    score += words.reduce((total, word) => total + (name.includes(word) || address.includes(word) ? 14 : 0), 0);
+  }
+
+  if (place.source === "wynos" || place.source === "store") score += 55;
+  else if (place.source === "geo") score += 32;
+  else if (place.source === "photon" || place.source === "osm") score += 20;
+
+  if (place.verificationStatus === "wynos_verified") score += 28;
+  else if (place.verificationStatus === "merchant_verified") score += 18;
+
+  if (location) {
+    const distance = place.distanceKm ?? foodDistanceKm(location, place);
+    place.distanceKm = distance;
+    score += Math.max(0, 45 - Math.min(distance, 45));
+  }
+  return score;
+}
+
+function mergeRankedPlaces(
+  query: string,
+  location: FoodLocation | null | undefined,
+  groups: Array<FoodPlace[] | null | undefined>,
+) {
+  const seen = new Set<string>();
+  const merged: FoodPlace[] = [];
+  for (const group of groups) {
+    for (const place of group ?? []) {
+      const key = place.placeId
+        ? `id:${place.placeId}`
+        : `${place.latitude.toFixed(5)},${place.longitude.toFixed(5)}:${normalizedPlaceText(place.name)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push({ ...place });
+    }
+  }
+  return merged
+    .map((place, index) => ({ place, index, score: searchPlaceScore(place, query, location) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, 12)
+    .map(({ place }) => place);
+}
+
 export async function searchFoodPlaces(
   client: SupabaseClient,
   query: string,
@@ -832,11 +909,16 @@ export async function searchFoodPlaces(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const ownPlaces = await searchWynosPlaces(client, trimmed, location);
-  if (ownPlaces.length) return ownPlaces;
+  // Search WYNOS Places and WYNOS Geo together so autocomplete can combine
+  // verified local data with broader Thai map coverage, then rank by text
+  // relevance and distance from the current map center.
+  const [ownPlaces, wynosResults] = await Promise.all([
+    searchWynosPlaces(client, trimmed, location),
+    searchWynosMapsApi(trimmed, location),
+  ]);
 
-  const wynosResults = await searchWynosMapsApi(trimmed);
-  if (wynosResults?.length) return wynosResults;
+  let ranked = mergeRankedPlaces(trimmed, location, [ownPlaces, wynosResults]);
+  if (ranked.length >= 6) return ranked;
 
   const publicFallback = await invokePublicMapsGeocoder(client, {
     mode: "search",
@@ -844,14 +926,15 @@ export async function searchFoodPlaces(
     lat: location?.latitude,
     lon: location?.longitude,
   });
-  if (publicFallback?.length) return publicFallback;
+  ranked = mergeRankedPlaces(trimmed, location, [ranked, publicFallback]);
+  if (ranked.length) return ranked;
 
   // Signed-in compatibility fallback for the older location-search function.
   const { data, error } = await client.functions.invoke("location-search", {
     body: { mode: "search", query: trimmed.slice(0, 200) },
   });
   if (error) throw new Error("ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองใช้ตำแหน่งปัจจุบันแทน");
-  return parseMapPlaces(data, "legacy");
+  return mergeRankedPlaces(trimmed, location, [parseMapPlaces(data, "legacy")]);
 }
 
 /**
