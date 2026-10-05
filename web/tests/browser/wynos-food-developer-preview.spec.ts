@@ -84,6 +84,7 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   const data = read("lib/food-customer.ts");
   const sql = read("../supabase/migrations_wynos_maps_places_saved_addresses_v1.sql");
   const nearbySql = read("../supabase/migrations_wynos_maps_nearby_places_v1.sql");
+  const nearbyRankingSql = read("../supabase/migrations_wynos_maps_nearby_ranking_v2.sql");
   const reverseSql = read("../supabase/migrations_wynos_maps_reverse_place_v1.sql");
   const osmFallbackSql = read("../supabase/migrations_wynos_maps_osm_reverse_fallback_v1.sql");
   const photonFallbackSql = read("../supabase/migrations_wynos_maps_photon_fallback_v1.sql");
@@ -128,6 +129,10 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(map).not.toContain("wf-map-geocoder-credit");
   expect(nearbySql).toContain("create or replace function public.wynos_nearby_places");
   expect(nearbySql).toContain("to anon, authenticated");
+  expect(nearbyRankingSql).toContain("internal.food_distance_km(p_latitude, p_longitude, p.latitude, p.longitude)");
+  expect(nearbyRankingSql).toContain("when p.category = 'residence' then 0");
+  expect(map).toContain("nearbyRadiusForZoom");
+  expect(map).toContain("index < labelLimit");
   expect(map).toContain("fetchNearbyWynosPlaces");
   expect(map).toContain("wf-map-place-label");
   expect(map).toContain("mapZoom >= 14.5");
