@@ -86,7 +86,9 @@ begin
     return coalesce(v_first, v_name) || '***';
   end if;
   if v_len = 2 then
-    return coalesce(v_first, left(v_visible,1)) || '**';
+    return coalesce(v_first, left(v_visible,1))
+      || '**'
+      || coalesce(v_last, right(v_visible,1));
   end if;
 
   return coalesce(v_first, left(v_visible,1))
