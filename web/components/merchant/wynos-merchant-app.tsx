@@ -125,6 +125,24 @@ function menuOptionId(prefix: "group" | "choice") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+const FOOD_DAY_LABELS: Record<string, string> = {
+  mon: "จันทร์", tue: "อังคาร", wed: "พุธ", thu: "พฤหัสบดี", fri: "ศุกร์", sat: "เสาร์", sun: "อาทิตย์",
+};
+
+function localDateTimeInput(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+}
+
+function localFutureInput(minutes: number) {
+  const date = new Date(Date.now() + minutes * 60000);
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+}
+
 // WYN-198: four simple tabs, in the order the store works through them.
 const ORDER_FILTERS: Array<{ key: OrderFilter; label: string }> = [
   { key: "new", label: "ใหม่" },
@@ -1900,6 +1918,9 @@ function StoreEditor({
     phone: store.phone ?? "",
     address: store.address ?? "",
     business_hours: store.business_hours ?? "",
+    temporary_closed_reason: store.temporary_closed_reason ?? "",
+    prep_time_min_minutes: String(store.prep_time_min_minutes ?? 15),
+    prep_time_max_minutes: String(store.prep_time_max_minutes ?? 30),
     delivery_area: store.delivery_area ?? "",
     delivery_fee: String(store.delivery_fee),
     minimum_order: String(store.minimum_order),
@@ -1924,6 +1945,13 @@ function StoreEditor({
   const [coverState, setCoverState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(store.cover_path ? "uploaded" : "idle");
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [schedule, setSchedule] = useState<FoodBusinessSchedule>(() => {
+    const current = store.business_schedule as FoodBusinessSchedule | undefined;
+    return current?.weekly ? current : defaultFoodBusinessSchedule();
+  });
+  const [specialClosedDates, setSpecialClosedDates] = useState<string[]>(() => Array.isArray(store.special_closed_dates) ? store.special_closed_dates : []);
+  const [newClosedDate, setNewClosedDate] = useState("");
+  const [temporaryClosedUntil, setTemporaryClosedUntil] = useState(() => localDateTimeInput(store.temporary_closed_until));
   // WYN-196: pinned store location for the delivery radius and per-km fee.
   const [pin, setPin] = useState<FoodLocation | null>(
     store.latitude != null && store.longitude != null ? { latitude: Number(store.latitude), longitude: Number(store.longitude) } : null,
@@ -1943,6 +1971,8 @@ function StoreEditor({
   const serviceAreaKey = pin ? `${pin.latitude.toFixed(6)},${pin.longitude.toFixed(6)}` : "";
   const serviceAreaState: "idle" | "checking" | "inside" | "outside" | "error" =
     !pin ? "idle" : serviceAreaCheck?.key === serviceAreaKey ? serviceAreaCheck.status : "checking";
+  const [locationQualityState, setLocationQualityState] = useState<{ key: string; value: MerchantLocationQuality | null } | null>(null);
+  const locationQuality = locationQualityState?.key === serviceAreaKey ? locationQualityState.value : null;
 
   useEffect(() => {
     return () => {
@@ -1960,6 +1990,16 @@ function StoreEditor({
       .catch(() => { if (live) setServiceAreaCheck({ key, status: "error" }); });
     return () => { live = false; };
   }, [client, pin]);
+
+  useEffect(() => {
+    if (!pin) return;
+    let live = true;
+    const key = `${pin.latitude.toFixed(6)},${pin.longitude.toFixed(6)}`;
+    void checkMerchantLocationQuality(client, store.id, pin.latitude, pin.longitude, form.name)
+      .then((value) => { if (live) setLocationQualityState({ key, value }); })
+      .catch(() => { if (live) setLocationQualityState({ key, value: null }); });
+    return () => { live = false; };
+  }, [client, form.name, pin, store.id]);
 
   const chooseBrandImage = (kind: "logo" | "cover", file: File | null) => {
     if (!file) return;
@@ -2037,6 +2077,12 @@ function StoreEditor({
         phone: form.phone.trim() || null,
         address: form.address.trim() || null,
         business_hours: form.business_hours.trim() || null,
+        business_schedule: schedule,
+        special_closed_dates: specialClosedDates,
+        temporary_closed_until: temporaryClosedUntil ? new Date(temporaryClosedUntil).toISOString() : null,
+        temporary_closed_reason: form.temporary_closed_reason.trim() || null,
+        prep_time_min_minutes: Number(form.prep_time_min_minutes || 15),
+        prep_time_max_minutes: Number(form.prep_time_max_minutes || 30),
         delivery_area: form.delivery_area.trim() || null,
         delivery_fee: Number(form.delivery_fee || 0),
         minimum_order: Number(form.minimum_order || 0),
@@ -2104,7 +2150,44 @@ function StoreEditor({
         <label>รายละเอียด<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
         <label>เบอร์ร้าน<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" /></label>
         <label>ที่อยู่ร้าน<textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
-        <label>เวลาเปิด–ปิด<input value={form.business_hours} onChange={(e) => setForm({ ...form, business_hours: e.target.value })} placeholder="เช่น ทุกวัน 10:00–20:00" /></label>
+        <label>ข้อความสรุปเวลา <small>ไม่บังคับ</small><input value={form.business_hours} onChange={(e) => setForm({ ...form, business_hours: e.target.value })} placeholder="เช่น เปิดทุกวัน" /></label>
+        <section className="wm-schedule-editor">
+          <div className="wm-schedule-heading"><span><CalendarDays size={18} /><strong>เวลาเปิด–ปิดรายวัน</strong></span><small>ระบบจะเปิด/ปิดการรับออเดอร์ตามเวลาไทยอัตโนมัติ</small></div>
+          <div className="wm-schedule-days">
+            {FOOD_DAY_KEYS.map((key) => {
+              const day = schedule.weekly[key] ?? { enabled: false, open: "09:00", close: "21:00" };
+              return <div className="wm-schedule-day" key={key}>
+                <label className="wm-check-row"><input type="checkbox" checked={day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, enabled: e.target.checked } } }))} /><span><strong>{FOOD_DAY_LABELS[key]}</strong><small>{day.enabled ? "เปิด" : "ปิด"}</small></span></label>
+                <input type="time" value={day.open} disabled={!day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, open: e.target.value } } }))} />
+                <span>–</span>
+                <input type="time" value={day.close} disabled={!day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, close: e.target.value } } }))} />
+              </div>;
+            })}
+          </div>
+          <div className="wm-special-days">
+            <strong>วันหยุดพิเศษ</strong>
+            <div className="wm-two-actions">
+              <input type="date" value={newClosedDate} onChange={(e) => setNewClosedDate(e.target.value)} />
+              <button className="wm-secondary" type="button" disabled={!newClosedDate || specialClosedDates.includes(newClosedDate)} onClick={() => { setSpecialClosedDates((rows) => [...rows, newClosedDate].sort()); setNewClosedDate(""); }}>เพิ่มวันหยุด</button>
+            </div>
+            {specialClosedDates.length ? <div className="wm-date-chips">{specialClosedDates.map((date) => <button type="button" key={date} onClick={() => setSpecialClosedDates((rows) => rows.filter((row) => row !== date))}>{date} <X size={13} /></button>)}</div> : <small>ยังไม่มีวันหยุดพิเศษ</small>}
+          </div>
+          <div className="wm-temporary-close">
+            <strong>ปิดชั่วคราว</strong>
+            <div className="wm-quick-close">
+              <button type="button" onClick={() => setTemporaryClosedUntil(localFutureInput(30))}>30 นาที</button>
+              <button type="button" onClick={() => setTemporaryClosedUntil(localFutureInput(60))}>1 ชั่วโมง</button>
+              <button type="button" onClick={() => setTemporaryClosedUntil(localFutureInput(180))}>3 ชั่วโมง</button>
+              <button type="button" onClick={() => setTemporaryClosedUntil("")}>ยกเลิก</button>
+            </div>
+            <label>ปิดถึง<input type="datetime-local" value={temporaryClosedUntil} onChange={(e) => setTemporaryClosedUntil(e.target.value)} /></label>
+            <label>เหตุผล<input value={form.temporary_closed_reason} onChange={(e) => setForm({ ...form, temporary_closed_reason: e.target.value })} maxLength={200} placeholder="เช่น วัตถุดิบหมด / พักร้านชั่วคราว" /></label>
+          </div>
+          <div className="wm-form-grid">
+            <label>เตรียมอาหารเร็วสุด (นาที)<input type="number" min="1" max="240" value={form.prep_time_min_minutes} onChange={(e) => setForm({ ...form, prep_time_min_minutes: e.target.value })} /></label>
+            <label>เตรียมอาหารช้าสุด (นาที)<input type="number" min="1" max="240" value={form.prep_time_max_minutes} onChange={(e) => setForm({ ...form, prep_time_max_minutes: e.target.value })} /></label>
+          </div>
+        </section>
         <h3>การจัดส่ง</h3>
         <label>พื้นที่จัดส่ง<textarea value={form.delivery_area} onChange={(e) => setForm({ ...form, delivery_area: e.target.value })} placeholder="เช่น รัศมี 5 กม. / เขตที่ให้บริการ" /></label>
         <div className="wm-form-grid"><label>ค่าส่งเริ่มต้น<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label><label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label></div>
@@ -2127,6 +2210,9 @@ function StoreEditor({
             </div>
           ) : null}
           {pinStatus ? <p role="status">{pinStatus}</p> : null}
+          {pin && locationQuality ? <div className={`wm-location-quality ${locationQuality.warnings.length ? "has-warning" : "is-good"}`}>
+            <span><strong>คุณภาพตำแหน่ง {locationQuality.score}/100</strong><small>{locationQuality.warnings.includes("possible_duplicate") ? "พบร้านชื่อเดียวกันใกล้จุดนี้ อาจเป็นร้านซ้ำ" : locationQuality.warnings.includes("very_close_to_another_store") ? "มีร้านอื่นอยู่ใกล้มาก โปรดตรวจหมุดให้ตรงหน้าร้าน" : locationQuality.warnings.includes("pickup_far_from_store") ? "จุดรับอาหารอยู่ห่างจากร้านมากผิดปกติ" : "ตำแหน่งดูปกติ ✓"}</small></span>
+          </div> : null}
 
           <div className="wm-form-grid">
             <label>ส่งไกลสุด (กม.)<input type="number" min="0.5" max="50" step="0.5" inputMode="decimal" value={form.delivery_radius_km} onChange={(e) => setForm({ ...form, delivery_radius_km: e.target.value })} /></label>
