@@ -2480,6 +2480,7 @@ Object.assign(EN_EXACT, {
   "ร้านอาจไม่สามารถทำตามคำขอได้ทุกกรณี": "The store may not be able to follow every request.",
   "เมนูหมดชั่วคราว": "Temporarily sold out",
   "เลือก 1 ข้อ": "Choose 1",
+  "จำเป็น": "Required",
   "กรุณาเลือกตัวเลือกที่จำเป็น": "Please choose the required options",
   "ฟรี": "Free",
   "จัดส่งที่": "Deliver to",
