@@ -119,7 +119,7 @@ ITEMS_TOO_MANY="[{\"menu_item_id\":\"$MENU_ID\",\"quantity\":1,\"selected_option
 expect_db "select (public.food_quote_order('$STORE_ID', '$ITEMS_OK'::jsonb)->>'subtotal')::numeric" "70.00" "quote includes server-resolved option prices"
 expect_db "select (public.food_quote_order('$STORE_ID', '$ITEMS_HOT'::jsonb)->>'subtotal')::numeric" "55.00" "client-forged option price is ignored"
 expect_fail "select public.food_quote_order('$STORE_ID', '$ITEMS_MISSING'::jsonb)" "required menu option missing" "required option is enforced"
-expect_fail "select public.food_quote_order('$STORE_ID', '$ITEMS_TOO_MANY'::jsonb)" "invalid menu option selection" "unknown/overflow option is rejected"
+expect_fail "select public.food_quote_order('$STORE_ID', '$ITEMS_TOO_MANY'::jsonb)" "too many menu options selected" "option max-select is enforced"
 
 ORDER_ID="$(db "select public.food_create_order('$STORE_ID','Tester','0800000000','Test address','', '$ITEMS_OK'::jsonb)")"
 expect_db "select unit_price::numeric from public.food_order_items where order_id='$ORDER_ID'" "70.00" "order snapshot stores option-adjusted unit price"
