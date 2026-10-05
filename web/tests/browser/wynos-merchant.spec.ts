@@ -97,6 +97,8 @@ test("Merchant production readiness suite covers hours, publish gate, ETA, order
   expect(sql).toContain("food_stores_guard_publish_readiness");
   expect(sql).toContain("food_orders_guard_store_schedule");
   expect(sql).toContain("food_order_items_guard_availability");
+  expect(sql).toContain("daily_stock_limit");
+  expect(app).toContain("จำนวนขายต่อวัน");
   expect(sql).toContain("merchant_menu_reordered");
 });
 
