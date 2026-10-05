@@ -8,6 +8,7 @@ import { previewMerchantOrderSound } from "@/components/merchant/merchant-order-
 import {
   getPushAvailability,
   isCurrentDevicePushEnabled,
+  isPushChosenOff,
   pushReasonDescription,
   subscribeToPushNotifications,
   type PushBlockReason,
@@ -62,7 +63,7 @@ export function MerchantNotificationPrompt({
   useEffect(() => {
     let live = true;
     void (async () => {
-      if (!forceOpen && laterThisSession()) return;
+      if (!forceOpen && (laterThisSession() || isPushChosenOff(userId))) return;
       const availability = await getPushAvailability();
       if (!live) return;
       if (!availability.available) {
