@@ -103,6 +103,7 @@ const MAPLIBRE_VERSION = "5.12.0";
 const MAPLIBRE_JS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js`;
 const MAPLIBRE_CSS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
 const MAP_STYLE = "/maps/wynos-green.json";
+const MAP_STYLE_DARK = "/maps/wynos-dark.json";
 const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";
 const SERVICE_AREA_SOURCE = "wynos-food-service-area";
 const SERVICE_AREA_FILL_LAYER = "wynos-food-service-area-fill";
@@ -173,6 +174,17 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
 
   return window.__wynosMapLibrePromise;
 }
+
+// Same rule as the app theme (lib/theme-preference.ts): an explicit
+// data-theme wins, otherwise follow the phone.
+function prefersDarkMap() {
+  const theme = document.documentElement.dataset.theme;
+  if (theme === "dark") return true;
+  if (theme === "light") return false;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+}
+
+type SheetDetent = "peek" | "half" | "full";
 
 function nearbyRadiusForZoom(zoom: number) {
   if (zoom >= 17.5) return 1.5;
@@ -316,7 +328,11 @@ export function FoodDeliveryMapPicker({
   const [mapFailed, setMapFailed] = useState(false);
   const [mapAttempt, setMapAttempt] = useState(0);
   const [chosen, setChosen] = useState(Boolean(initialLocation));
-  const [sheetExpanded, setSheetExpanded] = useState(false);
+  // Standalone Maps uses a three-stop sheet: peek (search only), half
+  // (search + selected place) and full (results or place details).
+  const [sheetDetent, setSheetDetent] = useState<SheetDetent>("half");
+  const sheetExpanded = sheetDetent === "full";
+  const setSheetExpanded = useCallback((expanded: boolean) => setSheetDetent(expanded ? "full" : "half"), []);
   const [currentLocationSelected, setCurrentLocationSelected] = useState(false);
   const [userLocation, setUserLocation] = useState<FoodLocation | null>(null);
   const [mapDragging, setMapDragging] = useState(false);
@@ -423,7 +439,7 @@ export function FoodDeliveryMapPicker({
 
         map = new maplibre.Map({
           container: mapNode.current,
-          style: MAP_STYLE,
+          style: standalone && prefersDarkMap() ? MAP_STYLE_DARK : MAP_STYLE,
           center: start,
           zoom: initialLocation ? 16 : 5.4,
           attributionControl: false,
@@ -528,7 +544,30 @@ export function FoodDeliveryMapPicker({
       map?.remove();
       mapRef.current = null;
     };
-  }, [initialLocation, loadNearby, mapAttempt, reverse]);
+  }, [initialLocation, loadNearby, mapAttempt, reverse, standalone]);
+
+  useEffect(() => {
+    if (!standalone || !mapReady) return;
+    let dark = prefersDarkMap();
+    const sync = () => {
+      const next = prefersDarkMap();
+      if (next === dark) return;
+      dark = next;
+      try {
+        mapRef.current?.setStyle(next ? MAP_STYLE_DARK : MAP_STYLE);
+      } catch {
+        // Keep the current style if the swap fails.
+      }
+    };
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    media?.addEventListener("change", sync);
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => {
+      media?.removeEventListener("change", sync);
+      observer.disconnect();
+    };
+  }, [mapReady, standalone]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -669,7 +708,7 @@ export function FoodDeliveryMapPicker({
       markers.forEach((marker) => marker.remove());
       if (nearbyMarkersRef.current === markers) nearbyMarkersRef.current = [];
     };
-  }, [activeNearbyPlace, mapReady, mapZoom, nearbyPlaces, standalone]);
+  }, [activeNearbyPlace, mapReady, mapZoom, nearbyPlaces, setSheetExpanded, standalone]);
 
   const availabilityKey = activeNearbyPlace?.merchantStoreId && location
     ? `${activeNearbyPlace.merchantStoreId}|${location.latitude},${location.longitude}`
@@ -807,6 +846,96 @@ export function FoodDeliveryMapPicker({
     map.flyTo({ center: [center.lng, center.lat], zoom: nextZoom, essential: true });
   };
 
+  const searchActive = standalone && searchFocused && Boolean(query.trim() || results.length || searchStatus || searching);
+
+  const cancelSearch = () => {
+    searchRequestRef.current += 1;
+    setQuery("");
+    setResults([]);
+    setSearching(false);
+    setSearchStatus("");
+    setSearchFocused(false);
+    if (standalone) setSheetDetent("half");
+  };
+
+  const searchBlock = (
+    <div className="wf-map-search-wrap">
+      <div className="wf-map-search">
+        <Search size={18} />
+        <input
+          value={query}
+          onFocus={() => {
+            setSearchFocused(true);
+            if (standalone) setSheetDetent("full");
+          }}
+          onChange={(event) => {
+            const nextQuery = event.target.value;
+            setQuery(nextQuery);
+            setSearchFocused(true);
+            setSearchStatus("");
+            if (nextQuery.trim().length < 2) {
+              searchRequestRef.current += 1;
+              setSearching(false);
+              setResults([]);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              search();
+            } else if (event.key === "Escape") {
+              event.currentTarget.blur();
+              cancelSearch();
+            }
+          }}
+          placeholder={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"}
+          aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}
+          autoComplete="off"
+        />
+        <button type="button" disabled={searching || !query.trim()} onClick={search}>
+          {searching ? "กำลังค้น…" : "ค้นหา"}
+        </button>
+        {standalone && (searchFocused || query) ? (
+          <button type="button" className="wf-map-search-cancel" onClick={cancelSearch}>ยกเลิก</button>
+        ) : null}
+      </div>
+      {standalone ? (
+        <div className="wf-map-quick-filters" aria-label="หมวดหมู่สถานที่">
+          <button type="button" className={query === "ร้านอาหาร" ? "is-active" : ""} onClick={() => quickSearch("ร้านอาหาร")}>
+            <Utensils size={16} /><span>ร้านอาหาร</span>
+          </button>
+          <button type="button" className={query === "คาเฟ่" ? "is-active" : ""} onClick={() => quickSearch("คาเฟ่")}>
+            <Coffee size={16} /><span>คาเฟ่</span>
+          </button>
+          <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
+            <Building2 size={16} /><span>หอพัก</span>
+          </button>
+          <button type="button" className={query === "ร้านค้า" ? "is-active" : ""} onClick={() => quickSearch("ร้านค้า")}>
+            <ShoppingBag size={16} /><span>ร้านค้า</span>
+          </button>
+        </div>
+      ) : null}
+      {standalone && !results.length && (searching || searchStatus) ? (
+        <p className="wf-map-search-status" role="status" aria-live="polite">
+          {searching ? "กำลังค้นหา…" : searchStatus}
+        </p>
+      ) : null}
+      {results.length ? (
+        <div className="wf-map-results">
+          {results.map((result) => (
+            <button key={result.placeId ?? `${result.latitude},${result.longitude},${result.name}`} type="button" onClick={() => chooseResult(result)}>
+              <MapPin size={17} />
+              <span>
+                <strong>{result.name || "สถานที่"}</strong>
+                <small>{placeCategory(result)}{result.address ? ` · ${result.address}` : ""}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+
   const showLegacySearchAttribution =
     place?.source === "legacy" || results.some((result) => result.source === "legacy");
   const showPhotonAttribution =
@@ -830,77 +959,7 @@ export function FoodDeliveryMapPicker({
         <span />
       </header>
 
-      <div className="wf-map-search-wrap">
-        <div className="wf-map-search">
-          <Search size={18} />
-          <input
-            value={query}
-            onFocus={() => setSearchFocused(true)}
-            onChange={(event) => {
-              const nextQuery = event.target.value;
-              setQuery(nextQuery);
-              setSearchFocused(true);
-              setSearchStatus("");
-              if (nextQuery.trim().length < 2) {
-                searchRequestRef.current += 1;
-                setSearching(false);
-                setResults([]);
-              }
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                search();
-              } else if (event.key === "Escape") {
-                setResults([]);
-                setSearchStatus("");
-                setSearchFocused(false);
-                event.currentTarget.blur();
-              }
-            }}
-            placeholder={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"}
-            aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}
-            autoComplete="off"
-          />
-          <button type="button" disabled={searching || !query.trim()} onClick={search}>
-            {searching ? "กำลังค้น…" : "ค้นหา"}
-          </button>
-        </div>
-        {standalone ? (
-          <div className="wf-map-quick-filters" aria-label="หมวดหมู่สถานที่">
-            <button type="button" className={query === "ร้านอาหาร" ? "is-active" : ""} onClick={() => quickSearch("ร้านอาหาร")}>
-              <Utensils size={16} /><span>ร้านอาหาร</span>
-            </button>
-            <button type="button" className={query === "คาเฟ่" ? "is-active" : ""} onClick={() => quickSearch("คาเฟ่")}>
-              <Coffee size={16} /><span>คาเฟ่</span>
-            </button>
-            <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
-              <Building2 size={16} /><span>หอพัก</span>
-            </button>
-            <button type="button" className={query === "ร้านค้า" ? "is-active" : ""} onClick={() => quickSearch("ร้านค้า")}>
-              <ShoppingBag size={16} /><span>ร้านค้า</span>
-            </button>
-          </div>
-        ) : null}
-        {standalone && !results.length && (searching || searchStatus) ? (
-          <p className="wf-map-search-status" role="status" aria-live="polite">
-            {searching ? "กำลังค้นหา…" : searchStatus}
-          </p>
-        ) : null}
-        {results.length ? (
-          <div className="wf-map-results">
-            {results.map((result) => (
-              <button key={result.placeId ?? `${result.latitude},${result.longitude},${result.name}`} type="button" onClick={() => chooseResult(result)}>
-                <MapPin size={17} />
-                <span>
-                  <strong>{result.name || "สถานที่"}</strong>
-                  <small>{placeCategory(result)}{result.address ? ` · ${result.address}` : ""}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      {standalone ? null : searchBlock}
 
       <div className="wf-map-canvas-wrap">
         <div ref={mapNode} className="wf-map-canvas" />
@@ -979,12 +1038,16 @@ export function FoodDeliveryMapPicker({
         ) : null}
       </div>
 
-      <section className={standalone ? `wf-map-confirm wf-map-sheet${sheetExpanded ? " is-expanded" : ""}` : "wf-map-confirm"}>
+      <section
+        className={standalone
+          ? `wf-map-confirm wf-map-sheet is-${sheetDetent}${sheetExpanded ? " is-expanded" : ""}${searchActive ? " is-searching" : ""}`
+          : "wf-map-confirm"}
+      >
         {standalone ? (
           <button
             type="button"
             className="wf-map-sheet-handle"
-            aria-label={sheetExpanded ? "ย่อรายละเอียดตำแหน่ง" : "ขยายรายละเอียดตำแหน่ง"}
+            aria-label={sheetDetent === "full" ? "ย่อแผง" : "ขยายแผง"}
             aria-expanded={sheetExpanded}
             onPointerDown={(event) => {
               event.preventDefault();
@@ -999,9 +1062,9 @@ export function FoodDeliveryMapPicker({
               sheetPointerStartRef.current = null;
               if (start == null) return;
               const distance = event.clientY - start;
-              if (distance < -28) setSheetExpanded(true);
-              else if (distance > 28) setSheetExpanded(false);
-              else setSheetExpanded((value) => !value);
+              if (distance < -28) setSheetDetent((value) => (value === "peek" ? "half" : "full"));
+              else if (distance > 28) setSheetDetent((value) => (value === "full" ? "half" : "peek"));
+              else setSheetDetent((value) => (value === "full" ? "half" : value === "half" ? "full" : "half"));
             }}
             onPointerCancel={() => {
               sheetPointerStartRef.current = null;
@@ -1010,6 +1073,8 @@ export function FoodDeliveryMapPicker({
             <span />
           </button>
         ) : null}
+        {standalone ? searchBlock : null}
+        <div className="wf-map-sheet-body">
         {activeNearbyPlace ? (
           <article className="wf-map-place-card">
             <button className="wf-map-place-close" type="button" aria-label="ปิดข้อมูลสถานที่" onClick={() => {
@@ -1152,7 +1217,7 @@ export function FoodDeliveryMapPicker({
         >
           <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : standalone ? "ใช้ตำแหน่งนี้" : "ยืนยันตำแหน่งนี้"}
         </button>
-
+        </div>
       </section>
     </div>
   );
