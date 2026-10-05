@@ -2365,6 +2365,9 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["{0} ตัวเลือกเสริม", "{0} add-ons"],
   ["{0} ม.", "{0} m"],
   ["{0} กม.", "{0} km"],
+  ["เปิด {0}", "Opens {0}"],
+  ["ปิด · {0}", "Closed · {0}"],
+
   ["บันทึก “{0}” เป็น", "Save “{0}” as"],
   ["ปักหมุดที่{0} แล้วกดปุ่มดาวเพื่อบันทึก", "Pin your {0}, then tap the star to save it"],
   ["ลบ {0} ออกจากรายการโปรด", "Remove {0} from Favorites"],
