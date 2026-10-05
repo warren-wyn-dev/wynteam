@@ -673,6 +673,7 @@ function MerchantInner({
           <StorePanel
             client={client}
             store={store}
+            menu={menu}
             userId={userId}
             installPrompt={installPrompt}
             onInstall={() => void install()}
@@ -1233,6 +1234,7 @@ function ReportsPanel({ orders }: { orders: FoodOrder[] }) {
 function StorePanel({
   client,
   store,
+  menu,
   userId,
   installPrompt,
   onInstall,
@@ -1243,6 +1245,7 @@ function StorePanel({
 }: {
   client: SupabaseClient;
   store: FoodStore;
+  menu: FoodMenuItem[];
   userId: string;
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
@@ -1252,7 +1255,48 @@ function StorePanel({
   onSignOut: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [readiness, setReadiness] = useState<MerchantStoreReadiness | null>(null);
+  const [audit, setAudit] = useState<MerchantAuditEntry[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void Promise.all([
+      fetchMerchantStoreReadiness(client, store.id),
+      fetchMerchantAuditHistory(client, store.id),
+    ]).then(([nextReadiness, nextAudit]) => {
+      if (!live) return;
+      setReadiness(nextReadiness);
+      setAudit(nextAudit);
+    }).catch(() => {
+      if (live) { setReadiness(null); setAudit([]); }
+    });
+    return () => { live = false; };
+  }, [client, store.id, store.updated_at, menu.length]);
+
+  const checklistLabels: Record<string, string> = {
+    name: "ชื่อร้าน",
+    description: "รายละเอียดร้าน",
+    phone: "เบอร์ติดต่อ",
+    address: "ที่อยู่ร้าน",
+    logo: "รูปโปรไฟล์",
+    cover: "รูปปก",
+    location: "ตำแหน่งร้าน",
+    schedule: "เวลาเปิด–ปิด",
+    prep_time: "เวลาเตรียมอาหาร",
+    payment: "ข้อมูลรับชำระเงิน",
+    menu: "เมนูอาหาร",
+  };
+  const entries = readiness ? Object.entries(readiness.checks) : [];
+  const completed = entries.filter(([, ready]) => ready).length;
+  const progress = entries.length ? Math.round((completed / entries.length) * 100) : 0;
+  const effectiveOpen = foodStoreIsEffectivelyOpen(store);
+
   const togglePublished = async () => {
+    if (!store.is_published && readiness && !readiness.ready) {
+      onMessage("กรุณาตั้งค่าร้านให้ครบก่อนเผยแพร่");
+      return;
+    }
     setBusy(true);
     try {
       await setMerchantStorePublished(client, store.id, !store.is_published);
@@ -1260,19 +1304,34 @@ function StorePanel({
     } catch (error) { onMessage(merchantError(error)); onReload(); }
     finally { setBusy(false); }
   };
+
   return (
     <>
       <div className="wm-page-heading"><div><small>การตั้งค่า</small><h1>ร้านค้า</h1></div></div>
+
+      <section className="wm-onboarding-card">
+        <div className="wm-onboarding-head">
+          <span><strong>ความพร้อมของร้าน</strong><small>{readiness?.ready ? "พร้อมเผยแพร่และรับออเดอร์" : "ตั้งค่าร้านให้ครบก่อนเปิดใช้งานจริง"}</small></span>
+          <b>{progress}%</b>
+        </div>
+        <div className="wm-onboarding-progress"><i style={{ width: `${progress}%` }} /></div>
+        <div className="wm-onboarding-checks">
+          {entries.map(([key, ready]) => <span key={key} className={ready ? "is-ready" : ""}>{ready ? <Check size={13} /> : <AlertTriangle size={13} />}{checklistLabels[key] ?? key}</span>)}
+        </div>
+        {!readiness?.ready ? <button className="wm-secondary wm-full" type="button" onClick={onEdit}>ตั้งค่าร้านให้ครบ</button> : null}
+      </section>
+
       <section className="wm-store-brand-card">
         <div className="wm-store-brand-card-cover">
           {store.cover_path ? <img src={foodPublicUrl(client, store.cover_path) ?? ""} alt="" /> : <Store size={40} strokeWidth={1.4} />}
         </div>
         <div className="wm-store-brand-card-main">
           <div className="wm-store-avatar">{store.logo_path ? <img src={foodPublicUrl(client, store.logo_path) ?? ""} alt="" /> : <Store size={30} strokeWidth={1.6} />}</div>
-          <div><strong>{store.name}</strong><small>{store.address || "ยังไม่ได้ใส่ที่อยู่ร้าน"}</small></div>
+          <div><strong>{store.name}</strong><small>{foodStoreStatusText(store)} · {store.address || "ยังไม่ได้ใส่ที่อยู่ร้าน"}</small></div>
           <button type="button" onClick={onEdit}>แก้ไข</button>
         </div>
       </section>
+
       {store.latitude != null && store.longitude != null ? (
         <section className="wm-store-location-card">
           <div className="wm-store-location-card-head">
@@ -1292,19 +1351,91 @@ function StorePanel({
           <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น WYNOS Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={onEdit}>เพิ่มตำแหน่ง</button>
         </section>
       )}
+
       <section className="wm-settings-list">
-        <button type="button" onClick={() => void togglePublished()} disabled={busy || Boolean(store.admin_suspended_at)}>
-          <span><strong>เผยแพร่ WYNOS Food</strong><small>{store.is_published ? "ลูกค้าเห็นร้านได้แล้ว" : "ร้านยังซ่อนจากลูกค้า"}</small></span>
+        <button type="button" onClick={() => void togglePublished()} disabled={busy || Boolean(store.admin_suspended_at) || (!store.is_published && readiness !== null && !readiness.ready)}>
+          <span><strong>เผยแพร่ WYNOS Food</strong><small>{store.is_published ? "ลูกค้าเห็นร้านได้แล้ว" : readiness?.ready ? "พร้อมเปิดร้านให้ลูกค้าเห็น" : "ต้องตั้งค่าร้านให้ครบก่อน"}</small></span>
           <span className={`wm-switch ${store.is_published ? "is-on" : ""}`}><i /></span>
         </button>
-        <button type="button" onClick={onEdit}><span><strong>ข้อมูลร้านและการจัดส่ง</strong><small>เวลาเปิด · พื้นที่ส่ง · ค่าส่ง · ยอดขั้นต่ำ</small></span><ChevronRight size={19} /></button>
+        <button type="button" onClick={() => setPreviewOpen(true)}><span><strong>ดูแบบลูกค้า</strong><small>Preview หน้าร้านก่อนเผยแพร่จริง</small></span><Eye size={19} /></button>
+        <button type="button" onClick={onEdit}><span><strong>ข้อมูลร้านและการจัดส่ง</strong><small>เวลาเปิด · ETA · ตำแหน่ง · ค่าส่ง</small></span><ChevronRight size={19} /></button>
         <button type="button" onClick={onEdit}><span><strong>รับชำระเงิน</strong><small>PromptPay · บัญชีธนาคาร · QR</small></span><ChevronRight size={19} /></button>
         <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span><strong>เสียงแจ้งเตือนออเดอร์</strong><small>แตะเพื่อลองฟังเสียงของ Wynos Merchant</small></span><BellRing size={19} /></button>
         {installPrompt ? <button type="button" onClick={onInstall}><span><strong>ติดตั้งเป็นแอป</strong><small>เพิ่ม WYNOS Merchant ไว้บนหน้าจอหลัก</small></span><ChevronRight size={19} /></button> : null}
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><ChevronRight size={19} /></button>
       </section>
+
+      <section className="wm-audit-card">
+        <div className="wm-section-title"><h2><History size={18} /> ประวัติการแก้ไขร้าน</h2><small>{audit.length} รายการล่าสุด</small></div>
+        {audit.length ? <div className="wm-audit-list">{audit.slice(0, 12).map((entry) => (
+          <div key={entry.id}>
+            <span><strong>{merchantAuditLabel(entry.event_type)}</strong><small>{entry.actor_username ? `โดย @${entry.actor_username}` : "โดยทีมร้าน"}</small></span>
+            <time>{new Date(entry.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</time>
+          </div>
+        ))}</div> : <small>ยังไม่มีประวัติการแก้ไขในระบบใหม่</small>}
+      </section>
+
       <MerchantStoreTools client={client} store={store} userId={userId} onMessage={onMessage} />
+
+      {previewOpen ? <MerchantStorefrontPreview client={client} store={store} menu={menu} onClose={() => setPreviewOpen(false)} /> : null}
     </>
+  );
+}
+
+function merchantAuditLabel(eventType: string) {
+  if (eventType === "merchant_store_published") return "เผยแพร่ร้าน";
+  if (eventType === "merchant_store_unpublished") return "ซ่อนร้าน";
+  if (eventType === "merchant_menu_created") return "เพิ่มเมนู";
+  if (eventType === "merchant_menu_deleted") return "ลบเมนู";
+  if (eventType === "merchant_menu_reordered") return "จัดลำดับเมนู";
+  if (eventType === "merchant_menu_updated") return "แก้ไขเมนู";
+  return "แก้ไขข้อมูลร้าน";
+}
+
+function MerchantStorefrontPreview({
+  client,
+  store,
+  menu,
+  onClose,
+}: {
+  client: SupabaseClient;
+  store: FoodStore;
+  menu: FoodMenuItem[];
+  onClose: () => void;
+}) {
+  const preferred = Array.isArray(store.menu_category_order) ? store.menu_category_order : [];
+  const categories = Array.from(new Set(menu.map((item) => item.category)));
+  categories.sort((a, b) => {
+    const ai = preferred.indexOf(a);
+    const bi = preferred.indexOf(b);
+    if (ai < 0 && bi < 0) return 0;
+    if (ai < 0) return 1;
+    if (bi < 0) return -1;
+    return ai - bi;
+  });
+  return (
+    <Sheet title="Preview หน้าร้าน" onClose={onClose} wide>
+      <div className="wm-customer-preview">
+        <div className="wm-preview-cover">{store.cover_path ? <img src={foodPublicUrl(client, store.cover_path) ?? ""} alt="" /> : <Store size={42} />}</div>
+        <div className="wm-preview-store">
+          <span>{store.logo_path ? <img src={foodPublicUrl(client, store.logo_path) ?? ""} alt="" /> : <Store size={25} />}</span>
+          <div><h3>{store.name}</h3><small className={foodStoreIsEffectivelyOpen(store) ? "is-open" : ""}>{foodStoreStatusText(store)}</small><p>{store.description || "ยังไม่มีรายละเอียดร้าน"}</p></div>
+        </div>
+        <div className="wm-preview-meta"><span>เตรียม {Number(store.prep_time_min_minutes ?? 15)}–{Number(store.prep_time_max_minutes ?? 30)} นาที</span><span>ค่าส่งเริ่มต้น {money(store.delivery_fee)}</span></div>
+        {categories.map((category) => (
+          <section key={category}>
+            <h4>{category}</h4>
+            {menu.filter((item) => item.category === category).map((item) => {
+              const available = foodMenuIsEffectivelyAvailable(item);
+              return <div className={`wm-preview-menu ${available ? "" : "is-off"}`} key={item.id}>
+                <span>{item.image_path ? <img src={foodPublicUrl(client, item.image_path) ?? ""} alt="" /> : <UtensilsCrossed size={22} />}</span>
+                <div><strong>{item.name}</strong><small>{item.description || (available ? "พร้อมขาย" : "หมดชั่วคราว")}</small><b>{money(item.price)}</b></div>
+              </div>;
+            })}
+          </section>
+        ))}
+      </div>
+    </Sheet>
   );
 }
 
