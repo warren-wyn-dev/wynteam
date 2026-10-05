@@ -1137,10 +1137,15 @@ function StorePanel({
   return (
     <>
       <div className="wm-page-heading"><div><small>การตั้งค่า</small><h1>ร้านค้า</h1></div></div>
-      <section className="wm-store-card">
-        <div className="wm-store-avatar">{store.logo_path ? <img src={foodPublicUrl(client, store.logo_path) ?? ""} alt="" /> : <Store size={30} strokeWidth={1.6} />}</div>
-        <div><strong>{store.name}</strong><small>{store.address || "ยังไม่ได้ใส่ที่อยู่ร้าน"}</small></div>
-        <button type="button" onClick={onEdit}>แก้ไข</button>
+      <section className="wm-store-brand-card">
+        <div className="wm-store-brand-card-cover">
+          {store.cover_path ? <img src={foodPublicUrl(client, store.cover_path) ?? ""} alt="" /> : <Store size={40} strokeWidth={1.4} />}
+        </div>
+        <div className="wm-store-brand-card-main">
+          <div className="wm-store-avatar">{store.logo_path ? <img src={foodPublicUrl(client, store.logo_path) ?? ""} alt="" /> : <Store size={30} strokeWidth={1.6} />}</div>
+          <div><strong>{store.name}</strong><small>{store.address || "ยังไม่ได้ใส่ที่อยู่ร้าน"}</small></div>
+          <button type="button" onClick={onEdit}>แก้ไข</button>
+        </div>
       </section>
       <section className="wm-settings-list">
         <button type="button" onClick={() => void togglePublished()} disabled={busy || Boolean(store.admin_suspended_at)}>
@@ -1631,7 +1636,15 @@ function StoreEditor({
     bank_account_name: store.bank_account_name ?? "",
     bank_account_number: store.bank_account_number ?? "",
     payment_qr_path: store.payment_qr_path,
+    logo_path: store.logo_path,
+    cover_path: store.cover_path,
   });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(() => foodPublicUrl(client, store.logo_path));
+  const [coverPreview, setCoverPreview] = useState<string | null>(() => foodPublicUrl(client, store.cover_path));
+  const [logoState, setLogoState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(store.logo_path ? "uploaded" : "idle");
+  const [coverState, setCoverState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(store.cover_path ? "uploaded" : "idle");
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   // WYN-196: pinned store location for the delivery radius and per-km fee.
@@ -1639,6 +1652,50 @@ function StoreEditor({
     store.latitude != null && store.longitude != null ? { latitude: Number(store.latitude), longitude: Number(store.longitude) } : null,
   );
   const [pinStatus, setPinStatus] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (logoPreview?.startsWith("blob:")) URL.revokeObjectURL(logoPreview);
+      if (coverPreview?.startsWith("blob:")) URL.revokeObjectURL(coverPreview);
+    };
+  }, [logoPreview, coverPreview]);
+
+  const chooseBrandImage = (kind: "logo" | "cover", file: File | null) => {
+    if (!file) return;
+    const preview = URL.createObjectURL(file);
+    if (kind === "logo") {
+      setLogoFile(file);
+      setLogoPreview(preview);
+      setLogoState("selected");
+    } else {
+      setCoverFile(file);
+      setCoverPreview(preview);
+      setCoverState("selected");
+    }
+  };
+
+  const removeBrandImage = (kind: "logo" | "cover") => {
+    if (kind === "logo") {
+      setLogoFile(null);
+      setLogoPreview(null);
+      setLogoState("idle");
+      setForm((current) => ({ ...current, logo_path: null }));
+    } else {
+      setCoverFile(null);
+      setCoverPreview(null);
+      setCoverState("idle");
+      setForm((current) => ({ ...current, cover_path: null }));
+    }
+  };
+
+  const brandStatus = (state: "idle" | "selected" | "uploading" | "uploaded" | "error") => {
+    if (state === "selected") return "เลือกภาพแล้ว · ยังไม่อัปโหลด (จะอัปโหลดเมื่อกดบันทึก)";
+    if (state === "uploading") return "กำลังอัปโหลดรูป…";
+    if (state === "uploaded") return "รูปอัปโหลดแล้ว ✓";
+    if (state === "error") return "อัปโหลดรูปไม่สำเร็จ · ลองใหม่อีกครั้ง";
+    return "ยังไม่มีรูป";
+  };
+
   // The zone columns exist only once the WYN-196 migration is applied.
   const zoneReady = store.delivery_radius_km !== undefined;
   const pinStore = async () => {
@@ -1655,6 +1712,18 @@ function StoreEditor({
     setBusy(true);
     try {
       let qr = form.payment_qr_path;
+      let logo = form.logo_path;
+      let cover = form.cover_path;
+      if (logoFile) {
+        setLogoState("uploading");
+        logo = await uploadFoodPublicImage(client, logoFile, `stores/${store.id}/profile`);
+        setLogoState("uploaded");
+      }
+      if (coverFile) {
+        setCoverState("uploading");
+        cover = await uploadFoodPublicImage(client, coverFile, `stores/${store.id}/cover`);
+        setCoverState("uploaded");
+      }
       if (qrFile) qr = await uploadFoodPublicImage(client, qrFile, `stores/${store.id}/payment`);
       await updateFoodStore(client, store.id, {
         name: form.name.trim(),
@@ -1678,10 +1747,16 @@ function StoreEditor({
         bank_account_name: form.bank_account_name.trim() || null,
         bank_account_number: form.bank_account_number.trim() || null,
         payment_qr_path: qr,
+        logo_path: logo,
+        cover_path: cover,
       });
       onMessage("บันทึกข้อมูลร้านแล้ว");
       await onSaved();
-    } catch (error) { onMessage(merchantError(error)); }
+    } catch (error) {
+      if (logoFile && logoState === "uploading") setLogoState("error");
+      if (coverFile && coverState === "uploading") setCoverState("error");
+      onMessage(merchantError(error));
+    }
     finally { setBusy(false); }
   };
 
@@ -1689,6 +1764,33 @@ function StoreEditor({
     <Sheet title="ตั้งค่าร้าน" onClose={onClose} wide>
       <div className="wm-form">
         <h3>ข้อมูลร้าน</h3>
+        <section className="wm-store-brand-editor">
+          <div className="wm-store-brand-heading">
+            <span><strong>รูปโปรไฟล์และรูปปกร้าน</strong><small>รูปเหล่านี้จะแสดงบนหน้าร้านใน WYNOS Food</small></span>
+          </div>
+          <div className="wm-store-brand-preview">
+            <div className="wm-store-brand-cover">
+              {coverPreview ? <img src={coverPreview} alt="รูปปกร้านตัวอย่าง" /> : <span><Store size={34} /><small>รูปปกร้าน</small></span>}
+            </div>
+            <div className="wm-store-brand-logo">
+              {logoPreview ? <img src={logoPreview} alt="รูปโปรไฟล์ร้านตัวอย่าง" /> : <Store size={28} />}
+            </div>
+          </div>
+          <div className="wm-store-brand-fields">
+            <div className="wm-store-brand-field">
+              <div><strong>รูปโปรไฟล์ร้าน</strong><small>แนะนำรูปสี่เหลี่ยม 1:1</small></div>
+              <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => chooseBrandImage("logo", e.target.files?.[0] ?? null)} /><Upload size={18} /><span>{logoPreview ? "เปลี่ยนรูปโปรไฟล์ร้าน" : "เพิ่มรูปโปรไฟล์ร้าน"}</span></label>
+              <div className={`wm-upload-status is-${logoState}`}>{brandStatus(logoState)}</div>
+              {logoPreview ? <button className="wm-inline-danger" type="button" disabled={busy} onClick={() => removeBrandImage("logo")}>ลบรูปโปรไฟล์ร้าน</button> : null}
+            </div>
+            <div className="wm-store-brand-field">
+              <div><strong>รูปปกร้าน</strong><small>แนะนำรูปแนวนอน 16:9</small></div>
+              <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => chooseBrandImage("cover", e.target.files?.[0] ?? null)} /><Upload size={18} /><span>{coverPreview ? "เปลี่ยนรูปปกร้าน" : "เพิ่มรูปปกร้าน"}</span></label>
+              <div className={`wm-upload-status is-${coverState}`}>{brandStatus(coverState)}</div>
+              {coverPreview ? <button className="wm-inline-danger" type="button" disabled={busy} onClick={() => removeBrandImage("cover")}>ลบรูปปกร้าน</button> : null}
+            </div>
+          </div>
+        </section>
         <label>ชื่อร้าน<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
         <label>รายละเอียด<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
         <label>เบอร์ร้าน<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" /></label>
