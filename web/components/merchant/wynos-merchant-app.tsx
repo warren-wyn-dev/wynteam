@@ -33,6 +33,7 @@ import {
   Store,
   Truck,
   Upload,
+  UtensilsCrossed,
   X,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
