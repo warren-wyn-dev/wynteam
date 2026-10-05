@@ -396,3 +396,19 @@ test("WYN-212 Home Food banner only for people known in Maha Sarakham; drawer fo
   expect(shortcut).toContain('aria-label="ซ่อน WYNOS Food จากหน้าหลัก" onClick={onHide}');
   expect(memory).toContain('write(hiddenKey(userId), "1");');
 });
+
+test("WYNOS Food home separates store discovery from the storefront", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const css = read("app/food/food.css");
+
+  expect(app).toContain("A Food home should remain a directory even when only one store is live.");
+  expect(app).toContain("storefrontOpen: boolean;");
+  expect(app).toContain('storeSection === "reviews" ? <StoreReviewsSection');
+  expect(app).toContain('storeSection === "info" ? (');
+  expect(app).toContain('className="wf-store-cart-bar"');
+  expect(app).toContain('setStorefrontOpen(true);');
+  expect(css).toContain(".wf-dir-cover");
+  expect(css).toContain(".wf-store-tabs");
+  expect(css).toContain(".wf-store-cart-bar");
+});
+
