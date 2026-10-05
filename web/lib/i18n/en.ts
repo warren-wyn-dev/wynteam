@@ -1939,6 +1939,8 @@ Object.assign(EN_EXACT, {
   "บันทึกรายการโปรดได้สูงสุด 50 แห่ง": "You can save up to 50 favorites",
   "ตำแหน่งที่ปักหมุด": "Pinned location",
   "จุดรับอาหารหรือทางเข้าร้าน": "Pickup point or store entrance",
+  "แผนที่โหลดไม่สำเร็จ": "Couldn't load the map",
+  "สั่งใน WYNOS Food": "Order in WYNOS Food",
   "รับอาหาร": "Pickup",
   "จุดรับอาหาร / ทางเข้า": "Pickup point / entrance",
   "ร้านกำหนดหมุดสำหรับรับอาหารไว้แล้ว": "The store has set a pickup pin",
