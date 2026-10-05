@@ -910,6 +910,8 @@ export const EN_EXACT: Record<string, string> = {
   "เพื่อน": "Friends",
   "เมนู": "Menu",
   "เมนูแนะนำ": "Recommended menu",
+  "เมนูยอดนิยม": "Popular menu",
+  "คำค้นหาล่าสุด": "Recent searches",
   "เมนู WYNOS": "WYNOS menu",
   "เมนูหลัก": "Main menu",
   "เมษายน": "April",
