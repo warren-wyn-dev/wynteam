@@ -1832,6 +1832,7 @@ Object.assign(EN_EXACT, {
   "แผนที่ยังโหลดไม่สำเร็จ": "The map still couldn't load",
   "ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง": "Check your internet connection and try again",
   "ตำแหน่งปัจจุบัน": "Current location",
+  "ตำแหน่งปัจจุบันของคุณ": "Your current location",
   "ค้นหาใน WYNOS Maps": "Search WYNOS Maps",
   "ค้นหา สำรวจ และเลือกตำแหน่ง": "Search, explore and choose a location",
   "ค้นหา สำรวจ และเลือกตำแหน่งบน WYNOS Maps": "Search, explore and choose a location on WYNOS Maps",
