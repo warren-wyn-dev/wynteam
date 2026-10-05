@@ -1192,14 +1192,19 @@ function MenuPanel({
   onReorder: (ids: string[]) => void;
   onCategoryOrder: (categories: string[]) => void;
 }) {
+  const [sortMode, setSortMode] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [openActionId, setOpenActionId] = useState<string | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set());
   const q = query.trim().toLocaleLowerCase("th-TH");
-  const displayMenu = q
-    ? menu.filter((item) => `${item.name} ${item.category} ${item.description ?? ""}`.toLocaleLowerCase("th-TH").includes(q))
-    : menu;
   const presentCategories = Array.from(new Set(menu.map((item) => item.category.trim() || "อื่น ๆ")));
   const preferred = Array.isArray(store.menu_category_order) ? store.menu_category_order : [];
   const categoryOrder = [...preferred.filter((name) => presentCategories.includes(name)), ...presentCategories.filter((name) => !preferred.includes(name))];
-  const categories = categoryOrder
+  const visibleCategoryOrder = categoryFilter === "all" ? categoryOrder : categoryOrder.filter((name) => name === categoryFilter);
+  const displayMenu = q
+    ? menu.filter((item) => `${item.name} ${item.category} ${item.description ?? ""}`.toLocaleLowerCase("th-TH").includes(q))
+    : menu;
+  const categories = visibleCategoryOrder
     .map((category) => [category, displayMenu.filter((item) => (item.category.trim() || "อื่น ๆ") === category)] as const)
     .filter(([, items]) => items.length);
 
@@ -1240,79 +1245,173 @@ function MenuPanel({
     moveItem(itemId, items[target].id);
   };
 
+  const toggleCategory = (category: string) => {
+    setCollapsedCategories((current) => {
+      const next = new Set(current);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  };
+
   return (
     <>
-      <div className="wm-page-heading wm-page-heading--action">
-        <div><small>รายการขาย</small><h1>เมนูอาหาร</h1></div>
-        <button className="wm-small-primary" type="button" onClick={onAdd}><Plus size={17} /> เพิ่มเมนู</button>
+      <div className="wm-page-heading wm-page-heading--action wm-menu-page-heading">
+        <div><h1>เมนูอาหาร</h1></div>
+        <button className="wm-small-primary wm-menu-add" type="button" onClick={onAdd}><Plus size={18} /> เพิ่มเมนู</button>
       </div>
-      <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="ค้นหาเมนูหรือหมวดหมู่" /></label>
-      {!q && menu.length ? <div className="wm-menu-sort-hint"><GripVertical size={15} /> ลากหมวดหมู่หรือเมนูเพื่อจัดลำดับหน้าร้าน</div> : null}
-      <div className="wm-menu-categories">
-        {categories.map(([category, items], categoryIndex) => (
-          <section
-            className="wm-menu-category"
-            key={category}
-            draggable={!q}
-            onDragStart={(event) => event.dataTransfer.setData("text/wynos-category", category)}
-            onDragOver={(event) => { if (event.dataTransfer.types.includes("text/wynos-category")) event.preventDefault(); }}
-            onDrop={(event) => {
-              const source = event.dataTransfer.getData("text/wynos-category");
-              if (source) { event.preventDefault(); moveCategory(source, category); }
+
+      <label className="wm-search wm-menu-search">
+        <Search size={20} strokeWidth={1.7} />
+        <input
+          value={query}
+          onChange={(event) => {
+            onQuery(event.target.value);
+            if (event.target.value) setSortMode(false);
+          }}
+          placeholder="ค้นหาเมนูหรือหมวดหมู่"
+        />
+      </label>
+
+      {menu.length ? (
+        <div className="wm-menu-toolbar" aria-label="เครื่องมือเมนู">
+          <button
+            className={`wm-menu-tool ${sortMode ? "is-active" : ""}`}
+            type="button"
+            aria-pressed={sortMode}
+            disabled={Boolean(q) || categoryFilter !== "all"}
+            onClick={() => {
+              setSortMode((value) => !value);
+              setOpenActionId(null);
             }}
           >
-            <div className="wm-menu-category-heading">
-              <span><GripVertical size={16} /><strong>{category}</strong></span>
-              <span className="wm-sort-controls">
-                <button type="button" aria-label="เลื่อนหมวดหมู่ขึ้น" disabled={Boolean(q) || categoryIndex === 0} onClick={() => shiftCategory(category, -1)}><ChevronUp size={14} /></button>
-                <button type="button" aria-label="เลื่อนหมวดหมู่ลง" disabled={Boolean(q) || categoryIndex === categories.length - 1} onClick={() => shiftCategory(category, 1)}><ChevronDown size={14} /></button>
-                <em>{items.length} เมนู</em>
-              </span>
-            </div>
-            <div className="wm-menu-list">
-              {items.map((item, itemIndex) => {
-                const image = foodPublicUrl(client, item.image_path);
-                const optionCount = Array.isArray(item.options)
-                  ? item.options.reduce((sum, group) => sum + (Array.isArray(group.choices) ? group.choices.length : 0), 0)
-                  : 0;
-                const available = foodMenuIsEffectivelyAvailable(item);
-                const soldOutToday = Boolean(item.sold_out_until && Date.parse(item.sold_out_until) > Date.now());
-                return (
-                  <article
-                    className={`wm-menu-row ${available ? "" : "is-off"}`}
-                    key={item.id}
-                    draggable={!q}
-                    onDragStart={(event) => event.dataTransfer.setData("text/wynos-menu", item.id)}
-                    onDragOver={(event) => { if (event.dataTransfer.types.includes("text/wynos-menu")) event.preventDefault(); }}
-                    onDrop={(event) => {
-                      const source = event.dataTransfer.getData("text/wynos-menu");
-                      if (source) { event.preventDefault(); moveItem(source, item.id); }
-                    }}
-                  >
-                    <span className="wm-menu-drag" aria-hidden="true"><GripVertical size={17} /></span>
-                    <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
-                      <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
-                      <span className="wm-menu-copy">
-                        <strong>{item.name}</strong>
-                        <small>{soldOutToday ? "หมดวันนี้ · เปิดอัตโนมัติวันถัดไป" : item.daily_stock_limit ? `จำกัด ${item.daily_stock_limit} ชิ้น/วัน` : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
-                        <b>{money(item.price)}</b>
-                      </span>
-                    </button>
-                    <div className="wm-menu-row-actions">
-                      <span className="wm-sort-controls">
-                        <button type="button" aria-label="เลื่อนเมนูขึ้น" disabled={Boolean(q) || itemIndex === 0} onClick={() => shiftItem(items, item.id, -1)}><ChevronUp size={13} /></button>
-                        <button type="button" aria-label="เลื่อนเมนูลง" disabled={Boolean(q) || itemIndex === items.length - 1} onClick={() => shiftItem(items, item.id, 1)}><ChevronDown size={13} /></button>
-                      </span>
-                      <button className={soldOutToday ? "is-active" : ""} type="button" onClick={() => onSoldOut(item, !soldOutToday)}>{soldOutToday ? "ยกเลิกหมดวันนี้" : "หมดวันนี้"}</button>
-                      <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขาย" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+            <GripVertical size={17} />
+            <span>{sortMode ? "เสร็จสิ้น" : "จัดลำดับ"}</span>
+          </button>
+          <label className="wm-menu-tool wm-menu-category-filter">
+            <MenuIcon size={17} />
+            <select
+              aria-label="กรองตามหมวดหมู่"
+              value={categoryFilter}
+              onChange={(event) => {
+                setCategoryFilter(event.target.value);
+                setSortMode(false);
+                setOpenActionId(null);
+              }}
+            >
+              <option value="all">ทุกหมวดหมู่</option>
+              {categoryOrder.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+            <ChevronDown size={15} aria-hidden="true" />
+          </label>
+        </div>
+      ) : null}
+
+      {sortMode ? (
+        <div className="wm-menu-sort-hint"><GripVertical size={15} /> ลากหมวดหมู่หรือเมนูเพื่อจัดลำดับหน้าร้าน</div>
+      ) : null}
+
+      <div className="wm-menu-categories">
+        {categories.map(([category, items]) => {
+          const categoryIndex = categoryOrder.indexOf(category);
+          const collapsed = collapsedCategories.has(category);
+          return (
+            <section
+              className={`wm-menu-category ${collapsed ? "is-collapsed" : ""}`}
+              key={category}
+              draggable={sortMode && !q}
+              onDragStart={(event) => event.dataTransfer.setData("text/wynos-category", category)}
+              onDragOver={(event) => { if (sortMode && event.dataTransfer.types.includes("text/wynos-category")) event.preventDefault(); }}
+              onDrop={(event) => {
+                const source = event.dataTransfer.getData("text/wynos-category");
+                if (sortMode && source) { event.preventDefault(); moveCategory(source, category); }
+              }}
+            >
+              <div className="wm-menu-category-heading">
+                <div className="wm-menu-category-title">
+                  {sortMode ? <span className="wm-menu-category-drag" aria-hidden="true"><GripVertical size={17} /></span> : <span className="wm-menu-category-mark"><MenuIcon size={16} /></span>}
+                  <button type="button" onClick={() => toggleCategory(category)}><strong>{category}</strong></button>
+                </div>
+                <div className="wm-menu-category-meta">
+                  <em>{items.length} เมนู</em>
+                  {sortMode ? (
+                    <span className="wm-sort-controls">
+                      <button type="button" aria-label="เลื่อนหมวดหมู่ขึ้น" disabled={Boolean(q) || categoryIndex === 0} onClick={() => shiftCategory(category, -1)}><ChevronUp size={14} /></button>
+                      <button type="button" aria-label="เลื่อนหมวดหมู่ลง" disabled={Boolean(q) || categoryIndex === categoryOrder.length - 1} onClick={() => shiftCategory(category, 1)}><ChevronDown size={14} /></button>
+                    </span>
+                  ) : null}
+                  <button className={`wm-menu-collapse ${collapsed ? "is-collapsed" : ""}`} type="button" aria-label={collapsed ? "แสดงเมนูในหมวด" : "ซ่อนเมนูในหมวด"} aria-expanded={!collapsed} onClick={() => toggleCategory(category)}>
+                    <ChevronDown size={17} />
+                  </button>
+                </div>
+              </div>
+
+              {!collapsed ? (
+                <div className="wm-menu-list">
+                  {items.map((item, itemIndex) => {
+                    const image = foodPublicUrl(client, item.image_path);
+                    const optionCount = Array.isArray(item.options)
+                      ? item.options.reduce((sum, group) => sum + (Array.isArray(group.choices) ? group.choices.length : 0), 0)
+                      : 0;
+                    const available = foodMenuIsEffectivelyAvailable(item);
+                    const soldOutToday = Boolean(item.sold_out_until && Date.parse(item.sold_out_until) > Date.now());
+                    const actionOpen = openActionId === item.id;
+                    return (
+                      <article
+                        className={`wm-menu-row ${available ? "" : "is-off"} ${soldOutToday ? "is-sold-out" : ""} ${sortMode ? "is-sorting" : ""}`}
+                        key={item.id}
+                        draggable={sortMode && !q}
+                        onDragStart={(event) => event.dataTransfer.setData("text/wynos-menu", item.id)}
+                        onDragOver={(event) => { if (sortMode && event.dataTransfer.types.includes("text/wynos-menu")) event.preventDefault(); }}
+                        onDrop={(event) => {
+                          const source = event.dataTransfer.getData("text/wynos-menu");
+                          if (sortMode && source) { event.preventDefault(); moveItem(source, item.id); }
+                        }}
+                      >
+                        {sortMode ? <span className="wm-menu-drag" aria-hidden="true"><GripVertical size={18} /></span> : null}
+                        <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
+                          <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
+                          <span className="wm-menu-copy">
+                            <strong>{item.name}</strong>
+                            {soldOutToday ? (
+                              <span className="wm-menu-meta-line"><span className="wm-menu-soldout-badge">หมดวันนี้</span><small>เปิดอัตโนมัติวันถัดไป</small></span>
+                            ) : (
+                              <small>{item.daily_stock_limit ? `จำกัด ${item.daily_stock_limit} ชิ้น/วัน` : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
+                            )}
+                            <b>{money(item.price)}</b>
+                          </span>
+                        </button>
+                        <div className="wm-menu-row-actions">
+                          {sortMode ? (
+                            <span className="wm-sort-controls">
+                              <button type="button" aria-label="เลื่อนเมนูขึ้น" disabled={Boolean(q) || itemIndex === 0} onClick={() => shiftItem(items, item.id, -1)}><ChevronUp size={13} /></button>
+                              <button type="button" aria-label="เลื่อนเมนูลง" disabled={Boolean(q) || itemIndex === items.length - 1} onClick={() => shiftItem(items, item.id, 1)}><ChevronDown size={13} /></button>
+                            </span>
+                          ) : null}
+                          <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขาย" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
+                          {!sortMode ? (
+                            <div className="wm-menu-overflow">
+                              <button className="wm-menu-more" type="button" aria-label={`ตัวเลือกสำหรับ ${item.name}`} aria-expanded={actionOpen} onClick={() => setOpenActionId(actionOpen ? null : item.id)}>⋯</button>
+                              {actionOpen ? (
+                                <div className="wm-menu-action-popover" role="menu">
+                                  <button type="button" role="menuitem" onClick={() => { setOpenActionId(null); onEdit(item); }}>แก้ไขเมนู</button>
+                                  <button className={soldOutToday ? "is-active" : ""} type="button" role="menuitem" onClick={() => { setOpenActionId(null); onSoldOut(item, !soldOutToday); }}>{soldOutToday ? "ยกเลิกหมดวันนี้" : "หมดวันนี้"}</button>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </section>
+          );
+        })}
       </div>
+
+      {menu.length && !categories.length ? <div className="wm-empty wm-empty--compact"><Search size={34} strokeWidth={1.5} /><strong>ไม่พบเมนูที่ค้นหา</strong><p>ลองเปลี่ยนคำค้นหาหรือเลือกหมวดหมู่อื่น</p></div> : null}
       {!menu.length ? <div className="wm-empty"><MenuIcon size={38} strokeWidth={1.5} /><strong>ยังไม่มีเมนู</strong><p>เพิ่มอาหารหรือเครื่องดื่มเพื่อเริ่มรับออเดอร์</p></div> : null}
     </>
   );
