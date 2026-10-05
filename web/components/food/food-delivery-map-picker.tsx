@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, Briefcase, Building2, Check, Clock, Coffee, Home, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
+import { ArrowLeft, Briefcase, Building2, Check, Clock, Coffee, Home, ImagePlus, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -16,6 +16,13 @@ import {
   type FoodLocation,
   type FoodPlace,
 } from "@/lib/food-customer";
+import {
+  canHavePhotos,
+  loadPlacePhotos,
+  uploadPlacePhoto,
+  withdrawPlacePhoto,
+  type PlacePhotosState,
+} from "@/lib/maps-place-photos";
 import {
   deleteSavedPlace,
   loadSavedPlaces,
@@ -352,6 +359,9 @@ export function FoodDeliveryMapPicker({
     longitude: number;
   } | null>(null);
   const [savingPlace, setSavingPlace] = useState(false);
+  const [placePhotos, setPlacePhotos] = useState<{ placeId: string; state: PlacePhotosState } | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
   const [showAttribution, setShowAttribution] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestionName, setSuggestionName] = useState("");
@@ -441,6 +451,23 @@ export function FoodDeliveryMapPicker({
     const timer = window.setTimeout(() => setRecentPlaces(loadRecentPlaces(mapsStorage())), 0);
     return () => window.clearTimeout(timer);
   }, [standalone]);
+
+  const activePhotoPlaceId = standalone && canHavePhotos(activeNearbyPlace?.placeId) ? activeNearbyPlace?.placeId ?? null : null;
+
+  const refreshPhotos = useCallback(async (placeId: string) => {
+    try {
+      const state = await loadPlacePhotos(client, placeId);
+      setPlacePhotos({ placeId, state });
+    } catch {
+      setPlacePhotos({ placeId, state: { status: "ready", photos: [] } });
+    }
+  }, [client]);
+
+  useEffect(() => {
+    if (!activePhotoPlaceId) return;
+    const timer = window.setTimeout(() => void refreshPhotos(activePhotoPlaceId), 0);
+    return () => window.clearTimeout(timer);
+  }, [activePhotoPlaceId, refreshPhotos]);
 
   const refreshSaved = useCallback(async () => {
     if (!standalone) return;
@@ -965,6 +992,34 @@ export function FoodDeliveryMapPicker({
     }
   };
 
+  const activePhotos = placePhotos && placePhotos.placeId === activePhotoPlaceId ? placePhotos.state : null;
+
+  const addPhoto = async (file: File | undefined) => {
+    if (!file || !activePhotoPlaceId) return;
+    setUploadingPhoto(true);
+    setStatus("");
+    try {
+      await uploadPlacePhoto(client, activePhotoPlaceId, file);
+      setStatus("ส่งรูปให้ทีม WYNOS ตรวจแล้ว รูปจะขึ้นหลังผ่านการตรวจ");
+      await refreshPhotos(activePhotoPlaceId);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "เพิ่มรูปไม่สำเร็จ");
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
+
+  const removePhoto = async (photoId: string) => {
+    if (!activePhotoPlaceId) return;
+    try {
+      await withdrawPlacePhoto(client, photoId);
+      await refreshPhotos(activePhotoPlaceId);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "ลบรูปไม่สำเร็จ");
+    }
+  };
+
   const sharePlace = async (target: { name?: string | null; latitude: number; longitude: number }) => {
     const url = mapsShareUrl(window.location.origin, target.latitude, target.longitude);
     const title = target.name?.trim() || "ตำแหน่งบน WYNOS Maps";
@@ -1324,6 +1379,41 @@ export function FoodDeliveryMapPicker({
                 </div>
               ) : null}
             </div>
+            {activePhotos?.status === "ready" ? (
+              <div className="wf-map-place-photos" aria-label="รูปสถานที่">
+                {activePhotos.photos.map((photo) => (
+                  <figure key={photo.id}>
+                    {/* Signed Storage URLs; next/image would proxy and re-cache them. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.url} alt={`รูปของ ${activeNearbyPlace.name}`} loading="lazy" />
+                    {photo.status === "pending" ? <figcaption>รอตรวจ</figcaption> : null}
+                    {photo.isMine ? (
+                      <button type="button" aria-label="ลบรูปนี้" onClick={() => void removePhoto(photo.id)}>
+                        <X size={14} />
+                      </button>
+                    ) : null}
+                  </figure>
+                ))}
+                <button
+                  type="button"
+                  className="wf-map-photo-add"
+                  disabled={uploadingPhoto}
+                  onClick={() => photoInputRef.current?.click()}
+                >
+                  <ImagePlus size={20} />
+                  <span>{uploadingPhoto ? "กำลังส่ง…" : "เพิ่มรูป"}</span>
+                </button>
+                <input
+                  ref={photoInputRef}
+                  className="wf-map-photo-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onChange={(event) => void addPhoto(event.target.files?.[0])}
+                />
+              </div>
+            ) : null}
             <div className="wf-map-place-actions">
               <button
                 type="button"

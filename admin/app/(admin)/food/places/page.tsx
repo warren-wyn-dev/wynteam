@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft, MapPinned } from "lucide-react";
 
+import { WynosPlacePhotoReview } from "@/components/admin/wynos-place-photo-review";
 import { WynosPlacesManager } from "@/components/admin/wynos-places-manager";
-import { fetchAdminWynosPlaces, fetchAdminWynosPlaceSuggestions } from "@/lib/admin-food";
+import { fetchAdminWynosPlacePhotos, fetchAdminWynosPlaces, fetchAdminWynosPlaceSuggestions } from "@/lib/admin-food";
 import { requireAdminRole } from "@/lib/auth";
 
 export default async function WynosPlacesPage({
@@ -12,7 +13,7 @@ export default async function WynosPlacesPage({
 }) {
   await requireAdminRole();
   const params = await searchParams;
-  const [places, suggestions] = await Promise.all([
+  const [places, suggestions, photos] = await Promise.all([
     fetchAdminWynosPlaces({
       query: params.q,
       category: params.category,
@@ -20,6 +21,7 @@ export default async function WynosPlacesPage({
       limit: 500,
     }),
     fetchAdminWynosPlaceSuggestions("pending"),
+    fetchAdminWynosPlacePhotos(),
   ]);
 
   return (
@@ -59,6 +61,8 @@ export default async function WynosPlacesPage({
         </select>
         <button type="submit" className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-accent">กรอง</button>
       </form>
+
+      <WynosPlacePhotoReview photos={photos} />
 
       <WynosPlacesManager places={places} suggestions={suggestions} />
     </div>

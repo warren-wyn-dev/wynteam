@@ -224,3 +224,17 @@ export async function reviewWynosPlaceSuggestion(suggestionId: string, approve: 
   if (error) throw error;
   return data as string | null;
 }
+
+/** Approve or reject a user place photo; a rejected photo's file is deleted right away. */
+export async function reviewWynosPlacePhoto(photoId: string, storagePath: string, approve: boolean) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_review_wynos_place_photo", {
+    p_photo_id: photoId,
+    p_decision: approve ? "approve" : "reject",
+  });
+  if (error) throw error;
+  if (!approve) {
+    const { error: removeError } = await supabase.storage.from("place-photos").remove([storagePath]);
+    if (removeError) throw removeError;
+  }
+}
