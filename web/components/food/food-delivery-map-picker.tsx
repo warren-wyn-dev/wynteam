@@ -598,17 +598,24 @@ export function FoodDeliveryMapPicker({
     nearbyMarkersRef.current.forEach((marker) => marker.remove());
 
     const markerLimit = standalone
-      ? (mapZoom >= 17 ? 22 : mapZoom >= 15.5 ? 16 : mapZoom >= 13.5 ? 12 : 8)
+      ? (mapZoom >= 17 ? 18 : mapZoom >= 15.5 ? 12 : mapZoom >= 13.5 ? 8 : 5)
       : nearbyPlaces.length;
     const selectedIdentity = activeNearbyPlace ? placeIdentity(activeNearbyPlace) : null;
     const candidates = [...nearbyPlaces].sort((a, b) => {
-      const aSelected = selectedIdentity === placeIdentity(a);
-      const bSelected = selectedIdentity === placeIdentity(b);
-      if (aSelected === bSelected) return 0;
-      return aSelected ? -1 : 1;
+      const score = (candidate: FoodPlace) => {
+        if (selectedIdentity === placeIdentity(candidate)) return -10;
+        const kind = placeMarkerKind(candidate);
+        if (candidate.merchantStoreId || kind === "food" || kind === "cafe") return 0;
+        if (kind === "shop" || kind === "pickup") return 1;
+        if (kind === "building") return 2;
+        return 3;
+      };
+      return score(a) - score(b);
     });
     const occupied: MapPoint[] = [];
-    const minimumGap = mapZoom >= 17 ? 34 : mapZoom >= 15.5 ? 42 : 50;
+    const minimumGap = standalone
+      ? (mapZoom >= 17 ? 46 : mapZoom >= 15.5 ? 58 : 70)
+      : (mapZoom >= 17 ? 34 : mapZoom >= 15.5 ? 42 : 50);
     const visiblePlaces: FoodPlace[] = [];
 
     for (const nearbyPlace of candidates) {
