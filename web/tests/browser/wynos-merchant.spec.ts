@@ -79,6 +79,30 @@ test("Merchant keeps scheduled orders and tax receipts while More stays simple",
   expect(sql).toContain("tax_invoice_enabled boolean");
 });
 
+test("Merchant notification center groups Push, order sound, vibration, quiet hours and tests", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const center = read("components/merchant/merchant-notification-settings.tsx");
+  const alert = read("components/merchant/merchant-order-alert.tsx");
+  const prefs = read("lib/merchant-notification-preferences.ts");
+  const prompt = read("components/merchant/merchant-notification-prompt.tsx");
+  const css = read("app/merchant/merchant.css");
+
+  expect(app).toContain('"notifications"');
+  expect(app).toContain("<MerchantNotificationSettings");
+  expect(app).toContain('onOpenTab("notifications")');
+  expect(app).not.toContain(">ลองเสียงออเดอร์</button>");
+  expect(center).toContain("Web Push บนอุปกรณ์นี้");
+  expect(center).toContain("เสียงออเดอร์");
+  expect(center).toContain("การสั่น");
+  expect(center).toContain("Quiet Hours");
+  expect(center).toContain("ลองเสียงออเดอร์");
+  expect(center).toContain("<MerchantNotificationTest");
+  expect(prefs).toContain("MERCHANT_ALERT_PREFS_KEY");
+  expect(alert).toContain("merchantAlertQuietNow");
+  expect(prompt).toContain("isPushChosenOff(userId)");
+  expect(css).toContain(".wm-notification-card");
+});
+
 test("Merchant can upload and preview store profile and cover images", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
