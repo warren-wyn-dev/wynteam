@@ -4166,3 +4166,346 @@ button.wm-menu-tool:disabled {
   }
 }
 
+/* WYNOS Merchant add-menu hub — simple, touch-first workflow inspired by leading merchant apps. */
+.wm-sheet--menu-flow {
+  width: min(100%, 600px);
+}
+
+.wm-sheet--menu-flow > header {
+  min-height: 64px;
+  padding: 0 18px;
+  grid-template-columns: 44px minmax(0, 1fr) 24px;
+  background: var(--wm-bg);
+}
+
+.wm-sheet--menu-flow > header button {
+  width: 42px;
+  height: 42px;
+  margin-left: -8px;
+}
+
+.wm-sheet--menu-flow > header h2 {
+  text-align: left;
+  font-size: 18px;
+  font-weight: 780;
+  letter-spacing: -.25px;
+}
+
+.wm-sheet--menu-flow .wm-sheet-body {
+  padding: 22px 22px calc(30px + env(safe-area-inset-bottom));
+  background: var(--wm-bg);
+}
+
+.wm-menu-create-hub {
+  display: grid;
+  gap: 30px;
+}
+
+.wm-menu-create-group {
+  display: grid;
+  gap: 12px;
+}
+
+.wm-menu-create-group h3 {
+  margin: 0;
+  color: var(--wm-text);
+  font-size: 16px;
+  font-weight: 780;
+  letter-spacing: -.15px;
+}
+
+.wm-menu-create-card {
+  width: 100%;
+  min-height: 94px;
+  padding: 15px 16px;
+  border: 1px solid color-mix(in srgb, var(--wm-border) 94%, transparent);
+  border-radius: 17px;
+  background: var(--wm-bg);
+  color: var(--wm-text);
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  box-shadow: 0 5px 18px rgb(0 0 0 / 3%);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.wm-menu-create-card:active {
+  transform: scale(.992);
+  border-color: color-mix(in srgb, var(--wm-red) 25%, var(--wm-border));
+  background: color-mix(in srgb, var(--wm-red-soft) 28%, var(--wm-bg));
+}
+
+.wm-menu-create-card > svg {
+  color: var(--wm-secondary);
+}
+
+.wm-menu-create-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--wm-red-soft);
+  color: var(--wm-red);
+  display: grid;
+  place-items: center;
+}
+
+.wm-menu-create-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.wm-menu-create-copy strong {
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: -.15px;
+}
+
+.wm-menu-create-copy small {
+  color: var(--wm-secondary);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.wm-menu-tool-page,
+.wm-menu-category-manager {
+  display: grid;
+  gap: 16px;
+}
+
+.wm-menu-tool-intro {
+  padding: 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--wm-surface) 86%, var(--wm-bg));
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+}
+
+.wm-menu-tool-intro-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: var(--wm-red-soft);
+  color: var(--wm-red);
+  display: grid;
+  place-items: center;
+}
+
+.wm-menu-tool-intro > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.wm-menu-tool-intro strong {
+  font-size: 13.5px;
+}
+
+.wm-menu-tool-intro small {
+  color: var(--wm-secondary);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.wm-menu-tool-search {
+  margin: 0;
+  min-height: 48px;
+}
+
+.wm-menu-tool-list {
+  overflow: hidden;
+  border: 1px solid var(--wm-border);
+  border-radius: 17px;
+  background: var(--wm-bg);
+}
+
+.wm-menu-tool-list > button {
+  width: 100%;
+  min-height: 76px;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--wm-border);
+  background: transparent;
+  color: var(--wm-text);
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+}
+
+.wm-menu-tool-list > button:last-of-type {
+  border-bottom: 0;
+}
+
+.wm-menu-tool-list > button:active {
+  background: var(--wm-surface);
+}
+
+.wm-menu-tool-list > button > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.wm-menu-tool-list strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+.wm-menu-tool-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wm-secondary);
+  font-size: 10.5px;
+}
+
+.wm-menu-tool-list > button > svg {
+  color: var(--wm-muted);
+}
+
+.wm-menu-tool-thumb {
+  width: 54px;
+  height: 54px;
+  overflow: hidden;
+  border-radius: 13px;
+  background: var(--wm-surface);
+  color: var(--wm-muted);
+  display: grid;
+  place-items: center;
+}
+
+.wm-menu-tool-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wm-menu-tool-empty {
+  padding: 28px 16px;
+  color: var(--wm-secondary);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.wm-menu-category-add {
+  padding: 6px;
+  border: 1px solid var(--wm-border);
+  border-radius: 15px;
+  background: var(--wm-bg);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.wm-menu-category-add input,
+.wm-menu-category-edit-row input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--wm-text);
+  font: inherit;
+}
+
+.wm-menu-category-add input {
+  min-height: 40px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+
+.wm-menu-category-add button {
+  min-width: 78px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--wm-red);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.wm-menu-category-add button:disabled {
+  opacity: .45;
+}
+
+.wm-menu-category-edit-list {
+  overflow: hidden;
+  border: 1px solid var(--wm-border);
+  border-radius: 17px;
+  background: var(--wm-bg);
+}
+
+.wm-menu-category-edit-row {
+  min-height: 62px;
+  padding: 8px 9px 8px 12px;
+  border-bottom: 1px solid var(--wm-border);
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.wm-menu-category-edit-row:last-child {
+  border-bottom: 0;
+}
+
+.wm-menu-category-edit-row > svg {
+  color: var(--wm-muted);
+}
+
+.wm-menu-category-edit-row input {
+  min-height: 38px;
+  padding: 0 5px;
+  font-size: 12.5px;
+  font-weight: 680;
+}
+
+.wm-menu-category-edit-row .wm-sort-controls {
+  gap: 5px;
+}
+
+.wm-menu-category-edit-row .wm-sort-controls button {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--wm-surface);
+}
+
+@media (max-width: 680px) {
+  .wm-sheet--menu-flow {
+    height: calc(100dvh - max(22px, env(safe-area-inset-top)));
+    max-height: calc(100dvh - max(22px, env(safe-area-inset-top)));
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .wm-sheet--menu-flow .wm-sheet-body {
+    max-height: calc(100dvh - max(22px, env(safe-area-inset-top)) - 64px);
+    padding: 24px 20px calc(34px + env(safe-area-inset-bottom));
+  }
+
+  .wm-menu-create-hub {
+    gap: 32px;
+  }
+
+  .wm-menu-create-card {
+    min-height: 96px;
+    border-radius: 16px;
+    padding: 16px 15px;
+  }
+}
+

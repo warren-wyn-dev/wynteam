@@ -13,6 +13,7 @@ import {
   Clock3,
   ImagePlus,
   LayoutGrid,
+  ListPlus,
   LogOut,
   GripVertical,
   Eye,
@@ -30,6 +31,7 @@ import {
   Share2,
   ShoppingBag,
   Store,
+  Tags,
   Truck,
   Upload,
   UtensilsCrossed,
@@ -130,6 +132,21 @@ const EMPTY_MENU_DRAFT: MenuDraft = {
   is_available: true,
   daily_stock_limit: "",
 };
+
+function menuDraftFromItem(item: FoodMenuItem): MenuDraft {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    description: item.description ?? "",
+    price: String(item.price),
+    image_path: item.image_path,
+    options: Array.isArray(item.options) ? item.options : [],
+    is_available: item.is_available,
+    sold_out_until: item.sold_out_until ?? null,
+    daily_stock_limit: item.daily_stock_limit == null ? "" : String(item.daily_stock_limit),
+  };
+}
 
 function menuOptionId(prefix: "group" | "choice") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -368,6 +385,8 @@ function MerchantInner({
   const [notifyPrompt, setNotifyPrompt] = useState<"auto" | null>("auto");
   const [menuQuery, setMenuQuery] = useState("");
   const [menuDraft, setMenuDraft] = useState<MenuDraft | null>(null);
+  const [menuAddOpen, setMenuAddOpen] = useState(false);
+  const [menuToolMode, setMenuToolMode] = useState<"options" | "categories" | null>(null);
   const [storeEditing, setStoreEditing] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
@@ -683,18 +702,8 @@ function MerchantInner({
             menu={menu}
             query={menuQuery}
             onQuery={setMenuQuery}
-            onEdit={(item) => setMenuDraft({
-              id: item.id,
-              name: item.name,
-              category: item.category,
-              description: item.description ?? "",
-              price: String(item.price),
-              image_path: item.image_path,
-              options: Array.isArray(item.options) ? item.options : [],
-              is_available: item.is_available,
-              daily_stock_limit: item.daily_stock_limit == null ? "" : String(item.daily_stock_limit),
-            })}
-            onAdd={() => setMenuDraft({ ...EMPTY_MENU_DRAFT })}
+            onEdit={(item) => setMenuDraft(menuDraftFromItem(item))}
+            onAdd={() => setMenuAddOpen(true)}
             onToggle={async (item) => {
               try {
                 await setMenuAvailability(client, store.id, item.id, !item.is_available);
@@ -803,7 +812,7 @@ function MerchantInner({
         <NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม" icon={<MerchantNavIcon name="more" active={MORE_PAGES.has(tab)} />} onClick={() => setTab("more")} />
       </nav>
 
-      {notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
+      {notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !menuAddOpen && !menuToolMode && !storeEditing ? (
         <MerchantNotificationPrompt
           key={notifyPrompt}
           client={client}
@@ -814,7 +823,7 @@ function MerchantInner({
         />
       ) : null}
 
-      {alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
+      {alertOrder && !selectedOrder && !menuDraft && !menuAddOpen && !menuToolMode && !storeEditing ? (
         <NewOrderAlert
           key={alertKey(alertOrder)}
           order={alertOrder}
@@ -831,6 +840,50 @@ function MerchantInner({
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
           onReload={() => void load(true)}
+          onMessage={setMessage}
+        />
+      ) : null}
+
+      {menuAddOpen && store ? (
+        <MenuAddHub
+          onClose={() => setMenuAddOpen(false)}
+          onNewMenu={() => {
+            setMenuAddOpen(false);
+            setMenuDraft({ ...EMPTY_MENU_DRAFT });
+          }}
+          onOptions={() => {
+            setMenuAddOpen(false);
+            setMenuToolMode("options");
+          }}
+          onCategories={() => {
+            setMenuAddOpen(false);
+            setMenuToolMode("categories");
+          }}
+        />
+      ) : null}
+
+      {menuToolMode === "options" && store ? (
+        <MenuOptionPicker
+          client={client}
+          menu={menu}
+          onClose={() => setMenuToolMode(null)}
+          onPick={(item) => {
+            setMenuToolMode(null);
+            setMenuDraft(menuDraftFromItem(item));
+          }}
+        />
+      ) : null}
+
+      {menuToolMode === "categories" && store ? (
+        <MenuCategoryManager
+          client={client}
+          store={store}
+          menu={menu}
+          onClose={() => setMenuToolMode(null)}
+          onSaved={async () => {
+            setMenuToolMode(null);
+            await load(true);
+          }}
           onMessage={setMessage}
         />
       ) : null}
@@ -1664,7 +1717,21 @@ function MerchantStorefrontPreview({
   );
 }
 
-function Sheet({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+function Sheet({
+  title,
+  onClose,
+  children,
+  wide = false,
+  back = false,
+  className = "",
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  wide?: boolean;
+  back?: boolean;
+  className?: string;
+}) {
   const sheetRef = useRef<HTMLElement>(null);
   // Move keyboard focus into the sheet when it opens (e.g. from the new-order
   // alert) and give it back to whatever opened the sheet when it closes.
@@ -1675,8 +1742,8 @@ function Sheet({ title, onClose, children, wide = false }: { title: string; onCl
   }, []);
   return (
     <div className="wm-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section ref={sheetRef} tabIndex={-1} className={`wm-sheet ${wide ? "wm-sheet--wide" : ""}`} role="dialog" aria-modal="true" aria-label={title}>
-        <header><button type="button" aria-label="ปิด" onClick={onClose}><X size={22} /></button><h2>{title}</h2><span /></header>
+      <section ref={sheetRef} tabIndex={-1} className={`wm-sheet ${wide ? "wm-sheet--wide" : ""} ${className}`} role="dialog" aria-modal="true" aria-label={title}>
+        <header><button type="button" aria-label={back ? "ย้อนกลับ" : "ปิด"} onClick={onClose}>{back ? <ChevronLeft size={24} /> : <X size={22} />}</button><h2>{title}</h2><span /></header>
         <div className="wm-sheet-body">{children}</div>
       </section>
     </div>
@@ -1943,6 +2010,216 @@ function OrderSheet({
   );
 }
 
+function MenuAddHub({
+  onClose,
+  onNewMenu,
+  onOptions,
+  onCategories,
+}: {
+  onClose: () => void;
+  onNewMenu: () => void;
+  onOptions: () => void;
+  onCategories: () => void;
+}) {
+  const rows = [
+    {
+      group: "เมนู",
+      title: "เพิ่มเมนูใหม่",
+      description: "เพิ่มอาหารหรือเครื่องดื่ม",
+      icon: <UtensilsCrossed size={24} strokeWidth={1.8} />,
+      onClick: onNewMenu,
+    },
+    {
+      group: "ตัวเลือก",
+      title: "เพิ่มตัวเลือกเสริม",
+      description: "ขนาด · ความเผ็ด · ท็อปปิง · ของเสริม",
+      icon: <ListPlus size={24} strokeWidth={1.8} />,
+      onClick: onOptions,
+    },
+    {
+      group: "หมวดหมู่",
+      title: "จัดการหมวดหมู่",
+      description: "เพิ่ม · แก้ไข · จัดลำดับหมวดหมู่",
+      icon: <Tags size={24} strokeWidth={1.8} />,
+      onClick: onCategories,
+    },
+  ];
+
+  return (
+    <Sheet title="เพิ่มเมนู" onClose={onClose} back className="wm-sheet--menu-flow">
+      <div className="wm-menu-create-hub">
+        {rows.map((row) => (
+          <section key={row.group} className="wm-menu-create-group">
+            <h3>{row.group}</h3>
+            <button className="wm-menu-create-card" type="button" onClick={row.onClick}>
+              <span className="wm-menu-create-icon">{row.icon}</span>
+              <span className="wm-menu-create-copy"><strong>{row.title}</strong><small>{row.description}</small></span>
+              <ChevronRight size={22} strokeWidth={1.8} />
+            </button>
+          </section>
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
+function MenuOptionPicker({
+  client,
+  menu,
+  onClose,
+  onPick,
+}: {
+  client: SupabaseClient;
+  menu: FoodMenuItem[];
+  onClose: () => void;
+  onPick: (item: FoodMenuItem) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLocaleLowerCase("th-TH");
+  const visible = q
+    ? menu.filter((item) => `${item.name} ${item.category}`.toLocaleLowerCase("th-TH").includes(q))
+    : menu;
+
+  return (
+    <Sheet title="เพิ่มตัวเลือกเสริม" onClose={onClose} back className="wm-sheet--menu-flow">
+      <div className="wm-menu-tool-page">
+        <div className="wm-menu-tool-intro">
+          <span className="wm-menu-tool-intro-icon"><ListPlus size={24} /></span>
+          <span><strong>เลือกเมนูที่ต้องการ</strong><small>จากนั้นเพิ่มขนาด ความเผ็ด ท็อปปิง หรือของเสริมในเมนูนั้น</small></span>
+        </div>
+        <label className="wm-search wm-menu-tool-search"><Search size={19} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาเมนู" /></label>
+        <div className="wm-menu-tool-list">
+          {visible.map((item) => {
+            const image = foodPublicUrl(client, item.image_path);
+            const optionCount = Array.isArray(item.options)
+              ? item.options.reduce((sum, group) => sum + (Array.isArray(group.choices) ? group.choices.length : 0), 0)
+              : 0;
+            return (
+              <button type="button" key={item.id} onClick={() => onPick(item)}>
+                <span className="wm-menu-tool-thumb">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={22} />}</span>
+                <span><strong>{item.name}</strong><small>{item.category} · {optionCount ? `${optionCount} ตัวเลือกเสริม` : "ยังไม่มีตัวเลือกเสริม"}</small></span>
+                <ChevronRight size={19} />
+              </button>
+            );
+          })}
+          {!visible.length ? <div className="wm-menu-tool-empty">ไม่พบเมนูที่ค้นหา</div> : null}
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+type MenuCategoryRow = {
+  key: string;
+  original: string | null;
+  name: string;
+};
+
+function MenuCategoryManager({
+  client,
+  store,
+  menu,
+  onClose,
+  onSaved,
+  onMessage,
+}: {
+  client: SupabaseClient;
+  store: FoodStore;
+  menu: FoodMenuItem[];
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+  onMessage: (message: string) => void;
+}) {
+  const initial = Array.from(new Set([
+    ...(Array.isArray(store.menu_category_order) ? store.menu_category_order : []),
+    ...menu.map((item) => item.category.trim()).filter(Boolean),
+  ]));
+  const [rows, setRows] = useState<MenuCategoryRow[]>(() => initial.map((name) => ({ key: `existing-${name}`, original: name, name })));
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const move = (index: number, delta: -1 | 1) => {
+    const target = index + delta;
+    if (target < 0 || target >= rows.length) return;
+    setRows((current) => {
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const addCategory = () => {
+    const name = newName.trim();
+    if (!name) return;
+    if (rows.some((row) => row.name.trim().toLocaleLowerCase("th-TH") === name.toLocaleLowerCase("th-TH"))) {
+      onMessage("มีหมวดหมู่นี้อยู่แล้ว");
+      return;
+    }
+    setRows((current) => [...current, { key: `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, original: null, name }]);
+    setNewName("");
+  };
+
+  const save = async () => {
+    const names = rows.map((row) => row.name.trim()).filter(Boolean);
+    const normalized = names.map((name) => name.toLocaleLowerCase("th-TH"));
+    if (!names.length) {
+      onMessage("กรุณามีอย่างน้อย 1 หมวดหมู่");
+      return;
+    }
+    if (new Set(normalized).size !== normalized.length) {
+      onMessage("ชื่อหมวดหมู่ซ้ำกัน");
+      return;
+    }
+    setBusy(true);
+    try {
+      const renameMap = new Map<string, string>(
+        rows
+          .filter((row) => row.original && row.original !== row.name.trim())
+          .map((row) => [row.original as string, row.name.trim()] as const),
+      );
+      const affected = menu.filter((item) => renameMap.has(item.category));
+      for (const item of affected) {
+        await saveMenuItem(client, store.id, { ...menuDraftFromItem(item), category: renameMap.get(item.category) ?? item.category });
+      }
+      await saveMenuCategoryOrder(client, store.id, names);
+      onMessage("บันทึกหมวดหมู่แล้ว");
+      await onSaved();
+    } catch (error) {
+      onMessage(merchantError(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet title="จัดการหมวดหมู่" onClose={onClose} back className="wm-sheet--menu-flow">
+      <div className="wm-menu-category-manager">
+        <div className="wm-menu-tool-intro">
+          <span className="wm-menu-tool-intro-icon"><Tags size={24} /></span>
+          <span><strong>หมวดหมู่เมนู</strong><small>เพิ่ม แก้ไขชื่อ และจัดลำดับให้ลูกค้าหาเมนูได้ง่ายขึ้น</small></span>
+        </div>
+        <div className="wm-menu-category-add">
+          <input value={newName} onChange={(event) => setNewName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCategory(); } }} placeholder="ชื่อหมวดหมู่ใหม่" />
+          <button type="button" onClick={addCategory} disabled={!newName.trim()}><Plus size={17} /> เพิ่ม</button>
+        </div>
+        <div className="wm-menu-category-edit-list">
+          {rows.map((row, index) => (
+            <div key={row.key} className="wm-menu-category-edit-row">
+              <GripVertical size={17} aria-hidden="true" />
+              <input value={row.name} onChange={(event) => setRows((current) => current.map((item) => item.key === row.key ? { ...item, name: event.target.value } : item))} aria-label="ชื่อหมวดหมู่" />
+              <span className="wm-sort-controls">
+                <button type="button" aria-label="เลื่อนหมวดหมู่ขึ้น" disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={14} /></button>
+                <button type="button" aria-label="เลื่อนหมวดหมู่ลง" disabled={index === rows.length - 1} onClick={() => move(index, 1)}><ChevronDown size={14} /></button>
+              </span>
+            </div>
+          ))}
+        </div>
+        <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกหมวดหมู่"}</button>
+      </div>
+    </Sheet>
+  );
+}
+
 function MenuEditor({
   client,
   store,
@@ -2063,12 +2340,15 @@ function MenuEditor({
           <label>หมวดหมู่
             <input list="wm-food-categories" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="เลือกหรือพิมพ์หมวดหมู่" />
             <datalist id="wm-food-categories">
-              <option value="อาหารจานหลัก" />
-              <option value="ของทานเล่น" />
-              <option value="เครื่องดื่ม" />
-              <option value="ของหวาน" />
-              <option value="เมนูแนะนำ" />
-              <option value="อื่น ๆ" />
+              {Array.from(new Set([
+                ...(Array.isArray(store.menu_category_order) ? store.menu_category_order : []),
+                "อาหารจานหลัก",
+                "ของทานเล่น",
+                "เครื่องดื่ม",
+                "ของหวาน",
+                "เมนูแนะนำ",
+                "อื่น ๆ",
+              ])).map((category) => <option key={category} value={category} />)}
             </datalist>
           </label>
           <label>ราคา<input type="number" min="0" step="1" inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0" /></label>
