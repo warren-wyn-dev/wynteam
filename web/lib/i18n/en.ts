@@ -2424,6 +2424,10 @@ Object.assign(EN_EXACT, {
   "สั่งล่วงหน้า": "Schedule order",
   "เลือกวันและเวลา": "Choose date and time",
   "กรุณาเลือกวันและเวลา": "Please choose a date and time",
+  "พิมพ์จาก WYNOS Merchant · โปรดตรวจสอบข้อมูลภาษีของร้านก่อนใช้เป็นเอกสารทางบัญชี": "Printed from WYNOS Merchant · Verify the store's tax details before using this as an accounting document",
+  "ออเดอร์ #": "Order #",
+  "นาที และไม่เกิน": "minutes ahead and no more than",
+  "ต้องล่วงหน้าอย่างน้อย": "At least",
   "เวลาที่เลือกอยู่นอกช่วงที่ร้านรับออเดอร์ล่วงหน้า": "The selected time is outside the store's scheduled-order window",
   "นัดรับ/จัดส่ง": "Scheduled pickup / delivery",
 });
