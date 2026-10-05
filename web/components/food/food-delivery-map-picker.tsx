@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Check, Info, LocateFixed, MapPin, RefreshCw, Search, Store, X } from "lucide-react";
+import { Check, Info, LocateFixed, MapPin, Plus, RefreshCw, Search, Store, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -12,6 +12,7 @@ import {
   reverseFoodPlace,
   searchFoodPlaces,
   searchStorePlaces,
+  submitWynosPlaceSuggestion,
   type FoodLocation,
   type FoodPlace,
 } from "@/lib/food-customer";
@@ -36,6 +37,7 @@ type MapStyle = string | {
 
 type MapInstance = {
   getCenter: () => MapCenter;
+  getZoom: () => number;
   flyTo: (options: { center: [number, number]; zoom?: number; essential?: boolean }) => void;
   on: (event: string, handler: (event?: unknown) => void) => void;
   off: (event: string, handler: (event?: unknown) => void) => void;
@@ -183,7 +185,14 @@ export function FoodDeliveryMapPicker({
   const [status, setStatus] = useState("");
   const [working, setWorking] = useState(false);
   const [showAttribution, setShowAttribution] = useState(false);
+  const [showSuggestion, setShowSuggestion] = useState(false);
+  const [suggestionName, setSuggestionName] = useState("");
+  const [suggestionCategory, setSuggestionCategory] = useState<"place" | "restaurant" | "store" | "building" | "residence" | "poi">("place");
+  const [suggestionAddress, setSuggestionAddress] = useState("");
+  const [suggestionNote, setSuggestionNote] = useState("");
+  const [submittingSuggestion, setSubmittingSuggestion] = useState(false);
   const [resolvingPlace, setResolvingPlace] = useState(false);
+  const [mapZoom, setMapZoom] = useState(initialLocation ? 16 : 5.4);
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   const [mapAttempt, setMapAttempt] = useState(0);
@@ -290,6 +299,7 @@ export function FoodDeliveryMapPicker({
         };
         const onMoveEnd = () => {
           if (!map) return;
+          setMapZoom(map.getZoom());
           const center = map.getCenter();
           const next = { latitude: center.lat, longitude: center.lng };
           void loadNearby(next);
@@ -367,7 +377,14 @@ export function FoodDeliveryMapPicker({
       button.setAttribute("aria-label", `${placeCategory(nearbyPlace)} ${nearbyPlace.name}`);
       button.title = nearbyPlace.name;
       const dot = document.createElement("span");
+      dot.className = "wf-map-place-dot";
       button.appendChild(dot);
+      if (mapZoom >= 14.5) {
+        const label = document.createElement("strong");
+        label.className = "wf-map-place-label";
+        label.textContent = nearbyPlace.name;
+        button.appendChild(label);
+      }
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -383,7 +400,7 @@ export function FoodDeliveryMapPicker({
       markers.forEach((marker) => marker.remove());
       if (nearbyMarkersRef.current === markers) nearbyMarkersRef.current = [];
     };
-  }, [mapReady, nearbyPlaces]);
+  }, [mapReady, mapZoom, nearbyPlaces]);
 
   const availabilityKey = activeNearbyPlace?.merchantStoreId && location
     ? `${activeNearbyPlace.merchantStoreId}|${location.latitude},${location.longitude}`
@@ -423,6 +440,39 @@ export function FoodDeliveryMapPicker({
       setStatus(error instanceof Error ? error.message : "ค้นหาสถานที่ไม่สำเร็จ");
     } finally {
       setWorking(false);
+    }
+  };
+
+  const openSuggestion = () => {
+    if (!location) {
+      setStatus("ปักหมุดตำแหน่งของสถานที่ก่อน");
+      return;
+    }
+    setSuggestionName("");
+    setSuggestionCategory("place");
+    setSuggestionAddress(place?.address ?? "");
+    setSuggestionNote("");
+    setShowSuggestion(true);
+  };
+
+  const submitSuggestion = async () => {
+    if (!location || !suggestionName.trim()) return;
+    setSubmittingSuggestion(true);
+    setStatus("");
+    try {
+      await submitWynosPlaceSuggestion(client, {
+        name: suggestionName,
+        category: suggestionCategory,
+        address: suggestionAddress,
+        note: suggestionNote,
+        location,
+      });
+      setShowSuggestion(false);
+      setStatus("ส่งสถานที่ให้ WYNOS ตรวจสอบแล้ว เมื่ออนุมัติชื่อจะขึ้นบนแผนที่");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "ส่งสถานที่ไม่สำเร็จ");
+    } finally {
+      setSubmittingSuggestion(false);
     }
   };
 
@@ -585,6 +635,57 @@ export function FoodDeliveryMapPicker({
           </div>
         </div>
         {status ? <p role="status">{status}</p> : null}
+
+        {showSuggestion ? (
+          <div className="wf-map-suggestion">
+            <div className="wf-map-suggestion-head">
+              <div>
+                <strong>เพิ่มสถานที่ที่หายไป</strong>
+                <small>ใช้หมุดปัจจุบันเป็นตำแหน่ง สถานที่จะขึ้นแผนที่หลังผ่านการตรวจสอบ</small>
+              </div>
+              <button type="button" aria-label="ปิดฟอร์มเพิ่มสถานที่" onClick={() => setShowSuggestion(false)}><X size={16} /></button>
+            </div>
+            <input
+              value={suggestionName}
+              onChange={(event) => setSuggestionName(event.target.value)}
+              placeholder="ชื่อสถานที่ เช่น หอพักธาราทิพย์"
+              maxLength={160}
+            />
+            <select value={suggestionCategory} onChange={(event) => setSuggestionCategory(event.target.value as typeof suggestionCategory)}>
+              <option value="residence">หอพัก / ที่พักอาศัย</option>
+              <option value="restaurant">ร้านอาหาร</option>
+              <option value="store">ร้านค้า</option>
+              <option value="building">อาคาร</option>
+              <option value="poi">จุดสำคัญ</option>
+              <option value="place">สถานที่อื่น ๆ</option>
+            </select>
+            <input
+              value={suggestionAddress}
+              onChange={(event) => setSuggestionAddress(event.target.value)}
+              placeholder="ที่อยู่หรือรายละเอียดพื้นที่ (ถ้ามี)"
+              maxLength={1000}
+            />
+            <textarea
+              value={suggestionNote}
+              onChange={(event) => setSuggestionNote(event.target.value)}
+              placeholder="ข้อมูลเพิ่มเติมสำหรับทีมตรวจสอบ (ถ้ามี)"
+              maxLength={500}
+            />
+            <button
+              type="button"
+              className="wf-map-suggestion-submit"
+              disabled={submittingSuggestion || !suggestionName.trim() || !location}
+              onClick={() => void submitSuggestion()}
+            >
+              <Check size={16} /> {submittingSuggestion ? "กำลังส่ง…" : "ส่งให้ตรวจสอบ"}
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="wf-map-add-place" disabled={!location} onClick={openSuggestion}>
+            <Plus size={16} /> เพิ่มสถานที่ที่หายไป
+          </button>
+        )}
+
         <button
           className="wf-primary wf-full"
           type="button"
