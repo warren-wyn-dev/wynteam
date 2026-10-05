@@ -828,6 +828,79 @@
 }
 .wf-item-status.is-unavailable { background: #f5f5f6; color: var(--wf-secondary); }
 .wf-item-status strong { font-weight: 720; }
+.wf-item-option-group {
+  padding: 14px;
+  border: 1px solid var(--wf-border);
+  border-radius: 17px;
+  background: var(--wf-bg);
+  display: grid;
+  gap: 10px;
+}
+.wf-item-option-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.wf-item-option-head > span { min-width: 0; display: grid; gap: 2px; }
+.wf-item-option-head strong { font-size: 13.5px; }
+.wf-item-option-head small { color: var(--wf-secondary); font-size: 10px; }
+.wf-item-option-head > b {
+  flex: 0 0 auto;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #fff0f2;
+  color: var(--wf-red);
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 780;
+}
+.wf-item-option-head > small { padding-top: 3px; }
+.wf-item-option-list { display: grid; }
+.wf-item-option-list > button {
+  min-height: 46px;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--wf-border);
+  background: transparent;
+  color: var(--wf-text);
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  font: inherit;
+}
+.wf-item-option-list > button:first-child { border-top: 0; }
+.wf-item-option-list > button i {
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid #a9aaad;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.wf-item-option-list > button i.is-radio { border-radius: 50%; }
+.wf-item-option-list > button.is-active i {
+  border-color: var(--wf-red);
+  background: var(--wf-red);
+}
+.wf-item-option-list > button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+.wf-item-option-list > button em {
+  color: var(--wf-secondary);
+  font-size: 11px;
+  font-style: normal;
+  white-space: nowrap;
+}
 .wf-item-note {
   display: grid;
   gap: 9px;
