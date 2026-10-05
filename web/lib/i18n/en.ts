@@ -1538,6 +1538,7 @@ Object.assign(EN_EXACT, {
   "รูปอัปโหลดแล้ว ✓": "Photo uploaded ✓",
   "อัปโหลดรูปไม่สำเร็จ · ลองใหม่อีกครั้ง": "Photo upload failed · try again",
   "ยังไม่มีรูปเมนู": "No menu photo yet",
+  "ตัวเลือก": "Options",
   "ตัวเลือกเสริม": "Add-ons",
   "เพิ่มเมนูใหม่": "Add new item",
   "เพิ่มอาหารหรือเครื่องดื่ม": "Add food or drinks",
