@@ -43,6 +43,6 @@ jobs:
             --supabase-url "$SUPABASE_URL" \
             --access-token "$SUPABASE_ACCESS_TOKEN" \
             --min-confidence 0.90 \
-            --activate-confidence 0.99 \
+            --activate-confidence 0.95 \
             --max-places 5000 \
             --dry-run
