@@ -1714,7 +1714,7 @@ function FoodCustomerInner({
   const menu = snapshot?.menu ?? [];
   const orders = snapshot?.orders ?? [];
   const addresses = snapshot?.addresses ?? [];
-  const ownReviews = snapshot?.ownReviews ?? [];
+  const ownReviews = useMemo(() => snapshot?.ownReviews ?? [], [snapshot?.ownReviews]);
   const reviewedOrderIds = useMemo(() => new Set(ownReviews.map((review) => review.order_id)), [ownReviews]);
   const store = snapshot?.store ?? null;
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
