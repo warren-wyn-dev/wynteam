@@ -7,6 +7,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   CircleDollarSign,
   Clock3,
   ImagePlus,
@@ -1142,6 +1144,22 @@ function MenuPanel({
     onCategoryOrder(next);
   };
 
+  const shiftCategory = (category: string, delta: -1 | 1) => {
+    const index = categoryOrder.indexOf(category);
+    const target = index + delta;
+    if (q || index < 0 || target < 0 || target >= categoryOrder.length) return;
+    const next = [...categoryOrder];
+    [next[index], next[target]] = [next[target], next[index]];
+    onCategoryOrder(next);
+  };
+
+  const shiftItem = (items: FoodMenuItem[], itemId: string, delta: -1 | 1) => {
+    const index = items.findIndex((item) => item.id === itemId);
+    const target = index + delta;
+    if (q || index < 0 || target < 0 || target >= items.length) return;
+    moveItem(itemId, items[target].id);
+  };
+
   return (
     <>
       <div className="wm-page-heading wm-page-heading--action">
@@ -1151,7 +1169,7 @@ function MenuPanel({
       <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="ค้นหาเมนูหรือหมวดหมู่" /></label>
       {!q && menu.length ? <div className="wm-menu-sort-hint"><GripVertical size={15} /> ลากหมวดหมู่หรือเมนูเพื่อจัดลำดับหน้าร้าน</div> : null}
       <div className="wm-menu-categories">
-        {categories.map(([category, items]) => (
+        {categories.map(([category, items], categoryIndex) => (
           <section
             className="wm-menu-category"
             key={category}
@@ -1165,10 +1183,14 @@ function MenuPanel({
           >
             <div className="wm-menu-category-heading">
               <span><GripVertical size={16} /><strong>{category}</strong></span>
-              <span>{items.length} เมนู</span>
+              <span className="wm-sort-controls">
+                <button type="button" aria-label="เลื่อนหมวดหมู่ขึ้น" disabled={Boolean(q) || categoryIndex === 0} onClick={() => shiftCategory(category, -1)}><ChevronUp size={14} /></button>
+                <button type="button" aria-label="เลื่อนหมวดหมู่ลง" disabled={Boolean(q) || categoryIndex === categories.length - 1} onClick={() => shiftCategory(category, 1)}><ChevronDown size={14} /></button>
+                <em>{items.length} เมนู</em>
+              </span>
             </div>
             <div className="wm-menu-list">
-              {items.map((item) => {
+              {items.map((item, itemIndex) => {
                 const image = foodPublicUrl(client, item.image_path);
                 const optionCount = Array.isArray(item.options)
                   ? item.options.reduce((sum, group) => sum + (Array.isArray(group.choices) ? group.choices.length : 0), 0)
@@ -1197,6 +1219,10 @@ function MenuPanel({
                       </span>
                     </button>
                     <div className="wm-menu-row-actions">
+                      <span className="wm-sort-controls">
+                        <button type="button" aria-label="เลื่อนเมนูขึ้น" disabled={Boolean(q) || itemIndex === 0} onClick={() => shiftItem(items, item.id, -1)}><ChevronUp size={13} /></button>
+                        <button type="button" aria-label="เลื่อนเมนูลง" disabled={Boolean(q) || itemIndex === items.length - 1} onClick={() => shiftItem(items, item.id, 1)}><ChevronDown size={13} /></button>
+                      </span>
                       <button className={soldOutToday ? "is-active" : ""} type="button" onClick={() => onSoldOut(item, !soldOutToday)}>{soldOutToday ? "ยกเลิกหมดวันนี้" : "หมดวันนี้"}</button>
                       <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขาย" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
                     </div>
