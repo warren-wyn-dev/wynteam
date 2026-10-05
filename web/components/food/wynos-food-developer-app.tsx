@@ -569,21 +569,17 @@ function HomePanel({
   const [searchOpen, setSearchOpen] = useState(false);
   const [storeSection, setStoreSection] = useState<"menu" | "reviews" | "info">("menu");
   const [campaigns, setCampaigns] = useState<string[]>([]);
-  const [favorite, setFavorite] = useState(false);
   const storeId = store?.id ?? null;
   const favoriteKey = `wynos-food-favorite-stores-v1:${userId}`;
-  useEffect(() => {
-    if (!storeId) {
-      setFavorite(false);
-      return;
-    }
+  const [favorite, setFavorite] = useState(() => {
+    if (!storeId || typeof window === "undefined") return false;
     try {
       const saved = JSON.parse(localStorage.getItem(favoriteKey) ?? "[]");
-      setFavorite(Array.isArray(saved) && saved.includes(storeId));
+      return Array.isArray(saved) && saved.includes(storeId);
     } catch {
-      setFavorite(false);
+      return false;
     }
-  }, [favoriteKey, storeId]);
+  });
 
   // WYN-206: show the WYNOS campaigns this store joined.
   useEffect(() => {
