@@ -11,6 +11,12 @@ name: Deploy Admin (Next.js) to Vercel
 # no linked `.vercel/project.json` -- no dashboard setup needed first.
 on:
   workflow_dispatch: {}
+  # One-shot bootstrap path. This will be reverted to manual-only after the
+  # first production Admin deployment succeeds.
+  push:
+    branches: [main]
+    paths:
+      - "admin/**"
 
 jobs:
   deploy:
