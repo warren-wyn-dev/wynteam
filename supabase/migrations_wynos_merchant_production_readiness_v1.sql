@@ -42,7 +42,15 @@ alter table public.food_stores
   );
 
 alter table public.food_menu_items
-  add column if not exists sold_out_until timestamptz;
+  add column if not exists sold_out_until timestamptz,
+  add column if not exists daily_stock_limit integer;
+
+alter table public.food_menu_items
+  drop constraint if exists food_menu_items_daily_stock_limit;
+alter table public.food_menu_items
+  add constraint food_menu_items_daily_stock_limit check (
+    daily_stock_limit is null or daily_stock_limit between 1 and 9999
+  );
 
 create index if not exists food_menu_items_store_sort_idx
   on public.food_menu_items(store_id, sort_order, created_at);
@@ -315,20 +323,46 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $
+declare
+  v_item public.food_menu_items%rowtype;
+  v_sold_today integer := 0;
+  v_today date := (now() at time zone 'Asia/Bangkok')::date;
 begin
-  if new.menu_item_id is not null and not exists (
-    select 1
-    from public.food_menu_items m
-    where m.id = new.menu_item_id
-      and m.is_available
-      and (m.sold_out_until is null or m.sold_out_until <= now())
-  ) then
+  if new.menu_item_id is null then
+    return new;
+  end if;
+
+  -- Lock the menu row so concurrent checkouts cannot both consume the final
+  -- daily quantity.
+  select * into v_item
+  from public.food_menu_items
+  where id = new.menu_item_id
+  for update;
+
+  if not found
+     or not v_item.is_available
+     or (v_item.sold_out_until is not null and v_item.sold_out_until > now()) then
     raise exception 'menu item is unavailable';
   end if;
+
+  if v_item.daily_stock_limit is not null then
+    select coalesce(sum(oi.quantity),0)::integer
+      into v_sold_today
+    from public.food_order_items oi
+    join public.food_orders o on o.id = oi.order_id
+    where oi.menu_item_id = new.menu_item_id
+      and o.status <> 'cancelled'
+      and (o.created_at at time zone 'Asia/Bangkok')::date = v_today;
+
+    if v_sold_today + new.quantity > v_item.daily_stock_limit then
+      raise exception 'menu item daily stock exceeded';
+    end if;
+  end if;
+
   return new;
 end;
-$$;
+$;
 
 revoke all on function internal.food_order_item_guard_availability() from public, anon, authenticated;
 
@@ -539,9 +573,12 @@ begin
     v_store_id,
     jsonb_build_object('menu_item_id',v_item_id,'menu_name',v_name)
   );
-  return coalesce(new, old);
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
 end;
-$$;
+$;
 
 revoke all on function internal.food_menu_audit_changes() from public, anon, authenticated;
 
