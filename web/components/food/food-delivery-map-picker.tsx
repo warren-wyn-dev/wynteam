@@ -18,6 +18,7 @@ import {
 } from "@/lib/food-customer";
 
 type MapCenter = { lat: number; lng: number };
+type MapPoint = { x: number; y: number };
 type MapStyle = string | {
   version: 8;
   sources: Record<string, {
@@ -53,6 +54,7 @@ type ServiceAreaFeature = {
 type MapInstance = {
   getCenter: () => MapCenter;
   getZoom: () => number;
+  project: (location: [number, number]) => MapPoint;
   flyTo: (options: { center: [number, number]; zoom?: number; essential?: boolean }) => void;
   on: (event: string, handler: (event?: unknown) => void) => void;
   off: (event: string, handler: (event?: unknown) => void) => void;
@@ -220,6 +222,42 @@ function placeIdentity(place: FoodPlace) {
   return place.placeId ?? `${place.latitude.toFixed(6)},${place.longitude.toFixed(6)},${place.name}`;
 }
 
+type MapMarkerKind = "food" | "cafe" | "building" | "shop" | "pickup" | "place";
+
+function placeMarkerKind(place: FoodPlace): MapMarkerKind {
+  const name = place.name.toLocaleLowerCase();
+  if (/คาเฟ่|กาแฟ|coffee|cafe|café|amazon/.test(name)) return "cafe";
+  if (place.merchantStoreId || place.category === "restaurant") return "food";
+  if (place.category === "pickup_point") return "pickup";
+  if (
+    place.category === "building"
+    || place.category === "residence"
+    || /มหาวิทยาลัย|คณะ|อาคาร|หอพัก|university|faculty|institute|dorm/.test(name)
+  ) return "building";
+  if (place.category === "store" || /ร้านค้า|ตลาด|shop|store|market/.test(name)) return "shop";
+  return "place";
+}
+
+function placeMarkerSvg(kind: MapMarkerKind) {
+  const common = 'viewBox="0 0 24 24" aria-hidden="true" focusable="false"';
+  if (kind === "food") {
+    return `<svg ${common}><path d="M7 3v7M4.5 3v4.5A2.5 2.5 0 0 0 7 10v11M16.5 3v18M16.5 3c-2 2.2-3 5-3 8h3"/></svg>`;
+  }
+  if (kind === "cafe") {
+    return `<svg ${common}><path d="M5 7h11v6a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5V7Z"/><path d="M16 9h1.5a2.5 2.5 0 0 1 0 5H16M7 3.5c.8.6.8 1.3 0 2M11 3.5c.8.6.8 1.3 0 2"/></svg>`;
+  }
+  if (kind === "building") {
+    return `<svg ${common}><path d="M5 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M16 8h3v13M8 7h2M12 7h1M8 11h2M12 11h1M8 15h2M12 15h1M3 21h18"/></svg>`;
+  }
+  if (kind === "shop") {
+    return `<svg ${common}><path d="M5 9h14l-1 12H6L5 9Z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg>`;
+  }
+  if (kind === "pickup") {
+    return `<svg ${common}><path d="M5 7.5 12 4l7 3.5V17l-7 3-7-3V7.5Z"/><path d="m5 7.5 7 3.5 7-3.5M12 11v9"/></svg>`;
+  }
+  return `<svg ${common}><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>`;
+}
+
 export function FoodDeliveryMapPicker({
   client,
   storeId,
@@ -244,6 +282,7 @@ export function FoodDeliveryMapPicker({
   const reverseRequestRef = useRef(0);
   const nearbyRequestRef = useRef(0);
   const nearbyMarkersRef = useRef<MarkerInstance[]>([]);
+  const userLocationMarkerRef = useRef<MarkerInstance | null>(null);
   const autoLocateRef = useRef(false);
   const searchTimerRef = useRef<number | null>(null);
   const searchRequestRef = useRef(0);
@@ -277,6 +316,7 @@ export function FoodDeliveryMapPicker({
   const [chosen, setChosen] = useState(Boolean(initialLocation));
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [currentLocationSelected, setCurrentLocationSelected] = useState(false);
+  const [userLocation, setUserLocation] = useState<FoodLocation | null>(null);
   const [mapDragging, setMapDragging] = useState(false);
   const [mapStyleRevision, setMapStyleRevision] = useState(0);
   const [serviceAreaBoundary, setServiceAreaBoundary] = useState<ServiceAreaFeature | null>(null);
@@ -330,6 +370,7 @@ export function FoodDeliveryMapPicker({
     setStatus("");
     try {
       const next = await currentFoodLocation();
+      setUserLocation(next);
       moveTo(next);
       setCurrentLocationSelected(true);
       await reverse(next);
@@ -480,6 +521,8 @@ export function FoodDeliveryMapPicker({
       nearbyRequestRef.current += 1;
       nearbyMarkersRef.current.forEach((marker) => marker.remove());
       nearbyMarkersRef.current = [];
+      userLocationMarkerRef.current?.remove();
+      userLocationMarkerRef.current = null;
       map?.remove();
       mapRef.current = null;
     };
@@ -530,41 +573,86 @@ export function FoodDeliveryMapPicker({
   useEffect(() => {
     const map = mapRef.current;
     const maplibre = window.maplibregl;
+    if (!standalone || !mapReady || !map || !maplibre || !userLocation) return;
+
+    userLocationMarkerRef.current?.remove();
+    const markerNode = document.createElement("span");
+    markerNode.className = "wf-map-user-location";
+    markerNode.setAttribute("aria-label", "ตำแหน่งปัจจุบันของคุณ");
+    const marker = new maplibre.Marker({ element: markerNode, anchor: "center" })
+      .setLngLat([userLocation.longitude, userLocation.latitude])
+      .addTo(map);
+    userLocationMarkerRef.current = marker;
+
+    return () => {
+      marker.remove();
+      if (userLocationMarkerRef.current === marker) userLocationMarkerRef.current = null;
+    };
+  }, [mapReady, standalone, userLocation]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const maplibre = window.maplibregl;
     if (!mapReady || !map || !maplibre) return;
 
     nearbyMarkersRef.current.forEach((marker) => marker.remove());
+
     const markerLimit = standalone
-      ? (mapZoom >= 15.5 ? 28 : mapZoom >= 13.5 ? 18 : 10)
+      ? (mapZoom >= 17 ? 22 : mapZoom >= 15.5 ? 16 : mapZoom >= 13.5 ? 12 : 8)
       : nearbyPlaces.length;
-    const markers = nearbyPlaces.slice(0, markerLimit).map((nearbyPlace, index) => {
+    const selectedIdentity = activeNearbyPlace ? placeIdentity(activeNearbyPlace) : null;
+    const candidates = [...nearbyPlaces].sort((a, b) => {
+      const aSelected = selectedIdentity === placeIdentity(a);
+      const bSelected = selectedIdentity === placeIdentity(b);
+      if (aSelected === bSelected) return 0;
+      return aSelected ? -1 : 1;
+    });
+    const occupied: MapPoint[] = [];
+    const minimumGap = mapZoom >= 17 ? 34 : mapZoom >= 15.5 ? 42 : 50;
+    const visiblePlaces: FoodPlace[] = [];
+
+    for (const nearbyPlace of candidates) {
+      const selected = selectedIdentity === placeIdentity(nearbyPlace);
+      if (!selected && visiblePlaces.length >= markerLimit) continue;
+      const point = map.project([nearbyPlace.longitude, nearbyPlace.latitude]);
+      const overlaps = occupied.some((other) => Math.hypot(point.x - other.x, point.y - other.y) < minimumGap);
+      if (overlaps && !selected) continue;
+      occupied.push(point);
+      visiblePlaces.push(nearbyPlace);
+    }
+
+    const markers = visiblePlaces.map((nearbyPlace) => {
       const button = document.createElement("button");
       button.type = "button";
-      const selected = activeNearbyPlace
-        ? placeIdentity(activeNearbyPlace) === placeIdentity(nearbyPlace)
-        : false;
-      const markerKind = nearbyPlace.merchantStoreId
-        ? "wf-map-place-marker is-food"
-        : "wf-map-place-marker is-place";
-      button.className = `${markerKind}${selected ? " is-selected" : ""}`;
+      const selected = selectedIdentity === placeIdentity(nearbyPlace);
+      const kind = placeMarkerKind(nearbyPlace);
+      button.className = `wf-map-place-marker is-${kind}${selected ? " is-selected" : ""}`;
       button.setAttribute("aria-label", `${placeCategory(nearbyPlace)} ${nearbyPlace.name}`);
       button.title = nearbyPlace.name;
+
       const dot = document.createElement("span");
       dot.className = "wf-map-place-dot";
+      const symbol = document.createElement("span");
+      symbol.className = "wf-map-place-symbol";
+      symbol.innerHTML = placeMarkerSvg(kind);
+      dot.appendChild(symbol);
       button.appendChild(dot);
-      const labelLimit = standalone ? 12 : 24;
-      if (selected || (mapZoom >= 14.5 && index < labelLimit)) {
+
+      if (selected) {
         const label = document.createElement("strong");
         label.className = "wf-map-place-label";
         label.textContent = nearbyPlace.name;
         button.appendChild(label);
       }
+
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         setActiveNearbyPlace(nearbyPlace);
         if (standalone) setSheetExpanded(true);
       });
-      return new maplibre.Marker({ element: button, anchor: "bottom" })
+
+      return new maplibre.Marker({ element: button, anchor: selected ? "bottom" : "center" })
         .setLngLat([nearbyPlace.longitude, nearbyPlace.latitude])
         .addTo(map);
     });
