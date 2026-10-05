@@ -338,7 +338,7 @@ export function maskFoodReviewerName(name: string) {
     ? Array.from(new Intl.Segmenter("th", { granularity: "grapheme" }).segment(firstWord), (part) => part.segment)
     : Array.from(firstWord);
   if (segments.length === 1) return `${segments[0]}***`;
-  if (segments.length === 2) return `${segments[0]}**`;
+  if (segments.length === 2) return `${segments[0]}**${segments[1]}`;
   return `${segments[0]}${"*".repeat(Math.min(4, Math.max(2, segments.length - 2)))}${segments.at(-1)}`;
 }
 
