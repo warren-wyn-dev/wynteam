@@ -413,7 +413,7 @@ function HomePanel({
     const preferred = Array.isArray(store?.menu_category_order) ? store.menu_category_order : [];
     const ordered = [...preferred.filter((name) => present.includes(name)), ...present.filter((name) => !preferred.includes(name))];
     return ["ทั้งหมด", ...ordered];
-  }, [menu, store?.menu_category_order]);
+  }, [menu, store]);
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("th-TH");
     return menu.filter((item) => {
