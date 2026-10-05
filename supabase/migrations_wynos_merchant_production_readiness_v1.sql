@@ -323,7 +323,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_item public.food_menu_items%rowtype;
   v_sold_today integer := 0;
@@ -362,7 +362,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 revoke all on function internal.food_order_item_guard_availability() from public, anon, authenticated;
 
@@ -578,7 +578,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 revoke all on function internal.food_menu_audit_changes() from public, anon, authenticated;
 
