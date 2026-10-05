@@ -50,7 +50,7 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(map).toContain("Search by LocationIQ.com");
   expect(map).toContain("เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร");
   expect(map).toContain("currentFoodLocation()");
-  expect(map).toContain("searchFoodPlaces(client, trimmed)");
+  expect(map).toContain("searchFoodPlaces(client, trimmed, location)");
   expect(map).toContain("reverseFoodPlace(client, next)");
   expect(map).toContain("กำลังค้นหาชื่อสถานที่…");
   expect(map).toContain("ไม่พบชื่อสถานที่");
@@ -87,6 +87,9 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   const reverseSql = read("../supabase/migrations_wynos_maps_reverse_place_v1.sql");
   const osmFallbackSql = read("../supabase/migrations_wynos_maps_osm_reverse_fallback_v1.sql");
   const photonFallbackSql = read("../supabase/migrations_wynos_maps_photon_fallback_v1.sql");
+  const suggestionSql = read("../supabase/migrations_wynos_maps_place_suggestions_v1.sql");
+  const overtureWorkflow = read("../.github/workflows/wynos-maps-import-overture-places.yml");
+  const overtureImporter = read("../.github/scripts/import-overture-places.py");
   const publicGeocoder = read("../supabase/functions/wynos-maps-geocode/index.ts");
   const map = read("components/food/food-delivery-map-picker.tsx");
 
@@ -126,6 +129,18 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(nearbySql).toContain("create or replace function public.wynos_nearby_places");
   expect(nearbySql).toContain("to anon, authenticated");
   expect(map).toContain("fetchNearbyWynosPlaces");
+  expect(map).toContain("wf-map-place-label");
+  expect(map).toContain("mapZoom >= 14.5");
+  expect(map).toContain("เพิ่มสถานที่ที่หายไป");
+  expect(map).toContain("submitWynosPlaceSuggestion");
+  expect(data).toContain('client.rpc("submit_wynos_place_suggestion"');
+  expect(suggestionSql).toContain("create table if not exists public.wynos_place_suggestions");
+  expect(suggestionSql).toContain("admin_review_wynos_place_suggestion");
+  expect(suggestionSql).toContain("daily suggestion limit reached");
+  expect(overtureWorkflow).toContain("overturemaps download");
+  expect(overtureWorkflow).toContain("activate_confidence");
+  expect(overtureImporter).toContain("source_ref");
+  expect(overtureImporter).toContain("activate-confidence");
   expect(map).toContain('"wf-map-place-marker is-food"');
   expect(map).toContain("ดูร้านใน WYNOS Food");
   expect(app).toContain('new URLSearchParams(window.location.search).get("store")');
