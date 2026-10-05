@@ -94,3 +94,40 @@ export function foodStorePreviewContent(store: FoodStoreSharePreview, supabaseUr
     largeImage: Boolean(store.cover_path),
   };
 }
+
+const SHARE_REF_KEY = "wynos-food-share-ref-v1";
+const SHARE_REF_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** Remembers that this store was opened from a shared link (for 24 hours). */
+export function rememberShareRef(storeId: string): void {
+  if (!isFoodStoreId(storeId)) return;
+  try { window.localStorage.setItem(SHARE_REF_KEY, JSON.stringify({ storeId, at: Date.now() })); } catch { /* storage unavailable */ }
+}
+
+/** Whether an order at this store should count as coming from a shared link. */
+export function hasShareRef(storeId: string): boolean {
+  try {
+    const raw = window.localStorage.getItem(SHARE_REF_KEY);
+    if (!raw) return false;
+    const { storeId: saved, at } = JSON.parse(raw) as { storeId?: unknown; at?: unknown };
+    return saved === storeId && typeof at === "number" && Date.now() - at <= SHARE_REF_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
+
+const ORDER_NUMBER = /^WF\d{4,9}$/;
+
+/** The order a notification tap asked to open (?order=WF0015), or null. */
+export function requestedOrderNumber(search: string): string | null {
+  const value = new URLSearchParams(search).get("order")?.trim().toUpperCase() ?? "";
+  return ORDER_NUMBER.test(value) ? value : null;
+}
+
+/** Removes ?order= once that order has been opened. */
+export function clearRequestedOrder(): void {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("order")) return;
+  url.searchParams.delete("order");
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+}

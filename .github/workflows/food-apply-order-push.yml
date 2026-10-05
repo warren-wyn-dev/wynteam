@@ -1,0 +1,70 @@
+name: Food -- apply order-status push and share results
+
+# Applies supabase/migrations_wynos_food_order_push_share_stats_v1.sql:
+# customers get a push when the store accepts (with ETA), sends or cancels
+# their order, stores get a push when a customer cancels, and stores see
+# short-link opens plus orders and sales from their share link. Additive.
+# Founder approved 2026-10-05 ("ทำทุกข้อเลย อนุมัติ ทุกอย่าง"). Manual
+# dispatch on main only. Then deploy send-push-notification so taps open the
+# order.
+# Behaviour test: supabase/tests/wynos_food_order_push_share_stats_test.sh.
+# ROLLBACK: see the header of the migration file.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-FOOD-ORDER-PUSH to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-FOOD-ORDER-PUSH'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_food_order_push_share_stats_v1.sql)
+          commit;" >/dev/null
+          # Definitions and privileges only; no order or store data is read.
+          run_sql "select
+              exists (select 1 from pg_trigger where tgname = 'food_orders_status_notify' and not tgisinternal) as status_trigger,
+              has_function_privilege('anon', 'public.food_record_share_open(text)', 'execute') as anon_record_open,
+              has_function_privilege('anon', 'public.food_mark_order_from_share(uuid)', 'execute') as anon_mark_order,
+              has_function_privilege('anon', 'public.food_share_stats(uuid,integer)', 'execute') as anon_stats,
+              has_table_privilege('anon', 'public.food_share_link_opens', 'select') as anon_read_opens,
+              exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'food_orders' and column_name = 'from_share_link') as share_column;" \
+            | tee result.json | jq .
+          jq -e '.[0].status_trigger == true and .[0].anon_record_open == true and .[0].anon_mark_order == false
+                 and .[0].anon_stats == false and .[0].anon_read_opens == false and .[0].share_column == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "Food order-status push and share results are installed. Next: deploy send-push-notification."

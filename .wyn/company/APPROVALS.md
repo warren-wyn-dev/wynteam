@@ -569,3 +569,24 @@
   2. Dispatch `food-apply-share-code.yml` with `APPLY-FOOD-SHARE-CODE`.
 - Rollback: SQL in the migration header, and/or revert the PR. Old `?store=` links keep working throughout.
 - สถานะ: **อนุมัติแนวทางแล้ว**. วันที่ 2026-10-05
+
+### APPROVAL — [2026-10-05] Food order-status push, notification deep links, store QR and share-link results
+
+- Founder: "ทำทุกข้อเลย อนุมัติ ทุกอย่าง ให้เสร็จเลย พร้อมใช้งาน". This covers the four recommendations and their production release.
+- Change:
+  - **Order-status push.** New trigger `food_orders_status_notify`:
+    - Customer: store accepted (with ETA), out for delivery, cancelled by the store (with a refund note when paid).
+    - Store: the customer cancelled.
+    - Routed by the existing WYN-215 app rules.
+  - **Deep links.** `send-push-notification` adds `order_number` to Food and Merchant pushes. The service worker opens `/food?order=WF…` or `/merchant?order=WF…`, and both apps open that order.
+  - **Store QR.** Merchant home has a share card with a QR poster (new web dependency `qrcode`) to save or share.
+  - **Share-link results.**
+    - `food_share_link_opens`: daily opens of the short link. Recorded server-side by `/s/<code>`, skipping link-preview crawlers. Anon can only add a count, and only for published stores.
+    - `food_orders.from_share_link`: the buyer marks their own order within 15 minutes, when they opened the store from a link in the last 24 hours.
+    - `food_share_stats`: 7-day opens, orders and sales, for store staff only.
+- Release:
+  1. Merge. Web auto-deploys and tolerates the missing RPCs.
+  2. Dispatch `food-apply-order-push.yml` with `APPLY-FOOD-ORDER-PUSH`.
+  3. Dispatch `deploy-edge-functions.yml` with `send-push-notification`.
+- Rollback: SQL in the migration header, redeploy the previous `send-push-notification`, revert the PR.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-05

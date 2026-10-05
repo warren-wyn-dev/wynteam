@@ -482,6 +482,12 @@ export function safeErrorMessage(err: unknown): string {
   return `${name}: ${scrubbed}`.slice(0, 300);
 }
 
+/** The Food order number (WF0015) a Food or Merchant notification is about. */
+export function orderNumberInReason(reason: string | null): string | null {
+  const match = /#(WF\d{4,9})\b/.exec(reason ?? "");
+  return match ? match[1] : null;
+}
+
 export function buildDataPayload(row: NotificationRow): Record<string, string> {
   const data: Record<string, string> = { type: row.type };
   data.notification_id = row.id;
@@ -490,7 +496,12 @@ export function buildDataPayload(row: NotificationRow): Record<string, string> {
   data.recipient_id = row.recipient_id;
   if (isMerchantNotificationTest(row)) data.merchant_test = "1";
   const app = pushAppForNotification(row);
-  if (app !== "social") data.app = app;
+  if (app !== "social") {
+    data.app = app;
+    // Tapping a Food or Merchant notification opens that order.
+    const order = orderNumberInReason(row.reason);
+    if (order) data.order_number = order;
+  }
   if (row.actor_id) data.actor_id = row.actor_id;
   if (row.drop_id) data.drop_id = row.drop_id;
   if (row.pop_id) data.pop_id = row.pop_id;

@@ -38,7 +38,11 @@ import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picke
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { rememberFoodArea } from "@/lib/food-area-memory";
 import {
+  clearRequestedOrder,
   clearSharedFoodStore,
+  hasShareRef,
+  rememberShareRef,
+  requestedOrderNumber,
   foodStoreShareData,
   pendingSharedFoodStore,
   rememberSharedFoodStore,
@@ -58,6 +62,7 @@ import {
   createFoodCustomerOrder,
   deleteFoodCustomerAddress,
   fetchFoodCustomerSnapshot,
+  markFoodOrderFromShare,
   fetchFoodPromptPayQr,
   checkFoodServiceArea,
   checkFoodDeliveryAvailability,
@@ -1726,6 +1731,7 @@ function FoodCustomerInner({
   useEffect(() => {
     if (!opening.fromLink) return;
     clearSharedFoodStore();
+    rememberShareRef(opening.storeId);
     try { localStorage.setItem(storeKey, opening.storeId); } catch { /* private mode */ }
     // Drop ?store= so a later pick from the directory survives a reload.
     const url = new URL(window.location.href);
@@ -1748,6 +1754,8 @@ function FoodCustomerInner({
   });
   const [selectedItem, setSelectedItem] = useState<FoodCustomerMenuItem | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<FoodCustomerOrder | null>(null);
+  // A tapped order notification (?order=WF0015) opens that order once loaded.
+  const requestedOrderRef = useRef<string | null>(typeof window === "undefined" ? null : requestedOrderNumber(window.location.search));
   const [reviewOrder, setReviewOrder] = useState<FoodCustomerOrder | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quote, setQuote] = useState<FoodOrderQuote | null>(null);
@@ -1794,7 +1802,18 @@ function FoodCustomerInner({
       previousOrdersRef.current = new Map(next.orders.map((order) => [order.id, order.status]));
 
       setSnapshot(next);
-      setSelectedOrder((current) => current ? next.orders.find((order) => order.id === current.id) ?? null : null);
+      const requested = requestedOrderRef.current;
+      const requestedOrder = requested ? next.orders.find((order) => order.order_number === requested) ?? null : null;
+      if (requested) {
+        requestedOrderRef.current = null;
+        clearRequestedOrder();
+      }
+      if (requestedOrder) {
+        setTab("orders");
+        setSelectedOrder(requestedOrder);
+      } else {
+        setSelectedOrder((current) => current ? next.orders.find((order) => order.id === current.id) ?? null : null);
+      }
       return next;
     } catch (error) {
       setMessage(foodCustomerError(error, "โหลด WYNOS Food ไม่สำเร็จ"));
@@ -1945,6 +1964,8 @@ function FoodCustomerInner({
         items: cart,
         location: storeHasDeliveryZone(store) ? addressLocation(address) : null,
       });
+      // Lets the store see orders that came from its shared link.
+      if (hasShareRef(store.id)) void markFoodOrderFromShare(client, orderId).catch(() => undefined);
       setCart([]);
       setCheckoutOpen(false);
       const next = await load(true);

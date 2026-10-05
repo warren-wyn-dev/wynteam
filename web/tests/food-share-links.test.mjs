@@ -11,15 +11,17 @@ const STORE = "3f2b8c1a-9d4e-4a6b-8c2d-1e5f7a9b0c3d";
 
 function load(now = () => 1_000_000) {
   const store = new Map();
-  const window = { sessionStorage: {
-    getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k),
-  } };
+  const local = new Map();
+  const window = {
+    sessionStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) },
+    localStorage: { getItem: (k) => local.get(k) ?? null, setItem: (k, v) => local.set(k, String(v)), removeItem: (k) => local.delete(k) },
+  };
   const out = ts.transpileModule(read("../lib/food-share.ts"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const mod = { exports: {} };
   runInNewContext(out, { module: mod, exports: mod.exports, window, JSON, URLSearchParams, encodeURIComponent, Boolean, Date: { now } });
-  return { ...mod.exports, store };
+  return { ...mod.exports, store, local };
 }
 
 test("share link is the short /s/<code> link, or ?store=<id> before a store has a code", () => {
@@ -99,7 +101,7 @@ test("share preview reads only the public RPC with the publishable key", () => {
   const config = read("../next.config.ts");
   assert.match(preview, /rest\/v1\/rpc\/food_store_id_by_share_code/);
   assert.match(preview, /!isFoodShareCode\(code\)\) return null;/);
-  assert.match(route, /resolveFoodShareCode\(code\.trim\(\)\.toLowerCase\(\)\)/);
+  assert.match(route, /const normalized = code\.trim\(\)\.toLowerCase\(\);\s*const storeId = await resolveFoodShareCode\(normalized\);/);
   assert.match(route, /if \(storeId\) target\.searchParams\.set\("store", storeId\);/);
   assert.match(config, /source: "\/s\/:code", has: \[\{ type: "host", value: "food\.wynos\.online" \}\], destination: "\/food\/s\/:code"/);
   assert.match(preview, /rest\/v1\/rpc\/food_store_share_preview/);
@@ -110,4 +112,45 @@ test("share preview reads only the public RPC with the publishable key", () => {
   assert.match(sql, /s\.is_published\s+and s\.admin_suspended_at is null/);
   assert.doesNotMatch(sql.replace(/^--.*$/gm, ""), /phone|address|promptpay|bank|owner/i);
   assert.match(sql, /grant execute on function public\.food_store_share_preview\(uuid\) to anon, authenticated;/);
+});
+
+test("a tapped order notification opens only a well-formed order number", () => {
+  const { requestedOrderNumber } = load();
+  assert.equal(requestedOrderNumber("?order=WF0015"), "WF0015");
+  assert.equal(requestedOrderNumber("?order=wf10000"), "WF10000");
+  for (const bad of ["", "?order=", "?order=WF15", "?order=WF0015x", "?order=<script>", "?order=../x"]) assert.equal(requestedOrderNumber(bad), null, bad);
+});
+
+test("an order counts as from a share link only for that store within 24 hours", () => {
+  let clock = 1_000_000;
+  const s = load(() => clock);
+  assert.equal(s.hasShareRef(STORE), false);
+  s.rememberShareRef(STORE);
+  assert.equal(s.hasShareRef(STORE), true);
+  assert.equal(s.hasShareRef("00000000-0000-4000-8000-000000000000"), false, "other store");
+  clock += 25 * 60 * 60 * 1000;
+  assert.equal(s.hasShareRef(STORE), false, "expired");
+  s.rememberShareRef("not-a-store");
+  assert.equal(s.hasShareRef("not-a-store"), false);
+});
+
+test("order pushes deep link, opens are counted for people, and stores see share results", () => {
+  const worker = read("../public/sw.js");
+  const food = read("../components/food/wynos-food-developer-app.tsx");
+  const merchant = read("../components/merchant/wynos-merchant-app.tsx");
+  const card = read("../components/merchant/merchant-share-card.tsx");
+  const route = read("../app/food/s/[code]/route.ts");
+  const preview = read("../lib/food-share-preview.ts");
+  assert.match(worker, /\/\^WF\\d\{4,9\}\$\/\.test\(data\.order_number\)/);
+  assert.match(worker, /return `\/merchant\$\{order\}`/);
+  assert.match(worker, /return `\/food\$\{order\}`/);
+  assert.match(food, /requestedOrderNumber\(window\.location\.search\)/);
+  assert.match(food, /if \(hasShareRef\(store\.id\)\) void markFoodOrderFromShare\(client, orderId\)/);
+  assert.match(merchant, /requestedOrderNumber\(window\.location\.search\)/);
+  assert.match(merchant, /store\.is_published && !store\.admin_suspended_at \? <MerchantShareCard/);
+  assert.match(card, /client\.rpc\("food_share_stats", \{ p_store_id: storeId, p_days: 7 \}\)/);
+  assert.match(card, /QRCode\.toCanvas\(qr, url/);
+  assert.match(route, /after\(\(\) => recordFoodShareOpen\(normalized, userAgent\)\)/);
+  assert.match(preview, /facebookexternalhit\|line-poker/);
+  assert.match(preview, /!userAgent \|\| PREVIEW_BOT\.test\(userAgent\)\) return;/);
 });

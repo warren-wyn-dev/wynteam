@@ -666,6 +666,14 @@ export async function deleteFoodCustomerAddress(client: SupabaseClient, addressI
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Counts a just-created order as coming from a shared store link. Best
+ * effort: before that migration the RPC is missing and nothing changes.
+ */
+export async function markFoodOrderFromShare(client: SupabaseClient, orderId: string) {
+  await client.rpc("food_mark_order_from_share", { p_order_id: orderId });
+}
+
 export async function cancelFoodCustomerOrder(
   client: SupabaseClient,
   orderId: string,

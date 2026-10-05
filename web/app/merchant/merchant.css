@@ -3572,3 +3572,23 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   .wm-sheet-body { max-height: none !important; overflow: visible !important; padding-bottom: 0 !important; }
   .wm-detail-section { break-inside: avoid; }
 }
+
+/* Share the store link / QR and see what it brought in (7 days). */
+.wm-share-card { margin-top: 18px; padding: 16px; border: 1px solid var(--wm-border); border-radius: 18px; background: var(--wm-surface); display: grid; gap: 12px; }
+.wm-share-head span { display: grid; gap: 2px; min-width: 0; }
+.wm-share-head strong { font-size: 15px; }
+.wm-share-head small { color: var(--wm-secondary); font-size: 12.5px; overflow-wrap: anywhere; }
+.wm-share-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wm-share-actions .wm-primary, .wm-share-actions .wm-secondary { min-height: 46px; font-size: 14.5px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.wm-share-stats { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--wm-secondary); font-size: 12.5px; }
+.wm-share-stats b { color: var(--wm-text); font-weight: 600; }
+.wm-share-close { width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; color: var(--wm-text); display: grid; place-items: center; }
+.wm-share-qr { display: grid; gap: 12px; justify-items: center; text-align: center; }
+.wm-share-qr img { width: min(100%, 320px); height: auto; border: 1px solid var(--wm-border); border-radius: 16px; }
+.wm-share-qr-loading { width: min(100%, 320px); aspect-ratio: 3 / 4; border-radius: 16px; background: var(--wm-border); animation: wm-share-pulse 1.2s ease-in-out infinite; }
+.wm-share-qr p { margin: 0; color: var(--wm-secondary); font-size: 13px; line-height: 1.5; }
+.wm-share-qr a.wm-primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+.wm-share-qr a.is-disabled { opacity: .5; pointer-events: none; }
+.wm-share-qr .wm-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+@keyframes wm-share-pulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .wm-share-qr-loading { animation: none; } }

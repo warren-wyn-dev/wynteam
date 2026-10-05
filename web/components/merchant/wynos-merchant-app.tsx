@@ -48,7 +48,8 @@ import { MerchantFinance } from "@/components/merchant/merchant-finance";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
-import { foodStoreShareData } from "@/lib/food-share";
+import { MerchantShareCard } from "@/components/merchant/merchant-share-card";
+import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@/lib/food-share";
 import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NewOrderAlert, previewMerchantOrderSound, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
@@ -346,6 +347,8 @@ function MerchantInner({
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<FoodOrder | null>(null);
+  // A tapped order notification (?order=WF0015) opens that order once loaded.
+  const requestedOrderRef = useRef<string | null>(typeof window === "undefined" ? null : requestedOrderNumber(window.location.search));
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("new");
   // WYN-198: one-tap card actions and the new-order alert.
   // Order id -> the status it had when the store pressed its card button. The
@@ -392,7 +395,15 @@ function MerchantInner({
       setOrdersHasMore(next.has_more_orders);
       if (next.store && next.store.id !== selectedStoreId) setSelectedStoreId(next.store.id);
       paymentStatusRef.current = new Map(next.orders.map((order) => [order.id, order.payment_status]));
-      setSelectedOrder((current) => current ? next.orders.find((order) => order.id === current.id) ?? null : null);
+      const requested = requestedOrderRef.current;
+      const requestedOrder = requested ? next.orders.find((order) => order.order_number === requested) ?? null : null;
+      if (requested) {
+        requestedOrderRef.current = null;
+        clearRequestedOrder();
+        setTab("orders");
+      }
+      if (requestedOrder) setSelectedOrder(requestedOrder);
+      else setSelectedOrder((current) => current ? next.orders.find((order) => order.id === current.id) ?? null : null);
       return next;
     } catch (error) {
       setMessage(merchantError(error, "โหลดข้อมูลร้านไม่สำเร็จ"));
@@ -957,6 +968,9 @@ function HomePanel({
         <button type="button" onClick={() => onOpenTab("campaigns")}><MerchantIcon3D name="campaign" size={52} />แคมเปญ</button>
         <button type="button" onClick={() => onOpenTab("promotions")}><MerchantIcon3D name="promotion" size={52} />โปรโมชั่น</button>
       </nav>
+
+      {/* Only a published store is visible to customers on WYNOS Food. */}
+      {store.is_published && !store.admin_suspended_at ? <MerchantShareCard client={client} store={store} onMessage={onMessage} /> : null}
 
 
       {nextStep && !store.admin_suspended_at ? (
