@@ -2463,6 +2463,28 @@ Object.assign(EN_EXACT, {
   "ระบบร้านค้า": "Store system",
   "ประกาศสำคัญ": "Important announcements",
   "Quiet Hours เปิดอยู่ — ระบบยังแสดงออเดอร์ แต่ไม่ส่งเสียงหรือสั่น": "Quiet Hours is on — orders still appear, but there is no sound or vibration",
+  "เลือกที่อยู่จัดส่ง": "Choose delivery address",
+  "จัดส่งที่": "Deliver to",
+  "ร้านโปรด": "Favorite stores",
+  "รับเองที่ร้านกำลังเตรียมเปิดให้บริการ": "Store pickup is being prepared",
+  "รับเองที่ร้าน": "Pickup at store",
+  "รูปแบบการรับอาหาร": "Fulfillment method",
+  "ค้นหาร้านหรือเมนูอาหาร": "Search stores or menu items",
+  "ล้างการค้นหา": "Clear search",
+  "ไม่พบร้านหรือเมนูที่ค้นหา": "No matching store or menu item",
+  "รวมโค้ดลดเพิ่ม": "More discount codes",
+  "ยังไม่มีโค้ดส่วนลดในตอนนี้": "No discount codes right now",
+  "ร้านที่เคยสั่งล่าสุด": "Recently ordered stores",
+  "ร้านที่คุณสั่งครั้งแรกจะแสดงตรงนี้": "Stores you order from will appear here",
+  "ร้านค้าใกล้คุณ": "Stores near you",
+  "ร้านค้ายอดนิยม": "Popular stores",
+  "ยังไม่มีร้านที่เคยสั่ง": "No previously ordered stores",
+  "โปรร้าน": "Store deal",
+  "เก็บแล้ว": "Saved",
+  "เก็บโค้ด": "Save code",
+  "อาหารและเครื่องดื่ม": "Food & drinks",
+  "ดูระยะทางในร้าน": "See distance in store",
+  "เข้าไปที่หน้าร้าน แล้วกดหัวใจเพื่อบันทึกร้านโปรด": "Open a store and tap the heart to save it as a favorite",
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
@@ -2655,5 +2677,7 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["{0} คะแนน · {1} รีวิว", "{0} rating · {1} reviews"],
   ["{0} รอตอบ", "{0} awaiting reply"],
   ["สั่งจริงกับ WYNOS Food · {0}", "Verified order on WYNOS Food · {0}"],
+
+  ["เมื่อสั่งครบ {0}", "When you spend {0}"],
 
 ];
