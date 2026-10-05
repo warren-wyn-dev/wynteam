@@ -1,4 +1,4 @@
-name: WYNOS Maps -- Overture seed dry run
+name: WYNOS Maps -- Overture seed import
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
             --type=place \
             -o overture-places.geojson
 
-      - name: Dry-run WYNOS filter
+      - name: Import filtered Overture Places into WYNOS
         run: |
           python .github/scripts/import-overture-places.py \
             --file overture-places.geojson \
@@ -44,5 +44,4 @@ jobs:
             --access-token "$SUPABASE_ACCESS_TOKEN" \
             --min-confidence 0.90 \
             --activate-confidence 0.95 \
-            --max-places 5000 \
-            --dry-run
+            --max-places 5000
