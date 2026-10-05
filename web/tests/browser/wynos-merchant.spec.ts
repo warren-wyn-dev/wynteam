@@ -53,22 +53,27 @@ test("Merchant production polish supports multiple stores, paged orders, help an
   expect(css).toContain("@media print");
 });
 
-test("Merchant operations completion adds KDS, scheduled orders and tax receipt printing", () => {
+test("Merchant keeps scheduled orders and tax receipts while More stays simple", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
   const css = read("app/merchant/merchant.css");
   const sql = read("../supabase/migrations_wynos_merchant_ops_completion_v1.sql");
 
-  expect(app).toContain('onOpenTab("kitchen")');
-  expect(app).toContain("function KitchenPanel");
-  expect(app).toContain("isScheduledWaiting");
+  expect(app).not.toContain('onOpenTab("kitchen")');
+  expect(app).not.toContain("function KitchenPanel");
+  expect(app).not.toContain("ครัว / KDS");
+  expect(css).not.toContain(".wm-kitchen-board");
   expect(app).toContain("เปิดรับออเดอร์ล่วงหน้า");
   expect(app).toContain("แสดงข้อมูลภาษีในใบเสร็จ");
   expect(app).toContain('className="wm-print-document"');
+  expect(app).toContain("<Settings2 size={37}");
+  expect(app).toContain("<CircleHelp size={37}");
+  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))");
+  expect(css).toContain(".wm-tile-icon--settings");
+  expect(css).toContain(".wm-tile-icon--help");
   expect(data).toContain("scheduled_orders_enabled?: boolean");
   expect(data).toContain("tax_invoice_enabled?: boolean");
   expect(data).toContain("receipt_tax_id?: string | null");
-  expect(css).toContain(".wm-kitchen-board");
   expect(css).toContain(".wm-print-document");
   expect(sql).toContain("food_create_scheduled_order");
   expect(sql).toContain("food_order_receipt_snapshot");
