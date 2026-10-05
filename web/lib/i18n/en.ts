@@ -2434,6 +2434,10 @@ Object.assign(EN_EXACT, {
   "เว้นว่าง = ไม่จำกัด ระบบนับใหม่ทุกวันตามเวลาไทย": "Leave blank for unlimited. The count resets each day in Thailand time",
   "สูงสุดต่อวัน": "Maximum per day",
   "ถ้ายอดครบ ระบบจะไม่รับออเดอร์เพิ่มของเมนูนี้จนถึงวันถัดไป": "When the limit is reached, this item cannot be ordered again until the next day",
+  "เลื่อนหมวดหมู่ขึ้น": "Move category up",
+  "เลื่อนหมวดหมู่ลง": "Move category down",
+  "เลื่อนเมนูขึ้น": "Move menu item up",
+  "เลื่อนเมนูลง": "Move menu item down",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
