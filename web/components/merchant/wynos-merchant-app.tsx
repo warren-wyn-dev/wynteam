@@ -916,7 +916,7 @@ function MorePanel({
         <section className="wm-store-location-card">
           <div className="wm-store-location-card-head">
             <span><strong>ตำแหน่งร้าน</strong><small>ตรวจสอบหมุดร้านบนแผนที่ก่อนเปิดรับออเดอร์</small></span>
-            <button type="button" onClick={onEdit}>แก้ไขตำแหน่ง</button>
+            <button type="button" onClick={() => onOpenTab("store")}>แก้ไขตำแหน่ง</button>
           </div>
           <FoodLocationMapPreview
             location={{ latitude: Number(store.latitude), longitude: Number(store.longitude) }}
@@ -928,7 +928,7 @@ function MorePanel({
         </section>
       ) : (
         <section className="wm-store-location-missing">
-          <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น WYNOS Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={onEdit}>เพิ่มตำแหน่ง</button>
+          <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น WYNOS Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={() => onOpenTab("store")}>เพิ่มตำแหน่ง</button>
         </section>
       )}
       <section className="wm-settings-list">
@@ -1176,6 +1176,25 @@ function StorePanel({
           <button type="button" onClick={onEdit}>แก้ไข</button>
         </div>
       </section>
+      {store.latitude != null && store.longitude != null ? (
+        <section className="wm-store-location-card">
+          <div className="wm-store-location-card-head">
+            <span><strong>ตำแหน่งร้าน</strong><small>ตรวจสอบหมุดร้านบนแผนที่ก่อนเปิดรับออเดอร์</small></span>
+            <button type="button" onClick={onEdit}>แก้ไขตำแหน่ง</button>
+          </div>
+          <FoodLocationMapPreview
+            location={{ latitude: Number(store.latitude), longitude: Number(store.longitude) }}
+            label={store.name}
+          />
+          {store.pickup_latitude != null && store.pickup_longitude != null ? (
+            <div className="wm-store-pickup-summary"><MapPin size={16} /><span><strong>มีจุดรับอาหารแยกจากหน้าร้าน</strong><small>{store.pickup_note || "ร้านกำหนดทางเข้าหรือจุดรับอาหารสำหรับไรเดอร์แล้ว"}</small></span></div>
+          ) : null}
+        </section>
+      ) : (
+        <section className="wm-store-location-missing">
+          <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น WYNOS Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={onEdit}>เพิ่มตำแหน่ง</button>
+        </section>
+      )}
       <section className="wm-settings-list">
         <button type="button" onClick={() => void togglePublished()} disabled={busy || Boolean(store.admin_suspended_at)}>
           <span><strong>เผยแพร่ WYNOS Food</strong><small>{store.is_published ? "ลูกค้าเห็นร้านได้แล้ว" : "ร้านยังซ่อนจากลูกค้า"}</small></span>
