@@ -240,15 +240,21 @@ function FoodServiceAreaIntro({
 function FoodHeader({
   cartCount,
   showBack,
+  homeLocationLabel,
   onBack,
   onCart,
+  onLocation,
+  onFavorites,
   onRefresh,
   refreshing,
 }: {
   cartCount: number;
   showBack: boolean;
+  homeLocationLabel?: string;
   onBack: () => void;
   onCart: () => void;
+  onLocation?: () => void;
+  onFavorites?: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 }) {
@@ -259,18 +265,35 @@ function FoodHeader({
           <ArrowLeft size={21} strokeWidth={2} />
         </button>
       ) : null}
-      <div className="wf-brand">
-        <span>WYNOS</span>
-        <b>Food</b>
+      <div className="wf-brand-stack">
+        <div className="wf-brand">
+          <span>WYNOS</span>
+          <b>Food</b>
+        </div>
+        {!showBack ? (
+          <button className="wf-home-location" type="button" onClick={onLocation} aria-label="เลือกที่อยู่จัดส่ง">
+            <MapPin size={16} fill="currentColor" />
+            <small>จัดส่งที่</small>
+            <strong>{homeLocationLabel || "เลือกที่อยู่จัดส่ง"}</strong>
+            <ChevronRight size={15} />
+          </button>
+        ) : null}
       </div>
       <div className="wf-header-actions">
+        {!showBack && onFavorites ? (
+          <button className="wf-icon-button" type="button" aria-label="ร้านโปรด" onClick={onFavorites}>
+            <Heart size={22} strokeWidth={1.9} />
+          </button>
+        ) : null}
         <button className="wf-icon-button wf-cart-button" type="button" aria-label={cartCount ? `ตะกร้า ${cartCount} รายการ` : "ตะกร้า"} onClick={onCart}>
           <ShoppingBag size={21} strokeWidth={1.9} />
           {cartCount ? <i>{cartCount > 9 ? "9+" : cartCount}</i> : null}
         </button>
-        <button className="wf-icon-button" type="button" aria-label="อัปเดตข้อมูล" onClick={onRefresh}>
-          {refreshing ? <i className="wf-mini-loader" /> : <Clock3 size={21} strokeWidth={1.8} />}
-        </button>
+        {showBack ? (
+          <button className="wf-icon-button" type="button" aria-label="อัปเดตข้อมูล" onClick={onRefresh}>
+            {refreshing ? <i className="wf-mini-loader" /> : <Clock3 size={21} strokeWidth={1.8} />}
+          </button>
+        ) : null}
       </div>
     </header>
   );
@@ -333,91 +356,362 @@ function MenuImage({
 }
 
 /**
- * WYN-207: store directory. Live paid ads come first as "ร้านแนะนำ" with a
- * "โฆษณา" label; search puts them on top too. Opening an ad tells the server,
- * which decides whether to charge (once per customer per store per day).
+ * Founder-approved WYNOS Food Home directory.
+ * Paid ads remain labelled. The home itself never exposes a favorite toggle:
+ * customers favorite a store only from inside that store.
  */
-function StoreDirectory({
+function foodDistanceKm(
+  from: { latitude: number; longitude: number } | null,
+  to: { latitude?: number | null; longitude?: number | null },
+) {
+  if (!from || to.latitude == null || to.longitude == null) return null;
+  const earthKm = 6371;
+  const rad = (value: number) => value * Math.PI / 180;
+  const dLat = rad(Number(to.latitude) - from.latitude);
+  const dLng = rad(Number(to.longitude) - from.longitude);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(rad(from.latitude)) * Math.cos(rad(Number(to.latitude))) * Math.sin(dLng / 2) ** 2;
+  return earthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function foodPromoLabel(store: FoodDirectoryStore) {
+  if (!store.promo_name) return null;
+  if (store.promo_type === "free_delivery") return "ส่งฟรี";
+  const value = Number(store.promo_value ?? 0);
+  if (store.promo_type === "percentage") return `ลด ${value}%`;
+  if (store.promo_type === "fixed") return `ลด ${foodMoney(value)}`;
+  return store.promo_name;
+}
+
+function FoodDirectoryStoreRow({
   client,
-  currentStoreId,
+  store,
+  distance,
   onPick,
 }: {
   client: SupabaseClient;
+  store: FoodDirectoryStore;
+  distance: number | null;
+  onPick: () => void;
+}) {
+  const cover = foodPublicUrl(client, store.cover_path);
+  const logo = foodPublicUrl(client, store.logo_path);
+  const rating = Number(store.rating_average ?? 0);
+  const ratingCount = Number(store.rating_count ?? 0);
+  const categories = Array.isArray(store.categories) ? store.categories.slice(0, 3) : [];
+  const eta = foodEstimateDeliveryRange(store, distance);
+  const promo = foodPromoLabel(store);
+  return (
+    <button className="wf-home-store-row" type="button" onClick={onPick}>
+      <span className="wf-home-store-photo">
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={cover} alt="" />
+        ) : <UtensilsCrossed size={31} strokeWidth={1.4} />}
+        {store.is_ad ? <b className="wf-ad-label">โฆษณา</b> : null}
+      </span>
+      <span className="wf-home-store-body">
+        <span className="wf-home-store-head">
+          <span className="wf-home-store-logo">
+            {logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logo} alt="" />
+            ) : <Store size={18} strokeWidth={1.5} />}
+          </span>
+          <span className="wf-home-store-title">
+            <strong>{store.name}</strong>
+            <small>{store.address || (store.is_open ? "เปิดรับออเดอร์" : "ปิดอยู่")}</small>
+          </span>
+          <ChevronRight size={17} />
+        </span>
+        <span className="wf-home-store-quality">
+          <span className="wf-home-rating">
+            <Star size={13} fill="currentColor" />
+            {rating > 0 ? rating.toFixed(1) : "ใหม่"}
+            {ratingCount > 0 ? <small>({new Intl.NumberFormat("th-TH").format(ratingCount)})</small> : null}
+          </span>
+          {categories.length ? <span>{categories.join(" · ")}</span> : <span>อาหารและเครื่องดื่ม</span>}
+        </span>
+        <span className="wf-home-store-meta">
+          <span><MapPin size={13} />{distance == null ? "ดูระยะทางในร้าน" : `${distance < 10 ? distance.toFixed(1) : Math.round(distance)} กม.`}</span>
+          <span><Clock3 size={13} />{eta.min}–{eta.max} นาที</span>
+          <span><span aria-hidden="true">🛵</span>ค่าส่ง {foodMoney(store.delivery_fee)}</span>
+        </span>
+        {promo ? <span className="wf-home-promo-badge">{promo}</span> : null}
+      </span>
+    </button>
+  );
+}
+
+function FoodRecentStoreTile({
+  client,
+  store,
+  onPick,
+}: {
+  client: SupabaseClient;
+  store: FoodDirectoryStore;
+  onPick: () => void;
+}) {
+  const cover = foodPublicUrl(client, store.cover_path);
+  return (
+    <button className="wf-recent-store" type="button" onClick={onPick}>
+      <span>
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={cover} alt="" />
+        ) : <UtensilsCrossed size={30} strokeWidth={1.4} />}
+      </span>
+      <strong>{store.name}</strong>
+    </button>
+  );
+}
+
+function FoodHomeSectionHeader({ title, onAll }: { title: string; onAll: () => void }) {
+  return (
+    <div className="wf-home-section-head">
+      <h2>{title}</h2>
+      <button type="button" onClick={onAll}>ดูทั้งหมด <ChevronRight size={15} /></button>
+    </div>
+  );
+}
+
+function StoreDirectory({
+  client,
+  userId,
+  currentStoreId,
+  orders,
+  addresses,
+  onPick,
+  onMessage,
+}: {
+  client: SupabaseClient;
+  userId: string;
   currentStoreId: string | null;
+  orders: FoodCustomerOrder[];
+  addresses: FoodCustomerAddress[];
   onPick: (store: FoodDirectoryStore, placement: "home" | "search") => void;
+  onMessage: (message: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [stores, setStores] = useState<FoodDirectoryStore[] | null>(null);
+  const [browse, setBrowse] = useState<"promos" | "recent" | "nearby" | "popular" | null>(null);
+  const promoKey = `wynos-food-collected-promos-v1:${userId}`;
+  const [collectedPromos, setCollectedPromos] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = JSON.parse(localStorage.getItem(promoKey) ?? "[]");
+      return Array.isArray(saved) ? saved.filter((value): value is string => typeof value === "string") : [];
+    } catch {
+      return [];
+    }
+  });
+
   useEffect(() => {
     let live = true;
     const timer = window.setTimeout(() => {
       void fetchFoodStoreDirectory(client, query).then((next) => { if (live) setStores(next); });
-    }, query ? 300 : 0);
+    }, query ? 280 : 0);
     return () => { live = false; window.clearTimeout(timer); };
   }, [client, query]);
-  // A Food home should remain a directory even when only one store is live.
-  if (!stores) return null;
-  const placement = query.trim() ? "search" : "home";
-  const ads = stores.filter((store) => store.is_ad);
-  const rest = stores.filter((store) => !store.is_ad);
-  const card = (store: FoodDirectoryStore) => {
-    const logo = foodPublicUrl(client, store.logo_path);
-    const cover = foodPublicUrl(client, store.cover_path);
+
+  const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
+  const customerLocation = addressLocation(primaryAddress);
+  const directory = stores ?? [];
+  const distanceFor = (store: FoodDirectoryStore) => foodDistanceKm(customerLocation, store);
+  const storeMap = new Map(directory.map((store) => [store.id, store]));
+
+  const recentStores = Array.from(new Set(
+    [...orders]
+      .filter((order) => order.status !== "cancelled")
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+      .map((order) => order.store_id),
+  )).map((id) => storeMap.get(id)).filter((store): store is FoodDirectoryStore => Boolean(store));
+
+  const nearbyStores = [...directory].sort((a, b) => {
+    const da = distanceFor(a);
+    const db = distanceFor(b);
+    if (da == null && db == null) return Number(b.is_open) - Number(a.is_open);
+    if (da == null) return 1;
+    if (db == null) return -1;
+    return da - db;
+  });
+  const popularStores = [...directory].sort((a, b) => {
+    const ordersDelta = Number(b.delivered_order_count ?? 0) - Number(a.delivered_order_count ?? 0);
+    if (ordersDelta) return ordersDelta;
+    const ratingDelta = Number(b.rating_average ?? 0) - Number(a.rating_average ?? 0);
+    if (ratingDelta) return ratingDelta;
+    return a.name.localeCompare(b.name, "th");
+  });
+  const promoStores = directory.filter((store) => Boolean(store.promo_name));
+
+  const toggleCollected = (store: FoodDirectoryStore) => {
+    const id = store.id;
+    setCollectedPromos((current) => {
+      const next = current.includes(id) ? current.filter((value) => value !== id) : [...current, id];
+      try { localStorage.setItem(promoKey, JSON.stringify(next)); } catch { /* private mode */ }
+      return next;
+    });
+  };
+
+  const promoCard = (store: FoodDirectoryStore) => {
+    const label = foodPromoLabel(store) ?? store.promo_name ?? "โปรร้าน";
+    const minimum = Number(store.promo_min_subtotal ?? 0);
+    const collected = collectedPromos.includes(store.id);
     return (
-      <button
-        key={store.id}
-        type="button"
-        className="wf-dir-store"
-        aria-current={store.id === currentStoreId ? "true" : undefined}
-        onClick={() => onPick(store, placement)}
-      >
-        <span className="wf-dir-cover">
-          {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover} alt="" />
-          ) : <UtensilsCrossed size={34} strokeWidth={1.35} />}
-          {store.is_ad ? <b className="wf-ad-label">โฆษณา</b> : null}
+      <article className="wf-home-deal" key={store.id}>
+        <span className="wf-home-deal-icon"><ReceiptText size={24} /></span>
+        <span className="wf-home-deal-copy">
+          <strong>{label}</strong>
+          <small>{minimum > 0 ? `เมื่อสั่งครบ ${foodMoney(minimum)}` : store.promo_name}</small>
         </span>
-        <span className="wf-dir-card-body">
-          <span className="wf-dir-row">
-            <span className="wf-dir-logo">{logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} alt="" />
-            ) : <Store size={20} strokeWidth={1.5} />}</span>
-            <span className="wf-dir-copy">
-              <strong>{store.name}</strong>
-              <small>{store.is_open ? "เปิดรับออเดอร์" : "ปิดอยู่"}</small>
-            </span>
-            <ChevronRight size={18} strokeWidth={1.8} />
-          </span>
-          <span className="wf-dir-meta">
-            {store.business_hours ? <span><Clock3 size={14} />{store.business_hours}</span> : null}
-            <span><MapPin size={14} />ค่าส่ง {foodMoney(store.delivery_fee)}</span>
-          </span>
-        </span>
-      </button>
+        <button type="button" className={collected ? "is-collected" : ""} onClick={() => toggleCollected(store)}>
+          {collected ? "เก็บแล้ว" : "เก็บโค้ด"}
+        </button>
+      </article>
     );
   };
+
+  const row = (store: FoodDirectoryStore, placement: "home" | "search" = "home") => (
+    <FoodDirectoryStoreRow
+      key={store.id}
+      client={client}
+      store={store}
+      distance={distanceFor(store)}
+      onPick={() => onPick(store, placement)}
+    />
+  );
+
+  if (!stores) return null;
+
   return (
-    <section className="wf-directory">
-      <label className="wf-search">
-        <Search size={19} strokeWidth={1.7} />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาร้าน" aria-label="ค้นหาร้าน" autoComplete="off" />
+    <section className="wf-directory wf-home-directory">
+      <label className="wf-search wf-home-search">
+        <Search size={20} strokeWidth={1.8} />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="ค้นหาร้านหรือเมนูอาหาร"
+          aria-label="ค้นหาร้านหรือเมนูอาหาร"
+          autoComplete="off"
+        />
+        {query ? <button type="button" aria-label="ล้างการค้นหา" onClick={() => setQuery("")}><X size={17} /></button> : null}
       </label>
-      {ads.length ? (
+
+      <div className="wf-fulfillment-tabs" aria-label="รูปแบบการรับอาหาร">
+        <button type="button" className="is-active"><span aria-hidden="true">🛵</span>จัดส่ง</button>
+        <button
+          type="button"
+          onClick={() => onMessage("รับเองที่ร้านกำลังเตรียมเปิดให้บริการ")}
+          aria-label="รับเองที่ร้าน"
+        ><Store size={18} />รับเองที่ร้าน</button>
+      </div>
+
+      {query.trim() ? (
+        <section className="wf-home-search-results">
+          <FoodHomeSectionHeader title="ผลการค้นหา" onAll={() => undefined} />
+          {directory.length ? <div className="wf-home-store-list">{directory.map((store) => row(store, "search"))}</div> : <p className="wf-dir-empty">ไม่พบร้านหรือเมนูที่ค้นหา</p>}
+        </section>
+      ) : (
         <>
-          <h2 className="wf-dir-title">{placement === "search" ? "ร้านที่ตรงกับการค้นหา" : "ร้านแนะนำ"}</h2>
-          <div className="wf-dir-list">{ads.map(card)}</div>
+          <section className="wf-home-section">
+            <FoodHomeSectionHeader title="รวมโค้ดลดเพิ่ม" onAll={() => setBrowse("promos")} />
+            {promoStores.length ? (
+              <div className="wf-home-deals">{promoStores.slice(0, 2).map(promoCard)}</div>
+            ) : (
+              <div className="wf-home-deals-empty"><ReceiptText size={20} /><span>ยังไม่มีโค้ดส่วนลดในตอนนี้</span></div>
+            )}
+          </section>
+
+          <section className="wf-home-section">
+            <FoodHomeSectionHeader title="ร้านที่เคยสั่งล่าสุด" onAll={() => setBrowse("recent")} />
+            {recentStores.length ? (
+              <div className="wf-recent-stores">
+                {recentStores.slice(0, 4).map((store) => (
+                  <FoodRecentStoreTile key={store.id} client={client} store={store} onPick={() => onPick(store, "home")} />
+                ))}
+              </div>
+            ) : <p className="wf-home-empty">ร้านที่คุณสั่งครั้งแรกจะแสดงตรงนี้</p>}
+          </section>
+
+          <section className="wf-home-section">
+            <FoodHomeSectionHeader title="ร้านค้าใกล้คุณ" onAll={() => setBrowse("nearby")} />
+            <div className="wf-home-store-list">{nearbyStores.slice(0, 4).map((store) => row(store))}</div>
+          </section>
+
+          <section className="wf-home-section">
+            <FoodHomeSectionHeader title="ร้านค้ายอดนิยม" onAll={() => setBrowse("popular")} />
+            <div className="wf-home-store-list">{popularStores.slice(0, 4).map((store) => row(store))}</div>
+          </section>
         </>
+      )}
+
+      {browse ? (
+        <Sheet
+          title={browse === "promos" ? "รวมโค้ดลดเพิ่ม" : browse === "recent" ? "ร้านที่เคยสั่งล่าสุด" : browse === "nearby" ? "ร้านค้าใกล้คุณ" : "ร้านค้ายอดนิยม"}
+          onClose={() => setBrowse(null)}
+        >
+          {browse === "promos" ? (
+            promoStores.length ? <div className="wf-home-deals wf-home-deals--sheet">{promoStores.map(promoCard)}</div> : <p className="wf-home-empty">ยังไม่มีโค้ดส่วนลดในตอนนี้</p>
+          ) : browse === "recent" ? (
+            recentStores.length ? <div className="wf-home-store-list">{recentStores.map((store) => row(store))}</div> : <p className="wf-home-empty">ยังไม่มีร้านที่เคยสั่ง</p>
+          ) : browse === "nearby" ? (
+            <div className="wf-home-store-list">{nearbyStores.map((store) => row(store))}</div>
+          ) : (
+            <div className="wf-home-store-list">{popularStores.map((store) => row(store))}</div>
+          )}
+        </Sheet>
       ) : null}
-      {rest.length ? (
-        <>
-          <h2 className="wf-dir-title">{ads.length ? "ร้านอื่นๆ" : "ร้านทั้งหมด"}</h2>
-          <div className="wf-dir-list">{rest.map(card)}</div>
-        </>
-      ) : null}
-      {!stores.length ? <p className="wf-dir-empty">ไม่พบร้านที่ค้นหา</p> : null}
     </section>
+  );
+}
+
+function FavoriteStoresSheet({
+  client,
+  userId,
+  onClose,
+  onPick,
+}: {
+  client: SupabaseClient;
+  userId: string;
+  onClose: () => void;
+  onPick: (store: FoodDirectoryStore) => void;
+}) {
+  const [stores, setStores] = useState<FoodDirectoryStore[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    void fetchFoodStoreDirectory(client).then((next) => { if (live) setStores(next); });
+    return () => { live = false; };
+  }, [client]);
+
+  let ids: string[] = [];
+  try {
+    const saved = JSON.parse(localStorage.getItem(`wynos-food-favorite-stores-v1:${userId}`) ?? "[]");
+    ids = Array.isArray(saved) ? saved.filter((value): value is string => typeof value === "string") : [];
+  } catch {
+    ids = [];
+  }
+  const favorites = (stores ?? []).filter((store) => ids.includes(store.id));
+
+  return (
+    <Sheet title="ร้านโปรด" onClose={onClose}>
+      {stores === null ? <div className="wf-mini-loader" /> : favorites.length ? (
+        <div className="wf-favorite-store-list">
+          {favorites.map((store) => {
+            const logo = foodPublicUrl(client, store.logo_path);
+            return (
+              <button key={store.id} type="button" onClick={() => onPick(store)}>
+                <span>{logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logo} alt="" />
+                ) : <Store size={20} />}</span>
+                <div><strong>{store.name}</strong><small>{store.address || (store.is_open ? "เปิดรับออเดอร์" : "ปิดอยู่")}</small></div>
+                <ChevronRight size={18} />
+              </button>
+            );
+          })}
+        </div>
+      ) : <div className="wf-empty wf-empty--compact"><Heart size={34} strokeWidth={1.4} /><strong>ยังไม่มีร้านโปรด</strong><p>เข้าไปที่หน้าร้าน แล้วกดหัวใจเพื่อบันทึกร้านโปรด</p></div>}
+    </Sheet>
   );
 }
 
@@ -627,6 +921,9 @@ function HomePanel({
   onPickStore,
   onShareStore,
   storefrontOpen,
+  orders,
+  addresses,
+  onMessage,
 }: {
   client: SupabaseClient;
   userId: string;
@@ -636,6 +933,9 @@ function HomePanel({
   onPickStore: (store: FoodDirectoryStore, placement: "home" | "search") => void;
   onShareStore: () => void;
   storefrontOpen: boolean;
+  orders: FoodCustomerOrder[];
+  addresses: FoodCustomerAddress[];
+  onMessage: (message: string) => void;
 }) {
   const [category, setCategory] = useState("ทั้งหมด");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -682,7 +982,15 @@ function HomePanel({
           </span>
           <span className="wf-social-promo-action">เปิด <ChevronRight size={17} /></span>
         </a>
-        <StoreDirectory client={client} currentStoreId={store?.id ?? null} onPick={onPickStore} />
+        <StoreDirectory
+          client={client}
+          userId={userId}
+          currentStoreId={store?.id ?? null}
+          orders={orders}
+          addresses={addresses}
+          onPick={onPickStore}
+          onMessage={onMessage}
+        />
         {!store ? (
           <div className="wf-empty">
             <Store size={40} strokeWidth={1.4} />
@@ -1876,6 +2184,7 @@ function FoodCustomerInner({
   const [refreshing, setRefreshing] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
   const loadingRef = useRef(false);
   const previousOrdersRef = useRef<Map<string, string>>(new Map());
 
@@ -2016,6 +2325,8 @@ function FoodCustomerInner({
     return sum + (item ? Number(item.price) * line.quantity : 0);
   }, 0);
   const activeCount = orders.filter((order) => !["delivered", "cancelled"].includes(order.status)).length;
+  const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
+  const homeLocationLabel = primaryAddress?.place_name || primaryAddress?.label || "เลือกที่อยู่จัดส่ง";
 
   const addItem = (line: FoodCartLine) => {
     setCart((current) => {
@@ -2150,6 +2461,7 @@ function FoodCustomerInner({
       <FoodHeader
         cartCount={cartCount}
         showBack={tab !== "home" || storefrontOpen}
+        homeLocationLabel={homeLocationLabel}
         onBack={() => {
           if (tab === "home" && storefrontOpen) {
             setStorefrontOpen(false);
@@ -2159,6 +2471,8 @@ function FoodCustomerInner({
           setTab("home");
         }}
         onCart={() => setTab("cart")}
+        onLocation={() => setTab("account")}
+        onFavorites={() => setFavoritesOpen(true)}
         onRefresh={() => void load(true)}
         refreshing={refreshing}
       />
@@ -2177,6 +2491,9 @@ function FoodCustomerInner({
             onPickStore={pickStore}
             onShareStore={shareStore}
             storefrontOpen={storefrontOpen}
+            orders={orders}
+            addresses={addresses}
+            onMessage={setMessage}
           />
         ) : null}
         {tab === "orders" ? <OrdersPanel orders={orders} reviewedOrderIds={reviewedOrderIds} onOrder={setSelectedOrder} /> : null}
@@ -2227,6 +2544,18 @@ function FoodCustomerInner({
           setTab(next);
         }}
       />
+
+      {favoritesOpen ? (
+        <FavoriteStoresSheet
+          client={client}
+          userId={userId}
+          onClose={() => setFavoritesOpen(false)}
+          onPick={(favoriteStore) => {
+            setFavoritesOpen(false);
+            pickStore(favoriteStore, "home");
+          }}
+        />
+      ) : null}
 
       {selectedItem && store ? (
         <ItemSheet
