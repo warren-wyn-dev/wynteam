@@ -3,7 +3,7 @@
 -- prices in quotes/orders so the client cannot forge names or prices.
 
 create or replace function internal.food_resolve_menu_options(
-  p_options jsonb,
+  p_item_options jsonb,
   p_selected jsonb
 )
 returns jsonb
@@ -12,7 +12,7 @@ immutable
 set search_path = ''
 as $resolve$
 declare
-  v_options jsonb := coalesce(p_options, '[]'::jsonb);
+  v_options jsonb := coalesce(p_item_options, '[]'::jsonb);
   v_selected jsonb := coalesce(p_selected, '[]'::jsonb);
   v_group jsonb;
   v_choice jsonb;
