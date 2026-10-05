@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
+import "../food/food.css";
 import "./merchant.css";
 
 const MERCHANT_ICON_180 = "/icons/merchant/v15-180.png";

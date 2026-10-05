@@ -90,6 +90,12 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(map).toContain("wf-map-confirm-coordinates");
   expect(map).not.toContain("function placeText(");
   expect(map).toContain("autoLocate = false");
+  expect(map).toContain("FoodLocationMapPreview");
+  expect(map).toContain("fetchWynosPlaceDetails");
+  expect(map).toContain("wf-map-store-cover");
+  expect(map).toContain("wf-map-entrance-marker");
+  expect(map).toContain("ดูจุดรับอาหารบนแผนที่");
+  expect(map).toContain("เลื่อนแผนที่เพื่อปรับหมุดให้ตรงตำแหน่งจริง");
   expect(map).toContain('if (standalone) setSheetDetent("half");');
   expect(mapsV4Css).toContain(".wf-map-sheet.is-searching");
   expect(mapsV4Css).toContain("max-height: min(52dvh, 430px)");
@@ -179,7 +185,8 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(overtureWorkflow).toContain("activate_confidence");
   expect(overtureImporter).toContain("source_ref");
   expect(overtureImporter).toContain("activate-confidence");
-  expect(map).toContain("ดูร้านใน WYNOS Food");
+  expect(map).toContain("สั่งใน WYNOS Food");
+  expect(map).toContain("https://food.wynos.online/?store=");
   expect(app).toContain('new URLSearchParams(window.location.search).get("store")');
   expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
   expect(app).toContain("หมายเหตุถึงผู้จัดส่ง");

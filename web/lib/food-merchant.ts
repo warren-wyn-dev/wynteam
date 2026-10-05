@@ -22,6 +22,10 @@ export type FoodStore = {
   /** WYN-196 delivery zone. latitude null = flat delivery fee, no radius. */
   latitude?: number | null;
   longitude?: number | null;
+  /** Separate entrance / rider pickup pin. */
+  pickup_latitude?: number | null;
+  pickup_longitude?: number | null;
+  pickup_note?: string | null;
   delivery_radius_km?: number | string;
   delivery_base_km?: number | string;
   delivery_fee_per_km?: number | string;
@@ -247,6 +251,9 @@ export async function updateFoodStore(client: SupabaseClient, storeId: string, p
     minimum_order: patch.minimum_order,
     latitude: patch.latitude,
     longitude: patch.longitude,
+    pickup_latitude: patch.pickup_latitude,
+    pickup_longitude: patch.pickup_longitude,
+    pickup_note: patch.pickup_note,
     delivery_radius_km: patch.delivery_radius_km,
     delivery_base_km: patch.delivery_base_km,
     delivery_fee_per_km: patch.delivery_fee_per_km,

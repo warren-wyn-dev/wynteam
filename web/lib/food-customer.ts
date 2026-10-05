@@ -21,6 +21,9 @@ export type FoodCustomerStore = {
   /** WYN-196: pinned store location. Null keeps the flat delivery fee. */
   latitude?: number | null;
   longitude?: number | null;
+  pickup_latitude?: number | null;
+  pickup_longitude?: number | null;
+  pickup_note?: string | null;
   delivery_radius_km?: number | string;
   delivery_base_km?: number | string;
   delivery_fee_per_km?: number | string;
@@ -644,6 +647,40 @@ export function currentFoodLocation(timeoutMs = 12000): Promise<FoodLocation> {
       { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60_000 },
     );
   });
+}
+
+export type WynosPlaceDetails = {
+  placeId: string;
+  entranceLatitude: number | null;
+  entranceLongitude: number | null;
+  pickupNote: string | null;
+  merchantStoreId: string | null;
+  storeSlug: string | null;
+  storeLogoPath: string | null;
+  storeCoverPath: string | null;
+  isOpen: boolean | null;
+};
+
+export async function fetchWynosPlaceDetails(
+  client: SupabaseClient,
+  placeId: string,
+): Promise<WynosPlaceDetails | null> {
+  const { data, error } = await client.rpc("wynos_place_details", { p_place_id: placeId });
+  if (error || !Array.isArray(data) || !data.length) return null;
+  const row = data[0] as Record<string, unknown>;
+  const entranceLatitude = row.entrance_latitude == null ? null : Number(row.entrance_latitude);
+  const entranceLongitude = row.entrance_longitude == null ? null : Number(row.entrance_longitude);
+  return {
+    placeId: String(row.place_id ?? placeId),
+    entranceLatitude: Number.isFinite(entranceLatitude) ? entranceLatitude : null,
+    entranceLongitude: Number.isFinite(entranceLongitude) ? entranceLongitude : null,
+    pickupNote: typeof row.pickup_note === "string" ? row.pickup_note : null,
+    merchantStoreId: typeof row.merchant_store_id === "string" ? row.merchant_store_id : null,
+    storeSlug: typeof row.store_slug === "string" ? row.store_slug : null,
+    storeLogoPath: typeof row.store_logo_path === "string" ? row.store_logo_path : null,
+    storeCoverPath: typeof row.store_cover_path === "string" ? row.store_cover_path : null,
+    isOpen: typeof row.is_open === "boolean" ? row.is_open : null,
+  };
 }
 
 export type FoodPlace = {

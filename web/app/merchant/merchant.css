@@ -2538,3 +2538,164 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
     aspect-ratio: 16 / 8;
   }
 }
+
+
+/* Merchant location suite: shared WYNOS Maps picker, saved map preview and rider pickup pin. */
+.wm-force-light .wf-map-picker {
+  --wf-red: var(--wm-red, #e32636);
+  --wf-bg: #fff;
+  --wf-text: #111;
+  --wf-secondary: #737373;
+  --wf-muted: #9a9a9a;
+  --wf-surface: #f6f6f7;
+  --wf-border: #e7e7e9;
+  z-index: 140;
+}
+
+.wm-store-location-card,
+.wm-store-location-missing {
+  margin: 0 0 12px;
+  border: 1px solid var(--wm-border);
+  border-radius: 18px;
+  background: var(--wm-bg);
+  padding: 12px;
+}
+
+.wm-store-location-card {
+  display: grid;
+  gap: 10px;
+}
+
+.wm-store-location-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wm-store-location-card-head > span,
+.wm-store-pickup-summary > span,
+.wm-store-location-missing > span,
+.wm-location-address > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.wm-store-location-card-head strong,
+.wm-store-location-missing strong,
+.wm-store-pickup-summary strong,
+.wm-location-address strong {
+  font-size: 12.5px;
+}
+
+.wm-store-location-card-head small,
+.wm-store-location-missing small,
+.wm-store-pickup-summary small,
+.wm-location-address small {
+  color: var(--wm-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.wm-store-location-card-head > button,
+.wm-store-location-missing > button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--wm-surface);
+  color: var(--wm-text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.wm-store-location-missing {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.wm-store-location-missing > svg,
+.wm-store-pickup-summary > svg,
+.wm-location-address > svg {
+  color: var(--wm-red);
+}
+
+.wm-store-pickup-summary,
+.wm-location-address {
+  min-height: 48px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: var(--wm-surface);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.wm-zone .wf-location-map-preview,
+.wm-store-location-card .wf-location-map-preview {
+  min-height: 170px;
+}
+
+.wm-service-area-state {
+  border-radius: 11px;
+  padding: 9px 10px;
+  background: var(--wm-surface);
+  color: var(--wm-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.wm-service-area-state.is-inside {
+  background: #edf9f1;
+  color: #16703a;
+}
+
+.wm-service-area-state.is-outside {
+  background: #fff4e5;
+  color: #8b5a00;
+}
+
+.wm-service-area-state.is-error {
+  background: #fff1f2;
+  color: var(--wm-red-text);
+}
+
+.wm-pickup-zone {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--wm-border);
+  display: grid;
+  gap: 9px;
+}
+
+.wm-pickup-zone > strong {
+  font-size: 13px;
+}
+
+.wm-pickup-zone > small {
+  color: var(--wm-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .wm-store-location-card-head {
+    align-items: flex-start;
+  }
+
+  .wm-store-location-missing {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .wm-store-location-missing > button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}

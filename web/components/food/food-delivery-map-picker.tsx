@@ -8,13 +8,16 @@ import {
   checkFoodDeliveryAvailability,
   currentFoodLocation,
   fetchNearbyWynosPlaces,
+  fetchWynosPlaceDetails,
   foodMoney,
+  foodPublicUrl,
   reverseFoodPlace,
   searchFoodPlaces,
   searchStorePlaces,
   submitWynosPlaceSuggestion,
   type FoodLocation,
   type FoodPlace,
+  type WynosPlaceDetails,
 } from "@/lib/food-customer";
 import {
   canHavePhotos,
@@ -304,6 +307,54 @@ function placeMarkerSvg(kind: MapMarkerKind) {
   return `<svg ${common}><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>`;
 }
 
+export function FoodLocationMapPreview({
+  location,
+  label = "ตำแหน่งร้าน",
+}: {
+  location: FoodLocation;
+  label?: string;
+}) {
+  const node = useRef<HTMLDivElement | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    let map: MapInstance | null = null;
+    void loadMapLibre()
+      .then((maplibre) => {
+        if (!live || !node.current) return;
+        node.current.replaceChildren();
+        map = new maplibre.Map({
+          container: node.current,
+          style: MAP_STYLE,
+          center: [location.longitude, location.latitude],
+          zoom: 16.5,
+          attributionControl: false,
+          dragPan: false,
+          touchZoomRotate: false,
+          touchPitch: false,
+        });
+        const resize = () => map?.resize();
+        map.on("load", resize);
+        window.setTimeout(resize, 80);
+        window.setTimeout(resize, 360);
+      })
+      .catch(() => { if (live) setFailed(true); });
+    return () => {
+      live = false;
+      map?.remove();
+    };
+  }, [location.latitude, location.longitude]);
+
+  return (
+    <div className="wf-location-map-preview" aria-label={label}>
+      <div ref={node} className="wf-location-map-preview-canvas" />
+      <span className="wf-location-map-preview-pin" aria-hidden="true"><MapPin size={28} fill="currentColor" /></span>
+      <small>{failed ? "แผนที่โหลดไม่สำเร็จ" : label}</small>
+    </div>
+  );
+}
+
 export function FoodDeliveryMapPicker({
   client,
   storeId,
@@ -312,6 +363,9 @@ export function FoodDeliveryMapPicker({
   onConfirm,
   autoLocate = false,
   standalone = false,
+  title,
+  subtitle,
+  confirmLabel,
 }: {
   client: SupabaseClient;
   storeId: string | null;
@@ -320,6 +374,9 @@ export function FoodDeliveryMapPicker({
   onConfirm: (location: FoodLocation, place?: FoodPlace) => void;
   autoLocate?: boolean;
   standalone?: boolean;
+  title?: string;
+  subtitle?: string;
+  confirmLabel?: string;
 }) {
   const mapNode = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapInstance | null>(null);
@@ -329,6 +386,7 @@ export function FoodDeliveryMapPicker({
   const nearbyRequestRef = useRef(0);
   const nearbyMarkersRef = useRef<MarkerInstance[]>([]);
   const userLocationMarkerRef = useRef<MarkerInstance | null>(null);
+  const entranceMarkerRef = useRef<MarkerInstance | null>(null);
   const autoLocateRef = useRef(false);
   const searchTimerRef = useRef<number | null>(null);
   const searchRequestRef = useRef(0);
@@ -339,6 +397,7 @@ export function FoodDeliveryMapPicker({
   const [results, setResults] = useState<FoodPlace[]>([]);
   const [nearbyPlaces, setNearbyPlaces] = useState<FoodPlace[]>([]);
   const [activeNearbyPlace, setActiveNearbyPlace] = useState<FoodPlace | null>(null);
+  const [activePlaceDetails, setActivePlaceDetails] = useState<WynosPlaceDetails | null>(null);
   const [nearbyAvailabilityState, setNearbyAvailabilityState] = useState<{
     key: string;
     value: Awaited<ReturnType<typeof checkFoodDeliveryAvailability>>;
@@ -625,6 +684,8 @@ export function FoodDeliveryMapPicker({
       nearbyMarkersRef.current = [];
       userLocationMarkerRef.current?.remove();
       userLocationMarkerRef.current = null;
+      entranceMarkerRef.current?.remove();
+      entranceMarkerRef.current = null;
       map?.remove();
       mapRef.current = null;
     };
@@ -793,6 +854,49 @@ export function FoodDeliveryMapPicker({
       if (nearbyMarkersRef.current === markers) nearbyMarkersRef.current = [];
     };
   }, [activeNearbyPlace, mapReady, mapZoom, nearbyPlaces, setSheetExpanded, standalone]);
+
+  useEffect(() => {
+    const placeId = activeNearbyPlace?.placeId;
+    if (!placeId) return;
+    let live = true;
+    void fetchWynosPlaceDetails(client, placeId)
+      .then((details) => { if (live) setActivePlaceDetails(details); })
+      .catch(() => { if (live) setActivePlaceDetails(null); });
+    return () => { live = false; };
+  }, [activeNearbyPlace?.placeId, client]);
+
+  const currentPlaceDetails =
+    activePlaceDetails?.placeId === activeNearbyPlace?.placeId ? activePlaceDetails : null;
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const maplibre = window.maplibregl;
+    entranceMarkerRef.current?.remove();
+    entranceMarkerRef.current = null;
+    if (!mapReady || !map || !maplibre || currentPlaceDetails?.entranceLatitude == null || currentPlaceDetails.entranceLongitude == null) return;
+    const node = document.createElement("button");
+    node.type = "button";
+    node.className = "wf-map-entrance-marker";
+    node.setAttribute("aria-label", "จุดรับอาหารหรือทางเข้าร้าน");
+    node.textContent = "รับอาหาร";
+    node.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      map.flyTo({
+        center: [currentPlaceDetails.entranceLongitude!, currentPlaceDetails.entranceLatitude!],
+        zoom: Math.max(map.getZoom(), 17),
+        essential: true,
+      });
+    });
+    const marker = new maplibre.Marker({ element: node, anchor: "bottom" })
+      .setLngLat([currentPlaceDetails.entranceLongitude, currentPlaceDetails.entranceLatitude])
+      .addTo(map);
+    entranceMarkerRef.current = marker;
+    return () => {
+      marker.remove();
+      if (entranceMarkerRef.current === marker) entranceMarkerRef.current = null;
+    };
+  }, [currentPlaceDetails, mapReady]);
 
   const availabilityKey = activeNearbyPlace?.merchantStoreId && location
     ? `${activeNearbyPlace.merchantStoreId}|${location.latitude},${location.longitude}`
@@ -1228,8 +1332,8 @@ export function FoodDeliveryMapPicker({
           {standalone ? <ArrowLeft size={22} /> : <X size={22} />}
         </button>
         <div>
-          <strong>{standalone ? "WYNOS Maps" : "ปักหมุดตำแหน่งจัดส่ง"}</strong>
-          <small>{standalone ? "ค้นหา สำรวจ และเลือกตำแหน่ง" : "เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร"}</small>
+          <strong>{title ?? (standalone ? "WYNOS Maps" : "ปักหมุดตำแหน่งจัดส่ง")}</strong>
+          <small>{subtitle ?? (standalone ? "ค้นหา สำรวจ และเลือกตำแหน่ง" : "เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร")}</small>
         </div>
         <span />
       </header>
@@ -1358,6 +1462,12 @@ export function FoodDeliveryMapPicker({
             }}>
               <X size={16} />
             </button>
+            {activeNearbyPlace.merchantStoreId && currentPlaceDetails ? (
+              <div className="wf-map-store-brand">
+                {currentPlaceDetails.storeCoverPath ? <img className="wf-map-store-cover" src={foodPublicUrl(client, currentPlaceDetails.storeCoverPath) ?? ""} alt="" /> : null}
+                {currentPlaceDetails.storeLogoPath ? <img className="wf-map-store-logo" src={foodPublicUrl(client, currentPlaceDetails.storeLogoPath) ?? ""} alt="" /> : null}
+              </div>
+            ) : null}
             <div className={activeNearbyPlace.merchantStoreId ? "wf-map-place-icon is-food" : "wf-map-place-icon"}>
               {activeNearbyPlace.merchantStoreId ? <Store size={18} /> : <MapPin size={18} />}
             </div>
@@ -1376,6 +1486,17 @@ export function FoodDeliveryMapPicker({
                   ) : nearbyAvailability?.reason === "outside_delivery_area" ? (
                     <small>อยู่นอกระยะจัดส่งของร้าน</small>
                   ) : null}
+                </div>
+              ) : null}
+              {currentPlaceDetails?.entranceLatitude != null && currentPlaceDetails.entranceLongitude != null ? (
+                <div className="wf-map-pickup-detail">
+                  <strong>จุดรับอาหาร / ทางเข้า</strong>
+                  {currentPlaceDetails.pickupNote ? <small>{currentPlaceDetails.pickupNote}</small> : <small>ร้านกำหนดหมุดสำหรับรับอาหารไว้แล้ว</small>}
+                  <button type="button" onClick={() => mapRef.current?.flyTo({
+                    center: [currentPlaceDetails.entranceLongitude!, currentPlaceDetails.entranceLatitude!],
+                    zoom: 17.5,
+                    essential: true,
+                  })}>ดูจุดรับอาหารบนแผนที่</button>
                 </div>
               ) : null}
             </div>
@@ -1438,7 +1559,7 @@ export function FoodDeliveryMapPicker({
                 </button>
               ) : null}
               {activeNearbyPlace.merchantStoreId ? (
-                <a href={`/food?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}>ดูร้านใน WYNOS Food</a>
+                <a href={`https://food.wynos.online/?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}>สั่งใน WYNOS Food</a>
               ) : null}
             </div>
           </article>
@@ -1472,6 +1593,7 @@ export function FoodDeliveryMapPicker({
             {!place && location && !resolvingPlace ? (
               <code className="wf-map-confirm-coordinates">{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</code>
             ) : null}
+            {location ? <p className="wf-map-adjust-hint">เลื่อนแผนที่เพื่อปรับหมุดให้ตรงตำแหน่งจริง</p> : null}
           </div>
           {standalone && location ? (
             <div className="wf-map-confirm-tools">
@@ -1574,7 +1696,7 @@ export function FoodDeliveryMapPicker({
             onConfirm(location, place ?? undefined);
           }}
         >
-          <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : standalone ? "ใช้ตำแหน่งนี้" : "ยืนยันตำแหน่งนี้"}
+          <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : confirmLabel ?? (standalone ? "ใช้ตำแหน่งนี้" : "ยืนยันตำแหน่งนี้")}
         </button>
         </div>
       </section>

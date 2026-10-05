@@ -31,6 +31,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { FoodDeliveryMapPicker, FoodLocationMapPreview } from "@/components/food/food-delivery-map-picker";
 import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
@@ -74,7 +75,7 @@ import {
   type MenuDraft,
 } from "@/lib/food-merchant";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
-import { currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation } from "@/lib/food-customer";
+import { checkFoodServiceArea, currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation, type FoodPlace } from "@/lib/food-customer";
 
 // WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
 // and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
@@ -911,6 +912,25 @@ function MorePanel({
           {installPrompt ? <button type="button" onClick={onInstall}><span className="wm-tile-icon"><MerchantIcon3D name="install" size={52} /></span>ติดตั้งแอป</button> : null}
         </div>
       </section>
+      {store.latitude != null && store.longitude != null ? (
+        <section className="wm-store-location-card">
+          <div className="wm-store-location-card-head">
+            <span><strong>ตำแหน่งร้าน</strong><small>ตรวจสอบหมุดร้านบนแผนที่ก่อนเปิดรับออเดอร์</small></span>
+            <button type="button" onClick={() => onOpenTab("store")}>แก้ไขตำแหน่ง</button>
+          </div>
+          <FoodLocationMapPreview
+            location={{ latitude: Number(store.latitude), longitude: Number(store.longitude) }}
+            label={store.name}
+          />
+          {store.pickup_latitude != null && store.pickup_longitude != null ? (
+            <div className="wm-store-pickup-summary"><MapPin size={16} /><span><strong>มีจุดรับอาหารแยกจากหน้าร้าน</strong><small>{store.pickup_note || "ร้านกำหนดทางเข้าหรือจุดรับอาหารสำหรับไรเดอร์แล้ว"}</small></span></div>
+          ) : null}
+        </section>
+      ) : (
+        <section className="wm-store-location-missing">
+          <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น WYNOS Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={() => onOpenTab("store")}>เพิ่มตำแหน่ง</button>
+        </section>
+      )}
       <section className="wm-settings-list">
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><LogOut size={19} /></button>
       </section>
@@ -1156,6 +1176,25 @@ function StorePanel({
           <button type="button" onClick={onEdit}>แก้ไข</button>
         </div>
       </section>
+      {store.latitude != null && store.longitude != null ? (
+        <section className="wm-store-location-card">
+          <div className="wm-store-location-card-head">
+            <span><strong>ตำแหน่งร้าน</strong><small>ตรวจสอบหมุดร้านบนแผนที่ก่อนเปิดรับออเดอร์</small></span>
+            <button type="button" onClick={onEdit}>แก้ไขตำแหน่ง</button>
+          </div>
+          <FoodLocationMapPreview
+            location={{ latitude: Number(store.latitude), longitude: Number(store.longitude) }}
+            label={store.name}
+          />
+          {store.pickup_latitude != null && store.pickup_longitude != null ? (
+            <div className="wm-store-pickup-summary"><MapPin size={16} /><span><strong>มีจุดรับอาหารแยกจากหน้าร้าน</strong><small>{store.pickup_note || "ร้านกำหนดทางเข้าหรือจุดรับอาหารสำหรับไรเดอร์แล้ว"}</small></span></div>
+          ) : null}
+        </section>
+      ) : (
+        <section className="wm-store-location-missing">
+          <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น WYNOS Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={onEdit}>เพิ่มตำแหน่ง</button>
+        </section>
+      )}
       <section className="wm-settings-list">
         <button type="button" onClick={() => void togglePublished()} disabled={busy || Boolean(store.admin_suspended_at)}>
           <span><strong>เผยแพร่ WYNOS Food</strong><small>{store.is_published ? "ลูกค้าเห็นร้านได้แล้ว" : "ร้านยังซ่อนจากลูกค้า"}</small></span>
@@ -1647,6 +1686,7 @@ function StoreEditor({
     payment_qr_path: store.payment_qr_path,
     logo_path: store.logo_path,
     cover_path: store.cover_path,
+    pickup_note: store.pickup_note ?? "",
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -1661,6 +1701,20 @@ function StoreEditor({
     store.latitude != null && store.longitude != null ? { latitude: Number(store.latitude), longitude: Number(store.longitude) } : null,
   );
   const [pinStatus, setPinStatus] = useState("");
+  const [pinPlace, setPinPlace] = useState<FoodPlace | null>(null);
+  const [pickupPin, setPickupPin] = useState<FoodLocation | null>(
+    store.pickup_latitude != null && store.pickup_longitude != null
+      ? { latitude: Number(store.pickup_latitude), longitude: Number(store.pickup_longitude) }
+      : null,
+  );
+  const [mapTarget, setMapTarget] = useState<"store" | "pickup" | null>(null);
+  const [serviceAreaCheck, setServiceAreaCheck] = useState<{
+    key: string;
+    status: "inside" | "outside" | "error";
+  } | null>(null);
+  const serviceAreaKey = pin ? `${pin.latitude.toFixed(6)},${pin.longitude.toFixed(6)}` : "";
+  const serviceAreaState: "idle" | "checking" | "inside" | "outside" | "error" =
+    !pin ? "idle" : serviceAreaCheck?.key === serviceAreaKey ? serviceAreaCheck.status : "checking";
 
   useEffect(() => {
     return () => {
@@ -1668,6 +1722,16 @@ function StoreEditor({
       if (coverPreview?.startsWith("blob:")) URL.revokeObjectURL(coverPreview);
     };
   }, [logoPreview, coverPreview]);
+
+  useEffect(() => {
+    if (!pin) return;
+    let live = true;
+    const key = `${pin.latitude.toFixed(6)},${pin.longitude.toFixed(6)}`;
+    void checkFoodServiceArea(client, pin)
+      .then((inside) => { if (live) setServiceAreaCheck({ key, status: inside ? "inside" : "outside" }); })
+      .catch(() => { if (live) setServiceAreaCheck({ key, status: "error" }); });
+    return () => { live = false; };
+  }, [client, pin]);
 
   const chooseBrandImage = (kind: "logo" | "cover", file: File | null) => {
     if (!file) return;
@@ -1751,6 +1815,9 @@ function StoreEditor({
         ...(zoneReady ? {
           latitude: pin?.latitude ?? null,
           longitude: pin?.longitude ?? null,
+          pickup_latitude: pickupPin?.latitude ?? null,
+          pickup_longitude: pickupPin?.longitude ?? null,
+          pickup_note: form.pickup_note.trim() || null,
           delivery_radius_km: Number(form.delivery_radius_km || 5),
           delivery_base_km: Number(form.delivery_base_km || 0),
           delivery_fee_per_km: Number(form.delivery_fee_per_km || 0),
@@ -1815,23 +1882,41 @@ function StoreEditor({
         <div className="wm-form-grid"><label>ค่าส่งเริ่มต้น<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label><label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label></div>
         {zoneReady ? <div className="wm-zone">
           <strong>ตำแหน่งร้านและระยะส่ง</strong>
-          <small>{pin ? `ปักหมุดแล้ว · ${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}` : "ยังไม่ปักหมุด: ร้านจะยังไม่ขึ้น WYNOS Maps"}</small>
-          <small>{pin
-            ? (store.is_published
-              ? "ร้านนี้ซิงก์ตำแหน่งไป WYNOS Maps อัตโนมัติเมื่อบันทึก"
-              : "เมื่อร้านเผยแพร่ หมุดร้านสีแดงจะขึ้น WYNOS Maps อัตโนมัติ")
-            : "ต้องปักหมุดร้านก่อนเผยแพร่และก่อนเปิดการจัดส่ง"}</small>
+          <small>{pin ? "ตำแหน่งร้านถูกปักหมุดแล้ว สามารถค้นหา เลื่อนแผนที่ และปรับหมุดให้ตรงจุดจริงได้" : "ยังไม่ปักหมุด: ร้านจะยังไม่ขึ้น WYNOS Maps"}</small>
+          {pin ? <FoodLocationMapPreview location={pin} label={pinPlace?.name || store.name} /> : null}
+          {pinPlace?.address ? <div className="wm-location-address"><MapPin size={15} /><span><strong>{pinPlace.name}</strong><small>{pinPlace.address}</small></span></div> : null}
           <div className="wm-two-actions">
-            <button className="wm-secondary" type="button" onClick={() => void pinStore()}>ใช้ตำแหน่งปัจจุบันเป็นร้าน</button>
-            {pin ? <button className="wm-secondary" type="button" onClick={() => { setPin(null); setPinStatus("ล้างหมุดแล้ว อย่าลืมกดบันทึก"); }}>ล้างหมุด</button> : null}
+            <button className="wm-secondary" type="button" onClick={() => setMapTarget("store")}><Search size={16} /> {pin ? "แก้ไขตำแหน่งบนแผนที่" : "ค้นหาและปักหมุดบนแผนที่"}</button>
+            <button className="wm-secondary" type="button" onClick={() => void pinStore()}>ใช้ตำแหน่งปัจจุบัน</button>
           </div>
+          {pin ? <button className="wm-inline-danger" type="button" onClick={() => { setPin(null); setPinPlace(null); setPinStatus("ล้างหมุดแล้ว อย่าลืมกดบันทึก"); }}>ล้างตำแหน่งร้าน</button> : null}
+          {serviceAreaState !== "idle" ? (
+            <div className={`wm-service-area-state is-${serviceAreaState}`} role="status">
+              {serviceAreaState === "checking" ? "กำลังตรวจพื้นที่ให้บริการ…" : null}
+              {serviceAreaState === "inside" ? "ตำแหน่งร้านอยู่ในพื้นที่ให้บริการ WYNOS Food ✓" : null}
+              {serviceAreaState === "outside" ? "ร้านอยู่นอกพื้นที่ให้บริการปัจจุบัน — ยังบันทึกข้อมูลร้านได้ แต่การจัดส่งจะยังไม่เปิดให้ลูกค้า" : null}
+              {serviceAreaState === "error" ? "ตรวจพื้นที่ให้บริการไม่สำเร็จ แต่ยังบันทึกตำแหน่งร้านได้" : null}
+            </div>
+          ) : null}
           {pinStatus ? <p role="status">{pinStatus}</p> : null}
+
           <div className="wm-form-grid">
             <label>ส่งไกลสุด (กม.)<input type="number" min="0.5" max="50" step="0.5" inputMode="decimal" value={form.delivery_radius_km} onChange={(e) => setForm({ ...form, delivery_radius_km: e.target.value })} /></label>
             <label>รวมในค่าส่งเริ่มต้น (กม.)<input type="number" min="0" max="50" step="0.5" inputMode="decimal" value={form.delivery_base_km} onChange={(e) => setForm({ ...form, delivery_base_km: e.target.value })} /></label>
           </div>
           <label>บาทต่อ กม. ที่เกิน<input type="number" min="0" max="1000" inputMode="decimal" value={form.delivery_fee_per_km} onChange={(e) => setForm({ ...form, delivery_fee_per_km: e.target.value })} /></label>
           <small>{`ตัวอย่าง: ส่ง 4 กม. ค่าส่ง ${exampleFee(form.delivery_fee, form.delivery_base_km, form.delivery_fee_per_km)} บาท (ส่วนที่เกินคิดต่อ กม. ปัดขึ้นเป็นบาทเต็ม)`}</small>
+
+          <div className="wm-pickup-zone">
+            <strong>จุดรับอาหาร / ทางเข้าร้านสำหรับไรเดอร์</strong>
+            <small>แยกจากตำแหน่งร้านหลัก เหมาะสำหรับร้านในห้าง อาคาร หรือร้านที่มีจุดรับของเฉพาะ</small>
+            {pickupPin ? <FoodLocationMapPreview location={pickupPin} label="จุดรับอาหาร / ทางเข้า" /> : null}
+            <label>รายละเอียดจุดรับอาหาร<textarea value={form.pickup_note} onChange={(e) => setForm({ ...form, pickup_note: e.target.value })} maxLength={500} placeholder="เช่น รับอาหารประตูหลัง ชั้น G ข้างจุดจอดไรเดอร์" /></label>
+            <div className="wm-two-actions">
+              <button className="wm-secondary" type="button" onClick={() => setMapTarget("pickup")}><MapPin size={16} /> {pickupPin ? "แก้ไขจุดรับอาหาร" : "เพิ่มจุดรับอาหาร"}</button>
+              {pickupPin ? <button className="wm-secondary" type="button" onClick={() => setPickupPin(null)}>ล้างจุดรับอาหาร</button> : null}
+            </div>
+          </div>
         </div> : null}
         {zoneReady ? <StorePlacesEditor client={client} storeId={store.id} storePin={pin} radiusKm={Number(form.delivery_radius_km || 5)} /> : null}
         <h3>รับชำระเงินเข้าร้าน</h3>
@@ -1842,6 +1927,28 @@ function StoreEditor({
         <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setQrFile(e.target.files?.[0] ?? null)} /><Upload size={20} /><span>{qrFile ? qrFile.name : "อัปโหลด QR รับเงิน"}</span></label>
         <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกการตั้งค่า"}</button>
       </div>
+      {mapTarget ? (
+        <FoodDeliveryMapPicker
+          client={client}
+          storeId={null}
+          initialLocation={mapTarget === "store" ? pin : pickupPin}
+          title={mapTarget === "store" ? "ตำแหน่งร้าน" : "จุดรับอาหาร / ทางเข้าร้าน"}
+          subtitle={mapTarget === "store" ? "ค้นหาแล้วเลื่อนหมุดให้ตรงหน้าร้านจริง" : "กำหนดจุดที่ไรเดอร์ควรมารับอาหาร"}
+          confirmLabel={mapTarget === "store" ? "ใช้เป็นตำแหน่งร้าน" : "ใช้เป็นจุดรับอาหาร"}
+          onClose={() => setMapTarget(null)}
+          onConfirm={(location, place) => {
+            if (mapTarget === "store") {
+              setPin(location);
+              setPinPlace(place ?? null);
+              setPinStatus("เลือกตำแหน่งร้านแล้ว อย่าลืมกดบันทึก");
+              if (!form.address.trim() && place?.address) setForm((current) => ({ ...current, address: place.address ?? current.address }));
+            } else {
+              setPickupPin(location);
+            }
+            setMapTarget(null);
+          }}
+        />
+      ) : null}
     </Sheet>
   );
 }
@@ -1869,6 +1976,7 @@ function StorePlacesEditor({
   const [form, setForm] = useState<StorePlaceForm | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  const [mapOpen, setMapOpen] = useState(false);
 
   const [version, setVersion] = useState(0);
 
@@ -1963,15 +2071,36 @@ function StorePlacesEditor({
           <label>พิกัด<input value={form.coords} inputMode="decimal" onChange={(e) => setForm({ ...form, coords: e.target.value })} placeholder="เช่น 13.75631, 100.50176" /></label>
           <small>{formPin ? distanceText(formPin) || "พิกัดถูกต้อง" : "กดปุ่มด้านล่างตอนอยู่ที่สถานที่ หรือกดค้างบน Google Maps แล้วคัดลอกพิกัดมาวาง"}</small>
           <div className="wm-two-actions">
+            <button className="wm-secondary" type="button" disabled={busy} onClick={() => setMapOpen(true)}><Search size={16} /> ค้นหาและเลือกบนแผนที่</button>
             <button className="wm-secondary" type="button" disabled={busy} onClick={() => void pickCurrent()}><MapPin size={16} /> ใช้ตำแหน่งปัจจุบัน</button>
-            <button className="wm-secondary" type="button" disabled={busy} onClick={() => setForm(null)}>ยกเลิก</button>
           </div>
+          <button className="wm-inline-danger" type="button" disabled={busy} onClick={() => setForm(null)}>ยกเลิก</button>
           <button className="wm-primary wm-full" type="button" disabled={busy || !form.name.trim() || !formPin} onClick={save}>{busy ? "กำลังบันทึก…" : "บันทึกสถานที่"}</button>
         </div>
       ) : (
         <button className="wm-secondary" type="button" disabled={busy || places === undefined} onClick={() => setForm({ name: "", detail: "", coords: "", is_active: true })}><Plus size={16} /> เพิ่มสถานที่</button>
       )}
       {status ? <p role="status">{status}</p> : null}
+      {form && mapOpen ? (
+        <FoodDeliveryMapPicker
+          client={client}
+          storeId={null}
+          initialLocation={formPin}
+          title="สถานที่ที่ร้านส่งบ่อย"
+          subtitle="ค้นหาและเลื่อนหมุดให้ตรงสถานที่จริง"
+          confirmLabel="ใช้ตำแหน่งนี้"
+          onClose={() => setMapOpen(false)}
+          onConfirm={(location, place) => {
+            setForm((current) => current ? {
+              ...current,
+              name: current.name.trim() ? current.name : (place?.name || current.name),
+              detail: current.detail.trim() ? current.detail : (place?.address || current.detail),
+              coords: `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`,
+            } : current);
+            setMapOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

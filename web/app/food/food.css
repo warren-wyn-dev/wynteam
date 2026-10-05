@@ -2138,3 +2138,149 @@
 .wf-store-share svg { color: var(--wf-red); }
 .wf-store-share:active { transform: scale(.96); }
 .wf-store-share:focus-visible { outline: 2px solid var(--wf-red); outline-offset: 2px; }
+
+
+/* Shared location UX: store branding, pickup entrance and compact map previews. */
+.wf-map-store-brand {
+  grid-column: 1 / -1;
+  position: relative;
+  min-height: 76px;
+  margin: -2px -2px 4px;
+  border-radius: 13px;
+  overflow: hidden;
+  background: #f2f2f3;
+}
+
+.wf-map-store-cover {
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+  display: block;
+}
+
+.wf-map-store-logo {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  width: 42px;
+  height: 42px;
+  border: 3px solid #fff;
+  border-radius: 13px;
+  background: #fff;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 14%);
+}
+
+.wf-map-pickup-detail {
+  margin-top: 8px;
+  padding: 9px 10px;
+  border: 1px solid #ececee;
+  border-radius: 11px;
+  background: #fafafa;
+  display: grid;
+  gap: 4px;
+}
+
+.wf-map-pickup-detail strong {
+  font-size: 11px;
+}
+
+.wf-map-pickup-detail small {
+  color: #737378;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.wf-map-pickup-detail button {
+  justify-self: start;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--wf-red, #e32636);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.wf-map-entrance-marker {
+  min-width: 58px;
+  height: 31px;
+  padding: 0 9px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  box-shadow: 0 5px 14px rgb(0 0 0 / 22%);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.wf-map-entrance-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 9px;
+  height: 9px;
+  background: #111;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.wf-map-adjust-hint {
+  margin: 4px 0 0;
+  color: #8b8b90;
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.wf-location-map-preview {
+  position: relative;
+  min-height: 150px;
+  border: 1px solid #e5e5e7;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #edf1ee;
+}
+
+.wf-location-map-preview-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.wf-location-map-preview-canvas.maplibregl-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.wf-location-map-preview-pin {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  top: 50%;
+  color: var(--wf-red, #e32636);
+  transform: translate(-50%, -82%);
+  filter: drop-shadow(0 4px 7px rgb(0 0 0 / 20%));
+  pointer-events: none;
+}
+
+.wf-location-map-preview > small {
+  position: absolute;
+  z-index: 4;
+  left: 9px;
+  bottom: 9px;
+  max-width: calc(100% - 18px);
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 93%);
+  color: #333;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 10%);
+  font-size: 9.5px;
+  font-weight: 750;
+}
