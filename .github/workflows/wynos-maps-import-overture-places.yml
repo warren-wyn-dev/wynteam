@@ -1,0 +1,77 @@
+name: WYNOS Maps -- import Overture Places by area
+
+on:
+  workflow_dispatch:
+    inputs:
+      bbox:
+        description: "minLon,minLat,maxLon,maxLat. Default = Maha Sarakham launch area; run additional areas to expand Thailand coverage."
+        required: true
+        default: "102.75,15.80,103.75,16.75"
+        type: string
+      min_confidence:
+        description: "Discard Overture Places below this confidence"
+        required: true
+        default: "0.80"
+        type: string
+      activate_confidence:
+        description: "Auto-show only records at/above this confidence; lower accepted records stay hidden for Admin review"
+        required: true
+        default: "0.97"
+        type: string
+      max_places:
+        description: "Safety cap per run"
+        required: true
+        default: "10000"
+        type: string
+      dry_run:
+        description: "Download/filter only; do not write WYNOS Places"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      BBOX: ${{ inputs.bbox }}
+      MIN_CONFIDENCE: ${{ inputs.min_confidence }}
+      ACTIVATE_CONFIDENCE: ${{ inputs.activate_confidence }}
+      MAX_PLACES: ${{ inputs.max_places }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate secrets
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::SUPABASE_ACCESS_TOKEN is missing"; exit 1; }
+          test -n "$SUPABASE_URL" || { echo "::error::SUPABASE_URL is missing"; exit 1; }
+
+      - name: Install official Overture client
+        run: python -m pip install --disable-pip-version-check overturemaps
+
+      - name: Download Overture Places for area
+        run: |
+          overturemaps download \
+            --bbox="$BBOX" \
+            -f geojson \
+            --type=place \
+            -o overture-places.geojson
+
+      - name: Filter, dedupe and import WYNOS Places
+        run: |
+          ARGS=(
+            --file overture-places.geojson
+            --supabase-url "$SUPABASE_URL"
+            --access-token "$SUPABASE_ACCESS_TOKEN"
+            --min-confidence "$MIN_CONFIDENCE"
+            --activate-confidence "$ACTIVATE_CONFIDENCE"
+            --max-places "$MAX_PLACES"
+          )
+          if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
+          python .github/scripts/import-overture-places.py "${ARGS[@]}"
