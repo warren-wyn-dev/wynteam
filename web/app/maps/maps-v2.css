@@ -571,3 +571,91 @@
     bottom: 30px;
   }
 }
+
+
+/* WYNOS Maps POI hierarchy: familiar map semantics, original WYNOS styling. */
+.wynos-maps-page .wf-map-place-marker {
+  width: 24px;
+  height: 24px;
+}
+
+.wynos-maps-page .wf-map-place-dot {
+  width: 22px;
+  height: 22px;
+  border-width: 1px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 1px 3px rgb(32 33 36 / 18%);
+}
+
+.wynos-maps-page .wf-map-place-symbol {
+  width: 12px;
+  height: 12px;
+}
+
+.wynos-maps-page .wf-map-place-marker.is-food .wf-map-place-dot {
+  background: #fff;
+  color: #d6533f;
+}
+
+.wynos-maps-page .wf-map-place-marker.is-cafe .wf-map-place-dot {
+  background: #fff;
+  color: #8b684b;
+}
+
+.wynos-maps-page .wf-map-place-marker.is-building .wf-map-place-dot {
+  background: #fff;
+  color: #687983;
+}
+
+.wynos-maps-page .wf-map-place-marker.is-shop .wf-map-place-dot {
+  background: #fff;
+  color: #665fa4;
+}
+
+.wynos-maps-page .wf-map-place-marker.is-pickup .wf-map-place-dot {
+  background: #fff;
+  color: #33796f;
+}
+
+.wynos-maps-page .wf-map-place-marker.is-place .wf-map-place-dot {
+  background: #fff;
+  color: #607069;
+}
+
+.wynos-maps-page .wf-map-place-label {
+  bottom: 28px;
+  max-width: 150px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 90%);
+  font-size: 8.5px;
+  font-weight: 680;
+  box-shadow: 0 1px 3px rgb(60 64 67 / 14%);
+}
+
+.wynos-maps-page .wf-map-place-marker:not(.is-selected):not(:focus-visible) .wf-map-place-label {
+  opacity: .88;
+}
+
+.wynos-maps-page .wf-map-place-marker.is-selected {
+  width: 38px;
+  height: 46px;
+}
+
+.wynos-maps-page .wf-map-place-marker.is-selected .wf-map-place-label {
+  bottom: 49px;
+  max-width: 178px;
+  padding: 5px 9px;
+  border: 1px solid rgb(32 33 36 / 8%);
+  background: rgb(255 255 255 / 98%);
+  font-size: 9.5px;
+  font-weight: 760;
+  box-shadow: 0 2px 8px rgb(60 64 67 / 18%);
+}
+
+/* At wider map scales, de-emphasize generic POIs instead of showing a forest of pins. */
+.wynos-maps-page .wf-map-canvas-wrap[data-map-zoom="far"] .wf-map-place-marker.is-place,
+.wynos-maps-page .wf-map-canvas-wrap[data-map-zoom="far"] .wf-map-place-marker.is-building {
+  opacity: .72;
+}
