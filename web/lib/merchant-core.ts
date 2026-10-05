@@ -39,6 +39,25 @@ export type MerchantStoreReadiness = {
   missing: string[];
 };
 
+export type MerchantStoreReview = {
+  id: string;
+  rating: number;
+  review_text: string | null;
+  tags: string[];
+  reviewer_label: string;
+  verified_order: boolean;
+  created_at: string;
+  merchant_reply: string | null;
+  merchant_replied_at: string | null;
+};
+
+export type MerchantStoreReviewFeed = {
+  average: number;
+  count: number;
+  unanswered: number;
+  reviews: MerchantStoreReview[];
+};
+
 export async function fetchMerchantStaff(client: SupabaseClient, storeId: string) {
   const { data, error } = await client.rpc("merchant_staff_members", { p_store_id: storeId });
   if (error) throw new Error(error.message);
@@ -133,6 +152,59 @@ export async function fetchStoreReadiness(client: SupabaseClient, storeId: strin
     ready: raw.ready === true,
     missing: Array.isArray(raw.missing) ? raw.missing.map(String) : [],
   } satisfies MerchantStoreReadiness;
+}
+
+export async function fetchMerchantStoreReviews(
+  client: SupabaseClient,
+  storeId: string,
+  limit = 50,
+): Promise<MerchantStoreReviewFeed | null> {
+  const { data, error } = await client.rpc("merchant_store_reviews", {
+    p_store_id: storeId,
+    p_limit: limit,
+  });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    throw new Error(error.message);
+  }
+  if (!data || typeof data !== "object") return { average: 0, count: 0, unanswered: 0, reviews: [] };
+  const raw = data as { average?: unknown; count?: unknown; unanswered?: unknown; reviews?: unknown };
+  const reviews = Array.isArray(raw.reviews)
+    ? raw.reviews.map((row) => {
+        const review = row as Partial<MerchantStoreReview>;
+        return {
+          id: String(review.id ?? ""),
+          rating: Number(review.rating ?? 0),
+          review_text: typeof review.review_text === "string" ? review.review_text : null,
+          tags: Array.isArray(review.tags) ? review.tags.map(String) : [],
+          reviewer_label: typeof review.reviewer_label === "string" ? review.reviewer_label : "ผู้ใช้ WYNOS Food",
+          verified_order: review.verified_order === true,
+          created_at: typeof review.created_at === "string" ? review.created_at : new Date(0).toISOString(),
+          merchant_reply: typeof review.merchant_reply === "string" ? review.merchant_reply : null,
+          merchant_replied_at: typeof review.merchant_replied_at === "string" ? review.merchant_replied_at : null,
+        } satisfies MerchantStoreReview;
+      }).filter((review) => review.id && review.rating >= 1 && review.rating <= 5)
+    : [];
+  return {
+    average: Number(raw.average ?? 0),
+    count: Number(raw.count ?? 0),
+    unanswered: Number(raw.unanswered ?? 0),
+    reviews,
+  };
+}
+
+export async function replyMerchantStoreReview(
+  client: SupabaseClient,
+  reviewId: string,
+  reply: string,
+) {
+  const clean = reply.trim();
+  if (!clean) throw new Error("กรุณาเขียนคำตอบก่อนส่ง");
+  const { error } = await client.rpc("food_reply_store_review", {
+    p_review_id: reviewId,
+    p_reply: clean,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function setMerchantStorePublished(
