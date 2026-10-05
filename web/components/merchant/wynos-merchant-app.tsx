@@ -47,12 +47,13 @@ import { MerchantAds } from "@/components/merchant/merchant-ads";
 import { MerchantFinance } from "@/components/merchant/merchant-finance";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
+import { MerchantNotificationSettings } from "@/components/merchant/merchant-notification-settings";
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
 import { MerchantShareCard } from "@/components/merchant/merchant-share-card";
 import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@/lib/food-share";
 import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
-import { NewOrderAlert, previewMerchantOrderSound, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
+import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
 import {
   completeFoodDelivery,
@@ -108,8 +109,8 @@ import {
 // WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
 // and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
 // WYN-205: finance, ads, WYNOS campaigns and the store's own promotions.
-type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions" | "help";
-const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help"]);
+type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions" | "help" | "notifications";
+const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help", "notifications"]);
 const MERCHANT_STORE_KEY = "wynos-merchant-store-v1";
 type OrderFilter = "new" | "cooking" | "delivery" | "done";
 
@@ -362,9 +363,8 @@ function MerchantInner({
   });
   const [seenAlerts, setSeenAlerts] = useState<Set<string>>(() => new Set());
   const soundReady = useMerchantSoundUnlock();
-  // WYN-199: ask for notifications as soon as Merchant opens ("auto"), or
-  // again from the bell button ("bell").
-  const [notifyPrompt, setNotifyPrompt] = useState<"auto" | "bell" | null>("auto");
+  // WYN-199: ask once when Merchant opens. The bell now opens the full notification center.
+  const [notifyPrompt, setNotifyPrompt] = useState<"auto" | null>("auto");
   const [menuQuery, setMenuQuery] = useState("");
   const [menuDraft, setMenuDraft] = useState<MenuDraft | null>(null);
   const [storeEditing, setStoreEditing] = useState(false);
@@ -622,8 +622,8 @@ function MerchantInner({
           <button
             className={`wm-icon-button ${notificationsEnabled ? "is-active" : ""}`}
             type="button"
-            aria-label="เปิดการแจ้งเตือน"
-            onClick={() => setNotifyPrompt("bell")}
+            aria-label="การแจ้งเตือน"
+            onClick={() => setTab("notifications")}
           >
             <Bell size={21} strokeWidth={1.8} />
           </button>
@@ -729,13 +729,22 @@ function MerchantInner({
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onOpenTab={setTab}
-            onNotifications={() => setNotifyPrompt("bell")}
-            onMessage={setMessage}
             onSignOut={() => void signOut()}
           />
         ) : null}
 
         {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
+
+        {tab === "notifications" && store ? (
+          <MerchantNotificationSettings
+            client={client}
+            store={store}
+            userId={userId}
+            onMessage={setMessage}
+            onPushChange={setNotificationsEnabled}
+            onReload={() => load(true)}
+          />
+        ) : null}
 
         {tab === "help" && store ? <HelpPanel store={store} onMessage={setMessage} /> : null}
 
@@ -798,7 +807,7 @@ function MerchantInner({
           key={notifyPrompt}
           client={client}
           userId={userId}
-          forceOpen={notifyPrompt === "bell"}
+          forceOpen={false}
           onClose={() => setNotifyPrompt(null)}
           onEnabled={() => setNotificationsEnabled(true)}
         />
@@ -1013,8 +1022,6 @@ function MorePanel({
   installPrompt,
   onInstall,
   onOpenTab,
-  onNotifications,
-  onMessage,
   onSignOut,
 }: {
   client: SupabaseClient;
@@ -1022,8 +1029,6 @@ function MorePanel({
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
   onOpenTab: (tab: MerchantTab) => void;
-  onNotifications: () => void;
-  onMessage: (message: string) => void;
   onSignOut: () => void;
 }) {
   return (
@@ -1044,8 +1049,7 @@ function MorePanel({
           <button type="button" onClick={() => onOpenTab("ads")}><span className="wm-tile-icon"><MerchantIcon3D name="ads" size={52} /></span>โฆษณา</button>
           <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon"><MerchantIcon3D name="settings" size={52} /></span>ตั้งค่าร้าน</button>
           <button type="button" onClick={() => onOpenTab("help")}><span className="wm-tile-icon"><MerchantIcon3D name="help" size={52} /></span>ช่วยเหลือ</button>
-          <button type="button" onClick={onNotifications}><span className="wm-tile-icon"><MerchantIcon3D name="bell" size={52} /></span>การแจ้งเตือน</button>
-          <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span className="wm-tile-icon"><MerchantIcon3D name="sound" size={52} /></span>ลองเสียงออเดอร์</button>
+          <button type="button" onClick={() => onOpenTab("notifications")}><span className="wm-tile-icon"><MerchantIcon3D name="bell" size={52} /></span>การแจ้งเตือน</button>
           {installPrompt ? <button type="button" onClick={onInstall}><span className="wm-tile-icon"><MerchantIcon3D name="install" size={52} /></span>ติดตั้งแอป</button> : null}
         </div>
       </section>
