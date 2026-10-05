@@ -1703,7 +1703,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 
 .wm-campaign-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 6px;
   margin-top: 10px;
 }
@@ -3344,9 +3344,9 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   padding-inline: 16px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .wm-store-settings-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .wm-store-settings-nav button {
@@ -3356,8 +3356,24 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 
 @media (max-width: 520px) {
   .wm-store-settings-nav {
-    position: static;
-    grid-template-columns: 1fr 1fr;
+    position: sticky;
+    display: flex;
+    overflow-x: auto;
+    grid-template-columns: none;
+    scrollbar-width: none;
+    padding: 7px;
+  }
+
+  .wm-store-settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .wm-store-settings-nav button {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--wm-border);
+    background: var(--wm-surface);
   }
 
   .wm-settings-category-head {
