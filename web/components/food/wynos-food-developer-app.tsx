@@ -1064,17 +1064,12 @@ function OrderDetailSheet({
   const [dynamicPaymentQr, setDynamicPaymentQr] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const slipInputRef = useRef<HTMLInputElement>(null);
+  const slipPreviewUrlRef = useRef<string | null>(null);
   const proof = orderDeliveryProof(order);
 
-  useEffect(() => {
-    if (!slipFile) {
-      setSlipPreviewUrl(null);
-      return;
-    }
-    const previewUrl = URL.createObjectURL(slipFile);
-    setSlipPreviewUrl(previewUrl);
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [slipFile]);
+  useEffect(() => () => {
+    if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -1100,8 +1095,16 @@ function OrderDetailSheet({
     };
   }, [client, order.id, order.payment_status, store?.promptpay_id]);
 
+  const selectSlip = (file: File | null) => {
+    if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
+    const previewUrl = file ? URL.createObjectURL(file) : null;
+    slipPreviewUrlRef.current = previewUrl;
+    setSlipPreviewUrl(previewUrl);
+    setSlipFile(file);
+  };
+
   const clearSlip = () => {
-    setSlipFile(null);
+    selectSlip(null);
     if (slipInputRef.current) slipInputRef.current.value = "";
   };
 
@@ -1228,7 +1231,7 @@ function OrderDetailSheet({
                           type="file"
                           accept="image/jpeg,image/png,image/webp"
                           disabled={combinedBusy}
-                          onChange={(event) => setSlipFile(event.target.files?.[0] ?? null)}
+                          onChange={(event) => selectSlip(event.target.files?.[0] ?? null)}
                         />
                         <Upload size={15} /><span>เปลี่ยนรูป</span>
                       </label>
@@ -1245,7 +1248,7 @@ function OrderDetailSheet({
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     disabled={combinedBusy}
-                    onChange={(event) => setSlipFile(event.target.files?.[0] ?? null)}
+                    onChange={(event) => selectSlip(event.target.files?.[0] ?? null)}
                   />
                   <Upload size={20} /><span>แนบรูปสลิป</span>
                 </label>
