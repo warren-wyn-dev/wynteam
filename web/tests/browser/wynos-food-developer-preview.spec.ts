@@ -207,6 +207,21 @@ test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
   expect(app).not.toContain('onMessages={() => router.push("/chat")}');
 });
 
+test("Food checkout can create scheduled orders without changing immediate-order flow", () => {
+  const data = read("lib/food-customer.ts");
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const css = read("app/food/food.css");
+
+  expect(data).toContain('client.rpc("food_create_scheduled_order"');
+  expect(data).toContain('scheduledFor?: string | null');
+  expect(app).toContain('useState<"asap" | "scheduled">("asap")');
+  expect(app).toContain("สั่งล่วงหน้า");
+  expect(app).toContain("scheduledDate.toISOString()");
+  expect(app).toContain("order.scheduled_for");
+  expect(css).toContain(".wf-schedule-choice");
+  expect(css).toContain(".wf-scheduled-banner");
+});
+
 test("Food customer flow is connected to real ordering, payment and realtime APIs", () => {
   const data = read("lib/food-customer.ts");
   const app = read("components/food/wynos-food-developer-app.tsx");

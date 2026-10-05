@@ -46,6 +46,14 @@ export type FoodStore = {
   bank_account_name: string | null;
   bank_account_number: string | null;
   payment_qr_path: string | null;
+  scheduled_orders_enabled?: boolean;
+  scheduled_min_notice_minutes?: number;
+  scheduled_max_days?: number;
+  tax_invoice_enabled?: boolean;
+  tax_legal_name?: string | null;
+  tax_id?: string | null;
+  tax_branch?: string | null;
+  tax_address?: string | null;
   is_open: boolean;
   is_published: boolean;
   /** WYN-203: set by WYNOS Admin; the store cannot open or publish while set. */
@@ -152,6 +160,11 @@ export type FoodOrder = {
   delivered_at: string | null;
   cancelled_at: string | null;
   paid_at: string | null;
+  scheduled_for?: string | null;
+  receipt_legal_name?: string | null;
+  receipt_tax_id?: string | null;
+  receipt_tax_branch?: string | null;
+  receipt_tax_address?: string | null;
   created_at: string;
   updated_at: string;
   food_order_items?: FoodOrderItem[];
@@ -308,6 +321,14 @@ export async function updateFoodStore(client: SupabaseClient, storeId: string, p
     bank_account_name: patch.bank_account_name,
     bank_account_number: patch.bank_account_number,
     payment_qr_path: patch.payment_qr_path,
+    scheduled_orders_enabled: patch.scheduled_orders_enabled,
+    scheduled_min_notice_minutes: patch.scheduled_min_notice_minutes,
+    scheduled_max_days: patch.scheduled_max_days,
+    tax_invoice_enabled: patch.tax_invoice_enabled,
+    tax_legal_name: patch.tax_legal_name,
+    tax_id: patch.tax_id,
+    tax_branch: patch.tax_branch,
+    tax_address: patch.tax_address,
     is_open: patch.is_open,
     is_published: patch.is_published,
   };

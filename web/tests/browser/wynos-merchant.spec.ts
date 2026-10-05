@@ -53,6 +53,29 @@ test("Merchant production polish supports multiple stores, paged orders, help an
   expect(css).toContain("@media print");
 });
 
+test("Merchant operations completion adds KDS, scheduled orders and tax receipt printing", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const data = read("lib/food-merchant.ts");
+  const css = read("app/merchant/merchant.css");
+  const sql = read("../supabase/migrations_wynos_merchant_ops_completion_v1.sql");
+
+  expect(app).toContain('onOpenTab("kitchen")');
+  expect(app).toContain("function KitchenPanel");
+  expect(app).toContain("isScheduledWaiting");
+  expect(app).toContain("เปิดรับออเดอร์ล่วงหน้า");
+  expect(app).toContain("แสดงข้อมูลภาษีในใบเสร็จ");
+  expect(app).toContain('className="wm-print-document"');
+  expect(data).toContain("scheduled_orders_enabled?: boolean");
+  expect(data).toContain("tax_invoice_enabled?: boolean");
+  expect(data).toContain("receipt_tax_id?: string | null");
+  expect(css).toContain(".wm-kitchen-board");
+  expect(css).toContain(".wm-print-document");
+  expect(sql).toContain("food_create_scheduled_order");
+  expect(sql).toContain("food_order_receipt_snapshot");
+  expect(sql).toContain("scheduled_for timestamptz");
+  expect(sql).toContain("tax_invoice_enabled boolean");
+});
+
 test("Merchant can upload and preview store profile and cover images", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");

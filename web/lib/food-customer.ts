@@ -43,6 +43,9 @@ export type FoodCustomerStore = {
   bank_account_name: string | null;
   bank_account_number: string | null;
   payment_qr_path: string | null;
+  scheduled_orders_enabled?: boolean;
+  scheduled_min_notice_minutes?: number;
+  scheduled_max_days?: number;
   is_open: boolean;
   is_published: boolean;
   created_at: string;
@@ -123,6 +126,11 @@ export type FoodCustomerOrder = {
   delivered_at: string | null;
   cancelled_at: string | null;
   paid_at: string | null;
+  scheduled_for?: string | null;
+  receipt_legal_name?: string | null;
+  receipt_tax_id?: string | null;
+  receipt_tax_branch?: string | null;
+  receipt_tax_address?: string | null;
   created_at: string;
   updated_at: string;
   food_order_items?: FoodCustomerOrderItem[];
@@ -493,9 +501,10 @@ export async function createFoodCustomerOrder(
     customerNote?: string;
     items: FoodCartLine[];
     location: FoodLocation | null;
+    scheduledFor?: string | null;
   },
 ) {
-  const { data, error } = await client.rpc("food_create_order", {
+  const params = {
     ...pinParams(input.location),
     p_store_id: storeId,
     p_recipient_name: input.recipientName,
@@ -508,7 +517,10 @@ export async function createFoodCustomerOrder(
       note: line.note || "",
       selected_options: [],
     })),
-  });
+  };
+  const { data, error } = input.scheduledFor
+    ? await client.rpc("food_create_scheduled_order", { ...params, p_scheduled_for: input.scheduledFor })
+    : await client.rpc("food_create_order", params);
   if (error) throw new Error(error.message);
   return String(data);
 }
