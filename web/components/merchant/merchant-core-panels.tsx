@@ -8,6 +8,7 @@ import {
   History,
   Plus,
   ShieldCheck,
+  Star,
   UserRoundCog,
   Users,
 } from "lucide-react";
@@ -21,9 +22,11 @@ import {
   fetchMerchantActivity,
   fetchMerchantNotifications,
   fetchMerchantStaff,
+  fetchMerchantStoreReviews,
   fetchStoreReadiness,
   markAllMerchantNotificationsRead,
   markMerchantNotificationRead,
+  replyMerchantStoreReview,
   setMerchantRefundStatus,
   updateMerchantStaff,
   type MerchantActivity,
@@ -31,6 +34,8 @@ import {
   type MerchantStaffMember,
   type MerchantStaffRole,
   type MerchantStoreReadiness,
+  type MerchantStoreReview,
+  type MerchantStoreReviewFeed,
 } from "@/lib/merchant-core";
 
 const READINESS_LABELS: Record<string, string> = {
@@ -89,6 +94,16 @@ function shortDate(value: string) {
   }).format(new Date(value));
 }
 
+function MerchantReviewStars({ rating }: { rating: number }) {
+  return (
+    <span className="wm-review-stars" aria-label={`${rating} จาก 5 ดาว`}>
+      {[1, 2, 3, 4, 5].map((value) => (
+        <Star key={value} size={15} strokeWidth={1.8} fill={value <= Math.round(rating) ? "currentColor" : "none"} />
+      ))}
+    </span>
+  );
+}
+
 function activityDetail(item: MerchantActivity) {
   const detail = item.detail ?? {};
   const order = typeof detail.order_number === "string" ? `#${detail.order_number}` : "";
@@ -116,13 +131,17 @@ export function MerchantStoreTools({
   const [staff, setStaff] = useState<MerchantStaffMember[]>([]);
   const [notifications, setNotifications] = useState<MerchantNotification[]>([]);
   const [activity, setActivity] = useState<MerchantActivity[]>([]);
+  const [reviews, setReviews] = useState<MerchantStoreReviewFeed | null>(null);
+  const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
+  const [reviewReply, setReviewReply] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [username, setUsername] = useState("");
   const [role, setRole] = useState<Exclude<MerchantStaffRole, "owner">>("orders");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [nextReadiness, nextStaff, nextNotifications, nextActivity] = await Promise.all([
+      const [nextReadiness, nextStaff, nextNotifications, nextActivity, nextReviews] = await Promise.all([
         fetchStoreReadiness(client, store.id),
         fetchMerchantStaff(client, store.id),
         store.merchant_account_id
@@ -131,11 +150,13 @@ export function MerchantStoreTools({
         store.merchant_account_id
           ? fetchMerchantActivity(client, store.merchant_account_id, 20)
           : Promise.resolve([]),
+        fetchMerchantStoreReviews(client, store.id, 50),
       ]);
       setReadiness(nextReadiness);
       setStaff(nextStaff);
       setNotifications(nextNotifications);
       setActivity(nextActivity);
+      setReviews(nextReviews);
     } catch (error) {
       onMessage(error instanceof Error ? error.message : "โหลดข้อมูล Merchant เพิ่มเติมไม่สำเร็จ");
     }
@@ -148,6 +169,7 @@ export function MerchantStoreTools({
 
   const currentMember = staff.find((item) => item.user_id === userId && item.active);
   const canManageStaff = currentMember?.role === "owner" || currentMember?.role === "admin";
+  const canReplyReviews = currentMember?.role === "owner" || currentMember?.role === "admin" || currentMember?.role === "manager";
   const unread = useMemo(() => notifications.filter((item) => !item.read_at).length, [notifications]);
 
   const addStaff = async () => {
@@ -178,6 +200,26 @@ export function MerchantStoreTools({
       onMessage(error instanceof Error ? error.message : "อัปเดตทีมงานไม่สำเร็จ");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const startReviewReply = (review: MerchantStoreReview) => {
+    setReplyingReviewId(review.id);
+    setReviewReply(review.merchant_reply ?? "");
+  };
+
+  const submitReviewReply = async (review: MerchantStoreReview) => {
+    setReviewBusy(true);
+    try {
+      await replyMerchantStoreReview(client, review.id, reviewReply);
+      setReplyingReviewId(null);
+      setReviewReply("");
+      onMessage(review.merchant_reply ? "อัปเดตคำตอบรีวิวแล้ว" : "ตอบกลับรีวิวแล้ว");
+      await load();
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : "ตอบกลับรีวิวไม่สำเร็จ");
+    } finally {
+      setReviewBusy(false);
     }
   };
 
@@ -217,6 +259,58 @@ export function MerchantStoreTools({
           </div>
         ) : null}
       </section>
+
+      {reviews ? (
+        <section className="wm-core-section wm-review-section">
+          <div className="wm-core-section-head">
+            <div><Star size={20} /><span><strong>รีวิวร้าน</strong><small>{reviews.count ? `${reviews.average.toFixed(1)} คะแนน · ${reviews.count} รีวิว` : "ยังไม่มีรีวิวจากออเดอร์ที่ส่งสำเร็จ"}</small></span></div>
+            {reviews.unanswered ? <b className="wm-review-unanswered">{reviews.unanswered} รอตอบ</b> : null}
+          </div>
+
+          {reviews.reviews.length ? (
+            <div className="wm-review-list">
+              {reviews.reviews.map((review) => (
+                <article className="wm-review-card" key={review.id}>
+                  <div className="wm-review-card-head">
+                    <span><strong>{review.reviewer_label}</strong><small>สั่งจริงกับ WYNOS Food · {shortDate(review.created_at)}</small></span>
+                    <MerchantReviewStars rating={review.rating} />
+                  </div>
+                  {review.review_text ? <p>{review.review_text}</p> : null}
+                  {review.tags.length ? <div className="wm-review-tags">{review.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
+
+                  {review.merchant_reply ? (
+                    <div className="wm-review-existing-reply">
+                      <strong>คำตอบของร้าน</strong>
+                      <p>{review.merchant_reply}</p>
+                      {review.merchant_replied_at ? <small>{shortDate(review.merchant_replied_at)}</small> : null}
+                    </div>
+                  ) : null}
+
+                  {canReplyReviews ? (
+                    replyingReviewId === review.id ? (
+                      <div className="wm-review-reply-form">
+                        <label>คำตอบของร้าน
+                          <textarea maxLength={500} value={reviewReply} onChange={(event) => setReviewReply(event.target.value)} placeholder="ขอบคุณลูกค้า หรือชี้แจงอย่างสุภาพ" />
+                        </label>
+                        <div>
+                          <button className="wm-text-button" type="button" disabled={reviewBusy} onClick={() => { setReplyingReviewId(null); setReviewReply(""); }}>ยกเลิก</button>
+                          <button className="wm-small-primary" type="button" disabled={reviewBusy || !reviewReply.trim()} onClick={() => void submitReviewReply(review)}>
+                            {reviewBusy ? "กำลังส่ง…" : review.merchant_reply ? "บันทึกคำตอบ" : "ตอบกลับ"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="wm-review-reply-button" type="button" onClick={() => startReviewReply(review)}>
+                        {review.merchant_reply ? "แก้ไขคำตอบ" : "ตอบกลับรีวิว"}
+                      </button>
+                    )
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : <p className="wm-core-empty">รีวิวจากลูกค้าที่สั่งและได้รับอาหารสำเร็จจะแสดงที่นี่</p>}
+        </section>
+      ) : null}
 
       <section className="wm-core-section">
         <div className="wm-core-section-head">
