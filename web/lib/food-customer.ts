@@ -58,6 +58,7 @@ export type FoodCustomerMenuItem = {
   options: unknown[];
   is_available: boolean;
   sold_out_until?: string | null;
+  daily_stock_limit?: number | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
