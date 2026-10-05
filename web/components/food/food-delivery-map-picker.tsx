@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, Building2, Check, Coffee, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, ShoppingBag, Store, Utensils, X } from "lucide-react";
+import { ArrowLeft, Building2, Check, Clock, Coffee, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Share, ShoppingBag, Store, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -16,6 +16,14 @@ import {
   type FoodLocation,
   type FoodPlace,
 } from "@/lib/food-customer";
+import {
+  clearRecentPlaces,
+  formatDistanceKm,
+  loadRecentPlaces,
+  mapsShareUrl,
+  rememberRecentPlace,
+  type MapsRecentPlace,
+} from "@/lib/maps-places";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -186,6 +194,14 @@ function prefersDarkMap() {
 
 type SheetDetent = "peek" | "half" | "full";
 
+function mapsStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
 function nearbyRadiusForZoom(zoom: number) {
   if (zoom >= 17.5) return 1.5;
   if (zoom >= 16) return 3;
@@ -227,6 +243,9 @@ function placeCategory(place: FoodPlace) {
   if (place.category === "pickup_point") return "จุดรับอาหาร";
   if (place.category === "building") return "อาคาร";
   if (place.category === "entrance") return "ทางเข้า";
+  if (place.category === "store") return "ร้านค้า";
+  if (place.category === "residence") return "ที่พัก";
+  if (place.category === "poi") return "จุดสำคัญ";
   return "สถานที่";
 }
 
@@ -315,6 +334,7 @@ export function FoodDeliveryMapPicker({
   const [searchFocused, setSearchFocused] = useState(false);
   // Standalone Maps hides the sheet by default, so search feedback shows under the search box.
   const [searchStatus, setSearchStatus] = useState("");
+  const [recentPlaces, setRecentPlaces] = useState<MapsRecentPlace[]>([]);
   const [showAttribution, setShowAttribution] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestionName, setSuggestionName] = useState("");
@@ -398,6 +418,12 @@ export function FoodDeliveryMapPicker({
       setWorking(false);
     }
   }, [moveTo, reverse]);
+
+  useEffect(() => {
+    if (!standalone) return;
+    const timer = window.setTimeout(() => setRecentPlaces(loadRecentPlaces(mapsStorage())), 0);
+    return () => window.clearTimeout(timer);
+  }, [standalone]);
 
   useEffect(() => {
     if (!standalone) return;
@@ -830,10 +856,13 @@ export function FoodDeliveryMapPicker({
   };
 
   const chooseResult = (result: FoodPlace) => {
+    if (standalone) setRecentPlaces(rememberRecentPlace(mapsStorage(), result));
     setResults([]);
     setSearchStatus("");
     setSearchFocused(false);
-    setQuery(result.name);
+    // Standalone Maps shows the chosen place in the sheet and keeps the search
+    // field empty, so the next tap opens recents.
+    setQuery(standalone ? "" : result.name);
     setSheetExpanded(false);
     moveTo({ latitude: result.latitude, longitude: result.longitude }, result);
   };
@@ -846,7 +875,24 @@ export function FoodDeliveryMapPicker({
     map.flyTo({ center: [center.lng, center.lat], zoom: nextZoom, essential: true });
   };
 
-  const searchActive = standalone && searchFocused && Boolean(query.trim() || results.length || searchStatus || searching);
+  const searchActive = standalone && searchFocused;
+  const showRecents = standalone && searchFocused && !query.trim() && !results.length && recentPlaces.length > 0;
+
+  const sharePlace = async (target: { name?: string | null; latitude: number; longitude: number }) => {
+    const url = mapsShareUrl(window.location.origin, target.latitude, target.longitude);
+    const title = target.name?.trim() || "ตำแหน่งบน WYNOS Maps";
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: title, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setStatus("คัดลอกลิงก์ตำแหน่งแล้ว");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setStatus("แชร์ตำแหน่งไม่สำเร็จ");
+    }
+  };
 
   const cancelSearch = () => {
     searchRequestRef.current += 1;
@@ -920,6 +966,37 @@ export function FoodDeliveryMapPicker({
           {searching ? "กำลังค้นหา…" : searchStatus}
         </p>
       ) : null}
+      {showRecents ? (
+        <div className="wf-map-recents">
+          <div className="wf-map-recents-head">
+            <strong>ล่าสุด</strong>
+            <button
+              type="button"
+              onClick={() => {
+                clearRecentPlaces(mapsStorage());
+                setRecentPlaces([]);
+              }}
+            >
+              ล้าง
+            </button>
+          </div>
+          <div className="wf-map-results">
+            {recentPlaces.map((recent) => (
+              <button
+                key={recent.placeId ?? `${recent.latitude},${recent.longitude},${recent.name}`}
+                type="button"
+                onClick={() => chooseResult({ ...recent, source: "wynos" })}
+              >
+                <Clock size={17} />
+                <span>
+                  <strong>{recent.name}</strong>
+                  {recent.address ? <small>{recent.address}</small> : null}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {results.length ? (
         <div className="wf-map-results">
           {results.map((result) => (
@@ -927,7 +1004,11 @@ export function FoodDeliveryMapPicker({
               <MapPin size={17} />
               <span>
                 <strong>{result.name || "สถานที่"}</strong>
-                <small>{placeCategory(result)}{result.address ? ` · ${result.address}` : ""}</small>
+                <small>
+                  {[standalone ? formatDistanceKm(result.distanceKm) : null, placeCategory(result), result.address]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
               </span>
             </button>
           ))}
@@ -1117,6 +1198,11 @@ export function FoodDeliveryMapPicker({
               >
                 ใช้ตำแหน่งนี้
               </button>
+              {standalone ? (
+                <button type="button" className="wf-map-share" onClick={() => void sharePlace(activeNearbyPlace)}>
+                  <Share size={15} /> แชร์
+                </button>
+              ) : null}
               {activeNearbyPlace.merchantStoreId ? (
                 <a href={`/food?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}>ดูร้านใน WYNOS Food</a>
               ) : null}
@@ -1153,6 +1239,16 @@ export function FoodDeliveryMapPicker({
               <code className="wf-map-confirm-coordinates">{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</code>
             ) : null}
           </div>
+          {standalone && location ? (
+            <button
+              type="button"
+              className="wf-map-confirm-share"
+              aria-label="แชร์ตำแหน่งนี้"
+              onClick={() => void sharePlace({ name: place?.name, latitude: location.latitude, longitude: location.longitude })}
+            >
+              <Share size={18} />
+            </button>
+          ) : null}
         </div>
         {status ? <p role="status">{status}</p> : null}
 

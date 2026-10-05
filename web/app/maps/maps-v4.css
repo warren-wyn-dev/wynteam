@@ -431,3 +431,58 @@
     transition: none;
   }
 }
+
+/* Recent searches and share actions. */
+.wynos-maps-page .wf-map-recents {
+  margin-top: 14px;
+}
+
+.wynos-maps-page .wf-map-recents-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 6px;
+}
+
+.wynos-maps-page .wf-map-recents-head strong {
+  color: var(--m-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.wynos-maps-page .wf-map-recents-head button {
+  min-height: 32px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--m-text-2);
+  font: inherit;
+  font-size: 14px;
+}
+
+.wynos-maps-page .wf-map-recents .wf-map-results {
+  margin-top: 0;
+}
+
+.wynos-maps-page .wf-map-confirm-copy:has(.wf-map-confirm-share) {
+  grid-template-columns: 44px minmax(0, 1fr) 40px;
+}
+
+.wynos-maps-page .wf-map-confirm-share {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--m-fill);
+  color: var(--m-text);
+  display: grid;
+  place-items: center;
+}
+
+.wynos-maps-page .wf-map-place-actions .wf-map-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--m-fill);
+  color: var(--m-text);
+}
