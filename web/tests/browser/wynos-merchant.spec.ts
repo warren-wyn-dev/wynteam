@@ -74,6 +74,29 @@ test("Merchant uses interactive maps for store, pickup and frequent delivery pla
   expect(sql).toContain("create or replace function public.wynos_place_details");
 });
 
+test("Merchant store settings are grouped into clear navigable categories", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const css = read("app/merchant/merchant.css");
+
+  for (const section of [
+    "wm-store-section-info",
+    "wm-store-section-media",
+    "wm-store-section-hours",
+    "wm-store-section-delivery",
+    "wm-store-section-payment",
+  ]) expect(app).toContain(section);
+
+  expect(app).toContain("ข้อมูลร้าน");
+  expect(app).toContain("รูปภาพร้าน");
+  expect(app).toContain("เวลาเปิด–ปิดและการเตรียมอาหาร");
+  expect(app).toContain("ตำแหน่งและการจัดส่ง");
+  expect(app).toContain("การรับชำระเงิน");
+  expect(app).toContain("wm-settings-savebar");
+  expect(css).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
+  expect(css).toContain(".wm-store-settings-nav");
+  expect(css).toContain(".wm-settings-category");
+});
+
 test("Merchant production readiness suite covers hours, publish gate, ETA, ordering and audit", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const merchant = read("lib/food-merchant.ts");
