@@ -197,6 +197,57 @@ $$;
 revoke all on function public.food_store_open_status(uuid) from public;
 grant execute on function public.food_store_open_status(uuid) to anon, authenticated;
 
+-- Keep the store directory's existing contract but make its is_open field
+-- reflect the structured schedule / temporary closure.
+create or replace function public.food_store_directory(p_query text default null)
+returns table (
+  id uuid,
+  slug text,
+  name text,
+  logo_path text,
+  cover_path text,
+  business_hours text,
+  delivery_fee numeric,
+  is_open boolean,
+  is_ad boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $
+declare
+  v_query text := nullif(btrim(coalesce(p_query, '')), '');
+begin
+  if not public.food_customer_access_enabled() then
+    raise exception 'food access required';
+  end if;
+  return query
+  select
+    s.id,
+    s.slug,
+    s.name,
+    s.logo_path,
+    s.cover_path,
+    s.business_hours,
+    s.delivery_fee::numeric,
+    internal.food_store_effectively_open(s.id, now()) as is_open,
+    internal.food_ad_is_live(s.id) as is_ad
+  from public.food_stores s
+  where s.is_published
+    and s.admin_suspended_at is null
+    and (v_query is null
+      or s.name ilike '%' || replace(replace(replace(v_query, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%')
+  order by internal.food_ad_is_live(s.id) desc,
+           internal.food_store_effectively_open(s.id, now()) desc,
+           s.name
+  limit 50;
+end;
+$;
+
+revoke all on function public.food_store_directory(text) from public, anon;
+grant execute on function public.food_store_directory(text) to authenticated;
+
 -- Publish readiness ----------------------------------------------------------
 
 create or replace function internal.food_store_publish_readiness_json(p_store_id uuid)
