@@ -1461,6 +1461,7 @@ Object.assign(EN_EXACT, {
   "กลับ WYNOS": "Back to WYNOS",
   "ร้านสร้าง": "Created by store",
   "รายการ": "items",
+  "รายการ ·": "items ·",
   "โหลดข้อมูลร้านไม่สำเร็จ": "Couldn't load store data",
   "WYNOS Merchant · ออเดอร์ใหม่": "WYNOS Merchant · New order",
   "อุปกรณ์นี้ไม่รองรับการแจ้งเตือนผ่านเบราว์เซอร์": "This device does not support browser notifications",
