@@ -1,6 +1,6 @@
 -- WYNOS Merchant operations completion: scheduled orders + receipt/tax snapshots.
 -- Founder requested production rollout 2026-10-05.
--- Additive and backwards-compatible: existing Food order RPC remains unchanged.
+-- Additive and backwards-compatible: the existing immediate-order RPC remains unchanged.
 
 alter table public.food_stores
   add column if not exists scheduled_orders_enabled boolean not null default false,
@@ -48,10 +48,11 @@ create index if not exists food_orders_store_scheduled_idx
   on public.food_orders(store_id, scheduled_for)
   where scheduled_for is not null and status not in ('delivered','cancelled');
 
+-- Snapshot tax details on creation so a historical receipt does not silently
+-- change if the Merchant edits its registered details later.
 create or replace function internal.food_order_receipt_snapshot()
 returns trigger
 language plpgsql
-security definer
 set search_path = ''
 as $$
 declare
@@ -75,6 +76,61 @@ create trigger trg_food_order_receipt_snapshot
 before insert on public.food_orders
 for each row execute function internal.food_order_receipt_snapshot();
 
+-- Assign scheduling only after the existing order RPC has atomically completed
+-- pricing, campaigns, distance fees, stock checks and order items.
+create or replace function internal.food_set_scheduled_order(
+  p_order_id uuid,
+  p_scheduled_for timestamptz
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_store public.food_stores%rowtype;
+  v_order public.food_orders%rowtype;
+  v_min timestamptz;
+  v_max timestamptz;
+begin
+  if auth.uid() is null then raise exception 'authentication required'; end if;
+  if p_scheduled_for is null then raise exception 'scheduled time is required'; end if;
+
+  select * into v_order
+  from public.food_orders
+  where id = p_order_id and buyer_id = auth.uid()
+  for update;
+  if not found then raise exception 'order not found'; end if;
+
+  select * into v_store from public.food_stores where id = v_order.store_id;
+  if not found then raise exception 'store not found'; end if;
+  if not v_store.scheduled_orders_enabled then raise exception 'scheduled orders are not enabled'; end if;
+
+  v_min := now() + make_interval(mins => v_store.scheduled_min_notice_minutes);
+  v_max := now() + make_interval(days => v_store.scheduled_max_days);
+  if p_scheduled_for < v_min then raise exception 'scheduled time is too soon'; end if;
+  if p_scheduled_for > v_max then raise exception 'scheduled time is too far'; end if;
+  if not internal.food_store_effectively_open(v_order.store_id, p_scheduled_for) then
+    raise exception 'store is closed at scheduled time';
+  end if;
+
+  update public.food_orders
+  set scheduled_for = p_scheduled_for
+  where id = v_order.id;
+
+  insert into public.food_order_events(order_id,event_type,note,actor_id)
+  values (
+    v_order.id,
+    'scheduled',
+    left('นัดรับ/จัดส่ง ' || to_char(p_scheduled_for at time zone 'Asia/Bangkok','YYYY-MM-DD HH24:MI'),1000),
+    auth.uid()
+  );
+end;
+$$;
+
+revoke all on function internal.food_set_scheduled_order(uuid,timestamptz) from public, anon;
+grant execute on function internal.food_set_scheduled_order(uuid,timestamptz) to authenticated;
+
 create or replace function public.food_create_scheduled_order(
   p_store_id uuid,
   p_recipient_name text,
@@ -88,26 +144,12 @@ create or replace function public.food_create_scheduled_order(
 )
 returns uuid
 language plpgsql
-security definer
 set search_path = ''
 as $$
 declare
-  v_store public.food_stores%rowtype;
   v_order_id uuid;
-  v_min timestamptz;
-  v_max timestamptz;
 begin
   if auth.uid() is null then raise exception 'authentication required'; end if;
-
-  select * into v_store from public.food_stores where id = p_store_id;
-  if not found then raise exception 'store not found'; end if;
-  if not v_store.scheduled_orders_enabled then raise exception 'scheduled orders are not enabled'; end if;
-  if p_scheduled_for is null then raise exception 'scheduled time is required'; end if;
-
-  v_min := now() + make_interval(mins => v_store.scheduled_min_notice_minutes);
-  v_max := now() + make_interval(days => v_store.scheduled_max_days);
-  if p_scheduled_for < v_min then raise exception 'scheduled time is too soon'; end if;
-  if p_scheduled_for > v_max then raise exception 'scheduled time is too far'; end if;
 
   v_order_id := public.food_create_order(
     p_store_id,
@@ -120,21 +162,13 @@ begin
     p_longitude
   );
 
-  update public.food_orders
-  set scheduled_for = p_scheduled_for
-  where id = v_order_id and buyer_id = auth.uid();
-
-  insert into public.food_order_events(order_id,event_type,note,actor_id)
-  values (
-    v_order_id,
-    'scheduled',
-    left('นัดรับ/จัดส่ง ' || to_char(p_scheduled_for at time zone 'Asia/Bangkok','YYYY-MM-DD HH24:MI'),1000),
-    auth.uid()
-  );
-
+  -- If validation fails here the whole function transaction rolls back,
+  -- including the order created above.
+  perform internal.food_set_scheduled_order(v_order_id, p_scheduled_for);
   return v_order_id;
 end;
 $$;
 
 revoke all on function public.food_create_scheduled_order(uuid,text,text,text,text,jsonb,timestamptz,double precision,double precision) from public, anon;
 grant execute on function public.food_create_scheduled_order(uuid,text,text,text,text,jsonb,timestamptz,double precision,double precision) to authenticated;
+grant execute on function public.food_create_scheduled_order(uuid,text,text,text,text,jsonb,timestamptz,double precision,double precision) to service_role;
