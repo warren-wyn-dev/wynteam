@@ -297,6 +297,10 @@ export function isPushWanted(userId: string): boolean {
   return readPushWanted().includes(userId);
 }
 
+export function isPushChosenOff(userId: string): boolean {
+  return readPushOff().includes(userId);
+}
+
 /**
  * Before switching or adding an account: whether Push is on for the current
  * account on this device. The switch still detaches the old account's token
