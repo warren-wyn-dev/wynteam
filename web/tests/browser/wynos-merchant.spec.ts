@@ -698,3 +698,25 @@ test("WYN-214 Admin merchant polish: service area, order money, refunds, safe ap
   expect(card).toContain("if (!window.confirm(`${what}? อนุมัติแล้วย้อนกลับไม่ได้`)) return;");
   expect(card).toContain('return "คำขอนี้อนุมัติไปแล้ว เปลี่ยนไม่ได้";');
 });
+
+
+test("Merchant notification center consolidates alert controls", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const settings = read("components/merchant/merchant-notification-settings.tsx");
+  const alerts = read("components/merchant/merchant-order-alert.tsx");
+  const prefs = read("lib/merchant-notification-preferences.ts");
+  const css = read("app/merchant/merchant.css");
+
+  expect(app).toContain('tab === "notifications"');
+  expect(app).toContain('onOpenTab("notifications")');
+  expect(app).not.toContain('MerchantIcon3D name="sound" size={52}');
+  expect(settings).toContain("ลองเสียงออเดอร์");
+  expect(settings).toContain("Web Push บนอุปกรณ์นี้");
+  expect(settings).toContain("Quiet Hours");
+  expect(settings).toContain("MerchantNotificationTest");
+  expect(settings).toContain("การสั่น");
+  expect(alerts).toContain("merchantAlertQuietNow");
+  expect(alerts).toContain("vibration_enabled");
+  expect(prefs).toContain("MERCHANT_ALERT_PREFS_KEY");
+  expect(css).toContain(".wm-notification-card");
+});
