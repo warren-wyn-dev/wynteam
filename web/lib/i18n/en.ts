@@ -2300,6 +2300,8 @@ Object.assign(EN_EXACT, {
   "จากออเดอร์ที่ส่งสำเร็จ": "From delivered orders",
   "รีวิวจากลูกค้า": "Customer reviews",
   "รีวิวร้าน": "Store reviews",
+  "รอตอบ": "Awaiting reply",
+  "สั่งจริงกับ WYNOS Food ·": "Verified order on WYNOS Food ·",
   "รีวิว)": "reviews)",
   "ให้คะแนนร้านจากออเดอร์ #": "Rate the store from order #",
   "สั่งจริงกับ WYNOS Food": "Verified order on WYNOS Food",
