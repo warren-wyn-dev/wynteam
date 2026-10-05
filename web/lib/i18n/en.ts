@@ -1908,6 +1908,8 @@ Object.assign(EN_EXACT, {
   "ไปชำระเงิน ·": "Continue to payment ·",
   "· ค่าเริ่มต้น": "· Default",
   "ประมาณ": "About",
+  "ต้องล่วงหน้าอย่างน้อย": "At least",
+  "นาที และไม่เกิน": "minutes in advance and no more than",
   "นาที": "minutes",
   "เลื่อนแผนที่หรือค้นหาสถานที่": "Move the map or search for a place",
   "โหลดแผนที่ไม่สำเร็จ กรุณาลองใหม่": "Couldn't load the map. Please try again",
