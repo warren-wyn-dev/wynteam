@@ -2423,6 +2423,7 @@ Object.assign(EN_EXACT, {
   "ร้านเริ่มทำหลังรับออเดอร์": "The store starts preparing after accepting the order",
   "สั่งล่วงหน้า": "Schedule order",
   "เลือกวันและเวลา": "Choose date and time",
+  "กรุณาเลือกวันและเวลา": "Please choose a date and time",
   "เวลาที่เลือกอยู่นอกช่วงที่ร้านรับออเดอร์ล่วงหน้า": "The selected time is outside the store's scheduled-order window",
   "นัดรับ/จัดส่ง": "Scheduled pickup / delivery",
 });
