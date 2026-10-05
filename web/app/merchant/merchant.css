@@ -97,6 +97,22 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-brand { min-width: 0; display: flex; align-items: baseline; gap: 7px; letter-spacing: -.45px; }
 .wm-brand span { font-size: 19px; font-weight: 800; }
 .wm-brand b { color: var(--wm-red); font-size: 15px; font-weight: 760; }
+
+.wm-brand-stack { min-width: 0; display: grid; gap: 1px; }
+.wm-store-switcher { max-width: min(52vw, 260px); display: inline-flex; align-items: center; gap: 4px; color: var(--wm-secondary); }
+.wm-store-switcher select {
+  min-width: 0;
+  max-width: 100%;
+  border: 0;
+  padding: 0 18px 0 0;
+  background: transparent;
+  color: var(--wm-secondary);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+}
+.wm-store-switcher select:focus-visible { outline: 2px solid color-mix(in srgb, var(--wm-red) 55%, transparent); outline-offset: 2px; border-radius: 5px; }
 .wm-header-actions { display: inline-flex; align-items: center; gap: 4px; }
 .wm-icon-button {
   width: 42px;
@@ -236,6 +252,9 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 
 .wm-order-list { display: grid; gap: 9px; }
 .wm-order-list--page { padding-bottom: 18px; }
+
+.wm-load-more { margin: 2px 0 8px; }
+.wm-list-end { margin: 2px 0 8px; color: var(--wm-muted); text-align: center; font-size: 11.5px; }
 .wm-order-card {
   width: 100%;
   padding: 13px 14px;
@@ -1996,6 +2015,27 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-service-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 6px; }
 .wm-service-grid > button { min-width: 0; min-height: 88px; padding: 4px 2px; border: 0; background: transparent; color: var(--wm-text); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; font-size: 12.5px; line-height: 1.25; }
 
+.wm-help-card {
+  margin-bottom: 14px;
+  padding: 17px;
+  border: 1px solid var(--wm-border);
+  border-radius: 18px;
+  background: var(--wm-bg);
+  display: grid;
+  gap: 9px;
+}
+.wm-help-card > strong { font-size: 17px; }
+.wm-help-card p { margin: 0; color: var(--wm-secondary); font-size: 13px; line-height: 1.55; }
+.wm-help-card > small { color: var(--wm-muted); font-size: 10.5px; overflow-wrap: anywhere; }
+.wm-help-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wm-help-actions > a, .wm-help-actions > button { min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.wm-help-list > div { min-height: 68px; padding: 12px 14px; border-bottom: 1px solid var(--wm-border); display: flex; align-items: center; }
+.wm-help-list > div:last-child { border-bottom: 0; }
+.wm-help-list > div > span { display: grid; gap: 3px; }
+.wm-help-list > div strong { font-size: 13.5px; }
+.wm-help-list > div small { color: var(--wm-secondary); font-size: 11.5px; line-height: 1.45; }
+.wm-print-order { width: fit-content; min-height: 38px; margin-top: 5px; display: inline-flex; align-items: center; gap: 6px; }
+
 @media (max-width: 370px) {
   .wm-hero-sales strong { font-size: 32px; }
   .wm-shortcuts > button { font-size: 12px; }
@@ -3496,4 +3536,39 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   .wm-settings-savebar .wm-primary {
     width: 100%;
   }
+}
+
+@media print {
+  body * { visibility: hidden !important; }
+  .wm-sheet-backdrop,
+  .wm-sheet-backdrop *,
+  .wm-sheet,
+  .wm-sheet * { visibility: visible !important; }
+  .wm-sheet-backdrop {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  .wm-sheet {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .wm-sheet > header button,
+  .wm-print-order,
+  .wm-danger-link,
+  .wm-next-step,
+  .wm-refund-controls,
+  .wm-two-actions { display: none !important; }
+  .wm-sheet-body { max-height: none !important; overflow: visible !important; padding-bottom: 0 !important; }
+  .wm-detail-section { break-inside: avoid; }
 }
