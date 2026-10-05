@@ -9,6 +9,8 @@ export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 export type FoodCustomerStore = {
   id: string;
   slug: string;
+  /** Short share-link code (food.wynos.online/s/<code>); null before that migration. */
+  share_code?: string | null;
   name: string;
   description: string | null;
   phone: string | null;
