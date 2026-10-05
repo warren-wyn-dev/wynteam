@@ -466,11 +466,11 @@ function FoodRecentStoreTile({
   );
 }
 
-function FoodHomeSectionHeader({ title, onAll }: { title: string; onAll: () => void }) {
+function FoodHomeSectionHeader({ title, onAll }: { title: string; onAll?: () => void }) {
   return (
     <div className="wf-home-section-head">
       <h2>{title}</h2>
-      <button type="button" onClick={onAll}>ดูทั้งหมด <ChevronRight size={15} /></button>
+      {onAll ? <button type="button" onClick={onAll}>ดูทั้งหมด <ChevronRight size={15} /></button> : null}
     </div>
   );
 }
@@ -478,7 +478,6 @@ function FoodHomeSectionHeader({ title, onAll }: { title: string; onAll: () => v
 function StoreDirectory({
   client,
   userId,
-  currentStoreId,
   orders,
   addresses,
   onPick,
@@ -486,7 +485,6 @@ function StoreDirectory({
 }: {
   client: SupabaseClient;
   userId: string;
-  currentStoreId: string | null;
   orders: FoodCustomerOrder[];
   addresses: FoodCustomerAddress[];
   onPick: (store: FoodDirectoryStore, placement: "home" | "search") => void;
@@ -585,7 +583,7 @@ function StoreDirectory({
 
   return (
     <section className="wf-directory wf-home-directory">
-      <label className="wf-search wf-home-search">
+      <div className="wf-search wf-home-search">
         <Search size={20} strokeWidth={1.8} />
         <input
           value={query}
@@ -595,7 +593,7 @@ function StoreDirectory({
           autoComplete="off"
         />
         {query ? <button type="button" aria-label="ล้างการค้นหา" onClick={() => setQuery("")}><X size={17} /></button> : null}
-      </label>
+      </div>
 
       <div className="wf-fulfillment-tabs" aria-label="รูปแบบการรับอาหาร">
         <button type="button" className="is-active"><span aria-hidden="true">🛵</span>จัดส่ง</button>
@@ -608,7 +606,7 @@ function StoreDirectory({
 
       {query.trim() ? (
         <section className="wf-home-search-results">
-          <FoodHomeSectionHeader title="ผลการค้นหา" onAll={() => undefined} />
+          <FoodHomeSectionHeader title="ผลการค้นหา" />
           {directory.length ? <div className="wf-home-store-list">{directory.map((store) => row(store, "search"))}</div> : <p className="wf-dir-empty">ไม่พบร้านหรือเมนูที่ค้นหา</p>}
         </section>
       ) : (
@@ -985,7 +983,6 @@ function HomePanel({
         <StoreDirectory
           client={client}
           userId={userId}
-          currentStoreId={store?.id ?? null}
           orders={orders}
           addresses={addresses}
           onPick={onPickStore}
