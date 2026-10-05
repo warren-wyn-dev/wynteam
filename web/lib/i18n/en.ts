@@ -2343,6 +2343,8 @@ Object.assign(EN_EXACT, {
   "ตอบกลับรีวิวแล้ว": "Review replied to",
   "ตอบกลับรีวิวไม่สำเร็จ": "Couldn't reply to the review",
   "กรุณาเขียนคำตอบก่อนส่ง": "Write a reply before sending",
+  "รอตอบ": "Awaiting reply",
+  "สั่งจริงกับ WYNOS Food ·": "Verified order on WYNOS Food ·",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
