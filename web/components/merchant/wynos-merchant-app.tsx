@@ -2145,8 +2145,20 @@ function StoreEditor({
 
   return (
     <Sheet title="ตั้งค่าร้าน" onClose={onClose} wide>
-      <div className="wm-form">
-        <h3>ข้อมูลร้าน</h3>
+      <div className="wm-form wm-store-settings-form">
+        <nav className="wm-store-settings-nav" aria-label="หมวดการตั้งค่าร้าน">
+          <button type="button" onClick={() => document.getElementById("wm-store-section-info")?.scrollIntoView({ behavior: "smooth", block: "start" })}><Store size={16} /> ข้อมูลร้าน</button>
+          <button type="button" onClick={() => document.getElementById("wm-store-section-hours")?.scrollIntoView({ behavior: "smooth", block: "start" })}><CalendarDays size={16} /> เวลาเปิด–ปิด</button>
+          <button type="button" onClick={() => document.getElementById("wm-store-section-delivery")?.scrollIntoView({ behavior: "smooth", block: "start" })}><MapPin size={16} /> ตำแหน่งและจัดส่ง</button>
+          <button type="button" onClick={() => document.getElementById("wm-store-section-payment")?.scrollIntoView({ behavior: "smooth", block: "start" })}><CircleDollarSign size={16} /> การชำระเงิน</button>
+        </nav>
+
+        <section className="wm-settings-category" id="wm-store-section-info">
+          <div className="wm-settings-category-head">
+            <span className="wm-settings-category-icon"><Store size={20} /></span>
+            <span><strong>ข้อมูลร้านและภาพลักษณ์</strong><small>ชื่อร้าน รายละเอียด ช่องทางติดต่อ รูปโปรไฟล์ และรูปปก</small></span>
+          </div>
+          <div className="wm-settings-category-body">
         <section className="wm-store-brand-editor">
           <div className="wm-store-brand-heading">
             <span><strong>รูปโปรไฟล์และรูปปกร้าน</strong><small>รูปเหล่านี้จะแสดงบนหน้าร้านใน WYNOS Food</small></span>
@@ -2177,7 +2189,15 @@ function StoreEditor({
         <label>ชื่อร้าน<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
         <label>รายละเอียด<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
         <label>เบอร์ร้าน<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" /></label>
-        <label>ที่อยู่ร้าน<textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
+        </div>
+        </section>
+
+        <section className="wm-settings-category" id="wm-store-section-hours">
+          <div className="wm-settings-category-head">
+            <span className="wm-settings-category-icon"><CalendarDays size={20} /></span>
+            <span><strong>เวลาเปิด–ปิดและการเตรียมอาหาร</strong><small>กำหนดเวลารายวัน วันหยุด ปิดชั่วคราว และเวลาเตรียมออเดอร์</small></span>
+          </div>
+          <div className="wm-settings-category-body">
         <label>ข้อความสรุปเวลา <small>ไม่บังคับ</small><input value={form.business_hours} onChange={(e) => setForm({ ...form, business_hours: e.target.value })} placeholder="เช่น เปิดทุกวัน" /></label>
         <section className="wm-schedule-editor">
           <div className="wm-schedule-heading"><span><CalendarDays size={18} /><strong>เวลาเปิด–ปิดรายวัน</strong></span><small>ระบบจะเปิด/ปิดการรับออเดอร์ตามเวลาไทยอัตโนมัติ</small></div>
@@ -2216,7 +2236,16 @@ function StoreEditor({
             <label>เตรียมอาหารช้าสุด (นาที)<input type="number" min="1" max="240" value={form.prep_time_max_minutes} onChange={(e) => setForm({ ...form, prep_time_max_minutes: e.target.value })} /></label>
           </div>
         </section>
-        <h3>การจัดส่ง</h3>
+          </div>
+        </section>
+
+        <section className="wm-settings-category" id="wm-store-section-delivery">
+          <div className="wm-settings-category-head">
+            <span className="wm-settings-category-icon"><MapPin size={20} /></span>
+            <span><strong>ตำแหน่งและการจัดส่ง</strong><small>ที่อยู่ร้าน หมุดบนแผนที่ ระยะส่ง ค่าส่ง จุดรับอาหาร และพื้นที่ที่ส่งบ่อย</small></span>
+          </div>
+          <div className="wm-settings-category-body">
+        <label>ที่อยู่ร้าน<textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="ที่อยู่ที่ลูกค้าและไรเดอร์ใช้ค้นหาร้าน" /></label>
         <label>พื้นที่จัดส่ง<textarea value={form.delivery_area} onChange={(e) => setForm({ ...form, delivery_area: e.target.value })} placeholder="เช่น รัศมี 5 กม. / เขตที่ให้บริการ" /></label>
         <div className="wm-form-grid"><label>ค่าส่งเริ่มต้น<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label><label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label></div>
         {zoneReady ? <div className="wm-zone">
@@ -2261,13 +2290,27 @@ function StoreEditor({
           </div>
         </div> : null}
         {zoneReady ? <StorePlacesEditor client={client} storeId={store.id} storePin={pin} radiusKm={Number(form.delivery_radius_km || 5)} /> : null}
-        <h3>รับชำระเงินเข้าร้าน</h3>
+          </div>
+        </section>
+
+        <section className="wm-settings-category" id="wm-store-section-payment">
+          <div className="wm-settings-category-head">
+            <span className="wm-settings-category-icon"><CircleDollarSign size={20} /></span>
+            <span><strong>การรับชำระเงิน</strong><small>PromptPay บัญชีธนาคาร และ QR สำหรับรับเงินเข้าร้าน</small></span>
+          </div>
+          <div className="wm-settings-category-body">
         <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
         <label>ธนาคาร<input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} /></label>
         <label>ชื่อบัญชี<input value={form.bank_account_name} onChange={(e) => setForm({ ...form, bank_account_name: e.target.value })} /></label>
         <label>เลขบัญชี<input value={form.bank_account_number} onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })} inputMode="numeric" /></label>
         <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setQrFile(e.target.files?.[0] ?? null)} /><Upload size={20} /><span>{qrFile ? qrFile.name : "อัปโหลด QR รับเงิน"}</span></label>
-        <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกการตั้งค่า"}</button>
+          </div>
+        </section>
+
+        <div className="wm-settings-savebar">
+          <span><strong>บันทึกการเปลี่ยนแปลง</strong><small>ข้อมูลทุกหมวดจะถูกบันทึกพร้อมกัน</small></span>
+          <button className="wm-primary" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกการตั้งค่า"}</button>
+        </div>
       </div>
       {mapTarget ? (
         <FoodDeliveryMapPicker
