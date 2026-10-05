@@ -461,7 +461,8 @@ test("WYNOS Food menu search shows popular, recent and compact result rows", () 
   expect(css).toContain("grid-area: auto !important;");
   expect(css).toContain(".wf-menu-recent");
   expect(css).toContain(".wf-menu-search-row");
-  expect(css).toContain("min-height: 78px;");
+  expect(css).toContain("min-height: 70px;");
+  expect(css).toContain("min-height: 60px;");
   expect(css).toContain("display: flex;");
   expect(css).toContain("flex: 0 0 60px;");
   expect(css).toContain("white-space: normal;");
