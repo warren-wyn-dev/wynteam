@@ -469,6 +469,22 @@ begin
   if new.business_schedule is distinct from old.business_schedule or new.special_closed_dates is distinct from old.special_closed_dates then v_fields := array_append(v_fields,'schedule'); end if;
   if new.temporary_closed_until is distinct from old.temporary_closed_until then v_fields := array_append(v_fields,'temporary_close'); end if;
   if new.prep_time_min_minutes is distinct from old.prep_time_min_minutes or new.prep_time_max_minutes is distinct from old.prep_time_max_minutes then v_fields := array_append(v_fields,'prep_time'); end if;
+  if new.delivery_area is distinct from old.delivery_area
+     or new.delivery_fee is distinct from old.delivery_fee
+     or new.minimum_order is distinct from old.minimum_order
+     or new.delivery_radius_km is distinct from old.delivery_radius_km
+     or new.delivery_base_km is distinct from old.delivery_base_km
+     or new.delivery_fee_per_km is distinct from old.delivery_fee_per_km then
+    v_fields := array_append(v_fields,'delivery');
+  end if;
+  if new.promptpay_name is distinct from old.promptpay_name
+     or new.promptpay_id is distinct from old.promptpay_id
+     or new.bank_name is distinct from old.bank_name
+     or new.bank_account_name is distinct from old.bank_account_name
+     or new.bank_account_number is distinct from old.bank_account_number
+     or new.payment_qr_path is distinct from old.payment_qr_path then
+    v_fields := array_append(v_fields,'payment');
+  end if;
   if new.menu_category_order is distinct from old.menu_category_order then v_fields := array_append(v_fields,'category_order'); end if;
   if new.is_open is distinct from old.is_open then v_fields := array_append(v_fields,'is_open'); end if;
 
