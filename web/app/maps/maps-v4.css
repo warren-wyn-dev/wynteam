@@ -215,6 +215,12 @@
   max-height: calc(100dvh - env(safe-area-inset-top) - 64px);
 }
 
+/* Keep the live map visible while searching so users can visually confirm
+   the area behind search results instead of switching to a list-only view. */
+.wynos-maps-page .wf-map-sheet.is-searching {
+  max-height: min(52dvh, 430px);
+}
+
 .wynos-maps-page .wf-map-sheet.is-peek .wf-map-quick-filters,
 .wynos-maps-page .wf-map-sheet.is-peek .wf-map-sheet-body,
 .wynos-maps-page .wf-map-sheet.is-searching .wf-map-sheet-body {

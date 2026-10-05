@@ -39,6 +39,7 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   const css = read("app/food/food.css");
   const mapsCss = read("app/maps/maps.css");
   const mapsV2Css = read("app/maps/maps-v2.css");
+  const mapsV4Css = read("app/maps/maps-v4.css");
   const serviceArea = JSON.parse(read("public/maps/food-service-area-maha-sarakham.json")) as {
     geometry?: { coordinates?: number[][][] };
   };
@@ -89,6 +90,9 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(map).toContain("wf-map-confirm-coordinates");
   expect(map).not.toContain("function placeText(");
   expect(map).toContain("autoLocate = false");
+  expect(map).toContain('if (standalone) setSheetDetent("half");');
+  expect(mapsV4Css).toContain(".wf-map-sheet.is-searching");
+  expect(mapsV4Css).toContain("max-height: min(52dvh, 430px)");
   expect(data).toContain('body: { mode: "reverse", lat: location.latitude, lon: location.longitude }');
 });
 
