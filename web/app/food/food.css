@@ -709,6 +709,62 @@
 .wf-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .wf-upload span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
 
+.wf-slip-preview {
+  padding: 10px;
+  border: 1px solid var(--wf-border);
+  border-radius: 15px;
+  background: var(--wf-surface);
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 11px;
+}
+.wf-slip-preview-image {
+  width: 88px;
+  height: 88px;
+  border-radius: 11px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--wf-border) 45%, transparent);
+}
+.wf-slip-preview-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wf-slip-preview-copy { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.wf-slip-preview-copy > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.wf-slip-preview-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #197440;
+  font-size: 10px;
+  font-weight: 750;
+}
+.wf-slip-preview-actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: 7px; }
+.wf-slip-preview-action {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--wf-border);
+  border-radius: 10px;
+  background: var(--wf-bg);
+  color: var(--wf-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.wf-slip-preview-action input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.wf-slip-preview-action.is-disabled,
+.wf-slip-preview-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.wf-slip-preview-remove { color: #c52936; }
+
 .wf-delivery-address { display: flex; gap: 10px; margin-bottom: 11px; }
 .wf-delivery-address > svg { flex: 0 0 auto; color: var(--wf-secondary); margin-top: 2px; }
 .wf-delivery-address > div { min-width: 0; display: grid; gap: 3px; }
