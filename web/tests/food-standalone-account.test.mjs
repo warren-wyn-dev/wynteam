@@ -80,6 +80,7 @@ test("Food reviews are verified, masked and use yellow five-star UI", async () =
   assert.match(data, /food_store_review_feed/);
   assert.match(data, /food_submit_store_review/);
   assert.match(data, /maskFoodReviewerName/);
+  assert.match(data, /segments\.length === 2[\s\S]*?segments\[1\]/);
   assert.match(css, /\.wf-review-stars[\s\S]*?#f4b400/);
   assert.match(migration, /status <> 'delivered'/);
   assert.match(migration, /internal\.food_mask_reviewer_name/);
