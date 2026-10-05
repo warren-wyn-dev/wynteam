@@ -1085,6 +1085,16 @@ function KitchenPanel({
   onAction: (order: FoodOrder) => void;
   actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
 }) {
+  const [clockMs, setClockMs] = useState<number | null>(null);
+  useEffect(() => {
+    const updateClock = () => setClockMs(Date.now());
+    const kickoff = window.setTimeout(updateClock, 0);
+    const timer = window.setInterval(updateClock, 30_000);
+    return () => {
+      window.clearTimeout(kickoff);
+      window.clearInterval(timer);
+    };
+  }, []);
   const live = orders
     .filter((order) => !["delivered", "cancelled", "out_for_delivery"].includes(order.status))
     .sort((a, b) => {
@@ -1095,7 +1105,7 @@ function KitchenPanel({
   const prepWindowMs = Math.max(1, Number(store.prep_time_max_minutes ?? 30)) * 60_000;
   const isScheduledWaiting = (order: FoodOrder) => order.status === "preparing"
     && !!order.scheduled_for
-    && new Date(order.scheduled_for).getTime() - prepWindowMs > Date.now();
+    && (clockMs === null || new Date(order.scheduled_for).getTime() - prepWindowMs > clockMs);
   const columns: Array<{ key: "waiting" | "cooking" | "ready"; label: string; orders: FoodOrder[] }> = [
     { key: "waiting", label: "รอรับ / รอเริ่ม", orders: live.filter((order) => order.status === "pending_acceptance" || isScheduledWaiting(order)) },
     { key: "cooking", label: "กำลังทำ", orders: live.filter((order) => order.status === "preparing" && !isScheduledWaiting(order)) },
