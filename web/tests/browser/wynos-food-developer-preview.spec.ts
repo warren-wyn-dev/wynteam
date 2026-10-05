@@ -4,14 +4,14 @@ import { join } from "node:path";
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
-test("WYNOS Food is a separate closed developer-only surface", () => {
+test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
   const page = read("app/food/page.tsx");
   const layout = read("app/food/layout.tsx");
   const manifest = read("app/food/manifest.ts");
 
   expect(page).toContain("<WynosFoodDeveloperApp />");
-  // The developer gate lives in the data layer the app loads through.
+  // Food access and rollout checks live in the data layer the app loads through.
   expect(read("lib/food-customer.ts")).toContain('client.rpc("is_developer_account")');
   expect(app).toContain("fetchFoodCustomerSnapshot(client, userId, pickedStoreRef.current || null)");
   expect(app).toContain('router.replace("/")');
@@ -20,6 +20,7 @@ test("WYNOS Food is a separate closed developer-only surface", () => {
   expect(manifest).toContain('start_url: "/food"');
   expect(manifest).toContain('scope: "/food"');
   expect(manifest).toContain('theme_color: "#e32636"');
+  expect(manifest).toContain('description: "WYNOS Food Public Beta"');
 });
 
 test("WYNOS Food hides the persistent Social bottom navigation", () => {
@@ -236,7 +237,7 @@ test("Food customer checkout uses server-authoritative totals and direct store s
   expect(app).not.toContain("WYNOS Wallet");
 });
 
-test("Food developer preview can be tested without exposing the domain publicly", () => {
+test("Food rollout migration keeps the public-access switch explicit", () => {
   const customerSql = read("../supabase/migrations_wynos_food_customer_preview_v1.sql");
   const rolloutSql = read("../supabase/migrations_wynos_food_rollout_gate_v1.sql");
 
@@ -250,7 +251,7 @@ test("Food developer preview can be tested without exposing the domain publicly"
 });
 
 
-test("Food customer access gate keeps preview closed and future rollout explicit", () => {
+test("Food customer access gate supports developer and public rollout access", () => {
   const sql = read("../supabase/migrations_wynos_food_customer_access_gate_v2.sql");
 
   expect(sql).toContain("food_customer_access_enabled()");

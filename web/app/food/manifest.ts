@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/food",
     name: "WYNOS Food",
     short_name: "WYNOS Food",
-    description: "WYNOS Food Developer Preview",
+    description: "WYNOS Food Public Beta",
     start_url: "/food",
     scope: "/food",
     display: "standalone",
