@@ -2,6 +2,7 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
+import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 
@@ -15,6 +16,13 @@ export type FoodCustomerStore = {
   logo_path: string | null;
   cover_path: string | null;
   business_hours: string | null;
+  business_schedule?: FoodBusinessSchedule | Record<string, unknown>;
+  special_closed_dates?: string[];
+  temporary_closed_until?: string | null;
+  temporary_closed_reason?: string | null;
+  prep_time_min_minutes?: number;
+  prep_time_max_minutes?: number;
+  menu_category_order?: string[];
   delivery_area: string | null;
   delivery_fee: number | string;
   minimum_order: number | string;
@@ -49,6 +57,7 @@ export type FoodCustomerMenuItem = {
   image_path: string | null;
   options: unknown[];
   is_available: boolean;
+  sold_out_until?: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
