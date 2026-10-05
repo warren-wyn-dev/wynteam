@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Clock3,
   Home,
+  Heart,
   MapPin,
   MessageCircle,
   Minus,
@@ -481,8 +482,73 @@ function StoreReviewsSection({ client, storeId }: { client: SupabaseClient; stor
   );
 }
 
+function MenuSearchSheet({
+  client,
+  menu,
+  onItem,
+  onClose,
+}: {
+  client: SupabaseClient;
+  menu: FoodCustomerMenuItem[];
+  onItem: (item: FoodCustomerMenuItem) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const results = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase("th-TH");
+    const source = q
+      ? menu.filter((item) => `${item.name} ${item.category} ${item.description ?? ""}`.toLocaleLowerCase("th-TH").includes(q))
+      : menu;
+    return source.slice(0, 20);
+  }, [menu, query]);
+
+  return (
+    <Sheet title="ค้นหาเมนูอาหาร" onClose={onClose}>
+      <label className="wf-menu-search-field">
+        <Search size={19} strokeWidth={1.8} />
+        <input
+          autoFocus
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="ค้นหาเมนูอาหาร"
+          autoComplete="off"
+        />
+        {query ? <button type="button" aria-label="ปิด" onClick={() => setQuery("")}><X size={17} /></button> : null}
+      </label>
+      {results.length ? (
+        <div className="wf-menu-search-list">
+          {results.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                onClose();
+                onItem(item);
+              }}
+            >
+              <MenuImage client={client} item={item} className="wf-menu-search-image" />
+              <span>
+                <strong>{item.name}</strong>
+                <small>{item.description || item.category}</small>
+                <b>{foodMoney(item.price)}</b>
+              </span>
+              <ChevronRight size={18} />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="wf-empty wf-empty--compact">
+          <Search size={35} strokeWidth={1.4} />
+          <strong>ไม่พบเมนู</strong>
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
 function HomePanel({
   client,
+  userId,
   store,
   menu,
   onItem,
@@ -491,6 +557,7 @@ function HomePanel({
   storefrontOpen,
 }: {
   client: SupabaseClient;
+  userId: string;
   store: FoodCustomerStore | null;
   menu: FoodCustomerMenuItem[];
   onItem: (item: FoodCustomerMenuItem) => void;
@@ -498,11 +565,26 @@ function HomePanel({
   onShareStore: () => void;
   storefrontOpen: boolean;
 }) {
-  const [query, setQuery] = useState("");
   const [category, setCategory] = useState("ทั้งหมด");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [storeSection, setStoreSection] = useState<"menu" | "reviews" | "info">("menu");
   const [campaigns, setCampaigns] = useState<string[]>([]);
+  const [favorite, setFavorite] = useState(false);
   const storeId = store?.id ?? null;
+  const favoriteKey = `wynos-food-favorite-stores-v1:${userId}`;
+  useEffect(() => {
+    if (!storeId) {
+      setFavorite(false);
+      return;
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem(favoriteKey) ?? "[]");
+      setFavorite(Array.isArray(saved) && saved.includes(storeId));
+    } catch {
+      setFavorite(false);
+    }
+  }, [favoriteKey, storeId]);
+
   // WYN-206: show the WYNOS campaigns this store joined.
   useEffect(() => {
     if (!storeId) return;
@@ -516,14 +598,10 @@ function HomePanel({
     const ordered = [...preferred.filter((name) => present.includes(name)), ...present.filter((name) => !preferred.includes(name))];
     return ["ทั้งหมด", ...ordered];
   }, [menu, store]);
-  const visible = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase("th-TH");
-    return menu.filter((item) => {
-      if (category !== "ทั้งหมด" && item.category !== category) return false;
-      if (!q) return true;
-      return `${item.name} ${item.category} ${item.description ?? ""}`.toLocaleLowerCase("th-TH").includes(q);
-    });
-  }, [category, menu, query]);
+  const visible = useMemo(
+    () => menu.filter((item) => category === "ทั้งหมด" || item.category === category),
+    [category, menu],
+  );
 
   if (!storefrontOpen) {
     return (
@@ -560,13 +638,39 @@ function HomePanel({
 
   const cover = foodPublicUrl(client, store.cover_path);
   const logo = foodPublicUrl(client, store.logo_path);
+  const toggleFavorite = () => {
+    const next = !favorite;
+    setFavorite(next);
+    try {
+      const saved = JSON.parse(localStorage.getItem(favoriteKey) ?? "[]");
+      const ids = new Set<string>(
+        Array.isArray(saved) ? saved.filter((value): value is string => typeof value === "string") : [],
+      );
+      if (next) ids.add(store.id);
+      else ids.delete(store.id);
+      localStorage.setItem(favoriteKey, JSON.stringify(Array.from(ids)));
+    } catch {
+      // Favorite still works for this session when browser storage is unavailable.
+    }
+  };
 
   return (
     <>
       <section className="wf-store-hero">
-        <button className="wf-store-share" type="button" aria-label={`แชร์ลิงก์ร้าน ${store.name}`} onClick={onShareStore}>
-          <Share2 size={16} strokeWidth={2} />แชร์ร้าน
-        </button>
+        <div className="wf-store-actions">
+          <button
+            className={`wf-store-favorite ${favorite ? "is-active" : ""}`}
+            type="button"
+            aria-label="รายการโปรด"
+            aria-pressed={favorite}
+            onClick={toggleFavorite}
+          >
+            <Heart size={21} strokeWidth={2} fill={favorite ? "currentColor" : "none"} />
+          </button>
+          <button className="wf-store-share" type="button" aria-label={`แชร์ลิงก์ร้าน ${store.name}`} onClick={onShareStore}>
+            <Share2 size={19} strokeWidth={2} />
+          </button>
+        </div>
         <div className="wf-store-cover">
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -616,17 +720,17 @@ function HomePanel({
 
       {storeSection === "menu" ? (
       <section className="wf-store-menu">
-      <label className="wf-search">
-        <Search size={19} strokeWidth={1.7} />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาเมนูอาหาร" />
-      </label>
-
-      <div className="wf-category-tabs">
-        {categories.map((name) => (
-          <button key={name} type="button" className={category === name ? "is-active" : ""} onClick={() => setCategory(name)}>
-            {name}
-          </button>
-        ))}
+      <div className="wf-menu-filter-bar">
+        <button className="wf-menu-search-trigger" type="button" aria-label="ค้นหาเมนูอาหาร" onClick={() => setSearchOpen(true)}>
+          <Search size={19} strokeWidth={1.85} />
+        </button>
+        <div className="wf-category-tabs">
+          {categories.map((name) => (
+            <button key={name} type="button" className={category === name ? "is-active" : ""} onClick={() => setCategory(name)}>
+              {name}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="wf-section-title">
@@ -662,6 +766,8 @@ function HomePanel({
       )}
       </section>
       ) : null}
+
+      {searchOpen ? <MenuSearchSheet client={client} menu={menu} onItem={onItem} onClose={() => setSearchOpen(false)} /> : null}
     </>
   );
 }
@@ -1935,6 +2041,7 @@ function FoodCustomerInner({
           <HomePanel
             key={`${store?.id ?? "none"}:${storefrontOpen ? "open" : "directory"}`}
             client={client}
+            userId={userId}
             store={store}
             menu={menu}
             onItem={setSelectedItem}
