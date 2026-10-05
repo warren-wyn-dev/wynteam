@@ -457,9 +457,16 @@ test("WYNOS Food menu search shows popular, recent and compact result rows", () 
   expect(app).toContain('className="wf-menu-search-add"');
   expect(app).toContain("wynos-food-menu-search-v1:");
   expect(css).toContain(".wf-menu-popular");
+  expect(css).toContain("grid-auto-columns: 118px;");
+  expect(css).toContain("grid-area: auto !important;");
   expect(css).toContain(".wf-menu-recent");
   expect(css).toContain(".wf-menu-search-row");
+  expect(css).toContain("min-height: 78px;");
+  expect(css).toContain("display: flex;");
+  expect(css).toContain("flex: 0 0 60px;");
+  expect(css).toContain("white-space: normal;");
   expect(css).toContain(".wf-menu-search-add");
+  expect(css).toContain("width: 36px;");
   expect(en).toContain('"เมนูยอดนิยม": "Popular menu"');
   expect(en).toContain('"คำค้นหาล่าสุด": "Recent searches"');
 });

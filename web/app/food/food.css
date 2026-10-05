@@ -2829,9 +2829,10 @@
 
 /* WYNOS Food search sheet polish: popular menus, recent searches and compact rows. */
 .wf-menu-search-section {
-  margin-top: 20px;
+  margin-top: 16px;
   scroll-margin-top: 12px;
 }
+.wf-menu-search-section + .wf-menu-search-section { margin-top: 13px; }
 .wf-menu-search-heading {
   min-height: 28px;
   display: flex;
@@ -2862,41 +2863,49 @@
 }
 
 .wf-menu-popular {
-  margin-top: 9px;
+  margin: 8px -16px 0;
+  padding: 0 16px 3px;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(96px, 1fr);
-  gap: 8px;
+  grid-auto-columns: 118px;
+  gap: 9px;
   overflow-x: auto;
   scrollbar-width: none;
   overscroll-behavior-inline: contain;
+  scroll-snap-type: x proximity;
 }
 .wf-menu-popular::-webkit-scrollbar { display: none; }
 .wf-menu-popular > button {
   min-width: 0;
-  padding: 0 0 8px;
+  padding: 0 0 9px;
   border: 1px solid #eeeeef;
   border-radius: 15px;
   background: #fff;
   color: var(--wf-text);
   overflow: hidden;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   text-align: left;
+  scroll-snap-align: start;
 }
 .wf-menu-popular > button:active { transform: scale(.98); }
 .wf-menu-popular-image {
+  grid-area: auto !important;
+  flex: 0 0 auto;
   width: 100% !important;
-  height: auto !important;
-  aspect-ratio: 1.35 / 1 !important;
+  height: 78px !important;
+  aspect-ratio: auto !important;
   border-radius: 0 !important;
 }
 .wf-menu-popular strong {
   margin: 7px 9px 0;
+  min-height: 29px;
   overflow: hidden;
   font-size: 11px;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .wf-menu-popular b {
   margin: 3px 9px 0;
@@ -2936,12 +2945,12 @@
 .wf-menu-search-row {
   min-width: 0;
   min-height: 78px;
-  padding: 7px 0;
+  padding: 6px 0;
   border-bottom: 1px solid #eeeeef;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
+  grid-template-columns: minmax(0, 1fr) 38px;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
 }
 .wf-menu-search-row:last-child { border-bottom: 0; }
 .wf-menu-search-main {
@@ -2951,22 +2960,24 @@
   border: 0;
   background: transparent;
   color: var(--wf-text);
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   text-align: left;
 }
 .wf-menu-search-main > span:not(.wf-menu-image) {
   min-width: 0;
+  flex: 1;
   display: grid;
   gap: 2px;
 }
 .wf-menu-search-list .wf-menu-search-image {
-  width: 64px !important;
-  height: 64px !important;
+  grid-area: auto !important;
+  flex: 0 0 60px;
+  width: 60px !important;
+  height: 60px !important;
   aspect-ratio: 1 / 1 !important;
-  border-radius: 14px !important;
+  border-radius: 13px !important;
 }
 .wf-menu-search-main strong {
   overflow: hidden;
@@ -2975,6 +2986,9 @@
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  white-space: normal;
+  text-overflow: clip;
+  word-break: break-word;
 }
 .wf-menu-search-main small {
   overflow: hidden;
@@ -2990,25 +3004,29 @@
   line-height: 1.25;
 }
 .wf-menu-search-add {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: var(--wf-red);
   color: #fff;
-  box-shadow: 0 7px 18px rgb(230 0 18 / 20%);
+  box-shadow: 0 6px 15px rgb(230 0 18 / 18%);
   display: grid;
   place-items: center;
 }
 .wf-menu-search-add:active { transform: scale(.95); }
 
 @media (max-width: 370px) {
-  .wf-menu-popular { grid-auto-columns: 91px; }
-  .wf-menu-search-row { grid-template-columns: minmax(0, 1fr) 38px; }
-  .wf-menu-search-main { grid-template-columns: 58px minmax(0, 1fr); gap: 9px; }
-  .wf-menu-search-list .wf-menu-search-image { width: 58px !important; height: 58px !important; }
-  .wf-menu-search-add { width: 38px; height: 38px; }
+  .wf-menu-popular { grid-auto-columns: 112px; }
+  .wf-menu-search-row { grid-template-columns: minmax(0, 1fr) 36px; gap: 8px; }
+  .wf-menu-search-main { gap: 9px; }
+  .wf-menu-search-list .wf-menu-search-image {
+    flex-basis: 56px;
+    width: 56px !important;
+    height: 56px !important;
+  }
+  .wf-menu-search-add { width: 34px; height: 34px; }
 }
 
 
