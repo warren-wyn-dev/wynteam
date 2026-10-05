@@ -55,3 +55,15 @@ test("Food Home removes preview UI, promotes Social and hides the back button", 
   assert.match(source, /onBack=\{\(\) => setTab\("home"\)\}/);
   assert.match(css, /\.wf-header--home\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\) auto;/);
 });
+
+test("Food Public Beta has no user-facing Developer Preview copy", async () => {
+  const source = await read("components/food/wynos-food-developer-app.tsx");
+  const manifest = await read("app/food/manifest.ts");
+  const staticManifest = await read("public/food/manifest.webmanifest");
+  assert.doesNotMatch(source, /Developer Preview|ก่อนเริ่มทดสอบฝั่งลูกค้า/);
+  assert.match(source, /เพิ่ม WYNOS Food ไว้บนหน้าจอหลัก/);
+  assert.match(source, /เพื่อเริ่มขายบน WYNOS Food/);
+  assert.match(manifest, /description: "WYNOS Food Public Beta"/);
+  assert.match(staticManifest, /"description": "WYNOS Food Public Beta"/);
+  assert.doesNotMatch(manifest + staticManifest, /Developer Preview/);
+});
