@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Bell,
+  CalendarDays,
   Check,
   ChevronRight,
   Clock3,
@@ -984,6 +985,7 @@ function OrderCard({ order, reviewPending = false, onOpen }: { order: FoodCustom
         <b>{foodMoney(order.total)}</b>
       </div>
       <div className="wf-order-mid"><span>{count} รายการ</span><span className={`wf-order-status wf-order-status--${order.status}`}>{foodOrderStatusLabel(order.status)}</span></div>
+      {order.scheduled_for ? <div className="wf-order-scheduled"><Clock3 size={14} /><span>นัดรับ/จัดส่ง</span><b>{formatDate(order.scheduled_for)}</b></div> : null}
       <div className="wf-order-bottom"><span className={reviewPending ? "wf-review-pending" : ""}>{reviewPending ? "ให้คะแนนร้าน" : foodPaymentStatusLabel(order.payment_status)}</span><ChevronRight size={18} /></div>
     </button>
   );
@@ -1323,10 +1325,21 @@ function CheckoutSheet({
   busy: boolean;
   onClose: () => void;
   onAddAddress: () => void;
-  onSubmit: (address: FoodCustomerAddress, note: string) => void;
+  onSubmit: (address: FoodCustomerAddress, note: string, scheduledFor?: string | null) => void;
 }) {
   const [addressId, setAddressId] = useState(addresses.find((address) => address.is_default)?.id ?? addresses[0]?.id ?? "");
   const [note, setNote] = useState("");
+  const canSchedule = store.scheduled_orders_enabled === true;
+  const minNotice = Math.max(15, Number(store.scheduled_min_notice_minutes ?? 30));
+  const maxDays = Math.max(1, Number(store.scheduled_max_days ?? 7));
+  const [scheduleMode, setScheduleMode] = useState<"asap" | "scheduled">("asap");
+  const [scheduledLocal, setScheduledLocal] = useState("");
+  const scheduledDate = scheduledLocal ? new Date(scheduledLocal) : null;
+  const scheduledMs = scheduledDate?.getTime() ?? Number.NaN;
+  const minScheduledMs = Date.now() + minNotice * 60_000;
+  const maxScheduledMs = Date.now() + maxDays * 24 * 60 * 60_000;
+  const scheduledValid = scheduleMode === "asap"
+    || (Number.isFinite(scheduledMs) && scheduledMs >= minScheduledMs && scheduledMs <= maxScheduledMs);
   const address = addresses.find((row) => row.id === addressId) ?? null;
   const subtotal = cart.reduce((sum, line) => {
     const item = itemFor(menu, line.menu_item_id);
@@ -1379,6 +1392,27 @@ function CheckoutSheet({
 
         <label className="wf-field">หมายเหตุเพิ่มเติม<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น โทรเมื่อถึง" /></label>
 
+        {canSchedule ? (
+          <section className="wf-schedule-order">
+            <div className="wf-section-title"><h2>เวลารับ/จัดส่ง</h2></div>
+            <div className="wf-schedule-choice">
+              <button className={scheduleMode === "asap" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("asap")}>
+                <Clock3 size={17} /><span><strong>เร็วที่สุด</strong><small>ร้านเริ่มทำหลังรับออเดอร์</small></span>
+              </button>
+              <button className={scheduleMode === "scheduled" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("scheduled")}>
+                <CalendarDays size={17} /><span><strong>สั่งล่วงหน้า</strong><small>เลือกวันและเวลา</small></span>
+              </button>
+            </div>
+            {scheduleMode === "scheduled" ? (
+              <>
+                <label className="wf-field">เลือกวันและเวลา<input type="datetime-local" value={scheduledLocal} onChange={(event) => setScheduledLocal(event.target.value)} /></label>
+                <small className="wf-schedule-hint">ต้องล่วงหน้าอย่างน้อย {minNotice} นาที และไม่เกิน {maxDays} วัน</small>
+                {scheduledLocal && !scheduledValid ? <div className="wf-inline-warning">เวลาที่เลือกอยู่นอกช่วงที่ร้านรับออเดอร์ล่วงหน้า</div> : null}
+              </>
+            ) : null}
+          </section>
+        ) : null}
+
         <div className="wf-section-title wf-section-title--spaced"><h2>สรุปคำสั่งซื้อ</h2></div>
         <div className="wf-checkout-items">
           {cart.map((line) => {
@@ -1397,7 +1431,10 @@ function CheckoutSheet({
         {blockedReason ? <div className="wf-inline-warning" role="alert">{blockedReason}</div> : null}
         {effectiveQuote?.campaign_name ? <div className="wf-promo-applied"><strong>แคมเปญ {effectiveQuote.campaign_name}</strong><small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small></div> : null}
         <p className="wf-server-note">ยอดจริงจะถูกตรวจและคำนวณจากระบบอีกครั้งก่อนสร้างออเดอร์</p>
-        <button className="wf-primary wf-full" type="button" disabled={!address || busy || quoteLoading || Boolean(blockedReason)} onClick={() => { if (address) onSubmit(address, note); }}>
+        <button className="wf-primary wf-full" type="button" disabled={!address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid} onClick={() => {
+          if (!address) return;
+          onSubmit(address, note, scheduleMode === "scheduled" && scheduledDate ? scheduledDate.toISOString() : null);
+        }}>
           {busy ? "กำลังสร้างออเดอร์…" : quoteLoading ? "กำลังคำนวณค่าส่ง…" : `ยืนยันออเดอร์ · ${foodMoney(total)}`}
         </button>
       </div>
@@ -1613,6 +1650,9 @@ function OrderDetailSheet({
           <div><span className={`wf-order-status wf-order-status--${order.status}`}>{foodOrderStatusLabel(order.status)}</span><small>{formatDate(order.created_at)}</small></div>
           <strong>{foodMoney(order.total)}</strong>
         </div>
+        {order.scheduled_for ? (
+          <div className="wf-scheduled-banner"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{formatDate(order.scheduled_for)}</small></span></div>
+        ) : null}
 
         {!isCancelled ? (
           <section className="wf-track">
@@ -2000,7 +2040,7 @@ function FoodCustomerInner({
     }
   };
 
-  const createOrder = async (address: FoodCustomerAddress, note: string) => {
+  const createOrder = async (address: FoodCustomerAddress, note: string, scheduledFor?: string | null) => {
     if (!store) return;
     setBusy(true);
     try {
@@ -2018,6 +2058,7 @@ function FoodCustomerInner({
         customerNote: combinedNote,
         items: cart,
         location: storeHasDeliveryZone(store) ? addressLocation(address) : null,
+        scheduledFor: scheduledFor ?? null,
       });
       setCart([]);
       setCheckoutOpen(false);
@@ -2025,7 +2066,7 @@ function FoodCustomerInner({
       const order = next?.orders.find((row) => row.id === orderId);
       if (order) setSelectedOrder(order);
       setTab("orders");
-      setMessage("สร้างออเดอร์แล้ว กรุณาชำระเงินเข้าบัญชีร้าน");
+      setMessage(scheduledFor ? "สร้างออเดอร์ล่วงหน้าแล้ว กรุณาชำระเงินเข้าบัญชีร้าน" : "สร้างออเดอร์แล้ว กรุณาชำระเงินเข้าบัญชีร้าน");
     } catch (error) {
       setMessage(foodCustomerError(error));
     } finally {
@@ -2191,7 +2232,7 @@ function FoodCustomerInner({
           busy={busy}
           onClose={() => setCheckoutOpen(false)}
           onAddAddress={() => setAddressDraft({ ...EMPTY_ADDRESS, isDefault: addresses.length === 0 })}
-          onSubmit={(address, note) => void createOrder(address, note)}
+          onSubmit={(address, note, scheduledFor) => void createOrder(address, note, scheduledFor)}
         />
       ) : null}
 
