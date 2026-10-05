@@ -5,10 +5,9 @@ name: Deploy Admin (Next.js) to Vercel
 # every project in the account). Run it by hand from the Actions tab
 # ("Run workflow") whenever admin/ is ready to try or ship.
 #
-# First run ever for this app: no Vercel project exists yet for `admin/`
-# (only the Flutter web app has one, see deploy-web.yml). `vercel deploy`
-# creates one automatically on its first invocation in a directory with
-# no linked `.vercel/project.json` -- no dashboard setup needed first.
+# The first production bootstrap completed on 2026-10-05 and created
+# the dedicated Vercel project `admin` from the `admin/` root. Future
+# production deployments stay manual and reuse that project.
 on:
   workflow_dispatch: {}
 
