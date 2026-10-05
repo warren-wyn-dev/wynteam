@@ -72,6 +72,7 @@ test("Merchant operations completion adds KDS, scheduled orders and tax receipt 
   expect(css).toContain(".wm-print-document");
   expect(sql).toContain("food_create_scheduled_order");
   expect(sql).toContain("food_order_receipt_snapshot");
+  expect(sql).toContain("food_store_effectively_open");
   expect(sql).toContain("scheduled_for timestamptz");
   expect(sql).toContain("tax_invoice_enabled boolean");
 });
