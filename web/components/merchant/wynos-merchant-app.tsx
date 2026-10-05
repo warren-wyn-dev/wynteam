@@ -107,8 +107,8 @@ import {
 // WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
 // and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
 // WYN-205: finance, ads, WYNOS campaigns and the store's own promotions.
-type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions" | "help";
-const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help"]);
+type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions" | "help" | "kitchen";
+const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help", "kitchen"]);
 const MERCHANT_STORE_KEY = "wynos-merchant-store-v1";
 type OrderFilter = "new" | "cooking" | "delivery" | "done";
 
@@ -724,6 +724,16 @@ function MerchantInner({
           />
         ) : null}
 
+        {tab === "kitchen" && store ? (
+          <KitchenPanel
+            store={store}
+            orders={orders}
+            onOpen={setSelectedOrder}
+            onAction={(order) => void quickAction(order)}
+            actedFrom={actedFrom}
+          />
+        ) : null}
+
         {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
 
         {tab === "help" && store ? <HelpPanel store={store} onMessage={setMessage} /> : null}
@@ -806,6 +816,7 @@ function MerchantInner({
       {selectedOrder && store ? (
         <OrderSheet
           client={client}
+          store={store}
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
           onReload={() => void load(true)}
@@ -1022,6 +1033,7 @@ function MorePanel({
       <section className="wm-section">
         <div className="wm-section-title"><h2>เครื่องมือร้าน</h2></div>
         <div className="wm-service-grid">
+          <button type="button" onClick={() => onOpenTab("kitchen")}><span className="wm-tile-icon"><UtensilsCrossed size={35} strokeWidth={1.65} /></span>ครัว / KDS</button>
           <button type="button" onClick={() => onOpenTab("reports")}><span className="wm-tile-icon"><MerchantIcon3D name="reports" size={52} /></span>รายงานยอดขาย</button>
           <button type="button" onClick={() => onOpenTab("finance")}><span className="wm-tile-icon"><MerchantIcon3D name="finance" size={52} /></span>การเงิน</button>
           <button type="button" onClick={() => onOpenTab("promotions")}><span className="wm-tile-icon"><MerchantIcon3D name="promotion" size={52} /></span>โปรโมชั่น</button>
@@ -1056,6 +1068,80 @@ function MorePanel({
       <section className="wm-settings-list">
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><LogOut size={19} /></button>
       </section>
+    </>
+  );
+}
+
+function KitchenPanel({
+  store,
+  orders,
+  onOpen,
+  onAction,
+  actedFrom,
+}: {
+  store: FoodStore;
+  orders: FoodOrder[];
+  onOpen: (order: FoodOrder) => void;
+  onAction: (order: FoodOrder) => void;
+  actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
+}) {
+  const live = orders
+    .filter((order) => !["delivered", "cancelled", "out_for_delivery"].includes(order.status))
+    .sort((a, b) => {
+      const aTime = a.scheduled_for ? new Date(a.scheduled_for).getTime() : new Date(a.created_at).getTime();
+      const bTime = b.scheduled_for ? new Date(b.scheduled_for).getTime() : new Date(b.created_at).getTime();
+      return aTime - bTime;
+    });
+  const prepWindowMs = Math.max(1, Number(store.prep_time_max_minutes ?? 30)) * 60_000;
+  const isScheduledWaiting = (order: FoodOrder) => order.status === "preparing"
+    && !!order.scheduled_for
+    && new Date(order.scheduled_for).getTime() - prepWindowMs > Date.now();
+  const columns: Array<{ key: "waiting" | "cooking" | "ready"; label: string; orders: FoodOrder[] }> = [
+    { key: "waiting", label: "รอรับ / รอเริ่ม", orders: live.filter((order) => order.status === "pending_acceptance" || isScheduledWaiting(order)) },
+    { key: "cooking", label: "กำลังทำ", orders: live.filter((order) => order.status === "preparing" && !isScheduledWaiting(order)) },
+    { key: "ready", label: "พร้อมส่ง", orders: live.filter((order) => order.status === "ready_for_delivery") },
+  ];
+  return (
+    <>
+      <div className="wm-page-heading"><div><small>Kitchen Display System</small><h1>ครัว</h1></div></div>
+      <p className="wm-kitchen-note">มุมมองสำหรับหน้าครัว แสดงออเดอร์ตามลำดับเวลาที่ต้องทำและอัปเดตสถานะได้ทันที</p>
+      <div className="wm-kitchen-board">
+        {columns.map((column) => (
+          <section className="wm-kitchen-column" key={column.key}>
+            <header><strong>{column.label}</strong><b>{column.orders.length}</b></header>
+            {column.orders.length ? (
+              <div className="wm-kitchen-stack">
+                {column.orders.map((order) => {
+                  const waitingForScheduledTime = isScheduledWaiting(order);
+                  const next = waitingForScheduledTime ? null : quickStep(order);
+                  return (
+                    <article className={`wm-kitchen-ticket ${order.scheduled_for ? "is-scheduled" : ""}`} key={order.id}>
+                      <button className="wm-kitchen-ticket-open" type="button" onClick={() => onOpen(order)}>
+                        <span className="wm-kitchen-ticket-head">
+                          <strong>#{order.order_number}</strong>
+                          <b>{order.scheduled_for ? "ล่วงหน้า" : shortTime(order.created_at)}</b>
+                        </span>
+                        {order.scheduled_for ? <span className="wm-kitchen-scheduled"><Clock3 size={14} />นัด {new Intl.DateTimeFormat("th-TH", { dateStyle: "short", timeStyle: "short" }).format(new Date(order.scheduled_for))}</span> : null}
+                        <span className="wm-kitchen-items">
+                          {(order.food_order_items ?? []).map((item) => (
+                            <span key={item.id}><b>{item.quantity}×</b><span>{item.item_name}{item.item_note ? <small>{item.item_note}</small> : null}</span></span>
+                          ))}
+                        </span>
+                        {order.customer_note ? <small className="wm-kitchen-customer-note">หมายเหตุ: {order.customer_note}</small> : null}
+                      </button>
+                      {next ? (
+                        <button className="wm-primary wm-full" type="button" disabled={actedFrom.get(order.id) === order.status} onClick={() => onAction(order)}>
+                          {actedFrom.get(order.id) === order.status ? "กำลังบันทึก…" : next.label}
+                        </button>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : <div className="wm-kitchen-empty">ไม่มีออเดอร์</div>}
+          </section>
+        ))}
+      </div>
     </>
   );
 }
@@ -1616,12 +1702,14 @@ function Sheet({ title, onClose, children, wide = false }: { title: string; onCl
 
 function OrderSheet({
   client,
+  store,
   order,
   onClose,
   onReload,
   onMessage,
 }: {
   client: SupabaseClient;
+  store: FoodStore;
   order: FoodOrder;
   onClose: () => void;
   onReload: () => void;
@@ -1691,14 +1779,35 @@ function OrderSheet({
       : null,
     order.shipping_address,
   );
+  const receiptLegalName = order.receipt_legal_name ?? (store.tax_invoice_enabled ? (store.tax_legal_name || store.name) : null);
+  const receiptTaxId = order.receipt_tax_id ?? (store.tax_invoice_enabled ? store.tax_id ?? null : null);
+  const receiptTaxBranch = order.receipt_tax_branch ?? (store.tax_invoice_enabled ? store.tax_branch ?? null : null);
+  const receiptTaxAddress = order.receipt_tax_address ?? (store.tax_invoice_enabled ? store.tax_address ?? store.address : null);
+
   return (
     <Sheet title={`ออเดอร์ #${order.order_number}`} onClose={onClose} wide>
+      <section className="wm-print-document" aria-hidden="true">
+        <div className="wm-print-brand"><strong>{store.name}</strong><small>{receiptLegalName ? "ใบเสร็จรับเงิน / ข้อมูลภาษี" : "ใบออเดอร์ / ใบเสร็จอย่างย่อ"}</small></div>
+        {receiptLegalName ? <div className="wm-print-tax"><b>{receiptLegalName}</b>{receiptTaxId ? <span>เลขประจำตัวผู้เสียภาษี {receiptTaxId}</span> : null}{receiptTaxBranch ? <span>สาขา {receiptTaxBranch}</span> : null}{receiptTaxAddress ? <span>{receiptTaxAddress}</span> : null}</div> : null}
+        <div className="wm-print-meta"><span>ออเดอร์ #{order.order_number}</span><span>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</span>{order.scheduled_for ? <span>นัดรับ/จัดส่ง {new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</span> : null}</div>
+        <div className="wm-print-lines">{(order.food_order_items ?? []).map((item) => <div key={item.id}><span>{item.quantity}× {item.item_name}{item.item_note ? <small>{item.item_note}</small> : null}</span><b>{money(Number(item.unit_price) * item.quantity)}</b></div>)}</div>
+        <div className="wm-print-totals">
+          <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
+          {Number(order.campaign_discount ?? 0) > 0 ? <div><span>ส่วนลด</span><b>−{money(order.campaign_discount)}</b></div> : null}
+          <div><span>ค่าส่ง</span><b>{money(order.delivery_fee)}</b></div>
+          {Number(order.delivery_discount ?? 0) > 0 ? <div><span>ส่วนลดค่าส่ง</span><b>−{money(order.delivery_discount)}</b></div> : null}
+          <div className="is-total"><span>ยอดสุทธิ</span><b>{money(order.total)}</b></div>
+        </div>
+        <div className="wm-print-customer"><strong>{order.recipient_name}</strong><span>{order.recipient_phone}</span><span>{order.shipping_address}</span></div>
+        <small className="wm-print-foot">พิมพ์จาก WYNOS Merchant · โปรดตรวจสอบข้อมูลภาษีของร้านก่อนใช้เป็นเอกสารทางบัญชี</small>
+      </section>
       <div className="wm-order-detail-head">
         <div><OrderStatus order={order} /><PaymentStatus order={order} /></div>
         <strong>{money(order.total)}</strong>
         <small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</small>
-        <button className="wm-secondary wm-print-order" type="button" onClick={() => window.print()}><Printer size={17} /> พิมพ์ใบออเดอร์ / ใบเสร็จอย่างย่อ</button>
+        <button className="wm-secondary wm-print-order" type="button" onClick={() => window.print()}><Printer size={17} /> พิมพ์ใบออเดอร์ / ใบเสร็จ</button>
       </div>
+      {order.scheduled_for ? <div className="wm-scheduled-order-banner"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</small></span></div> : null}
 
       {order.status === "pending_acceptance" ? (
         <section className="wm-detail-section wm-next-step">
@@ -2077,6 +2186,14 @@ function StoreEditor({
     bank_account_name: store.bank_account_name ?? "",
     bank_account_number: store.bank_account_number ?? "",
     payment_qr_path: store.payment_qr_path,
+    scheduled_orders_enabled: store.scheduled_orders_enabled === true,
+    scheduled_min_notice_minutes: String(store.scheduled_min_notice_minutes ?? 30),
+    scheduled_max_days: String(store.scheduled_max_days ?? 7),
+    tax_invoice_enabled: store.tax_invoice_enabled === true,
+    tax_legal_name: store.tax_legal_name ?? "",
+    tax_id: store.tax_id ?? "",
+    tax_branch: store.tax_branch ?? "",
+    tax_address: store.tax_address ?? "",
     logo_path: store.logo_path,
     cover_path: store.cover_path,
     pickup_note: store.pickup_note ?? "",
@@ -2246,6 +2363,14 @@ function StoreEditor({
         bank_account_name: form.bank_account_name.trim() || null,
         bank_account_number: form.bank_account_number.trim() || null,
         payment_qr_path: qr,
+        scheduled_orders_enabled: form.scheduled_orders_enabled,
+        scheduled_min_notice_minutes: Math.max(15, Math.min(1440, Number(form.scheduled_min_notice_minutes || 30))),
+        scheduled_max_days: Math.max(1, Math.min(30, Number(form.scheduled_max_days || 7))),
+        tax_invoice_enabled: form.tax_invoice_enabled,
+        tax_legal_name: form.tax_legal_name.trim() || null,
+        tax_id: form.tax_id.trim() || null,
+        tax_branch: form.tax_branch.trim() || null,
+        tax_address: form.tax_address.trim() || null,
         logo_path: logo,
         cover_path: cover,
       });
@@ -2361,6 +2486,13 @@ function StoreEditor({
             <label>เตรียมอาหารเร็วสุด (นาที)<input type="number" min="1" max="240" value={form.prep_time_min_minutes} onChange={(e) => setForm({ ...form, prep_time_min_minutes: e.target.value })} /></label>
             <label>เตรียมอาหารช้าสุด (นาที)<input type="number" min="1" max="240" value={form.prep_time_max_minutes} onChange={(e) => setForm({ ...form, prep_time_max_minutes: e.target.value })} /></label>
           </div>
+          <div className="wm-scheduled-settings">
+            <label className="wm-check-row"><input type="checkbox" checked={form.scheduled_orders_enabled} onChange={(e) => setForm({ ...form, scheduled_orders_enabled: e.target.checked })} /><span><strong>เปิดรับออเดอร์ล่วงหน้า</strong><small>ลูกค้าสามารถเลือกวันและเวลาจัดส่งได้ขณะร้านเปิดรับออเดอร์</small></span></label>
+            {form.scheduled_orders_enabled ? <div className="wm-form-grid">
+              <label>ต้องสั่งล่วงหน้าอย่างน้อย (นาที)<input type="number" min="15" max="1440" value={form.scheduled_min_notice_minutes} onChange={(e) => setForm({ ...form, scheduled_min_notice_minutes: e.target.value })} /></label>
+              <label>รับล่วงหน้าได้สูงสุด (วัน)<input type="number" min="1" max="30" value={form.scheduled_max_days} onChange={(e) => setForm({ ...form, scheduled_max_days: e.target.value })} /></label>
+            </div> : null}
+          </div>
         </section>
           </div>
         </section>
@@ -2430,6 +2562,20 @@ function StoreEditor({
         <label>ชื่อบัญชี<input value={form.bank_account_name} onChange={(e) => setForm({ ...form, bank_account_name: e.target.value })} /></label>
         <label>เลขบัญชี<input value={form.bank_account_number} onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })} inputMode="numeric" /></label>
         <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setQrFile(e.target.files?.[0] ?? null)} /><Upload size={20} /><span>{qrFile ? qrFile.name : "อัปโหลด QR รับเงิน"}</span></label>
+        <div className="wm-tax-settings">
+          <label className="wm-check-row"><input type="checkbox" checked={form.tax_invoice_enabled} onChange={(e) => setForm({ ...form, tax_invoice_enabled: e.target.checked })} /><span><strong>แสดงข้อมูลภาษีในใบเสร็จ</strong><small>ใช้สำหรับเอกสารที่พิมพ์จาก WYNOS Merchant</small></span></label>
+          {form.tax_invoice_enabled ? (
+            <>
+              <label>ชื่อกิจการ / ชื่อนิติบุคคล<input value={form.tax_legal_name} onChange={(e) => setForm({ ...form, tax_legal_name: e.target.value })} maxLength={200} /></label>
+              <div className="wm-form-grid">
+                <label>เลขประจำตัวผู้เสียภาษี<input value={form.tax_id} onChange={(e) => setForm({ ...form, tax_id: e.target.value })} maxLength={40} inputMode="numeric" /></label>
+                <label>สาขา<input value={form.tax_branch} onChange={(e) => setForm({ ...form, tax_branch: e.target.value })} maxLength={120} placeholder="เช่น สำนักงานใหญ่" /></label>
+              </div>
+              <label>ที่อยู่สำหรับเอกสารภาษี<textarea value={form.tax_address} onChange={(e) => setForm({ ...form, tax_address: e.target.value })} maxLength={800} /></label>
+              <small className="wm-tax-note">กรุณาตรวจสอบข้อมูลให้ตรงกับเอกสารจดทะเบียนของร้านก่อนนำเอกสารไปใช้งาน</small>
+            </>
+          ) : null}
+        </div>
           </div>
         </section>
 
