@@ -659,3 +659,17 @@
 .wynos-maps-page .wf-map-canvas-wrap[data-map-zoom="far"] .wf-map-place-marker.is-building {
   opacity: .72;
 }
+
+.wynos-maps-page .wf-map-search-status {
+  margin: 8px 0 0;
+  padding: 11px 16px;
+  border: 1px solid rgb(32 33 36 / 8%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 98%);
+  color: #3c4043;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  pointer-events: auto;
+  box-shadow: 0 2px 8px rgb(60 64 67 / 20%);
+}

@@ -1839,6 +1839,7 @@ Object.assign(EN_EXACT, {
   "หมวดหมู่สถานที่": "Place categories",
   "ตำแหน่งที่เลือก": "Selected location",
   "ค้นหาหรือเลื่อนแผนที่": "Search or move the map",
+  "เข้าสู่ระบบ WYNOS ก่อน แล้วลองค้นหาอีกครั้ง": "Sign in to WYNOS first, then search again",
   "บันทึกตำแหน่งแล้ว": "Location saved",
   "คาเฟ่": "Cafés",
   "หอพัก": "Dormitories",

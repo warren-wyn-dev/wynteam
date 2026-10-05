@@ -301,6 +301,8 @@ export function FoodDeliveryMapPicker({
   const [working, setWorking] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  // Standalone Maps hides the sheet by default, so search feedback shows under the search box.
+  const [searchStatus, setSearchStatus] = useState("");
   const [showAttribution, setShowAttribution] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestionName, setSuggestionName] = useState("");
@@ -698,25 +700,36 @@ export function FoodDeliveryMapPicker({
       setResults([]);
       return;
     }
+    const reportSearch = (message: string) => (standalone ? setSearchStatus(message) : setStatus(message));
+    const signedOutMessage = async () => {
+      const { data } = await client.auth.getSession();
+      return data.session ? null : "เข้าสู่ระบบ WYNOS ก่อน แล้วลองค้นหาอีกครั้ง";
+    };
     const requestId = ++searchRequestRef.current;
     setSearching(true);
-    if (!silent) setStatus("");
+    if (!silent) reportSearch("");
     try {
       let next = storeId ? (await searchStorePlaces(client, storeId, trimmed)) ?? [] : [];
       if (!next.length) next = await searchFoodPlaces(client, trimmed, location);
       if (searchRequestRef.current !== requestId) return;
       setResults(next);
       if (!silent && !next.length) {
-        setStatus("ไม่พบสถานที่ ลองพิมพ์ชื่อถนน หมู่บ้าน หอพัก หรือสถานที่ใกล้เคียง");
+        const signedOut = standalone ? await signedOutMessage() : null;
+        if (searchRequestRef.current !== requestId) return;
+        reportSearch(signedOut ?? "ไม่พบสถานที่ ลองพิมพ์ชื่อถนน หมู่บ้าน หอพัก หรือสถานที่ใกล้เคียง");
       }
     } catch (error) {
       if (searchRequestRef.current !== requestId) return;
       setResults([]);
-      if (!silent) setStatus(error instanceof Error ? error.message : "ค้นหาสถานที่ไม่สำเร็จ");
+      if (!silent) {
+        const signedOut = standalone ? await signedOutMessage().catch(() => null) : null;
+        if (searchRequestRef.current !== requestId) return;
+        reportSearch(signedOut ?? (error instanceof Error ? error.message : "ค้นหาสถานที่ไม่สำเร็จ"));
+      }
     } finally {
       if (searchRequestRef.current === requestId) setSearching(false);
     }
-  }, [client, location, storeId]);
+  }, [client, location, standalone, storeId]);
 
   useEffect(() => {
     if (!standalone || !searchFocused) return;
@@ -779,6 +792,7 @@ export function FoodDeliveryMapPicker({
 
   const chooseResult = (result: FoodPlace) => {
     setResults([]);
+    setSearchStatus("");
     setSearchFocused(false);
     setQuery(result.name);
     setSheetExpanded(false);
@@ -826,6 +840,7 @@ export function FoodDeliveryMapPicker({
               const nextQuery = event.target.value;
               setQuery(nextQuery);
               setSearchFocused(true);
+              setSearchStatus("");
               if (nextQuery.trim().length < 2) {
                 searchRequestRef.current += 1;
                 setSearching(false);
@@ -838,6 +853,7 @@ export function FoodDeliveryMapPicker({
                 search();
               } else if (event.key === "Escape") {
                 setResults([]);
+                setSearchStatus("");
                 setSearchFocused(false);
                 event.currentTarget.blur();
               }
@@ -865,6 +881,11 @@ export function FoodDeliveryMapPicker({
               <ShoppingBag size={16} /><span>ร้านค้า</span>
             </button>
           </div>
+        ) : null}
+        {standalone && !results.length && (searching || searchStatus) ? (
+          <p className="wf-map-search-status" role="status" aria-live="polite">
+            {searching ? "กำลังค้นหา…" : searchStatus}
+          </p>
         ) : null}
         {results.length ? (
           <div className="wf-map-results">
