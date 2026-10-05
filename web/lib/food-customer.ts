@@ -334,10 +334,12 @@ export async function fetchFoodCustomerSnapshot(
 export function maskFoodReviewerName(name: string) {
   const firstWord = name.trim().split(/\s+/)[0] ?? "";
   if (!firstWord) return "ผู้ใช้ WYNOS Food";
-  const chars = Array.from(firstWord);
-  if (chars.length === 1) return `${chars[0]}***`;
-  if (chars.length === 2) return `${chars[0]}**`;
-  return `${chars[0]}${"*".repeat(Math.min(4, Math.max(2, chars.length - 2)))}${chars.at(-1)}`;
+  const segments = typeof Intl.Segmenter === "function"
+    ? Array.from(new Intl.Segmenter("th", { granularity: "grapheme" }).segment(firstWord), (part) => part.segment)
+    : Array.from(firstWord);
+  if (segments.length === 1) return `${segments[0]}***`;
+  if (segments.length === 2) return `${segments[0]}**`;
+  return `${segments[0]}${"*".repeat(Math.min(4, Math.max(2, segments.length - 2)))}${segments.at(-1)}`;
 }
 
 export async function fetchFoodStoreReviewFeed(
