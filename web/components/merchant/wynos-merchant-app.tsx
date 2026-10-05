@@ -510,8 +510,8 @@ function MerchantInner({
     setSelectedOrder(null);
     setMenuDraft(null);
     setStoreEditing(false);
-    setSeenAlerts(new Set());
-    setActedFrom(new Map());
+    setSeenAlerts(new Set<string>());
+    setActedFrom(new Map<string, FoodOrder["status"]>());
     setOrderFilter("new");
     setTab("home");
     setSelectedStoreId(storeId);
@@ -601,7 +601,7 @@ function MerchantInner({
             <label className="wm-store-switcher">
               <Store size={13} strokeWidth={1.8} />
               <span className="sr-only">เลือกร้าน</span>
-              <select value={store?.id ?? selectedStoreId ?? ""} onChange={(event) => chooseStore(event.target.value)}>
+              <select value={selectedStoreId ?? store?.id ?? ""} onChange={(event) => chooseStore(event.target.value)}>
                 {stores.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </label>
