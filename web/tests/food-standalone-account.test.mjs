@@ -136,7 +136,7 @@ test("WYNOS Food menu item detail uses the image-first mobile layout", async () 
   const source = await read("components/food/wynos-food-developer-app.tsx");
   const data = await read("lib/food-customer.ts");
   const css = await read("app/food/food.css");
-  const optionPricingMigration = await read("../supabase/migrations_wynos_food_menu_options_customer_v1.sql");
+  const optionPricingMigration = await read("../supabase/migrations_wynos_food_customer_menu_options_v1.sql");
 
   assert.match(source, /className="wf-item-sheet-backdrop"/);
   assert.match(source, /className="wf-item-hero"/);
@@ -159,7 +159,7 @@ test("WYNOS Food menu item detail uses the image-first mobile layout", async () 
   assert.match(data, /selected_options\?: FoodSelectedOption\[\]/);
   assert.match(data, /selected_options: Array\.isArray\(line\.selected_options\)/);
   assert.match(optionPricingMigration, /internal\.food_resolve_menu_options/);
-  assert.match(optionPricingMigration, /v_line_unit := v_item\.price \+ coalesce/);
-  assert.match(optionPricingMigration, /v_selected := v_resolved->'selected_options'/);
+  assert.match(optionPricingMigration, /v_unit_price := v_item\.price \+ coalesce/);
+  assert.match(optionPricingMigration, /v_resolved->'selected_options'/);
   assert.match(optionPricingMigration, /required menu option missing/);
 });
