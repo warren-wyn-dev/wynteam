@@ -409,6 +409,70 @@ export function splitPushMessage(
   return { title: actorName, body: message.slice(prefix.length) };
 }
 
+/**
+ * Which installed WYNOS app a notification belongs to (Founder, 2026-10-05).
+ * Food and Merchant notifications are all `system` rows told apart by the
+ * text their database triggers write, so these prefixes must follow those
+ * triggers. Anything unrecognised stays with the Social app, as before.
+ */
+export type PushApp = "social" | "food" | "merchant";
+
+const MERCHANT_REASON_PREFIX = "WYNOS Merchant · ";
+const MERCHANT_REASONS = [
+  /^WYNOS Merchant · /,
+  /^คำขอ WYNOS Merchant/,
+  /^WYNOS (เติมเครดิตโฆษณาร้าน|ไม่อนุมัติการเติมเครดิตโฆษณาร้าน|หยุดโฆษณาร้าน|เปิดให้ร้าน|โอนส่วนลดแคมเปญคืนร้าน) /,
+  /^ร้าน .+ (ถูกระงับชั่วคราวโดยทีม WYNOS|ยกเลิกการระงับแล้ว)/,
+];
+const FOOD_REASONS = [/^(ชำระเงินออเดอร์|สลิปออเดอร์|คืนเงินออเดอร์|ออเดอร์) #WF\d+/];
+
+export function pushAppForNotification(row: Pick<NotificationRow, "type" | "reason">): PushApp {
+  if (row.type !== "system") return "social";
+  const reason = (row.reason ?? "").trim();
+  if (MERCHANT_REASONS.some((pattern) => pattern.test(reason))) return "merchant";
+  if (FOOD_REASONS.some((pattern) => pattern.test(reason))) return "food";
+  return "social";
+}
+
+export const PUSH_APP_TITLES: Record<PushApp, string> = {
+  social: "Wynos",
+  food: "Wynos Food",
+  merchant: "WYNOS Merchant",
+};
+
+/** The title and body shown on the phone for a notification of this app. */
+export function pushMessageForApp(
+  app: PushApp,
+  message: string,
+  actorName: string,
+): { title: string; body: string } {
+  if (app === "social") {
+    const split = splitPushMessage(message, actorName);
+    return split.title === "WYN" ? { title: PUSH_APP_TITLES.social, body: split.body } : split;
+  }
+  // The title already names the app; drop the "WYNOS Merchant · " prefix.
+  const body = message.startsWith(MERCHANT_REASON_PREFIX)
+    ? message.slice(MERCHANT_REASON_PREFIX.length)
+    : message;
+  return { title: PUSH_APP_TITLES[app], body };
+}
+
+type AppToken = { app?: string | null };
+
+/**
+ * The devices that should show a notification of `app`. Tokens registered
+ * before per-app routing (app = null) count as the Social app. Food and
+ * Merchant notifications fall back to the Social app when their own app has
+ * no registered device, so nobody silently loses an order notification.
+ */
+export function tokensForApp<T extends AppToken>(tokens: T[], app: PushApp): T[] {
+  const ofApp = (target: PushApp) =>
+    tokens.filter((token) => (token.app ?? "social") === target);
+  if (app === "social") return ofApp("social");
+  const own = ofApp(app);
+  return own.length > 0 ? own : ofApp("social");
+}
+
 export function safeErrorMessage(err: unknown): string {
   const name = err instanceof Error ? err.name : "Error";
   const raw = err instanceof Error ? err.message : String(err);
@@ -425,6 +489,8 @@ export function buildDataPayload(row: NotificationRow): Record<string, string> {
   // signed-in account; without it every Push is a slower refresh hint.
   data.recipient_id = row.recipient_id;
   if (isMerchantNotificationTest(row)) data.merchant_test = "1";
+  const app = pushAppForNotification(row);
+  if (app !== "social") data.app = app;
   if (row.actor_id) data.actor_id = row.actor_id;
   if (row.drop_id) data.drop_id = row.drop_id;
   if (row.pop_id) data.pop_id = row.pop_id;

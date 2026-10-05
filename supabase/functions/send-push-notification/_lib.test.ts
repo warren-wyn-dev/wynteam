@@ -14,6 +14,8 @@ import {
   isQuietHourAt,
   isRetryableFcmStatus,
   messageFor,
+  pushAppForNotification,
+  pushMessageForApp,
   pushPreferenceCategory,
   pushLanguageFrom,
   dmMessagePreview,
@@ -21,6 +23,7 @@ import {
   safeErrorMessage,
   splitPushMessage,
   summariseOutcomes,
+  tokensForApp,
   webPushTopic,
 } from "./_lib.ts";
 
@@ -617,4 +620,89 @@ Deno.test("Merchant notification test payload is tagged for the Merchant deep li
     buildDataPayload({ ...base, reason: "ประกาศระบบทั่วไป" }).merchant_test,
     undefined,
   );
+});
+
+// Founder (2026-10-05): each notification shows only in its own app --
+// Wynos (Social), Wynos Food (customer) or WYNOS Merchant (store).
+const sys = (reason: string) => ({ type: "system", reason });
+
+Deno.test("pushAppForNotification sends store notifications to WYNOS Merchant", () => {
+  for (const reason of [
+    "WYNOS Merchant · ออเดอร์ใหม่ #WF0015 · ฿25.00",
+    "WYNOS Merchant · ลูกค้าส่งสลิป #WF000014",
+    "WYNOS Merchant · ชำระเงินแล้ว #WF000014",
+    "WYNOS Merchant · ทดสอบการแจ้งเตือน",
+    "คำขอ WYNOS Merchant ของคุณได้รับการอนุมัติแล้ว",
+    "WYNOS เติมเครดิตโฆษณาร้าน ร้านวิน แล้ว 100.00 บาท",
+    "WYNOS หยุดโฆษณาร้าน ร้านวิน: ผิดกติกา",
+    "WYNOS โอนส่วนลดแคมเปญคืนร้าน ร้านวิน แล้ว 50.00 บาท (2 ออเดอร์) อ้างอิง X",
+    "ร้าน ร้านวิน ถูกระงับชั่วคราวโดยทีม WYNOS: ตรวจสอบ",
+    "ร้าน ร้านวิน ยกเลิกการระงับแล้ว เปิดร้านและเผยแพร่ได้อีกครั้งใน Wynos Merchant",
+  ]) assertEquals(pushAppForNotification(sys(reason)), "merchant", reason);
+});
+
+Deno.test("pushAppForNotification sends customer order notifications to Wynos Food", () => {
+  for (const reason of [
+    "ชำระเงินออเดอร์ #WF000014 สำเร็จแล้ว",
+    "สลิปออเดอร์ #WF0015 ต้องตรวจสอบอีกครั้ง",
+    "คืนเงินออเดอร์ #WF0015 แล้ว",
+    "ออเดอร์ #WF0015 ส่งถึงแล้ว · ดูรูปยืนยันการจัดส่งได้ในหน้าออเดอร์",
+  ]) assertEquals(pushAppForNotification(sys(reason)), "food", reason);
+});
+
+Deno.test("pushAppForNotification keeps everything else in Wynos", () => {
+  assertEquals(pushAppForNotification({ type: "like_drop", reason: null }), "social");
+  assertEquals(pushAppForNotification({ type: "new_message", reason: null }), "social");
+  assertEquals(pushAppForNotification(sys("แอปจะปิดปรับปรุงคืนนี้")), "social");
+  // Only system rows are routed by text; a user can never route a like.
+  assertEquals(pushAppForNotification({ type: "comment_drop", reason: "WYNOS Merchant · x" }), "social");
+});
+
+Deno.test("pushMessageForApp titles each app and drops the Merchant prefix", () => {
+  assertEquals(
+    pushMessageForApp("merchant", "WYNOS Merchant · ออเดอร์ใหม่ #WF0015 · ฿25.00", "มีคน"),
+    { title: "WYNOS Merchant", body: "ออเดอร์ใหม่ #WF0015 · ฿25.00" },
+  );
+  assertEquals(
+    pushMessageForApp("food", "ชำระเงินออเดอร์ #WF0015 สำเร็จแล้ว", "มีคน"),
+    { title: "Wynos Food", body: "ชำระเงินออเดอร์ #WF0015 สำเร็จแล้ว" },
+  );
+  assertEquals(
+    pushMessageForApp("social", "แอปจะปิดปรับปรุงคืนนี้", "มีคน"),
+    { title: "Wynos", body: "แอปจะปิดปรับปรุงคืนนี้" },
+  );
+  // A person who did something still titles their own notification.
+  assertEquals(
+    pushMessageForApp("social", messageFor("like_drop", "namfah", null), "namfah"),
+    { title: "namfah", body: "ถูกใจโพสต์ของคุณ" },
+  );
+});
+
+Deno.test("tokensForApp sends only to the app's own devices", () => {
+  const tokens = [
+    { id: "a", app: "social" },
+    { id: "b", app: null },
+    { id: "c", app: "merchant" },
+    { id: "d", app: "food" },
+  ];
+  assertEquals(tokensForApp(tokens, "social").map((t) => t.id), ["a", "b"]);
+  assertEquals(tokensForApp(tokens, "merchant").map((t) => t.id), ["c"]);
+  assertEquals(tokensForApp(tokens, "food").map((t) => t.id), ["d"]);
+});
+
+Deno.test("tokensForApp falls back to Wynos when Food or Merchant is not installed", () => {
+  const tokens = [{ id: "a", app: null }, { id: "c", app: "merchant" }];
+  assertEquals(tokensForApp(tokens, "food").map((t) => t.id), ["a"]);
+  assertEquals(tokensForApp([{ id: "c", app: "merchant" }], "social"), []);
+});
+
+Deno.test("buildDataPayload names the Food and Merchant app for the click target", () => {
+  const base = {
+    id: "n1", recipient_id: "u1", actor_id: null, type: "system", drop_id: null, pop_id: null,
+    club_id: null, club_post_id: null, moderation_action_id: null, moderation_action_type: null,
+    conversation_id: null, reason: null,
+  } satisfies NotificationRow;
+  assertEquals(buildDataPayload({ ...base, reason: "WYNOS Merchant · ชำระเงินแล้ว #WF0015" }).app, "merchant");
+  assertEquals(buildDataPayload({ ...base, reason: "ชำระเงินออเดอร์ #WF0015 สำเร็จแล้ว" }).app, "food");
+  assertEquals(buildDataPayload({ ...base, reason: "แอปจะปิดปรับปรุงคืนนี้" }).app, undefined);
 });

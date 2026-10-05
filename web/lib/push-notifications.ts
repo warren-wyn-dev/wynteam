@@ -144,6 +144,63 @@ export function pushReasonDescription(reason: PushBlockReason): string {
   }
 }
 
+/**
+ * Which installed WYNOS app this device token belongs to, so the server shows
+ * Social, Food and Merchant notifications only in their own app (Founder,
+ * 2026-10-05). The Food and Merchant subdomains are their own browser origin
+ * and Push registration. On wynos.online a browser tab shares one token with
+ * the main app; only an installed Food (/food) or Merchant (/merchant) Home
+ * Screen app, which gets its own subscription, counts as that app. `path`
+ * is where the app was launched, not the page open now.
+ */
+export type PushApp = "social" | "food" | "merchant";
+
+export function pushAppFor(hostname: string, path: string, standalone: boolean): PushApp {
+  const host = hostname.toLowerCase();
+  if (host === "merchant.wynos.online") return "merchant";
+  if (host === "food.wynos.online") return "food";
+  if (standalone) {
+    if (/^\/merchant(\/|$)/.test(path)) return "merchant";
+    if (/^\/food(\/|$)/.test(path)) return "food";
+  }
+  return "social";
+}
+
+// The path this window was opened at. The main app can navigate into /food
+// later; only an app that was launched at /food or /merchant is that app.
+const LAUNCH_PATH_KEY = "wynos.push.launch-path.v1";
+
+function launchPath(): string {
+  const current = window.location?.pathname ?? "/";
+  try {
+    const saved = window.sessionStorage.getItem(LAUNCH_PATH_KEY);
+    if (saved) return saved;
+    window.sessionStorage.setItem(LAUNCH_PATH_KEY, current);
+  } catch {
+    // Private mode: fall back to the current page.
+  }
+  return current;
+}
+
+if (typeof window !== "undefined") launchPath();
+
+function currentPushApp(): PushApp {
+  const standalone = (typeof window.matchMedia === "function" &&
+    window.matchMedia("(display-mode: standalone)").matches) ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return pushAppFor(window.location?.hostname ?? "", launchPath(), standalone);
+}
+
+async function savePushToken(client: SupabaseClient, userId: string, token: string) {
+  const row = { user_id: userId, token, platform: "web", updated_at: new Date().toISOString() };
+  const saved = await client.from("push_tokens").upsert({ ...row, app: currentPushApp() }, { onConflict: "token" });
+  // Until the push_tokens.app migration is applied, register as before.
+  if (saved.error?.code === "PGRST204") {
+    return client.from("push_tokens").upsert(row, { onConflict: "token" });
+  }
+  return saved;
+}
+
 export const PUSH_PROMPT_DISMISS_KEY = "wynos.push.prompt.dismissed-at.v1";
 export const PUSH_PROMPT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 // Main app screens only: never over sign-in/sign-up, Settings (it has the switch) or legal pages.
@@ -325,11 +382,7 @@ export async function subscribeToPushNotifications(
   if (!token) return { ok: false, reason: "no-token" };
 
   try {
-    const { error } = await client.from("push_tokens")
-      .upsert(
-        { user_id: userId, token, platform: "web", updated_at: new Date().toISOString() },
-        { onConflict: "token" },
-      );
+    const { error } = await savePushToken(client, userId, token);
     if (error) return { ok: false, reason: "server-failed" };
 
     // Keep local-time Push schedules accurate for this account/device.
@@ -475,17 +528,23 @@ export async function isCurrentDevicePushEnabled(client: SupabaseClient, userId:
     const token = await fb.getToken(messaging, { vapidKey: config.vapidKey, serviceWorkerRegistration: registration });
     if (!token) return null;
     const { data, error } = await client.from("push_tokens")
-      .select("token")
+      .select("token,app")
       .eq("user_id", userId)
       .eq("token", token)
       .maybeSingle();
     if (error) return null;
-    if (data) return true;
+    if (data) {
+      // Tokens registered before per-app Push (or by another app on this
+      // origin) are labelled with the app that is open now.
+      if ((data as { app: string | null }).app !== currentPushApp()) {
+        await savePushToken(client, userId, token);
+      }
+      return true;
+    }
     // FCM rotated this device's token, or the server dropped it: if this
     // account turned Push on here, register the current token again.
     if (isPushWanted(userId)) {
-      const saved = await client.from("push_tokens")
-        .upsert({ user_id: userId, token, platform: "web", updated_at: new Date().toISOString() }, { onConflict: "token" });
+      const saved = await savePushToken(client, userId, token);
       return saved.error ? null : true;
     }
     return false;
@@ -523,8 +582,7 @@ export async function resyncPushRegistration(client: SupabaseClient, userId: str
     const messaging = fb.getMessaging(firebaseApp(fb, config));
     const token = await fb.getToken(messaging, { vapidKey: config.vapidKey, serviceWorkerRegistration: registration });
     if (!token) return;
-    await client.from("push_tokens")
-      .upsert({ user_id: userId, token, platform: "web", updated_at: new Date().toISOString() }, { onConflict: "token" });
+    await savePushToken(client, userId, token);
   } catch {
     resynced.delete(userId);
   }

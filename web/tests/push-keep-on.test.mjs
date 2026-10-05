@@ -11,15 +11,16 @@ const compiled = ts.transpileModule(readFileSync(new URL("../lib/push-notificati
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
-function fixture({ wanted = true, registered = false, configFails = false, selectFails = false } = {}) {
+function fixture({ wanted = true, registered = false, registeredApp = "social", configFails = false, selectFails = false, location, appColumn = true } = {}) {
   const calls = [];
+  const upserts = [];
   const store = new Map(wanted ? [["wynos.push.wanted.v1", JSON.stringify(["u1"])]] : []);
   const registration = { active: {}, pushManager: { getSubscription: async () => ({ endpoint: "x" }) } };
   const Notification = { permission: "granted" };
   const window = {
     Notification, PushManager: {}, matchMedia: () => ({ matches: true }),
     localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) },
-    setTimeout, clearTimeout,
+    setTimeout, clearTimeout, location,
   };
   const navigator = {
     userAgent: "Mozilla/5.0 (Linux; Android 15) Chrome/130", maxTouchPoints: 0,
@@ -43,13 +44,16 @@ function fixture({ wanted = true, registered = false, configFails = false, selec
     from: () => {
       const query = {
         select: () => query, eq: () => query,
-        maybeSingle: async () => selectFails ? { data: null, error: { message: "network" } } : { data: registered ? { token: "rotated-token" } : null, error: null },
-        upsert: async (row) => { calls.push(`upsert:${row.user_id}:${row.token}`); return { error: null }; },
+        maybeSingle: async () => selectFails ? { data: null, error: { message: "network" } } : { data: registered ? { token: "rotated-token", app: registeredApp } : null, error: null },
+        upsert: async (row) => {
+          if (!appColumn && "app" in row) return { error: { code: "PGRST204", message: "Could not find the 'app' column" } };
+          calls.push(`upsert:${row.user_id}:${row.token}`); upserts.push(row); return { error: null };
+        },
       };
       return query;
     },
   };
-  return { exports, client, calls, store };
+  return { exports, client, calls, upserts, store };
 }
 
 test("an account that turned Push on gets its rotated token registered again, and shows on", async () => {
@@ -121,4 +125,38 @@ test("resync remembers an account already registered on this device, without re-
   await f.exports.resyncPushRegistration(f.client, "u1");
   assert.equal(f.exports.isPushWanted("u1"), true);
   assert.deepEqual(f.calls, []);
+});
+
+// Founder (2026-10-05): each installed app only shows its own notifications,
+// so every token records which app registered it.
+test("a token registered before per-app Push is labelled with the open app", async () => {
+  const f = fixture({ wanted: true, registered: true, registeredApp: null });
+  assert.equal(await f.exports.isCurrentDevicePushEnabled(f.client, "u1"), true);
+  assert.equal(f.upserts.length, 1);
+  assert.equal(f.upserts[0].app, "social");
+});
+
+test("the Merchant subdomain registers its token as the Merchant app", async () => {
+  const f = fixture({ wanted: true, registered: false, location: { hostname: "merchant.wynos.online", pathname: "/" } });
+  assert.equal(await f.exports.isCurrentDevicePushEnabled(f.client, "u1"), true);
+  assert.equal(f.upserts[0].app, "merchant");
+});
+
+test("pushAppFor: subdomains, installed Food/Merchant apps, and browser tabs", () => {
+  const { pushAppFor } = fixture().exports;
+  assert.equal(pushAppFor("merchant.wynos.online", "/", false), "merchant");
+  assert.equal(pushAppFor("food.wynos.online", "/", false), "food");
+  assert.equal(pushAppFor("wynos.online", "/merchant", true), "merchant");
+  assert.equal(pushAppFor("wynos.online", "/food/orders", true), "food");
+  assert.equal(pushAppFor("wynos.online", "/foodie", true), "social");
+  // A browser tab shares one token with the main app.
+  assert.equal(pushAppFor("wynos.online", "/merchant", false), "social");
+  assert.equal(pushAppFor("wynos.online", "/", true), "social");
+});
+
+test("before the push_tokens.app migration, registration still works without it", async () => {
+  const f = fixture({ wanted: true, registered: false, appColumn: false });
+  assert.equal(await f.exports.isCurrentDevicePushEnabled(f.client, "u1"), true);
+  assert.deepEqual(f.calls, ["upsert:u1:rotated-token"]);
+  assert.equal("app" in f.upserts[0], false);
 });
