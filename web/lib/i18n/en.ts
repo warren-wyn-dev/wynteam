@@ -2287,6 +2287,20 @@ Object.assign(EN_EXACT, {
   "เลื่อนหมวดหมู่ลง": "Move category down",
   "เลื่อนเมนูขึ้น": "Move menu item up",
   "เลื่อนเมนูลง": "Move menu item down",
+  "เตรียมประมาณ": "Prep about",
+  "จำนวนจำกัด · สูงสุด": "Limited quantity · maximum",
+  "ชิ้น/วัน": "items/day",
+  "เตรียม": "Prep",
+  "ไม่บังคับ": "Optional",
+  "เช่น เปิดทุกวัน": "For example, open every day",
+  "คุณภาพตำแหน่ง": "Location quality",
+  "จ.": "Mon",
+  "อ.": "Tue",
+  "พ.": "Wed",
+  "พฤ.": "Thu",
+  "ศ.": "Fri",
+  "ส.": "Sat",
+  "อา.": "Sun",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
@@ -2461,6 +2475,8 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["เปิดพรุ่งนี้ {0}", "Opens tomorrow {0}"],
   ["เปิด{0} {1}", "Opens {0} {1}"],
   ["{0}–{1} นาที", "{0}–{1} min"],
+  ["เปิด {0}", "Opens {0}"],
+  ["ปิด · {0}", "Closed · {0}"],
   ["จำกัด {0} ชิ้น/วัน", "Limited to {0} items/day"],
   ["จำนวนจำกัด · สูงสุด {0} ชิ้น/วัน", "Limited quantity · up to {0} items/day"],
 ];
