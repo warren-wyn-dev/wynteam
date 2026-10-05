@@ -368,3 +368,16 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/*
+ * MapLibre positions markers with a transform from the map's top-left
+ * corner, which needs its own `position: absolute`. The page-scoped
+ * `position: relative` rules above outrank it, so restore it here or the
+ * current-location dot and place markers drift away from their spots.
+ */
+.wynos-maps-page .maplibregl-marker.wf-map-user-location,
+.wynos-maps-page .maplibregl-marker.wf-map-place-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
