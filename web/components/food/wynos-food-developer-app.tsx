@@ -485,22 +485,52 @@ function StoreReviewsSection({ client, storeId }: { client: SupabaseClient; stor
 function MenuSearchSheet({
   client,
   menu,
+  historyKey,
   onItem,
   onClose,
 }: {
   client: SupabaseClient;
   menu: FoodCustomerMenuItem[];
+  historyKey: string;
   onItem: (item: FoodCustomerMenuItem) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const [recent, setRecent] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = JSON.parse(localStorage.getItem(historyKey) ?? "[]");
+      return Array.isArray(saved) ? saved.filter((value): value is string => typeof value === "string").slice(0, 5) : [];
+    } catch {
+      return [];
+    }
+  });
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const popular = useMemo(
+    () => menu.filter((item) => foodMenuIsEffectivelyAvailable(item)).slice(0, 4),
+    [menu],
+  );
   const results = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("th-TH");
     const source = q
       ? menu.filter((item) => `${item.name} ${item.category} ${item.description ?? ""}`.toLocaleLowerCase("th-TH").includes(q))
       : menu;
-    return source.slice(0, 20);
+    return source.slice(0, 30);
   }, [menu, query]);
+
+  const rememberSearch = (value: string) => {
+    const clean = value.trim();
+    if (!clean) return;
+    const next = [clean, ...recent.filter((item) => item !== clean)].slice(0, 5);
+    setRecent(next);
+    try { localStorage.setItem(historyKey, JSON.stringify(next)); } catch { /* private mode */ }
+  };
+
+  const openItem = (item: FoodCustomerMenuItem) => {
+    rememberSearch(query);
+    onClose();
+    onItem(item);
+  };
 
   return (
     <Sheet title="ค้นหาเมนูอาหาร" onClose={onClose}>
@@ -510,38 +540,74 @@ function MenuSearchSheet({
           autoFocus
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") rememberSearch(query); }}
           placeholder="ค้นหาเมนูอาหาร"
           autoComplete="off"
         />
         {query ? <button type="button" aria-label="ปิด" onClick={() => setQuery("")}><X size={17} /></button> : null}
       </label>
-      {results.length ? (
-        <div className="wf-menu-search-list">
-          {results.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                onClose();
-                onItem(item);
-              }}
-            >
-              <MenuImage client={client} item={item} className="wf-menu-search-image" />
-              <span>
+
+      {!query.trim() && popular.length ? (
+        <section className="wf-menu-search-section">
+          <div className="wf-menu-search-heading">
+            <h3>เมนูยอดนิยม</h3>
+            <button type="button" onClick={() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>ดูทั้งหมด</button>
+          </div>
+          <div className="wf-menu-popular">
+            {popular.map((item) => (
+              <button key={item.id} type="button" onClick={() => openItem(item)}>
+                <MenuImage client={client} item={item} className="wf-menu-popular-image" />
                 <strong>{item.name}</strong>
-                <small>{item.description || item.category}</small>
                 <b>{foodMoney(item.price)}</b>
-              </span>
-              <ChevronRight size={18} />
-            </button>
-          ))}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {!query.trim() && recent.length ? (
+        <section className="wf-menu-search-section">
+          <div className="wf-menu-search-heading"><h3>คำค้นหาล่าสุด</h3></div>
+          <div className="wf-menu-recent">
+            {recent.map((value) => (
+              <button key={value} type="button" onClick={() => setQuery(value)}>
+                <Clock3 size={15} />{value}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="wf-menu-search-section" ref={resultsRef}>
+        <div className="wf-menu-search-heading">
+          <h3>{query.trim() ? "ผลการค้นหา" : "เมนูทั้งหมด"}</h3>
+          <small>{results.length} เมนู</small>
         </div>
-      ) : (
-        <div className="wf-empty wf-empty--compact">
-          <Search size={35} strokeWidth={1.4} />
-          <strong>ไม่พบเมนู</strong>
-        </div>
-      )}
+        {results.length ? (
+          <div className="wf-menu-search-list">
+            {results.map((item) => (
+              <div className="wf-menu-search-row" key={item.id}>
+                <button className="wf-menu-search-main" type="button" onClick={() => openItem(item)}>
+                  <MenuImage client={client} item={item} className="wf-menu-search-image" />
+                  <span>
+                    <strong>{item.name}</strong>
+                    <small>{item.category}</small>
+                    <b>{foodMoney(item.price)}</b>
+                  </span>
+                </button>
+                <button className="wf-menu-search-add" type="button" aria-label={item.name} onClick={() => openItem(item)}>
+                  <Plus size={19} strokeWidth={2.2} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="wf-empty wf-empty--compact">
+            <Search size={35} strokeWidth={1.4} />
+            <strong>ไม่พบเมนู</strong>
+          </div>
+        )}
+      </section>
     </Sheet>
   );
 }
@@ -763,7 +829,15 @@ function HomePanel({
       </section>
       ) : null}
 
-      {searchOpen ? <MenuSearchSheet client={client} menu={menu} onItem={onItem} onClose={() => setSearchOpen(false)} /> : null}
+      {searchOpen ? (
+        <MenuSearchSheet
+          client={client}
+          menu={menu}
+          historyKey={`wynos-food-menu-search-v1:${userId}:${store.id}`}
+          onItem={onItem}
+          onClose={() => setSearchOpen(false)}
+        />
+      ) : null}
     </>
   );
 }
