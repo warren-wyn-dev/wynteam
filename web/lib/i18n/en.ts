@@ -2323,13 +2323,6 @@ Object.assign(EN_EXACT, {
   "พื้นที่ให้บริการ ระยะส่ง ค่าส่ง ยอดขั้นต่ำ และสถานที่ที่ร้านส่งบ่อย": "Service area, delivery range, fees, minimum order and frequent delivery places",
   "หมุดตำแหน่งร้าน": "Store map pin",
   "เช่น เขตที่ให้บริการ หรือรายละเอียดพื้นที่จัดส่ง": "For example, service districts or delivery area details",
-  "เตรียมประมาณ": "Prep about",
-  "จำนวนจำกัด · สูงสุด": "Limited quantity · maximum",
-  "ชิ้น/วัน": "items/day",
-  "เตรียม": "Prep",
-  "ไม่บังคับ": "Optional",
-  "เช่น เปิดทุกวัน": "For example, open every day",
-  "คุณภาพตำแหน่ง": "Location quality",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
