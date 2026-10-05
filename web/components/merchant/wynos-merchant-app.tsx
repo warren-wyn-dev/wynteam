@@ -11,6 +11,11 @@ import {
   Clock3,
   ImagePlus,
   LogOut,
+  GripVertical,
+  Eye,
+  CalendarDays,
+  History,
+  AlertTriangle,
   MapPin,
   Menu as MenuIcon,
   PackageCheck,
@@ -51,6 +56,9 @@ import {
   deleteStorePlace,
   fetchStorePlaces,
   fetchMerchantSnapshot,
+  fetchMerchantStoreReadiness,
+  fetchMerchantAuditHistory,
+  checkMerchantLocationQuality,
   foodPrivateSignedUrl,
   foodPublicUrl,
   merchantError,
@@ -58,6 +66,9 @@ import {
   paymentLabel,
   saveMenuItem,
   saveStorePlace,
+  saveMenuSortOrder,
+  saveMenuCategoryOrder,
+  setMenuSoldOutToday,
   setFoodPaymentStatus,
   setMenuAvailability,
   statusLabel,
@@ -72,10 +83,21 @@ import {
   type FoodOrder,
   type FoodStore,
   type FoodStorePlace,
+  type MerchantAuditEntry,
+  type MerchantLocationQuality,
+  type MerchantStoreReadiness,
   type MenuDraft,
 } from "@/lib/food-merchant";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { checkFoodServiceArea, currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation, type FoodPlace } from "@/lib/food-customer";
+import {
+  FOOD_DAY_KEYS,
+  defaultFoodBusinessSchedule,
+  foodMenuIsEffectivelyAvailable,
+  foodStoreIsEffectivelyOpen,
+  foodStoreStatusText,
+  type FoodBusinessSchedule,
+} from "@/lib/food-store-availability";
 
 // WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
 // and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
@@ -566,7 +588,8 @@ function MerchantInner({
         {tab === "menu" && store ? (
           <MenuPanel
             client={client}
-            menu={visibleMenu}
+            store={store}
+            menu={menu}
             query={menuQuery}
             onQuery={setMenuQuery}
             onEdit={(item) => setMenuDraft({
@@ -585,6 +608,21 @@ function MerchantInner({
                 await setMenuAvailability(client, store.id, item.id, !item.is_available);
                 await load(true);
               } catch (error) { setMessage(merchantError(error)); }
+            }}
+            onSoldOut={async (item, soldOut) => {
+              try {
+                await setMenuSoldOutToday(client, store.id, item.id, soldOut);
+                setMessage(soldOut ? "ตั้งเมนูหมดวันนี้แล้ว ระบบจะเปิดให้อัตโนมัติวันถัดไป" : "เปิดเมนูกลับแล้ว");
+                await load(true);
+              } catch (error) { setMessage(merchantError(error)); }
+            }}
+            onReorder={async (ids) => {
+              try { await saveMenuSortOrder(client, store.id, ids); await load(true); }
+              catch (error) { setMessage(merchantError(error)); }
+            }}
+            onCategoryOrder={async (categories) => {
+              try { await saveMenuCategoryOrder(client, store.id, categories); await load(true); }
+              catch (error) { setMessage(merchantError(error)); }
             }}
           />
         ) : null}
@@ -1032,28 +1070,60 @@ function OrdersPanel({
 }
 function MenuPanel({
   client,
+  store,
   menu,
   query,
   onQuery,
   onEdit,
   onAdd,
   onToggle,
+  onSoldOut,
+  onReorder,
+  onCategoryOrder,
 }: {
   client: SupabaseClient;
+  store: FoodStore;
   menu: FoodMenuItem[];
   query: string;
   onQuery: (value: string) => void;
   onEdit: (item: FoodMenuItem) => void;
   onAdd: () => void;
   onToggle: (item: FoodMenuItem) => void;
+  onSoldOut: (item: FoodMenuItem, soldOut: boolean) => void;
+  onReorder: (ids: string[]) => void;
+  onCategoryOrder: (categories: string[]) => void;
 }) {
-  const categories = Array.from(menu.reduce((groups, item) => {
-    const category = item.category.trim() || "อื่น ๆ";
-    const rows = groups.get(category) ?? [];
-    rows.push(item);
-    groups.set(category, rows);
-    return groups;
-  }, new Map<string, FoodMenuItem[]>()).entries());
+  const q = query.trim().toLocaleLowerCase("th-TH");
+  const displayMenu = q
+    ? menu.filter((item) => `${item.name} ${item.category} ${item.description ?? ""}`.toLocaleLowerCase("th-TH").includes(q))
+    : menu;
+  const presentCategories = Array.from(new Set(menu.map((item) => item.category.trim() || "อื่น ๆ")));
+  const preferred = Array.isArray(store.menu_category_order) ? store.menu_category_order : [];
+  const categoryOrder = [...preferred.filter((name) => presentCategories.includes(name)), ...presentCategories.filter((name) => !preferred.includes(name))];
+  const categories = categoryOrder
+    .map((category) => [category, displayMenu.filter((item) => (item.category.trim() || "อื่น ๆ") === category)] as const)
+    .filter(([, items]) => items.length);
+
+  const moveItem = (dragId: string, targetId: string) => {
+    if (q || dragId === targetId) return;
+    const ids = menu.map((item) => item.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    const next = [...ids];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    onReorder(next);
+  };
+
+  const moveCategory = (dragCategory: string, targetCategory: string) => {
+    if (q || dragCategory === targetCategory) return;
+    const next = [...categoryOrder];
+    const from = next.indexOf(dragCategory);
+    const to = next.indexOf(targetCategory);
+    if (from < 0 || to < 0) return;
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    onCategoryOrder(next);
+  };
 
   return (
     <>
@@ -1062,11 +1132,22 @@ function MenuPanel({
         <button className="wm-small-primary" type="button" onClick={onAdd}><Plus size={17} /> เพิ่มเมนู</button>
       </div>
       <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="ค้นหาเมนูหรือหมวดหมู่" /></label>
+      {!q && menu.length ? <div className="wm-menu-sort-hint"><GripVertical size={15} /> ลากหมวดหมู่หรือเมนูเพื่อจัดลำดับหน้าร้าน</div> : null}
       <div className="wm-menu-categories">
         {categories.map(([category, items]) => (
-          <section className="wm-menu-category" key={category}>
+          <section
+            className="wm-menu-category"
+            key={category}
+            draggable={!q}
+            onDragStart={(event) => event.dataTransfer.setData("text/wynos-category", category)}
+            onDragOver={(event) => { if (event.dataTransfer.types.includes("text/wynos-category")) event.preventDefault(); }}
+            onDrop={(event) => {
+              const source = event.dataTransfer.getData("text/wynos-category");
+              if (source) { event.preventDefault(); moveCategory(source, category); }
+            }}
+          >
             <div className="wm-menu-category-heading">
-              <strong>{category}</strong>
+              <span><GripVertical size={16} /><strong>{category}</strong></span>
               <span>{items.length} เมนู</span>
             </div>
             <div className="wm-menu-list">
@@ -1075,17 +1156,33 @@ function MenuPanel({
                 const optionCount = Array.isArray(item.options)
                   ? item.options.reduce((sum, group) => sum + (Array.isArray(group.choices) ? group.choices.length : 0), 0)
                   : 0;
+                const available = foodMenuIsEffectivelyAvailable(item);
+                const soldOutToday = Boolean(item.sold_out_until && Date.parse(item.sold_out_until) > Date.now());
                 return (
-                  <article className={`wm-menu-row ${item.is_available ? "" : "is-off"}`} key={item.id}>
+                  <article
+                    className={`wm-menu-row ${available ? "" : "is-off"}`}
+                    key={item.id}
+                    draggable={!q}
+                    onDragStart={(event) => event.dataTransfer.setData("text/wynos-menu", item.id)}
+                    onDragOver={(event) => { if (event.dataTransfer.types.includes("text/wynos-menu")) event.preventDefault(); }}
+                    onDrop={(event) => {
+                      const source = event.dataTransfer.getData("text/wynos-menu");
+                      if (source) { event.preventDefault(); moveItem(source, item.id); }
+                    }}
+                  >
+                    <span className="wm-menu-drag" aria-hidden="true"><GripVertical size={17} /></span>
                     <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
                       <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
                       <span className="wm-menu-copy">
                         <strong>{item.name}</strong>
-                        <small>{optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
+                        <small>{soldOutToday ? "หมดวันนี้ · เปิดอัตโนมัติวันถัดไป" : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
                         <b>{money(item.price)}</b>
                       </span>
                     </button>
-                    <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขายชั่วคราว" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
+                    <div className="wm-menu-row-actions">
+                      <button className={soldOutToday ? "is-active" : ""} type="button" onClick={() => onSoldOut(item, !soldOutToday)}>{soldOutToday ? "ยกเลิกหมดวันนี้" : "หมดวันนี้"}</button>
+                      <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขาย" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
+                    </div>
                   </article>
                 );
               })}
