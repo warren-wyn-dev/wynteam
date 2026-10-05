@@ -37,12 +37,18 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(app).toContain("ค้นหาและปักหมุดบนแผนที่");
   expect(app).toContain("<FoodDeliveryMapPicker");
   const css = read("app/food/food.css");
+  const mapsCss = read("app/maps/maps.css");
 
   expect(map).toContain('const MAP_STYLE = "/maps/wynos-green.json";');
   expect(map).toContain("maplibre-gl@");
   expect(map).toContain("/dist/maplibre-gl.js");
   expect(map).toContain("https://tile.openstreetmap.org/{z}/{x}/{y}.png");
   expect(map).toContain("map.setStyle(FALLBACK_MAP_STYLE)");
+  expect(map).toContain("dragPan: true");
+  expect(map).toContain("touchZoomRotate: true");
+  expect(map).toContain('addEventListener("touchmove", preventPagePan, { passive: false })');
+  expect(mapsCss).toContain("touch-action: none !important");
+  expect(mapsCss).toContain("overscroll-behavior: none");
   expect(map).toContain('map.on("style.load", markReady)');
   expect(map).toContain("แผนที่ยังโหลดไม่สำเร็จ");
   expect(css).toContain(".wf-map-canvas.maplibregl-map");

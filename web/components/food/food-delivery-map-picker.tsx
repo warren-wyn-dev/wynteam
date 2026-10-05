@@ -59,6 +59,9 @@ type MapLibreGlobal = {
     center: [number, number];
     zoom: number;
     attributionControl?: boolean;
+    dragPan?: boolean;
+    touchZoomRotate?: boolean;
+    touchPitch?: boolean;
   }) => MapInstance;
   Marker: new (options: { element: HTMLElement; anchor?: string }) => MarkerInstance;
 };
@@ -218,6 +221,7 @@ export function FoodDeliveryMapPicker({
   const [chosen, setChosen] = useState(Boolean(initialLocation));
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [currentLocationSelected, setCurrentLocationSelected] = useState(false);
+  const [mapDragging, setMapDragging] = useState(false);
 
   const reverse = useCallback(async (next: FoodLocation) => {
     const requestId = ++reverseRequestRef.current;
@@ -281,6 +285,8 @@ export function FoodDeliveryMapPicker({
     let styleLoaded = false;
     let fallbackTimer: number | null = null;
     let failureTimer: number | null = null;
+    let touchNode: HTMLDivElement | null = null;
+    let preventPagePan: ((event: TouchEvent) => void) | null = null;
 
     void loadMapLibre()
       .then((maplibre) => {
@@ -297,8 +303,20 @@ export function FoodDeliveryMapPicker({
           center: start,
           zoom: initialLocation ? 16 : 5.4,
           attributionControl: false,
+          dragPan: true,
+          touchZoomRotate: true,
+          touchPitch: false,
         });
         mapRef.current = map;
+
+        // iOS Safari can try to treat a one-finger vertical swipe as page movement
+        // before MapLibre finishes claiming the gesture. Keep single-finger gestures
+        // inside the map so drag-pan remains available in every direction.
+        touchNode = mapNode.current;
+        preventPagePan = (event: TouchEvent) => {
+          if (event.touches.length === 1 && event.cancelable) event.preventDefault();
+        };
+        touchNode.addEventListener("touchmove", preventPagePan, { passive: false });
 
         const markReady = () => {
           if (!live) return;
@@ -320,6 +338,7 @@ export function FoodDeliveryMapPicker({
 
         const onDragStart = () => {
           dragRef.current = true;
+          setMapDragging(true);
           setCurrentLocationSelected(false);
         };
         const onMoveEnd = () => {
@@ -330,6 +349,7 @@ export function FoodDeliveryMapPicker({
           void loadNearby(next);
           if (!dragRef.current) return;
           dragRef.current = false;
+          setMapDragging(false);
           reverseRequestRef.current += 1;
           setLocation(next);
           setChosen(true);
@@ -372,6 +392,7 @@ export function FoodDeliveryMapPicker({
       if (failureTimer) window.clearTimeout(failureTimer);
       if (reverseTimerRef.current) window.clearTimeout(reverseTimerRef.current);
       if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+      if (touchNode && preventPagePan) touchNode.removeEventListener("touchmove", preventPagePan);
       searchRequestRef.current += 1;
       reverseRequestRef.current += 1;
       nearbyRequestRef.current += 1;
@@ -630,7 +651,9 @@ export function FoodDeliveryMapPicker({
             }}><RefreshCw size={16} /> ลองใหม่</button>
           </div>
         ) : null}
-        <div className="wf-map-center-pin" aria-hidden="true"><MapPin size={42} fill="currentColor" /></div>
+        <div className={mapDragging ? "wf-map-center-pin is-dragging" : "wf-map-center-pin"} aria-hidden="true">
+          <MapPin size={42} fill="currentColor" />
+        </div>
         <div className="wf-map-attribution">
           {showAttribution ? (
             <div className="wf-map-attribution-panel" role="dialog" aria-label="ข้อมูลแผนที่และแหล่งข้อมูล">
@@ -681,10 +704,14 @@ export function FoodDeliveryMapPicker({
             aria-label={sheetExpanded ? "ย่อรายละเอียดตำแหน่ง" : "ขยายรายละเอียดตำแหน่ง"}
             aria-expanded={sheetExpanded}
             onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
               sheetPointerStartRef.current = event.clientY;
               event.currentTarget.setPointerCapture(event.pointerId);
             }}
             onPointerUp={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
               const start = sheetPointerStartRef.current;
               sheetPointerStartRef.current = null;
               if (start == null) return;
@@ -692,6 +719,9 @@ export function FoodDeliveryMapPicker({
               if (distance < -28) setSheetExpanded(true);
               else if (distance > 28) setSheetExpanded(false);
               else setSheetExpanded((value) => !value);
+            }}
+            onPointerCancel={() => {
+              sheetPointerStartRef.current = null;
             }}
           >
             <span />

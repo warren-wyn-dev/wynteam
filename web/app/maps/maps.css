@@ -162,10 +162,19 @@
 .wynos-maps-page .wf-map-canvas-wrap {
   min-height: 0;
   background: #eaf0ec;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
-.wynos-maps-page .wf-map-canvas {
+.wynos-maps-page .wf-map-canvas,
+.wynos-maps-page .wf-map-canvas.maplibregl-map,
+.wynos-maps-page .wf-map-canvas .maplibregl-canvas-container,
+.wynos-maps-page .wf-map-canvas .maplibregl-canvas {
   background: #eaf0ec;
+  overscroll-behavior: none;
+  touch-action: none !important;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .wynos-maps-brand-rail {
@@ -278,6 +287,13 @@
   width: 52px;
   height: 62px;
   filter: drop-shadow(0 7px 12px rgb(7 75 35 / 25%));
+  transition: transform .16s ease, filter .16s ease;
+  will-change: transform;
+}
+
+.wynos-maps-page .wf-map-center-pin.is-dragging {
+  transform: translate(-50%, -104%) scale(1.045);
+  filter: drop-shadow(0 12px 16px rgb(7 75 35 / 30%));
 }
 
 .wynos-maps-page .wf-map-center-pin::after {
@@ -377,6 +393,9 @@
   background: rgb(255 255 255 / 98%);
   gap: 9px;
   overflow: hidden auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 -12px 34px rgb(16 32 22 / 14%);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
