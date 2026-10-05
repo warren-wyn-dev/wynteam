@@ -671,7 +671,7 @@
     <string name="feedback_shared">เปิดตัวเลือกแชร์เรียบร้อยแล้ว</string>
     <string name="feedback_share_failed">เปิดการแชร์ไม่ได้ ลองคัดลอกข้อความแทน</string>
 
-    <!-- M7 Settings and Wynii (web settings-route, settings-change-password, wynii-chat) -->
+    <!-- M7 Settings (web settings-route, settings-change-password) -->
     <string name="settings_account">บัญชี</string>
     <string name="settings_privacy">ความเป็นส่วนตัว</string>
     <string name="settings_app">การตั้งค่าแอป</string>
@@ -753,35 +753,4 @@
     <string name="password_needs_email">บัญชีนี้ต้องยืนยันตัวตนผ่านอีเมลก่อน กรุณาใช้ระบบลืมรหัสผ่าน</string>
     <string name="password_failed">ไม่สามารถเปลี่ยนรหัสผ่านได้ กรุณาลองใหม่อีกครั้ง</string>
     <string name="password_network">เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</string>
-    <string name="wynii_load_failed">โหลด Wynii ไม่สำเร็จ</string>
-    <string name="wynii_start_failed">เริ่มเลี้ยง Wynii ไม่สำเร็จ</string>
-    <string name="wynii_resting">พักอยู่</string>
-    <string name="wynii_resting_detail">รอบก่อนหน้าไม่ครบภายใน 24 ชั่วโมง เริ่มรอบใหม่ได้เมื่อมีข้อความใหม่</string>
-    <string name="wynii_waiting_other">รออีกฝ่าย</string>
-    <string name="wynii_waiting_other_detail">คุณส่งแล้ว รออีกฝ่ายส่งภายใน 24 ชั่วโมง</string>
-    <string name="wynii_your_turn">ถึงตาคุณ</string>
-    <string name="wynii_your_turn_detail">อีกฝ่ายส่งแล้ว ส่งอะไรก็ได้ในแชทเพื่อดูแล Wynii</string>
-    <string name="wynii_in_round_detail">กำลังดูแล Wynii ในรอบนี้</string>
-    <string name="wynii_done_today">วันนี้ครบแล้ว ✓</string>
-    <string name="wynii_done_today_detail">ทั้งสองฝ่ายส่งครบแล้ว รอบถัดไปจะเปิดอีกครั้งหลังครบ 24 ชั่วโมง</string>
-    <string name="wynii_idle_detail">ส่งอะไรก็ได้ในแชทคนละ 1 ครั้งภายใน 24 ชั่วโมง</string>
-    <string name="wynii_days">%1$d วัน</string>
-    <string name="wynii_days_left">อีก %1$d วัน</string>
-    <string name="wynii_stage_egg">ไข่</string>
-    <string name="wynii_stage_hatching">กำลังฟัก</string>
-    <string name="wynii_stage_baby">วัยเด็ก</string>
-    <string name="wynii_stage_growing">วัยเติบโต</string>
-    <string name="wynii_stage_mature">วัยโต</string>
-    <string name="wynii_stage_max">MAX Form</string>
-    <string name="wynii_max_suffix">" · เติบโตต่อได้เรื่อย ๆ"</string>
-    <string name="wynii_sheet_title">Wynii ของเรา</string>
-    <string name="wynii_start_title">เริ่มจากไข่</string>
-    <string name="wynii_start_body">Wynii จะเติบโตไปกับการคุยของคุณสองคน</string>
-    <string name="wynii_start">เริ่มเลี้ยง Wynii ด้วยกัน</string>
-    <string name="wynii_starting">กำลังเริ่ม…</string>
-    <string name="wynii_raise">เลี้ยง Wynii ด้วยกัน</string>
-    <string name="wynii_view">ดู Wynii</string>
-    <string name="wynii_sent">✓ ส่งแล้ว</string>
-    <string name="wynii_wait">รอ</string>
-    <string name="wynii_rule">ทั้งสองฝ่ายส่งอะไรก็ได้ในแชทคนละ 1 ครั้งภายใน 24 ชั่วโมง = Wynii อายุ +1 วัน · อายุไม่ลดและไม่รีเซ็ตเมื่อพัก</string>
 </resources>

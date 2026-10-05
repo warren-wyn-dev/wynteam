@@ -84,10 +84,6 @@ interface ChatRepository {
     suspend fun delete(message: ChatMessage)
     /** A short-lived link to a private chat photo. */
     suspend fun imageUrl(path: String): String?
-    /** web fetchWynii(): null when the two have not started one. */
-    suspend fun wynii(conversationId: String): WyniiPet?
-    /** web startWynii(): start_conversation_wynii, then the new pet. */
-    suspend fun startWynii(conversationId: String): WyniiPet
 }
 
 private const val MESSAGE_COLUMNS =
@@ -202,31 +198,7 @@ class SupabaseChatRepository(private val clientOrNull: SupabaseClient?) : ChatRe
 
     override suspend fun imageUrl(path: String): String? =
         runCatching { client.storage.from(CHAT_BUCKET).createSignedUrl(path, 1.hours) }.getOrNull()
-
-    override suspend fun wynii(conversationId: String): WyniiPet? =
-        client.from("conversation_wynii").select(Columns.raw(WYNII_COLUMNS)) { filter { eq("conversation_id", conversationId) } }
-            .decodeList<JsonObject>().firstOrNull()?.let { row ->
-                WyniiPet(
-                    conversationId = row.text("conversation_id").orEmpty(),
-                    userAId = row.text("user_a_id").orEmpty(),
-                    userBId = row.text("user_b_id").orEmpty(),
-                    ageDays = row.int("age_days") ?: 0,
-                    cycleStartedAt = row.text("cycle_started_at"),
-                    userADone = row.bool("user_a_done"),
-                    userBDone = row.bool("user_b_done"),
-                    nextCycleAt = row.text("next_cycle_at").orEmpty(),
-                    lastCompletedAt = row.text("last_completed_at"),
-                )
-            }
-
-    override suspend fun startWynii(conversationId: String): WyniiPet {
-        client.postgrest.rpc("start_conversation_wynii", buildJsonObject { put("p_conversation_id", conversationId) })
-        return wynii(conversationId) ?: error("no wynii")
-    }
 }
-
-private const val WYNII_COLUMNS =
-    "conversation_id,user_a_id,user_b_id,age_days,cycle_started_at,user_a_done,user_b_done,next_cycle_at,last_completed_at,created_at,updated_at"
 
 internal fun parseConversation(row: JsonObject) = Conversation(
     id = row.text("conversation_id").orEmpty(),

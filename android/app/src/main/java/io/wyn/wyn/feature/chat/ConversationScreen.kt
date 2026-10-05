@@ -108,7 +108,6 @@ fun ConversationScreen(
     chat: ChatRepository,
     onBack: () -> Unit,
     onOpenProfile: (String) -> Unit,
-    wynii: WyniiViewModel? = null,
 ) {
     val c = Wyn.colors
     val context = LocalContext.current
@@ -145,17 +144,9 @@ fun ConversationScreen(
                     WynAvatar(person.avatarUrl, 44, contentDescription = stringResource(R.string.profile_photo_of, person.username))
                     Column(Modifier.padding(start = 10.dp)) {
                         Text(person.label, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        // web WyniiConversationHeader: @username · the Wynii pill.
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("@${person.username}", color = c.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            if (wynii?.pet != null) {
-                                Text("·", color = Color(0xFFB1B1B1), fontSize = 12.sp)
-                                WyniiPill(wynii)
-                            }
-                        }
+                        Text("@${person.username}", color = c.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                if (wynii != null) ConversationMenu(wynii, canStart = vm.meta?.status == "active") { onOpenProfile(person.id) }
             } else {
                 Spacer(Modifier.weight(1f))
             }
@@ -202,9 +193,6 @@ fun ConversationScreen(
             else -> Composer(vm, onPick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
         }
     }
-    wynii?.let { pet -> WyniiSheet(pet, vm.other?.label.orEmpty(), canStart = vm.meta?.status == "active") }
-    // Wynii grows with every message: check again whenever a new one arrives.
-    LaunchedEffect(vm.ordered.lastOrNull()?.id) { if (vm.ordered.isNotEmpty()) wynii?.load() }
     vm.confirm?.let { question ->
         val (title, action) = when (question) {
             is ChatConfirm.DeleteMessage -> stringResource(R.string.chat_delete_confirm) to stringResource(R.string.remove)
@@ -398,42 +386,4 @@ private fun Composer(vm: ConversationViewModel, onPick: () -> Unit) {
             }
         }
     }
-}
-
-/** web ⋯ menu in the conversation header: view profile, and see or start Wynii. */
-@Composable
-private fun ConversationMenu(wynii: WyniiViewModel, canStart: Boolean, onProfile: () -> Unit) {
-    val c = Wyn.colors
-    var open by remember { mutableStateOf(false) }
-    Box {
-        val more = stringResource(R.string.more)
-        Icon(
-            WynIcons.More, contentDescription = more, tint = c.text,
-            modifier = Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = more) { open = !open }.padding(9.dp),
-        )
-        androidx.compose.material3.DropdownMenu(
-            expanded = open, onDismissRequest = { open = false }, containerColor = c.bg,
-            shape = RoundedCornerShape(16.dp), modifier = Modifier.width(220.dp),
-        ) {
-            MenuItem(WynIcons.UserRound, stringResource(R.string.chat_view_profile)) { open = false; onProfile() }
-            if (wynii.pet != null) {
-                MenuItem(WynIcons.LucideHeart, stringResource(R.string.wynii_view)) { open = false; wynii.openSheet(true) }
-            } else {
-                MenuItem(
-                    WynIcons.Sparkles, stringResource(if (wynii.starting) R.string.wynii_starting else R.string.wynii_raise),
-                    enabled = canStart && !wynii.starting && wynii.loaded,
-                ) { open = false; wynii.begin(canStart) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
-    val c = Wyn.colors
-    androidx.compose.material3.DropdownMenuItem(
-        text = { Text(label, color = c.text.copy(alpha = if (enabled) 1f else 0.5f), fontSize = 14.sp) },
-        leadingIcon = { Icon(icon, contentDescription = null, tint = c.text.copy(alpha = if (enabled) 1f else 0.5f), modifier = Modifier.size(18.dp)) },
-        enabled = enabled, onClick = onClick,
-    )
 }

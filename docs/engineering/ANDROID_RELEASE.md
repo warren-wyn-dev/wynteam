@@ -78,7 +78,7 @@ testing build:
 - Home feed, like, save, repost, quote, post detail, comments. Compose with photos, a poll, and drafts.
 - Profile, edit profile (avatar crop), follow and unfollow, private account requests.
 - Notifications list, and a push arriving and opening the right screen (Android 13+ permission prompt).
-- Chat: inbox, requests, sending text and photos, Wynii.
+- Chat: inbox, requests, sending text and photos.
 - Clubs: explore, join, leave, club post, club chat. Also an invite link opened from another app (after step 5).
 - Search, trending, saved, settings (privacy, password, theme, language, export, legal documents).
 - Thai and English, light and dark, and a small phone with Android 8.0.

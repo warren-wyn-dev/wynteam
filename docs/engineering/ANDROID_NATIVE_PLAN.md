@@ -206,10 +206,9 @@ Still open in M1:
 - **Theme and language** apply on this phone at once and are saved to `user_preferences`; on sign-in the account's
   choice wins and an account with none drops the previous account's (web ThemeSync / LanguageSync). The language
   rebuilds the screen; app bundles keep both languages (`bundle.language.enableSplit = false`).
-- **Wynii** (web wynii-chat) in the conversation header: the "Wynii …" pill beside @username, the ⋯ menu (view
-  profile, see Wynii, or start one in an accepted conversation), and the sheet with the pet drawn from the web's art
-  for each stage, this round's status for both people, growth to the next milestone and the rule. It refreshes when
-  new messages arrive.
+- **Wynii removed (Founder decision 2026-10-05):** the conversation header no longer shows the Wynii pill, the ⋯
+  menu (it held only View profile and Wynii; tapping the name still opens the profile) or the Wynii sheet. The
+  `conversation_wynii` table and `start_conversation_wynii` RPC are untouched, and the web is unchanged.
 - **Next: M8 Play Store release — needs Founder approval** (signing, store listing, App Links / assetlinks.json,
   Firebase and Google sign-in configuration).
 
