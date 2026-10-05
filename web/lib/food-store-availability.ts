@@ -105,12 +105,45 @@ export function foodStoreIsEffectivelyOpen(store: FoodAvailabilityStore, at = ne
   return false;
 }
 
+const THAI_DAY_SHORT = ["จ.","อ.","พ.","พฤ.","ศ.","ส.","อา."];
+
+export function foodStoreTodayHoursText(store: FoodAvailabilityStore, at = new Date()) {
+  const schedule = normalizedSchedule(store.business_schedule);
+  if (!schedule) return null;
+  const bkk = bangkokParts(at);
+  if (store.special_closed_dates?.includes(bkk.date)) return "วันนี้หยุด";
+  const slot = schedule.weekly[FOOD_DAY_KEYS[bkk.weekday]];
+  if (!slot?.enabled) return "วันนี้ปิด";
+  return `วันนี้ ${slot.open}–${slot.close}`;
+}
+
+function nextOpeningText(store: FoodAvailabilityStore, at: Date) {
+  const schedule = normalizedSchedule(store.business_schedule);
+  if (!schedule) return null;
+  const bkk = bangkokParts(at);
+  const today = schedule.weekly[FOOD_DAY_KEYS[bkk.weekday]];
+  const todayOpen = hhmm(today?.open);
+  if (today?.enabled && todayOpen != null && bkk.minutes < todayOpen && !store.special_closed_dates?.includes(bkk.date)) {
+    return `เปิด ${today.open}`;
+  }
+  for (let offset = 1; offset <= 7; offset += 1) {
+    const index = (bkk.weekday + offset) % 7;
+    const slot = schedule.weekly[FOOD_DAY_KEYS[index]];
+    if (!slot?.enabled) continue;
+    return offset === 1 ? `เปิดพรุ่งนี้ ${slot.open}` : `เปิด${THAI_DAY_SHORT[index]} ${slot.open}`;
+  }
+  return null;
+}
+
 export function foodStoreStatusText(store: FoodAvailabilityStore, at = new Date()) {
   if (!store.is_open) return "ปิดรับออเดอร์";
   if (store.temporary_closed_until && Date.parse(store.temporary_closed_until) > at.getTime()) {
     return store.temporary_closed_reason?.trim() || "ปิดชั่วคราว";
   }
-  if (!foodStoreIsEffectivelyOpen(store, at)) return "ปิดตามเวลาร้าน";
+  if (!foodStoreIsEffectivelyOpen(store, at)) {
+    const next = nextOpeningText(store, at);
+    return next ? `ปิด · ${next}` : "ปิดตามเวลาร้าน";
+  }
   return "เปิดรับออเดอร์";
 }
 
