@@ -178,7 +178,10 @@ test("Merchant production readiness suite covers hours, publish gate, ETA, order
   expect(app).toContain("ปิดชั่วคราว");
   expect(app).toContain("Preview หน้าร้าน");
   expect(app).toContain("หมดวันนี้");
-  expect(app).toContain("draggable={!q}");
+  expect(app).toContain("draggable={sortMode && !q}");
+  expect(app).toContain("wm-menu-toolbar");
+  expect(app).toContain("ทุกหมวดหมู่");
+  expect(app).toContain("wm-menu-action-popover");
   expect(app).toContain("ประวัติการแก้ไขร้าน");
   expect(app).toContain("checkMerchantLocationQuality");
   expect(merchant).toContain("food_store_publish_readiness");
