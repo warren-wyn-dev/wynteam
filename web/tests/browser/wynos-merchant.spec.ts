@@ -199,7 +199,7 @@ test("Merchant receives orders from WYNOS Food only while keeping delivery workf
   const data = read("lib/food-merchant.ts");
   const guardSql = read("../supabase/migrations_wynos_food_orders_only_v1.sql");
 
-  expect(app).toContain("ออเดอร์จาก WYNOS Food");
+  expect(app).not.toContain("<small>ออเดอร์จาก WYNOS Food</small><h1>ออเดอร์</h1>");
   expect(app).not.toContain("createManualFoodOrder");
   expect(app).not.toContain("ManualOrderSheet");
   expect(app).not.toContain("> สร้างออเดอร์</button>");
@@ -377,10 +377,11 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   const alert = read("components/merchant/merchant-order-alert.tsx");
   const css = read("app/merchant/merchant.css");
 
-  // Four tabs in working order; search and filters are tucked away.
+  // Four tabs in working order; the active-order page intentionally has no search/filter toolbar.
   expect(app).toContain('type OrderFilter = "new" | "cooking" | "delivery" | "done";');
   expect(app).toContain('useState<OrderFilter>("new")');
-  expect(app).toContain("{showTools ? <div className=\"wm-order-search-tools\">");
+  expect(app).not.toContain("wm-order-search-tools");
+  expect(app).not.toContain('aria-label="ค้นหาและตัวกรอง"');
 
   // The card runs simple steps; the slip and the delivery photo still need the order open.
   expect(app).toContain('if (next.step === "check_slip" || next.step === "deliver") {');
