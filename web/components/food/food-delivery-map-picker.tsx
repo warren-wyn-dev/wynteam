@@ -878,7 +878,7 @@ export function FoodDeliveryMapPicker({
     node.type = "button";
     node.className = "wf-map-entrance-marker";
     node.setAttribute("aria-label", "จุดรับอาหารหรือทางเข้าร้าน");
-    node.innerHTML = "<span>รับอาหาร</span>";
+    node.textContent = "รับอาหาร";
     node.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
