@@ -3,11 +3,12 @@ import type { ReactNode } from "react";
 
 import "../food/food.css";
 import "./maps.css";
+import "./maps-v2.css";
 
 export const metadata: Metadata = {
-  title: "WYNOS Maps · ปักหมุดที่อยู่",
+  title: "WYNOS Maps",
   applicationName: "WYNOS Maps",
-  description: "ปักหมุดตำแหน่งจัดส่งสำหรับ WYNOS Food",
+  description: "ค้นหา สำรวจ และเลือกตำแหน่งบน WYNOS Maps",
   robots: { index: false, follow: false },
 };
 

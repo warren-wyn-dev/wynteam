@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Check, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Store, X } from "lucide-react";
+import { ArrowLeft, Building2, Check, Coffee, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, ShoppingBag, Store, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -319,11 +319,11 @@ export function FoodDeliveryMapPicker({
     setCurrentLocationSelected(false);
     mapRef.current?.flyTo({
       center: [next.longitude, next.latitude],
-      zoom: 17,
+      zoom: standalone ? 15.8 : 17,
       essential: true,
     });
     void loadNearby(next);
-  }, [loadNearby]);
+  }, [loadNearby, standalone]);
 
   const pickCurrentLocation = useCallback(async () => {
     setWorking(true);
@@ -499,7 +499,7 @@ export function FoodDeliveryMapPicker({
           source: SERVICE_AREA_SOURCE,
           paint: {
             "fill-color": "#159447",
-            "fill-opacity": 0.09,
+            "fill-opacity": 0.035,
           },
         });
       }
@@ -510,8 +510,8 @@ export function FoodDeliveryMapPicker({
           source: SERVICE_AREA_SOURCE,
           paint: {
             "line-color": "#0b7f3b",
-            "line-width": 2,
-            "line-opacity": 0.72,
+            "line-width": 1.5,
+            "line-opacity": 0.38,
           },
         });
       }
@@ -533,7 +533,10 @@ export function FoodDeliveryMapPicker({
     if (!mapReady || !map || !maplibre) return;
 
     nearbyMarkersRef.current.forEach((marker) => marker.remove());
-    const markers = nearbyPlaces.map((nearbyPlace, index) => {
+    const markerLimit = standalone
+      ? (mapZoom >= 15.5 ? 28 : mapZoom >= 13.5 ? 18 : 10)
+      : nearbyPlaces.length;
+    const markers = nearbyPlaces.slice(0, markerLimit).map((nearbyPlace, index) => {
       const button = document.createElement("button");
       button.type = "button";
       const selected = activeNearbyPlace
@@ -640,6 +643,13 @@ export function FoodDeliveryMapPicker({
     void runSearch(query, false);
   };
 
+  const quickSearch = (value: string) => {
+    setQuery(value);
+    setSearchFocused(true);
+    setSheetExpanded(false);
+    void runSearch(value, false);
+  };
+
   const openSuggestion = () => {
     if (!location) {
       setStatus("ปักหมุดตำแหน่งของสถานที่ก่อน");
@@ -696,10 +706,20 @@ export function FoodDeliveryMapPicker({
     place?.source === "photon" || results.some((result) => result.source === "photon");
 
   return (
-    <div className="wf-map-picker" role="dialog" aria-modal="true" aria-label="ปักหมุดตำแหน่งจัดส่ง">
+    <div
+      className="wf-map-picker"
+      role={standalone ? "region" : "dialog"}
+      aria-modal={standalone ? undefined : true}
+      aria-label={standalone ? "WYNOS Maps" : "ปักหมุดตำแหน่งจัดส่ง"}
+    >
       <header className="wf-map-picker-head">
-        <button type="button" aria-label="ปิดแผนที่" onClick={onClose}><X size={22} /></button>
-        <div><strong>ปักหมุดตำแหน่งจัดส่ง</strong><small>เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร</small></div>
+        <button type="button" aria-label={standalone ? "ย้อนกลับ" : "ปิดแผนที่"} onClick={onClose}>
+          {standalone ? <ArrowLeft size={22} /> : <X size={22} />}
+        </button>
+        <div>
+          <strong>{standalone ? "WYNOS Maps" : "ปักหมุดตำแหน่งจัดส่ง"}</strong>
+          <small>{standalone ? "ค้นหา สำรวจ และเลือกตำแหน่ง" : "เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร"}</small>
+        </div>
         <span />
       </header>
 
@@ -729,14 +749,30 @@ export function FoodDeliveryMapPicker({
                 event.currentTarget.blur();
               }
             }}
-            placeholder="ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"
-            aria-label="ค้นหาสถานที่หรือที่อยู่"
+            placeholder={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"}
+            aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}
             autoComplete="off"
           />
           <button type="button" disabled={searching || !query.trim()} onClick={search}>
             {searching ? "กำลังค้น…" : "ค้นหา"}
           </button>
         </div>
+        {standalone ? (
+          <div className="wf-map-quick-filters" aria-label="หมวดหมู่สถานที่">
+            <button type="button" className={query === "ร้านอาหาร" ? "is-active" : ""} onClick={() => quickSearch("ร้านอาหาร")}>
+              <Utensils size={16} /><span>ร้านอาหาร</span>
+            </button>
+            <button type="button" className={query === "คาเฟ่" ? "is-active" : ""} onClick={() => quickSearch("คาเฟ่")}>
+              <Coffee size={16} /><span>คาเฟ่</span>
+            </button>
+            <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
+              <Building2 size={16} /><span>หอพัก</span>
+            </button>
+            <button type="button" className={query === "ร้านค้า" ? "is-active" : ""} onClick={() => quickSearch("ร้านค้า")}>
+              <ShoppingBag size={16} /><span>ร้านค้า</span>
+            </button>
+          </div>
+        ) : null}
         {results.length ? (
           <div className="wf-map-results">
             {results.map((result) => (
@@ -769,7 +805,7 @@ export function FoodDeliveryMapPicker({
           </div>
         ) : null}
         <div className={mapDragging ? "wf-map-center-pin is-dragging" : "wf-map-center-pin"} aria-hidden="true">
-          <MapPin size={42} fill="currentColor" />
+          <MapPin size={standalone ? 36 : 42} fill="currentColor" />
         </div>
         {standalone && serviceAreaBoundary ? (
           <div
@@ -922,14 +958,16 @@ export function FoodDeliveryMapPicker({
         <div className="wf-map-confirm-copy">
           <span><MapPin size={18} /></span>
           <div>
-            <small>ตำแหน่งจัดส่ง</small>
+            <small>{standalone ? "ตำแหน่งที่เลือก" : "ตำแหน่งจัดส่ง"}</small>
             <strong>
               {place?.name
                 || (resolvingPlace
                   ? "กำลังค้นหาชื่อสถานที่…"
                   : location
                     ? "ไม่พบชื่อสถานที่"
-                    : "เลื่อนแผนที่หรือค้นหาสถานที่")}
+                    : standalone
+                      ? "ค้นหาหรือเลื่อนแผนที่"
+                      : "เลื่อนแผนที่หรือค้นหาสถานที่")}
             </strong>
             {place?.address ? <p className="wf-map-confirm-address">{place.address}</p> : null}
             {!place && location && !resolvingPlace ? (
@@ -998,7 +1036,7 @@ export function FoodDeliveryMapPicker({
             onConfirm(location, place ?? undefined);
           }}
         >
-          <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : "ยืนยันตำแหน่งนี้"}
+          <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : standalone ? "ใช้ตำแหน่งนี้" : "ยืนยันตำแหน่งนี้"}
         </button>
 
       </section>

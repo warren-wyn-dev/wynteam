@@ -75,7 +75,7 @@ export function WynosMapsAddressPicker() {
       {saved ? (
         <div className="wynos-maps-saved" role="status">
           <CheckCircle2 size={18} />
-          บันทึกหมุดแล้ว
+          บันทึกตำแหน่งแล้ว
         </div>
       ) : null}
     </main>
