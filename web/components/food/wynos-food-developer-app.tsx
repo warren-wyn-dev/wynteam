@@ -1059,10 +1059,22 @@ function OrderDetailSheet({
   onMessage: (message: string) => void;
 }) {
   const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipPreviewUrl, setSlipPreviewUrl] = useState<string | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [dynamicPaymentQr, setDynamicPaymentQr] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  const slipInputRef = useRef<HTMLInputElement>(null);
   const proof = orderDeliveryProof(order);
+
+  useEffect(() => {
+    if (!slipFile) {
+      setSlipPreviewUrl(null);
+      return;
+    }
+    const previewUrl = URL.createObjectURL(slipFile);
+    setSlipPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [slipFile]);
 
   useEffect(() => {
     let live = true;
@@ -1088,6 +1100,11 @@ function OrderDetailSheet({
     };
   }, [client, order.id, order.payment_status, store?.promptpay_id]);
 
+  const clearSlip = () => {
+    setSlipFile(null);
+    if (slipInputRef.current) slipInputRef.current.value = "";
+  };
+
   const submitSlip = async () => {
     if (!slipFile) {
       onMessage("กรุณาเลือกรูปสลิป");
@@ -1104,7 +1121,7 @@ function OrderDetailSheet({
             ? "ตรวจสอบสลิปไม่ผ่าน กรุณาตรวจสอบและส่งใหม่"
             : "รับสลิปแล้ว กำลังรอร้านตรวจสอบ",
       );
-      setSlipFile(null);
+      clearSlip();
       await onReload();
     } catch (error) {
       onMessage(foodCustomerError(error));
@@ -1193,10 +1210,46 @@ function OrderDetailSheet({
                 {store?.bank_name || store?.bank_account_number ? <div><span>{store.bank_name || "บัญชีธนาคาร"}</span><strong>{store.bank_account_name || "—"}</strong><b>{store.bank_account_number || "—"}</b></div> : null}
               </div>
               {!paymentQr && !store?.promptpay_id && !store?.bank_account_number ? <div className="wf-inline-warning">ร้านยังไม่ได้ตั้งค่าช่องทางรับเงิน</div> : null}
-              <label className="wf-upload">
-                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setSlipFile(event.target.files?.[0] ?? null)} />
-                <Upload size={20} /><span>{slipFile ? slipFile.name : "แนบรูปสลิป"}</span>
-              </label>
+              {slipFile ? (
+                <div className="wf-slip-preview">
+                  <div className="wf-slip-preview-image">
+                    {slipPreviewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={slipPreviewUrl} alt="รูปตัวอย่างสลิปที่เลือก" />
+                    ) : null}
+                  </div>
+                  <div className="wf-slip-preview-copy">
+                    <div className="wf-slip-preview-status"><Check size={14} /><span>เพิ่มสลิปแล้ว</span></div>
+                    <strong title={slipFile.name}>{slipFile.name}</strong>
+                    <div className="wf-slip-preview-actions">
+                      <label className={`wf-slip-preview-action${combinedBusy ? " is-disabled" : ""}`}>
+                        <input
+                          ref={slipInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          disabled={combinedBusy}
+                          onChange={(event) => setSlipFile(event.target.files?.[0] ?? null)}
+                        />
+                        <Upload size={15} /><span>เปลี่ยนรูป</span>
+                      </label>
+                      <button className="wf-slip-preview-action wf-slip-preview-remove" type="button" disabled={combinedBusy} onClick={clearSlip}>
+                        <Trash2 size={15} /><span>ลบรูป</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <label className="wf-upload">
+                  <input
+                    ref={slipInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={combinedBusy}
+                    onChange={(event) => setSlipFile(event.target.files?.[0] ?? null)}
+                  />
+                  <Upload size={20} /><span>แนบรูปสลิป</span>
+                </label>
+              )}
               <button className="wf-primary wf-full" type="button" disabled={!slipFile || combinedBusy} onClick={() => void submitSlip()}>
                 {combinedBusy ? "กำลังส่ง…" : "แจ้งชำระเงิน"}
               </button>
