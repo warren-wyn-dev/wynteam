@@ -49,6 +49,7 @@ import {
   foodMenuIsEffectivelyAvailable,
   foodStoreIsEffectivelyOpen,
   foodStoreStatusText,
+  foodStoreTodayHoursText,
 } from "@/lib/food-store-availability";
 import {
   cancelFoodCustomerOrder,
@@ -472,7 +473,7 @@ function HomePanel({
             ) : null}
             {store.description ? <p>{store.description}</p> : null}
             <div className="wf-store-meta">
-              {store.business_hours ? <span><Clock3 size={14} />{store.business_hours}</span> : null}
+              {foodStoreTodayHoursText(store) ? <span><Clock3 size={14} />{foodStoreTodayHoursText(store)}</span> : store.business_hours ? <span><Clock3 size={14} />{store.business_hours}</span> : null}
               <span><Clock3 size={14} />เตรียมประมาณ {Number(store.prep_time_min_minutes ?? 15)}–{Number(store.prep_time_max_minutes ?? 30)} นาที</span>
               <span><MapPin size={14} />ค่าส่ง {foodMoney(store.delivery_fee)}</span>
               {Number(store.minimum_order) > 0 ? <span>ขั้นต่ำ {foodMoney(store.minimum_order)}</span> : null}
