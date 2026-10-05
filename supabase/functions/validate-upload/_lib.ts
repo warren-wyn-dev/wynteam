@@ -17,6 +17,8 @@ export const IMAGE_BUCKETS = new Set([
   // WYNOS Food: payment slips, delivery photos (private) and store media (public).
   "food-private",
   "food-public",
+  // WYNOS Maps: user place photos (private until an admin approves them).
+  "place-photos",
 ]);
 
 /** Bytes needed to recognise every supported format (ISO-BMFF brands included). */

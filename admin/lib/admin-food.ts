@@ -334,3 +334,33 @@ export async function fetchAdminWynosPlaceSuggestions(
   if (error) throw error;
   return (data ?? []) as AdminWynosPlaceSuggestion[];
 }
+
+export type AdminWynosPlacePhoto = {
+  id: string;
+  place_id: string;
+  place_name: string;
+  user_id: string;
+  storage_path: string;
+  width: number | null;
+  height: number | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  url: string | null;
+};
+
+/** Pending WYNOS Maps place photos with short-lived signed URLs; empty until the migration is installed. */
+export async function fetchAdminWynosPlacePhotos(): Promise<AdminWynosPlacePhoto[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_wynos_place_photos", { p_status: "pending", p_limit: 100 });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return [];
+    throw error;
+  }
+  const rows = (data ?? []) as Omit<AdminWynosPlacePhoto, "url">[];
+  if (!rows.length) return [];
+  const { data: signed } = await supabase.storage
+    .from("place-photos")
+    .createSignedUrls(rows.map((row) => row.storage_path), 60 * 30);
+  const urls = new Map((signed ?? []).flatMap((item) => (item.path && item.signedUrl ? [[item.path, item.signedUrl] as const] : [])));
+  return rows.map((row) => ({ ...row, url: urls.get(row.storage_path) ?? null }));
+}
