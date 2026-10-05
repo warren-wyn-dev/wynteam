@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, MapPinned } from "lucide-react";
 
 import { WynosPlacesManager } from "@/components/admin/wynos-places-manager";
-import { fetchAdminWynosPlaces } from "@/lib/admin-food";
+import { fetchAdminWynosPlaces, fetchAdminWynosPlaceSuggestions } from "@/lib/admin-food";
 import { requireAdminRole } from "@/lib/auth";
 
 export default async function WynosPlacesPage({
@@ -12,12 +12,15 @@ export default async function WynosPlacesPage({
 }) {
   await requireAdminRole();
   const params = await searchParams;
-  const places = await fetchAdminWynosPlaces({
-    query: params.q,
-    category: params.category,
-    status: params.status,
-    limit: 500,
-  });
+  const [places, suggestions] = await Promise.all([
+    fetchAdminWynosPlaces({
+      query: params.q,
+      category: params.category,
+      status: params.status,
+      limit: 500,
+    }),
+    fetchAdminWynosPlaceSuggestions("pending"),
+  ]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -57,7 +60,7 @@ export default async function WynosPlacesPage({
         <button type="submit" className="h-10 rounded-md border px-4 text-sm font-medium hover:bg-accent">กรอง</button>
       </form>
 
-      <WynosPlacesManager places={places} />
+      <WynosPlacesManager places={places} suggestions={suggestions} />
     </div>
   );
 }
