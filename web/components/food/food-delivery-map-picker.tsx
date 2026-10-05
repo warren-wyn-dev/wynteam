@@ -598,9 +598,12 @@ export function FoodDeliveryMapPicker({
     nearbyMarkersRef.current.forEach((marker) => marker.remove());
 
     const markerLimit = standalone
-      ? (mapZoom >= 17 ? 22 : mapZoom >= 15.5 ? 16 : mapZoom >= 13.5 ? 12 : 8)
+      ? (mapZoom >= 17 ? 18 : mapZoom >= 15.5 ? 12 : mapZoom >= 13.5 ? 8 : 5)
       : nearbyPlaces.length;
     const selectedIdentity = activeNearbyPlace ? placeIdentity(activeNearbyPlace) : null;
+    // Keep the backend's proximity-first order for normal POIs. Only the
+    // actively selected place is promoted so decluttering never hides a
+    // closer address in favor of a farther category.
     const candidates = [...nearbyPlaces].sort((a, b) => {
       const aSelected = selectedIdentity === placeIdentity(a);
       const bSelected = selectedIdentity === placeIdentity(b);
@@ -608,7 +611,9 @@ export function FoodDeliveryMapPicker({
       return aSelected ? -1 : 1;
     });
     const occupied: MapPoint[] = [];
-    const minimumGap = mapZoom >= 17 ? 34 : mapZoom >= 15.5 ? 42 : 50;
+    const minimumGap = standalone
+      ? (mapZoom >= 17 ? 46 : mapZoom >= 15.5 ? 58 : 70)
+      : (mapZoom >= 17 ? 34 : mapZoom >= 15.5 ? 42 : 50);
     const visiblePlaces: FoodPlace[] = [];
 
     for (const nearbyPlace of candidates) {

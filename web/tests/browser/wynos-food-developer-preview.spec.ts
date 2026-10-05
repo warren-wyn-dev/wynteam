@@ -58,6 +58,10 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(map).toContain("wf-map-place-symbol");
   expect(map).toContain("wf-map-user-location");
   expect(map).toContain('anchor: selected ? "bottom" : "center"');
+  expect(map).toContain("mapZoom >= 17 ? 18 : mapZoom >= 15.5 ? 12 : mapZoom >= 13.5 ? 8 : 5");
+  expect(map).toContain("mapZoom >= 17 ? 46 : mapZoom >= 15.5 ? 58 : 70");
+  expect(map).toContain("return aSelected ? -1 : 1");
+  expect(map).toContain("wf-map-place-marker is-${kind}");
   expect(mapsV2Css).toContain(".wf-map-place-marker.is-cafe");
   expect(mapsV2Css).toContain(".wf-map-user-location");
 
@@ -159,10 +163,8 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(nearbyRankingSql).toContain("internal.food_distance_km(p_latitude, p_longitude, p.latitude, p.longitude)");
   expect(nearbyRankingSql).toContain("when p.category = 'residence' then 0");
   expect(map).toContain("nearbyRadiusForZoom");
-  expect(map).toContain("index < 24");
   expect(map).toContain("fetchNearbyWynosPlaces");
   expect(map).toContain("wf-map-place-label");
-  expect(map).toContain("mapZoom >= 14.5");
   expect(map).toContain("เพิ่มสถานที่ที่หายไป");
   expect(map).toContain("submitWynosPlaceSuggestion");
   expect(data).toContain('client.rpc("submit_wynos_place_suggestion"');
@@ -173,7 +175,6 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(overtureWorkflow).toContain("activate_confidence");
   expect(overtureImporter).toContain("source_ref");
   expect(overtureImporter).toContain("activate-confidence");
-  expect(map).toContain('"wf-map-place-marker is-food"');
   expect(map).toContain("ดูร้านใน WYNOS Food");
   expect(app).toContain('new URLSearchParams(window.location.search).get("store")');
   expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
