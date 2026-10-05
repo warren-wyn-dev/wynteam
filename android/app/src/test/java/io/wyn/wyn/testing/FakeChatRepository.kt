@@ -63,13 +63,6 @@ class FakeChatRepository : ChatRepository {
     }
     override suspend fun imageUrl(path: String) = "https://example.invalid/$path"
 
-    var pet: io.wyn.wyn.core.data.WyniiPet? = null
-    var startCalls = 0
-    override suspend fun wynii(conversationId: String) = pet
-    override suspend fun startWynii(conversationId: String): io.wyn.wyn.core.data.WyniiPet {
-        startCalls++
-        return io.wyn.wyn.core.data.WyniiPet(conversationId, ChatFixture.ME, ChatFixture.OTHER, 0, nextCycleAt = Instant.now().toString()).also { pet = it }
-    }
 }
 
 object ChatFixture {

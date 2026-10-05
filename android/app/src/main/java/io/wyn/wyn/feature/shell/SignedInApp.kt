@@ -59,7 +59,6 @@ import io.wyn.wyn.core.data.SupabaseDiscoveryRepository
 import io.wyn.wyn.core.data.DevicePreferences
 import io.wyn.wyn.core.data.SettingsRepository
 import io.wyn.wyn.core.data.SupabaseSettingsRepository
-import io.wyn.wyn.feature.chat.WyniiViewModel
 import io.wyn.wyn.feature.settings.DeviceAppearance
 import io.wyn.wyn.feature.settings.InMemoryAppearance
 import io.wyn.wyn.feature.settings.SettingsActions
@@ -612,15 +611,10 @@ fun SignedInApp(
                         }
                     }
                 }
-                // web WyniiConversationHeader: only for a conversation that exists.
-                val pet: WyniiViewModel? = conversation.conversationId?.let { id ->
-                    viewModel(key = "wynii:$userId:$id", factory = viewModelFactory { initializer { WyniiViewModel(repos.chat, userId, id) } })
-                }
                 ConversationScreen(
                     conversation, repos.chat,
                     onBack = { pop(); inbox.load() },
                     onOpenProfile = ::openProfile,
-                    wynii = pet,
                 )
             }
         }

@@ -665,7 +665,7 @@
     <string name="feedback_shared">Share options opened</string>
     <string name="feedback_share_failed">Couldn\'t open sharing. Try copying the text instead</string>
 
-    <!-- M7 Settings and Wynii (web settings-route, settings-change-password, wynii-chat) -->
+    <!-- M7 Settings (web settings-route, settings-change-password) -->
     <string name="settings_account">Account</string>
     <string name="settings_privacy">Privacy</string>
     <string name="settings_app">App settings</string>
@@ -747,35 +747,4 @@
     <string name="password_needs_email">This account must verify by email first. Please use Forgot password</string>
     <string name="password_failed">Couldn\'t change the password. Please try again</string>
     <string name="password_network">Couldn\'t connect. Please try again</string>
-    <string name="wynii_load_failed">Couldn\'t load Wynii</string>
-    <string name="wynii_start_failed">Couldn\'t start raising Wynii</string>
-    <string name="wynii_resting">Resting</string>
-    <string name="wynii_resting_detail">The previous round wasn\'t completed within 24 hours. A new round starts with a new message</string>
-    <string name="wynii_waiting_other">Waiting for them</string>
-    <string name="wynii_waiting_other_detail">You\'ve sent yours. Waiting for them to send within 24 hours</string>
-    <string name="wynii_your_turn">Your turn</string>
-    <string name="wynii_your_turn_detail">They\'ve sent theirs. Send anything in the chat to look after Wynii</string>
-    <string name="wynii_in_round_detail">Looking after Wynii this round</string>
-    <string name="wynii_done_today">Done for today ✓</string>
-    <string name="wynii_done_today_detail">You\'ve both sent this round. The next round opens after 24 hours</string>
-    <string name="wynii_idle_detail">Each of you sends anything in the chat once within 24 hours</string>
-    <string name="wynii_days">%1$d days</string>
-    <string name="wynii_days_left">%1$d days to go</string>
-    <string name="wynii_stage_egg">Egg</string>
-    <string name="wynii_stage_hatching">Hatching</string>
-    <string name="wynii_stage_baby">Child</string>
-    <string name="wynii_stage_growing">Growing</string>
-    <string name="wynii_stage_mature">Grown</string>
-    <string name="wynii_stage_max">MAX Form</string>
-    <string name="wynii_max_suffix">" · keeps growing"</string>
-    <string name="wynii_sheet_title">Our Wynii</string>
-    <string name="wynii_start_title">Starts as an egg</string>
-    <string name="wynii_start_body">Wynii grows as the two of you chat</string>
-    <string name="wynii_start">Start raising Wynii together</string>
-    <string name="wynii_starting">Starting…</string>
-    <string name="wynii_raise">Raise Wynii together</string>
-    <string name="wynii_view">View Wynii</string>
-    <string name="wynii_sent">✓ Sent</string>
-    <string name="wynii_wait">Pending</string>
-    <string name="wynii_rule">Each of you sends anything in the chat once within 24 hours = Wynii +1 day old · Age never drops or resets while resting</string>
 </resources>
