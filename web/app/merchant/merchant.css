@@ -3170,3 +3170,35 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-menu-stock-editor label {
   max-width: 220px;
 }
+
+
+.wm-sort-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wm-sort-controls button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--wm-border);
+  border-radius: 8px;
+  background: var(--wm-bg);
+  color: var(--wm-secondary);
+  display: grid;
+  place-items: center;
+}
+
+.wm-sort-controls button:disabled {
+  opacity: .32;
+}
+
+.wm-sort-controls em {
+  color: var(--wm-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.wm-menu-row-actions > .wm-sort-controls {
+  justify-self: end;
+}
