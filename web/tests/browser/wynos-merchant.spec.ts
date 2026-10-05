@@ -34,6 +34,23 @@ test("Merchant data layer uses dedicated Food RPCs, secure evidence storage and 
   expect(data).toContain("withoutLocation(file, contentType)");
 });
 
+test("Merchant can upload and preview store profile and cover images", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const data = read("lib/food-merchant.ts");
+  const food = read("components/food/wynos-food-developer-app.tsx");
+
+  expect(data).toContain("logo_path: patch.logo_path");
+  expect(data).toContain("cover_path: patch.cover_path");
+  expect(app).toContain('chooseBrandImage("logo"');
+  expect(app).toContain('chooseBrandImage("cover"');
+  expect(app).toContain("รูปโปรไฟล์และรูปปกร้าน");
+  expect(app).toContain("wm-store-brand-card-cover");
+  expect(app).toContain("logo_path: logo");
+  expect(app).toContain("cover_path: cover");
+  expect(food).toContain("foodPublicUrl(client, store.cover_path)");
+  expect(food).toContain("foodPublicUrl(client, store.logo_path)");
+});
+
 test("Merchant receives orders from WYNOS Food only while keeping delivery workflow", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
