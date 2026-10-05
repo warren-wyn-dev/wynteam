@@ -510,6 +510,7 @@ function HomePanel({
               <span className="wf-menu-copy">
                 <strong>{item.name}</strong>
                 {item.description ? <small>{item.description}</small> : <small>{item.category}</small>}
+                {item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
                 <b>{foodMoney(item.price)}</b>
               </span>
               <span className={available ? "wf-add" : "wf-soldout"}>
@@ -833,7 +834,7 @@ function ItemSheet({
             <img src={image} alt="" />
           ) : <UtensilsCrossed size={40} strokeWidth={1.35} />}
         </div>
-        <div className="wf-item-title"><div><h3>{item.name}</h3><p>{item.description || item.category}</p></div><strong>{foodMoney(item.price)}</strong></div>
+        <div className="wf-item-title"><div><h3>{item.name}</h3><p>{item.description || item.category}</p>{item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}</div><strong>{foodMoney(item.price)}</strong></div>
         {!itemAvailable ? <div className="wf-inline-warning">เมนูนี้หมดชั่วคราว</div> : null}
         {!storeOpen ? <div className="wf-inline-warning">ร้านยังไม่เปิดรับออเดอร์</div> : null}
         <label className="wf-field">หมายเหตุถึงร้าน<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น ไม่ใส่ผัก" /></label>
