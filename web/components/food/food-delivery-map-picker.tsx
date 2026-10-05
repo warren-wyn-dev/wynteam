@@ -1559,7 +1559,7 @@ export function FoodDeliveryMapPicker({
                 </button>
               ) : null}
               {activeNearbyPlace.merchantStoreId ? (
-                <a href={`/food?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}>ดูร้านใน WYNOS Food</a>
+                <a href={`https://food.wynos.online/?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}>สั่งใน WYNOS Food</a>
               ) : null}
             </div>
           </article>
