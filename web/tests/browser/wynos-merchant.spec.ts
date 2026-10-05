@@ -66,11 +66,9 @@ test("Merchant keeps scheduled orders and tax receipts while More stays simple",
   expect(app).toContain("เปิดรับออเดอร์ล่วงหน้า");
   expect(app).toContain("แสดงข้อมูลภาษีในใบเสร็จ");
   expect(app).toContain('className="wm-print-document"');
-  expect(app).toContain("<Settings2 size={37}");
-  expect(app).toContain("<CircleHelp size={37}");
+  expect(app).toContain('name="settings" size={52} />');
+  expect(app).toContain('name="help" size={52} />');
   expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))");
-  expect(css).toContain(".wm-tile-icon--settings");
-  expect(css).toContain(".wm-tile-icon--help");
   expect(data).toContain("scheduled_orders_enabled?: boolean");
   expect(data).toContain("tax_invoice_enabled?: boolean");
   expect(data).toContain("receipt_tax_id?: string | null");
@@ -473,6 +471,8 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   // One row of Wynos's own 3D icons (SVG, no third-party artwork). WYN-205:
   // the Founder picked การเงิน · โฆษณา · แคมเปญ · โปรโมชั่น for this row.
   expect(icons).toContain("export function MerchantIcon3D({ name, size = 44 }");
+  expect(icons).toContain('settings: (p) => (');
+  expect(icons).toContain('help: (p) => (');
   for (const shortcut of ['name="finance" size={52} />การเงิน', 'name="ads" size={52} />โฆษณา', 'name="campaign" size={52} />แคมเปญ', 'name="promotion" size={52} />โปรโมชั่น']) {
     expect(app).toContain(shortcut);
   }
