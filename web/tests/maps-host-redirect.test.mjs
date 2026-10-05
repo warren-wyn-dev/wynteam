@@ -14,3 +14,8 @@ test("food and merchant subdomains keep their root rewrites", () => {
   assert.match(proxy, /"food\.wynos\.online": "\/food"/);
   assert.match(proxy, /"merchant\.wynos\.online": "\/merchant"/);
 });
+
+test("Maps markers keep MapLibre's absolute positioning", () => {
+  const css = readFileSync(new URL("../app/maps/maps-v3.css", import.meta.url), "utf8");
+  assert.match(css, /\.wynos-maps-page \.maplibregl-marker\.wf-map-user-location,\s*\.wynos-maps-page \.maplibregl-marker\.wf-map-place-marker \{\s*position: absolute;/);
+});
