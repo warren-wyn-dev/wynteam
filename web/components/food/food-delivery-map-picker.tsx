@@ -1,13 +1,14 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Check, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Store, X } from "lucide-react";
+import { Bookmark, Check, History, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Share2, Store, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   checkFoodDeliveryAvailability,
   currentFoodLocation,
   fetchNearbyWynosPlaces,
+  foodDistanceKm,
   foodMoney,
   reverseFoodPlace,
   searchFoodPlaces,
@@ -16,6 +17,7 @@ import {
   type FoodLocation,
   type FoodPlace,
 } from "@/lib/food-customer";
+import { shareOrCopyLink } from "@/lib/share";
 
 type MapCenter = { lat: number; lng: number };
 type MapStyle = string | {
@@ -50,6 +52,21 @@ type ServiceAreaFeature = {
   };
 };
 
+type EmptyFeatureCollection = {
+  type: "FeatureCollection";
+  features: ServiceAreaFeature[];
+};
+
+type MapGeoJsonData = ServiceAreaFeature | EmptyFeatureCollection;
+type MapGeoJsonSource = { setData: (data: MapGeoJsonData) => void };
+type MapPoint = { x: number; y: number };
+
+type QuickMapPlace = FoodPlace & {
+  quickLabel: string;
+  quickKind: "recent" | "saved";
+  quickDefault?: boolean;
+};
+
 type MapInstance = {
   getCenter: () => MapCenter;
   getZoom: () => number;
@@ -59,9 +76,10 @@ type MapInstance = {
   remove: () => void;
   resize: () => void;
   setStyle: (style: MapStyle) => void;
-  getSource: (id: string) => unknown;
+  project: (location: [number, number]) => MapPoint;
+  getSource: (id: string) => MapGeoJsonSource | undefined;
   getLayer: (id: string) => unknown;
-  addSource: (id: string, source: { type: "geojson"; data: ServiceAreaFeature }) => void;
+  addSource: (id: string, source: { type: "geojson"; data: MapGeoJsonData }) => void;
   addLayer: (layer: {
     id: string;
     type: "fill" | "line";
@@ -105,6 +123,10 @@ const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";
 const SERVICE_AREA_SOURCE = "wynos-food-service-area";
 const SERVICE_AREA_FILL_LAYER = "wynos-food-service-area-fill";
 const SERVICE_AREA_LINE_LAYER = "wynos-food-service-area-line";
+const GPS_ACCURACY_SOURCE = "wynos-gps-accuracy";
+const GPS_ACCURACY_FILL_LAYER = "wynos-gps-accuracy-fill";
+const GPS_ACCURACY_LINE_LAYER = "wynos-gps-accuracy-line";
+const LAST_PIN_STORAGE_KEY = "wynos:maps:last-pin";
 const FALLBACK_MAP_STYLE: MapStyle = {
   version: 8,
   sources: {
@@ -220,6 +242,47 @@ function placeIdentity(place: FoodPlace) {
   return place.placeId ?? `${place.latitude.toFixed(6)},${place.longitude.toFixed(6)},${place.name}`;
 }
 
+function labelLimitForZoom(zoom: number) {
+  if (zoom >= 17.5) return 14;
+  if (zoom >= 16) return 10;
+  if (zoom >= 14.5) return 7;
+  return 0;
+}
+
+function labelPriority(place: FoodPlace) {
+  return (place.merchantStoreId ? 80 : 0)
+    + (place.verificationStatus === "wynos_verified" ? 32 : place.verificationStatus === "merchant_verified" ? 20 : 0)
+    + (place.category === "restaurant" ? 14 : place.category === "building" || place.category === "residence" ? 8 : 0)
+    - Math.min(place.distanceKm ?? 99, 40);
+}
+
+function accuracyCircleFeature(location: FoodLocation, radiusMeters: number): ServiceAreaFeature {
+  const radius = Math.min(Math.max(radiusMeters, 5), 3000);
+  const earthRadius = 6378137;
+  const latRad = (location.latitude * Math.PI) / 180;
+  const points: number[][] = [];
+  for (let step = 0; step <= 48; step += 1) {
+    const angle = (step / 48) * Math.PI * 2;
+    const north = Math.cos(angle) * radius;
+    const east = Math.sin(angle) * radius;
+    const latitude = location.latitude + (north / earthRadius) * (180 / Math.PI);
+    const longitude = location.longitude + (east / (earthRadius * Math.max(Math.cos(latRad), 0.01))) * (180 / Math.PI);
+    points.push([longitude, latitude]);
+  }
+  return {
+    type: "Feature",
+    properties: { name: "GPS accuracy" },
+    geometry: { type: "Polygon", coordinates: [points] },
+  };
+}
+
+function gpsAccuracyLabel(accuracyMeters: number) {
+  const rounded = accuracyMeters < 100 ? Math.round(accuracyMeters / 5) * 5 : Math.round(accuracyMeters / 10) * 10;
+  if (accuracyMeters <= 30) return `GPS แม่นยำสูง · ±${Math.max(5, rounded)} ม.`;
+  if (accuracyMeters <= 100) return `GPS ปานกลาง · ±${rounded} ม.`;
+  return `GPS ความแม่นยำต่ำ · ±${rounded} ม.`;
+}
+
 export function FoodDeliveryMapPicker({
   client,
   storeId,
@@ -280,6 +343,7 @@ export function FoodDeliveryMapPicker({
   const [mapDragging, setMapDragging] = useState(false);
   const [mapStyleRevision, setMapStyleRevision] = useState(0);
   const [serviceAreaBoundary, setServiceAreaBoundary] = useState<ServiceAreaFeature | null>(null);
+  const [quickPlaces, setQuickPlaces] = useState<QuickMapPlace[]>([]);
 
   const serviceAreaState = standalone && location && serviceAreaBoundary
     ? (pointInServiceArea(location, serviceAreaBoundary) ? "inside" : "outside")
