@@ -87,3 +87,36 @@ test("Food reviews are verified, masked and use yellow five-star UI", async () =
   assert.match(migration, /revoke all on table public\.food_store_reviews from public, anon, authenticated/);
   assert.doesNotMatch(migration, /select .*username|avatar_url/i);
 });
+
+
+test("Food Home v2 matches the approved discovery layout and keeps favorite toggles inside stores", async () => {
+  const source = await read("components/food/wynos-food-developer-app.tsx");
+  const css = await read("app/food/food.css");
+  const data = await read("lib/food-customer.ts");
+  const migration = await read("../supabase/migrations_wynos_food_home_directory_v2.sql");
+
+  for (const label of [
+    "ค้นหาร้านหรือเมนูอาหาร",
+    "จัดส่ง",
+    "รับเองที่ร้าน",
+    "รวมโค้ดลดเพิ่ม",
+    "ร้านที่เคยสั่งล่าสุด",
+    "ร้านค้าใกล้คุณ",
+    "ร้านค้ายอดนิยม",
+  ]) assert.match(source, new RegExp(label));
+
+  assert.match(source, /aria-label="ร้านโปรด"/);
+  assert.match(source, /className="wf-store-favorite/);
+  const homeRows = source.slice(source.indexOf("function FoodDirectoryStoreRow"), source.indexOf("function FavoriteStoresSheet"));
+  assert.doesNotMatch(homeRows, /<Heart\b/);
+
+  assert.match(css, /\.wf-home-store-photo\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
+  assert.match(css, /\.wf-recent-store > span\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
+  assert.match(data, /rating_average\?: number \| string \| null/);
+  assert.match(migration, /rating_average numeric/);
+  assert.match(migration, /delivered_order_count bigint/);
+  assert.match(migration, /promo_name text/);
+  assert.match(migration, /search_menu\.name ilike v_pattern/);
+  assert.match(migration, /search_menu\.category ilike v_pattern/);
+  assert.match(migration, /grant execute on function public\.food_store_directory\(text\) to authenticated/);
+});
