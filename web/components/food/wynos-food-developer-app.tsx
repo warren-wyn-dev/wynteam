@@ -25,6 +25,7 @@ import {
   X,
   LocateFixed,
   LogOut,
+  Star,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
@@ -71,7 +72,11 @@ import {
   addressLocation,
   fetchStorePlatformCampaigns,
   fetchFoodStoreDirectory,
+  fetchFoodStoreReviewFeed,
+  FOOD_REVIEW_TAGS,
+  maskFoodReviewerName,
   recordFoodAdClick,
+  submitFoodStoreReview,
   type FoodDirectoryStore,
   storeHasDeliveryZone,
   type FoodLocation,
@@ -85,8 +90,10 @@ import {
   type FoodCustomerAddress,
   type FoodCustomerMenuItem,
   type FoodCustomerOrder,
+  type FoodCustomerOwnReview,
   type FoodCustomerSnapshot,
   type FoodOrderQuote,
+  type FoodStoreReviewFeed,
   type FoodCustomerStore,
 } from "@/lib/food-customer";
 
@@ -382,6 +389,73 @@ function StoreDirectory({
   );
 }
 
+function ReviewStars({ rating, compact = false }: { rating: number; compact?: boolean }) {
+  return (
+    <span className={`wf-review-stars${compact ? " is-compact" : ""}`} aria-label={`${rating} จาก 5 ดาว`}>
+      {[1, 2, 3, 4, 5].map((value) => (
+        <Star key={value} size={compact ? 14 : 17} strokeWidth={1.8} fill={value <= Math.round(rating) ? "currentColor" : "none"} />
+      ))}
+    </span>
+  );
+}
+
+function StoreReviewsSection({ client, storeId }: { client: SupabaseClient; storeId: string }) {
+  const [feed, setFeed] = useState<FoodStoreReviewFeed>({ average: 0, count: 0, reviews: [] });
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void fetchFoodStoreReviewFeed(client, storeId, 20).then((next) => {
+      if (live) setFeed(next);
+    });
+    return () => { live = false; };
+  }, [client, storeId]);
+
+  const shown = expanded ? feed.reviews : feed.reviews.slice(0, 3);
+
+  return (
+    <section className="wf-reviews">
+      <div className="wf-reviews-head">
+        <div><small>จากออเดอร์ที่ส่งสำเร็จ</small><h2>รีวิวจากลูกค้า</h2></div>
+        {feed.count ? (
+          <div className="wf-rating-summary">
+            <Star size={17} fill="currentColor" />
+            <strong>{feed.average.toFixed(1)}</strong>
+            <small>({feed.count} รีวิว)</small>
+          </div>
+        ) : null}
+      </div>
+      {feed.count ? (
+        <>
+          <div className="wf-review-list">
+            {shown.map((review) => (
+              <article key={review.id} className="wf-review-card">
+                <div className="wf-review-card-head">
+                  <div><strong>{review.reviewer_label}</strong><span>สั่งจริงกับ WYNOS Food</span></div>
+                  <ReviewStars rating={review.rating} compact />
+                </div>
+                {review.review_text ? <p>{review.review_text}</p> : null}
+                {review.tags.length ? <div className="wf-review-tags">{review.tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
+                <small>{formatDate(review.created_at)}</small>
+                {review.merchant_reply ? (
+                  <div className="wf-review-reply"><strong>ร้านตอบกลับ</strong><p>{review.merchant_reply}</p></div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+          {feed.reviews.length > 3 ? (
+            <button className="wf-review-more" type="button" onClick={() => setExpanded((value) => !value)}>
+              {expanded ? "แสดงน้อยลง" : `ดูรีวิวทั้งหมด (${feed.count})`}
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <div className="wf-review-empty"><Star size={22} /><span><strong>ยังไม่มีรีวิว</strong><small>รีวิวจะมาจากออเดอร์ที่ส่งสำเร็จเท่านั้น</small></span></div>
+      )}
+    </section>
+  );
+}
+
 function HomePanel({
   client,
   store,
@@ -481,6 +555,8 @@ function HomePanel({
           </div>
         </div>
       </section>
+
+      <StoreReviewsSection client={client} storeId={store.id} />
 
       <label className="wf-search">
         <Search size={19} strokeWidth={1.7} />
@@ -624,9 +700,11 @@ function CartPanel({
 
 function OrdersPanel({
   orders,
+  reviewedOrderIds,
   onOrder,
 }: {
   orders: FoodCustomerOrder[];
+  reviewedOrderIds: Set<string>;
   onOrder: (order: FoodCustomerOrder) => void;
 }) {
   const active = orders.filter((order) => !["delivered", "cancelled"].includes(order.status));
@@ -640,7 +718,7 @@ function OrdersPanel({
         <div className="wf-empty wf-empty--compact"><PackageCheck size={36} strokeWidth={1.4} /><strong>ไม่มีออเดอร์ที่กำลังดำเนินการ</strong></div>
       )}
       <div className="wf-section-title wf-section-title--spaced"><h2>ประวัติ</h2><small>{history.length}</small></div>
-      {history.length ? <div className="wf-order-list">{history.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} />)}</div> : null}
+      {history.length ? <div className="wf-order-list">{history.map((order) => <OrderCard key={order.id} order={order} reviewPending={order.status === "delivered" && !reviewedOrderIds.has(order.id)} onOpen={() => onOrder(order)} />)}</div> : null}
     </>
   );
 }
@@ -661,7 +739,7 @@ function MessagesPanel() {
   );
 }
 
-function OrderCard({ order, onOpen }: { order: FoodCustomerOrder; onOpen: () => void }) {
+function OrderCard({ order, reviewPending = false, onOpen }: { order: FoodCustomerOrder; reviewPending?: boolean; onOpen: () => void }) {
   const count = order.food_order_items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   return (
     <button className="wf-order-card" type="button" onClick={onOpen}>
@@ -670,7 +748,7 @@ function OrderCard({ order, onOpen }: { order: FoodCustomerOrder; onOpen: () => 
         <b>{foodMoney(order.total)}</b>
       </div>
       <div className="wf-order-mid"><span>{count} รายการ</span><span className={`wf-order-status wf-order-status--${order.status}`}>{foodOrderStatusLabel(order.status)}</span></div>
-      <div className="wf-order-bottom"><span>{foodPaymentStatusLabel(order.payment_status)}</span><ChevronRight size={18} /></div>
+      <div className="wf-order-bottom"><span className={reviewPending ? "wf-review-pending" : ""}>{reviewPending ? "ให้คะแนนร้าน" : foodPaymentStatusLabel(order.payment_status)}</span><ChevronRight size={18} /></div>
     </button>
   );
 }
@@ -1091,13 +1169,97 @@ function CheckoutSheet({
   );
 }
 
+function ReviewSheet({
+  client,
+  order,
+  onClose,
+  onSubmitted,
+  onMessage,
+}: {
+  client: SupabaseClient;
+  order: FoodCustomerOrder;
+  onClose: () => void;
+  onSubmitted: () => Promise<void>;
+  onMessage: (message: string) => void;
+}) {
+  const [rating, setRating] = useState(0);
+  const [tags, setTags] = useState<string[]>([]);
+  const [reviewText, setReviewText] = useState("");
+  const [anonymous, setAnonymous] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const reviewerLabel = anonymous ? "ไม่ระบุชื่อ" : maskFoodReviewerName(order.recipient_name);
+
+  const toggleTag = (tag: string) => {
+    setTags((current) => current.includes(tag)
+      ? current.filter((value) => value !== tag)
+      : current.length >= 5 ? current : [...current, tag]);
+  };
+
+  const submit = async () => {
+    if (!rating || submitting) return;
+    setSubmitting(true);
+    try {
+      await submitFoodStoreReview(client, {
+        orderId: order.id,
+        rating,
+        reviewText,
+        tags,
+        anonymous,
+      });
+      onMessage("ขอบคุณสำหรับรีวิว");
+      await onSubmitted();
+    } catch (error) {
+      onMessage(foodCustomerError(error, "ส่งรีวิวไม่สำเร็จ"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Sheet title="รีวิวร้าน" onClose={onClose}>
+      <div className="wf-review-form">
+        <div className="wf-review-question">
+          <span className="wf-review-big-star"><Star size={28} fill="currentColor" /></span>
+          <div><h3>อาหารเป็นอย่างไรบ้าง?</h3><p>ให้คะแนนร้านจากออเดอร์ #{order.order_number}</p></div>
+        </div>
+        <div className="wf-review-picker" aria-label="ให้คะแนนร้าน">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button key={value} type="button" aria-label={`${value} ดาว`} onClick={() => setRating(value)}>
+              <Star size={34} strokeWidth={1.7} fill={value <= rating ? "currentColor" : "none"} />
+            </button>
+          ))}
+        </div>
+        <div className="wf-review-tag-picker">
+          {FOOD_REVIEW_TAGS.map((tag) => (
+            <button key={tag} type="button" className={tags.includes(tag) ? "is-active" : ""} onClick={() => toggleTag(tag)}>{tag}</button>
+          ))}
+        </div>
+        <label className="wf-field">เขียนรีวิวเพิ่มเติม
+          <textarea maxLength={500} value={reviewText} onChange={(event) => setReviewText(event.target.value)} placeholder="เล่าประสบการณ์เกี่ยวกับอาหารและร้าน" />
+        </label>
+        <label className="wf-review-anonymous">
+          <input type="checkbox" checked={anonymous} onChange={(event) => setAnonymous(event.target.checked)} />
+          <span><strong>ไม่ระบุชื่อ</strong><small>ปกติจะแสดงชื่อแบบปกปิด เช่น ว**ล</small></span>
+        </label>
+        <div className="wf-review-identity"><span>ชื่อที่จะแสดง</span><strong>{reviewerLabel}</strong><small>ไม่แสดง @username รูปโปรไฟล์ หรือข้อมูล Social</small></div>
+        <button className="wf-primary wf-full" type="button" disabled={!rating || submitting} onClick={() => void submit()}>
+          {submitting ? "กำลังส่งรีวิว…" : "ส่งรีวิว"}
+        </button>
+        <p className="wf-server-note">รีวิวนี้มาจากออเดอร์ที่ส่งสำเร็จและจะแสดงป้าย “สั่งจริงกับ WYNOS Food”</p>
+      </div>
+    </Sheet>
+  );
+}
+
 function OrderDetailSheet({
   client,
   userId,
   store,
   order,
   busy,
+  ownReview,
   onClose,
+  onReview,
   onReload,
   onMessage,
 }: {
@@ -1106,7 +1268,9 @@ function OrderDetailSheet({
   store: FoodCustomerStore | null;
   order: FoodCustomerOrder;
   busy: boolean;
+  ownReview: FoodCustomerOwnReview | null;
   onClose: () => void;
+  onReview: () => void;
   onReload: () => Promise<void>;
   onMessage: (message: string) => void;
 }) {
@@ -1329,6 +1493,21 @@ function OrderDetailSheet({
           </section>
         ) : null}
 
+        {order.status === "delivered" ? (
+          ownReview ? (
+            <section className="wf-review-done">
+              <div><strong>ขอบคุณที่รีวิวร้าน</strong><small>รีวิวจากออเดอร์จริงของคุณ</small></div>
+              <ReviewStars rating={ownReview.rating} compact />
+            </section>
+          ) : (
+            <button className="wf-review-cta" type="button" onClick={onReview}>
+              <span><Star size={24} fill="currentColor" /></span>
+              <div><strong>อาหารเป็นอย่างไรบ้าง?</strong><small>ให้คะแนนร้าน 1–5 ดาวจากออเดอร์นี้</small></div>
+              <ChevronRight size={19} />
+            </button>
+          )
+        ) : null}
+
         {canCancel ? <button className="wf-danger-link" type="button" disabled={combinedBusy} onClick={() => void cancel()}>ยกเลิกออเดอร์</button> : null}
       </div>
     </Sheet>
@@ -1406,6 +1585,7 @@ function FoodCustomerInner({
   });
   const [selectedItem, setSelectedItem] = useState<FoodCustomerMenuItem | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<FoodCustomerOrder | null>(null);
+  const [reviewOrder, setReviewOrder] = useState<FoodCustomerOrder | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quote, setQuote] = useState<FoodOrderQuote | null>(null);
   const [addressDraft, setAddressDraft] = useState<FoodAddressDraft | null>(null);
@@ -1534,6 +1714,8 @@ function FoodCustomerInner({
   const menu = snapshot?.menu ?? [];
   const orders = snapshot?.orders ?? [];
   const addresses = snapshot?.addresses ?? [];
+  const ownReviews = snapshot?.ownReviews ?? [];
+  const reviewedOrderIds = useMemo(() => new Set(ownReviews.map((review) => review.order_id)), [ownReviews]);
   const store = snapshot?.store ?? null;
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const activeCount = orders.filter((order) => !["delivered", "cancelled"].includes(order.status)).length;
@@ -1671,7 +1853,7 @@ function FoodCustomerInner({
       <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดต WYNOS Food" />
       <section className="wf-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
         {tab === "home" ? <HomePanel client={client} store={store} menu={menu} onItem={setSelectedItem} onPickStore={pickStore} onShareStore={shareStore} /> : null}
-        {tab === "orders" ? <OrdersPanel orders={orders} onOrder={setSelectedOrder} /> : null}
+        {tab === "orders" ? <OrdersPanel orders={orders} reviewedOrderIds={reviewedOrderIds} onOrder={setSelectedOrder} /> : null}
         {tab === "messages" ? <MessagesPanel /> : null}
         {tab === "cart" ? <CartPanel store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}
         {tab === "account" ? (
@@ -1736,6 +1918,16 @@ function FoodCustomerInner({
         <AddressEditor client={client} storeId={store?.id ?? null} showPin={true} draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft) => void saveAddress(draft)} />
       ) : null}
 
+      {reviewOrder ? (
+        <ReviewSheet
+          client={client}
+          order={reviewOrder}
+          onClose={() => setReviewOrder(null)}
+          onSubmitted={async () => { setReviewOrder(null); await load(true); setTab("orders"); }}
+          onMessage={setMessage}
+        />
+      ) : null}
+
       {selectedOrder ? (
         <OrderDetailSheet
           client={client}
@@ -1743,7 +1935,9 @@ function FoodCustomerInner({
           store={store}
           order={selectedOrder}
           busy={busy}
+          ownReview={ownReviews.find((review) => review.order_id === selectedOrder.id) ?? null}
           onClose={() => setSelectedOrder(null)}
+          onReview={() => { setReviewOrder(selectedOrder); setSelectedOrder(null); }}
           onReload={async () => { await load(true); }}
           onMessage={setMessage}
         />
