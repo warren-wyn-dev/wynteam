@@ -3921,7 +3921,7 @@ button.wm-menu-tool:disabled {
   opacity: .6;
 }
 
-.wm-menu-row.is-sold-out:not(.is-off) {
+.wm-menu-row.is-sold-out {
   opacity: 1;
 }
 
