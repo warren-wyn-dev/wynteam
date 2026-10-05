@@ -77,7 +77,10 @@ export function wynosMapsCoreStatus() {
   };
 }
 
-export async function searchWynosGeo(query: string) {
+export async function searchWynosGeo(
+  query: string,
+  location?: { lat: number; lon: number } | null,
+) {
   const origin = serviceOrigin(process.env.WYNOS_GEO_ORIGIN);
   if (!origin) return null;
 
@@ -88,6 +91,22 @@ export async function searchWynosGeo(query: string) {
   url.searchParams.set("limit", "8");
   url.searchParams.set("countrycodes", "th");
   url.searchParams.set("accept-language", "th,en");
+  if (
+    location
+    && Number.isFinite(location.lat)
+    && Number.isFinite(location.lon)
+    && location.lat >= -90 && location.lat <= 90
+    && location.lon >= -180 && location.lon <= 180
+  ) {
+    // Nominatim-compatible viewbox acts as a relevance bias without
+    // excluding valid results elsewhere in Thailand.
+    const latSpan = 0.9;
+    const lonSpan = 1.1;
+    url.searchParams.set(
+      "viewbox",
+      `${location.lon - lonSpan},${location.lat + latSpan},${location.lon + lonSpan},${location.lat - latSpan}`,
+    );
+  }
 
   const raw = await fetchJson(url);
   if (!Array.isArray(raw)) return [];
