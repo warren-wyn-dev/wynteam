@@ -96,12 +96,16 @@ insert into public.food_campaigns(id,store_id,name,campaign_type,discount_value,
 values ('$CAMPAIGN','$STORE1','ลดเปิดร้าน','percentage',10,100);
 SQL
 
-run >/dev/null 2>&1 < "$ROOT/supabase/migrations_wynos_food_home_directory_v2.sql"
+run < "$ROOT/supabase/migrations_wynos_food_home_directory_v2.sql" >/dev/null
 
 db() { run -At -c "$1" 2>&1 | tail -n1; }
 expect_db() {
   local got
-  got="$(db "$1")"
+  if ! got="$(db "$1")"; then
+    echo "FAIL: $3 (SQL execution failed)"
+    run -c "$1" || true
+    exit 1
+  fi
   [[ "$got" == "$2" ]] || { echo "FAIL: $3 (got '$got', want '$2')"; exit 1; }
 }
 
