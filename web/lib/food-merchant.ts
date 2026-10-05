@@ -40,6 +40,20 @@ export type FoodStore = {
   updated_at: string;
 };
 
+export type FoodMenuOptionChoice = {
+  id: string;
+  name: string;
+  price: number | string;
+};
+
+export type FoodMenuOptionGroup = {
+  id: string;
+  name: string;
+  required: boolean;
+  max_select: number;
+  choices: FoodMenuOptionChoice[];
+};
+
 export type FoodMenuItem = {
   id: string;
   store_id: string;
@@ -48,7 +62,7 @@ export type FoodMenuItem = {
   description: string | null;
   price: number | string;
   image_path: string | null;
-  options: unknown[];
+  options: FoodMenuOptionGroup[];
   is_available: boolean;
   sort_order: number;
   created_at: string;
@@ -143,6 +157,7 @@ export type MenuDraft = {
   description: string;
   price: string;
   image_path?: string | null;
+  options: FoodMenuOptionGroup[];
   is_available: boolean;
 };
 
@@ -319,6 +334,19 @@ export async function saveMenuItem(client: SupabaseClient, storeId: string, draf
     description: draft.description.trim() || null,
     price,
     image_path: draft.image_path || null,
+    options: (draft.options ?? []).map((group) => ({
+      id: String(group.id || "").trim(),
+      name: String(group.name || "").trim(),
+      required: Boolean(group.required),
+      max_select: Math.max(1, Number(group.max_select) || 1),
+      choices: (group.choices ?? [])
+        .map((choice) => ({
+          id: String(choice.id || "").trim(),
+          name: String(choice.name || "").trim(),
+          price: Math.max(0, Number(choice.price) || 0),
+        }))
+        .filter((choice) => choice.name),
+    })).filter((group) => group.name && group.choices.length),
     is_available: draft.is_available,
   };
   const query = draft.id
