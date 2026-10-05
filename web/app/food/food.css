@@ -2328,3 +2328,198 @@
   font-size: 9.5px;
   font-weight: 750;
 }
+
+
+/* WYN-216: verified WYNOS Food store reviews. */
+.wf-reviews {
+  margin: 14px 0 16px;
+  padding: 15px;
+  border: 1px solid #ececee;
+  border-radius: 18px;
+  background: #fff;
+}
+.wf-reviews-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.wf-reviews-head > div:first-child { min-width: 0; }
+.wf-reviews-head small { color: var(--wf-secondary); font-size: 10px; }
+.wf-reviews-head h2 { margin: 2px 0 0; font-size: 15px; letter-spacing: -.2px; }
+.wf-rating-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #f4b400;
+  white-space: nowrap;
+}
+.wf-rating-summary strong { color: var(--wf-text); font-size: 15px; }
+.wf-rating-summary small { color: var(--wf-secondary); font-size: 10px; }
+.wf-review-stars { display: inline-flex; align-items: center; gap: 2px; color: #f4b400; }
+.wf-review-stars.is-compact { gap: 1px; }
+.wf-review-list { display: grid; gap: 10px; }
+.wf-review-card {
+  padding: 12px;
+  border: 1px solid #eeeeef;
+  border-radius: 14px;
+  background: #fafafa;
+}
+.wf-review-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.wf-review-card-head > div { min-width: 0; display: grid; gap: 3px; }
+.wf-review-card-head strong { font-size: 11.5px; }
+.wf-review-card-head span:not(.wf-review-stars) {
+  color: #18824b;
+  font-size: 9.5px;
+  font-weight: 750;
+}
+.wf-review-card > p { margin: 9px 0 8px; font-size: 11.5px; line-height: 1.55; }
+.wf-review-card > small { display: block; margin-top: 7px; color: #8b8b90; font-size: 9px; }
+.wf-review-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.wf-review-tags span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #fff4cf;
+  color: #7f5d00;
+  font-size: 9px;
+  font-weight: 750;
+}
+.wf-review-reply {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-left: 3px solid #dedee2;
+  border-radius: 0 10px 10px 0;
+  background: #fff;
+}
+.wf-review-reply strong { font-size: 9.5px; }
+.wf-review-reply p { margin: 3px 0 0; color: #55555a; font-size: 10.5px; line-height: 1.5; }
+.wf-review-more {
+  width: 100%;
+  margin-top: 10px;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  color: var(--wf-red);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+.wf-review-empty {
+  min-height: 62px;
+  padding: 10px 11px;
+  border-radius: 13px;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #f4b400;
+}
+.wf-review-empty span { display: grid; gap: 2px; color: var(--wf-text); }
+.wf-review-empty strong { font-size: 11px; }
+.wf-review-empty small { color: var(--wf-secondary); font-size: 9.5px; }
+.wf-review-pending { color: #9a6c00 !important; font-weight: 800; }
+.wf-review-cta {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #f1df9e;
+  border-radius: 15px;
+  background: #fffaf0;
+  color: var(--wf-text);
+  display: grid;
+  grid-template-columns: 40px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  font: inherit;
+}
+.wf-review-cta > span {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #fff1bc;
+  color: #f4b400;
+  display: grid;
+  place-items: center;
+}
+.wf-review-cta > div { display: grid; gap: 2px; }
+.wf-review-cta strong { font-size: 11.5px; }
+.wf-review-cta small { color: var(--wf-secondary); font-size: 9.5px; }
+.wf-review-done {
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid #ececee;
+  border-radius: 14px;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.wf-review-done > div { display: grid; gap: 2px; }
+.wf-review-done strong { font-size: 11px; }
+.wf-review-done small { color: var(--wf-secondary); font-size: 9.5px; }
+.wf-review-form { display: grid; gap: 16px; }
+.wf-review-question { display: flex; align-items: center; gap: 11px; }
+.wf-review-big-star {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: #fff1bc;
+  color: #f4b400;
+  display: grid;
+  place-items: center;
+}
+.wf-review-question h3 { margin: 0; font-size: 16px; }
+.wf-review-question p { margin: 3px 0 0; color: var(--wf-secondary); font-size: 10px; }
+.wf-review-picker { display: flex; justify-content: center; gap: 7px; }
+.wf-review-picker button {
+  width: 45px;
+  height: 45px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f4b400;
+  display: grid;
+  place-items: center;
+}
+.wf-review-picker button:active { transform: scale(.91); }
+.wf-review-tag-picker { display: flex; flex-wrap: wrap; gap: 7px; }
+.wf-review-tag-picker button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #e5e5e7;
+  border-radius: 999px;
+  background: #fff;
+  color: #55555a;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+.wf-review-tag-picker button.is-active {
+  border-color: #f0d36e;
+  background: #fff4cf;
+  color: #7f5d00;
+}
+.wf-review-anonymous {
+  padding: 11px 12px;
+  border: 1px solid #ececee;
+  border-radius: 13px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.wf-review-anonymous input { margin-top: 2px; accent-color: var(--wf-red); }
+.wf-review-anonymous span { display: grid; gap: 2px; }
+.wf-review-anonymous strong { font-size: 10.5px; }
+.wf-review-anonymous small { color: var(--wf-secondary); font-size: 9.5px; }
+.wf-review-identity {
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: #f7f7f8;
+  display: grid;
+  gap: 3px;
+}
+.wf-review-identity span, .wf-review-identity small { color: var(--wf-secondary); font-size: 9.5px; }
+.wf-review-identity strong { font-size: 12px; }
