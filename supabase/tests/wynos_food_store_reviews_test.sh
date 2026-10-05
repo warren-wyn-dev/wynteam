@@ -43,7 +43,7 @@ language sql stable as $$ select auth.uid() is not null $$;
 create function public.is_developer_account() returns boolean
 language sql stable as $$ select false $$;
 create function public.merchant_has_store_role(p_store_id uuid,p_roles text[] default null) returns boolean
-language sql stable security definer set search_path='' as $$
+language sql stable security definer set search_path='' as $
   select exists (
     select 1
     from public.food_stores s
@@ -53,7 +53,18 @@ language sql stable security definer set search_path='' as $$
       and mm.active
       and (p_roles is null or mm.role=any(p_roles))
   )
-$$;
+$;
+create function public.food_has_merchant_access(p_store_id uuid default null) returns boolean
+language sql stable security definer set search_path='' as $
+  select exists (
+    select 1
+    from public.food_stores s
+    join public.merchant_memberships mm on mm.merchant_account_id=s.merchant_account_id
+    where mm.user_id=(select auth.uid())
+      and mm.active
+      and (p_store_id is null or s.id=p_store_id)
+  )
+$;
 
 insert into public.profiles(id) values
 ('00000000-0000-0000-0000-0000000000c1'),
@@ -119,13 +130,20 @@ expect_fail "$C1" "select public.food_submit_store_review('$O1',4,null,array[]::
 
 REVIEW_ID="$(run -At -c "reset role; select id from public.food_store_reviews where order_id='$O1'" | tail -n1)"
 expect_fail "$C1" "select public.food_reply_store_review('$REVIEW_ID','ขอบคุณครับ')" "buyer cannot reply as merchant" "merchant management role required"
+expect_fail "$B1" "select public.merchant_store_reviews('$STORE',50)" "unrelated account cannot read merchant reviews" "merchant access required"
+expect_eq "$A1" "select public.merchant_store_reviews('$STORE',50)->>'count'" "1" "store owner sees review count"
+expect_eq "$A1" "select public.merchant_store_reviews('$STORE',50)->>'unanswered'" "1" "new review is awaiting a reply"
+expect_eq "$A1" "select ((public.merchant_store_reviews('$STORE',50)->'reviews'->0) ? 'buyer_id')::text" "false" "merchant review feed stays sanitized"
+expect_eq "$A1" "select ((public.merchant_store_reviews('$STORE',50)->'reviews'->0) ? 'order_id')::text" "false" "merchant review feed does not expose order id"
 expect_fail "$B1" "select public.food_reply_store_review('$REVIEW_ID','ขอบคุณครับ')" "unrelated account cannot reply" "merchant management role required"
 expect_ok "$A1" "select public.food_reply_store_review('$REVIEW_ID','ขอบคุณที่อุดหนุนครับ')" "store owner replies"
+expect_eq "$A1" "select public.merchant_store_reviews('$STORE',50)->>'unanswered'" "0" "reply clears the unanswered count"
 expect_eq "$C1" "select public.food_store_review_feed('$STORE',20)#>>'{reviews,0,merchant_reply}'" "ขอบคุณที่อุดหนุนครับ" "merchant reply is visible in feed"
 
 expect_ok "$C2" "select public.food_submit_store_review('$O4',3,null,array['แพ็กดี']::text[],true)" "anonymous verified review"
 expect_eq "$C2" "select (public.food_store_review_feed('$STORE',20)->'reviews') @> '[{\"reviewer_label\":\"ไม่ระบุชื่อ\"}]'::jsonb" "t" "anonymous label hides name"
 expect_eq "$C2" "select public.food_store_review_feed('$STORE',20)->>'average'" "4.0" "average rating is correct"
 expect_eq "$C2" "select public.food_store_review_feed('$STORE',20)->>'count'" "2" "review count is correct"
+expect_eq "$A1" "select public.merchant_store_reviews('$STORE',50)->>'unanswered'" "1" "merchant sees the new anonymous review awaiting a reply"
 
 echo "PASS: WYNOS Food reviews are delivered-order-only, masked, sanitized and merchant-reply capable"
