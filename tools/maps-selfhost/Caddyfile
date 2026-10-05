@@ -1,0 +1,5 @@
+# Automatic free HTTPS (Let's Encrypt) for the Maps Core gateway.
+{$MAPS_CORE_DOMAIN} {
+	encode gzip
+	reverse_proxy gateway:80
+}

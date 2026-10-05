@@ -1,0 +1,69 @@
+# WYNOS Maps Core self-hosted stack (free, open source, Thailand OSM extract).
+#
+#   internet -> caddy (HTTPS) -> gateway (token + rate limit) -> nominatim / valhalla
+#
+# Only caddy publishes ports. See README.md for setup.
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      MAPS_CORE_DOMAIN: ${MAPS_CORE_DOMAIN:?set MAPS_CORE_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - gateway
+
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    environment:
+      WYNOS_MAPS_UPSTREAM_TOKEN: ${WYNOS_MAPS_UPSTREAM_TOKEN:?set WYNOS_MAPS_UPSTREAM_TOKEN in .env}
+      NGINX_ENVSUBST_FILTER: WYNOS_
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      - nominatim
+      - valhalla
+
+  nominatim:
+    image: mediagis/nominatim:4.5
+    restart: unless-stopped
+    shm_size: 2g
+    environment:
+      PBF_URL: https://download.geofabrik.de/asia/thailand-latest.osm.pbf
+      REPLICATION_URL: https://download.geofabrik.de/asia/thailand-updates/
+      UPDATE_MODE: continuous
+      REPLICATION_UPDATE_INTERVAL: "86400"
+      IMPORT_STYLE: full
+      THREADS: "4"
+      NOMINATIM_PASSWORD: ${NOMINATIM_DB_PASSWORD:?set NOMINATIM_DB_PASSWORD in .env}
+    volumes:
+      - nominatim-data:/var/lib/postgresql/16/main
+
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:latest
+    restart: unless-stopped
+    environment:
+      tile_urls: https://download.geofabrik.de/asia/thailand-latest.osm.pbf
+      serve_tiles: "True"
+      build_admins: "True"
+      build_time_zones: "True"
+      build_elevation: "False"
+      force_rebuild: "False"
+      use_tiles_ignore_pbf: "True"
+      server_threads: "4"
+    volumes:
+      - valhalla-data:/custom_files
+
+volumes:
+  caddy-data:
+  caddy-config:
+  nominatim-data:
+  valhalla-data:

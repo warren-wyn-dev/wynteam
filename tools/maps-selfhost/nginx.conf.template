@@ -1,0 +1,55 @@
+# Gateway in front of Nominatim and Valhalla.
+# - Rejects any request without the shared token, so only the WYNOS web API can call it.
+# - Exposes only the endpoints the web API uses.
+# - Applies a global rate limit (every request arrives from Vercel, so the limit is shared).
+
+limit_req_zone $server_name zone=geo:1m rate=20r/s;
+limit_req_zone $server_name zone=routing:1m rate=5r/s;
+limit_req_status 429;
+
+map $http_x_wynos_maps_token $wynos_token_ok {
+    default 0;
+    "${WYNOS_MAPS_UPSTREAM_TOKEN}" 1;
+}
+
+server {
+    listen 80 default_server;
+    server_name maps-core;
+    client_max_body_size 16k;
+    proxy_read_timeout 10s;
+    access_log /dev/stdout;
+    server_tokens off;
+
+    if ($wynos_token_ok = 0) {
+        return 401;
+    }
+
+    location = /health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok"}';
+    }
+
+    location = /geo/search {
+        limit_req zone=geo burst=40 nodelay;
+        proxy_set_header X-WYNOS-Maps-Token "";
+        proxy_pass http://nominatim:8080/search;
+    }
+
+    location = /geo/reverse {
+        limit_req zone=geo burst=40 nodelay;
+        proxy_set_header X-WYNOS-Maps-Token "";
+        proxy_pass http://nominatim:8080/reverse;
+    }
+
+    location = /routing/route {
+        limit_req zone=routing burst=10 nodelay;
+        limit_except POST { deny all; }
+        proxy_set_header X-WYNOS-Maps-Token "";
+        proxy_pass http://valhalla:8002/route;
+    }
+
+    location / {
+        return 404;
+    }
+}

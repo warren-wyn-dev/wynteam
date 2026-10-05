@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { mapsRateLimitResponse } from "@/lib/server/maps-rate-limit-response";
 import { reverseWynosGeo } from "@/lib/server/wynos-maps-core";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,9 @@ export async function GET(request: Request) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
     return NextResponse.json({ error: "INVALID_COORDINATES", results: [] }, { status: 400 });
   }
+
+  const limited = mapsRateLimitResponse(request, "reverse", { results: [] });
+  if (limited) return limited;
 
   try {
     const results = await reverseWynosGeo(lat, lon);
