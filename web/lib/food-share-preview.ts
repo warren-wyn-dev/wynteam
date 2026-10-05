@@ -55,6 +55,27 @@ export async function resolveFoodShareCode(code: string): Promise<string | null>
   }
 }
 
+// Link-preview crawlers open shared links too; they are not customers.
+const PREVIEW_BOT = /bot|crawler|spider|facebookexternalhit|line-poker|preview|slurp|whatsapp|telegram|discord|skype/i;
+
+/** Counts one person opening a store's short link (published stores only). */
+export async function recordFoodShareOpen(code: string, userAgent: string | null): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key || !isFoodShareCode(code) || !userAgent || PREVIEW_BOT.test(userAgent)) return;
+  try {
+    await fetch(`${url.replace(/\/+$/, "")}/rest/v1/rpc/food_record_share_open`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_code: code }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(2500),
+    });
+  } catch {
+    // Counting is best effort; the customer is already on their way.
+  }
+}
+
 /** Metadata for /?store=<id>; null keeps the generic WYNOS Food preview. */
 export async function foodStoreShareMetadata(requested: string | string[] | undefined): Promise<Metadata | null> {
   const storeId = typeof requested === "string" ? requested.trim() : "";

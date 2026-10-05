@@ -14,6 +14,7 @@ import {
   isQuietHourAt,
   isRetryableFcmStatus,
   messageFor,
+  orderNumberInReason,
   pushAppForNotification,
   pushMessageForApp,
   pushPreferenceCategory,
@@ -705,4 +706,28 @@ Deno.test("buildDataPayload names the Food and Merchant app for the click target
   assertEquals(buildDataPayload({ ...base, reason: "WYNOS Merchant · ชำระเงินแล้ว #WF0015" }).app, "merchant");
   assertEquals(buildDataPayload({ ...base, reason: "ชำระเงินออเดอร์ #WF0015 สำเร็จแล้ว" }).app, "food");
   assertEquals(buildDataPayload({ ...base, reason: "แอปจะปิดปรับปรุงคืนนี้" }).app, undefined);
+});
+
+Deno.test("order-status texts go to the customer's Food app and the store's Merchant app", () => {
+  const row = (reason: string) => ({ type: "system", reason });
+  assertEquals(pushAppForNotification(row("ออเดอร์ #WF0015 ร้านรับออเดอร์แล้ว · กำลังเตรียมอาหาร (ประมาณ 20 นาที)")), "food");
+  assertEquals(pushAppForNotification(row("ออเดอร์ #WF0015 กำลังจัดส่ง · เตรียมรับอาหารได้เลย")), "food");
+  assertEquals(pushAppForNotification(row("ออเดอร์ #WF0015 ถูกร้านยกเลิก · ร้านจะคืนเงินให้คุณ")), "food");
+  assertEquals(pushAppForNotification(row("WYNOS Merchant · ลูกค้ายกเลิกออเดอร์ #WF0016")), "merchant");
+});
+
+Deno.test("Food and Merchant pushes carry the order number so a tap opens that order", () => {
+  assertEquals(orderNumberInReason("ออเดอร์ #WF0015 กำลังจัดส่ง"), "WF0015");
+  assertEquals(orderNumberInReason("WYNOS Merchant · ออเดอร์ใหม่ #WF10000 · ฿120.00"), "WF10000");
+  assertEquals(orderNumberInReason("คำขอ WYNOS Merchant ได้รับการอนุมัติแล้ว"), null);
+  assertEquals(orderNumberInReason(null), null);
+  const base = {
+    id: "n1", recipient_id: "u1", actor_id: null, type: "system", drop_id: null, pop_id: null, club_id: null,
+    club_post_id: null, moderation_action_id: null, moderation_action_type: null, conversation_id: null,
+  };
+  const food = buildDataPayload({ ...base, reason: "ออเดอร์ #WF0015 กำลังจัดส่ง · เตรียมรับอาหารได้เลย" });
+  assertEquals(food.app, "food");
+  assertEquals(food.order_number, "WF0015");
+  const social = buildDataPayload({ ...base, reason: "ประกาศ #WF0015" });
+  assertEquals(social.order_number, undefined);
 });
