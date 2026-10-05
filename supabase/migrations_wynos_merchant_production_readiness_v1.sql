@@ -558,15 +558,25 @@ declare
   v_item_id uuid;
   v_name text;
 begin
-  v_store_id := coalesce(new.store_id, old.store_id);
-  v_item_id := coalesce(new.id, old.id);
-  v_name := coalesce(new.name, old.name);
-  v_event := case
-    when tg_op = 'INSERT' then 'merchant_menu_created'
-    when tg_op = 'DELETE' then 'merchant_menu_deleted'
-    when new.sort_order is distinct from old.sort_order then 'merchant_menu_reordered'
-    else 'merchant_menu_updated'
-  end;
+  if tg_op = 'DELETE' then
+    v_store_id := old.store_id;
+    v_item_id := old.id;
+    v_name := old.name;
+    v_event := 'merchant_menu_deleted';
+  elsif tg_op = 'INSERT' then
+    v_store_id := new.store_id;
+    v_item_id := new.id;
+    v_name := new.name;
+    v_event := 'merchant_menu_created';
+  else
+    v_store_id := new.store_id;
+    v_item_id := new.id;
+    v_name := new.name;
+    v_event := case
+      when new.sort_order is distinct from old.sort_order then 'merchant_menu_reordered'
+      else 'merchant_menu_updated'
+    end;
+  end if;
   perform internal.log_audit_event(
     (select auth.uid()),
     v_event,
