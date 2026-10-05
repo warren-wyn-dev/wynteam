@@ -1,6 +1,12 @@
 name: WYNOS Maps -- import Overture Places by area
 
 on:
+  # One automatic seed run is triggered when this workflow is introduced on
+  # main. Future edits re-run idempotently because source+source_ref is unique.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/wynos-maps-import-overture-places.yml"
   workflow_dispatch:
     inputs:
       bbox:
@@ -35,11 +41,11 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      BBOX: ${{ inputs.bbox }}
-      MIN_CONFIDENCE: ${{ inputs.min_confidence }}
-      ACTIVATE_CONFIDENCE: ${{ inputs.activate_confidence }}
-      MAX_PLACES: ${{ inputs.max_places }}
-      DRY_RUN: ${{ inputs.dry_run }}
+      BBOX: ${{ inputs.bbox || '102.75,15.30,103.75,16.80' }}
+      MIN_CONFIDENCE: ${{ inputs.min_confidence || '0.80' }}
+      ACTIVATE_CONFIDENCE: ${{ inputs.activate_confidence || '0.97' }}
+      MAX_PLACES: ${{ inputs.max_places || '5000' }}
+      DRY_RUN: ${{ github.event_name == 'push' && 'false' || inputs.dry_run }}
     steps:
       - uses: actions/checkout@v4
 

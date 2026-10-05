@@ -368,7 +368,7 @@ export function FoodDeliveryMapPicker({
     if (!mapReady || !map || !maplibre) return;
 
     nearbyMarkersRef.current.forEach((marker) => marker.remove());
-    const markers = nearbyPlaces.map((nearbyPlace) => {
+    const markers = nearbyPlaces.map((nearbyPlace, index) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = nearbyPlace.merchantStoreId
@@ -379,7 +379,7 @@ export function FoodDeliveryMapPicker({
       const dot = document.createElement("span");
       dot.className = "wf-map-place-dot";
       button.appendChild(dot);
-      if (mapZoom >= 14.5) {
+      if (mapZoom >= 14.5 && index < 24) {
         const label = document.createElement("strong");
         label.className = "wf-map-place-label";
         label.textContent = nearbyPlace.name;
