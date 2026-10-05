@@ -43,7 +43,7 @@ language sql stable as $$ select auth.uid() is not null $$;
 create function public.is_developer_account() returns boolean
 language sql stable as $$ select false $$;
 create function public.merchant_has_store_role(p_store_id uuid,p_roles text[] default null) returns boolean
-language sql stable security definer set search_path='' as $
+language sql stable security definer set search_path='' as $fn$
   select exists (
     select 1
     from public.food_stores s
@@ -53,9 +53,9 @@ language sql stable security definer set search_path='' as $
       and mm.active
       and (p_roles is null or mm.role=any(p_roles))
   )
-$;
+$fn$;
 create function public.food_has_merchant_access(p_store_id uuid default null) returns boolean
-language sql stable security definer set search_path='' as $
+language sql stable security definer set search_path='' as $fn$
   select exists (
     select 1
     from public.food_stores s
@@ -64,7 +64,7 @@ language sql stable security definer set search_path='' as $
       and mm.active
       and (p_store_id is null or s.id=p_store_id)
   )
-$;
+$fn$;
 
 insert into public.profiles(id) values
 ('00000000-0000-0000-0000-0000000000c1'),
