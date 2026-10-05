@@ -1689,7 +1689,13 @@ function StoreEditor({
       : null,
   );
   const [mapTarget, setMapTarget] = useState<"store" | "pickup" | null>(null);
-  const [serviceAreaState, setServiceAreaState] = useState<"idle" | "checking" | "inside" | "outside" | "error">("idle");
+  const [serviceAreaCheck, setServiceAreaCheck] = useState<{
+    key: string;
+    status: "inside" | "outside" | "error";
+  } | null>(null);
+  const serviceAreaKey = pin ? `${pin.latitude.toFixed(6)},${pin.longitude.toFixed(6)}` : "";
+  const serviceAreaState: "idle" | "checking" | "inside" | "outside" | "error" =
+    !pin ? "idle" : serviceAreaCheck?.key === serviceAreaKey ? serviceAreaCheck.status : "checking";
 
   useEffect(() => {
     return () => {
@@ -1699,15 +1705,12 @@ function StoreEditor({
   }, [logoPreview, coverPreview]);
 
   useEffect(() => {
-    if (!pin) {
-      setServiceAreaState("idle");
-      return;
-    }
+    if (!pin) return;
     let live = true;
-    setServiceAreaState("checking");
+    const key = `${pin.latitude.toFixed(6)},${pin.longitude.toFixed(6)}`;
     void checkFoodServiceArea(client, pin)
-      .then((inside) => { if (live) setServiceAreaState(inside ? "inside" : "outside"); })
-      .catch(() => { if (live) setServiceAreaState("error"); });
+      .then((inside) => { if (live) setServiceAreaCheck({ key, status: inside ? "inside" : "outside" }); })
+      .catch(() => { if (live) setServiceAreaCheck({ key, status: "error" }); });
     return () => { live = false; };
   }, [client, pin]);
 
