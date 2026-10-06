@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(source, {
 }).outputText;
 const compiledModule = { exports: {} };
 new Function("module", "exports", "process", compiled)(compiledModule, compiledModule.exports, process);
-const { isInstalledIosWebApp, startGoogleOAuth, consumeGooglePwaPopupMarker, announceGooglePwaCompletion, announceGooglePwaSession, GOOGLE_PWA_POPUP_MARKER, GOOGLE_PWA_SESSION_MESSAGE } = compiledModule.exports;
+const { isInstalledIosWebApp, startGoogleOAuth, consumeGooglePwaPopupMarker, announceGooglePwaCompletion, announceGooglePwaCode, GOOGLE_PWA_POPUP_MARKER, GOOGLE_PWA_CODE_MESSAGE } = compiledModule.exports;
 const AUTH_URL = "https://test.supabase.co/auth/v1/authorize?provider=google";
 
 function setup({ installed = true, blocked = false, origin = "https://wynos.online" } = {}) {
@@ -156,15 +156,14 @@ test("success signal contains no tokens and the popup marker expires",()=>{
 });
 
 
-test("verified popup can hand its Supabase session directly to the exact same-origin opener",()=>{
+test("popup hands only its one-time PKCE authorization code to the exact same-origin opener",()=>{
  const f=setup({origin:"https://food.wynos.online"});try{
-   const sent=announceGooglePwaSession({access_token:"test-access-token",refresh_token:"test-refresh-token"});
+   const sent=announceGooglePwaCode("test-one-time-code");
    assert.equal(sent,true);
    const opener=f.calls.find(x=>x[0]==="opener");
    assert.deepEqual(opener,["opener",{
-     type:GOOGLE_PWA_SESSION_MESSAGE,
-     accessToken:"test-access-token",
-     refreshToken:"test-refresh-token",
+     type:GOOGLE_PWA_CODE_MESSAGE,
+     code:"test-one-time-code",
    },"https://food.wynos.online"]);
    assert.equal(f.calls.some(x=>x[0]==="broadcast"),false);
  }finally{f.restore();}
