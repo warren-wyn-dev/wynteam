@@ -716,13 +716,17 @@
 .wf-sheet > header h2 { margin: 0; text-align: center; font-size: 14px; }
 .wf-sheet-body { max-height: calc(92dvh - 55px - env(safe-area-inset-top)); padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; }
 
-.wf-item-sheet-backdrop { padding-top: env(safe-area-inset-top); }
+.wf-item-sheet-backdrop {
+  padding: 0;
+  background: var(--wf-bg);
+}
 .wf-item-sheet {
   position: relative;
-  width: min(100%, 680px);
-  height: calc(100dvh - env(safe-area-inset-top));
-  max-height: calc(100dvh - env(safe-area-inset-top));
+  width: min(100%, 720px);
+  height: 100dvh;
+  max-height: 100dvh;
   border-radius: 0;
+  box-shadow: none;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   overflow: hidden;
@@ -738,7 +742,7 @@
 .wf-item-close {
   position: absolute;
   z-index: 6;
-  top: 16px;
+  top: calc(16px + env(safe-area-inset-top));
   left: 16px;
   width: 46px;
   height: 46px;
