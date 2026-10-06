@@ -740,6 +740,19 @@ test("WYN-213 merchant access hardening: no developer cross-store access, legacy
   expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-213'");
 });
 
+test("Food + Merchant launch hardening preserves only the intentional anonymous Food RPCs", () => {
+  const sql = read("../supabase/migrations_wynos_food_merchant_launch_hardening_v1.sql");
+  const readiness = read("../supabase/migrations_wynos_merchant_production_readiness_hardening_v1.sql");
+
+  expect(sql).toContain("revoke execute on function public.food_store_open_status(uuid) from public, anon;");
+  expect(sql).toContain("grant execute on function public.food_store_open_status(uuid) to authenticated;");
+  expect(sql).toContain("food_store_id_by_share_code(text)");
+  expect(sql).toContain("food_store_share_preview(uuid)");
+  expect(sql).toContain("food_record_share_open(text)");
+  expect(sql).toContain("set address_line1 = nullif(btrim(address), '')");
+  expect(readiness).toContain("revoke execute on function public.food_store_open_status(uuid) from anon;");
+});
+
 test("WYN-214 Admin merchant polish: service area, order money, refunds, safe approvals", () => {
   const sql = read("../supabase/migrations_wynos_admin_merchant_polish_v1.sql");
   const store = read("../admin/app/(admin)/food/stores/[id]/page.tsx");
