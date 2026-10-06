@@ -46,6 +46,15 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: npm run check
 
+      # Release gate: production must never move before the same checked-out
+      # main commit passes the full Consumer Web browser suite. This closes the
+      # race where push-to-main QA and Vercel production deploy ran in parallel.
+      - name: Install release-gate browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Pre-production browser QA
+        run: npm run qa:browser
+
       - name: Deploy to Vercel production
         id: deploy
         env:
