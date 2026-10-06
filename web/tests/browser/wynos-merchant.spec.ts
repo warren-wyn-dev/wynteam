@@ -43,6 +43,7 @@ test("Merchant launch stays lean and hot realtime paths avoid full snapshot relo
   for (const modulePath of [
     "@/components/merchant/merchant-finance",
     "@/components/merchant/merchant-notification-settings",
+    "@/components/merchant/merchant-notification-prompt",
     "@/components/merchant/merchant-core-panels",
     "@/components/merchant/merchant-campaign-center",
     "@/components/merchant/merchant-platform-campaigns",
@@ -65,6 +66,9 @@ test("Merchant launch stays lean and hot realtime paths avoid full snapshot relo
   expect(app).toContain('applyLocalOrderStatus(order.id, "out_for_delivery")');
   expect(app).toContain("fetchMerchantOrdersPage(client, store.id, 0, MERCHANT_ORDER_PAGE_SIZE)");
   expect(app).toContain("setMenu(await fetchMerchantMenu(client, store.id))");
+  expect(app).toContain("const soldOutUntil = await setMenuSoldOutToday(client, store.id, item.id, soldOut)");
+  expect(app).toContain("sold_out_until: soldOutUntil");
+  expect(data).toContain("return soldOutUntil");
   expect(app).toContain("setMenu((current) => current.map((entry) => entry.id === item.id");
   expect(app).toContain("const position = new Map(ids.map((id, index) => [id, index]))");
   expect(app).toContain("menu_category_order: menuCategoryOrder");
