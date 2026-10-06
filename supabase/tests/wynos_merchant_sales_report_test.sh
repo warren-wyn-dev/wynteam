@@ -72,11 +72,11 @@ insert into public.food_stores values ('$STORE','$ACCOUNT'), ('$OTHER','$OTHER_A
 insert into public.food_staff values ('$STORE','$STAFF','orders',true);
 
 with inserted as (
-  insert into public.food_orders(store_id,status,total,delivered_at)
+  insert into public.food_orders(store_id,status,total,delivered_at,created_at)
   values
-    ('$STORE','delivered',100,(((now() at time zone 'Asia/Bangkok')::date + time '00:30') at time zone 'Asia/Bangkok')),
-    ('$STORE','delivered',200,(((now() at time zone 'Asia/Bangkok')::date + time '23:30') at time zone 'Asia/Bangkok')),
-    ('$STORE','delivered',300,((((now() at time zone 'Asia/Bangkok')::date - 40) + time '12:00') at time zone 'Asia/Bangkok'))
+    ('$STORE','delivered',100,now(),(((now() at time zone 'Asia/Bangkok')::date + time '00:30') at time zone 'Asia/Bangkok')),
+    ('$STORE','delivered',200,now(),(((now() at time zone 'Asia/Bangkok')::date + time '23:30') at time zone 'Asia/Bangkok')),
+    ('$STORE','delivered',300,now(),((((now() at time zone 'Asia/Bangkok')::date - 40) + time '12:00') at time zone 'Asia/Bangkok'))
   returning id,total
 )
 insert into public.food_order_items(order_id,item_name,quantity)
@@ -84,8 +84,8 @@ select id, case when total = 200 then 'ชาไทย' else 'ผัดไทย
        case when total = 100 then 1 when total = 200 then 2 else 2 end
 from inserted;
 
-insert into public.food_orders(store_id,status,total,delivered_at)
-values ('$STORE','cancelled',999,now()), ('$OTHER','delivered',9999,now());
+insert into public.food_orders(store_id,status,total,delivered_at,created_at)
+values ('$STORE','cancelled',999,now(),now()), ('$OTHER','delivered',9999,now(),now());
 SQL
 
 run >/dev/null 2>&1 < "$ROOT/supabase/migrations_wynos_merchant_sales_report_v1.sql"
