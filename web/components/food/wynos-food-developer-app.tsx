@@ -88,6 +88,7 @@ import {
   foodPublicUrl,
   quoteFoodCustomerOrder,
   addressLocation,
+  foodCustomerAddressStructuredComplete,
   fetchStorePlatformCampaigns,
   fetchFoodStoreDirectory,
   fetchFoodStoreReviewFeed,
@@ -1504,8 +1505,12 @@ function AccountPanel({
                 {[address.place_name, address.building_name, address.floor ? `ชั้น ${address.floor}` : null, address.room ? `ห้อง ${address.room}` : null, address.landmark].filter(Boolean).length ? (
                   <small>{[address.place_name, address.building_name, address.floor ? `ชั้น ${address.floor}` : null, address.room ? `ห้อง ${address.room}` : null, address.landmark].filter(Boolean).join(" · ")}</small>
                 ) : null}
-                <small className={addressLocation(address) ? "wf-location-ready" : "wf-location-missing"}>
-                  {addressLocation(address) ? "ปักหมุดแล้ว" : "ยังไม่ได้ปักหมุดโลเคชั่น"}
+                <small className={foodCustomerAddressStructuredComplete(address) && addressLocation(address) ? "wf-location-ready" : "wf-location-missing"}>
+                  {!foodCustomerAddressStructuredComplete(address)
+                    ? "ต้องอัปเดตข้อมูลที่อยู่"
+                    : addressLocation(address)
+                      ? "ปักหมุดแล้ว"
+                      : "ยังไม่ได้ปักหมุดโลเคชั่น"}
                 </small>
               </div>
               <button type="button" onClick={() => onEditAddress(address)}>แก้ไข</button>
@@ -2026,7 +2031,13 @@ function CheckoutSheet({
   onEditAddress: (address: FoodCustomerAddress) => void;
   onSubmit: (address: FoodCustomerAddress, note: string, scheduledFor?: string | null) => void;
 }) {
-  const [addressId, setAddressId] = useState(addresses.find((address) => address.is_default)?.id ?? addresses[0]?.id ?? "");
+  const initialAddressId = (
+    addresses.find((address) => address.is_default && foodCustomerAddressStructuredComplete(address))
+    ?? addresses.find((address) => foodCustomerAddressStructuredComplete(address))
+    ?? addresses.find((address) => address.is_default)
+    ?? addresses[0]
+  )?.id ?? "";
+  const [addressId, setAddressId] = useState(initialAddressId);
   const [note, setNote] = useState("");
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const canSchedule = store.scheduled_orders_enabled === true;
@@ -2102,9 +2113,11 @@ function CheckoutSheet({
   const minimumMissing = Math.max(0, minimum - serverSubtotal);
   const blockedReason = !address
     ? ""
-    : zone && !location
-      ? "ที่อยู่นี้ยังไม่ได้ปักหมุดตำแหน่ง แก้ไขที่อยู่เพื่อปักหมุดก่อนสั่ง"
-      : cartUnavailable
+    : !foodCustomerAddressStructuredComplete(address)
+      ? "ที่อยู่นี้เป็นข้อมูลเก่า กรุณากดแก้ไขและกรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนสั่ง"
+      : zone && !location
+        ? "ที่อยู่นี้ยังไม่ได้ปักหมุดตำแหน่ง แก้ไขที่อยู่เพื่อปักหมุดก่อนสั่ง"
+        : cartUnavailable
         ? "มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณากลับไปปรับตะกร้า"
         : minimumMissing > 0
           ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}`
@@ -2165,6 +2178,9 @@ function CheckoutSheet({
                   <small>{[address.building_name, address.floor ? `ชั้น ${address.floor}` : null, address.room ? `ห้อง ${address.room}` : null].filter(Boolean).join(" · ")}</small>
                 ) : null}
                 {address.delivery_note ? <small className="wf-checkout-address-note">{address.delivery_note}</small> : null}
+                {!foodCustomerAddressStructuredComplete(address) ? (
+                  <small className="wf-location-missing">ต้องอัปเดตข้อมูลที่อยู่ก่อนสั่ง</small>
+                ) : null}
               </div>
               <button className="wf-checkout-address-edit" type="button" onClick={() => onEditAddress(address)}>แก้ไข</button>
             </div>
@@ -2192,6 +2208,7 @@ function CheckoutSheet({
                       <strong>{row.label}</strong>
                       <small>{row.recipient_name} · {row.recipient_phone}</small>
                       <small>{row.address}</small>
+                      {!foodCustomerAddressStructuredComplete(row) ? <small className="wf-location-missing">ต้องอัปเดตข้อมูลที่อยู่</small> : null}
                     </span>
                   </button>
                 ))}
