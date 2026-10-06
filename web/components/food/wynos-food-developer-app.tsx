@@ -1155,7 +1155,7 @@ function HomePanel({
                 <strong>{item.name}</strong>
                 {item.description ? <small>{item.description}</small> : <small>{item.category}</small>}
                 {item.remaining_stock != null
-                  ? <small>เหลือ {Math.max(0, item.remaining_stock)} ชิ้นวันนี้</small>
+                  ? <small>เหลือ {Math.max(0, item.remaining_stock)} ชิ้นวันนี้{reservedByOtherVariants > 0 ? ` · ในตะกร้าแล้ว ${reservedByOtherVariants}` : ""}</small>
                   : item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
                 <b>{foodMoney(item.price)}</b>
               </span>
@@ -1213,10 +1213,12 @@ function CartPanel({
   const campaignDiscount = Number(quote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(quote?.delivery_discount ?? 0);
   const total = quote?.total ?? subtotal + delivery;
+  const quantityByMenu = new Map<string, number>();
+  for (const line of cart) quantityByMenu.set(line.menu_item_id, (quantityByMenu.get(line.menu_item_id) ?? 0) + line.quantity);
   const hasUnavailable = priced.some((row) => {
     if (!row.item || !foodMenuIsEffectivelyAvailable(row.item) || !foodCartLineOptionsValid(row.item, row.line)) return true;
     const limit = foodMenuQuantityLimit(row.item);
-    return limit <= 0 || row.line.quantity > limit;
+    return limit <= 0 || (quantityByMenu.get(row.line.menu_item_id) ?? 0) > limit;
   });
   const minimum = Number(store?.minimum_order ?? 0);
   const belowMinimum = subtotal < minimum;
@@ -1229,8 +1231,10 @@ function CartPanel({
         if (foodCartLineKey(line) !== key) return line;
         const item = itemFor(menu, line.menu_item_id);
         const limit = item ? foodMenuQuantityLimit(item) : 99;
+        const otherQuantity = cart.reduce((sum, row) => sum + (row.menu_item_id === line.menu_item_id && foodCartLineKey(row) !== key ? row.quantity : 0), 0);
+        const lineLimit = Math.max(0, limit - otherQuantity);
         const next = line.quantity + delta;
-        return { ...line, quantity: delta > 0 ? Math.min(next, Math.max(1, limit)) : next };
+        return { ...line, quantity: delta > 0 ? Math.min(next, lineLimit) : next };
       })
       .filter((line) => line.quantity > 0));
   };
@@ -1253,7 +1257,8 @@ function CartPanel({
           <div className="wf-cart-list">
             {priced.map(({ line, item, key, unitPrice }) => {
               const limit = item ? foodMenuQuantityLimit(item) : 0;
-              const unavailable = !item || !foodMenuIsEffectivelyAvailable(item) || !foodCartLineOptionsValid(item, line) || limit <= 0 || line.quantity > limit;
+              const totalMenuQuantity = quantityByMenu.get(line.menu_item_id) ?? line.quantity;
+              const unavailable = !item || !foodMenuIsEffectivelyAvailable(item) || !foodCartLineOptionsValid(item, line) || limit <= 0 || totalMenuQuantity > limit;
               const optionText = foodCartLineOptionText(line, item);
               return (
                 <article key={key} className={`wf-cart-row ${unavailable ? "is-off" : ""}`}>
@@ -1269,7 +1274,7 @@ function CartPanel({
                       {line.quantity === 1 ? <Trash2 size={15} /> : <Minus size={15} />}
                     </button>
                     <b>{line.quantity}</b>
-                    <button type="button" aria-label="เพิ่มจำนวน" disabled={!item || line.quantity >= limit} onClick={() => changeQuantity(key, 1)}>
+                    <button type="button" aria-label="เพิ่มจำนวน" disabled={!item || totalMenuQuantity >= limit} onClick={() => changeQuantity(key, 1)}>
                       <Plus size={15} />
                     </button>
                   </div>
@@ -1498,6 +1503,7 @@ function ItemSheet({
   client,
   item,
   existing,
+  cartQuantity,
   storeOpen,
   onClose,
   onAdd,
@@ -1505,6 +1511,7 @@ function ItemSheet({
   client: SupabaseClient;
   item: FoodCustomerMenuItem;
   existing: FoodCartLine | null;
+  cartQuantity: number;
   storeOpen: boolean;
   onClose: () => void;
   onAdd: (line: FoodCartLine, replaceKey?: string) => void;
@@ -1521,7 +1528,9 @@ function ItemSheet({
   const image = foodPublicUrl(client, item.image_path);
   const itemAvailable = foodMenuIsEffectivelyAvailable(item);
   const optionGroups = Array.isArray(item.options) ? item.options : [];
-  const quantityLimit = foodMenuQuantityLimit(item);
+  const stockLimit = foodMenuQuantityLimit(item);
+  const reservedByOtherVariants = Math.max(0, cartQuantity - (existing?.quantity ?? 0));
+  const quantityLimit = Math.max(0, stockLimit - reservedByOtherVariants);
   const selectionValid = optionGroups.every((group) => !group.required || (selected[group.id]?.length ?? 0) > 0);
   const selectedOptions = optionGroups.flatMap((group) => {
     const ids = new Set(selected[group.id] ?? []);
@@ -1841,11 +1850,13 @@ function CheckoutSheet({
   // Until the quote for this address arrives, the fee is unknown: no confirm.
   const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
   const effectiveQuote = current?.quote ?? quote;
+  const checkoutQuantityByMenu = new Map<string, number>();
+  for (const line of cart) checkoutQuantityByMenu.set(line.menu_item_id, (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) + line.quantity);
   const cartUnavailable = cart.some((line) => {
     const item = itemFor(menu, line.menu_item_id);
     if (!item || !foodMenuIsEffectivelyAvailable(item) || !foodCartLineOptionsValid(item, line)) return true;
     const limit = foodMenuQuantityLimit(item);
-    return limit <= 0 || line.quantity > limit;
+    return limit <= 0 || (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) > limit;
   });
   const serverSubtotal = Number(effectiveQuote?.subtotal ?? subtotal);
   const minimum = Number(store.minimum_order ?? 0);
@@ -2502,17 +2513,23 @@ function FoodCustomerInner({
 
   const addItem = (line: FoodCartLine, replaceKey?: string) => {
     setCart((current) => {
-      if (replaceKey) {
-        return current.map((row) => foodCartLineKey(row) === replaceKey ? line : row);
-      }
       const item = itemFor(menu, line.menu_item_id);
       const limit = item ? foodMenuQuantityLimit(item) : 99;
-      const normalized = { ...line, quantity: Math.max(1, Math.min(line.quantity, Math.max(1, limit))) };
+      if (replaceKey) {
+        const otherQuantity = current.reduce((sum, row) => sum + (row.menu_item_id === line.menu_item_id && foodCartLineKey(row) !== replaceKey ? row.quantity : 0), 0);
+        const lineLimit = Math.max(0, limit - otherQuantity);
+        if (lineLimit <= 0) return current;
+        return current.map((row) => foodCartLineKey(row) === replaceKey ? { ...line, quantity: Math.min(line.quantity, lineLimit) } : row);
+      }
+      const usedQuantity = current.reduce((sum, row) => sum + (row.menu_item_id === line.menu_item_id ? row.quantity : 0), 0);
+      const remaining = Math.max(0, limit - usedQuantity);
+      if (remaining <= 0) return current;
+      const normalized = { ...line, quantity: Math.max(1, Math.min(line.quantity, remaining)) };
       const key = foodCartLineKey(normalized);
       const index = current.findIndex((row) => foodCartLineKey(row) === key);
       if (index < 0) return [...current, normalized];
       return current.map((row, rowIndex) => rowIndex === index
-        ? { ...row, quantity: Math.min(Math.max(1, limit), row.quantity + normalized.quantity) }
+        ? { ...row, quantity: Math.min(remaining + row.quantity, row.quantity + normalized.quantity) }
         : row);
     });
     setSelectedItem(null);
@@ -2757,6 +2774,7 @@ function FoodCustomerInner({
           client={client}
           item={selectedItem}
           existing={(selectedItem.options?.length ?? 0) > 0 ? null : cart.find((line) => line.menu_item_id === selectedItem.id) ?? null}
+          cartQuantity={cart.reduce((sum, line) => sum + (line.menu_item_id === selectedItem.id ? line.quantity : 0), 0)}
           storeOpen={foodStoreIsEffectivelyOpen(store)}
           onClose={() => setSelectedItem(null)}
           onAdd={addItem}
