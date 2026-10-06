@@ -267,8 +267,13 @@ function waitingNote(order: FoodOrder) {
   return null;
 }
 
+const MERCHANT_TIME_FORMATTER = new Intl.DateTimeFormat("th-TH", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 function shortTime(value: string) {
-  return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return MERCHANT_TIME_FORMATTER.format(new Date(value));
 }
 
 function OrderStatus({ order }: { order: FoodOrder }) {
