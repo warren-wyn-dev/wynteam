@@ -37,10 +37,12 @@ export function DeveloperRouteGate({
   children,
   signedOutPath = "/welcome",
   afterSignOutPath = signedOutPath,
+  loadingFallback,
 }: {
   children: (context: DeveloperRouteContext) => React.ReactNode;
   signedOutPath?: string;
   afterSignOutPath?: string;
+  loadingFallback?: React.ReactNode;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -171,7 +173,10 @@ export function DeveloperRouteGate({
     window.location.replace(afterSignOutPath);
   }, [afterSignOutPath, client, queryClient, session]);
 
-  if (gate === "loading" || gate === "signed-out") {
+  if (gate === "loading") {
+    return loadingFallback ?? <main className="route-state"><div className="route-system-spinner" aria-label="กำลังโหลด" /></main>;
+  }
+  if (gate === "signed-out") {
     return <main className="route-state"><div className="route-system-spinner" aria-label="กำลังโหลด" /></main>;
   }
   if (gate === "missing-config") {
