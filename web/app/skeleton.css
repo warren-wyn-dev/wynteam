@@ -119,12 +119,12 @@
   gap: 7px;
 }
 
-/* WYN-175 bug fix (2026-09-19): the real hashtag row markup
+/* WYN-175 + 2026-10-06 QA: the real hashtag row markup
    (search-route.tsx) carries both `hashtag-row` and `flutter-rank-row`
-   classes — `.flutter-rank-row` (app/parity-completion.css, imported after
-   phase3.css in layout.tsx) wins the cascade and sets the row's actual
-   height, not the base `.hashtag-row` rule this skeleton was copied from.
-   Matching `.flutter-rank-row`'s box model here, not `.hashtag-row`'s. */
+   classes. notifications-clean.css is imported after parity-completion.css
+   and currently wins with the 67px ranked-row geometry. Keep this skeleton
+   matched to that final cascade, not the older phase3/parity values, so
+   loading data never shifts the Discovery list vertically. */
 .wyn-skeleton-hashtag-row {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) auto 18px;
