@@ -38,21 +38,13 @@ import {
   X,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { FoodDeliveryMapPicker, FoodLocationMapPreview } from "@/components/food/food-delivery-map-picker";
-import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
-import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
-import { MerchantAds } from "@/components/merchant/merchant-ads";
-import { MerchantFinance } from "@/components/merchant/merchant-finance";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
-import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
-import { MerchantNotificationSettings } from "@/components/merchant/merchant-notification-settings";
-import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
-import { MerchantShareCard } from "@/components/merchant/merchant-share-card";
 import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@/lib/food-share";
 import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
@@ -64,6 +56,7 @@ import {
   deleteStorePlace,
   fetchStorePlaces,
   fetchMerchantSnapshot,
+  fetchMerchantMenu,
   fetchMerchantOrdersPage,
   fetchMerchantSalesReport,
   fetchMerchantStoreReadiness,
@@ -118,6 +111,61 @@ type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "
 const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help", "notifications"]);
 const MERCHANT_STORE_KEY = "wynos-merchant-store-v1";
 type OrderFilter = "new" | "cooking" | "delivery" | "done";
+
+function MerchantChunkLoading() {
+  return (
+    <div className="wm-chunk-loading" aria-label="กำลังเปิด">
+      <span className="wm-mini-loader" />
+    </div>
+  );
+}
+
+// Keep the launch bundle focused on Home / Orders / Menu. Secondary tools,
+// maps, finance, QR and campaign code are fetched only when needed, then
+// warmed during idle time below so subsequent taps still feel native-fast.
+const FoodDeliveryMapPicker = dynamic(
+  () => import("@/components/food/food-delivery-map-picker").then((mod) => mod.FoodDeliveryMapPicker),
+  { loading: MerchantChunkLoading },
+);
+const FoodLocationMapPreview = dynamic(
+  () => import("@/components/food/food-delivery-map-picker").then((mod) => mod.FoodLocationMapPreview),
+  { loading: MerchantChunkLoading },
+);
+const MerchantCampaignCenter = dynamic(
+  () => import("@/components/merchant/merchant-campaign-center").then((mod) => mod.MerchantCampaignCenter),
+  { loading: MerchantChunkLoading },
+);
+const MerchantStoreTools = dynamic(
+  () => import("@/components/merchant/merchant-core-panels").then((mod) => mod.MerchantStoreTools),
+  { loading: MerchantChunkLoading },
+);
+const RefundControls = dynamic(
+  () => import("@/components/merchant/merchant-core-panels").then((mod) => mod.RefundControls),
+  { loading: MerchantChunkLoading },
+);
+const MerchantAds = dynamic(
+  () => import("@/components/merchant/merchant-ads").then((mod) => mod.MerchantAds),
+  { loading: MerchantChunkLoading },
+);
+const MerchantFinance = dynamic(
+  () => import("@/components/merchant/merchant-finance").then((mod) => mod.MerchantFinance),
+  { loading: MerchantChunkLoading },
+);
+const MerchantNotificationSettings = dynamic(
+  () => import("@/components/merchant/merchant-notification-settings").then((mod) => mod.MerchantNotificationSettings),
+  { loading: MerchantChunkLoading },
+);
+const MerchantNotificationPrompt = dynamic(
+  () => import("@/components/merchant/merchant-notification-prompt").then((mod) => mod.MerchantNotificationPrompt),
+);
+const MerchantPlatformCampaigns = dynamic(
+  () => import("@/components/merchant/merchant-platform-campaigns").then((mod) => mod.MerchantPlatformCampaigns),
+  { loading: MerchantChunkLoading },
+);
+const MerchantShareCard = dynamic(
+  () => import("@/components/merchant/merchant-share-card").then((mod) => mod.MerchantShareCard),
+  { loading: MerchantChunkLoading },
+);
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -222,8 +270,17 @@ function waitingNote(order: FoodOrder) {
   return null;
 }
 
+const MERCHANT_TIME_FORMATTER = new Intl.DateTimeFormat("th-TH", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const MERCHANT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("th-TH", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
 function shortTime(value: string) {
-  return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return MERCHANT_TIME_FORMATTER.format(new Date(value));
 }
 
 function OrderStatus({ order }: { order: FoodOrder }) {
@@ -254,9 +311,33 @@ function PaymentStatus({ order }: { order: FoodOrder }) {
 
 function MerchantLoading() {
   return (
-    <main className="wm-loading" aria-label="กำลังโหลด WYNOS Merchant">
-      <div className="wm-loader" />
-      <strong>WYNOS <b>Merchant</b></strong>
+    <main className="wyn-merchant wm-loading-shell" aria-label="กำลังโหลด WYNOS Merchant" aria-busy="true">
+      <header className="wm-header">
+        <div className="wm-brand"><span>WYNOS</span><b>Merchant</b></div>
+        <span className="wm-mini-loader" aria-hidden="true" />
+      </header>
+      <section className="wm-content">
+        <section className="wm-hero wm-skeleton-hero" aria-hidden="true">
+          <div className="wm-skeleton-line wm-skeleton-line--short" />
+          <div className="wm-skeleton-line wm-skeleton-line--title" />
+          <div className="wm-skeleton-block" />
+          <div className="wm-skeleton-switch" />
+        </section>
+        <div className="wm-skeleton-actions" aria-hidden="true">
+          <i /><i /><i /><i />
+        </div>
+        <section className="wm-section" aria-hidden="true">
+          <div className="wm-skeleton-line wm-skeleton-line--medium" />
+          <div className="wm-skeleton-order" />
+          <div className="wm-skeleton-order" />
+        </section>
+      </section>
+      <nav className="wm-nav wm-nav--loading" aria-hidden="true">
+        <span><MerchantNavIcon name="home" active /><small>หน้าหลัก</small></span>
+        <span><MerchantNavIcon name="orders" active={false} /><small>รับออเดอร์</small></span>
+        <span><MerchantNavIcon name="menu" active={false} /><small>เมนู</small></span>
+        <span><MerchantNavIcon name="more" active={false} /><small>เพิ่มเติม</small></span>
+      </nav>
     </main>
   );
 }
@@ -344,11 +425,10 @@ function MerchantInner({
   const [ordersHasMore, setOrdersHasMore] = useState(false);
   const [salesReportState, setSalesReportState] = useState<{
     storeId: string;
-    revision: number;
     report: MerchantSalesReport | null;
     error: string;
   } | null>(null);
-  const [dataRevision, setDataRevision] = useState(0);
+  const [salesReportRevision, setSalesReportRevision] = useState(0);
   const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -388,6 +468,8 @@ function MerchantInner({
   // the last realtime event or action always shows its final state.
   const reloadQueuedRef = useRef(false);
   const paymentStatusRef = useRef<Map<string, FoodOrder["payment_status"]>>(new Map());
+  const orderRefreshTimerRef = useRef<number | null>(null);
+  const activeStoreId = store?.id ?? null;
 
   const load = useCallback(async (quiet = false) => {
     if (loadingRef.current) {
@@ -406,7 +488,6 @@ function MerchantInner({
       setMenu(next.menu);
       setOrders(next.orders);
       setOrdersHasMore(next.has_more_orders);
-      setDataRevision((value) => value + 1);
       if (next.store && next.store.id !== selectedStoreId) setSelectedStoreId(next.store.id);
       paymentStatusRef.current = new Map(next.orders.map((order) => [order.id, order.payment_status]));
       const requested = requestedOrderRef.current;
@@ -434,6 +515,46 @@ function MerchantInner({
   const loadRef = useRef<typeof load | null>(null);
   useEffect(() => { loadRef.current = load; }, [load]);
 
+  // Order events are by far the hottest realtime path. Refresh only the order
+  // window instead of re-reading Merchant access, stores and the full menu.
+  const refreshOrders = useCallback(async () => {
+    if (!activeStoreId) return;
+    try {
+      const page = await fetchMerchantOrdersPage(client, activeStoreId, 0, MERCHANT_ORDER_PAGE_SIZE);
+      paymentStatusRef.current = new Map(page.orders.map((order) => [order.id, order.payment_status]));
+      setOrders((current) => {
+        const freshIds = new Set(page.orders.map((order) => order.id));
+        const older = current.filter((order) => !freshIds.has(order.id));
+        return [...page.orders, ...older];
+      });
+      setOrdersHasMore((current) => current || page.hasMore);
+      setSelectedOrder((current) => {
+        if (!current) return null;
+        return page.orders.find((order) => order.id === current.id) ?? current;
+      });
+    } catch (error) {
+      setMessage(merchantError(error, "อัปเดตออเดอร์ไม่สำเร็จ"));
+    }
+  }, [activeStoreId, client]);
+
+  const scheduleOrderRefresh = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (orderRefreshTimerRef.current != null) window.clearTimeout(orderRefreshTimerRef.current);
+    orderRefreshTimerRef.current = window.setTimeout(() => {
+      orderRefreshTimerRef.current = null;
+      void refreshOrders();
+    }, 80);
+  }, [refreshOrders]);
+
+  const refreshMenu = useCallback(async () => {
+    if (!activeStoreId) return;
+    try {
+      setMenu(await fetchMerchantMenu(client, activeStoreId));
+    } catch (error) {
+      setMessage(merchantError(error, "อัปเดตเมนูไม่สำเร็จ"));
+    }
+  }, [activeStoreId, client]);
+
   useEffect(() => {
     if (!selectedStoreId || typeof window === "undefined") return;
     window.localStorage.setItem(MERCHANT_STORE_KEY, selectedStoreId);
@@ -445,34 +566,29 @@ function MerchantInner({
   }, [load]);
 
   useEffect(() => {
-    if (!store?.id) return;
+    if (!activeStoreId) return;
     let live = true;
-    const storeId = store.id;
-    const revision = dataRevision;
+    const storeId = activeStoreId;
     void fetchMerchantSalesReport(client, storeId)
       .then((next) => {
-        if (live) setSalesReportState({ storeId, revision, report: next, error: "" });
+        if (live) setSalesReportState({ storeId, report: next, error: "" });
       })
       .catch((reason) => {
         if (!live) return;
-        setSalesReportState({
-          storeId,
-          revision,
-          report: null,
-          error: merchantError(reason, "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่"),
-        });
+        const error = merchantError(reason, "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่");
+        setSalesReportState((current) => current?.storeId === storeId
+          ? { ...current, error }
+          : { storeId, report: null, error });
       });
     return () => { live = false; };
-  }, [client, store?.id, dataRevision]);
+  }, [activeStoreId, client, salesReportRevision]);
 
-  const currentSalesReport = store
-    && salesReportState?.storeId === store.id
-    && salesReportState.revision === dataRevision
+  // Keep the last good numbers on screen while a fresh report loads, like a
+  // native app's stale-while-revalidate cache. Store changes still isolate data.
+  const currentSalesReport = store && salesReportState?.storeId === store.id
     ? salesReportState.report
     : null;
-  const currentSalesReportError = store
-    && salesReportState?.storeId === store.id
-    && salesReportState.revision === dataRevision
+  const currentSalesReportError = store && salesReportState?.storeId === store.id
     ? salesReportState.error
     : "";
 
@@ -504,8 +620,8 @@ function MerchantInner({
   }, []);
 
   useEffect(() => {
-    if (!store?.id) return;
-    const channel = subscribeMerchantOrders(client, store.id, (payload) => {
+    if (!activeStoreId) return;
+    const channel = subscribeMerchantOrders(client, activeStoreId, (payload) => {
       const next = payload.new as Partial<FoodOrder>;
       if (payload.eventType === "INSERT") {
         if (typeof next.id === "string" && next.payment_status) paymentStatusRef.current.set(next.id, next.payment_status);
@@ -539,10 +655,18 @@ function MerchantInner({
           }
         }
       }
-      void load(true);
+      const previous = payload.old as Partial<FoodOrder>;
+      if (next.status === "delivered" || previous.status === "delivered") {
+        setSalesReportRevision((value) => value + 1);
+      }
+      scheduleOrderRefresh();
     });
-    return () => { void client.removeChannel(channel); };
-  }, [client, load, store?.id]);
+    return () => {
+      if (orderRefreshTimerRef.current != null) window.clearTimeout(orderRefreshTimerRef.current);
+      orderRefreshTimerRef.current = null;
+      void client.removeChannel(channel);
+    };
+  }, [activeStoreId, client, scheduleOrderRefresh]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -554,6 +678,34 @@ function MerchantInner({
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
+
+  useEffect(() => {
+    if (loading || !activeStoreId || typeof window === "undefined") return;
+    const hints = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    if (!navigator.onLine || hints?.saveData || hints?.effectiveType === "slow-2g" || hints?.effectiveType === "2g") return;
+
+    const warmSecondaryTools = () => {
+      if (document.visibilityState !== "visible") return;
+      void Promise.allSettled([
+        import("@/components/merchant/merchant-finance"),
+        import("@/components/merchant/merchant-notification-settings"),
+        import("@/components/merchant/merchant-core-panels"),
+        import("@/components/merchant/merchant-campaign-center"),
+        import("@/components/merchant/merchant-platform-campaigns"),
+        import("@/components/merchant/merchant-ads"),
+        import("@/components/food/food-delivery-map-picker"),
+      ]);
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(warmSecondaryTools, { timeout: 1800 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(warmSecondaryTools, 900);
+    return () => window.clearTimeout(timer);
+  }, [activeStoreId, loading]);
 
   const install = async () => {
     if (!installPrompt) return;
@@ -604,6 +756,17 @@ function MerchantInner({
   const alertOrder = alertQueue[0] ?? null;
   const markAlertSeen = (order: FoodOrder) => setSeenAlerts((current) => new Set(current).add(alertKey(order)));
 
+  const applyLocalStorePatch = (storeId: string, patch: Partial<FoodStore>) => {
+    setStore((current) => current?.id === storeId ? { ...current, ...patch } : current);
+    setStores((current) => current.map((item) => item.id === storeId ? { ...item, ...patch } : item));
+  };
+
+  const applyLocalOrderStatus = (orderId: string, status: FoodOrder["status"]) => {
+    const updatedAt = new Date().toISOString();
+    setOrders((current) => current.map((item) => item.id === orderId ? { ...item, status, updated_at: updatedAt } : item));
+    setSelectedOrder((current) => current?.id === orderId ? { ...current, status, updated_at: updatedAt } : current);
+  };
+
   const quickAction = async (order: FoodOrder) => {
     const next = quickStep(order);
     if (!next) return;
@@ -616,12 +779,15 @@ function MerchantInner({
     try {
       if (next.step === "accept") {
         await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? Number(store?.prep_time_max_minutes ?? 30));
+        applyLocalOrderStatus(order.id, "preparing");
         setMessage(`รับออเดอร์ #${order.order_number} แล้ว`);
       } else if (next.step === "ready") {
         await transitionFoodOrder(client, order.id, "ready_for_delivery");
+        applyLocalOrderStatus(order.id, "ready_for_delivery");
         setMessage(`ออเดอร์ #${order.order_number} อาหารพร้อมแล้ว`);
       } else {
         await transitionFoodOrder(client, order.id, "out_for_delivery");
+        applyLocalOrderStatus(order.id, "out_for_delivery");
         setMessage(`ออเดอร์ #${order.order_number} เริ่มจัดส่งแล้ว`);
       }
     } catch (error) {
@@ -629,7 +795,9 @@ function MerchantInner({
       forgetAction(order.id);
     } finally {
       // Reload on failure too: the order may have moved on elsewhere.
-      void load(true);
+      // Keep the hot order flow lightweight: the realtime event usually wins,
+      // and this debounced order-only refresh is the safety net if it does not.
+      scheduleOrderRefresh();
     }
   };
 
@@ -637,7 +805,10 @@ function MerchantInner({
   // excluded by the hook: dialogs and inputs never start a pull).
   const pull = usePullToRefresh({
     enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports" || tab === "finance",
-    onRefresh: async () => { await load(true); },
+    onRefresh: async () => {
+      await load(true);
+      setSalesReportRevision((value) => value + 1);
+    },
   });
 
   if (loading && access === null) return <MerchantLoading />;
@@ -671,7 +842,15 @@ function MerchantInner({
             <Bell size={21} strokeWidth={1.8} />
           </button>
           {refreshing ? <span className="wm-mini-loader" aria-label="กำลังอัปเดต" /> : (
-            <button className="wm-icon-button" type="button" aria-label="อัปเดตข้อมูล" onClick={() => void load(true)}>
+            <button
+              className="wm-icon-button"
+              type="button"
+              aria-label="อัปเดตข้อมูล"
+              onClick={() => {
+                void load(true);
+                setSalesReportRevision((value) => value + 1);
+              }}
+            >
               <Clock3 size={21} strokeWidth={1.8} />
             </button>
           )}
@@ -697,6 +876,7 @@ function MerchantInner({
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onReload={() => void load(true)}
+            onStorePatch={(patch) => applyLocalStorePatch(store.id, patch)}
             onOpenTab={setTab}
             onEditStore={() => setStoreEditing(true)}
             onMessage={setMessage}
@@ -728,25 +908,44 @@ function MerchantInner({
             onEdit={(item) => setMenuDraft(menuDraftFromItem(item))}
             onAdd={() => setMenuAddOpen(true)}
             onToggle={async (item) => {
+              const isAvailable = !item.is_available;
               try {
-                await setMenuAvailability(client, store.id, item.id, !item.is_available);
-                await load(true);
-              } catch (error) { setMessage(merchantError(error)); }
+                await setMenuAvailability(client, store.id, item.id, isAvailable);
+                setMenu((current) => current.map((entry) => entry.id === item.id ? { ...entry, is_available: isAvailable } : entry));
+              } catch (error) {
+                setMessage(merchantError(error));
+                void refreshMenu();
+              }
             }}
             onSoldOut={async (item, soldOut) => {
               try {
-                await setMenuSoldOutToday(client, store.id, item.id, soldOut);
+                const soldOutUntil = await setMenuSoldOutToday(client, store.id, item.id, soldOut);
+                setMenu((current) => current.map((entry) => entry.id === item.id ? { ...entry, sold_out_until: soldOutUntil } : entry));
                 setMessage(soldOut ? "ตั้งเมนูหมดวันนี้แล้ว ระบบจะเปิดให้อัตโนมัติวันถัดไป" : "เปิดเมนูกลับแล้ว");
-                await load(true);
-              } catch (error) { setMessage(merchantError(error)); }
+              } catch (error) {
+                setMessage(merchantError(error));
+                void refreshMenu();
+              }
             }}
             onReorder={async (ids) => {
-              try { await saveMenuSortOrder(client, store.id, ids); await load(true); }
-              catch (error) { setMessage(merchantError(error)); }
+              try {
+                await saveMenuSortOrder(client, store.id, ids);
+                const position = new Map(ids.map((id, index) => [id, index]));
+                setMenu((current) => [...current].sort((a, b) => (position.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (position.get(b.id) ?? Number.MAX_SAFE_INTEGER)));
+              } catch (error) {
+                setMessage(merchantError(error));
+                void refreshMenu();
+              }
             }}
             onCategoryOrder={async (categories) => {
-              try { await saveMenuCategoryOrder(client, store.id, categories); await load(true); }
-              catch (error) { setMessage(merchantError(error)); }
+              try {
+                await saveMenuCategoryOrder(client, store.id, categories);
+                const menuCategoryOrder = Array.from(new Set(categories.map((value) => value.trim()).filter(Boolean)));
+                setStore((current) => current?.id === store.id ? { ...current, menu_category_order: menuCategoryOrder } : current);
+              } catch (error) {
+                setMessage(merchantError(error));
+                void load(true);
+              }
             }}
           />
         ) : null}
@@ -862,7 +1061,7 @@ function MerchantInner({
           store={store}
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
-          onReload={() => void load(true)}
+          onReload={scheduleOrderRefresh}
           onMessage={setMessage}
         />
       ) : null}
@@ -903,9 +1102,10 @@ function MerchantInner({
           store={store}
           menu={menu}
           onClose={() => setMenuToolMode(null)}
-          onSaved={async () => {
+          onSaved={async (categories) => {
             setMenuToolMode(null);
-            await load(true);
+            applyLocalStorePatch(store.id, { menu_category_order: categories });
+            await refreshMenu();
           }}
           onMessage={setMessage}
         />
@@ -917,7 +1117,7 @@ function MerchantInner({
           store={store}
           draft={menuDraft}
           onClose={() => setMenuDraft(null)}
-          onSaved={async () => { setMenuDraft(null); await load(true); }}
+          onSaved={async () => { setMenuDraft(null); await refreshMenu(); }}
           onMessage={setMessage}
         />
       ) : null}
@@ -965,6 +1165,7 @@ function HomePanel({
   installPrompt,
   onInstall,
   onReload,
+  onStorePatch,
   onOpenTab,
   onEditStore,
   onMessage,
@@ -977,6 +1178,7 @@ function HomePanel({
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
   onReload: () => void;
+  onStorePatch: (patch: Partial<FoodStore>) => void;
   onOpenTab: (tab: MerchantTab) => void;
   onEditStore: () => void;
   onMessage: (message: string) => void;
@@ -984,10 +1186,11 @@ function HomePanel({
   const [busy, setBusy] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const toggleOpen = async () => {
+    const isOpen = !store.is_open;
     setBusy(true);
     try {
-      await updateFoodStore(client, store.id, { is_open: !store.is_open });
-      onReload();
+      await updateFoodStore(client, store.id, { is_open: isOpen });
+      onStorePatch({ is_open: isOpen });
     } catch (error) {
       onMessage(merchantError(error));
       // The store may have been suspended since this screen loaded.
@@ -1450,7 +1653,7 @@ function MenuPanel({
                       >
                         {sortMode ? <span className="wm-menu-drag" aria-hidden="true"><GripVertical size={18} /></span> : null}
                         <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
-                          <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
+                          <span className="wm-menu-photo">{image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
                           <span className="wm-menu-copy">
                             <strong>{item.name}</strong>
                             <small>{item.daily_stock_limit ? `จำกัด ${item.daily_stock_limit} ชิ้น/วัน` : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
@@ -1724,7 +1927,7 @@ function MerchantStorefrontPreview({
             {menu.filter((item) => item.category === category).map((item) => {
               const available = foodMenuIsEffectivelyAvailable(item);
               return <div className={`wm-preview-menu ${available ? "" : "is-off"}`} key={item.id}>
-                <span>{item.image_path ? <img src={foodPublicUrl(client, item.image_path) ?? ""} alt="" /> : <UtensilsCrossed size={22} />}</span>
+                <span>{item.image_path ? <img src={foodPublicUrl(client, item.image_path) ?? ""} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed size={22} />}</span>
                 <div><strong>{item.name}</strong><small>{item.description || (available ? "พร้อมขาย" : "หมดชั่วคราว")}</small><b>{money(item.price)}</b></div>
               </div>;
             })}
@@ -1857,7 +2060,7 @@ function OrderSheet({
       <section className="wm-print-document" aria-hidden="true">
         <div className="wm-print-brand"><strong>{store.name}</strong><small>{receiptLegalName ? "ใบเสร็จรับเงิน / ข้อมูลภาษี" : "ใบออเดอร์ / ใบเสร็จอย่างย่อ"}</small></div>
         {receiptLegalName ? <div className="wm-print-tax"><b>{receiptLegalName}</b>{receiptTaxId ? <span>เลขประจำตัวผู้เสียภาษี {receiptTaxId}</span> : null}{receiptTaxBranch ? <span>สาขา {receiptTaxBranch}</span> : null}{receiptTaxAddress ? <span>{receiptTaxAddress}</span> : null}</div> : null}
-        <div className="wm-print-meta"><span>ออเดอร์ #{order.order_number}</span><span>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</span>{order.scheduled_for ? <span>นัดรับ/จัดส่ง {new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</span> : null}</div>
+        <div className="wm-print-meta"><span>ออเดอร์ #{order.order_number}</span><span>{MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.created_at))}</span>{order.scheduled_for ? <span>นัดรับ/จัดส่ง {MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.scheduled_for))}</span> : null}</div>
         <div className="wm-print-lines">{(order.food_order_items ?? []).map((item) => <div key={item.id}><span>{item.quantity}× {item.item_name}{item.item_note ? <small>{item.item_note}</small> : null}</span><b>{money(Number(item.unit_price) * item.quantity)}</b></div>)}</div>
         <div className="wm-print-totals">
           <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
@@ -1872,10 +2075,10 @@ function OrderSheet({
       <div className="wm-order-detail-head">
         <div><OrderStatus order={order} /><PaymentStatus order={order} /></div>
         <strong>{money(order.total)}</strong>
-        <small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</small>
+        <small>{MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.created_at))}</small>
         <button className="wm-secondary wm-print-order" type="button" onClick={() => window.print()}><Printer size={17} /> พิมพ์ใบออเดอร์ / ใบเสร็จ</button>
       </div>
-      {order.scheduled_for ? <div className="wm-scheduled-order-banner"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</small></span></div> : null}
+      {order.scheduled_for ? <div className="wm-scheduled-order-banner"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.scheduled_for))}</small></span></div> : null}
 
       {order.status === "pending_acceptance" ? (
         <section className="wm-detail-section wm-next-step">
@@ -2015,7 +2218,7 @@ function OrderSheet({
 
 
       {order.status === "delivered" ? (
-        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
+        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
       ) : null}
 
       {!["delivered", "cancelled"].includes(order.status) ? (
@@ -2114,7 +2317,7 @@ function MenuOptionPicker({
               : 0;
             return (
               <button type="button" key={item.id} onClick={() => onPick(item)}>
-                <span className="wm-menu-tool-thumb">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={22} />}</span>
+                <span className="wm-menu-tool-thumb">{image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed size={22} />}</span>
                 <span><strong>{item.name}</strong><small>{item.category} · {optionCount ? `${optionCount} ตัวเลือกเสริม` : "ยังไม่มีตัวเลือกเสริม"}</small></span>
                 <ChevronRight size={19} />
               </button>
@@ -2145,7 +2348,7 @@ function MenuCategoryManager({
   store: FoodStore;
   menu: FoodMenuItem[];
   onClose: () => void;
-  onSaved: () => Promise<void>;
+  onSaved: (categories: string[]) => Promise<void>;
   onMessage: (message: string) => void;
 }) {
   const initial = Array.from(new Set([
@@ -2201,7 +2404,7 @@ function MenuCategoryManager({
       }
       await saveMenuCategoryOrder(client, store.id, names);
       onMessage("บันทึกหมวดหมู่แล้ว");
-      await onSaved();
+      await onSaved(names);
     } catch (error) {
       onMessage(merchantError(error));
     } finally {
@@ -2375,7 +2578,7 @@ function MenuEditor({
 
         <section className="wm-menu-image-editor">
           <div className="wm-menu-image-heading"><strong>รูปเมนู</strong><small>เห็นสถานะก่อนบันทึกได้ทันที</small></div>
-          {previewUrl ? <div className="wm-menu-image-preview"><img src={previewUrl} alt="ตัวอย่างรูปเมนู" /></div> : null}
+          {previewUrl ? <div className="wm-menu-image-preview"><img src={previewUrl} alt="ตัวอย่างรูปเมนู" decoding="async" /></div> : null}
           <label className="wm-upload">
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => chooseImage(e.target.files?.[0] ?? null)} />
             <Upload size={20} />
@@ -3051,7 +3254,11 @@ function exampleFee(base: string, baseKm: string, perKm: string, distanceKm = 4)
 
 export function WynosMerchantApp() {
   return (
-    <DeveloperRouteGate signedOutPath="/merchant/login" afterSignOutPath="/merchant/login">
+    <DeveloperRouteGate
+      signedOutPath="/merchant/login"
+      afterSignOutPath="/merchant/login"
+      loadingFallback={<MerchantLoading />}
+    >
       {({ client, userId, signOut }) => <MerchantInner client={client} userId={userId} signOut={signOut} />}
     </DeveloperRouteGate>
   );
