@@ -64,7 +64,7 @@ test("Merchant public auth surface is interactive", async ({ page }) => {
 
   await page.getByRole("link", { name: "สมัคร WYNOS Merchant" }).click();
   await expect(page).toHaveURL(/\/merchant\/signup$/);
-  await expect(page.getByLabel("WYNOS Merchant")).toBeVisible();
+  await expect(page.getByLabel("WYNOS Merchant", { exact: true })).toBeVisible();
 });
 
 test("Merchant production polish supports multiple stores, paged orders, help and printing", () => {
