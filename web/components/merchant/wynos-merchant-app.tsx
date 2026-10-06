@@ -753,6 +753,11 @@ function MerchantInner({
   const alertOrder = alertQueue[0] ?? null;
   const markAlertSeen = (order: FoodOrder) => setSeenAlerts((current) => new Set(current).add(alertKey(order)));
 
+  const applyLocalStorePatch = (storeId: string, patch: Partial<FoodStore>) => {
+    setStore((current) => current?.id === storeId ? { ...current, ...patch } : current);
+    setStores((current) => current.map((item) => item.id === storeId ? { ...item, ...patch } : item));
+  };
+
   const applyLocalOrderStatus = (orderId: string, status: FoodOrder["status"]) => {
     const updatedAt = new Date().toISOString();
     setOrders((current) => current.map((item) => item.id === orderId ? { ...item, status, updated_at: updatedAt } : item));
@@ -868,6 +873,7 @@ function MerchantInner({
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onReload={() => void load(true)}
+            onStorePatch={(patch) => applyLocalStorePatch(store.id, patch)}
             onOpenTab={setTab}
             onEditStore={() => setStoreEditing(true)}
             onMessage={setMessage}
@@ -1152,6 +1158,7 @@ function HomePanel({
   installPrompt,
   onInstall,
   onReload,
+  onStorePatch,
   onOpenTab,
   onEditStore,
   onMessage,
@@ -1164,6 +1171,7 @@ function HomePanel({
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
   onReload: () => void;
+  onStorePatch: (patch: Partial<FoodStore>) => void;
   onOpenTab: (tab: MerchantTab) => void;
   onEditStore: () => void;
   onMessage: (message: string) => void;
@@ -1171,10 +1179,11 @@ function HomePanel({
   const [busy, setBusy] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const toggleOpen = async () => {
+    const isOpen = !store.is_open;
     setBusy(true);
     try {
-      await updateFoodStore(client, store.id, { is_open: !store.is_open });
-      onReload();
+      await updateFoodStore(client, store.id, { is_open: isOpen });
+      onStorePatch({ is_open: isOpen });
     } catch (error) {
       onMessage(merchantError(error));
       // The store may have been suspended since this screen loaded.
