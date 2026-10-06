@@ -185,6 +185,13 @@ export function FoodLoginScreen() {
       return;
     }
     setMessage("");
+    const installedIos = isInstalledIosWebApp();
+    if (installedIos) {
+      // Arm this BEFORE awaiting OAuth startup. On iOS the popup can steal
+      // focus immediately; if the user returns quickly, the focus event can
+      // otherwise fire before pending is set and leave the button spinning.
+      googlePwaPending.current = true;
+    }
     setGoogleLoading(true);
     try {
       // Use a dedicated exact callback path with no product state in the
@@ -193,12 +200,12 @@ export function FoodLoginScreen() {
       const callback = new URL("/food/auth/callback", canonicalOrigin);
       const result = await startGoogleOAuth(client, callback.href);
       if (!result.started) {
+        googlePwaPending.current = false;
         setMessage(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
         setGoogleLoading(false);
-      } else if (isInstalledIosWebApp()) {
-        googlePwaPending.current = true;
       }
     } catch {
+      googlePwaPending.current = false;
       setMessage("เปิด Google ไม่สำเร็จ กรุณาลองใหม่");
       setGoogleLoading(false);
     }
