@@ -751,6 +751,16 @@ test("Food + Merchant launch hardening preserves only the intentional anonymous 
   expect(sql).toContain("food_record_share_open(text)");
   expect(sql).toContain("set address_line1 = nullif(btrim(address), '')");
   expect(readiness).toContain("revoke execute on function public.food_store_open_status(uuid) from anon;");
+
+  const orderIntegrity = read("../supabase/migrations_wynos_food_order_options_v1.sql");
+  const merchant = read("lib/food-merchant.ts");
+  const merchantApp = read("components/merchant/wynos-merchant-app.tsx");
+  expect(orderIntegrity).toContain("too many orders, try again later");
+  expect(orderIntegrity).toContain("too many pending orders");
+  expect(orderIntegrity).toContain("payment already submitted");
+  expect(orderIntegrity).toContain("internal.food_resolve_menu_options");
+  expect(merchant).toContain("export function orderItemOptionText");
+  expect(merchantApp).toContain("orderItemOptionText(item)");
 });
 
 test("WYN-214 Admin merchant polish: service area, order money, refunds, safe approvals", () => {
