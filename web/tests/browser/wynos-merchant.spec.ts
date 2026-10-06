@@ -66,6 +66,7 @@ test("Merchant launch stays lean and hot realtime paths avoid full snapshot relo
   expect(css).toContain("content-visibility: auto");
   expect(css).toContain("touch-action: manipulation");
   expect(app).toContain('className="wyn-merchant wm-loading-shell"');
+  expect(app).toContain("loadingFallback={<MerchantLoading />}");
   expect(css).toContain(".wm-skeleton-order");
   expect(css).toContain("@media (prefers-reduced-motion: reduce)");
 });
