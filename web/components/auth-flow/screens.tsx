@@ -11,7 +11,7 @@ import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
 import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { registerCurrentAccount } from "@/lib/account-registry";
-import { GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_SESSION_MESSAGE, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
+import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { consumeReturnPath } from "@/lib/return-to";
@@ -264,19 +264,16 @@ export function WelcomeScreen() {
     };
 
     const resume = async (
-      handoff?: { accessToken: string; refreshToken: string },
+      handoff?: { code: string },
       finalIfMissing = false,
     ) => {
       if (!mounted || !googlePwaPending.current || checking) return;
       checking = true;
       try {
         if (handoff) {
-          const applied = await supabase.auth.setSession({
-            access_token: handoff.accessToken,
-            refresh_token: handoff.refreshToken,
-          });
-          if (applied.error || !applied.data.session) {
-            throw applied.error ?? new Error("Google session handoff failed");
+          const exchanged = await supabase.auth.exchangeCodeForSession(handoff.code);
+          if (exchanged.error || !exchanged.data.session) {
+            throw exchanged.error ?? new Error("Google code exchange failed");
           }
           const verified = await supabase.auth.getUser();
           if (verified.error || !verified.data.user) {
@@ -321,11 +318,10 @@ export function WelcomeScreen() {
     };
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      if (event.data?.type === GOOGLE_PWA_SESSION_MESSAGE) {
+      if (event.data?.type === GOOGLE_PWA_CODE_MESSAGE) {
         if (googlePwaPopup.current && event.source !== googlePwaPopup.current) return;
-        const accessToken = typeof event.data?.accessToken === "string" ? event.data.accessToken : "";
-        const refreshToken = typeof event.data?.refreshToken === "string" ? event.data.refreshToken : "";
-        if (accessToken && refreshToken) void resume({ accessToken, refreshToken }, true);
+        const code = typeof event.data?.code === "string" ? event.data.code : "";
+        if (code) void resume({ code }, true);
         return;
       }
       if (event.data?.type === "google-oauth-verified") void resume(undefined, true);
