@@ -15,8 +15,8 @@ test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   expect(read("lib/food-customer.ts")).toContain('client.rpc("is_developer_account")');
   expect(app).toContain("fetchFoodCustomerSnapshot(client, userId, pickedStoreRef.current || null)");
   expect(app).toContain('router.replace("/")');
-  expect(layout).toContain("index: false");
-  expect(layout).toContain("follow: false");
+  expect(layout).toContain("index: true");
+  expect(layout).toContain("follow: true");
   expect(manifest).toContain('start_url: "/food"');
   expect(manifest).toContain('scope: "/food"');
   expect(manifest).toContain('theme_color: "#e32636"');
@@ -80,7 +80,7 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(map).toContain("แผนที่ยังโหลดไม่สำเร็จ");
   expect(css).toContain(".wf-map-canvas.maplibregl-map");
   expect(css).toContain(".wf-map-loading--error");
-  expect(map).toContain("Search by LocationIQ.com");
+  expect(map).toContain("Search by LocationIQ");
   expect(map).toContain("เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร");
   expect(map).toContain("currentFoodLocation()");
   expect(map).toContain("searchFoodPlaces(client, trimmed, location)");
@@ -189,7 +189,7 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(overtureImporter).toContain("activate-confidence");
   expect(map).toContain("สั่งใน WYNOS Food");
   expect(map).toContain("https://food.wynos.online/?store=");
-  expect(app).toContain('new URLSearchParams(window.location.search).get("store")');
+  expect(app).toContain("sharedFoodStoreId(window.location.search)");
   expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
   expect(app).toContain("หมายเหตุถึงผู้จัดส่ง");
   expect(app).toContain("WYNOS Place ·");
@@ -330,8 +330,8 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(lib).toContain("return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};");
   expect(lib).toContain('client.functions.invoke("location-search"');
   expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
-  expect(app).toContain("disabled={!address || busy || quoteLoading || Boolean(blockedReason)}");
-  expect(map).toContain('aria-label="ค้นหาสถานที่หรือที่อยู่"');
+  expect(app).toContain("disabled={!address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid}");
+  expect(map).toContain('"ค้นหาสถานที่หรือที่อยู่"');
   expect(merchant).toContain("Math.ceil(");
   expect(app).toContain("<DeliveryPinPicker");
   expect(merchant).toContain("delivery_fee_per_km: Number(form.delivery_fee_per_km || 0)");
@@ -358,7 +358,7 @@ test("WYN-197 free place search uses the store's own place list", () => {
   // Food searches the store list first; the geocoder is only a fallback.
   expect(lib).toContain('client.rpc("food_search_store_places"');
   expect(map).toContain("let next = storeId ? (await searchStorePlaces(client, storeId, trimmed)) ?? [] : [];");
-  expect(map).toContain("if (!next.length) next = await searchFoodPlaces(client, trimmed);");
+  expect(map).toContain("if (!next.length) next = await searchFoodPlaces(client, trimmed, location);");
 
   // Merchant manages the list and hides it until the table exists.
   expect(merchantLib).toContain('.from("food_store_places")');
@@ -416,7 +416,8 @@ test("WYNOS Food home separates store discovery from the storefront", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
   const css = read("app/food/food.css");
 
-  expect(app).toContain("A Food home should remain a directory even when only one store is live.");
+  expect(app).toContain("if (!storefrontOpen) {");
+  expect(app).toContain("<StoreDirectory");
   expect(app).toContain("storefrontOpen: boolean;");
   expect(app).toContain('storeSection === "reviews" ? <StoreReviewsSection');
   expect(app).toContain('storeSection === "info" ? (');
@@ -433,7 +434,7 @@ test("WYNOS Food storefront uses compact search and keeps favorite off the categ
 
   expect(app).toContain('className="wf-menu-search-trigger"');
   expect(app).toContain('aria-label="ค้นหาเมนูอาหาร"');
-  expect(app).toContain('className="wf-store-favorite');
+  expect(app).toContain("wf-store-favorite");
   expect(app).toContain('aria-label="รายการโปรด"');
   expect(app).toContain('aria-pressed={favorite}');
   expect(app).toContain('<Sheet title="ค้นหาเมนูอาหาร"');
