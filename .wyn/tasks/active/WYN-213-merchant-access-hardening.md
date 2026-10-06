@@ -1,6 +1,6 @@
 # Security Task — WYN-213 — Merchant access hardening
 
-Status: approved — Founder "อนุมัติ" 2026-10-04; releasing PR #874, applying the migration, deploying Admin
+Status: released — Founder approved 2026-10-04; effective production state verified 2026-10-06
 Owner: AI QA & Security / AI Coding
 Date: 2026-10-04
 
@@ -48,6 +48,13 @@ Customer-side developer access (Food rollout gate, store and menu browsing) is u
    - If existing duplicate slip paths ever existed, the unique index fails and the whole migration rolls back, with nothing applied.
 3. Run `deploy-admin.yml`.
    - Between steps 2 and 3, "บันทึกว่าโอนแล้ว" fails safely, because the old function is gone.
+
+## Production verification — 2026-10-06
+
+- Effective production merchant_has_store_role(), food_has_merchant_access() and food_store_media_writable() no longer contain the developer-account bypass.
+- Legacy food_staff role mapping is active.
+- The hardening migration is present in the production migration history and the effective definitions match the intended access model.
+- WYN-194 storage isolation therefore runs with the stricter WYN-213 membership rules in production.
 
 ## Rollback
 
