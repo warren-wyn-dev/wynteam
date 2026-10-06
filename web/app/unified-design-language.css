@@ -222,7 +222,7 @@
 .profile-feed-list .golden-drop-actions > a,
 .flutter-detail-actions > button,
 .wyn-quote-feed-actions button {
-  color: var(--wyn-text);
+  color: var(--wyn-text-secondary);
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-button.is-liked,
