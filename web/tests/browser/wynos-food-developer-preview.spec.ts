@@ -581,10 +581,12 @@ test("WYNOS Food item sheet matches the approved native ordering layout", () => 
   expect(app).toContain('className="wf-item-scroll"');
   expect(app).toContain('storeStatus={foodStoreStatusText(store)}');
   expect(app).toContain('maxLength={200}');
-  expect(app).toContain('ร้านอาจไม่สามารถทำตามคำขอได้ทุกกรณี');
+  expect(app).not.toContain('ร้านอาจไม่สามารถทำตามคำขอได้ทุกกรณี');
   expect(app).toContain('className="wf-store-closed"');
   expect(app).toContain('disabled={orderingDisabled}');
   expect(css).toContain('.wf-item-sheet {');
+  expect(css).toContain('height: calc(100dvh - env(safe-area-inset-top));');
+  expect(css).toContain('height: clamp(320px, 42dvh, 430px);');
   expect(css).toContain('grid-template-rows: minmax(0, 1fr) auto;');
   expect(css).toContain('.wf-item-actions .wf-primary');
   expect(css).toContain('background: var(--wf-red);');
