@@ -127,6 +127,14 @@ const EMPTY_ADDRESS: FoodAddressDraft = {
   recipientName: "",
   recipientPhone: "",
   address: "",
+  addressLine1: "",
+  moo: "",
+  soi: "",
+  road: "",
+  subdistrict: "",
+  district: "",
+  province: "",
+  postalCode: "",
   deliveryNote: "",
   placeId: null,
   placeName: "",
@@ -147,6 +155,35 @@ type StoredWynosMapsPin = {
   savedAt?: string;
 };
 
+function normalizeThaiAdminPart(value: string) {
+  return value
+    .replace(/^(?:ตำบล|แขวง|อำเภอ|เขต|จังหวัด|ต\.|อ\.|จ\.)\s*/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function structuredAddressPartsFromPlace(place?: FoodPlace | null) {
+  const address = place?.address?.trim() ?? "";
+  const combined = [place?.name, address].filter(Boolean).join(", ");
+  const pick = (pattern: RegExp) => normalizeThaiAdminPart(combined.match(pattern)?.[1] ?? "");
+  let subdistrict = pick(/(?:ตำบล|แขวง|ต\.)\s*([^,]+?)(?=\s*(?:อำเภอ|เขต|อ\.|จังหวัด|จ\.|\d{5}|,|$))/u);
+  let district = pick(/(?:อำเภอ|เขต|อ\.)\s*([^,]+?)(?=\s*(?:จังหวัด|จ\.|\d{5}|,|$))/u);
+  let province = pick(/(?:จังหวัด|จ\.)\s*([^,]+?)(?=\s*(?:\d{5}|ประเทศไทย|,|$))/u);
+  const postalCode = combined.match(/(?:^|\D)(\d{5})(?:\D|$)/u)?.[1] ?? "";
+
+  if ((!subdistrict || !district || !province) && address.includes(",")) {
+    const parts = address.split(",").map((value) => value.trim()).filter(Boolean)
+      .filter((value) => !/^(?:ประเทศไทย|Thailand)$/iu.test(value))
+      .map((value) => value.replace(/\b\d{5}\b/u, "").trim())
+      .filter(Boolean);
+    if (!province && parts.length >= 1) province = normalizeThaiAdminPart(parts.at(-1) ?? "");
+    if (!district && parts.length >= 2) district = normalizeThaiAdminPart(parts.at(-2) ?? "");
+    if (!subdistrict && parts.length >= 3) subdistrict = normalizeThaiAdminPart(parts.at(-3) ?? "");
+  }
+
+  return { subdistrict, district, province, postalCode };
+}
+
 function draftWithLastWynosMapsPin(draft: FoodAddressDraft): FoodAddressDraft {
   if (draft.id || draft.location || typeof window === "undefined") return draft;
   try {
@@ -159,14 +196,16 @@ function draftWithLastWynosMapsPin(draft: FoodAddressDraft): FoodAddressDraft {
     const longitude = Number(saved.location?.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return draft;
     const place = saved.place;
+    const parts = structuredAddressPartsFromPlace(place);
     return {
       ...draft,
       location: { latitude, longitude },
       placeId: place?.placeId ?? null,
       placeName: place?.name ?? "",
-      address: draft.address.trim() || !place
-        ? draft.address
-        : [place.name, place.address].filter(Boolean).join(" "),
+      subdistrict: draft.subdistrict || parts.subdistrict,
+      district: draft.district || parts.district,
+      province: draft.province || parts.province,
+      postalCode: draft.postalCode || parts.postalCode,
     };
   } catch {
     return draft;
@@ -1504,16 +1543,34 @@ function Sheet({
   title,
   onClose,
   children,
+  variant = "page",
+  footer,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  variant?: "sheet" | "page";
+  footer?: React.ReactNode;
 }) {
+  const page = variant === "page";
   return (
-    <div className="wf-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="wf-sheet" role="dialog" aria-modal="true" aria-label={title}>
-        <header><button type="button" aria-label="ปิด" onClick={onClose}><X size={22} /></button><h2>{title}</h2><span /></header>
+    <div
+      className={`wf-sheet-backdrop${page ? " wf-sheet-backdrop--page" : ""}`}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (!page && event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className={`wf-sheet${page ? " wf-sheet--page" : ""}`} role="dialog" aria-modal="true" aria-label={title}>
+        <header>
+          <button type="button" aria-label={page ? "ย้อนกลับ" : "ปิด"} onClick={onClose}>
+            {page ? <ArrowLeft size={24} /> : <X size={22} />}
+          </button>
+          <h2>{title}</h2>
+          <span />
+        </header>
         <div className="wf-sheet-body">{children}</div>
+        {footer ? <footer className="wf-sheet-footer">{footer}</footer> : null}
       </section>
     </div>
   );
@@ -1590,12 +1647,12 @@ function ItemSheet({
 
   return (
     <div
-      className="wf-sheet-backdrop wf-item-sheet-backdrop"
+      className="wf-sheet-backdrop wf-sheet-backdrop--page wf-item-sheet-backdrop"
       role="presentation"
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      onMouseDown={() => {}}
     >
       <section
-        className={`wf-sheet wf-item-sheet${orderingDisabled ? " is-disabled" : ""}`}
+        className={`wf-sheet wf-sheet--page wf-item-sheet${orderingDisabled ? " is-disabled" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={item.name}
@@ -1812,7 +1869,16 @@ function AddressEditor({
 
   const availabilityKey = storeId && locationKey ? `${storeId}|${locationKey}` : "";
   const availability = availabilityState?.key === availabilityKey ? availabilityState.value : null;
-  const complete = Boolean(form.recipientName.trim() && form.recipientPhone.trim() && form.address.trim() && form.location);
+  const complete = Boolean(
+    form.recipientName.trim()
+      && form.recipientPhone.trim()
+      && (form.addressLine1.trim() || form.address.trim())
+      && form.subdistrict.trim()
+      && form.district.trim()
+      && form.province.trim()
+      && /^\d{5}$/.test(form.postalCode.trim())
+      && form.location,
+  );
   const deliveryMessage = !availability
     ? ""
     : availability.can_deliver
@@ -1825,37 +1891,111 @@ function AddressEditor({
             ? "ร้านนี้ยังไม่พร้อมรับการจัดส่ง"
             : "กรุณาตรวจสอบตำแหน่งจัดส่ง";
   return (
-    <Sheet title={form.id ? "แก้ไขข้อมูลจัดส่ง" : "เพิ่มข้อมูลจัดส่ง"} onClose={onClose}>
-      <div className="wf-form">
+    <Sheet title={form.id ? "แก้ไขข้อมูลจัดส่ง" : "เพิ่มข้อมูลจัดส่ง"} onClose={onClose} variant="page">
+      <div className="wf-form wf-address-form">
         <div className="wf-form-note">ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS</div>
-        <label>ชื่อที่อยู่ <small>เช่น บ้าน / หอพัก</small><input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="ที่อยู่ของฉัน" /></label>
-        <label>ชื่อผู้รับ <b>*</b><input value={form.recipientName} onChange={(event) => setForm({ ...form, recipientName: event.target.value })} placeholder="ชื่อผู้รับอาหาร" /></label>
-        <label>เบอร์โทร <b>*</b><input inputMode="tel" autoComplete="tel" value={form.recipientPhone} onChange={(event) => setForm({ ...form, recipientPhone: event.target.value })} placeholder="เบอร์สำหรับติดต่อจัดส่ง" /></label>
-        <label>ที่อยู่จัดส่ง <b>*</b><textarea value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} placeholder="บ้านเลขที่ ถนน ซอย ตำบล/แขวง อำเภอ/เขต จังหวัด" /></label>
+
+        <label>ชื่อที่อยู่ <small>เช่น บ้าน / หอพัก / ที่ทำงาน</small>
+          <input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="ที่อยู่ของฉัน" />
+        </label>
+        <label>ชื่อผู้รับ <b>*</b>
+          <input autoComplete="name" value={form.recipientName} onChange={(event) => setForm({ ...form, recipientName: event.target.value })} placeholder="ชื่อผู้รับอาหาร" />
+        </label>
+        <label>เบอร์โทร <b>*</b>
+          <input inputMode="tel" autoComplete="tel" value={form.recipientPhone} onChange={(event) => setForm({ ...form, recipientPhone: event.target.value })} placeholder="เบอร์สำหรับติดต่อจัดส่ง" />
+        </label>
+
+        <div className="wf-address-form-section">
+          <strong>ตำแหน่งจัดส่ง</strong>
+          <small>ปักหมุดก่อน ระบบจะช่วยเติมจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์เมื่อข้อมูลแผนที่รองรับ</small>
+        </div>
         {showPin || form.location ? <DeliveryPinPicker
           client={client}
           storeId={storeId}
           location={form.location}
-          onChange={(location, place) => setForm((current) => ({
-            ...current,
-            location,
-            placeId: location ? place?.placeId ?? null : null,
-            placeName: location ? place?.name ?? "" : "",
-            address: place ? [place.name, place.address].filter(Boolean).join(" ") : current.address,
-          }))}
+          onChange={(location, place) => setForm((current) => {
+            const parts = structuredAddressPartsFromPlace(place);
+            return {
+              ...current,
+              location,
+              placeId: location ? place?.placeId ?? null : null,
+              placeName: location ? place?.name ?? "" : "",
+              subdistrict: location ? current.subdistrict || parts.subdistrict : current.subdistrict,
+              district: location ? current.district || parts.district : current.district,
+              province: location ? current.province || parts.province : current.province,
+              postalCode: location ? current.postalCode || parts.postalCode : current.postalCode,
+            };
+          })}
         /> : null}
         {form.placeName ? <div className="wf-form-note">WYNOS Place · {form.placeName}</div> : null}
         {storeId && form.location && deliveryMessage ? (
           <div className={availability?.can_deliver ? "wf-form-note" : "wf-inline-warning"}>{deliveryMessage}</div>
         ) : null}
-        <label>ชื่ออาคาร / หมู่บ้าน<input value={form.buildingName} onChange={(event) => setForm({ ...form, buildingName: event.target.value })} placeholder="เช่น คอนโด A / หมู่บ้าน B" /></label>
-        <label>ชั้น<input value={form.floor} onChange={(event) => setForm({ ...form, floor: event.target.value })} placeholder="เช่น 5" /></label>
-        <label>ห้อง<input value={form.room} onChange={(event) => setForm({ ...form, room: event.target.value })} placeholder="เช่น 508" /></label>
-        <label>จุดสังเกต<textarea value={form.landmark} onChange={(event) => setForm({ ...form, landmark: event.target.value })} placeholder="เช่น ทางเข้าอยู่ข้างร้านสะดวกซื้อ" /></label>
-        <label>หมายเหตุถึงผู้จัดส่ง<textarea value={form.deliveryNote} onChange={(event) => setForm({ ...form, deliveryNote: event.target.value })} placeholder="เช่น โทรเมื่อถึง / ฝากไว้กับ รปภ." /></label>
-        <label className="wf-check"><input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} /><span><strong>ใช้เป็นที่อยู่หลัก</strong><small>WYNOS Food จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span></label>
+
+        <div className="wf-address-form-section">
+          <strong>รายละเอียดที่อยู่</strong>
+          <small>กรอกตามที่อยู่จริงเพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</small>
+        </div>
+        <label>บ้านเลขที่ / ที่อยู่ <b>*</b>
+          <input
+            autoComplete="address-line1"
+            value={form.addressLine1 || form.address}
+            onChange={(event) => setForm({ ...form, addressLine1: event.target.value, address: "" })}
+            placeholder="เช่น 123/45"
+          />
+        </label>
+        <label>ชื่ออาคาร / หมู่บ้าน
+          <input value={form.buildingName} onChange={(event) => setForm({ ...form, buildingName: event.target.value })} placeholder="เช่น หอพักธาราทิพย์ / คอนโด A" />
+        </label>
+        <div className="wf-form-grid wf-form-grid--3">
+          <label>หมู่ที่<input value={form.moo} onChange={(event) => setForm({ ...form, moo: event.target.value })} placeholder="เช่น 11" /></label>
+          <label>ชั้น<input value={form.floor} onChange={(event) => setForm({ ...form, floor: event.target.value })} placeholder="เช่น 5" /></label>
+          <label>ห้อง<input value={form.room} onChange={(event) => setForm({ ...form, room: event.target.value })} placeholder="เช่น 508" /></label>
+        </div>
+        <div className="wf-form-grid">
+          <label>ซอย<input value={form.soi} onChange={(event) => setForm({ ...form, soi: event.target.value })} placeholder="เช่น ซอย 3" /></label>
+          <label>ถนน<input value={form.road} onChange={(event) => setForm({ ...form, road: event.target.value })} placeholder="เช่น ถนนนครสวรรค์" /></label>
+        </div>
+        <label>จังหวัด <b>*</b>
+          <input autoComplete="address-level1" value={form.province} onChange={(event) => setForm({ ...form, province: event.target.value })} placeholder="เช่น มหาสารคาม" />
+        </label>
+        <div className="wf-form-grid">
+          <label>อำเภอ / เขต <b>*</b>
+            <input autoComplete="address-level2" value={form.district} onChange={(event) => setForm({ ...form, district: event.target.value })} placeholder="เช่น กันทรวิชัย" />
+          </label>
+          <label>ตำบล / แขวง <b>*</b>
+            <input autoComplete="address-level3" value={form.subdistrict} onChange={(event) => setForm({ ...form, subdistrict: event.target.value })} placeholder="เช่น ขามเรียง" />
+          </label>
+        </div>
+        <label>รหัสไปรษณีย์ <b>*</b>
+          <input
+            inputMode="numeric"
+            autoComplete="postal-code"
+            maxLength={5}
+            value={form.postalCode}
+            onChange={(event) => setForm({ ...form, postalCode: event.target.value.replace(/\D/g, "").slice(0, 5) })}
+            placeholder="เช่น 44150"
+          />
+        </label>
+
+        <label>จุดสังเกต
+          <textarea value={form.landmark} onChange={(event) => setForm({ ...form, landmark: event.target.value })} placeholder="เช่น ทางเข้าอยู่ข้างร้านสะดวกซื้อ" />
+        </label>
+        <label>หมายเหตุถึงผู้จัดส่ง
+          <textarea value={form.deliveryNote} onChange={(event) => setForm({ ...form, deliveryNote: event.target.value })} placeholder="เช่น โทรเมื่อถึง / ฝากไว้กับ รปภ." />
+        </label>
+        <label className="wf-check">
+          <input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} />
+          <span><strong>ใช้เป็นที่อยู่หลัก</strong><small>WYNOS Food จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span>
+        </label>
+
         {!form.location ? <div className="wf-inline-warning">กรุณาปักหมุดโลเคชั่นก่อนบันทึก เพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</div> : null}
-        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form)}>{busy ? "กำลังบันทึก…" : "บันทึกข้อมูล WYNOS Food"}</button>
+        {form.location && (!form.subdistrict.trim() || !form.district.trim() || !form.province.trim() || !/^\d{5}$/.test(form.postalCode.trim())) ? (
+          <div className="wf-inline-warning">กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก</div>
+        ) : null}
+        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form)}>
+          {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล WYNOS Food"}
+        </button>
       </div>
     </Sheet>
   );
@@ -1871,6 +2011,7 @@ function CheckoutSheet({
   busy,
   onClose,
   onAddAddress,
+  onEditAddress,
   onSubmit,
 }: {
   client: SupabaseClient;
@@ -1882,10 +2023,12 @@ function CheckoutSheet({
   busy: boolean;
   onClose: () => void;
   onAddAddress: () => void;
+  onEditAddress: (address: FoodCustomerAddress) => void;
   onSubmit: (address: FoodCustomerAddress, note: string, scheduledFor?: string | null) => void;
 }) {
   const [addressId, setAddressId] = useState(addresses.find((address) => address.is_default)?.id ?? addresses[0]?.id ?? "");
   const [note, setNote] = useState("");
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
   const canSchedule = store.scheduled_orders_enabled === true;
   const minNotice = Math.max(15, Number(store.scheduled_min_notice_minutes ?? 30));
   const maxDays = Math.max(1, Number(store.scheduled_max_days ?? 7));
@@ -1894,6 +2037,7 @@ function CheckoutSheet({
   const [scheduleError, setScheduleError] = useState("");
   const scheduledDate = scheduledLocal ? new Date(scheduledLocal) : null;
   const scheduledValid = scheduleMode === "asap" || (!!scheduledDate && !scheduleError);
+
   const chooseScheduledLocal = (value: string) => {
     setScheduledLocal(value);
     if (!value) {
@@ -1913,38 +2057,46 @@ function CheckoutSheet({
     }
     setScheduleError("");
   };
+
   const address = addresses.find((row) => row.id === addressId) ?? null;
   const subtotal = cart.reduce((sum, line) => {
     const item = itemFor(menu, line.menu_item_id);
     return sum + (item ? foodCartLineUnitPrice(item, line) * line.quantity : 0);
   }, 0);
-  // WYN-196: re-quote for the chosen address so the fee follows its distance.
+
   const zone = storeHasDeliveryZone(store);
   const location = addressLocation(address);
   const locationKey = location ? `${location.latitude},${location.longitude}` : "";
   const [addressQuote, setAddressQuote] = useState<{ key: string; quote: FoodOrderQuote | null; error: string } | null>(null);
+
   useEffect(() => {
     let live = true;
     const key = `${addressId}|${locationKey}`;
-    const loc = zone && locationKey ? { latitude: Number(locationKey.split(",")[0]), longitude: Number(locationKey.split(",")[1]) } : null;
+    const loc = zone && locationKey
+      ? { latitude: Number(locationKey.split(",")[0]), longitude: Number(locationKey.split(",")[1]) }
+      : null;
     if (!addressId || (zone && !loc)) return () => { live = false; };
     void quoteFoodCustomerOrder(client, store.id, cart, loc)
       .then((next) => { if (live) setAddressQuote({ key, quote: next, error: "" }); })
       .catch((error) => { if (live) setAddressQuote({ key, quote: null, error: foodCustomerError(error) }); });
     return () => { live = false; };
   }, [addressId, cart, client, locationKey, store.id, zone]);
+
   const current = addressQuote?.key === `${addressId}|${locationKey}` ? addressQuote : null;
-  // Until the quote for this address arrives, the fee is unknown: no confirm.
   const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
   const effectiveQuote = current?.quote ?? quote;
+
   const checkoutQuantityByMenu = new Map<string, number>();
-  for (const line of cart) checkoutQuantityByMenu.set(line.menu_item_id, (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) + line.quantity);
+  for (const line of cart) {
+    checkoutQuantityByMenu.set(line.menu_item_id, (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) + line.quantity);
+  }
   const cartUnavailable = cart.some((line) => {
     const item = itemFor(menu, line.menu_item_id);
     if (!item || !foodMenuIsEffectivelyAvailable(item) || !foodCartLineOptionsValid(item, line)) return true;
     const limit = foodMenuQuantityLimit(item);
     return limit <= 0 || (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) > limit;
   });
+
   const serverSubtotal = Number(effectiveQuote?.subtotal ?? subtotal);
   const minimum = Number(store.minimum_order ?? 0);
   const minimumMissing = Math.max(0, minimum - serverSubtotal);
@@ -1957,63 +2109,177 @@ function CheckoutSheet({
         : minimumMissing > 0
           ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}`
           : current?.error ?? "";
+
   const deliveryFee = Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
   const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
   const total = effectiveQuote?.total ?? serverSubtotal + deliveryFee;
   const eta = foodEstimateDeliveryRange(store, effectiveQuote?.delivery_distance_km);
 
+  const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid;
+  const confirmLabel = busy
+    ? "กำลังสร้างออเดอร์…"
+    : quoteLoading
+      ? "กำลังคำนวณค่าส่ง…"
+      : `ยืนยันออเดอร์ · ${foodMoney(total)}`;
+
+  const submitOrder = () => {
+    if (!address) return;
+    onSubmit(address, note, scheduleMode === "scheduled" && scheduledDate ? scheduledDate.toISOString() : null);
+  };
+
+  const paymentLabel = store.promptpay_id || store.payment_qr_path
+    ? "PromptPay / QR"
+    : store.bank_account_number
+      ? "โอนผ่านธนาคาร"
+      : "ชำระเงินกับร้าน";
+
   return (
-    <Sheet title="Checkout" onClose={onClose}>
-      <div className="wf-checkout">
-        <div className="wf-section-title"><h2>จัดส่งไปที่</h2><button type="button" onClick={onAddAddress}><Plus size={15} /> เพิ่มที่อยู่</button></div>
-        {addresses.length ? (
-          <div className="wf-address-choice">
-            {addresses.map((row) => (
-              <label key={row.id} className={addressId === row.id ? "is-active" : ""}>
-                <input type="radio" name="food-address" checked={addressId === row.id} onChange={() => setAddressId(row.id)} />
-                <span><strong>{row.label}</strong><small>{row.recipient_name} · {row.recipient_phone}</small><p>{row.address}</p>{row.building_name || row.floor || row.room ? <small>{[row.building_name, row.floor ? `ชั้น ${row.floor}` : null, row.room ? `ห้อง ${row.room}` : null].filter(Boolean).join(" · ")}</small> : null}</span>
-              </label>
-            ))}
+    <Sheet
+      title="Checkout"
+      onClose={onClose}
+      variant="page"
+      footer={(
+        <div className="wf-checkout-footer">
+          <button className="wf-primary wf-full" type="button" disabled={confirmDisabled} onClick={submitOrder}>
+            {confirmLabel}
+          </button>
+        </div>
+      )}
+    >
+      <div className="wf-checkout wf-checkout-page">
+        <div className="wf-section-title wf-checkout-section-title">
+          <h2>จัดส่งไปที่</h2>
+          <button type="button" onClick={onAddAddress}><Plus size={17} /> เพิ่มที่อยู่</button>
+        </div>
+
+        {address ? (
+          <div className="wf-checkout-address">
+            <div className="wf-checkout-address-card">
+              <span className="wf-checkout-address-pin"><MapPin size={17} fill="currentColor" /></span>
+              <div className="wf-checkout-address-copy">
+                <strong>{address.label}</strong>
+                <small>{address.recipient_name} · {address.recipient_phone}</small>
+                <p>{address.address}</p>
+                {address.building_name || address.floor || address.room ? (
+                  <small>{[address.building_name, address.floor ? `ชั้น ${address.floor}` : null, address.room ? `ห้อง ${address.room}` : null].filter(Boolean).join(" · ")}</small>
+                ) : null}
+                {address.delivery_note ? <small className="wf-checkout-address-note">{address.delivery_note}</small> : null}
+              </div>
+              <button className="wf-checkout-address-edit" type="button" onClick={() => onEditAddress(address)}>แก้ไข</button>
+            </div>
+
+            {addresses.length > 1 ? (
+              <button className="wf-checkout-address-change" type="button" onClick={() => setShowAddressPicker((value) => !value)}>
+                {showAddressPicker ? "ซ่อนรายการที่อยู่" : "เปลี่ยนที่อยู่"}
+              </button>
+            ) : null}
+
+            {showAddressPicker ? (
+              <div className="wf-checkout-address-options">
+                {addresses.map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    className={`wf-checkout-address-option${addressId === row.id ? " is-active" : ""}`}
+                    onClick={() => {
+                      setAddressId(row.id);
+                      setShowAddressPicker(false);
+                    }}
+                  >
+                    <span aria-hidden="true" />
+                    <span>
+                      <strong>{row.label}</strong>
+                      <small>{row.recipient_name} · {row.recipient_phone}</small>
+                      <small>{row.address}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : <div className="wf-inline-warning">เพิ่มที่อยู่จัดส่งก่อนสั่งอาหาร</div>}
 
-        <label className="wf-field">หมายเหตุเพิ่มเติม<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น โทรเมื่อถึง" /></label>
-        {canSchedule ? <section className="wf-schedule-order">
-          <div className="wf-section-title"><h2>เวลารับ/จัดส่ง</h2></div>
-          <div className="wf-schedule-choice">
-            <button className={scheduleMode === "asap" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("asap")}><Clock3 size={17} /><span><strong>เร็วที่สุด</strong><small>ร้านเริ่มทำหลังรับออเดอร์</small></span></button>
-            <button className={scheduleMode === "scheduled" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("scheduled")}><CalendarDays size={17} /><span><strong>สั่งล่วงหน้า</strong><small>เลือกวันและเวลา</small></span></button>
-          </div>
-          {scheduleMode === "scheduled" ? <>
-            <label className="wf-field">เลือกวันและเวลา<input type="datetime-local" value={scheduledLocal} onChange={(event) => chooseScheduledLocal(event.target.value)} /></label>
-            <small className="wf-schedule-hint">ต้องล่วงหน้าอย่างน้อย {minNotice} นาที และไม่เกิน {maxDays} วัน</small>
-            {scheduleMode === "scheduled" && scheduleError ? <div className="wf-inline-warning">{scheduleError}</div> : null}
-          </> : null}
-        </section> : null}
+        <label className="wf-field">
+          หมายเหตุเพิ่มเติม
+          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น โทรเมื่อถึง, วางไว้หน้าประตู, ติดต่อก่อนส่ง" />
+        </label>
+
+        {canSchedule ? (
+          <section className="wf-schedule-order">
+            <div className="wf-section-title"><h2>เวลารับ/จัดส่ง</h2></div>
+            <div className="wf-schedule-choice">
+              <button className={scheduleMode === "asap" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("asap")}>
+                <Clock3 size={17} /><span><strong>เร็วที่สุด</strong><small>ร้านเริ่มทำหลังรับออเดอร์</small></span>
+              </button>
+              <button className={scheduleMode === "scheduled" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("scheduled")}>
+                <CalendarDays size={17} /><span><strong>สั่งล่วงหน้า</strong><small>เลือกวันและเวลา</small></span>
+              </button>
+            </div>
+            {scheduleMode === "scheduled" ? <>
+              <label className="wf-field">เลือกวันและเวลา<input type="datetime-local" value={scheduledLocal} onChange={(event) => chooseScheduledLocal(event.target.value)} /></label>
+              <small className="wf-schedule-hint">ต้องล่วงหน้าอย่างน้อย {minNotice} นาที และไม่เกิน {maxDays} วัน</small>
+              {scheduleError ? <div className="wf-inline-warning">{scheduleError}</div> : null}
+            </> : null}
+          </section>
+        ) : null}
 
         <div className="wf-section-title wf-section-title--spaced"><h2>สรุปคำสั่งซื้อ</h2></div>
-        <div className="wf-checkout-items">
+        <div className="wf-checkout-items wf-checkout-items--visual">
           {cart.map((line) => {
             const item = itemFor(menu, line.menu_item_id);
             const optionText = foodCartLineOptionText(line, item);
-            return <div key={foodCartLineKey(line)}><span>{line.quantity}× {item?.name ?? "เมนู"}{optionText ? <small>{optionText}</small> : null}</span><b>{item ? foodMoney(foodCartLineUnitPrice(item, line) * line.quantity) : "—"}</b></div>;
+            const image = item ? foodPublicUrl(client, item.image_path) : null;
+            return (
+              <div className="wf-checkout-item" key={foodCartLineKey(line)}>
+                <div className="wf-checkout-item-left">
+                  <span className="wf-checkout-item-thumb">
+                    {image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={image} alt="" />
+                    ) : <UtensilsCrossed size={20} strokeWidth={1.4} />}
+                  </span>
+                  <span className="wf-checkout-item-qty">{line.quantity}</span>
+                  <span className="wf-checkout-item-copy">
+                    <strong>{item?.name ?? "เมนู"}</strong>
+                    {optionText ? <small>{optionText}</small> : null}
+                    {line.note ? <small>{line.note}</small> : null}
+                  </span>
+                </div>
+                <b>{item ? foodMoney(foodCartLineUnitPrice(item, line) * line.quantity) : "—"}</b>
+              </div>
+            );
           })}
         </div>
+
         <div className="wf-summary">
           <div><span>ค่าอาหาร</span><b>{foodMoney(serverSubtotal)}</b></div>
-          {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "โปร · " + effectiveQuote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
           <div><span>ค่าส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{foodMoney(deliveryFee)}</b></div>
+          {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "โปร · " + effectiveQuote.campaign_name : "ส่วนลดค่าอาหาร"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
           {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
           <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(total)}</b></div>
-          <div><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>
+          <div className="is-eta"><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>
         </div>
+
+        <section className="wf-checkout-payment">
+          <div className="wf-section-title wf-checkout-section-title"><h2>วิธีการชำระเงิน</h2></div>
+          <div className="wf-checkout-payment-card">
+            <span><ReceiptText size={21} /></span>
+            <div>
+              <strong>{paymentLabel}</strong>
+              <small>หลังยืนยันออเดอร์ ระบบจะแสดง QR หรือข้อมูลรับชำระเงินของร้านเพื่อให้คุณชำระและแนบสลิป</small>
+            </div>
+          </div>
+        </section>
+
         {blockedReason ? <div className="wf-inline-warning" role="alert">{blockedReason}</div> : null}
-        {effectiveQuote?.campaign_name ? <div className="wf-promo-applied"><strong>แคมเปญ {effectiveQuote.campaign_name}</strong><small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small></div> : null}
+        {effectiveQuote?.campaign_name ? (
+          <div className="wf-promo-applied">
+            <strong>แคมเปญ {effectiveQuote.campaign_name}</strong>
+            <small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small>
+          </div>
+        ) : null}
         <p className="wf-server-note">ยอดจริงจะถูกตรวจและคำนวณจากระบบอีกครั้งก่อนสร้างออเดอร์</p>
-        <button className="wf-primary wf-full" type="button" disabled={!address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid} onClick={() => { if (address) onSubmit(address, note, scheduleMode === "scheduled" && scheduledDate ? scheduledDate.toISOString() : null); }}>
-          {busy ? "กำลังสร้างออเดอร์…" : quoteLoading ? "กำลังคำนวณค่าส่ง…" : `ยืนยันออเดอร์ · ${foodMoney(total)}`}
-        </button>
       </div>
     </Sheet>
   );
@@ -2221,7 +2487,7 @@ function OrderDetailSheet({
   const combinedBusy = busy || working;
 
   return (
-    <Sheet title={`ออเดอร์ #${order.order_number}`} onClose={onClose}>
+    <Sheet title={`ออเดอร์ #${order.order_number}`} onClose={onClose} variant="page">
       <div className="wf-order-detail">
         <div className="wf-order-detail-head">
           <div><span className={`wf-order-status wf-order-status--${order.status}`}>{foodOrderStatusLabel(order.status)}</span><small>{formatDate(order.created_at)}</small></div>
@@ -2809,6 +3075,14 @@ function FoodCustomerInner({
               recipientName: address.recipient_name,
               recipientPhone: address.recipient_phone,
               address: address.address,
+              addressLine1: address.address_line1 ?? address.address,
+              moo: address.moo ?? "",
+              soi: address.soi ?? "",
+              road: address.road ?? "",
+              subdistrict: address.subdistrict ?? "",
+              district: address.district ?? "",
+              province: address.province ?? "",
+              postalCode: address.postal_code ?? "",
               deliveryNote: address.delivery_note ?? "",
               placeId: address.place_id ?? null,
               placeName: address.place_name ?? "",
@@ -2879,6 +3153,30 @@ function FoodCustomerInner({
           busy={busy}
           onClose={() => setCheckoutOpen(false)}
           onAddAddress={() => setAddressDraft({ ...EMPTY_ADDRESS, isDefault: addresses.length === 0 })}
+          onEditAddress={(address) => setAddressDraft({
+            id: address.id,
+            label: address.label,
+            recipientName: address.recipient_name,
+            recipientPhone: address.recipient_phone,
+            address: address.address,
+            addressLine1: address.address_line1 ?? address.address,
+            moo: address.moo ?? "",
+            soi: address.soi ?? "",
+            road: address.road ?? "",
+            subdistrict: address.subdistrict ?? "",
+            district: address.district ?? "",
+            province: address.province ?? "",
+            postalCode: address.postal_code ?? "",
+            deliveryNote: address.delivery_note ?? "",
+            placeId: address.place_id ?? null,
+            placeName: address.place_name ?? "",
+            buildingName: address.building_name ?? "",
+            floor: address.floor ?? "",
+            room: address.room ?? "",
+            landmark: address.landmark ?? "",
+            isDefault: address.is_default,
+            location: addressLocation(address),
+          })}
           onSubmit={(address, note, scheduledFor) => void createOrder(address, note, scheduledFor)}
         />
       ) : null}

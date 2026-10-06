@@ -1,5 +1,6 @@
 name: WYN-158 Production Deploy
 # WYN-213: redeploy Food and Merchant SEO metadata.
+# WYNOS Food checkout full-screen deploy refresh.
 
 on:
   workflow_dispatch:

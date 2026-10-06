@@ -208,6 +208,14 @@ export type FoodCustomerAddress = {
   floor?: string | null;
   room?: string | null;
   landmark?: string | null;
+  address_line1?: string | null;
+  moo?: string | null;
+  soi?: string | null;
+  road?: string | null;
+  subdistrict?: string | null;
+  district?: string | null;
+  province?: string | null;
+  postal_code?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -331,7 +339,16 @@ export type FoodAddressDraft = {
   label: string;
   recipientName: string;
   recipientPhone: string;
+  /** Legacy/full formatted address kept for rollout compatibility. */
   address: string;
+  addressLine1: string;
+  moo: string;
+  soi: string;
+  road: string;
+  subdistrict: string;
+  district: string;
+  province: string;
+  postalCode: string;
   deliveryNote: string;
   placeId: string | null;
   placeName: string;
@@ -730,16 +747,62 @@ export async function submitFoodPayment(
   };
 }
 
+export function foodStructuredAddressText(draft: Pick<FoodAddressDraft,
+  "address" | "addressLine1" | "moo" | "soi" | "road" | "subdistrict" | "district" | "province" | "postalCode"
+>) {
+  const province = draft.province.trim();
+  const bangkok = province === "กรุงเทพมหานคร" || province === "กรุงเทพฯ";
+  const line1 = draft.addressLine1.trim() || draft.address.trim();
+  return [
+    line1,
+    draft.moo.trim() ? `หมู่ ${draft.moo.trim()}` : "",
+    draft.soi.trim() ? `ซอย ${draft.soi.trim()}` : "",
+    draft.road.trim() ? `ถนน ${draft.road.trim()}` : "",
+    draft.subdistrict.trim() ? `${bangkok ? "แขวง" : "ตำบล"} ${draft.subdistrict.trim()}` : "",
+    draft.district.trim() ? `${bangkok ? "เขต" : "อำเภอ"} ${draft.district.trim()}` : "",
+    province ? `จังหวัด ${province}` : "",
+    draft.postalCode.trim(),
+  ].filter(Boolean).join(" ");
+}
+
 export async function saveFoodCustomerAddress(
   client: SupabaseClient,
   draft: FoodAddressDraft,
 ) {
+  const fullAddress = foodStructuredAddressText(draft);
+  const v3 = await client.rpc("food_upsert_customer_address_v3", {
+    p_address_id: draft.id ?? null,
+    p_label: draft.label,
+    p_recipient_name: draft.recipientName,
+    p_recipient_phone: draft.recipientPhone,
+    p_address_line1: draft.addressLine1 || draft.address,
+    p_moo: draft.moo || null,
+    p_soi: draft.soi || null,
+    p_road: draft.road || null,
+    p_subdistrict: draft.subdistrict || null,
+    p_district: draft.district || null,
+    p_province: draft.province || null,
+    p_postal_code: draft.postalCode || null,
+    p_delivery_note: draft.deliveryNote || null,
+    p_is_default: draft.isDefault,
+    p_latitude: draft.location?.latitude ?? null,
+    p_longitude: draft.location?.longitude ?? null,
+    p_place_id: draft.placeId || null,
+    p_place_name: draft.placeName || null,
+    p_building_name: draft.buildingName || null,
+    p_floor: draft.floor || null,
+    p_room: draft.room || null,
+    p_landmark: draft.landmark || null,
+  });
+  if (!v3.error) return String(v3.data);
+  if (v3.error.code !== "PGRST202" && v3.error.code !== "42883") throw new Error(v3.error.message);
+
   const v2Args = {
     p_address_id: draft.id ?? null,
     p_label: draft.label,
     p_recipient_name: draft.recipientName,
     p_recipient_phone: draft.recipientPhone,
-    p_address: draft.address,
+    p_address: fullAddress,
     p_delivery_note: draft.deliveryNote || null,
     p_is_default: draft.isDefault,
     p_latitude: draft.location?.latitude ?? null,
@@ -761,7 +824,7 @@ export async function saveFoodCustomerAddress(
     p_label: draft.label,
     p_recipient_name: draft.recipientName,
     p_recipient_phone: draft.recipientPhone,
-    p_address: draft.address,
+    p_address: fullAddress,
     p_delivery_note: [
       draft.buildingName ? `อาคาร ${draft.buildingName}` : "",
       draft.floor ? `ชั้น ${draft.floor}` : "",
