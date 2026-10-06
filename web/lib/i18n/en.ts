@@ -2535,6 +2535,12 @@ Object.assign(EN_EXACT, {
   "ตัวเลือกของเมนูเปลี่ยนแปลงแล้ว กรุณาเลือกใหม่อีกครั้ง": "This item's options have changed. Please choose again",
   "เวลาที่เลือกใกล้เกินไป กรุณาเลือกเวลาใหม่": "The selected time is too soon. Please choose another time",
   "เวลาที่เลือกไกลเกินช่วงที่ร้านเปิดรับออเดอร์ล่วงหน้า": "The selected time is beyond the store's scheduling window",
+  "เหลือ": "Remaining",
+  "ชิ้นวันนี้": "items today",
+  "หมายเหตุ ·": "Note ·",
+  "เพิ่มอีก": "Add another",
+  "เพื่อถึงยอดขั้นต่ำ": "to reach the minimum",
+  "ต้องเลือก": "Required",
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
