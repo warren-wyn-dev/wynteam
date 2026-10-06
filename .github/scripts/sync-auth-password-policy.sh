@@ -11,6 +11,7 @@ fi
 
 PROJECT_REF="kqokpocajhfbidcxpvhh"
 CALLBACK="https://wynos.online/auth/callback"
+FOOD_CALLBACK="https://food.wynos.online/auth/callback"
 RESET_CALLBACK="https://wynos.online/reset-password"
 API="https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth"
 
@@ -36,7 +37,7 @@ if (( old_min > target_min )); then target_min=$old_min; fi
 # especially those used for Google OAuth and password recovery.
 existing=$(jq -r '.uri_allow_list // ""' "$before")
 updated="$existing"
-for required in "$CALLBACK" "$RESET_CALLBACK"; do
+for required in "$CALLBACK" "$FOOD_CALLBACK" "$RESET_CALLBACK"; do
   if ! printf '%s' "$updated" | tr ',' '\n' | grep -Fxq "$required"; then
     if [ -n "$updated" ]; then updated="$updated,$required"; else updated="$required"; fi
   fi
@@ -65,9 +66,10 @@ curl --fail --silent --show-error --retry 2 --max-time 30 \
   -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   -o "$after" "$API"
 
-jq -e --arg cb "$CALLBACK" --arg reset "$RESET_CALLBACK" \
+jq -e --arg cb "$CALLBACK" --arg food "$FOOD_CALLBACK" --arg reset "$RESET_CALLBACK" \
   '(.password_min_length >= 12) and
    ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($cb)) != null) and
+   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($food)) != null) and
    ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($reset)) != null)' \
   "$after" >/dev/null || {
     echo "::error::Supabase Auth config failed post-update verification"
