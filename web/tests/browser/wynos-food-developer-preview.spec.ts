@@ -571,3 +571,23 @@ test("Food customer options, stock, push and pagination are wired end-to-end", (
   expect(sql).toContain("create or replace function public.food_menu_stock_remaining");
   expect(sql).toContain("revoke all on function public.food_menu_stock_remaining(uuid) from public, anon");
 });
+
+
+test("WYNOS Food item sheet matches the approved native ordering layout", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const css = read("app/food/food.css");
+
+  expect(app).toContain('className="wf-item-close"');
+  expect(app).toContain('className="wf-item-scroll"');
+  expect(app).toContain('storeStatus={foodStoreStatusText(store)}');
+  expect(app).toContain('maxLength={200}');
+  expect(app).toContain('ร้านอาจไม่สามารถทำตามคำขอได้ทุกกรณี');
+  expect(app).toContain('className="wf-store-closed"');
+  expect(app).toContain('disabled={orderingDisabled}');
+  expect(css).toContain('.wf-item-sheet {');
+  expect(css).toContain('grid-template-rows: minmax(0, 1fr) auto;');
+  expect(css).toContain('.wf-item-actions .wf-primary');
+  expect(css).toContain('background: var(--wf-red);');
+  expect(css).toContain('.wf-option-control.is-radio.is-active::after');
+  expect(css).toContain('.wf-item-sheet.is-disabled .wf-option-group');
+});
