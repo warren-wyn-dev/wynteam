@@ -198,14 +198,22 @@ self.addEventListener("push", (event) => {
 
   // Every push shows exactly one banner (userVisibleOnly). The same tag as
   // the server's collapse key replaces a retried delivery instead of stacking.
+  const tag = pushString(notification.tag) || pushString(data.notification_id) || undefined;
+  // A store's order alert stays on screen until someone taps it, and buzzes
+  // longer, where the browser supports it (Android/desktop Chrome). The
+  // browser decides the sound itself: web push cannot play the WYNOS sound.
+  const merchantAlert = data.app === "merchant"
+    ? { requireInteraction: true, renotify: Boolean(tag), vibrate: [500, 200, 500, 200, 500, 200, 500] }
+    : {};
   const banner = self.registration.showNotification(
     pushString(notification.title) || pushString(data.push_title) || "WYNOS",
     {
       body: pushString(notification.body) || pushString(data.push_body) || "",
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      tag: pushString(notification.tag) || pushString(data.notification_id) || undefined,
+      tag,
       data,
+      ...merchantAlert,
     },
   ).catch(() => undefined);
 

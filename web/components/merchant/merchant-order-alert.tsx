@@ -14,11 +14,28 @@ import { MERCHANT_ALERT_PREFS_EVENT, merchantAlertQuietNow, readMerchantAlertPre
 const ALERT_REPEAT_MS = 2500;
 
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
+type AudioSessionNavigator = Navigator & { audioSession?: { type: string } };
 
 let sharedContext: AudioContext | null = null;
 
+/**
+ * iPhone mutes Web Audio when the ring/silent switch is on, unless the page
+ * asks for "playback" like a music app (Safari 17+). An order alert must be
+ * heard, so ask before audio starts. Older browsers simply ignore it.
+ */
+function preferPlaybackAudioSession() {
+  const session = (navigator as AudioSessionNavigator).audioSession;
+  if (!session) return;
+  try {
+    if (session.type !== "playback") session.type = "playback";
+  } catch {
+    // Not allowed here; the silent switch then still mutes the sound.
+  }
+}
+
 function audioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
+  preferPlaybackAudioSession();
   if (sharedContext) return sharedContext;
   const Context = window.AudioContext ?? (window as WebkitWindow).webkitAudioContext;
   if (!Context) return null;
@@ -118,11 +135,18 @@ export function useMerchantSoundUnlock() {
       }
       void context.resume().then(sync).catch(() => undefined);
     };
+    // Back from another app or a locked screen: try to resume at once, so an
+    // order already waiting can ring without a tap where the browser allows.
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && sharedContext) unlock();
+    };
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", unlock);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
+      document.removeEventListener("visibilitychange", onVisible);
       watched?.removeEventListener("statechange", sync);
     };
   }, []);
