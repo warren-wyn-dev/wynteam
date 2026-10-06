@@ -25,7 +25,7 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   expect(shareIcon).not.toContain("M8 8H5.75");
   expect(iconMap).toContain('name==="share")return <WynosShareIcon');
   expect(profile).toContain('<WynosShareIcon size={22} />');
-  expect(post).toContain('<WynosShareIcon size={22} />');
+  expect(post).toContain('<WynosShareIcon size={22} strokeWidth={1.6} />');
 
   // Profile editing remains icon-only; both cover and feed data remain live.
   expect(profile).toContain('aria-label="แก้ไขโปรไฟล์" title="แก้ไขโปรไฟล์"');
