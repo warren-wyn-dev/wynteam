@@ -256,6 +256,26 @@ test("Food customer menu options, stock and history are wired end to end", () =>
   expect(stockSql).toContain("grant execute on function public.food_menu_stock_remaining(uuid) to authenticated");
 });
 
+test("Food customer menu supports add-ons, variants, live stock and real push registration", () => {
+  const data = read("lib/food-customer.ts");
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const push = read("lib/push-notifications.ts");
+  const stockSql = read("../supabase/migrations_wynos_food_customer_stock_v1.sql");
+
+  expect(data).toContain("selected_options: line.selected_options ?? []");
+  expect(data).toContain("foodCartLineKey");
+  expect(data).toContain("foodCartLineUnitPrice");
+  expect(data).toContain('client.rpc("food_menu_stock_remaining"');
+  expect(app).toContain("subscribeToPushNotifications(client, userId)");
+  expect(app).toContain("isCurrentDevicePushEnabled(client, userId)");
+  expect(app).toContain("กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ");
+  expect(app).toContain("เพิ่มอีก");
+  expect(app).toContain("ดูคำสั่งซื้อเก่ากว่านี้");
+  expect(stockSql).toContain("create or replace function public.food_menu_stock_remaining");
+  expect(stockSql).toContain("revoke all on function public.food_menu_stock_remaining(uuid) from public, anon");
+  expect(push).toContain("drop|food");
+});
+
 test("Food customer flow is connected to real ordering, payment and realtime APIs", () => {
   const data = read("lib/food-customer.ts");
   const app = read("components/food/wynos-food-developer-app.tsx");
