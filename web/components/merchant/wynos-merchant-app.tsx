@@ -512,18 +512,18 @@ function MerchantInner({
         if (typeof next.id === "string" && next.payment_status) paymentStatusRef.current.set(next.id, next.payment_status);
         if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([180, 80, 180]);
         if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+          const notificationTitle = `ออเดอร์ใหม่ #${String(next.order_number ?? "")} · ${money(next.total as number | string | undefined)}`;
           const options = {
-            body: `#${String(next.order_number ?? "")} · ${money(next.total as number | string | undefined)}`,
             icon: "/icons/icon-192.png",
             badge: "/icons/icon-192.png",
             tag: String(next.id ?? "wynos-food-order"),
           };
           if ("serviceWorker" in navigator) {
             void navigator.serviceWorker.ready
-              .then((registration) => registration.showNotification("WYNOS Merchant · ออเดอร์ใหม่", options))
+              .then((registration) => registration.showNotification(notificationTitle, options))
               .catch(() => undefined);
           } else {
-            try { new Notification("WYNOS Merchant · ออเดอร์ใหม่", options); } catch { /* best effort */ }
+            try { new Notification(notificationTitle, options); } catch { /* best effort */ }
           }
         }
       } else if (payload.eventType === "UPDATE" && typeof next.id === "string" && next.payment_status) {
