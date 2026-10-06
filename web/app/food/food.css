@@ -3878,3 +3878,33 @@
   .wf-storefront-open .wf-menu-filter-bar { margin-inline: -13px; padding-inline: 13px; }
   .wf-storefront-open .wf-store-tabs { padding-inline: 13px; }
 }
+
+
+/* WYNOS Food QA hardening: touch targets, cart clearance and review summary. */
+.wf-storefront-open .wf-menu-search-trigger {
+  flex: 0 0 44px;
+  width: 44px;
+  min-height: 44px;
+}
+.wf-storefront-open .wf-category-tabs button {
+  min-height: 44px;
+}
+.wf-storefront-open.has-store-cart .wf-store-menu {
+  padding-bottom: calc(158px + env(safe-area-inset-bottom));
+}
+.wf-store-rating-summary {
+  color: var(--wf-text);
+  font-weight: 700;
+}
+.wf-store-rating-summary svg {
+  color: #f4b400 !important;
+}
+.wf-store-rating-summary strong {
+  color: var(--wf-text);
+  font-size: 10.5px;
+}
+.wf-store-rating-summary small {
+  color: var(--wf-secondary);
+  font-size: 10px;
+  font-weight: 500;
+}

@@ -21,8 +21,8 @@ DRAFT_ITEM=00000000-0000-4000-8000-0000000000b3
 SUSPENDED_ITEM=00000000-0000-4000-8000-0000000000b4
 
 run >/dev/null <<SQL
-do $$ begin create role anon; exception when duplicate_object then null; end $$;
-do $$ begin create role authenticated; exception when duplicate_object then null; end $$;
+do \$\$ begin create role anon; exception when duplicate_object then null; end \$\$;
+do \$\$ begin create role authenticated; exception when duplicate_object then null; end \$\$;
 create table public.food_stores(
   id uuid primary key,
   is_published boolean not null default false,
@@ -46,11 +46,11 @@ create table public.food_order_items(
   quantity integer not null
 );
 create or replace function public.food_customer_access_enabled() returns boolean
-language sql stable as $$ select true $$;
+language sql stable as \$\$ select true \$\$;
 create or replace function public.is_developer_account() returns boolean
-language sql stable as $$ select false $$;
+language sql stable as \$\$ select false \$\$;
 create or replace function public.food_public_access_enabled() returns boolean
-language sql stable as $$ select true $$;
+language sql stable as \$\$ select true \$\$;
 grant usage on schema public to anon, authenticated;
 
 insert into public.food_stores values

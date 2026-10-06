@@ -94,10 +94,15 @@ export async function signInWithEmail(client: SupabaseClient, email: string, pas
   return result.data;
 }
 
-export async function resetPasswordForEmail(client: SupabaseClient, email: string): Promise<void> {
-  const result = await client.auth.resetPasswordForEmail(email, {
-    redirectTo: typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined,
-  });
+export async function resetPasswordForEmail(
+  client: SupabaseClient,
+  email: string,
+  returnTo: "/login" | "/food/login" = "/login",
+): Promise<void> {
+  const redirectTo = typeof window !== "undefined"
+    ? `${window.location.origin}/reset-password?returnTo=${encodeURIComponent(returnTo)}`
+    : undefined;
+  const result = await client.auth.resetPasswordForEmail(email, { redirectTo });
   if (result.error) throw result.error;
 }
 
