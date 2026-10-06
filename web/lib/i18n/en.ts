@@ -2614,6 +2614,9 @@ Object.assign(EN_EXACT, {
 
 // WYNOS Food structured delivery address fields.
 Object.assign(EN_EXACT, {
+  "ต้องอัปเดตข้อมูลที่อยู่": "Address needs updating",
+  "ที่อยู่นี้เป็นข้อมูลเก่า กรุณากดแก้ไขและกรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนสั่ง": "This is a legacy address. Edit it and complete the province, district, subdistrict and postal code before ordering",
+  "ต้องอัปเดตข้อมูลที่อยู่ก่อนสั่ง": "Update this address before ordering",
   "เช่น บ้าน / หอพัก / ที่ทำงาน": "For example: Home / Dorm / Work",
   "ปักหมุดก่อน ระบบจะช่วยเติมจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์เมื่อข้อมูลแผนที่รองรับ": "Pin the location first. When map data supports it, WYNOS will help fill province, district, subdistrict and postal code",
   "รายละเอียดที่อยู่": "Address details",
