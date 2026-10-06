@@ -534,7 +534,7 @@ function MerchantInner({
     } catch (error) {
       setMessage(merchantError(error, "อัปเดตออเดอร์ไม่สำเร็จ"));
     }
-  }, [client, store]);
+  }, [client, store?.id]);
 
   const scheduleOrderRefresh = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -552,7 +552,7 @@ function MerchantInner({
     } catch (error) {
       setMessage(merchantError(error, "อัปเดตเมนูไม่สำเร็จ"));
     }
-  }, [client, store]);
+  }, [client, store?.id]);
 
   useEffect(() => {
     if (!selectedStoreId || typeof window === "undefined") return;
@@ -704,7 +704,7 @@ function MerchantInner({
     }
     const timer = window.setTimeout(warmSecondaryTools, 900);
     return () => window.clearTimeout(timer);
-  }, [loading, store]);
+  }, [loading, store?.id]);
 
   const install = async () => {
     if (!installPrompt) return;
