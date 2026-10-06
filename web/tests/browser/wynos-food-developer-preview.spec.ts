@@ -33,17 +33,20 @@ test("WYNOS Food install icons are static and cache-busted", () => {
   const layout = read("app/food/layout.tsx");
   const manifest = read("app/food/manifest.ts");
   const publicManifest = read("public/food/manifest.webmanifest");
+  const iconRoute = read("app/food/icon-v10/route.tsx");
 
-  expect(layout).toContain("/icons/food/icon-192-v9.png");
-  expect(layout).toContain("/icons/food/icon-512-v9.png");
-  expect(layout).toContain("manifest.webmanifest?v=20261006-10");
+  expect(layout).toContain("/icons/food/icon-192-v10.png");
+  expect(layout).toContain("/food/icon-v10?size=512");
+  expect(layout).toContain("manifest.webmanifest?v=20261006-11");
   expect(layout).not.toContain("/food/icon-v7");
-  expect(manifest).toContain("/icons/food/icon-192-v9.png");
-  expect(manifest).toContain("/icons/food/icon-512-v9.png");
+  expect(manifest).toContain("/icons/food/icon-192-v10.png");
+  expect(manifest).toContain("/food/icon-v10?size=512");
   expect(manifest).not.toContain("/food/icon-v7");
-  expect(publicManifest).toContain("/icons/food/icon-192-v9.png");
-  expect(publicManifest).toContain("/icons/food/icon-512-v9.png");
+  expect(publicManifest).toContain("/icons/food/icon-192-v10.png");
+  expect(publicManifest).toContain("/food/icon-v10?size=512");
   expect(publicManifest).not.toContain("/food/icon-v7");
+  expect(iconRoute).toContain("data:image/png;base64,");
+  expect(iconRoute).not.toContain("https://wynos.online/icons/food");
 });
 
 test("WYNOS Food hides the persistent Social bottom navigation", () => {
