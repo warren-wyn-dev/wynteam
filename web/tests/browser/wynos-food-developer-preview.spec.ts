@@ -239,7 +239,9 @@ test("Food customer menu options, stock and history are wired end to end", () =>
   expect(data).toContain("FoodMenuOptionGroup");
   expect(data).toContain("foodCartLineKey");
   expect(data).toContain("foodCartLineUnitPrice");
+  expect(data).toContain("foodCartLineOptionsValid");
   expect(data).toContain("selected_options: line.selected_options ?? []");
+  expect(data.match(/selected_options: line\.selected_options \?\? \[\]/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   expect(data).toContain('client.rpc("food_menu_stock_remaining"');
   expect(data).toContain("fetchFoodCustomerOrdersPage");
   expect(app).toContain('className="wf-option-groups"');
