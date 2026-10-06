@@ -992,9 +992,11 @@ function HomePanel({
     if (!storeId) return;
     let live = true;
     void fetchStorePlatformCampaigns(client, storeId).then((names) => { if (live) setCampaigns(names); });
-    void fetchFoodStoreReviewFeed(client, storeId, 1).then((feed) => {
-      if (live) setReviewSummary({ average: feed.average, count: feed.count });
-    });
+    void fetchFoodStoreReviewFeed(client, storeId, 1)
+      .then((feed) => {
+        if (live) setReviewSummary({ average: feed.average, count: feed.count });
+      })
+      .catch(() => undefined);
     return () => { live = false; };
   }, [client, storeId]);
   const categories = useMemo(() => {
