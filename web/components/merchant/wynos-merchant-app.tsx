@@ -1061,7 +1061,12 @@ function MerchantInner({
           store={store}
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
-          onReload={scheduleOrderRefresh}
+          onReload={() => {
+            if (selectedOrder.status === "out_for_delivery") {
+              setSalesReportRevision((value) => value + 1);
+            }
+            scheduleOrderRefresh();
+          }}
           onMessage={setMessage}
         />
       ) : null}
