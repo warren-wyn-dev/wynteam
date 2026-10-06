@@ -129,8 +129,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 62px;
-  padding: 12px 16px;
+  min-height: 67px;
+  padding: 9px 0;
   border-bottom: 1px solid var(--hairline, #e5e5e5);
 }
 

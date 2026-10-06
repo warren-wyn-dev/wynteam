@@ -52,6 +52,28 @@ export type FoodCustomerStore = {
   updated_at: string;
 };
 
+export type FoodMenuOptionChoice = {
+  id: string;
+  name: string;
+  price: number | string;
+};
+
+export type FoodMenuOptionGroup = {
+  id: string;
+  name: string;
+  required: boolean;
+  max_select: number;
+  choices: FoodMenuOptionChoice[];
+};
+
+export type FoodSelectedOption = {
+  group_id: string;
+  group_name: string;
+  choice_id: string;
+  choice_name: string;
+  price: number;
+};
+
 export type FoodCustomerMenuItem = {
   id: string;
   store_id: string;
@@ -60,7 +82,7 @@ export type FoodCustomerMenuItem = {
   description: string | null;
   price: number | string;
   image_path: string | null;
-  options: unknown[];
+  options: FoodMenuOptionGroup[];
   is_available: boolean;
   sold_out_until?: string | null;
   daily_stock_limit?: number | null;
@@ -208,7 +230,15 @@ export type FoodCartLine = {
   menu_item_id: string;
   quantity: number;
   note: string;
+  selected_options?: FoodSelectedOption[];
 };
+
+export function foodCartLineUnitPrice(item: FoodCustomerMenuItem, line: FoodCartLine) {
+  const extras = Array.isArray(line.selected_options)
+    ? line.selected_options.reduce((sum, option) => sum + Math.max(0, Number(option.price ?? 0)), 0)
+    : 0;
+  return Number(item.price) + extras;
+}
 
 export type FoodOrderQuote = {
   subtotal: number;
@@ -483,6 +513,7 @@ export async function quoteFoodCustomerOrder(
     p_items: items.map((line) => ({
       menu_item_id: line.menu_item_id,
       quantity: line.quantity,
+      selected_options: Array.isArray(line.selected_options) ? line.selected_options : [],
     })),
   });
   if (error) throw new Error(error.message);
@@ -528,7 +559,7 @@ export async function createFoodCustomerOrder(
       menu_item_id: line.menu_item_id,
       quantity: line.quantity,
       note: line.note || "",
-      selected_options: [],
+      selected_options: Array.isArray(line.selected_options) ? line.selected_options : [],
     })),
   };
   const { data, error } = input.scheduledFor
