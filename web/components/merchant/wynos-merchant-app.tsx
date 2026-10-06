@@ -65,6 +65,7 @@ import {
   fetchStorePlaces,
   fetchMerchantSnapshot,
   fetchMerchantOrdersPage,
+  fetchMerchantSalesReport,
   fetchMerchantStoreReadiness,
   fetchMerchantAuditHistory,
   checkMerchantLocationQuality,
@@ -94,6 +95,7 @@ import {
   type FoodStorePlace,
   type MerchantAuditEntry,
   type MerchantLocationQuality,
+  type MerchantSalesReport,
   type MerchantStoreReadiness,
   type MenuDraft,
   MERCHANT_ORDER_PAGE_SIZE,
@@ -220,22 +222,6 @@ function waitingNote(order: FoodOrder) {
   return null;
 }
 
-function sameLocalDay(value: string, date = new Date()) {
-  const stamp = new Date(value);
-  return stamp.getFullYear() === date.getFullYear()
-    && stamp.getMonth() === date.getMonth()
-    && stamp.getDate() === date.getDate();
-}
-
-function startOfWeek() {
-  const now = new Date();
-  const day = (now.getDay() + 6) % 7;
-  const start = new Date(now);
-  start.setDate(now.getDate() - day);
-  start.setHours(0, 0, 0, 0);
-  return start;
-}
-
 function shortTime(value: string) {
   return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
@@ -356,6 +342,13 @@ function MerchantInner({
   const [menu, setMenu] = useState<FoodMenuItem[]>([]);
   const [orders, setOrders] = useState<FoodOrder[]>([]);
   const [ordersHasMore, setOrdersHasMore] = useState(false);
+  const [salesReportState, setSalesReportState] = useState<{
+    storeId: string;
+    revision: number;
+    report: MerchantSalesReport | null;
+    error: string;
+  } | null>(null);
+  const [dataRevision, setDataRevision] = useState(0);
   const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -413,6 +406,7 @@ function MerchantInner({
       setMenu(next.menu);
       setOrders(next.orders);
       setOrdersHasMore(next.has_more_orders);
+      setDataRevision((value) => value + 1);
       if (next.store && next.store.id !== selectedStoreId) setSelectedStoreId(next.store.id);
       paymentStatusRef.current = new Map(next.orders.map((order) => [order.id, order.payment_status]));
       const requested = requestedOrderRef.current;
@@ -449,6 +443,38 @@ function MerchantInner({
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (!store?.id) return;
+    let live = true;
+    const storeId = store.id;
+    const revision = dataRevision;
+    void fetchMerchantSalesReport(client, storeId)
+      .then((next) => {
+        if (live) setSalesReportState({ storeId, revision, report: next, error: "" });
+      })
+      .catch((reason) => {
+        if (!live) return;
+        setSalesReportState({
+          storeId,
+          revision,
+          report: null,
+          error: merchantError(reason, "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่"),
+        });
+      });
+    return () => { live = false; };
+  }, [client, store?.id, dataRevision]);
+
+  const currentSalesReport = store
+    && salesReportState?.storeId === store.id
+    && salesReportState.revision === dataRevision
+    ? salesReportState.report
+    : null;
+  const currentSalesReportError = store
+    && salesReportState?.storeId === store.id
+    && salesReportState.revision === dataRevision
+    ? salesReportState.error
+    : "";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -565,9 +591,6 @@ function MerchantInner({
     }
   };
 
-  const todayOrders = useMemo(() => orders.filter((order) => sameLocalDay(order.created_at)), [orders]);
-  const todayDelivered = useMemo(() => todayOrders.filter((order) => order.status === "delivered"), [todayOrders]);
-  const todaySales = useMemo(() => todayDelivered.reduce((sum, order) => sum + Number(order.total), 0), [todayDelivered]);
   // Every unfinished order counts on the "รับออเดอร์" nav badge.
   const activeOrderCount = useMemo(
     () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length,
@@ -669,8 +692,8 @@ function MerchantInner({
             client={client}
             store={store}
             menu={menu}
-            todayOrders={todayOrders}
-            todaySales={todaySales}
+            todayOrderCount={currentSalesReport?.today_orders ?? null}
+            todaySales={currentSalesReport?.today_sales ?? null}
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onReload={() => void load(true)}
@@ -743,7 +766,7 @@ function MerchantInner({
           />
         ) : null}
 
-        {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
+        {tab === "reports" && store ? <ReportsPanel report={currentSalesReport} error={currentSalesReportError} /> : null}
 
         {tab === "notifications" && store ? (
           <MerchantNotificationSettings
@@ -937,7 +960,7 @@ function HomePanel({
   client,
   store,
   menu,
-  todayOrders,
+  todayOrderCount,
   todaySales,
   installPrompt,
   onInstall,
@@ -949,8 +972,8 @@ function HomePanel({
   client: SupabaseClient;
   store: FoodStore;
   menu: FoodMenuItem[];
-  todayOrders: FoodOrder[];
-  todaySales: number;
+  todayOrderCount: number | null;
+  todaySales: number | null;
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
   onReload: () => void;
@@ -1002,8 +1025,8 @@ function HomePanel({
         </div>
         <button className="wm-hero-sales" type="button" onClick={() => onOpenTab("reports")}>
           <small>ยอดขายวันนี้</small>
-          <strong>{money(todaySales)}</strong>
-          <span>{todayOrders.length} ออเดอร์ <ChevronRight size={14} /></span>
+          <strong>{todaySales == null ? "–" : money(todaySales)}</strong>
+          <span>{todayOrderCount == null ? "…" : todayOrderCount} ออเดอร์ <ChevronRight size={14} /></span>
         </button>
         <button
           className={`wm-open-switch ${store.is_open ? "is-open" : ""}`}
@@ -1476,37 +1499,32 @@ function MenuPanel({
   );
 }
 
-/** WYN-205: money in and out, from the orders already loaded in Merchant. */
-function ReportsPanel({ orders }: { orders: FoodOrder[] }) {
-  const delivered = orders.filter((order) => order.status === "delivered");
-  const now = new Date();
-  const week = startOfWeek();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const today = delivered.filter((order) => sameLocalDay(order.delivered_at ?? order.updated_at));
-  const weekly = delivered.filter((order) => new Date(order.delivered_at ?? order.updated_at) >= week);
-  const monthly = delivered.filter((order) => new Date(order.delivered_at ?? order.updated_at) >= monthStart);
-  const sum = (rows: FoodOrder[]) => rows.reduce((total, row) => total + Number(row.total), 0);
-  const itemCount = new Map<string, number>();
-  delivered.forEach((order) => order.food_order_items?.forEach((item) => itemCount.set(item.item_name, (itemCount.get(item.item_name) ?? 0) + item.quantity)));
-  const best = [...itemCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const average = delivered.length ? sum(delivered) / delivered.length : 0;
-
+/** WYN-205: quick sales report, aggregated across the complete store history. */
+function ReportsPanel({ report, error }: { report: MerchantSalesReport | null; error: string }) {
   return (
     <>
       <div className="wm-page-heading"><div><small>ภาพรวมร้าน</small><h1>รายงาน</h1></div></div>
-      <div className="wm-report-hero"><small>ยอดขายวันนี้</small><strong>{money(sum(today))}</strong><span>{today.length} ออเดอร์สำเร็จ</span></div>
-      <div className="wm-metrics wm-metrics--reports">
-        <Metric label="สัปดาห์นี้" value={money(sum(weekly))} hint={`${weekly.length} ออเดอร์`} />
-        <Metric label="เดือนนี้" value={money(sum(monthly))} hint={`${monthly.length} ออเดอร์`} />
-        <Metric label="เฉลี่ย/ออเดอร์" value={money(average)} />
-        <Metric label="ออเดอร์ทั้งหมด" value={String(delivered.length)} />
-      </div>
-      <section className="wm-section">
-        <div className="wm-section-title"><h2>เมนูขายดี</h2></div>
-        {best.length ? <div className="wm-ranking">{best.map(([name, count], index) => <div key={name}><b>{index + 1}</b><span>{name}</span><strong>{count} ชิ้น</strong></div>)}</div> : (
-          <div className="wm-empty wm-empty--compact"><CircleDollarSign size={34} strokeWidth={1.5} /><strong>ยังไม่มีข้อมูลยอดขาย</strong></div>
-        )}
-      </section>
+      {error ? (
+        <div className="wm-empty wm-empty--compact"><CircleDollarSign size={34} strokeWidth={1.5} /><strong>{error}</strong></div>
+      ) : !report ? (
+        <div className="wm-empty wm-empty--compact"><span className="wm-mini-loader" aria-label="กำลังโหลด" /></div>
+      ) : (
+        <>
+          <div className="wm-report-hero"><small>ยอดขายวันนี้</small><strong>{money(report.today_sales)}</strong><span>{report.today_orders} ออเดอร์สำเร็จ</span></div>
+          <div className="wm-metrics wm-metrics--reports">
+            <Metric label="สัปดาห์นี้" value={money(report.week_sales)} hint={`${report.week_orders} ออเดอร์`} />
+            <Metric label="เดือนนี้" value={money(report.month_sales)} hint={`${report.month_orders} ออเดอร์`} />
+            <Metric label="เฉลี่ย/ออเดอร์" value={money(report.average_order)} />
+            <Metric label="ออเดอร์ทั้งหมด" value={String(report.total_orders)} />
+          </div>
+          <section className="wm-section">
+            <div className="wm-section-title"><h2>เมนูขายดี</h2></div>
+            {report.best.length ? <div className="wm-ranking">{report.best.map((item, index) => <div key={item.name}><b>{index + 1}</b><span>{item.name}</span><strong>{item.quantity} ชิ้น</strong></div>)}</div> : (
+              <div className="wm-empty wm-empty--compact"><CircleDollarSign size={34} strokeWidth={1.5} /><strong>ยังไม่มีข้อมูลยอดขาย</strong></div>
+            )}
+          </section>
+        </>
+      )}
     </>
   );
 }
