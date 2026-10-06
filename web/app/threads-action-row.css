@@ -1,4 +1,4 @@
-/* WYNOS post actions: thin, black, rounded icon language across Home,
+/* WYNOS post actions: thin, muted-at-rest icon language across Home,
    Club feed and Profile. Keep zero engagement invisible. Each action owns
    only the width it needs, so later actions still shift naturally when a
    count appears. */
@@ -45,7 +45,7 @@
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-button.is-active {
-  color: var(--wyn-text-secondary, #8b919b);
+  color: var(--wyn-text, #111111);
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-share {
@@ -97,7 +97,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--wyn-text, #111111);
+  color: var(--wyn-text-secondary, #8b919b);
   font-size: 13px;
   line-height: 0;
   font-weight: 500;
