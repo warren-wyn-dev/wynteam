@@ -27,7 +27,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: 5px;
-  color: var(--wyn-text, #111111);
+  color: var(--wyn-text-secondary, #8b919b);
   text-decoration: none;
   line-height: 0;
   transition: color 160ms ease, transform 120ms ease;
@@ -45,7 +45,7 @@
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-button.is-active {
-  color: var(--wyn-text, #111111);
+  color: var(--wyn-text-secondary, #8b919b);
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-share {
