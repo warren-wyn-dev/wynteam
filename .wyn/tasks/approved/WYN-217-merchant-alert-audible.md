@@ -1,6 +1,6 @@
-# Task — WYN-216 — WYNOS Merchant: order alert audible on iPhone, sticky push
+# Task — WYN-217 — WYNOS Merchant: order alert audible on iPhone, sticky push
 
-Status: approved by QA (automated + browser) — waiting for Founder merge approval
+Status: released via PR #983 (merged 2026-10-06); i18n follow-up in fix/merchant-alert-tips-i18n
 Owner: AI Coding / AI QA & Security
 Date: 2026-10-06
 Branch: fix/merchant-order-alert-sound
@@ -50,3 +50,10 @@ Final Status: PASS
 
 Merging `main` auto-deploys web → Founder approval required before merge.
 Rollback: revert the merge commit.
+
+## Post-merge finding
+
+- `web` CI failed on PR #983: `test:i18n` ("every Thai UI string has English"). The two new tips had no English entry in `lib/i18n/en.ts`. QA ran `test:notifications` but not `test:i18n` — missed.
+- Fix: English entries added, old tip entry removed. Every npm step of the `web` CI job (lint, typecheck, all test suites incl. i18n, build) passes locally.
+- Lesson: before PR, run every step of `.github/workflows/web-next-ci.yml` → `web`, not only the related suites.
+- Renamed WYN-216 → WYN-217 (WYN-216 is already used by store reviews).
