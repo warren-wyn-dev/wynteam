@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { registerCurrentAccount } from "@/lib/account-registry";
