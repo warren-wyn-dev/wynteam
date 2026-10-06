@@ -38,19 +38,27 @@ test("Food auth routes are separate from Social onboarding", async () => {
   assert.doesNotMatch(login + signup, /signup\/step-1|onboarding\/profile/);
 });
 
-test("Food Google login returns to Food without forcing Social onboarding", async () => {
+test("Food Google login uses a dedicated exact callback and never falls into Social", async () => {
   const foodAuth = await read("components/food/food-auth.tsx");
-  const callback = await read("app/auth/callback/page.tsx");
+  const foodCallback = await read("app/food/auth/callback/page.tsx");
+  const sharedCallback = await read("app/auth/callback/page.tsx");
 
   assert.match(foodAuth, /FOOD_PRODUCTION_ORIGIN = "https:\/\/food\.wynos\.online"/);
   assert.match(foodAuth, /redirectFoodAuthToCanonicalOrigin\("\/food\/login"\)/);
-  assert.match(foodAuth, /new URL\("\/auth\/callback", foodAuthOrigin\(\)\)/);
+  assert.match(foodAuth, /new URL\("\/food\/auth\/callback", canonicalOrigin\)/);
+  assert.doesNotMatch(foodAuth, /callback\.searchParams\.set\("next", "\/food"\)/);
   assert.match(foodAuth, /startGoogleOAuth\(client, callback\.href\)/);
-  assert.match(foodAuth, /callback\.searchParams\.set\("next", "\/food"\)/);
+  assert.match(foodAuth, /window\.location\.origin !== canonicalOrigin/);
   assert.match(foodAuth, /เข้าสู่ระบบด้วย Google/);
   assert.match(foodAuth, /GOOGLE_PWA_COMPLETED_CHANNEL/);
-  assert.match(callback, /safeProductDestination/);
-  assert.match(callback, /requestedNext && isSafeReturnPath\(requestedNext\)/);
+
+  assert.match(foodCallback, /registerCurrentAccount/);
+  assert.match(foodCallback, /consumeGooglePwaPopupMarker/);
+  assert.match(foodCallback, /window\.location\.replace\(foodHomeUrl\(\)\)/);
+  assert.doesNotMatch(foodCallback, /signup\/step-1/);
+
+  assert.match(sharedCallback, /legacyFoodReturn = requestedNext === "\/food"/);
+  assert.match(sharedCallback, /window\.location\.replace\("https:\/\/food\.wynos\.online\/"\)/);
 });
 
 test("Food password recovery returns to the Food login flow", async () => {
