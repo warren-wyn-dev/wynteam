@@ -182,6 +182,18 @@ export type MerchantSnapshot = {
   has_more_orders: boolean;
 };
 
+export type MerchantSalesReport = {
+  today_sales: number;
+  today_orders: number;
+  week_sales: number;
+  week_orders: number;
+  month_sales: number;
+  month_orders: number;
+  total_orders: number;
+  average_order: number;
+  best: Array<{ name: string; quantity: number }>;
+};
+
 export const MERCHANT_ORDER_PAGE_SIZE = 100;
 
 export type MenuDraft = {
@@ -245,6 +257,134 @@ export async function fetchMerchantOrdersPage(
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as FoodOrder[];
   return { orders: rows.slice(0, safeLimit), hasMore: rows.length > safeLimit };
+}
+
+const BANGKOK_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Bangkok",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function bangkokDateKey(value: string | Date) {
+  const parts = BANGKOK_DATE_FORMAT.formatToParts(value instanceof Date ? value : new Date(value));
+  const year = parts.find((part) => part.type === "year")?.value ?? "1970";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+  return `${year}-${month}-${day}`;
+}
+
+function bangkokWeekStartKey(today: string) {
+  const [year, month, day] = today.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const daysSinceMonday = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - daysSinceMonday);
+  return date.toISOString().slice(0, 10);
+}
+
+type MerchantReportOrder = {
+  total: number | string;
+  delivered_at: string | null;
+  updated_at: string;
+  food_order_items?: Array<Pick<FoodOrderItem, "item_name" | "quantity">>;
+};
+
+function merchantSalesReportFromOrders(rows: MerchantReportOrder[]): MerchantSalesReport {
+  const today = bangkokDateKey(new Date());
+  const weekStart = bangkokWeekStartKey(today);
+  const month = today.slice(0, 7);
+  let todaySales = 0;
+  let todayOrders = 0;
+  let weekSales = 0;
+  let weekOrders = 0;
+  let monthSales = 0;
+  let monthOrders = 0;
+  let totalSales = 0;
+  const itemCount = new Map<string, number>();
+
+  for (const order of rows) {
+    const amount = Number(order.total) || 0;
+    const day = bangkokDateKey(order.delivered_at ?? order.updated_at);
+    totalSales += amount;
+    if (day === today) {
+      todaySales += amount;
+      todayOrders += 1;
+    }
+    if (day >= weekStart && day <= today) {
+      weekSales += amount;
+      weekOrders += 1;
+    }
+    if (day.slice(0, 7) === month) {
+      monthSales += amount;
+      monthOrders += 1;
+    }
+    for (const item of order.food_order_items ?? []) {
+      itemCount.set(item.item_name, (itemCount.get(item.item_name) ?? 0) + Number(item.quantity || 0));
+    }
+  }
+
+  return {
+    today_sales: todaySales,
+    today_orders: todayOrders,
+    week_sales: weekSales,
+    week_orders: weekOrders,
+    month_sales: monthSales,
+    month_orders: monthOrders,
+    total_orders: rows.length,
+    average_order: rows.length ? totalSales / rows.length : 0,
+    best: [...itemCount.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "th"))
+      .slice(0, 5)
+      .map(([name, quantity]) => ({ name, quantity })),
+  };
+}
+
+function normalizeMerchantSalesReport(data: unknown): MerchantSalesReport {
+  const raw = (data ?? {}) as Partial<MerchantSalesReport>;
+  return {
+    today_sales: Number(raw.today_sales ?? 0),
+    today_orders: Number(raw.today_orders ?? 0),
+    week_sales: Number(raw.week_sales ?? 0),
+    week_orders: Number(raw.week_orders ?? 0),
+    month_sales: Number(raw.month_sales ?? 0),
+    month_orders: Number(raw.month_orders ?? 0),
+    total_orders: Number(raw.total_orders ?? 0),
+    average_order: Number(raw.average_order ?? 0),
+    best: Array.isArray(raw.best)
+      ? raw.best
+          .map((item) => ({ name: String(item?.name ?? ""), quantity: Number(item?.quantity ?? 0) }))
+          .filter((item) => item.name && Number.isFinite(item.quantity) && item.quantity > 0)
+          .slice(0, 5)
+      : [],
+  };
+}
+
+/**
+ * Full sales report for Merchant. The RPC keeps aggregation server-side.
+ * During a migration rollout, missing-RPC errors fall back to paged delivered
+ * orders so the report stays complete instead of silently using the first 100.
+ */
+export async function fetchMerchantSalesReport(client: SupabaseClient, storeId: string): Promise<MerchantSalesReport> {
+  const rpc = await client.rpc("merchant_sales_report", { p_store_id: storeId });
+  if (!rpc.error) return normalizeMerchantSalesReport(rpc.data);
+  if (rpc.error.code !== "PGRST202" && rpc.error.code !== "42883") throw new Error(rpc.error.message);
+
+  const rows: MerchantReportOrder[] = [];
+  const pageSize = 250;
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await client
+      .from("food_orders")
+      .select("total,delivered_at,updated_at,food_order_items(item_name,quantity)")
+      .eq("store_id", storeId)
+      .eq("status", "delivered")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (page.error) throw new Error(page.error.message);
+    const batch = (page.data ?? []) as MerchantReportOrder[];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return merchantSalesReportFromOrders(rows);
 }
 
 export async function fetchMerchantSnapshot(
