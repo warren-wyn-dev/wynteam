@@ -57,6 +57,7 @@ export default function EmailConfirmationCallbackPage() {
         // Remove the one-time code from the address bar before navigating,
         // messaging the opener, or recording any subsequent app interaction.
         window.history.replaceState(null, "", "/auth/callback");
+        const legacyFoodReturn = requestedNext === "/food";
         if (consumeGooglePwaPopupMarker()) {
           const safeProductDestination = requestedNext && isSafeReturnPath(requestedNext)
             ? requestedNext
@@ -72,6 +73,21 @@ export default function EmailConfirmationCallbackPage() {
             }
           }
           announceGooglePwaCompletion();
+          // Legacy Food clients may still have started OAuth from the Social
+          // origin. Never let that successful sign-in fall into Social.
+          if (legacyFoodReturn) {
+            if (window.opener && !window.opener.closed) {
+              window.setTimeout(() => {
+                try { window.close(); } catch { /* iOS may keep the popup open. */ }
+                window.setTimeout(() => {
+                  if (!window.closed) window.location.replace("https://food.wynos.online/");
+                }, 250);
+              }, 250);
+              return;
+            }
+            window.location.replace("https://food.wynos.online/");
+            return;
+          }
           // A script-opened window may close itself; if iOS declines, the
           // authenticated popup still offers a working Home/onboarding path.
           if (window.opener && !window.opener.closed) {
@@ -87,6 +103,10 @@ export default function EmailConfirmationCallbackPage() {
         const destination = requestedNext && isSafeReturnPath(requestedNext)
           ? requestedNext
           : "/signup/step-1";
+        if (destination === "/food") {
+          window.location.replace("https://food.wynos.online/");
+          return;
+        }
         router.replace(destination);
       } catch {
         window.history.replaceState(null, "", "/auth/callback");

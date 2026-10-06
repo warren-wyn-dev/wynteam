@@ -12,7 +12,7 @@ new Function("module", "exports", "process", compiled)(compiledModule, compiledM
 const { isInstalledIosWebApp, startGoogleOAuth, consumeGooglePwaPopupMarker, announceGooglePwaCompletion, GOOGLE_PWA_POPUP_MARKER } = compiledModule.exports;
 const AUTH_URL = "https://test.supabase.co/auth/v1/authorize?provider=google";
 
-function setup({ installed = true, blocked = false } = {}) {
+function setup({ installed = true, blocked = false, origin = "https://wynos.online" } = {}) {
   const previous = { window: globalThis.window, navigator: globalThis.navigator, BroadcastChannel: globalThis.BroadcastChannel };
   const storage = new Map();
   const calls = [];
@@ -27,7 +27,7 @@ function setup({ installed = true, blocked = false } = {}) {
     close: () => calls.push(["close-popup"]),
   };
   globalThis.window = {
-    location: { origin: "https://wynos.online" },
+    location: { origin },
     matchMedia: () => ({ matches: installed }),
     open: (url,target) => { calls.push(["open",url,target]); return blocked ? null : popup; },
     sessionStorage: popup.sessionStorage,
@@ -97,6 +97,29 @@ test("installed iOS preserves a product next destination on the shared callback"
    const signin=f.calls.find(x=>x[0]==="oauth");
    assert.equal(signin[1].redirectTo,"https://wynos.online/auth/callback?next=%2Ffood");
    assert.equal(signin[1].skipBrowserRedirect,true);
+ }finally{f.restore();}
+});
+
+test("installed Food iOS preserves the exact dedicated Food callback",async()=>{
+ const f=setup({origin:"https://food.wynos.online"});try{
+   const client={auth:{signInWithOAuth:async({options})=>{
+     f.calls.push(["oauth",options]);return {data:{url:AUTH_URL},error:null};
+   }}};
+   const result=await startGoogleOAuth(client,"https://food.wynos.online/food/auth/callback");
+   assert.equal(result.started,true);
+   const signin=f.calls.find(x=>x[0]==="oauth");
+   assert.equal(signin[1].redirectTo,"https://food.wynos.online/food/auth/callback");
+   assert.equal(signin[1].skipBrowserRedirect,true);
+ }finally{f.restore();}
+});
+
+test("installed iOS rejects a cross-origin callback before leaving the app storage partition",async()=>{
+ const f=setup({origin:"https://wynos.online"});try{
+   const client={auth:{signInWithOAuth:async()=>({data:{url:AUTH_URL},error:null})}};
+   const result=await startGoogleOAuth(client,"https://food.wynos.online/food/auth/callback");
+   assert.equal(result.started,false);
+   assert.equal(f.calls.some(x=>x[0]==="navigate-popup"),false);
+   assert.ok(f.calls.some(x=>x[0]==="close-popup"));
  }finally{f.restore();}
 });
 

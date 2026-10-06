@@ -84,21 +84,19 @@ export async function startGoogleOAuth(
       provider: "google",
       options: {
         ...options,
-        // Existing allowlisted callback; the OAuth verifier is stored in
-        // THIS installed app, and the popup shares this app's cookie jar.
+        // The OAuth verifier is stored in THIS installed app, so an iOS
+        // popup callback must stay on the same origin. Dedicated product
+        // callback paths are preserved exactly; ordinary Social entry points
+        // still converge on the shared /auth/callback route.
         redirectTo: (() => {
           const callback = new URL("/auth/callback", window.location.origin);
-          try {
-            const requested = new URL(browserRedirect, window.location.origin);
-            // Product-specific OAuth flows may attach a safe `next` value to
-            // the shared callback. Preserve only that callback query on iOS;
-            // the callback page validates the destination before navigating.
-            if (requested.origin === window.location.origin && requested.pathname === "/auth/callback") {
-              const next = requested.searchParams.get("next");
-              if (next) callback.searchParams.set("next", next);
-            }
-          } catch {
-            // Fall back to the plain shared callback.
+          const requested = new URL(browserRedirect, window.location.origin);
+          if (requested.origin !== window.location.origin) {
+            throw new Error("OAuth callback must remain on the installed app origin");
+          }
+          if (requested.pathname === "/auth/callback" || requested.pathname === "/food/auth/callback") {
+            requested.hash = "";
+            return requested.href;
           }
           return callback.href;
         })(),
