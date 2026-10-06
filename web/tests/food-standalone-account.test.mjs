@@ -130,3 +130,36 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
   assert.match(migration, /search_menu\.category ilike v_pattern/);
   assert.match(migration, /grant execute on function public\.food_store_directory\(text\) to authenticated/);
 });
+
+
+test("WYNOS Food menu item detail uses the image-first mobile layout", async () => {
+  const source = await read("components/food/wynos-food-developer-app.tsx");
+  const data = await read("lib/food-customer.ts");
+  const css = await read("app/food/food.css");
+  const optionPricingMigration = await read("../supabase/migrations_wynos_food_customer_menu_options_v1.sql");
+
+  assert.match(source, /className="wf-item-sheet-backdrop"/);
+  assert.match(source, /className="wf-item-hero"/);
+  assert.match(source, /className="wf-item-close"/);
+  assert.match(source, /maxLength=\{200\}/);
+  assert.match(source, /ร้านอาจไม่สามารถทำตามคำขอได้ทุกกรณี/);
+  assert.match(source, /className="wf-item-option-group"/);
+  assert.match(source, /กรุณาเลือกตัวเลือกที่จำเป็น/);
+  assert.match(source, /selected_options: selectedOptions/);
+  assert.match(source, /foodCartLineUnitPrice/);
+  assert.match(source, /className="wf-item-actions wf-item-actions--fixed"/);
+  assert.match(source, /store=\{store\}/);
+  assert.doesNotMatch(source.slice(source.indexOf("function ItemSheet"), source.indexOf("/**\n * Delivery coordinates")), /<Sheet title=\{item\.name\}/);
+
+  assert.match(css, /\.wf-item-hero\s*\{[\s\S]*?aspect-ratio:\s*4\s*\/\s*3;/);
+  assert.match(css, /\.wf-item-close\s*\{[\s\S]*?position:\s*absolute;/);
+  assert.match(css, /\.wf-item-option-group\s*\{[\s\S]*?border:/);
+  assert.match(css, /\.wf-item-actions--fixed\s*\{[\s\S]*?border-top:/);
+
+  assert.match(data, /selected_options\?: FoodSelectedOption\[\]/);
+  assert.match(data, /selected_options: Array\.isArray\(line\.selected_options\)/);
+  assert.match(optionPricingMigration, /internal\.food_resolve_menu_options/);
+  assert.match(optionPricingMigration, /v_unit_price := v_item\.price \+ coalesce/);
+  assert.match(optionPricingMigration, /v_resolved->'selected_options'/);
+  assert.match(optionPricingMigration, /required menu option missing/);
+});
