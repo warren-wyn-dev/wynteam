@@ -394,11 +394,10 @@ function MerchantInner({
   const [ordersHasMore, setOrdersHasMore] = useState(false);
   const [salesReportState, setSalesReportState] = useState<{
     storeId: string;
-    revision: number;
     report: MerchantSalesReport | null;
     error: string;
   } | null>(null);
-  const [dataRevision, setDataRevision] = useState(0);
+  const [salesReportRevision, setSalesReportRevision] = useState(0);
   const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -457,7 +456,6 @@ function MerchantInner({
       setMenu(next.menu);
       setOrders(next.orders);
       setOrdersHasMore(next.has_more_orders);
-      setDataRevision((value) => value + 1);
       if (next.store && next.store.id !== selectedStoreId) setSelectedStoreId(next.store.id);
       paymentStatusRef.current = new Map(next.orders.map((order) => [order.id, order.payment_status]));
       const requested = requestedOrderRef.current;
@@ -530,31 +528,26 @@ function MerchantInner({
     if (!store?.id) return;
     let live = true;
     const storeId = store.id;
-    const revision = dataRevision;
     void fetchMerchantSalesReport(client, storeId)
       .then((next) => {
-        if (live) setSalesReportState({ storeId, revision, report: next, error: "" });
+        if (live) setSalesReportState({ storeId, report: next, error: "" });
       })
       .catch((reason) => {
         if (!live) return;
-        setSalesReportState({
-          storeId,
-          revision,
-          report: null,
-          error: merchantError(reason, "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่"),
-        });
+        const error = merchantError(reason, "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่");
+        setSalesReportState((current) => current?.storeId === storeId
+          ? { ...current, error }
+          : { storeId, report: null, error });
       });
     return () => { live = false; };
-  }, [client, store?.id, dataRevision]);
+  }, [client, store?.id, salesReportRevision]);
 
-  const currentSalesReport = store
-    && salesReportState?.storeId === store.id
-    && salesReportState.revision === dataRevision
+  // Keep the last good numbers on screen while a fresh report loads, like a
+  // native app's stale-while-revalidate cache. Store changes still isolate data.
+  const currentSalesReport = store && salesReportState?.storeId === store.id
     ? salesReportState.report
     : null;
-  const currentSalesReportError = store
-    && salesReportState?.storeId === store.id
-    && salesReportState.revision === dataRevision
+  const currentSalesReportError = store && salesReportState?.storeId === store.id
     ? salesReportState.error
     : "";
 
@@ -623,7 +616,7 @@ function MerchantInner({
       }
       const previous = payload.old as Partial<FoodOrder>;
       if (next.status === "delivered" || previous.status === "delivered") {
-        setDataRevision((value) => value + 1);
+        setSalesReportRevision((value) => value + 1);
       }
       scheduleOrderRefresh();
     });
@@ -757,7 +750,10 @@ function MerchantInner({
   // excluded by the hook: dialogs and inputs never start a pull).
   const pull = usePullToRefresh({
     enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports" || tab === "finance",
-    onRefresh: async () => { await load(true); },
+    onRefresh: async () => {
+      await load(true);
+      setSalesReportRevision((value) => value + 1);
+    },
   });
 
   if (loading && access === null) return <MerchantLoading />;
@@ -791,7 +787,15 @@ function MerchantInner({
             <Bell size={21} strokeWidth={1.8} />
           </button>
           {refreshing ? <span className="wm-mini-loader" aria-label="กำลังอัปเดต" /> : (
-            <button className="wm-icon-button" type="button" aria-label="อัปเดตข้อมูล" onClick={() => void load(true)}>
+            <button
+              className="wm-icon-button"
+              type="button"
+              aria-label="อัปเดตข้อมูล"
+              onClick={() => {
+                void load(true);
+                setSalesReportRevision((value) => value + 1);
+              }}
+            >
               <Clock3 size={21} strokeWidth={1.8} />
             </button>
           )}
