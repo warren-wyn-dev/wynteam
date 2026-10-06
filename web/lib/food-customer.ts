@@ -240,7 +240,7 @@ export type FoodCartLine = {
   menu_item_id: string;
   quantity: number;
   note: string;
-  /** Server accepts group_id + choice_id and re-resolves names/prices itself. */
+  /** Only group_id + choice_id are used; the server re-resolves names/prices from the menu (WYN-218). */
   selected_options?: FoodMenuOptionSelection[];
 };
 
@@ -947,6 +947,9 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("scheduled time is too soon")) return "เวลาที่เลือกใกล้เกินไป กรุณาเลือกเวลาใหม่";
   if (message.includes("scheduled time is too far")) return "เวลาที่เลือกไกลเกินช่วงที่ร้านเปิดรับออเดอร์ล่วงหน้า";
   if (message.includes("store is closed at scheduled time")) return "ร้านปิดในวันหรือเวลาที่เลือก กรุณาเลือกเวลาใหม่";
+  if (message.includes("too many pending orders")) return "มีออเดอร์ที่รอร้านรับอยู่หลายรายการ กรุณารอร้านรับออเดอร์ก่อน";
+  if (message.includes("too many orders")) return "สั่งถี่เกินไป กรุณารอสักครู่แล้วลองใหม่";
+  if (message.includes("payment already submitted")) return "ส่งหลักฐานการชำระเงินแล้ว หรือร้านยืนยันการชำระเงินแล้ว";
   if (message.includes("order cannot be cancelled by customer")) return "ออเดอร์นี้ยกเลิกเองไม่ได้แล้ว กรุณาติดต่อร้าน";
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";

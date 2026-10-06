@@ -76,6 +76,7 @@ import {
   foodPublicUrl,
   merchantError,
   money,
+  orderItemOptionText,
   paymentLabel,
   saveMenuItem,
   saveStorePlace,
@@ -1916,7 +1917,7 @@ function OrderSheet({
           <div className="wm-print-brand"><strong>{store.name}</strong><small>{receiptLegalName ? "ใบเสร็จรับเงิน / ข้อมูลภาษี" : "ใบออเดอร์ / ใบเสร็จอย่างย่อ"}</small></div>
           {receiptLegalName ? <div className="wm-print-tax"><b>{receiptLegalName}</b>{receiptTaxId ? <span>เลขประจำตัวผู้เสียภาษี {receiptTaxId}</span> : null}{receiptTaxBranch ? <span>สาขา {receiptTaxBranch}</span> : null}{receiptTaxAddress ? <span>{receiptTaxAddress}</span> : null}</div> : null}
           <div className="wm-print-meta"><span>ออเดอร์ #{order.order_number}</span><span>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</span>{order.scheduled_for ? <span>นัดรับ/จัดส่ง {new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</span> : null}</div>
-          <div className="wm-print-lines">{(order.food_order_items ?? []).map((item) => <div key={item.id}><span>{item.quantity}× {item.item_name}{item.item_note ? <small>{item.item_note}</small> : null}</span><b>{money(Number(item.unit_price) * item.quantity)}</b></div>)}</div>
+          <div className="wm-print-lines">{(order.food_order_items ?? []).map((item) => <div key={item.id}><span>{item.quantity}× {item.item_name}{orderItemOptionText(item) ? <small>{orderItemOptionText(item)}</small> : null}{item.item_note ? <small>{item.item_note}</small> : null}</span><b>{money(Number(item.unit_price) * item.quantity)}</b></div>)}</div>
           <div className="wm-print-totals">
             <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
             {Number(order.campaign_discount ?? 0) > 0 ? <div><span>ส่วนลด</span><b>−{money(order.campaign_discount)}</b></div> : null}
@@ -2026,7 +2027,7 @@ function OrderSheet({
         <h3>รายการอาหาร</h3>
         <div className="wm-line-items">
           {(order.food_order_items ?? []).map((item) => (
-            <div key={item.id}><b>{item.quantity}×</b><span><strong>{item.item_name}</strong>{item.item_note ? <small>{item.item_note}</small> : null}</span><em>{money(Number(item.unit_price) * item.quantity)}</em></div>
+            <div key={item.id}><b>{item.quantity}×</b><span><strong>{item.item_name}</strong>{orderItemOptionText(item) ? <small>{orderItemOptionText(item)}</small> : null}{item.item_note ? <small>{item.item_note}</small> : null}</span><em>{money(Number(item.unit_price) * item.quantity)}</em></div>
           ))}
         </div>
         <div className="wm-totals">
