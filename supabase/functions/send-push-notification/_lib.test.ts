@@ -659,10 +659,10 @@ Deno.test("pushAppForNotification keeps everything else in Wynos", () => {
   assertEquals(pushAppForNotification({ type: "comment_drop", reason: "WYNOS Merchant · x" }), "social");
 });
 
-Deno.test("pushMessageForApp titles each app and drops the Merchant prefix", () => {
+Deno.test("pushMessageForApp puts Merchant event details in the title and drops its prefix", () => {
   assertEquals(
     pushMessageForApp("merchant", "WYNOS Merchant · ออเดอร์ใหม่ #WF0015 · ฿25.00", "มีคน"),
-    { title: "WYNOS Merchant", body: "ออเดอร์ใหม่ #WF0015 · ฿25.00" },
+    { title: "ออเดอร์ใหม่ #WF0015 · ฿25.00", body: "" },
   );
   assertEquals(
     pushMessageForApp("food", "ชำระเงินออเดอร์ #WF0015 สำเร็จแล้ว", "มีคน"),
