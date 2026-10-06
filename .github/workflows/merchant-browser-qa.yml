@@ -9,6 +9,7 @@ on:
       - 'web/lib/merchant-*.ts'
       - 'web/tests/browser/wynos-merchant.spec.ts'
       - 'supabase/migrations_wynos_merchant_*.sql'
+      - 'supabase/migrations_wynos_food_merchant_*.sql'
       - 'supabase/tests/wynos_merchant_*.sh'
       - '.github/workflows/merchant-browser-qa.yml'
   push:
@@ -21,6 +22,7 @@ on:
       - 'web/lib/merchant-*.ts'
       - 'web/tests/browser/wynos-merchant.spec.ts'
       - 'supabase/migrations_wynos_merchant_*.sql'
+      - 'supabase/migrations_wynos_food_merchant_*.sql'
       - 'supabase/tests/wynos_merchant_*.sh'
       - '.github/workflows/merchant-browser-qa.yml'
 
