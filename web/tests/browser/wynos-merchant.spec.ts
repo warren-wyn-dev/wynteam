@@ -60,7 +60,7 @@ test("Merchant public auth surface is interactive", async ({ page }) => {
   await expect(page.getByRole("link", { name: "กลับ WYNOS Merchant" })).toHaveCount(0);
 
   await page.getByLabel("อีเมล").fill("merchant@example.com");
-  const password = page.getByLabel("รหัสผ่าน");
+  const password = page.getByLabel("รหัสผ่าน", { exact: true });
   await password.fill("not-a-real-password");
   await page.getByRole("button", { name: "แสดงรหัสผ่าน" }).click();
   await expect(password).toHaveAttribute("type", "text");
