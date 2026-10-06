@@ -1843,7 +1843,7 @@ function AddressEditor({
             ? "ร้านนี้ยังไม่พร้อมรับการจัดส่ง"
             : "กรุณาตรวจสอบตำแหน่งจัดส่ง";
   return (
-    <Sheet title={form.id ? "แก้ไขข้อมูลจัดส่ง" : "เพิ่มข้อมูลจัดส่ง"} onClose={onClose}>
+    <Sheet title={form.id ? "แก้ไขข้อมูลจัดส่ง" : "เพิ่มข้อมูลจัดส่ง"} onClose={onClose} variant="page">
       <div className="wf-form">
         <div className="wf-form-note">ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS</div>
         <label>ชื่อที่อยู่ <small>เช่น บ้าน / หอพัก</small><input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="ที่อยู่ของฉัน" /></label>
