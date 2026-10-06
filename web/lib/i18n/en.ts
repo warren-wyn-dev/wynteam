@@ -2583,7 +2583,44 @@ Object.assign(EN_EXACT, {
   "รับสถานะคำสั่งซื้อ การรับออเดอร์ การเตรียมอาหาร และการจัดส่งจาก WYNOS Food": "Get WYNOS Food updates for order acceptance, preparation and delivery",
 });
 
+
+// WYNOS Food structured delivery address fields.
+Object.assign(EN_EXACT, {
+  "เช่น บ้าน / หอพัก / ที่ทำงาน": "For example: Home / Dorm / Work",
+  "ปักหมุดก่อน ระบบจะช่วยเติมจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์เมื่อข้อมูลแผนที่รองรับ": "Pin the location first. When map data supports it, WYNOS will help fill province, district, subdistrict and postal code",
+  "รายละเอียดที่อยู่": "Address details",
+  "กรอกตามที่อยู่จริงเพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง": "Enter the real address so the merchant and courier can find you accurately",
+  "บ้านเลขที่ / ที่อยู่": "House number / address",
+  "เช่น 123/45": "For example: 123/45",
+  "เช่น หอพักธาราทิพย์ / คอนโด A": "For example: Tharathip Dorm / Condo A",
+  "หมู่ที่": "Village No.",
+  "เช่น 11": "For example: 11",
+  "ซอย": "Soi",
+  "เช่น ซอย 3": "For example: Soi 3",
+  "ถนน": "Road",
+  "เช่น ถนนนครสวรรค์": "For example: Nakhon Sawan Road",
+  "จังหวัด": "Province",
+  "เช่น มหาสารคาม": "For example: Maha Sarakham",
+  "อำเภอ / เขต": "District / Khet",
+  "เช่น กันทรวิชัย": "For example: Kantharawichai",
+  "ตำบล / แขวง": "Subdistrict / Khwaeng",
+  "เช่น ขามเรียง": "For example: Kham Riang",
+  "รหัสไปรษณีย์": "Postal code",
+  "เช่น 44150": "For example: 44150",
+  "กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก": "Enter province, district/khet, subdistrict/khwaeng and postal code before saving",
+  "กรุงเทพมหานคร": "Bangkok",
+  "กรุงเทพฯ": "Bangkok",
+  "แขวง": "Khwaeng",
+  "ตำบล": "Subdistrict",
+  "เขต": "Khet",
+  "อำเภอ": "District",
+});
+
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["หมู่ {0}", "Village {0}"],
+  ["ซอย {0}", "Soi {0}"],
+  ["ถนน {0}", "Road {0}"],
+  ["จังหวัด {0}", "{0} Province"],
   [" · ในตะกร้าแล้ว {0}", " · {0} already in cart"],
   ["เลือกได้สูงสุด {0}", "Choose up to {0}"],
   ["เลือกได้สูงสุด {0} ข้อ", "Choose up to {0} options"],
