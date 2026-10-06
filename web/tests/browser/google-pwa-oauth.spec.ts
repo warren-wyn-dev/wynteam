@@ -81,6 +81,7 @@ test("installed iPhone securely hands popup session to the waiting PWA and does 
     expect(body).toContain("GOOGLE_PWA_SESSION_MESSAGE");
     expect(body).toContain("auth.setSession");
     expect(body).toContain("popupClosed()");
-    expect(body).toContain("resumeGoogle(undefined, popupClosed())");
   }
+  expect(foodLogin).toContain("resumeGoogle(undefined, popupClosed())");
+  expect(welcome).toContain("resume(undefined, popupClosed())");
 });
