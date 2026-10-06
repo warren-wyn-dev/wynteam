@@ -741,8 +741,9 @@ function MerchantInner({
       setMessage(merchantError(error));
       forgetAction(order.id);
     } finally {
+      // Reload on failure too: the order may have moved on elsewhere.
       // Keep the hot order flow lightweight: the realtime event usually wins,
-      // and this debounced refresh is the safety net if it does not.
+      // and this debounced order-only refresh is the safety net if it does not.
       scheduleOrderRefresh();
     }
   };
