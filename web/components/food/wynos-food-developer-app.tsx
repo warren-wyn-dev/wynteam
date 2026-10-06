@@ -31,6 +31,7 @@ import {
   Star,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -207,7 +208,7 @@ function FoodDenied() {
         <span className="wf-area-icon"><UtensilsCrossed size={30} /></span>
         <h1>ยังเข้าใช้ WYNOS Food ไม่ได้</h1>
         <p>บัญชีนี้ยังไม่ผ่านเงื่อนไขการใช้งาน WYNOS Food หรือเซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง</p>
-        <a className="wf-primary" href="/food/login">เข้าสู่ระบบ WYNOS Food</a>
+        <Link className="wf-primary" href="/food/login">เข้าสู่ระบบ WYNOS Food</Link>
         <a className="wf-area-home" href="https://wynos.online/">กลับ WYNOS</a>
       </section>
     </main>
