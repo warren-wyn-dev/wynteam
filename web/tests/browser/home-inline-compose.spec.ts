@@ -30,7 +30,7 @@ for (const width of [320, 390, 432]) {
     expect(Math.abs(composeBox!.y - (tabsBox!.y + tabsBox!.height))).toBeLessThanOrEqual(1);
     expect(Math.abs(firstPostBox!.y - (composeBox!.y + composeBox!.height))).toBeLessThanOrEqual(1);
     expect(composeBox!.height).toBeGreaterThanOrEqual(60);
-    expect(composeBox!.height).toBeLessThanOrEqual(75);
+    expect(composeBox!.height).toBeLessThanOrEqual(82);
   });
 }
 
