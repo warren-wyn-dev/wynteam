@@ -1096,9 +1096,10 @@ function MerchantInner({
           store={store}
           menu={menu}
           onClose={() => setMenuToolMode(null)}
-          onSaved={async () => {
+          onSaved={async (categories) => {
             setMenuToolMode(null);
-            await load(true);
+            applyLocalStorePatch(store.id, { menu_category_order: categories });
+            await refreshMenu();
           }}
           onMessage={setMessage}
         />
@@ -2341,7 +2342,7 @@ function MenuCategoryManager({
   store: FoodStore;
   menu: FoodMenuItem[];
   onClose: () => void;
-  onSaved: () => Promise<void>;
+  onSaved: (categories: string[]) => Promise<void>;
   onMessage: (message: string) => void;
 }) {
   const initial = Array.from(new Set([
@@ -2397,7 +2398,7 @@ function MenuCategoryManager({
       }
       await saveMenuCategoryOrder(client, store.id, names);
       onMessage("บันทึกหมวดหมู่แล้ว");
-      await onSaved();
+      await onSaved(names);
     } catch (error) {
       onMessage(merchantError(error));
     } finally {
