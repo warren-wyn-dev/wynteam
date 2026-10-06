@@ -1582,6 +1582,7 @@ Object.assign(EN_EXACT, {
   "เมนูขายดี": "Best sellers",
   "ชิ้น": "items",
   "ยังไม่มีข้อมูลยอดขาย": "No sales data yet",
+  "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่": "Couldn\'t load the sales report. Please try again",
   "ยังไม่ได้ใส่ที่อยู่ร้าน": "Store address not set",
   "เผยแพร่ WYNOS Food": "Publish on WYNOS Food",
   "ลูกค้าเห็นร้านได้แล้ว": "Customers can see your store",
