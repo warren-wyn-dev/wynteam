@@ -200,9 +200,10 @@ self.addEventListener("push", (event) => {
   // the server's collapse key replaces a retried delivery instead of stacking.
   const tag = pushString(notification.tag) || pushString(data.notification_id) || undefined;
   // A store's order alert stays on screen until someone taps it, and buzzes
-  // longer, where the browser supports it (Android/desktop Chrome). The
+  // longer, where the browser supports it (Android/desktop Chrome). Only
+  // order pushes: store news (ads credit, suspension) closes as usual. The
   // browser decides the sound itself: web push cannot play the WYNOS sound.
-  const merchantAlert = data.app === "merchant"
+  const merchantAlert = data.app === "merchant" && pushString(data.order_number)
     ? { requireInteraction: true, renotify: Boolean(tag), vibrate: [500, 200, 500, 200, 500, 200, 500] }
     : {};
   const banner = self.registration.showNotification(

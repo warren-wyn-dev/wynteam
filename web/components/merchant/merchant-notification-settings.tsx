@@ -1,12 +1,12 @@
 "use client";
 
-import { BellRing, Clock3, Radio, Smartphone, Volume2, Vibrate } from "lucide-react";
+import { BellRing, Clock3, Download, Radio, Smartphone, Volume2, Vibrate } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 
 import { MerchantNotificationTest } from "@/components/merchant/merchant-notification-test";
 import { MerchantOrderScreenCard } from "@/components/merchant/merchant-order-screen";
-import { previewMerchantOrderSound } from "@/components/merchant/merchant-order-alert";
+import { MERCHANT_ORDER_SOUND_URL, previewMerchantOrderSound } from "@/components/merchant/merchant-order-alert";
 import type { FoodStore } from "@/lib/food-merchant";
 import {
   readMerchantAlertPreferences,
@@ -155,6 +155,24 @@ export function MerchantNotificationSettings({
           <li>เปิด Web Push ด้านบนไว้ ออเดอร์ที่ยังไม่มีใครรับ ระบบจะเตือนซ้ำทุก 1 นาที สูงสุด 5 ครั้ง</li>
           <li>ติดตั้ง WYNOS Merchant ไว้บนหน้าจอโฮม</li>
         </ul>
+      </section>
+
+      {/* Web push cannot choose its sound, but Android lets the store pick one
+          per app or site, so hand over the WYNOS sound file and the steps. */}
+      <section className="wm-notification-card" aria-label="เสียง WYNOS ตอนปิดแอป">
+        <div className="wm-notification-card-head">
+          <span className="wm-notification-card-icon"><Download size={21} /></span>
+          <span><strong>เสียง WYNOS ตอนปิดแอป (Android)</strong><small>ตั้งเสียงแจ้งเตือนของ Merchant ในเครื่องให้เป็นเสียง WYNOS · iPhone ยังตั้งเองไม่ได้</small></span>
+        </div>
+        <a className="wm-secondary wm-full wm-notification-sound-test" href={MERCHANT_ORDER_SOUND_URL} download="WYNOS-Merchant.wav">
+          <Download size={18} /> ดาวน์โหลดเสียง WYNOS
+        </a>
+        <ol className="wm-notification-tips">
+          <li>กดดาวน์โหลดเสียง WYNOS ด้านบน</li>
+          <li>เปิดตั้งค่าของเครื่อง → แอป → WYNOS Merchant (ถ้าติดตั้งไว้บนหน้าจอโฮม) หรือ Chrome</li>
+          <li>เลือก การแจ้งเตือน → หมวดของ merchant.wynos.online → เสียง</li>
+          <li>กด เพิ่ม (+) แล้วเลือกไฟล์ WYNOS-Merchant จากโฟลเดอร์ดาวน์โหลด</li>
+        </ol>
       </section>
 
       <section className="wm-notification-card">

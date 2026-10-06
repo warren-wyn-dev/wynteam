@@ -60,11 +60,20 @@ test("merchant push banners stay until tapped; other apps keep the plain banner"
     listeners.get("push")({ data: { json: () => payload }, waitUntil: (promise) => { settled = promise; } });
     await settled;
   };
-  await push({ notification: { title: "WYNOS Merchant", body: "ออเดอร์ #WF0015", tag: "n1" }, data: { app: "merchant", type: "system" } });
+  await push({ notification: { title: "WYNOS Merchant", body: "ออเดอร์ #WF0015", tag: "n1" }, data: { app: "merchant", type: "system", order_number: "WF0015" } });
   await push({ notification: { title: "Wynos", body: "liked", tag: "n2" }, data: { type: "like_drop" } });
+  await push({ notification: { title: "WYNOS Merchant", body: "เติมเครดิตโฆษณาร้าน", tag: "n3" }, data: { app: "merchant", type: "system" } });
   assert.equal(banners[0].options.requireInteraction, true);
   assert.equal(banners[0].options.renotify, true);
   assert.ok(Array.isArray(banners[0].options.vibrate) && banners[0].options.vibrate.length > 3);
   assert.equal(banners[1].options.requireInteraction, undefined);
   assert.equal(banners[1].options.renotify, undefined);
+  assert.equal(banners[2].options.requireInteraction, undefined, "store news without an order closes as usual");
+});
+
+test("Android stores can download the WYNOS sound and set it as Merchant's notification sound", () => {
+  const settings = read("../components/merchant/merchant-notification-settings.tsx");
+  assert.match(settings, /href=\{MERCHANT_ORDER_SOUND_URL\} download="WYNOS-Merchant\.wav"/);
+  assert.match(settings, /เสียง WYNOS ตอนปิดแอป \(Android\)/);
+  assert.match(settings, /iPhone ยังตั้งเองไม่ได้/);
 });
