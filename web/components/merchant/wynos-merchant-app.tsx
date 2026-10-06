@@ -3213,7 +3213,11 @@ function exampleFee(base: string, baseKm: string, perKm: string, distanceKm = 4)
 
 export function WynosMerchantApp() {
   return (
-    <DeveloperRouteGate signedOutPath="/merchant/login" afterSignOutPath="/merchant/login">
+    <DeveloperRouteGate
+      signedOutPath="/merchant/login"
+      afterSignOutPath="/merchant/login"
+      loadingFallback={<MerchantLoading />}
+    >
       {({ client, userId, signOut }) => <MerchantInner client={client} userId={userId} signOut={signOut} />}
     </DeveloperRouteGate>
   );
