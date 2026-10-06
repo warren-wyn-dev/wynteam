@@ -991,8 +991,13 @@ function HomePanel({
 
   // WYN-206: show the WYNOS campaigns this store joined.
   useEffect(() => {
-    if (!storeId) return;
+    if (!storeId) {
+      setCampaigns([]);
+      setReviewSummary({ average: 0, count: 0 });
+      return;
+    }
     let live = true;
+    setReviewSummary({ average: 0, count: 0 });
     void fetchStorePlatformCampaigns(client, storeId).then((names) => { if (live) setCampaigns(names); });
     void fetchFoodStoreReviewFeed(client, storeId, 1)
       .then((feed) => {
