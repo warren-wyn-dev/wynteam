@@ -3972,6 +3972,13 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
+
+/* Item detail reuses the full-screen page shell but has no header/footer.
+   Keep its scroll area and ordering actions in exactly two rows so the
+   quantity controls and Add to cart CTA stay visible above the safe area. */
+.wf-sheet--page.wf-item-sheet {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
 .wf-sheet--page > header {
   min-height: calc(72px + env(safe-area-inset-top));
   padding: env(safe-area-inset-top) 30px 0;
