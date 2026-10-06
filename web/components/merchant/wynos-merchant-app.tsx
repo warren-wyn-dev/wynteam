@@ -1055,7 +1055,7 @@ function MerchantInner({
           store={store}
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
-          onReload={() => void load(true)}
+          onReload={scheduleOrderRefresh}
           onMessage={setMessage}
         />
       ) : null}
