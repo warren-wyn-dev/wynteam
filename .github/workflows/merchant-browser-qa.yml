@@ -1,0 +1,43 @@
+name: Merchant Browser QA
+
+on:
+  pull_request:
+    paths:
+      - 'web/app/merchant/**'
+      - 'web/components/merchant/**'
+      - 'web/lib/food-merchant.ts'
+      - 'web/lib/merchant-*.ts'
+      - 'web/tests/browser/wynos-merchant.spec.ts'
+      - 'supabase/migrations_wynos_merchant_*.sql'
+      - 'supabase/tests/wynos_merchant_*.sh'
+      - '.github/workflows/merchant-browser-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  merchant-browser-qa:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package.json
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Merchant test browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Run Merchant browser QA
+        run: npx playwright test tests/browser/wynos-merchant.spec.ts
+      - name: Upload Merchant Playwright results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: merchant-playwright-test-results
+          path: web/test-results/
+          retention-days: 7

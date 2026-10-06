@@ -34,6 +34,39 @@ test("Merchant data layer uses dedicated Food RPCs, secure evidence storage and 
   expect(data).toContain("withoutLocation(file, contentType)");
 });
 
+test("Merchant reports use complete server-side aggregation in Bangkok time", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const data = read("lib/food-merchant.ts");
+  const migration = read("../supabase/migrations_wynos_merchant_sales_report_v1.sql");
+  expect(app).toContain("fetchMerchantSalesReport(client, storeId)");
+  expect(app).toContain("<ReportsPanel report={currentSalesReport} error={currentSalesReportError} />");
+  expect(app).toContain("todayOrderCount={currentSalesReport?.today_orders ?? null}");
+  expect(app).toContain("todaySales={currentSalesReport?.today_sales ?? null}");
+  expect(app).not.toContain("function sameLocalDay(");
+  expect(app).not.toContain("function startOfWeek(");
+  expect(data).toContain('client.rpc("merchant_sales_report"');
+  expect(data).toContain('.eq("status", "delivered")');
+  expect(data).toContain("offset + pageSize - 1");
+  expect(data).toContain('timeZone: "Asia/Bangkok"');
+  expect(migration).toContain("create or replace function public.merchant_sales_report");
+  expect(migration).toContain("at time zone 'Asia/Bangkok'");
+  expect(migration).toContain("public.food_has_merchant_access(p_store_id)");
+  expect(migration).toContain("revoke all on function public.merchant_sales_report(uuid) from public, anon");
+});
+
+test("Merchant public auth surface is interactive", async ({ page }) => {
+  await page.goto("/merchant/login");
+  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
+
+  await page.getByLabel("อีเมล").fill("merchant@example.com");
+  await page.getByLabel("รหัสผ่าน").fill("not-a-real-password");
+  await expect(page.getByRole("button", { name: "เข้าสู่ระบบ" })).toBeEnabled();
+
+  await page.getByRole("link", { name: "สมัคร WYNOS Merchant" }).click();
+  await expect(page).toHaveURL(/\/merchant\/signup$/);
+  await expect(page.getByLabel("WYNOS Merchant")).toBeVisible();
+});
+
 test("Merchant production polish supports multiple stores, paged orders, help and printing", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
@@ -161,7 +194,7 @@ test("Merchant store settings are grouped into clear navigable categories", () =
   expect(app).toContain("ตำแหน่งและการจัดส่ง");
   expect(app).toContain("การรับชำระเงิน");
   expect(app).toContain("wm-settings-savebar");
-  expect(css).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
+  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))");
   expect(css).toContain(".wm-store-settings-nav");
   expect(css).toContain(".wm-settings-category");
 });
@@ -428,7 +461,7 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(app).toContain("disabled={locked || !slipShown}");
   expect(app).toContain("onLoad={() => setSlipImage({ url: slipUrl, ok: true })}");
   expect(app).toContain("// Reload after failures too: a two-step action may have half succeeded.");
-  expect(app).toContain("{alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
+  expect(app).toContain("{alertOrder && !selectedOrder && !menuDraft && !menuAddOpen && !menuToolMode && !storeEditing ? (");
   // A pressed card stays busy until a reload shows the order's new status.
   expect(app).toContain("acting={actedFrom.get(order.id) === order.status}");
   expect(app).toContain("const locked = busy || actedAt === stateKey;");
@@ -447,20 +480,20 @@ test("WYN-199 Merchant asks to turn on notifications as soon as it opens", () =>
 
   // Opens automatically, and again from the bell, using the shared Push flow
   // (permission request first, then the device token in push_tokens).
-  expect(app).toContain('useState<"auto" | "bell" | null>("auto")');
-  expect(app).toContain('onClick={() => setNotifyPrompt("bell")}');
+  expect(app).toContain('useState<"auto" | null>("auto")');
+  expect(app).toContain('onClick={() => setTab("notifications")}');
   expect(app).not.toContain("Notification.requestPermission()");
   expect(prompt).toContain("await subscribeToPushNotifications(client, userId);");
   expect(prompt).toContain("isCurrentDevicePushEnabled(client, userId)");
   // Never on top of the new-order alert or another sheet; "later" lasts one session.
-  expect(app).toContain("{notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
+  expect(app).toContain("{notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !menuAddOpen && !menuToolMode && !storeEditing ? (");
   expect(prompt).toContain("window.sessionStorage.setItem(LATER_KEY, \"1\")");
 });
 
 test("WYN-200 Merchant order alert uses Wynos's own generated sound", () => {
   const alert = read("components/merchant/merchant-order-alert.tsx");
   const generator = read("scripts/generate-merchant-order-sound.py");
-  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const notificationSettings = read("components/merchant/merchant-notification-settings.tsx");
 
   // The sound is synthesized by a script in the repo (no third-party audio)
   // and the committed file exists.
@@ -469,7 +502,7 @@ test("WYN-200 Merchant order alert uses Wynos's own generated sound", () => {
   expect(alert).toContain('export const MERCHANT_ORDER_SOUND_URL = "/sounds/wynos-merchant-order.wav";');
   // Falls back to synthesized tones if the file cannot load, and can be previewed.
   expect(alert).toContain("playFallbackTones(context);");
-  expect(app).toContain("previewMerchantOrderSound()");
+  expect(notificationSettings).toContain("previewMerchantOrderSound()");
 });
 
 test("WYN-201 Merchant and Food lists refresh with a pull-down gesture", () => {
@@ -538,7 +571,8 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   expect(navIcons).toContain('const fill = active ? RED : "none";');
   expect(navIcons).toContain('const RED = "#e32636";');
   expect(css).toContain(".wm-nav-icon > svg.wm-nav-svg { width: 26px; height: 26px; stroke-width: initial; }");
-  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));\n}\n.wm-nav > button {");
+  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
+  expect(css).toContain(".wm-nav > button {");
   // Light only: the layout pins light tokens whatever the phone or WYN theme says.
   const layout = read("app/merchant/layout.tsx");
   expect(layout).toContain('return <div className="wm-force-light">{children}</div>;');
