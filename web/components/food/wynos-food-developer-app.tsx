@@ -2844,6 +2844,7 @@ function FoodCustomerInner({
           existing={(selectedItem.options?.length ?? 0) > 0 ? null : cart.find((line) => line.menu_item_id === selectedItem.id) ?? null}
           cartQuantity={cart.reduce((sum, line) => sum + (line.menu_item_id === selectedItem.id ? line.quantity : 0), 0)}
           storeOpen={foodStoreIsEffectivelyOpen(store)}
+          storeStatus={foodStoreStatusText(store)}
           onClose={() => setSelectedItem(null)}
           onAdd={addItem}
         />
