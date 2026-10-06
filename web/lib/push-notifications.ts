@@ -204,7 +204,7 @@ async function savePushToken(client: SupabaseClient, userId: string, token: stri
 export const PUSH_PROMPT_DISMISS_KEY = "wynos.push.prompt.dismissed-at.v1";
 export const PUSH_PROMPT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 // Main app screens only: never over sign-in/sign-up, Settings (it has the switch) or legal pages.
-const PUSH_PROMPT_PATHS = /^\/(home|chat|notifications|clubs?|profile|search|trending|bookmarks|post|drop)(\/|$)/;
+const PUSH_PROMPT_PATHS = /^\/(home|chat|notifications|clubs?|profile|search|trending|bookmarks|post|drop|food)(\/|$)/;
 const PUSH_PERMISSION_RECOVERY_PATHS = /^\/(chat|notifications)(\/|$)/;
 
 export function isPushPromptPath(path: string): boolean {
