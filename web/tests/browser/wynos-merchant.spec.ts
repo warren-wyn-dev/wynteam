@@ -41,7 +41,9 @@ test("Merchant reports use complete server-side aggregation in Bangkok time", ()
   const layout = read("app/merchant/layout.tsx");
 
   expect(app).toContain("fetchMerchantSalesReport(client, store.id)");
-  expect(app).toContain("<ReportsPanel client={client} store={store} refreshKey={orders} />");
+  expect(app).toContain("<ReportsPanel report={salesReport} error={salesReportError} />");
+  expect(app).toContain("todayOrderCount={salesReport?.today_orders ?? null}");
+  expect(app).toContain("todaySales={salesReport?.today_sales ?? null}");
   expect(app).not.toContain("function sameLocalDay(");
   expect(app).not.toContain("function startOfWeek(");
   expect(data).toContain('client.rpc("merchant_sales_report"');
