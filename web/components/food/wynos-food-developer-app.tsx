@@ -1505,6 +1505,7 @@ function ItemSheet({
   existing,
   cartQuantity,
   storeOpen,
+  storeStatus,
   onClose,
   onAdd,
 }: {
@@ -1513,6 +1514,7 @@ function ItemSheet({
   existing: FoodCartLine | null;
   cartQuantity: number;
   storeOpen: boolean;
+  storeStatus: string;
   onClose: () => void;
   onAdd: (line: FoodCartLine, replaceKey?: string) => void;
 }) {
@@ -1545,7 +1547,16 @@ function ItemSheet({
       }));
   });
   const unitPrice = Number(item.price) + selectedOptions.reduce((sum, option) => sum + Math.max(0, Number(option.price ?? 0)), 0);
-  const canAdd = itemAvailable && storeOpen && selectionValid && quantityLimit > 0 && quantity <= quantityLimit;
+  const orderingDisabled = !itemAvailable || !storeOpen || quantityLimit <= 0;
+  const canAdd = !orderingDisabled && selectionValid && quantity <= quantityLimit;
+  const closedActionLabel = storeStatus.startsWith("ปิด") ? `ร้าน${storeStatus}` : `ร้านปิด · ${storeStatus}`;
+  const actionLabel = !storeOpen
+    ? closedActionLabel
+    : !itemAvailable
+      ? "เมนูหมดชั่วคราว"
+      : quantityLimit <= 0
+        ? "ขายหมดวันนี้"
+        : `${existing ? "อัปเดตตะกร้า" : "เพิ่มลงตะกร้า"} · ${foodMoney(unitPrice * quantity)}`;
 
   const toggleOption = (groupId: string, choiceId: string, maxSelect: number) => {
     setSelected((current) => {
@@ -1558,69 +1569,126 @@ function ItemSheet({
   };
 
   return (
-    <Sheet title={item.name} onClose={onClose}>
-      <div className="wf-item-detail">
-        <div className="wf-item-photo">
-          {image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt="" />
-          ) : <UtensilsCrossed size={40} strokeWidth={1.35} />}
-        </div>
-        <div className="wf-item-title">
-          <div>
-            <h3>{item.name}</h3>
-            <p>{item.description || item.category}</p>
-            {item.remaining_stock != null
-              ? <small>เหลือ {Math.max(0, item.remaining_stock)} ชิ้นวันนี้</small>
-              : item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
-          </div>
-          <strong>{foodMoney(unitPrice)}</strong>
-        </div>
-        {!itemAvailable ? <div className="wf-inline-warning">เมนูนี้หมดชั่วคราว</div> : null}
-        {quantityLimit <= 0 ? <div className="wf-inline-warning">เมนูนี้ขายครบสำหรับวันนี้แล้ว</div> : null}
-        {!storeOpen ? <div className="wf-inline-warning">ร้านยังไม่เปิดรับออเดอร์</div> : null}
+    <div
+      className="wf-sheet-backdrop wf-item-sheet-backdrop"
+      role="presentation"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <section
+        className={`wf-sheet wf-item-sheet${orderingDisabled ? " is-disabled" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={item.name}
+      >
+        <button className="wf-item-close" type="button" aria-label="ปิด" onClick={onClose}><X size={24} /></button>
 
-        {optionGroups.length ? (
-          <div className="wf-option-groups">
-            {optionGroups.map((group) => {
-              const maxSelect = Math.max(1, Math.min(20, Number(group.max_select ?? 1)));
-              const chosen = selected[group.id] ?? [];
-              return (
-                <section className="wf-option-group" key={group.id}>
-                  <div className="wf-option-head">
-                    <div><strong>{group.name}</strong><small>{group.required ? "จำเป็น" : "ไม่บังคับ"} · {maxSelect === 1 ? "เลือก 1" : `เลือกได้สูงสุด ${maxSelect}`}</small></div>
-                    {group.required ? <em>ต้องเลือก</em> : null}
-                  </div>
-                  <div className="wf-option-choices">
-                    {group.choices.map((choice) => {
-                      const active = chosen.includes(choice.id);
-                      return (
-                        <button
-                          key={choice.id}
-                          type="button"
-                          className={active ? "is-active" : ""}
-                          aria-pressed={active}
-                          onClick={() => toggleOption(group.id, choice.id, maxSelect)}
-                        >
-                          <span>{choice.name}</span>
-                          <b>{Number(choice.price ?? 0) > 0 ? `+${foodMoney(choice.price)}` : "รวมแล้ว"}</b>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
+        <div className="wf-item-scroll">
+          <div className="wf-item-photo">
+            {image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={image} alt="" />
+            ) : <UtensilsCrossed size={44} strokeWidth={1.35} />}
           </div>
-        ) : null}
-        {!selectionValid ? <div className="wf-inline-warning">กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ</div> : null}
 
-        <label className="wf-field">หมายเหตุถึงร้าน<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น ไม่ใส่ผัก" /></label>
+          <div className="wf-item-content">
+            <div className="wf-item-title">
+              <div>
+                <h3>{item.name}</h3>
+                {item.description ? <p>{item.description}</p> : null}
+                {item.category ? <small className="wf-item-category">{item.category}</small> : null}
+                {item.remaining_stock != null
+                  ? <small className="wf-item-stock">เหลือ {Math.max(0, item.remaining_stock)} ชิ้นวันนี้</small>
+                  : item.daily_stock_limit ? <small className="wf-item-stock">จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
+              </div>
+              <strong>{foodMoney(unitPrice)}</strong>
+            </div>
+
+            {!storeOpen ? (
+              <div className="wf-store-closed" role="status">
+                <Clock3 size={18} />
+                <strong>{storeStatus}</strong>
+              </div>
+            ) : null}
+            {!itemAvailable ? <div className="wf-inline-warning">เมนูนี้หมดชั่วคราว</div> : null}
+            {quantityLimit <= 0 ? <div className="wf-inline-warning">เมนูนี้ขายครบสำหรับวันนี้แล้ว</div> : null}
+
+            {optionGroups.length ? (
+              <div className="wf-option-groups">
+                {optionGroups.map((group) => {
+                  const maxSelect = Math.max(1, Math.min(20, Number(group.max_select ?? 1)));
+                  const chosen = selected[group.id] ?? [];
+                  return (
+                    <section className="wf-option-group" key={group.id}>
+                      <div className="wf-option-head">
+                        <div>
+                          <div className="wf-option-head-title">
+                            <strong>{group.name}</strong>
+                            {group.required ? <em>จำเป็น</em> : null}
+                          </div>
+                          <small>{maxSelect === 1 ? (group.required ? "เลือก 1 ข้อ" : "เลือกได้ 1 ข้อ") : `เลือกได้สูงสุด ${maxSelect} ข้อ`}</small>
+                        </div>
+                      </div>
+                      <div className="wf-option-choices">
+                        {group.choices.map((choice) => {
+                          const active = chosen.includes(choice.id);
+                          const extra = Math.max(0, Number(choice.price ?? 0));
+                          return (
+                            <button
+                              key={choice.id}
+                              type="button"
+                              className={active ? "is-active" : ""}
+                              aria-pressed={active}
+                              disabled={orderingDisabled}
+                              onClick={() => toggleOption(group.id, choice.id, maxSelect)}
+                            >
+                              <span className="wf-option-choice-copy">
+                                <i className={`wf-option-control ${maxSelect === 1 ? "is-radio" : "is-checkbox"}${active ? " is-active" : ""}`} aria-hidden="true" />
+                                <span>{choice.name}</span>
+                              </span>
+                              {extra > 0 ? <b>+{foodMoney(extra)}</b> : <b aria-hidden="true" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            ) : null}
+            {!selectionValid ? <div className="wf-inline-warning">กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ</div> : null}
+
+            <label className="wf-field wf-item-note">
+              <span className="wf-note-label">
+                <span><strong>หมายเหตุถึงร้าน</strong> <em>(ไม่จำเป็น)</em></span>
+                <small>{note.length}/200</small>
+              </span>
+              <textarea
+                value={note}
+                maxLength={200}
+                disabled={orderingDisabled}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="เช่น ไม่ใส่ผัก, ไม่เผ็ด"
+              />
+              <small className="wf-note-helper">ร้านอาจไม่สามารถทำตามคำขอได้ทุกกรณี</small>
+            </label>
+          </div>
+        </div>
+
         <div className="wf-item-actions">
           <div className="wf-qty wf-qty--large">
-            <button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))}><Minus size={16} /></button>
+            <button
+              type="button"
+              aria-label="ลดจำนวน"
+              disabled={orderingDisabled || quantity <= 1}
+              onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+            ><Minus size={17} /></button>
             <b>{quantity}</b>
-            <button type="button" disabled={quantity >= quantityLimit} onClick={() => setQuantity((value) => Math.min(quantityLimit, value + 1))}><Plus size={16} /></button>
+            <button
+              type="button"
+              aria-label="เพิ่มจำนวน"
+              disabled={orderingDisabled || quantity >= quantityLimit}
+              onClick={() => setQuantity((value) => Math.min(quantityLimit, value + 1))}
+            ><Plus size={17} /></button>
           </div>
           <button
             className="wf-primary"
@@ -1631,11 +1699,11 @@ function ItemSheet({
               existing ? foodCartLineKey(existing) : undefined,
             )}
           >
-            {existing ? "อัปเดตตะกร้า" : "เพิ่มลงตะกร้า"} · {foodMoney(unitPrice * quantity)}
+            {actionLabel}
           </button>
         </div>
-      </div>
-    </Sheet>
+      </section>
+    </div>
   );
 }
 
