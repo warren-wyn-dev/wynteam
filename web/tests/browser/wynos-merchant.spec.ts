@@ -445,22 +445,22 @@ test("WYN-199 Merchant asks to turn on notifications as soon as it opens", () =>
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const prompt = read("components/merchant/merchant-notification-prompt.tsx");
 
-  // Opens automatically, and again from the bell, using the shared Push flow
-  // (permission request first, then the device token in push_tokens).
+  // Opens automatically on entry; the bell now opens the notification center.
+  // Push permission/device registration still uses the shared flow.
   expect(app).toContain('useState<"auto" | null>("auto")');
   expect(app).toContain('onClick={() => setTab("notifications")}');
   expect(app).not.toContain("Notification.requestPermission()");
   expect(prompt).toContain("await subscribeToPushNotifications(client, userId);");
   expect(prompt).toContain("isCurrentDevicePushEnabled(client, userId)");
   // Never on top of the new-order alert or another sheet; "later" lasts one session.
-  expect(app).toContain("{notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
+  expect(app).toContain("{notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !menuAddOpen && !menuToolMode && !storeEditing ? (");
   expect(prompt).toContain("window.sessionStorage.setItem(LATER_KEY, \"1\")");
 });
 
 test("WYN-200 Merchant order alert uses Wynos's own generated sound", () => {
   const alert = read("components/merchant/merchant-order-alert.tsx");
   const generator = read("scripts/generate-merchant-order-sound.py");
-  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const notificationSettings = read("components/merchant/merchant-notification-settings.tsx");
 
   // The sound is synthesized by a script in the repo (no third-party audio)
   // and the committed file exists.
