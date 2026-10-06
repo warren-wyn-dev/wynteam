@@ -151,11 +151,20 @@ export function FoodLoginScreen() {
       if (!client) setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS Food");
       return;
     }
+    const canonicalOrigin = foodAuthOrigin();
+    if (window.location.origin !== canonicalOrigin) {
+      const target = new URL("/food/login", canonicalOrigin);
+      target.searchParams.set("migrated", "1");
+      window.location.replace(target.href);
+      return;
+    }
     setMessage("");
     setGoogleLoading(true);
     try {
-      const callback = new URL("/auth/callback", foodAuthOrigin());
-      callback.searchParams.set("next", "/food");
+      // Use a dedicated exact callback path with no product state in the
+      // query string. Supabase production redirect allowlists are exact, so
+      // encoding ?next=/food in redirectTo can silently fall back to Site URL.
+      const callback = new URL("/food/auth/callback", canonicalOrigin);
       const result = await startGoogleOAuth(client, callback.href);
       if (!result.started) {
         setMessage(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
