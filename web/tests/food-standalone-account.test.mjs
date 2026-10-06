@@ -42,6 +42,9 @@ test("Food Google login returns to Food without forcing Social onboarding", asyn
   const foodAuth = await read("components/food/food-auth.tsx");
   const callback = await read("app/auth/callback/page.tsx");
 
+  assert.match(foodAuth, /FOOD_PRODUCTION_ORIGIN = "https:\/\/food\.wynos\.online"/);
+  assert.match(foodAuth, /redirectFoodAuthToCanonicalOrigin\("\/food\/login"\)/);
+  assert.match(foodAuth, /new URL\("\/auth\/callback", foodAuthOrigin\(\)\)/);
   assert.match(foodAuth, /startGoogleOAuth\(client, callback\.href\)/);
   assert.match(foodAuth, /callback\.searchParams\.set\("next", "\/food"\)/);
   assert.match(foodAuth, /เข้าสู่ระบบด้วย Google/);
