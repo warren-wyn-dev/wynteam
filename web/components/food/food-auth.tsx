@@ -38,6 +38,28 @@ function FoodAuthLoading() {
   );
 }
 
+const FOOD_PRODUCTION_ORIGIN = "https://food.wynos.online";
+
+function foodAuthOrigin(): string {
+  if (typeof window === "undefined") return FOOD_PRODUCTION_ORIGIN;
+  const host = window.location.hostname.toLowerCase();
+  if (host === "wynos.online" || host === "www.wynos.online" || host === "food.wynos.online") {
+    return FOOD_PRODUCTION_ORIGIN;
+  }
+  return window.location.origin;
+}
+
+function redirectFoodAuthToCanonicalOrigin(pathname: string): boolean {
+  if (typeof window === "undefined") return false;
+  const targetOrigin = foodAuthOrigin();
+  if (window.location.origin === targetOrigin) return false;
+  const target = new URL(pathname, targetOrigin);
+  target.search = window.location.search;
+  target.hash = window.location.hash;
+  window.location.replace(target.href);
+  return true;
+}
+
 export function FoodLoginScreen() {
   const client = useMemo(() => getSupabaseBrowserClient(), []);
   const [checking, setChecking] = useState(() => Boolean(client));
@@ -50,6 +72,7 @@ export function FoodLoginScreen() {
 
   useEffect(() => {
     let mounted = true;
+    if (redirectFoodAuthToCanonicalOrigin("/food/login")) return () => { mounted = false; };
     if (!client) return;
     void client.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
@@ -131,7 +154,7 @@ export function FoodLoginScreen() {
     setMessage("");
     setGoogleLoading(true);
     try {
-      const callback = new URL("/auth/callback", window.location.origin);
+      const callback = new URL("/auth/callback", foodAuthOrigin());
       callback.searchParams.set("next", "/food");
       const result = await startGoogleOAuth(client, callback.href);
       if (!result.started) {
