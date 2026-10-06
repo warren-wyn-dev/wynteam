@@ -24,7 +24,7 @@ begin
     select
       o.id,
       coalesce(o.total, 0)::numeric as total,
-      (coalesce(o.delivered_at, o.updated_at) at time zone 'Asia/Bangkok')::date as delivered_day
+      (o.created_at at time zone 'Asia/Bangkok')::date as order_day
     from public.food_orders o
     where o.store_id = p_store_id
       and o.status = 'delivered'
@@ -38,12 +38,12 @@ begin
     limit 5
   )
   select jsonb_build_object(
-    'today_sales', coalesce((select sum(total) from delivered where delivered_day = v_today), 0),
-    'today_orders', (select count(*) from delivered where delivered_day = v_today),
-    'week_sales', coalesce((select sum(total) from delivered where delivered_day between v_week_start and v_today), 0),
-    'week_orders', (select count(*) from delivered where delivered_day between v_week_start and v_today),
-    'month_sales', coalesce((select sum(total) from delivered where delivered_day between v_month_start and v_today), 0),
-    'month_orders', (select count(*) from delivered where delivered_day between v_month_start and v_today),
+    'today_sales', coalesce((select sum(total) from delivered where order_day = v_today), 0),
+    'today_orders', (select count(*) from delivered where order_day = v_today),
+    'week_sales', coalesce((select sum(total) from delivered where order_day between v_week_start and v_today), 0),
+    'week_orders', (select count(*) from delivered where order_day between v_week_start and v_today),
+    'month_sales', coalesce((select sum(total) from delivered where order_day between v_month_start and v_today), 0),
+    'month_orders', (select count(*) from delivered where order_day between v_month_start and v_today),
     'total_orders', (select count(*) from delivered),
     'average_order', coalesce((select avg(total) from delivered), 0),
     'best', coalesce(
