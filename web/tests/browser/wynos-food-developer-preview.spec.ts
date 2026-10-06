@@ -519,6 +519,13 @@ test("WYNOS Food storefront uses compact search and keeps favorite off the categ
   expect(css).toContain(".wf-menu-filter-bar");
   expect(css).toContain(".wf-menu-search-trigger");
   expect(css).toContain(".wf-store-favorite");
+  expect(app).toContain('className="wf-store-back"');
+  expect(app).toContain('wf-store-menu ${category === "ทั้งหมด" ? "is-all" : "is-category"}');
+  expect(css).toContain(".wf-storefront-open .wf-store-cover");
+  expect(css).toContain("height: clamp(330px, 44dvh, 430px);");
+  expect(css).toContain(".wf-storefront-open .wf-menu-copy b");
+  expect(css).toContain("color: var(--wf-text);");
+  expect(css).toContain(".wf-storefront-open .wf-store-menu.is-category .wf-menu-row");
 });
 
 test("WYNOS Food menu search shows popular, recent and compact result rows", () => {
