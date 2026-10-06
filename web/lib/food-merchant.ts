@@ -821,12 +821,14 @@ export async function fetchMerchantAuditHistory(client: SupabaseClient, storeId:
 }
 
 export async function setMenuSoldOutToday(client: SupabaseClient, storeId: string, itemId: string, soldOut: boolean) {
+  const soldOutUntil = soldOut ? foodSoldOutUntilTomorrowBangkok() : null;
   const { error } = await client
     .from("food_menu_items")
-    .update({ sold_out_until: soldOut ? foodSoldOutUntilTomorrowBangkok() : null })
+    .update({ sold_out_until: soldOutUntil })
     .eq("id", itemId)
     .eq("store_id", storeId);
   if (error) throw new Error(error.message);
+  return soldOutUntil;
 }
 
 export async function saveMenuSortOrder(client: SupabaseClient, storeId: string, orderedIds: string[]) {
