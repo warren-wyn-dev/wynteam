@@ -862,6 +862,10 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   font-size: 12px;
   font-weight: 650;
 }
+.wm-auth-field {
+  display: grid;
+  gap: 7px;
+}
 .wm-auth-form input,
 .wm-auth-form select,
 .wm-auth-form textarea {
