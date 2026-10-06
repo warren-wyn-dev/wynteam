@@ -11,7 +11,7 @@ import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
 import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { registerCurrentAccount } from "@/lib/account-registry";
-import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
+import { GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_SESSION_MESSAGE, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { consumeReturnPath } from "@/lib/return-to";
@@ -207,6 +207,7 @@ export function WelcomeScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const googlePwaPending = useRef(false);
+  const googlePwaPopup = useRef<Window | null>(null);
   // The server render has no user agent to match, so it reports none.
   const inAppBrowser = useSyncExternalStore<InAppBrowser | null>(subscribeNever, () => detectInAppBrowser(navigator.userAgent), () => null);
   const supabase = getSupabaseBrowserClient();
@@ -257,30 +258,60 @@ export function WelcomeScreen() {
     if (!supabase || !isInstalledIosWebApp()) return;
     let mounted = true;
     let checking = false;
-    const resume = async () => {
+
+    const popupClosed = () => {
+      try { return googlePwaPopup.current?.closed === true; } catch { return false; }
+    };
+
+    const resume = async (
+      handoff?: { accessToken: string; refreshToken: string },
+      finalIfMissing = false,
+    ) => {
       if (!mounted || !googlePwaPending.current || checking) return;
       checking = true;
       try {
-        // The popup's callback only broadcasts after the Supabase session has
-        // been verified. Retry briefly to allow iOS to flush shared cookies.
+        if (handoff) {
+          const applied = await supabase.auth.setSession({
+            access_token: handoff.accessToken,
+            refresh_token: handoff.refreshToken,
+          });
+          if (applied.error || !applied.data.session) {
+            throw applied.error ?? new Error("Google session handoff failed");
+          }
+          const verified = await supabase.auth.getUser();
+          if (verified.error || !verified.data.user) {
+            throw verified.error ?? new Error("Google session verification failed");
+          }
+          googlePwaPending.current = false;
+          googlePwaPopup.current = null;
+          window.location.replace(await resolvePostAuthPath(supabase));
+          return;
+        }
+
+        // Shared storage still works on some iOS/WebKit builds. Keep that
+        // path as a fallback, but never treat a mere focus event as failure
+        // while the Google popup is still active.
         for (let attempt = 0; attempt < 4; attempt++) {
           const { data, error: authError } = await supabase.auth.getSession();
           if (!mounted) return;
           if (!authError && data.session) {
             googlePwaPending.current = false;
+            googlePwaPopup.current = null;
             window.location.replace(await resolvePostAuthPath(supabase));
             return;
           }
-          await new Promise((resolve) => window.setTimeout(resolve, 350));
+          if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, 350));
         }
-        if (mounted) {
+        if (mounted && finalIfMissing) {
           googlePwaPending.current = false;
-          setError("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณากลับมาที่แอปแล้วลองใหม่");
+          googlePwaPopup.current = null;
+          setError("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณาลองใหม่");
           setGoogleLoading(false);
         }
       } catch {
         if (mounted) {
           googlePwaPending.current = false;
+          googlePwaPopup.current = null;
           setError("ตรวจสอบการเข้าสู่ระบบ Google ไม่สำเร็จ กรุณาลองใหม่");
           setGoogleLoading(false);
         }
@@ -289,14 +320,22 @@ export function WelcomeScreen() {
       }
     };
     const onMessage = (event: MessageEvent) => {
-      if (event.origin === window.location.origin && event.data?.type === "google-oauth-verified") void resume();
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === GOOGLE_PWA_SESSION_MESSAGE) {
+        if (googlePwaPopup.current && event.source !== googlePwaPopup.current) return;
+        const accessToken = typeof event.data?.accessToken === "string" ? event.data.accessToken : "";
+        const refreshToken = typeof event.data?.refreshToken === "string" ? event.data.refreshToken : "";
+        if (accessToken && refreshToken) void resume({ accessToken, refreshToken }, true);
+        return;
+      }
+      if (event.data?.type === "google-oauth-verified") void resume(undefined, true);
     };
     const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(GOOGLE_PWA_COMPLETED_CHANNEL) : null;
     if (channel) channel.onmessage = (event) => {
-      if (event.data?.type === "google-oauth-verified") void resume();
+      if (event.data?.type === "google-oauth-verified") void resume(undefined, true);
     };
     const onFocus = () => {
-      if (document.visibilityState === "visible") void resume();
+      if (document.visibilityState === "visible") void resume(undefined, popupClosed());
     };
     window.addEventListener("message", onMessage);
     window.addEventListener("focus", onFocus);
@@ -355,14 +394,18 @@ export function WelcomeScreen() {
       const result = await startGoogleOAuth(supabase, `${window.location.origin}/welcome`);
       if (!result.started) {
         googlePwaPending.current = false;
+        googlePwaPopup.current = null;
         setError(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
         setGoogleLoading(false);
+      } else if (installedIos) {
+        googlePwaPopup.current = result.popup ?? null;
       }
       // Keep the button disabled while the popup owns the PKCE flow:
       // a second tap would overwrite the verifier and break the first
       // callback. Focus/visibility resumes the parent or shows retry.
     } catch {
       googlePwaPending.current = false;
+      googlePwaPopup.current = null;
       setError("เปิด Google ไม่สำเร็จ กรุณาลองใหม่");
       setGoogleLoading(false);
     }
