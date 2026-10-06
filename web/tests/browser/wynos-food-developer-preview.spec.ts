@@ -418,7 +418,8 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(lib).toContain("return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};");
   expect(lib).toContain('client.functions.invoke("location-search"');
   expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
-  expect(app).toContain("disabled={!address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid}");
+  expect(app).toContain("const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid;");
+  expect(app).toContain("disabled={confirmDisabled}");
   expect(map).toContain('aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}');
   expect(merchant).toContain("Math.ceil(");
   expect(app).toContain("<DeliveryPinPicker");
@@ -613,7 +614,7 @@ test("WYNOS Food item sheet matches the approved native ordering layout", () => 
   expect(css).toContain('.wf-item-sheet {');
   expect(css).toContain('height: 100dvh;');
   expect(css).toContain('height: clamp(320px, 42dvh, 430px);');
-  expect(css).toContain('.wf-sheet--page.wf-item-sheet {\\n  grid-template-rows: minmax(0, 1fr) auto;\\n}');
+  expect(css).toMatch(/\.wf-sheet--page\.wf-item-sheet\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s*auto;/);
   expect(css).toContain('.wf-item-actions .wf-primary');
   expect(css).toContain('background: var(--wf-red);');
   expect(css).toContain('.wf-option-control.is-radio.is-active::after');
