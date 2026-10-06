@@ -1,0 +1,52 @@
+# Task — WYN-216 — WYNOS Merchant: order alert audible on iPhone, sticky push
+
+Status: approved by QA (automated + browser) — waiting for Founder merge approval
+Owner: AI Coding / AI QA & Security
+Date: 2026-10-06
+Branch: fix/merchant-order-alert-sound
+
+## Founder direction
+
+- "ระบบเสียงแจ้งเตือน ไม่ได้ยิน เสียงที่ต้องการ แล้วก็ไม่ดังนานๆ จนกว่าจะกดรับ … เหมือนแอปใหญ่ๆ" → "ทำAก่อน" (2026-10-06).
+- Option A = web-only fixes. Option B (native Merchant app) is not part of this task.
+
+## Scope (web only)
+
+- iOS 17+: the order sound asks for a "playback" audio session, so the silent switch no longer mutes it while Merchant is open.
+- Sound tries to resume when Merchant returns to the foreground.
+- Merchant push banners: `requireInteraction`, `renotify` (only with a tag), long vibration. Other apps are unchanged.
+- Tips in notification settings updated.
+- Out of scope / platform limit: web push cannot play the WYNOS sound or ring continuously when Merchant is closed.
+
+## QA & Security
+
+Feature: Merchant order alert sound + merchant push banner
+Environment: Linux container; Node test runner; Chromium 1194 (Playwright, real service worker + CDP push delivery); no real iOS/Android device
+Test Cases:
+1. iOS 17+ audioSession becomes "playback" before the sound plays (executed module, mocked navigator)
+2. No audioSession (older browsers) → sound still plays
+3. audioSession setter throws → no crash, sound still plays
+4. Already "playback" → not reassigned
+5. Server render (no window) → returns false, no crash
+6. Real Chromium: merchant order push → requireInteraction true, renotify true, vibrate 7 steps
+7. Merchant push without tag → shown, renotify false (no TypeError)
+8. Social / Food / malformed `data.app` → unchanged plain banner
+9. Same-tag re-delivery replaces instead of stacking (1 banner)
+10. Regression: `test:notifications` (45), `merchant-order-screen` (5), Playwright native-push + wynos-merchant source specs (132), typecheck, eslint
+11. Secret scan of the diff
+Passed: 1–11
+Failed: none from this change. 3 Playwright cases (`wynos-merchant.spec.ts:57`, live page) could not run: WebKit/headless shell not installed in the container (environment, also fails without the change)
+Severity: no CRITICAL/HIGH. MEDIUM-1, LOW-1 below
+Reproduction Steps: n/a
+Expected / Actual: matched for all executed cases
+Security Findings: none. `data.app` is compared as a strict string; no new data, routes, permissions or secrets
+Recommendation:
+- MEDIUM-1 (verify on device in staging): on iPhone the "playback" session may pause music the shop is playing from another app once Merchant audio starts. Acceptable for an order alert; confirm on a real iPhone.
+- LOW-1: every Merchant push (ads credit, store suspension, tests) is sticky, not only orders. Optional follow-up: limit to pushes with `order_number`.
+- Before production: real-device check on iPhone (iOS 17+, silent switch on) and Android Chrome (screen off, push banner stays).
+Final Status: PASS
+
+## Release
+
+Merging `main` auto-deploys web → Founder approval required before merge.
+Rollback: revert the merge commit.
