@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { registerCurrentAccount } from "@/lib/account-registry";
-import { announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
+import { announceGooglePwaCompletion, announceGooglePwaSession, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const FOOD_PRODUCTION_ORIGIN = "https://food.wynos.online";
@@ -53,6 +53,7 @@ export default function FoodGoogleCallbackPage() {
         window.history.replaceState(null, "", "/food/auth/callback");
 
         if (consumeGooglePwaPopupMarker()) {
+          announceGooglePwaSession(session);
           announceGooglePwaCompletion();
           if (window.opener && !window.opener.closed) {
             window.setTimeout(() => {
