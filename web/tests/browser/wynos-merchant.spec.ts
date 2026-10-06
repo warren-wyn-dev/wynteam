@@ -57,10 +57,19 @@ test("Merchant reports use complete server-side aggregation in Bangkok time", ()
 test("Merchant public auth surface is interactive", async ({ page }) => {
   await page.goto("/merchant/login");
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "กลับ WYNOS Merchant" })).toHaveCount(0);
 
   await page.getByLabel("อีเมล").fill("merchant@example.com");
-  await page.getByLabel("รหัสผ่าน").fill("not-a-real-password");
-  await expect(page.getByRole("button", { name: "เข้าสู่ระบบ" })).toBeEnabled();
+  const password = page.getByLabel("รหัสผ่าน", { exact: true });
+  await password.fill("not-a-real-password");
+  await page.getByRole("button", { name: "แสดงรหัสผ่าน" }).click();
+  await expect(password).toHaveAttribute("type", "text");
+  await page.getByRole("button", { name: "ซ่อนรหัสผ่าน" }).click();
+  await expect(password).toHaveAttribute("type", "password");
+
+  const submit = page.getByRole("button", { name: "เข้าสู่ระบบ" });
+  await expect(submit).toBeEnabled();
+  await expect(submit).toHaveCSS("background-color", "rgb(227, 38, 54)");
 
   await page.getByRole("link", { name: "สมัคร WYNOS Merchant" }).click();
   await expect(page).toHaveURL(/\/merchant\/signup$/);
