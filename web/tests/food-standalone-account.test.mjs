@@ -38,6 +38,18 @@ test("Food auth routes are separate from Social onboarding", async () => {
   assert.doesNotMatch(login + signup, /signup\/step-1|onboarding\/profile/);
 });
 
+test("Food Google login returns to Food without forcing Social onboarding", async () => {
+  const foodAuth = await read("components/food/food-auth.tsx");
+  const callback = await read("app/auth/callback/page.tsx");
+
+  assert.match(foodAuth, /startGoogleOAuth\(client, callback\.href\)/);
+  assert.match(foodAuth, /callback\.searchParams\.set\("next", "\/food"\)/);
+  assert.match(foodAuth, /เข้าสู่ระบบด้วย Google/);
+  assert.match(foodAuth, /GOOGLE_PWA_COMPLETED_CHANNEL/);
+  assert.match(callback, /safeProductDestination/);
+  assert.match(callback, /requestedNext && isSafeReturnPath\(requestedNext\)/);
+});
+
 test("Food password recovery returns to the Food login flow", async () => {
   const foodAuth = await read("components/food/food-auth.tsx");
   const screens = await read("components/auth-flow/screens.tsx");
