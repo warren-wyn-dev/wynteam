@@ -2365,7 +2365,7 @@ function OrderDetailSheet({
   const combinedBusy = busy || working;
 
   return (
-    <Sheet title={`ออเดอร์ #${order.order_number}`} onClose={onClose}>
+    <Sheet title={`ออเดอร์ #${order.order_number}`} onClose={onClose} variant="page">
       <div className="wf-order-detail">
         <div className="wf-order-detail-head">
           <div><span className={`wf-order-status wf-order-status--${order.status}`}>{foodOrderStatusLabel(order.status)}</span><small>{formatDate(order.created_at)}</small></div>
