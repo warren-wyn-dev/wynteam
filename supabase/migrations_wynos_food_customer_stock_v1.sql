@@ -2,6 +2,9 @@
 -- The insert trigger remains the source of truth and still locks the menu row
 -- during checkout. This read-only RPC only improves customer UX before submit.
 
+create index if not exists food_order_items_menu_idx
+  on public.food_order_items(menu_item_id);
+
 create or replace function public.food_menu_stock_remaining(p_store_id uuid)
 returns table (
   menu_item_id uuid,
