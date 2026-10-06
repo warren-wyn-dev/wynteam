@@ -147,6 +147,18 @@ test("WYNOS Food profile is delivery-specific and separate from Social profile",
   expect(data).toContain('client.rpc("food_upsert_customer_address"');
 });
 
+test("WYNOS Food upgrades legacy addresses before checkout", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const data = read("lib/food-customer.ts");
+
+  expect(data).toContain("export function foodCustomerAddressStructuredComplete");
+  expect(data).toContain('/^\\d{5}$/.test(address.postal_code?.trim() ?? "")');
+  expect(app).toContain("foodCustomerAddressStructuredComplete(address)");
+  expect(app).toContain("ต้องอัปเดตข้อมูลที่อยู่");
+  expect(app).toContain("ที่อยู่นี้เป็นข้อมูลเก่า");
+  expect(app).toContain("addresses.find((address) => address.is_default && foodCustomerAddressStructuredComplete(address))");
+});
+
 test("WYNOS Maps Places enriches saved addresses without exposing customer homes", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
   const data = read("lib/food-customer.ts");
