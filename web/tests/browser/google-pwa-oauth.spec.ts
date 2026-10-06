@@ -82,6 +82,7 @@ test("installed iPhone returns the one-time PKCE code to the waiting PWA and doe
     expect(body).toContain("GOOGLE_PWA_CODE_MESSAGE");
     expect(body).toContain("auth.exchangeCodeForSession");
     expect(body).toContain("popupClosed()");
+    expect(body).toContain("queuedCode");
   }
   expect(foodLogin).toContain("resumeGoogle(undefined, popupClosed())");
   expect(welcome).toContain("resume(undefined, popupClosed())");
