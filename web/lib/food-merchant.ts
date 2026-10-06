@@ -222,9 +222,22 @@ function errorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+const THB_WHOLE_FORMATTER = new Intl.NumberFormat("th-TH", {
+  style: "currency",
+  currency: "THB",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+const THB_DECIMAL_FORMATTER = new Intl.NumberFormat("th-TH", {
+  style: "currency",
+  currency: "THB",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 export function money(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
-  return new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", minimumFractionDigits: amount % 1 ? 2 : 0 }).format(amount);
+  return (amount % 1 ? THB_DECIMAL_FORMATTER : THB_WHOLE_FORMATTER).format(amount);
 }
 
 export function foodPublicUrl(client: SupabaseClient, path: string | null | undefined) {
