@@ -10,7 +10,9 @@ on:
       - 'web/tests/browser/wynos-merchant.spec.ts'
       - 'supabase/migrations_wynos_merchant_*.sql'
       - 'supabase/migrations_wynos_food_merchant_*.sql'
+      - 'supabase/migrations_wynos_food_order_*.sql'
       - 'supabase/tests/wynos_merchant_*.sh'
+      - 'supabase/tests/wynos_food_order_options_test.sh'
       - '.github/workflows/merchant-browser-qa.yml'
   push:
     branches:
@@ -23,7 +25,9 @@ on:
       - 'web/tests/browser/wynos-merchant.spec.ts'
       - 'supabase/migrations_wynos_merchant_*.sql'
       - 'supabase/migrations_wynos_food_merchant_*.sql'
+      - 'supabase/migrations_wynos_food_order_*.sql'
       - 'supabase/tests/wynos_merchant_*.sh'
+      - 'supabase/tests/wynos_food_order_options_test.sh'
       - '.github/workflows/merchant-browser-qa.yml'
 
 permissions:
