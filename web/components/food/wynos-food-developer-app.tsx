@@ -208,7 +208,7 @@ function FoodDenied() {
         <span className="wf-area-icon"><UtensilsCrossed size={30} /></span>
         <h1>ยังเข้าใช้ WYNOS Food ไม่ได้</h1>
         <p>บัญชีนี้ยังไม่ผ่านเงื่อนไขการใช้งาน WYNOS Food หรือเซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง</p>
-        <Link className="wf-primary" href="/food/login">เข้าสู่ระบบ WYNOS Food</Link>
+        <a className="wf-primary" href="/food/login">เข้าสู่ระบบ WYNOS Food</a>
         <a className="wf-area-home" href="https://wynos.online/">กลับ WYNOS</a>
       </section>
     </main>
