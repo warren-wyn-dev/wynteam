@@ -13,7 +13,7 @@ import {
   signUpWithEmail,
 } from "@/lib/auth-repository";
 import { registerCurrentAccount } from "@/lib/account-registry";
-import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
+import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 
@@ -82,6 +82,7 @@ export function FoodLoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [message, setMessage] = useState("");
   const googlePwaPending = useRef(false);
+  const googlePwaPopup = useRef<Window | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -117,47 +118,96 @@ export function FoodLoginScreen() {
     if (!client || !isInstalledIosWebApp()) return;
     let mounted = true;
     let checking = false;
+    let queuedCode: string | null = null;
 
-    const resumeGoogle = async () => {
-      if (!mounted || !googlePwaPending.current || checking) return;
+    const popupClosed = () => {
+      try { return googlePwaPopup.current?.closed === true; } catch { return false; }
+    };
+
+    const resumeGoogle = async (
+      handoff?: { code: string },
+      finalIfMissing = false,
+    ) => {
+      if (!mounted || !googlePwaPending.current) return;
+      if (checking) {
+        if (handoff?.code) queuedCode = handoff.code;
+        return;
+      }
       checking = true;
       try {
+        if (handoff) {
+          // The PKCE verifier was created by this client before the popup
+          // opened, so the authorization code must be exchanged here.
+          const exchanged = await client.auth.exchangeCodeForSession(handoff.code);
+          if (exchanged.error || !exchanged.data.session) {
+            throw exchanged.error ?? new Error("Google code exchange failed");
+          }
+          const verified = await client.auth.getUser();
+          if (verified.error || !verified.data.user) {
+            throw verified.error ?? new Error("Google session verification failed");
+          }
+          googlePwaPending.current = false;
+          googlePwaPopup.current = null;
+          await registerCurrentAccount(client).catch(() => false);
+          window.location.replace("/food");
+          return;
+        }
+
         for (let attempt = 0; attempt < 4; attempt++) {
           const { data, error } = await client.auth.getSession();
           if (!mounted) return;
           if (!error && data.session) {
             googlePwaPending.current = false;
+            googlePwaPopup.current = null;
             await registerCurrentAccount(client).catch(() => false);
             window.location.replace("/food");
             return;
           }
-          await new Promise((resolve) => window.setTimeout(resolve, 350));
+          if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, 350));
         }
-        if (mounted) {
+
+        // A focus/visibility event can happen while the Google window is
+        // still open. Do not report failure until OAuth explicitly completed
+        // or the popup was actually closed/cancelled.
+        if (mounted && finalIfMissing && !queuedCode) {
           googlePwaPending.current = false;
-          setMessage("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณากลับมาที่แอปแล้วลองใหม่");
+          googlePwaPopup.current = null;
+          setMessage("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณาลองใหม่");
           setGoogleLoading(false);
         }
       } catch {
-        if (mounted) {
+        if (mounted && !queuedCode) {
           googlePwaPending.current = false;
+          googlePwaPopup.current = null;
           setMessage("ตรวจสอบการเข้าสู่ระบบ Google ไม่สำเร็จ กรุณาลองใหม่");
           setGoogleLoading(false);
         }
       } finally {
         checking = false;
+        const nextCode = queuedCode;
+        queuedCode = null;
+        if (mounted && googlePwaPending.current && nextCode) {
+          void resumeGoogle({ code: nextCode }, true);
+        }
       }
     };
 
     const onMessage = (event: MessageEvent) => {
-      if (event.origin === window.location.origin && event.data?.type === "google-oauth-verified") void resumeGoogle();
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === GOOGLE_PWA_CODE_MESSAGE) {
+        if (googlePwaPopup.current && event.source !== googlePwaPopup.current) return;
+        const code = typeof event.data?.code === "string" ? event.data.code : "";
+        if (code) void resumeGoogle({ code }, true);
+        return;
+      }
+      if (event.data?.type === "google-oauth-verified") void resumeGoogle(undefined, true);
     };
     const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(GOOGLE_PWA_COMPLETED_CHANNEL) : null;
     if (channel) channel.onmessage = (event) => {
-      if (event.data?.type === "google-oauth-verified") void resumeGoogle();
+      if (event.data?.type === "google-oauth-verified") void resumeGoogle(undefined, true);
     };
     const onFocus = () => {
-      if (document.visibilityState === "visible") void resumeGoogle();
+      if (document.visibilityState === "visible") void resumeGoogle(undefined, popupClosed());
     };
 
     window.addEventListener("message", onMessage);
@@ -201,11 +251,15 @@ export function FoodLoginScreen() {
       const result = await startGoogleOAuth(client, callback.href);
       if (!result.started) {
         googlePwaPending.current = false;
+        googlePwaPopup.current = null;
         setMessage(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
         setGoogleLoading(false);
+      } else if (installedIos) {
+        googlePwaPopup.current = result.popup ?? null;
       }
     } catch {
       googlePwaPending.current = false;
+      googlePwaPopup.current = null;
       setMessage("เปิด Google ไม่สำเร็จ กรุณาลองใหม่");
       setGoogleLoading(false);
     }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { hasProfileRow } from "@/lib/auth-repository";
-import { announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
+import { announceGooglePwaCode, announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 import { isSafeReturnPath } from "@/lib/return-to";
 
 /**
@@ -30,11 +30,23 @@ export default function EmailConfirmationCallbackPage() {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
       const requestedNext = params.get("next");
+      const pwaPopup = consumeGooglePwaPopupMarker();
 
       try {
         if (params.has("error")) throw new Error("Email confirmation failed");
         const client = getSupabaseBrowserClient();
         if (!client) throw new Error("Supabase browser client unavailable");
+
+        // The installed PWA that initiated OAuth owns the PKCE verifier.
+        // Return only the one-time authorization code to that opener and let
+        // it exchange the code inside its own storage partition.
+        if (pwaPopup && code && announceGooglePwaCode(code)) {
+          window.history.replaceState(null, "", "/auth/callback");
+          window.setTimeout(() => {
+            try { window.close(); } catch { /* iOS may keep the popup open. */ }
+          }, 150);
+          return;
+        }
 
         // Await the SDK's own URL/session initialization first. Some clients
         // consume the code automatically; other storage configurations need
@@ -58,7 +70,7 @@ export default function EmailConfirmationCallbackPage() {
         // messaging the opener, or recording any subsequent app interaction.
         window.history.replaceState(null, "", "/auth/callback");
         const legacyFoodReturn = requestedNext === "/food";
-        if (consumeGooglePwaPopupMarker()) {
+        if (pwaPopup) {
           const safeProductDestination = requestedNext && isSafeReturnPath(requestedNext)
             ? requestedNext
             : null;

@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 export const GOOGLE_PWA_POPUP_MARKER = "wynos.google-pwa-popup-start.v1";
 export const GOOGLE_PWA_COMPLETED_CHANNEL = "wynos.google-pwa-completed.v1";
+export const GOOGLE_PWA_CODE_MESSAGE = "wynos.google-pwa-code.v1";
 const POPUP_VALIDITY_MS = 10 * 60 * 1000;
 
 export function isInstalledIosWebApp(): boolean {
@@ -28,6 +29,25 @@ export function consumeGooglePwaPopupMarker(): boolean {
     const started = Number(window.sessionStorage.getItem(GOOGLE_PWA_POPUP_MARKER));
     window.sessionStorage.removeItem(GOOGLE_PWA_POPUP_MARKER);
     return started > 0 && Date.now() - started < POPUP_VALIDITY_MS;
+  } catch {
+    return false;
+  }
+}
+
+export function announceGooglePwaCode(code: string): boolean {
+  if (typeof window === "undefined" || !code) return false;
+  try {
+    const opener = window.opener;
+    if (!opener || opener.closed) return false;
+    // Hand the one-time authorization code only to the exact same-origin
+    // opener that started OAuth. The opener owns the PKCE verifier, so it
+    // performs the exchange in its own installed-app storage partition.
+    // Access/refresh tokens are never posted between windows.
+    opener.postMessage({
+      type: GOOGLE_PWA_CODE_MESSAGE,
+      code,
+    }, window.location.origin);
+    return true;
   } catch {
     return false;
   }
@@ -52,7 +72,7 @@ export function announceGooglePwaCompletion(): void {
 export async function startGoogleOAuth(
   client: SupabaseClient,
   browserRedirect: string,
-): Promise<{ started: boolean; error?: string }> {
+): Promise<{ started: boolean; error?: string; popup?: Window }> {
   const options = {
     redirectTo: browserRedirect,
     queryParams: { prompt: "select_account" },
@@ -114,7 +134,7 @@ export async function startGoogleOAuth(
       throw new Error("Unexpected OAuth URL origin");
     }
     popup.location.replace(oauth.href);
-    return { started: true };
+    return { started: true, popup };
   } catch {
     try { popup.close(); } catch { /* The popup may already be gone. */ }
     return {

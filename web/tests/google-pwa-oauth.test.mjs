@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(source, {
 }).outputText;
 const compiledModule = { exports: {} };
 new Function("module", "exports", "process", compiled)(compiledModule, compiledModule.exports, process);
-const { isInstalledIosWebApp, startGoogleOAuth, consumeGooglePwaPopupMarker, announceGooglePwaCompletion, GOOGLE_PWA_POPUP_MARKER } = compiledModule.exports;
+const { isInstalledIosWebApp, startGoogleOAuth, consumeGooglePwaPopupMarker, announceGooglePwaCompletion, announceGooglePwaCode, GOOGLE_PWA_POPUP_MARKER, GOOGLE_PWA_CODE_MESSAGE } = compiledModule.exports;
 const AUTH_URL = "https://test.supabase.co/auth/v1/authorize?provider=google";
 
 function setup({ installed = true, blocked = false, origin = "https://wynos.online" } = {}) {
@@ -17,6 +17,7 @@ function setup({ installed = true, blocked = false, origin = "https://wynos.onli
   const storage = new Map();
   const calls = [];
   const popup = {
+    closed: false,
     sessionStorage: {
       setItem: (k,v) => storage.set(k,v),
       getItem: (k) => storage.get(k) ?? null,
@@ -24,7 +25,7 @@ function setup({ installed = true, blocked = false, origin = "https://wynos.onli
     },
     document: { title: "", body: { textContent: "" } },
     location: { replace: (url) => calls.push(["navigate-popup",url]) },
-    close: () => calls.push(["close-popup"]),
+    close() { this.closed = true; calls.push(["close-popup"]); },
   };
   globalThis.window = {
     location: { origin },
@@ -64,6 +65,7 @@ test("installed iOS opens SAME-app window synchronously before asynchronous OAut
     assert.deepEqual(f.calls[0],["open","about:blank","_blank"]);
     const result=await pending;
     assert.equal(result.started,true);
+    assert.equal(result.popup,f.popup);
     const signin=f.calls.find(x=>x[0]==="sign-in");
     assert.equal(signin[2].skipBrowserRedirect,true);
     assert.equal(signin[2].redirectTo,"https://wynos.online/auth/callback");
@@ -150,5 +152,19 @@ test("success signal contains no tokens and the popup marker expires",()=>{
    announceGooglePwaCompletion();
    assert.deepEqual(f.calls.find(x=>x[0]==="broadcast")[1],{type:"google-oauth-verified"});
    assert.deepEqual(f.calls.find(x=>x[0]==="opener")[1],{type:"google-oauth-verified"});
+ }finally{f.restore();}
+});
+
+
+test("popup hands only its one-time PKCE authorization code to the exact same-origin opener",()=>{
+ const f=setup({origin:"https://food.wynos.online"});try{
+   const sent=announceGooglePwaCode("test-one-time-code");
+   assert.equal(sent,true);
+   const opener=f.calls.find(x=>x[0]==="opener");
+   assert.deepEqual(opener,["opener",{
+     type:GOOGLE_PWA_CODE_MESSAGE,
+     code:"test-one-time-code",
+   },"https://food.wynos.online"]);
+   assert.equal(f.calls.some(x=>x[0]==="broadcast"),false);
  }finally{f.restore();}
 });
