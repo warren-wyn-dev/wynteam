@@ -57,3 +57,13 @@ Rollback: revert the merge commit.
 - Fix: English entries added, old tip entry removed. Every npm step of the `web` CI job (lint, typecheck, all test suites incl. i18n, build) passes locally.
 - Lesson: before PR, run every step of `.github/workflows/web-next-ci.yml` → `web`, not only the related suites.
 - Renamed WYN-216 → WYN-217 (WYN-216 is already used by store reviews).
+
+## Follow-up — Android: WYNOS sound when Merchant is closed (2026-10-06)
+
+Founder: "ทำให้มีเสียงแจ้งเตือน ของแอป ได้ไหม" → "ทำแค่ของเว็บแอป ก่อน".
+
+- Web push cannot choose its sound. Android lets the store pick a sound per app/site channel, so Notification settings gets a card with a "ดาวน์โหลดเสียง WYNOS" link (`WYNOS-Merchant.wav`) and the steps. iPhone: not possible (stated in the card).
+- QA LOW-1 fixed: only order pushes (`order_number`) are sticky; store news closes as usual.
+- Missing English template from `c061dee` ("ออเดอร์ใหม่ #{0} · {1}") added; `main` failed `test:i18n` without it.
+- Tests: every npm step of the `web` CI job passes locally (lint, typecheck, all suites, build); Merchant browser specs 45/45 incl. the live page on chromium desktop + android.
+- Not tested: the Android sound picker on a real phone (menus differ by brand).

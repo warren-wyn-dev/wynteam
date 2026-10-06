@@ -306,6 +306,14 @@ export const EN_EXACT: Record<string, string> = {
   "เปิด \"หน้าจอรับออเดอร์\" แล้ววางเครื่องไว้หน้าร้าน": "Turn on \"Order screen\" and keep the phone at your counter",
   "iPhone: เพิ่มเสียงให้ดัง (iOS 17 ขึ้นไป เสียง WYNOS ดังได้แม้เปิดโหมดเงียบ ตอนเปิด Merchant อยู่)": "iPhone: turn the volume up (on iOS 17 or later, the WYNOS sound plays even in silent mode while Merchant is open)",
   "เสียบชาร์จไว้ และอย่าปัดปิดแอป Merchant ทิ้ง": "Keep the phone charging, and don't swipe Merchant closed",
+  "เสียง WYNOS ตอนปิดแอป": "WYNOS sound when the app is closed",
+  "เสียง WYNOS ตอนปิดแอป (Android)": "WYNOS sound when the app is closed (Android)",
+  "ตั้งเสียงแจ้งเตือนของ Merchant ในเครื่องให้เป็นเสียง WYNOS · iPhone ยังตั้งเองไม่ได้": "Set Merchant's notification sound on this phone to the WYNOS sound · Not available on iPhone yet",
+  "ดาวน์โหลดเสียง WYNOS": "Download the WYNOS sound",
+  "กดดาวน์โหลดเสียง WYNOS ด้านบน": "Tap Download the WYNOS sound above",
+  "เปิดตั้งค่าของเครื่อง → แอป → WYNOS Merchant (ถ้าติดตั้งไว้บนหน้าจอโฮม) หรือ Chrome": "Open phone Settings → Apps → WYNOS Merchant (if added to the Home Screen) or Chrome",
+  "เลือก การแจ้งเตือน → หมวดของ merchant.wynos.online → เสียง": "Choose Notifications → the merchant.wynos.online category → Sound",
+  "กด เพิ่ม (+) แล้วเลือกไฟล์ WYNOS-Merchant จากโฟลเดอร์ดาวน์โหลด": "Tap Add (+) and pick the WYNOS-Merchant file from Downloads",
   "เปิด Web Push ด้านบนไว้ ออเดอร์ที่ยังไม่มีใครรับ ระบบจะเตือนซ้ำทุก 1 นาที สูงสุด 5 ครั้ง": "Keep Web Push on above. Orders nobody has accepted are reminded every minute, up to 5 times",
   "ติดตั้ง WYNOS Merchant ไว้บนหน้าจอโฮม": "Add WYNOS Merchant to your Home Screen",
   "ปิดหน้าจอรับออเดอร์แล้ว หน้าจอจะดับตามปกติ": "Order screen is off. The screen will sleep as usual",
@@ -2577,6 +2585,7 @@ Object.assign(EN_EXACT, {
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   [" · ในตะกร้าแล้ว {0}", " · {0} already in cart"],
+  ["ออเดอร์ใหม่ #{0} · {1}", "New order #{0} · {1}"],
   ["เลือกได้สูงสุด {0}", "Choose up to {0}"],
   ["เลือกได้สูงสุด {0} ข้อ", "Choose up to {0} options"],
   ["ร้าน{0}", "Store {0}"],
