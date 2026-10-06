@@ -38,21 +38,14 @@ import {
   X,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { FoodDeliveryMapPicker, FoodLocationMapPreview } from "@/components/food/food-delivery-map-picker";
-import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
-import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
-import { MerchantAds } from "@/components/merchant/merchant-ads";
-import { MerchantFinance } from "@/components/merchant/merchant-finance";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
-import { MerchantNotificationSettings } from "@/components/merchant/merchant-notification-settings";
-import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
-import { MerchantShareCard } from "@/components/merchant/merchant-share-card";
 import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@/lib/food-share";
 import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
@@ -118,6 +111,58 @@ type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "
 const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help", "notifications"]);
 const MERCHANT_STORE_KEY = "wynos-merchant-store-v1";
 type OrderFilter = "new" | "cooking" | "delivery" | "done";
+
+function MerchantChunkLoading() {
+  return (
+    <div className="wm-chunk-loading" aria-label="กำลังเปิด">
+      <span className="wm-mini-loader" />
+    </div>
+  );
+}
+
+// Keep the launch bundle focused on Home / Orders / Menu. Secondary tools,
+// maps, finance, QR and campaign code are fetched only when needed, then
+// warmed during idle time below so subsequent taps still feel native-fast.
+const FoodDeliveryMapPicker = dynamic(
+  () => import("@/components/food/food-delivery-map-picker").then((mod) => mod.FoodDeliveryMapPicker),
+  { loading: MerchantChunkLoading },
+);
+const FoodLocationMapPreview = dynamic(
+  () => import("@/components/food/food-delivery-map-picker").then((mod) => mod.FoodLocationMapPreview),
+  { loading: MerchantChunkLoading },
+);
+const MerchantCampaignCenter = dynamic(
+  () => import("@/components/merchant/merchant-campaign-center").then((mod) => mod.MerchantCampaignCenter),
+  { loading: MerchantChunkLoading },
+);
+const MerchantStoreTools = dynamic(
+  () => import("@/components/merchant/merchant-core-panels").then((mod) => mod.MerchantStoreTools),
+  { loading: MerchantChunkLoading },
+);
+const RefundControls = dynamic(
+  () => import("@/components/merchant/merchant-core-panels").then((mod) => mod.RefundControls),
+  { loading: MerchantChunkLoading },
+);
+const MerchantAds = dynamic(
+  () => import("@/components/merchant/merchant-ads").then((mod) => mod.MerchantAds),
+  { loading: MerchantChunkLoading },
+);
+const MerchantFinance = dynamic(
+  () => import("@/components/merchant/merchant-finance").then((mod) => mod.MerchantFinance),
+  { loading: MerchantChunkLoading },
+);
+const MerchantNotificationSettings = dynamic(
+  () => import("@/components/merchant/merchant-notification-settings").then((mod) => mod.MerchantNotificationSettings),
+  { loading: MerchantChunkLoading },
+);
+const MerchantPlatformCampaigns = dynamic(
+  () => import("@/components/merchant/merchant-platform-campaigns").then((mod) => mod.MerchantPlatformCampaigns),
+  { loading: MerchantChunkLoading },
+);
+const MerchantShareCard = dynamic(
+  () => import("@/components/merchant/merchant-share-card").then((mod) => mod.MerchantShareCard),
+  { loading: MerchantChunkLoading },
+);
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
