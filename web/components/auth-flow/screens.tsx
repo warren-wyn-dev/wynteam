@@ -343,20 +343,26 @@ export function WelcomeScreen() {
       if (!supabase) setError("ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS สำหรับเว็บ");
       return;
     }
+    const installedIos = isInstalledIosWebApp();
+    if (installedIos) {
+      // Arm before the async OAuth startup so a very fast return-to-app focus
+      // event cannot be lost while signInWithOAuth is still resolving.
+      googlePwaPending.current = true;
+    }
     setGoogleLoading(true);
     setError("");
     try {
       const result = await startGoogleOAuth(supabase, `${window.location.origin}/welcome`);
       if (!result.started) {
+        googlePwaPending.current = false;
         setError(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
         setGoogleLoading(false);
-      } else if (isInstalledIosWebApp()) {
-        // Keep the button disabled while the popup owns the PKCE flow:
-        // a second tap would overwrite the verifier and break the first
-        // callback. Focus/visibility resumes the parent or shows retry.
-        googlePwaPending.current = true;
       }
+      // Keep the button disabled while the popup owns the PKCE flow:
+      // a second tap would overwrite the verifier and break the first
+      // callback. Focus/visibility resumes the parent or shows retry.
     } catch {
+      googlePwaPending.current = false;
       setError("เปิด Google ไม่สำเร็จ กรุณาลองใหม่");
       setGoogleLoading(false);
     }
