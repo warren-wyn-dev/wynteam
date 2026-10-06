@@ -102,7 +102,7 @@ export function FoodLoginScreen() {
       <div className="wf-auth-form">
         <label><span><Mail size={16} /> อีเมล</span><input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
         <label><span><LockKeyhole size={16} /> รหัสผ่าน</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" /></label>
-        <div className="wf-auth-inline"><Link href="/forgot-password">ลืมรหัสผ่าน?</Link></div>
+        <div className="wf-auth-inline"><Link href="/forgot-password?returnTo=%2Ffood%2Flogin">ลืมรหัสผ่าน?</Link></div>
         {message ? <p className="wf-auth-error" role="alert">{message}</p> : null}
         <button className="wf-auth-primary" type="button" disabled={loading} onClick={() => void submit()}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
       </div>
