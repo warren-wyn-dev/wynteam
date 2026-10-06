@@ -119,8 +119,8 @@ test("source contracts cannot regress to staged migration UI", async () => {
   // 2026-09-22: comment/repost/save icons moved off the shared WynosIcon
   // iconMap onto dedicated components carrying the Founder-supplied
   // wynos-post-icons set (see components/ui/post-action-icons.tsx).
-  expect(postActions).toContain("<RepostIcon size={22} strokeWidth={2} />");
-  expect(postActions).toContain("<AnimatedBookmark size={22} strokeWidth={2} saved={saved} />");
+  expect(postActions).toContain("<RepostIcon size={22} strokeWidth={1.6} />");
+  expect(postActions).toContain("<AnimatedBookmark size={22} strokeWidth={1.6} saved={saved} />");
   expect(postAuthorRow).toContain("ขอติดตามแล้ว");
   expect(postAuthorRow).toContain("showFollow && !following");
   expect(postAuthorRow).not.toContain('"กำลังติดตาม"');
