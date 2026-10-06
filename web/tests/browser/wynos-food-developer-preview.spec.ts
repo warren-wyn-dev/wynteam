@@ -29,6 +29,23 @@ test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*"]');
 });
 
+test("WYNOS Food install icons are static and cache-busted", () => {
+  const layout = read("app/food/layout.tsx");
+  const manifest = read("app/food/manifest.ts");
+  const publicManifest = read("public/food/manifest.webmanifest");
+
+  expect(layout).toContain("/icons/food/icon-192-v8.png");
+  expect(layout).toContain("/icons/food/icon-512-v8.png");
+  expect(layout).toContain("manifest.webmanifest?v=20261006-9");
+  expect(layout).not.toContain("/food/icon-v7");
+  expect(manifest).toContain("/icons/food/icon-192-v8.png");
+  expect(manifest).toContain("/icons/food/icon-512-v8.png");
+  expect(manifest).not.toContain("/food/icon-v7");
+  expect(publicManifest).toContain("/icons/food/icon-192-v8.png");
+  expect(publicManifest).toContain("/icons/food/icon-512-v8.png");
+  expect(publicManifest).not.toContain("/food/icon-v7");
+});
+
 test("WYNOS Food hides the persistent Social bottom navigation", () => {
   const host = read("components/app-bottom-nav-runtime.tsx");
 
