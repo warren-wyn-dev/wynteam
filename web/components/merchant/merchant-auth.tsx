@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle2, Clock3, Store, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, Eye, EyeOff, Store, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -54,6 +54,7 @@ export function MerchantLoginScreen() {
   const client = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(() => Boolean(client));
   const [message, setMessage] = useState("");
@@ -113,19 +114,33 @@ export function MerchantLoginScreen() {
 
   return (
     <MerchantAuthShell>
-      <div className="wm-auth-top"><BackToMerchant /><MerchantAuthBrand /><span className="wm-auth-top-spacer" /></div>
+      <div className="wm-auth-top wm-auth-top--brand-only"><MerchantAuthBrand /></div>
       <div className="wm-auth-hero">
         <div className="wm-auth-mark"><Store size={30} strokeWidth={1.7} /></div>
         <h1>เข้าสู่ระบบ Merchant</h1>
-        <p>จัดการร้าน ออเดอร์ เมนู ยอดขาย และการจัดส่งจากบัญชี WYNOS ของคุณ</p>
+        <p>จัดการร้าน ออเดอร์ เมนู ยอดขาย และการจัดส่ง</p>
       </div>
-      <div className="wm-auth-form">
+      <form className="wm-auth-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <label>อีเมล<input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
-        <label>รหัสผ่าน<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" /></label>
+        <label>
+          รหัสผ่าน
+          <span className="wm-auth-password-field">
+            <input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" />
+            <button
+              className="wm-auth-password-toggle"
+              type="button"
+              aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+              aria-pressed={showPassword}
+              onClick={() => setShowPassword((current) => !current)}
+            >
+              {showPassword ? <EyeOff size={19} strokeWidth={1.8} /> : <Eye size={19} strokeWidth={1.8} />}
+            </button>
+          </span>
+        </label>
         <div className="wm-auth-inline"><Link href="/forgot-password">ลืมรหัสผ่าน?</Link></div>
         {message ? <p className="wm-auth-error" role="alert">{message}</p> : null}
-        <button className="wm-primary wm-full" type="button" disabled={loading} onClick={() => void submit()}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
-      </div>
+        <button className="wm-primary wm-full wm-auth-submit" type="submit" disabled={loading}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
+      </form>
       <p className="wm-auth-switch">ยังไม่มี Merchant? <Link href="/merchant/signup">สมัคร WYNOS Merchant</Link></p>
       <p className="wm-auth-footnote">ใช้บัญชี WYNOS เดียวกันได้ ไม่ต้องสร้างบัญชีซ้ำ</p>
     </MerchantAuthShell>
