@@ -899,10 +899,14 @@ function MerchantInner({
             onEdit={(item) => setMenuDraft(menuDraftFromItem(item))}
             onAdd={() => setMenuAddOpen(true)}
             onToggle={async (item) => {
+              const isAvailable = !item.is_available;
               try {
-                await setMenuAvailability(client, store.id, item.id, !item.is_available);
-                await refreshMenu();
-              } catch (error) { setMessage(merchantError(error)); }
+                await setMenuAvailability(client, store.id, item.id, isAvailable);
+                setMenu((current) => current.map((entry) => entry.id === item.id ? { ...entry, is_available: isAvailable } : entry));
+              } catch (error) {
+                setMessage(merchantError(error));
+                void refreshMenu();
+              }
             }}
             onSoldOut={async (item, soldOut) => {
               try {
@@ -912,12 +916,24 @@ function MerchantInner({
               } catch (error) { setMessage(merchantError(error)); }
             }}
             onReorder={async (ids) => {
-              try { await saveMenuSortOrder(client, store.id, ids); await refreshMenu(); }
-              catch (error) { setMessage(merchantError(error)); }
+              try {
+                await saveMenuSortOrder(client, store.id, ids);
+                const position = new Map(ids.map((id, index) => [id, index]));
+                setMenu((current) => [...current].sort((a, b) => (position.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (position.get(b.id) ?? Number.MAX_SAFE_INTEGER)));
+              } catch (error) {
+                setMessage(merchantError(error));
+                void refreshMenu();
+              }
             }}
             onCategoryOrder={async (categories) => {
-              try { await saveMenuCategoryOrder(client, store.id, categories); await load(true); }
-              catch (error) { setMessage(merchantError(error)); }
+              try {
+                await saveMenuCategoryOrder(client, store.id, categories);
+                const menuCategoryOrder = Array.from(new Set(categories.map((value) => value.trim()).filter(Boolean)));
+                setStore((current) => current?.id === store.id ? { ...current, menu_category_order: menuCategoryOrder } : current);
+              } catch (error) {
+                setMessage(merchantError(error));
+                void load(true);
+              }
             }}
           />
         ) : null}
