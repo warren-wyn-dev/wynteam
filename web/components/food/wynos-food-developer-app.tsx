@@ -127,6 +127,14 @@ const EMPTY_ADDRESS: FoodAddressDraft = {
   recipientName: "",
   recipientPhone: "",
   address: "",
+  addressLine1: "",
+  moo: "",
+  soi: "",
+  road: "",
+  subdistrict: "",
+  district: "",
+  province: "",
+  postalCode: "",
   deliveryNote: "",
   placeId: null,
   placeName: "",
@@ -147,6 +155,35 @@ type StoredWynosMapsPin = {
   savedAt?: string;
 };
 
+function normalizeThaiAdminPart(value: string) {
+  return value
+    .replace(/^(?:ตำบล|แขวง|อำเภอ|เขต|จังหวัด|ต\.|อ\.|จ\.)\s*/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function structuredAddressPartsFromPlace(place?: FoodPlace | null) {
+  const address = place?.address?.trim() ?? "";
+  const combined = [place?.name, address].filter(Boolean).join(", ");
+  const pick = (pattern: RegExp) => normalizeThaiAdminPart(combined.match(pattern)?.[1] ?? "");
+  let subdistrict = pick(/(?:ตำบล|แขวง|ต\.)\s*([^,]+?)(?=\s*(?:อำเภอ|เขต|อ\.|จังหวัด|จ\.|\d{5}|,|$))/u);
+  let district = pick(/(?:อำเภอ|เขต|อ\.)\s*([^,]+?)(?=\s*(?:จังหวัด|จ\.|\d{5}|,|$))/u);
+  let province = pick(/(?:จังหวัด|จ\.)\s*([^,]+?)(?=\s*(?:\d{5}|ประเทศไทย|,|$))/u);
+  const postalCode = combined.match(/(?:^|\D)(\d{5})(?:\D|$)/u)?.[1] ?? "";
+
+  if ((!subdistrict || !district || !province) && address.includes(",")) {
+    const parts = address.split(",").map((value) => value.trim()).filter(Boolean)
+      .filter((value) => !/^(?:ประเทศไทย|Thailand)$/iu.test(value))
+      .map((value) => value.replace(/\b\d{5}\b/u, "").trim())
+      .filter(Boolean);
+    if (!province && parts.length >= 1) province = normalizeThaiAdminPart(parts.at(-1) ?? "");
+    if (!district && parts.length >= 2) district = normalizeThaiAdminPart(parts.at(-2) ?? "");
+    if (!subdistrict && parts.length >= 3) subdistrict = normalizeThaiAdminPart(parts.at(-3) ?? "");
+  }
+
+  return { subdistrict, district, province, postalCode };
+}
+
 function draftWithLastWynosMapsPin(draft: FoodAddressDraft): FoodAddressDraft {
   if (draft.id || draft.location || typeof window === "undefined") return draft;
   try {
@@ -159,14 +196,16 @@ function draftWithLastWynosMapsPin(draft: FoodAddressDraft): FoodAddressDraft {
     const longitude = Number(saved.location?.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return draft;
     const place = saved.place;
+    const parts = structuredAddressPartsFromPlace(place);
     return {
       ...draft,
       location: { latitude, longitude },
       placeId: place?.placeId ?? null,
       placeName: place?.name ?? "",
-      address: draft.address.trim() || !place
-        ? draft.address
-        : [place.name, place.address].filter(Boolean).join(" "),
+      subdistrict: draft.subdistrict || parts.subdistrict,
+      district: draft.district || parts.district,
+      province: draft.province || parts.province,
+      postalCode: draft.postalCode || parts.postalCode,
     };
   } catch {
     return draft;
@@ -1830,7 +1869,16 @@ function AddressEditor({
 
   const availabilityKey = storeId && locationKey ? `${storeId}|${locationKey}` : "";
   const availability = availabilityState?.key === availabilityKey ? availabilityState.value : null;
-  const complete = Boolean(form.recipientName.trim() && form.recipientPhone.trim() && form.address.trim() && form.location);
+  const complete = Boolean(
+    form.recipientName.trim()
+      && form.recipientPhone.trim()
+      && (form.addressLine1.trim() || form.address.trim())
+      && form.subdistrict.trim()
+      && form.district.trim()
+      && form.province.trim()
+      && /^\d{5}$/.test(form.postalCode.trim())
+      && form.location,
+  );
   const deliveryMessage = !availability
     ? ""
     : availability.can_deliver
@@ -1844,36 +1892,110 @@ function AddressEditor({
             : "กรุณาตรวจสอบตำแหน่งจัดส่ง";
   return (
     <Sheet title={form.id ? "แก้ไขข้อมูลจัดส่ง" : "เพิ่มข้อมูลจัดส่ง"} onClose={onClose} variant="page">
-      <div className="wf-form">
+      <div className="wf-form wf-address-form">
         <div className="wf-form-note">ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS</div>
-        <label>ชื่อที่อยู่ <small>เช่น บ้าน / หอพัก</small><input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="ที่อยู่ของฉัน" /></label>
-        <label>ชื่อผู้รับ <b>*</b><input value={form.recipientName} onChange={(event) => setForm({ ...form, recipientName: event.target.value })} placeholder="ชื่อผู้รับอาหาร" /></label>
-        <label>เบอร์โทร <b>*</b><input inputMode="tel" autoComplete="tel" value={form.recipientPhone} onChange={(event) => setForm({ ...form, recipientPhone: event.target.value })} placeholder="เบอร์สำหรับติดต่อจัดส่ง" /></label>
-        <label>ที่อยู่จัดส่ง <b>*</b><textarea value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} placeholder="บ้านเลขที่ ถนน ซอย ตำบล/แขวง อำเภอ/เขต จังหวัด" /></label>
+
+        <label>ชื่อที่อยู่ <small>เช่น บ้าน / หอพัก / ที่ทำงาน</small>
+          <input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="ที่อยู่ของฉัน" />
+        </label>
+        <label>ชื่อผู้รับ <b>*</b>
+          <input autoComplete="name" value={form.recipientName} onChange={(event) => setForm({ ...form, recipientName: event.target.value })} placeholder="ชื่อผู้รับอาหาร" />
+        </label>
+        <label>เบอร์โทร <b>*</b>
+          <input inputMode="tel" autoComplete="tel" value={form.recipientPhone} onChange={(event) => setForm({ ...form, recipientPhone: event.target.value })} placeholder="เบอร์สำหรับติดต่อจัดส่ง" />
+        </label>
+
+        <div className="wf-address-form-section">
+          <strong>ตำแหน่งจัดส่ง</strong>
+          <small>ปักหมุดก่อน ระบบจะช่วยเติมจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์เมื่อข้อมูลแผนที่รองรับ</small>
+        </div>
         {showPin || form.location ? <DeliveryPinPicker
           client={client}
           storeId={storeId}
           location={form.location}
-          onChange={(location, place) => setForm((current) => ({
-            ...current,
-            location,
-            placeId: location ? place?.placeId ?? null : null,
-            placeName: location ? place?.name ?? "" : "",
-            address: place ? [place.name, place.address].filter(Boolean).join(" ") : current.address,
-          }))}
+          onChange={(location, place) => setForm((current) => {
+            const parts = structuredAddressPartsFromPlace(place);
+            return {
+              ...current,
+              location,
+              placeId: location ? place?.placeId ?? null : null,
+              placeName: location ? place?.name ?? "" : "",
+              subdistrict: location ? current.subdistrict || parts.subdistrict : current.subdistrict,
+              district: location ? current.district || parts.district : current.district,
+              province: location ? current.province || parts.province : current.province,
+              postalCode: location ? current.postalCode || parts.postalCode : current.postalCode,
+            };
+          })}
         /> : null}
         {form.placeName ? <div className="wf-form-note">WYNOS Place · {form.placeName}</div> : null}
         {storeId && form.location && deliveryMessage ? (
           <div className={availability?.can_deliver ? "wf-form-note" : "wf-inline-warning"}>{deliveryMessage}</div>
         ) : null}
-        <label>ชื่ออาคาร / หมู่บ้าน<input value={form.buildingName} onChange={(event) => setForm({ ...form, buildingName: event.target.value })} placeholder="เช่น คอนโด A / หมู่บ้าน B" /></label>
-        <label>ชั้น<input value={form.floor} onChange={(event) => setForm({ ...form, floor: event.target.value })} placeholder="เช่น 5" /></label>
-        <label>ห้อง<input value={form.room} onChange={(event) => setForm({ ...form, room: event.target.value })} placeholder="เช่น 508" /></label>
-        <label>จุดสังเกต<textarea value={form.landmark} onChange={(event) => setForm({ ...form, landmark: event.target.value })} placeholder="เช่น ทางเข้าอยู่ข้างร้านสะดวกซื้อ" /></label>
-        <label>หมายเหตุถึงผู้จัดส่ง<textarea value={form.deliveryNote} onChange={(event) => setForm({ ...form, deliveryNote: event.target.value })} placeholder="เช่น โทรเมื่อถึง / ฝากไว้กับ รปภ." /></label>
-        <label className="wf-check"><input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} /><span><strong>ใช้เป็นที่อยู่หลัก</strong><small>WYNOS Food จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span></label>
+
+        <div className="wf-address-form-section">
+          <strong>รายละเอียดที่อยู่</strong>
+          <small>กรอกตามที่อยู่จริงเพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</small>
+        </div>
+        <label>บ้านเลขที่ / ที่อยู่ <b>*</b>
+          <input
+            autoComplete="address-line1"
+            value={form.addressLine1 || form.address}
+            onChange={(event) => setForm({ ...form, addressLine1: event.target.value, address: "" })}
+            placeholder="เช่น 123/45"
+          />
+        </label>
+        <label>ชื่ออาคาร / หมู่บ้าน
+          <input value={form.buildingName} onChange={(event) => setForm({ ...form, buildingName: event.target.value })} placeholder="เช่น หอพักธาราทิพย์ / คอนโด A" />
+        </label>
+        <div className="wf-form-grid wf-form-grid--3">
+          <label>หมู่ที่<input value={form.moo} onChange={(event) => setForm({ ...form, moo: event.target.value })} placeholder="เช่น 11" /></label>
+          <label>ชั้น<input value={form.floor} onChange={(event) => setForm({ ...form, floor: event.target.value })} placeholder="เช่น 5" /></label>
+          <label>ห้อง<input value={form.room} onChange={(event) => setForm({ ...form, room: event.target.value })} placeholder="เช่น 508" /></label>
+        </div>
+        <div className="wf-form-grid">
+          <label>ซอย<input value={form.soi} onChange={(event) => setForm({ ...form, soi: event.target.value })} placeholder="เช่น ซอย 3" /></label>
+          <label>ถนน<input value={form.road} onChange={(event) => setForm({ ...form, road: event.target.value })} placeholder="เช่น ถนนนครสวรรค์" /></label>
+        </div>
+        <label>จังหวัด <b>*</b>
+          <input autoComplete="address-level1" value={form.province} onChange={(event) => setForm({ ...form, province: event.target.value })} placeholder="เช่น มหาสารคาม" />
+        </label>
+        <div className="wf-form-grid">
+          <label>อำเภอ / เขต <b>*</b>
+            <input autoComplete="address-level2" value={form.district} onChange={(event) => setForm({ ...form, district: event.target.value })} placeholder="เช่น กันทรวิชัย" />
+          </label>
+          <label>ตำบล / แขวง <b>*</b>
+            <input autoComplete="address-level3" value={form.subdistrict} onChange={(event) => setForm({ ...form, subdistrict: event.target.value })} placeholder="เช่น ขามเรียง" />
+          </label>
+        </div>
+        <label>รหัสไปรษณีย์ <b>*</b>
+          <input
+            inputMode="numeric"
+            autoComplete="postal-code"
+            maxLength={5}
+            value={form.postalCode}
+            onChange={(event) => setForm({ ...form, postalCode: event.target.value.replace(/\D/g, "").slice(0, 5) })}
+            placeholder="เช่น 44150"
+          />
+        </label>
+
+        <label>จุดสังเกต
+          <textarea value={form.landmark} onChange={(event) => setForm({ ...form, landmark: event.target.value })} placeholder="เช่น ทางเข้าอยู่ข้างร้านสะดวกซื้อ" />
+        </label>
+        <label>หมายเหตุถึงผู้จัดส่ง
+          <textarea value={form.deliveryNote} onChange={(event) => setForm({ ...form, deliveryNote: event.target.value })} placeholder="เช่น โทรเมื่อถึง / ฝากไว้กับ รปภ." />
+        </label>
+        <label className="wf-check">
+          <input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} />
+          <span><strong>ใช้เป็นที่อยู่หลัก</strong><small>WYNOS Food จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span>
+        </label>
+
         {!form.location ? <div className="wf-inline-warning">กรุณาปักหมุดโลเคชั่นก่อนบันทึก เพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</div> : null}
-        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form)}>{busy ? "กำลังบันทึก…" : "บันทึกข้อมูล WYNOS Food"}</button>
+        {form.location && (!form.subdistrict.trim() || !form.district.trim() || !form.province.trim() || !/^\d{5}$/.test(form.postalCode.trim())) ? (
+          <div className="wf-inline-warning">กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก</div>
+        ) : null}
+        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form)}>
+          {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล WYNOS Food"}
+        </button>
       </div>
     </Sheet>
   );
@@ -3029,6 +3151,14 @@ function FoodCustomerInner({
             recipientName: address.recipient_name,
             recipientPhone: address.recipient_phone,
             address: address.address,
+            addressLine1: address.address_line1 ?? address.address,
+            moo: address.moo ?? "",
+            soi: address.soi ?? "",
+            road: address.road ?? "",
+            subdistrict: address.subdistrict ?? "",
+            district: address.district ?? "",
+            province: address.province ?? "",
+            postalCode: address.postal_code ?? "",
             deliveryNote: address.delivery_note ?? "",
             placeId: address.place_id ?? null,
             placeName: address.place_name ?? "",
