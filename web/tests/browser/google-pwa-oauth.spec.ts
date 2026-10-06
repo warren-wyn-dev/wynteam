@@ -50,3 +50,16 @@ test("the shared callback announces Google completion only AFTER verifying the s
   expect(welcome).toContain("GOOGLE_PWA_COMPLETED_CHANNEL");
   expect(welcome).toContain("googlePwaPending.current");
 });
+
+
+test("installed iPhone arms the parent pending flag before awaiting OAuth startup", () => {
+  const source=(name:string)=>readFileSync(path.join(process.cwd(),name),"utf8");
+  for (const name of ["components/food/food-auth.tsx", "components/auth-flow/screens.tsx"]) {
+    const body=source(name);
+    const oauthStart=body.indexOf("await startGoogleOAuth");
+    const pendingArm=body.lastIndexOf("googlePwaPending.current = true", oauthStart);
+    expect(oauthStart).toBeGreaterThan(-1);
+    expect(pendingArm).toBeGreaterThan(-1);
+    expect(pendingArm).toBeLessThan(oauthStart);
+  }
+});
