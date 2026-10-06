@@ -271,6 +271,10 @@ const MERCHANT_TIME_FORMATTER = new Intl.DateTimeFormat("th-TH", {
   hour: "2-digit",
   minute: "2-digit",
 });
+const MERCHANT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("th-TH", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
 function shortTime(value: string) {
   return MERCHANT_TIME_FORMATTER.format(new Date(value));
@@ -1598,7 +1602,7 @@ function MenuPanel({
                       >
                         {sortMode ? <span className="wm-menu-drag" aria-hidden="true"><GripVertical size={18} /></span> : null}
                         <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
-                          <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
+                          <span className="wm-menu-photo">{image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
                           <span className="wm-menu-copy">
                             <strong>{item.name}</strong>
                             <small>{item.daily_stock_limit ? `จำกัด ${item.daily_stock_limit} ชิ้น/วัน` : optionCount ? `${optionCount} ตัวเลือกเสริม` : "ไม่มีตัวเลือกเสริม"}</small>
@@ -1872,7 +1876,7 @@ function MerchantStorefrontPreview({
             {menu.filter((item) => item.category === category).map((item) => {
               const available = foodMenuIsEffectivelyAvailable(item);
               return <div className={`wm-preview-menu ${available ? "" : "is-off"}`} key={item.id}>
-                <span>{item.image_path ? <img src={foodPublicUrl(client, item.image_path) ?? ""} alt="" /> : <UtensilsCrossed size={22} />}</span>
+                <span>{item.image_path ? <img src={foodPublicUrl(client, item.image_path) ?? ""} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed size={22} />}</span>
                 <div><strong>{item.name}</strong><small>{item.description || (available ? "พร้อมขาย" : "หมดชั่วคราว")}</small><b>{money(item.price)}</b></div>
               </div>;
             })}
@@ -2005,7 +2009,7 @@ function OrderSheet({
       <section className="wm-print-document" aria-hidden="true">
         <div className="wm-print-brand"><strong>{store.name}</strong><small>{receiptLegalName ? "ใบเสร็จรับเงิน / ข้อมูลภาษี" : "ใบออเดอร์ / ใบเสร็จอย่างย่อ"}</small></div>
         {receiptLegalName ? <div className="wm-print-tax"><b>{receiptLegalName}</b>{receiptTaxId ? <span>เลขประจำตัวผู้เสียภาษี {receiptTaxId}</span> : null}{receiptTaxBranch ? <span>สาขา {receiptTaxBranch}</span> : null}{receiptTaxAddress ? <span>{receiptTaxAddress}</span> : null}</div> : null}
-        <div className="wm-print-meta"><span>ออเดอร์ #{order.order_number}</span><span>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</span>{order.scheduled_for ? <span>นัดรับ/จัดส่ง {new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</span> : null}</div>
+        <div className="wm-print-meta"><span>ออเดอร์ #{order.order_number}</span><span>{MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.created_at))}</span>{order.scheduled_for ? <span>นัดรับ/จัดส่ง {MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.scheduled_for))}</span> : null}</div>
         <div className="wm-print-lines">{(order.food_order_items ?? []).map((item) => <div key={item.id}><span>{item.quantity}× {item.item_name}{item.item_note ? <small>{item.item_note}</small> : null}</span><b>{money(Number(item.unit_price) * item.quantity)}</b></div>)}</div>
         <div className="wm-print-totals">
           <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
@@ -2020,10 +2024,10 @@ function OrderSheet({
       <div className="wm-order-detail-head">
         <div><OrderStatus order={order} /><PaymentStatus order={order} /></div>
         <strong>{money(order.total)}</strong>
-        <small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</small>
+        <small>{MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.created_at))}</small>
         <button className="wm-secondary wm-print-order" type="button" onClick={() => window.print()}><Printer size={17} /> พิมพ์ใบออเดอร์ / ใบเสร็จ</button>
       </div>
-      {order.scheduled_for ? <div className="wm-scheduled-order-banner"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</small></span></div> : null}
+      {order.scheduled_for ? <div className="wm-scheduled-order-banner"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.scheduled_for))}</small></span></div> : null}
 
       {order.status === "pending_acceptance" ? (
         <section className="wm-detail-section wm-next-step">
@@ -2163,7 +2167,7 @@ function OrderSheet({
 
 
       {order.status === "delivered" ? (
-        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
+        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? MERCHANT_DATE_TIME_FORMATTER.format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
       ) : null}
 
       {!["delivered", "cancelled"].includes(order.status) ? (
@@ -2262,7 +2266,7 @@ function MenuOptionPicker({
               : 0;
             return (
               <button type="button" key={item.id} onClick={() => onPick(item)}>
-                <span className="wm-menu-tool-thumb">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={22} />}</span>
+                <span className="wm-menu-tool-thumb">{image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed size={22} />}</span>
                 <span><strong>{item.name}</strong><small>{item.category} · {optionCount ? `${optionCount} ตัวเลือกเสริม` : "ยังไม่มีตัวเลือกเสริม"}</small></span>
                 <ChevronRight size={19} />
               </button>
@@ -2523,7 +2527,7 @@ function MenuEditor({
 
         <section className="wm-menu-image-editor">
           <div className="wm-menu-image-heading"><strong>รูปเมนู</strong><small>เห็นสถานะก่อนบันทึกได้ทันที</small></div>
-          {previewUrl ? <div className="wm-menu-image-preview"><img src={previewUrl} alt="ตัวอย่างรูปเมนู" /></div> : null}
+          {previewUrl ? <div className="wm-menu-image-preview"><img src={previewUrl} alt="ตัวอย่างรูปเมนู" decoding="async" /></div> : null}
           <label className="wm-upload">
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => chooseImage(e.target.files?.[0] ?? null)} />
             <Upload size={20} />
