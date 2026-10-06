@@ -433,6 +433,7 @@ function MerchantInner({
   // the last realtime event or action always shows its final state.
   const reloadQueuedRef = useRef(false);
   const paymentStatusRef = useRef<Map<string, FoodOrder["payment_status"]>>(new Map());
+  const orderRefreshTimerRef = useRef<number | null>(null);
 
   const load = useCallback(async (quiet = false) => {
     if (loadingRef.current) {
@@ -478,6 +479,38 @@ function MerchantInner({
   }, [client, selectedStoreId]);
   const loadRef = useRef<typeof load | null>(null);
   useEffect(() => { loadRef.current = load; }, [load]);
+
+  // Order events are by far the hottest realtime path. Refresh only the order
+  // window instead of re-reading Merchant access, stores and the full menu.
+  const refreshOrders = useCallback(async () => {
+    if (!store?.id) return;
+    try {
+      const page = await fetchMerchantOrdersPage(client, store.id, 0, MERCHANT_ORDER_PAGE_SIZE);
+      paymentStatusRef.current = new Map(page.orders.map((order) => [order.id, order.payment_status]));
+      setOrders((current) => {
+        const freshIds = new Set(page.orders.map((order) => order.id));
+        const older = current.filter((order) => !freshIds.has(order.id));
+        return [...page.orders, ...older];
+      });
+      setOrdersHasMore((current) => current || page.hasMore);
+      setSelectedOrder((current) => {
+        if (!current) return null;
+        return page.orders.find((order) => order.id === current.id) ?? current;
+      });
+      setDataRevision((value) => value + 1);
+    } catch (error) {
+      setMessage(merchantError(error, "อัปเดตออเดอร์ไม่สำเร็จ"));
+    }
+  }, [client, store?.id]);
+
+  const scheduleOrderRefresh = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (orderRefreshTimerRef.current != null) window.clearTimeout(orderRefreshTimerRef.current);
+    orderRefreshTimerRef.current = window.setTimeout(() => {
+      orderRefreshTimerRef.current = null;
+      void refreshOrders();
+    }, 80);
+  }, [refreshOrders]);
 
   useEffect(() => {
     if (!selectedStoreId || typeof window === "undefined") return;
@@ -584,10 +617,14 @@ function MerchantInner({
           }
         }
       }
-      void load(true);
+      scheduleOrderRefresh();
     });
-    return () => { void client.removeChannel(channel); };
-  }, [client, load, store?.id]);
+    return () => {
+      if (orderRefreshTimerRef.current != null) window.clearTimeout(orderRefreshTimerRef.current);
+      orderRefreshTimerRef.current = null;
+      void client.removeChannel(channel);
+    };
+  }, [client, scheduleOrderRefresh, store?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -599,6 +636,37 @@ function MerchantInner({
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
+
+  useEffect(() => {
+    if (loading || !store || typeof window === "undefined") return;
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
+
+    const warm = () => {
+      void Promise.allSettled([
+        import("@/components/merchant/merchant-finance"),
+        import("@/components/merchant/merchant-notification-settings"),
+        import("@/components/merchant/merchant-core-panels"),
+        import("@/components/merchant/merchant-campaign-center"),
+        import("@/components/merchant/merchant-platform-campaigns"),
+        import("@/components/merchant/merchant-ads"),
+        import("@/components/food/food-delivery-map-picker"),
+      ]);
+    };
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    if (idleWindow.requestIdleCallback) {
+      const handle = idleWindow.requestIdleCallback(warm, { timeout: 1800 });
+      return () => idleWindow.cancelIdleCallback?.(handle);
+    }
+    const timer = window.setTimeout(warm, 900);
+    return () => window.clearTimeout(timer);
+  }, [loading, store]);
 
   const install = async () => {
     if (!installPrompt) return;
@@ -673,8 +741,9 @@ function MerchantInner({
       setMessage(merchantError(error));
       forgetAction(order.id);
     } finally {
-      // Reload on failure too: the order may have moved on elsewhere.
-      void load(true);
+      // Keep the hot order flow lightweight: the realtime event usually wins,
+      // and this debounced refresh is the safety net if it does not.
+      scheduleOrderRefresh();
     }
   };
 
