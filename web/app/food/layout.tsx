@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 
 import "./food.css";
 
-const FOOD_ICON_192 = "/icons/food/icon-192-v8.png";
-const FOOD_ICON_512 = "/icons/food/icon-512-v8.png";
+const FOOD_ICON_192 = "/icons/food/icon-192-v9.png";
+const FOOD_ICON_512 = "/icons/food/icon-512-v9.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://food.wynos.online"),
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
     images: [FOOD_ICON_512],
   },
-  manifest: "/food/manifest.webmanifest?v=20261006-9",
+  manifest: "/food/manifest.webmanifest?v=20261006-10",
   icons: {
     // Home Screen/PWA icons must be static files. The previous icon-v7 route
     // rendered a remote image inside ImageResponse; iOS could cache the red

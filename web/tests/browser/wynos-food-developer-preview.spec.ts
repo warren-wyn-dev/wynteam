@@ -34,15 +34,15 @@ test("WYNOS Food install icons are static and cache-busted", () => {
   const manifest = read("app/food/manifest.ts");
   const publicManifest = read("public/food/manifest.webmanifest");
 
-  expect(layout).toContain("/icons/food/icon-192-v8.png");
-  expect(layout).toContain("/icons/food/icon-512-v8.png");
-  expect(layout).toContain("manifest.webmanifest?v=20261006-9");
+  expect(layout).toContain("/icons/food/icon-192-v9.png");
+  expect(layout).toContain("/icons/food/icon-512-v9.png");
+  expect(layout).toContain("manifest.webmanifest?v=20261006-10");
   expect(layout).not.toContain("/food/icon-v7");
-  expect(manifest).toContain("/icons/food/icon-192-v8.png");
-  expect(manifest).toContain("/icons/food/icon-512-v8.png");
+  expect(manifest).toContain("/icons/food/icon-192-v9.png");
+  expect(manifest).toContain("/icons/food/icon-512-v9.png");
   expect(manifest).not.toContain("/food/icon-v7");
-  expect(publicManifest).toContain("/icons/food/icon-192-v8.png");
-  expect(publicManifest).toContain("/icons/food/icon-512-v8.png");
+  expect(publicManifest).toContain("/icons/food/icon-192-v9.png");
+  expect(publicManifest).toContain("/icons/food/icon-512-v9.png");
   expect(publicManifest).not.toContain("/food/icon-v7");
 });
 
