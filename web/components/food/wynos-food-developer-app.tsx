@@ -1199,20 +1199,34 @@ function CartPanel({
   onCart: (cart: FoodCartLine[]) => void;
   onCheckout: () => void;
 }) {
-  const priced = cart.map((line) => ({ line, item: itemFor(menu, line.menu_item_id) }));
-  const subtotal = priced.reduce((sum, row) => sum + (row.item ? Number(row.item.price) * row.line.quantity : 0), 0);
+  const priced = cart.map((line) => {
+    const item = itemFor(menu, line.menu_item_id);
+    return { line, item, key: foodCartLineKey(line), unitPrice: item ? foodCartLineUnitPrice(item, line) : 0 };
+  });
+  const subtotal = priced.reduce((sum, row) => sum + row.unitPrice * row.line.quantity, 0);
   const delivery = Number(store?.delivery_fee ?? 0);
   const campaignDiscount = Number(quote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(quote?.delivery_discount ?? 0);
   const total = quote?.total ?? subtotal + delivery;
-  const hasUnavailable = priced.some((row) => !row.item || !foodMenuIsEffectivelyAvailable(row.item));
-  const belowMinimum = subtotal < Number(store?.minimum_order ?? 0);
+  const hasUnavailable = priced.some((row) => {
+    if (!row.item || !foodMenuIsEffectivelyAvailable(row.item)) return true;
+    const limit = foodMenuQuantityLimit(row.item);
+    return limit <= 0 || row.line.quantity > limit;
+  });
+  const minimum = Number(store?.minimum_order ?? 0);
+  const belowMinimum = subtotal < minimum;
   const storeOpen = !!store && foodStoreIsEffectivelyOpen(store);
   const canCheckout = !!store && storeOpen && cart.length > 0 && !hasUnavailable && !belowMinimum;
 
-  const changeQuantity = (id: string, delta: number) => {
+  const changeQuantity = (key: string, delta: number) => {
     onCart(cart
-      .map((line) => line.menu_item_id === id ? { ...line, quantity: line.quantity + delta } : line)
+      .map((line) => {
+        if (foodCartLineKey(line) !== key) return line;
+        const item = itemFor(menu, line.menu_item_id);
+        const limit = item ? foodMenuQuantityLimit(item) : 99;
+        const next = line.quantity + delta;
+        return { ...line, quantity: delta > 0 ? Math.min(next, Math.max(1, limit)) : next };
+      })
       .filter((line) => line.quantity > 0));
   };
 
@@ -1232,25 +1246,31 @@ function CartPanel({
       ) : (
         <>
           <div className="wf-cart-list">
-            {priced.map(({ line, item }) => (
-              <article key={line.menu_item_id} className={`wf-cart-row ${item && foodMenuIsEffectivelyAvailable(item) ? "" : "is-off"}`}>
-                <div className="wf-cart-copy">
-                  <strong>{item?.name ?? "เมนูไม่พร้อมใช้งาน"}</strong>
-                  {line.note ? <small>{line.note}</small> : null}
-                  <b>{item ? foodMoney(Number(item.price) * line.quantity) : "—"}</b>
-                  {!item || !foodMenuIsEffectivelyAvailable(item) ? <em>เมนูนี้หมดชั่วคราว กรุณานำออกจากตะกร้า</em> : null}
-                </div>
-                <div className="wf-qty">
-                  <button type="button" aria-label="ลดจำนวน" onClick={() => changeQuantity(line.menu_item_id, -1)}>
-                    {line.quantity === 1 ? <Trash2 size={15} /> : <Minus size={15} />}
-                  </button>
-                  <b>{line.quantity}</b>
-                  <button type="button" aria-label="เพิ่มจำนวน" onClick={() => changeQuantity(line.menu_item_id, 1)}>
-                    <Plus size={15} />
-                  </button>
-                </div>
-              </article>
-            ))}
+            {priced.map(({ line, item, key, unitPrice }) => {
+              const limit = item ? foodMenuQuantityLimit(item) : 0;
+              const unavailable = !item || !foodMenuIsEffectivelyAvailable(item) || limit <= 0 || line.quantity > limit;
+              const optionText = foodCartLineOptionText(line);
+              return (
+                <article key={key} className={`wf-cart-row ${unavailable ? "is-off" : ""}`}>
+                  <div className="wf-cart-copy">
+                    <strong>{item?.name ?? "เมนูไม่พร้อมใช้งาน"}</strong>
+                    {optionText ? <small>{optionText}</small> : null}
+                    {line.note ? <small>หมายเหตุ · {line.note}</small> : null}
+                    <b>{item ? foodMoney(unitPrice * line.quantity) : "—"}</b>
+                    {unavailable ? <em>{limit <= 0 ? "เมนูนี้ขายครบสำหรับวันนี้แล้ว" : "จำนวนหรือสถานะเมนูเปลี่ยนไป กรุณาปรับตะกร้า"}</em> : null}
+                  </div>
+                  <div className="wf-qty">
+                    <button type="button" aria-label="ลดจำนวน" onClick={() => changeQuantity(key, -1)}>
+                      {line.quantity === 1 ? <Trash2 size={15} /> : <Minus size={15} />}
+                    </button>
+                    <b>{line.quantity}</b>
+                    <button type="button" aria-label="เพิ่มจำนวน" disabled={!item || line.quantity >= limit} onClick={() => changeQuantity(key, 1)}>
+                      <Plus size={15} />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
 
           <div className="wf-summary">
@@ -1263,8 +1283,9 @@ function CartPanel({
           {quote?.campaign_name ? <div className="wf-promo-applied"><strong>ใช้แคมเปญ {quote.campaign_name}</strong><small>WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ</small></div> : null}
 
           {belowMinimum && store ? (
-            <div className="wf-inline-warning">ยอดขั้นต่ำของร้านคือ {foodMoney(store.minimum_order)}</div>
+            <div className="wf-inline-warning">เพิ่มอีก {foodMoney(Math.max(0, minimum - subtotal))} เพื่อถึงยอดขั้นต่ำ {foodMoney(minimum)}</div>
           ) : null}
+          {hasUnavailable ? <div className="wf-inline-warning">มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณาปรับตะกร้าก่อนชำระเงิน</div> : null}
           {store && !storeOpen ? <div className="wf-inline-warning">{foodStoreStatusText(store)}</div> : null}
 
           <button className="wf-primary wf-full" type="button" disabled={!canCheckout} onClick={onCheckout}>
@@ -1474,13 +1495,46 @@ function ItemSheet({
   existing: FoodCartLine | null;
   storeOpen: boolean;
   onClose: () => void;
-  onAdd: (line: FoodCartLine) => void;
+  onAdd: (line: FoodCartLine, replaceKey?: string) => void;
 }) {
   const [quantity, setQuantity] = useState(existing?.quantity ?? 1);
   const [note, setNote] = useState(existing?.note ?? "");
+  const [selected, setSelected] = useState<Record<string, string[]>>(() => {
+    const initial: Record<string, string[]> = {};
+    for (const option of existing?.selected_options ?? []) {
+      initial[option.group_id] = [...(initial[option.group_id] ?? []), option.choice_id];
+    }
+    return initial;
+  });
   const image = foodPublicUrl(client, item.image_path);
   const itemAvailable = foodMenuIsEffectivelyAvailable(item);
-  const canAdd = itemAvailable && storeOpen;
+  const optionGroups = Array.isArray(item.options) ? item.options : [];
+  const quantityLimit = foodMenuQuantityLimit(item);
+  const selectionValid = optionGroups.every((group) => !group.required || (selected[group.id]?.length ?? 0) > 0);
+  const selectedOptions = optionGroups.flatMap((group) => {
+    const ids = new Set(selected[group.id] ?? []);
+    return group.choices
+      .filter((choice) => ids.has(choice.id))
+      .map((choice) => ({
+        group_id: group.id,
+        group_name: group.name,
+        choice_id: choice.id,
+        choice_name: choice.name,
+        price: Number(choice.price ?? 0),
+      }));
+  });
+  const unitPrice = Number(item.price) + selectedOptions.reduce((sum, option) => sum + Math.max(0, Number(option.price ?? 0)), 0);
+  const canAdd = itemAvailable && storeOpen && selectionValid && quantityLimit > 0 && quantity <= quantityLimit;
+
+  const toggleOption = (groupId: string, choiceId: string, maxSelect: number) => {
+    setSelected((current) => {
+      const before = current[groupId] ?? [];
+      if (maxSelect <= 1) return { ...current, [groupId]: before.includes(choiceId) ? [] : [choiceId] };
+      if (before.includes(choiceId)) return { ...current, [groupId]: before.filter((id) => id !== choiceId) };
+      if (before.length >= maxSelect) return current;
+      return { ...current, [groupId]: [...before, choiceId] };
+    });
+  };
 
   return (
     <Sheet title={item.name} onClose={onClose}>
@@ -1491,18 +1545,72 @@ function ItemSheet({
             <img src={image} alt="" />
           ) : <UtensilsCrossed size={40} strokeWidth={1.35} />}
         </div>
-        <div className="wf-item-title"><div><h3>{item.name}</h3><p>{item.description || item.category}</p>{item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}</div><strong>{foodMoney(item.price)}</strong></div>
+        <div className="wf-item-title">
+          <div>
+            <h3>{item.name}</h3>
+            <p>{item.description || item.category}</p>
+            {item.remaining_stock != null
+              ? <small>เหลือ {Math.max(0, item.remaining_stock)} ชิ้นวันนี้</small>
+              : item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
+          </div>
+          <strong>{foodMoney(unitPrice)}</strong>
+        </div>
         {!itemAvailable ? <div className="wf-inline-warning">เมนูนี้หมดชั่วคราว</div> : null}
+        {quantityLimit <= 0 ? <div className="wf-inline-warning">เมนูนี้ขายครบสำหรับวันนี้แล้ว</div> : null}
         {!storeOpen ? <div className="wf-inline-warning">ร้านยังไม่เปิดรับออเดอร์</div> : null}
+
+        {optionGroups.length ? (
+          <div className="wf-option-groups">
+            {optionGroups.map((group) => {
+              const maxSelect = Math.max(1, Math.min(20, Number(group.max_select ?? 1)));
+              const chosen = selected[group.id] ?? [];
+              return (
+                <section className="wf-option-group" key={group.id}>
+                  <div className="wf-option-head">
+                    <div><strong>{group.name}</strong><small>{group.required ? "จำเป็น" : "ไม่บังคับ"} · {maxSelect === 1 ? "เลือก 1" : `เลือกได้สูงสุด ${maxSelect}`}</small></div>
+                    {group.required ? <em>ต้องเลือก</em> : null}
+                  </div>
+                  <div className="wf-option-choices">
+                    {group.choices.map((choice) => {
+                      const active = chosen.includes(choice.id);
+                      return (
+                        <button
+                          key={choice.id}
+                          type="button"
+                          className={active ? "is-active" : ""}
+                          aria-pressed={active}
+                          onClick={() => toggleOption(group.id, choice.id, maxSelect)}
+                        >
+                          <span>{choice.name}</span>
+                          <b>{Number(choice.price ?? 0) > 0 ? `+${foodMoney(choice.price)}` : "รวมแล้ว"}</b>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : null}
+        {!selectionValid ? <div className="wf-inline-warning">กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ</div> : null}
+
         <label className="wf-field">หมายเหตุถึงร้าน<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น ไม่ใส่ผัก" /></label>
         <div className="wf-item-actions">
           <div className="wf-qty wf-qty--large">
             <button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))}><Minus size={16} /></button>
             <b>{quantity}</b>
-            <button type="button" onClick={() => setQuantity((value) => Math.min(99, value + 1))}><Plus size={16} /></button>
+            <button type="button" disabled={quantity >= quantityLimit} onClick={() => setQuantity((value) => Math.min(quantityLimit, value + 1))}><Plus size={16} /></button>
           </div>
-          <button className="wf-primary" type="button" disabled={!canAdd} onClick={() => onAdd({ menu_item_id: item.id, quantity, note: note.trim() })}>
-            {existing ? "อัปเดตตะกร้า" : "เพิ่มลงตะกร้า"} · {foodMoney(Number(item.price) * quantity)}
+          <button
+            className="wf-primary"
+            type="button"
+            disabled={!canAdd}
+            onClick={() => onAdd(
+              { menu_item_id: item.id, quantity, note: note.trim(), selected_options: selectedOptions },
+              existing ? foodCartLineKey(existing) : undefined,
+            )}
+          >
+            {existing ? "อัปเดตตะกร้า" : "เพิ่มลงตะกร้า"} · {foodMoney(unitPrice * quantity)}
           </button>
         </div>
       </div>
@@ -1695,7 +1803,7 @@ function CheckoutSheet({
   const address = addresses.find((row) => row.id === addressId) ?? null;
   const subtotal = cart.reduce((sum, line) => {
     const item = itemFor(menu, line.menu_item_id);
-    return sum + (item ? Number(item.price) * line.quantity : 0);
+    return sum + (item ? foodCartLineUnitPrice(item, line) * line.quantity : 0);
   }, 0);
   // WYN-196: re-quote for the chosen address so the fee follows its distance.
   const zone = storeHasDeliveryZone(store);
@@ -2011,7 +2119,7 @@ function OrderDetailSheet({
           <div className="wf-section-title"><h2>รายการอาหาร</h2></div>
           <div className="wf-checkout-items">
             {(order.food_order_items ?? []).map((item) => (
-              <div key={item.id}><span>{item.quantity}× {item.item_name}{item.item_note ? <small>{item.item_note}</small> : null}</span><b>{foodMoney(Number(item.unit_price) * item.quantity)}</b></div>
+              <div key={item.id}><span>{item.quantity}× {item.item_name}{foodCartLineOptionText({ selected_options: item.selected_options }) ? <small>{foodCartLineOptionText({ selected_options: item.selected_options })}</small> : null}{item.item_note ? <small>{item.item_note}</small> : null}</span><b>{foodMoney(Number(item.unit_price) * item.quantity)}</b></div>
             ))}
           </div>
           <div className="wf-summary">
@@ -2371,10 +2479,20 @@ function FoodCustomerInner({
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const homeLocationLabel = primaryAddress?.place_name || primaryAddress?.label || "เลือกที่อยู่จัดส่ง";
 
-  const addItem = (line: FoodCartLine) => {
+  const addItem = (line: FoodCartLine, replaceKey?: string) => {
     setCart((current) => {
-      const exists = current.some((row) => row.menu_item_id === line.menu_item_id);
-      return exists ? current.map((row) => row.menu_item_id === line.menu_item_id ? line : row) : [...current, line];
+      if (replaceKey) {
+        return current.map((row) => foodCartLineKey(row) === replaceKey ? line : row);
+      }
+      const item = itemFor(menu, line.menu_item_id);
+      const limit = item ? foodMenuQuantityLimit(item) : 99;
+      const normalized = { ...line, quantity: Math.max(1, Math.min(line.quantity, Math.max(1, limit))) };
+      const key = foodCartLineKey(normalized);
+      const index = current.findIndex((row) => foodCartLineKey(row) === key);
+      if (index < 0) return [...current, normalized];
+      return current.map((row, rowIndex) => rowIndex === index
+        ? { ...row, quantity: Math.min(Math.max(1, limit), row.quantity + normalized.quantity) }
+        : row);
     });
     setSelectedItem(null);
     setTab("home");
@@ -2600,7 +2718,7 @@ function FoodCustomerInner({
         <ItemSheet
           client={client}
           item={selectedItem}
-          existing={cart.find((line) => line.menu_item_id === selectedItem.id) ?? null}
+          existing={(selectedItem.options?.length ?? 0) > 0 ? null : cart.find((line) => line.menu_item_id === selectedItem.id) ?? null}
           storeOpen={foodStoreIsEffectivelyOpen(store)}
           onClose={() => setSelectedItem(null)}
           onAdd={addItem}
