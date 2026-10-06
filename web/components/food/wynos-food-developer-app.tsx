@@ -1915,6 +1915,7 @@ function CheckoutSheet({
   const [scheduleError, setScheduleError] = useState("");
   const scheduledDate = scheduledLocal ? new Date(scheduledLocal) : null;
   const scheduledValid = scheduleMode === "asap" || (!!scheduledDate && !scheduleError);
+
   const chooseScheduledLocal = (value: string) => {
     setScheduledLocal(value);
     if (!value) {
@@ -1962,8 +1963,11 @@ function CheckoutSheet({
   const current = addressQuote?.key === `${addressId}|${locationKey}` ? addressQuote : null;
   const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
   const effectiveQuote = current?.quote ?? quote;
+
   const checkoutQuantityByMenu = new Map<string, number>();
-  for (const line of cart) checkoutQuantityByMenu.set(line.menu_item_id, (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) + line.quantity);
+  for (const line of cart) {
+    checkoutQuantityByMenu.set(line.menu_item_id, (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) + line.quantity);
+  }
   const cartUnavailable = cart.some((line) => {
     const item = itemFor(menu, line.menu_item_id);
     if (!item || !foodMenuIsEffectivelyAvailable(item) || !foodCartLineOptionsValid(item, line)) return true;
@@ -1983,27 +1987,30 @@ function CheckoutSheet({
         : minimumMissing > 0
           ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}`
           : current?.error ?? "";
+
   const deliveryFee = Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
   const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
   const total = effectiveQuote?.total ?? serverSubtotal + deliveryFee;
   const eta = foodEstimateDeliveryRange(store, effectiveQuote?.delivery_distance_km);
+
   const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid;
   const confirmLabel = busy
     ? "กำลังสร้างออเดอร์…"
     : quoteLoading
       ? "กำลังคำนวณค่าส่ง…"
       : `ยืนยันออเดอร์ · ${foodMoney(total)}`;
-  const paymentLabel = store.promptpay_id || store.payment_qr_path
-    ? "PromptPay / QR"
-    : store.bank_account_number
-      ? "โอนผ่านธนาคาร"
-      : "ชำระเงินกับร้าน";
 
   const submitOrder = () => {
     if (!address) return;
     onSubmit(address, note, scheduleMode === "scheduled" && scheduledDate ? scheduledDate.toISOString() : null);
   };
+
+  const paymentLabel = store.promptpay_id || store.payment_qr_path
+    ? "PromptPay / QR"
+    : store.bank_account_number
+      ? "โอนผ่านธนาคาร"
+      : "ชำระเงินกับร้าน";
 
   return (
     <Sheet
@@ -2114,7 +2121,7 @@ function CheckoutSheet({
                   <span className="wf-checkout-item-copy">
                     <strong>{item?.name ?? "เมนู"}</strong>
                     {optionText ? <small>{optionText}</small> : null}
-                    {line.note ? <small>หมายเหตุ · {line.note}</small> : null}
+                    {line.note ? <small>{line.note}</small> : null}
                   </span>
                 </div>
                 <b>{item ? foodMoney(foodCartLineUnitPrice(item, line) * line.quantity) : "—"}</b>
@@ -2144,7 +2151,12 @@ function CheckoutSheet({
         </section>
 
         {blockedReason ? <div className="wf-inline-warning" role="alert">{blockedReason}</div> : null}
-        {effectiveQuote?.campaign_name ? <div className="wf-promo-applied"><strong>แคมเปญ {effectiveQuote.campaign_name}</strong><small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small></div> : null}
+        {effectiveQuote?.campaign_name ? (
+          <div className="wf-promo-applied">
+            <strong>แคมเปญ {effectiveQuote.campaign_name}</strong>
+            <small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small>
+          </div>
+        ) : null}
         <p className="wf-server-note">ยอดจริงจะถูกตรวจและคำนวณจากระบบอีกครั้งก่อนสร้างออเดอร์</p>
       </div>
     </Sheet>
