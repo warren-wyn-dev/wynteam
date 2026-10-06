@@ -731,3 +731,10 @@ Deno.test("Food and Merchant pushes carry the order number so a tap opens that o
   const social = buildDataPayload({ ...base, reason: "ประกาศ #WF0015" });
   assertEquals(social.order_number, undefined);
 });
+
+Deno.test("unaccepted-order reminders ring in WYNOS Merchant and open the order", () => {
+  const reason = "WYNOS Merchant · ออเดอร์ #WF0015 รอรับ 3 นาทีแล้ว";
+  assertEquals(pushAppForNotification({ type: "system", reason }), "merchant");
+  assertEquals(orderNumberInReason(reason), "WF0015");
+  assertEquals(pushMessageForApp("merchant", reason, "").body, "ออเดอร์ #WF0015 รอรับ 3 นาทีแล้ว");
+});

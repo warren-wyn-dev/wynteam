@@ -52,6 +52,7 @@ import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { MerchantNotificationSettings } from "@/components/merchant/merchant-notification-settings";
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
+import { MerchantOrderScreenBar, MerchantOrderScreenCard } from "@/components/merchant/merchant-order-screen";
 import { MerchantShareCard } from "@/components/merchant/merchant-share-card";
 import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@/lib/food-share";
 import { shareOrCopyLink } from "@/lib/share";
@@ -686,6 +687,7 @@ function MerchantInner({
       ) : null}
 
       <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดตข้อมูลร้าน" />
+      {store ? <MerchantOrderScreenBar soundReady={soundReady} /> : null}
       <section className="wm-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
         {tab === "home" && store ? (
           <HomePanel
@@ -1057,6 +1059,8 @@ function HomePanel({
       </nav>
 
       {/* Only a published store is visible to customers on WYNOS Food. */}
+      <MerchantOrderScreenCard onMessage={onMessage} />
+
       {store.is_published && !store.admin_suspended_at ? <MerchantShareCard client={client} store={store} onMessage={onMessage} /> : null}
 
 

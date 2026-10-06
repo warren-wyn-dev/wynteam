@@ -590,3 +590,17 @@
   3. Dispatch `deploy-edge-functions.yml` with `send-push-notification`.
 - Rollback: SQL in the migration header, redeploy the previous `send-push-notification`, revert the PR.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-05
+
+### APPROVAL — [2026-10-06] WYNOS Merchant: order screen mode and unaccepted-order reminders
+
+- Founder asked whether Merchant needs its own notification sound. Of the options given, the Founder chose "ทำAก่อน ให้เสร็จเลย" (the web-only option A), through to production.
+- Context: phones play the WYNOS order sound only while Merchant is open. A closed app gets one standard push. A native app (option B) is deferred.
+- Change:
+  - **"หน้าจอรับออเดอร์" (order screen).** A toggle on Merchant home and in notification settings that keeps the screen awake with the Screen Wake Lock API, taking the lock again when Merchant returns to the front or the screen is tapped. Turning it on is also the tap that unlocks and tests the sound. A status bar shows whether the screen is kept on and the sound is ready.
+  - **Tips in notification settings.** iPhone silent switch, order screen, Web Push, Home Screen install.
+  - **Unaccepted-order reminders.** pg_cron runs `internal.food_remind_waiting_orders()` every minute. Paid or slip-submitted orders still in `pending_acceptance` (from the last 3 hours) send a push to the active owner and staff, at most 5 times: "WYNOS Merchant · ออเดอร์ #WF… รอรับ N นาทีแล้ว". Reminder state is kept in `food_order_merchant_reminders`, so `food_orders` is never updated.
+- Release:
+  1. Merge. Web auto-deploys.
+  2. Dispatch `merchant-apply-order-reminders.yml` with `APPLY-MERCHANT-REMINDERS`.
+- Rollback: SQL in the migration header (unschedule the job, drop the function and table), and/or revert the PR.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-06

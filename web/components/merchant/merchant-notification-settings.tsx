@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 
 import { MerchantNotificationTest } from "@/components/merchant/merchant-notification-test";
+import { MerchantOrderScreenCard } from "@/components/merchant/merchant-order-screen";
 import { previewMerchantOrderSound } from "@/components/merchant/merchant-order-alert";
 import type { FoodStore } from "@/lib/food-merchant";
 import {
@@ -138,6 +139,21 @@ export function MerchantNotificationSettings({
         <button className="wm-secondary wm-full wm-notification-sound-test" type="button" onClick={() => void previewSound()}>
           <Volume2 size={18} /> ลองเสียงออเดอร์
         </button>
+      </section>
+
+      <MerchantOrderScreenCard onMessage={onMessage} />
+
+      <section className="wm-notification-card" aria-label="ไม่พลาดออเดอร์">
+        <div className="wm-notification-card-head">
+          <span className="wm-notification-card-icon"><BellRing size={21} /></span>
+          <span><strong>ไม่ให้พลาดออเดอร์</strong><small>มือถือเล่นเสียง WYNOS ได้เฉพาะตอนเปิด Merchant อยู่ ตอนปิดแอปจะได้แจ้งเตือนเสียงปกติของเครื่องแทน</small></span>
+        </div>
+        <ul className="wm-notification-tips">
+          <li>เปิด &quot;หน้าจอรับออเดอร์&quot; แล้ววางเครื่องไว้หน้าร้าน</li>
+          <li>iPhone: ปิดโหมดเงียบ (สวิตช์ข้างเครื่อง) และเพิ่มเสียง</li>
+          <li>เปิด Web Push ด้านบนไว้ ออเดอร์ที่ยังไม่มีใครรับ ระบบจะเตือนซ้ำทุก 1 นาที สูงสุด 5 ครั้ง</li>
+          <li>ติดตั้ง WYNOS Merchant ไว้บนหน้าจอโฮม</li>
+        </ul>
       </section>
 
       <section className="wm-notification-card">
