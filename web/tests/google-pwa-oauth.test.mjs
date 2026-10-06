@@ -89,7 +89,7 @@ test("normal Safari preserves existing OAuth redirect rather than opening popup"
 
 test("installed iOS preserves a product next destination on the shared callback",async()=>{
  const f=setup();try{
-   const client={auth:{signInWithOAuth:async(({options}))=>{
+   const client={auth:{signInWithOAuth:async({options})=>{
      f.calls.push(["oauth",options]);return {data:{url:AUTH_URL},error:null};
    }}};
    const result=await startGoogleOAuth(client,"https://wynos.online/auth/callback?next=%2Ffood");
