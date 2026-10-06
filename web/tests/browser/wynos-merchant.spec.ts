@@ -64,8 +64,9 @@ test("Merchant launch stays lean and hot realtime paths avoid full snapshot relo
   expect(app).toContain('applyLocalOrderStatus(order.id, "preparing")');
   expect(app).toContain('applyLocalOrderStatus(order.id, "ready_for_delivery")');
   expect(app).toContain('applyLocalOrderStatus(order.id, "out_for_delivery")');
-  expect(app).toContain("fetchMerchantOrdersPage(client, store.id, 0, MERCHANT_ORDER_PAGE_SIZE)");
-  expect(app).toContain("setMenu(await fetchMerchantMenu(client, store.id))");
+  expect(app).toContain("const activeStoreId = store?.id ?? null");
+  expect(app).toContain("fetchMerchantOrdersPage(client, activeStoreId, 0, MERCHANT_ORDER_PAGE_SIZE)");
+  expect(app).toContain("setMenu(await fetchMerchantMenu(client, activeStoreId))");
   expect(app).toContain("const soldOutUntil = await setMenuSoldOutToday(client, store.id, item.id, soldOut)");
   expect(app).toContain("sold_out_until: soldOutUntil");
   expect(data).toContain("return soldOutUntil");
