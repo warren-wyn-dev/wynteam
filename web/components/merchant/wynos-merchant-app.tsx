@@ -500,7 +500,7 @@ function MerchantInner({
     } catch (error) {
       setMessage(merchantError(error, "อัปเดตออเดอร์ไม่สำเร็จ"));
     }
-  }, [client, store?.id]);
+  }, [client, store]);
 
   const scheduleOrderRefresh = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -666,7 +666,7 @@ function MerchantInner({
     }
     const timer = window.setTimeout(warmSecondaryTools, 900);
     return () => window.clearTimeout(timer);
-  }, [loading, store?.id]);
+  }, [loading, store]);
 
   const install = async () => {
     if (!installPrompt) return;
