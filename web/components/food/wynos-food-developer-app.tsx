@@ -1155,7 +1155,7 @@ function HomePanel({
                 <strong>{item.name}</strong>
                 {item.description ? <small>{item.description}</small> : <small>{item.category}</small>}
                 {item.remaining_stock != null
-                  ? <small>เหลือ {Math.max(0, item.remaining_stock)} ชิ้นวันนี้{reservedByOtherVariants > 0 ? ` · ในตะกร้าแล้ว ${reservedByOtherVariants}` : ""}</small>
+                  ? <small>เหลือ {Math.max(0, item.remaining_stock)} ชิ้นวันนี้</small>
                   : item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
                 <b>{foodMoney(item.price)}</b>
               </span>
