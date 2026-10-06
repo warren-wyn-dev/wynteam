@@ -118,6 +118,7 @@ export function FoodLoginScreen() {
     if (!client || !isInstalledIosWebApp()) return;
     let mounted = true;
     let checking = false;
+    let queuedCode: string | null = null;
 
     const popupClosed = () => {
       try { return googlePwaPopup.current?.closed === true; } catch { return false; }
@@ -127,7 +128,11 @@ export function FoodLoginScreen() {
       handoff?: { code: string },
       finalIfMissing = false,
     ) => {
-      if (!mounted || !googlePwaPending.current || checking) return;
+      if (!mounted || !googlePwaPending.current) return;
+      if (checking) {
+        if (handoff?.code) queuedCode = handoff.code;
+        return;
+      }
       checking = true;
       try {
         if (handoff) {
@@ -164,14 +169,14 @@ export function FoodLoginScreen() {
         // A focus/visibility event can happen while the Google window is
         // still open. Do not report failure until OAuth explicitly completed
         // or the popup was actually closed/cancelled.
-        if (mounted && finalIfMissing) {
+        if (mounted && finalIfMissing && !queuedCode) {
           googlePwaPending.current = false;
           googlePwaPopup.current = null;
           setMessage("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณาลองใหม่");
           setGoogleLoading(false);
         }
       } catch {
-        if (mounted) {
+        if (mounted && !queuedCode) {
           googlePwaPending.current = false;
           googlePwaPopup.current = null;
           setMessage("ตรวจสอบการเข้าสู่ระบบ Google ไม่สำเร็จ กรุณาลองใหม่");
@@ -179,6 +184,11 @@ export function FoodLoginScreen() {
         }
       } finally {
         checking = false;
+        const nextCode = queuedCode;
+        queuedCode = null;
+        if (mounted && googlePwaPending.current && nextCode) {
+          void resumeGoogle({ code: nextCode }, true);
+        }
       }
     };
 
