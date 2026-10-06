@@ -77,6 +77,7 @@ SQL
 
 run >/dev/null < "$ROOT/supabase/migrations_wynos_food_customer_stock_v1.sql"
 
+[ "$(val "select to_regclass('public.food_order_items_menu_idx') is not null")" = "t" ] || fail "menu item stock lookup index exists"
 [ "$(val "set role authenticated; select remaining_stock from public.food_menu_stock_remaining('$STORE') where menu_item_id='$LIMITED'")" = "7" ] || fail "live remaining stock excludes cancelled and old orders"
 [ -z "$(val "set role authenticated; select remaining_stock from public.food_menu_stock_remaining('$STORE') where menu_item_id='$UNLIMITED'")" ] || fail "unlimited item returns null remaining stock"
 [ "$(val "set role authenticated; select count(*) from public.food_menu_stock_remaining('$DRAFT')")" = "0" ] || fail "draft store hidden"
