@@ -35,3 +35,36 @@ test("unaccepted orders are re-notified each minute, at most 5 times, without to
   assert.match(sql, /'wynos-merchant-order-reminders', '\* \* \* \* \*'/);
   assert.doesNotMatch(sql.replace(/^--.*$/gm, ""), /update public\.food_orders/);
 });
+
+test("order sound asks iPhone for playback audio, so the silent switch does not mute it", () => {
+  const alert = read("../components/merchant/merchant-order-alert.tsx");
+  assert.match(alert, /session\.type = "playback"/);
+  assert.match(alert, /function audioContext\(\)[^]*?preferPlaybackAudioSession\(\);/);
+  assert.match(alert, /document\.addEventListener\("visibilitychange", onVisible\)/, "resumes sound when Merchant returns");
+});
+
+test("merchant push banners stay until tapped; other apps keep the plain banner", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const listeners = new Map();
+  const banners = [];
+  const self = {
+    location: { origin: "https://wynos.online" },
+    addEventListener: (name, callback) => listeners.set(name, callback),
+    skipWaiting: () => undefined,
+    clients: { claim: async () => undefined, matchAll: async () => [] },
+    registration: { showNotification: async (title, options) => { banners.push({ title, options }); } },
+  };
+  runInNewContext(read("../public/sw.js"), { self, URL, clients: self.clients });
+  const push = async (payload) => {
+    let settled;
+    listeners.get("push")({ data: { json: () => payload }, waitUntil: (promise) => { settled = promise; } });
+    await settled;
+  };
+  await push({ notification: { title: "WYNOS Merchant", body: "ออเดอร์ #WF0015", tag: "n1" }, data: { app: "merchant", type: "system" } });
+  await push({ notification: { title: "Wynos", body: "liked", tag: "n2" }, data: { type: "like_drop" } });
+  assert.equal(banners[0].options.requireInteraction, true);
+  assert.equal(banners[0].options.renotify, true);
+  assert.ok(Array.isArray(banners[0].options.vibrate) && banners[0].options.vibrate.length > 3);
+  assert.equal(banners[1].options.requireInteraction, undefined);
+  assert.equal(banners[1].options.renotify, undefined);
+});

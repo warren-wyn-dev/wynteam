@@ -150,7 +150,8 @@ export function MerchantNotificationSettings({
         </div>
         <ul className="wm-notification-tips">
           <li>เปิด &quot;หน้าจอรับออเดอร์&quot; แล้ววางเครื่องไว้หน้าร้าน</li>
-          <li>iPhone: ปิดโหมดเงียบ (สวิตช์ข้างเครื่อง) และเพิ่มเสียง</li>
+          <li>iPhone: เพิ่มเสียงให้ดัง (iOS 17 ขึ้นไป เสียง WYNOS ดังได้แม้เปิดโหมดเงียบ ตอนเปิด Merchant อยู่)</li>
+          <li>เสียบชาร์จไว้ และอย่าปัดปิดแอป Merchant ทิ้ง</li>
           <li>เปิด Web Push ด้านบนไว้ ออเดอร์ที่ยังไม่มีใครรับ ระบบจะเตือนซ้ำทุก 1 นาที สูงสุด 5 ครั้ง</li>
           <li>ติดตั้ง WYNOS Merchant ไว้บนหน้าจอโฮม</li>
         </ul>
