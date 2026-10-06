@@ -39,6 +39,15 @@ import {
 
 const MIN_ONBOARDING_AGE = 13;
 
+function passwordRecoveryReturnPath(url?: string): "/login" | "/food/login" {
+  if (!url) return "/login";
+  try {
+    return new URL(url).searchParams.get("returnTo") === "/food/login" ? "/food/login" : "/login";
+  } catch {
+    return "/login";
+  }
+}
+
 /// Where a session lands right after Google OAuth returns to /welcome, or
 /// right after a successful email/password login. Only ever sends a
 /// genuinely brand-new account (no `profiles` row at all yet) into the
@@ -942,6 +951,9 @@ export function ForgotPasswordScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [returnTo] = useState<"/login" | "/food/login">(() =>
+    passwordRecoveryReturnPath(typeof window !== "undefined" ? window.location.href : undefined),
+  );
 
   async function submit() {
     if (loading) return;
@@ -957,7 +969,7 @@ export function ForgotPasswordScreen() {
     }
     setLoading(true);
     try {
-      await resetPasswordForEmail(supabase, value);
+      await resetPasswordForEmail(supabase, value, returnTo);
       setSent(true);
     } catch {
       setError("ส่งลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง");
@@ -968,7 +980,7 @@ export function ForgotPasswordScreen() {
 
   return (
     <AuthPhone>
-      <BackTopbar href="/login" />
+      <BackTopbar href={returnTo} />
       <div style={{ padding: "16px 20px", flex: 1 }}>
         <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ลืมรหัสผ่าน?</div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>กรอกอีเมลที่ใช้สมัคร เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้</p>
@@ -1002,14 +1014,23 @@ export function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo, setReturnTo] = useState<"/login" | "/food/login">("/login");
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    const link = parsePasswordRecoveryLink(window.location.href);
+    const currentUrl = window.location.href;
+    const link = parsePasswordRecoveryLink(currentUrl);
+    const nextReturnTo = passwordRecoveryReturnPath(currentUrl);
+    setReturnTo(nextReturnTo);
     // Never leave an access token, verifier code or recovery hash in browser
-    // history, analytics, or subsequent navigation URLs.
-    window.history.replaceState(window.history.state, "", "/reset-password");
+    // history, analytics, or subsequent navigation URLs. Keep only the safe
+    // product return destination so Food-only recovery returns to Food.
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `/reset-password?returnTo=${encodeURIComponent(nextReturnTo)}`,
+    );
 
     if (link.kind === "token_hash") {
       // Mail clients and preview bots can GET this page harmlessly. Only a
@@ -1111,7 +1132,7 @@ export function ResetPasswordScreen() {
 
   return (
     <AuthPhone>
-      <BackTopbar href="/login" />
+      <BackTopbar href={returnTo} />
       <div style={{ padding: "16px 20px", flex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <Image src="/wynos_logo_mark.png" alt="Wynos" width={99} height={64}
@@ -1131,7 +1152,7 @@ export function ResetPasswordScreen() {
         {phase === "invalid" ? (
           <>
             <p role="alert" style={{ fontSize: 14, lineHeight: 1.6 }}>ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุ กรุณาขอลิงก์ใหม่</p>
-            <Button className="btn-primary" onClick={() => router.replace("/forgot-password")}>ขอลิงก์ใหม่</Button>
+            <Button className="btn-primary" onClick={() => router.replace(`/forgot-password?returnTo=${encodeURIComponent(returnTo)}`)}>ขอลิงก์ใหม่</Button>
           </>
         ) : null}
         {phase === "ready" ? (
@@ -1156,7 +1177,7 @@ export function ResetPasswordScreen() {
         {phase === "saved" ? (
           <>
             <p role="status" style={{ fontSize: 14, marginBottom: 20 }}>เปลี่ยนรหัสผ่านสำเร็จแล้ว กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่</p>
-            <Button className="btn-primary" onClick={() => router.replace("/login")}>ไปหน้าเข้าสู่ระบบ</Button>
+            <Button className="btn-primary" onClick={() => router.replace(returnTo)}>ไปหน้าเข้าสู่ระบบ</Button>
           </>
         ) : null}
       </div>
