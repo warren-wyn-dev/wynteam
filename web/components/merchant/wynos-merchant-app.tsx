@@ -753,6 +753,12 @@ function MerchantInner({
   const alertOrder = alertQueue[0] ?? null;
   const markAlertSeen = (order: FoodOrder) => setSeenAlerts((current) => new Set(current).add(alertKey(order)));
 
+  const applyLocalOrderStatus = (orderId: string, status: FoodOrder["status"]) => {
+    const updatedAt = new Date().toISOString();
+    setOrders((current) => current.map((item) => item.id === orderId ? { ...item, status, updated_at: updatedAt } : item));
+    setSelectedOrder((current) => current?.id === orderId ? { ...current, status, updated_at: updatedAt } : current);
+  };
+
   const quickAction = async (order: FoodOrder) => {
     const next = quickStep(order);
     if (!next) return;
@@ -765,12 +771,15 @@ function MerchantInner({
     try {
       if (next.step === "accept") {
         await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? Number(store?.prep_time_max_minutes ?? 30));
+        applyLocalOrderStatus(order.id, "preparing");
         setMessage(`รับออเดอร์ #${order.order_number} แล้ว`);
       } else if (next.step === "ready") {
         await transitionFoodOrder(client, order.id, "ready_for_delivery");
+        applyLocalOrderStatus(order.id, "ready_for_delivery");
         setMessage(`ออเดอร์ #${order.order_number} อาหารพร้อมแล้ว`);
       } else {
         await transitionFoodOrder(client, order.id, "out_for_delivery");
+        applyLocalOrderStatus(order.id, "out_for_delivery");
         setMessage(`ออเดอร์ #${order.order_number} เริ่มจัดส่งแล้ว`);
       }
     } catch (error) {
