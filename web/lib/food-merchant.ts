@@ -284,8 +284,7 @@ function bangkokWeekStartKey(today: string) {
 
 type MerchantReportOrder = {
   total: number | string;
-  delivered_at: string | null;
-  updated_at: string;
+  created_at: string;
   food_order_items?: Array<Pick<FoodOrderItem, "item_name" | "quantity">>;
 };
 
@@ -304,7 +303,7 @@ function merchantSalesReportFromOrders(rows: MerchantReportOrder[]): MerchantSal
 
   for (const order of rows) {
     const amount = Number(order.total) || 0;
-    const day = bangkokDateKey(order.delivered_at ?? order.updated_at);
+    const day = bangkokDateKey(order.created_at);
     totalSales += amount;
     if (day === today) {
       todaySales += amount;
@@ -374,7 +373,7 @@ export async function fetchMerchantSalesReport(client: SupabaseClient, storeId: 
   for (let offset = 0; ; offset += pageSize) {
     const page = await client
       .from("food_orders")
-      .select("total,delivered_at,updated_at,food_order_items(item_name,quantity)")
+      .select("total,created_at,food_order_items(item_name,quantity)")
       .eq("store_id", storeId)
       .eq("status", "delivered")
       .order("created_at", { ascending: false })
