@@ -5,12 +5,15 @@ on:
     paths:
       - 'web/**'
       - '.github/workflows/web-phase4-browser-qa.yml'
+      - '.github/workflows/wyn-158-production-deploy.yml'
   push:
     branches:
+      - main
       - feat/wyn-158-phase4-parity-qa
     paths:
       - 'web/**'
       - '.github/workflows/web-phase4-browser-qa.yml'
+      - '.github/workflows/wyn-158-production-deploy.yml'
 
 permissions:
   contents: read

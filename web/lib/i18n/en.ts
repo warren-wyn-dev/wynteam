@@ -2591,6 +2591,9 @@ Object.assign(EN_EXACT, {
   "กรุณาเลือกตัวเลือกที่จำเป็นของเมนูให้ครบ": "Please choose all required item options",
   "เลือกตัวเลือกของเมนูเกินจำนวนที่ร้านกำหนด": "Too many options were selected for this item",
   "ตัวเลือกของเมนูเปลี่ยนแปลงแล้ว กรุณาเลือกใหม่อีกครั้ง": "This item's options have changed. Please choose again",
+  "มีออเดอร์ที่รอร้านรับอยู่หลายรายการ กรุณารอร้านรับออเดอร์ก่อน": "You have several orders waiting for this store to accept. Please wait for the store first",
+  "สั่งถี่เกินไป กรุณารอสักครู่แล้วลองใหม่": "Too many orders in a short time. Please wait a moment and try again",
+  "ส่งหลักฐานการชำระเงินแล้ว หรือร้านยืนยันการชำระเงินแล้ว": "Payment proof was already sent, or the store has already confirmed the payment",
   "เวลาที่เลือกใกล้เกินไป กรุณาเลือกเวลาใหม่": "The selected time is too soon. Please choose another time",
   "เวลาที่เลือกไกลเกินช่วงที่ร้านเปิดรับออเดอร์ล่วงหน้า": "The selected time is beyond the store's scheduling window",
   "เหลือ": "Remaining",
@@ -2611,6 +2614,9 @@ Object.assign(EN_EXACT, {
 
 // WYNOS Food structured delivery address fields.
 Object.assign(EN_EXACT, {
+  "ต้องอัปเดตข้อมูลที่อยู่": "Address needs updating",
+  "ที่อยู่นี้เป็นข้อมูลเก่า กรุณากดแก้ไขและกรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนสั่ง": "This is a legacy address. Edit it and complete the province, district, subdistrict and postal code before ordering",
+  "ต้องอัปเดตข้อมูลที่อยู่ก่อนสั่ง": "Update this address before ordering",
   "เช่น บ้าน / หอพัก / ที่ทำงาน": "For example: Home / Dorm / Work",
   "ปักหมุดก่อน ระบบจะช่วยเติมจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์เมื่อข้อมูลแผนที่รองรับ": "Pin the location first. When map data supports it, WYNOS will help fill province, district, subdistrict and postal code",
   "รายละเอียดที่อยู่": "Address details",

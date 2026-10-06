@@ -64,7 +64,7 @@ test("Merchant public auth surface is interactive", async ({ page }) => {
 
   await page.getByRole("link", { name: "สมัคร WYNOS Merchant" }).click();
   await expect(page).toHaveURL(/\/merchant\/signup$/);
-  await expect(page.getByLabel("WYNOS Merchant")).toBeVisible();
+  await expect(page.getByLabel("WYNOS Merchant", { exact: true })).toBeVisible();
 });
 
 test("Merchant production polish supports multiple stores, paged orders, help and printing", () => {
@@ -738,6 +738,29 @@ test("WYN-213 merchant access hardening: no developer cross-store access, legacy
   expect(adminActions).toContain("p_expected_amount: params.expectedAmount,");
   expect(settleButton).toContain("expectedAmount: owedAmount, expectedCount: owedOrders");
   expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-213'");
+});
+
+test("Food + Merchant launch hardening preserves only the intentional anonymous Food RPCs", () => {
+  const sql = read("../supabase/migrations_wynos_food_merchant_launch_hardening_v1.sql");
+  const readiness = read("../supabase/migrations_wynos_merchant_production_readiness_hardening_v1.sql");
+
+  expect(sql).toContain("revoke execute on function public.food_store_open_status(uuid) from public, anon;");
+  expect(sql).toContain("grant execute on function public.food_store_open_status(uuid) to authenticated;");
+  expect(sql).toContain("food_store_id_by_share_code(text)");
+  expect(sql).toContain("food_store_share_preview(uuid)");
+  expect(sql).toContain("food_record_share_open(text)");
+  expect(sql).toContain("set address_line1 = nullif(btrim(address), '')");
+  expect(readiness).toContain("revoke execute on function public.food_store_open_status(uuid) from anon;");
+
+  const orderIntegrity = read("../supabase/migrations_wynos_food_order_options_v1.sql");
+  const merchant = read("lib/food-merchant.ts");
+  const merchantApp = read("components/merchant/wynos-merchant-app.tsx");
+  expect(orderIntegrity).toContain("too many orders, try again later");
+  expect(orderIntegrity).toContain("too many pending orders");
+  expect(orderIntegrity).toContain("payment already submitted");
+  expect(orderIntegrity).toContain("internal.food_resolve_menu_options");
+  expect(merchant).toContain("export function orderItemOptionText");
+  expect(merchantApp).toContain("orderItemOptionText(item)");
 });
 
 test("WYN-214 Admin merchant polish: service area, order money, refunds, safe approvals", () => {

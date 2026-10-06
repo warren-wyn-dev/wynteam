@@ -15,7 +15,7 @@ test("Design System foundation declares roles without rewriting existing compone
   expect(css).toContain("--wyn-color-danger: var(--wyn-accent)");
   expect(css).toContain("--wyn-touch-target-min: 44px");
   expect(css).toContain("--wyn-size-icon-action: 22px");
-  expect(css).toContain("--wyn-size-icon-comment: 24px");
+  expect(css).toContain("--wyn-size-icon-comment: 22px");
   expect(css).toContain("--wyn-size-icon-nav: 28px");
   expect(css).toContain("--wyn-color-link: #5eb1ff");
   // Already-approved values must not drift when the new names are declared.

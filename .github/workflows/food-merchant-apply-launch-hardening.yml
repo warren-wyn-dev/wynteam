@@ -1,0 +1,102 @@
+name: Food + Merchant -- apply launch hardening
+
+# Applies the WYN-218 order-integrity migration followed by the Food + Merchant
+# launch-hardening migration. Founder-only production action per repository governance.
+# - prices and validates menu options on the server;
+# - rate-limits order flooding and prevents payment-slip status reset;
+# - conservatively backfills address_line1 from the existing legacy address;
+# - revokes anonymous execution of food_store_open_status(uuid);
+# - verifies the three intentional public share RPCs remain anonymous.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-FOOD-MERCHANT-LAUNCH-HARDENING to confirm production'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-FOOD-MERCHANT-LAUNCH-HARDENING'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"
+            exit 1
+          fi
+
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2
+              cat "$out" >&2
+              rm -f "$out"
+              return 1
+            fi
+            cat "$out"
+            rm -f "$out"
+          }
+
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_food_order_options_v1.sql)
+          $(cat supabase/migrations_wynos_food_merchant_launch_hardening_v1.sql)
+          commit;" >/dev/null
+
+          # Privileges and aggregate counts only; no customer personal data is read.
+          run_sql "select
+              (pg_get_functiondef('public.food_create_order(uuid,text,text,text,text,jsonb,double precision,double precision)'::regprocedure) like '%food_resolve_menu_options%') as create_resolves_options,
+              (pg_get_functiondef('public.food_quote_order(uuid,jsonb,double precision,double precision)'::regprocedure) like '%food_resolve_menu_options%') as quote_resolves_options,
+              (pg_get_functiondef('public.food_create_order(uuid,text,text,text,text,jsonb,double precision,double precision)'::regprocedure) like '%too many orders%') as create_rate_limited,
+              (pg_get_functiondef('public.food_submit_payment(uuid,text)'::regprocedure) like '%payment already submitted%') as slip_guarded,
+              has_function_privilege('authenticated', 'internal.food_resolve_menu_options(jsonb,jsonb)', 'execute') as resolver_exposed,
+              has_function_privilege('anon', 'public.food_store_open_status(uuid)', 'execute') as anon_open_status,
+              has_function_privilege('authenticated', 'public.food_store_open_status(uuid)', 'execute') as auth_open_status,
+              has_function_privilege('anon', 'public.food_store_id_by_share_code(text)', 'execute') as anon_share_resolve,
+              has_function_privilege('anon', 'public.food_store_share_preview(uuid)', 'execute') as anon_share_preview,
+              has_function_privilege('anon', 'public.food_record_share_open(text)', 'execute') as anon_share_counter,
+              (select count(*) from public.food_customer_addresses
+                where nullif(btrim(coalesce(address_line1, '')), '') is null
+                  and nullif(btrim(coalesce(address, '')), '') is not null) as recoverable_line1_left,
+              (select count(*) from public.food_customer_addresses
+                where nullif(btrim(coalesce(subdistrict, '')), '') is null
+                   or nullif(btrim(coalesce(district, '')), '') is null
+                   or nullif(btrim(coalesce(province, '')), '') is null
+                   or nullif(btrim(coalesce(postal_code, '')), '') is null) as addresses_needing_customer_review;" \
+            | tee result.json | jq .
+
+          jq -e '.[0].create_resolves_options == true
+                 and .[0].quote_resolves_options == true
+                 and .[0].create_rate_limited == true
+                 and .[0].slip_guarded == true
+                 and .[0].resolver_exposed == false
+                 and .[0].anon_open_status == false
+                 and .[0].auth_open_status == true
+                 and .[0].anon_share_resolve == true
+                 and .[0].anon_share_preview == true
+                 and .[0].anon_share_counter == true
+                 and .[0].recoverable_line1_left == 0' result.json >/dev/null \
+            || { echo "::error::Launch-hardening verification failed"; exit 1; }
+
+          echo "WYN-218 + Food + Merchant production hardening applied."
+          echo "addresses_needing_customer_review is informational; the Food UI blocks those legacy addresses until the customer updates them."

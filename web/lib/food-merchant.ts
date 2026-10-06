@@ -227,6 +227,19 @@ export function money(value: number | string | null | undefined) {
   return new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", minimumFractionDigits: amount % 1 ? 2 : 0 }).format(amount);
 }
 
+/** Options the customer picked, as saved by the server (WYN-218), e.g. "เผ็ดมาก · ไข่ดาว". */
+export function orderItemOptionText(item: Pick<FoodOrderItem, "selected_options">) {
+  if (!Array.isArray(item.selected_options)) return "";
+  return item.selected_options
+    .map((option) => {
+      if (!option || typeof option !== "object") return "";
+      const name = (option as { choice_name?: unknown }).choice_name;
+      return typeof name === "string" ? name.trim() : "";
+    })
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export function foodPublicUrl(client: SupabaseClient, path: string | null | undefined) {
   if (!path) return null;
   return client.storage.from(FOOD_PUBLIC).getPublicUrl(path).data.publicUrl;

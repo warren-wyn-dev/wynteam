@@ -149,7 +149,12 @@ function HashtagRowSkeleton() {
   return (
     <div className="wyn-skeleton-hashtag-row">
       <SkeletonBlock width={16} height={12} />
-      <SkeletonBlock width="55%" height={13} />
+      <div className="wyn-skeleton-search-person-copy">
+        <SkeletonBlock width="55%" height={13} />
+        <SkeletonBlock width="34%" height={11} />
+      </div>
+      <SkeletonBlock width={68} height={31} radius={999} />
+      <SkeletonBlock width={18} height={18} radius={9} />
     </div>
   );
 }
