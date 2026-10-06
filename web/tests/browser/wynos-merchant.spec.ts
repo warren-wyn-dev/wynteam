@@ -57,6 +57,9 @@ test("Merchant launch stays lean and hot realtime paths avoid full snapshot relo
   expect(app).toContain('document.visibilityState !== "visible"');
   expect(app).toContain("scheduleOrderRefresh();");
   expect(app).toContain("fetchMerchantOrdersPage(client, store.id, 0, MERCHANT_ORDER_PAGE_SIZE)");
+  expect(app).toContain("const [salesReportRevision, setSalesReportRevision] = useState(0)");
+  expect(app).toContain("Keep the last good numbers on screen while a fresh report loads");
+  expect(app).not.toContain("setDataRevision");
   expect(data).toContain("const [accessResult, storesResult] = await Promise.all([");
   expect(css).toContain("content-visibility: auto");
   expect(css).toContain("touch-action: manipulation");
