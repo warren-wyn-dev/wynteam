@@ -49,6 +49,8 @@ test("Food Google login uses a dedicated exact callback and never falls into Soc
   assert.doesNotMatch(foodAuth, /callback\.searchParams\.set\("next", "\/food"\)/);
   assert.match(foodAuth, /startGoogleOAuth\(client, callback\.href\)/);
   assert.match(foodAuth, /window\.location\.origin !== canonicalOrigin/);
+  assert.match(foodAuth, /isLegacyInstalledFoodOrigin\(\)/);
+  assert.match(foodAuth, /เปิด WYNOS Food ที่ food\.wynos\.online/);
   assert.match(foodAuth, /เข้าสู่ระบบด้วย Google/);
   assert.match(foodAuth, /GOOGLE_PWA_COMPLETED_CHANNEL/);
 
