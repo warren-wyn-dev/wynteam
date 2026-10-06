@@ -1504,7 +1504,7 @@ function Sheet({
   title,
   onClose,
   children,
-  variant = "sheet",
+  variant = "page",
   footer,
 }: {
   title: string;
@@ -1608,12 +1608,12 @@ function ItemSheet({
 
   return (
     <div
-      className="wf-sheet-backdrop wf-item-sheet-backdrop"
+      className="wf-sheet-backdrop wf-sheet-backdrop--page wf-item-sheet-backdrop"
       role="presentation"
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      onMouseDown={() => {}}
     >
       <section
-        className={`wf-sheet wf-item-sheet${orderingDisabled ? " is-disabled" : ""}`}
+        className={`wf-sheet wf-sheet--page wf-item-sheet${orderingDisabled ? " is-disabled" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={item.name}
