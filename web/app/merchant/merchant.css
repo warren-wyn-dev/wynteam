@@ -45,10 +45,18 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   background: var(--wm-bg);
   color: var(--wm-text);
   overflow-x: clip;
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 .wyn-merchant *, .wyn-merchant *::before, .wyn-merchant *::after { box-sizing: border-box; }
 .wyn-merchant button, .wyn-merchant input, .wyn-merchant select, .wyn-merchant textarea { font: inherit; }
-.wyn-merchant button { -webkit-tap-highlight-color: transparent; }
+.wyn-merchant button,
+.wyn-merchant a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.wyn-merchant button { user-select: none; }
 .wyn-merchant img { display: block; max-width: 100%; }
 
 .wm-loading,
@@ -74,6 +82,12 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 }
 .wm-loader { width: 34px; height: 34px; }
 .wm-mini-loader { width: 21px; height: 21px; }
+.wm-chunk-loading {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  contain: layout paint;
+}
 @keyframes wm-spin { to { transform: rotate(360deg); } }
 .wm-blocked h1 { margin: 0; font-size: 22px; }
 .wm-blocked p { margin: 0 0 6px; color: #737373; }
@@ -258,6 +272,8 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-order-card {
   width: 100%;
   padding: 13px 14px;
+  content-visibility: auto;
+  contain-intrinsic-size: 132px;
   border: 1px solid var(--wm-border);
   border-radius: 16px;
   background: var(--wm-bg);
@@ -302,6 +318,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 
 .wm-filter-tabs {
   margin: 0 -16px 15px;
+  -webkit-overflow-scrolling: touch;
   padding: 0 16px 4px;
   display: flex;
   gap: 7px;
@@ -387,6 +404,8 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-menu-row {
   min-height: 84px;
   border-bottom: 1px solid var(--wm-border);
+  content-visibility: auto;
+  contain-intrinsic-size: 84px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -565,7 +584,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 }
 .wm-sheet > header button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: var(--wm-text); display: grid; place-items: center; }
 .wm-sheet > header h2 { margin: 0; text-align: center; font-size: 15px; }
-.wm-sheet-body { max-height: calc(92dvh - 55px - env(safe-area-inset-top)); padding: 16px 16px calc(22px + env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; }
+.wm-sheet-body { max-height: calc(92dvh - 55px - env(safe-area-inset-top)); padding: 16px 16px calc(22px + env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 
 .wm-order-detail-head { padding-bottom: 16px; border-bottom: 1px solid var(--wm-border); display: grid; gap: 7px; }
 .wm-order-detail-head > div { display: flex; gap: 6px; flex-wrap: wrap; }
