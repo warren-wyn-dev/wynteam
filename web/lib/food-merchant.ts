@@ -390,16 +390,19 @@ export async function fetchMerchantSnapshot(
   client: SupabaseClient,
   preferredStoreId?: string | null,
 ): Promise<MerchantSnapshot> {
-  const accessResult = await client.rpc("food_has_merchant_access", { p_store_id: null });
+  // Access and store membership are independent reads. Run them together so
+  // the app launch pays one network round trip instead of two serial ones.
+  // RLS still scopes the store query to only stores the signed-in member may see.
+  const [accessResult, storesResult] = await Promise.all([
+    client.rpc("food_has_merchant_access", { p_store_id: null }),
+    client
+      .from("food_stores")
+      .select("*")
+      .order("created_at", { ascending: true }),
+  ]);
   if (accessResult.error) throw new Error(accessResult.error.message);
   const access = accessResult.data === true;
   if (!access) return { access: false, stores: [], store: null, menu: [], orders: [], has_more_orders: false };
-
-  // RLS limits this list to stores the signed-in Merchant member may access.
-  const storesResult = await client
-    .from("food_stores")
-    .select("*")
-    .order("created_at", { ascending: true });
   if (storesResult.error) throw new Error(storesResult.error.message);
   const stores = (storesResult.data ?? []) as FoodStore[];
   const store = stores.find((item) => item.id === preferredStoreId) ?? stores[0] ?? null;
