@@ -2542,6 +2542,13 @@ Object.assign(EN_EXACT, {
   "เพิ่มอีก": "Add another",
   "เพื่อถึงยอดขั้นต่ำ": "to reach the minimum",
   "ต้องเลือก": "Required",
+  "จำเป็น": "Required",
+  "เลือก 1": "Choose 1",
+  "เปิดการแจ้งเตือน WYNOS Food": "Turn on WYNOS Food notifications",
+  "เปิดการแจ้งเตือน WYNOS Food อีกครั้ง": "Turn WYNOS Food notifications back on",
+  "บน iPhone/iPad ต้องเพิ่ม WYNOS Food ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้": "On iPhone/iPad, add WYNOS Food to the Home Screen before enabling notifications",
+  "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ เปิดสิทธิ์เพื่อไม่พลาดสถานะออเดอร์และการจัดส่ง": "Browser notifications are blocked. Enable them so you don't miss order and delivery updates",
+  "รับสถานะคำสั่งซื้อ การรับออเดอร์ การเตรียมอาหาร และการจัดส่งจาก WYNOS Food": "Get WYNOS Food updates for order acceptance, preparation and delivery",
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [

@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 
 import "./food.css";
 
-const FOOD_ICON = (size: number) => `/food/icon-v7?size=${size}`;
+const FOOD_ICON_192 = "/icons/food/icon-192-v8.png";
+const FOOD_ICON_512 = "/icons/food/icon-512-v8.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://food.wynos.online"),
@@ -30,36 +31,27 @@ export const metadata: Metadata = {
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
     // Shared store links (/?store=<id>) preview in LINE/Messenger with the
     // Food icon; store details stay behind sign-in.
-    images: [{ url: "/icons/food/icon-512.png", width: 512, height: 512, alt: "WYNOS Food" }],
+    images: [{ url: FOOD_ICON_512, width: 512, height: 512, alt: "WYNOS Food" }],
   },
   twitter: {
     card: "summary",
     title: "WYNOS Food | สั่งอาหารออนไลน์",
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
-    images: ["/icons/food/icon-512.png"],
+    images: [FOOD_ICON_512],
   },
-  manifest: "/food/manifest.webmanifest?v=20261006-8",
+  manifest: "/food/manifest.webmanifest?v=20261006-9",
   icons: {
+    // Home Screen/PWA icons must be static files. The previous icon-v7 route
+    // rendered a remote image inside ImageResponse; iOS could cache the red
+    // background even when the foreground image failed to render.
     icon: [
-      { url: FOOD_ICON(16), sizes: "16x16", type: "image/png" },
-      { url: FOOD_ICON(32), sizes: "32x32", type: "image/png" },
-      { url: FOOD_ICON(48), sizes: "48x48", type: "image/png" },
-      { url: FOOD_ICON(192), sizes: "192x192", type: "image/png" },
-      { url: FOOD_ICON(512), sizes: "512x512", type: "image/png" },
+      { url: FOOD_ICON_192, sizes: "192x192", type: "image/png" },
+      { url: FOOD_ICON_512, sizes: "512x512", type: "image/png" },
     ],
-    shortcut: [{ url: FOOD_ICON(32), sizes: "32x32", type: "image/png" }],
-    apple: [
-      { url: FOOD_ICON(57), sizes: "57x57", type: "image/png" },
-      { url: FOOD_ICON(72), sizes: "72x72", type: "image/png" },
-      { url: FOOD_ICON(76), sizes: "76x76", type: "image/png" },
-      { url: FOOD_ICON(114), sizes: "114x114", type: "image/png" },
-      { url: FOOD_ICON(120), sizes: "120x120", type: "image/png" },
-      { url: FOOD_ICON(152), sizes: "152x152", type: "image/png" },
-      { url: FOOD_ICON(167), sizes: "167x167", type: "image/png" },
-      { url: FOOD_ICON(180), sizes: "180x180", type: "image/png" },
-    ],
+    shortcut: [{ url: FOOD_ICON_192, sizes: "192x192", type: "image/png" }],
+    apple: [{ url: FOOD_ICON_192, sizes: "192x192", type: "image/png" }],
     other: [
-      { rel: "apple-touch-icon-precomposed", url: FOOD_ICON(180), sizes: "180x180", type: "image/png" },
+      { rel: "apple-touch-icon-precomposed", url: FOOD_ICON_192, sizes: "192x192", type: "image/png" },
     ],
   },
   robots: { index: true, follow: true },
@@ -70,7 +62,7 @@ export const metadata: Metadata = {
   },
   other: {
     "msapplication-TileColor": "#e32636",
-    "msapplication-TileImage": FOOD_ICON(144),
+    "msapplication-TileImage": FOOD_ICON_192,
   },
 };
 
