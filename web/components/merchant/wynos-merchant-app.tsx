@@ -469,6 +469,7 @@ function MerchantInner({
   const reloadQueuedRef = useRef(false);
   const paymentStatusRef = useRef<Map<string, FoodOrder["payment_status"]>>(new Map());
   const orderRefreshTimerRef = useRef<number | null>(null);
+  const activeStoreId = store?.id ?? null;
 
   const load = useCallback(async (quiet = false) => {
     if (loadingRef.current) {
@@ -517,9 +518,9 @@ function MerchantInner({
   // Order events are by far the hottest realtime path. Refresh only the order
   // window instead of re-reading Merchant access, stores and the full menu.
   const refreshOrders = useCallback(async () => {
-    if (!store?.id) return;
+    if (!activeStoreId) return;
     try {
-      const page = await fetchMerchantOrdersPage(client, store.id, 0, MERCHANT_ORDER_PAGE_SIZE);
+      const page = await fetchMerchantOrdersPage(client, activeStoreId, 0, MERCHANT_ORDER_PAGE_SIZE);
       paymentStatusRef.current = new Map(page.orders.map((order) => [order.id, order.payment_status]));
       setOrders((current) => {
         const freshIds = new Set(page.orders.map((order) => order.id));
@@ -534,7 +535,7 @@ function MerchantInner({
     } catch (error) {
       setMessage(merchantError(error, "อัปเดตออเดอร์ไม่สำเร็จ"));
     }
-  }, [client, store?.id]);
+  }, [activeStoreId, client]);
 
   const scheduleOrderRefresh = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -546,13 +547,13 @@ function MerchantInner({
   }, [refreshOrders]);
 
   const refreshMenu = useCallback(async () => {
-    if (!store?.id) return;
+    if (!activeStoreId) return;
     try {
-      setMenu(await fetchMerchantMenu(client, store.id));
+      setMenu(await fetchMerchantMenu(client, activeStoreId));
     } catch (error) {
       setMessage(merchantError(error, "อัปเดตเมนูไม่สำเร็จ"));
     }
-  }, [client, store?.id]);
+  }, [activeStoreId, client]);
 
   useEffect(() => {
     if (!selectedStoreId || typeof window === "undefined") return;
@@ -565,9 +566,9 @@ function MerchantInner({
   }, [load]);
 
   useEffect(() => {
-    if (!store?.id) return;
+    if (!activeStoreId) return;
     let live = true;
-    const storeId = store.id;
+    const storeId = activeStoreId;
     void fetchMerchantSalesReport(client, storeId)
       .then((next) => {
         if (live) setSalesReportState({ storeId, report: next, error: "" });
@@ -580,7 +581,7 @@ function MerchantInner({
           : { storeId, report: null, error });
       });
     return () => { live = false; };
-  }, [client, store?.id, salesReportRevision]);
+  }, [activeStoreId, client, salesReportRevision]);
 
   // Keep the last good numbers on screen while a fresh report loads, like a
   // native app's stale-while-revalidate cache. Store changes still isolate data.
@@ -619,8 +620,8 @@ function MerchantInner({
   }, []);
 
   useEffect(() => {
-    if (!store?.id) return;
-    const channel = subscribeMerchantOrders(client, store.id, (payload) => {
+    if (!activeStoreId) return;
+    const channel = subscribeMerchantOrders(client, activeStoreId, (payload) => {
       const next = payload.new as Partial<FoodOrder>;
       if (payload.eventType === "INSERT") {
         if (typeof next.id === "string" && next.payment_status) paymentStatusRef.current.set(next.id, next.payment_status);
@@ -665,7 +666,7 @@ function MerchantInner({
       orderRefreshTimerRef.current = null;
       void client.removeChannel(channel);
     };
-  }, [client, scheduleOrderRefresh, store?.id]);
+  }, [activeStoreId, client, scheduleOrderRefresh]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -679,7 +680,7 @@ function MerchantInner({
 
 
   useEffect(() => {
-    if (loading || !store?.id || typeof window === "undefined") return;
+    if (loading || !activeStoreId || typeof window === "undefined") return;
     const hints = (navigator as Navigator & {
       connection?: { saveData?: boolean; effectiveType?: string };
     }).connection;
@@ -704,7 +705,7 @@ function MerchantInner({
     }
     const timer = window.setTimeout(warmSecondaryTools, 900);
     return () => window.clearTimeout(timer);
-  }, [loading, store?.id]);
+  }, [activeStoreId, loading]);
 
   const install = async () => {
     if (!installPrompt) return;
