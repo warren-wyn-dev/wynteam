@@ -1,7 +1,9 @@
 name: Food + Merchant -- apply launch hardening
 
-# Applies supabase/migrations_wynos_food_merchant_launch_hardening_v1.sql.
-# Founder-only production action per repository governance.
+# Applies the WYN-218 order-integrity migration followed by the Food + Merchant
+# launch-hardening migration. Founder-only production action per repository governance.
+# - prices and validates menu options on the server;
+# - rate-limits order flooding and prevents payment-slip status reset;
 # - conservatively backfills address_line1 from the existing legacy address;
 # - revokes anonymous execution of food_store_open_status(uuid);
 # - verifies the three intentional public share RPCs remain anonymous.
@@ -57,11 +59,17 @@ jobs:
           }
 
           run_sql "begin;
+          $(cat supabase/migrations_wynos_food_order_options_v1.sql)
           $(cat supabase/migrations_wynos_food_merchant_launch_hardening_v1.sql)
           commit;" >/dev/null
 
           # Privileges and aggregate counts only; no customer personal data is read.
           run_sql "select
+              (pg_get_functiondef('public.food_create_order(uuid,text,text,text,text,jsonb,double precision,double precision)'::regprocedure) like '%food_resolve_menu_options%') as create_resolves_options,
+              (pg_get_functiondef('public.food_quote_order(uuid,jsonb,double precision,double precision)'::regprocedure) like '%food_resolve_menu_options%') as quote_resolves_options,
+              (pg_get_functiondef('public.food_create_order(uuid,text,text,text,text,jsonb,double precision,double precision)'::regprocedure) like '%too many orders%') as create_rate_limited,
+              (pg_get_functiondef('public.food_submit_payment(uuid,text)'::regprocedure) like '%payment already submitted%') as slip_guarded,
+              has_function_privilege('authenticated', 'internal.food_resolve_menu_options(jsonb,jsonb)', 'execute') as resolver_exposed,
               has_function_privilege('anon', 'public.food_store_open_status(uuid)', 'execute') as anon_open_status,
               has_function_privilege('authenticated', 'public.food_store_open_status(uuid)', 'execute') as auth_open_status,
               has_function_privilege('anon', 'public.food_store_id_by_share_code(text)', 'execute') as anon_share_resolve,
@@ -77,7 +85,12 @@ jobs:
                    or nullif(btrim(coalesce(postal_code, '')), '') is null) as addresses_needing_customer_review;" \
             | tee result.json | jq .
 
-          jq -e '.[0].anon_open_status == false
+          jq -e '.[0].create_resolves_options == true
+                 and .[0].quote_resolves_options == true
+                 and .[0].create_rate_limited == true
+                 and .[0].slip_guarded == true
+                 and .[0].resolver_exposed == false
+                 and .[0].anon_open_status == false
                  and .[0].auth_open_status == true
                  and .[0].anon_share_resolve == true
                  and .[0].anon_share_preview == true
@@ -85,5 +98,5 @@ jobs:
                  and .[0].recoverable_line1_left == 0' result.json >/dev/null \
             || { echo "::error::Launch-hardening verification failed"; exit 1; }
 
-          echo "Food + Merchant production hardening applied."
+          echo "WYN-218 + Food + Merchant production hardening applied."
           echo "addresses_needing_customer_review is informational; the Food UI blocks those legacy addresses until the customer updates them."
