@@ -37,7 +37,11 @@ as $$
     and public.food_customer_access_enabled()
     and (
       public.is_developer_account()
-      or (s.is_published and public.food_public_access_enabled())
+      or (
+        s.is_published
+        and s.admin_suspended_at is null
+        and public.food_public_access_enabled()
+      )
     )
   group by m.id, m.daily_stock_limit;
 $$;
