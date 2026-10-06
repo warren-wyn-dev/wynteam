@@ -122,10 +122,10 @@ export function MerchantLoginScreen() {
       </div>
       <form className="wm-auth-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <label>อีเมล<input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
-        <label>
-          รหัสผ่าน
+        <div className="wm-auth-field">
+          <label htmlFor="merchant-password">รหัสผ่าน</label>
           <span className="wm-auth-password-field">
-            <input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" />
+            <input id="merchant-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" />
             <button
               className="wm-auth-password-toggle"
               type="button"
@@ -136,7 +136,7 @@ export function MerchantLoginScreen() {
               {showPassword ? <EyeOff size={19} strokeWidth={1.8} /> : <Eye size={19} strokeWidth={1.8} />}
             </button>
           </span>
-        </label>
+        </div>
         <div className="wm-auth-inline"><Link href="/forgot-password">ลืมรหัสผ่าน?</Link></div>
         {message ? <p className="wm-auth-error" role="alert">{message}</p> : null}
         <button className="wm-primary wm-full wm-auth-submit" type="submit" disabled={loading}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
