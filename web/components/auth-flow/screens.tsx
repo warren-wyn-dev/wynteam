@@ -1014,7 +1014,9 @@ export function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [returnTo, setReturnTo] = useState<"/login" | "/food/login">("/login");
+  const [returnTo] = useState<"/login" | "/food/login">(() =>
+    passwordRecoveryReturnPath(typeof window !== "undefined" ? window.location.href : undefined),
+  );
 
   useEffect(() => {
     if (started.current) return;
@@ -1022,7 +1024,6 @@ export function ResetPasswordScreen() {
     const currentUrl = window.location.href;
     const link = parsePasswordRecoveryLink(currentUrl);
     const nextReturnTo = passwordRecoveryReturnPath(currentUrl);
-    setReturnTo(nextReturnTo);
     // Never leave an access token, verifier code or recovery hash in browser
     // history, analytics, or subsequent navigation URLs. Keep only the safe
     // product return destination so Food-only recovery returns to Food.
