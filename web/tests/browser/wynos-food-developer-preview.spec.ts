@@ -18,12 +18,15 @@ test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   expect(app).toContain("<FoodLoadError");
   expect(app).toContain("<FoodDenied />");
   expect(app).toContain('href="https://wynos.online/"');
-  expect(layout).toContain("index: false");
-  expect(layout).toContain("follow: false");
+  expect(layout).toContain("index: true");
+  expect(layout).toContain("follow: true");
   expect(manifest).toContain('start_url: "/"');
   expect(manifest).toContain('scope: "/"');
   expect(manifest).toContain('theme_color: "#e32636"');
   expect(manifest).toContain('description: "WYNOS Food Public Beta"');
+  const proxy = read("proxy.ts");
+  expect(proxy).toContain('new URL("https://food.wynos.online")');
+  expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*"]');
 });
 
 test("WYNOS Food hides the persistent Social bottom navigation", () => {
