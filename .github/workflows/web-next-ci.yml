@@ -7,6 +7,7 @@ on:
       - '.github/workflows/web-next-ci.yml'
   push:
     branches:
+      - main
       - feat/wyn-158-nextjs-consumer-web
     paths:
       - 'web/**'
