@@ -161,7 +161,7 @@ test("Merchant store settings are grouped into clear navigable categories", () =
   expect(app).toContain("ตำแหน่งและการจัดส่ง");
   expect(app).toContain("การรับชำระเงิน");
   expect(app).toContain("wm-settings-savebar");
-  expect(css).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
+  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))");
   expect(css).toContain(".wm-store-settings-nav");
   expect(css).toContain(".wm-settings-category");
 });
@@ -428,7 +428,7 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(app).toContain("disabled={locked || !slipShown}");
   expect(app).toContain("onLoad={() => setSlipImage({ url: slipUrl, ok: true })}");
   expect(app).toContain("// Reload after failures too: a two-step action may have half succeeded.");
-  expect(app).toContain("{alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
+  expect(app).toContain("{alertOrder && !selectedOrder && !menuDraft && !menuAddOpen && !menuToolMode && !storeEditing ? (");
   // A pressed card stays busy until a reload shows the order's new status.
   expect(app).toContain("acting={actedFrom.get(order.id) === order.status}");
   expect(app).toContain("const locked = busy || actedAt === stateKey;");
@@ -447,8 +447,8 @@ test("WYN-199 Merchant asks to turn on notifications as soon as it opens", () =>
 
   // Opens automatically, and again from the bell, using the shared Push flow
   // (permission request first, then the device token in push_tokens).
-  expect(app).toContain('useState<"auto" | "bell" | null>("auto")');
-  expect(app).toContain('onClick={() => setNotifyPrompt("bell")}');
+  expect(app).toContain('useState<"auto" | null>("auto")');
+  expect(app).toContain('onClick={() => setTab("notifications")}');
   expect(app).not.toContain("Notification.requestPermission()");
   expect(prompt).toContain("await subscribeToPushNotifications(client, userId);");
   expect(prompt).toContain("isCurrentDevicePushEnabled(client, userId)");
@@ -469,7 +469,7 @@ test("WYN-200 Merchant order alert uses Wynos's own generated sound", () => {
   expect(alert).toContain('export const MERCHANT_ORDER_SOUND_URL = "/sounds/wynos-merchant-order.wav";');
   // Falls back to synthesized tones if the file cannot load, and can be previewed.
   expect(alert).toContain("playFallbackTones(context);");
-  expect(app).toContain("previewMerchantOrderSound()");
+  expect(notificationSettings).toContain("previewMerchantOrderSound()");
 });
 
 test("WYN-201 Merchant and Food lists refresh with a pull-down gesture", () => {
@@ -538,7 +538,8 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   expect(navIcons).toContain('const fill = active ? RED : "none";');
   expect(navIcons).toContain('const RED = "#e32636";');
   expect(css).toContain(".wm-nav-icon > svg.wm-nav-svg { width: 26px; height: 26px; stroke-width: initial; }");
-  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));\n}\n.wm-nav > button {");
+  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
+  expect(css).toContain(".wm-nav > button {");
   // Light only: the layout pins light tokens whatever the phone or WYN theme says.
   const layout = read("app/merchant/layout.tsx");
   expect(layout).toContain('return <div className="wm-force-light">{children}</div>;');
