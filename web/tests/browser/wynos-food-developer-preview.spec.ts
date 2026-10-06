@@ -522,7 +522,7 @@ test("WYNOS Food storefront uses compact search and keeps favorite off the categ
   expect(app).toContain('className="wf-store-back"');
   expect(app).toContain('wf-store-menu ${category === "ทั้งหมด" ? "is-all" : "is-category"}');
   expect(css).toContain(".wf-storefront-open .wf-store-cover");
-  expect(css).toContain("height: clamp(330px, 44dvh, 430px);");
+  expect(css).toContain("height: clamp(210px, 28dvh, 260px);");
   expect(css).toContain(".wf-storefront-open .wf-menu-copy b");
   expect(css).toContain("color: var(--wf-text);");
   expect(css).toContain(".wf-storefront-open .wf-store-menu.is-category .wf-menu-row");
