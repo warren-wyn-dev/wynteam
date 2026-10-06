@@ -961,6 +961,9 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("required menu option missing")) return "กรุณาเลือกตัวเลือกที่จำเป็นของเมนูให้ครบ";
   if (message.includes("too many menu options selected")) return "เลือกตัวเลือกของเมนูเกินจำนวนที่ร้านกำหนด";
   if (message.includes("invalid menu option")) return "ตัวเลือกของเมนูเปลี่ยนแปลงแล้ว กรุณาเลือกใหม่อีกครั้ง";
+  if (message.includes("too many pending orders")) return "มีออเดอร์ที่รอร้านรับอยู่หลายรายการ กรุณารอร้านรับออเดอร์ก่อน";
+  if (message.includes("too many orders")) return "สั่งถี่เกินไป กรุณารอสักครู่แล้วลองใหม่";
+  if (message.includes("payment already submitted")) return "ส่งหลักฐานการชำระเงินแล้ว หรือร้านยืนยันการชำระเงินแล้ว";
   if (message.includes("scheduled time is too soon")) return "เวลาที่เลือกใกล้เกินไป กรุณาเลือกเวลาใหม่";
   if (message.includes("scheduled time is too far")) return "เวลาที่เลือกไกลเกินช่วงที่ร้านเปิดรับออเดอร์ล่วงหน้า";
   if (message.includes("store is closed at scheduled time")) return "ร้านปิดในวันหรือเวลาที่เลือก กรุณาเลือกเวลาใหม่";
