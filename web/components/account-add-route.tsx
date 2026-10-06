@@ -42,6 +42,7 @@ export function AccountAddRoute() {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        flowType: "pkce",
       },
     });
   }, [storageKey]);

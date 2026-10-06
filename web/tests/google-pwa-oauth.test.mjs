@@ -168,3 +168,27 @@ test("popup hands only its one-time PKCE authorization code to the exact same-or
    assert.equal(f.calls.some(x=>x[0]==="broadcast"),false);
  }finally{f.restore();}
 });
+
+
+test("custom browser auth clients keep OAuth on PKCE after logout-created storage slots",()=>{
+  const browser=readFileSync(new URL("../lib/supabase/browser.ts",import.meta.url),"utf8");
+  const add=readFileSync(new URL("../components/account-add-route.tsx",import.meta.url),"utf8");
+  const merchant=readFileSync(new URL("../lib/supabase/merchant-browser.ts",import.meta.url),"utf8");
+
+  const browserPkce=(browser.match(/flowType:\s*"pkce"/g)??[]).length;
+  assert.ok(browserPkce>=2,"primary and recovery custom-slot clients must both use PKCE");
+  assert.match(add,/storageKey,[\s\S]*?flowType:\s*"pkce"/);
+  assert.match(merchant,/MERCHANT_AUTH_STORAGE_KEY,[\s\S]*?flowType:\s*"pkce"/);
+});
+
+test("installed iOS Google loading has a bounded watchdog in Food and Social",()=>{
+  const helper=readFileSync(new URL("../lib/google-pwa-oauth.ts",import.meta.url),"utf8");
+  assert.match(helper,/GOOGLE_PWA_TIMEOUT_MS\s*=\s*45_000/);
+  for (const relative of ["../components/food/food-auth.tsx","../components/auth-flow/screens.tsx"]) {
+    const body=readFileSync(new URL(relative,import.meta.url),"utf8");
+    assert.match(body,/googlePwaWatchdog/);
+    assert.match(body,/GOOGLE_PWA_TIMEOUT_MS/);
+    assert.match(body,/window\.setTimeout/);
+    assert.match(body,/setGoogleLoading\(false\)/);
+  }
+});

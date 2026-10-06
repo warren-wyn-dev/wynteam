@@ -11,7 +11,7 @@ import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
 import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { registerCurrentAccount } from "@/lib/account-registry";
-import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
+import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_TIMEOUT_MS, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { consumeReturnPath } from "@/lib/return-to";
@@ -208,9 +208,14 @@ export function WelcomeScreen() {
   const [error, setError] = useState("");
   const googlePwaPending = useRef(false);
   const googlePwaPopup = useRef<Window | null>(null);
+  const googlePwaWatchdog = useRef<number | null>(null);
   // The server render has no user agent to match, so it reports none.
   const inAppBrowser = useSyncExternalStore<InAppBrowser | null>(subscribeNever, () => detectInAppBrowser(navigator.userAgent), () => null);
   const supabase = getSupabaseBrowserClient();
+
+  useEffect(() => () => {
+    if (googlePwaWatchdog.current !== null) window.clearTimeout(googlePwaWatchdog.current);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -393,6 +398,15 @@ export function WelcomeScreen() {
       // Arm before the async OAuth startup so a very fast return-to-app focus
       // event cannot be lost while signInWithOAuth is still resolving.
       googlePwaPending.current = true;
+      if (googlePwaWatchdog.current !== null) window.clearTimeout(googlePwaWatchdog.current);
+      googlePwaWatchdog.current = window.setTimeout(() => {
+        if (!googlePwaPending.current) return;
+        try { googlePwaPopup.current?.close(); } catch { /* Best effort only. */ }
+        googlePwaPending.current = false;
+        googlePwaPopup.current = null;
+        setError("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณาลองใหม่");
+        setGoogleLoading(false);
+      }, GOOGLE_PWA_TIMEOUT_MS);
     }
     setGoogleLoading(true);
     setError("");

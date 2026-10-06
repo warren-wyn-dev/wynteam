@@ -13,7 +13,7 @@ import {
   signUpWithEmail,
 } from "@/lib/auth-repository";
 import { registerCurrentAccount } from "@/lib/account-registry";
-import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
+import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_TIMEOUT_MS, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 
@@ -83,6 +83,11 @@ export function FoodLoginScreen() {
   const [message, setMessage] = useState("");
   const googlePwaPending = useRef(false);
   const googlePwaPopup = useRef<Window | null>(null);
+  const googlePwaWatchdog = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (googlePwaWatchdog.current !== null) window.clearTimeout(googlePwaWatchdog.current);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -241,6 +246,15 @@ export function FoodLoginScreen() {
       // focus immediately; if the user returns quickly, the focus event can
       // otherwise fire before pending is set and leave the button spinning.
       googlePwaPending.current = true;
+      if (googlePwaWatchdog.current !== null) window.clearTimeout(googlePwaWatchdog.current);
+      googlePwaWatchdog.current = window.setTimeout(() => {
+        if (!googlePwaPending.current) return;
+        try { googlePwaPopup.current?.close(); } catch { /* Best effort only. */ }
+        googlePwaPending.current = false;
+        googlePwaPopup.current = null;
+        setMessage("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณาลองใหม่");
+        setGoogleLoading(false);
+      }, GOOGLE_PWA_TIMEOUT_MS);
     }
     setGoogleLoading(true);
     try {

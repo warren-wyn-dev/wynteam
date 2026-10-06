@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const GOOGLE_PWA_POPUP_MARKER = "wynos.google-pwa-popup-start.v1";
 export const GOOGLE_PWA_COMPLETED_CHANNEL = "wynos.google-pwa-completed.v1";
 export const GOOGLE_PWA_CODE_MESSAGE = "wynos.google-pwa-code.v1";
+export const GOOGLE_PWA_TIMEOUT_MS = 45_000;
 const POPUP_VALIDITY_MS = 10 * 60 * 1000;
 
 export function isInstalledIosWebApp(): boolean {
