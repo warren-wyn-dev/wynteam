@@ -1205,6 +1205,8 @@
   .wf-sheet-backdrop { align-items: center; padding: 20px; }
   .wf-sheet { border-radius: 24px; max-height: min(88dvh, 820px); }
   .wf-sheet-body { max-height: calc(min(88dvh, 820px) - 55px); }
+  .wf-item-sheet { height: min(88dvh, 820px); border-radius: 24px; }
+  .wf-item-photo { height: min(360px, 38dvh); }
 }
 
 @media (max-width: 370px) {
@@ -1212,7 +1214,9 @@
   .wf-category-tabs { margin-inline: -13px; padding-inline: 13px; }
   .wf-brand small { display: none; }
   .wf-store-meta { gap: 6px; }
-  .wf-item-actions { grid-template-columns: 1fr; }
+  .wf-item-actions { grid-template-columns: auto minmax(0,1fr); gap: 8px; padding-inline: 12px; }
+  .wf-item-actions .wf-qty { gap: 5px; }
+  .wf-item-actions .wf-qty button { width: 34px; height: 34px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
