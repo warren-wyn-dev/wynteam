@@ -384,7 +384,7 @@ function MenuImage({
     <span className={`wf-menu-image ${className}`}>
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" />
+        <img src={url} alt="" loading="lazy" decoding="async" />
       ) : <UtensilsCrossed size={26} strokeWidth={1.45} />}
     </span>
   );
@@ -974,6 +974,7 @@ function HomePanel({
   const [searchOpen, setSearchOpen] = useState(false);
   const [storeSection, setStoreSection] = useState<"menu" | "reviews" | "info">("menu");
   const [campaigns, setCampaigns] = useState<string[]>([]);
+  const [reviewSummary, setReviewSummary] = useState({ average: 0, count: 0 });
   const storeId = store?.id ?? null;
   const favoriteKey = `wynos-food-favorite-stores-v1:${userId}`;
   const [favorite, setFavorite] = useState(() => {
@@ -991,6 +992,9 @@ function HomePanel({
     if (!storeId) return;
     let live = true;
     void fetchStorePlatformCampaigns(client, storeId).then((names) => { if (live) setCampaigns(names); });
+    void fetchFoodStoreReviewFeed(client, storeId, 1).then((feed) => {
+      if (live) setReviewSummary({ average: feed.average, count: feed.count });
+    });
     return () => { live = false; };
   }, [client, storeId]);
   const categories = useMemo(() => {
@@ -1085,14 +1089,14 @@ function HomePanel({
         <div className="wf-store-cover">
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover} alt="" />
+            <img src={cover} alt="" decoding="async" fetchPriority="high" />
           ) : <Store size={46} strokeWidth={1.25} />}
         </div>
         <div className="wf-store-main">
           <span className="wf-store-logo">
             {logo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} alt="" />
+              <img src={logo} alt="" decoding="async" />
             ) : <Store size={25} strokeWidth={1.45} />}
           </span>
           <div className="wf-store-copy">
@@ -1102,6 +1106,13 @@ function HomePanel({
             ) : null}
             {store.description ? <p>{store.description}</p> : null}
             <div className="wf-store-meta">
+              {reviewSummary.count > 0 ? (
+                <span className="wf-store-rating-summary">
+                  <Star size={14} fill="currentColor" />
+                  <strong>{reviewSummary.average.toFixed(1)}</strong>
+                  <small>({new Intl.NumberFormat("th-TH").format(reviewSummary.count)} รีวิว)</small>
+                </span>
+              ) : null}
               {foodStoreTodayHoursText(store) ? <span><Clock3 size={14} />{foodStoreTodayHoursText(store)}</span> : store.business_hours ? <span><Clock3 size={14} />{store.business_hours}</span> : null}
               <span><Clock3 size={14} />เตรียมประมาณ {Number(store.prep_time_min_minutes ?? 15)}–{Number(store.prep_time_max_minutes ?? 30)} นาที</span>
               <span><MapPin size={14} />ค่าส่ง {foodMoney(store.delivery_fee)}</span>
@@ -2741,7 +2752,7 @@ function FoodCustomerInner({
   }
 
   return (
-    <main className={`wyn-food${tab === "home" && storefrontOpen ? " wf-storefront-open" : ""}`}>
+    <main className={`wyn-food${tab === "home" && storefrontOpen ? " wf-storefront-open" : ""}${tab === "home" && storefrontOpen && cartCount > 0 ? " has-store-cart" : ""}`}>
       {tab === "home" && storefrontOpen ? null : (
         <FoodHeader
           cartCount={cartCount}
