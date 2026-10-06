@@ -87,6 +87,19 @@ test("normal Safari preserves existing OAuth redirect rather than opening popup"
  }finally{f.restore();}
 });
 
+test("installed iOS preserves a product next destination on the shared callback",async()=>{
+ const f=setup();try{
+   const client={auth:{signInWithOAuth:async(({options}))=>{
+     f.calls.push(["oauth",options]);return {data:{url:AUTH_URL},error:null};
+   }}};
+   const result=await startGoogleOAuth(client,"https://wynos.online/auth/callback?next=%2Ffood");
+   assert.equal(result.started,true);
+   const signin=f.calls.find(x=>x[0]==="oauth");
+   assert.equal(signin[1].redirectTo,"https://wynos.online/auth/callback?next=%2Ffood");
+   assert.equal(signin[1].skipBrowserRedirect,true);
+ }finally{f.restore();}
+});
+
 test("popup blocking does not fall back into Safari or call Google OAuth",async()=>{
  const f=setup({blocked:true});try{
    const client={auth:{signInWithOAuth:()=>{throw Error("Must not start external OAuth");}}};
