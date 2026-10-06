@@ -244,18 +244,53 @@ export function foodCartLineKey(line: Pick<FoodCartLine, "menu_item_id" | "note"
   return `${line.menu_item_id}::${options}::${line.note.trim()}`;
 }
 
-export function foodCartLineOptionText(line: Pick<FoodCartLine, "selected_options">) {
+export function foodCartLineOptionText(
+  line: Pick<FoodCartLine, "selected_options">,
+  item?: Pick<FoodCustomerMenuItem, "options"> | null,
+) {
   return (line.selected_options ?? [])
-    .map((option) => option.choice_name?.trim())
+    .map((option) => {
+      const group = item?.options?.find((row) => row.id === option.group_id);
+      const choice = group?.choices?.find((row) => row.id === option.choice_id);
+      return choice?.name?.trim() || option.choice_name?.trim();
+    })
     .filter((value): value is string => Boolean(value))
     .join(" · ");
 }
 
-export function foodCartLineUnitPrice(
-  item: Pick<FoodCustomerMenuItem, "price">,
+export function foodCartLineOptionsValid(
+  item: Pick<FoodCustomerMenuItem, "options">,
   line: Pick<FoodCartLine, "selected_options">,
 ) {
-  return Number(item.price) + (line.selected_options ?? []).reduce((sum, option) => sum + Math.max(0, Number(option.price ?? 0)), 0);
+  const groups = Array.isArray(item.options) ? item.options : [];
+  const selected = line.selected_options ?? [];
+  const seen = new Set<string>();
+
+  for (const option of selected) {
+    const key = `${option.group_id}:${option.choice_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    const group = groups.find((row) => row.id === option.group_id);
+    if (!group || !group.choices.some((choice) => choice.id === option.choice_id)) return false;
+  }
+
+  return groups.every((group) => {
+    const count = selected.filter((option) => option.group_id === group.id).length;
+    const max = Math.max(1, Math.min(20, Number(group.max_select ?? 1)));
+    return (!group.required || count > 0) && count <= max;
+  });
+}
+
+export function foodCartLineUnitPrice(
+  item: Pick<FoodCustomerMenuItem, "price" | "options">,
+  line: Pick<FoodCartLine, "selected_options">,
+) {
+  const surcharge = (line.selected_options ?? []).reduce((sum, option) => {
+    const group = item.options?.find((row) => row.id === option.group_id);
+    const choice = group?.choices?.find((row) => row.id === option.choice_id);
+    return sum + Math.max(0, Number(choice?.price ?? 0));
+  }, 0);
+  return Number(item.price) + surcharge;
 }
 
 export function foodMenuQuantityLimit(item: Pick<FoodCustomerMenuItem, "daily_stock_limit" | "remaining_stock">) {
@@ -570,6 +605,7 @@ export async function quoteFoodCustomerOrder(
     p_items: items.map((line) => ({
       menu_item_id: line.menu_item_id,
       quantity: line.quantity,
+      selected_options: line.selected_options ?? [],
     })),
   });
   if (error) throw new Error(error.message);
