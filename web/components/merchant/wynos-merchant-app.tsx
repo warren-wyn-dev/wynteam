@@ -497,7 +497,6 @@ function MerchantInner({
         if (!current) return null;
         return page.orders.find((order) => order.id === current.id) ?? current;
       });
-      setDataRevision((value) => value + 1);
     } catch (error) {
       setMessage(merchantError(error, "อัปเดตออเดอร์ไม่สำเร็จ"));
     }
@@ -617,6 +616,10 @@ function MerchantInner({
           }
         }
       }
+      const previous = payload.old as Partial<FoodOrder>;
+      if (next.status === "delivered" || previous.status === "delivered") {
+        setDataRevision((value) => value + 1);
+      }
       scheduleOrderRefresh();
     });
     return () => {
@@ -638,13 +641,14 @@ function MerchantInner({
 
 
   useEffect(() => {
-    if (loading || !store || typeof window === "undefined") return;
-    const connection = (navigator as Navigator & {
+    if (loading || !store?.id || typeof window === "undefined") return;
+    const hints = (navigator as Navigator & {
       connection?: { saveData?: boolean; effectiveType?: string };
     }).connection;
-    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
+    if (!navigator.onLine || hints?.saveData || hints?.effectiveType === "slow-2g" || hints?.effectiveType === "2g") return;
 
-    const warm = () => {
+    const warmSecondaryTools = () => {
+      if (document.visibilityState !== "visible") return;
       void Promise.allSettled([
         import("@/components/merchant/merchant-finance"),
         import("@/components/merchant/merchant-notification-settings"),
@@ -656,17 +660,13 @@ function MerchantInner({
       ]);
     };
 
-    const idleWindow = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-    if (idleWindow.requestIdleCallback) {
-      const handle = idleWindow.requestIdleCallback(warm, { timeout: 1800 });
-      return () => idleWindow.cancelIdleCallback?.(handle);
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(warmSecondaryTools, { timeout: 1800 });
+      return () => window.cancelIdleCallback(handle);
     }
-    const timer = window.setTimeout(warm, 900);
+    const timer = window.setTimeout(warmSecondaryTools, 900);
     return () => window.clearTimeout(timer);
-  }, [loading, store]);
+  }, [loading, store?.id]);
 
   const install = async () => {
     if (!installPrompt) return;
