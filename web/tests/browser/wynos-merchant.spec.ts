@@ -59,6 +59,10 @@ test("Merchant launch stays lean and hot realtime paths avoid full snapshot relo
   expect(app).toContain("fetchMerchantOrdersPage(client, store.id, 0, MERCHANT_ORDER_PAGE_SIZE)");
   expect(app).toContain("setMenu(await fetchMerchantMenu(client, store.id))");
   expect(data).toContain("export async function fetchMerchantMenu");
+  expect(data).toContain("const MERCHANT_ORDER_SELECT =");
+  expect(data).toContain("food_order_items(id,item_name,unit_price,quantity,item_note)");
+  expect(data).toContain("food_delivery_proofs(location_note,image_path)");
+  expect(data).not.toContain('.select("*,food_order_items(*),food_delivery_proofs(*)")');
   expect(app).toContain("const [salesReportRevision, setSalesReportRevision] = useState(0)");
   expect(app).toContain("Keep the last good numbers on screen while a fresh report loads");
   expect(app).not.toContain("setDataRevision");
