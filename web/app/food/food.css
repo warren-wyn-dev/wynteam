@@ -3740,7 +3740,7 @@
   box-shadow: none;
 }
 .wf-storefront-open .wf-store-cover {
-  height: clamp(330px, 44dvh, 430px);
+  height: clamp(210px, 28dvh, 260px);
   border-radius: 0;
   background: #f3f3f4;
 }
@@ -3782,21 +3782,21 @@
 .wf-storefront-open .wf-store-favorite.is-active { color: var(--wf-red); }
 .wf-storefront-open .wf-store-main {
   z-index: 3;
-  margin-top: -26px;
-  padding: 17px 16px 18px;
+  margin-top: -18px;
+  padding: 15px 16px 16px;
   border-radius: 28px 28px 0 0;
   background: #fff;
 }
 .wf-storefront-open .wf-store-logo {
-  flex-basis: 72px;
-  width: 72px;
-  height: 72px;
-  margin-top: -48px;
+  flex-basis: 62px;
+  width: 62px;
+  height: 62px;
+  margin-top: -34px;
   border: 4px solid #fff;
-  border-radius: 20px;
+  border-radius: 18px;
 }
 .wf-storefront-open .wf-store-copy h1 {
-  font-size: 20px;
+  font-size: 19px;
   line-height: 1.25;
 }
 .wf-storefront-open .wf-store-tabs {
