@@ -3635,6 +3635,8 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-scheduled-settings, .wm-tax-settings { margin-top: 12px; padding: 12px; border: 1px solid var(--wm-border); border-radius: 14px; background: var(--wm-surface); display: grid; gap: 10px; }
 .wm-tax-note { color: var(--wm-secondary); font-size: 9.5px; line-height: 1.5; }
 .wm-print-document { display: none; }
+.wm-shipping-actions button { width: 100%; }
+@page wm-shipping-label { margin: 3mm; }
 
 @media print {
   @page { margin: 10mm; }
@@ -3650,6 +3652,22 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   .wm-sheet-body > *:not(.wm-print-document) { display: none !important; }
   .wm-sheet-body { max-height: none !important; overflow: visible !important; padding: 0 !important; }
   .wm-print-document { display: grid !important; gap: 12px; width: 100%; color: #000; font-family: system-ui, sans-serif; }
+  .wm-print-document--address { page: wm-shipping-label; width: 52mm; max-width: 100%; gap: 7px; line-height: 1.35; }
+  .wm-address-label-head { padding-bottom: 5px; border-bottom: 1.5px solid #000; display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+  .wm-address-label-head strong { font-size: 11px; }
+  .wm-address-label-head span { font-size: 8.5px; font-weight: 700; }
+  .wm-address-label-recipient { display: grid; gap: 2px; }
+  .wm-address-label-recipient small, .wm-address-label-note small, .wm-address-label-sender small { font-size: 8px; }
+  .wm-address-label-recipient strong { font-size: 18px; line-height: 1.15; overflow-wrap: anywhere; }
+  .wm-address-label-recipient b { font-size: 14px; }
+  .wm-address-label-address { margin: 0; padding: 7px 0; border-top: 1px solid #bbb; border-bottom: 1px solid #bbb; font-size: 13px; font-style: normal; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+  .wm-address-label-note { display: grid; gap: 2px; font-size: 10px; }
+  .wm-address-label-note strong { font-size: 10px; line-height: 1.35; }
+  .wm-address-label-qr { display: grid; justify-items: center; gap: 2px; }
+  .wm-address-label-qr img { width: 25mm; height: 25mm; image-rendering: crisp-edges; }
+  .wm-address-label-qr span { font-size: 8px; font-weight: 700; }
+  .wm-address-label-sender { padding-top: 5px; border-top: 1px solid #bbb; display: grid; gap: 1px; font-size: 8.5px; }
+  .wm-address-label-sender strong { font-size: 9.5px; }
   .wm-print-brand { padding-bottom: 10px; border-bottom: 2px solid #000; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
   .wm-print-brand strong { font-size: 20px; }
   .wm-print-brand small { font-size: 10px; }
