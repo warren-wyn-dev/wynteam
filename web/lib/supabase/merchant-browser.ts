@@ -27,6 +27,7 @@ export function getMerchantSupabaseBrowserClient(): SupabaseClient | null {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      flowType: "pkce",
     },
   });
   return merchantClient;

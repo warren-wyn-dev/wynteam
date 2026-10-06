@@ -30,6 +30,9 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,
+          // createBrowserClient uses PKCE. Custom account slots must match it;
+          // otherwise a logout-created slot silently falls back to implicit OAuth.
+          flowType: "pkce",
         },
       })
     : createBrowserClient(url, publishableKey);
@@ -54,6 +57,7 @@ export function createPasswordRecoveryClient(): SupabaseClient | null {
           persistSession: true,
           autoRefreshToken: false,
           detectSessionInUrl: false,
+          flowType: "pkce",
         },
       })
     : createBrowserClient(url, key, {
