@@ -45,7 +45,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
-import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@/lib/food-share";
 import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
@@ -155,6 +154,9 @@ const MerchantFinance = dynamic(
 const MerchantNotificationSettings = dynamic(
   () => import("@/components/merchant/merchant-notification-settings").then((mod) => mod.MerchantNotificationSettings),
   { loading: MerchantChunkLoading },
+);
+const MerchantNotificationPrompt = dynamic(
+  () => import("@/components/merchant/merchant-notification-prompt").then((mod) => mod.MerchantNotificationPrompt),
 );
 const MerchantPlatformCampaigns = dynamic(
   () => import("@/components/merchant/merchant-platform-campaigns").then((mod) => mod.MerchantPlatformCampaigns),
