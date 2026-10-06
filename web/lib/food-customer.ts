@@ -403,7 +403,8 @@ export async function fetchFoodCustomerSnapshot(
     client.rpc("is_developer_account"),
   ]);
   const developer = !developerCheck.error && developerCheck.data === true;
-  if (!developer && (access.error || access.data !== true)) {
+  if (!developer && access.error) throw new Error(access.error.message);
+  if (!developer && access.data !== true) {
     return { allowed: false, developer: false, store: null, menu: [], orders: [], has_more_orders: false, addresses: [], ownReviews: [] };
   }
 
