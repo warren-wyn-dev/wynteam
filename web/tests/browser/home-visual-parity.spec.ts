@@ -120,7 +120,7 @@ test("first post matches compact avatar author caption and action geometry", asy
   // and an open-top U-shaped tray rather than the previous house-like box.
   await expect(shareIcon.locator("path")).toHaveCount(1);
   await expect(shareIcon.locator("path")).toHaveAttribute("d", /M4\.75 11\.75v7\.1/);
-  await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(139, 145, 155)");
+  await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(115, 115, 115)");
   // This Thai fixture is shorter than 190 displayed graphemes. The updated
   // truncation rule must not show a redundant "ดูเพิ่มเติม" control.
   await expect(moreText).toHaveCount(0);
