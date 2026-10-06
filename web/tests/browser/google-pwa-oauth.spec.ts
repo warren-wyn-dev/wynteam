@@ -65,7 +65,7 @@ test("installed iPhone arms the parent pending flag before awaiting OAuth startu
 });
 
 
-test("installed iPhone securely hands popup session to the waiting PWA and does not fail on focus alone", () => {
+test("installed iPhone returns the one-time PKCE code to the waiting PWA and does not fail on focus alone", () => {
   const source=(name:string)=>readFileSync(path.join(process.cwd(),name),"utf8");
   const helper=source("lib/google-pwa-oauth.ts");
   const foodCallback=source("app/food/auth/callback/page.tsx");
@@ -73,13 +73,14 @@ test("installed iPhone securely hands popup session to the waiting PWA and does 
   const foodLogin=source("components/food/food-auth.tsx");
   const welcome=source("components/auth-flow/screens.tsx");
 
-  expect(helper).toContain("GOOGLE_PWA_SESSION_MESSAGE");
+  expect(helper).toContain("GOOGLE_PWA_CODE_MESSAGE");
   expect(helper).toContain("opener.postMessage");
-  expect(foodCallback.indexOf("announceGooglePwaSession(session)")).toBeLessThan(foodCallback.indexOf("announceGooglePwaCompletion()"));
-  expect(socialCallback.indexOf("announceGooglePwaSession(session)")).toBeLessThan(socialCallback.indexOf("announceGooglePwaCompletion()"));
+  expect(helper).not.toContain("refreshToken");
+  expect(foodCallback).toContain("announceGooglePwaCode(code)");
+  expect(socialCallback).toContain("announceGooglePwaCode(code)");
   for (const body of [foodLogin, welcome]) {
-    expect(body).toContain("GOOGLE_PWA_SESSION_MESSAGE");
-    expect(body).toContain("auth.setSession");
+    expect(body).toContain("GOOGLE_PWA_CODE_MESSAGE");
+    expect(body).toContain("auth.exchangeCodeForSession");
     expect(body).toContain("popupClosed()");
   }
   expect(foodLogin).toContain("resumeGoogle(undefined, popupClosed())");
