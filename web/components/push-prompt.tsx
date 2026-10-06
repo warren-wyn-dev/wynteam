@@ -47,6 +47,7 @@ export function PushPrompt() {
   const promptPath = typeof window !== "undefined" && window.location.hostname.toLowerCase() === "food.wynos.online"
     ? "/food"
     : pathname;
+  const foodPrompt = promptPath === "/food";
   const [userId, setUserId] = useState<string | null>(null);
   // Tied to the account it was worked out for, so it never shows for the next account.
   const [prompt, setPrompt] = useState<{ userId: string; kind: "ask" | "install" | "settings" } | null>(null);
@@ -134,16 +135,24 @@ export function PushPrompt() {
   };
 
   return (
-    <div className="install-prompt-banner push-prompt-banner" role="dialog" aria-label="เปิดการแจ้งเตือน">
+    <div className="install-prompt-banner push-prompt-banner" role="dialog" aria-label={foodPrompt ? "เปิดการแจ้งเตือน WYNOS Food" : "เปิดการแจ้งเตือน"}>
       <div className="install-prompt-row">
         <span className="push-prompt-icon" aria-hidden="true"><WynosIcon name="notifications" size={22} strokeWidth={2} /></span>
         <div className="install-prompt-copy">
-          <strong>{kind === "settings" ? "เปิดการแจ้งเตือนอีกครั้ง" : "เปิดการแจ้งเตือน"}</strong>
+          <strong>{kind === "settings"
+            ? (foodPrompt ? "เปิดการแจ้งเตือน WYNOS Food อีกครั้ง" : "เปิดการแจ้งเตือนอีกครั้ง")
+            : (foodPrompt ? "เปิดการแจ้งเตือน WYNOS Food" : "เปิดการแจ้งเตือน")}</strong>
           <small>{kind === "install" ?
-            "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้" :
+            (foodPrompt
+              ? "บน iPhone/iPad ต้องเพิ่ม WYNOS Food ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้"
+              : "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้") :
             kind === "settings" ?
-              "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ เปิดสิทธิ์ให้ WYNOS เพื่อไม่พลาดข้อความและการตอบกลับ" :
-              "รู้ทันทีเมื่อมีข้อความ การตอบกลับ และกิจกรรมสำคัญใน WYNOS"}</small>
+              (foodPrompt
+                ? "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ เปิดสิทธิ์เพื่อไม่พลาดสถานะออเดอร์และการจัดส่ง"
+                : "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ เปิดสิทธิ์ให้ WYNOS เพื่อไม่พลาดข้อความและการตอบกลับ") :
+              (foodPrompt
+                ? "รับสถานะคำสั่งซื้อ การรับออเดอร์ การเตรียมอาหาร และการจัดส่งจาก WYNOS Food"
+                : "รู้ทันทีเมื่อมีข้อความ การตอบกลับ และกิจกรรมสำคัญใน WYNOS")}</small>
         </div>
         <button type="button" className="install-prompt-close" aria-label="ปิด" onClick={dismiss}>
           <WynosIcon name="close" size={16} strokeWidth={2} />
