@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { hasProfileRow } from "@/lib/auth-repository";
-import { announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
+import { announceGooglePwaCompletion, announceGooglePwaSession, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 import { isSafeReturnPath } from "@/lib/return-to";
 
 /**
@@ -72,6 +72,7 @@ export default function EmailConfirmationCallbackPage() {
               // lookup outage must not send the user back through OAuth again.
             }
           }
+          announceGooglePwaSession(session);
           announceGooglePwaCompletion();
           // Legacy Food clients may still have started OAuth from the Social
           // origin. Never let that successful sign-in fall into Social.
