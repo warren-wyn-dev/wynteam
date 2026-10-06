@@ -13,6 +13,13 @@ on:
 permissions:
   contents: read
 
+# Only the newest main build may ship. A newer web commit supersedes any
+# queued/in-progress production deployment so an older commit can never go
+# live after the latest one.
+concurrency:
+  group: wyn-158-production
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
