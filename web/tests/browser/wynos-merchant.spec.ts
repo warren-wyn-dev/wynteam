@@ -68,6 +68,8 @@ test("Merchant launch stays lean and hot realtime paths avoid full snapshot relo
   expect(app).toContain("setMenu((current) => current.map((entry) => entry.id === item.id");
   expect(app).toContain("const position = new Map(ids.map((id, index) => [id, index]))");
   expect(app).toContain("menu_category_order: menuCategoryOrder");
+  expect(app).toContain("applyLocalStorePatch(store.id, { menu_category_order: categories })");
+  expect(app).toContain("await onSaved(names)");
   expect(data).toContain("export async function fetchMerchantMenu");
   expect(data).toContain("const MERCHANT_ORDER_SELECT =");
   expect(data).toContain("food_order_items(id,item_name,unit_price,quantity,item_note)");
