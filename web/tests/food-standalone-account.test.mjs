@@ -38,6 +38,19 @@ test("Food auth routes are separate from Social onboarding", async () => {
   assert.doesNotMatch(login + signup, /signup\/step-1|onboarding\/profile/);
 });
 
+test("Food password recovery returns to the Food login flow", async () => {
+  const foodAuth = await read("components/food/food-auth.tsx");
+  const screens = await read("components/auth-flow/screens.tsx");
+  const repository = await read("lib/auth-repository.ts");
+
+  assert.match(foodAuth, /\/forgot-password\?returnTo=%2Ffood%2Flogin/);
+  assert.match(screens, /passwordRecoveryReturnPath/);
+  assert.match(screens, /resetPasswordForEmail\(supabase, value, returnTo\)/);
+  assert.match(screens, /router\.replace\(returnTo\)/);
+  assert.match(repository, /\/reset-password\?returnTo=/);
+  assert.match(repository, /returnTo: "\/login" \| "\/food\/login"/);
+});
+
 test("Food menu card photos stay square at every responsive width", async () => {
   const css = await read("app/food/food.css");
   assert.match(css, /\.wf-menu-image\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*auto;[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
