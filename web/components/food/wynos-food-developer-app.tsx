@@ -1504,16 +1504,34 @@ function Sheet({
   title,
   onClose,
   children,
+  variant = "sheet",
+  footer,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  variant?: "sheet" | "page";
+  footer?: React.ReactNode;
 }) {
+  const page = variant === "page";
   return (
-    <div className="wf-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="wf-sheet" role="dialog" aria-modal="true" aria-label={title}>
-        <header><button type="button" aria-label="ปิด" onClick={onClose}><X size={22} /></button><h2>{title}</h2><span /></header>
+    <div
+      className={`wf-sheet-backdrop${page ? " wf-sheet-backdrop--page" : ""}`}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (!page && event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className={`wf-sheet${page ? " wf-sheet--page" : ""}`} role="dialog" aria-modal="true" aria-label={title}>
+        <header>
+          <button type="button" aria-label={page ? "ย้อนกลับ" : "ปิด"} onClick={onClose}>
+            {page ? <ArrowLeft size={24} /> : <X size={22} />}
+          </button>
+          <h2>{title}</h2>
+          <span />
+        </header>
         <div className="wf-sheet-body">{children}</div>
+        {footer ? <footer className="wf-sheet-footer">{footer}</footer> : null}
       </section>
     </div>
   );
@@ -1871,6 +1889,7 @@ function CheckoutSheet({
   busy,
   onClose,
   onAddAddress,
+  onEditAddress,
   onSubmit,
 }: {
   client: SupabaseClient;
@@ -1882,10 +1901,12 @@ function CheckoutSheet({
   busy: boolean;
   onClose: () => void;
   onAddAddress: () => void;
+  onEditAddress: (address: FoodCustomerAddress) => void;
   onSubmit: (address: FoodCustomerAddress, note: string, scheduledFor?: string | null) => void;
 }) {
   const [addressId, setAddressId] = useState(addresses.find((address) => address.is_default)?.id ?? addresses[0]?.id ?? "");
   const [note, setNote] = useState("");
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
   const canSchedule = store.scheduled_orders_enabled === true;
   const minNotice = Math.max(15, Number(store.scheduled_min_notice_minutes ?? 30));
   const maxDays = Math.max(1, Number(store.scheduled_max_days ?? 7));
@@ -1931,89 +1952,147 @@ function CheckoutSheet({
     void quoteFoodCustomerOrder(client, store.id, cart, loc)
       .then((next) => { if (live) setAddressQuote({ key, quote: next, error: "" }); })
       .catch((error) => { if (live) setAddressQuote({ key, quote: null, error: foodCustomerError(error) }); });
-    return () => { live = false; };
-  }, [addressId, cart, client, locationKey, store.id, zone]);
-  const current = addressQuote?.key === `${addressId}|${locationKey}` ? addressQuote : null;
-  // Until the quote for this address arrives, the fee is unknown: no confirm.
-  const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
-  const effectiveQuote = current?.quote ?? quote;
-  const checkoutQuantityByMenu = new Map<string, number>();
-  for (const line of cart) checkoutQuantityByMenu.set(line.menu_item_id, (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) + line.quantity);
-  const cartUnavailable = cart.some((line) => {
-    const item = itemFor(menu, line.menu_item_id);
-    if (!item || !foodMenuIsEffectivelyAvailable(item) || !foodCartLineOptionsValid(item, line)) return true;
-    const limit = foodMenuQuantityLimit(item);
-    return limit <= 0 || (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) > limit;
-  });
-  const serverSubtotal = Number(effectiveQuote?.subtotal ?? subtotal);
-  const minimum = Number(store.minimum_order ?? 0);
-  const minimumMissing = Math.max(0, minimum - serverSubtotal);
-  const blockedReason = !address
-    ? ""
-    : zone && !location
-      ? "ที่อยู่นี้ยังไม่ได้ปักหมุดตำแหน่ง แก้ไขที่อยู่เพื่อปักหมุดก่อนสั่ง"
-      : cartUnavailable
-        ? "มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณากลับไปปรับตะกร้า"
-        : minimumMissing > 0
-          ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}`
-          : current?.error ?? "";
-  const deliveryFee = Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
-  const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
-  const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
-  const total = effectiveQuote?.total ?? serverSubtotal + deliveryFee;
-  const eta = foodEstimateDeliveryRange(store, effectiveQuote?.delivery_distance_km);
+    return (
+    <Sheet
+      title="Checkout"
+      onClose={onClose}
+      variant="page"
+      footer={(
+        <div className="wf-checkout-footer">
+          <button className="wf-primary wf-full" type="button" disabled={confirmDisabled} onClick={submitOrder}>
+            {confirmLabel}
+          </button>
+        </div>
+      )}
+    >
+      <div className="wf-checkout wf-checkout-page">
+        <div className="wf-section-title wf-checkout-section-title">
+          <h2>จัดส่งไปที่</h2>
+          <button type="button" onClick={onAddAddress}><Plus size={17} /> เพิ่มที่อยู่</button>
+        </div>
 
-  return (
-    <Sheet title="Checkout" onClose={onClose}>
-      <div className="wf-checkout">
-        <div className="wf-section-title"><h2>จัดส่งไปที่</h2><button type="button" onClick={onAddAddress}><Plus size={15} /> เพิ่มที่อยู่</button></div>
-        {addresses.length ? (
-          <div className="wf-address-choice">
-            {addresses.map((row) => (
-              <label key={row.id} className={addressId === row.id ? "is-active" : ""}>
-                <input type="radio" name="food-address" checked={addressId === row.id} onChange={() => setAddressId(row.id)} />
-                <span><strong>{row.label}</strong><small>{row.recipient_name} · {row.recipient_phone}</small><p>{row.address}</p>{row.building_name || row.floor || row.room ? <small>{[row.building_name, row.floor ? `ชั้น ${row.floor}` : null, row.room ? `ห้อง ${row.room}` : null].filter(Boolean).join(" · ")}</small> : null}</span>
-              </label>
-            ))}
+        {address ? (
+          <div className="wf-checkout-address">
+            <div className="wf-checkout-address-card">
+              <span className="wf-checkout-address-pin"><MapPin size={17} fill="currentColor" /></span>
+              <div className="wf-checkout-address-copy">
+                <strong>{address.label}</strong>
+                <small>{address.recipient_name} · {address.recipient_phone}</small>
+                <p>{address.address}</p>
+                {address.building_name || address.floor || address.room ? (
+                  <small>{[address.building_name, address.floor ? `ชั้น ${address.floor}` : null, address.room ? `ห้อง ${address.room}` : null].filter(Boolean).join(" · ")}</small>
+                ) : null}
+                {address.delivery_note ? <small className="wf-checkout-address-note">{address.delivery_note}</small> : null}
+              </div>
+              <button className="wf-checkout-address-edit" type="button" onClick={() => onEditAddress(address)}>แก้ไข</button>
+            </div>
+
+            {addresses.length > 1 ? (
+              <button className="wf-checkout-address-change" type="button" onClick={() => setShowAddressPicker((value) => !value)}>
+                {showAddressPicker ? "ซ่อนรายการที่อยู่" : "เปลี่ยนที่อยู่"}
+              </button>
+            ) : null}
+
+            {showAddressPicker ? (
+              <div className="wf-checkout-address-options">
+                {addresses.map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    className={`wf-checkout-address-option${addressId === row.id ? " is-active" : ""}`}
+                    onClick={() => {
+                      setAddressId(row.id);
+                      setShowAddressPicker(false);
+                    }}
+                  >
+                    <span aria-hidden="true" />
+                    <span>
+                      <strong>{row.label}</strong>
+                      <small>{row.recipient_name} · {row.recipient_phone}</small>
+                      <small>{row.address}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : <div className="wf-inline-warning">เพิ่มที่อยู่จัดส่งก่อนสั่งอาหาร</div>}
 
-        <label className="wf-field">หมายเหตุเพิ่มเติม<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น โทรเมื่อถึง" /></label>
-        {canSchedule ? <section className="wf-schedule-order">
-          <div className="wf-section-title"><h2>เวลารับ/จัดส่ง</h2></div>
-          <div className="wf-schedule-choice">
-            <button className={scheduleMode === "asap" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("asap")}><Clock3 size={17} /><span><strong>เร็วที่สุด</strong><small>ร้านเริ่มทำหลังรับออเดอร์</small></span></button>
-            <button className={scheduleMode === "scheduled" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("scheduled")}><CalendarDays size={17} /><span><strong>สั่งล่วงหน้า</strong><small>เลือกวันและเวลา</small></span></button>
-          </div>
-          {scheduleMode === "scheduled" ? <>
-            <label className="wf-field">เลือกวันและเวลา<input type="datetime-local" value={scheduledLocal} onChange={(event) => chooseScheduledLocal(event.target.value)} /></label>
-            <small className="wf-schedule-hint">ต้องล่วงหน้าอย่างน้อย {minNotice} นาที และไม่เกิน {maxDays} วัน</small>
-            {scheduleMode === "scheduled" && scheduleError ? <div className="wf-inline-warning">{scheduleError}</div> : null}
-          </> : null}
-        </section> : null}
+        <label className="wf-field">
+          หมายเหตุเพิ่มเติม
+          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น โทรเมื่อถึง, วางไว้หน้าประตู, ติดต่อก่อนส่ง" />
+        </label>
+
+        {canSchedule ? (
+          <section className="wf-schedule-order">
+            <div className="wf-section-title"><h2>เวลารับ/จัดส่ง</h2></div>
+            <div className="wf-schedule-choice">
+              <button className={scheduleMode === "asap" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("asap")}>
+                <Clock3 size={17} /><span><strong>เร็วที่สุด</strong><small>ร้านเริ่มทำหลังรับออเดอร์</small></span>
+              </button>
+              <button className={scheduleMode === "scheduled" ? "is-active" : ""} type="button" onClick={() => setScheduleMode("scheduled")}>
+                <CalendarDays size={17} /><span><strong>สั่งล่วงหน้า</strong><small>เลือกวันและเวลา</small></span>
+              </button>
+            </div>
+            {scheduleMode === "scheduled" ? <>
+              <label className="wf-field">เลือกวันและเวลา<input type="datetime-local" value={scheduledLocal} onChange={(event) => chooseScheduledLocal(event.target.value)} /></label>
+              <small className="wf-schedule-hint">ต้องล่วงหน้าอย่างน้อย {minNotice} นาที และไม่เกิน {maxDays} วัน</small>
+              {scheduleError ? <div className="wf-inline-warning">{scheduleError}</div> : null}
+            </> : null}
+          </section>
+        ) : null}
 
         <div className="wf-section-title wf-section-title--spaced"><h2>สรุปคำสั่งซื้อ</h2></div>
-        <div className="wf-checkout-items">
+        <div className="wf-checkout-items wf-checkout-items--visual">
           {cart.map((line) => {
             const item = itemFor(menu, line.menu_item_id);
             const optionText = foodCartLineOptionText(line, item);
-            return <div key={foodCartLineKey(line)}><span>{line.quantity}× {item?.name ?? "เมนู"}{optionText ? <small>{optionText}</small> : null}</span><b>{item ? foodMoney(foodCartLineUnitPrice(item, line) * line.quantity) : "—"}</b></div>;
+            const image = item ? foodPublicUrl(client, item.image_path) : null;
+            return (
+              <div className="wf-checkout-item" key={foodCartLineKey(line)}>
+                <div className="wf-checkout-item-left">
+                  <span className="wf-checkout-item-thumb">
+                    {image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={image} alt="" />
+                    ) : <UtensilsCrossed size={20} strokeWidth={1.4} />}
+                  </span>
+                  <span className="wf-checkout-item-qty">{line.quantity}</span>
+                  <span className="wf-checkout-item-copy">
+                    <strong>{item?.name ?? "เมนู"}</strong>
+                    {optionText ? <small>{optionText}</small> : null}
+                    {line.note ? <small>{line.note}</small> : null}
+                  </span>
+                </div>
+                <b>{item ? foodMoney(foodCartLineUnitPrice(item, line) * line.quantity) : "—"}</b>
+              </div>
+            );
           })}
         </div>
+
         <div className="wf-summary">
           <div><span>ค่าอาหาร</span><b>{foodMoney(serverSubtotal)}</b></div>
-          {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "โปร · " + effectiveQuote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
           <div><span>ค่าส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{foodMoney(deliveryFee)}</b></div>
+          {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "โปร · " + effectiveQuote.campaign_name : "ส่วนลดค่าอาหาร"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
           {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
           <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(total)}</b></div>
-          <div><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>
+          <div className="is-eta"><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>
         </div>
+
+        <section className="wf-checkout-payment">
+          <div className="wf-section-title wf-checkout-section-title"><h2>วิธีการชำระเงิน</h2></div>
+          <div className="wf-checkout-payment-card">
+            <span><ReceiptText size={21} /></span>
+            <div>
+              <strong>{paymentLabel}</strong>
+              <small>หลังยืนยันออเดอร์ ระบบจะแสดง QR หรือข้อมูลรับชำระเงินของร้านเพื่อให้คุณชำระและแนบสลิป</small>
+            </div>
+          </div>
+        </section>
+
         {blockedReason ? <div className="wf-inline-warning" role="alert">{blockedReason}</div> : null}
         {effectiveQuote?.campaign_name ? <div className="wf-promo-applied"><strong>แคมเปญ {effectiveQuote.campaign_name}</strong><small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small></div> : null}
         <p className="wf-server-note">ยอดจริงจะถูกตรวจและคำนวณจากระบบอีกครั้งก่อนสร้างออเดอร์</p>
-        <button className="wf-primary wf-full" type="button" disabled={!address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid} onClick={() => { if (address) onSubmit(address, note, scheduleMode === "scheduled" && scheduledDate ? scheduledDate.toISOString() : null); }}>
-          {busy ? "กำลังสร้างออเดอร์…" : quoteLoading ? "กำลังคำนวณค่าส่ง…" : `ยืนยันออเดอร์ · ${foodMoney(total)}`}
-        </button>
       </div>
     </Sheet>
   );
@@ -2879,6 +2958,22 @@ function FoodCustomerInner({
           busy={busy}
           onClose={() => setCheckoutOpen(false)}
           onAddAddress={() => setAddressDraft({ ...EMPTY_ADDRESS, isDefault: addresses.length === 0 })}
+          onEditAddress={(address) => setAddressDraft({
+            id: address.id,
+            label: address.label,
+            recipientName: address.recipient_name,
+            recipientPhone: address.recipient_phone,
+            address: address.address,
+            deliveryNote: address.delivery_note ?? "",
+            placeId: address.place_id ?? null,
+            placeName: address.place_name ?? "",
+            buildingName: address.building_name ?? "",
+            floor: address.floor ?? "",
+            room: address.room ?? "",
+            landmark: address.landmark ?? "",
+            isDefault: address.is_default,
+            location: addressLocation(address),
+          })}
           onSubmit={(address, note, scheduledFor) => void createOrder(address, note, scheduledFor)}
         />
       ) : null}
