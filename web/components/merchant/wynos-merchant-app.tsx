@@ -342,8 +342,12 @@ function MerchantInner({
   const [menu, setMenu] = useState<FoodMenuItem[]>([]);
   const [orders, setOrders] = useState<FoodOrder[]>([]);
   const [ordersHasMore, setOrdersHasMore] = useState(false);
-  const [salesReport, setSalesReport] = useState<MerchantSalesReport | null>(null);
-  const [salesReportError, setSalesReportError] = useState("");
+  const [salesReportState, setSalesReportState] = useState<{
+    storeId: string;
+    revision: number;
+    report: MerchantSalesReport | null;
+    error: string;
+  } | null>(null);
   const [dataRevision, setDataRevision] = useState(0);
   const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
@@ -441,24 +445,36 @@ function MerchantInner({
   }, [load]);
 
   useEffect(() => {
-    if (!store?.id) {
-      setSalesReport(null);
-      setSalesReportError("");
-      return;
-    }
+    if (!store?.id) return;
     let live = true;
-    setSalesReport(null);
-    setSalesReportError("");
-    void fetchMerchantSalesReport(client, store.id)
+    const storeId = store.id;
+    const revision = dataRevision;
+    void fetchMerchantSalesReport(client, storeId)
       .then((next) => {
-        if (live) setSalesReport(next);
+        if (live) setSalesReportState({ storeId, revision, report: next, error: "" });
       })
       .catch((reason) => {
         if (!live) return;
-        setSalesReportError(merchantError(reason, "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่"));
+        setSalesReportState({
+          storeId,
+          revision,
+          report: null,
+          error: merchantError(reason, "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่"),
+        });
       });
     return () => { live = false; };
   }, [client, store?.id, dataRevision]);
+
+  const currentSalesReport = store
+    && salesReportState?.storeId === store.id
+    && salesReportState.revision === dataRevision
+    ? salesReportState.report
+    : null;
+  const currentSalesReportError = store
+    && salesReportState?.storeId === store.id
+    && salesReportState.revision === dataRevision
+    ? salesReportState.error
+    : "";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -676,8 +692,8 @@ function MerchantInner({
             client={client}
             store={store}
             menu={menu}
-            todayOrderCount={salesReport?.today_orders ?? null}
-            todaySales={salesReport?.today_sales ?? null}
+            todayOrderCount={currentSalesReport?.today_orders ?? null}
+            todaySales={currentSalesReport?.today_sales ?? null}
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onReload={() => void load(true)}
@@ -750,7 +766,7 @@ function MerchantInner({
           />
         ) : null}
 
-        {tab === "reports" && store ? <ReportsPanel report={salesReport} error={salesReportError} /> : null}
+        {tab === "reports" && store ? <ReportsPanel report={currentSalesReport} error={currentSalesReportError} /> : null}
 
         {tab === "notifications" && store ? (
           <MerchantNotificationSettings
