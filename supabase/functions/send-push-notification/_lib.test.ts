@@ -736,5 +736,5 @@ Deno.test("unaccepted-order reminders ring in WYNOS Merchant and open the order"
   const reason = "WYNOS Merchant · ออเดอร์ #WF0015 รอรับ 3 นาทีแล้ว";
   assertEquals(pushAppForNotification({ type: "system", reason }), "merchant");
   assertEquals(orderNumberInReason(reason), "WF0015");
-  assertEquals(pushMessageForApp("merchant", reason, "").body, "ออเดอร์ #WF0015 รอรับ 3 นาทีแล้ว");
+  assertEquals(pushMessageForApp("merchant", reason, ""), { title: "ออเดอร์ #WF0015 รอรับ 3 นาทีแล้ว", body: "" });
 });
