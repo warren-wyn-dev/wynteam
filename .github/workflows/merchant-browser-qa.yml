@@ -11,6 +11,18 @@ on:
       - 'supabase/migrations_wynos_merchant_*.sql'
       - 'supabase/tests/wynos_merchant_*.sh'
       - '.github/workflows/merchant-browser-qa.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/app/merchant/**'
+      - 'web/components/merchant/**'
+      - 'web/lib/food-merchant.ts'
+      - 'web/lib/merchant-*.ts'
+      - 'web/tests/browser/wynos-merchant.spec.ts'
+      - 'supabase/migrations_wynos_merchant_*.sql'
+      - 'supabase/tests/wynos_merchant_*.sh'
+      - '.github/workflows/merchant-browser-qa.yml'
 
 permissions:
   contents: read
