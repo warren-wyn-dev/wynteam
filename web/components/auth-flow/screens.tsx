@@ -1026,11 +1026,7 @@ export function ResetPasswordScreen() {
     // Never leave an access token, verifier code or recovery hash in browser
     // history, analytics, or subsequent navigation URLs. Keep only the safe
     // product return destination so Food-only recovery returns to Food.
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `/reset-password?returnTo=${encodeURIComponent(nextReturnTo)}`,
-    );
+    window.history.replaceState(window.history.state, "", "/reset-password");
 
     if (link.kind === "token_hash") {
       // Mail clients and preview bots can GET this page harmlessly. Only a
@@ -1152,7 +1148,10 @@ export function ResetPasswordScreen() {
         {phase === "invalid" ? (
           <>
             <p role="alert" style={{ fontSize: 14, lineHeight: 1.6 }}>ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุ กรุณาขอลิงก์ใหม่</p>
-            <Button className="btn-primary" onClick={() => router.replace(`/forgot-password?returnTo=${encodeURIComponent(returnTo)}`)}>ขอลิงก์ใหม่</Button>
+            <Button
+              className="btn-primary"
+              onClick={() => router.replace(returnTo === "/food/login" ? "/forgot-password?returnTo=%2Ffood%2Flogin" : "/forgot-password")}
+            >ขอลิงก์ใหม่</Button>
           </>
         ) : null}
         {phase === "ready" ? (
