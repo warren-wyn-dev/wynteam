@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
