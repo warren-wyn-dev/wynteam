@@ -445,7 +445,7 @@ function FoodDirectoryStoreRow({
       <span className="wf-home-store-photo">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" />
+          <img src={cover} alt="" loading="lazy" decoding="async" />
         ) : <UtensilsCrossed size={31} strokeWidth={1.4} />}
         {store.is_ad ? <b className="wf-ad-label">โฆษณา</b> : null}
       </span>
@@ -491,7 +491,7 @@ function FoodRecentStoreTile({
       <span>
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" />
+          <img src={cover} alt="" loading="lazy" decoding="async" />
         ) : <UtensilsCrossed size={30} strokeWidth={1.4} />}
       </span>
       <strong>{store.name}</strong>
@@ -733,7 +733,7 @@ function FavoriteStoresSheet({
               <button key={store.id} type="button" onClick={() => onPick(store)}>
                 <span>{logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logo} alt="" />
+                  <img src={logo} alt="" loading="lazy" decoding="async" />
                 ) : <Store size={20} />}</span>
                 <div><strong>{store.name}</strong><small>{store.address || (store.is_open ? "เปิดรับออเดอร์" : "ปิดอยู่")}</small></div>
                 <ChevronRight size={18} />
@@ -762,9 +762,11 @@ function StoreReviewsSection({ client, storeId }: { client: SupabaseClient; stor
 
   useEffect(() => {
     let live = true;
-    void fetchFoodStoreReviewFeed(client, storeId, 20).then((next) => {
-      if (live) setFeed(next);
-    });
+    void fetchFoodStoreReviewFeed(client, storeId, 20)
+      .then((next) => {
+        if (live) setFeed(next);
+      })
+      .catch(() => undefined);
     return () => { live = false; };
   }, [client, storeId]);
 
