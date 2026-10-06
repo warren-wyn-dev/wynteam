@@ -4,16 +4,6 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
-  "กำลังเปิด": "Opening",
-  "อัปเดตออเดอร์ไม่สำเร็จ": "Couldn't refresh orders",
-  "อัปเดตเมนูไม่สำเร็จ": "Couldn't refresh the menu",
-  "จำเป็น": "Required",
-  "เลือก 1": "Choose 1",
-  "เปิดการแจ้งเตือน WYNOS Food": "Turn on WYNOS Food notifications",
-  "เปิดการแจ้งเตือน WYNOS Food อีกครั้ง": "Turn WYNOS Food notifications back on",
-  "บน iPhone/iPad ต้องเพิ่ม WYNOS Food ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้": "On iPhone/iPad, add WYNOS Food to your Home Screen first to receive notifications",
-  "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ เปิดสิทธิ์เพื่อไม่พลาดสถานะออเดอร์และการจัดส่ง": "Notifications are blocked in your browser. Allow them so you don't miss order and delivery updates",
-  "รับสถานะคำสั่งซื้อ การรับออเดอร์ การเตรียมอาหาร และการจัดส่งจาก WYNOS Food": "Get WYNOS Food updates for orders, acceptance, preparation and delivery",
   "WYNOS Maps · ปักหมุดที่อยู่": "WYNOS Maps · Pin an address",
   "ปักหมุดตำแหน่งจัดส่งสำหรับ WYNOS Food": "Pin a delivery location for WYNOS Food",
   "เปิด WYNOS Maps ไม่สำเร็จ": "Couldn’t open WYNOS Maps",
@@ -71,6 +61,9 @@ export const EN_EXACT: Record<string, string> = {
   "กลับ WYNOS Merchant": "Back to WYNOS Merchant",
   "ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS Merchant": "WYNOS Merchant connection is not configured yet",
   "กำลังตรวจสอบบัญชี…": "Checking account…",
+  "กำลังเปิด": "Opening",
+  "อัปเดตออเดอร์ไม่สำเร็จ": "Couldn't update orders",
+  "อัปเดตเมนูไม่สำเร็จ": "Couldn't update the menu",
   "เข้าสู่ระบบ Merchant": "Sign in to Merchant",
   "จัดการร้าน ออเดอร์ เมนู ยอดขาย และการจัดส่งจากบัญชี WYNOS ของคุณ": "Manage your store, orders, menu, sales and deliveries with your WYNOS account",
   "ยังไม่มี Merchant?": "Not a Merchant yet?",
@@ -2552,6 +2545,13 @@ Object.assign(EN_EXACT, {
   "เพิ่มอีก": "Add another",
   "เพื่อถึงยอดขั้นต่ำ": "to reach the minimum",
   "ต้องเลือก": "Required",
+  "จำเป็น": "Required",
+  "เลือก 1": "Choose 1",
+  "เปิดการแจ้งเตือน WYNOS Food": "Turn on WYNOS Food notifications",
+  "เปิดการแจ้งเตือน WYNOS Food อีกครั้ง": "Turn WYNOS Food notifications back on",
+  "บน iPhone/iPad ต้องเพิ่ม WYNOS Food ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้": "On iPhone/iPad, add WYNOS Food to the Home Screen before enabling notifications",
+  "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ เปิดสิทธิ์เพื่อไม่พลาดสถานะออเดอร์และการจัดส่ง": "Browser notifications are blocked. Enable them so you don't miss order and delivery updates",
+  "รับสถานะคำสั่งซื้อ การรับออเดอร์ การเตรียมอาหาร และการจัดส่งจาก WYNOS Food": "Get WYNOS Food updates for order acceptance, preparation and delivery",
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
