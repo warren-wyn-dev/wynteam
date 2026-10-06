@@ -1934,25 +1934,78 @@ function CheckoutSheet({
     }
     setScheduleError("");
   };
+
   const address = addresses.find((row) => row.id === addressId) ?? null;
   const subtotal = cart.reduce((sum, line) => {
     const item = itemFor(menu, line.menu_item_id);
     return sum + (item ? foodCartLineUnitPrice(item, line) * line.quantity : 0);
   }, 0);
-  // WYN-196: re-quote for the chosen address so the fee follows its distance.
+
   const zone = storeHasDeliveryZone(store);
   const location = addressLocation(address);
   const locationKey = location ? `${location.latitude},${location.longitude}` : "";
   const [addressQuote, setAddressQuote] = useState<{ key: string; quote: FoodOrderQuote | null; error: string } | null>(null);
+
   useEffect(() => {
     let live = true;
     const key = `${addressId}|${locationKey}`;
-    const loc = zone && locationKey ? { latitude: Number(locationKey.split(",")[0]), longitude: Number(locationKey.split(",")[1]) } : null;
+    const loc = zone && locationKey
+      ? { latitude: Number(locationKey.split(",")[0]), longitude: Number(locationKey.split(",")[1]) }
+      : null;
     if (!addressId || (zone && !loc)) return () => { live = false; };
     void quoteFoodCustomerOrder(client, store.id, cart, loc)
       .then((next) => { if (live) setAddressQuote({ key, quote: next, error: "" }); })
       .catch((error) => { if (live) setAddressQuote({ key, quote: null, error: foodCustomerError(error) }); });
-    return (
+    return () => { live = false; };
+  }, [addressId, cart, client, locationKey, store.id, zone]);
+
+  const current = addressQuote?.key === `${addressId}|${locationKey}` ? addressQuote : null;
+  const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
+  const effectiveQuote = current?.quote ?? quote;
+  const checkoutQuantityByMenu = new Map<string, number>();
+  for (const line of cart) checkoutQuantityByMenu.set(line.menu_item_id, (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) + line.quantity);
+  const cartUnavailable = cart.some((line) => {
+    const item = itemFor(menu, line.menu_item_id);
+    if (!item || !foodMenuIsEffectivelyAvailable(item) || !foodCartLineOptionsValid(item, line)) return true;
+    const limit = foodMenuQuantityLimit(item);
+    return limit <= 0 || (checkoutQuantityByMenu.get(line.menu_item_id) ?? 0) > limit;
+  });
+
+  const serverSubtotal = Number(effectiveQuote?.subtotal ?? subtotal);
+  const minimum = Number(store.minimum_order ?? 0);
+  const minimumMissing = Math.max(0, minimum - serverSubtotal);
+  const blockedReason = !address
+    ? ""
+    : zone && !location
+      ? "ที่อยู่นี้ยังไม่ได้ปักหมุดตำแหน่ง แก้ไขที่อยู่เพื่อปักหมุดก่อนสั่ง"
+      : cartUnavailable
+        ? "มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณากลับไปปรับตะกร้า"
+        : minimumMissing > 0
+          ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}`
+          : current?.error ?? "";
+  const deliveryFee = Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
+  const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
+  const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
+  const total = effectiveQuote?.total ?? serverSubtotal + deliveryFee;
+  const eta = foodEstimateDeliveryRange(store, effectiveQuote?.delivery_distance_km);
+  const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid;
+  const confirmLabel = busy
+    ? "กำลังสร้างออเดอร์…"
+    : quoteLoading
+      ? "กำลังคำนวณค่าส่ง…"
+      : `ยืนยันออเดอร์ · ${foodMoney(total)}`;
+  const paymentLabel = store.promptpay_id || store.payment_qr_path
+    ? "PromptPay / QR"
+    : store.bank_account_number
+      ? "โอนผ่านธนาคาร"
+      : "ชำระเงินกับร้าน";
+
+  const submitOrder = () => {
+    if (!address) return;
+    onSubmit(address, note, scheduleMode === "scheduled" && scheduledDate ? scheduledDate.toISOString() : null);
+  };
+
+  return (
     <Sheet
       title="Checkout"
       onClose={onClose}
@@ -2061,7 +2114,7 @@ function CheckoutSheet({
                   <span className="wf-checkout-item-copy">
                     <strong>{item?.name ?? "เมนู"}</strong>
                     {optionText ? <small>{optionText}</small> : null}
-                    {line.note ? <small>{line.note}</small> : null}
+                    {line.note ? <small>หมายเหตุ · {line.note}</small> : null}
                   </span>
                 </div>
                 <b>{item ? foodMoney(foodCartLineUnitPrice(item, line) * line.quantity) : "—"}</b>
