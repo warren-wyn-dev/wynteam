@@ -951,6 +951,7 @@ function HomePanel({
   onItem,
   onPickStore,
   onShareStore,
+  onBackStorefront,
   storefrontOpen,
   orders,
   addresses,
@@ -963,6 +964,7 @@ function HomePanel({
   onItem: (item: FoodCustomerMenuItem) => void;
   onPickStore: (store: FoodDirectoryStore, placement: "home" | "search") => void;
   onShareStore: () => void;
+  onBackStorefront: () => void;
   storefrontOpen: boolean;
   orders: FoodCustomerOrder[];
   addresses: FoodCustomerAddress[];
@@ -1063,6 +1065,9 @@ function HomePanel({
   return (
     <>
       <section className="wf-store-hero">
+        <button className="wf-store-back" type="button" aria-label="กลับหน้าหลัก WYNOS Food" onClick={onBackStorefront}>
+          <ArrowLeft size={22} strokeWidth={2} />
+        </button>
         <div className="wf-store-actions">
           <button
             className={`wf-store-favorite ${favorite ? "is-active" : ""}`}
@@ -1125,7 +1130,7 @@ function HomePanel({
       ) : null}
 
       {storeSection === "menu" ? (
-      <section className="wf-store-menu">
+      <section className={`wf-store-menu ${category === "ทั้งหมด" ? "is-all" : "is-category"}`}>
       <div className="wf-menu-filter-bar">
         <button className="wf-menu-search-trigger" type="button" aria-label="ค้นหาเมนูอาหาร" onClick={() => setSearchOpen(true)}>
           <Search size={19} strokeWidth={1.85} />
@@ -2736,28 +2741,23 @@ function FoodCustomerInner({
   }
 
   return (
-    <main className="wyn-food">
-      <FoodHeader
-        cartCount={cartCount}
-        showBack={tab !== "home" || storefrontOpen}
-        homeLocationLabel={homeLocationLabel}
-        onBack={() => {
-          if (tab === "home" && storefrontOpen) {
-            setStorefrontOpen(false);
-            window.scrollTo({ top: 0, behavior: "smooth" });
-            return;
-          }
-          setTab("home");
-        }}
-        onCart={() => setTab("cart")}
-        onLocation={() => setTab("account")}
-        onFavorites={() => setFavoritesOpen(true)}
-        onRefresh={() => void load(true)}
-        refreshing={refreshing}
-      />
+    <main className={`wyn-food${tab === "home" && storefrontOpen ? " wf-storefront-open" : ""}`}>
+      {tab === "home" && storefrontOpen ? null : (
+        <FoodHeader
+          cartCount={cartCount}
+          showBack={tab !== "home"}
+          homeLocationLabel={homeLocationLabel}
+          onBack={() => setTab("home")}
+          onCart={() => setTab("cart")}
+          onLocation={() => setTab("account")}
+          onFavorites={() => setFavoritesOpen(true)}
+          onRefresh={() => void load(true)}
+          refreshing={refreshing}
+        />
+      )}
       {message ? <div className="wf-toast" role="status"><span>{message}</span><button type="button" aria-label="ปิด" onClick={() => setMessage("")}><X size={16} /></button></div> : null}
 
-      <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดต WYNOS Food" />
+      <PullToRefreshIndicator pull={pull} topOffset={tab === "home" && storefrontOpen ? "0px" : "58px"} refreshingLabel="กำลังอัปเดต WYNOS Food" />
       <section className="wf-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
         {tab === "home" ? (
           <HomePanel
@@ -2769,6 +2769,10 @@ function FoodCustomerInner({
             onItem={setSelectedItem}
             onPickStore={pickStore}
             onShareStore={shareStore}
+            onBackStorefront={() => {
+              setStorefrontOpen(false);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             storefrontOpen={storefrontOpen}
             orders={orders}
             addresses={addresses}
