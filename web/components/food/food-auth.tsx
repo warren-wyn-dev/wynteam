@@ -13,7 +13,7 @@ import {
   signUpWithEmail,
 } from "@/lib/auth-repository";
 import { registerCurrentAccount } from "@/lib/account-registry";
-import { GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_SESSION_MESSAGE, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
+import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 
@@ -124,19 +124,18 @@ export function FoodLoginScreen() {
     };
 
     const resumeGoogle = async (
-      handoff?: { accessToken: string; refreshToken: string },
+      handoff?: { code: string },
       finalIfMissing = false,
     ) => {
       if (!mounted || !googlePwaPending.current || checking) return;
       checking = true;
       try {
         if (handoff) {
-          const applied = await client.auth.setSession({
-            access_token: handoff.accessToken,
-            refresh_token: handoff.refreshToken,
-          });
-          if (applied.error || !applied.data.session) {
-            throw applied.error ?? new Error("Google session handoff failed");
+          // The PKCE verifier was created by this client before the popup
+          // opened, so the authorization code must be exchanged here.
+          const exchanged = await client.auth.exchangeCodeForSession(handoff.code);
+          if (exchanged.error || !exchanged.data.session) {
+            throw exchanged.error ?? new Error("Google code exchange failed");
           }
           const verified = await client.auth.getUser();
           if (verified.error || !verified.data.user) {
@@ -185,11 +184,10 @@ export function FoodLoginScreen() {
 
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      if (event.data?.type === GOOGLE_PWA_SESSION_MESSAGE) {
+      if (event.data?.type === GOOGLE_PWA_CODE_MESSAGE) {
         if (googlePwaPopup.current && event.source !== googlePwaPopup.current) return;
-        const accessToken = typeof event.data?.accessToken === "string" ? event.data.accessToken : "";
-        const refreshToken = typeof event.data?.refreshToken === "string" ? event.data.refreshToken : "";
-        if (accessToken && refreshToken) void resumeGoogle({ accessToken, refreshToken }, true);
+        const code = typeof event.data?.code === "string" ? event.data.code : "";
+        if (code) void resumeGoogle({ code }, true);
         return;
       }
       if (event.data?.type === "google-oauth-verified") void resumeGoogle(undefined, true);
