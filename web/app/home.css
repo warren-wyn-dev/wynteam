@@ -954,6 +954,12 @@
     padding-inline: 9px;
   }
 
+  .wyn-home-quick-compose {
+    min-height: 68px;
+    padding: 8px 12px;
+    gap: 10px;
+  }
+
   .wyn-post-actions {
     gap: 22px;
   }
