@@ -34,6 +34,34 @@ test("Merchant data layer uses dedicated Food RPCs, secure evidence storage and 
   expect(data).toContain("withoutLocation(file, contentType)");
 });
 
+test("Merchant launch stays lean and hot realtime paths avoid full snapshot reloads", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const data = read("lib/food-merchant.ts");
+  const css = read("app/merchant/merchant.css");
+
+  expect(app).toContain('import dynamic from "next/dynamic"');
+  for (const modulePath of [
+    "@/components/merchant/merchant-finance",
+    "@/components/merchant/merchant-notification-settings",
+    "@/components/merchant/merchant-core-panels",
+    "@/components/merchant/merchant-campaign-center",
+    "@/components/merchant/merchant-platform-campaigns",
+    "@/components/merchant/merchant-ads",
+    "@/components/food/food-delivery-map-picker",
+  ]) {
+    expect(app).toContain(`import("${modulePath}")`);
+  }
+  expect(app).toContain("requestIdleCallback(warmSecondaryTools");
+  expect(app).toContain("hints?.saveData");
+  expect(app).toContain('hints?.effectiveType === "2g"');
+  expect(app).toContain('document.visibilityState !== "visible"');
+  expect(app).toContain("scheduleOrderRefresh();");
+  expect(app).toContain("fetchMerchantOrdersPage(client, store.id, 0, MERCHANT_ORDER_PAGE_SIZE)");
+  expect(data).toContain("const [accessResult, storesResult] = await Promise.all([");
+  expect(css).toContain("content-visibility: auto");
+  expect(css).toContain("touch-action: manipulation");
+});
+
 test("Merchant reports use complete server-side aggregation in Bangkok time", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
