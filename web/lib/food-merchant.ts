@@ -252,6 +252,17 @@ export async function foodPrivateSignedUrl(client: SupabaseClient, path: string 
   return data.signedUrl;
 }
 
+export async function fetchMerchantMenu(client: SupabaseClient, storeId: string): Promise<FoodMenuItem[]> {
+  const { data, error } = await client
+    .from("food_menu_items")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as FoodMenuItem[];
+}
+
 export async function fetchMerchantOrdersPage(
   client: SupabaseClient,
   storeId: string,
@@ -421,23 +432,16 @@ export async function fetchMerchantSnapshot(
   const store = stores.find((item) => item.id === preferredStoreId) ?? stores[0] ?? null;
   if (!store) return { access: true, stores: [], store: null, menu: [], orders: [], has_more_orders: false };
 
-  const [menuResult, orderPage] = await Promise.all([
-    client
-      .from("food_menu_items")
-      .select("*")
-      .eq("store_id", store.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
+  const [menu, orderPage] = await Promise.all([
+    fetchMerchantMenu(client, store.id),
     fetchMerchantOrdersPage(client, store.id),
   ]);
-
-  if (menuResult.error) throw new Error(menuResult.error.message);
 
   return {
     access: true,
     stores,
     store,
-    menu: (menuResult.data ?? []) as FoodMenuItem[],
+    menu,
     orders: orderPage.orders,
     has_more_orders: orderPage.hasMore,
   };
