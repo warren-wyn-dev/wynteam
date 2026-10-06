@@ -2373,19 +2373,8 @@ function FoodCustomerInner({
         const prior = previous.get(order.id);
         if (prior && prior !== order.status) {
           setMessage(`ออเดอร์ #${order.order_number} · ${foodOrderStatusLabel(order.status)}`);
-          if ("Notification" in window && Notification.permission === "granted") {
-            const options = {
-              body: `#${order.order_number} · ${foodOrderStatusLabel(order.status)}`,
-              icon: "/icons/icon-192.png",
-              badge: "/icons/icon-192.png",
-              tag: `food-order-${order.id}`,
-            };
-            if ("serviceWorker" in navigator) {
-              void navigator.serviceWorker.ready
-                .then((registration) => registration.showNotification("WYNOS Food", options))
-                .catch(() => undefined);
-            }
-          }
+          // The backend already emits a Food-scoped Web Push for order events.
+          // Keep the in-app toast here, but do not show a second local banner.
         }
       }
       previousOrdersRef.current = new Map(next.orders.map((order) => [order.id, order.status]));
