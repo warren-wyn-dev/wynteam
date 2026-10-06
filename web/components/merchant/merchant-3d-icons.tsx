@@ -116,20 +116,20 @@ const SHAPES: Record<MerchantIcon3DName, (p: Paint) => React.ReactNode> = {
   ),
   settings: (p) => (
     <>
-      <path d="M20.6 7.5h6.8l1.2 5.2a14.4 14.4 0 0 1 3.2 1.9l5-1.7 3.4 5.9-3.9 3.6c.2 1 .3 2 .3 3.1s-.1 2.1-.3 3.1l3.9 3.6-3.4 5.9-5-1.7a14.4 14.4 0 0 1-3.2 1.9l-1.2 5.2h-6.8l-1.2-5.2a14.4 14.4 0 0 1-3.2-1.9l-5 1.7-3.4-5.9 3.9-3.6a15.6 15.6 0 0 1 0-6.2l-3.9-3.6 3.4-5.9 5 1.7a14.4 14.4 0 0 1 3.2-1.9z" fill={p.body} />
-      <path d="M21.9 9.5h4.2l1 4.4c1.8.5 3.3 1.4 4.7 2.6l4.2-1.4 2.1 3.6-3.3 3.1c.4 1.7.4 3.4 0 5.1l3.3 3.1-2.1 3.6-4.2-1.4a12 12 0 0 1-4.7 2.6l-1 4.4h-4.2l-1-4.4a12 12 0 0 1-4.7-2.6L12 33.6 9.9 30l3.3-3.1a11 11 0 0 1 0-5.1l-3.3-3.1 2.1-3.6 4.2 1.4a12 12 0 0 1 4.7-2.6z" fill={p.top} />
-      <circle cx="24" cy="24.5" r="7.2" fill={p.dark} fillOpacity=".55" />
-      <circle cx="24" cy="23.4" r="5.1" fill="#f8fbff" />
-      <path d="M17.1 16.2c2.2-2.3 4.7-3.4 7.7-3.4" fill="none" stroke={SHINE} strokeWidth="2" strokeLinecap="round" />
+      <path transform="translate(1.9 25.2) scale(.92)" d="M20.5 -11.5L20.9 -15.2L27.1 -15.2L27.5 -11.5L29.6 -10.6L32.6 -12.9L36.9 -8.6L34.6 -5.6L35.5 -3.5L39.2 -3.1L39.2 3.1L35.5 3.5L34.6 5.6L36.9 8.6L32.6 12.9L29.6 10.6L27.5 11.5L27.1 15.2L20.9 15.2L20.5 11.5L18.4 10.6L15.4 12.9L11.1 8.6L13.4 5.6L12.5 3.5L8.8 3.1L8.8 -3.1L12.5 -3.5L13.4 -5.6L11.1 -8.6L15.4 -12.9L18.4 -10.6z" fill={p.dark} stroke={p.dark} strokeWidth="2.4" strokeLinejoin="round" />
+      <path transform="translate(1.9 22.4) scale(.92)" d="M20.5 -11.5L20.9 -15.2L27.1 -15.2L27.5 -11.5L29.6 -10.6L32.6 -12.9L36.9 -8.6L34.6 -5.6L35.5 -3.5L39.2 -3.1L39.2 3.1L35.5 3.5L34.6 5.6L36.9 8.6L32.6 12.9L29.6 10.6L27.5 11.5L27.1 15.2L20.9 15.2L20.5 11.5L18.4 10.6L15.4 12.9L11.1 8.6L13.4 5.6L12.5 3.5L8.8 3.1L8.8 -3.1L12.5 -3.5L13.4 -5.6L11.1 -8.6L15.4 -12.9L18.4 -10.6z" fill={p.top} stroke={p.top} strokeWidth="2.4" strokeLinejoin="round" />
+      <circle cx="24" cy="22.6" r="6" fill={p.dark} fillOpacity=".5" />
+      <circle cx="24" cy="21.8" r="4.2" fill="#fff" />
+      <path d="M16.4 16.4c1.7-2 3.7-3.2 6.1-3.7" fill="none" stroke={SHINE} strokeWidth="2" strokeLinecap="round" />
     </>
   ),
   help: (p) => (
     <>
-      <path d="M9 11.5a5.5 5.5 0 0 1 5.5-5.5h19A5.5 5.5 0 0 1 39 11.5v18A5.5 5.5 0 0 1 33.5 35H24l-7.4 6.2c-1.3 1.1-3.3.2-3.3-1.5V35A5.4 5.4 0 0 1 9 29.5z" fill={p.body} />
-      <path d="M11 11.5A3.5 3.5 0 0 1 14.5 8h19a3.5 3.5 0 0 1 3.5 3.5v15.7a3.5 3.5 0 0 1-3.5 3.5H22.8l-6.9 5.6v-5.6h-1.4a3.5 3.5 0 0 1-3.5-3.5z" fill={p.top} />
-      <path d="M19.2 18.2c.3-3 2.4-4.9 5.3-4.9 3.1 0 5.3 1.8 5.3 4.5 0 2.1-1.1 3.4-3.3 4.8-1.7 1-2.4 1.8-2.4 3.4" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="24" cy="31" r="1.8" fill="#fff" />
-      <path d="M14.6 11.4h11" stroke={SHINE} strokeWidth="2" strokeLinecap="round" />
+      <path d="M13 12.5h22a5 5 0 0 1 5 5v13a5 5 0 0 1-5 5H23.5l-7 5.5a1.2 1.2 0 0 1-1.9-1V35.5H13a5 5 0 0 1-5-5v-13a5 5 0 0 1 5-5z" fill={p.dark} />
+      <path d="M13 8.5h22a5 5 0 0 1 5 5v13a5 5 0 0 1-5 5H23.5l-7 5.5a1.2 1.2 0 0 1-1.9-1V31.5H13a5 5 0 0 1-5-5v-13a5 5 0 0 1 5-5z" fill={p.top} />
+      <path d="M19.6 16.4c.4-2.6 2.2-4 4.6-4 2.6 0 4.4 1.5 4.4 3.7 0 1.8-1 2.8-2.7 3.9-1.2.8-1.8 1.5-1.8 2.8" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="24" cy="27.2" r="2.1" fill="#fff" />
+      <rect x="11" y="10.4" width="12" height="2" rx="1" fill={SHINE} />
     </>
   ),
   reports: (p) => (
