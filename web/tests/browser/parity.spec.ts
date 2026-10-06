@@ -115,7 +115,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
     // longer calls navigator.share() directly, it calls shareOrCopyLink().
     "shareOrCopyLink", "toggleClubPostLike", "toggleAuthorFollow", "onShare",
   ]) expect(home).toContain(contract);
-  expect(postActions).toContain("<WynosShareIcon size={22} />");
+  expect(postActions).toContain("<WynosShareIcon size={22} strokeWidth={1.6} />");
   // 2026-09-22: comment/repost/save icons moved off the shared WynosIcon
   // iconMap onto dedicated components carrying the Founder-supplied
   // wynos-post-icons set (see components/ui/post-action-icons.tsx).
