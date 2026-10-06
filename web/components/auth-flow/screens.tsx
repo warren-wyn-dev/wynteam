@@ -1023,10 +1023,9 @@ export function ResetPasswordScreen() {
     started.current = true;
     const currentUrl = window.location.href;
     const link = parsePasswordRecoveryLink(currentUrl);
-    const nextReturnTo = passwordRecoveryReturnPath(currentUrl);
     // Never leave an access token, verifier code or recovery hash in browser
-    // history, analytics, or subsequent navigation URLs. Keep only the safe
-    // product return destination so Food-only recovery returns to Food.
+    // history, analytics, or subsequent navigation URLs. The already-sanitized
+    // return destination stays in component state, never in browser history.
     window.history.replaceState(window.history.state, "", "/reset-password");
 
     if (link.kind === "token_hash") {
