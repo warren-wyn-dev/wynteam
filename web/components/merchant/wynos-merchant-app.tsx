@@ -342,6 +342,9 @@ function MerchantInner({
   const [menu, setMenu] = useState<FoodMenuItem[]>([]);
   const [orders, setOrders] = useState<FoodOrder[]>([]);
   const [ordersHasMore, setOrdersHasMore] = useState(false);
+  const [salesReport, setSalesReport] = useState<MerchantSalesReport | null>(null);
+  const [salesReportError, setSalesReportError] = useState("");
+  const [dataRevision, setDataRevision] = useState(0);
   const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -399,6 +402,7 @@ function MerchantInner({
       setMenu(next.menu);
       setOrders(next.orders);
       setOrdersHasMore(next.has_more_orders);
+      setDataRevision((value) => value + 1);
       if (next.store && next.store.id !== selectedStoreId) setSelectedStoreId(next.store.id);
       paymentStatusRef.current = new Map(next.orders.map((order) => [order.id, order.payment_status]));
       const requested = requestedOrderRef.current;
@@ -435,6 +439,26 @@ function MerchantInner({
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (!store?.id) {
+      setSalesReport(null);
+      setSalesReportError("");
+      return;
+    }
+    let live = true;
+    setSalesReport(null);
+    setSalesReportError("");
+    void fetchMerchantSalesReport(client, store.id)
+      .then((next) => {
+        if (live) setSalesReport(next);
+      })
+      .catch((reason) => {
+        if (!live) return;
+        setSalesReportError(merchantError(reason, "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่"));
+      });
+    return () => { live = false; };
+  }, [client, store?.id, dataRevision]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -551,9 +575,6 @@ function MerchantInner({
     }
   };
 
-  const todayOrders = useMemo(() => orders.filter((order) => sameLocalDay(order.created_at)), [orders]);
-  const todayDelivered = useMemo(() => todayOrders.filter((order) => order.status === "delivered"), [todayOrders]);
-  const todaySales = useMemo(() => todayDelivered.reduce((sum, order) => sum + Number(order.total), 0), [todayDelivered]);
   // Every unfinished order counts on the "รับออเดอร์" nav badge.
   const activeOrderCount = useMemo(
     () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length,
@@ -655,8 +676,8 @@ function MerchantInner({
             client={client}
             store={store}
             menu={menu}
-            todayOrders={todayOrders}
-            todaySales={todaySales}
+            todayOrderCount={salesReport?.today_orders ?? null}
+            todaySales={salesReport?.today_sales ?? null}
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onReload={() => void load(true)}
@@ -729,7 +750,7 @@ function MerchantInner({
           />
         ) : null}
 
-        {tab === "reports" && store ? <ReportsPanel client={client} store={store} refreshKey={orders} /> : null}
+        {tab === "reports" && store ? <ReportsPanel report={salesReport} error={salesReportError} /> : null}
 
         {tab === "notifications" && store ? (
           <MerchantNotificationSettings
@@ -923,7 +944,7 @@ function HomePanel({
   client,
   store,
   menu,
-  todayOrders,
+  todayOrderCount,
   todaySales,
   installPrompt,
   onInstall,
@@ -935,8 +956,8 @@ function HomePanel({
   client: SupabaseClient;
   store: FoodStore;
   menu: FoodMenuItem[];
-  todayOrders: FoodOrder[];
-  todaySales: number;
+  todayOrderCount: number | null;
+  todaySales: number | null;
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
   onReload: () => void;
@@ -988,8 +1009,8 @@ function HomePanel({
         </div>
         <button className="wm-hero-sales" type="button" onClick={() => onOpenTab("reports")}>
           <small>ยอดขายวันนี้</small>
-          <strong>{money(todaySales)}</strong>
-          <span>{todayOrders.length} ออเดอร์ <ChevronRight size={14} /></span>
+          <strong>{todaySales == null ? "–" : money(todaySales)}</strong>
+          <span>{todayOrderCount == null ? "…" : todayOrderCount} ออเดอร์ <ChevronRight size={14} /></span>
         </button>
         <button
           className={`wm-open-switch ${store.is_open ? "is-open" : ""}`}
@@ -1463,33 +1484,7 @@ function MenuPanel({
 }
 
 /** WYN-205: quick sales report, aggregated across the complete store history. */
-function ReportsPanel({
-  client,
-  store,
-  refreshKey,
-}: {
-  client: SupabaseClient;
-  store: FoodStore;
-  refreshKey: unknown;
-}) {
-  const [report, setReport] = useState<MerchantSalesReport | null>(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let live = true;
-    setReport(null);
-    setError("");
-    void fetchMerchantSalesReport(client, store.id)
-      .then((next) => {
-        if (live) setReport(next);
-      })
-      .catch((reason) => {
-        if (!live) return;
-        setError(merchantError(reason, "โหลดรายงานไม่สำเร็จ กรุณาลองใหม่"));
-      });
-    return () => { live = false; };
-  }, [client, store.id, refreshKey]);
-
+function ReportsPanel({ report, error }: { report: MerchantSalesReport | null; error: string }) {
   return (
     <>
       <div className="wm-page-heading"><div><small>ภาพรวมร้าน</small><h1>รายงาน</h1></div></div>
