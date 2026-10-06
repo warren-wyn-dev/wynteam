@@ -31,8 +31,6 @@ import {
   Star,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -51,6 +49,11 @@ import {
   sharedFoodStoreId,
 } from "@/lib/food-share";
 import { shareOrCopyLink } from "@/lib/share";
+import {
+  isCurrentDevicePushEnabled,
+  pushReasonDescription,
+  subscribeToPushNotifications,
+} from "@/lib/push-notifications";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   foodEstimateDeliveryRange,
@@ -64,12 +67,17 @@ import {
   createFoodCustomerOrder,
   deleteFoodCustomerAddress,
   fetchFoodCustomerSnapshot,
+  fetchFoodCustomerOrdersPage,
   markFoodOrderFromShare,
   fetchFoodPromptPayQr,
   checkFoodServiceArea,
   checkFoodDeliveryAvailability,
   currentFoodLocation,
+  foodCartLineKey,
+  foodCartLineOptionText,
+  foodCartLineUnitPrice,
   foodCustomerError,
+  foodMenuQuantityLimit,
   foodMoney,
   foodOrderStatusLabel,
   foodPaymentStatusLabel,
@@ -192,7 +200,31 @@ function FoodLoading() {
 }
 
 function FoodDenied() {
-  return <FoodLoading />;
+  return (
+    <main className="wyn-food wf-area">
+      <section className="wf-area-card">
+        <span className="wf-area-icon"><UtensilsCrossed size={30} /></span>
+        <h1>ยังเข้าใช้ WYNOS Food ไม่ได้</h1>
+        <p>บัญชีนี้ยังไม่ผ่านเงื่อนไขการใช้งาน WYNOS Food หรือเซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง</p>
+        <a className="wf-primary" href="/food/login">เข้าสู่ระบบ WYNOS Food</a>
+        <a className="wf-area-home" href="https://wynos.online/">กลับ WYNOS</a>
+      </section>
+    </main>
+  );
+}
+
+function FoodLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <main className="wyn-food wf-area">
+      <section className="wf-area-card" role="alert">
+        <span className="wf-area-icon"><UtensilsCrossed size={30} /></span>
+        <h1>โหลด WYNOS Food ไม่สำเร็จ</h1>
+        <p>{message}</p>
+        <button className="wf-primary" type="button" onClick={onRetry}>ลองใหม่</button>
+        <a className="wf-area-home" href="https://wynos.online/">กลับ WYNOS</a>
+      </section>
+    </main>
+  );
 }
 
 type FoodAreaState = "checking" | "inside" | "outside" | "unknown";
@@ -223,7 +255,7 @@ function FoodServiceAreaIntro({
         </p>
         <button className="wf-primary" type="button" onClick={onUseLocation}><LocateFixed size={18} />ใช้ตำแหน่งปัจจุบัน</button>
         <button className="wf-secondary" type="button" onClick={() => setPicking(true)}><MapPin size={18} />เลือกตำแหน่งบนแผนที่</button>
-        <Link className="wf-area-home" href="/">กลับหน้าหลัก</Link>
+        <a className="wf-area-home" href="https://wynos.online/">กลับหน้าหลัก</a>
       </section>
       {picking ? (
         <FoodDeliveryMapPicker
@@ -2105,8 +2137,8 @@ function FoodCustomerInner({
   userId: string;
   signOut: () => Promise<void>;
 }) {
-  const router = useRouter();
   const [snapshot, setSnapshot] = useState<FoodCustomerSnapshot | null>(null);
+  const [loadError, setLoadError] = useState("");
   // WYN-211: Food is open to everyone, but only customers in Maha Sarakham
   // get past the introduction page (developers skip it, like the server).
   const [area, setArea] = useState<FoodAreaState>("checking");
@@ -2179,7 +2211,7 @@ function FoodCustomerInner({
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(() => typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const loadingRef = useRef(false);
   const previousOrdersRef = useRef<Map<string, string>>(new Map());
@@ -2190,9 +2222,10 @@ function FoodCustomerInner({
     if (quiet) setRefreshing(true);
     try {
       const next = await fetchFoodCustomerSnapshot(client, userId, pickedStoreRef.current || null);
+      setLoadError("");
       if (!next.allowed) {
-        router.replace("/");
-        return null;
+        setSnapshot(next);
+        return next;
       }
 
       const previous = previousOrdersRef.current;
@@ -2232,13 +2265,15 @@ function FoodCustomerInner({
       }
       return next;
     } catch (error) {
-      setMessage(foodCustomerError(error, "โหลด WYNOS Food ไม่สำเร็จ"));
+      const copy = foodCustomerError(error, "โหลด WYNOS Food ไม่สำเร็จ");
+      setLoadError(copy);
+      setMessage(copy);
       return null;
     } finally {
       loadingRef.current = false;
       setRefreshing(false);
     }
-  }, [client, router, userId]);
+  }, [client, userId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -2270,7 +2305,11 @@ function FoodCustomerInner({
   }, [cart, client, snapshot?.store]);
 
   useEffect(() => {
-    localStorage.setItem(`wynos-food-cart-v1:${userId}`, JSON.stringify(cart));
+    try {
+      localStorage.setItem(`wynos-food-cart-v1:${userId}`, JSON.stringify(cart));
+    } catch {
+      // Private/locked-down storage: cart remains available for this session.
+    }
   }, [cart, userId]);
 
   // A saved delivery pin answers without asking for GPS.
@@ -2299,6 +2338,14 @@ function FoodCustomerInner({
     const channel = subscribeFoodCustomerOrders(client, userId, () => void load(true));
     return () => { void client.removeChannel(channel); };
   }, [client, load, snapshot?.allowed, userId]);
+
+  useEffect(() => {
+    let live = true;
+    void isCurrentDevicePushEnabled(client, userId).then((enabled) => {
+      if (live && enabled != null) setNotificationsEnabled(enabled);
+    });
+    return () => { live = false; };
+  }, [client, userId]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -2400,13 +2447,9 @@ function FoodCustomerInner({
   };
 
   const requestNotifications = async () => {
-    if (!("Notification" in window)) {
-      setMessage("อุปกรณ์นี้ไม่รองรับการแจ้งเตือนผ่านเบราว์เซอร์");
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    setNotificationsEnabled(permission === "granted");
-    setMessage(permission === "granted" ? "เปิดการแจ้งเตือนแล้ว" : "ยังไม่ได้อนุญาตการแจ้งเตือน");
+    const result = await subscribeToPushNotifications(client, userId);
+    setNotificationsEnabled(result.ok);
+    setMessage(result.ok ? "เปิดการแจ้งเตือน WYNOS Food แล้ว" : pushReasonDescription(result.reason));
   };
 
   const install = async () => {
@@ -2439,7 +2482,7 @@ function FoodCustomerInner({
   };
   const pull = usePullToRefresh({ enabled: tab === "home" || tab === "orders", onRefresh: async () => { await load(true); } });
 
-  if (!snapshot) return <FoodLoading />;
+  if (!snapshot) return loadError ? <FoodLoadError message={loadError} onRetry={() => { setLoadError(""); void load(); }} /> : <FoodLoading />;
   if (!snapshot.allowed) return <FoodDenied />;
   if (!snapshot.developer && area !== "inside") {
     return (
