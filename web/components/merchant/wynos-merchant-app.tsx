@@ -918,10 +918,13 @@ function MerchantInner({
             }}
             onSoldOut={async (item, soldOut) => {
               try {
-                await setMenuSoldOutToday(client, store.id, item.id, soldOut);
+                const soldOutUntil = await setMenuSoldOutToday(client, store.id, item.id, soldOut);
+                setMenu((current) => current.map((entry) => entry.id === item.id ? { ...entry, sold_out_until: soldOutUntil } : entry));
                 setMessage(soldOut ? "ตั้งเมนูหมดวันนี้แล้ว ระบบจะเปิดให้อัตโนมัติวันถัดไป" : "เปิดเมนูกลับแล้ว");
-                await refreshMenu();
-              } catch (error) { setMessage(merchantError(error)); }
+              } catch (error) {
+                setMessage(merchantError(error));
+                void refreshMenu();
+              }
             }}
             onReorder={async (ids) => {
               try {
