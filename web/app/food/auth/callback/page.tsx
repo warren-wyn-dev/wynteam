@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { registerCurrentAccount } from "@/lib/account-registry";
@@ -79,7 +80,7 @@ export default function FoodGoogleCallbackPage() {
           <div className="wf-auth-state">
             <h1>เข้าสู่ระบบไม่สำเร็จ</h1>
             <p role="alert">{error}</p>
-            <a className="wf-auth-primary wf-auth-link" href="/food/login">กลับไปหน้าเข้าสู่ระบบ</a>
+            <Link className="wf-auth-primary wf-auth-link" href="/food/login">กลับไปหน้าเข้าสู่ระบบ</Link>
           </div>
         ) : (
           <div className="wf-auth-loading">
