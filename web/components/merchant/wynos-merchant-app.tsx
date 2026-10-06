@@ -304,9 +304,33 @@ function PaymentStatus({ order }: { order: FoodOrder }) {
 
 function MerchantLoading() {
   return (
-    <main className="wm-loading" aria-label="กำลังโหลด WYNOS Merchant">
-      <div className="wm-loader" />
-      <strong>WYNOS <b>Merchant</b></strong>
+    <main className="wyn-merchant wm-loading-shell" aria-label="กำลังโหลด WYNOS Merchant" aria-busy="true">
+      <header className="wm-header">
+        <div className="wm-brand"><span>WYNOS</span><b>Merchant</b></div>
+        <span className="wm-mini-loader" aria-hidden="true" />
+      </header>
+      <section className="wm-content">
+        <section className="wm-hero wm-skeleton-hero" aria-hidden="true">
+          <div className="wm-skeleton-line wm-skeleton-line--short" />
+          <div className="wm-skeleton-line wm-skeleton-line--title" />
+          <div className="wm-skeleton-block" />
+          <div className="wm-skeleton-switch" />
+        </section>
+        <div className="wm-skeleton-actions" aria-hidden="true">
+          <i /><i /><i /><i />
+        </div>
+        <section className="wm-section" aria-hidden="true">
+          <div className="wm-skeleton-line wm-skeleton-line--medium" />
+          <div className="wm-skeleton-order" />
+          <div className="wm-skeleton-order" />
+        </section>
+      </section>
+      <nav className="wm-nav wm-nav--loading" aria-hidden="true">
+        <span><MerchantNavIcon name="home" active /><small>หน้าหลัก</small></span>
+        <span><MerchantNavIcon name="orders" active={false} /><small>รับออเดอร์</small></span>
+        <span><MerchantNavIcon name="menu" active={false} /><small>เมนู</small></span>
+        <span><MerchantNavIcon name="more" active={false} /><small>เพิ่มเติม</small></span>
+      </nav>
     </main>
   );
 }
