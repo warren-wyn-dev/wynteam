@@ -450,11 +450,17 @@ export function pushMessageForApp(
     const split = splitPushMessage(message, actorName);
     return split.title === "WYN" ? { title: PUSH_APP_TITLES.social, body: split.body } : split;
   }
-  // The title already names the app; drop the "WYNOS Merchant · " prefix.
-  const body = message.startsWith(MERCHANT_REASON_PREFIX)
+  const content = message.startsWith(MERCHANT_REASON_PREFIX)
     ? message.slice(MERCHANT_REASON_PREFIX.length)
     : message;
-  return { title: PUSH_APP_TITLES[app], body };
+  if (app === "merchant") {
+    // iOS Home Screen Web Push already identifies the installed web app and
+    // adds its own "from <app name>" attribution. Put the useful Merchant
+    // event in the notification title so that attribution is never left as
+    // the only prominent line under the app header.
+    return { title: content, body: "" };
+  }
+  return { title: PUSH_APP_TITLES[app], body: content };
 }
 
 type AppToken = { app?: string | null };
