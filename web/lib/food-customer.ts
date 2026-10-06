@@ -232,6 +232,23 @@ export function addressLocation(address: Pick<FoodCustomerAddress, "latitude" | 
   return { latitude: Number(address.latitude), longitude: Number(address.longitude) };
 }
 
+export function foodCustomerAddressStructuredComplete(
+  address: Pick<
+    FoodCustomerAddress,
+    "address" | "address_line1" | "subdistrict" | "district" | "province" | "postal_code"
+  > | null | undefined,
+) {
+  if (!address) return false;
+  const line1 = address.address_line1?.trim() || address.address.trim();
+  return Boolean(
+    line1
+      && address.subdistrict?.trim()
+      && address.district?.trim()
+      && address.province?.trim()
+      && /^\d{5}$/.test(address.postal_code?.trim() ?? ""),
+  );
+}
+
 export function storeHasDeliveryZone(store: Pick<FoodCustomerStore, "latitude" | "longitude"> | null | undefined) {
   return store?.latitude != null && store?.longitude != null;
 }
