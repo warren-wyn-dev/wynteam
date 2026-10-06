@@ -1,6 +1,6 @@
 # Bug Report — WYN-218 — WYNOS Food production-readiness QA (food.wynos.online)
 
-Status: bugs
+Status: review — Bugs 1–3 fixed on branch `qa/wyn-218-food-readiness`; migration not applied to production yet
 Owner: AI Debug Engineer
 Reported by: AI QA & Security, 2026-10-06
 Founder: "QA ทั้งระบบ หาบั๊คให้หน่อย พร้อมเปิดใช้งานจริงได้ยัง"
@@ -51,6 +51,26 @@ Bug: `proxy.ts` only rewrites `/` on `food.wynos.online`. Every Social route (`/
 - Live pages (mobile and desktop): `/` redirects to `/food/login` and `/merchant` to `/merchant/login`, with no JS console errors and no horizontal overflow. Share link `/s/4qdyvv` returns correct OG tags. HSTS, X-Frame-Options DENY and nosniff are set.
 - Not tested on production: signed-in flows (order, payment, delivery), because that needs a test account and real orders on a live store. They need a Founder-approved test account or staging.
 
-Files Changed: none (QA only)
-Regression Risk (fixes): Bug 1 touches the pricing RPCs, so re-run the campaign, delivery-zone and service-area tests.
-Handoff to QA: yes, after the fixes
+## Fix (Founder: "แก้ไขให้หน่อย", 2026-10-06)
+
+- Bugs 1–3: `supabase/migrations_wynos_food_order_options_v1.sql`
+  - `internal.food_resolve_menu_options` checks each `{group_id, choice_id}` against `food_menu_items.options`. It rejects an unknown or duplicate choice, a missing required group and going over `max_select` (same rules as `foodCartLineOptionsValid`). It returns names and prices from the menu.
+  - `food_quote_order` / `food_create_order` (based on `migrations_wynos_food_delivery_zone_v1.sql`) charge `price + option surcharge`. Each order line is priced once and inserted as priced.
+  - `food_create_order` allows 5 orders per buyer per 10 minutes and 3 `pending_acceptance` orders per buyer per store, with a per-buyer advisory lock. Developer accounts are exempt. `food_create_scheduled_order` goes through it too. The limits are QA's defaults; the Founder can change them.
+  - `food_submit_payment` only accepts a slip while `payment_status in ('pending','issue')`, the same rule as `canPay` in the UI.
+- Merchant app: order detail and print show the picked options (`orderItemOptionText`).
+- Customer app: Thai and English messages for the new errors.
+- Apply: `.github/workflows/food-apply-wyn218.yml` (manual dispatch on main, `APPLY-WYN-218`, after Founder approval).
+- Rollback: re-run the previous RPC definitions (named in the migration header) and drop the helper.
+- Bugs 4–6 (LOW): not changed. They need a Founder decision on product and risk.
+
+Files Changed: the migration, `supabase/tests/wynos_food_order_options_test.sh`, the workflow, `web/lib/food-customer.ts`, `web/lib/food-merchant.ts`, `web/components/merchant/wynos-merchant-app.tsx`, `web/lib/i18n/en.ts`
+Tests:
+- New DB test: 29 checks pass.
+- All 24 Food/Merchant/Maps DB tests pass.
+- `tsc` passes, eslint is clean, unit tests pass 50/50.
+- The Food/Merchant browser specs show the same 9 failures before and after the change; those tests need a running server.
+Regression Risk: medium. The pricing RPCs changed:
+- a cart holding a choice that the store has since removed is refused with "ตัวเลือกของเมนูเปลี่ยนแปลงแล้ว";
+- a 6th order within 10 minutes is refused.
+Handoff to QA: yes. QA again after apply, with a test account on production or staging.
