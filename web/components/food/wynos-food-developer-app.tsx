@@ -976,7 +976,7 @@ function HomePanel({
   const [searchOpen, setSearchOpen] = useState(false);
   const [storeSection, setStoreSection] = useState<"menu" | "reviews" | "info">("menu");
   const [campaigns, setCampaigns] = useState<string[]>([]);
-  const [reviewSummary, setReviewSummary] = useState({ average: 0, count: 0 });
+  const [reviewSummary, setReviewSummary] = useState<{ storeId: string | null; average: number; count: number }>({ storeId: null, average: 0, count: 0 });
   const storeId = store?.id ?? null;
   const favoriteKey = `wynos-food-favorite-stores-v1:${userId}`;
   const [favorite, setFavorite] = useState(() => {
@@ -991,17 +991,12 @@ function HomePanel({
 
   // WYN-206: show the WYNOS campaigns this store joined.
   useEffect(() => {
-    if (!storeId) {
-      setCampaigns([]);
-      setReviewSummary({ average: 0, count: 0 });
-      return;
-    }
+    if (!storeId) return;
     let live = true;
-    setReviewSummary({ average: 0, count: 0 });
     void fetchStorePlatformCampaigns(client, storeId).then((names) => { if (live) setCampaigns(names); });
     void fetchFoodStoreReviewFeed(client, storeId, 1)
       .then((feed) => {
-        if (live) setReviewSummary({ average: feed.average, count: feed.count });
+        if (live) setReviewSummary({ storeId, average: feed.average, count: feed.count });
       })
       .catch(() => undefined);
     return () => { live = false; };
@@ -1115,7 +1110,7 @@ function HomePanel({
             ) : null}
             {store.description ? <p>{store.description}</p> : null}
             <div className="wf-store-meta">
-              {reviewSummary.count > 0 ? (
+              {reviewSummary.storeId === store.id && reviewSummary.count > 0 ? (
                 <span className="wf-store-rating-summary">
                   <Star size={14} fill="currentColor" />
                   <strong>{reviewSummary.average.toFixed(1)}</strong>
