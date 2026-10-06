@@ -433,7 +433,8 @@ test("WYN-211 WYNOS Food is open to everyone; ordering only in Maha Sarakham", (
   // Public rollout switch, and the client follows the server's access rule.
   expect(sql).toContain("update public.food_rollout_settings set public_enabled = true where id = true;");
   expect(lib).toContain('client.rpc("food_customer_access_enabled")');
-  expect(lib).toContain("if (!developer && (access.error || access.data !== true)) {");
+  expect(lib).toContain("if (!developer && access.error) throw new Error(access.error.message);");
+  expect(lib).toContain("if (!developer && access.data !== true) {");
   // Server: store pin and delivery pin must be inside the province (developers exempt).
   expect(sql).toContain("raise exception 'store is outside the service area';");
   expect(sql).toContain("raise exception 'outside service area';");
