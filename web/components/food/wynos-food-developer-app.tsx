@@ -76,6 +76,7 @@ import {
   currentFoodLocation,
   foodCartLineKey,
   foodCartLineOptionText,
+  foodCartLineOptionsValid,
   foodCartLineUnitPrice,
   foodCustomerError,
   foodMenuQuantityLimit,
@@ -1206,13 +1207,14 @@ function CartPanel({
     const item = itemFor(menu, line.menu_item_id);
     return { line, item, key: foodCartLineKey(line), unitPrice: item ? foodCartLineUnitPrice(item, line) : 0 };
   });
-  const subtotal = priced.reduce((sum, row) => sum + row.unitPrice * row.line.quantity, 0);
-  const delivery = Number(store?.delivery_fee ?? 0);
+  const clientSubtotal = priced.reduce((sum, row) => sum + row.unitPrice * row.line.quantity, 0);
+  const subtotal = Number(quote?.subtotal ?? clientSubtotal);
+  const delivery = Number(quote?.delivery_fee ?? store?.delivery_fee ?? 0);
   const campaignDiscount = Number(quote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(quote?.delivery_discount ?? 0);
   const total = quote?.total ?? subtotal + delivery;
   const hasUnavailable = priced.some((row) => {
-    if (!row.item || !foodMenuIsEffectivelyAvailable(row.item)) return true;
+    if (!row.item || !foodMenuIsEffectivelyAvailable(row.item) || !foodCartLineOptionsValid(row.item, row.line)) return true;
     const limit = foodMenuQuantityLimit(row.item);
     return limit <= 0 || row.line.quantity > limit;
   });
@@ -1252,7 +1254,7 @@ function CartPanel({
             {priced.map(({ line, item, key, unitPrice }) => {
               const limit = item ? foodMenuQuantityLimit(item) : 0;
               const unavailable = !item || !foodMenuIsEffectivelyAvailable(item) || limit <= 0 || line.quantity > limit;
-              const optionText = foodCartLineOptionText(line);
+              const optionText = foodCartLineOptionText(line, item);
               return (
                 <article key={key} className={`wf-cart-row ${unavailable ? "is-off" : ""}`}>
                   <div className="wf-cart-copy">
@@ -1277,7 +1279,7 @@ function CartPanel({
           </div>
 
           <div className="wf-summary">
-            <div><span>ค่าอาหาร</span><b>{foodMoney(subtotal)}</b></div>
+            <div><span>ค่าอาหาร</span><b>{foodMoney(serverSubtotal)}</b></div>
             {campaignDiscount > 0 ? <div className="is-discount"><span>{quote?.campaign_name ? "โปร · " + quote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
             <div><span>ค่าส่ง</span><b>{foodMoney(delivery)}</b></div>
             {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
@@ -1841,12 +1843,13 @@ function CheckoutSheet({
   const effectiveQuote = current?.quote ?? quote;
   const cartUnavailable = cart.some((line) => {
     const item = itemFor(menu, line.menu_item_id);
-    if (!item || !foodMenuIsEffectivelyAvailable(item)) return true;
+    if (!item || !foodMenuIsEffectivelyAvailable(item) || !foodCartLineOptionsValid(item, line)) return true;
     const limit = foodMenuQuantityLimit(item);
     return limit <= 0 || line.quantity > limit;
   });
+  const serverSubtotal = Number(effectiveQuote?.subtotal ?? subtotal);
   const minimum = Number(store.minimum_order ?? 0);
-  const minimumMissing = Math.max(0, minimum - subtotal);
+  const minimumMissing = Math.max(0, minimum - serverSubtotal);
   const blockedReason = !address
     ? ""
     : zone && !location
@@ -1859,7 +1862,7 @@ function CheckoutSheet({
   const deliveryFee = Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
   const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
-  const total = effectiveQuote?.total ?? subtotal + deliveryFee;
+  const total = effectiveQuote?.total ?? serverSubtotal + deliveryFee;
   const eta = foodEstimateDeliveryRange(store, effectiveQuote?.delivery_distance_km);
 
   return (
@@ -1895,7 +1898,7 @@ function CheckoutSheet({
         <div className="wf-checkout-items">
           {cart.map((line) => {
             const item = itemFor(menu, line.menu_item_id);
-            const optionText = foodCartLineOptionText(line);
+            const optionText = foodCartLineOptionText(line, item);
             return <div key={foodCartLineKey(line)}><span>{line.quantity}× {item?.name ?? "เมนู"}{optionText ? <small>{optionText}</small> : null}</span><b>{item ? foodMoney(foodCartLineUnitPrice(item, line) * line.quantity) : "—"}</b></div>;
           })}
         </div>
