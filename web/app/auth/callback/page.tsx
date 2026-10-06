@@ -58,13 +58,18 @@ export default function EmailConfirmationCallbackPage() {
         // messaging the opener, or recording any subsequent app interaction.
         window.history.replaceState(null, "", "/auth/callback");
         if (consumeGooglePwaPopupMarker()) {
-          let destination = "/";
-          try {
-            const existingProfile = await hasProfileRow(client, confirmed.data.user.id);
-            destination = existingProfile ? "/" : "/signup/step-1";
-          } catch {
-            // Google authentication already succeeded; an unrelated profile
-            // lookup outage must not send the user back through OAuth again.
+          const safeProductDestination = requestedNext && isSafeReturnPath(requestedNext)
+            ? requestedNext
+            : null;
+          let destination = safeProductDestination ?? "/";
+          if (!safeProductDestination) {
+            try {
+              const existingProfile = await hasProfileRow(client, confirmed.data.user.id);
+              destination = existingProfile ? "/" : "/signup/step-1";
+            } catch {
+              // Google authentication already succeeded; an unrelated profile
+              // lookup outage must not send the user back through OAuth again.
+            }
           }
           announceGooglePwaCompletion();
           // A script-opened window may close itself; if iOS declines, the
