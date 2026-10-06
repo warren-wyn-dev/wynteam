@@ -1253,7 +1253,7 @@ function CartPanel({
           <div className="wf-cart-list">
             {priced.map(({ line, item, key, unitPrice }) => {
               const limit = item ? foodMenuQuantityLimit(item) : 0;
-              const unavailable = !item || !foodMenuIsEffectivelyAvailable(item) || limit <= 0 || line.quantity > limit;
+              const unavailable = !item || !foodMenuIsEffectivelyAvailable(item) || !foodCartLineOptionsValid(item, line) || limit <= 0 || line.quantity > limit;
               const optionText = foodCartLineOptionText(line, item);
               return (
                 <article key={key} className={`wf-cart-row ${unavailable ? "is-off" : ""}`}>
@@ -1262,7 +1262,7 @@ function CartPanel({
                     {optionText ? <small>{optionText}</small> : null}
                     {line.note ? <small>หมายเหตุ · {line.note}</small> : null}
                     <b>{item ? foodMoney(unitPrice * line.quantity) : "—"}</b>
-                    {unavailable ? <em>{limit <= 0 ? "เมนูนี้ขายครบสำหรับวันนี้แล้ว" : "จำนวนหรือสถานะเมนูเปลี่ยนไป กรุณาปรับตะกร้า"}</em> : null}
+                    {unavailable ? <em>{limit <= 0 ? "เมนูนี้ขายครบสำหรับวันนี้แล้ว" : item && !foodCartLineOptionsValid(item, line) ? "ตัวเลือกเมนูเปลี่ยนแล้ว กรุณาเลือกใหม่" : "จำนวนหรือสถานะเมนูเปลี่ยนไป กรุณาปรับตะกร้า"}</em> : null}
                   </div>
                   <div className="wf-qty">
                     <button type="button" aria-label="ลดจำนวน" onClick={() => changeQuantity(key, -1)}>
@@ -1279,7 +1279,7 @@ function CartPanel({
           </div>
 
           <div className="wf-summary">
-            <div><span>ค่าอาหาร</span><b>{foodMoney(serverSubtotal)}</b></div>
+            <div><span>ค่าอาหาร</span><b>{foodMoney(subtotal)}</b></div>
             {campaignDiscount > 0 ? <div className="is-discount"><span>{quote?.campaign_name ? "โปร · " + quote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
             <div><span>ค่าส่ง</span><b>{foodMoney(delivery)}</b></div>
             {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
@@ -1903,7 +1903,7 @@ function CheckoutSheet({
           })}
         </div>
         <div className="wf-summary">
-          <div><span>ค่าอาหาร</span><b>{foodMoney(subtotal)}</b></div>
+          <div><span>ค่าอาหาร</span><b>{foodMoney(serverSubtotal)}</b></div>
           {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "โปร · " + effectiveQuote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
           <div><span>ค่าส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{foodMoney(deliveryFee)}</b></div>
           {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
