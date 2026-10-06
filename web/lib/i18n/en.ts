@@ -875,6 +875,7 @@ export const EN_EXACT: Record<string, string> = {
   "เข้าร่วมแล้ว": "Joined",
   "เข้าสู่ระบบ": "Sign in",
   "เข้าสู่ระบบด้วย Google": "Sign in with Google",
+  "หรือ": "or",
   "เข้าสู่ระบบด้วย Google ไม่สำเร็จ": "Couldn't sign in with Google",
   "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่": "Couldn't sign in with Google. Please try again",
   "เข้าสู่ระบบบัญชีอื่น": "Sign in to another account",
