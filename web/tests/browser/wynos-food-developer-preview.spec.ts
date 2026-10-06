@@ -508,3 +508,25 @@ test("WYNOS Food menu search shows popular, recent and compact result rows", () 
   expect(en).toContain('"คำค้นหาล่าสุด": "Recent searches"');
 });
 
+
+
+test("Food customer options, stock, push and pagination are wired end-to-end", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const data = read("lib/food-customer.ts");
+  const push = read("lib/push-notifications.ts");
+  const sql = read("../supabase/migrations_wynos_food_customer_stock_v1.sql");
+
+  expect(data).toContain("selected_options: line.selected_options ?? []");
+  expect(data).toContain("foodCartLineKey");
+  expect(data).toContain("foodCartLineUnitPrice");
+  expect(data).toContain("food_menu_stock_remaining");
+  expect(data).toContain("fetchFoodCustomerOrdersPage");
+  expect(app).toContain("subscribeToPushNotifications(client, userId)");
+  expect(app).toContain("foodMenuQuantityLimit");
+  expect(app).toContain("เพิ่มอีก");
+  expect(app).toContain("ร้านปิดในวันหรือเวลาที่เลือก");
+  expect(app).toContain("ดูคำสั่งซื้อเก่ากว่านี้");
+  expect(push).toContain("|food)");
+  expect(sql).toContain("create or replace function public.food_menu_stock_remaining");
+  expect(sql).toContain("revoke all on function public.food_menu_stock_remaining(uuid) from public, anon");
+});
