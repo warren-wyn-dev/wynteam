@@ -2,7 +2,9 @@
 
 import { Check, LockKeyhole, Mail, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+
+import { GoogleGlyph } from "@/components/auth-flow/screens";
 
 import {
   EmailAlreadyRegisteredError,
@@ -11,6 +13,7 @@ import {
   signUpWithEmail,
 } from "@/lib/auth-repository";
 import { registerCurrentAccount } from "@/lib/account-registry";
+import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 
@@ -41,7 +44,9 @@ export function FoodLoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const googlePwaPending = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -59,8 +64,90 @@ export function FoodLoginScreen() {
     return () => { mounted = false; };
   }, [client]);
 
+  useEffect(() => {
+    if (!client || !isInstalledIosWebApp()) return;
+    let mounted = true;
+    let checking = false;
+
+    const resumeGoogle = async () => {
+      if (!mounted || !googlePwaPending.current || checking) return;
+      checking = true;
+      try {
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const { data, error } = await client.auth.getSession();
+          if (!mounted) return;
+          if (!error && data.session) {
+            googlePwaPending.current = false;
+            await registerCurrentAccount(client).catch(() => false);
+            window.location.replace("/food");
+            return;
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 350));
+        }
+        if (mounted) {
+          googlePwaPending.current = false;
+          setMessage("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณากลับมาที่แอปแล้วลองใหม่");
+          setGoogleLoading(false);
+        }
+      } catch {
+        if (mounted) {
+          googlePwaPending.current = false;
+          setMessage("ตรวจสอบการเข้าสู่ระบบ Google ไม่สำเร็จ กรุณาลองใหม่");
+          setGoogleLoading(false);
+        }
+      } finally {
+        checking = false;
+      }
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin === window.location.origin && event.data?.type === "google-oauth-verified") void resumeGoogle();
+    };
+    const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(GOOGLE_PWA_COMPLETED_CHANNEL) : null;
+    if (channel) channel.onmessage = (event) => {
+      if (event.data?.type === "google-oauth-verified") void resumeGoogle();
+    };
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void resumeGoogle();
+    };
+
+    window.addEventListener("message", onMessage);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      mounted = false;
+      channel?.close();
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [client]);
+
+  async function google() {
+    if (!client || loading || googleLoading) {
+      if (!client) setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS Food");
+      return;
+    }
+    setMessage("");
+    setGoogleLoading(true);
+    try {
+      const callback = new URL("/auth/callback", window.location.origin);
+      callback.searchParams.set("next", "/food");
+      const result = await startGoogleOAuth(client, callback.href);
+      if (!result.started) {
+        setMessage(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
+        setGoogleLoading(false);
+      } else if (isInstalledIosWebApp()) {
+        googlePwaPending.current = true;
+      }
+    } catch {
+      setMessage("เปิด Google ไม่สำเร็จ กรุณาลองใหม่");
+      setGoogleLoading(false);
+    }
+  }
+
   async function submit() {
-    if (loading) return;
+    if (loading || googleLoading) return;
     setMessage("");
     const normalized = email.trim();
     if (!normalized || !password) {
@@ -99,12 +186,17 @@ export function FoodLoginScreen() {
         <h1>เข้าสู่ระบบ WYNOS Food</h1>
         <p>สั่งอาหารและติดตามออเดอร์ด้วย WYNOS Account ของคุณ</p>
       </div>
+      <button className="wf-auth-google" type="button" disabled={loading || googleLoading} onClick={() => void google()}>
+        {googleLoading ? <span className="wf-mini-loader" aria-hidden="true" /> : <GoogleGlyph />}
+        {googleLoading ? "กำลังเชื่อมต่อ Google…" : "เข้าสู่ระบบด้วย Google"}
+      </button>
+      <div className="wf-auth-divider" aria-hidden="true"><span>หรือ</span></div>
       <div className="wf-auth-form">
         <label><span><Mail size={16} /> อีเมล</span><input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
         <label><span><LockKeyhole size={16} /> รหัสผ่าน</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" /></label>
         <div className="wf-auth-inline"><Link href="/forgot-password?returnTo=%2Ffood%2Flogin">ลืมรหัสผ่าน?</Link></div>
         {message ? <p className="wf-auth-error" role="alert">{message}</p> : null}
-        <button className="wf-auth-primary" type="button" disabled={loading} onClick={() => void submit()}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
+        <button className="wf-auth-primary" type="button" disabled={loading || googleLoading} onClick={() => void submit()}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
       </div>
       <p className="wf-auth-switch">ยังไม่มีบัญชี? <Link href="/food/signup">สมัคร WYNOS Food</Link></p>
       <div className="wf-auth-note">
