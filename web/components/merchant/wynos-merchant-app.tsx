@@ -57,6 +57,7 @@ import {
   deleteStorePlace,
   fetchStorePlaces,
   fetchMerchantSnapshot,
+  fetchMerchantMenu,
   fetchMerchantOrdersPage,
   fetchMerchantSalesReport,
   fetchMerchantStoreReadiness,
@@ -542,6 +543,15 @@ function MerchantInner({
     }, 80);
   }, [refreshOrders]);
 
+  const refreshMenu = useCallback(async () => {
+    if (!store?.id) return;
+    try {
+      setMenu(await fetchMerchantMenu(client, store.id));
+    } catch (error) {
+      setMessage(merchantError(error, "อัปเดตเมนูไม่สำเร็จ"));
+    }
+  }, [client, store]);
+
   useEffect(() => {
     if (!selectedStoreId || typeof window === "undefined") return;
     window.localStorage.setItem(MERCHANT_STORE_KEY, selectedStoreId);
@@ -882,18 +892,18 @@ function MerchantInner({
             onToggle={async (item) => {
               try {
                 await setMenuAvailability(client, store.id, item.id, !item.is_available);
-                await load(true);
+                await refreshMenu();
               } catch (error) { setMessage(merchantError(error)); }
             }}
             onSoldOut={async (item, soldOut) => {
               try {
                 await setMenuSoldOutToday(client, store.id, item.id, soldOut);
                 setMessage(soldOut ? "ตั้งเมนูหมดวันนี้แล้ว ระบบจะเปิดให้อัตโนมัติวันถัดไป" : "เปิดเมนูกลับแล้ว");
-                await load(true);
+                await refreshMenu();
               } catch (error) { setMessage(merchantError(error)); }
             }}
             onReorder={async (ids) => {
-              try { await saveMenuSortOrder(client, store.id, ids); await load(true); }
+              try { await saveMenuSortOrder(client, store.id, ids); await refreshMenu(); }
               catch (error) { setMessage(merchantError(error)); }
             }}
             onCategoryOrder={async (categories) => {
@@ -1069,7 +1079,7 @@ function MerchantInner({
           store={store}
           draft={menuDraft}
           onClose={() => setMenuDraft(null)}
-          onSaved={async () => { setMenuDraft(null); await load(true); }}
+          onSaved={async () => { setMenuDraft(null); await refreshMenu(); }}
           onMessage={setMessage}
         />
       ) : null}
