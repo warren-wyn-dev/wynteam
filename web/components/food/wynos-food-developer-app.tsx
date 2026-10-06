@@ -1669,7 +1669,6 @@ function ItemSheet({
                 onChange={(event) => setNote(event.target.value)}
                 placeholder="เช่น ไม่ใส่ผัก, ไม่เผ็ด"
               />
-              <small className="wf-note-helper">ร้านอาจไม่สามารถทำตามคำขอได้ทุกกรณี</small>
             </label>
           </div>
         </div>
