@@ -2692,6 +2692,7 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["เหลือ {0} ขั้น", "{0} steps left"],
   ["เตรียมร้านให้พร้อมขาย ({0}/{1})", "Get your store ready to sell ({0}/{1})"],
   ["เหตุผล: {0}", "Reason: {0}"],
+  ["หมายเหตุ: {0}", "Note: {0}"],
   ["มีอีก {0} ออเดอร์รออยู่", "{0} more orders waiting"],
   ["รับออเดอร์ #{0} แล้ว", "Order #{0} accepted"],
   ["ออเดอร์ #{0} อาหารพร้อมแล้ว", "Order #{0} is ready"],
