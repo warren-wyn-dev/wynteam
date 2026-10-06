@@ -836,7 +836,7 @@ function MenuSearchSheet({
   });
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const popular = useMemo(
-    () => menu.filter((item) => foodMenuIsEffectivelyAvailable(item)).slice(0, 4),
+    () => menu.filter((item) => foodMenuIsEffectivelyAvailable(item) && foodMenuQuantityLimit(item) > 0).slice(0, 4),
     [menu],
   );
   const results = useMemo(() => {
@@ -1145,14 +1145,16 @@ function HomePanel({
       {visible.length ? (
         <div className="wf-menu-list">
           {visible.map((item) => {
-            const available = foodMenuIsEffectivelyAvailable(item);
+            const available = foodMenuIsEffectivelyAvailable(item) && foodMenuQuantityLimit(item) > 0;
             return (
             <button key={item.id} type="button" className={`wf-menu-row ${available ? "" : "is-off"}`} onClick={() => onItem(item)}>
               <MenuImage client={client} item={item} />
               <span className="wf-menu-copy">
                 <strong>{item.name}</strong>
                 {item.description ? <small>{item.description}</small> : <small>{item.category}</small>}
-                {item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
+                {item.remaining_stock != null
+                  ? <small>เหลือ {Math.max(0, item.remaining_stock)} ชิ้นวันนี้</small>
+                  : item.daily_stock_limit ? <small>จำนวนจำกัด · สูงสุด {item.daily_stock_limit} ชิ้น/วัน</small> : null}
                 <b>{foodMoney(item.price)}</b>
               </span>
               <span className={available ? "wf-add" : "wf-soldout"}>
@@ -1300,10 +1302,16 @@ function CartPanel({
 function OrdersPanel({
   orders,
   reviewedOrderIds,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   onOrder,
 }: {
   orders: FoodCustomerOrder[];
   reviewedOrderIds: Set<string>;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
   onOrder: (order: FoodCustomerOrder) => void;
 }) {
   const active = orders.filter((order) => !["delivered", "cancelled"].includes(order.status));
@@ -1318,6 +1326,7 @@ function OrdersPanel({
       )}
       <div className="wf-section-title wf-section-title--spaced"><h2>ประวัติ</h2><small>{history.length}</small></div>
       {history.length ? <div className="wf-order-list">{history.map((order) => <OrderCard key={order.id} order={order} reviewPending={order.status === "delivered" && !reviewedOrderIds.has(order.id)} onOpen={() => onOrder(order)} />)}</div> : null}
+      {hasMore ? <button className="wf-secondary wf-full wf-load-more" type="button" disabled={loadingMore} onClick={onLoadMore}>{loadingMore ? "กำลังโหลด…" : "ดูคำสั่งซื้อเก่ากว่านี้"}</button> : null}
     </>
   );
 }
@@ -1792,10 +1801,15 @@ function CheckoutSheet({
       setScheduleError("กรุณาเลือกวันและเวลา");
       return;
     }
-    const selected = new Date(value).getTime();
+    const selectedDate = new Date(value);
+    const selected = selectedDate.getTime();
     const now = Date.now();
     if (!Number.isFinite(selected) || selected < now + minNotice * 60_000 || selected > now + maxDays * 24 * 60 * 60_000) {
       setScheduleError("เวลาที่เลือกอยู่นอกช่วงที่ร้านรับออเดอร์ล่วงหน้า");
+      return;
+    }
+    if (!foodStoreIsEffectivelyOpen(store, selectedDate)) {
+      setScheduleError("ร้านปิดในวันหรือเวลาที่เลือก กรุณาเลือกเวลาใหม่");
       return;
     }
     setScheduleError("");
@@ -1824,11 +1838,23 @@ function CheckoutSheet({
   // Until the quote for this address arrives, the fee is unknown: no confirm.
   const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
   const effectiveQuote = current?.quote ?? quote;
+  const cartUnavailable = cart.some((line) => {
+    const item = itemFor(menu, line.menu_item_id);
+    if (!item || !foodMenuIsEffectivelyAvailable(item)) return true;
+    const limit = foodMenuQuantityLimit(item);
+    return limit <= 0 || line.quantity > limit;
+  });
+  const minimum = Number(store.minimum_order ?? 0);
+  const minimumMissing = Math.max(0, minimum - subtotal);
   const blockedReason = !address
     ? ""
     : zone && !location
       ? "ที่อยู่นี้ยังไม่ได้ปักหมุดตำแหน่ง แก้ไขที่อยู่เพื่อปักหมุดก่อนสั่ง"
-      : current?.error ?? "";
+      : cartUnavailable
+        ? "มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณากลับไปปรับตะกร้า"
+        : minimumMissing > 0
+          ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}`
+          : current?.error ?? "";
   const deliveryFee = Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
   const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
@@ -1868,7 +1894,8 @@ function CheckoutSheet({
         <div className="wf-checkout-items">
           {cart.map((line) => {
             const item = itemFor(menu, line.menu_item_id);
-            return <div key={line.menu_item_id}><span>{line.quantity}× {item?.name ?? "เมนู"}</span><b>{item ? foodMoney(Number(item.price) * line.quantity) : "—"}</b></div>;
+            const optionText = foodCartLineOptionText(line);
+            return <div key={foodCartLineKey(line)}><span>{line.quantity}× {item?.name ?? "เมนู"}{optionText ? <small>{optionText}</small> : null}</span><b>{item ? foodMoney(foodCartLineUnitPrice(item, line) * line.quantity) : "—"}</b></div>;
           })}
         </div>
         <div className="wf-summary">
@@ -2318,6 +2345,7 @@ function FoodCustomerInner({
   const [message, setMessage] = useState(() => opening.cartCleared ? "เปิดร้านจากลิงก์ที่แชร์ ตะกร้าเดิมถูกล้างแล้ว" : "");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [favoritesOpen, setFavoritesOpen] = useState(false);
@@ -2473,7 +2501,7 @@ function FoodCustomerInner({
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const cartSubtotal = cart.reduce((sum, line) => {
     const item = itemFor(menu, line.menu_item_id);
-    return sum + (item ? Number(item.price) * line.quantity : 0);
+    return sum + (item ? foodCartLineUnitPrice(item, line) * line.quantity : 0);
   }, 0);
   const activeCount = orders.filter((order) => !["delivered", "cancelled"].includes(order.status)).length;
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
@@ -2497,6 +2525,23 @@ function FoodCustomerInner({
     setSelectedItem(null);
     setTab("home");
     setStorefrontOpen(true);
+  };
+
+  const loadMoreOrders = async () => {
+    if (!snapshot?.has_more_orders || loadingMoreOrders) return;
+    setLoadingMoreOrders(true);
+    try {
+      const page = await fetchFoodCustomerOrdersPage(client, userId, orders.length);
+      setSnapshot((current) => current ? {
+        ...current,
+        orders: [...current.orders, ...page.orders.filter((order) => !current.orders.some((row) => row.id === order.id))],
+        has_more_orders: page.hasMore,
+      } : current);
+    } catch (error) {
+      setMessage(foodCustomerError(error, "โหลดคำสั่งซื้อเพิ่มเติมไม่สำเร็จ"));
+    } finally {
+      setLoadingMoreOrders(false);
+    }
   };
 
   const saveAddress = async (draft: FoodAddressDraft) => {
@@ -2653,7 +2698,7 @@ function FoodCustomerInner({
             onMessage={setMessage}
           />
         ) : null}
-        {tab === "orders" ? <OrdersPanel orders={orders} reviewedOrderIds={reviewedOrderIds} onOrder={setSelectedOrder} /> : null}
+        {tab === "orders" ? <OrdersPanel orders={orders} reviewedOrderIds={reviewedOrderIds} hasMore={snapshot.has_more_orders} loadingMore={loadingMoreOrders} onLoadMore={() => void loadMoreOrders()} onOrder={setSelectedOrder} /> : null}
         {tab === "messages" ? <MessagesPanel /> : null}
         {tab === "cart" ? <CartPanel store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}
         {tab === "account" ? (
