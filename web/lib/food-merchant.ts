@@ -263,6 +263,47 @@ export async function fetchMerchantMenu(client: SupabaseClient, storeId: string)
   return (data ?? []) as FoodMenuItem[];
 }
 
+const MERCHANT_ORDER_SELECT = `
+  id,
+  order_number,
+  store_id,
+  source,
+  status,
+  payment_status,
+  refund_status,
+  refund_note,
+  refund_requested_at,
+  refunded_at,
+  recipient_name,
+  recipient_phone,
+  shipping_address,
+  customer_note,
+  payment_slip_path,
+  payment_note,
+  payment_verification_status,
+  payment_verification_note,
+  subtotal,
+  delivery_fee,
+  delivery_latitude,
+  delivery_longitude,
+  delivery_distance_km,
+  campaign_name,
+  campaign_discount,
+  delivery_discount,
+  total,
+  eta_minutes,
+  delivered_at,
+  scheduled_for,
+  receipt_legal_name,
+  receipt_tax_id,
+  receipt_tax_branch,
+  receipt_tax_address,
+  created_at,
+  updated_at,
+  food_order_items(id,item_name,unit_price,quantity,item_note),
+  food_delivery_proofs(location_note,image_path)
+`;
+
 export async function fetchMerchantOrdersPage(
   client: SupabaseClient,
   storeId: string,
@@ -273,7 +314,7 @@ export async function fetchMerchantOrdersPage(
   const safeLimit = Math.max(1, Math.min(250, Math.floor(limit)));
   const { data, error } = await client
     .from("food_orders")
-    .select("*,food_order_items(*),food_delivery_proofs(*)")
+    .select(MERCHANT_ORDER_SELECT)
     .eq("store_id", storeId)
     .order("created_at", { ascending: false })
     // Supabase range is inclusive, so request one extra row to detect more.
