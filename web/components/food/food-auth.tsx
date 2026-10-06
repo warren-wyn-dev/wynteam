@@ -91,8 +91,11 @@ export function FoodLoginScreen() {
     // PKCE/session storage belongs to Social. Guide the user into the new
     // Food origin instead; browser tabs can be redirected automatically.
     if (isLegacyInstalledFoodOrigin()) {
-      setLegacyInstalledOrigin(true);
-      setChecking(false);
+      queueMicrotask(() => {
+        if (!mounted) return;
+        setLegacyInstalledOrigin(true);
+        setChecking(false);
+      });
       return () => { mounted = false; };
     }
     if (redirectFoodAuthToCanonicalOrigin("/food/login")) return () => { mounted = false; };
