@@ -63,6 +63,9 @@ test("Merchant launch stays lean and hot realtime paths avoid full snapshot relo
   expect(data).toContain("const [accessResult, storesResult] = await Promise.all([");
   expect(css).toContain("content-visibility: auto");
   expect(css).toContain("touch-action: manipulation");
+  expect(app).toContain('className="wyn-merchant wm-loading-shell"');
+  expect(css).toContain(".wm-skeleton-order");
+  expect(css).toContain("@media (prefers-reduced-motion: reduce)");
 });
 
 test("Merchant reports use complete server-side aggregation in Bangkok time", () => {
