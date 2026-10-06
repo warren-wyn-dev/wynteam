@@ -16,7 +16,10 @@ fail() { echo "FAIL: $1" >&2; exit 1; }
 pass() { echo "ok - $1"; }
 # Runs SQL as a signed-in user and prints the error message (empty on success).
 as_user() {
-  run -At 2>&1 >/dev/null -c "set role authenticated; set test.uid='$1'; $2" \
+  # CI wraps psql and emits captured stderr on stdout, while local psql
+  # emits errors on stderr. Merge both streams so this assertion behaves the
+  # same in both environments.
+  run -At -c "set role authenticated; set test.uid='$1'; $2" 2>&1 \
     | sed -n 's/^ERROR: *//p' | head -1 || true
 }
 expect_error() { # label uid sql expected-message
