@@ -1004,6 +1004,49 @@
 .wf-field textarea, .wf-form textarea { min-height: 76px; resize: vertical; }
 .wf-field textarea:focus, .wf-form textarea:focus, .wf-form input:focus { border-color: var(--wf-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--wf-text) 8%, transparent); }
 .wf-form { display: grid; gap: 12px; }
+.wf-address-form { gap: 16px; }
+.wf-address-form-section {
+  margin-top: 4px;
+  padding-top: 4px;
+  display: grid;
+  gap: 3px;
+}
+.wf-address-form-section strong {
+  color: var(--wf-text);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.15px;
+}
+.wf-address-form-section small {
+  color: var(--wf-secondary);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.wf-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.wf-form-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.wf-form-grid > label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: var(--wf-secondary);
+  font-size: 10.5px;
+  font-weight: 560;
+}
+.wf-form-grid input {
+  width: 100%;
+}
+@media (max-width: 420px) {
+  .wf-form-grid,
+  .wf-form-grid--3 {
+    grid-template-columns: 1fr;
+  }
+}
 .wf-check {
   min-height: 58px;
   padding: 10px 12px;
