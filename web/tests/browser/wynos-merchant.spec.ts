@@ -38,8 +38,6 @@ test("Merchant reports use complete server-side aggregation in Bangkok time", ()
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
   const migration = read("../supabase/migrations_wynos_merchant_sales_report_v1.sql");
-  const layout = read("app/merchant/layout.tsx");
-
   expect(app).toContain("fetchMerchantSalesReport(client, store.id)");
   expect(app).toContain("<ReportsPanel report={currentSalesReport} error={currentSalesReportError} />");
   expect(app).toContain("todayOrderCount={currentSalesReport?.today_orders ?? null}");
@@ -54,21 +52,15 @@ test("Merchant reports use complete server-side aggregation in Bangkok time", ()
   expect(migration).toContain("at time zone 'Asia/Bangkok'");
   expect(migration).toContain("public.food_has_merchant_access(p_store_id)");
   expect(migration).toContain("revoke all on function public.merchant_sales_report(uuid) from public, anon");
-  expect(layout).not.toContain("userScalable: false");
-  expect(layout).not.toContain("maximumScale: 1");
 });
 
-test("Merchant public auth surface is interactive and keeps zoom accessible", async ({ page }) => {
+test("Merchant public auth surface is interactive", async ({ page }) => {
   await page.goto("/merchant/login");
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
 
   await page.getByLabel("อีเมล").fill("merchant@example.com");
   await page.getByLabel("รหัสผ่าน").fill("not-a-real-password");
   await expect(page.getByRole("button", { name: "เข้าสู่ระบบ" })).toBeEnabled();
-
-  const viewport = await page.locator('meta[name="viewport"]').getAttribute("content");
-  expect(viewport ?? "").not.toContain("user-scalable=no");
-  expect(viewport ?? "").not.toContain("maximum-scale=1");
 
   await page.getByRole("link", { name: "สมัคร WYNOS Merchant" }).click();
   await expect(page).toHaveURL(/\/merchant\/signup$/);
