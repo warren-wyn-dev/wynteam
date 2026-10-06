@@ -56,6 +56,8 @@ test("Merchant launch stays lean and hot realtime paths avoid full snapshot relo
   expect(app).toContain('hints?.effectiveType === "2g"');
   expect(app).toContain('document.visibilityState !== "visible"');
   expect(app).toContain("scheduleOrderRefresh();");
+  expect(app).toContain("const applyLocalStorePatch = (storeId: string, patch: Partial<FoodStore>) =>");
+  expect(app).toContain("onStorePatch({ is_open: isOpen })");
   expect(app).toContain('const applyLocalOrderStatus = (orderId: string, status: FoodOrder["status"]) =>');
   expect(app).toContain('applyLocalOrderStatus(order.id, "preparing")');
   expect(app).toContain('applyLocalOrderStatus(order.id, "ready_for_delivery")');
