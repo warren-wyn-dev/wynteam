@@ -104,7 +104,7 @@ test("Merchant keeps scheduled orders and tax receipts while More stays simple",
   expect(css).not.toContain(".wm-kitchen-board");
   expect(app).toContain("เปิดรับออเดอร์ล่วงหน้า");
   expect(app).toContain("แสดงข้อมูลภาษีในใบเสร็จ");
-  expect(app).toContain('className="wm-print-document"');
+  expect(app).toContain('className="wm-print-document wm-print-document--receipt"');
   expect(app).toContain('name="settings" size={52} />');
   expect(app).toContain('name="help" size={52} />');
   expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))");
