@@ -97,6 +97,8 @@
   font-size: 13px;
 }
 .wf-auth-form input:focus { border-color: color-mix(in srgb, var(--wf-red) 72%, #fff); box-shadow: 0 0 0 3px rgba(230, 0, 18, .08); }
+.wf-auth-inline { display: flex; justify-content: flex-end; margin-top: -3px; }
+.wf-auth-inline a { color: var(--wf-red); font-size: 11.5px; font-weight: 700; text-decoration: none; }
 .wf-auth-primary {
   width: 100%;
   min-height: 48px;
