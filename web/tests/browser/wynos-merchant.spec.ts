@@ -83,7 +83,13 @@ test("Merchant production polish supports multiple stores, paged orders, help an
   expect(app).toContain("function HelpPanel");
   expect(app).toContain("@wynos_s");
   expect(app).toContain("window.print()");
+  expect(app).toContain("คัดลอกที่อยู่");
+  expect(app).toContain("พิมพ์ที่อยู่");
+  expect(app).toContain("QRCode.toDataURL");
+  expect(app).toContain('printMode === "receipt"');
   expect(css).toContain("@media print");
+  expect(css).toContain(".wm-print-document--address");
+  expect(css).toContain("width: 52mm");
 });
 
 test("Merchant keeps scheduled orders and tax receipts while More stays simple", () => {
