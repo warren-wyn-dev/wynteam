@@ -72,7 +72,7 @@ test("Merchant public auth surface is interactive and keeps zoom accessible", as
 
   await page.getByRole("link", { name: "สมัคร WYNOS Merchant" }).click();
   await expect(page).toHaveURL(/\/merchant\/signup$/);
-  await expect(page.getByRole("heading", { name: "สมัคร WYNOS Merchant" })).toBeVisible();
+  await expect(page.getByLabel("WYNOS Merchant")).toBeVisible();
 });
 
 test("Merchant production polish supports multiple stores, paged orders, help and printing", () => {
