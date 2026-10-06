@@ -123,6 +123,6 @@ expect_fail "select public.food_quote_order('$STORE_ID', '$ITEMS_TOO_MANY'::json
 
 ORDER_ID="$(db "select public.food_create_order('$STORE_ID','Tester','0800000000','Test address','', '$ITEMS_OK'::jsonb)")"
 expect_db "select unit_price::numeric from public.food_order_items where order_id='$ORDER_ID'" "70.00" "order snapshot stores option-adjusted unit price"
-expect_db "select selected_options->0->>'choice_name' || '|' || selected_options->0->>'price' || '|' || selected_options->1->>'choice_name' || '|' || selected_options->1->>'price' from public.food_order_items where order_id='$ORDER_ID'" "เผ็ดมาก|5.00|ไข่ดาว|15.00" "order stores normalized server option snapshot"
+expect_db "select (selected_options->0->>'choice_name') || '|' || (selected_options->0->>'price') || '|' || (selected_options->1->>'choice_name') || '|' || (selected_options->1->>'price') from public.food_order_items where order_id='$ORDER_ID'" "เผ็ดมาก|5.00|ไข่ดาว|15.00" "order stores normalized server option snapshot"
 
 echo "PASS: WYNOS Food menu options are validated and priced server-side"
