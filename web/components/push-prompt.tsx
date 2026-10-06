@@ -44,10 +44,13 @@ function writeDismissedAt() {
  */
 export function PushPrompt() {
   const pathname = usePathname() ?? "";
+  const promptPath = typeof window !== "undefined" && window.location.hostname.toLowerCase() === "food.wynos.online"
+    ? "/food"
+    : pathname;
   const [userId, setUserId] = useState<string | null>(null);
   // Tied to the account it was worked out for, so it never shows for the next account.
   const [prompt, setPrompt] = useState<{ userId: string; kind: "ask" | "install" | "settings" } | null>(null);
-  const kind = prompt && prompt.userId === userId && isPushPromptPath(pathname) ? prompt.kind : null;
+  const kind = prompt && prompt.userId === userId && isPushPromptPath(promptPath) ? prompt.kind : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -63,7 +66,7 @@ export function PushPrompt() {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    const delay = /^\/(chat|notifications)(\/|$)/.test(pathname)
+    const delay = /^\/(chat|notifications)(\/|$)/.test(promptPath)
       ? HIGH_INTENT_SHOW_DELAY_MS
       : SHOW_DELAY_MS;
     const timer = window.setTimeout(async () => {
@@ -75,14 +78,14 @@ export function PushPrompt() {
         ? ({ available: false, reason: "denied" } as const)
         : await getPushAvailability();
       if (cancelled) return;
-      const next = pushPromptKind({ path: pathname, permission, availability, dismissedAt: readDismissedAt(), now: Date.now() });
+      const next = pushPromptKind({ path: promptPath, permission, availability, dismissedAt: readDismissedAt(), now: Date.now() });
       setPrompt(next ? { userId, kind: next } : null);
     }, delay);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [userId, pathname]);
+  }, [userId, promptPath]);
 
   // While the card is open, the install banner waits behind it (install-prompt.css).
   useEffect(() => {
