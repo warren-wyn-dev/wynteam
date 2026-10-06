@@ -1,4 +1,4 @@
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * iOS Home Screen PWAs do not share their auth storage with Safari. Starting
@@ -11,7 +11,7 @@ import type { Session, SupabaseClient } from "@supabase/supabase-js";
  */
 export const GOOGLE_PWA_POPUP_MARKER = "wynos.google-pwa-popup-start.v1";
 export const GOOGLE_PWA_COMPLETED_CHANNEL = "wynos.google-pwa-completed.v1";
-export const GOOGLE_PWA_SESSION_MESSAGE = "wynos.google-pwa-session.v1";
+export const GOOGLE_PWA_CODE_MESSAGE = "wynos.google-pwa-code.v1";
 const POPUP_VALIDITY_MS = 10 * 60 * 1000;
 
 export function isInstalledIosWebApp(): boolean {
@@ -34,19 +34,18 @@ export function consumeGooglePwaPopupMarker(): boolean {
   }
 }
 
-export function announceGooglePwaSession(
-  session: Pick<Session, "access_token" | "refresh_token">,
-): boolean {
-  if (typeof window === "undefined") return false;
+export function announceGooglePwaCode(code: string): boolean {
+  if (typeof window === "undefined" || !code) return false;
   try {
     const opener = window.opener;
     if (!opener || opener.closed) return false;
-    // Tokens are handed only to the exact same-origin opener that started
-    // this popup. They are never broadcast, written into the URL, or logged.
+    // Hand the one-time authorization code only to the exact same-origin
+    // opener that started OAuth. The opener owns the PKCE verifier, so it
+    // performs the exchange in its own installed-app storage partition.
+    // Access/refresh tokens are never posted between windows.
     opener.postMessage({
-      type: GOOGLE_PWA_SESSION_MESSAGE,
-      accessToken: session.access_token,
-      refreshToken: session.refresh_token,
+      type: GOOGLE_PWA_CODE_MESSAGE,
+      code,
     }, window.location.origin);
     return true;
   } catch {
