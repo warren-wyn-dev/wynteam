@@ -34,6 +34,64 @@ test("Merchant data layer uses dedicated Food RPCs, secure evidence storage and 
   expect(data).toContain("withoutLocation(file, contentType)");
 });
 
+test("Merchant launch stays lean and hot realtime paths avoid full snapshot reloads", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const data = read("lib/food-merchant.ts");
+  const css = read("app/merchant/merchant.css");
+
+  expect(app).toContain('import dynamic from "next/dynamic"');
+  for (const modulePath of [
+    "@/components/merchant/merchant-finance",
+    "@/components/merchant/merchant-notification-settings",
+    "@/components/merchant/merchant-notification-prompt",
+    "@/components/merchant/merchant-core-panels",
+    "@/components/merchant/merchant-campaign-center",
+    "@/components/merchant/merchant-platform-campaigns",
+    "@/components/merchant/merchant-ads",
+    "@/components/food/food-delivery-map-picker",
+  ]) {
+    expect(app).toContain(`import("${modulePath}")`);
+  }
+  expect(app).toContain("requestIdleCallback(warmSecondaryTools");
+  expect(app).toContain("hints?.saveData");
+  expect(app).toContain('hints?.effectiveType === "2g"');
+  expect(app).toContain('document.visibilityState !== "visible"');
+  expect(app).toContain("scheduleOrderRefresh();");
+  expect(app).toContain("onReload={scheduleOrderRefresh}");
+  expect(app).toContain("const applyLocalStorePatch = (storeId: string, patch: Partial<FoodStore>) =>");
+  expect(app).toContain("onStorePatch({ is_open: isOpen })");
+  expect(app).toContain('const applyLocalOrderStatus = (orderId: string, status: FoodOrder["status"]) =>');
+  expect(app).toContain('applyLocalOrderStatus(order.id, "preparing")');
+  expect(app).toContain('applyLocalOrderStatus(order.id, "ready_for_delivery")');
+  expect(app).toContain('applyLocalOrderStatus(order.id, "out_for_delivery")');
+  expect(app).toContain("const activeStoreId = store?.id ?? null");
+  expect(app).toContain("fetchMerchantOrdersPage(client, activeStoreId, 0, MERCHANT_ORDER_PAGE_SIZE)");
+  expect(app).toContain("setMenu(await fetchMerchantMenu(client, activeStoreId))");
+  expect(app).toContain("const soldOutUntil = await setMenuSoldOutToday(client, store.id, item.id, soldOut)");
+  expect(app).toContain("sold_out_until: soldOutUntil");
+  expect(data).toContain("return soldOutUntil");
+  expect(app).toContain("setMenu((current) => current.map((entry) => entry.id === item.id");
+  expect(app).toContain("const position = new Map(ids.map((id, index) => [id, index]))");
+  expect(app).toContain("menu_category_order: menuCategoryOrder");
+  expect(app).toContain("applyLocalStorePatch(store.id, { menu_category_order: categories })");
+  expect(app).toContain("await onSaved(names)");
+  expect(data).toContain("export async function fetchMerchantMenu");
+  expect(data).toContain("const MERCHANT_ORDER_SELECT =");
+  expect(data).toContain("food_order_items(id,item_name,unit_price,quantity,item_note)");
+  expect(data).toContain("food_delivery_proofs(location_note,image_path)");
+  expect(data).not.toContain('.select("*,food_order_items(*),food_delivery_proofs(*)")');
+  expect(app).toContain("const [salesReportRevision, setSalesReportRevision] = useState(0)");
+  expect(app).toContain("Keep the last good numbers on screen while a fresh report loads");
+  expect(app).not.toContain("setDataRevision");
+  expect(data).toContain("const [accessResult, storesResult] = await Promise.all([");
+  expect(css).toContain("content-visibility: auto");
+  expect(css).toContain("touch-action: manipulation");
+  expect(app).toContain('className="wyn-merchant wm-loading-shell"');
+  expect(app).toContain("loadingFallback={<MerchantLoading />}");
+  expect(css).toContain(".wm-skeleton-order");
+  expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+});
+
 test("Merchant reports use complete server-side aggregation in Bangkok time", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const data = read("lib/food-merchant.ts");
