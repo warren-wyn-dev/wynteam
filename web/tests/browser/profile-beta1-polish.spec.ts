@@ -25,7 +25,7 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   expect(shareIcon).not.toContain("M8 8H5.75");
   expect(iconMap).toContain('name==="share")return <WynosShareIcon');
   expect(profile).toContain('<WynosShareIcon size={22} />');
-  expect(post).toContain('<WynosShareIcon size={22} />');
+  expect(post).toContain('<WynosShareIcon size={22} strokeWidth={1.6} />');
 
   // Profile editing remains icon-only; both cover and feed data remain live.
   expect(profile).toContain('aria-label="แก้ไขโปรไฟล์" title="แก้ไขโปรไฟล์"');
@@ -48,7 +48,7 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
 
   // No changes to the user-supplied cover or the approved text sizes.
   expect(css).toContain("padding: 0 16px 4px;");
-  expect(layout).toContain('statusBarStyle:"default"');
+  expect(layout).toContain('statusBarStyle: "default"');
   expect(layout).not.toContain('className="wyn-ios-status-fill"');
   expect(css).toContain("height: 58px;");
   expect(css).not.toContain(".wyn-profile-cover::after");
