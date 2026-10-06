@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { registerCurrentAccount } from "@/lib/account-registry";
-import { announceGooglePwaCompletion, announceGooglePwaSession, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
+import { announceGooglePwaCode, announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const FOOD_PRODUCTION_ORIGIN = "https://food.wynos.online";
@@ -28,11 +28,26 @@ export default function FoodGoogleCallbackPage() {
     void (async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
+      const pwaPopup = consumeGooglePwaPopupMarker();
 
       try {
         if (params.has("error")) throw new Error("Google authentication failed");
         const client = getSupabaseBrowserClient();
         if (!client) throw new Error("Supabase browser client unavailable");
+
+        // The installed PWA owns the PKCE verifier. Give its waiting opener
+        // the one-time code so the exchange happens in that exact storage
+        // partition instead of assuming the popup shares auth storage.
+        if (pwaPopup && code && announceGooglePwaCode(code)) {
+          window.history.replaceState(null, "", "/food/auth/callback");
+          window.setTimeout(() => {
+            try { window.close(); } catch { /* iOS may keep the popup open. */ }
+            window.setTimeout(() => {
+              if (!window.closed) window.location.replace(foodHomeUrl());
+            }, 250);
+          }, 150);
+          return;
+        }
 
         const existing = await client.auth.getSession();
         if (existing.error) throw existing.error;
@@ -52,8 +67,7 @@ export default function FoodGoogleCallbackPage() {
         await registerCurrentAccount(client).catch(() => false);
         window.history.replaceState(null, "", "/food/auth/callback");
 
-        if (consumeGooglePwaPopupMarker()) {
-          announceGooglePwaSession(session);
+        if (pwaPopup) {
           announceGooglePwaCompletion();
           if (window.opener && !window.opener.closed) {
             window.setTimeout(() => {
