@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * iOS Home Screen PWAs do not share their auth storage with Safari. Starting
@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 export const GOOGLE_PWA_POPUP_MARKER = "wynos.google-pwa-popup-start.v1";
 export const GOOGLE_PWA_COMPLETED_CHANNEL = "wynos.google-pwa-completed.v1";
+export const GOOGLE_PWA_SESSION_MESSAGE = "wynos.google-pwa-session.v1";
 const POPUP_VALIDITY_MS = 10 * 60 * 1000;
 
 export function isInstalledIosWebApp(): boolean {
@@ -28,6 +29,26 @@ export function consumeGooglePwaPopupMarker(): boolean {
     const started = Number(window.sessionStorage.getItem(GOOGLE_PWA_POPUP_MARKER));
     window.sessionStorage.removeItem(GOOGLE_PWA_POPUP_MARKER);
     return started > 0 && Date.now() - started < POPUP_VALIDITY_MS;
+  } catch {
+    return false;
+  }
+}
+
+export function announceGooglePwaSession(
+  session: Pick<Session, "access_token" | "refresh_token">,
+): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const opener = window.opener;
+    if (!opener || opener.closed) return false;
+    // Tokens are handed only to the exact same-origin opener that started
+    // this popup. They are never broadcast, written into the URL, or logged.
+    opener.postMessage({
+      type: GOOGLE_PWA_SESSION_MESSAGE,
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+    }, window.location.origin);
+    return true;
   } catch {
     return false;
   }
@@ -52,7 +73,7 @@ export function announceGooglePwaCompletion(): void {
 export async function startGoogleOAuth(
   client: SupabaseClient,
   browserRedirect: string,
-): Promise<{ started: boolean; error?: string }> {
+): Promise<{ started: boolean; error?: string; popup?: Window }> {
   const options = {
     redirectTo: browserRedirect,
     queryParams: { prompt: "select_account" },
@@ -114,7 +135,7 @@ export async function startGoogleOAuth(
       throw new Error("Unexpected OAuth URL origin");
     }
     popup.location.replace(oauth.href);
-    return { started: true };
+    return { started: true, popup };
   } catch {
     try { popup.close(); } catch { /* The popup may already be gone. */ }
     return {
