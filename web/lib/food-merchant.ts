@@ -222,9 +222,22 @@ function errorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+const THB_WHOLE_FORMATTER = new Intl.NumberFormat("th-TH", {
+  style: "currency",
+  currency: "THB",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+const THB_DECIMAL_FORMATTER = new Intl.NumberFormat("th-TH", {
+  style: "currency",
+  currency: "THB",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 export function money(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
-  return new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", minimumFractionDigits: amount % 1 ? 2 : 0 }).format(amount);
+  return (amount % 1 ? THB_DECIMAL_FORMATTER : THB_WHOLE_FORMATTER).format(amount);
 }
 
 export function foodPublicUrl(client: SupabaseClient, path: string | null | undefined) {
@@ -239,6 +252,58 @@ export async function foodPrivateSignedUrl(client: SupabaseClient, path: string 
   return data.signedUrl;
 }
 
+export async function fetchMerchantMenu(client: SupabaseClient, storeId: string): Promise<FoodMenuItem[]> {
+  const { data, error } = await client
+    .from("food_menu_items")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as FoodMenuItem[];
+}
+
+const MERCHANT_ORDER_SELECT = `
+  id,
+  order_number,
+  store_id,
+  source,
+  status,
+  payment_status,
+  refund_status,
+  refund_note,
+  refund_requested_at,
+  refunded_at,
+  recipient_name,
+  recipient_phone,
+  shipping_address,
+  customer_note,
+  payment_slip_path,
+  payment_note,
+  payment_verification_status,
+  payment_verification_note,
+  subtotal,
+  delivery_fee,
+  delivery_latitude,
+  delivery_longitude,
+  delivery_distance_km,
+  campaign_name,
+  campaign_discount,
+  delivery_discount,
+  total,
+  eta_minutes,
+  delivered_at,
+  scheduled_for,
+  receipt_legal_name,
+  receipt_tax_id,
+  receipt_tax_branch,
+  receipt_tax_address,
+  created_at,
+  updated_at,
+  food_order_items(id,item_name,unit_price,quantity,item_note),
+  food_delivery_proofs(location_note,image_path)
+`;
+
 export async function fetchMerchantOrdersPage(
   client: SupabaseClient,
   storeId: string,
@@ -249,7 +314,7 @@ export async function fetchMerchantOrdersPage(
   const safeLimit = Math.max(1, Math.min(250, Math.floor(limit)));
   const { data, error } = await client
     .from("food_orders")
-    .select("*,food_order_items(*),food_delivery_proofs(*)")
+    .select(MERCHANT_ORDER_SELECT)
     .eq("store_id", storeId)
     .order("created_at", { ascending: false })
     // Supabase range is inclusive, so request one extra row to detect more.
@@ -390,38 +455,34 @@ export async function fetchMerchantSnapshot(
   client: SupabaseClient,
   preferredStoreId?: string | null,
 ): Promise<MerchantSnapshot> {
-  const accessResult = await client.rpc("food_has_merchant_access", { p_store_id: null });
+  // Access and store membership are independent reads. Run them together so
+  // the app launch pays one network round trip instead of two serial ones.
+  // RLS still scopes the store query to only stores the signed-in member may see.
+  const [accessResult, storesResult] = await Promise.all([
+    client.rpc("food_has_merchant_access", { p_store_id: null }),
+    client
+      .from("food_stores")
+      .select("*")
+      .order("created_at", { ascending: true }),
+  ]);
   if (accessResult.error) throw new Error(accessResult.error.message);
   const access = accessResult.data === true;
   if (!access) return { access: false, stores: [], store: null, menu: [], orders: [], has_more_orders: false };
-
-  // RLS limits this list to stores the signed-in Merchant member may access.
-  const storesResult = await client
-    .from("food_stores")
-    .select("*")
-    .order("created_at", { ascending: true });
   if (storesResult.error) throw new Error(storesResult.error.message);
   const stores = (storesResult.data ?? []) as FoodStore[];
   const store = stores.find((item) => item.id === preferredStoreId) ?? stores[0] ?? null;
   if (!store) return { access: true, stores: [], store: null, menu: [], orders: [], has_more_orders: false };
 
-  const [menuResult, orderPage] = await Promise.all([
-    client
-      .from("food_menu_items")
-      .select("*")
-      .eq("store_id", store.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
+  const [menu, orderPage] = await Promise.all([
+    fetchMerchantMenu(client, store.id),
     fetchMerchantOrdersPage(client, store.id),
   ]);
-
-  if (menuResult.error) throw new Error(menuResult.error.message);
 
   return {
     access: true,
     stores,
     store,
-    menu: (menuResult.data ?? []) as FoodMenuItem[],
+    menu,
     orders: orderPage.orders,
     has_more_orders: orderPage.hasMore,
   };
@@ -760,12 +821,14 @@ export async function fetchMerchantAuditHistory(client: SupabaseClient, storeId:
 }
 
 export async function setMenuSoldOutToday(client: SupabaseClient, storeId: string, itemId: string, soldOut: boolean) {
+  const soldOutUntil = soldOut ? foodSoldOutUntilTomorrowBangkok() : null;
   const { error } = await client
     .from("food_menu_items")
-    .update({ sold_out_until: soldOut ? foodSoldOutUntilTomorrowBangkok() : null })
+    .update({ sold_out_until: soldOutUntil })
     .eq("id", itemId)
     .eq("store_id", storeId);
   if (error) throw new Error(error.message);
+  return soldOutUntil;
 }
 
 export async function saveMenuSortOrder(client: SupabaseClient, storeId: string, orderedIds: string[]) {
