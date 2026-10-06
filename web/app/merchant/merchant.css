@@ -4509,3 +4509,23 @@ button.wm-menu-tool:disabled {
   }
 }
 
+
+/* "หน้าจอรับออเดอร์": keep the screen on so the order sound always rings. */
+.wm-order-screen-card { margin-top: 18px; padding: 14px 14px 14px 16px; border: 1px solid var(--wm-border); border-radius: 18px; background: var(--wm-surface); display: flex; align-items: center; gap: 12px; }
+.wm-order-screen-card.is-on { border-color: var(--wm-red-border); background: var(--wm-red-soft); }
+.wm-order-screen-icon { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 13px; background: #ffffff; color: var(--wm-red-text); display: grid; place-items: center; }
+.wm-order-screen-copy { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.wm-order-screen-copy strong { font-size: 15px; }
+.wm-order-screen-copy small { color: var(--wm-secondary); font-size: 12.5px; line-height: 1.4; }
+.wm-switch-button { flex: 0 0 auto; min-width: 52px; min-height: 44px; padding: 0; border: 0; background: transparent; display: grid; place-items: center; cursor: pointer; }
+.wm-order-screen-bar { position: sticky; top: calc(58px + env(safe-area-inset-top)); z-index: 45; min-height: 40px; padding: 6px 8px 6px 16px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.wm-order-screen-bar.is-ready { background: #edf8f1; color: #145c32; }
+.wm-order-screen-bar.is-warning { background: #fff4e5; color: #6b3d00; }
+.wm-order-screen-bar i { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: currentColor; }
+.wm-order-screen-bar.is-ready i { animation: wm-order-screen-pulse 1.6s ease-in-out infinite; }
+.wm-order-screen-bar span { flex: 1; min-width: 0; }
+.wm-order-screen-bar button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: rgba(0, 0, 0, .07); color: inherit; font: inherit; font-size: 12.5px; cursor: pointer; }
+@keyframes wm-order-screen-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .wm-order-screen-bar.is-ready i { animation: none; } }
+.wm-notification-card .wm-order-screen-card { margin-top: 0; }
+.wm-notification-tips { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 6px; color: var(--wm-text); font-size: 13px; line-height: 1.45; }
