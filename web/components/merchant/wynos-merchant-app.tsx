@@ -11,6 +11,7 @@ import {
   ChevronDown,
   CircleDollarSign,
   Clock3,
+  Copy,
   ImagePlus,
   LayoutGrid,
   ListPlus,
@@ -39,6 +40,7 @@ import {
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -1795,6 +1797,8 @@ function OrderSheet({
   const [deliveryMethod, setDeliveryMethod] = useState<"direct" | "dropoff">("direct");
   const [locationNote, setLocationNote] = useState("");
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
+  const [printMode, setPrintMode] = useState<"receipt" | "address">("receipt");
+  const [addressQrUrl, setAddressQrUrl] = useState<string | null>(null);
 
   const proof = orderDeliveryProof(order);
   const proofPath = proof?.image_path;
@@ -1851,6 +1855,55 @@ function OrderSheet({
       : null,
     order.shipping_address,
   );
+  const addressLabelText = [
+    order.recipient_name,
+    order.recipient_phone,
+    order.shipping_address,
+    order.customer_note ? `หมายเหตุ: ${order.customer_note}` : null,
+    `ออเดอร์ #${order.order_number}`,
+  ].filter(Boolean).join("\n");
+
+  const copyShippingAddress = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(addressLabelText);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = addressLabelText;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) throw new Error("copy failed");
+      }
+      onMessage("คัดลอกที่อยู่แล้ว");
+    } catch {
+      onMessage("คัดลอกไม่สำเร็จ กรุณากดค้างที่ข้อมูลที่อยู่เพื่อคัดลอก");
+    }
+  };
+
+  const printAfterRender = (mode: "receipt" | "address") => {
+    setPrintMode(mode);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => window.print()));
+  };
+
+  const printShippingAddress = async () => {
+    try {
+      setAddressQrUrl(await QRCode.toDataURL(mapHref, {
+        width: 320,
+        margin: 1,
+        errorCorrectionLevel: "M",
+        color: { dark: "#000000", light: "#ffffff" },
+      }));
+    } catch {
+      setAddressQrUrl(null);
+    }
+    printAfterRender("address");
+  };
+
   const receiptLegalName = order.receipt_legal_name ?? (store.tax_invoice_enabled ? (store.tax_legal_name || store.name) : null);
   const receiptTaxId = order.receipt_tax_id ?? (store.tax_invoice_enabled ? store.tax_id ?? null : null);
   const receiptTaxBranch = order.receipt_tax_branch ?? (store.tax_invoice_enabled ? store.tax_branch ?? null : null);
@@ -1858,26 +1911,41 @@ function OrderSheet({
 
   return (
     <Sheet title={`ออเดอร์ #${order.order_number}`} onClose={onClose} wide>
-      <section className="wm-print-document" aria-hidden="true">
-        <div className="wm-print-brand"><strong>{store.name}</strong><small>{receiptLegalName ? "ใบเสร็จรับเงิน / ข้อมูลภาษี" : "ใบออเดอร์ / ใบเสร็จอย่างย่อ"}</small></div>
-        {receiptLegalName ? <div className="wm-print-tax"><b>{receiptLegalName}</b>{receiptTaxId ? <span>เลขประจำตัวผู้เสียภาษี {receiptTaxId}</span> : null}{receiptTaxBranch ? <span>สาขา {receiptTaxBranch}</span> : null}{receiptTaxAddress ? <span>{receiptTaxAddress}</span> : null}</div> : null}
-        <div className="wm-print-meta"><span>ออเดอร์ #{order.order_number}</span><span>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</span>{order.scheduled_for ? <span>นัดรับ/จัดส่ง {new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</span> : null}</div>
-        <div className="wm-print-lines">{(order.food_order_items ?? []).map((item) => <div key={item.id}><span>{item.quantity}× {item.item_name}{item.item_note ? <small>{item.item_note}</small> : null}</span><b>{money(Number(item.unit_price) * item.quantity)}</b></div>)}</div>
-        <div className="wm-print-totals">
-          <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
-          {Number(order.campaign_discount ?? 0) > 0 ? <div><span>ส่วนลด</span><b>−{money(order.campaign_discount)}</b></div> : null}
-          <div><span>ค่าส่ง</span><b>{money(order.delivery_fee)}</b></div>
-          {Number(order.delivery_discount ?? 0) > 0 ? <div><span>ส่วนลดค่าส่ง</span><b>−{money(order.delivery_discount)}</b></div> : null}
-          <div className="is-total"><span>ยอดสุทธิ</span><b>{money(order.total)}</b></div>
-        </div>
-        <div className="wm-print-customer"><strong>{order.recipient_name}</strong><span>{order.recipient_phone}</span><span>{order.shipping_address}</span></div>
-        <small className="wm-print-foot">พิมพ์จาก WYNOS Merchant · โปรดตรวจสอบข้อมูลภาษีของร้านก่อนใช้เป็นเอกสารทางบัญชี</small>
-      </section>
+      {printMode === "receipt" ? (
+        <section className="wm-print-document wm-print-document--receipt" aria-hidden="true">
+          <div className="wm-print-brand"><strong>{store.name}</strong><small>{receiptLegalName ? "ใบเสร็จรับเงิน / ข้อมูลภาษี" : "ใบออเดอร์ / ใบเสร็จอย่างย่อ"}</small></div>
+          {receiptLegalName ? <div className="wm-print-tax"><b>{receiptLegalName}</b>{receiptTaxId ? <span>เลขประจำตัวผู้เสียภาษี {receiptTaxId}</span> : null}{receiptTaxBranch ? <span>สาขา {receiptTaxBranch}</span> : null}{receiptTaxAddress ? <span>{receiptTaxAddress}</span> : null}</div> : null}
+          <div className="wm-print-meta"><span>ออเดอร์ #{order.order_number}</span><span>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</span>{order.scheduled_for ? <span>นัดรับ/จัดส่ง {new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</span> : null}</div>
+          <div className="wm-print-lines">{(order.food_order_items ?? []).map((item) => <div key={item.id}><span>{item.quantity}× {item.item_name}{item.item_note ? <small>{item.item_note}</small> : null}</span><b>{money(Number(item.unit_price) * item.quantity)}</b></div>)}</div>
+          <div className="wm-print-totals">
+            <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
+            {Number(order.campaign_discount ?? 0) > 0 ? <div><span>ส่วนลด</span><b>−{money(order.campaign_discount)}</b></div> : null}
+            <div><span>ค่าส่ง</span><b>{money(order.delivery_fee)}</b></div>
+            {Number(order.delivery_discount ?? 0) > 0 ? <div><span>ส่วนลดค่าส่ง</span><b>−{money(order.delivery_discount)}</b></div> : null}
+            <div className="is-total"><span>ยอดสุทธิ</span><b>{money(order.total)}</b></div>
+          </div>
+          <div className="wm-print-customer"><strong>{order.recipient_name}</strong><span>{order.recipient_phone}</span><span>{order.shipping_address}</span></div>
+          <small className="wm-print-foot">พิมพ์จาก WYNOS Merchant · โปรดตรวจสอบข้อมูลภาษีของร้านก่อนใช้เป็นเอกสารทางบัญชี</small>
+        </section>
+      ) : (
+        <section className="wm-print-document wm-print-document--address" aria-hidden="true">
+          <div className="wm-address-label-head"><strong>WYNOS Merchant</strong><span>ออเดอร์ #{order.order_number}</span></div>
+          <div className="wm-address-label-recipient">
+            <small>ผู้รับ</small>
+            <strong>{order.recipient_name}</strong>
+            <b>โทร {order.recipient_phone}</b>
+          </div>
+          <address className="wm-address-label-address">{order.shipping_address}</address>
+          {order.customer_note ? <div className="wm-address-label-note"><small>จุดสังเกต / หมายเหตุ</small><strong>{order.customer_note}</strong></div> : null}
+          {addressQrUrl ? <div className="wm-address-label-qr"><img src={addressQrUrl} alt="" /><span>สแกนเปิดแผนที่</span></div> : null}
+          <div className="wm-address-label-sender"><small>ผู้ส่ง</small><strong>{store.name}</strong>{store.phone ? <span>{store.phone}</span> : null}</div>
+        </section>
+      )}
       <div className="wm-order-detail-head">
         <div><OrderStatus order={order} /><PaymentStatus order={order} /></div>
         <strong>{money(order.total)}</strong>
         <small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</small>
-        <button className="wm-secondary wm-print-order" type="button" onClick={() => window.print()}><Printer size={17} /> พิมพ์ใบออเดอร์ / ใบเสร็จ</button>
+        <button className="wm-secondary wm-print-order" type="button" onClick={() => printAfterRender("receipt")}><Printer size={17} /> พิมพ์ใบออเดอร์ / ใบเสร็จ</button>
       </div>
       {order.scheduled_for ? <div className="wm-scheduled-order-banner"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.scheduled_for))}</small></span></div> : null}
 
@@ -2009,9 +2077,11 @@ function OrderSheet({
           <a href={`tel:${order.recipient_phone}`}><Phone size={17} /> {order.recipient_phone}</a>
           <p><MapPin size={17} /> <span>{order.shipping_address}</span></p>
           {order.customer_note ? <small>หมายเหตุ: {order.customer_note}</small> : null}
-          <div className="wm-two-actions">
+          <div className="wm-two-actions wm-shipping-actions">
             <a className="wm-secondary" href={mapHref} target="_blank" rel="noreferrer"><MapPin size={17} /> เปิดแผนที่</a>
             <a className="wm-secondary" href={`tel:${order.recipient_phone}`}><Phone size={17} /> โทร</a>
+            <button className="wm-secondary" type="button" onClick={() => void copyShippingAddress()}><Copy size={17} /> คัดลอกที่อยู่</button>
+            <button className="wm-secondary" type="button" onClick={() => void printShippingAddress()}><Printer size={17} /> พิมพ์ที่อยู่</button>
           </div>
         </div>
       </section>
