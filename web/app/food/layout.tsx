@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
     images: ["/icons/food/icon-512.png"],
   },
-  manifest: "/food/manifest.webmanifest?v=20261004-7",
+  manifest: "/food/manifest.webmanifest?v=20261006-8",
   icons: {
     icon: [
       { url: FOOD_ICON(16), sizes: "16x16", type: "image/png" },

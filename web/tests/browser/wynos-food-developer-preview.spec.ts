@@ -14,13 +14,19 @@ test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   // Food access and rollout checks live in the data layer the app loads through.
   expect(read("lib/food-customer.ts")).toContain('client.rpc("is_developer_account")');
   expect(app).toContain("fetchFoodCustomerSnapshot(client, userId, pickedStoreRef.current || null)");
-  expect(app).toContain('router.replace("/")');
-  expect(layout).toContain("index: false");
-  expect(layout).toContain("follow: false");
-  expect(manifest).toContain('start_url: "/food"');
-  expect(manifest).toContain('scope: "/food"');
+  expect(app).not.toContain('router.replace("/")');
+  expect(app).toContain("<FoodLoadError");
+  expect(app).toContain("<FoodDenied />");
+  expect(app).toContain('href="https://wynos.online/"');
+  expect(layout).toContain("index: true");
+  expect(layout).toContain("follow: true");
+  expect(manifest).toContain('start_url: "/"');
+  expect(manifest).toContain('scope: "/"');
   expect(manifest).toContain('theme_color: "#e32636"');
   expect(manifest).toContain('description: "WYNOS Food Public Beta"');
+  const proxy = read("proxy.ts");
+  expect(proxy).toContain('new URL("https://food.wynos.online")');
+  expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*"]');
 });
 
 test("WYNOS Food hides the persistent Social bottom navigation", () => {
@@ -217,9 +223,57 @@ test("Food checkout can create scheduled orders without changing immediate-order
   expect(app).toContain('useState<"asap" | "scheduled">("asap")');
   expect(app).toContain("สั่งล่วงหน้า");
   expect(app).toContain("scheduledDate.toISOString()");
+  expect(app).toContain("foodStoreIsEffectivelyOpen(store, selectedDate)");
+  expect(app).toContain("ร้านปิดในวันหรือเวลาที่เลือก");
   expect(app).toContain("order.scheduled_for");
   expect(css).toContain(".wf-schedule-choice");
   expect(css).toContain(".wf-scheduled-banner");
+});
+
+test("Food customer menu options, stock and history are wired end to end", () => {
+  const data = read("lib/food-customer.ts");
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const css = read("app/food/food.css");
+  const stockSql = read("../supabase/migrations_wynos_food_customer_stock_v1.sql");
+
+  expect(data).toContain("FoodMenuOptionGroup");
+  expect(data).toContain("foodCartLineKey");
+  expect(data).toContain("foodCartLineUnitPrice");
+  expect(data).toContain("foodCartLineOptionsValid");
+  expect(data).toContain("selected_options: line.selected_options ?? []");
+  expect(data.match(/selected_options: line\.selected_options \?\? \[\]/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  expect(data).toContain('client.rpc("food_menu_stock_remaining"');
+  expect(data).toContain("fetchFoodCustomerOrdersPage");
+  expect(app).toContain('className="wf-option-groups"');
+  expect(app).toContain("selected_options: selectedOptions");
+  expect(app).toContain("foodMenuQuantityLimit");
+  expect(app).toContain("ดูคำสั่งซื้อเก่ากว่านี้");
+  expect(app).toContain("เพิ่มอีก {foodMoney(Math.max(0, minimum - subtotal))}");
+  expect(css).toContain(".wf-option-choices");
+  expect(css).toContain(".wf-load-more");
+  expect(stockSql).toContain("create or replace function public.food_menu_stock_remaining");
+  expect(stockSql).toContain("public.food_customer_access_enabled()");
+  expect(stockSql).toContain("grant execute on function public.food_menu_stock_remaining(uuid) to authenticated");
+});
+
+test("Food customer menu supports add-ons, variants, live stock and real push registration", () => {
+  const data = read("lib/food-customer.ts");
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const push = read("lib/push-notifications.ts");
+  const stockSql = read("../supabase/migrations_wynos_food_customer_stock_v1.sql");
+
+  expect(data).toContain("selected_options: line.selected_options ?? []");
+  expect(data).toContain("foodCartLineKey");
+  expect(data).toContain("foodCartLineUnitPrice");
+  expect(data).toContain('client.rpc("food_menu_stock_remaining"');
+  expect(app).toContain("subscribeToPushNotifications(client, userId)");
+  expect(app).toContain("isCurrentDevicePushEnabled(client, userId)");
+  expect(app).toContain("กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ");
+  expect(app).toContain("เพิ่มอีก");
+  expect(app).toContain("ดูคำสั่งซื้อเก่ากว่านี้");
+  expect(stockSql).toContain("create or replace function public.food_menu_stock_remaining");
+  expect(stockSql).toContain("revoke all on function public.food_menu_stock_remaining(uuid) from public, anon");
+  expect(push).toContain("drop|food");
 });
 
 test("Food customer flow is connected to real ordering, payment and realtime APIs", () => {
@@ -234,6 +288,8 @@ test("Food customer flow is connected to real ordering, payment and realtime API
   expect(data).toContain('const FOOD_PRIVATE = "food-private"');
   expect(app).toContain("ไปชำระเงิน");
   expect(app).toContain("แจ้งชำระเงิน");
+  expect(app).toContain("subscribeToPushNotifications(client, userId)");
+  expect(app).toContain("isCurrentDevicePushEnabled(client, userId)");
   expect(app).toContain("กำลังเตรียมอาหาร");
   expect(app).toContain("กำลังจัดส่ง");
   expect(app).toContain("หลักฐานการจัดส่ง");
@@ -330,7 +386,7 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(lib).toContain("return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};");
   expect(lib).toContain('client.functions.invoke("location-search"');
   expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
-  expect(app).toContain("disabled={!address || busy || quoteLoading || Boolean(blockedReason)}");
+  expect(app).toContain("disabled={!address || busy || quoteLoading || Boolean(blockedReason) || !scheduledValid}");
   expect(map).toContain('aria-label="ค้นหาสถานที่หรือที่อยู่"');
   expect(merchant).toContain("Math.ceil(");
   expect(app).toContain("<DeliveryPinPicker");
@@ -472,3 +528,25 @@ test("WYNOS Food menu search shows popular, recent and compact result rows", () 
   expect(en).toContain('"คำค้นหาล่าสุด": "Recent searches"');
 });
 
+
+
+test("Food customer options, stock, push and pagination are wired end-to-end", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const data = read("lib/food-customer.ts");
+  const push = read("lib/push-notifications.ts");
+  const sql = read("../supabase/migrations_wynos_food_customer_stock_v1.sql");
+
+  expect(data).toContain("selected_options: line.selected_options ?? []");
+  expect(data).toContain("foodCartLineKey");
+  expect(data).toContain("foodCartLineUnitPrice");
+  expect(data).toContain("food_menu_stock_remaining");
+  expect(data).toContain("fetchFoodCustomerOrdersPage");
+  expect(app).toContain("subscribeToPushNotifications(client, userId)");
+  expect(app).toContain("foodMenuQuantityLimit");
+  expect(app).toContain("เพิ่มอีก");
+  expect(app).toContain("ร้านปิดในวันหรือเวลาที่เลือก");
+  expect(app).toContain("ดูคำสั่งซื้อเก่ากว่านี้");
+  expect(push).toContain("|food)");
+  expect(sql).toContain("create or replace function public.food_menu_stock_remaining");
+  expect(sql).toContain("revoke all on function public.food_menu_stock_remaining(uuid) from public, anon");
+});

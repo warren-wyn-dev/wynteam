@@ -52,6 +52,28 @@ export type FoodCustomerStore = {
   updated_at: string;
 };
 
+export type FoodMenuOptionChoice = {
+  id: string;
+  name: string;
+  price: number | string;
+};
+
+export type FoodMenuOptionGroup = {
+  id: string;
+  name: string;
+  required: boolean;
+  max_select: number;
+  choices: FoodMenuOptionChoice[];
+};
+
+export type FoodMenuOptionSelection = {
+  group_id: string;
+  group_name?: string;
+  choice_id: string;
+  choice_name?: string;
+  price?: number | string;
+};
+
 export type FoodCustomerMenuItem = {
   id: string;
   store_id: string;
@@ -60,10 +82,12 @@ export type FoodCustomerMenuItem = {
   description: string | null;
   price: number | string;
   image_path: string | null;
-  options: unknown[];
+  options: FoodMenuOptionGroup[];
   is_available: boolean;
   sold_out_until?: string | null;
   daily_stock_limit?: number | null;
+  /** Best-effort live stock remaining for today; null means unlimited, undefined means unsupported/unknown. */
+  remaining_stock?: number | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -76,7 +100,7 @@ export type FoodCustomerOrderItem = {
   item_name: string;
   unit_price: number | string;
   quantity: number;
-  selected_options: unknown[];
+  selected_options: FoodMenuOptionSelection[];
   item_note: string | null;
   created_at: string;
 };
@@ -208,7 +232,72 @@ export type FoodCartLine = {
   menu_item_id: string;
   quantity: number;
   note: string;
+  /** Server accepts group_id + choice_id and re-resolves names/prices itself. */
+  selected_options?: FoodMenuOptionSelection[];
 };
+
+export function foodCartLineKey(line: Pick<FoodCartLine, "menu_item_id" | "note" | "selected_options">) {
+  const options = [...(line.selected_options ?? [])]
+    .map((option) => `${option.group_id}:${option.choice_id}`)
+    .sort()
+    .join("|");
+  return `${line.menu_item_id}::${options}::${line.note.trim()}`;
+}
+
+export function foodCartLineOptionText(
+  line: Pick<FoodCartLine, "selected_options">,
+  item?: Pick<FoodCustomerMenuItem, "options"> | null,
+) {
+  return (line.selected_options ?? [])
+    .map((option) => {
+      const group = item?.options?.find((row) => row.id === option.group_id);
+      const choice = group?.choices?.find((row) => row.id === option.choice_id);
+      return choice?.name?.trim() || option.choice_name?.trim();
+    })
+    .filter((value): value is string => Boolean(value))
+    .join(" · ");
+}
+
+export function foodCartLineOptionsValid(
+  item: Pick<FoodCustomerMenuItem, "options">,
+  line: Pick<FoodCartLine, "selected_options">,
+) {
+  const groups = Array.isArray(item.options) ? item.options : [];
+  const selected = line.selected_options ?? [];
+  const seen = new Set<string>();
+
+  for (const option of selected) {
+    const key = `${option.group_id}:${option.choice_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    const group = groups.find((row) => row.id === option.group_id);
+    if (!group || !group.choices.some((choice) => choice.id === option.choice_id)) return false;
+  }
+
+  return groups.every((group) => {
+    const count = selected.filter((option) => option.group_id === group.id).length;
+    const max = Math.max(1, Math.min(20, Number(group.max_select ?? 1)));
+    return (!group.required || count > 0) && count <= max;
+  });
+}
+
+export function foodCartLineUnitPrice(
+  item: Pick<FoodCustomerMenuItem, "price" | "options">,
+  line: Pick<FoodCartLine, "selected_options">,
+) {
+  const surcharge = (line.selected_options ?? []).reduce((sum, option) => {
+    const group = item.options?.find((row) => row.id === option.group_id);
+    const choice = group?.choices?.find((row) => row.id === option.choice_id);
+    return sum + Math.max(0, Number(choice?.price ?? 0));
+  }, 0);
+  return Number(item.price) + surcharge;
+}
+
+export function foodMenuQuantityLimit(item: Pick<FoodCustomerMenuItem, "daily_stock_limit" | "remaining_stock">) {
+  const configured = item.daily_stock_limit == null ? 99 : Math.max(0, Number(item.daily_stock_limit));
+  const remaining = item.remaining_stock == null ? configured : Math.max(0, Number(item.remaining_stock));
+  return Math.max(0, Math.min(99, configured, remaining));
+}
 
 export type FoodOrderQuote = {
   subtotal: number;
@@ -232,6 +321,7 @@ export type FoodCustomerSnapshot = {
   store: FoodCustomerStore | null;
   menu: FoodCustomerMenuItem[];
   orders: FoodCustomerOrder[];
+  has_more_orders: boolean;
   addresses: FoodCustomerAddress[];
   ownReviews: FoodCustomerOwnReview[];
 };
@@ -282,6 +372,27 @@ export async function foodPrivateSignedUrl(
   return data.signedUrl;
 }
 
+export const FOOD_CUSTOMER_ORDER_PAGE_SIZE = 100;
+
+export async function fetchFoodCustomerOrdersPage(
+  client: SupabaseClient,
+  userId: string,
+  offset = 0,
+  limit = FOOD_CUSTOMER_ORDER_PAGE_SIZE,
+): Promise<{ orders: FoodCustomerOrder[]; hasMore: boolean }> {
+  const safeOffset = Math.max(0, Math.floor(offset));
+  const safeLimit = Math.max(1, Math.min(250, Math.floor(limit)));
+  const { data, error } = await client
+    .from("food_orders")
+    .select("*,food_order_items(*),food_delivery_proofs(*)")
+    .eq("buyer_id", userId)
+    .order("created_at", { ascending: false })
+    .range(safeOffset, safeOffset + safeLimit);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as FoodCustomerOrder[];
+  return { orders: rows.slice(0, safeLimit), hasMore: rows.length > safeLimit };
+}
+
 export async function fetchFoodCustomerSnapshot(
   client: SupabaseClient,
   userId: string,
@@ -293,7 +404,7 @@ export async function fetchFoodCustomerSnapshot(
   ]);
   const developer = !developerCheck.error && developerCheck.data === true;
   if (!developer && (access.error || access.data !== true)) {
-    return { allowed: false, developer: false, store: null, menu: [], orders: [], addresses: [], ownReviews: [] };
+    return { allowed: false, developer: false, store: null, menu: [], orders: [], has_more_orders: false, addresses: [], ownReviews: [] };
   }
 
   // WYN-207: the customer can pick a store from the directory; without a
@@ -312,7 +423,7 @@ export async function fetchFoodCustomerSnapshot(
   if (storeResult.error) throw new Error(storeResult.error.message);
 
   const store = (storeResult.data as FoodCustomerStore | null) ?? null;
-  const [menuResult, ordersResult, addressesResult, ownReviewsResult] = await Promise.all([
+  const [menuResult, orderPage, addressesResult, ownReviewsResult, stockResult] = await Promise.all([
     store
       ? client
           .from("food_menu_items")
@@ -321,12 +432,7 @@ export async function fetchFoodCustomerSnapshot(
           .order("sort_order", { ascending: true })
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: [], error: null }),
-    client
-      .from("food_orders")
-      .select("*,food_order_items(*),food_delivery_proofs(*)")
-      .eq("buyer_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(100),
+    fetchFoodCustomerOrdersPage(client, userId),
     client
       .from("food_customer_addresses")
       .select("*")
@@ -334,18 +440,34 @@ export async function fetchFoodCustomerSnapshot(
       .order("is_default", { ascending: false })
       .order("created_at", { ascending: false }),
     client.rpc("food_my_store_reviews"),
+    store
+      ? client.rpc("food_menu_stock_remaining", { p_store_id: store.id })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (menuResult.error) throw new Error(menuResult.error.message);
-  if (ordersResult.error) throw new Error(ordersResult.error.message);
   if (addressesResult.error) throw new Error(addressesResult.error.message);
+
+  const stockRows = !stockResult.error && Array.isArray(stockResult.data)
+    ? stockResult.data as Array<{ menu_item_id?: unknown; remaining_stock?: unknown }>
+    : [];
+  const remainingByMenu = new Map(
+    stockRows
+      .map((row) => [String(row.menu_item_id ?? ""), row.remaining_stock == null ? null : Number(row.remaining_stock)] as const)
+      .filter(([id, remaining]) => id && (remaining === null || Number.isFinite(remaining))),
+  );
+  const menu = ((menuResult.data ?? []) as FoodCustomerMenuItem[]).map((item) => ({
+    ...item,
+    remaining_stock: remainingByMenu.has(item.id) ? remainingByMenu.get(item.id)! : undefined,
+  }));
 
   return {
     allowed: true,
     developer,
     store,
-    menu: (menuResult.data ?? []) as FoodCustomerMenuItem[],
-    orders: (ordersResult.data ?? []) as FoodCustomerOrder[],
+    menu,
+    orders: orderPage.orders,
+    has_more_orders: orderPage.hasMore,
     addresses: (addressesResult.data ?? []) as FoodCustomerAddress[],
     ownReviews: ownReviewsResult.error ? [] : (ownReviewsResult.data ?? []) as FoodCustomerOwnReview[],
   };
@@ -483,6 +605,7 @@ export async function quoteFoodCustomerOrder(
     p_items: items.map((line) => ({
       menu_item_id: line.menu_item_id,
       quantity: line.quantity,
+      selected_options: line.selected_options ?? [],
     })),
   });
   if (error) throw new Error(error.message);
@@ -528,7 +651,7 @@ export async function createFoodCustomerOrder(
       menu_item_id: line.menu_item_id,
       quantity: line.quantity,
       note: line.note || "",
-      selected_options: [],
+      selected_options: line.selected_options ?? [],
     })),
   };
   const { data, error } = input.scheduledFor
@@ -753,7 +876,13 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";
   if (message.includes("menu item is unavailable")) return "มีเมนูที่ไม่พร้อมขาย กรุณาตรวจตะกร้าอีกครั้ง";
-  if (message.includes("menu item daily stock exceeded")) return "เมนูจำนวนจำกัดขายครบสำหรับวันนี้แล้ว กรุณาตรวจตะกร้าอีกครั้ง";
+  if (message.includes("menu item daily stock exceeded")) return "จำนวนเมนูที่เลือกเกินสต็อกที่เหลือสำหรับวันนี้ กรุณาตรวจตะกร้าอีกครั้ง";
+  if (message.includes("required menu option missing")) return "กรุณาเลือกตัวเลือกที่จำเป็นของเมนูให้ครบ";
+  if (message.includes("too many menu options selected")) return "เลือกตัวเลือกของเมนูเกินจำนวนที่ร้านกำหนด";
+  if (message.includes("invalid menu option")) return "ตัวเลือกของเมนูเปลี่ยนแปลงแล้ว กรุณาเลือกใหม่อีกครั้ง";
+  if (message.includes("scheduled time is too soon")) return "เวลาที่เลือกใกล้เกินไป กรุณาเลือกเวลาใหม่";
+  if (message.includes("scheduled time is too far")) return "เวลาที่เลือกไกลเกินช่วงที่ร้านเปิดรับออเดอร์ล่วงหน้า";
+  if (message.includes("store is closed at scheduled time")) return "ร้านปิดในวันหรือเวลาที่เลือก กรุณาเลือกเวลาใหม่";
   if (message.includes("order cannot be cancelled by customer")) return "ออเดอร์นี้ยกเลิกเองไม่ได้แล้ว กรุณาติดต่อร้าน";
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";

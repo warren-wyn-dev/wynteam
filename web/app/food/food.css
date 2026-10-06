@@ -454,6 +454,7 @@
   display: grid;
   place-items: center;
 }
+.wf-qty button:disabled { opacity: .35; cursor: not-allowed; }
 .wf-qty b { min-width: 18px; text-align: center; font-size: 12px; }
 .wf-qty--large button { width: 34px; height: 34px; }
 .wf-qty--large b { font-size: 14px; }
@@ -492,6 +493,8 @@
 }
 
 .wf-order-list { display: grid; gap: 9px; }
+.wf-load-more { margin-top: 12px; }
+.wf-secondary:disabled { opacity: .45; }
 .wf-order-card {
   width: 100%;
   padding: 13px 14px;
@@ -726,6 +729,53 @@
 .wf-item-title h3 { margin: 0; font-size: 19px; }
 .wf-item-title p { margin: 5px 0 0; color: var(--wf-secondary); font-size: 10.5px; line-height: 1.45; }
 .wf-item-title > strong { flex: 0 0 auto; font-size: 16px; }
+.wf-item-title small { display: block; margin-top: 5px; color: var(--wf-secondary); font-size: 10px; }
+
+.wf-option-groups { display: grid; gap: 12px; }
+.wf-option-group {
+  padding: 13px;
+  border: 1px solid var(--wf-border);
+  border-radius: 15px;
+  background: var(--wf-surface);
+  display: grid;
+  gap: 10px;
+}
+.wf-option-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.wf-option-head > div { display: grid; gap: 2px; }
+.wf-option-head strong { font-size: 12.5px; }
+.wf-option-head small { color: var(--wf-secondary); font-size: 9.5px; }
+.wf-option-head em {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--wf-red-soft);
+  color: var(--wf-red);
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 800;
+}
+.wf-option-choices { display: grid; gap: 7px; }
+.wf-option-choices button {
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--wf-border);
+  border-radius: 12px;
+  background: var(--wf-bg);
+  color: var(--wf-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+.wf-option-choices button span { font-size: 11px; font-weight: 650; }
+.wf-option-choices button b { color: var(--wf-secondary); font-size: 10px; }
+.wf-option-choices button.is-active {
+  border-color: var(--wf-red);
+  box-shadow: inset 0 0 0 1px var(--wf-red);
+  background: color-mix(in srgb, var(--wf-red) 4%, var(--wf-bg));
+}
+.wf-option-choices button.is-active b { color: var(--wf-red); }
+
 .wf-item-actions { position: sticky; bottom: 0; padding-top: 4px; background: var(--wf-bg); display: grid; grid-template-columns: auto minmax(0,1fr); gap: 10px; align-items: center; }
 
 .wf-field, .wf-form > label {

@@ -5,12 +5,12 @@ const FOOD_ICON_512 = "/food/icon-v7?size=512";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: "/food",
+    id: "/",
     name: "WYNOS Food",
     short_name: "WYNOS Food",
     description: "WYNOS Food Public Beta",
-    start_url: "/food",
-    scope: "/food",
+    start_url: "/",
+    scope: "/",
     display: "standalone",
     background_color: "#e32636",
     theme_color: "#e32636",

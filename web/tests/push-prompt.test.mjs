@@ -19,7 +19,7 @@ const base = { path: "/home", permission: "default", availability: { available: 
 
 test("asks on main screens when the question has not been answered", () => {
   assert.equal(pushPromptKind(base), "ask");
-  for (const path of ["/chat", "/chat/abc", "/notifications", "/clubs", "/club/x", "/profile", "/search"]) {
+  for (const path of ["/chat", "/chat/abc", "/notifications", "/clubs", "/club/x", "/profile", "/search", "/food"]) {
     assert.equal(pushPromptKind({ ...base, path }), "ask", path);
   }
 });
@@ -61,6 +61,12 @@ test("Not now waits seven days", () => {
   assert.equal(pushPromptKind({ ...base, dismissedAt: now - 1000 }), null);
   assert.equal(pushPromptKind({ ...base, dismissedAt: now - PUSH_PROMPT_COOLDOWN_MS + 1 }), null);
   assert.equal(pushPromptKind({ ...base, dismissedAt: now - PUSH_PROMPT_COOLDOWN_MS }), "ask");
+});
+
+test("Food subdomain root maps to the Food push prompt path", () => {
+  const source = readFileSync(new URL("../components/push-prompt.tsx", import.meta.url), "utf8");
+  assert.match(source, /window\.location\.hostname\.toLowerCase\(\) === "food\.wynos\.online"/);
+  assert.match(source, /\? "\/food"/);
 });
 
 test("the OS permission popup is only requested from the Allow tap", () => {
