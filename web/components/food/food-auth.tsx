@@ -49,6 +49,18 @@ function foodAuthOrigin(): string {
   return window.location.origin;
 }
 
+function isInstalledWebApp(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  const iosStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return iosStandalone || window.matchMedia("(display-mode: standalone)").matches;
+}
+
+function isLegacyInstalledFoodOrigin(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname.toLowerCase();
+  return (host === "wynos.online" || host === "www.wynos.online") && isInstalledWebApp();
+}
+
 function redirectFoodAuthToCanonicalOrigin(pathname: string): boolean {
   if (typeof window === "undefined") return false;
   const targetOrigin = foodAuthOrigin();
@@ -63,6 +75,7 @@ function redirectFoodAuthToCanonicalOrigin(pathname: string): boolean {
 export function FoodLoginScreen() {
   const client = useMemo(() => getSupabaseBrowserClient(), []);
   const [checking, setChecking] = useState(() => Boolean(client));
+  const [legacyInstalledOrigin, setLegacyInstalledOrigin] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -72,6 +85,16 @@ export function FoodLoginScreen() {
 
   useEffect(() => {
     let mounted = true;
+    // A Home Screen app installed before WYNOS Food moved to its own
+    // subdomain remains permanently bound to the original wynos.online
+    // origin. Do not start Google OAuth from that legacy origin because its
+    // PKCE/session storage belongs to Social. Guide the user into the new
+    // Food origin instead; browser tabs can be redirected automatically.
+    if (isLegacyInstalledFoodOrigin()) {
+      setLegacyInstalledOrigin(true);
+      setChecking(false);
+      return () => { mounted = false; };
+    }
     if (redirectFoodAuthToCanonicalOrigin("/food/login")) return () => { mounted = false; };
     if (!client) return;
     void client.auth.getSession().then(({ data, error }) => {
@@ -210,6 +233,19 @@ export function FoodLoginScreen() {
     return <FoodAuthShell><div className="wf-auth-state"><FoodAuthBrand /><h1>ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h1><p>WYNOS Food ยังเชื่อมต่อระบบบัญชีไม่ได้</p></div></FoodAuthShell>;
   }
   if (checking) return <FoodAuthLoading />;
+  if (legacyInstalledOrigin) {
+    return (
+      <FoodAuthShell>
+        <FoodAuthBrand />
+        <div className="wf-auth-state">
+          <h1>ต้องเปิด WYNOS Food เวอร์ชันใหม่</h1>
+          <p>ไอคอนบนหน้าจอหลักนี้ยังเป็น WYNOS Food รุ่นเก่าที่ติดตั้งจาก wynos.online จึงใช้เซสชันเดียวกับ Social และทำให้ Google พากลับไปผิดแอป</p>
+          <a className="wf-auth-primary wf-auth-link" href="https://food.wynos.online/food/login">เปิด WYNOS Food ที่ food.wynos.online</a>
+          <p>เมื่อเปิดใน Safari แล้ว ให้เพิ่ม WYNOS Food ลงหน้าจอหลักใหม่เพื่อให้ล็อกอินและเซสชันอยู่บนโดเมน Food โดยตรง</p>
+        </div>
+      </FoodAuthShell>
+    );
+  }
 
   return (
     <FoodAuthShell>
