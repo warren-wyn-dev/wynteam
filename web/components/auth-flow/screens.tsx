@@ -258,6 +258,7 @@ export function WelcomeScreen() {
     if (!supabase || !isInstalledIosWebApp()) return;
     let mounted = true;
     let checking = false;
+    let queuedCode: string | null = null;
 
     const popupClosed = () => {
       try { return googlePwaPopup.current?.closed === true; } catch { return false; }
@@ -267,7 +268,11 @@ export function WelcomeScreen() {
       handoff?: { code: string },
       finalIfMissing = false,
     ) => {
-      if (!mounted || !googlePwaPending.current || checking) return;
+      if (!mounted || !googlePwaPending.current) return;
+      if (checking) {
+        if (handoff?.code) queuedCode = handoff.code;
+        return;
+      }
       checking = true;
       try {
         if (handoff) {
@@ -299,14 +304,14 @@ export function WelcomeScreen() {
           }
           if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, 350));
         }
-        if (mounted && finalIfMissing) {
+        if (mounted && finalIfMissing && !queuedCode) {
           googlePwaPending.current = false;
           googlePwaPopup.current = null;
           setError("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณาลองใหม่");
           setGoogleLoading(false);
         }
       } catch {
-        if (mounted) {
+        if (mounted && !queuedCode) {
           googlePwaPending.current = false;
           googlePwaPopup.current = null;
           setError("ตรวจสอบการเข้าสู่ระบบ Google ไม่สำเร็จ กรุณาลองใหม่");
@@ -314,6 +319,11 @@ export function WelcomeScreen() {
         }
       } finally {
         checking = false;
+        const nextCode = queuedCode;
+        queuedCode = null;
+        if (mounted && googlePwaPending.current && nextCode) {
+          void resume({ code: nextCode }, true);
+        }
       }
     };
     const onMessage = (event: MessageEvent) => {
