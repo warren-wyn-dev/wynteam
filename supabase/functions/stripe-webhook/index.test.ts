@@ -45,3 +45,10 @@ Deno.test("technical payment failures are logged but customer-facing notes are T
   assert.match(source, /request_id|request-id/);
   assert.match(source, /การชำระเงินไม่สำเร็จ/);
 });
+
+Deno.test("webhook ignores cross-environment account and payment state", () => {
+  assert.match(source, /stripeLivemode/);
+  assert.match(source, /saved\.livemode !== keyLivemode/);
+  assert.match(source, /paymentEnvironment\.livemode !== stripeLiveMode/);
+  assert.match(source, /received: true, ignored: true/);
+});
