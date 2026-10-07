@@ -78,6 +78,7 @@ test("embedded onboarding is primary and hosted Account Links are fallback", () 
   assert.match(connect, /external_account_collection/);
   assert.match(connect, /surface: "embedded"/);
   assert.match(connect, /https:\/\/api\.stripe\.com\/v2\/core\/account_links/);
+  assert.match(connect, /collection_options: \{ fields: "currently_due" \}/);
   assert.match(paymentUi, /https:\/\/connect-js\.stripe\.com\/v1\.0\/connect\.js/);
   assert.match(paymentUi, /StripeConnect\.init/);
   assert.match(paymentUi, /setOnExit/);
