@@ -15,6 +15,11 @@ function serviceKey() {
   try { const keys = JSON.parse(raw) as Record<string,string>; return keys.default ?? Object.values(keys)[0] ?? null; }
   catch { return null; }
 }
+function stripeLivemode(secret: string) {
+  if (/^(?:sk|rk)_live_/.test(secret)) return true;
+  if (/^(?:sk|rk)_test_/.test(secret)) return false;
+  return null;
+}
 function stripeHeaders(secret: string, account: string, idempotencyKey: string) {
   return {
     Authorization: `Basic ${btoa(secret + ":")}`,
@@ -33,6 +38,11 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   if (!url || !key || !authHeader) return json({ error: "unauthorized" }, 401);
   if (!stripeSecret) return json({ error: "payments_not_configured", message: "ระบบคืนเงินยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง" }, 503);
+  const stripeLiveMode = stripeLivemode(stripeSecret);
+  if (stripeLiveMode == null) return json({ error: "stripe_key_mode_unknown", message: "ระบบคืนเงินยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง" }, 503);
+  if (stripeLiveMode && req.headers.get("origin") !== "https://merchant.wynos.online") {
+    return json({ error: "live_stripe_origin_required" }, 403);
+  }
 
   const token = authHeader.replace(/^Bearer\s+/i, "");
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -64,9 +74,22 @@ Deno.serve(async (req: Request) => {
   }
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
 
-  const { data: account } = await admin.from("food_stripe_accounts")
-    .select("stripe_account_id").eq("store_id", order.store_id).maybeSingle();
-  if (!account?.stripe_account_id) return json({ error: "stripe_account_missing" }, 409);
+  const { data: payment } = await admin.from("food_stripe_payments")
+    .select("stripe_account_id,livemode").eq("order_id", order.id).maybeSingle();
+
+  let stripeAccountId = typeof payment?.stripe_account_id === "string" ? payment.stripe_account_id : null;
+  let paymentLivemode = typeof payment?.livemode === "boolean" ? payment.livemode : null;
+
+  // Compatibility fallback for older Stripe orders that predate the payment
+  // ledger row. New refunds always stay pinned to the account that took the payment.
+  if (!stripeAccountId) {
+    const { data: activeAccount } = await admin.from("food_stripe_accounts")
+      .select("stripe_account_id,livemode").eq("store_id", order.store_id).maybeSingle();
+    stripeAccountId = typeof activeAccount?.stripe_account_id === "string" ? activeAccount.stripe_account_id : null;
+    paymentLivemode = typeof activeAccount?.livemode === "boolean" ? activeAccount.livemode : null;
+  }
+  if (!stripeAccountId) return json({ error: "stripe_account_missing" }, 409);
+  if (paymentLivemode !== stripeLiveMode) return json({ error: "stripe_environment_mismatch" }, 409);
 
   const params = new URLSearchParams();
   params.set("payment_intent", order.stripe_payment_intent_id);
@@ -77,7 +100,7 @@ Deno.serve(async (req: Request) => {
   try {
     const response = await fetch("https://api.stripe.com/v1/refunds", {
       method: "POST",
-      headers: stripeHeaders(stripeSecret, account.stripe_account_id, `wynos-refund-${order.id}`),
+      headers: stripeHeaders(stripeSecret, stripeAccountId, `wynos-refund-${order.id}`),
       body: params,
     });
     const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
