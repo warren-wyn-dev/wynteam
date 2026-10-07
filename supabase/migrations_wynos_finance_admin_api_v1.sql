@@ -621,7 +621,7 @@ $$;
 revoke all on function public.admin_mark_merchant_settlement_paid(uuid,text,text,jsonb) from public, anon;
 grant execute on function public.admin_mark_merchant_settlement_paid(uuid,text,text,jsonb) to authenticated;
 
-create or replace function public.merchant_finance_summary(
+create or replace function public.merchant_settlement_finance_summary(
   p_store_id uuid,p_from timestamptz,p_to timestamptz
 )
 returns jsonb
@@ -679,8 +679,8 @@ begin
 end;
 $$;
 
-revoke all on function public.merchant_finance_summary(uuid,timestamptz,timestamptz) from public, anon;
-grant execute on function public.merchant_finance_summary(uuid,timestamptz,timestamptz) to authenticated;
+revoke all on function public.merchant_settlement_finance_summary(uuid,timestamptz,timestamptz) from public, anon;
+grant execute on function public.merchant_settlement_finance_summary(uuid,timestamptz,timestamptz) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Rider admin controls. The rider feature remains OFF until QA enables it.
