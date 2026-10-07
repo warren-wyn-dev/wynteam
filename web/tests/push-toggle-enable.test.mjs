@@ -184,3 +184,9 @@ test("production deploy forwards PUBLIC Firebase config to build/runtime and che
   assert.match(source, /\/api\/push-config/);
   assert.doesNotMatch(source, /FCM_SERVICE_ACCOUNT|FIREBASE_PRIVATE_KEY/);
 });
+
+test("automatic service worker registration stays production-only while explicit Push opt-in still works", () => {
+  const source = readFileSync(new URL("../components/app-navigation-runtime.tsx", import.meta.url), "utf8");
+  assert.match(source, /process\.env\.NODE_ENV !== "production"/);
+  assert.match(source, /navigator\.serviceWorker\.register\("\/sw\.js"\)/);
+});
