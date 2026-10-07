@@ -104,6 +104,10 @@ function thaiConnectMessage(error: unknown) {
 type BankSummary = { ready: boolean; name: string | null; last4: string | null };
 type MoneySummary = { pending: number; available: number };
 type PayoutSummary = { interval: string | null };
+type PromptPaySummary = {
+  enabled: boolean;
+  status: "active" | "pending" | "inactive" | "unsupported" | "unrequested" | "unknown";
+};
 
 async function retrieveAccount(secret: string, accountId: string) {
   const query = new URLSearchParams();
@@ -170,6 +174,29 @@ async function fetchPayoutSummary(secret: string, accountId: string): Promise<Pa
     return { interval: "unknown" };
   }
 }
+async function fetchPromptPaySummary(secret: string, accountId: string): Promise<PromptPaySummary> {
+  try {
+    const payload = await stripeJson(
+      "https://api.stripe.com/v1/payment_method_configurations?active=true&limit=100",
+      { headers: stripeV1Headers(secret, accountId) },
+    );
+    const configs = Array.isArray(payload.data) ? payload.data as Array<Record<string,unknown>> : [];
+    const config = configs.find((item) => item.is_default === true) ?? configs[0];
+    const promptpay = config?.promptpay as Record<string,unknown> | undefined;
+    if (!promptpay) return { enabled: false, status: "unsupported" };
+
+    if (promptpay.available === true) return { enabled: true, status: "active" };
+    const display = (promptpay.display_preference ?? {}) as Record<string,unknown>;
+    const effective = stringValue(display.value);
+    const preference = stringValue(display.preference);
+    if (effective === "on" || preference === "on") return { enabled: false, status: "pending" };
+    if (effective === "off" || preference === "off") return { enabled: false, status: "inactive" };
+    return { enabled: false, status: "unknown" };
+  } catch {
+    return { enabled: false, status: "unknown" };
+  }
+}
+
 async function preferDailyPayouts(secret: string, accountId: string) {
   const params = new URLSearchParams();
   params.set("payments[payouts][schedule][interval]", "daily");
@@ -213,7 +240,7 @@ function v2CoreState(account: Record<string,unknown>) {
   const capabilities = (merchant.capabilities ?? {}) as Record<string,unknown>;
   const card = capabilities.card_payments as Record<string,unknown> | undefined;
   const cardStatus = capabilityStatus(capabilities, "card_payments");
-  const pp = promptPayStatus(capabilityStatus(capabilities, "promptpay_payments"));
+
   const stripeBalance = capabilities.stripe_balance as Record<string,unknown> | undefined;
   const payouts = stripeBalance?.payouts as Record<string,unknown> | undefined;
   const payoutsStatus = stringValue(payouts?.status);
@@ -225,8 +252,6 @@ function v2CoreState(account: Record<string,unknown>) {
     details: cardStatus === "active" || (cardStatus === "pending" && dueCount === 0),
     charges: cardStatus === "active",
     payouts: payoutsStatus === "active",
-    promptpayEnabled: pp === "active",
-    promptpayStatus: pp,
     dueCount,
     needsInfo: dueCount > 0,
     restricted,
@@ -248,8 +273,8 @@ function composeState(
     details_submitted: core.details,
     charges_enabled: charges,
     payouts_enabled: payoutsEnabled,
-    promptpay_enabled: core.promptpayEnabled,
-    promptpay_status: core.promptpayStatus,
+    promptpay_enabled: promptpay.enabled,
+    promptpay_status: promptpay.status,
     requirements_due_count: core.dueCount,
     bank_ready: bank.ready,
     bank_name: bank.name,
@@ -281,13 +306,14 @@ function sanitized(state: Record<string,unknown>) {
 }
 async function syncAccount(admin: ReturnType<typeof createClient>, secret: string, storeId: string, accountId: string) {
   const retrieved = await retrieveAccount(secret, accountId);
-  const [bank, money, payout] = await Promise.all([
+  const [bank, money, payout, promptpay] = await Promise.all([
     fetchBankSummary(secret, accountId),
     fetchMoneySummary(secret, accountId),
     fetchPayoutSummary(secret, accountId),
+    fetchPromptPaySummary(secret, accountId),
   ]);
   const core = retrieved.api === "v2" ? v2CoreState(retrieved.account) : v1CoreState(retrieved.account);
-  const state = composeState(core, bank, money, payout);
+  const state = composeState(core, bank, money, payout, promptpay);
   const now = new Date().toISOString();
   const { error } = await admin.from("food_stripe_accounts").upsert({
     store_id: storeId,
@@ -310,7 +336,6 @@ async function createV2Account(secret: string, storeId: string, storeName: strin
       merchant: {
         capabilities: {
           card_payments: { requested: true },
-          promptpay_payments: { requested: true },
         },
       },
     },
@@ -391,10 +416,11 @@ async function acquireProvisioningLock(admin: ReturnType<typeof createClient>, s
   return data === true;
 }
 async function releaseProvisioningLock(admin: ReturnType<typeof createClient>, storeId: string, token: string) {
-  await admin.rpc("food_release_stripe_account_creation", {
+  const { error } = await admin.rpc("food_release_stripe_account_creation", {
     p_store_id: storeId,
     p_operation_token: token,
   });
+  if (error) console.warn("merchant-stripe-connect lock release failed", { storeId });
 }
 async function waitForSavedAccount(admin: ReturnType<typeof createClient>, storeId: string) {
   for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -440,8 +466,11 @@ Deno.serve(async (req: Request) => {
   if (!store?.merchant_account_id) return json({ error: "store_not_found", message: "ไม่พบร้านที่เลือก" }, 404);
   const { data: member } = await admin.from("merchant_memberships")
     .select("role").eq("merchant_account_id", store.merchant_account_id).eq("user_id", user.id).eq("active", true).maybeSingle();
-  if (!member || !["owner","admin"].includes(member.role)) {
-    return json({ error: "owner_or_admin_required", message: "เฉพาะเจ้าของร้านหรือแอดมินเท่านั้นที่เปิดรับชำระเงินได้" }, 403);
+  if (!member || !["owner","admin","manager","orders"].includes(member.role)) {
+    return json({ error: "merchant_access_required", message: "ไม่มีสิทธิ์เข้าถึงข้อมูลการรับเงินของร้านนี้" }, 403);
+  }
+  if (action !== "status" && !["owner","admin"].includes(member.role)) {
+    return json({ error: "owner_or_admin_required", message: "เฉพาะเจ้าของร้านหรือแอดมินเท่านั้นที่จัดการการรับเงินได้" }, 403);
   }
 
   let accountId: string | null = null;
@@ -472,7 +501,13 @@ Deno.serve(async (req: Request) => {
             if (typeof account.id !== "string") throw new Error("stripe_account_create_failed");
             accountId = account.id;
             const core = v2CoreState(account);
-            const state = composeState(core, { ready: false, name: null, last4: null }, { pending: 0, available: 0 }, { interval: null });
+            const state = composeState(
+              core,
+              { ready: false, name: null, last4: null },
+              { pending: 0, available: 0 },
+              { interval: null },
+              { enabled: false, status: "unknown" },
+            );
             const { error: insertError } = await admin.from("food_stripe_accounts").insert({
               store_id: storeId,
               stripe_account_id: accountId,
