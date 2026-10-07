@@ -71,6 +71,12 @@ export function AppNavigationRuntime() {
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
+    // Do not register the production worker from the Next.js dev server.
+    // WebKit treats a dev-origin worker load as a page-level access-control
+    // error even when register() rejects and the rejection is handled. That
+    // pollutes local browser QA and can also leave stale dev workers behind.
+    // Production builds still register /sw.js exactly as before.
+    if (process.env.NODE_ENV !== "production") return;
     // Offline support is important, but registration can wait until the
     // visible page has started painting. Reuse a root effect so it runs once.
     const register = () => {
