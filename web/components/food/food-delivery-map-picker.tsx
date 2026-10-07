@@ -42,7 +42,7 @@ import {
   rememberRecentPlace,
   type MapsRecentPlace,
 } from "@/lib/maps-places";
-import { formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoute, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
+import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoute, routeRemainingDistanceMeters, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -416,6 +416,8 @@ export function FoodDeliveryMapPicker({
   const navigationOffRouteCountRef = useRef(0);
   const navigationRerouteRef = useRef(false);
   const navigationLastRerouteAtRef = useRef(0);
+  const navigationProgressRef = useRef(0);
+  const navigationAccuracyRef = useRef<number | null>(null);
   const routeOriginRef = useRef<{
     location: FoodLocation;
     targetKey: string;
@@ -553,6 +555,8 @@ export function FoodDeliveryMapPicker({
     navigationActiveRef.current = false;
     navigationOffRouteCountRef.current = 0;
     navigationRerouteRef.current = false;
+    navigationProgressRef.current = 0;
+    navigationAccuracyRef.current = null;
     if (navigationWatchRef.current != null && typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.clearWatch(navigationWatchRef.current);
     }
@@ -576,6 +580,7 @@ export function FoodDeliveryMapPicker({
     options?: { origin?: FoodLocation; preserveRoute?: boolean; navigationReroute?: boolean },
   ) => {
     if (!standalone) return;
+    if (navigationActiveRef.current && !options?.navigationReroute) stopNavigation();
     const requestId = ++routeRequestRef.current;
     setDirectionsTarget(target);
     setRouteMode(mode);
@@ -613,6 +618,7 @@ export function FoodDeliveryMapPicker({
             { lat: target.latitude, lon: target.longitude },
           ],
           costing: mode,
+          language: document.documentElement.lang.toLowerCase().startsWith("en") ? "en-US" : "th-TH",
         }),
       });
       const payload = await response.json().catch(() => null) as unknown;
@@ -629,6 +635,7 @@ export function FoodDeliveryMapPicker({
 
       const parsed = parseWynosRoute(payload, mode);
       if (!parsed) throw new Error("ยังไม่พบเส้นทางที่เหมาะสม");
+      navigationProgressRef.current = 0;
       setRoute(parsed);
       setActiveNearbyPlace(null);
       if (options?.navigationReroute) setNavigationStatus("ปรับเส้นทางใหม่แล้ว");
@@ -640,7 +647,7 @@ export function FoodDeliveryMapPicker({
     } finally {
       if (routeRequestRef.current === requestId) setRouteWorking(false);
     }
-  }, [routeMode, standalone]);
+  }, [routeMode, standalone, stopNavigation]);
 
   const startNavigation = useCallback(() => {
     if (!standalone || !route || !directionsTarget) return;
@@ -652,6 +659,8 @@ export function FoodDeliveryMapPicker({
     stopNavigation();
     navigationActiveRef.current = true;
     navigationLastRerouteAtRef.current = 0;
+    navigationProgressRef.current = 0;
+    navigationAccuracyRef.current = null;
     setNavigating(true);
     setNavigationStatus("กำลังติดตามตำแหน่ง…");
     setSheetDetent("half");
@@ -662,6 +671,9 @@ export function FoodDeliveryMapPicker({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
+        navigationAccuracyRef.current = Number.isFinite(position.coords.accuracy)
+          ? Math.max(0, position.coords.accuracy)
+          : null;
         setUserLocation(next);
         setCurrentLocationSelected(true);
         setNavigationStatus("");
@@ -671,8 +683,12 @@ export function FoodDeliveryMapPicker({
           essential: true,
         });
       },
-      () => {
-        stopNavigation("ไม่สามารถใช้ตำแหน่ง GPS สำหรับการนำทางได้");
+      (error) => {
+        if (error.code === 1) {
+          stopNavigation("ไม่สามารถใช้ตำแหน่ง GPS สำหรับการนำทางได้");
+          return;
+        }
+        setNavigationStatus("สัญญาณ GPS ขาดหาย กำลังรอตำแหน่งใหม่…");
       },
       {
         enableHighAccuracy: true,
@@ -684,21 +700,45 @@ export function FoodDeliveryMapPicker({
 
   useEffect(() => {
     if (!navigating || !userLocation || !route || !directionsTarget) return;
-    const match = nearestRoutePosition(userLocation, route.coordinates);
+    const previousProgress = navigationProgressRef.current;
+    const previousSegment = Math.floor(previousProgress);
+    const match = nearestRoutePosition(userLocation, route.coordinates, {
+      minSegmentIndex: Math.max(0, previousSegment - 2),
+      maxSegmentIndex: Math.min(route.coordinates.length - 2, previousSegment + 120),
+    });
     if (!match) return;
 
-    const last = route.coordinates[route.coordinates.length - 1];
-    const arrival = last ? nearestRoutePosition(userLocation, [last, last]) : null;
-    if (arrival && arrival.distanceMeters <= 35) {
+    const stableProgress = Math.max(previousProgress, match.routeProgress);
+    navigationProgressRef.current = stableProgress;
+    const stableSegmentIndex = Math.min(route.coordinates.length - 2, Math.floor(stableProgress));
+    const stableSegmentProgress = Math.min(1, Math.max(0, stableProgress - stableSegmentIndex));
+    const remainingMeters = routeRemainingDistanceMeters(
+      route.coordinates,
+      stableSegmentIndex,
+      stableSegmentProgress,
+    );
+    const destination = route.coordinates[route.coordinates.length - 1];
+    const destinationMeters = destination
+      ? distanceToRouteCoordinateMeters(userLocation, destination)
+      : Number.POSITIVE_INFINITY;
+    const accuracy = navigationAccuracyRef.current ?? Number.POSITIVE_INFINITY;
+
+    if (accuracy <= 35 && destinationMeters <= 35 && remainingMeters <= 120) {
       const timer = window.setTimeout(() => stopNavigation("ถึงจุดหมายแล้ว"), 0);
       return () => window.clearTimeout(timer);
     }
 
-    if (match.distanceMeters <= 50) {
+    if (!Number.isFinite(accuracy) || accuracy > 80) {
       navigationOffRouteCountRef.current = 0;
       return;
     }
-    if (match.distanceMeters < 80) return;
+
+    const confirmedOffRouteMeters = Math.max(0, match.distanceMeters - accuracy);
+    if (confirmedOffRouteMeters <= 50) {
+      navigationOffRouteCountRef.current = 0;
+      return;
+    }
+    if (confirmedOffRouteMeters < 80) return;
 
     navigationOffRouteCountRef.current += 1;
     const now = Date.now();
@@ -843,7 +883,11 @@ export function FoodDeliveryMapPicker({
         const onMoveEnd = () => {
           if (!map) return;
           setMapZoom(map.getZoom());
-          if (navigationActiveRef.current) return;
+          if (navigationActiveRef.current) {
+            dragRef.current = false;
+            setMapDragging(false);
+            return;
+          }
           const center = map.getCenter();
           const next = { latitude: center.lat, longitude: center.lng };
           void loadNearby(next);
@@ -1009,12 +1053,21 @@ export function FoodDeliveryMapPicker({
         });
       }
 
-      const longitudes = route.coordinates.map(([longitude]) => longitude);
-      const latitudes = route.coordinates.map(([, latitude]) => latitude);
-      map.fitBounds(
-        [[Math.min(...longitudes), Math.min(...latitudes)], [Math.max(...longitudes), Math.max(...latitudes)]],
-        { padding: { top: 92, right: 44, bottom: 330, left: 44 }, maxZoom: 16.5, duration: 520 },
-      );
+      const rerouteOrigin = navigationActiveRef.current ? routeOriginRef.current?.location : null;
+      if (rerouteOrigin) {
+        map.flyTo({
+          center: [rerouteOrigin.longitude, rerouteOrigin.latitude],
+          zoom: 17.2,
+          essential: true,
+        });
+      } else {
+        const longitudes = route.coordinates.map(([longitude]) => longitude);
+        const latitudes = route.coordinates.map(([, latitude]) => latitude);
+        map.fitBounds(
+          [[Math.min(...longitudes), Math.min(...latitudes)], [Math.max(...longitudes), Math.max(...latitudes)]],
+          { padding: { top: 92, right: 44, bottom: 330, left: 44 }, maxZoom: 16.5, duration: 520 },
+        );
+      }
     } catch {
       // Keep the route summary usable even if the optional line overlay cannot render.
     }
@@ -1590,11 +1643,21 @@ export function FoodDeliveryMapPicker({
     place?.source === "legacy" || results.some((result) => result.source === "legacy");
   const showPhotonAttribution =
     place?.source === "photon" || results.some((result) => result.source === "photon");
+  const navigationPreviousProgress = navigationProgressRef.current;
+  const navigationPreviousSegment = Math.floor(navigationPreviousProgress);
   const navigationMatch = navigating && userLocation && route
-    ? nearestRoutePosition(userLocation, route.coordinates)
+    ? nearestRoutePosition(userLocation, route.coordinates, {
+        minSegmentIndex: Math.max(0, navigationPreviousSegment - 2),
+        maxSegmentIndex: Math.min(route.coordinates.length - 2, navigationPreviousSegment + 120),
+      })
     : null;
+  const navigationRenderedProgress = navigationMatch
+    ? Math.max(navigationPreviousProgress, navigationMatch.routeProgress)
+    : navigationPreviousProgress;
+  const navigationRenderedSegment = Math.floor(navigationRenderedProgress);
+  const navigationRenderedSegmentProgress = navigationRenderedProgress - navigationRenderedSegment;
   const activeRouteStep = route
-    ? nextRouteStep(route, navigationMatch?.shapeIndex ?? 0)
+    ? nextRouteStep(route, navigationRenderedSegment, navigationRenderedSegmentProgress)
     : null;
 
   return (
@@ -1765,7 +1828,9 @@ export function FoodDeliveryMapPicker({
               <div className="wf-map-navigation-panel" aria-live="polite">
                 <small>คำแนะนำถัดไป</small>
                 <strong>{activeRouteStep?.instruction || "ตรงไปตามเส้นทาง"}</strong>
-                {navigationMatch && navigationMatch.distanceMeters >= 80 ? (
+                {navigationMatch
+                  && navigationAccuracyRef.current != null
+                  && navigationMatch.distanceMeters - navigationAccuracyRef.current >= 80 ? (
                   <div className="wf-map-navigation-offroute">
                     <span>ออกนอกเส้นทาง</span>
                     <em>{Math.round(navigationMatch.distanceMeters)} ม.</em>
