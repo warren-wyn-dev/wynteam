@@ -6,8 +6,8 @@ import { test } from "node:test";
 const root = new URL("..", import.meta.url).pathname;
 const read = (path) => readFileSync(join(root, path), "utf8");
 
-const migration = read("../supabase/migrations_wynos_stripe_payment_core_v1.sql");
-const connectV2Migration = read("../supabase/migrations_wynos_stripe_connect_v2_embedded.sql");
+const coreMigration = read("../supabase/migrations_wynos_stripe_payment_core_v1.sql");
+const v2Migration = read("../supabase/migrations_wynos_stripe_connect_v2_embedded.sql");
 const checkout = read("../supabase/functions/food-stripe-checkout/index.ts");
 const connect = read("../supabase/functions/merchant-stripe-connect/index.ts");
 const refund = read("../supabase/functions/merchant-stripe-refund/index.ts");
@@ -20,13 +20,13 @@ const financeUi = read("components/merchant/merchant-finance.tsx");
 const refundUi = read("components/merchant/merchant-core-panels.tsx");
 const merchantCore = read("lib/merchant-core.ts");
 
-test("Stripe secrets stay server-side and gateway tables stay private", () => {
-  assert.match(migration, /alter table public\.food_stripe_accounts enable row level security/i);
-  assert.match(migration, /revoke all on table public\.food_stripe_accounts from public, anon, authenticated/i);
-  assert.match(connectV2Migration, /revoke all on table public\.food_stripe_payouts from public, anon, authenticated/i);
-  assert.match(connectV2Migration, /revoke all on table public\.food_stripe_connect_locks from public, anon, authenticated/i);
-  assert.match(migration, /grant execute on function public\.food_apply_stripe_event[\s\S]*to service_role/i);
-  for (const clientFile of [foodUi, merchantUi, paymentUi, financeUi, refundUi]) {
+test("Stripe secrets and raw gateway data stay server-side", () => {
+  assert.match(coreMigration, /alter table public\.food_stripe_accounts enable row level security/i);
+  assert.match(coreMigration, /revoke all on table public\.food_stripe_accounts from public, anon, authenticated/i);
+  assert.match(v2Migration, /revoke all on table public\.food_stripe_payouts from public, anon, authenticated/i);
+  assert.match(v2Migration, /revoke all on table public\.food_stripe_account_creation_locks from public, anon, authenticated/i);
+  assert.match(v2Migration, /grant execute on function public\.food_record_stripe_payout_event[\s\S]*to service_role/i);
+  for (const clientFile of [foodUi, merchantUi, paymentUi, financeUi, refundUi, merchantCore]) {
     assert.doesNotMatch(clientFile, /STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|STRIPE_V2_WEBHOOK_SECRET|sk_live_|sk_test_/);
   }
 });
@@ -40,7 +40,7 @@ test("Checkout remains a direct connected-account charge with server-calculated 
   assert.doesNotMatch(checkout, /application_fee_amount|transfer_data|destination/);
 });
 
-test("new merchants use Accounts v2 and never create a connected account with POST v1 accounts", () => {
+test("new merchants use Accounts v2 and legacy v1 is retrieval-only compatibility", () => {
   assert.match(connect, /https:\/\/api\.stripe\.com\/v2\/core\/accounts/);
   assert.match(connect, /"Stripe-Version": STRIPE_V2_VERSION/);
   assert.match(connect, /identity: \{ country: "th" \}/);
@@ -51,76 +51,83 @@ test("new merchants use Accounts v2 and never create a connected account with PO
   assert.match(connect, /dashboard: "none"/);
   assert.match(connect, /wynos-connect-v2-/);
   assert.match(connect, /v1_account_instead_of_v2_account/);
-  assert.doesNotMatch(connect, /fetch\("https:\/\/api\.stripe\.com\/v1\/accounts",\s*\{\s*method:\s*"POST"/);
-  assert.match(connect, /\["owner","admin"\]\.includes\(member\.role\)/);
+  assert.doesNotMatch(connect, /https:\/\/api\.stripe\.com\/v1\/accounts["'`]/);
+  assert.match(connect, /\/v1\/accounts\/\$\{encodeURIComponent\(accountId\)\}/);
 });
 
-test("double tap protection uses DB lock, unique store mapping and Stripe idempotency", () => {
-  assert.match(connectV2Migration, /store_id uuid primary key references public\.food_stores/i);
-  assert.match(connectV2Migration, /food_stripe_connect_locks/);
-  assert.match(connectV2Migration, /merchant_acquire_stripe_connect_lock/);
-  assert.match(connect, /acquireProvisioningLock/);
+test("double tap and retry protection uses a store lock, unique mapping and Stripe idempotency", () => {
+  assert.match(v2Migration, /food_stripe_account_creation_locks/);
+  assert.match(v2Migration, /store_id uuid primary key references public\.food_stores/);
+  assert.match(v2Migration, /food_claim_stripe_account_creation/);
+  assert.match(connect, /food_claim_stripe_account_creation/);
   assert.match(connect, /Idempotency-Key/);
   assert.match(connect, /wynos-connect-v2-/);
-  assert.match(connect, /waitForSavedAccount/);
+  assert.match(coreMigration, /store_id uuid primary key references public\.food_stores/);
+  assert.match(coreMigration, /stripe_account_id text not null unique/);
 });
 
-test("embedded onboarding is primary for v2 and hosted onboarding remains a fallback", () => {
+test("embedded onboarding is primary and hosted Account Links are fallback", () => {
   assert.match(connect, /https:\/\/api\.stripe\.com\/v1\/account_sessions/);
-  assert.match(connect, /components\[\$\{component\}\]\[enabled\]/);
+  assert.match(connect, /components\[account_onboarding\]\[enabled\]/);
+  assert.match(connect, /components\[account_management\]\[enabled\]/);
+  assert.match(connect, /components\[notification_banner\]\[enabled\]/);
   assert.match(connect, /external_account_collection/);
-  assert.match(connect, /flow: "embedded"/);
+  assert.match(connect, /surface: "embedded"/);
   assert.match(connect, /https:\/\/api\.stripe\.com\/v2\/core\/account_links/);
   assert.match(paymentUi, /https:\/\/connect-js\.stripe\.com\/v1\.0\/connect\.js/);
-  assert.match(paymentUi, /createMerchantStripeSession/);
-  assert.match(paymentUi, /"account-onboarding"/);
-  assert.match(paymentUi, /"account-management"/);
+  assert.match(paymentUi, /StripeConnect\.init/);
+  assert.match(paymentUi, /setOnExit/);
   assert.match(paymentUi, /locale: "th-TH"/);
+  assert.doesNotMatch(connect, /disable_stripe_user_authentication/);
 });
 
-test("Merchant payment UX is WYNOS-first and auto-refreshes return/refresh URLs", () => {
-  assert.match(merchantUi, /เปิดรับชำระเงิน/);
+test("Merchant payment UX is WYNOS-first and return URLs refresh automatically", () => {
+  assert.match(merchantUi, /การรับชำระเงิน/);
   assert.match(paymentUi, /เปิดรับชำระเงิน/);
   assert.match(paymentUi, /พร้อมรับเงิน/);
   assert.match(paymentUi, /ต้องยืนยันข้อมูล/);
   assert.match(paymentUi, /กำลังตั้งค่า/);
   assert.match(paymentUi, /มีปัญหา กรุณาดำเนินการต่อ/);
-  assert.match(paymentUi, /searchParams\.get\("stripe"\)/);
+  assert.match(paymentUi, /searchParams\.get\("payments"\)/);
   assert.match(paymentUi, /stripeReturn === "refresh"/);
+  assert.match(connect, /payments=refresh/);
+  assert.match(connect, /payments=return/);
   assert.doesNotMatch(merchantUi, /เชื่อม Stripe|ตรวจสถานะ|ดำเนินการต่อใน Stripe/);
   assert.doesNotMatch(paymentUi, /Accounts v2|capabilit|webhook|connected account/i);
 });
 
-test("readiness requires payments, payouts, requirements and a payout bank", () => {
-  assert.match(connect, /core\.charges && core\.payouts && !core\.due && bank\.ready/);
-  assert.match(connect, /payout_bank_ready/);
-  assert.match(connect, /requirements_due/);
-  assert.match(connect, /promptpay_supported/);
+test("readiness requires card, payouts, requirements, bank and verified automatic payout schedule", () => {
+  assert.match(connect, /const automaticPayouts = settings !== "manual" && settings !== "unknown"/);
+  assert.match(connect, /charges && payoutsEnabled && !core\.needsInfo && bank\.ready && automaticPayouts/);
+  assert.match(connect, /requirements_due_count/);
+  assert.match(connect, /bank_last4/);
   assert.match(connect, /stripe_payments_enabled: state\.status === "ready"/);
-  assert.match(connectV2Migration, /bank_last4/);
-  assert.doesNotMatch(connectV2Migration, /bank_account_number/);
+  assert.match(v2Migration, /bank_last4/);
+  assert.doesNotMatch(v2Migration, /bank_account_number/);
 });
 
-test("payout schedule prefers daily through Balance Settings without hard-coding the UI", () => {
+test("payout schedule uses Balance Settings and only reports actual interval", () => {
   assert.match(connect, /https:\/\/api\.stripe\.com\/v1\/balance_settings/);
   assert.match(connect, /payments\[payouts\]\[schedule\]\[interval\]/);
   assert.match(connect, /"daily"/);
-  assert.match(paymentUi, /ตามรอบที่บัญชีนี้รองรับ/);
-  assert.match(paymentUi, /รอบที่เร็วที่สุดที่บัญชีนี้รองรับ/);
+  assert.match(paymentUi, /payout_interval === "daily"/);
+  assert.match(paymentUi, /อัตโนมัติ · ทุกวัน/);
+  assert.match(paymentUi, /เงินจะถูกโอนตามรอบที่ผู้ให้บริการกำหนด/);
 });
 
-test("Webhook verifies signatures, supports Accounts v2 and payout outcomes", () => {
-  assert.match(webhook, /verifyAnyStripeSignature/);
+test("Webhook verifies signatures, scopes Accounts v2 thin events and records payouts idempotently", () => {
+  assert.match(webhook, /verifyAgainstConfiguredSecrets/);
   assert.match(webhook, /STRIPE_V2_WEBHOOK_SECRET/);
-  assert.match(webhook, /eventType\.startsWith\("v2\.core\.account"\)/);
-  assert.match(webhook, /related_object/);
+  assert.match(webhook, /V2_ACCOUNT_SYNC_EVENTS/);
+  assert.match(webhook, /v2\.core\.account\[configuration\.merchant\]\.capability_status_updated/);
+  assert.match(webhook, /v2\.core\.account\[requirements\]\.updated/);
+  assert.match(webhook, /related\?\.type\) !== "v2\.core\.account"/);
   assert.match(webhook, /payout\.paid/);
   assert.match(webhook, /payout\.failed/);
-  assert.match(webhook, /food_stripe_payouts/);
-  assert.match(webhook, /food_apply_stripe_event/);
-  assert.match(migration, /on conflict \(event_id\) do nothing/i);
-  assert.match(migration, /amount mismatch/);
-  assert.match(migration, /stripe account mismatch/);
+  assert.match(webhook, /food_record_stripe_payout_event/);
+  assert.match(v2Migration, /on conflict \(event_id\) do nothing/i);
+  assert.match(coreMigration, /amount mismatch/);
+  assert.match(coreMigration, /stripe account mismatch/);
 });
 
 test("Paid remains webhook-authoritative and browser redirects cannot mark orders paid", () => {
@@ -132,38 +139,39 @@ test("Paid remains webhook-authoritative and browser redirects cannot mark order
   assert.doesNotMatch(foodUi, /stripe=success[\s\S]{0,400}payment_status\s*[:=]\s*["']paid/);
 });
 
-test("Manual slip fallback expires any open Stripe Checkout first", () => {
+test("Manual slip fallback expires open Stripe Checkout first", () => {
   assert.match(cancelStripe, /checkout\/sessions\/\$\{encodeURIComponent\(sessionId\)\}\/expire/);
   assert.match(cancelStripe, /payment_status === "paid"/);
   assert.match(cancelStripe, /stripe_checkout_session_id: null/);
-  assert.match(migration, /cancel stripe checkout before submitting slip/);
-  assert.match(foodUi, /if \(order\.stripe_checkout_session_id\)/);
+  assert.match(coreMigration, /cancel stripe checkout before submitting slip/);
   assert.match(foodUi, /prepareFoodManualPayment/);
 });
 
-test("Food keeps slip fallback and Merchant refunds use the gateway", () => {
-  assert.match(foodUi, /startFoodStripeCheckout/);
-  assert.match(foodUi, /submitFoodPayment/);
+test("Refunds use the gateway and never surface raw gateway messages", () => {
   assert.match(refundUi, /requestStripeRefund/);
   assert.match(refund, /payment_provider !== "stripe"/);
   assert.match(refund, /payment_intent/);
+  assert.match(refund, /request_id/);
+  assert.match(refund, /คืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง/);
+  assert.doesNotMatch(refund, /message: error instanceof Error \? error\.message/);
 });
 
-test("Merchant Finance reads sanitized payout status and exposes only bank last4", () => {
-  assert.match(financeUi, /fetchMerchantStripeStatus/);
+test("Merchant Finance uses server-sanitized balance/payout data and only bank last4", () => {
+  assert.match(financeUi, /fetchMerchantStripeFinance/);
   assert.match(financeUi, /ยอดขายวันนี้/);
   assert.match(financeUi, /กำลังดำเนินการ/);
   assert.match(financeUi, /พร้อมโอน/);
-  assert.match(financeUi, /โอนเข้าธนาคารแล้ว/);
+  assert.match(financeUi, /โอนเข้าธนาคารแล้ววันนี้/);
   assert.match(financeUi, /คืนเงิน/);
   assert.match(financeUi, /bank_last4/);
+  assert.match(financeUi, /พร้อมรับเงิน/);
   assert.doesNotMatch(financeUi, /stripe_account_id|bank_account_number/);
 });
 
-test("Merchant errors are localized and raw gateway errors stay out of UI", () => {
+test("Merchant errors are localized and raw gateway errors stay out of client UI", () => {
   assert.match(merchantCore, /context instanceof Response/);
   assert.match(merchantCore, /\/[ก-๙]\//);
-  assert.match(merchantCore, /เปิดรับชำระเงินไม่สำเร็จ/);
   assert.match(merchantCore, /อัปเดตสถานะการรับเงินไม่สำเร็จ/);
+  assert.match(merchantCore, /เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ/);
   assert.doesNotMatch(merchantCore, /return raw\.message/);
 });
