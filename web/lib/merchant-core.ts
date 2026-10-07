@@ -55,6 +55,7 @@ export type MerchantStripeStatus = {
   balance_pending_satang?: number;
   balance_available_satang?: number;
   last_payout_status?: string | null;
+  payouts_paid_today_satang?: number;
   last_synced_at?: string | null;
 };
 
