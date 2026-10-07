@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, Briefcase, Building2, Check, Clock, Coffee, Home, ImagePlus, Info, LocateFixed, MapPin, Minus, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
+import { ArrowLeft, Briefcase, Building2, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, LocateFixed, MapPin, Minus, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -42,7 +42,7 @@ import {
   rememberRecentPlace,
   type MapsRecentPlace,
 } from "@/lib/maps-places";
-import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoute, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
+import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoutes, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -99,7 +99,7 @@ type MapInstance = {
   getCenter: () => MapCenter;
   getZoom: () => number;
   project: (location: [number, number]) => MapPoint;
-  flyTo: (options: { center: [number, number]; zoom?: number; essential?: boolean }) => void;
+  flyTo: (options: { center: [number, number]; zoom?: number; bearing?: number; pitch?: number; essential?: boolean }) => void;
   fitBounds: (
     bounds: [[number, number], [number, number]],
     options?: { padding?: { top: number; right: number; bottom: number; left: number }; maxZoom?: number; duration?: number },
@@ -160,6 +160,8 @@ const SERVICE_AREA_FILL_LAYER = "wynos-food-service-area-fill";
 const SERVICE_AREA_LINE_LAYER = "wynos-food-service-area-line";
 const ROUTE_SOURCE = "wynos-maps-route";
 const ROUTE_LINE_LAYER = "wynos-maps-route-line";
+const ROUTE_ALT_SOURCE_PREFIX = "wynos-maps-route-alt";
+const ROUTE_ALT_LAYER_PREFIX = "wynos-maps-route-alt-line";
 const FALLBACK_MAP_STYLE: MapStyle = {
   version: 8,
   sources: {
@@ -484,6 +486,8 @@ export function FoodDeliveryMapPicker({
   const [directionsTarget, setDirectionsTarget] = useState<RouteTarget | null>(null);
   const [routeMode, setRouteMode] = useState<MapsTravelMode>("motorcycle");
   const [route, setRoute] = useState<MapsRoute | null>(null);
+  const [routeAlternatives, setRouteAlternatives] = useState<MapsRoute[]>([]);
+  const [activeRouteIndex, setActiveRouteIndex] = useState(0);
   const [routeProvider, setRouteProvider] = useState<string | null>(null);
   const [routeWorking, setRouteWorking] = useState(false);
   const [routeStatus, setRouteStatus] = useState("");
@@ -571,6 +575,8 @@ export function FoodDeliveryMapPicker({
     stopNavigation();
     setDirectionsTarget(null);
     setRoute(null);
+    setRouteAlternatives([]);
+    setActiveRouteIndex(0);
     setRouteProvider(null);
     navigationRouteRef.current = null;
     setRouteStatus("");
@@ -589,6 +595,8 @@ export function FoodDeliveryMapPicker({
     setRouteMode(mode);
     if (!options?.preserveRoute) {
       setRoute(null);
+      setRouteAlternatives([]);
+      setActiveRouteIndex(0);
       setRouteProvider(null);
     }
     setRouteStatus("");
@@ -623,6 +631,7 @@ export function FoodDeliveryMapPicker({
             { lat: target.latitude, lon: target.longitude },
           ],
           costing: mode,
+          alternatives: !options?.origin && (mode === "auto" || mode === "motorcycle"),
           language: document.documentElement.lang.toLowerCase().startsWith("en") ? "en-US" : "th-TH",
         }),
       });
@@ -642,11 +651,14 @@ export function FoodDeliveryMapPicker({
         throw new Error("คำนวณเส้นทางไม่สำเร็จ กรุณาลองใหม่");
       }
 
-      const parsed = parseWynosRoute(payload, mode);
+      const parsedRoutes = parseWynosRoutes(payload, mode);
+      const parsed = parsedRoutes[0] ?? null;
       if (!parsed) throw new Error("ยังไม่พบเส้นทางที่เหมาะสม");
       navigationProgressRef.current = 0;
       navigationRouteRef.current = parsed;
       setNavigationProgress(0);
+      setRouteAlternatives(parsedRoutes);
+      setActiveRouteIndex(0);
       setRoute(parsed);
       setRouteProvider(provider);
       setActiveNearbyPlace(null);
@@ -689,9 +701,12 @@ export function FoodDeliveryMapPicker({
         setUserLocation(next);
         setCurrentLocationSelected(true);
         setNavigationStatus("");
+        const heading = Number.isFinite(position.coords.heading) ? position.coords.heading : null;
         mapRef.current?.flyTo({
           center: [next.longitude, next.latitude],
-          zoom: 17.2,
+          zoom: 17.6,
+          ...(heading != null ? { bearing: heading } : {}),
+          pitch: 46,
           essential: true,
         });
 
@@ -1046,39 +1061,65 @@ export function FoodDeliveryMapPicker({
     const map = mapRef.current;
     if (!standalone || !mapReady || !map) return;
 
-    if (!route) {
+    const removeRouteOverlays = () => {
       try {
         if (map.getLayer(ROUTE_LINE_LAYER)) map.removeLayer(ROUTE_LINE_LAYER);
         if (map.getSource(ROUTE_SOURCE)) map.removeSource(ROUTE_SOURCE);
+        for (let index = 0; index < 3; index += 1) {
+          const layerId = `${ROUTE_ALT_LAYER_PREFIX}-${index}`;
+          const sourceId = `${ROUTE_ALT_SOURCE_PREFIX}-${index}`;
+          if (map.getLayer(layerId)) map.removeLayer(layerId);
+          if (map.getSource(sourceId)) map.removeSource(sourceId);
+        }
       } catch {
-        // Route cleanup is optional; a style refresh will also clear it.
+        // A style refresh also clears route overlays.
       }
-      return;
-    }
-
-    const feature: RouteLineFeature = {
-      type: "Feature",
-      properties: { mode: route.mode },
-      geometry: { type: "LineString", coordinates: route.coordinates },
     };
 
-    try {
-      const source = map.getSource(ROUTE_SOURCE) as { setData?: (data: RouteLineFeature) => void } | undefined;
-      if (source?.setData) source.setData(feature);
-      else map.addSource(ROUTE_SOURCE, { type: "geojson", data: feature });
+    removeRouteOverlays();
+    if (!route) return;
 
-      if (!map.getLayer(ROUTE_LINE_LAYER)) {
-        map.addLayer({
-          id: ROUTE_LINE_LAYER,
-          type: "line",
-          source: ROUTE_SOURCE,
-          paint: {
-            "line-color": "#1a73e8",
-            "line-width": 5,
-            "line-opacity": 0.9,
-          },
+    try {
+      routeAlternatives
+        .filter((_, index) => index !== activeRouteIndex)
+        .slice(0, 2)
+        .forEach((candidate, index) => {
+          const sourceId = `${ROUTE_ALT_SOURCE_PREFIX}-${index}`;
+          const layerId = `${ROUTE_ALT_LAYER_PREFIX}-${index}`;
+          const feature: RouteLineFeature = {
+            type: "Feature",
+            properties: { mode: candidate.mode },
+            geometry: { type: "LineString", coordinates: candidate.coordinates },
+          };
+          map.addSource(sourceId, { type: "geojson", data: feature });
+          map.addLayer({
+            id: layerId,
+            type: "line",
+            source: sourceId,
+            paint: {
+              "line-color": "#8e8e93",
+              "line-width": 5,
+              "line-opacity": 0.48,
+            },
+          });
         });
-      }
+
+      const feature: RouteLineFeature = {
+        type: "Feature",
+        properties: { mode: route.mode },
+        geometry: { type: "LineString", coordinates: route.coordinates },
+      };
+      map.addSource(ROUTE_SOURCE, { type: "geojson", data: feature });
+      map.addLayer({
+        id: ROUTE_LINE_LAYER,
+        type: "line",
+        source: ROUTE_SOURCE,
+        paint: {
+          "line-color": "#1a73e8",
+          "line-width": 6,
+          "line-opacity": 0.94,
+        },
+      });
 
       const navigationCameraLocation = navigationActiveRef.current
         ? navigationLatestLocationRef.current ?? routeOriginRef.current?.location
@@ -1086,7 +1127,8 @@ export function FoodDeliveryMapPicker({
       if (navigationCameraLocation) {
         map.flyTo({
           center: [navigationCameraLocation.longitude, navigationCameraLocation.latitude],
-          zoom: 17.2,
+          zoom: 17.6,
+          pitch: 46,
           essential: true,
         });
       } else {
@@ -1094,13 +1136,15 @@ export function FoodDeliveryMapPicker({
         const latitudes = route.coordinates.map(([, latitude]) => latitude);
         map.fitBounds(
           [[Math.min(...longitudes), Math.min(...latitudes)], [Math.max(...longitudes), Math.max(...latitudes)]],
-          { padding: { top: 92, right: 44, bottom: 330, left: 44 }, maxZoom: 16.5, duration: 520 },
+          { padding: { top: 118, right: 44, bottom: 300, left: 44 }, maxZoom: 16.5, duration: 520 },
         );
       }
     } catch {
-      // Keep the route summary usable even if the optional line overlay cannot render.
+      // Keep the route summary usable even if an optional line overlay cannot render.
     }
-  }, [mapReady, mapStyleRevision, route, standalone]);
+
+    return removeRouteOverlays;
+  }, [activeRouteIndex, mapReady, mapStyleRevision, route, routeAlternatives, standalone]);
 
   useEffect(() => {
     if (!mapReady || !autoLocate || initialLocation || autoLocateRef.current) return;
@@ -1170,7 +1214,7 @@ export function FoodDeliveryMapPicker({
       button.type = "button";
       const selected = selectedIdentity === placeIdentity(nearbyPlace);
       const kind = placeMarkerKind(nearbyPlace);
-      button.className = `wf-map-place-marker is-${kind}${selected ? " is-selected" : ""}`;
+      button.className = `wf-map-place-marker is-${kind}${nearbyPlace.merchantStoreId ? " is-merchant" : ""}${nearbyPlace.verificationStatus === "wynos_verified" ? " is-verified" : ""}${selected ? " is-selected" : ""}`;
       button.setAttribute("aria-label", `${placeCategory(nearbyPlace)} ${nearbyPlace.name}`);
       button.title = nearbyPlace.name;
 
@@ -1318,7 +1362,7 @@ export function FoodDeliveryMapPicker({
     if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
     searchTimerRef.current = window.setTimeout(() => {
       void runSearch(trimmed, true);
-    }, 280);
+    }, 220);
     return () => {
       if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
     };
@@ -1332,7 +1376,7 @@ export function FoodDeliveryMapPicker({
   const quickSearch = (value: string) => {
     setQuery(value);
     setSearchFocused(true);
-    if (standalone) setSheetDetent("half");
+    if (standalone) setSheetDetent("peek");
     void runSearch(value, false);
   };
 
@@ -1511,7 +1555,7 @@ export function FoodDeliveryMapPicker({
           value={query}
           onFocus={() => {
             setSearchFocused(true);
-            if (standalone) setSheetDetent("half");
+            if (standalone) setSheetDetent("peek");
           }}
           onChange={(event) => {
             const nextQuery = event.target.value;
@@ -1557,6 +1601,15 @@ export function FoodDeliveryMapPicker({
           </button>
           <button type="button" className={query === "ร้านค้า" ? "is-active" : ""} onClick={() => quickSearch("ร้านค้า")}>
             <ShoppingBag size={16} /><span>ร้านค้า</span>
+          </button>
+          <button type="button" className={query === "โรงพยาบาล" ? "is-active" : ""} onClick={() => quickSearch("โรงพยาบาล")}>
+            <Hospital size={16} /><span>โรงพยาบาล</span>
+          </button>
+          <button type="button" className={query === "ปั๊มน้ำมัน" ? "is-active" : ""} onClick={() => quickSearch("ปั๊มน้ำมัน")}>
+            <Fuel size={16} /><span>ปั๊มน้ำมัน</span>
+          </button>
+          <button type="button" className={query === "ATM" ? "is-active" : ""} onClick={() => quickSearch("ATM")}>
+            <CircleDollarSign size={16} /><span>ATM</span>
           </button>
         </div>
       ) : null}
@@ -1677,10 +1730,20 @@ export function FoodDeliveryMapPicker({
   const activeRouteStep = route
     ? nextRouteStep(route, navigationRenderedSegment, navigationRenderedSegmentProgress)
     : null;
+  const navigationRemainingMeters = route
+    ? routeRemainingDistanceMeters(
+        route.coordinates,
+        Math.min(route.coordinates.length - 2, navigationRenderedSegment),
+        navigationRenderedSegmentProgress,
+      )
+    : 0;
+  const navigationRemainingSeconds = route && route.distanceKm > 0
+    ? route.durationSeconds * Math.min(1, navigationRemainingMeters / (route.distanceKm * 1000))
+    : 0;
 
   return (
     <div
-      className="wf-map-picker"
+      className={navigating ? "wf-map-picker is-navigating" : "wf-map-picker"}
       role={standalone ? "region" : "dialog"}
       aria-modal={standalone ? undefined : true}
       aria-label={standalone ? "WYNOS Maps" : "ปักหมุดตำแหน่งจัดส่ง"}
@@ -1696,10 +1759,36 @@ export function FoodDeliveryMapPicker({
         <span />
       </header>
 
-      {standalone ? null : searchBlock}
+      {standalone ? <div className="wf-map-floating-search">{searchBlock}</div> : searchBlock}
 
       <div className="wf-map-canvas-wrap">
         <div ref={mapNode} className="wf-map-canvas" />
+        {standalone && navigating && route ? (
+          <>
+            <div className="wf-map-navigation-top" aria-live="polite">
+              <small>คำแนะนำถัดไป</small>
+              <strong>{activeRouteStep?.instruction || "ตรงไปตามเส้นทาง"}</strong>
+              <span>{activeRouteStep ? formatRouteDistance(activeRouteStep.distanceKm) : ""}</span>
+            </div>
+            <div className="wf-map-navigation-bottom">
+              <div>
+                <strong>{formatRouteDuration(navigationRemainingSeconds)}</strong>
+                <span>{formatRouteDistance(navigationRemainingMeters / 1000)}</span>
+                <small>เหลือถึง {directionsTarget?.name ?? "จุดหมาย"}</small>
+              </div>
+              {navigationOffRouteDistance != null ? (
+                <button
+                  type="button"
+                  onClick={() => directionsTarget
+                    && void requestRoute(directionsTarget, routeMode, { origin: userLocation ?? undefined })}
+                >
+                  คำนวณใหม่
+                </button>
+              ) : null}
+              <button type="button" className="is-stop" onClick={() => stopNavigation()}>สิ้นสุด</button>
+            </div>
+          </>
+        ) : null}
         {!mapReady && !mapFailed ? <div className="wf-map-loading">กำลังโหลดแผนที่…</div> : null}
         {mapFailed ? (
           <div className="wf-map-loading wf-map-loading--error">
@@ -1814,7 +1903,6 @@ export function FoodDeliveryMapPicker({
             <span />
           </button>
         ) : null}
-        {standalone ? searchBlock : null}
         <div className="wf-map-sheet-body">
         {standalone && directionsTarget ? (
           <div className="wf-map-directions" role="region" aria-label="เส้นทาง">
@@ -1869,6 +1957,28 @@ export function FoodDeliveryMapPicker({
             ) : null}
             {!navigating && !routeWorking && route ? (
               <>
+                {routeAlternatives.length > 1 ? (
+                  <div className="wf-map-route-alternatives" aria-label="เส้นทางทางเลือก">
+                    {routeAlternatives.map((candidate, index) => (
+                      <button
+                        key={`${candidate.distanceKm}-${candidate.durationSeconds}-${index}`}
+                        type="button"
+                        className={index === activeRouteIndex ? "is-active" : ""}
+                        aria-pressed={index === activeRouteIndex}
+                        onClick={() => {
+                          setActiveRouteIndex(index);
+                          setRoute(candidate);
+                          navigationRouteRef.current = candidate;
+                          navigationProgressRef.current = 0;
+                          setNavigationProgress(0);
+                        }}
+                      >
+                        <strong>{index === 0 ? "แนะนำ" : `ทางเลือก ${index + 1}`}</strong>
+                        <span>{formatRouteDuration(candidate.durationSeconds)} · {formatRouteDistance(candidate.distanceKm)}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="wf-map-route-summary">
                   <strong>{formatRouteDuration(route.durationSeconds)}</strong>
                   <span>{formatRouteDistance(route.distanceKm)}</span>
@@ -1926,6 +2036,9 @@ export function FoodDeliveryMapPicker({
               <strong>{activeNearbyPlace.name}</strong>
               {activeNearbyPlace.address ? <p>{activeNearbyPlace.address}</p> : null}
               {activeNearbyPlace.distanceKm != null ? <em>{activeNearbyPlace.distanceKm.toFixed(1)} กม. จากกลางแผนที่</em> : null}
+              {activeNearbyPlace.merchantStoreId ? (
+                <span className="wf-map-food-badge"><Utensils size={13} /> สั่งอาหารได้ใน WYNOS Food</span>
+              ) : null}
               {activeNearbyPlace.merchantStoreId ? (
                 <div className="wf-map-place-delivery">
                   <span className={activeNearbyPlace.isOpen ? "is-open" : ""}>
@@ -2022,7 +2135,7 @@ export function FoodDeliveryMapPicker({
                 </button>
               ) : null}
               {activeNearbyPlace.merchantStoreId ? (
-                <a href={`https://food.wynos.online/?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}>สั่งใน WYNOS Food</a>
+                <a className="wf-map-food-action" href={`https://food.wynos.online/?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}><Utensils size={15} /> สั่งอาหาร</a>
               ) : null}
             </div>
           </article>
