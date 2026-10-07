@@ -71,6 +71,12 @@ export function AppNavigationRuntime() {
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
+    // Dev/CI uses a local HTTP server. WebKit reports local service-worker
+    // registration as a page-level access-control error, which pollutes the
+    // fatal-error release gate without representing a production PWA failure.
+    // Explicit Push opt-in still registers its worker on demand; automatic
+    // offline/PWA registration is production-only.
+    if (process.env.NODE_ENV !== "production") return;
     // Offline support is important, but registration can wait until the
     // visible page has started painting. Reuse a root effect so it runs once.
     const register = () => {
