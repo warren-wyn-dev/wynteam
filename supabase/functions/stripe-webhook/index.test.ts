@@ -18,6 +18,16 @@ Deno.test("Accounts v2 thin events are scoped to the account object", () => {
   assert.match(source, /related\?\.type\) !== "v2\.core\.account"/);
 });
 
+Deno.test("account sync webhooks claim event ids before external sync and release claims on failure", () => {
+  assert.match(source, /food_claim_stripe_webhook_event/);
+  assert.match(source, /food_release_stripe_webhook_event_claim/);
+  const claim = source.indexOf("claimed = await claimAccountSyncEvent");
+  const sync = source.indexOf("const mapped = await syncMappedAccount");
+  assert.ok(claim >= 0);
+  assert.ok(sync > claim);
+  assert.match(source, /if \(claimed\) await releaseAccountSyncEventClaim/);
+});
+
 Deno.test("paid state stays webhook-authoritative and payout events are recorded server-side", () => {
   assert.match(source, /checkout\.session\.completed/);
   assert.match(source, /checkout\.session\.async_payment_succeeded/);
