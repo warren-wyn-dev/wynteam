@@ -9,6 +9,7 @@ type RouteBody = {
   locations?: Array<{ lat?: unknown; lon?: unknown }>;
   costing?: unknown;
   language?: unknown;
+  alternatives?: unknown;
 };
 
 export async function POST(request: Request) {
@@ -27,9 +28,10 @@ export async function POST(request: Request) {
     : [];
   const costing = typeof body.costing === "string" ? body.costing : "motorcycle";
   const language = body.language === "en-US" ? "en-US" : "th-TH";
+  const alternatives = body.alternatives === true;
 
   try {
-    const route = await routeWynosMaps({ locations, costing, language });
+    const route = await routeWynosMaps({ locations, costing, language, alternatives });
     if (route === null) {
       return NextResponse.json(
         { error: "WYNOS_ROUTING_NOT_CONFIGURED" },
