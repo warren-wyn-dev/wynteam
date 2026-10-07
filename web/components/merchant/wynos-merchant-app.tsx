@@ -2960,7 +2960,7 @@ function StoreEditor({
             <span><strong>การรับชำระเงิน</strong><small>Stripe เป็นช่องทางอัตโนมัติ พร้อม PromptPay/บัญชีธนาคารเป็นช่องทางสำรอง</small></span>
           </div>
           <div className="wm-settings-category-body">
-        <div className="wm-pickup-zone">
+        {stripeStatus ? <div className="wm-pickup-zone">
           <strong>Stripe</strong>
           <small>{stripeStatus?.status === "ready" ? "พร้อมรับชำระอัตโนมัติจาก WYNOS Food" : stripeStatus?.connected ? "เชื่อมบัญชีแล้ว แต่ยังตั้งค่าไม่เสร็จ" : "เชื่อมบัญชี Stripe ของร้านเพื่อรับบัตรและ PromptPay"}</small>
           {stripeStatus?.status === "ready" ? <div className="wm-inline-success"><Check size={15} /> Stripe พร้อมใช้งาน</div> : null}
@@ -2972,7 +2972,7 @@ function StoreEditor({
             {stripeStatus?.connected ? <button className="wm-secondary" type="button" disabled={stripeBusy} onClick={() => void syncStripe()}>ตรวจสถานะ</button> : null}
           </div>
           <small>การชำระผ่าน Stripe จะยืนยันจาก Webhook อัตโนมัติ และไม่ต้องแนบสลิป</small>
-        </div>
+        </div> : null}
         <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
         <label>ธนาคาร<input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} /></label>
         <label>ชื่อบัญชี<input value={form.bank_account_name} onChange={(e) => setForm({ ...form, bank_account_name: e.target.value })} /></label>
