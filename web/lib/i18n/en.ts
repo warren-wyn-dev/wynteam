@@ -4,6 +4,7 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "Stripe ชำระเงินสำเร็จแล้ว ไม่สามารถเปลี่ยนเป็นสลิปได้": "Stripe payment is already complete and cannot be switched to a payment slip",
   "ร้านยังไม่พร้อมรับชำระผ่าน Stripe": "The merchant is not ready to accept Stripe payments yet",
   "Stripe ยังไม่ได้เปิดใช้งานบน WYNOS": "Stripe is not enabled on WYNOS yet",
   "ออเดอร์นี้ไม่อยู่ในสถานะที่ชำระผ่าน Stripe ได้": "This order cannot be paid through Stripe in its current status",
