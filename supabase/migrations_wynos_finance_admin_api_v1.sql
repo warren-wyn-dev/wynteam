@@ -1015,3 +1015,134 @@ $$;
 
 revoke all on function public.admin_finance_order_detail(uuid) from public,anon;
 grant execute on function public.admin_finance_order_detail(uuid) to authenticated;
+
+
+-- ---------------------------------------------------------------------------
+-- Finance operations read models for WYNOS Admin.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.admin_finance_operations(p_limit integer default 100)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_limit integer:=greatest(1,least(coalesce(p_limit,100),500));
+begin
+  if coalesce(internal.current_platform_role(),'') <> 'admin' then
+    raise exception 'Only admins can view finance operations';
+  end if;
+
+  return jsonb_build_object(
+    'payments',(
+      select coalesce(jsonb_agg(x order by x.paid_at desc nulls last,x.created_at desc),'[]'::jsonb)
+      from (
+        select p.order_id,o.order_number,s.name as store_name,p.status,
+               coalesce(p.gross_amount_satang,p.amount_satang) as gross_amount_satang,
+               p.stripe_fee_satang,p.platform_fee_satang,p.merchant_net_satang,
+               p.currency,p.stripe_account_id,p.payment_intent_id,p.checkout_session_id,
+               p.livemode,p.paid_at,p.created_at
+        from public.food_stripe_payments p
+        join public.food_orders o on o.id=p.order_id
+        join public.food_stores s on s.id=p.store_id
+        order by coalesce(p.paid_at,p.created_at) desc
+        limit v_limit
+      ) x
+    ),
+    'refunds',(
+      select coalesce(jsonb_agg(x order by x.created_at desc),'[]'::jsonb)
+      from (
+        select r.id,r.order_id,o.order_number,s.name as store_name,r.status,
+               r.amount_satang,r.currency,r.liability,r.merchant_liability_satang,
+               r.platform_liability_satang,r.refund_gp,r.gp_refund_satang,
+               r.refund_delivery,r.delivery_refund_satang,r.stripe_refund_fee_satang,
+               r.stripe_account_id,r.stripe_refund_id,r.livemode,r.reason,r.created_at,r.updated_at
+        from public.food_refunds r
+        join public.food_orders o on o.id=r.order_id
+        join public.food_stores s on s.id=r.store_id
+        order by r.created_at desc
+        limit v_limit
+      ) x
+    ),
+    'merchant_settlements',(
+      select coalesce(jsonb_agg(x order by x.created_at desc),'[]'::jsonb)
+      from (
+        select ms.id,ms.store_id,s.name as store_name,ms.period_from,ms.period_to,
+               ms.status,ms.order_count,ms.gross_sales_satang,ms.merchant_discount_satang,
+               ms.gp_satang,ms.payment_fees_satang,ms.refunds_satang,ms.adjustments_satang,
+               ms.net_satang,ms.reference,ms.note,ms.created_at,ms.paid_at
+        from public.food_merchant_settlements ms
+        join public.food_stores s on s.id=ms.store_id
+        order by ms.created_at desc
+        limit v_limit
+      ) x
+    ),
+    'rider_payouts',(
+      select coalesce(jsonb_agg(x order by x.created_at desc),'[]'::jsonb)
+      from (
+        select rp.id,rp.rider_id,pr.username,pr.display_name,rp.period_from,rp.period_to,
+               rp.gross_earnings_satang,rp.bonus_satang,rp.adjustments_satang,
+               rp.amount_satang,rp.status,rp.reference,rp.created_at,rp.paid_at
+        from public.food_rider_payouts rp
+        join public.food_riders r on r.id=rp.rider_id
+        left join public.profiles pr on pr.id=r.user_id
+        order by rp.created_at desc
+        limit v_limit
+      ) x
+    )
+  );
+end;
+$$;
+
+revoke all on function public.admin_finance_operations(integer) from public,anon;
+grant execute on function public.admin_finance_operations(integer) to authenticated;
+
+create or replace function public.admin_rider_finance()
+returns table(
+  rider_id uuid,
+  user_id uuid,
+  username text,
+  display_name text,
+  status text,
+  active boolean,
+  service_area_code text,
+  payout_suspended boolean,
+  gross_earnings_satang bigint,
+  bonus_satang bigint,
+  adjustments_satang bigint,
+  paid_satang bigint,
+  pending_payout_satang bigint,
+  jobs bigint
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select r.id,r.user_id,p.username,p.display_name,r.status,r.active,r.service_area_code,r.payout_suspended,
+         coalesce(sum(j.gross_earning_satang) filter(where j.status='delivered'),0)::bigint,
+         coalesce(sum(j.bonus_satang) filter(where j.status='delivered'),0)::bigint,
+         coalesce((
+           select sum(a.amount_satang) from public.food_rider_adjustments a where a.rider_id=r.id
+         ),0)::bigint,
+         coalesce((
+           select sum(x.amount_satang) from public.food_rider_payouts x
+           where x.rider_id=r.id and x.status='paid'
+         ),0)::bigint,
+         coalesce((
+           select sum(x.amount_satang) from public.food_rider_payouts x
+           where x.rider_id=r.id and x.status='pending'
+         ),0)::bigint,
+         count(j.id) filter(where j.status='delivered')::bigint
+  from public.food_riders r
+  left join public.profiles p on p.id=r.user_id
+  left join public.food_rider_jobs j on j.rider_id=r.id
+  where coalesce(internal.current_platform_role(),'')='admin'
+  group by r.id,r.user_id,p.username,p.display_name,r.status,r.active,r.service_area_code,r.payout_suspended
+  order by p.username nulls last,r.created_at desc
+$$;
+
+revoke all on function public.admin_rider_finance() from public,anon;
+grant execute on function public.admin_rider_finance() to authenticated;
