@@ -1581,9 +1581,11 @@ export function FoodDeliveryMapPicker({
           aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}
           autoComplete="off"
         />
-        <button type="button" disabled={searching || !query.trim()} onClick={search}>
-          {searching ? "กำลังค้น…" : "ค้นหา"}
-        </button>
+        {!standalone ? (
+          <button type="button" disabled={searching || !query.trim()} onClick={search}>
+            {searching ? "กำลังค้น…" : "ค้นหา"}
+          </button>
+        ) : null}
         {standalone && (searchFocused || query) ? (
           <button type="button" className="wf-map-search-cancel" onClick={cancelSearch}>ยกเลิก</button>
         ) : null}
