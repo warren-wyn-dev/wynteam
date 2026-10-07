@@ -4605,3 +4605,122 @@ button.wm-menu-tool:disabled {
 @media (prefers-reduced-motion: reduce) { .wm-order-screen-bar.is-ready i { animation: none; } }
 .wm-notification-card .wm-order-screen-card { margin-top: 0; }
 .wm-notification-tips { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 6px; color: var(--wm-text); font-size: 13px; line-height: 1.45; }
+
+
+/* Stripe Connect is intentionally presented as WYNOS payment setup.
+   The embedded provider UI stays inside a mobile-native sheet. */
+.wm-payment-setup { display: grid; gap: 14px; }
+.wm-payment-state {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid var(--wm-border);
+  border-radius: 999px;
+  background: var(--wm-surface);
+  color: var(--wm-secondary);
+  font-size: 13px;
+}
+.wm-payment-state.is-ready {
+  border-color: #cfe8d8;
+  background: #f1faf4;
+  color: var(--wm-success-text);
+}
+.wm-payment-state.is-error {
+  border-color: var(--wm-red-border);
+  background: var(--wm-red-soft);
+  color: var(--wm-red-text);
+}
+.wm-payment-copy { display: grid; gap: 5px; }
+.wm-payment-copy strong { font-size: 16px; letter-spacing: -.15px; }
+.wm-payment-copy small,
+.wm-payment-summary small,
+.wm-payment-fallback > small { color: var(--wm-secondary); line-height: 1.55; }
+.wm-payment-summary {
+  overflow: hidden;
+  border: 1px solid var(--wm-border);
+  border-radius: 18px;
+  background: #fff;
+}
+.wm-payment-summary > div { display: grid; gap: 4px; padding: 14px 15px; }
+.wm-payment-summary > div + div { border-top: 1px solid var(--wm-border); }
+.wm-payment-summary span { color: var(--wm-secondary); font-size: 12px; }
+.wm-payment-summary strong { font-size: 15px; }
+.wm-payment-main,
+.wm-payment-manage { min-height: 48px; }
+.wm-payment-manage { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.wm-payment-fallback {
+  margin-top: 4px;
+  border-top: 1px solid var(--wm-border);
+  padding-top: 12px;
+}
+.wm-payment-fallback summary {
+  cursor: pointer;
+  color: var(--wm-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  list-style-position: inside;
+  margin-bottom: 10px;
+}
+.wm-payment-fallback[open] { display: grid; gap: 12px; }
+.wm-connect-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #fff;
+  padding: calc(10px + env(safe-area-inset-top)) 14px calc(20px + env(safe-area-inset-bottom));
+}
+.wm-connect-panel-head {
+  position: sticky;
+  top: calc(-10px - env(safe-area-inset-top));
+  z-index: 2;
+  min-height: 62px;
+  margin: 0 -14px 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  border-bottom: 1px solid var(--wm-border);
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.wm-connect-panel-head span { display: grid; gap: 2px; min-width: 0; }
+.wm-connect-panel-head strong { font-size: 17px; }
+.wm-connect-panel-head small { color: var(--wm-secondary); font-size: 11px; }
+.wm-connect-panel-head button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 50%;
+  background: var(--wm-surface);
+  display: grid;
+  place-items: center;
+}
+.wm-connect-loading {
+  min-height: 160px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  color: var(--wm-secondary);
+}
+.wm-connect-mount { width: 100%; max-width: 720px; margin: 0 auto; min-height: 180px; }
+
+@media (min-width: 700px) {
+  .wm-connect-panel {
+    inset: 4vh auto auto 50%;
+    width: min(720px, calc(100vw - 32px));
+    max-height: 92vh;
+    transform: translateX(-50%);
+    border: 1px solid var(--wm-border);
+    border-radius: 24px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.15);
+  }
+}
