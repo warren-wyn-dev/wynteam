@@ -4,7 +4,7 @@ const source = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
 
 Deno.test("webhook verifies signatures before parsing Stripe events", () => {
   const verify = source.indexOf("verifyAgainstConfiguredSecrets(raw, signature)");
-  const parse = source.indexOf("JSON.parse(raw)");
+  const parse = source.indexOf("try { event = JSON.parse(raw)");
   assert.ok(verify >= 0);
   assert.ok(parse > verify);
   assert.match(source, /STRIPE_WEBHOOK_SECRET/);
