@@ -781,3 +781,237 @@ $$;
 
 revoke all on function public.admin_add_rider_adjustment(uuid,uuid,bigint,text,jsonb) from public, anon;
 grant execute on function public.admin_add_rider_adjustment(uuid,uuid,bigint,text,jsonb) to authenticated;
+
+
+-- ---------------------------------------------------------------------------
+-- Rider payout engine. Safe to ship while rider_enabled=false.
+-- ---------------------------------------------------------------------------
+
+create or replace function internal.food_rider_payout_rows(
+  p_rider_id uuid,p_from timestamptz,p_to timestamptz
+)
+returns table(
+  job_id uuid,order_id uuid,gross_satang bigint,bonus_satang bigint,
+  adjustment_satang bigint,net_satang bigint
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select j.id,j.order_id,j.gross_earning_satang,j.bonus_satang,
+         j.adjustment_satang,
+         j.net_earning_satang
+  from public.food_rider_jobs j
+  where j.rider_id=p_rider_id
+    and j.status='delivered'
+    and coalesce(j.completed_at,j.assigned_at)>=p_from
+    and coalesce(j.completed_at,j.assigned_at)<p_to
+    and not exists(
+      select 1
+      from public.food_rider_payout_jobs x
+      join public.food_rider_payouts p on p.id=x.payout_id
+      where x.job_id=j.id and p.status in ('pending','paid')
+    )
+  order by coalesce(j.completed_at,j.assigned_at),j.id
+$$;
+
+revoke all on function internal.food_rider_payout_rows(uuid,timestamptz,timestamptz)
+  from public,anon,authenticated;
+
+create table if not exists public.food_rider_payout_jobs (
+  payout_id uuid not null references public.food_rider_payouts(id) on delete cascade,
+  job_id uuid not null references public.food_rider_jobs(id) on delete restrict,
+  primary key(payout_id,job_id),
+  unique(job_id)
+);
+
+alter table public.food_rider_payout_jobs enable row level security;
+revoke all on table public.food_rider_payout_jobs from public,anon,authenticated;
+
+create or replace function public.admin_rider_payout_preview(
+  p_rider_id uuid,p_from timestamptz,p_to timestamptz
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if coalesce(internal.current_platform_role(),'') <> 'admin' then
+    raise exception 'Only admins can manage rider payouts';
+  end if;
+  if p_to<=p_from then raise exception 'invalid payout period'; end if;
+  return (
+    select jsonb_build_object(
+      'rider_id',p_rider_id,'from',p_from,'to',p_to,
+      'jobs',count(*)::integer,
+      'gross_earnings_satang',coalesce(sum(gross_satang),0),
+      'bonus_satang',coalesce(sum(bonus_satang),0),
+      'adjustments_satang',coalesce(sum(adjustment_satang),0),
+      'amount_satang',coalesce(sum(net_satang),0)
+    )
+    from internal.food_rider_payout_rows(p_rider_id,p_from,p_to)
+  );
+end;
+$$;
+
+revoke all on function public.admin_rider_payout_preview(uuid,timestamptz,timestamptz) from public,anon;
+grant execute on function public.admin_rider_payout_preview(uuid,timestamptz,timestamptz) to authenticated;
+
+create or replace function public.admin_create_rider_payout(
+  p_rider_id uuid,p_from timestamptz,p_to timestamptz,
+  p_expected_jobs integer,p_expected_amount_satang bigint,
+  p_reason text,p_metadata jsonb default '{}'::jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_admin uuid:=auth.uid();
+  v_id uuid;
+  v_jobs integer;
+  v_gross bigint;
+  v_bonus bigint;
+  v_adjustments bigint;
+  v_amount bigint;
+  r public.food_riders%rowtype;
+begin
+  if coalesce(internal.current_platform_role(),'') <> 'admin' then
+    raise exception 'Only admins can manage rider payouts';
+  end if;
+  if not internal.food_feature_enabled('rider_enabled',now()) then
+    raise exception 'rider feature is disabled';
+  end if;
+  if p_to<=p_from then raise exception 'invalid payout period'; end if;
+  if coalesce(char_length(btrim(p_reason)),0)=0 then raise exception 'reason is required'; end if;
+
+  select * into r from public.food_riders where id=p_rider_id for update;
+  if not found then raise exception 'rider not found'; end if;
+  if r.payout_suspended then raise exception 'rider payout is suspended'; end if;
+
+  perform pg_advisory_xact_lock(hashtext('rider-payout:'||p_rider_id::text));
+
+  select count(*)::integer,coalesce(sum(gross_satang),0),coalesce(sum(bonus_satang),0),
+         coalesce(sum(adjustment_satang),0),coalesce(sum(net_satang),0)
+    into v_jobs,v_gross,v_bonus,v_adjustments,v_amount
+  from internal.food_rider_payout_rows(p_rider_id,p_from,p_to);
+
+  if v_jobs=0 then raise exception 'nothing to pay'; end if;
+  if p_expected_jobs is distinct from v_jobs or p_expected_amount_satang is distinct from v_amount then
+    raise exception 'payout amount changed, reload and check before recording';
+  end if;
+
+  insert into public.food_rider_payouts(
+    rider_id,period_from,period_to,gross_earnings_satang,bonus_satang,
+    adjustments_satang,amount_satang,status,created_by
+  ) values(
+    p_rider_id,p_from,p_to,v_gross,v_bonus,v_adjustments,v_amount,'pending',v_admin
+  ) returning id into v_id;
+
+  insert into public.food_rider_payout_jobs(payout_id,job_id)
+  select v_id,x.job_id from internal.food_rider_payout_rows(p_rider_id,p_from,p_to) x;
+
+  if (select count(*) from public.food_rider_payout_jobs where payout_id=v_id)<>v_jobs then
+    raise exception 'payout source changed';
+  end if;
+
+  perform internal.log_audit_event(v_admin,'admin_rider_payout_changed',null,
+    jsonb_build_object(
+      'payout_id',v_id,'rider_id',p_rider_id,'status','pending',
+      'jobs',v_jobs,'amount_satang',v_amount,'from',p_from,'to',p_to,
+      'reason',left(btrim(p_reason),500),'metadata',coalesce(p_metadata,'{}'::jsonb)
+    )
+  );
+  return v_id;
+end;
+$$;
+
+revoke all on function public.admin_create_rider_payout(uuid,timestamptz,timestamptz,integer,bigint,text,jsonb)
+  from public,anon;
+grant execute on function public.admin_create_rider_payout(uuid,timestamptz,timestamptz,integer,bigint,text,jsonb)
+  to authenticated;
+
+create or replace function public.admin_mark_rider_payout_paid(
+  p_payout_id uuid,p_reference text,p_reason text,p_metadata jsonb default '{}'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_admin uuid:=auth.uid();
+  p public.food_rider_payouts%rowtype;
+  r public.food_riders%rowtype;
+begin
+  if coalesce(internal.current_platform_role(),'') <> 'admin' then
+    raise exception 'Only admins can manage rider payouts';
+  end if;
+  if not internal.food_feature_enabled('rider_enabled',now()) then
+    raise exception 'rider feature is disabled';
+  end if;
+  if coalesce(char_length(btrim(p_reference)),0)=0 then raise exception 'payout reference is required'; end if;
+  if coalesce(char_length(btrim(p_reason)),0)=0 then raise exception 'reason is required'; end if;
+
+  select * into p from public.food_rider_payouts where id=p_payout_id for update;
+  if not found then raise exception 'payout not found'; end if;
+  if p.status<>'pending' then raise exception 'payout is not pending'; end if;
+  select * into r from public.food_riders where id=p.rider_id;
+  if r.payout_suspended then raise exception 'rider payout is suspended'; end if;
+
+  update public.food_rider_payouts
+  set status='paid',reference=left(btrim(p_reference),160),paid_by=v_admin,paid_at=now()
+  where id=p_payout_id;
+
+  perform internal.log_audit_event(v_admin,'admin_rider_payout_changed',null,
+    jsonb_build_object(
+      'payout_id',p_payout_id,'rider_id',p.rider_id,'status','paid',
+      'amount_satang',p.amount_satang,'reference',left(btrim(p_reference),160),
+      'reason',left(btrim(p_reason),500),'metadata',coalesce(p_metadata,'{}'::jsonb)
+    )
+  );
+end;
+$$;
+
+revoke all on function public.admin_mark_rider_payout_paid(uuid,text,text,jsonb) from public,anon;
+grant execute on function public.admin_mark_rider_payout_paid(uuid,text,text,jsonb) to authenticated;
+
+create or replace function public.admin_finance_order_detail(p_order_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_role text:=coalesce(internal.current_platform_role(),'');
+begin
+  if v_role<>'admin' then raise exception 'Only admins can view order finance'; end if;
+  return jsonb_build_object(
+    'financial',(
+      select to_jsonb(f) from public.food_order_financials f where f.order_id=p_order_id
+    ),
+    'payment',(
+      select to_jsonb(p)-'buyer_id' from public.food_stripe_payments p where p.order_id=p_order_id
+    ),
+    'refunds',(
+      select coalesce(jsonb_agg(to_jsonb(r)-'requested_by' order by r.created_at desc),'[]'::jsonb)
+      from public.food_refunds r where r.order_id=p_order_id
+    ),
+    'settlement',(
+      select to_jsonb(s)-'created_by'-'paid_by'
+      from public.food_merchant_settlement_lines l
+      join public.food_merchant_settlements s on s.id=l.settlement_id
+      where l.order_id=p_order_id
+      limit 1
+    )
+  );
+end;
+$$;
+
+revoke all on function public.admin_finance_order_detail(uuid) from public,anon;
+grant execute on function public.admin_finance_order_detail(uuid) to authenticated;
