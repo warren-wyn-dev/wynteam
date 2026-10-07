@@ -14,8 +14,7 @@ function record(value: unknown): UnknownRecord | null {
 }
 
 function finiteNumber(value: unknown) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 export function decodeValhallaPolyline(encoded: string, precision = 6): Array<[number, number]> {
