@@ -9,6 +9,8 @@ alter table public.food_stripe_accounts
   add column if not exists payout_interval text not null default 'unknown',
   add column if not exists promptpay_status text not null default 'unknown',
   add column if not exists requirements_due_count integer not null default 0,
+  add column if not exists balance_pending_satang bigint not null default 0,
+  add column if not exists balance_available_satang bigint not null default 0,
   add column if not exists last_error_code text;
 
 update public.food_stripe_accounts
@@ -56,7 +58,21 @@ begin
       add constraint food_stripe_accounts_requirements_due_count_check
       check (requirements_due_count >= 0);
   end if;
-end $$;
+  if not exists (
+    select 1 from pg_constraint where conname = 'food_stripe_accounts_balance_pending_check'
+  ) then
+    alter table public.food_stripe_accounts
+      add constraint food_stripe_accounts_balance_pending_check
+      check (balance_pending_satang >= 0);
+  end if;
+  if not exists (
+    select 1 from pg_constraint where conname = 'food_stripe_accounts_balance_available_check'
+  ) then
+    alter table public.food_stripe_accounts
+      add constraint food_stripe_accounts_balance_available_check
+      check (balance_available_satang >= 0);
+  end if;
+end $;
 
 create table if not exists public.food_stripe_account_creation_locks (
   store_id uuid primary key references public.food_stores(id) on delete cascade,
@@ -214,6 +230,7 @@ set search_path = ''
 as $$
 declare
   a public.food_stripe_accounts%rowtype;
+  v_paid_today bigint := 0;
 begin
   if not public.merchant_has_store_role(p_store_id, array['owner','admin','manager','orders']) then
     raise exception 'merchant access required';
@@ -234,9 +251,19 @@ begin
       'bank_last4', null,
       'payout_interval', 'unknown',
       'requirements_due_count', 0,
+      'balance_pending_satang', 0,
+      'balance_available_satang', 0,
+      'payouts_paid_today_satang', 0,
       'last_synced_at', null
     );
   end if;
+
+  select coalesce(sum(p.amount_satang),0)::bigint
+  into v_paid_today
+  from public.food_stripe_payouts p
+  where p.store_id = p_store_id
+    and p.status = 'paid'
+    and (p.updated_at at time zone 'Asia/Bangkok')::date = (now() at time zone 'Asia/Bangkok')::date;
 
   return jsonb_build_object(
     'connected', true,
@@ -251,6 +278,9 @@ begin
     'bank_last4', a.bank_last4,
     'payout_interval', a.payout_interval,
     'requirements_due_count', a.requirements_due_count,
+    'balance_pending_satang', a.balance_pending_satang,
+    'balance_available_satang', a.balance_available_satang,
+    'payouts_paid_today_satang', v_paid_today,
     'last_synced_at', a.last_synced_at
   );
 end;
