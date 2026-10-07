@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, Briefcase, Check, Clock, Coffee, Fuel, Home, ImagePlus, Info, LocateFixed, MapPin, Minus, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
+import { ArrowLeft, Briefcase, Building2, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, LocateFixed, MapPin, Minus, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -1610,6 +1610,15 @@ export function FoodDeliveryMapPicker({
           </button>
           <button type="button" className={query === "ปั๊มน้ำมัน" ? "is-active" : ""} onClick={() => quickSearch("ปั๊มน้ำมัน")}>
             <Fuel size={16} /><span>ปั๊มน้ำมัน</span>
+          </button>
+          <button type="button" className={query === "โรงพยาบาล" ? "is-active" : ""} onClick={() => quickSearch("โรงพยาบาล")}>
+            <Hospital size={16} /><span>โรงพยาบาล</span>
+          </button>
+          <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
+            <Building2 size={16} /><span>หอพัก</span>
+          </button>
+          <button type="button" className={query === "ATM" ? "is-active" : ""} onClick={() => quickSearch("ATM")}>
+            <CircleDollarSign size={16} /><span>ATM</span>
           </button>
         </div>
       ) : null}
