@@ -671,6 +671,7 @@ export function FoodDeliveryMapPicker({
       if (routeRequestRef.current !== requestId) return;
       const message = error instanceof Error ? error.message : "คำนวณเส้นทางไม่สำเร็จ";
       setRouteStatus(message);
+      if (options?.keepNavigating) setNavigationStatus(message);
     } finally {
       if (routeRequestRef.current === requestId) setRouteWorking(false);
     }
@@ -1773,7 +1774,7 @@ export function FoodDeliveryMapPicker({
         {standalone && navigating && route ? (
           <>
             <div className="wf-map-navigation-top" aria-live="polite">
-              <small>คำแนะนำถัดไป</small>
+              <small>{navigationStatus || "คำแนะนำถัดไป"}</small>
               <strong>{activeRouteStep?.instruction || "ตรงไปตามเส้นทาง"}</strong>
               <span>{activeRouteStep ? formatRouteDistance(activeRouteStep.distanceKm) : ""}</span>
             </div>
