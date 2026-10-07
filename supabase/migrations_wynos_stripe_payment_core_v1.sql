@@ -247,7 +247,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_order public.food_orders%rowtype;
 begin
@@ -281,7 +281,7 @@ begin
   insert into public.food_order_events(order_id,event_type,note,actor_id)
   values (p_order_id,'payment_submitted','ลูกค้าแนบหลักฐานการชำระเงิน',auth.uid());
 end;
-$;
+$$;
 
 revoke all on function public.food_submit_payment(uuid,text) from public, anon;
 grant execute on function public.food_submit_payment(uuid,text) to authenticated;
@@ -298,7 +298,7 @@ returns void
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_order public.food_orders%rowtype;
   v_note text := nullif(left(trim(coalesce(p_note,'')),800),'');
@@ -348,7 +348,7 @@ begin
     );
   end if;
 end;
-$;
+$$;
 
 revoke all on function public.merchant_set_refund_status(uuid,text,text) from public, anon;
 grant execute on function public.merchant_set_refund_status(uuid,text,text) to authenticated;
@@ -362,7 +362,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_order public.food_orders%rowtype;
   v_note text := nullif(left(trim(coalesce(p_note,'')),800),'');
@@ -397,7 +397,7 @@ begin
   insert into public.food_order_events(order_id,event_type,note,actor_id)
   values (p_order_id,'payment_' || p_status,v_note,auth.uid());
 end;
-$;
+$$;
 
 revoke all on function public.food_set_payment_status(uuid,text,text) from public, anon;
 grant execute on function public.food_set_payment_status(uuid,text,text) to authenticated;
