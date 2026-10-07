@@ -139,9 +139,13 @@ export type FoodCustomerOrder = {
   stripe_checkout_session_id?: string | null;
   stripe_payment_intent_id?: string | null;
   stripe_refund_id?: string | null;
+  finance_config_id?: string | null;
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
+  service_fee?: number | string;
+  small_order_fee?: number | string;
+  surge_fee?: number | string;
   campaign_id: string | null;
   campaign_name: string | null;
   campaign_discount: number | string;
