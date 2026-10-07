@@ -1,6 +1,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
 const STRIPE_V2_VERSION = "2026-07-29.dahlia";
+const V2_ACCOUNT_SYNC_EVENTS = new Set([
+  "v2.core.account.updated",
+  "v2.core.account[defaults].updated",
+  "v2.core.account[identity].updated",
+  "v2.core.account[requirements].updated",
+  "v2.core.account[configuration.merchant].updated",
+  "v2.core.account[configuration.merchant].capability_status_updated",
+]);
 
 function serviceKey() {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -34,7 +42,7 @@ async function verifyStripeSignature(body: string, header: string, secret: strin
   const expected = await hmacHex(secret, `${timestamp}.${body}`);
   return signatures.some((signature) => constantTimeEqual(signature, expected));
 }
-async function verifyAnyStripeSignature(body: string, header: string, secrets: string[]) {
+async function verifyAgainstConfiguredSecrets(body: string, header: string, secrets: string[]) {
   for (const secret of secrets) {
     if (secret && await verifyStripeSignature(body, header, secret)) return true;
   }
@@ -181,7 +189,8 @@ async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret:
     restricted = typeof requirements.disabled_reason === "string" && requirements.disabled_reason.length > 0;
   }
 
-  const ready = charges && payouts && dueCount === 0 && bank.ready;
+  const automaticPayouts = payoutSchedule !== "manual" && payoutSchedule !== "unknown";
+  const ready = charges && payouts && dueCount === 0 && bank.ready && automaticPayouts;
   const status = ready ? "ready" : restricted ? "restricted" : dueCount > 0 ? "onboarding" : "pending";
   const now = new Date().toISOString();
   const { error: updateError } = await admin.from("food_stripe_accounts").update({
@@ -228,7 +237,7 @@ Deno.serve(async (req: Request) => {
 
   const raw = await req.text();
   const signature = req.headers.get("stripe-signature") ?? "";
-  if (!(await verifyAnyStripeSignature(raw, signature, [snapshotSecret, v2Secret].filter(Boolean)))) {
+  if (!(await verifyAgainstConfiguredSecrets(raw, signature, [snapshotSecret, v2Secret].filter(Boolean)))) {
     return json({ error: "invalid_signature" }, 400);
   }
 
@@ -242,10 +251,12 @@ Deno.serve(async (req: Request) => {
 
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  // Accounts v2 thin events are emitted in the platform ("your account") scope.
-  // Fetch the latest account state; don't trust a partial notification body.
-  if (eventType.startsWith("v2.core.account")) {
+  // Accounts v2 thin events for connected accounts arrive in "Your account"
+  // scope. Only the account lifecycle/configuration events WYNOS needs may
+  // trigger a state sync, and the signed related object must be an Account.
+  if (V2_ACCOUNT_SYNC_EVENTS.has(eventType)) {
     const related = event.related_object as Record<string,unknown> | undefined;
+    if (stringValue(related?.type) !== "v2.core.account") return json({ error: "invalid_related_object" }, 400);
     const accountId = stringValue(related?.id);
     if (!accountId || !stripeSecret) return json({ error: "account_sync_unavailable" }, 503);
     try {
@@ -256,6 +267,9 @@ Deno.serve(async (req: Request) => {
       console.error("stripe v2 account event failed", { eventId, eventType });
       return json({ error: "event_processing_failed" }, 500);
     }
+  }
+  if (eventType.startsWith("v2.core.account")) {
+    return json({ received: true, ignored: true });
   }
 
   const stripeAccountId = stringValue(event.account);
