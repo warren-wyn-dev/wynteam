@@ -95,21 +95,41 @@ SQL
 
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_payment_core_v1.sql"
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_payment_core_v1.sql"
-pass "migration applies twice"
+run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_connect_v2_embedded.sql"
+run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_connect_v2_embedded.sql"
+pass "Stripe core and v2 hardening migrations apply twice"
 
 [ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE')->>'status'")" = "not_connected" ] || fail "unconnected status"
 pass "merchant status hides account ID and reports not connected"
+
+[ "$(val "set role service_role; select public.merchant_acquire_stripe_connect_lock('$STORE','lock-a',45)")" = "t" ] || fail "first connect lock"
+[ "$(val "set role service_role; select public.merchant_acquire_stripe_connect_lock('$STORE','lock-b',45)")" = "f" ] || fail "second connect lock"
+val "set role service_role; select public.merchant_release_stripe_connect_lock('$STORE','lock-a')" >/dev/null
+[ "$(val "set role service_role; select public.merchant_acquire_stripe_connect_lock('$STORE','lock-b',45)")" = "t" ] || fail "released connect lock"
+val "set role service_role; select public.merchant_release_stripe_connect_lock('$STORE','lock-b')" >/dev/null
+pass "server-side provisioning lock prevents concurrent account creation"
+
+expect_fail "authenticated cannot read Stripe payouts table" \
+  "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_payouts" \
+  "permission denied"
+expect_fail "authenticated cannot read Stripe provisioning lock" \
+  "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_connect_locks" \
+  "permission denied"
 
 expect_fail "authenticated cannot read Stripe account table"   "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_accounts"   "permission denied"
 
 run >/dev/null <<SQL
 insert into public.food_stripe_accounts(store_id,stripe_account_id,details_submitted,charges_enabled,payouts_enabled,promptpay_enabled,status)
 values ('$STORE','acct_test_wynos',true,true,true,true,'ready');
+update public.food_stripe_accounts set account_api='v2', payout_bank_ready=true, payout_bank_name='TEST BANK', payout_bank_last4='1234', payout_interval='daily' where store_id='$STORE';
 update public.food_stores set stripe_payments_enabled=true where id='$STORE';
 SQL
 
 [ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE')->>'status'")" = "ready" ] || fail "ready status"
 pass "merchant sees sanitized Stripe readiness"
+[ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE')->>'bank_last4'")" = "1234" ] || fail "sanitized bank last4"
+[ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE') ? 'stripe_account_id'")" = "f" ] || fail "status leaked account id"
+pass "merchant status exposes only sanitized payout account data"
 
 [ "$(val "select internal.food_store_publish_readiness_json('$STORE')->'checks'->>'payment'")" = "true" ] || fail "Stripe satisfies payment readiness"
 pass "Stripe-ready store satisfies payment readiness without manual bank data"
