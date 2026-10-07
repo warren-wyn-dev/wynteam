@@ -38,6 +38,8 @@ test("Connect uses Standard Thai accounts and requires owner/admin for onboardin
   assert.match(connect, /params\.set\("type", "standard"\)/);
   assert.match(connect, /params\.set\("country", "TH"\)/);
   assert.match(connect, /capabilities\[promptpay_payments\]\[requested\]/);
+  assert.match(connect, /Idempotency-Key/);
+  assert.match(connect, /wynos-connect-/);
   assert.match(connect, /\["owner","admin"\]\.includes\(member\.role\)/);
 });
 
@@ -51,7 +53,7 @@ test("Webhook verifies Stripe signature, enforces idempotency and finalizes stat
 });
 
 test("Manual slip fallback expires any open Stripe Checkout first", () => {
-  assert.match(cancelStripe, /checkout\/sessions\/\\$\\{encodeURIComponent\(sessionId\)\\}\/expire/);
+  assert.match(cancelStripe, /checkout\/sessions\/\$\{encodeURIComponent\(sessionId\)\}\/expire/);
   assert.match(cancelStripe, /payment_status === "paid"/);
   assert.match(cancelStripe, /stripe_checkout_session_id: null/);
   assert.match(migration, /cancel stripe checkout before submitting slip/);
