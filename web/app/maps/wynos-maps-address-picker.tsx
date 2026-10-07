@@ -36,7 +36,7 @@ export function WynosMapsAddressPicker() {
       router.back();
       return;
     }
-    router.push("/food");
+    window.location.assign("https://wynos.online/");
   };
 
   const confirm = (location: FoodLocation, place?: FoodPlace) => {
@@ -58,19 +58,13 @@ export function WynosMapsAddressPicker() {
         <MapPin size={36} />
         <strong>เปิด WYNOS Maps ไม่สำเร็จ</strong>
         <span>ระบบแผนที่ยังเชื่อมต่อบริการตำแหน่งไม่ได้</span>
-        <button type="button" onClick={close}>กลับ WYNOS Food</button>
+        <button type="button" onClick={close}>กลับ WYNOS</button>
       </main>
     );
   }
 
   return (
     <main className="wynos-maps-page">
-      <div className="wynos-maps-brand-rail" aria-hidden="true">
-        <strong>WYNOS MAPS</strong>
-        <i />
-        <span>FOOD</span>
-      </div>
-
       {start.ready ? (
         <FoodDeliveryMapPicker
           client={client}
