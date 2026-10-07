@@ -129,7 +129,7 @@ test("Webhook verifies signatures, scopes Accounts v2 thin events and records pa
   assert.match(webhook, /verifyAgainstConfiguredSecrets/);
   assert.match(webhook, /STRIPE_V2_WEBHOOK_SECRET/);
   assert.match(webhook, /food_get_stripe_webhook_secret/);
-  assert.match(webhook, /\[snapshotSecret, v2Secret\]/);
+  assert.match(webhook, /configuredSecrets/);
   assert.match(webhook, /V2_ACCOUNT_SYNC_EVENTS/);
   assert.match(webhook, /v2\.core\.account\[configuration\.merchant\]\.capability_status_updated/);
   assert.match(webhook, /v2\.core\.account\[requirements\]\.updated/);
