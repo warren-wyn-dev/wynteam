@@ -34,6 +34,54 @@ export type FinanceSummary = Omit<FinanceDay, "day"> & {
 export type FinancePeriod = "today" | "yesterday" | "week" | "month" | "custom";
 export type DateRange = { from: string; to: string };
 
+
+export type MerchantSettlement = {
+  id: string;
+  store_id: string;
+  period_from: string;
+  period_to: string;
+  status: "pending" | "paid" | "failed" | "cancelled";
+  order_count: number;
+  gross_sales_satang: number;
+  merchant_discount_satang: number;
+  gp_satang: number;
+  payment_fees_satang: number;
+  refunds_satang: number;
+  adjustments_satang: number;
+  net_satang: number;
+  reference: string | null;
+  note: string | null;
+  created_at: string;
+  paid_at: string | null;
+};
+
+export type SettlementFinanceSummary = {
+  gross_sales_satang: number;
+  discounts_satang: number;
+  gp_satang: number;
+  payment_fees_satang: number;
+  refunds_satang: number;
+  adjustments_satang: number;
+  net_revenue_satang: number;
+  paid_out_satang: number;
+  pending_payout_satang: number;
+  settlements: MerchantSettlement[];
+};
+
+export type OrderFinancialBreakdown = {
+  order_id: string;
+  order_number: string;
+  gross_sales_satang: number;
+  merchant_discount_satang: number;
+  gp_bps: number;
+  gp_satang: number;
+  payment_fees_satang: number;
+  refunds_satang: number;
+  adjustments_satang: number;
+  net_satang: number;
+  currency: string;
+};
+
 const NUMBER_KEYS = ["orders", "food", "delivery", "discounts", "refunds", "sales_net", "ad_spend", "platform_funded", "income"] as const;
 
 function toDay(raw: Record<string, unknown>): FinanceDay {
@@ -58,6 +106,94 @@ export async function fetchFinanceSummary(client: SupabaseClient, storeId: strin
     pending_slip_total: Number(raw.pending_slip_total ?? 0),
     platform_owed: Number(raw.platform_owed ?? 0),
   };
+}
+
+
+function financeRangeTimestamps(range: DateRange) {
+  return {
+    from: `${range.from}T00:00:00+07:00`,
+    to: `${addDays(range.to, 1)}T00:00:00+07:00`,
+  };
+}
+
+export async function fetchSettlementFinanceSummary(
+  client: SupabaseClient,
+  storeId: string,
+  range: DateRange,
+): Promise<SettlementFinanceSummary | null> {
+  const timestamps = financeRangeTimestamps(range);
+  const { data, error } = await client.rpc("merchant_settlement_finance_summary", {
+    p_store_id: storeId,
+    p_from: timestamps.from,
+    p_to: timestamps.to,
+  });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    throw new Error(error.message);
+  }
+  const raw = (data ?? {}) as Record<string, unknown>;
+  return {
+    gross_sales_satang: Number(raw.gross_sales_satang ?? 0),
+    discounts_satang: Number(raw.discounts_satang ?? 0),
+    gp_satang: Number(raw.gp_satang ?? 0),
+    payment_fees_satang: Number(raw.payment_fees_satang ?? 0),
+    refunds_satang: Number(raw.refunds_satang ?? 0),
+    adjustments_satang: Number(raw.adjustments_satang ?? 0),
+    net_revenue_satang: Number(raw.net_revenue_satang ?? 0),
+    paid_out_satang: Number(raw.paid_out_satang ?? 0),
+    pending_payout_satang: Number(raw.pending_payout_satang ?? 0),
+    settlements: Array.isArray(raw.settlements)
+      ? (raw.settlements as Array<Record<string, unknown>>).map((row) => ({
+          id: String(row.id ?? ""),
+          store_id: String(row.store_id ?? storeId),
+          period_from: String(row.period_from ?? ""),
+          period_to: String(row.period_to ?? ""),
+          status: String(row.status ?? "pending") as MerchantSettlement["status"],
+          order_count: Number(row.order_count ?? 0),
+          gross_sales_satang: Number(row.gross_sales_satang ?? 0),
+          merchant_discount_satang: Number(row.merchant_discount_satang ?? 0),
+          gp_satang: Number(row.gp_satang ?? 0),
+          payment_fees_satang: Number(row.payment_fees_satang ?? 0),
+          refunds_satang: Number(row.refunds_satang ?? 0),
+          adjustments_satang: Number(row.adjustments_satang ?? 0),
+          net_satang: Number(row.net_satang ?? 0),
+          reference: typeof row.reference === "string" ? row.reference : null,
+          note: typeof row.note === "string" ? row.note : null,
+          created_at: String(row.created_at ?? ""),
+          paid_at: typeof row.paid_at === "string" ? row.paid_at : null,
+        }))
+      : [],
+  };
+}
+
+export async function fetchOrderFinancialBreakdown(
+  client: SupabaseClient,
+  orderId: string,
+): Promise<OrderFinancialBreakdown | null> {
+  const { data, error } = await client.rpc("merchant_order_financial_breakdown", { p_order_id: orderId });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    throw new Error(error.message);
+  }
+  if (!data) return null;
+  const raw = data as Record<string, unknown>;
+  return {
+    order_id: String(raw.order_id ?? orderId),
+    order_number: String(raw.order_number ?? ""),
+    gross_sales_satang: Number(raw.gross_sales_satang ?? 0),
+    merchant_discount_satang: Number(raw.merchant_discount_satang ?? 0),
+    gp_bps: Number(raw.gp_bps ?? 0),
+    gp_satang: Number(raw.gp_satang ?? 0),
+    payment_fees_satang: Number(raw.payment_fees_satang ?? 0),
+    refunds_satang: Number(raw.refunds_satang ?? 0),
+    adjustments_satang: Number(raw.adjustments_satang ?? 0),
+    net_satang: Number(raw.net_satang ?? 0),
+    currency: String(raw.currency ?? "thb"),
+  };
+}
+
+export function satangToBaht(value: number) {
+  return value / 100;
 }
 
 export function financeError(error: unknown) {
