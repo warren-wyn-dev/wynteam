@@ -491,6 +491,8 @@ export function FoodDeliveryMapPicker({
   const [navigating, setNavigating] = useState(false);
   const [navigationStatus, setNavigationStatus] = useState("");
   const [navigationAccuracyMeters, setNavigationAccuracyMeters] = useState<number | null>(null);
+  const [navigationProgress, setNavigationProgress] = useState(0);
+  const [navigationOffRouteMeters, setNavigationOffRouteMeters] = useState<number | null>(null);
 
   const serviceAreaState = standalone && location && serviceAreaBoundary
     ? (pointInServiceArea(location, serviceAreaBoundary) ? "inside" : "outside")
@@ -563,6 +565,8 @@ export function FoodDeliveryMapPicker({
     navigationWatchRef.current = null;
     setNavigating(false);
     setNavigationAccuracyMeters(null);
+    setNavigationProgress(0);
+    setNavigationOffRouteMeters(null);
     setNavigationStatus(message);
   }, []);
 
@@ -640,6 +644,8 @@ export function FoodDeliveryMapPicker({
       setActiveNearbyPlace(null);
       if (options?.navigationReroute) {
         navigationProgressRef.current = 0;
+        setNavigationProgress(0);
+        setNavigationOffRouteMeters(null);
         setNavigationStatus("ปรับเส้นทางใหม่แล้ว");
       }
     } catch (error) {
@@ -663,6 +669,8 @@ export function FoodDeliveryMapPicker({
     navigationActiveRef.current = true;
     navigationLastRerouteAtRef.current = 0;
     navigationProgressRef.current = 0;
+    setNavigationProgress(0);
+    setNavigationOffRouteMeters(null);
     setNavigationAccuracyMeters(null);
     setNavigating(true);
     setNavigationStatus("กำลังติดตามตำแหน่ง…");
@@ -710,9 +718,18 @@ export function FoodDeliveryMapPicker({
     if (!match) return;
 
     const routeProgress = Math.max(previousProgress, match.routeProgress);
-    if (navigationAccuracyMeters <= 50 && match.distanceMeters <= 80) {
+    const shouldAdvanceProgress = navigationAccuracyMeters <= 50 && match.distanceMeters <= 80;
+    if (shouldAdvanceProgress) {
       navigationProgressRef.current = routeProgress;
     }
+    const displayedProgress = shouldAdvanceProgress ? routeProgress : previousProgress;
+    const offRouteMeters = match.distanceMeters - navigationAccuracyMeters >= 80
+      ? Math.round(match.distanceMeters)
+      : null;
+    window.setTimeout(() => {
+      setNavigationProgress(displayedProgress);
+      setNavigationOffRouteMeters(offRouteMeters);
+    }, 0);
 
     const last = route.coordinates[route.coordinates.length - 1];
     const arrival = last ? nearestRoutePosition(userLocation, [last, last]) : null;
@@ -1630,20 +1647,8 @@ export function FoodDeliveryMapPicker({
     place?.source === "legacy" || results.some((result) => result.source === "legacy");
   const showPhotonAttribution =
     place?.source === "photon" || results.some((result) => result.source === "photon");
-  const navigationMatch = navigating && userLocation && route
-    ? nearestRoutePosition(userLocation, route.coordinates, {
-      minProgress: Math.max(0, navigationProgressRef.current - 1),
-      maxProgress: Math.min(route.coordinates.length - 1, navigationProgressRef.current + 120),
-    })
-    : null;
-  const displayedRouteProgress = navigationMatch
-    && navigationAccuracyMeters != null
-    && navigationAccuracyMeters <= 50
-    && navigationMatch.distanceMeters <= 80
-      ? Math.max(navigationProgressRef.current, navigationMatch.routeProgress)
-      : navigationProgressRef.current;
   const activeRouteStep = route
-    ? nextRouteStep(route, displayedRouteProgress)
+    ? nextRouteStep(route, navigationProgress)
     : null;
 
   return (
@@ -1814,10 +1819,10 @@ export function FoodDeliveryMapPicker({
               <div className="wf-map-navigation-panel" aria-live="polite">
                 <small>คำแนะนำถัดไป</small>
                 <strong>{activeRouteStep?.instruction || "ตรงไปตามเส้นทาง"}</strong>
-                {navigationMatch && navigationAccuracyMeters != null && navigationMatch.distanceMeters - navigationAccuracyMeters >= 80 ? (
+                {navigationOffRouteMeters != null ? (
                   <div className="wf-map-navigation-offroute">
                     <span>ออกนอกเส้นทาง</span>
-                    <em>{Math.round(navigationMatch.distanceMeters)} ม.</em>
+                    <em>{navigationOffRouteMeters} ม.</em>
                   </div>
                 ) : null}
                 {navigationStatus ? <p>{navigationStatus}</p> : null}
