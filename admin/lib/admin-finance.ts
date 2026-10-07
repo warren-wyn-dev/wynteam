@@ -67,12 +67,34 @@ export type FinanceRider = {
   approved_at: string | null;
 };
 
+export type FinanceSettlement = {
+  id: string;
+  store_id: string;
+  store_name: string;
+  period_from: string;
+  period_to: string;
+  status: "pending" | "paid" | "cancelled";
+  order_count: number;
+  gross_sales_satang: number;
+  merchant_discount_satang: number;
+  gp_satang: number;
+  payment_fees_satang: number;
+  refunds_satang: number;
+  adjustments_satang: number;
+  net_satang: number;
+  reference: string | null;
+  note: string | null;
+  created_at: string;
+  paid_at: string | null;
+};
+
 export type FinanceControlSnapshot = {
   config: FinanceConfig;
   flags: Record<string, boolean>;
   stores: FinanceStore[];
   gp_promotions: Array<Record<string, unknown>>;
   zone_pricing: Array<Record<string, unknown>>;
+  settlements: FinanceSettlement[];
   riders: FinanceRider[];
 };
 
@@ -167,4 +189,34 @@ export function formatFinanceDate(value: unknown) {
     timeStyle: "short",
     timeZone: "Asia/Bangkok",
   }).format(new Date(String(value)));
+}
+
+
+export type MerchantSettlementPreview = {
+  store_id: string;
+  from: string;
+  to: string;
+  order_count: number;
+  gross_sales_satang: number;
+  merchant_discount_satang: number;
+  gp_satang: number;
+  payment_fees_satang: number;
+  refunds_satang: number;
+  adjustments_satang: number;
+  net_satang: number;
+};
+
+export async function fetchMerchantSettlementPreview(
+  storeId: string,
+  from: string,
+  to: string,
+): Promise<MerchantSettlementPreview> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_merchant_settlement_preview", {
+    p_store_id: storeId,
+    p_from: from,
+    p_to: to,
+  });
+  if (error) throw new Error(error.message);
+  return data as MerchantSettlementPreview;
 }
