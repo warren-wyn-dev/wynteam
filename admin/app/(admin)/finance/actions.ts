@@ -207,6 +207,13 @@ export async function setStoreFinanceAction(formData: FormData) {
       payment_enabled:requiredText(formData,"payment_enabled")==="true",
       payout_suspended:requiredText(formData,"payout_suspended")==="true",
       promotion_eligible:requiredText(formData,"promotion_eligible")==="true",
+      delivery_base_fee_satang:baht(optionalNumber(formData,"delivery_base_fee")),
+      delivery_base_distance_m:km(optionalNumber(formData,"delivery_base_distance_km")),
+      delivery_per_km_satang:baht(optionalNumber(formData,"delivery_per_km")),
+      delivery_min_fee_satang:baht(optionalNumber(formData,"delivery_min_fee")),
+      delivery_max_fee_satang:baht(optionalNumber(formData,"delivery_max_fee")),
+      delivery_rounding_m:km(optionalNumber(formData,"delivery_rounding_km")),
+      free_delivery_threshold_satang:baht(optionalNumber(formData,"free_delivery_threshold")),
     },
     p_effective_from:bangkokTime(formData.get("effective_from")),
     p_reason:requiredText(formData,"reason"),
@@ -234,6 +241,125 @@ export async function setRiderStatusAction(formData: FormData) {
     p_active:requiredText(formData,"active")==="true",
     p_service_area_code:String(formData.get("service_area_code") ?? "").trim() || null,
     p_payout_suspended:requiredText(formData,"payout_suspended")==="true",
+    p_reason:requiredText(formData,"reason"),
+    p_metadata:await auditMetadata(),
+  });
+  refresh();
+}
+
+
+export async function setDeliveryZonePricingAction(formData: FormData) {
+  await rpc("admin_set_delivery_zone_pricing",{
+    p_service_area_code:String(formData.get("service_area_code") ?? "").trim() || null,
+    p_province:String(formData.get("province") ?? "").trim() || null,
+    p_patch:{
+      base_fee_satang:baht(optionalNumber(formData,"base_fee")),
+      base_distance_m:km(optionalNumber(formData,"base_distance_km")),
+      per_km_satang:baht(optionalNumber(formData,"per_km")),
+      min_fee_satang:baht(optionalNumber(formData,"min_fee")),
+      max_fee_satang:baht(optionalNumber(formData,"max_fee")),
+      rounding_m:km(optionalNumber(formData,"rounding_km")),
+      free_delivery_threshold_satang:baht(optionalNumber(formData,"free_delivery_threshold")),
+    },
+    p_effective_from:bangkokTime(formData.get("effective_from")),
+    p_effective_to:String(formData.get("effective_to") ?? "").trim()
+      ? bangkokTime(formData.get("effective_to")) : null,
+    p_priority:Math.trunc(numberValue(formData,"priority")),
+    p_reason:requiredText(formData,"reason"),
+    p_metadata:await auditMetadata(),
+  });
+  refresh();
+}
+
+export async function requestAdminRefundAction(formData: FormData) {
+  if (process.env.VERCEL_ENV !== "production") {
+    throw new Error("Stripe live refunds are blocked outside the Production Admin environment");
+  }
+  const supabase=await adminClient();
+  const { data:{ session } }=await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Admin session required");
+  const amount=baht(optionalNumber(formData,"amount_baht"));
+  const { data,error }=await supabase.functions.invoke("merchant-stripe-refund",{
+    body:{
+      orderId:requiredText(formData,"order_id"),
+      note:requiredText(formData,"reason"),
+      amountSatang:amount,
+      liability:requiredText(formData,"liability"),
+      refundGp:requiredText(formData,"refund_gp")==="true",
+      refundDelivery:requiredText(formData,"refund_delivery")==="true",
+      requestId:requiredText(formData,"request_id"),
+    },
+    headers:{
+      Authorization:`Bearer ${session.access_token}`,
+      Origin:"https://admin.wynos.online",
+    },
+  });
+  if (error) throw new Error(error.message);
+  const payload=data as { error?:string; message?:string } | null;
+  if (payload?.error) throw new Error(payload.message || payload.error);
+  refresh();
+}
+
+export async function createMerchantSettlementAction(formData: FormData) {
+  const storeId=requiredText(formData,"store_id");
+  const from=bangkokTime(formData.get("period_from"));
+  const to=bangkokTime(formData.get("period_to"));
+  const preview=await rpc("admin_merchant_settlement_preview",{
+    p_store_id:storeId,p_from:from,p_to:to,
+  }) as { order_count?:number; net_satang?:number };
+  await rpc("admin_create_merchant_settlement",{
+    p_store_id:storeId,p_from:from,p_to:to,
+    p_expected_order_count:Number(preview.order_count ?? 0),
+    p_expected_net_satang:Number(preview.net_satang ?? 0),
+    p_note:String(formData.get("note") ?? "").trim() || null,
+    p_reason:requiredText(formData,"reason"),
+    p_metadata:await auditMetadata(),
+  });
+  refresh();
+}
+
+export async function markMerchantSettlementPaidAction(formData: FormData) {
+  await rpc("admin_mark_merchant_settlement_paid",{
+    p_settlement_id:requiredText(formData,"settlement_id"),
+    p_reference:requiredText(formData,"reference"),
+    p_reason:requiredText(formData,"reason"),
+    p_metadata:await auditMetadata(),
+  });
+  refresh();
+}
+
+export async function addRiderAdjustmentAction(formData: FormData) {
+  await rpc("admin_add_rider_adjustment",{
+    p_rider_id:requiredText(formData,"rider_id"),
+    p_order_id:String(formData.get("order_id") ?? "").trim() || null,
+    p_amount_satang:baht(numberValue(formData,"amount_baht")),
+    p_reason:requiredText(formData,"reason"),
+    p_metadata:await auditMetadata(),
+  });
+  refresh();
+}
+
+export async function createRiderPayoutAction(formData: FormData) {
+  const riderId=requiredText(formData,"rider_id");
+  const from=bangkokTime(formData.get("period_from"));
+  const to=bangkokTime(formData.get("period_to"));
+  const preview=await rpc("admin_rider_payout_preview",{
+    p_rider_id:riderId,p_from:from,p_to:to,
+  }) as { jobs?:number; amount_satang?:number };
+  await rpc("admin_create_rider_payout",{
+    p_rider_id:riderId,p_from:from,p_to:to,
+    p_expected_jobs:Number(preview.jobs ?? 0),
+    p_expected_amount_satang:Number(preview.amount_satang ?? 0),
+    p_reason:requiredText(formData,"reason"),
+    p_metadata:await auditMetadata(),
+  });
+  refresh();
+}
+
+export async function markRiderPayoutPaidAction(formData: FormData) {
+  await rpc("admin_mark_rider_payout_paid",{
+    p_payout_id:requiredText(formData,"payout_id"),
+    p_reference:requiredText(formData,"reference"),
     p_reason:requiredText(formData,"reason"),
     p_metadata:await auditMetadata(),
   });
