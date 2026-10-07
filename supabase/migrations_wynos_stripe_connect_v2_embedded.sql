@@ -134,6 +134,7 @@ set search_path = ''
 as $$
 declare
   a public.food_stripe_accounts%rowtype;
+  v_paid_today bigint := 0;
 begin
   if not public.merchant_has_store_role(p_store_id, array['owner','admin','manager','orders']) then
     raise exception 'merchant access required';
@@ -157,9 +158,17 @@ begin
       'balance_pending_satang', 0,
       'balance_available_satang', 0,
       'last_payout_status', null,
+      'payouts_paid_today_satang', 0,
       'last_synced_at', null
     );
   end if;
+
+  select coalesce(sum(p.amount_satang),0)::bigint
+    into v_paid_today
+  from public.food_stripe_payouts p
+  where p.store_id = p_store_id
+    and p.status = 'paid'
+    and (p.updated_at at time zone 'Asia/Bangkok')::date = (now() at time zone 'Asia/Bangkok')::date;
 
   return jsonb_build_object(
     'connected', true,
@@ -177,6 +186,7 @@ begin
     'balance_pending_satang', a.balance_pending_satang,
     'balance_available_satang', a.balance_available_satang,
     'last_payout_status', a.last_payout_status,
+    'payouts_paid_today_satang', v_paid_today,
     'last_synced_at', a.last_synced_at
   );
 end;
