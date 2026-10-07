@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(read("../lib/maps-routing.ts"), {
 }).outputText;
 const mod = { exports: {} };
 runInNewContext(compiled, { module: mod, exports: mod.exports, Number, Math, Array, Object });
-const { decodeValhallaPolyline, parseWynosRoute, nearestRoutePosition, routeRemainingDistanceMeters, nextRouteStep, formatRouteDuration, formatRouteDistance } = mod.exports;
+const { decodeValhallaPolyline, parseWynosRoute, nearestRoutePosition, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, nextRouteStep, formatRouteDuration, formatRouteDistance } = mod.exports;
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -106,14 +106,25 @@ test("navigation helpers preserve forward progress and advance maneuvers at boun
   assert.equal(nextRouteStep(route, 1, 0)?.instruction, "เลี้ยวซ้าย");
 
   const crossing = [[100, 13], [100.001, 13], [100.001, 13.001], [100, 13.001], [100, 13]];
-  const unrestricted = nearestRoutePosition({ latitude: 13.00001, longitude: 100.00001 }, crossing);
+  const unrestricted = nearestRoutePosition({ latitude: 12.9999, longitude: 100.0005 }, crossing);
   const forwardOnly = nearestRoutePosition(
-    { latitude: 13.00001, longitude: 100.00001 },
+    { latitude: 12.9999, longitude: 100.0005 },
     crossing,
     { minSegmentIndex: 2 },
   );
   assert.equal(unrestricted?.segmentIndex, 0);
   assert.equal(forwardOnly?.segmentIndex, 3);
+});
+
+test("route matching window is bounded by along-route distance, not segment count", () => {
+  const coordinates = [[100, 13], [100.001, 13], [100.002, 13], [100.003, 13], [100.004, 13]];
+  const tight = routeSegmentBoundsForDistance(coordinates, 0, 0, 20, 150);
+  assert.equal(tight.minSegmentIndex, 0);
+  assert.equal(tight.maxSegmentIndex, 1);
+
+  const wider = routeSegmentBoundsForDistance(coordinates, 1, 0.5, 80, 260);
+  assert.ok(wider.minSegmentIndex <= 1);
+  assert.ok(wider.maxSegmentIndex >= 3);
 });
 
 test("remaining route distance requires progress near the route end before arrival", () => {

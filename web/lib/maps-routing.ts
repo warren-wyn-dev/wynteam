@@ -207,6 +207,43 @@ export function nearestRoutePosition(
   };
 }
 
+export function routeSegmentBoundsForDistance(
+  coordinates: Array<[number, number]>,
+  segmentIndex: number,
+  segmentProgress: number,
+  backwardMeters: number,
+  forwardMeters: number,
+) {
+  if (coordinates.length < 2) return { minSegmentIndex: 0, maxSegmentIndex: 0 };
+  const lastSegmentIndex = coordinates.length - 2;
+  const index = Math.min(lastSegmentIndex, Math.max(0, Math.floor(segmentIndex)));
+  const progress = Math.min(1, Math.max(0, segmentProgress));
+
+  let minSegmentIndex = index;
+  let backwardRemaining = Math.max(0, backwardMeters);
+  const currentLength = coordinateDistanceMeters(coordinates[index], coordinates[index + 1]);
+  backwardRemaining -= currentLength * progress;
+  while (backwardRemaining > 0 && minSegmentIndex > 0) {
+    minSegmentIndex -= 1;
+    backwardRemaining -= coordinateDistanceMeters(
+      coordinates[minSegmentIndex],
+      coordinates[minSegmentIndex + 1],
+    );
+  }
+
+  let maxSegmentIndex = index;
+  let forwardRemaining = Math.max(0, forwardMeters) - currentLength * (1 - progress);
+  while (forwardRemaining > 0 && maxSegmentIndex < lastSegmentIndex) {
+    maxSegmentIndex += 1;
+    forwardRemaining -= coordinateDistanceMeters(
+      coordinates[maxSegmentIndex],
+      coordinates[maxSegmentIndex + 1],
+    );
+  }
+
+  return { minSegmentIndex, maxSegmentIndex };
+}
+
 export function routeRemainingDistanceMeters(
   coordinates: Array<[number, number]>,
   segmentIndex: number,
