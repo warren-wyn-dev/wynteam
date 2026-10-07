@@ -207,6 +207,38 @@ export function nearestRoutePosition(
   };
 }
 
+export function forwardRouteSegmentLimit(
+  coordinates: Array<[number, number]>,
+  segmentIndex: number,
+  segmentProgress: number,
+  maxDistanceMeters: number,
+) {
+  if (coordinates.length < 2 || !Number.isFinite(maxDistanceMeters) || maxDistanceMeters <= 0) {
+    return Math.max(0, Math.min(coordinates.length - 2, Math.floor(segmentIndex)));
+  }
+
+  const startIndex = Math.max(0, Math.min(coordinates.length - 2, Math.floor(segmentIndex)));
+  const progress = Math.min(1, Math.max(0, segmentProgress));
+  const start = coordinates[startIndex];
+  const end = coordinates[startIndex + 1];
+  const current: [number, number] = [
+    start[0] + (end[0] - start[0]) * progress,
+    start[1] + (end[1] - start[1]) * progress,
+  ];
+
+  let travelled = coordinateDistanceMeters(current, end);
+  if (travelled > maxDistanceMeters) return startIndex;
+
+  let limit = startIndex;
+  for (let index = startIndex + 1; index < coordinates.length - 1; index += 1) {
+    const segmentDistance = coordinateDistanceMeters(coordinates[index], coordinates[index + 1]);
+    if (travelled + segmentDistance > maxDistanceMeters) break;
+    travelled += segmentDistance;
+    limit = index;
+  }
+  return limit;
+}
+
 export function routeRemainingDistanceMeters(
   coordinates: Array<[number, number]>,
   segmentIndex: number,
