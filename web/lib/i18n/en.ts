@@ -2139,6 +2139,7 @@ Object.assign(EN_EXACT, {
   "การแจ้งเตือน WYNOS Food": "WYNOS Food notifications",
   "แจ้งสถานะคำสั่งซื้อและการจัดส่ง": "Get order and delivery status updates",
   "ขายอาหารบน WYNOS Food": "Sell food on WYNOS Food",
+  "ขายอาหารบน WYNOS Food ติดต่อ LINE @352lvyoi": "Sell food on WYNOS Food — contact LINE @352lvyoi",
   "สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi": "Interested in opening a store? Contact the team on LINE · @352lvyoi",
   "ออกจาก WYNOS Food โดยไม่แก้โปรไฟล์ WYNOS": "Leave WYNOS Food without changing your WYNOS profile",
   "ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS": "This information belongs to WYNOS Food only and does not change your WYNOS profile",
