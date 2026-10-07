@@ -432,7 +432,7 @@ async function createOnboardingLink(secret: string, accountId: string, storeId: 
         type: "account_onboarding",
         account_onboarding: {
           configurations: ["merchant"],
-          collection_options: { fields: "eventually_due" },
+          collection_options: { fields: "currently_due" },
           refresh_url: refreshUrl,
           return_url: returnUrl,
         },
