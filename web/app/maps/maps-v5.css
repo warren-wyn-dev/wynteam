@@ -731,3 +731,47 @@
     padding-bottom: 0;
   }
 }
+
+
+/* v5.2 final polish — standalone Maps should read as Maps first, not Food. */
+.wynos-maps-page .wf-map-sheet.is-half .wf-map-place-card {
+  display: grid;
+}
+
+/* When a place or route is active, remove the duplicate generic pin controls.
+   The contextual card already exposes the relevant actions. */
+.wynos-maps-page .wf-map-sheet:has(.wf-map-place-card) .wf-map-confirm-copy,
+.wynos-maps-page .wf-map-sheet:has(.wf-map-place-card) .wf-map-add-place,
+.wynos-maps-page .wf-map-sheet:has(.wf-map-place-card) > .wf-map-sheet-body > .wf-primary,
+.wynos-maps-page .wf-map-sheet:has(.wf-map-directions) .wf-map-confirm-copy,
+.wynos-maps-page .wf-map-sheet:has(.wf-map-directions) .wf-map-add-place,
+.wynos-maps-page .wf-map-sheet:has(.wf-map-directions) > .wf-map-sheet-body > .wf-primary {
+  display: none;
+}
+
+.wynos-maps-page .wf-map-place-actions > button:first-of-type {
+  background: rgb(10 132 255 / 11%);
+  color: var(--wynos-maps-location-blue);
+}
+
+.wynos-maps-page .wf-map-add-place {
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--m-text-2);
+  box-shadow: none;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.wynos-maps-page .wf-map-add-place:active {
+  background: var(--m-fill);
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-quick-filters {
+  scroll-snap-type: x proximity;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-quick-filters button {
+  scroll-snap-align: start;
+}

@@ -2159,7 +2159,7 @@ export function FoodDeliveryMapPicker({
           </article>
         ) : null}
 
-        {standalone && serviceAreaState === "outside" ? (
+        {standalone && activeNearbyPlace?.merchantStoreId && serviceAreaState === "outside" ? (
           <div className="wf-map-service-area-warning" role="alert">
             <MapPin size={18} />
             <div>
@@ -2297,13 +2297,13 @@ export function FoodDeliveryMapPicker({
         <button
           className="wf-primary wf-full"
           type="button"
-          disabled={!chosen || !location || (standalone && serviceAreaState === "outside")}
+          disabled={!chosen || !location}
           onClick={() => {
-            if (!location || (standalone && serviceAreaState === "outside")) return;
+            if (!location) return;
             onConfirm(location, place ?? undefined);
           }}
         >
-          <Check size={18} /> {standalone && serviceAreaState === "outside" ? "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ" : confirmLabel ?? (standalone ? "ใช้ตำแหน่งนี้" : "ยืนยันตำแหน่งนี้")}
+          <Check size={18} /> {confirmLabel ?? (standalone ? "ใช้ตำแหน่งนี้" : "ยืนยันตำแหน่งนี้")}
         </button>
         </div>
       </section>
