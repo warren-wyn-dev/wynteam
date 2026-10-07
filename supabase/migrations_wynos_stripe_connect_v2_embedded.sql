@@ -178,7 +178,7 @@ returns boolean
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $claim$
 begin
   if p_event_id is null or length(p_event_id) < 3 then raise exception 'event id required'; end if;
   if p_event_type is null or length(p_event_type) < 3 then raise exception 'event type required'; end if;
@@ -189,7 +189,7 @@ begin
 
   return found;
 end;
-$;
+$claim$;
 
 revoke all on function public.food_claim_stripe_webhook_event(text,text,text,text)
   from public, anon, authenticated;
@@ -204,12 +204,12 @@ returns void
 language sql
 security definer
 set search_path = ''
-as $
+as $release$
   delete from public.food_stripe_webhook_events
   where event_id = p_event_id
     and event_type = p_event_type
     and order_id is null;
-$;
+$release$;
 
 revoke all on function public.food_release_stripe_webhook_event_claim(text,text)
   from public, anon, authenticated;
