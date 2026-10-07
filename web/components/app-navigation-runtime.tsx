@@ -70,6 +70,11 @@ export function AppNavigationRuntime() {
   }, []);
 
   useEffect(() => {
+    // Do not install the production service worker on the Next.js dev server.
+    // Local WebKit treats the dev-server worker fetch as a page-level access
+    // control error, and a dev service worker can also retain stale assets
+    // across HMR/test navigations. Production builds still register normally.
+    if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator)) return;
     // Offline support is important, but registration can wait until the
     // visible page has started painting. Reuse a root effect so it runs once.
