@@ -326,8 +326,8 @@ async function createAccountSession(secret: string, accountId: string, component
   });
 }
 async function createOnboardingLink(secret: string, accountId: string, storeId: string, api: "v1" | "v2") {
-  const refreshUrl = `https://merchant.wynos.online/?stripe=refresh&store=${encodeURIComponent(storeId)}`;
-  const returnUrl = `https://merchant.wynos.online/?stripe=return&store=${encodeURIComponent(storeId)}`;
+  const refreshUrl = `https://merchant.wynos.online/?payments=refresh&store=${encodeURIComponent(storeId)}`;
+  const returnUrl = `https://merchant.wynos.online/?payments=return&store=${encodeURIComponent(storeId)}`;
   if (api === "v1") {
     const params = new URLSearchParams();
     params.set("account", accountId);
