@@ -64,13 +64,21 @@ function capabilityStatus(capabilities: Record<string,unknown>, key: string) {
   const value = capabilities[key] as Record<string,unknown> | undefined;
   return typeof value?.status === "string" ? value.status : null;
 }
-function requirementsDue(requirements: Record<string,unknown>) {
+function requirementsDueCount(requirements: Record<string,unknown>) {
   const entries = Array.isArray(requirements.entries) ? requirements.entries as Array<Record<string,unknown>> : [];
-  return entries.some((entry) => {
+  return entries.filter((entry) => {
     if (entry.awaiting_action_from !== "user") return false;
     const deadline = entry.minimum_deadline as Record<string,unknown> | undefined;
     return deadline?.status === "currently_due" || deadline?.status === "past_due";
-  });
+  }).length;
+}
+function promptPayStatus(value: unknown): "active" | "pending" | "inactive" | "unsupported" | "unrequested" | "unknown" {
+  if (value === "active" || value === "pending" || value === "inactive" || value === "unsupported" || value === "unrequested") return value;
+  return "unknown";
+}
+function payoutInterval(value: unknown): "daily" | "weekly" | "monthly" | "manual" | "unknown" {
+  if (value === "daily" || value === "weekly" || value === "monthly" || value === "manual") return value;
+  return "unknown";
 }
 function thbAmount(rows: unknown) {
   if (!Array.isArray(rows)) return 0;
@@ -157,9 +165,9 @@ async function fetchPayoutSummary(secret: string, accountId: string): Promise<Pa
     const payments = (payload.payments ?? {}) as Record<string,unknown>;
     const payouts = (payments.payouts ?? {}) as Record<string,unknown>;
     const schedule = (payouts.schedule ?? {}) as Record<string,unknown>;
-    return { interval: stringValue(schedule.interval) };
+    return { interval: payoutInterval(schedule.interval) };
   } catch {
-    return { interval: null };
+    return { interval: "unknown" };
   }
 }
 async function preferDailyPayouts(secret: string, accountId: string) {
@@ -175,22 +183,26 @@ async function preferDailyPayouts(secret: string, accountId: string) {
     // Daily isn't universally configurable. Keep Stripe's fastest permitted
     // automatic schedule instead of turning payouts manual or weakening risk controls.
     const safe = safeStripeError(error);
-    console.warn("merchant-stripe-connect payout schedule unchanged", { accountId: accountId.slice(0, 8), ...safe });
+    console.warn("merchant-stripe-connect payout schedule unchanged", safe);
   }
 }
 function v1CoreState(account: Record<string,unknown>) {
   const capabilities = (account.capabilities ?? {}) as Record<string,unknown>;
   const requirements = (account.requirements ?? {}) as Record<string,unknown>;
-  const due = Array.isArray(requirements.currently_due) && requirements.currently_due.length > 0
-    || Array.isArray(requirements.past_due) && requirements.past_due.length > 0;
+  const dueValues = [
+    ...(Array.isArray(requirements.currently_due) ? requirements.currently_due : []),
+    ...(Array.isArray(requirements.past_due) ? requirements.past_due : []),
+  ].map(String);
+  const dueCount = new Set(dueValues).size;
   const disabled = typeof requirements.disabled_reason === "string" && requirements.disabled_reason.length > 0;
+  const pp = promptPayStatus(capabilities.promptpay_payments);
   return {
     details: account.details_submitted === true,
     charges: account.charges_enabled === true,
     payouts: account.payouts_enabled === true,
-    promptpayEnabled: capabilities.promptpay_payments === "active",
-    promptpaySupported: capabilities.promptpay_payments != null && capabilities.promptpay_payments !== "unrequested",
-    due,
+    promptpayEnabled: pp === "active",
+    promptpayStatus: pp,
+    dueCount,
     restricted: disabled,
   };
 }
@@ -200,21 +212,21 @@ function v2CoreState(account: Record<string,unknown>) {
   const capabilities = (merchant.capabilities ?? {}) as Record<string,unknown>;
   const card = capabilities.card_payments as Record<string,unknown> | undefined;
   const cardStatus = capabilityStatus(capabilities, "card_payments");
-  const promptpayStatus = capabilityStatus(capabilities, "promptpay_payments");
+  const pp = promptPayStatus(capabilityStatus(capabilities, "promptpay_payments"));
   const stripeBalance = capabilities.stripe_balance as Record<string,unknown> | undefined;
   const payouts = stripeBalance?.payouts as Record<string,unknown> | undefined;
   const payoutsStatus = stringValue(payouts?.status);
   const requirements = (account.requirements ?? {}) as Record<string,unknown>;
-  const due = requirementsDue(requirements);
+  const dueCount = requirementsDueCount(requirements);
   const cardDetails = Array.isArray(card?.status_details) ? card.status_details as Array<Record<string,unknown>> : [];
   const restricted = cardStatus === "unsupported" || cardDetails.some((detail) => detail.resolution === "contact_stripe");
   return {
-    details: cardStatus === "active" || (cardStatus === "pending" && !due),
+    details: cardStatus === "active" || (cardStatus === "pending" && dueCount === 0),
     charges: cardStatus === "active",
     payouts: payoutsStatus === "active",
-    promptpayEnabled: promptpayStatus === "active",
-    promptpaySupported: promptpayStatus != null && promptpayStatus !== "unsupported",
-    due,
+    promptpayEnabled: pp === "active",
+    promptpayStatus: pp,
+    dueCount,
     restricted,
   };
 }
@@ -224,21 +236,22 @@ function composeState(
   money: MoneySummary,
   payout: PayoutSummary,
 ) {
-  const ready = core.charges && core.payouts && !core.due && bank.ready;
-  const status = ready ? "ready" : core.restricted ? "restricted" : core.due ? "onboarding" : "pending";
+  const ready = core.charges && core.payouts && core.dueCount === 0 && bank.ready;
+  const status = ready ? "ready" : core.restricted ? "restricted" : core.dueCount > 0 ? "onboarding" : "pending";
   return {
     details_submitted: core.details,
     charges_enabled: core.charges,
     payouts_enabled: core.payouts,
     promptpay_enabled: core.promptpayEnabled,
-    promptpay_supported: core.promptpaySupported,
-    requirements_due: core.due,
-    payout_bank_ready: bank.ready,
-    payout_bank_name: bank.name,
-    payout_bank_last4: bank.last4,
-    payout_interval: payout.interval,
+    promptpay_status: core.promptpayStatus,
+    requirements_due_count: core.dueCount,
+    bank_ready: bank.ready,
+    bank_name: bank.name,
+    bank_last4: bank.last4,
+    payout_interval: payout.interval ?? "unknown",
     balance_pending_satang: money.pending,
     balance_available_satang: money.available,
+    last_error_code: null,
     status,
   };
 }
@@ -250,11 +263,11 @@ function sanitized(state: Record<string,unknown>) {
     charges_enabled: state.charges_enabled,
     payouts_enabled: state.payouts_enabled,
     promptpay_enabled: state.promptpay_enabled,
-    promptpay_supported: state.promptpay_supported,
-    requirements_due: state.requirements_due,
-    bank_ready: state.payout_bank_ready,
-    bank_name: state.payout_bank_name,
-    bank_last4: state.payout_bank_last4,
+    promptpay_status: state.promptpay_status,
+    requirements_due_count: state.requirements_due_count,
+    bank_ready: state.bank_ready,
+    bank_name: state.bank_name,
+    bank_last4: state.bank_last4,
     payout_interval: state.payout_interval,
     balance_pending_satang: state.balance_pending_satang,
     balance_available_satang: state.balance_available_satang,
@@ -274,7 +287,7 @@ async function syncAccount(admin: ReturnType<typeof createClient>, secret: strin
     store_id: storeId,
     stripe_account_id: accountId,
     account_type: "standard",
-    account_api: retrieved.api,
+    account_api_version: retrieved.api,
     country: "TH",
     ...state,
     last_synced_at: now,
@@ -356,16 +369,19 @@ async function createOnboardingLink(secret: string, accountId: string, storeId: 
   });
 }
 async function acquireProvisioningLock(admin: ReturnType<typeof createClient>, storeId: string, token: string) {
-  const { data, error } = await admin.rpc("merchant_acquire_stripe_connect_lock", {
+  const { data, error } = await admin.rpc("food_claim_stripe_account_creation", {
     p_store_id: storeId,
-    p_lock_token: token,
+    p_operation_token: token,
     p_ttl_seconds: 45,
   });
   if (error) throw new Error("stripe_lock_unavailable");
   return data === true;
 }
 async function releaseProvisioningLock(admin: ReturnType<typeof createClient>, storeId: string, token: string) {
-  await admin.rpc("merchant_release_stripe_connect_lock", { p_store_id: storeId, p_lock_token: token });
+  await admin.rpc("food_release_stripe_account_creation", {
+    p_store_id: storeId,
+    p_operation_token: token,
+  });
 }
 async function waitForSavedAccount(admin: ReturnType<typeof createClient>, storeId: string) {
   for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -448,7 +464,7 @@ Deno.serve(async (req: Request) => {
               store_id: storeId,
               stripe_account_id: accountId,
               account_type: "standard",
-              account_api: "v2",
+              account_api_version: "v2",
               country: "TH",
               ...state,
               last_synced_at: new Date().toISOString(),
