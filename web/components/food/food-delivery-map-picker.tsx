@@ -42,7 +42,7 @@ import {
   rememberRecentPlace,
   type MapsRecentPlace,
 } from "@/lib/maps-places";
-import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoute, routeRemainingDistanceMeters, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
+import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoute, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -418,6 +418,7 @@ export function FoodDeliveryMapPicker({
   const navigationLastRerouteAtRef = useRef(0);
   const navigationProgressRef = useRef(0);
   const navigationRouteRef = useRef<MapsRoute | null>(null);
+  const navigationLatestLocationRef = useRef<FoodLocation | null>(null);
   const routeOriginRef = useRef<{
     location: FoodLocation;
     targetKey: string;
@@ -558,6 +559,7 @@ export function FoodDeliveryMapPicker({
     navigationOffRouteCountRef.current = 0;
     navigationRerouteRef.current = false;
     navigationProgressRef.current = 0;
+    navigationLatestLocationRef.current = null;
     setNavigationProgress(0);
     setNavigationOffRouteDistance(null);
     if (navigationWatchRef.current != null && typeof navigator !== "undefined" && navigator.geolocation) {
@@ -667,6 +669,7 @@ export function FoodDeliveryMapPicker({
     navigationLastRerouteAtRef.current = 0;
     navigationProgressRef.current = 0;
     navigationRouteRef.current = route;
+    navigationLatestLocationRef.current = routeOriginRef.current?.location ?? userLocation;
     setNavigationProgress(0);
     setNavigationOffRouteDistance(null);
     setNavigating(true);
@@ -692,16 +695,49 @@ export function FoodDeliveryMapPicker({
         });
 
         const activeRoute = navigationRouteRef.current;
-        if (!activeRoute) return;
+        if (!activeRoute) {
+          navigationLatestLocationRef.current = next;
+          return;
+        }
         const previousProgress = navigationProgressRef.current;
-        const previousSegment = Math.floor(previousProgress);
-        const match = nearestRoutePosition(next, activeRoute.coordinates, {
-          minSegmentIndex: Math.max(0, previousSegment - 2),
-          maxSegmentIndex: Math.min(activeRoute.coordinates.length - 2, previousSegment + 120),
-        });
+        const previousSegment = Math.min(activeRoute.coordinates.length - 2, Math.floor(previousProgress));
+        const previousSegmentProgress = Math.min(1, Math.max(0, previousProgress - previousSegment));
+        const previousLocation = navigationLatestLocationRef.current;
+        const movedMeters = previousLocation
+          ? distanceToRouteCoordinateMeters(previousLocation, [next.longitude, next.latitude])
+          : 0;
+        const maxForwardMeters = Math.min(
+          1_200,
+          Math.max(
+            routeMode === "pedestrian" ? 50 : 100,
+            movedMeters * 2.5 + (Number.isFinite(accuracy) ? accuracy * 2 : 0) + 40,
+          ),
+        );
+        const bounds = routeSegmentBoundsForDistance(
+          activeRoute.coordinates,
+          previousSegment,
+          previousSegmentProgress,
+          Math.max(50, Number.isFinite(accuracy) ? accuracy * 2 : 50),
+          maxForwardMeters,
+        );
+        const match = nearestRoutePosition(next, activeRoute.coordinates, bounds);
+        navigationLatestLocationRef.current = next;
         if (!match) return;
 
-        const stableProgress = Math.max(previousProgress, match.routeProgress);
+        const previousRemainingMeters = routeRemainingDistanceMeters(
+          activeRoute.coordinates,
+          previousSegment,
+          previousSegmentProgress,
+        );
+        const candidateRemainingMeters = routeRemainingDistanceMeters(
+          activeRoute.coordinates,
+          match.segmentIndex,
+          match.segmentProgress,
+        );
+        const candidateAdvanceMeters = Math.max(0, previousRemainingMeters - candidateRemainingMeters);
+        const stableProgress = candidateAdvanceMeters <= maxForwardMeters + 5
+          ? Math.max(previousProgress, match.routeProgress)
+          : previousProgress;
         navigationProgressRef.current = stableProgress;
         setNavigationProgress(stableProgress);
         const stableSegmentIndex = Math.min(activeRoute.coordinates.length - 2, Math.floor(stableProgress));
@@ -772,7 +808,7 @@ export function FoodDeliveryMapPicker({
         timeout: 15_000,
       },
     );
-  }, [directionsTarget, requestRoute, route, routeMode, standalone, stopNavigation]);
+  }, [directionsTarget, requestRoute, route, routeMode, standalone, stopNavigation, userLocation]);
 
   useEffect(() => {
     if (!standalone) return;
@@ -1067,10 +1103,12 @@ export function FoodDeliveryMapPicker({
         });
       }
 
-      const rerouteOrigin = navigationActiveRef.current ? routeOriginRef.current?.location : null;
-      if (rerouteOrigin) {
+      const navigationCameraLocation = navigationActiveRef.current
+        ? navigationLatestLocationRef.current ?? routeOriginRef.current?.location
+        : null;
+      if (navigationCameraLocation) {
         map.flyTo({
-          center: [rerouteOrigin.longitude, rerouteOrigin.latitude],
+          center: [navigationCameraLocation.longitude, navigationCameraLocation.latitude],
           zoom: 17.2,
           essential: true,
         });
