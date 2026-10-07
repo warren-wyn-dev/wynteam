@@ -51,6 +51,7 @@ test("new merchants use Accounts v2 and legacy v1 is retrieval-only compatibilit
   assert.match(connect, /dashboard: "none"/);
   assert.match(connect, /wynos-connect-v2-/);
   assert.match(connect, /v1_account_instead_of_v2_account/);
+  assert.match(connect, /return \{ account, api: "v1" as const \}/);
   assert.doesNotMatch(connect, /https:\/\/api\.stripe\.com\/v1\/accounts["'`]/);
   assert.match(connect, /\/v1\/accounts\/\$\{encodeURIComponent\(accountId\)\}/);
 });
@@ -170,7 +171,7 @@ test("Merchant Finance uses server-sanitized balance/payout data and only bank l
 
 test("Merchant errors are localized and raw gateway errors stay out of client UI", () => {
   assert.match(merchantCore, /context instanceof Response/);
-  assert.match(merchantCore, /\/[ก-๙]\//);
+  assert.match(merchantCore, /\/\[ก-๙\]\//);
   assert.match(merchantCore, /อัปเดตสถานะการรับเงินไม่สำเร็จ/);
   assert.match(merchantCore, /เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ/);
   assert.doesNotMatch(merchantCore, /return raw\.message/);
