@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(read("../lib/maps-routing.ts"), {
 }).outputText;
 const mod = { exports: {} };
 runInNewContext(compiled, { module: mod, exports: mod.exports, Number, Math, Array, Object });
-const { decodeValhallaPolyline, parseWynosRoute, nearestRoutePosition, routeRemainingDistanceMeters, nextRouteStep, formatRouteDuration, formatRouteDistance } = mod.exports;
+const { decodeValhallaPolyline, parseWynosRoute, forwardRouteSegmentLimit, nearestRoutePosition, routeRemainingDistanceMeters, nextRouteStep, formatRouteDuration, formatRouteDistance } = mod.exports;
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -106,14 +106,21 @@ test("navigation helpers preserve forward progress and advance maneuvers at boun
   assert.equal(nextRouteStep(route, 1, 0)?.instruction, "เลี้ยวซ้าย");
 
   const crossing = [[100, 13], [100.001, 13], [100.001, 13.001], [100, 13.001], [100, 13]];
-  const unrestricted = nearestRoutePosition({ latitude: 13.00001, longitude: 100.00001 }, crossing);
-  const forwardOnly = nearestRoutePosition(
-    { latitude: 13.00001, longitude: 100.00001 },
-    crossing,
-    { minSegmentIndex: 2 },
-  );
-  assert.equal(unrestricted?.segmentIndex, 0);
+  const location = { latitude: 13.00001, longitude: 100.00001 };
+  const unrestricted = nearestRoutePosition(location, crossing);
+  const bounded = nearestRoutePosition(location, crossing, { maxSegmentIndex: 1 });
+  const forwardOnly = nearestRoutePosition(location, crossing, { minSegmentIndex: 2 });
+  assert.equal(unrestricted?.segmentIndex, 3);
+  assert.equal(bounded?.segmentIndex, 0);
   assert.equal(forwardOnly?.segmentIndex, 3);
+});
+
+test("forward route matching is capped by physical route distance", () => {
+  const coordinates = [[100, 13], [100.001, 13], [100.002, 13], [100.003, 13], [100.004, 13]];
+  const shortLimit = forwardRouteSegmentLimit(coordinates, 0, 0, 150);
+  const longLimit = forwardRouteSegmentLimit(coordinates, 0, 0, 500);
+  assert.equal(shortLimit, 0);
+  assert.ok(longLimit >= 3);
 });
 
 test("remaining route distance requires progress near the route end before arrival", () => {
