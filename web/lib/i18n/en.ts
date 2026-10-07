@@ -57,6 +57,7 @@ export const EN_EXACT: Record<string, string> = {
   "เวลาโดยประมาณจาก WYNOS Routing": "Estimated time from WYNOS Routing",
   "สถานที่ที่เลือก": "Selected place",
   "เส้นทางไปตำแหน่งนี้": "Directions to this location",
+  "ม.": "m",
   "กำลังปรับเส้นทางใหม่…": "Recalculating route…",
   "ปรับเส้นทางใหม่แล้ว": "Route updated",
   "เบราว์เซอร์นี้ไม่รองรับการนำทางด้วย GPS": "This browser does not support GPS navigation",
