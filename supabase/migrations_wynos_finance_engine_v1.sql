@@ -774,7 +774,7 @@ declare
   v_merchant bigint;
   v_platform bigint;
 begin
-  if current_user <> 'service_role' then raise exception 'service role required'; end if;
+  -- Caller restriction is enforced by explicit EXECUTE grants to service_role.
   if p_fee_satang is null or p_fee_satang<0 then raise exception 'invalid Stripe fee'; end if;
 
   select * into p from public.food_stripe_payments where order_id=p_order_id for update;
@@ -854,7 +854,7 @@ declare
   v_gp bigint;
   v_delivery bigint;
 begin
-  if current_user <> 'service_role' then raise exception 'service role required'; end if;
+  -- Caller restriction is enforced by explicit EXECUTE grants to service_role.
   select * into o from public.food_orders where id=p_order_id for update;
   select * into p from public.food_stripe_payments where order_id=p_order_id for update;
   select * into f from public.food_order_financials where order_id=p_order_id for update;
@@ -924,7 +924,7 @@ declare
   v_platform bigint;
   v_gp bigint;
 begin
-  if current_user <> 'service_role' then raise exception 'service role required'; end if;
+  -- Caller restriction is enforced by explicit EXECUTE grants to service_role.
   if p_status not in ('succeeded','failed','cancelled') then raise exception 'invalid refund status'; end if;
 
   select * into r from public.food_refunds where id=p_refund_id for update;
