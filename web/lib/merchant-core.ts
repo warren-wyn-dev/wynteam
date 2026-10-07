@@ -330,7 +330,13 @@ export async function refreshMerchantStripeStatus(client: SupabaseClient, storeI
 }
 
 export async function fetchMerchantStripeFinance(client: SupabaseClient, storeId: string): Promise<MerchantStripeFinance> {
-  const payload = await fetchMerchantStripeStatus(client, storeId);
+  let payload: MerchantStripeStatus;
+  try {
+    payload = await refreshMerchantStripeStatus(client, storeId);
+  } catch {
+    // Finance remains available from the sanitized DB snapshot if Stripe is temporarily unavailable.
+    payload = await fetchMerchantStripeStatus(client, storeId);
+  }
   return {
     ...payload,
     pending: Number(payload.balance_pending_satang ?? 0) / 100,
