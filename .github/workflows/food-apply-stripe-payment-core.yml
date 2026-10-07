@@ -1,0 +1,124 @@
+name: Food -- apply Stripe payment core
+
+# Applies supabase/migrations_wynos_stripe_payment_core_v1.sql.
+# Additive rollout for food.wynos.online + merchant.wynos.online:
+# private Stripe account/payment/webhook tables, Connect readiness, webhook
+# idempotency, Stripe-authoritative paid/refunded state and safe manual fallback.
+#
+# The web rollout is backward-compatible before this migration. Stripe UI stays
+# unavailable until the backend is installed and the Stripe Edge Functions can
+# report readiness.
+#
+# Behaviour test: supabase/tests/wynos_stripe_payment_core_test.sh.
+# ROLLBACK: see the migration footer. Do not drop transaction references that
+# are still required for audit/refunds.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-STRIPE-PAYMENT-CORE to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-STRIPE-PAYMENT-CORE'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify Stripe payment core
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"
+            exit 1
+          fi
+
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2
+              cat "$out" >&2
+              rm -f "$out"
+              return 1
+            fi
+            cat "$out"
+            rm -f "$out"
+          }
+
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_stripe_payment_core_v1.sql)
+          commit;" >/dev/null
+
+          run_sql "select
+              exists (
+                select 1 from information_schema.columns
+                where table_schema='public' and table_name='food_stores'
+                  and column_name='stripe_payments_enabled'
+              ) as store_flag,
+              exists (
+                select 1 from information_schema.columns
+                where table_schema='public' and table_name='food_orders'
+                  and column_name='stripe_checkout_session_id'
+              ) as checkout_column,
+              to_regclass('public.food_stripe_accounts') is not null as accounts_table,
+              to_regclass('public.food_stripe_payments') is not null as payments_table,
+              to_regclass('public.food_stripe_webhook_events') is not null as events_table,
+              coalesce((
+                select relrowsecurity from pg_class
+                where oid='public.food_stripe_accounts'::regclass
+              ),false) as accounts_rls,
+              not has_table_privilege('authenticated','public.food_stripe_accounts','select') as accounts_private,
+              has_function_privilege('authenticated','public.merchant_stripe_status(uuid)','execute') as merchant_status_exec,
+              not has_function_privilege(
+                'authenticated',
+                'public.food_apply_stripe_event(text,text,uuid,text,text,text,text,bigint,text,text,text,text,text)',
+                'execute'
+              ) as webhook_auth_denied,
+              has_function_privilege(
+                'service_role',
+                'public.food_apply_stripe_event(text,text,uuid,text,text,text,text,bigint,text,text,text,text,text)',
+                'execute'
+              ) as webhook_service_exec,
+              pg_get_functiondef('public.food_submit_payment(uuid,text)'::regprocedure)
+                like '%cancel stripe checkout before submitting slip%' as slip_guard,
+              pg_get_functiondef('public.merchant_set_refund_status(uuid,text,text)'::regprocedure)
+                like '%stripe refunds must be processed through the payment gateway%' as refund_guard,
+              pg_get_functiondef('internal.food_store_publish_readiness_json(uuid)'::regprocedure)
+                like '%v_stripe_ready%' as readiness_guard;" \
+            | tee result.json | jq .
+
+          jq -e '.[0].store_flag == true
+                 and .[0].checkout_column == true
+                 and .[0].accounts_table == true
+                 and .[0].payments_table == true
+                 and .[0].events_table == true
+                 and .[0].accounts_rls == true
+                 and .[0].accounts_private == true
+                 and .[0].merchant_status_exec == true
+                 and .[0].webhook_auth_denied == true
+                 and .[0].webhook_service_exec == true
+                 and .[0].slip_guard == true
+                 and .[0].refund_guard == true
+                 and .[0].readiness_guard == true' result.json >/dev/null \
+            || { echo "::error::Stripe payment core verification failed"; exit 1; }
+
+          echo "Stripe payment core schema is installed and verified."
