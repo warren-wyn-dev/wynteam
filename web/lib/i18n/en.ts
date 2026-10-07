@@ -72,6 +72,7 @@ export const EN_EXACT: Record<string, string> = {
   "ม.": "m",
   "กำลังปรับเส้นทางใหม่…": "Recalculating route…",
   "ปรับเส้นทางใหม่แล้ว": "Route updated",
+  "อัปเดตเส้นทางแล้ว": "Route updated",
   "เบราว์เซอร์นี้ไม่รองรับการนำทางด้วย GPS": "This browser does not support GPS navigation",
   "กำลังติดตามตำแหน่ง…": "Tracking your location…",
   "ไม่สามารถใช้ตำแหน่ง GPS สำหรับการนำทางได้": "GPS location is unavailable for navigation",
