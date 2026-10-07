@@ -21,7 +21,7 @@ runInNewContext(compile("../lib/maps-ors.ts"), {
   Array,
   Object,
 });
-const { orsProfileForCosting, normalizeOrsGeoJson } = mod.exports;
+const { orsProfileForCosting, normalizeOrsGeoJson, normalizeOrsGeoJsonRoutes } = mod.exports;
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -74,6 +74,24 @@ test("ORS GeoJSON normalizes into WYNOS route data", () => {
       coordinate: [103.251, 16.2465],
     },
   ]);
+});
+
+test("ORS GeoJSON exposes multiple route alternatives", () => {
+  const routes = normalizeOrsGeoJsonRoutes({
+    features: [
+      {
+        properties: { summary: { distance: 4200, duration: 600 }, segments: [] },
+        geometry: { type: "LineString", coordinates: [[103.2, 16.2], [103.21, 16.21]] },
+      },
+      {
+        properties: { summary: { distance: 4600, duration: 640 }, segments: [] },
+        geometry: { type: "LineString", coordinates: [[103.2, 16.2], [103.22, 16.215]] },
+      },
+    ],
+  }, "auto");
+  assert.equal(routes.length, 2);
+  assert.equal(routes[0].distanceKm, 4.2);
+  assert.equal(routes[1].durationSeconds, 640);
 });
 
 test("ORS rejects invalid route payloads", () => {
