@@ -46,6 +46,15 @@ export type MerchantStripeStatus = {
   charges_enabled?: boolean;
   payouts_enabled?: boolean;
   promptpay_enabled?: boolean;
+  promptpay_supported?: boolean;
+  requirements_due?: boolean;
+  bank_ready?: boolean;
+  bank_name?: string | null;
+  bank_last4?: string | null;
+  payout_interval?: string | null;
+  balance_pending_satang?: number;
+  balance_available_satang?: number;
+  last_payout_status?: string | null;
   last_synced_at?: string | null;
 };
 
@@ -244,20 +253,17 @@ async function merchantStripeFunctionError(error: unknown, fallback: string) {
   if (context instanceof Response) {
     try {
       const payload = await context.clone().json() as { error?: unknown; message?: unknown };
-      if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+      if (typeof payload.message === "string" && /[ก-๙]/.test(payload.message)) return payload.message;
       if (typeof payload.error === "string") {
-        if (payload.error === "stripe_not_configured") return "ยังไม่ได้ตั้งค่า STRIPE_SECRET_KEY ใน Supabase";
+        if (payload.error === "stripe_not_configured" || payload.error === "stripe_backend_not_ready") return "ระบบรับชำระเงินยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง";
         if (payload.error === "unauthorized") return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง";
-        if (payload.error === "owner_or_admin_required") return "เฉพาะเจ้าของร้านหรือแอดมินเท่านั้นที่เชื่อม Stripe ได้";
-        if (payload.error === "stripe_backend_not_ready") return "ระบบ Stripe ของ WYNOS ยังไม่พร้อม กรุณาลองใหม่อีกครั้ง";
+        if (payload.error === "owner_or_admin_required") return "เฉพาะเจ้าของร้านหรือแอดมินเท่านั้นที่เปิดรับชำระเงินได้";
         if (payload.error === "store_not_found") return "ไม่พบร้านที่เลือก กรุณาเลือกร้านใหม่แล้วลองอีกครั้ง";
+        if (payload.error === "setup_in_progress") return "กำลังตั้งค่าการรับชำระเงิน กรุณารอสักครู่แล้วลองอีกครั้ง";
       }
     } catch {
-      // Fall back to the SDK error or the caller-provided message.
+      // Keep gateway/technical detail out of Merchant UI.
     }
-  }
-  if (typeof raw?.message === "string" && raw.message && raw.message !== "Edge Function returned a non-2xx status code") {
-    return raw.message;
   }
   return fallback;
 }
@@ -266,24 +272,46 @@ export async function startMerchantStripeOnboarding(client: SupabaseClient, stor
   const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
     body: { storeId, action: "onboard" },
   });
-  if (error) throw new Error(await merchantStripeFunctionError(error, "เปิด Stripe Connect ไม่สำเร็จ"));
-  const payload = data as (MerchantStripeStatus & { url?: unknown; error?: unknown; message?: unknown }) | null;
-  if (payload?.status === "ready") return { status: payload, url: null as string | null };
-  if (!payload || typeof payload.url !== "string") {
-    throw new Error(typeof payload?.message === "string" ? payload.message : "เปิด Stripe Connect ไม่สำเร็จ");
+  if (error) throw new Error(await merchantStripeFunctionError(error, "เปิดรับชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+  const payload = data as (MerchantStripeStatus & {
+    flow?: unknown;
+    publishableKey?: unknown;
+    url?: unknown;
+    error?: unknown;
+    message?: unknown;
+  }) | null;
+  if (!payload || typeof payload.status !== "string") throw new Error("เปิดรับชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  return {
+    status: payload,
+    flow: payload.flow === "embedded" || payload.flow === "redirect" || payload.flow === "ready" ? payload.flow : "ready",
+    publishableKey: typeof payload.publishableKey === "string" ? payload.publishableKey : null,
+    url: typeof payload.url === "string" ? payload.url : null,
+  };
+}
+
+export async function createMerchantStripeSession(
+  client: SupabaseClient,
+  storeId: string,
+  component: "account_onboarding" | "account_management",
+) {
+  const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
+    body: { storeId, action: "session", component },
+  });
+  if (error) throw new Error(await merchantStripeFunctionError(error, "เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+  const payload = data as { clientSecret?: unknown; publishableKey?: unknown } | null;
+  if (!payload || typeof payload.clientSecret !== "string" || typeof payload.publishableKey !== "string") {
+    throw new Error("เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   }
-  return { status: payload, url: payload.url };
+  return { clientSecret: payload.clientSecret, publishableKey: payload.publishableKey };
 }
 
 export async function refreshMerchantStripeStatus(client: SupabaseClient, storeId: string): Promise<MerchantStripeStatus> {
   const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
     body: { storeId, action: "status" },
   });
-  if (error) throw new Error(await merchantStripeFunctionError(error, "ตรวจสถานะ Stripe ไม่สำเร็จ"));
+  if (error) throw new Error(await merchantStripeFunctionError(error, "อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
   const payload = data as (MerchantStripeStatus & { error?: unknown; message?: unknown }) | null;
-  if (!payload || typeof payload.status !== "string") {
-    throw new Error(typeof payload?.message === "string" ? payload.message : "ตรวจสถานะ Stripe ไม่สำเร็จ");
-  }
+  if (!payload || typeof payload.status !== "string") throw new Error("อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   return payload;
 }
 
@@ -291,11 +319,9 @@ export async function requestStripeRefund(client: SupabaseClient, orderId: strin
   const { data, error } = await client.functions.invoke("merchant-stripe-refund", {
     body: { orderId, note: note?.trim() || null },
   });
-  if (error) throw new Error(await merchantStripeFunctionError(error, "ขอคืนเงินผ่าน Stripe ไม่สำเร็จ"));
+  if (error) throw new Error(await merchantStripeFunctionError(error, "ขอคืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
   const payload = data as { status?: unknown; error?: unknown; message?: unknown } | null;
-  if (!payload || typeof payload.status !== "string") {
-    throw new Error(typeof payload?.message === "string" ? payload.message : "ขอคืนเงินผ่าน Stripe ไม่สำเร็จ");
-  }
+  if (!payload || typeof payload.status !== "string") throw new Error("ขอคืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   return String(payload.status);
 }
 
