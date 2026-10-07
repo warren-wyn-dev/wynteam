@@ -603,9 +603,10 @@ test("WYN-205 Merchant finance page and the store's own promotions", () => {
   // WYN-210 replaced the order-based finance panel (opened to every store by the Founder).
   const finance = read("components/merchant/merchant-finance.tsx");
   expect(app).not.toContain("function FinancePanel(");
-  // Payment channels are still masked to the last 4 digits.
-  expect(finance).toContain("const last4 = (value: string | null) => {");
-  expect(finance).toContain('const digits = (value ?? "").replace(/\\D/g, "");');
+  // Receiving account data is sanitized: provider bank last4 only; manual fallback is masked too.
+  expect(finance).toContain("paymentStatus.bank_last4");
+  expect(finance).toContain("const manualLast4 = (value: string | null) => {");
+  expect(finance).not.toContain("stripe_account_id");
   // Dynamic promotion text is translated through EN_PATTERNS.
   const en = read("lib/i18n/en.ts");
   expect(en).toContain('["{0} โปรโมชั่นกำลังใช้งาน", "{0} active promotions"]');
