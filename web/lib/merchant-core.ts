@@ -46,21 +46,24 @@ export type MerchantStripeStatus = {
   charges_enabled?: boolean;
   payouts_enabled?: boolean;
   promptpay_enabled?: boolean;
-  promptpay_status?: "active" | "pending" | "inactive" | "unsupported" | "unrequested" | "unknown";
+  promptpay_supported?: boolean;
+  requirements_due?: boolean;
   bank_ready?: boolean;
   bank_name?: string | null;
   bank_last4?: string | null;
-  payout_interval?: "daily" | "weekly" | "monthly" | "manual" | "unknown";
-  requirements_due_count?: number;
+  payout_interval?: "daily" | "weekly" | "monthly" | "manual" | "unknown" | null;
+  balance_pending_satang?: number;
+  balance_available_satang?: number;
+  payouts_paid_today_satang?: number;
+  last_payout_status?: string | null;
   last_synced_at?: string | null;
 };
 
-export type MerchantPaymentSurface = MerchantStripeStatus & {
-  surface?: "embedded" | "redirect" | "none" | "unavailable";
-  client_secret?: string;
-  publishable_key?: string;
-  url?: string;
-  message?: string;
+export type MerchantPaymentSurface = {
+  status: MerchantStripeStatus;
+  flow: "embedded" | "redirect" | "ready";
+  publishableKey: string | null;
+  url: string | null;
 };
 
 export type MerchantStripeFinance = MerchantStripeStatus & {
@@ -266,54 +269,39 @@ async function merchantStripeFunctionError(error: unknown, fallback: string) {
       const payload = await context.clone().json() as { error?: unknown; message?: unknown };
       if (typeof payload.message === "string" && /[ก-๙]/.test(payload.message)) return payload.message;
       if (typeof payload.error === "string") {
-        if (payload.error === "payments_not_configured" || payload.error === "payments_backend_not_ready") {
+        if (["stripe_not_configured","stripe_backend_not_ready","payments_not_configured","payments_backend_not_ready"].includes(payload.error)) {
           return "ระบบรับชำระเงินยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง";
         }
         if (payload.error === "unauthorized") return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง";
         if (payload.error === "owner_or_admin_required") return "เฉพาะเจ้าของร้านหรือแอดมินเท่านั้นที่จัดการการรับเงินได้";
         if (payload.error === "store_not_found") return "ไม่พบร้านที่เลือก กรุณาเลือกร้านใหม่แล้วลองอีกครั้ง";
+        if (payload.error === "setup_in_progress") return "กำลังตั้งค่าการรับชำระเงิน กรุณาลองใหม่อีกครั้งในอีกสักครู่";
       }
     } catch {
-      // Never surface gateway or technical detail to the Merchant UI.
+      // Never surface gateway or technical detail to Merchant UI.
     }
   }
   return fallback;
 }
 
-async function invokeMerchantPayments(
+export async function startMerchantStripeOnboarding(
   client: SupabaseClient,
   storeId: string,
-  action: "status" | "onboard" | "manage" | "finance",
-) {
+): Promise<MerchantPaymentSurface> {
   const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
-    body: { storeId, action },
+    body: { storeId, action: "onboard" },
   });
-  if (error) {
-    throw new Error(await merchantStripeFunctionError(
-      error,
-      action === "finance"
-        ? "โหลดข้อมูลการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
-        : action === "status"
-          ? "อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
-          : "เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
-    ));
-  }
-  return data;
-}
-
-function paymentSurface(payload: unknown): MerchantPaymentSurface {
-  if (!payload || typeof payload !== "object") throw new Error("เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-  const value = payload as MerchantPaymentSurface;
-  if (typeof value.status !== "string") throw new Error("เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-  return value;
-}
-
-export async function startMerchantStripeOnboarding(client: SupabaseClient, storeId: string) {
-  return paymentSurface(await invokeMerchantPayments(client, storeId, "onboard"));
-}
-
-export async function startMerchantPaymentManagement(client: SupabaseClient, storeId: string) {
-  return paymentSurface(await invokeMerchantPayments(client, storeId, "manage"));
+  if (error) throw new Error(await merchantStripeFunctionError(error, "เปิดรับชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+  const payload = data as (MerchantStripeStatus & { flow?: unknown; publishableKey?: unknown; url?: unknown }) | null;
+  if (!payload || typeof payload.status !== "string") throw new Error("เปิดรับชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  return {
+    status: payload,
+    flow: payload.flow === "embedded" || payload.flow === "redirect" || payload.flow === "ready"
+      ? payload.flow
+      : payload.status === "ready" ? "ready" : "redirect",
+    publishableKey: typeof payload.publishableKey === "string" ? payload.publishableKey : null,
+    url: typeof payload.url === "string" ? payload.url : null,
+  };
 }
 
 export async function createMerchantStripeSession(
@@ -321,33 +309,34 @@ export async function createMerchantStripeSession(
   storeId: string,
   component: "account_onboarding" | "account_management",
 ) {
-  const payload = paymentSurface(await invokeMerchantPayments(
-    client,
-    storeId,
-    component === "account_management" ? "manage" : "onboard",
-  ));
-  if (payload.surface !== "embedded" || typeof payload.client_secret !== "string" || typeof payload.publishable_key !== "string") {
-    throw new Error(payload.message || "ไม่สามารถเปิดแบบฟอร์มรับเงินในหน้านี้ได้ กรุณาลองใหม่อีกครั้ง");
+  const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
+    body: { storeId, action: "session", component },
+  });
+  if (error) throw new Error(await merchantStripeFunctionError(error, "เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+  const payload = data as { clientSecret?: unknown; publishableKey?: unknown } | null;
+  if (!payload || typeof payload.clientSecret !== "string" || typeof payload.publishableKey !== "string") {
+    throw new Error("เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   }
-  return { clientSecret: payload.client_secret, publishableKey: payload.publishable_key };
+  return { clientSecret: payload.clientSecret, publishableKey: payload.publishableKey };
 }
 
 export async function refreshMerchantStripeStatus(client: SupabaseClient, storeId: string): Promise<MerchantStripeStatus> {
-  const payload = paymentSurface(await invokeMerchantPayments(client, storeId, "status"));
+  const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
+    body: { storeId, action: "status" },
+  });
+  if (error) throw new Error(await merchantStripeFunctionError(error, "อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+  const payload = data as MerchantStripeStatus | null;
+  if (!payload || typeof payload.status !== "string") throw new Error("อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   return payload;
 }
 
 export async function fetchMerchantStripeFinance(client: SupabaseClient, storeId: string): Promise<MerchantStripeFinance> {
-  const payload = paymentSurface(await invokeMerchantPayments(client, storeId, "finance")) as MerchantPaymentSurface & {
-    pending?: unknown;
-    available?: unknown;
-    paid_today?: unknown;
-  };
+  const payload = await fetchMerchantStripeStatus(client, storeId);
   return {
     ...payload,
-    pending: typeof payload.pending === "number" ? payload.pending : 0,
-    available: typeof payload.available === "number" ? payload.available : 0,
-    paid_today: typeof payload.paid_today === "number" ? payload.paid_today : 0,
+    pending: Number(payload.balance_pending_satang ?? 0) / 100,
+    available: Number(payload.balance_available_satang ?? 0) / 100,
+    paid_today: Number(payload.payouts_paid_today_satang ?? 0) / 100,
   };
 }
 
