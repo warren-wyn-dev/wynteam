@@ -4,6 +4,19 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "รายละเอียดรายได้ร้าน": "Merchant revenue details",
+  "คำนวณจาก Financial Snapshot ของแต่ละออเดอร์บนเซิร์ฟเวอร์": "Calculated from each order's server-side Financial Snapshot",
+  "ยอดขายอาหาร (Gross Sales)": "Food sales (Gross Sales)",
+  "ส่วนลดที่ร้านรับผิดชอบ": "Merchant-funded discounts",
+  "ค่าธรรมเนียมการชำระเงินที่ร้านรับผิดชอบ": "Merchant-paid payment fees",
+  "Refund ที่ร้านรับผิดชอบ": "Merchant-paid refunds",
+  "รายได้สุทธิร้าน (Net Revenue)": "Merchant net revenue",
+  "จ่ายแล้ว": "Paid out",
+  "รอจ่าย": "Pending payout",
+  "รายละเอียดรายได้ออเดอร์นี้": "This order's revenue details",
+  "ตัวเลขจาก Financial Snapshot ของออเดอร์ ไม่เปลี่ยนตามค่าปัจจุบันของร้าน": "These figures come from the order's Financial Snapshot and do not change with the store's current settings",
+  "ยอดอาหาร (Gross Sales)": "Food subtotal (Gross Sales)",
+  "ร้านได้รับสุทธิ (Merchant Net)": "Merchant net",
   "ค่าบริการ": "Service fee",
   "ค่าคำสั่งซื้อขนาดเล็ก": "Small order fee",
   "ค่าบริการช่วงความต้องการสูง": "Surge fee",
