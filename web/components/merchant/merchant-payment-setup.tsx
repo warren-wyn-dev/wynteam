@@ -242,12 +242,12 @@ export function MerchantPaymentSetup({
       <div className="wm-payment-copy">
         <strong>{ready
           ? status?.promptpay_enabled ? "รับบัตรและ PromptPay" : "รับบัตร"
-          : "รับเงินจากลูกค้าได้สะดวกผ่านบัตรและ PromptPay เมื่อบัญชีรองรับ"}</strong>
+          : "รับเงินจากลูกค้าผ่านบัตรและ PromptPay"}</strong>
         <small>{ready
           ? status?.promptpay_enabled
             ? "เงินจะโอนเข้าบัญชีธนาคารของร้านอัตโนมัติ"
             : "PromptPay จะเปิดให้อัตโนมัติเมื่อบัญชีรองรับ เงินจะโอนเข้าบัญชีธนาคารของร้านตามรอบ"
-          : "เมื่อเปิดใช้งานแล้ว เงินจะถูกโอนเข้าบัญชีของร้านอัตโนมัติตามรอบที่รองรับ"}</small>
+          : "เงินจะโอนเข้าบัญชีธนาคารของร้านอัตโนมัติ"}</small>
       </div>
 
       {ready ? (
