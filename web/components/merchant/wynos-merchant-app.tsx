@@ -63,7 +63,7 @@ import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicato
 import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import {
   MERCHANT_NOTIFICATION_TEST_RESULT_KEY,
-  refreshMerchantStripeStatus,
+  fetchMerchantStripeStatus,
   setMerchantStorePublished,
   type MerchantStripeStatus,
 } from "@/lib/merchant-core";
@@ -2607,7 +2607,7 @@ function StoreEditor({
 
   useEffect(() => {
     let live = true;
-    void refreshMerchantStripeStatus(client, store.id)
+    void fetchMerchantStripeStatus(client, store.id)
       .then((status) => { if (live) setStripeStatus(status); })
       .catch(() => { if (live) setStripeStatus(null); });
     return () => { live = false; };
