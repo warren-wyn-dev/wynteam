@@ -46,6 +46,8 @@ export const EN_EXACT: Record<string, string> = {
   "โรงพยาบาล": "Hospital",
   "ปั๊มน้ำมัน": "Gas station",
   "แนะนำ": "Recommended",
+  "ทางเลือก": "Alternative",
+  "เหลือถึง": "Remaining to",
   "สั่งอาหารได้ใน WYNOS Food": "Order food in WYNOS Food",
   "คำนวณใหม่": "Recalculate",
   "โควตาเส้นทางฟรีถึงขีดจำกัดแล้ว กรุณาลองใหม่ภายหลัง": "The free routing quota has been reached. Please try again later",
