@@ -1350,6 +1350,9 @@ function CartPanel({
             {campaignDiscount > 0 ? <div className="is-discount"><span>{quote?.campaign_name ? "โปร · " + quote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
             <div><span>ค่าส่ง</span><b>{foodMoney(delivery)}</b></div>
             {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
+            {Number(quote?.service_fee ?? 0) > 0 ? <div><span>ค่าบริการ</span><b>{foodMoney(quote?.service_fee)}</b></div> : null}
+            {Number(quote?.small_order_fee ?? 0) > 0 ? <div><span>ค่าคำสั่งซื้อขนาดเล็ก</span><b>{foodMoney(quote?.small_order_fee)}</b></div> : null}
+            {Number(quote?.surge_fee ?? 0) > 0 ? <div><span>ค่าบริการช่วงความต้องการสูง</span><b>{foodMoney(quote?.surge_fee)}</b></div> : null}
             <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(total)}</b></div>
           </div>
           {quote?.campaign_name ? <div className="wf-promo-applied"><strong>ใช้แคมเปญ {quote.campaign_name}</strong><small>WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ</small></div> : null}
@@ -2436,7 +2439,7 @@ function OrderDetailSheet({
     let live = true;
     const timer = window.setTimeout(() => {
       if (!live) return;
-      if (!store?.promptpay_id || !["pending", "issue"].includes(order.payment_status)) {
+      if (order.finance_config_id || !store?.promptpay_id || !["pending", "issue"].includes(order.payment_status)) {
         setDynamicPaymentQr(null);
         return;
       }
@@ -2448,7 +2451,7 @@ function OrderDetailSheet({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [client, order.id, order.payment_status, store?.promptpay_id]);
+  }, [client, order.finance_config_id, order.id, order.payment_status, store?.promptpay_id]);
 
   const selectSlip = (file: File | null) => {
     if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
@@ -2559,6 +2562,9 @@ function OrderDetailSheet({
             {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "โปร · " + order.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(order.campaign_discount)}</b></div> : null}
             <div><span>ค่าส่ง</span><b>{foodMoney(order.delivery_fee)}</b></div>
             {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(order.delivery_discount)}</b></div> : null}
+            {Number(order.service_fee ?? 0) > 0 ? <div><span>ค่าบริการ</span><b>{foodMoney(order.service_fee)}</b></div> : null}
+            {Number(order.small_order_fee ?? 0) > 0 ? <div><span>ค่าคำสั่งซื้อขนาดเล็ก</span><b>{foodMoney(order.small_order_fee)}</b></div> : null}
+            {Number(order.surge_fee ?? 0) > 0 ? <div><span>ค่าบริการช่วงความต้องการสูง</span><b>{foodMoney(order.surge_fee)}</b></div> : null}
             <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(order.total)}</b></div>
           </div>
         </section>
@@ -2573,12 +2579,13 @@ function OrderDetailSheet({
               {store?.stripe_payments_enabled ? (
                 <div className="wf-stripe-payment">
                   <button className="wf-primary wf-full" type="button" disabled={combinedBusy} onClick={() => void payWithStripe()}>
-                    {combinedBusy ? "กำลังเปิด Stripe…" : `ชำระด้วย Stripe · ${foodMoney(order.total)}`}
+                    {combinedBusy ? "กำลังเปิด PromptPay…" : `ชำระด้วย PromptPay · ${foodMoney(order.total)}`}
                   </button>
-                  <small>ชำระผ่านบัตร หรือ PromptPay ที่ Stripe รองรับ · สถานะจะยืนยันอัตโนมัติ</small>
-                  <div className="wf-payment-divider"><span>หรือ</span></div>
+                  <small>ชำระผ่าน PromptPay โดย Stripe · สถานะยืนยันจาก Stripe webhook อัตโนมัติ</small>
+                  {!order.finance_config_id ? <div className="wf-payment-divider"><span>หรือ</span></div> : null}
                 </div>
               ) : null}
+              {!order.finance_config_id ? (<>
               <p>{store?.stripe_payments_enabled ? "โอนเงินเข้าบัญชีร้านโดยตรงและแนบสลิปเป็นช่องทางสำรอง" : "โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ"}</p>
               {dynamicPaymentQr ? <div className="wf-inline-warning">{`QR นี้ตั้งยอด ${foodMoney(order.total)} ให้อัตโนมัติ`}</div> : null}
               {paymentQr ? (
@@ -2635,6 +2642,9 @@ function OrderDetailSheet({
               <button className="wf-primary wf-full" type="button" disabled={!slipFile || combinedBusy} onClick={() => void submitSlip()}>
                 {combinedBusy ? "กำลังส่ง…" : "แจ้งชำระเงิน"}
               </button>
+              </>) : !store?.stripe_payments_enabled ? (
+                <div className="wf-inline-warning">ร้านนี้ยังไม่พร้อมรับ PromptPay ผ่าน Stripe จึงยังไม่สามารถชำระออเดอร์นี้ได้</div>
+              ) : null}
             </div>
           ) : null}
         </section>

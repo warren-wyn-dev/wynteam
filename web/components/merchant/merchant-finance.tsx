@@ -13,14 +13,17 @@ import {
   changePercent,
   daysBetween,
   fetchFinanceSummary,
+  fetchSettlementFinanceSummary,
   financeCsv,
   financeError,
   periodRange,
   rangeLabel,
+  satangToBaht,
   thaiDay,
   type DateRange,
   type FinancePeriod,
   type FinanceSummary,
+  type SettlementFinanceSummary,
 } from "@/lib/merchant-finance";
 
 const PERIODS: { id: Exclude<FinancePeriod, "custom">; label: string }[] = [
@@ -58,11 +61,21 @@ export function MerchantFinance({
   const [picking, setPicking] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<MerchantStripeFinance | null>(null);
   const [todaySummary, setTodaySummary] = useState<FinanceSummary | null>(null);
+  const [settlementSummary, setSettlementSummary] = useState<SettlementFinanceSummary | null>(null);
 
   useEffect(() => {
     let live = true;
-    void fetchFinanceSummary(client, store.id, range)
-      .then((next) => { if (live) { setSummary(next); setError(""); } })
+    void Promise.all([
+      fetchFinanceSummary(client, store.id, range),
+      fetchSettlementFinanceSummary(client, store.id, range),
+    ])
+      .then(([next, settlement]) => {
+        if (live) {
+          setSummary(next);
+          setSettlementSummary(settlement);
+          setError("");
+        }
+      })
       .catch((reason) => { if (live) setError(financeError(reason)); });
     return () => { live = false; };
   }, [client, store.id, range, refreshKey]);
@@ -153,6 +166,42 @@ export function MerchantFinance({
             <FinanceLine label="ส่วนลดโปรโมชั่น" value={-current.discounts} />
             <FinanceLine label="คืนเงินลูกค้า" value={-current.refunds} />
           </section>
+
+          {settlementSummary ? (
+            <section className="wm-fin-card">
+              <h2>รายละเอียดรายได้ร้าน</h2>
+              <p className="wm-money-note">คำนวณจาก Financial Snapshot ของแต่ละออเดอร์บนเซิร์ฟเวอร์</p>
+              <FinanceLine label="ยอดขายอาหาร (Gross Sales)" value={satangToBaht(settlementSummary.gross_sales_satang)} />
+              <FinanceLine label="ส่วนลดที่ร้านรับผิดชอบ" value={-satangToBaht(settlementSummary.discounts_satang)} />
+              <FinanceLine label="GP / Commission" value={-satangToBaht(settlementSummary.gp_satang)} />
+              <FinanceLine label="ค่าธรรมเนียมการชำระเงินที่ร้านรับผิดชอบ" value={-satangToBaht(settlementSummary.payment_fees_satang)} />
+              <FinanceLine label="Refund ที่ร้านรับผิดชอบ" value={-satangToBaht(settlementSummary.refunds_satang)} />
+              <FinanceLine
+                label="Adjustment"
+                value={satangToBaht(settlementSummary.adjustments_satang)}
+                positive={settlementSummary.adjustments_satang > 0}
+              />
+              <FinanceLine label="รายได้สุทธิร้าน (Net Revenue)" value={satangToBaht(settlementSummary.net_revenue_satang)} total />
+              <div className="wm-fin-mini">
+                <span><small>จ่ายแล้ว</small><b>{money(satangToBaht(settlementSummary.paid_out_satang))}</b></span>
+                <span><small>รอจ่าย</small><b>{money(satangToBaht(settlementSummary.pending_payout_satang))}</b></span>
+                <span><small>Settlement</small><b>{settlementSummary.settlements.length}</b></span>
+              </div>
+              {settlementSummary.settlements.length ? (
+                <div className="wm-fin-todo">
+                  {settlementSummary.settlements.slice(0, 5).map((settlement) => (
+                    <div key={settlement.id} className="wm-fin-settlement-row">
+                      <span>
+                        <strong>{settlement.status === "paid" ? "จ่ายแล้ว" : settlement.status === "pending" ? "รอจ่าย" : settlement.status}</strong>
+                        <small>{settlement.order_count} ออเดอร์ · {settlement.period_from.slice(0, 10)} – {settlement.period_to.slice(0, 10)}</small>
+                      </span>
+                      <b>{money(satangToBaht(settlement.net_satang))}</b>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <div className="wm-fin-mini">
             <span><small>ออเดอร์</small><b>{current.orders}</b></span>

@@ -4,6 +4,28 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "รายละเอียดรายได้ร้าน": "Merchant revenue details",
+  "คำนวณจาก Financial Snapshot ของแต่ละออเดอร์บนเซิร์ฟเวอร์": "Calculated from each order's server-side Financial Snapshot",
+  "ยอดขายอาหาร (Gross Sales)": "Food sales (Gross Sales)",
+  "ส่วนลดที่ร้านรับผิดชอบ": "Merchant-funded discounts",
+  "ค่าธรรมเนียมการชำระเงินที่ร้านรับผิดชอบ": "Merchant-paid payment fees",
+  "Refund ที่ร้านรับผิดชอบ": "Merchant-paid refunds",
+  "รายได้สุทธิร้าน (Net Revenue)": "Merchant net revenue",
+  "จ่ายแล้ว": "Paid out",
+  "รอจ่าย": "Pending payout",
+  "รายละเอียดรายได้ออเดอร์นี้": "This order's revenue details",
+  "ตัวเลขจาก Financial Snapshot ของออเดอร์ ไม่เปลี่ยนตามค่าปัจจุบันของร้าน": "These figures come from the order's Financial Snapshot and do not change with the store's current settings",
+  "ยอดอาหาร (Gross Sales)": "Food subtotal (Gross Sales)",
+  "ร้านได้รับสุทธิ (Merchant Net)": "Merchant net",
+  "ค่าบริการ": "Service fee",
+  "ค่าคำสั่งซื้อขนาดเล็ก": "Small order fee",
+  "ค่าบริการช่วงความต้องการสูง": "Surge fee",
+  "กำลังเปิด PromptPay…": "Opening PromptPay…",
+  "ชำระผ่าน PromptPay โดย Stripe · สถานะยืนยันจาก Stripe webhook อัตโนมัติ": "Pay with PromptPay through Stripe · status is confirmed automatically by Stripe webhook",
+  "ร้านนี้ยังไม่พร้อมรับ PromptPay ผ่าน Stripe จึงยังไม่สามารถชำระออเดอร์นี้ได้": "This merchant is not ready for PromptPay through Stripe yet, so this order cannot be paid right now",
+  "PromptPay ถูกปิดใช้งานชั่วคราว": "PromptPay is temporarily disabled",
+  "ร้านยังไม่พร้อมรับชำระผ่าน PromptPay": "The merchant is not ready to accept PromptPay yet",
+  "ร้านนี้ถูกระงับการรับชำระเงินชั่วคราว": "Payments for this merchant are temporarily suspended",
   "Stripe ชำระเงินสำเร็จแล้ว ไม่สามารถเปลี่ยนเป็นสลิปได้": "Stripe payment is already complete and cannot be switched to a payment slip",
   "ร้านยังไม่พร้อมรับชำระผ่าน Stripe": "The merchant is not ready to accept Stripe payments yet",
   "Stripe ยังไม่ได้เปิดใช้งานบน WYNOS": "Stripe is not enabled on WYNOS yet",
@@ -2791,6 +2813,7 @@ Object.assign(EN_EXACT, {
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["ชำระด้วย PromptPay · {0}", "Pay with PromptPay · {0}"],
   ["ทางเลือก {0}", "Alternative {0}"],
   ["ชำระด้วย Stripe · {0}", "Pay with Stripe · {0}"],
   ["หมู่ {0}", "Village {0}"],

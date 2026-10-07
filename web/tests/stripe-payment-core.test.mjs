@@ -38,12 +38,15 @@ test("Stripe secrets and raw gateway data stay server-side", () => {
   }
 });
 
-test("Checkout remains a direct connected-account charge with server-calculated amount", () => {
+test("Checkout remains a direct connected-account charge with server-calculated PromptPay-only policy", () => {
   assert.match(checkout, /"Stripe-Account": account/);
   assert.match(checkout, /headers\["Idempotency-Key"\]\s*=\s*idempotencyKey/);
   assert.match(checkout, /Math\.round\(Number\(order\.total\) \* 100\)/);
-  assert.doesNotMatch(checkout, /payment_method_types/);
-  assert.match(checkout, /connected account's active payment-method/);
+  assert.match(checkout, /food_feature_flags/);
+  assert.match(checkout, /promptPayFlag\?\.enabled !== true/);
+  assert.match(checkout, /account\.promptpay_enabled !== true/);
+  assert.match(checkout, /payment_method_types\[0\].*promptpay/);
+  assert.doesNotMatch(checkout, /payment_method_types\[0\].*card/);
   assert.match(checkout, /livemode: stripeLiveMode/);
   assert.match(checkout, /https:\/\/food\.wynos\.online/);
   assert.doesNotMatch(checkout, /application_fee_amount|transfer_data|destination/);

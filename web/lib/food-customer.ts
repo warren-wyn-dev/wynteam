@@ -139,9 +139,13 @@ export type FoodCustomerOrder = {
   stripe_checkout_session_id?: string | null;
   stripe_payment_intent_id?: string | null;
   stripe_refund_id?: string | null;
+  finance_config_id?: string | null;
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
+  service_fee?: number | string;
+  small_order_fee?: number | string;
+  surge_fee?: number | string;
   campaign_id: string | null;
   campaign_name: string | null;
   campaign_discount: number | string;
@@ -333,6 +337,9 @@ export type FoodOrderQuote = {
   delivery_fee: number;
   campaign_discount: number;
   delivery_discount: number;
+  service_fee: number;
+  small_order_fee: number;
+  surge_fee: number;
   total: number;
   campaign_id: string | null;
   campaign_name: string | null;
@@ -636,9 +643,7 @@ export async function quoteFoodCustomerOrder(
   items: FoodCartLine[],
   location: FoodLocation | null = null,
 ): Promise<FoodOrderQuote> {
-  const { data, error } = await client.rpc("food_quote_order", {
-    // Coordinates are sent only when there is a pin, so this also works
-    // against the pre-WYN-196 RPC signature during a rollout.
+  const params = {
     ...pinParams(location),
     p_store_id: storeId,
     p_items: items.map((line) => ({
@@ -646,7 +651,14 @@ export async function quoteFoodCustomerOrder(
       quantity: line.quantity,
       selected_options: line.selected_options ?? [],
     })),
-  });
+  };
+  let result = await client.rpc("food_quote_order_financial", params);
+  // Rollout compatibility only: the Finance RPC is installed before the web
+  // release, but a stale preview may briefly talk to an older database.
+  if (result.error && (result.error.code === "PGRST202" || result.error.code === "42883")) {
+    result = await client.rpc("food_quote_order", params);
+  }
+  const { data, error } = result;
   if (error) throw new Error(error.message);
   const raw = (data ?? {}) as Partial<FoodOrderQuote>;
   return {
@@ -654,6 +666,9 @@ export async function quoteFoodCustomerOrder(
     delivery_fee: Number(raw.delivery_fee ?? 0),
     campaign_discount: Number(raw.campaign_discount ?? 0),
     delivery_discount: Number(raw.delivery_discount ?? 0),
+    service_fee: Number(raw.service_fee ?? 0),
+    small_order_fee: Number(raw.small_order_fee ?? 0),
+    surge_fee: Number(raw.surge_fee ?? 0),
     total: Number(raw.total ?? 0),
     campaign_id: raw.campaign_id ? String(raw.campaign_id) : null,
     campaign_name: raw.campaign_name ? String(raw.campaign_name) : null,
@@ -727,7 +742,32 @@ export type FoodPaymentVerificationResult = {
   code?: string | null;
 };
 
+export type FoodPaymentConfiguration = {
+  promptpay_enabled: boolean;
+  card_enabled: boolean;
+  apple_pay_enabled: boolean;
+  google_pay_enabled: boolean;
+  stripe_fee_payer: "wynos" | "merchant" | "shared";
+  config_id: string | null;
+};
+
+export async function fetchFoodPaymentConfiguration(client: SupabaseClient): Promise<FoodPaymentConfiguration> {
+  const { data, error } = await client.rpc("food_payment_configuration");
+  if (error) throw new Error(error.message);
+  const raw = (data ?? {}) as Partial<FoodPaymentConfiguration>;
+  return {
+    promptpay_enabled: raw.promptpay_enabled === true,
+    card_enabled: raw.card_enabled === true,
+    apple_pay_enabled: raw.apple_pay_enabled === true,
+    google_pay_enabled: raw.google_pay_enabled === true,
+    stripe_fee_payer: raw.stripe_fee_payer === "merchant" || raw.stripe_fee_payer === "shared" ? raw.stripe_fee_payer : "wynos",
+    config_id: typeof raw.config_id === "string" ? raw.config_id : null,
+  };
+}
+
 export async function startFoodStripeCheckout(client: SupabaseClient, orderId: string) {
+  const paymentConfig = await fetchFoodPaymentConfiguration(client);
+  if (!paymentConfig.promptpay_enabled) throw new Error("PromptPay ถูกปิดใช้งานชั่วคราว");
   const { data, error } = await client.functions.invoke("food-stripe-checkout", {
     body: { orderId },
   });
@@ -735,7 +775,9 @@ export async function startFoodStripeCheckout(client: SupabaseClient, orderId: s
   const payload = data as { url?: unknown; error?: unknown; message?: unknown } | null;
   if (!payload || typeof payload.url !== "string") {
     const code = typeof payload?.error === "string" ? payload.error : "";
-    if (code === "stripe_not_ready") throw new Error("ร้านยังไม่พร้อมรับชำระผ่าน Stripe");
+    if (code === "stripe_not_ready" || code === "promptpay_not_ready") throw new Error("ร้านยังไม่พร้อมรับชำระผ่าน PromptPay");
+    if (code === "promptpay_disabled") throw new Error("PromptPay ถูกปิดใช้งานชั่วคราว");
+    if (code === "store_payment_disabled") throw new Error("ร้านนี้ถูกระงับการรับชำระเงินชั่วคราว");
     if (code === "stripe_not_configured") throw new Error("Stripe ยังไม่ได้เปิดใช้งานบน WYNOS");
     if (code === "order_not_payable") throw new Error("ออเดอร์นี้ไม่อยู่ในสถานะที่ชำระผ่าน Stripe ได้");
     throw new Error(typeof payload?.message === "string" ? payload.message : "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ");

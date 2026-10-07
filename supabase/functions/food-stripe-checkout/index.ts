@@ -99,7 +99,29 @@ Deno.serve(async (req: Request) => {
     return json({ error: "stripe_not_ready" }, 422);
   }
 
-  const amountSatang = Math.round(Number(order.total) * 100);
+  const now = new Date().toISOString();
+  const [{ data: promptPayFlag }, { data: storeOverride }, { data: financial }] = await Promise.all([
+    admin.from("food_feature_flags")
+      .select("enabled").eq("flag_key", "promptpay_enabled")
+      .lte("effective_from", now).order("effective_from", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("food_store_finance_overrides")
+      .select("payment_enabled").eq("store_id", order.store_id)
+      .lte("effective_from", now).order("effective_from", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("food_order_financials")
+      .select("customer_total_satang,gp_amount_satang,stripe_fee_policy")
+      .eq("order_id", order.id).maybeSingle(),
+  ]);
+  if (promptPayFlag?.enabled !== true) return json({ error: "promptpay_disabled" }, 409);
+  if (storeOverride?.payment_enabled === false) return json({ error: "store_payment_disabled" }, 409);
+  if (account.promptpay_enabled !== true) {
+    return json({ error: "promptpay_not_ready", message: "ร้านนี้ยังไม่พร้อมรับ PromptPay" }, 422);
+  }
+
+  // New orders use the immutable integer-minor-unit snapshot. The legacy
+  // fallback is only for orders created before Finance Control Center.
+  const amountSatang = financial?.customer_total_satang == null
+    ? Math.round(Number(order.total) * 100)
+    : Number(financial.customer_total_satang);
   if (!Number.isSafeInteger(amountSatang) || amountSatang <= 0) return json({ error: "invalid_amount" }, 422);
 
   const { data: existing } = await admin.from("food_stripe_payments")
@@ -112,7 +134,10 @@ Deno.serve(async (req: Request) => {
         `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(existing.checkout_session_id)}`,
         { headers: stripeHeaders(stripeSecret, account.stripe_account_id) },
       );
-      if (session.status === "open" && typeof session.url === "string") {
+      const methods = Array.isArray(session.payment_method_types)
+        ? session.payment_method_types.filter((value): value is string => typeof value === "string")
+        : [];
+      if (session.status === "open" && typeof session.url === "string" && methods.length === 1 && methods[0] === "promptpay") {
         return json({ url: session.url, sessionId: session.id, reused: true });
       }
       if (session.payment_status === "paid") return json({ error: "payment_already_completed" }, 409);
@@ -131,9 +156,9 @@ Deno.serve(async (req: Request) => {
   params.set("line_items[0][price_data][product_data][name]", `WYNOS Food #${order.order_number}`);
   params.set("line_items[0][price_data][unit_amount]", String(amountSatang));
   params.set("line_items[0][quantity]", "1");
-  // Stripe Checkout uses the connected account's active payment-method
-  // configuration. Card remains capability-gated and PromptPay only appears
-  // when Stripe marks it available for this connected account.
+  // Production policy is server-authoritative PromptPay-only. Never fall back
+  // to Card/Apple Pay/Google Pay when the connected account is not ready.
+  params.set("payment_method_types[0]", "promptpay");
   params.set("metadata[order_id]", order.id);
   params.set("metadata[store_id]", order.store_id);
   params.set("payment_intent_data[metadata][order_id]", order.id);
@@ -168,6 +193,9 @@ Deno.serve(async (req: Request) => {
     livemode: stripeLiveMode,
     checkout_session_id: session.id,
     amount_satang: amountSatang,
+    gross_amount_satang: amountSatang,
+    platform_fee_satang: financial?.gp_amount_satang == null ? null : Number(financial.gp_amount_satang),
+    stripe_fee_policy: typeof financial?.stripe_fee_policy === "string" ? financial.stripe_fee_policy : null,
     currency: "thb",
     status: "pending",
     attempt,
