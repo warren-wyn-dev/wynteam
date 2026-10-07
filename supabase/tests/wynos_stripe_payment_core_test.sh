@@ -136,6 +136,13 @@ pass "raw Stripe account access is service-role only"
 [ "$(val "set role service_role; select account_api_version from public.food_stripe_accounts where store_id='$STORE'")" = "v2" ] || fail "account api version"
 pass "new schema records Accounts v2 without exposing it to Merchant UI"
 
+[ "$(val "set role service_role; select public.food_claim_stripe_webhook_event('evt_account_sync','v2.core.account[requirements].updated','acct_test_wynos','acct_test_wynos')")" = "t" ] || fail "first account webhook claim"
+[ "$(val "set role service_role; select public.food_claim_stripe_webhook_event('evt_account_sync','v2.core.account[requirements].updated','acct_test_wynos','acct_test_wynos')")" = "f" ] || fail "duplicate account webhook claim"
+val "set role service_role; select public.food_release_stripe_webhook_event_claim('evt_account_sync','v2.core.account[requirements].updated')" >/dev/null
+[ "$(val "set role service_role; select public.food_claim_stripe_webhook_event('evt_account_sync','v2.core.account[requirements].updated','acct_test_wynos','acct_test_wynos')")" = "t" ] || fail "released account webhook claim"
+[ "$(val "select has_function_privilege('authenticated','public.food_claim_stripe_webhook_event(text,text,text,text)','execute')")" = "f" ] || fail "authenticated can claim Stripe webhook events"
+pass "account webhook claims deduplicate concurrent delivery and can be released for retry"
+
 [ "$(val "set role service_role; select public.food_record_stripe_payout_event('evt_payout_paid','payout.paid','acct_test_wynos','po_test_1',5000,'thb','paid',current_date,null,now())")" = "t" ] || fail "payout event applies"
 [ "$(val "set role service_role; select public.food_record_stripe_payout_event('evt_payout_paid','payout.paid','acct_test_wynos','po_test_1',5000,'thb','paid',current_date,null,now())")" = "f" ] || fail "duplicate payout event ignored"
 [ "$(val "select status||'|'||amount_satang from public.food_stripe_payouts where payout_id='po_test_1'")" = "paid|5000" ] || fail "payout audit row"
