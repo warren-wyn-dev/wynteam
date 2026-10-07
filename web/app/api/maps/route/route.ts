@@ -36,11 +36,14 @@ export async function POST(request: Request) {
         { status: 503, headers: { "X-WYNOS-Maps-Provider": "not-configured" } },
       );
     }
-    return NextResponse.json(route, { headers: { "X-WYNOS-Maps-Provider": "wynos-routing" } });
+    return NextResponse.json(route.payload, { headers: { "X-WYNOS-Maps-Provider": route.provider } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message === "unsupported costing" || message === "invalid locations" || message === "invalid location") {
       return NextResponse.json({ error: "INVALID_ROUTE_REQUEST" }, { status: 400 });
+    }
+    if (message === "ors rate limited") {
+      return NextResponse.json({ error: "WYNOS_ROUTING_QUOTA_REACHED" }, { status: 429 });
     }
     return NextResponse.json({ error: "WYNOS_ROUTING_UNAVAILABLE" }, { status: 502 });
   }
