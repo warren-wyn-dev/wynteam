@@ -80,7 +80,7 @@ jobs:
           deno-version: v2.x
 
       - run: deno check supabase/functions/*/index.ts
-      - run: deno test supabase/functions/
+      - run: deno test --allow-read supabase/functions/
 
   schema:
     name: schema.sql ordering
