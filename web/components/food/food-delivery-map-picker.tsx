@@ -586,10 +586,10 @@ export function FoodDeliveryMapPicker({
   const requestRoute = useCallback(async (
     target: RouteTarget,
     mode: MapsTravelMode = routeMode,
-    options?: { origin?: FoodLocation; preserveRoute?: boolean },
+    options?: { origin?: FoodLocation; preserveRoute?: boolean; keepNavigating?: boolean },
   ) => {
     if (!standalone) return;
-    if (navigationActiveRef.current) stopNavigation();
+    if (navigationActiveRef.current && !options?.keepNavigating) stopNavigation();
     const requestId = ++routeRequestRef.current;
     setDirectionsTarget(target);
     setRouteMode(mode);
@@ -662,6 +662,11 @@ export function FoodDeliveryMapPicker({
       setRoute(parsed);
       setRouteProvider(provider);
       setActiveNearbyPlace(null);
+      if (options?.keepNavigating) {
+        navigationActiveRef.current = true;
+        setNavigating(true);
+        setNavigationStatus("อัปเดตเส้นทางแล้ว");
+      }
     } catch (error) {
       if (routeRequestRef.current !== requestId) return;
       const message = error instanceof Error ? error.message : "คำนวณเส้นทางไม่สำเร็จ";
@@ -1782,7 +1787,11 @@ export function FoodDeliveryMapPicker({
                 <button
                   type="button"
                   onClick={() => directionsTarget
-                    && void requestRoute(directionsTarget, routeMode, { origin: userLocation ?? undefined })}
+                    && void requestRoute(directionsTarget, routeMode, {
+                      origin: userLocation ?? undefined,
+                      preserveRoute: true,
+                      keepNavigating: true,
+                    })}
                 >
                   คำนวณใหม่
                 </button>
@@ -1950,7 +1959,11 @@ export function FoodDeliveryMapPicker({
                 {navigationOffRouteDistance != null ? (
                   <button
                     type="button"
-                    onClick={() => void requestRoute(directionsTarget, routeMode, { origin: userLocation ?? undefined })}
+                    onClick={() => void requestRoute(directionsTarget, routeMode, {
+                      origin: userLocation ?? undefined,
+                      preserveRoute: true,
+                      keepNavigating: true,
+                    })}
                   >
                     คำนวณเส้นทางใหม่
                   </button>
