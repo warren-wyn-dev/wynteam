@@ -94,6 +94,12 @@ function safeStripeError(error: unknown) {
   if (error instanceof StripeApiError) return { code: error.code, status: error.status };
   return { code: "internal_error", status: 500 };
 }
+function stripeLivemode(secret: string) {
+  if (/^(?:sk|rk)_live_/.test(secret)) return true;
+  if (/^(?:sk|rk)_test_/.test(secret)) return false;
+  return null;
+}
+
 function thaiConnectMessage(error: unknown) {
   if (error instanceof StripeApiError) {
     if (error.code === "accounts_v2_access_blocked") return "ระบบรับชำระเงินสำหรับร้านค้ายังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง";
@@ -388,7 +394,7 @@ async function createV2Account(secret: string, storeId: string, storeName: strin
   if (storeName?.trim()) body.display_name = storeName.trim().slice(0, 100);
   return await stripeJson("https://api.stripe.com/v2/core/accounts", {
     method: "POST",
-    headers: stripeV2Headers(secret, `wynos-connect-v2-${storeId}`),
+    headers: stripeV2Headers(secret, `wynos-connect-v2-${stripeLivemode(secret) === true ? "live" : "test"}-${storeId}`),
     body: JSON.stringify(body),
   });
 }
@@ -476,6 +482,10 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   if (!url || !key || !authHeader) return json({ error: "unauthorized", message: "กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }, 401);
   if (!stripeSecret) return json({ error: "stripe_not_configured", message: "ระบบรับชำระเงินยังไม่พร้อมใช้งาน" }, 503);
+  const stripeLiveMode = stripeLivemode(stripeSecret);
+  if (stripeLiveMode == null) {
+    return json({ error: "stripe_key_mode_unknown", message: "ระบบรับชำระเงินยังไม่พร้อมใช้งาน" }, 503);
+  }
 
   const token = authHeader.replace(/^Bearer\s+/i, "");
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -509,9 +519,17 @@ Deno.serve(async (req: Request) => {
 
   let accountId: string | null = null;
   const { data: saved, error: savedError } = await admin.from("food_stripe_accounts")
-    .select("stripe_account_id").eq("store_id", storeId).maybeSingle();
+    .select("stripe_account_id,livemode").eq("store_id", storeId).maybeSingle();
   if (savedError) return json({ error: "stripe_backend_not_ready", message: "ระบบรับชำระเงินยังไม่พร้อมใช้งาน" }, 503);
-  if (typeof saved?.stripe_account_id === "string") accountId = saved.stripe_account_id;
+  if (typeof saved?.stripe_account_id === "string") {
+    if (saved.livemode !== stripeLiveMode) {
+      return json({
+        error: "stripe_environment_mismatch",
+        message: "ระบบรับชำระเงินกำลังอัปเดต กรุณาลองใหม่อีกครั้งภายหลัง",
+      }, 503);
+    }
+    accountId = saved.stripe_account_id;
+  }
 
   try {
     if (!accountId && action === "onboard") {
@@ -522,8 +540,9 @@ Deno.serve(async (req: Request) => {
         if (!accountId) return json({ error: "setup_in_progress", message: "กำลังตั้งค่าการรับชำระเงิน กรุณารอสักครู่แล้วลองอีกครั้ง" }, 409);
       } else {
         try {
-          const recheck = await admin.from("food_stripe_accounts").select("stripe_account_id").eq("store_id", storeId).maybeSingle();
+          const recheck = await admin.from("food_stripe_accounts").select("stripe_account_id,livemode").eq("store_id", storeId).maybeSingle();
           if (typeof recheck.data?.stripe_account_id === "string") {
+            if (recheck.data.livemode !== stripeLiveMode) throw new Error("stripe_environment_mismatch");
             accountId = recheck.data.stripe_account_id;
           } else {
             const account = await createV2Account(
@@ -547,6 +566,7 @@ Deno.serve(async (req: Request) => {
               stripe_account_id: accountId,
               account_type: "standard",
               account_api_version: "v2",
+              livemode: stripeLiveMode,
               country: "TH",
               ...state,
               last_synced_at: new Date().toISOString(),
