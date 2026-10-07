@@ -147,6 +147,7 @@ export async function routeWynosMaps(input: {
       locations: input.locations,
       costing: input.costing,
       units: "kilometers",
+      shape_format: "polyline6",
       language: "th-TH",
       directions_options: { units: "kilometers" },
     }),
