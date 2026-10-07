@@ -42,7 +42,11 @@ async function verifyStripeSignature(body: string, header: string, secret: strin
   const expected = await hmacHex(secret, `${timestamp}.${body}`);
   return signatures.some((signature) => constantTimeEqual(signature, expected));
 }
-async function verifyAgainstConfiguredSecrets(body: string, header: string, secrets: string[]) {
+async function verifyAgainstConfiguredSecrets(body: string, header: string) {
+  const secrets = [
+    Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim() ?? "",
+    Deno.env.get("STRIPE_V2_WEBHOOK_SECRET")?.trim() ?? "",
+  ];
   for (const secret of secrets) {
     if (secret && await verifyStripeSignature(body, header, secret)) return true;
   }
@@ -237,7 +241,7 @@ Deno.serve(async (req: Request) => {
 
   const raw = await req.text();
   const signature = req.headers.get("stripe-signature") ?? "";
-  if (!(await verifyAgainstConfiguredSecrets(raw, signature, [snapshotSecret, v2Secret].filter(Boolean)))) {
+  if (!(await verifyAgainstConfiguredSecrets(raw, signature))) {
     return json({ error: "invalid_signature" }, 400);
   }
 
@@ -344,6 +348,14 @@ Deno.serve(async (req: Request) => {
     if (Array.isArray(types) && typeof types[0] === "string") paymentMethod = types[0];
   } else if (eventType === "checkout.session.async_payment_failed" || eventType === "payment_intent.payment_failed") {
     state = "failed";
+    const lastError = object.last_payment_error as Record<string,unknown> | undefined;
+    const request = event.request as Record<string,unknown> | undefined;
+    console.warn("stripe payment failed", {
+      event_id: eventId,
+      event_type: eventType,
+      decline_code: stringValue(lastError?.decline_code),
+      request_id: stringValue(request?.id),
+    });
     note = "การชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
   } else if (eventType === "charge.refunded") {
     const refunded = numberValue(object.amount_refunded);
