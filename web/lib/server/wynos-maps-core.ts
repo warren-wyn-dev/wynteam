@@ -14,6 +14,7 @@ type NominatimRow = {
 };
 
 const ALLOWED_ROUTING_COSTINGS = new Set(["auto", "motorcycle", "pedestrian", "bicycle"]);
+const ALLOWED_ROUTING_LANGUAGES = new Set(["th-TH", "en-US"]);
 
 function serviceOrigin(value: string | undefined) {
   if (!value) return null;
@@ -126,6 +127,7 @@ export async function reverseWynosGeo(lat: number, lon: number) {
 export async function routeWynosMaps(input: {
   locations: Array<{ lat: number; lon: number }>;
   costing: string;
+  language?: string;
 }) {
   const origin = serviceOrigin(process.env.WYNOS_ROUTING_ORIGIN);
   if (!origin) return null;
@@ -148,7 +150,7 @@ export async function routeWynosMaps(input: {
       costing: input.costing,
       units: "kilometers",
       shape_format: "polyline6",
-      language: "th-TH",
+      language: ALLOWED_ROUTING_LANGUAGES.has(input.language ?? "") ? input.language : "th-TH",
       directions_options: { units: "kilometers" },
     }),
   });
