@@ -45,7 +45,10 @@ test("new merchants use Accounts v2 and legacy v1 is retrieval-only compatibilit
   assert.match(connect, /"Stripe-Version": STRIPE_V2_VERSION/);
   assert.match(connect, /identity: \{ country: "th" \}/);
   assert.match(connect, /card_payments: \{ requested: true \}/);
-  assert.match(connect, /promptpay_payments: \{ requested: true \}/);
+  assert.doesNotMatch(connect, /promptpay_payments: \{ requested: true \}/);
+  assert.match(connect, /\/v1\/payment_method_configurations\?active=true&limit=100/);
+  assert.match(connect, /promptpay\[display_preference\]\[preference\]/);
+  assert.match(connect, /wynos-promptpay-/);
   assert.match(connect, /fees_collector: "stripe"/);
   assert.match(connect, /losses_collector: "stripe"/);
   assert.match(connect, /dashboard: "none"/);
