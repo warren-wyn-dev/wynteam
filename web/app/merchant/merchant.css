@@ -4724,3 +4724,27 @@ button.wm-menu-tool:disabled {
     box-shadow: 0 24px 70px rgba(0,0,0,.15);
   }
 }
+
+
+.wm-fin-payout-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 16px 18px;
+  overflow: hidden;
+  border: 1px solid var(--wm-border);
+  border-radius: 18px;
+  background: var(--wm-border);
+}
+.wm-fin-payout-overview > div {
+  min-width: 0;
+  min-height: 76px;
+  padding: 13px 14px;
+  background: #fff;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+}
+.wm-fin-payout-overview > div:first-child { grid-column: 1 / -1; }
+.wm-fin-payout-overview small { color: var(--wm-secondary); font-size: 11.5px; }
+.wm-fin-payout-overview strong { overflow: hidden; text-overflow: ellipsis; font-size: 17px; letter-spacing: -.2px; }
