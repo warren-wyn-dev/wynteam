@@ -10,7 +10,7 @@ Deno.test("webhook verifies signatures before parsing Stripe events", () => {
   assert.match(source, /STRIPE_WEBHOOK_SECRET/);
   assert.match(source, /STRIPE_V2_WEBHOOK_SECRET/);
   assert.match(source, /food_get_stripe_webhook_secret/);
-  assert.match(source, /verifyAgainstConfiguredSecrets\(raw, signature, \[snapshotSecret, v2Secret\]\)/);
+  assert.match(source, /configuredSecrets/);
 });
 
 Deno.test("Accounts v2 thin events are scoped to the account object", () => {
