@@ -295,13 +295,14 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   const envSnapshotSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim() ?? "";
   const envV2Secret = Deno.env.get("STRIPE_V2_WEBHOOK_SECRET")?.trim() ?? "";
-  const snapshotSecret = envSnapshotSecret || await vaultWebhookSecret(admin, "stripe_webhook_secret");
-  const v2Secret = envV2Secret || await vaultWebhookSecret(admin, "stripe_v2_webhook_secret");
-  if (!snapshotSecret && !v2Secret) return json({ error: "not_configured" }, 503);
+  const vaultSnapshotSecret = await vaultWebhookSecret(admin, "stripe_webhook_secret");
+  const vaultV2Secret = await vaultWebhookSecret(admin, "stripe_v2_webhook_secret");
+  const configuredSecrets = [envSnapshotSecret, vaultSnapshotSecret, envV2Secret, vaultV2Secret];
+  if (!configuredSecrets.some(Boolean)) return json({ error: "not_configured" }, 503);
 
   const raw = await req.text();
   const signature = req.headers.get("stripe-signature") ?? "";
-  if (!(await verifyAgainstConfiguredSecrets(raw, signature, [snapshotSecret, v2Secret]))) {
+  if (!(await verifyAgainstConfiguredSecrets(raw, signature, configuredSecrets))) {
     return json({ error: "invalid_signature" }, 400);
   }
 
