@@ -60,13 +60,21 @@ function capabilityStatus(capabilities: Record<string,unknown>, key: string) {
   const value = capabilities[key] as Record<string,unknown> | undefined;
   return stringValue(value?.status);
 }
-function requirementsDue(requirements: Record<string,unknown>) {
+function requirementsDueCount(requirements: Record<string,unknown>) {
   const entries = Array.isArray(requirements.entries) ? requirements.entries as Array<Record<string,unknown>> : [];
-  return entries.some((entry) => {
+  return entries.filter((entry) => {
     if (entry.awaiting_action_from !== "user") return false;
     const deadline = entry.minimum_deadline as Record<string,unknown> | undefined;
     return deadline?.status === "currently_due" || deadline?.status === "past_due";
-  });
+  }).length;
+}
+function promptPayStatus(value: unknown): "active" | "pending" | "inactive" | "unsupported" | "unrequested" | "unknown" {
+  if (value === "active" || value === "pending" || value === "inactive" || value === "unsupported" || value === "unrequested") return value;
+  return "unknown";
+}
+function payoutInterval(value: unknown): "daily" | "weekly" | "monthly" | "manual" | "unknown" {
+  if (value === "daily" || value === "weekly" || value === "monthly" || value === "manual") return value;
+  return "unknown";
 }
 function thbAmount(rows: unknown) {
   if (!Array.isArray(rows)) return 0;
@@ -108,24 +116,29 @@ async function fetchPayoutInterval(secret: string, accountId: string) {
     const payments = (payload.payments ?? {}) as Record<string,unknown>;
     const payouts = (payments.payouts ?? {}) as Record<string,unknown>;
     const schedule = (payouts.schedule ?? {}) as Record<string,unknown>;
-    return stringValue(schedule.interval);
+    return payoutInterval(schedule.interval);
   } catch {
-    return null;
+    return "unknown";
   }
 }
 async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret: string, accountId: string) {
   const { data: saved } = await admin.from("food_stripe_accounts")
-    .select("store_id,account_api").eq("stripe_account_id", accountId).maybeSingle();
+    .select("store_id,account_api_version").eq("stripe_account_id", accountId).maybeSingle();
   if (!saved?.store_id) return false;
 
-  const [bank, balance, payoutInterval] = await Promise.all([
+  const [bank, balance, payoutSchedule] = await Promise.all([
     fetchBank(secret, accountId),
     fetchBalance(secret, accountId),
     fetchPayoutInterval(secret, accountId),
   ]);
 
-  let details = false, charges = false, payouts = false, promptpay = false, promptpaySupported = false, due = false, restricted = false;
-  let accountApi = saved.account_api === "v2" ? "v2" : "v1";
+  let details = false;
+  let charges = false;
+  let payouts = false;
+  let ppStatus: "active" | "pending" | "inactive" | "unsupported" | "unrequested" | "unknown" = "unknown";
+  let dueCount = 0;
+  let restricted = false;
+  const accountApi = saved.account_api_version === "v2" ? "v2" : "v1";
 
   if (accountApi === "v2") {
     const query = new URLSearchParams();
@@ -140,16 +153,14 @@ async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret:
     const capabilities = (merchant.capabilities ?? {}) as Record<string,unknown>;
     const card = capabilities.card_payments as Record<string,unknown> | undefined;
     const cardStatus = capabilityStatus(capabilities, "card_payments");
-    const promptpayStatus = capabilityStatus(capabilities, "promptpay_payments");
+    ppStatus = promptPayStatus(capabilityStatus(capabilities, "promptpay_payments"));
     const stripeBalance = capabilities.stripe_balance as Record<string,unknown> | undefined;
     const payoutCapability = stripeBalance?.payouts as Record<string,unknown> | undefined;
     const requirements = (account.requirements ?? {}) as Record<string,unknown>;
-    due = requirementsDue(requirements);
-    details = cardStatus === "active" || (cardStatus === "pending" && !due);
+    dueCount = requirementsDueCount(requirements);
+    details = cardStatus === "active" || (cardStatus === "pending" && dueCount === 0);
     charges = cardStatus === "active";
     payouts = stringValue(payoutCapability?.status) === "active";
-    promptpay = promptpayStatus === "active";
-    promptpaySupported = promptpayStatus != null && promptpayStatus !== "unsupported";
     const cardDetails = Array.isArray(card?.status_details) ? card.status_details as Array<Record<string,unknown>> : [];
     restricted = cardStatus === "unsupported" || cardDetails.some((item) => item.resolution === "contact_stripe");
   } else {
@@ -158,37 +169,41 @@ async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret:
     });
     const capabilities = (account.capabilities ?? {}) as Record<string,unknown>;
     const requirements = (account.requirements ?? {}) as Record<string,unknown>;
-    due = (Array.isArray(requirements.currently_due) && requirements.currently_due.length > 0)
-      || (Array.isArray(requirements.past_due) && requirements.past_due.length > 0);
+    const dueValues = [
+      ...(Array.isArray(requirements.currently_due) ? requirements.currently_due : []),
+      ...(Array.isArray(requirements.past_due) ? requirements.past_due : []),
+    ].map(String);
+    dueCount = new Set(dueValues).size;
     details = account.details_submitted === true;
     charges = account.charges_enabled === true;
     payouts = account.payouts_enabled === true;
-    promptpay = capabilities.promptpay_payments === "active";
-    promptpaySupported = capabilities.promptpay_payments != null && capabilities.promptpay_payments !== "unrequested";
+    ppStatus = promptPayStatus(capabilities.promptpay_payments);
     restricted = typeof requirements.disabled_reason === "string" && requirements.disabled_reason.length > 0;
   }
 
-  const ready = charges && payouts && !due && bank.ready;
-  const status = ready ? "ready" : restricted ? "restricted" : due ? "onboarding" : "pending";
+  const ready = charges && payouts && dueCount === 0 && bank.ready;
+  const status = ready ? "ready" : restricted ? "restricted" : dueCount > 0 ? "onboarding" : "pending";
   const now = new Date().toISOString();
-  await admin.from("food_stripe_accounts").update({
-    account_api: accountApi,
+  const { error: updateError } = await admin.from("food_stripe_accounts").update({
+    account_api_version: accountApi,
     details_submitted: details,
     charges_enabled: charges,
     payouts_enabled: payouts,
-    promptpay_enabled: promptpay,
-    promptpay_supported: promptpaySupported,
-    requirements_due: due,
-    payout_bank_ready: bank.ready,
-    payout_bank_name: bank.name,
-    payout_bank_last4: bank.last4,
-    payout_interval: payoutInterval,
+    promptpay_enabled: ppStatus === "active",
+    promptpay_status: ppStatus,
+    requirements_due_count: dueCount,
+    bank_ready: bank.ready,
+    bank_name: bank.name,
+    bank_last4: bank.last4,
+    payout_interval: payoutSchedule,
     balance_pending_satang: balance.pending,
     balance_available_satang: balance.available,
+    last_error_code: null,
     status,
     last_synced_at: now,
     updated_at: now,
   }).eq("store_id", saved.store_id);
+  if (updateError) throw updateError;
   await admin.from("food_stores").update({ stripe_payments_enabled: ready }).eq("id", saved.store_id);
   return true;
 }
@@ -262,34 +277,28 @@ Deno.serve(async (req: Request) => {
   if (eventType === "payout.paid" || eventType === "payout.failed" || eventType === "payout.updated" || eventType === "payout.created") {
     const payoutId = stringValue(object.id);
     if (!payoutId || !stripeAccountId) return json({ received: true, ignored: true });
-    const { data: mapped } = await admin.from("food_stripe_accounts")
-      .select("store_id").eq("stripe_account_id", stripeAccountId).maybeSingle();
-    if (!mapped?.store_id) {
-      await recordNoop(admin, eventId, eventType, stripeAccountId, payoutId);
-      return json({ received: true, ignored: true });
-    }
     const amount = Math.max(0, Math.trunc(numberValue(object.amount) ?? 0));
-    const arrival = numberValue(object.arrival_date);
-    const status = stringValue(object.status) ?? (eventType === "payout.failed" ? "failed" : "pending");
-    const failureCode = eventType === "payout.failed" ? stringValue(object.failure_code) : null;
-    const { error: payoutError } = await admin.from("food_stripe_payouts").upsert({
-      payout_id: payoutId,
-      store_id: mapped.store_id,
-      stripe_account_id: stripeAccountId,
-      amount_satang: amount,
-      currency: stringValue(object.currency) ?? "thb",
-      status,
-      arrival_date: arrival ? new Date(arrival * 1000).toISOString() : null,
-      failure_code: failureCode,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "payout_id" });
+    const arrivalEpoch = numberValue(object.arrival_date);
+    const arrivalDate = arrivalEpoch ? new Date(arrivalEpoch * 1000).toISOString().slice(0, 10) : null;
+    const rawStatus = stringValue(object.status);
+    const payoutStatus = rawStatus === "in_transit" || rawStatus === "paid" || rawStatus === "failed" || rawStatus === "canceled"
+      ? rawStatus
+      : "pending";
+    const createdEpoch = numberValue(object.created);
+    const { data: applied, error: payoutError } = await admin.rpc("food_record_stripe_payout_event", {
+      p_event_id: eventId,
+      p_event_type: eventType,
+      p_stripe_account_id: stripeAccountId,
+      p_payout_id: payoutId,
+      p_amount_satang: amount,
+      p_currency: stringValue(object.currency) ?? "thb",
+      p_status: payoutStatus,
+      p_arrival_date: arrivalDate,
+      p_failure_code: eventType === "payout.failed" ? stringValue(object.failure_code) : null,
+      p_stripe_created_at: createdEpoch ? new Date(createdEpoch * 1000).toISOString() : null,
+    });
     if (payoutError) return json({ error: "event_processing_failed" }, 500);
-    await admin.from("food_stripe_accounts").update({
-      last_payout_status: status,
-      updated_at: new Date().toISOString(),
-    }).eq("store_id", mapped.store_id);
-    await recordNoop(admin, eventId, eventType, stripeAccountId, payoutId);
-    return json({ received: true });
+    return json({ received: true, duplicate: applied === false });
   }
 
   let orderId: string | null = null;
