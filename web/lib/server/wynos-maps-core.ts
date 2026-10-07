@@ -113,7 +113,9 @@ async function fetchOrsRoute(input: {
       body: JSON.stringify({
         coordinates: input.locations.map((location) => [location.lon, location.lat]),
         instructions: true,
-        language: input.language === "en-US" ? "en" : "en",
+        // ORS does not currently provide Thai turn-by-turn instructions.
+        // Keep the WYNOS UI bilingual while requesting stable English maneuvers.
+        language: "en",
         preference: "recommended",
       }),
     });
