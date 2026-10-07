@@ -15,6 +15,7 @@ const webhook = read("../supabase/functions/stripe-webhook/index.ts");
 const foodUi = read("components/food/wynos-food-developer-app.tsx");
 const merchantUi = read("components/merchant/wynos-merchant-app.tsx");
 const refundUi = read("components/merchant/merchant-core-panels.tsx");
+const merchantCore = read("lib/merchant-core.ts");
 
 test("Stripe secrets stay server-side and private gateway tables are locked down", () => {
   assert.match(migration, /alter table public\.food_stripe_accounts enable row level security/i);
@@ -77,4 +78,15 @@ test("Stripe can satisfy Merchant payment readiness without removing legacy meth
   assert.match(migration, /nullif\(btrim\(s\.promptpay_id\),''\)/);
   assert.match(migration, /nullif\(btrim\(s\.bank_account_number\),''\)/);
   assert.match(migration, /s\.payment_qr_path is not null/);
+});
+
+
+test("Merchant surfaces Stripe Edge Function response details instead of the generic non-2xx SDK message", () => {
+  assert.match(merchantCore, /context instanceof Response/);
+  assert.match(merchantCore, /context\.clone\(\)\.json\(\)/);
+  assert.match(merchantCore, /stripe_not_configured/);
+  assert.match(merchantCore, /merchantStripeFunctionError\(error, "เปิด Stripe Connect ไม่สำเร็จ"\)/);
+  assert.match(merchantCore, /merchantStripeFunctionError\(error, "ตรวจสถานะ Stripe ไม่สำเร็จ"\)/);
+  assert.match(merchantCore, /merchantStripeFunctionError\(error, "ขอคืนเงินผ่าน Stripe ไม่สำเร็จ"\)/);
+  assert.doesNotMatch(merchantCore, /throw new Error\(error\.message\);\n  const payload = data as \(MerchantStripeStatus/);
 });
