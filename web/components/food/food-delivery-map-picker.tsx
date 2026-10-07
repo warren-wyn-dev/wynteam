@@ -690,8 +690,8 @@ export function FoodDeliveryMapPicker({
     const last = route.coordinates[route.coordinates.length - 1];
     const arrival = last ? nearestRoutePosition(userLocation, [last, last]) : null;
     if (arrival && arrival.distanceMeters <= 35) {
-      stopNavigation("ถึงจุดหมายแล้ว");
-      return;
+      const timer = window.setTimeout(() => stopNavigation("ถึงจุดหมายแล้ว"), 0);
+      return () => window.clearTimeout(timer);
     }
 
     if (match.distanceMeters <= 50) {
