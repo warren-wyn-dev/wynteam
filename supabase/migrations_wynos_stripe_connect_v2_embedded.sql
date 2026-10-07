@@ -21,7 +21,7 @@ alter table public.food_stripe_accounts
   alter column account_api_version set default 'v1',
   alter column account_api_version set not null;
 
-do $$
+do $guard$
 begin
   if not exists (
     select 1 from pg_constraint where conname = 'food_stripe_accounts_api_version_check'
@@ -73,7 +73,7 @@ begin
       check (balance_available_satang >= 0);
   end if;
 end
-$;
+$guard$;
 
 create table if not exists public.food_stripe_account_creation_locks (
   store_id uuid primary key references public.food_stores(id) on delete cascade,
