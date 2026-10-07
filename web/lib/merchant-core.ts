@@ -46,16 +46,15 @@ export type MerchantStripeStatus = {
   charges_enabled?: boolean;
   payouts_enabled?: boolean;
   promptpay_enabled?: boolean;
-  promptpay_supported?: boolean;
-  requirements_due?: boolean;
+  promptpay_status?: "active" | "pending" | "inactive" | "unsupported" | "unrequested" | "unknown";
   bank_ready?: boolean;
   bank_name?: string | null;
   bank_last4?: string | null;
   payout_interval?: "daily" | "weekly" | "monthly" | "manual" | "unknown" | null;
+  requirements_due_count?: number;
   balance_pending_satang?: number;
   balance_available_satang?: number;
   payouts_paid_today_satang?: number;
-  last_payout_status?: string | null;
   last_synced_at?: string | null;
 };
 
