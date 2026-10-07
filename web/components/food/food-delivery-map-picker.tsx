@@ -42,7 +42,7 @@ import {
   rememberRecentPlace,
   type MapsRecentPlace,
 } from "@/lib/maps-places";
-import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoute, routeRemainingDistanceMeters, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
+import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, forwardRouteSegmentLimit, nearestRoutePosition, nextRouteStep, parseWynosRoute, routeRemainingDistanceMeters, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -418,6 +418,8 @@ export function FoodDeliveryMapPicker({
   const navigationLastRerouteAtRef = useRef(0);
   const navigationProgressRef = useRef(0);
   const navigationRouteRef = useRef<MapsRoute | null>(null);
+  const navigationLatestLocationRef = useRef<FoodLocation | null>(null);
+  const navigationJumpCandidateRef = useRef<{ segmentIndex: number; count: number } | null>(null);
   const routeOriginRef = useRef<{
     location: FoodLocation;
     targetKey: string;
@@ -558,6 +560,8 @@ export function FoodDeliveryMapPicker({
     navigationOffRouteCountRef.current = 0;
     navigationRerouteRef.current = false;
     navigationProgressRef.current = 0;
+    navigationLatestLocationRef.current = null;
+    navigationJumpCandidateRef.current = null;
     setNavigationProgress(0);
     setNavigationOffRouteDistance(null);
     if (navigationWatchRef.current != null && typeof navigator !== "undefined" && navigator.geolocation) {
@@ -667,6 +671,8 @@ export function FoodDeliveryMapPicker({
     navigationLastRerouteAtRef.current = 0;
     navigationProgressRef.current = 0;
     navigationRouteRef.current = route;
+    navigationLatestLocationRef.current = null;
+    navigationJumpCandidateRef.current = null;
     setNavigationProgress(0);
     setNavigationOffRouteDistance(null);
     setNavigating(true);
@@ -682,6 +688,7 @@ export function FoodDeliveryMapPicker({
         const accuracy = Number.isFinite(position.coords.accuracy)
           ? Math.max(0, position.coords.accuracy)
           : Number.POSITIVE_INFINITY;
+        navigationLatestLocationRef.current = next;
         setUserLocation(next);
         setCurrentLocationSelected(true);
         setNavigationStatus("");
@@ -695,13 +702,36 @@ export function FoodDeliveryMapPicker({
         if (!activeRoute) return;
         const previousProgress = navigationProgressRef.current;
         const previousSegment = Math.floor(previousProgress);
+        const previousSegmentProgress = Math.min(1, Math.max(0, previousProgress - previousSegment));
+        const maxForwardMeters = routeMode === "pedestrian" ? 180 : routeMode === "motorcycle" ? 420 : 600;
+        const maxSegmentIndex = forwardRouteSegmentLimit(
+          activeRoute.coordinates,
+          previousSegment,
+          previousSegmentProgress,
+          maxForwardMeters,
+        );
         const match = nearestRoutePosition(next, activeRoute.coordinates, {
           minSegmentIndex: Math.max(0, previousSegment - 2),
-          maxSegmentIndex: Math.min(activeRoute.coordinates.length - 2, previousSegment + 120),
+          maxSegmentIndex,
         });
         if (!match) return;
 
-        const stableProgress = Math.max(previousProgress, match.routeProgress);
+        let stableProgress = Math.max(previousProgress, match.routeProgress);
+        const segmentJump = match.segmentIndex - previousSegment;
+        if (segmentJump > 4) {
+          const pending = navigationJumpCandidateRef.current;
+          if (pending && Math.abs(pending.segmentIndex - match.segmentIndex) <= 2) {
+            const nextCount = pending.count + 1;
+            navigationJumpCandidateRef.current = { segmentIndex: match.segmentIndex, count: nextCount };
+            if (nextCount < 2) stableProgress = previousProgress;
+          } else {
+            navigationJumpCandidateRef.current = { segmentIndex: match.segmentIndex, count: 1 };
+            stableProgress = previousProgress;
+          }
+        } else {
+          navigationJumpCandidateRef.current = null;
+        }
+
         navigationProgressRef.current = stableProgress;
         setNavigationProgress(stableProgress);
         const stableSegmentIndex = Math.min(activeRoute.coordinates.length - 2, Math.floor(stableProgress));
@@ -1067,10 +1097,12 @@ export function FoodDeliveryMapPicker({
         });
       }
 
-      const rerouteOrigin = navigationActiveRef.current ? routeOriginRef.current?.location : null;
-      if (rerouteOrigin) {
+      const navigationLocation = navigationActiveRef.current
+        ? navigationLatestLocationRef.current ?? routeOriginRef.current?.location ?? null
+        : null;
+      if (navigationLocation) {
         map.flyTo({
-          center: [rerouteOrigin.longitude, rerouteOrigin.latitude],
+          center: [navigationLocation.longitude, navigationLocation.latitude],
           zoom: 17.2,
           essential: true,
         });
