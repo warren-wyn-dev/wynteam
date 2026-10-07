@@ -139,17 +139,47 @@ function toLocalMeters(
   };
 }
 
+function coordinateDistanceMeters(a: [number, number], b: [number, number]) {
+  const earthRadius = 6_371_000;
+  const lat1 = a[1] * Math.PI / 180;
+  const lat2 = b[1] * Math.PI / 180;
+  const dLat = (b[1] - a[1]) * Math.PI / 180;
+  const dLon = (b[0] - a[0]) * Math.PI / 180;
+  const sinLat = Math.sin(dLat / 2);
+  const sinLon = Math.sin(dLon / 2);
+  const h = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
+  return 2 * earthRadius * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+export function distanceToRouteCoordinateMeters(
+  location: { latitude: number; longitude: number },
+  coordinate: [number, number],
+) {
+  return coordinateDistanceMeters([location.longitude, location.latitude], coordinate);
+}
+
 export function nearestRoutePosition(
   location: { latitude: number; longitude: number },
   coordinates: Array<[number, number]>,
+  options?: { minSegmentIndex?: number; maxSegmentIndex?: number },
 ) {
   if (!Number.isFinite(location.latitude) || !Number.isFinite(location.longitude) || coordinates.length < 2) return null;
 
+  const lastSegmentIndex = coordinates.length - 2;
+  const minSegmentIndex = Math.min(
+    lastSegmentIndex,
+    Math.max(0, Math.floor(options?.minSegmentIndex ?? 0)),
+  );
+  const maxSegmentIndex = Math.min(
+    lastSegmentIndex,
+    Math.max(minSegmentIndex, Math.floor(options?.maxSegmentIndex ?? lastSegmentIndex)),
+  );
+
   let bestDistanceSquared = Number.POSITIVE_INFINITY;
-  let bestIndex = 0;
+  let bestIndex = minSegmentIndex;
   let bestProgress = 0;
 
-  for (let index = 0; index < coordinates.length - 1; index += 1) {
+  for (let index = minSegmentIndex; index <= maxSegmentIndex; index += 1) {
     const start = toLocalMeters(location, coordinates[index]);
     const end = toLocalMeters(location, coordinates[index + 1]);
     const dx = end.x - start.x;
@@ -173,12 +203,41 @@ export function nearestRoutePosition(
     shapeIndex: bestProgress >= 0.5 ? bestIndex + 1 : bestIndex,
     segmentIndex: bestIndex,
     segmentProgress: bestProgress,
+    routeProgress: bestIndex + bestProgress,
   };
 }
 
-export function nextRouteStep(route: MapsRoute, shapeIndex: number) {
+export function routeRemainingDistanceMeters(
+  coordinates: Array<[number, number]>,
+  segmentIndex: number,
+  segmentProgress: number,
+) {
+  if (coordinates.length < 2) return Number.POSITIVE_INFINITY;
+  const index = Math.min(coordinates.length - 2, Math.max(0, Math.floor(segmentIndex)));
+  const progress = Math.min(1, Math.max(0, segmentProgress));
+  const start = coordinates[index];
+  const end = coordinates[index + 1];
+  const current: [number, number] = [
+    start[0] + (end[0] - start[0]) * progress,
+    start[1] + (end[1] - start[1]) * progress,
+  ];
+
+  let distance = coordinateDistanceMeters(current, end);
+  for (let next = index + 1; next < coordinates.length - 1; next += 1) {
+    distance += coordinateDistanceMeters(coordinates[next], coordinates[next + 1]);
+  }
+  return distance;
+}
+
+export function nextRouteStep(route: MapsRoute, segmentIndex: number, segmentProgress = 0) {
   if (!route.steps.length) return null;
-  return route.steps.find((step) => step.endShapeIndex >= shapeIndex) ?? route.steps[route.steps.length - 1] ?? null;
+  const targetShapeIndex = segmentIndex + (segmentProgress >= 0.4 ? 1 : 0);
+  let selected = route.steps[0] ?? null;
+  for (const step of route.steps) {
+    if (step.beginShapeIndex > targetShapeIndex) break;
+    selected = step;
+  }
+  return selected;
 }
 
 export function formatRouteDuration(seconds: number) {

@@ -126,6 +126,7 @@ export async function reverseWynosGeo(lat: number, lon: number) {
 export async function routeWynosMaps(input: {
   locations: Array<{ lat: number; lon: number }>;
   costing: string;
+  language?: "th-TH" | "en-US";
 }) {
   const origin = serviceOrigin(process.env.WYNOS_ROUTING_ORIGIN);
   if (!origin) return null;
@@ -148,7 +149,7 @@ export async function routeWynosMaps(input: {
       costing: input.costing,
       units: "kilometers",
       shape_format: "polyline6",
-      language: "th-TH",
+      language: input.language ?? "th-TH",
       directions_options: { units: "kilometers" },
     }),
   });
