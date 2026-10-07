@@ -10,6 +10,7 @@ const migration = read("../supabase/migrations_wynos_stripe_payment_core_v1.sql"
 const checkout = read("../supabase/functions/food-stripe-checkout/index.ts");
 const connect = read("../supabase/functions/merchant-stripe-connect/index.ts");
 const refund = read("../supabase/functions/merchant-stripe-refund/index.ts");
+const cancelStripe = read("../supabase/functions/food-stripe-cancel/index.ts");
 const webhook = read("../supabase/functions/stripe-webhook/index.ts");
 const foodUi = read("components/food/wynos-food-developer-app.tsx");
 const merchantUi = read("components/merchant/wynos-merchant-app.tsx");
@@ -47,6 +48,14 @@ test("Webhook verifies Stripe signature, enforces idempotency and finalizes stat
   assert.match(migration, /on conflict \(event_id\) do nothing/i);
   assert.match(migration, /amount mismatch/);
   assert.match(migration, /stripe account mismatch/);
+});
+
+test("Manual slip fallback expires any open Stripe Checkout first", () => {
+  assert.match(cancelStripe, /checkout\/sessions\/\\$\\{encodeURIComponent\(sessionId\)\\}\/expire/);
+  assert.match(cancelStripe, /payment_status === "paid"/);
+  assert.match(cancelStripe, /stripe_checkout_session_id: null/);
+  assert.match(migration, /cancel stripe checkout before submitting slip/);
+  assert.match(foodUi, /prepareFoodManualPayment/);
 });
 
 test("Food keeps slip fallback and Merchant Stripe refunds use the gateway", () => {
