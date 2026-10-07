@@ -101,8 +101,28 @@ test("navigation helpers find the route and upcoming maneuver", () => {
   assert.ok(match);
   assert.ok(match.distanceMeters > 5 && match.distanceMeters < 20);
   assert.ok(match.shapeIndex >= 1);
-  assert.equal(nextRouteStep(route, match.shapeIndex)?.instruction, "ตรงไป");
+  assert.equal(nextRouteStep(route, match.routeProgress)?.instruction, "เลี้ยวซ้าย");
   assert.equal(nextRouteStep(route, 2)?.instruction, "เลี้ยวซ้าย");
+});
+
+test("navigation matching can exclude already-passed route branches", () => {
+  const coordinates = [
+    [100, 13],
+    [100.001, 13],
+    [100.002, 13],
+    [100.001, 13],
+    [100, 13],
+  ];
+  const unrestricted = nearestRoutePosition({ latitude: 13, longitude: 100.001 }, coordinates);
+  assert.ok(unrestricted);
+  assert.ok(unrestricted.routeProgress < 2);
+  const forward = nearestRoutePosition(
+    { latitude: 13, longitude: 100.001 },
+    coordinates,
+    { minProgress: 2.5, maxProgress: 4 },
+  );
+  assert.ok(forward);
+  assert.ok(forward.routeProgress >= 2.5);
 });
 
 test("invalid route payload is rejected", () => {
