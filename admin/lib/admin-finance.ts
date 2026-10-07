@@ -76,6 +76,30 @@ export type FinanceControlSnapshot = {
   riders: FinanceRider[];
 };
 
+export type FinanceOperations = {
+  payments: Array<Record<string, unknown>>;
+  refunds: Array<Record<string, unknown>>;
+  merchant_settlements: Array<Record<string, unknown>>;
+  rider_payouts: Array<Record<string, unknown>>;
+};
+
+export type RiderFinanceRow = Record<string, unknown> & {
+  rider_id: string;
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  status: string;
+  active: boolean;
+  service_area_code: string | null;
+  payout_suspended: boolean;
+  gross_earnings_satang: number;
+  bonus_satang: number;
+  adjustments_satang: number;
+  paid_satang: number;
+  pending_payout_satang: number;
+  jobs: number;
+};
+
 export type FinanceDashboard = {
   from: string;
   to: string;
@@ -106,6 +130,20 @@ export async function fetchFinanceDashboard(from: string, to: string): Promise<F
   return data as FinanceDashboard;
 }
 
+export async function fetchFinanceOperations(limit = 100): Promise<FinanceOperations> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_finance_operations", { p_limit: limit });
+  if (error) throw new Error(error.message);
+  return data as FinanceOperations;
+}
+
+export async function fetchRiderFinance(): Promise<RiderFinanceRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_rider_finance");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as RiderFinanceRow[];
+}
+
 export function bahtFromSatang(value: number | string | null | undefined) {
   return Number(value ?? 0) / 100;
 }
@@ -120,4 +158,13 @@ export function formatSatang(value: number | string | null | undefined) {
 
 export function percentFromBps(value: number | string | null | undefined) {
   return Number(value ?? 0) / 100;
+}
+
+export function formatFinanceDate(value: unknown) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Bangkok",
+  }).format(new Date(String(value)));
 }
