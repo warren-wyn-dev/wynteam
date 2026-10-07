@@ -12,7 +12,7 @@
     "test:account-password": "node --test tests/account-password.test.mjs",
     "test:google-pwa-oauth": "node --test tests/google-pwa-oauth.test.mjs",
     "test:follow": "node --test tests/follow-mutation.test.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run test:account-cache-isolation && npm run test:account-switch && npm run test:app-performance && npm run test:search && npm run test:notifications && npm run test:playwright-gates && npm run test:push-offline-logout && npm run test:push-toggle && npm run test:club-announcements && npm run test:club-chat-actions && npm run test:share-links && npm run test:android-asset-links && npm run test:image-location && npm run test:maps && npm run test:i18n && npm run build",
+    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run test:account-cache-isolation && npm run test:account-switch && npm run test:app-performance && npm run test:search && npm run test:notifications && npm run test:playwright-gates && npm run test:push-offline-logout && npm run test:push-toggle && npm run test:club-announcements && npm run test:club-chat-actions && npm run test:share-links && npm run test:android-asset-links && npm run test:image-location && npm run test:maps && npm run test:stripe && npm run test:i18n && npm run build",
     "test:image-location": "node --test tests/image-location.test.mjs tests/upload-image.test.mjs",
     "test:maps": "node --test tests/maps-rate-limit.test.mjs tests/maps-host-redirect.test.mjs tests/maps-places.test.mjs tests/maps-saved-places.test.mjs tests/maps-place-photos.test.mjs",
     "test:android-asset-links": "node --test tests/android-asset-links.test.mjs",
@@ -29,7 +29,8 @@
     "test:club-announcements": "node --test tests/club-announcements.test.mjs",
     "test:club-chat-actions": "node --test tests/club-chat-actions.test.mjs tests/wyn135-sql-approval.test.mjs",
     "test:share-links": "node --test tests/share-links.test.mjs tests/food-share-links.test.mjs",
-    "test:food-account": "node --test tests/food-standalone-account.test.mjs"
+    "test:food-account": "node --test tests/food-standalone-account.test.mjs",
+    "test:stripe": "node --test tests/stripe-payment-core.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
