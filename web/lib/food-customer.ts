@@ -755,6 +755,18 @@ export async function fetchFoodPromptPayQr(client: SupabaseClient, orderId: stri
   };
 }
 
+export async function prepareFoodManualPayment(client: SupabaseClient, orderId: string) {
+  const { data, error } = await client.functions.invoke("food-stripe-cancel", {
+    body: { orderId },
+  });
+  if (error) throw new Error(error.message);
+  const payload = data as { cancelled?: unknown; error?: unknown } | null;
+  if (payload?.error === "stripe_payment_already_completed") {
+    throw new Error("Stripe ชำระเงินสำเร็จแล้ว ไม่สามารถเปลี่ยนเป็นสลิปได้");
+  }
+  return payload?.cancelled === true;
+}
+
 export async function submitFoodPayment(
   client: SupabaseClient,
   orderId: string,
