@@ -176,14 +176,17 @@ async function fetchPayoutSummary(secret: string, accountId: string): Promise<Pa
     return { interval: "unknown" };
   }
 }
+async function paymentMethodConfiguration(secret: string, accountId: string) {
+  const payload = await stripeJson(
+    "https://api.stripe.com/v1/payment_method_configurations?active=true&limit=100",
+    { headers: stripeV1Headers(secret, accountId) },
+  );
+  const configs = Array.isArray(payload.data) ? payload.data as Array<Record<string,unknown>> : [];
+  return configs.find((item) => item.is_default === true) ?? configs[0] ?? null;
+}
 async function fetchPromptPaySummary(secret: string, accountId: string): Promise<PromptPaySummary> {
   try {
-    const payload = await stripeJson(
-      "https://api.stripe.com/v1/payment_method_configurations?active=true&limit=100",
-      { headers: stripeV1Headers(secret, accountId) },
-    );
-    const configs = Array.isArray(payload.data) ? payload.data as Array<Record<string,unknown>> : [];
-    const config = configs.find((item) => item.is_default === true) ?? configs[0];
+    const config = await paymentMethodConfiguration(secret, accountId);
     const promptpay = config?.promptpay as Record<string,unknown> | undefined;
     if (!promptpay) return { enabled: false, status: "unsupported" };
 
@@ -196,6 +199,34 @@ async function fetchPromptPaySummary(secret: string, accountId: string): Promise
     return { enabled: false, status: "unknown" };
   } catch {
     return { enabled: false, status: "unknown" };
+  }
+}
+async function preferPromptPay(secret: string, accountId: string) {
+  try {
+    const config = await paymentMethodConfiguration(secret, accountId);
+    const configId = stringValue(config?.id);
+    const promptpay = config?.promptpay as Record<string,unknown> | undefined;
+    if (!configId || !promptpay) return;
+
+    const display = (promptpay.display_preference ?? {}) as Record<string,unknown>;
+    const effective = stringValue(display.value);
+    const preference = stringValue(display.preference);
+    if (promptpay.available === true || effective === "on" || preference === "on") return;
+
+    const params = new URLSearchParams();
+    params.set("promptpay[display_preference][preference]", "on");
+    await stripeJson(
+      `https://api.stripe.com/v1/payment_method_configurations/${encodeURIComponent(configId)}`,
+      {
+        method: "POST",
+        headers: stripeV1Headers(secret, accountId, `wynos-promptpay-${accountId}`),
+        body: params,
+      },
+    );
+  } catch (error) {
+    // PromptPay isn't available to every account. Keep cards working and
+    // reflect the actual PromptPay state instead of failing onboarding.
+    console.warn("merchant-stripe-connect PromptPay preference unchanged", safeStripeError(error));
   }
 }
 
@@ -536,7 +567,14 @@ Deno.serve(async (req: Request) => {
 
     if (!accountId) return json({ connected: false, status: "not_connected" });
 
-    const synced = await syncAccount(admin, stripeSecret, storeId, accountId);
+    let synced = await syncAccount(admin, stripeSecret, storeId, accountId);
+    if (action === "onboard" && synced.api === "v2") {
+      await Promise.all([
+        preferPromptPay(stripeSecret, accountId),
+        preferDailyPayouts(stripeSecret, accountId),
+      ]);
+      synced = await syncAccount(admin, stripeSecret, storeId, accountId);
+    }
     const publicState = sanitized(synced.state);
 
     if (action === "status") return json(publicState);
