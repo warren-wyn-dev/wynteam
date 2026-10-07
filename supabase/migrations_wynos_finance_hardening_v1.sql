@@ -208,58 +208,7 @@ $$;
 revoke all on function internal.food_rider_unpaid_rows(uuid,timestamptz,timestamptz)
   from public,anon,authenticated;
 
-create or replace function public.admin_rider_finance()
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-begin
-  if coalesce(internal.current_platform_role(),'') <> 'admin' then
-    raise exception 'Only admins can view rider finance';
-  end if;
 
-  return (
-    select coalesce(jsonb_agg(jsonb_build_object(
-      'rider_id',r.id,
-      'user_id',r.user_id,
-      'username',p.username,
-      'display_name',p.display_name,
-      'status',r.status,
-      'active',r.active,
-      'service_area_code',r.service_area_code,
-      'payout_suspended',r.payout_suspended,
-      'gross_earnings_satang',coalesce(x.gross,0),
-      'bonus_satang',coalesce(x.bonus,0),
-      'adjustments_satang',coalesce(x.adjustments,0),
-      'paid_satang',coalesce(x.paid,0),
-      'pending_payout_satang',greatest(coalesce(x.net,0)-coalesce(x.paid,0),0),
-      'jobs',coalesce(x.jobs,0)
-    ) order by r.created_at desc),'[]'::jsonb)
-    from public.food_riders r
-    left join public.profiles p on p.id=r.user_id
-    left join lateral (
-      select
-        count(*)::integer jobs,
-        coalesce(sum(j.gross_earning_satang),0)::bigint gross,
-        coalesce(sum(j.bonus_satang),0)::bigint bonus,
-        coalesce(sum(j.adjustment_satang),0)::bigint adjustments,
-        coalesce(sum(j.net_earning_satang),0)::bigint net,
-        coalesce((
-          select sum(po.amount_satang)
-          from public.food_rider_payouts po
-          where po.rider_id=r.id and po.status='paid'
-        ),0)::bigint paid
-      from public.food_rider_jobs j
-      where j.rider_id=r.id and j.status='delivered'
-    ) x on true
-  );
-end;
-$$;
-
-revoke all on function public.admin_rider_finance() from public,anon;
-grant execute on function public.admin_rider_finance() to authenticated;
 
 create or replace function public.admin_rider_payout_preview(
   p_rider_id uuid,
