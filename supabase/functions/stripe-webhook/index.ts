@@ -2,8 +2,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
 const STRIPE_V2_VERSION = "2026-07-29.dahlia";
 const V2_ACCOUNT_SYNC_EVENTS = new Set([
+  "v2.core.account.created",
   "v2.core.account.updated",
   "v2.core.account[defaults].updated",
+  "v2.core.account[future_requirements].updated",
   "v2.core.account[identity].updated",
   "v2.core.account[requirements].updated",
   "v2.core.account[configuration.merchant].updated",
