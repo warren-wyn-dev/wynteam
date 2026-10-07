@@ -65,7 +65,15 @@ function stripeV2Headers(secret: string) {
 async function stripeJson(url: string, init: RequestInit) {
   const response = await fetch(url, init);
   const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
-  if (!response.ok) throw new Error("stripe_api_error");
+  if (!response.ok) {
+    const error = payload.error as Record<string,unknown> | undefined;
+    console.error("stripe-webhook Stripe API error", {
+      status: response.status,
+      code: stringValue(error?.code),
+      request_id: response.headers.get("request-id"),
+    });
+    throw new Error("stripe_api_error");
+  }
   return payload;
 }
 function capabilityStatus(capabilities: Record<string,unknown>, key: string) {
