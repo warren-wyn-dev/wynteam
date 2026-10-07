@@ -33,3 +33,10 @@ Deno.test("readiness requires automatic payout setup and sanitized bank state", 
   assert.match(source, /stripe_payments_enabled: state\.status === "ready"/);
   assert.doesNotMatch(source, /bank_account_number/);
 });
+
+Deno.test("live Connect calls are environment-bound and preview-safe", () => {
+  assert.match(source, /stripeLivemode/);
+  assert.match(source, /stripe_environment_mismatch/);
+  assert.match(source, /livemode: stripeLiveMode/);
+  assert.match(source, /https:\/\/merchant\.wynos\.online/);
+});
