@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+type AdminClient = ReturnType<typeof createClient<any>>;
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -305,7 +307,7 @@ function sanitized(state: Record<string,unknown>) {
     balance_available_satang: state.balance_available_satang,
   };
 }
-async function syncAccount(admin: ReturnType<typeof createClient>, secret: string, storeId: string, accountId: string) {
+async function syncAccount(admin: AdminClient, secret: string, storeId: string, accountId: string) {
   const retrieved = await retrieveAccount(secret, accountId);
   const [bank, money, payout, promptpay] = await Promise.all([
     fetchBankSummary(secret, accountId),
@@ -407,7 +409,7 @@ async function createOnboardingLink(secret: string, accountId: string, storeId: 
     }),
   });
 }
-async function acquireProvisioningLock(admin: ReturnType<typeof createClient>, storeId: string, token: string) {
+async function acquireProvisioningLock(admin: AdminClient, storeId: string, token: string) {
   const { data, error } = await admin.rpc("food_claim_stripe_account_creation", {
     p_store_id: storeId,
     p_operation_token: token,
@@ -416,14 +418,14 @@ async function acquireProvisioningLock(admin: ReturnType<typeof createClient>, s
   if (error) throw new Error("stripe_lock_unavailable");
   return data === true;
 }
-async function releaseProvisioningLock(admin: ReturnType<typeof createClient>, storeId: string, token: string) {
+async function releaseProvisioningLock(admin: AdminClient, storeId: string, token: string) {
   const { error } = await admin.rpc("food_release_stripe_account_creation", {
     p_store_id: storeId,
     p_operation_token: token,
   });
   if (error) console.warn("merchant-stripe-connect lock release failed", { storeId });
 }
-async function waitForSavedAccount(admin: ReturnType<typeof createClient>, storeId: string) {
+async function waitForSavedAccount(admin: AdminClient, storeId: string) {
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const { data } = await admin.from("food_stripe_accounts").select("stripe_account_id").eq("store_id", storeId).maybeSingle();
     if (typeof data?.stripe_account_id === "string") return data.stripe_account_id;
