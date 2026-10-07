@@ -60,7 +60,7 @@ function statusText(status: MerchantStripeStatus | null) {
   if (!status?.connected) return null;
   if (status.status === "ready") return "พร้อมรับเงิน";
   if (status.status === "restricted") return "มีปัญหา กรุณาดำเนินการต่อ";
-  if ((status.requirements_due_count ?? 0) > 0 || status.status === "onboarding") return "ต้องยืนยันข้อมูล";
+  if (status.requirements_due === true || status.status === "onboarding") return "ต้องยืนยันข้อมูล";
   return "กำลังตั้งค่า";
 }
 function payoutText(status: MerchantStripeStatus | null) {
@@ -136,7 +136,7 @@ export function MerchantPaymentSetup({
         void sync()
           .then((next) => {
             if (next.status === "ready") onMessage("พร้อมรับเงินแล้ว");
-            else if ((next.requirements_due_count ?? 0) > 0) onMessage("ยังมีข้อมูลที่ต้องยืนยัน กรุณาดำเนินการต่อ");
+            else if (next.requirements_due === true) onMessage("ยังมีข้อมูลที่ต้องยืนยัน กรุณาดำเนินการต่อ");
             else onMessage("กำลังตรวจสอบข้อมูลรับเงิน");
             setPanel(null);
           })
@@ -146,7 +146,8 @@ export function MerchantPaymentSetup({
           });
       });
     }
-    if (!mountRef.current) return;
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    if (!mountRef.current) throw new Error("payment_panel_unavailable");
     mountRef.current.replaceChildren(element);
     setComponentLoading(false);
   };
@@ -165,7 +166,7 @@ export function MerchantPaymentSetup({
         window.location.assign(result.url);
         return;
       }
-      if (result.surface === "embedded") {
+      if (result.flow === "embedded") {
         await openEmbedded(result.status.status === "ready" ? "account_management" : "account_onboarding");
         return;
       }
