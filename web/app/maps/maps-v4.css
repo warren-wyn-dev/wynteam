@@ -971,3 +971,11 @@
   font-size: 13px;
   font-weight: 700;
 }
+
+
+.wynos-maps-page .wf-map-route-attribution {
+  display: block;
+  color: var(--m-text-2);
+  font-size: 10px;
+  line-height: 1.35;
+}
