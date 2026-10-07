@@ -890,7 +890,7 @@ export function FoodDeliveryMapPicker({
         { padding: { top: 92, right: 44, bottom: 330, left: 44 }, maxZoom: 16.5, duration: 520 },
       );
     } catch {
-      setRouteStatus("แสดงเส้นทางบนแผนที่ไม่สำเร็จ");
+      // Keep the route summary usable even if the optional line overlay cannot render.
     }
   }, [mapReady, mapStyleRevision, route, standalone]);
 
