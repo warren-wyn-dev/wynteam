@@ -1919,6 +1919,7 @@ export function FoodDeliveryMapPicker({
                 ["motorcycle", "มอเตอร์ไซค์"],
                 ["auto", "รถยนต์"],
                 ["pedestrian", "เดิน"],
+                ["bicycle", "จักรยาน"],
               ] as const).map(([mode, label]) => (
                 <button
                   key={mode}
