@@ -62,6 +62,7 @@ export const EN_EXACT: Record<string, string> = {
   "มอเตอร์ไซค์": "Motorcycle",
   "รถยนต์": "Car",
   "เดิน": "Walk",
+  "จักรยาน": "Bicycle",
   "กำลังคำนวณเส้นทาง…": "Calculating route…",
   "เวลาโดยประมาณจาก WYNOS Routing": "Estimated time from WYNOS Routing",
   "สถานที่ที่เลือก": "Selected place",
