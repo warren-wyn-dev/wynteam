@@ -79,7 +79,8 @@ Deno.serve(async (req: Request) => {
     .select("role").eq("merchant_account_id", store.merchant_account_id).eq("user_id", user.id).eq("active", true).maybeSingle();
   if (!member || !["owner","admin"].includes(member.role)) return json({ error: "owner_or_admin_required" }, 403);
 
-  const { data: saved } = await admin.from("food_stripe_accounts").select("*").eq("store_id", storeId).maybeSingle();
+  const { data: saved, error: savedError } = await admin.from("food_stripe_accounts").select("*").eq("store_id", storeId).maybeSingle();
+  if (savedError) return json({ error: "stripe_backend_not_ready" }, 503);
   let accountId = saved?.stripe_account_id as string | undefined;
 
   try {
