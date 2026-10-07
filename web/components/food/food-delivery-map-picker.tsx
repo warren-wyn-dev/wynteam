@@ -710,7 +710,7 @@ export function FoodDeliveryMapPicker({
     if (!match) return;
 
     const routeProgress = Math.max(previousProgress, match.routeProgress);
-    if (match.distanceMeters <= 80 + navigationAccuracyMeters) {
+    if (navigationAccuracyMeters <= 50 && match.distanceMeters <= 80) {
       navigationProgressRef.current = routeProgress;
     }
 
@@ -1636,7 +1636,12 @@ export function FoodDeliveryMapPicker({
       maxProgress: Math.min(route.coordinates.length - 1, navigationProgressRef.current + 120),
     })
     : null;
-  const displayedRouteProgress = Math.max(navigationProgressRef.current, navigationMatch?.routeProgress ?? 0);
+  const displayedRouteProgress = navigationMatch
+    && navigationAccuracyMeters != null
+    && navigationAccuracyMeters <= 50
+    && navigationMatch.distanceMeters <= 80
+      ? Math.max(navigationProgressRef.current, navigationMatch.routeProgress)
+      : navigationProgressRef.current;
   const activeRouteStep = route
     ? nextRouteStep(route, displayedRouteProgress)
     : null;
