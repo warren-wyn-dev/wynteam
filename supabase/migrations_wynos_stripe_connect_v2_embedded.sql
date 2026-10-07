@@ -72,7 +72,8 @@ begin
       add constraint food_stripe_accounts_balance_available_check
       check (balance_available_satang >= 0);
   end if;
-end $;
+end
+$;
 
 create table if not exists public.food_stripe_account_creation_locks (
   store_id uuid primary key references public.food_stores(id) on delete cascade,
