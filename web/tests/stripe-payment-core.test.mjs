@@ -40,6 +40,8 @@ test("Connect uses Standard Thai accounts and requires owner/admin for onboardin
   assert.match(connect, /capabilities\[promptpay_payments\]\[requested\]/);
   assert.match(connect, /Idempotency-Key/);
   assert.match(connect, /wynos-connect-/);
+  assert.match(connect, /stripe_backend_not_ready/);
+  assert.ok(connect.indexOf("if (savedError)") < connect.indexOf('params.set("type", "standard")'));
   assert.match(connect, /\["owner","admin"\]\.includes\(member\.role\)/);
 });
 
@@ -57,6 +59,7 @@ test("Manual slip fallback expires any open Stripe Checkout first", () => {
   assert.match(cancelStripe, /payment_status === "paid"/);
   assert.match(cancelStripe, /stripe_checkout_session_id: null/);
   assert.match(migration, /cancel stripe checkout before submitting slip/);
+  assert.match(foodUi, /if \(order\.stripe_checkout_session_id\)/);
   assert.match(foodUi, /prepareFoodManualPayment/);
 });
 
