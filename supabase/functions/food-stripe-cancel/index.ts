@@ -15,6 +15,11 @@ function serviceKey() {
   try { const keys = JSON.parse(raw) as Record<string,string>; return keys.default ?? Object.values(keys)[0] ?? null; }
   catch { return null; }
 }
+function stripeLivemode(secret: string) {
+  if (/^(?:sk|rk)_live_/.test(secret)) return true;
+  if (/^(?:sk|rk)_test_/.test(secret)) return false;
+  return null;
+}
 function stripeHeaders(secret: string, account: string) {
   return {
     Authorization: `Basic ${btoa(secret + ":")}`,
@@ -61,14 +66,29 @@ Deno.serve(async (req: Request) => {
 
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
   if (!stripeSecret) return json({ error: "stripe_not_configured" }, 503);
+  const stripeLiveMode = stripeLivemode(stripeSecret);
+  if (stripeLiveMode == null) return json({ error: "stripe_key_mode_unknown" }, 503);
+  if (stripeLiveMode && req.headers.get("origin") !== "https://food.wynos.online") {
+    return json({ error: "live_stripe_origin_required" }, 403);
+  }
 
-  const { data: account } = await admin.from("food_stripe_accounts")
-    .select("stripe_account_id").eq("store_id", order.store_id).maybeSingle();
-  if (!account?.stripe_account_id) return json({ error: "stripe_account_missing" }, 409);
+  const { data: payment } = await admin.from("food_stripe_payments")
+    .select("stripe_account_id,livemode").eq("order_id", order.id).eq("checkout_session_id", sessionId).maybeSingle();
+
+  let stripeAccountId = typeof payment?.stripe_account_id === "string" ? payment.stripe_account_id : null;
+  let paymentLivemode = typeof payment?.livemode === "boolean" ? payment.livemode : null;
+  if (!stripeAccountId) {
+    const { data: activeAccount } = await admin.from("food_stripe_accounts")
+      .select("stripe_account_id,livemode").eq("store_id", order.store_id).maybeSingle();
+    stripeAccountId = typeof activeAccount?.stripe_account_id === "string" ? activeAccount.stripe_account_id : null;
+    paymentLivemode = typeof activeAccount?.livemode === "boolean" ? activeAccount.livemode : null;
+  }
+  if (!stripeAccountId) return json({ error: "stripe_account_missing" }, 409);
+  if (paymentLivemode !== stripeLiveMode) return json({ error: "stripe_environment_mismatch" }, 409);
 
   const current = await stripeJson(
     `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
-    { headers: stripeHeaders(stripeSecret, account.stripe_account_id) },
+    { headers: stripeHeaders(stripeSecret, stripeAccountId) },
   );
   if (!current.response.ok) return json({ error: "stripe_session_lookup_failed" }, 502);
   if (current.payload.payment_status === "paid" || current.payload.status === "complete") {
@@ -78,12 +98,12 @@ Deno.serve(async (req: Request) => {
   if (current.payload.status === "open") {
     const expired = await stripeJson(
       `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}/expire`,
-      { method: "POST", headers: stripeHeaders(stripeSecret, account.stripe_account_id) },
+      { method: "POST", headers: stripeHeaders(stripeSecret, stripeAccountId) },
     );
     if (!expired.response.ok) {
       const retry = await stripeJson(
         `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
-        { headers: stripeHeaders(stripeSecret, account.stripe_account_id) },
+        { headers: stripeHeaders(stripeSecret, stripeAccountId) },
       );
       if (retry.response.ok && (retry.payload.payment_status === "paid" || retry.payload.status === "complete")) {
         return json({ error: "stripe_payment_already_completed" }, 409);
