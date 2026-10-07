@@ -99,7 +99,8 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(map).toContain("SERVICE_AREA_FILL_LAYER");
   expect(map).toContain("SERVICE_AREA_LINE_LAYER");
   expect(map).toContain('serviceAreaState === "outside"');
-  expect(map).toContain("ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ");
+  expect(map).toContain('activeNearbyPlace?.merchantStoreId && serviceAreaState === "outside"');
+  expect(map).not.toContain("ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ");
   expect(mapsCss).toContain(".wf-map-service-area");
   expect(mapsCss).toContain(".wf-map-service-area-warning");
   expect(serviceArea.geometry?.coordinates?.[0]?.length ?? 0).toBeGreaterThan(1000);
@@ -624,4 +625,22 @@ test("WYNOS Food item sheet matches the approved native ordering layout", () => 
   expect(css).toContain('background: var(--wf-red);');
   expect(css).toContain('.wf-option-control.is-radio.is-active::after');
   expect(css).toContain('.wf-item-sheet.is-disabled .wf-option-group');
+});
+
+
+test("standalone WYNOS Maps stays independent from Food-only chrome and service-area blocking", () => {
+  const shell = read("app/maps/wynos-maps-address-picker.tsx");
+  const map = read("components/food/food-delivery-map-picker.tsx");
+  const polish = read("app/maps/maps-v5.css");
+
+  expect(shell).not.toContain("wynos-maps-brand-rail");
+  expect(shell).not.toContain('router.push("/food")');
+  expect(shell).toContain('window.location.assign("https://wynos.online/")');
+  expect(shell).toContain("กลับ WYNOS");
+  expect(map).toContain('activeNearbyPlace?.merchantStoreId && serviceAreaState === "outside"');
+  expect(map).toContain("disabled={!chosen || !location}");
+  expect(map).not.toContain("ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ");
+  expect(polish).toContain(".wf-map-sheet.is-half .wf-map-place-card");
+  expect(polish).toContain(":has(.wf-map-place-card) .wf-map-confirm-copy");
+  expect(polish).toContain(":has(.wf-map-directions) .wf-map-confirm-copy");
 });
