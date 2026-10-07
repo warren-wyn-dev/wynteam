@@ -1,0 +1,123 @@
+import { createClient } from "@/lib/supabase/server";
+
+export type FinanceConfig = {
+  id: string;
+  effective_from: string;
+  default_gp_bps: number;
+  delivery_base_fee_satang: number;
+  delivery_base_distance_m: number;
+  delivery_per_km_satang: number;
+  delivery_min_fee_satang: number;
+  delivery_max_fee_satang: number | null;
+  delivery_rounding_m: number;
+  free_delivery_threshold_satang: number | null;
+  peak_surcharge_satang: number;
+  rain_surcharge_satang: number;
+  long_distance_threshold_m: number | null;
+  long_distance_surcharge_satang: number;
+  rider_base_pay_satang: number;
+  rider_pay_per_km_satang: number;
+  rider_min_earning_satang: number;
+  rider_long_distance_threshold_m: number | null;
+  rider_long_distance_bonus_satang: number;
+  rider_peak_bonus_satang: number;
+  rider_rain_bonus_satang: number;
+  rider_incentive_order_count: number | null;
+  rider_incentive_bonus_satang: number;
+  rider_platform_fee_bps: number;
+  stripe_fee_payer: "wynos" | "merchant" | "shared";
+  stripe_shared_merchant_bps: number;
+  service_fee_mode: "fixed" | "percent";
+  service_fee_value: number;
+  service_fee_min_satang: number;
+  service_fee_max_satang: number | null;
+  small_order_threshold_satang: number;
+  small_order_fee_mode: "fixed" | "percent";
+  small_order_fee_value: number;
+  small_order_fee_max_satang: number | null;
+  surge_fee_mode: "fixed" | "percent";
+  surge_fee_value: number;
+  surge_fee_max_satang: number | null;
+  tax_enabled: boolean;
+  vat_registered: boolean;
+  vat_percent_bps: number;
+};
+
+export type FinanceStore = {
+  id: string;
+  name: string;
+  slug: string;
+  gp_bps: number;
+  gp_source: "promotion" | "custom" | "default";
+  override_id: string | null;
+  promotion_id: string | null;
+  payment_ready: boolean;
+  payment_enabled: boolean;
+  payout_suspended: boolean;
+  promotion_eligible: boolean;
+};
+
+export type FinanceRider = {
+  id: string;
+  user_id: string;
+  status: string;
+  active: boolean;
+  service_area_code: string | null;
+  payout_suspended: boolean;
+  approved_at: string | null;
+};
+
+export type FinanceControlSnapshot = {
+  config: FinanceConfig;
+  flags: Record<string, boolean>;
+  stores: FinanceStore[];
+  gp_promotions: Array<Record<string, unknown>>;
+  zone_pricing: Array<Record<string, unknown>>;
+  riders: FinanceRider[];
+};
+
+export type FinanceDashboard = {
+  from: string;
+  to: string;
+  orders: number;
+  gross_order_value_satang: number;
+  gp_revenue_satang: number;
+  delivery_revenue_satang: number;
+  stripe_fees_satang: number;
+  merchant_net_satang: number;
+  rider_earnings_satang: number;
+  refunds_satang: number;
+  promotion_cost_satang: number;
+  net_platform_revenue_satang: number;
+  legacy_orders_without_snapshot: number;
+};
+
+export async function fetchFinanceControlSnapshot(): Promise<FinanceControlSnapshot> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_finance_control_snapshot");
+  if (error) throw new Error(error.message);
+  return data as FinanceControlSnapshot;
+}
+
+export async function fetchFinanceDashboard(from: string, to: string): Promise<FinanceDashboard> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_finance_dashboard", { p_from: from, p_to: to });
+  if (error) throw new Error(error.message);
+  return data as FinanceDashboard;
+}
+
+export function bahtFromSatang(value: number | string | null | undefined) {
+  return Number(value ?? 0) / 100;
+}
+
+export function formatSatang(value: number | string | null | undefined) {
+  return new Intl.NumberFormat("th-TH", {
+    style: "currency",
+    currency: "THB",
+    minimumFractionDigits: 2,
+  }).format(bahtFromSatang(value));
+}
+
+export function percentFromBps(value: number | string | null | undefined) {
+  return Number(value ?? 0) / 100;
+}
