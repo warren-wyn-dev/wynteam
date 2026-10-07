@@ -32,7 +32,7 @@ Deno.serve(async (req: Request) => {
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
   const authHeader = req.headers.get("Authorization");
   if (!url || !key || !authHeader) return json({ error: "unauthorized" }, 401);
-  if (!stripeSecret) return json({ error: "stripe_not_configured" }, 503);
+  if (!stripeSecret) return json({ error: "payments_not_configured", message: "ระบบคืนเงินยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง" }, 503);
 
   const token = authHeader.replace(/^Bearer\s+/i, "");
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -83,7 +83,13 @@ Deno.serve(async (req: Request) => {
     const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
     if (!response.ok || typeof payload.id !== "string") {
       const err = payload.error as Record<string,unknown> | undefined;
-      throw new Error(typeof err?.message === "string" ? err.message : "Stripe refund failed");
+      console.error("merchant-stripe-refund gateway failure", {
+        code: typeof err?.code === "string" ? err.code : null,
+        decline_code: typeof err?.decline_code === "string" ? err.decline_code : null,
+        status: response.status,
+        request_id: response.headers.get("request-id"),
+      });
+      throw new Error("gateway_refund_failed");
     }
     await admin.from("food_orders").update({
       refund_status: "pending",
@@ -94,11 +100,17 @@ Deno.serve(async (req: Request) => {
     }).eq("id", order.id);
     return json({ status: payload.status ?? "pending", refundId: payload.id });
   } catch (error) {
+    console.error("merchant-stripe-refund failed", {
+      code: error instanceof Error ? error.message.slice(0, 80) : "unknown",
+    });
     await admin.from("food_orders").update({
       refund_status: "failed",
-      refund_note: note || (error instanceof Error ? error.message : "Stripe refund failed"),
+      refund_note: note || "การคืนเงินไม่สำเร็จ",
       refund_updated_by: user.id,
     }).eq("id", order.id);
-    return json({ error: "stripe_refund_failed", message: error instanceof Error ? error.message : "Stripe refund failed" }, 502);
+    return json({
+      error: "refund_failed",
+      message: "คืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    }, 502);
   }
 });
