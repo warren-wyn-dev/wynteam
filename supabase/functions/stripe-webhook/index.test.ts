@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 const source = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
 
 Deno.test("webhook verifies signatures before parsing Stripe events", () => {
-  const verify = source.indexOf("verifyAgainstConfiguredSecrets(raw, signature)");
+  const verify = source.indexOf("verifyAgainstConfiguredSecrets(raw, signature, configuredSecrets)");
   const parse = source.indexOf("try { event = JSON.parse(raw)");
   assert.ok(verify >= 0);
   assert.ok(parse > verify);
