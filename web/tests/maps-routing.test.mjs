@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(read("../lib/maps-routing.ts"), {
 }).outputText;
 const mod = { exports: {} };
 runInNewContext(compiled, { module: mod, exports: mod.exports, Number, Math, Array, Object });
-const { decodeValhallaPolyline, parseWynosRoute, formatRouteDuration, formatRouteDistance } = mod.exports;
+const { decodeValhallaPolyline, parseWynosRoute, nearestRoutePosition, nextRouteStep, formatRouteDuration, formatRouteDistance } = mod.exports;
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -43,19 +43,66 @@ test("Valhalla polyline6 decodes longitude/latitude coordinates", () => {
   assert.deepEqual(plain(decodeValhallaPolyline(encode(points))), points);
 });
 
-test("route response normalizes summary and joins leg shapes", () => {
+test("route response normalizes summary, steps and joined leg shapes", () => {
   const first = [[103.2496, 16.2458], [103.251, 16.2465]];
   const second = [[103.251, 16.2465], [103.255, 16.25]];
   const route = parseWynosRoute({
     trip: {
       summary: { length: 4.2, time: 620 },
-      legs: [{ shape: encode(first) }, { shape: encode(second) }],
+      legs: [
+        {
+          shape: encode(first),
+          maneuvers: [{ instruction: "ตรงไป", length: 1.2, time: 180, begin_shape_index: 0, end_shape_index: 1 }],
+        },
+        {
+          shape: encode(second),
+          maneuvers: [{ instruction: "เลี้ยวขวา", length: 3, time: 440, begin_shape_index: 0, end_shape_index: 1 }],
+        },
+      ],
     },
   }, "motorcycle");
   assert.ok(route);
   assert.equal(route.distanceKm, 4.2);
   assert.equal(route.durationSeconds, 620);
   assert.deepEqual(plain(route.coordinates), [[103.2496, 16.2458], [103.251, 16.2465], [103.255, 16.25]]);
+  assert.deepEqual(plain(route.steps), [
+    {
+      instruction: "ตรงไป",
+      distanceKm: 1.2,
+      durationSeconds: 180,
+      beginShapeIndex: 0,
+      endShapeIndex: 1,
+      coordinate: [103.2496, 16.2458],
+    },
+    {
+      instruction: "เลี้ยวขวา",
+      distanceKm: 3,
+      durationSeconds: 440,
+      beginShapeIndex: 1,
+      endShapeIndex: 2,
+      coordinate: [103.251, 16.2465],
+    },
+  ]);
+});
+
+
+test("navigation helpers find the route and upcoming maneuver", () => {
+  const route = {
+    distanceKm: 1,
+    durationSeconds: 120,
+    mode: "pedestrian",
+    coordinates: [[100, 13], [100.001, 13], [100.002, 13]],
+    steps: [
+      { instruction: "ตรงไป", distanceKm: 0.5, durationSeconds: 60, beginShapeIndex: 0, endShapeIndex: 1, coordinate: [100, 13] },
+      { instruction: "เลี้ยวซ้าย", distanceKm: 0.5, durationSeconds: 60, beginShapeIndex: 1, endShapeIndex: 2, coordinate: [100.001, 13] },
+    ],
+  };
+  const match = nearestRoutePosition({ latitude: 13.0001, longitude: 100.0012 }, route.coordinates);
+  assert.ok(match);
+  assert.ok(match.distanceMeters > 5 && match.distanceMeters < 20);
+  assert.ok(match.shapeIndex >= 1);
+  assert.equal(nextRouteStep(route, match.shapeIndex)?.instruction, "ตรงไป");
+  assert.equal(nextRouteStep(route, 2)?.instruction, "เลี้ยวซ้าย");
 });
 
 test("invalid route payload is rejected", () => {
