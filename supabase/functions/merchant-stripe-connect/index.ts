@@ -486,6 +486,9 @@ Deno.serve(async (req: Request) => {
   if (stripeLiveMode == null) {
     return json({ error: "stripe_key_mode_unknown", message: "ระบบรับชำระเงินยังไม่พร้อมใช้งาน" }, 503);
   }
+  if (stripeLiveMode && req.headers.get("origin") !== "https://merchant.wynos.online") {
+    return json({ error: "live_stripe_origin_required", message: "ระบบรับชำระเงินจริงเปิดให้ใช้งานผ่าน WYNOS Merchant เท่านั้น" }, 403);
+  }
 
   const token = authHeader.replace(/^Bearer\s+/i, "");
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
