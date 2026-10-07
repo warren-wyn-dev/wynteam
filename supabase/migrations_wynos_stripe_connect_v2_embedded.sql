@@ -219,10 +219,10 @@ begin
   execute 'select id from vault.secrets where name = $1 order by updated_at desc limit 1'
     into v_id using v_vault_name;
   if v_id is null then
-    execute 'select vault.create_secret($1,$2,$3,null)'
+    execute 'select vault.create_secret($1,$2,$3,null::uuid)'
       using p_secret, v_vault_name, 'WYNOS Stripe webhook signing secret';
   else
-    execute 'select vault.update_secret($1,$2,$3,$4,null)'
+    execute 'select vault.update_secret($1,$2,$3,$4,null::uuid)'
       using v_id, p_secret, v_vault_name, 'WYNOS Stripe webhook signing secret';
   end if;
 end;
