@@ -13,6 +13,7 @@ import {
 
 type ConnectElement = HTMLElement & {
   setOnLoaderStart?: (handler: () => void) => void;
+  setOnExit?: (handler: () => void) => void;
 };
 type ConnectInstance = {
   create: (name: "account-onboarding" | "account-management") => ConnectElement;
@@ -59,16 +60,16 @@ function statusText(status: MerchantStripeStatus | null) {
   if (!status?.connected) return null;
   if (status.status === "ready") return "พร้อมรับเงิน";
   if (status.status === "restricted") return "มีปัญหา กรุณาดำเนินการต่อ";
-  if (status.requirements_due || status.status === "onboarding") return "ต้องยืนยันข้อมูล";
+  if ((status.requirements_due_count ?? 0) > 0 || status.status === "onboarding") return "ต้องยืนยันข้อมูล";
   return "กำลังตั้งค่า";
 }
 function payoutText(status: MerchantStripeStatus | null) {
   if (!status?.payout_interval) return "อัตโนมัติ";
-  if (status.payout_interval === "daily") return "อัตโนมัติ";
+  if (status.payout_interval === "daily") return "อัตโนมัติ · ทุกวัน";
   if (status.payout_interval === "weekly") return "อัตโนมัติ · ตามรอบรายสัปดาห์";
   if (status.payout_interval === "monthly") return "อัตโนมัติ · ตามรอบรายเดือน";
-  if (status.payout_interval === "manual") return "ตามรอบที่บัญชีนี้รองรับ";
-  return "อัตโนมัติ";
+  if (status.payout_interval === "manual") return "ยังไม่พร้อมโอนอัตโนมัติ";
+  return "เงินจะถูกโอนตามรอบที่ผู้ให้บริการกำหนด";
 }
 function bankText(status: MerchantStripeStatus | null) {
   if (!status?.bank_ready) return "กำลังรอยืนยันบัญชีรับเงิน";
@@ -130,6 +131,21 @@ export function MerchantPaymentSetup({
     });
     const element = instance.create(component === "account_management" ? "account-management" : "account-onboarding");
     element.setOnLoaderStart?.(() => setComponentLoading(false));
+    if (component === "account_onboarding") {
+      element.setOnExit?.(() => {
+        void sync()
+          .then((next) => {
+            if (next.status === "ready") onMessage("พร้อมรับเงินแล้ว");
+            else if ((next.requirements_due_count ?? 0) > 0) onMessage("ยังมีข้อมูลที่ต้องยืนยัน กรุณาดำเนินการต่อ");
+            else onMessage("กำลังตรวจสอบข้อมูลรับเงิน");
+            setPanel(null);
+          })
+          .catch(() => {
+            onMessage("อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+            setPanel(null);
+          });
+      });
+    }
     if (!mountRef.current) return;
     mountRef.current.replaceChildren(element);
     setComponentLoading(false);
@@ -149,7 +165,7 @@ export function MerchantPaymentSetup({
         window.location.assign(result.url);
         return;
       }
-      if (result.flow === "embedded") {
+      if (result.surface === "embedded") {
         await openEmbedded(result.status.status === "ready" ? "account_management" : "account_onboarding");
         return;
       }
@@ -184,11 +200,11 @@ export function MerchantPaymentSetup({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const current = new URL(window.location.href);
-    const stripeReturn = current.searchParams.get("stripe");
+    const stripeReturn = current.searchParams.get("payments");
     const returnedStore = current.searchParams.get("store");
     if (!["return","refresh"].includes(stripeReturn ?? "") || (returnedStore && returnedStore !== storeId)) return;
 
-    current.searchParams.delete("stripe");
+    current.searchParams.delete("payments");
     current.searchParams.delete("store");
     window.history.replaceState(window.history.state, "", `${current.pathname}${current.search}${current.hash}`);
 
@@ -217,14 +233,20 @@ export function MerchantPaymentSetup({
       </div> : null}
 
       <div className="wm-payment-copy">
-        <strong>{ready ? "รับบัตรและ PromptPay" : "รับเงินจากลูกค้าได้สะดวกผ่านบัตรและ PromptPay"}</strong>
-        <small>{ready ? "เงินจะโอนเข้าบัญชีธนาคารของร้านอัตโนมัติ" : "เมื่อเปิดใช้งานแล้ว เงินจะถูกโอนเข้าบัญชีของร้านอัตโนมัติ"}</small>
+        <strong>{ready
+          ? status?.promptpay_enabled ? "รับบัตรและ PromptPay" : "รับบัตร"
+          : "รับเงินจากลูกค้าได้สะดวกผ่านบัตรและ PromptPay เมื่อบัญชีรองรับ"}</strong>
+        <small>{ready
+          ? status?.promptpay_enabled
+            ? "เงินจะโอนเข้าบัญชีธนาคารของร้านอัตโนมัติ"
+            : "PromptPay จะเปิดให้อัตโนมัติเมื่อบัญชีรองรับ เงินจะโอนเข้าบัญชีธนาคารของร้านตามรอบ"
+          : "เมื่อเปิดใช้งานแล้ว เงินจะถูกโอนเข้าบัญชีของร้านอัตโนมัติตามรอบที่รองรับ"}</small>
       </div>
 
       {ready ? (
         <div className="wm-payment-summary">
           <div><span>บัญชีรับเงิน</span><strong>{bankText(status)}</strong>{status.bank_ready ? <small>พร้อมรับเงิน</small> : null}</div>
-          <div><span>รอบโอนเงิน</span><strong>{payoutText(status)}</strong><small>Stripe จะใช้รอบที่เร็วที่สุดที่บัญชีนี้รองรับ</small></div>
+          <div><span>รอบโอนเงิน</span><strong>{payoutText(status)}</strong><small>ระบบจะใช้รอบโอนที่เร็วที่สุดที่บัญชีนี้รองรับ</small></div>
         </div>
       ) : null}
 
