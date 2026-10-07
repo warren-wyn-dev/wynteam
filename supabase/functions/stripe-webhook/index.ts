@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+type AdminClient = ReturnType<typeof createClient<any>>;
+
 const STRIPE_V2_VERSION = "2026-07-29.dahlia";
 const V2_ACCOUNT_SYNC_EVENTS = new Set([
   "v2.core.account.created",
@@ -165,7 +167,7 @@ async function fetchPayoutInterval(secret: string, accountId: string) {
     return "unknown";
   }
 }
-async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret: string, accountId: string) {
+async function syncMappedAccount(admin: AdminClient, secret: string, accountId: string) {
   const { data: saved } = await admin.from("food_stripe_accounts")
     .select("store_id,account_api_version").eq("stripe_account_id", accountId).maybeSingle();
   if (!saved?.store_id) return false;
@@ -249,7 +251,7 @@ async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret:
   await admin.from("food_stores").update({ stripe_payments_enabled: ready }).eq("id", saved.store_id);
   return true;
 }
-async function recordNoop(admin: ReturnType<typeof createClient>, eventId: string, eventType: string, accountId: string | null, objectId: string | null) {
+async function recordNoop(admin: AdminClient, eventId: string, eventType: string, accountId: string | null, objectId: string | null) {
   const { data, error } = await admin.rpc("food_apply_stripe_event", {
     p_event_id: eventId, p_event_type: eventType, p_order_id: null, p_stripe_account_id: accountId,
     p_object_id: objectId, p_checkout_session_id: null, p_payment_intent_id: null, p_amount_satang: null,
@@ -259,16 +261,7 @@ async function recordNoop(admin: ReturnType<typeof createClient>, eventId: strin
   return data === true;
 }
 
-const V2_ACCOUNT_SYNC_EVENTS = new Set([
-  "v2.core.account.created",
-  "v2.core.account.updated",
-  "v2.core.account[configuration.merchant].capability_status_updated",
-  "v2.core.account[configuration.merchant].updated",
-  "v2.core.account[defaults].updated",
-  "v2.core.account[future_requirements].updated",
-  "v2.core.account[identity].updated",
-  "v2.core.account[requirements].updated",
-]);
+
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
