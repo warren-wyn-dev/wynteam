@@ -189,7 +189,7 @@ export function MerchantFinance({
         </>
       )}
 
-      <PaymentChannels store={store} paymentStatus={paymentStatus} onEditStore={onEditStore} />
+      <PaymentChannels paymentStatus={paymentStatus} onEditStore={onEditStore} />
 
       {picking ? (
         <RangePicker
@@ -214,11 +214,7 @@ function FinanceLine({ label, value, positive, total }: { label: string; value: 
   );
 }
 
-function PaymentChannels({ store, paymentStatus, onEditStore }: { store: FoodStore; paymentStatus: MerchantStripeFinance | null; onEditStore: () => void }) {
-  const manualLast4 = (value: string | null) => {
-    const digits = (value ?? "").replace(/\D/g, "");
-    return digits ? `•••• ${digits.slice(-4)}` : "";
-  };
+function PaymentChannels({ paymentStatus, onEditStore }: { paymentStatus: MerchantStripeFinance | null; onEditStore: () => void }) {
   const payoutSchedule = paymentStatus?.payout_interval === "daily"
     ? "อัตโนมัติ · ทุกวัน"
     : paymentStatus?.payout_interval === "weekly"
@@ -249,20 +245,10 @@ function PaymentChannels({ store, paymentStatus, onEditStore }: { store: FoodSto
     );
   }
 
-  const backups = [
-    store.promptpay_id ? `PromptPay ${store.promptpay_name ?? ""} ${manualLast4(store.promptpay_id)}`.trim() : null,
-    store.bank_account_number ? `${store.bank_name ?? "บัญชีธนาคาร"} ${manualLast4(store.bank_account_number)}` : null,
-    store.payment_qr_path ? "QR รับเงิน" : null,
-  ].filter((value): value is string => Boolean(value));
-
   return (
     <section className="wm-section">
       <div className="wm-section-title"><h2>บัญชีรับเงิน</h2><button type="button" onClick={onEditStore}>ตั้งค่า <ChevronRight size={15} /></button></div>
-      {backups.length ? (
-        <div className="wm-money-channels">{backups.map((channel) => <span key={channel}>{channel}</span>)}</div>
-      ) : (
-        <button className="wm-setup-banner" type="button" onClick={onEditStore}><CircleDollarSign size={22} /><span><strong>ยังไม่ได้เปิดรับชำระเงิน</strong><small>เปิดใช้งานครั้งเดียว แล้วระบบจะจัดการการรับเงินและโอนเข้าบัญชีให้</small></span></button>
-      )}
+      <button className="wm-setup-banner" type="button" onClick={onEditStore}><CircleDollarSign size={22} /><span><strong>ยังไม่ได้เปิดรับชำระเงิน</strong><small>เปิดใช้งานครั้งเดียว แล้วระบบจะจัดการการรับเงินและโอนเข้าบัญชีให้</small></span></button>
     </section>
   );
 }
