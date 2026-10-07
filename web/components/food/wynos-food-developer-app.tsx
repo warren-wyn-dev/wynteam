@@ -101,6 +101,8 @@ import {
   type FoodLocation,
   type FoodPlace,
   saveFoodCustomerAddress,
+  prepareFoodManualPayment,
+  startFoodStripeCheckout,
   submitFoodPayment,
   subscribeFoodCustomerOrders,
   uploadFoodPaymentSlip,
@@ -2461,6 +2463,17 @@ function OrderDetailSheet({
     if (slipInputRef.current) slipInputRef.current.value = "";
   };
 
+  const payWithStripe = async () => {
+    setWorking(true);
+    try {
+      const url = await startFoodStripeCheckout(client, order.id);
+      window.location.assign(url);
+    } catch (error) {
+      onMessage(foodCustomerError(error, "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ"));
+      setWorking(false);
+    }
+  };
+
   const submitSlip = async () => {
     if (!slipFile) {
       onMessage("กรุณาเลือกรูปสลิป");
@@ -2468,6 +2481,9 @@ function OrderDetailSheet({
     }
     setWorking(true);
     try {
+      if (order.stripe_checkout_session_id) {
+        await prepareFoodManualPayment(client, order.id);
+      }
       const path = await uploadFoodPaymentSlip(client, userId, order.id, slipFile);
       const verification = await submitFoodPayment(client, order.id, path);
       onMessage(
@@ -2554,7 +2570,16 @@ function OrderDetailSheet({
           {order.payment_verification_status === "manual_review" && order.payment_status === "submitted" ? <div className="wf-inline-warning">รอตรวจสอบโดยร้าน</div> : null}
           {canPay ? (
             <div className="wf-payment">
-              <p>โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ</p>
+              {store?.stripe_payments_enabled ? (
+                <div className="wf-stripe-payment">
+                  <button className="wf-primary wf-full" type="button" disabled={combinedBusy} onClick={() => void payWithStripe()}>
+                    {combinedBusy ? "กำลังเปิด Stripe…" : `ชำระด้วย Stripe · ${foodMoney(order.total)}`}
+                  </button>
+                  <small>ชำระผ่านบัตร หรือ PromptPay ที่ Stripe รองรับ · สถานะจะยืนยันอัตโนมัติ</small>
+                  <div className="wf-payment-divider"><span>หรือ</span></div>
+                </div>
+              ) : null}
+              <p>{store?.stripe_payments_enabled ? "โอนเงินเข้าบัญชีร้านโดยตรงและแนบสลิปเป็นช่องทางสำรอง" : "โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ"}</p>
               {dynamicPaymentQr ? <div className="wf-inline-warning">{`QR นี้ตั้งยอด ${foodMoney(order.total)} ให้อัตโนมัติ`}</div> : null}
               {paymentQr ? (
                 <div className="wf-payment-qr">
@@ -2566,7 +2591,7 @@ function OrderDetailSheet({
                 {store?.promptpay_name || store?.promptpay_id ? <div><span>PromptPay</span><strong>{store.promptpay_name || "—"}</strong><b>{store.promptpay_id || "—"}</b></div> : null}
                 {store?.bank_name || store?.bank_account_number ? <div><span>{store.bank_name || "บัญชีธนาคาร"}</span><strong>{store.bank_account_name || "—"}</strong><b>{store.bank_account_number || "—"}</b></div> : null}
               </div>
-              {!paymentQr && !store?.promptpay_id && !store?.bank_account_number ? <div className="wf-inline-warning">ร้านยังไม่ได้ตั้งค่าช่องทางรับเงิน</div> : null}
+              {!store?.stripe_payments_enabled && !paymentQr && !store?.promptpay_id && !store?.bank_account_number ? <div className="wf-inline-warning">ร้านยังไม่ได้ตั้งค่าช่องทางรับเงิน</div> : null}
               {slipFile ? (
                 <div className="wf-slip-preview">
                   <div className="wf-slip-preview-image">

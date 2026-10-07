@@ -43,6 +43,7 @@ export type FoodCustomerStore = {
   bank_account_name: string | null;
   bank_account_number: string | null;
   payment_qr_path: string | null;
+  stripe_payments_enabled?: boolean;
   scheduled_orders_enabled?: boolean;
   scheduled_min_notice_minutes?: number;
   scheduled_max_days?: number;
@@ -135,6 +136,9 @@ export type FoodCustomerOrder = {
   payment_transaction_ref: string | null;
   payment_verified_at: string | null;
   payment_verification_note: string | null;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_refund_id?: string | null;
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
@@ -723,6 +727,22 @@ export type FoodPaymentVerificationResult = {
   code?: string | null;
 };
 
+export async function startFoodStripeCheckout(client: SupabaseClient, orderId: string) {
+  const { data, error } = await client.functions.invoke("food-stripe-checkout", {
+    body: { orderId },
+  });
+  if (error) throw new Error(error.message);
+  const payload = data as { url?: unknown; error?: unknown; message?: unknown } | null;
+  if (!payload || typeof payload.url !== "string") {
+    const code = typeof payload?.error === "string" ? payload.error : "";
+    if (code === "stripe_not_ready") throw new Error("ร้านยังไม่พร้อมรับชำระผ่าน Stripe");
+    if (code === "stripe_not_configured") throw new Error("Stripe ยังไม่ได้เปิดใช้งานบน WYNOS");
+    if (code === "order_not_payable") throw new Error("ออเดอร์นี้ไม่อยู่ในสถานะที่ชำระผ่าน Stripe ได้");
+    throw new Error(typeof payload?.message === "string" ? payload.message : "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ");
+  }
+  return payload.url;
+}
+
 export async function fetchFoodPromptPayQr(client: SupabaseClient, orderId: string) {
   const { data, error } = await client.functions.invoke("food-payment-qr", {
     body: { orderId },
@@ -733,6 +753,18 @@ export async function fetchFoodPromptPayQr(client: SupabaseClient, orderId: stri
     amount: Number(data.amount ?? 0),
     payeeName: typeof data.payeeName === "string" ? data.payeeName : null,
   };
+}
+
+export async function prepareFoodManualPayment(client: SupabaseClient, orderId: string) {
+  const { data, error } = await client.functions.invoke("food-stripe-cancel", {
+    body: { orderId },
+  });
+  if (error) throw new Error(error.message);
+  const payload = data as { cancelled?: unknown; error?: unknown } | null;
+  if (payload?.error === "stripe_payment_already_completed") {
+    throw new Error("Stripe ชำระเงินสำเร็จแล้ว ไม่สามารถเปลี่ยนเป็นสลิปได้");
+  }
+  return payload?.cancelled === true;
 }
 
 export async function submitFoodPayment(

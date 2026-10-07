@@ -27,6 +27,7 @@ import {
   markAllMerchantNotificationsRead,
   markMerchantNotificationRead,
   replyMerchantStoreReview,
+  requestStripeRefund,
   setMerchantRefundStatus,
   updateMerchantStaff,
   type MerchantActivity,
@@ -445,8 +446,13 @@ export function RefundControls({
   const run = async (next: "pending" | "refunded" | "failed", success: string) => {
     setBusy(true);
     try {
-      await setMerchantRefundStatus(client, order.id, next, note);
-      onMessage(success);
+      if (next === "refunded" && order.payment_provider === "stripe") {
+        await requestStripeRefund(client, order.id, note);
+        onMessage("ส่งคำขอคืนเงินผ่าน Stripe แล้ว ระบบจะยืนยันสถานะอัตโนมัติ");
+      } else {
+        await setMerchantRefundStatus(client, order.id, next, note);
+        onMessage(success);
+      }
       onReload();
     } catch (error) {
       onMessage(error instanceof Error ? error.message : "อัปเดตการคืนเงินไม่สำเร็จ");
@@ -487,7 +493,7 @@ export function RefundControls({
               </button>
             )}
             <button className="wm-primary" type="button" disabled={busy} onClick={() => void run("refunded", "ยืนยันคืนเงินแล้ว")}>
-              ยืนยันคืนเงินแล้ว
+              {order.payment_provider === "stripe" ? "คืนเงินผ่าน Stripe" : "ยืนยันคืนเงินแล้ว"}
             </button>
           </div>
         </>

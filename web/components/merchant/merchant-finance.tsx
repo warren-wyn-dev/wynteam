@@ -192,6 +192,7 @@ function PaymentChannels({ store, onEditStore }: { store: FoodStore; onEditStore
     return digits ? `••••${digits.slice(-4)}` : "";
   };
   const channels = [
+    store.stripe_payments_enabled ? "Stripe · ยืนยันอัตโนมัติ" : null,
     store.promptpay_id ? `PromptPay ${store.promptpay_name ?? ""} ${last4(store.promptpay_id)}`.trim() : null,
     store.bank_account_number ? `${store.bank_name ?? "บัญชีธนาคาร"} ${last4(store.bank_account_number)}` : null,
     store.payment_qr_path ? "QR รับเงิน" : null,

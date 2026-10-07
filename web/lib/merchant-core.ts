@@ -39,6 +39,16 @@ export type MerchantStoreReadiness = {
   missing: string[];
 };
 
+export type MerchantStripeStatus = {
+  connected: boolean;
+  status: "not_connected" | "onboarding" | "pending" | "ready" | "restricted";
+  details_submitted?: boolean;
+  charges_enabled?: boolean;
+  payouts_enabled?: boolean;
+  promptpay_enabled?: boolean;
+  last_synced_at?: string | null;
+};
+
 export type MerchantStoreReview = {
   id: string;
   rating: number;
@@ -220,6 +230,49 @@ export async function setMerchantStorePublished(
   }
   const { error } = await client.from("food_stores").update({ is_published: published }).eq("id", storeId);
   if (error) throw new Error(error.message);
+}
+
+export async function fetchMerchantStripeStatus(client: SupabaseClient, storeId: string): Promise<MerchantStripeStatus> {
+  const { data, error } = await client.rpc("merchant_stripe_status", { p_store_id: storeId });
+  if (error) throw new Error(error.message);
+  return (data ?? { connected: false, status: "not_connected" }) as MerchantStripeStatus;
+}
+
+export async function startMerchantStripeOnboarding(client: SupabaseClient, storeId: string) {
+  const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
+    body: { storeId, action: "onboard" },
+  });
+  if (error) throw new Error(error.message);
+  const payload = data as (MerchantStripeStatus & { url?: unknown; error?: unknown; message?: unknown }) | null;
+  if (payload?.status === "ready") return { status: payload, url: null as string | null };
+  if (!payload || typeof payload.url !== "string") {
+    throw new Error(typeof payload?.message === "string" ? payload.message : "เปิด Stripe Connect ไม่สำเร็จ");
+  }
+  return { status: payload, url: payload.url };
+}
+
+export async function refreshMerchantStripeStatus(client: SupabaseClient, storeId: string): Promise<MerchantStripeStatus> {
+  const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
+    body: { storeId, action: "status" },
+  });
+  if (error) throw new Error(error.message);
+  const payload = data as (MerchantStripeStatus & { error?: unknown; message?: unknown }) | null;
+  if (!payload || typeof payload.status !== "string") {
+    throw new Error(typeof payload?.message === "string" ? payload.message : "ตรวจสถานะ Stripe ไม่สำเร็จ");
+  }
+  return payload;
+}
+
+export async function requestStripeRefund(client: SupabaseClient, orderId: string, note?: string) {
+  const { data, error } = await client.functions.invoke("merchant-stripe-refund", {
+    body: { orderId, note: note?.trim() || null },
+  });
+  if (error) throw new Error(error.message);
+  const payload = data as { status?: unknown; error?: unknown; message?: unknown } | null;
+  if (!payload || typeof payload.status !== "string") {
+    throw new Error(typeof payload?.message === "string" ? payload.message : "ขอคืนเงินผ่าน Stripe ไม่สำเร็จ");
+  }
+  return String(payload.status);
 }
 
 export async function setMerchantRefundStatus(

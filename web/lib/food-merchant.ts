@@ -46,6 +46,7 @@ export type FoodStore = {
   bank_account_name: string | null;
   bank_account_number: string | null;
   payment_qr_path: string | null;
+  stripe_payments_enabled?: boolean;
   scheduled_orders_enabled?: boolean;
   scheduled_min_notice_minutes?: number;
   scheduled_max_days?: number;
@@ -142,6 +143,9 @@ export type FoodOrder = {
   payment_transaction_ref: string | null;
   payment_verified_at: string | null;
   payment_verification_note: string | null;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_refund_id?: string | null;
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
