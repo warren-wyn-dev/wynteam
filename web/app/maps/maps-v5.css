@@ -1,0 +1,632 @@
+/*
+ * WYNOS Maps v5 — premium minimal standalone polish.
+ * Visual-only override loaded after v4. Keeps the existing Maps/Food/Routing
+ * behaviour intact while making the standalone map calmer and easier to scan.
+ */
+.wynos-maps-page {
+  --wynos-maps-red: #ff3b30;
+  --wynos-maps-red-dark: #d70015;
+  --wynos-maps-location-blue: #0a84ff;
+
+  --m-text: #1d1d1f;
+  --m-text-2: #6e6e73;
+  --m-glass: rgb(255 255 255 / 88%);
+  --m-glass-solid: #ffffff;
+  --m-glass-edge: rgb(0 0 0 / 5%);
+  --m-sheet: rgb(255 255 255 / 96%);
+  --m-fill: #f2f2f7;
+  --m-card: #ffffff;
+  --m-separator: rgb(60 60 67 / 12%);
+  --m-handle: rgb(60 60 67 / 24%);
+  --m-primary: var(--wynos-maps-red);
+  --m-on-primary: #ffffff;
+  --m-pin: var(--wynos-maps-red);
+  --m-pin-core: #ffffff;
+  --m-shadow: 0 2px 10px rgb(0 0 0 / 8%), 0 12px 32px rgb(0 0 0 / 7%);
+  --m-blur: blur(24px) saturate(180%);
+
+  background: #f5f5f7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wynos-maps-page {
+    --m-text: #f5f5f7;
+    --m-text-2: #a1a1a6;
+    --m-glass: rgb(28 28 30 / 86%);
+    --m-glass-solid: #1c1c1e;
+    --m-glass-edge: rgb(255 255 255 / 8%);
+    --m-sheet: rgb(28 28 30 / 96%);
+    --m-fill: #2c2c2e;
+    --m-card: #2c2c2e;
+    --m-separator: rgb(84 84 88 / 56%);
+    --m-handle: rgb(235 235 245 / 28%);
+    --m-on-primary: #ffffff;
+    background: #000;
+  }
+}
+
+:root[data-theme="dark"] .wynos-maps-page {
+  --m-text: #f5f5f7;
+  --m-text-2: #a1a1a6;
+  --m-glass: rgb(28 28 30 / 86%);
+  --m-glass-solid: #1c1c1e;
+  --m-glass-edge: rgb(255 255 255 / 8%);
+  --m-sheet: rgb(28 28 30 / 96%);
+  --m-fill: #2c2c2e;
+  --m-card: #2c2c2e;
+  --m-separator: rgb(84 84 88 / 56%);
+  --m-handle: rgb(235 235 245 / 28%);
+  --m-on-primary: #ffffff;
+  background: #000;
+}
+
+/* Full-screen map stays the hero. */
+.wynos-maps-page .wf-map-picker,
+.wynos-maps-page .wf-map-canvas-wrap {
+  background: #f5f5f7;
+}
+
+.wynos-maps-page .wf-map-picker-head {
+  top: calc(env(safe-area-inset-top) + 12px);
+  left: 12px;
+}
+
+.wynos-maps-page .wf-map-picker-head > button,
+.wynos-maps-page .wf-map-current {
+  width: 46px;
+  height: 46px;
+  min-height: 46px;
+  border: 1px solid var(--m-glass-edge);
+  border-radius: 50%;
+  background: var(--m-glass);
+  color: var(--m-text);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 9%);
+  backdrop-filter: var(--m-blur);
+  -webkit-backdrop-filter: var(--m-blur);
+}
+
+.wynos-maps-page .wf-map-picker-head > button:active,
+.wynos-maps-page .wf-map-current:active,
+.wynos-maps-page .wf-map-attribution-button:active {
+  transform: scale(.96);
+}
+
+.wynos-maps-page .wf-map-current,
+.wynos-maps-page .wf-map-current.is-active {
+  top: calc(env(safe-area-inset-top) + 12px);
+  right: 12px;
+  color: var(--m-text);
+}
+
+.wynos-maps-page .wf-map-current.is-active {
+  color: var(--wynos-maps-location-blue);
+}
+
+/* Search: one quiet, premium glass pill; no heavy outline. */
+.wynos-maps-page .wf-map-floating-search {
+  top: calc(env(safe-area-inset-top) + 12px);
+  left: 66px;
+  right: 66px;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-search {
+  min-height: 46px;
+  padding: 0 5px 0 14px;
+  border: 1px solid var(--m-glass-edge);
+  border-radius: 17px;
+  background: var(--m-glass);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 9%);
+  backdrop-filter: var(--m-blur);
+  -webkit-backdrop-filter: var(--m-blur);
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-search:focus-within {
+  background: var(--m-glass-solid);
+  box-shadow: 0 3px 14px rgb(0 0 0 / 12%);
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-search input {
+  height: 44px;
+  color: var(--m-text);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-search input::placeholder {
+  color: var(--m-text-2);
+  opacity: .88;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-search > svg {
+  color: var(--m-text-2);
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-search > button:not(.wf-map-search-cancel) {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--wynos-maps-red);
+  color: #fff;
+  box-shadow: none;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-search-cancel {
+  color: var(--m-text);
+  font-weight: 550;
+}
+
+/* Category chips are small and familiar. Red is reserved for the chosen filter. */
+.wynos-maps-page .wf-map-floating-search .wf-map-quick-filters {
+  margin-top: 8px;
+  gap: 7px;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-quick-filters button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--m-glass-edge);
+  border-radius: 17px;
+  background: var(--m-glass);
+  color: var(--m-text);
+  gap: 6px;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 7%);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-quick-filters button svg {
+  color: var(--m-text-2);
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-quick-filters button.is-active {
+  background: var(--wynos-maps-red);
+  color: #fff;
+  border-color: transparent;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-quick-filters button.is-active svg {
+  color: #fff;
+}
+
+/* Search results read like an iOS list rather than a floating dashboard. */
+.wynos-maps-page .wf-map-floating-search .wf-map-results,
+.wynos-maps-page .wf-map-floating-search .wf-map-recents,
+.wynos-maps-page .wf-map-floating-search .wf-map-saved-places,
+.wynos-maps-page .wf-map-floating-search .wf-map-search-status {
+  margin-top: 8px;
+  border: 1px solid var(--m-glass-edge);
+  border-radius: 18px;
+  background: var(--m-glass-solid);
+  box-shadow: 0 10px 34px rgb(0 0 0 / 13%);
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-results button {
+  min-height: 62px;
+  padding: 11px 14px;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-results strong {
+  color: var(--m-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-results small {
+  color: var(--m-text-2);
+  font-size: 12.5px;
+}
+
+/* Keep service information visible but secondary, below the search row. */
+.wynos-maps-page .wf-map-service-area {
+  top: calc(env(safe-area-inset-top) + 104px);
+  min-height: 31px;
+  padding: 5px 10px;
+  border-radius: 15px;
+  background: var(--m-glass);
+  box-shadow: 0 1px 8px rgb(0 0 0 / 7%);
+}
+
+.wynos-maps-page .wf-map-service-area strong {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.wynos-maps-page .wf-map-service-area small {
+  color: var(--m-text-2);
+}
+
+.wynos-maps-page .wf-map-service-area-dot {
+  background: var(--wynos-maps-red);
+  box-shadow: 0 0 0 4px rgb(255 59 48 / 10%);
+}
+
+/* De-emphasised POIs: mostly white dots, with category colour only in the glyph.
+   The selected place becomes the unmistakable WYNOS-red destination. */
+.wynos-maps-page .wf-map-place-marker {
+  width: 28px;
+  height: 28px;
+}
+
+.wynos-maps-page .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-food .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-cafe .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-shop .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-building .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-pickup .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-place .wf-map-place-dot {
+  width: 25px;
+  height: 25px;
+  border: 1.5px solid #fff;
+  background: rgb(255 255 255 / 96%);
+  color: #6e6e73;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 16%);
+}
+
+.wynos-maps-page .wf-map-place-marker.is-food .wf-map-place-dot { color: #ff6b35; }
+.wynos-maps-page .wf-map-place-marker.is-cafe .wf-map-place-dot { color: #8e6b4f; }
+.wynos-maps-page .wf-map-place-marker.is-shop .wf-map-place-dot { color: #4c6fff; }
+.wynos-maps-page .wf-map-place-marker.is-pickup .wf-map-place-dot { color: #34a853; }
+.wynos-maps-page .wf-map-place-marker.is-building .wf-map-place-dot { color: #737b86; }
+
+.wynos-maps-page .wf-map-place-marker.is-merchant:not(.is-selected) .wf-map-place-dot {
+  background: #fff;
+  color: var(--wynos-maps-red);
+}
+
+.wynos-maps-page .wf-map-place-marker.is-selected .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-selected.is-food .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-selected.is-cafe .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-selected.is-building .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-selected.is-shop .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-selected.is-pickup .wf-map-place-dot,
+.wynos-maps-page .wf-map-place-marker.is-selected.is-place .wf-map-place-dot {
+  background: var(--wynos-maps-red);
+  color: #fff;
+  border-color: #fff;
+  box-shadow: 0 0 0 5px rgb(255 59 48 / 12%), 0 4px 12px rgb(0 0 0 / 16%);
+}
+
+.wynos-maps-page .wf-map-place-marker.is-selected .wf-map-place-label {
+  border: 0;
+  border-radius: 10px;
+  background: var(--m-glass-solid);
+  color: var(--m-text);
+  font-size: 10px;
+  font-weight: 650;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 11%);
+}
+
+/* Location and destination remain instantly recognisable. */
+.wynos-maps-page .wf-map-user-location {
+  background: var(--wynos-maps-location-blue);
+  box-shadow: 0 1px 5px rgb(0 0 0 / 24%);
+}
+
+.wynos-maps-page .wf-map-center-pin {
+  color: var(--wynos-maps-red);
+  filter: drop-shadow(0 6px 9px rgb(0 0 0 / 18%));
+}
+
+.wynos-maps-page .wf-map-center-pin.is-dragging {
+  filter: drop-shadow(0 14px 14px rgb(0 0 0 / 18%));
+}
+
+/* Secondary controls stay tiny so the map never feels like a control panel. */
+.wynos-maps-page .wf-map-attribution {
+  top: calc(env(safe-area-inset-top) + 68px);
+  right: 17px;
+}
+
+.wynos-maps-page .wf-map-attribution-button {
+  width: 34px;
+  height: 34px;
+  background: var(--m-glass);
+  color: var(--m-text-2);
+  box-shadow: 0 1px 7px rgb(0 0 0 / 8%);
+}
+
+.wynos-maps-page .wf-map-zoom-control {
+  top: calc(env(safe-area-inset-top) + 112px);
+  border-radius: 14px;
+  background: var(--m-glass);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 8%);
+}
+
+/* Bottom sheet: broad radius, light separators and one obvious primary action. */
+.wynos-maps-page .wf-map-sheet {
+  padding: 0 16px calc(14px + env(safe-area-inset-bottom));
+  border: 1px solid var(--m-glass-edge);
+  border-bottom: 0;
+  border-radius: 26px 26px 0 0;
+  background: var(--m-sheet);
+  box-shadow: 0 -1px 0 rgb(255 255 255 / 50%), 0 -10px 34px rgb(0 0 0 / 11%);
+  backdrop-filter: var(--m-blur);
+  -webkit-backdrop-filter: var(--m-blur);
+}
+
+.wynos-maps-page .wf-map-sheet.is-peek {
+  max-height: calc(88px + env(safe-area-inset-bottom));
+}
+
+.wynos-maps-page .wf-map-sheet.is-half {
+  max-height: calc(292px + env(safe-area-inset-bottom));
+}
+
+.wynos-maps-page .wf-map-sheet.is-full,
+.wynos-maps-page .wf-map-sheet.is-expanded {
+  max-height: calc(100dvh - env(safe-area-inset-top) - 70px);
+}
+
+.wynos-maps-page .wf-map-sheet-handle {
+  height: 22px;
+}
+
+.wynos-maps-page .wf-map-sheet-handle > span {
+  width: 34px;
+  height: 5px;
+  background: var(--m-handle);
+}
+
+.wynos-maps-page .wf-map-confirm-copy {
+  min-height: 50px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 11px;
+}
+
+.wynos-maps-page .wf-map-confirm-copy > span {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--m-fill);
+  color: var(--wynos-maps-red);
+}
+
+.wynos-maps-page .wf-map-confirm-copy small {
+  color: var(--m-text-2);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.wynos-maps-page .wf-map-confirm-copy strong {
+  color: var(--m-text);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -.015em;
+}
+
+.wynos-maps-page .wf-map-confirm-address {
+  color: var(--m-text-2);
+  font-size: 12.5px;
+}
+
+.wynos-maps-page .wf-map-confirm .wf-primary {
+  min-height: 50px;
+  border: 0;
+  border-radius: 15px;
+  background: var(--wynos-maps-red);
+  color: #fff;
+  box-shadow: none;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.wynos-maps-page .wf-map-confirm .wf-primary:active,
+.wynos-maps-page .wf-map-start-navigation:active,
+.wynos-maps-page .wf-map-place-actions .wf-map-food-action:active {
+  background: var(--wynos-maps-red-dark);
+  transform: scale(.99);
+}
+
+/* Place card hierarchy: title first, secondary details quiet, actions simple. */
+.wynos-maps-page .wf-map-place-card {
+  padding: 14px 42px 14px 14px;
+  border: 1px solid var(--m-separator);
+  border-radius: 18px;
+  background: var(--m-card);
+  box-shadow: none;
+}
+
+.wynos-maps-page .wf-map-place-copy > strong {
+  font-size: 17px;
+  font-weight: 680;
+  letter-spacing: -.015em;
+}
+
+.wynos-maps-page .wf-map-place-copy > small,
+.wynos-maps-page .wf-map-place-copy > p,
+.wynos-maps-page .wf-map-place-copy > em {
+  color: var(--m-text-2);
+}
+
+.wynos-maps-page .wf-map-place-icon,
+.wynos-maps-page .wf-map-place-icon.is-food {
+  background: var(--m-fill);
+  color: var(--wynos-maps-red);
+}
+
+.wynos-maps-page .wf-map-place-actions > button {
+  background: var(--m-fill);
+  color: var(--m-text);
+}
+
+.wynos-maps-page .wf-map-place-actions .wf-map-food-action {
+  background: var(--wynos-maps-red);
+  color: #fff;
+}
+
+.wynos-maps-page .wf-map-food-badge {
+  background: rgb(255 59 48 / 9%);
+  color: var(--wynos-maps-red-dark);
+}
+
+/* Directions: route is blue, call-to-action is WYNOS red. */
+.wynos-maps-page .wf-map-directions {
+  padding: 13px;
+  border: 1px solid var(--m-separator);
+  border-radius: 17px;
+  background: var(--m-card);
+}
+
+.wynos-maps-page .wf-map-directions-head > span {
+  background: rgb(10 132 255 / 11%);
+  color: var(--wynos-maps-location-blue);
+}
+
+.wynos-maps-page .wf-map-route-modes button {
+  min-height: 38px;
+  border-radius: 12px;
+  background: var(--m-fill);
+  font-weight: 600;
+}
+
+.wynos-maps-page .wf-map-route-modes button.is-active {
+  background: var(--wynos-maps-location-blue);
+  color: #fff;
+}
+
+.wynos-maps-page .wf-map-route-summary strong,
+.wynos-maps-page .wf-map-route-alternatives button.is-active strong {
+  color: var(--wynos-maps-location-blue);
+}
+
+.wynos-maps-page .wf-map-start-navigation {
+  min-height: 48px;
+  border-radius: 14px;
+  background: var(--wynos-maps-red);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+/* Navigation is deliberately sparse: one dark instruction card + one bottom card. */
+.wynos-maps-page .wf-map-picker.is-navigating .wf-map-navigation-top {
+  top: calc(env(safe-area-inset-top) + 12px);
+  min-height: 96px;
+  padding: 13px 15px;
+  border: 0;
+  border-radius: 19px;
+  background: rgb(28 28 30 / 94%);
+  color: #fff;
+  box-shadow: 0 10px 34px rgb(0 0 0 / 22%);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+
+.wynos-maps-page .wf-map-navigation-top small {
+  color: rgb(235 235 245 / 72%);
+}
+
+.wynos-maps-page .wf-map-navigation-top strong {
+  color: #fff;
+  font-weight: 750;
+}
+
+.wynos-maps-page .wf-map-navigation-top span {
+  color: #fff;
+}
+
+.wynos-maps-page .wf-map-picker.is-navigating .wf-map-navigation-bottom {
+  border: 1px solid var(--m-glass-edge);
+  border-radius: 19px;
+  background: var(--m-glass);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 14%);
+}
+
+.wynos-maps-page .wf-map-navigation-bottom > div strong {
+  color: var(--m-text);
+}
+
+.wynos-maps-page .wf-map-navigation-bottom > button.is-stop {
+  background: var(--wynos-maps-red);
+  color: #fff;
+}
+
+/* Toasts should feel native rather than promotional. */
+.wynos-maps-saved {
+  min-height: 42px;
+  padding: 0 15px;
+  border-radius: 21px;
+  background: rgb(28 28 30 / 92%);
+  color: #fff;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 20%);
+  font-size: 12px;
+  font-weight: 600;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.wynos-maps-saved svg {
+  color: #30d158;
+}
+
+@media (max-width: 767px) {
+  .wynos-maps-page .wf-map-zoom-control {
+    display: none;
+  }
+
+  .wynos-maps-page .wf-map-service-area {
+    max-width: calc(100% - 28px);
+  }
+}
+
+@media (max-width: 430px) {
+  .wynos-maps-page .wf-map-floating-search {
+    left: 64px;
+    right: 64px;
+  }
+
+  .wynos-maps-page .wf-map-floating-search .wf-map-search {
+    padding-left: 12px;
+  }
+
+  .wynos-maps-page .wf-map-floating-search .wf-map-search > button:not(.wf-map-search-cancel) {
+    padding: 0 9px;
+  }
+
+  .wynos-maps-page .wf-map-service-area {
+    top: calc(env(safe-area-inset-top) + 101px);
+  }
+}
+
+@media (min-width: 768px) {
+  .wynos-maps-page .wf-map-floating-search {
+    left: 78px;
+    right: auto;
+    width: min(560px, calc(100vw - 172px));
+  }
+
+  .wynos-maps-page .wf-map-sheet {
+    left: 18px;
+    right: auto;
+    bottom: 18px;
+    width: min(440px, calc(100vw - 36px));
+    border: 1px solid var(--m-glass-edge);
+    border-radius: 26px;
+    padding-bottom: 16px;
+  }
+
+  .wynos-maps-page .wf-map-sheet.is-half {
+    max-height: min(420px, calc(100dvh - 120px));
+  }
+
+  .wynos-maps-page .wf-map-sheet.is-full,
+  .wynos-maps-page .wf-map-sheet.is-expanded {
+    max-height: min(720px, calc(100dvh - 36px));
+  }
+
+  .wynos-maps-page .wf-map-service-area {
+    top: calc(env(safe-area-inset-top) + 72px);
+    left: 78px;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wynos-maps-page .wf-map-picker-head > button,
+  .wynos-maps-page .wf-map-current,
+  .wynos-maps-page .wf-map-attribution-button,
+  .wynos-maps-page .wf-map-confirm .wf-primary,
+  .wynos-maps-page .wf-map-start-navigation {
+    transition: transform .16s ease, background .16s ease, color .16s ease, box-shadow .16s ease;
+  }
+}
