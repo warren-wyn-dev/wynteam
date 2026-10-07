@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, Briefcase, Building2, Check, Clock, Coffee, Home, ImagePlus, Info, LocateFixed, MapPin, Minus, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
+import { ArrowLeft, Briefcase, Building2, Check, Clock, Coffee, Home, ImagePlus, Info, LocateFixed, MapPin, Minus, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -42,6 +42,7 @@ import {
   rememberRecentPlace,
   type MapsRecentPlace,
 } from "@/lib/maps-places";
+import { formatRouteDistance, formatRouteDuration, parseWynosRoute, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -77,11 +78,32 @@ type ServiceAreaFeature = {
   };
 };
 
+type RouteLineFeature = {
+  type: "Feature";
+  properties: {
+    mode: MapsTravelMode;
+  };
+  geometry: {
+    type: "LineString";
+    coordinates: Array<[number, number]>;
+  };
+};
+
+type RouteTarget = {
+  name: string;
+  latitude: number;
+  longitude: number;
+};
+
 type MapInstance = {
   getCenter: () => MapCenter;
   getZoom: () => number;
   project: (location: [number, number]) => MapPoint;
   flyTo: (options: { center: [number, number]; zoom?: number; essential?: boolean }) => void;
+  fitBounds: (
+    bounds: [[number, number], [number, number]],
+    options?: { padding?: { top: number; right: number; bottom: number; left: number }; maxZoom?: number; duration?: number },
+  ) => void;
   on: (event: string, handler: (event?: unknown) => void) => void;
   off: (event: string, handler: (event?: unknown) => void) => void;
   remove: () => void;
@@ -89,7 +111,9 @@ type MapInstance = {
   setStyle: (style: MapStyle) => void;
   getSource: (id: string) => unknown;
   getLayer: (id: string) => unknown;
-  addSource: (id: string, source: { type: "geojson"; data: ServiceAreaFeature }) => void;
+  addSource: (id: string, source: { type: "geojson"; data: ServiceAreaFeature | RouteLineFeature }) => void;
+  removeLayer: (id: string) => void;
+  removeSource: (id: string) => void;
   addLayer: (layer: {
     id: string;
     type: "fill" | "line";
@@ -134,6 +158,8 @@ const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";
 const SERVICE_AREA_SOURCE = "wynos-food-service-area";
 const SERVICE_AREA_FILL_LAYER = "wynos-food-service-area-fill";
 const SERVICE_AREA_LINE_LAYER = "wynos-food-service-area-line";
+const ROUTE_SOURCE = "wynos-maps-route";
+const ROUTE_LINE_LAYER = "wynos-maps-route-line";
 const FALLBACK_MAP_STYLE: MapStyle = {
   version: 8,
   sources: {
@@ -384,6 +410,12 @@ export function FoodDeliveryMapPicker({
   const reverseTimerRef = useRef<number | null>(null);
   const reverseRequestRef = useRef(0);
   const nearbyRequestRef = useRef(0);
+  const routeRequestRef = useRef(0);
+  const routeOriginRef = useRef<{
+    location: FoodLocation;
+    targetKey: string;
+    capturedAt: number;
+  } | null>(null);
   const nearbyMarkersRef = useRef<MarkerInstance[]>([]);
   const userLocationMarkerRef = useRef<MarkerInstance | null>(null);
   const entranceMarkerRef = useRef<MarkerInstance | null>(null);
@@ -444,6 +476,11 @@ export function FoodDeliveryMapPicker({
   const [mapDragging, setMapDragging] = useState(false);
   const [mapStyleRevision, setMapStyleRevision] = useState(0);
   const [serviceAreaBoundary, setServiceAreaBoundary] = useState<ServiceAreaFeature | null>(null);
+  const [directionsTarget, setDirectionsTarget] = useState<RouteTarget | null>(null);
+  const [routeMode, setRouteMode] = useState<MapsTravelMode>("motorcycle");
+  const [route, setRoute] = useState<MapsRoute | null>(null);
+  const [routeWorking, setRouteWorking] = useState(false);
+  const [routeStatus, setRouteStatus] = useState("");
 
   const serviceAreaState = standalone && location && serviceAreaBoundary
     ? (pointInServiceArea(location, serviceAreaBoundary) ? "inside" : "outside")
@@ -504,6 +541,77 @@ export function FoodDeliveryMapPicker({
       setWorking(false);
     }
   }, [moveTo, reverse]);
+
+  const clearRoute = useCallback(() => {
+    routeRequestRef.current += 1;
+    setDirectionsTarget(null);
+    setRoute(null);
+    setRouteStatus("");
+    setRouteWorking(false);
+  }, []);
+
+  const requestRoute = useCallback(async (target: RouteTarget, mode: MapsTravelMode = routeMode) => {
+    if (!standalone) return;
+    const requestId = ++routeRequestRef.current;
+    setDirectionsTarget(target);
+    setRouteMode(mode);
+    setRoute(null);
+    setRouteStatus("");
+    setRouteWorking(true);
+    searchRequestRef.current += 1;
+    setSearching(false);
+    setSearchFocused(false);
+    setSearchStatus("");
+    setResults([]);
+    setSheetDetent("half");
+
+    try {
+      const targetKey = `${target.latitude.toFixed(6)},${target.longitude.toFixed(6)}`;
+      const cachedOrigin = routeOriginRef.current;
+      const canReuseOrigin = cachedOrigin
+        && cachedOrigin.targetKey === targetKey
+        && Date.now() - cachedOrigin.capturedAt <= 30_000;
+      const origin = canReuseOrigin ? cachedOrigin.location : await currentFoodLocation();
+      if (routeRequestRef.current !== requestId) return;
+      if (!canReuseOrigin) {
+        routeOriginRef.current = { location: origin, targetKey, capturedAt: Date.now() };
+        setUserLocation(origin);
+      }
+
+      const response = await fetch("/api/maps/route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locations: [
+            { lat: origin.latitude, lon: origin.longitude },
+            { lat: target.latitude, lon: target.longitude },
+          ],
+          costing: mode,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as unknown;
+      if (routeRequestRef.current !== requestId) return;
+      if (!response.ok) {
+        const error = payload && typeof payload === "object" && "error" in payload
+          ? String((payload as { error?: unknown }).error ?? "")
+          : "";
+        if (response.status === 503 || error === "WYNOS_ROUTING_NOT_CONFIGURED") {
+          throw new Error("ระบบเส้นทางของ WYNOS Maps ยังไม่พร้อมใช้งาน");
+        }
+        throw new Error("คำนวณเส้นทางไม่สำเร็จ กรุณาลองใหม่");
+      }
+
+      const parsed = parseWynosRoute(payload, mode);
+      if (!parsed) throw new Error("ยังไม่พบเส้นทางที่เหมาะสม");
+      setRoute(parsed);
+      setActiveNearbyPlace(null);
+    } catch (error) {
+      if (routeRequestRef.current !== requestId) return;
+      setRouteStatus(error instanceof Error ? error.message : "คำนวณเส้นทางไม่สำเร็จ");
+    } finally {
+      if (routeRequestRef.current === requestId) setRouteWorking(false);
+    }
+  }, [routeMode, standalone]);
 
   useEffect(() => {
     if (!standalone) return;
@@ -680,6 +788,7 @@ export function FoodDeliveryMapPicker({
       searchRequestRef.current += 1;
       reverseRequestRef.current += 1;
       nearbyRequestRef.current += 1;
+      routeRequestRef.current += 1;
       nearbyMarkersRef.current.forEach((marker) => marker.remove());
       nearbyMarkersRef.current = [];
       userLocationMarkerRef.current?.remove();
@@ -748,6 +857,55 @@ export function FoodDeliveryMapPicker({
       // The picker remains usable if the optional service-area overlay cannot render.
     }
   }, [mapReady, mapStyleRevision, serviceAreaBoundary, standalone]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!standalone || !mapReady || !map) return;
+
+    if (!route) {
+      try {
+        if (map.getLayer(ROUTE_LINE_LAYER)) map.removeLayer(ROUTE_LINE_LAYER);
+        if (map.getSource(ROUTE_SOURCE)) map.removeSource(ROUTE_SOURCE);
+      } catch {
+        // Route cleanup is optional; a style refresh will also clear it.
+      }
+      return;
+    }
+
+    const feature: RouteLineFeature = {
+      type: "Feature",
+      properties: { mode: route.mode },
+      geometry: { type: "LineString", coordinates: route.coordinates },
+    };
+
+    try {
+      const source = map.getSource(ROUTE_SOURCE) as { setData?: (data: RouteLineFeature) => void } | undefined;
+      if (source?.setData) source.setData(feature);
+      else map.addSource(ROUTE_SOURCE, { type: "geojson", data: feature });
+
+      if (!map.getLayer(ROUTE_LINE_LAYER)) {
+        map.addLayer({
+          id: ROUTE_LINE_LAYER,
+          type: "line",
+          source: ROUTE_SOURCE,
+          paint: {
+            "line-color": "#1a73e8",
+            "line-width": 5,
+            "line-opacity": 0.9,
+          },
+        });
+      }
+
+      const longitudes = route.coordinates.map(([longitude]) => longitude);
+      const latitudes = route.coordinates.map(([, latitude]) => latitude);
+      map.fitBounds(
+        [[Math.min(...longitudes), Math.min(...latitudes)], [Math.max(...longitudes), Math.max(...latitudes)]],
+        { padding: { top: 92, right: 44, bottom: 330, left: 44 }, maxZoom: 16.5, duration: 520 },
+      );
+    } catch {
+      // Keep the route summary usable even if the optional line overlay cannot render.
+    }
+  }, [mapReady, mapStyleRevision, route, standalone]);
 
   useEffect(() => {
     if (!mapReady || !autoLocate || initialLocation || autoLocateRef.current) return;
@@ -1356,7 +1514,7 @@ export function FoodDeliveryMapPicker({
             }}><RefreshCw size={16} /> ลองใหม่</button>
           </div>
         ) : null}
-        <div className={`wf-map-center-pin${mapDragging ? " is-dragging" : ""}${currentLocationSelected ? " is-current-location" : ""}`} aria-hidden="true">
+        <div className={`wf-map-center-pin${mapDragging ? " is-dragging" : ""}${currentLocationSelected ? " is-current-location" : ""}${directionsTarget ? " is-route-active" : ""}`} aria-hidden="true">
           <MapPin size={standalone ? 36 : 42} fill="currentColor" />
         </div>
         {standalone && serviceAreaBoundary ? (
@@ -1455,6 +1613,45 @@ export function FoodDeliveryMapPicker({
         ) : null}
         {standalone ? searchBlock : null}
         <div className="wf-map-sheet-body">
+        {standalone && directionsTarget ? (
+          <div className="wf-map-directions" role="region" aria-label="เส้นทาง">
+            <div className="wf-map-directions-head">
+              <span><Navigation size={18} /></span>
+              <div>
+                <small>จากตำแหน่งของคุณ</small>
+                <strong>{directionsTarget.name}</strong>
+              </div>
+              <button type="button" aria-label="ปิดเส้นทาง" onClick={clearRoute}><X size={16} /></button>
+            </div>
+            <div className="wf-map-route-modes" aria-label="รูปแบบการเดินทาง">
+              {([
+                ["motorcycle", "มอเตอร์ไซค์"],
+                ["auto", "รถยนต์"],
+                ["pedestrian", "เดิน"],
+              ] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={routeMode === mode ? "is-active" : ""}
+                  aria-pressed={routeMode === mode}
+                  disabled={routeWorking}
+                  onClick={() => void requestRoute(directionsTarget, mode)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {routeWorking ? <p className="wf-map-route-status">กำลังคำนวณเส้นทาง…</p> : null}
+            {!routeWorking && route ? (
+              <div className="wf-map-route-summary">
+                <strong>{formatRouteDuration(route.durationSeconds)}</strong>
+                <span>{formatRouteDistance(route.distanceKm)}</span>
+                <small>เวลาโดยประมาณจาก WYNOS Routing</small>
+              </div>
+            ) : null}
+            {!routeWorking && routeStatus ? <p className="wf-map-route-status is-error">{routeStatus}</p> : null}
+          </div>
+        ) : null}
         {activeNearbyPlace ? (
           <article className="wf-map-place-card">
             <button className="wf-map-place-close" type="button" aria-label="ปิดข้อมูลสถานที่" onClick={() => {
@@ -1537,6 +1734,19 @@ export function FoodDeliveryMapPicker({
               </div>
             ) : null}
             <div className="wf-map-place-actions">
+              {standalone ? (
+                <button
+                  type="button"
+                  disabled={routeWorking}
+                  onClick={() => void requestRoute({
+                    name: activeNearbyPlace.name || "สถานที่ที่เลือก",
+                    latitude: activeNearbyPlace.latitude,
+                    longitude: activeNearbyPlace.longitude,
+                  })}
+                >
+                  <Navigation size={15} /> เส้นทาง
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
@@ -1598,6 +1808,19 @@ export function FoodDeliveryMapPicker({
           </div>
           {standalone && location ? (
             <div className="wf-map-confirm-tools">
+              <button
+                type="button"
+                className="wf-map-confirm-share"
+                aria-label="เส้นทางไปตำแหน่งนี้"
+                disabled={routeWorking}
+                onClick={() => void requestRoute({
+                  name: place?.name?.trim() || "ตำแหน่งที่เลือก",
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                })}
+              >
+                <Navigation size={18} />
+              </button>
               {saved.status !== "unavailable" ? (
                 <button
                   type="button"
