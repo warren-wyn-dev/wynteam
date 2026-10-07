@@ -142,22 +142,36 @@ function toLocalMeters(
 export function nearestRoutePosition(
   location: { latitude: number; longitude: number },
   coordinates: Array<[number, number]>,
+  options?: { minProgress?: number; maxProgress?: number },
 ) {
   if (!Number.isFinite(location.latitude) || !Number.isFinite(location.longitude) || coordinates.length < 2) return null;
 
+  const lastSegment = coordinates.length - 2;
+  const minProgress = Number.isFinite(options?.minProgress)
+    ? Math.max(0, Math.min(coordinates.length - 1, options?.minProgress ?? 0))
+    : 0;
+  const maxProgress = Number.isFinite(options?.maxProgress)
+    ? Math.max(minProgress, Math.min(coordinates.length - 1, options?.maxProgress ?? coordinates.length - 1))
+    : coordinates.length - 1;
+  const startSegment = Math.max(0, Math.min(lastSegment, Math.floor(minProgress)));
+  const endSegment = Math.max(startSegment, Math.min(lastSegment, Math.ceil(maxProgress)));
+
   let bestDistanceSquared = Number.POSITIVE_INFINITY;
-  let bestIndex = 0;
+  let bestIndex = startSegment;
   let bestProgress = 0;
 
-  for (let index = 0; index < coordinates.length - 1; index += 1) {
+  for (let index = startSegment; index <= endSegment; index += 1) {
     const start = toLocalMeters(location, coordinates[index]);
     const end = toLocalMeters(location, coordinates[index + 1]);
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const lengthSquared = dx * dx + dy * dy;
-    const progress = lengthSquared > 0
+    let progress = lengthSquared > 0
       ? Math.min(1, Math.max(0, -(start.x * dx + start.y * dy) / lengthSquared))
       : 0;
+    const segmentStart = index;
+    if (segmentStart < minProgress) progress = Math.max(progress, minProgress - segmentStart);
+    if (segmentStart + progress > maxProgress) progress = Math.max(0, maxProgress - segmentStart);
     const x = start.x + dx * progress;
     const y = start.y + dy * progress;
     const distanceSquared = x * x + y * y;
@@ -168,17 +182,24 @@ export function nearestRoutePosition(
     }
   }
 
+  const routeProgress = bestIndex + bestProgress;
   return {
     distanceMeters: Math.sqrt(bestDistanceSquared),
-    shapeIndex: bestProgress >= 0.5 ? bestIndex + 1 : bestIndex,
+    shapeIndex: Math.min(coordinates.length - 1, Math.round(routeProgress)),
+    routeProgress,
     segmentIndex: bestIndex,
     segmentProgress: bestProgress,
   };
 }
 
-export function nextRouteStep(route: MapsRoute, shapeIndex: number) {
+export function nextRouteStep(route: MapsRoute, routeProgress: number) {
   if (!route.steps.length) return null;
-  return route.steps.find((step) => step.endShapeIndex >= shapeIndex) ?? route.steps[route.steps.length - 1] ?? null;
+  let active = route.steps[0] ?? null;
+  for (const step of route.steps) {
+    if (step.beginShapeIndex > routeProgress) break;
+    active = step;
+  }
+  return active;
 }
 
 export function formatRouteDuration(seconds: number) {
