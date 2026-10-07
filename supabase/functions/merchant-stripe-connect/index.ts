@@ -15,8 +15,13 @@ function serviceKey() {
   try { const keys = JSON.parse(raw) as Record<string,string>; return keys.default ?? Object.values(keys)[0] ?? null; }
   catch { return null; }
 }
-function stripeHeaders(secret: string) {
-  return { Authorization: `Basic ${btoa(secret + ":")}`, "Content-Type": "application/x-www-form-urlencoded" };
+function stripeHeaders(secret: string, idempotencyKey?: string) {
+  const headers: Record<string,string> = {
+    Authorization: `Basic ${btoa(secret + ":")}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  return headers;
 }
 async function stripeJson(url: string, init: RequestInit) {
   const response = await fetch(url, init);
@@ -87,7 +92,7 @@ Deno.serve(async (req: Request) => {
       params.set("capabilities[promptpay_payments][requested]", "true");
       params.set("metadata[wynos_store_id]", storeId);
       const account = await stripeJson("https://api.stripe.com/v1/accounts", {
-        method: "POST", headers: stripeHeaders(stripeSecret), body: params,
+        method: "POST", headers: stripeHeaders(stripeSecret, `wynos-connect-${storeId}`), body: params,
       });
       if (typeof account.id !== "string") throw new Error("Stripe account was not created");
       accountId = account.id;
