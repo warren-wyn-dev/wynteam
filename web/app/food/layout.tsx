@@ -6,6 +6,14 @@ import "./food.css";
 const FOOD_ICON_192 = "/icons/food/icon-192-v10.png";
 const FOOD_ICON_512 = "/food/icon-v10?size=512";
 
+const FOOD_WEBSITE_STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "WYNOS Food",
+  alternateName: ["Wynos Food", "WYNOS Food • สั่งอาหาร"],
+  url: "https://food.wynos.online/",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://food.wynos.online"),
   title: "WYNOS Food • สั่งอาหาร",
@@ -80,5 +88,15 @@ export const viewport: Viewport = {
 };
 
 export default function FoodLayout({ children }: { children: ReactNode }) {
-  return children;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(FOOD_WEBSITE_STRUCTURED_DATA).replace(/</g, "\\u003c"),
+        }}
+      />
+      {children}
+    </>
+  );
 }
