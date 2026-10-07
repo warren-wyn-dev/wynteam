@@ -122,6 +122,28 @@ async function fetchBalance(secret: string, accountId: string) {
     return { pending: 0, available: 0 };
   }
 }
+async function fetchPromptPayStatus(secret: string, accountId: string) {
+  try {
+    const payload = await stripeJson(
+      "https://api.stripe.com/v1/payment_method_configurations?active=true&limit=100",
+      { headers: stripeV1Headers(secret, accountId) },
+    );
+    const configs = Array.isArray(payload.data) ? payload.data as Array<Record<string,unknown>> : [];
+    const config = configs.find((item) => item.is_default === true) ?? configs[0];
+    const promptpay = config?.promptpay as Record<string,unknown> | undefined;
+    if (!promptpay) return "unsupported" as const;
+    if (promptpay.available === true) return "active" as const;
+    const display = (promptpay.display_preference ?? {}) as Record<string,unknown>;
+    const effective = stringValue(display.value);
+    const preference = stringValue(display.preference);
+    if (effective === "on" || preference === "on") return "pending" as const;
+    if (effective === "off" || preference === "off") return "inactive" as const;
+    return "unknown" as const;
+  } catch {
+    return "unknown" as const;
+  }
+}
+
 async function fetchPayoutInterval(secret: string, accountId: string) {
   try {
     const payload = await stripeJson("https://api.stripe.com/v1/balance_settings", { headers: stripeV1Headers(secret, accountId) });
@@ -138,16 +160,16 @@ async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret:
     .select("store_id,account_api_version").eq("stripe_account_id", accountId).maybeSingle();
   if (!saved?.store_id) return false;
 
-  const [bank, balance, payoutSchedule] = await Promise.all([
+  const [bank, balance, payoutSchedule, ppStatus] = await Promise.all([
     fetchBank(secret, accountId),
     fetchBalance(secret, accountId),
     fetchPayoutInterval(secret, accountId),
+    fetchPromptPayStatus(secret, accountId),
   ]);
 
   let details = false;
   let charges = false;
   let payouts = false;
-  let ppStatus: "active" | "pending" | "inactive" | "unsupported" | "unrequested" | "unknown" = "unknown";
   let dueCount = 0;
   let restricted = false;
   const accountApi = saved.account_api_version === "v2" ? "v2" : "v1";
@@ -165,7 +187,6 @@ async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret:
     const capabilities = (merchant.capabilities ?? {}) as Record<string,unknown>;
     const card = capabilities.card_payments as Record<string,unknown> | undefined;
     const cardStatus = capabilityStatus(capabilities, "card_payments");
-    ppStatus = promptPayStatus(capabilityStatus(capabilities, "promptpay_payments"));
     const stripeBalance = capabilities.stripe_balance as Record<string,unknown> | undefined;
     const payoutCapability = stripeBalance?.payouts as Record<string,unknown> | undefined;
     const requirements = (account.requirements ?? {}) as Record<string,unknown>;
@@ -179,7 +200,6 @@ async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret:
     const account = await stripeJson(`https://api.stripe.com/v1/accounts/${encodeURIComponent(accountId)}`, {
       headers: stripeV1Headers(secret),
     });
-    const capabilities = (account.capabilities ?? {}) as Record<string,unknown>;
     const requirements = (account.requirements ?? {}) as Record<string,unknown>;
     const dueValues = [
       ...(Array.isArray(requirements.currently_due) ? requirements.currently_due : []),
@@ -189,7 +209,6 @@ async function syncMappedAccount(admin: ReturnType<typeof createClient>, secret:
     details = account.details_submitted === true;
     charges = account.charges_enabled === true;
     payouts = account.payouts_enabled === true;
-    ppStatus = promptPayStatus(capabilities.promptpay_payments);
     restricted = typeof requirements.disabled_reason === "string" && requirements.disabled_reason.length > 0;
   }
 
@@ -229,6 +248,17 @@ async function recordNoop(admin: ReturnType<typeof createClient>, eventId: strin
   if (error) throw error;
   return data === true;
 }
+
+const V2_ACCOUNT_SYNC_EVENTS = new Set([
+  "v2.core.account.created",
+  "v2.core.account.updated",
+  "v2.core.account[configuration.merchant].capability_status_updated",
+  "v2.core.account[configuration.merchant].updated",
+  "v2.core.account[defaults].updated",
+  "v2.core.account[future_requirements].updated",
+  "v2.core.account[identity].updated",
+  "v2.core.account[requirements].updated",
+]);
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -366,10 +396,18 @@ Deno.serve(async (req: Request) => {
     }
   } else if (eventType === "refund.created" || eventType === "refund.updated") {
     if (object.status === "succeeded") {
-      state = "refunded";
       refundId = stringValue(object.id);
       amount = numberValue(object.amount);
+      if (orderId && amount != null) {
+        const { data: order } = await admin.from("food_orders").select("total").eq("id", orderId).maybeSingle();
+        const expected = Math.round(Number(order?.total ?? 0) * 100);
+        state = expected > 0 && amount === expected ? "refunded" : "noop";
+      }
     }
+  } else if (eventType === "refund.failed") {
+    console.warn("stripe refund failed", { eventType, refundId: stringValue(object.id) });
+    state = "noop";
+    refundId = stringValue(object.id);
   }
 
   const { error } = await admin.rpc("food_apply_stripe_event", {
