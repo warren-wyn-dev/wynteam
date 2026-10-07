@@ -63,6 +63,8 @@ jobs:
         run: npm run test:image-location
       - name: Thai / English coverage and Beta2 gate regression
         run: npm run test:i18n
+      - name: Stripe Connect v2 payment regression
+        run: npm run test:stripe
       - name: Web Beta1 club and draft regression
         run: node --test tests/draft-hotfix.test.mjs tests/club-rpc-error.test.mjs
       - name: Production build
