@@ -4,6 +4,32 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "ร้านยังไม่พร้อมรับชำระผ่าน Stripe": "The merchant is not ready to accept Stripe payments yet",
+  "Stripe ยังไม่ได้เปิดใช้งานบน WYNOS": "Stripe is not enabled on WYNOS yet",
+  "ออเดอร์นี้ไม่อยู่ในสถานะที่ชำระผ่าน Stripe ได้": "This order cannot be paid through Stripe in its current status",
+  "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ": "Couldn't open Stripe checkout",
+  "กำลังเปิด Stripe…": "Opening Stripe…",
+  "ชำระผ่านบัตร หรือ PromptPay ที่ Stripe รองรับ · สถานะจะยืนยันอัตโนมัติ": "Pay by card or supported PromptPay through Stripe · status is confirmed automatically",
+  "โอนเงินเข้าบัญชีร้านโดยตรงและแนบสลิปเป็นช่องทางสำรอง": "Pay the merchant directly and attach a slip as a backup payment method",
+  "เปิด Stripe Connect ไม่สำเร็จ": "Couldn't open Stripe Connect",
+  "ตรวจสถานะ Stripe ไม่สำเร็จ": "Couldn't check Stripe status",
+  "ขอคืนเงินผ่าน Stripe ไม่สำเร็จ": "Couldn't request a Stripe refund",
+  "ส่งคำขอคืนเงินผ่าน Stripe แล้ว ระบบจะยืนยันสถานะอัตโนมัติ": "Stripe refund requested. The status will be confirmed automatically",
+  "คืนเงินผ่าน Stripe": "Refund through Stripe",
+  "Stripe · PromptPay · บัญชีธนาคาร · QR": "Stripe · PromptPay · bank account · QR",
+  "Stripe พร้อมรับชำระเงินแล้ว": "Stripe is ready to accept payments",
+  "อัปเดตสถานะ Stripe แล้ว": "Stripe status updated",
+  "Stripe เป็นช่องทางอัตโนมัติ พร้อม PromptPay/บัญชีธนาคารเป็นช่องทางสำรอง": "Stripe is the automatic payment method, with PromptPay/bank transfer as backup",
+  "พร้อมรับชำระอัตโนมัติจาก WYNOS Food": "Ready to accept automatic payments from WYNOS Food",
+  "เชื่อมบัญชีแล้ว แต่ยังตั้งค่าไม่เสร็จ": "Account connected, but setup is not complete",
+  "เชื่อมบัญชี Stripe ของร้านเพื่อรับบัตรและ PromptPay": "Connect the merchant's Stripe account to accept cards and PromptPay",
+  "Stripe พร้อมใช้งาน": "Stripe is ready",
+  "Stripe ต้องการข้อมูลเพิ่มเติม กรุณาดำเนินการต่อใน Stripe": "Stripe needs more information. Please continue in Stripe",
+  "ดำเนินการต่อใน Stripe": "Continue in Stripe",
+  "เชื่อม Stripe": "Connect Stripe",
+  "ตรวจสถานะ": "Check status",
+  "การชำระผ่าน Stripe จะยืนยันจาก Webhook อัตโนมัติ และไม่ต้องแนบสลิป": "Stripe payments are confirmed automatically by webhook and do not require a slip",
+  "Stripe · ยืนยันอัตโนมัติ": "Stripe · automatic confirmation",
   "WYNOS Maps · ปักหมุดที่อยู่": "WYNOS Maps · Pin an address",
   "ปักหมุดตำแหน่งจัดส่งสำหรับ WYNOS Food": "Pin a delivery location for WYNOS Food",
   "เปิด WYNOS Maps ไม่สำเร็จ": "Couldn’t open WYNOS Maps",
@@ -2655,6 +2681,7 @@ Object.assign(EN_EXACT, {
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["ชำระด้วย Stripe · {0}", "Pay with Stripe · {0}"],
   ["หมู่ {0}", "Village {0}"],
   ["ซอย {0}", "Soi {0}"],
   ["ถนน {0}", "Road {0}"],
