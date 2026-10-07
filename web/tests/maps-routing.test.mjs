@@ -43,6 +43,27 @@ test("Valhalla polyline6 decodes longitude/latitude coordinates", () => {
   assert.deepEqual(plain(decodeValhallaPolyline(encode(points))), points);
 });
 
+test("canonical WYNOS route payload is accepted", () => {
+  const route = parseWynosRoute({
+    route: {
+      distanceKm: 2.4,
+      durationSeconds: 300,
+      coordinates: [[100, 13], [100.01, 13.01], [100.02, 13.02]],
+      steps: [{
+        instruction: "Turn right",
+        distanceKm: 1.1,
+        durationSeconds: 140,
+        beginShapeIndex: 1,
+        endShapeIndex: 2,
+      }],
+    },
+  }, "auto");
+  assert.ok(route);
+  assert.equal(route.distanceKm, 2.4);
+  assert.equal(route.steps[0].instruction, "Turn right");
+  assert.deepEqual(plain(route.steps[0].coordinate), [100.01, 13.01]);
+});
+
 test("route response normalizes summary, steps and joined leg shapes", () => {
   const first = [[103.2496, 16.2458], [103.251, 16.2465]];
   const second = [[103.251, 16.2465], [103.255, 16.25]];
