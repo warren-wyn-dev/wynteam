@@ -54,6 +54,15 @@ begin
       from public.food_delivery_zone_pricing z
       where z.effective_from<=now() and (z.effective_to is null or z.effective_to>now())
     ),
+    'settlements',(
+      select coalesce(jsonb_agg(
+        (to_jsonb(ms)-'created_by'-'paid_by') || jsonb_build_object('store_name',s.name)
+        order by ms.created_at desc
+      ),'[]'::jsonb)
+      from public.food_merchant_settlements ms
+      join public.food_stores s on s.id=ms.store_id
+      where ms.created_at>=now()-interval '180 days'
+    ),
     'riders',(
       select coalesce(jsonb_agg(jsonb_build_object(
         'id',r.id,'user_id',r.user_id,'status',r.status,'active',r.active,
