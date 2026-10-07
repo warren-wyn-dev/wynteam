@@ -4,6 +4,15 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "ค่าบริการ": "Service fee",
+  "ค่าคำสั่งซื้อขนาดเล็ก": "Small order fee",
+  "ค่าบริการช่วงความต้องการสูง": "Surge fee",
+  "กำลังเปิด PromptPay…": "Opening PromptPay…",
+  "ชำระผ่าน PromptPay โดย Stripe · สถานะยืนยันจาก Stripe webhook อัตโนมัติ": "Pay with PromptPay through Stripe · status is confirmed automatically by Stripe webhook",
+  "ร้านนี้ยังไม่พร้อมรับ PromptPay ผ่าน Stripe จึงยังไม่สามารถชำระออเดอร์นี้ได้": "This merchant is not ready for PromptPay through Stripe yet, so this order cannot be paid right now",
+  "PromptPay ถูกปิดใช้งานชั่วคราว": "PromptPay is temporarily disabled",
+  "ร้านยังไม่พร้อมรับชำระผ่าน PromptPay": "The merchant is not ready to accept PromptPay yet",
+  "ร้านนี้ถูกระงับการรับชำระเงินชั่วคราว": "Payments for this merchant are temporarily suspended",
   "Stripe ชำระเงินสำเร็จแล้ว ไม่สามารถเปลี่ยนเป็นสลิปได้": "Stripe payment is already complete and cannot be switched to a payment slip",
   "ร้านยังไม่พร้อมรับชำระผ่าน Stripe": "The merchant is not ready to accept Stripe payments yet",
   "Stripe ยังไม่ได้เปิดใช้งานบน WYNOS": "Stripe is not enabled on WYNOS yet",
@@ -2791,6 +2800,7 @@ Object.assign(EN_EXACT, {
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["ชำระด้วย PromptPay · {0}", "Pay with PromptPay · {0}"],
   ["ทางเลือก {0}", "Alternative {0}"],
   ["ชำระด้วย Stripe · {0}", "Pay with Stripe · {0}"],
   ["หมู่ {0}", "Village {0}"],
