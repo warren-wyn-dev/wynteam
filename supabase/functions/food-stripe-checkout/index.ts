@@ -27,12 +27,22 @@ function stripeHeaders(secret: string, account: string, idempotencyKey?: string)
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
   return headers;
 }
+class StripeCheckoutError extends Error {
+  code: string | null;
+  status: number;
+  constructor(code: string | null, status: number) {
+    super("stripe_checkout_failed");
+    this.name = "StripeCheckoutError";
+    this.code = code;
+    this.status = status;
+  }
+}
 async function stripeJson(url: string, init: RequestInit) {
   const response = await fetch(url, init);
   const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
   if (!response.ok) {
     const err = payload.error as Record<string,unknown> | undefined;
-    throw new Error(typeof err?.message === "string" ? err.message : "Stripe request failed");
+    throw new StripeCheckoutError(typeof err?.code === "string" ? err.code : null, response.status);
   }
   return payload;
 }
@@ -125,7 +135,11 @@ Deno.serve(async (req: Request) => {
       body: params,
     });
   } catch (error) {
-    return json({ error: "stripe_checkout_failed", message: error instanceof Error ? error.message : "Stripe request failed" }, 502);
+    console.error("food-stripe-checkout gateway failure", {
+      code: error instanceof StripeCheckoutError ? error.code : "unknown",
+      status: error instanceof StripeCheckoutError ? error.status : 500,
+    });
+    return json({ error: "stripe_checkout_failed", message: "เปิดหน้าชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 502);
   }
 
   if (typeof session.id !== "string" || typeof session.url !== "string") {
