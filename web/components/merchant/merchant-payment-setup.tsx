@@ -209,17 +209,23 @@ export function MerchantPaymentSetup({
     current.searchParams.delete("store");
     window.history.replaceState(window.history.state, "", `${current.pathname}${current.search}${current.hash}`);
 
-    if (stripeReturn === "refresh") {
-      void start(false);
-      return;
-    }
-    setBusy(true);
-    void sync()
-      .then((next) => {
-        onMessage(next.status === "ready" ? "พร้อมรับเงินแล้ว" : "บันทึกข้อมูลแล้ว หากยังมีข้อมูลที่ต้องยืนยันสามารถดำเนินการต่อได้");
-      })
-      .catch(() => onMessage("อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"))
-      .finally(() => setBusy(false));
+    let active = true;
+    const timer = window.setTimeout(() => {
+      if (!active) return;
+      if (stripeReturn === "refresh") {
+        void start(false);
+        return;
+      }
+      setBusy(true);
+      void sync()
+        .then((next) => {
+          if (!active) return;
+          onMessage(next.status === "ready" ? "พร้อมรับเงินแล้ว" : "บันทึกข้อมูลแล้ว หากยังมีข้อมูลที่ต้องยืนยันสามารถดำเนินการต่อได้");
+        })
+        .catch(() => { if (active) onMessage("อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"); })
+        .finally(() => { if (active) setBusy(false); });
+    }, 0);
+    return () => { active = false; window.clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeId]);
 
