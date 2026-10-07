@@ -573,7 +573,7 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   expect(app).toContain("badge={activeOrderCount}");
   expect(app).not.toContain("<h2>ต้องจัดการตอนนี้</h2>");
   // Readiness uses the publish rules (paired payment fields).
-  expect(app).toContain("done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
+  expect(app).toContain("done: store.stripe_payments_enabled === true || (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
   expect(app).toContain("{nextStep && !store.admin_suspended_at ? (");
   // Four bottom tabs; reports, store settings and campaigns live under "เพิ่มเติม".
   expect(app).toContain('label="รับออเดอร์"');
