@@ -61,6 +61,20 @@ test("route response normalizes summary and joins leg shapes", () => {
 test("invalid route payload is rejected", () => {
   assert.equal(parseWynosRoute({}, "auto"), null);
   assert.equal(parseWynosRoute({ trip: { summary: { length: 1, time: 60 }, legs: [{ shape: "?" }] } }, "auto"), null);
+  for (const bad of [null, false, "", "1.2"]) {
+    assert.equal(parseWynosRoute({
+      trip: {
+        summary: { length: bad, time: 60 },
+        legs: [{ shape: encode([[103.2496, 16.2458], [103.251, 16.2465]]) }],
+      },
+    }, "auto"), null);
+    assert.equal(parseWynosRoute({
+      trip: {
+        summary: { length: 1.2, time: bad },
+        legs: [{ shape: encode([[103.2496, 16.2458], [103.251, 16.2465]]) }],
+      },
+    }, "auto"), null);
+  }
 });
 
 test("route labels are concise in Thai", () => {
