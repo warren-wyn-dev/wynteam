@@ -2189,7 +2189,7 @@ Object.assign(EN_EXACT, {
 // WYN-213: public SEO metadata for WYNOS Food and WYNOS Merchant.
 Object.assign(EN_EXACT, {
   "สั่งอาหารออนไลน์": "Order food online",
-  "WYNOS Food | สั่งอาหารออนไลน์": "WYNOS Food | Order food online",
+  "WYNOS Food • สั่งอาหาร": "WYNOS Food • Order food",
   "WYNOS Food (wynosfood) บริการสั่งอาหารออนไลน์จาก WYNOS ค้นหาร้านอาหาร เลือกเมนู และสั่งอาหารผ่าน food.wynos.online": "WYNOS Food (wynosfood), online food ordering from WYNOS. Find restaurants, choose menu items and order at food.wynos.online",
   "สั่งอาหาร": "Order food",
   "บริการสั่งอาหารออนไลน์จาก WYNOS ค้นหาร้านอาหาร เลือกเมนู และสั่งอาหารผ่าน food.wynos.online": "WYNOS online food ordering. Find restaurants, choose menu items and order at food.wynos.online",
