@@ -89,6 +89,39 @@ async function stripeJson(url: string, init: RequestInit) {
   }
   return payload;
 }
+
+async function syncStripeProcessingFee(
+  admin: AdminClient,
+  secret: string,
+  accountId: string,
+  orderId: string,
+  paymentIntentId: string,
+) {
+  try {
+    const query = new URLSearchParams();
+    query.append("expand[]", "latest_charge.balance_transaction");
+    const intent = await stripeJson(
+      `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}?${query.toString()}`,
+      { headers: stripeV1Headers(secret, accountId) },
+    );
+    const charge = intent.latest_charge as Record<string,unknown> | undefined;
+    const balance = charge?.balance_transaction as Record<string,unknown> | undefined;
+    const fee = numberValue(balance?.fee);
+    const balanceId = stringValue(balance?.id);
+    if (fee == null || fee < 0) return;
+    const { error } = await admin.rpc("food_record_stripe_fee", {
+      p_order_id: orderId,
+      p_stripe_account_id: accountId,
+      p_fee_satang: Math.trunc(fee),
+      p_balance_transaction_id: balanceId,
+    });
+    if (error) console.warn("stripe fee ledger update failed", { orderId, code: error.code });
+  } catch {
+    // Fee enrichment is retryable/backfillable and must never make Stripe
+    // retry an otherwise valid payment webhook.
+    console.warn("stripe fee lookup unavailable", { orderId, paymentIntentId });
+  }
+}
 function capabilityStatus(capabilities: Record<string,unknown>, key: string) {
   const value = capabilities[key] as Record<string,unknown> | undefined;
   return stringValue(value?.status);
@@ -395,6 +428,7 @@ Deno.serve(async (req: Request) => {
   let orderId: string | null = null;
   const metadata = (object.metadata ?? {}) as Record<string,unknown>;
   orderId = stringValue(metadata.order_id) ?? stringValue(metadata.wynos_order_id) ?? stringValue(object.client_reference_id);
+  let refundRequestId = stringValue(metadata.wynos_refund_request_id);
   const sessionId = eventType.startsWith("checkout.session.") ? stringValue(object.id) : null;
   let paymentIntentId = stringValue(object.payment_intent);
   if (eventType.startsWith("payment_intent.")) paymentIntentId = stringValue(object.id);
@@ -445,23 +479,22 @@ Deno.serve(async (req: Request) => {
       state = "refunded";
       amount = original;
     }
-  } else if (eventType === "refund.created" || eventType === "refund.updated") {
-    if (object.status === "succeeded") {
-      refundId = stringValue(object.id);
-      amount = numberValue(object.amount);
-      if (orderId && amount != null) {
-        const { data: order } = await admin.from("food_orders").select("total").eq("id", orderId).maybeSingle();
-        const expected = Math.round(Number(order?.total ?? 0) * 100);
-        state = expected > 0 && amount === expected ? "refunded" : "noop";
-      }
-    }
-  } else if (eventType === "refund.failed") {
-    console.warn("stripe refund failed", { eventType, refundId: stringValue(object.id) });
-    state = "noop";
+  } else if (eventType === "refund.created" || eventType === "refund.updated" || eventType === "refund.failed") {
+    // Partial/full refunds are reconciled by the dedicated immutable refund
+    // ledger. The generic payment event remains noop so it cannot overwrite a
+    // partial refund as if the whole order had been refunded.
     refundId = stringValue(object.id);
+    amount = numberValue(object.amount);
+    state = "noop";
+    if (!refundRequestId && refundId) {
+      const { data: savedRefund } = await admin.from("food_refunds")
+        .select("id,order_id").eq("stripe_refund_id", refundId).maybeSingle();
+      refundRequestId = savedRefund?.id ?? null;
+      orderId = orderId ?? savedRefund?.order_id ?? null;
+    }
   }
 
-  const { error } = await admin.rpc("food_apply_stripe_event", {
+  const { data: applied, error } = await admin.rpc("food_apply_stripe_event", {
     p_event_id: eventId,
     p_event_type: eventType,
     p_order_id: orderId,
@@ -477,5 +510,31 @@ Deno.serve(async (req: Request) => {
     p_refund_id: refundId,
   });
   if (error) return json({ error: "event_processing_failed" }, 500);
+  if (applied === false) return json({ received: true, duplicate: true });
+
+  if (refundRequestId && (eventType === "refund.created" || eventType === "refund.updated" || eventType === "refund.failed")) {
+    const rawRefundStatus = stringValue(object.status);
+    const refundStatus = eventType === "refund.failed" || rawRefundStatus === "failed"
+      ? "failed"
+      : rawRefundStatus === "canceled"
+        ? "cancelled"
+        : rawRefundStatus === "succeeded"
+          ? "succeeded"
+          : null;
+    if (refundStatus) {
+      const { error: refundError } = await admin.rpc("food_apply_refund_result", {
+        p_refund_id: refundRequestId,
+        p_stripe_refund_id: refundId,
+        p_status: refundStatus,
+        p_stripe_refund_fee_satang: null,
+      });
+      if (refundError) return json({ error: "refund_reconciliation_failed" }, 500);
+    }
+  }
+
+  if (state === "paid" && orderId && stripeAccountId && paymentIntentId && stripeSecret) {
+    await syncStripeProcessingFee(admin, stripeSecret, stripeAccountId, orderId, paymentIntentId);
+  }
+
   return json({ received: true });
 });
