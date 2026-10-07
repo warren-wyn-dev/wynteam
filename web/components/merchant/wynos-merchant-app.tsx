@@ -50,6 +50,7 @@ import { MerchantStoreTools, RefundControls } from "@/components/merchant/mercha
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { MerchantAds } from "@/components/merchant/merchant-ads";
 import { MerchantFinance } from "@/components/merchant/merchant-finance";
+import { fetchOrderFinancialBreakdown, satangToBaht, type OrderFinancialBreakdown } from "@/lib/merchant-finance";
 import { MerchantPaymentSetup } from "@/components/merchant/merchant-payment-setup";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
@@ -1806,6 +1807,7 @@ function OrderSheet({
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
   const [printMode, setPrintMode] = useState<"receipt" | "address">("receipt");
   const [addressQrUrl, setAddressQrUrl] = useState<string | null>(null);
+  const [financialBreakdown, setFinancialBreakdown] = useState<OrderFinancialBreakdown | null>(null);
 
   const proof = orderDeliveryProof(order);
   const proofPath = proof?.image_path;
@@ -1815,6 +1817,15 @@ function OrderSheet({
     void foodPrivateSignedUrl(client, proofPath).then((url) => { if (live) setProofUrl(url); });
     return () => { live = false; };
   }, [client, order.id, order.payment_slip_path, proofPath]);
+
+  useEffect(() => {
+    let live = true;
+    setFinancialBreakdown(null);
+    void fetchOrderFinancialBreakdown(client, order.id)
+      .then((next) => { if (live) setFinancialBreakdown(next); })
+      .catch(() => { if (live) setFinancialBreakdown(null); });
+    return () => { live = false; };
+  }, [client, order.id, order.updated_at]);
 
   const slipLoaded = slip !== null && slip.path === order.payment_slip_path;
   const slipUrl = slipLoaded ? slip.url : null;
@@ -2044,6 +2055,22 @@ function OrderSheet({
           <div className="is-total"><span>ยอดสุทธิ</span><b>{money(order.total)}</b></div>
         </div>
       </section>
+
+      {financialBreakdown ? (
+        <section className="wm-detail-section">
+          <h3>รายละเอียดรายได้ออเดอร์นี้</h3>
+          <p className="wm-money-note">ตัวเลขจาก Financial Snapshot ของออเดอร์ ไม่เปลี่ยนตามค่าปัจจุบันของร้าน</p>
+          <div className="wm-totals">
+            <div><span>ยอดอาหาร (Gross Sales)</span><b>{money(satangToBaht(financialBreakdown.gross_sales_satang))}</b></div>
+            {financialBreakdown.merchant_discount_satang > 0 ? <div className="is-discount"><span>ส่วนลดที่ร้านรับผิดชอบ</span><b>−{money(satangToBaht(financialBreakdown.merchant_discount_satang))}</b></div> : null}
+            <div className="is-discount"><span>GP / Commission · {(financialBreakdown.gp_bps / 100).toLocaleString("th-TH", { maximumFractionDigits: 2 })}%</span><b>−{money(satangToBaht(financialBreakdown.gp_satang))}</b></div>
+            {financialBreakdown.payment_fees_satang > 0 ? <div className="is-discount"><span>ค่าธรรมเนียมการชำระเงินที่ร้านรับผิดชอบ</span><b>−{money(satangToBaht(financialBreakdown.payment_fees_satang))}</b></div> : null}
+            {financialBreakdown.refunds_satang > 0 ? <div className="is-discount"><span>Refund ที่ร้านรับผิดชอบ</span><b>−{money(satangToBaht(financialBreakdown.refunds_satang))}</b></div> : null}
+            {financialBreakdown.adjustments_satang !== 0 ? <div><span>Adjustment</span><b>{financialBreakdown.adjustments_satang > 0 ? "+" : "−"}{money(Math.abs(satangToBaht(financialBreakdown.adjustments_satang)))}</b></div> : null}
+            <div className="is-total"><span>ร้านได้รับสุทธิ (Merchant Net)</span><b>{money(satangToBaht(financialBreakdown.net_satang))}</b></div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="wm-detail-section">
         <h3>การชำระเงิน</h3>
