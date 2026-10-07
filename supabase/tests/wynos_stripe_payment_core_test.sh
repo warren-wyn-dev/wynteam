@@ -54,6 +54,7 @@ create table public.food_orders(
   store_id uuid,
   buyer_id uuid,
   total numeric(10,2),
+  status text default 'pending',
   payment_status text default 'pending',
   payment_provider text,
   payment_provider_code text,
