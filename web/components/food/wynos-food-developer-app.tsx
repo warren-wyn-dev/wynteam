@@ -101,6 +101,7 @@ import {
   type FoodLocation,
   type FoodPlace,
   saveFoodCustomerAddress,
+  prepareFoodManualPayment,
   startFoodStripeCheckout,
   submitFoodPayment,
   subscribeFoodCustomerOrders,
@@ -2480,6 +2481,7 @@ function OrderDetailSheet({
     }
     setWorking(true);
     try {
+      await prepareFoodManualPayment(client, order.id);
       const path = await uploadFoodPaymentSlip(client, userId, order.id, slipFile);
       const verification = await submitFoodPayment(client, order.id, path);
       onMessage(
