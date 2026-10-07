@@ -15,10 +15,12 @@ test("mobile viewport disables zoom without regressing safe-area layout", async 
 // iOS Safari ignores user-scalable=no for pinch; its gesture events must be cancelled.
 test("iOS pinch-zoom gestures are cancelled", async ({ page }) => {
   await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
-  const cancelled = await page.evaluate(() => ["gesturestart", "gesturechange", "gestureend"].map((type) => {
-    const event = new Event(type, { bubbles: true, cancelable: true });
-    document.body.dispatchEvent(event);
-    return event.defaultPrevented;
-  }));
-  expect(cancelled).toEqual([true, true, true]);
+  await expect.poll(
+    () => page.evaluate(() => ["gesturestart", "gesturechange", "gestureend"].map((type) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      document.body.dispatchEvent(event);
+      return event.defaultPrevented;
+    })),
+    { message: "wait for the client ZoomLock effect to attach iOS gesture listeners" },
+  ).toEqual([true, true, true]);
 });

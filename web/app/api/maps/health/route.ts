@@ -12,5 +12,6 @@ export async function GET() {
     tiles: "https://tiles.wynos.online",
     geo: status.geoConfigured ? "configured" : "pending",
     routing: status.routingConfigured ? "configured" : "pending",
+    routingProvider: status.routingProvider,
   });
 }

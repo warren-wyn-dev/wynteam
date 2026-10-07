@@ -61,6 +61,8 @@ jobs:
         run: npm run test:android-asset-links
       - name: Photo location removal and upload type regression
         run: npm run test:image-location
+      - name: Maps routing and place regression
+        run: npm run test:maps
       - name: Thai / English coverage and Beta2 gate regression
         run: npm run test:i18n
       - name: Web Beta1 club and draft regression

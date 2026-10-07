@@ -1,4 +1,4 @@
-export type MapsTravelMode = "auto" | "motorcycle" | "pedestrian";
+export type MapsTravelMode = "auto" | "motorcycle" | "pedestrian" | "bicycle";
 
 export type MapsRouteStep = {
   instruction: string;
@@ -67,6 +67,60 @@ export function decodeValhallaPolyline(encoded: string, precision = 6): Array<[n
 
 export function parseWynosRoute(raw: unknown, mode: MapsTravelMode): MapsRoute | null {
   const root = record(raw);
+  const canonical = record(root?.route);
+  if (canonical) {
+    const distanceKm = finiteNumber(canonical.distanceKm);
+    const durationSeconds = finiteNumber(canonical.durationSeconds);
+    const coordinateValues = Array.isArray(canonical.coordinates) ? canonical.coordinates : [];
+    const coordinates = coordinateValues.flatMap((value) => {
+      if (!Array.isArray(value) || value.length < 2) return [];
+      const longitude = finiteNumber(value[0]);
+      const latitude = finiteNumber(value[1]);
+      if (
+        longitude == null
+        || latitude == null
+        || longitude < -180
+        || longitude > 180
+        || latitude < -90
+        || latitude > 90
+      ) return [];
+      return [[longitude, latitude] as [number, number]];
+    });
+    if (distanceKm == null || durationSeconds == null || distanceKm < 0 || durationSeconds < 0 || coordinates.length < 2) {
+      return null;
+    }
+
+    const steps: MapsRouteStep[] = [];
+    const stepValues = Array.isArray(canonical.steps) ? canonical.steps : [];
+    for (const value of stepValues) {
+      const step = record(value);
+      const instruction = typeof step?.instruction === "string" ? step.instruction.trim() : "";
+      const stepDistanceKm = finiteNumber(step?.distanceKm);
+      const stepDurationSeconds = finiteNumber(step?.durationSeconds);
+      const beginShapeIndex = nonNegativeInteger(step?.beginShapeIndex);
+      const endShapeIndex = nonNegativeInteger(step?.endShapeIndex);
+      if (
+        !instruction
+        || stepDistanceKm == null
+        || stepDurationSeconds == null
+        || beginShapeIndex == null
+        || endShapeIndex == null
+      ) continue;
+      const begin = Math.min(coordinates.length - 1, beginShapeIndex);
+      const end = Math.min(coordinates.length - 1, Math.max(begin, endShapeIndex));
+      steps.push({
+        instruction,
+        distanceKm: Math.max(0, stepDistanceKm),
+        durationSeconds: Math.max(0, stepDurationSeconds),
+        beginShapeIndex: begin,
+        endShapeIndex: end,
+        coordinate: coordinates[begin],
+      });
+    }
+
+    return { distanceKm, durationSeconds, coordinates, steps, mode };
+  }
+
   const trip = record(root?.trip);
   const summary = record(trip?.summary);
   const legs = Array.isArray(trip?.legs) ? trip.legs : [];

@@ -178,8 +178,20 @@ jobs:
           maps_geo=$(node -e 'const h=require("/tmp/wynos-maps-health.json"); process.stdout.write(String(h.geo || "unknown"))')
           if [ "$maps_routing" = 'configured' ]; then
             echo 'WYNOS Maps routing is configured on production.' >> "$GITHUB_STEP_SUMMARY"
+            curl --silent --show-error --fail --location --retry 2 --max-time 30 \
+              --header 'Content-Type: application/json' \
+              --data '{"locations":[{"lat":16.1851,"lon":103.3026},{"lat":16.1901,"lon":103.3076}],"costing":"auto","language":"th-TH"}' \
+              --output /tmp/wynos-maps-route-smoke.json \
+              "https://wynos.online/api/maps/route"
+            node -e '
+              const r = require("/tmp/wynos-maps-route-smoke.json");
+              const validValhalla = r && r.trip && r.trip.summary && Array.isArray(r.trip.legs);
+              const validCanonical = r && r.route && Number.isFinite(r.route.distanceKm) && Array.isArray(r.route.coordinates);
+              if (!validValhalla && !validCanonical) process.exit(1);
+            '
+            echo 'WYNOS Maps routing smoke request succeeded.' >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "::warning::WYNOS Maps routing is $maps_routing; Directions UI is live but routing requires WYNOS Maps Core."
+            echo "::warning::WYNOS Maps routing is $maps_routing; Directions UI is live but routing requires a configured provider."
           fi
           if [ "$maps_geo" = 'configured' ]; then
             echo 'WYNOS Maps self-hosted geocoding is configured on production.' >> "$GITHUB_STEP_SUMMARY"

@@ -413,9 +413,6 @@ export function FoodDeliveryMapPicker({
   const routeRequestRef = useRef(0);
   const navigationWatchRef = useRef<number | null>(null);
   const navigationActiveRef = useRef(false);
-  const navigationOffRouteCountRef = useRef(0);
-  const navigationRerouteRef = useRef(false);
-  const navigationLastRerouteAtRef = useRef(0);
   const navigationProgressRef = useRef(0);
   const navigationRouteRef = useRef<MapsRoute | null>(null);
   const navigationLatestLocationRef = useRef<FoodLocation | null>(null);
@@ -487,6 +484,7 @@ export function FoodDeliveryMapPicker({
   const [directionsTarget, setDirectionsTarget] = useState<RouteTarget | null>(null);
   const [routeMode, setRouteMode] = useState<MapsTravelMode>("motorcycle");
   const [route, setRoute] = useState<MapsRoute | null>(null);
+  const [routeProvider, setRouteProvider] = useState<string | null>(null);
   const [routeWorking, setRouteWorking] = useState(false);
   const [routeStatus, setRouteStatus] = useState("");
   const [navigating, setNavigating] = useState(false);
@@ -556,8 +554,6 @@ export function FoodDeliveryMapPicker({
 
   const stopNavigation = useCallback((message = "") => {
     navigationActiveRef.current = false;
-    navigationOffRouteCountRef.current = 0;
-    navigationRerouteRef.current = false;
     navigationProgressRef.current = 0;
     navigationLatestLocationRef.current = null;
     setNavigationProgress(0);
@@ -575,6 +571,7 @@ export function FoodDeliveryMapPicker({
     stopNavigation();
     setDirectionsTarget(null);
     setRoute(null);
+    setRouteProvider(null);
     navigationRouteRef.current = null;
     setRouteStatus("");
     setRouteWorking(false);
@@ -583,23 +580,25 @@ export function FoodDeliveryMapPicker({
   const requestRoute = useCallback(async (
     target: RouteTarget,
     mode: MapsTravelMode = routeMode,
-    options?: { origin?: FoodLocation; preserveRoute?: boolean; navigationReroute?: boolean },
+    options?: { origin?: FoodLocation; preserveRoute?: boolean },
   ) => {
     if (!standalone) return;
-    if (navigationActiveRef.current && !options?.navigationReroute) stopNavigation();
+    if (navigationActiveRef.current) stopNavigation();
     const requestId = ++routeRequestRef.current;
     setDirectionsTarget(target);
     setRouteMode(mode);
-    if (!options?.preserveRoute) setRoute(null);
+    if (!options?.preserveRoute) {
+      setRoute(null);
+      setRouteProvider(null);
+    }
     setRouteStatus("");
     setRouteWorking(true);
-    if (options?.navigationReroute) setNavigationStatus("กำลังปรับเส้นทางใหม่…");
     searchRequestRef.current += 1;
     setSearching(false);
     setSearchFocused(false);
     setSearchStatus("");
     setResults([]);
-    if (!options?.navigationReroute) setSheetDetent("half");
+    setSheetDetent("half");
 
     try {
       const targetKey = `${target.latitude.toFixed(6)},${target.longitude.toFixed(6)}`;
@@ -628,6 +627,7 @@ export function FoodDeliveryMapPicker({
         }),
       });
       const payload = await response.json().catch(() => null) as unknown;
+      const provider = response.headers.get("X-WYNOS-Maps-Provider");
       if (routeRequestRef.current !== requestId) return;
       if (!response.ok) {
         const error = payload && typeof payload === "object" && "error" in payload
@@ -635,6 +635,9 @@ export function FoodDeliveryMapPicker({
           : "";
         if (response.status === 503 || error === "WYNOS_ROUTING_NOT_CONFIGURED") {
           throw new Error("ระบบเส้นทางของ WYNOS Maps ยังไม่พร้อมใช้งาน");
+        }
+        if (response.status === 429 || error === "WYNOS_ROUTING_QUOTA_REACHED") {
+          throw new Error("โควตาเส้นทางฟรีถึงขีดจำกัดแล้ว กรุณาลองใหม่ภายหลัง");
         }
         throw new Error("คำนวณเส้นทางไม่สำเร็จ กรุณาลองใหม่");
       }
@@ -645,13 +648,12 @@ export function FoodDeliveryMapPicker({
       navigationRouteRef.current = parsed;
       setNavigationProgress(0);
       setRoute(parsed);
+      setRouteProvider(provider);
       setActiveNearbyPlace(null);
-      if (options?.navigationReroute) setNavigationStatus("ปรับเส้นทางใหม่แล้ว");
     } catch (error) {
       if (routeRequestRef.current !== requestId) return;
       const message = error instanceof Error ? error.message : "คำนวณเส้นทางไม่สำเร็จ";
       setRouteStatus(message);
-      if (options?.navigationReroute) setNavigationStatus(message);
     } finally {
       if (routeRequestRef.current === requestId) setRouteWorking(false);
     }
@@ -666,7 +668,6 @@ export function FoodDeliveryMapPicker({
 
     stopNavigation();
     navigationActiveRef.current = true;
-    navigationLastRerouteAtRef.current = 0;
     navigationProgressRef.current = 0;
     navigationRouteRef.current = route;
     navigationLatestLocationRef.current = routeOriginRef.current?.location ?? userLocation;
@@ -758,42 +759,18 @@ export function FoodDeliveryMapPicker({
         }
 
         if (!Number.isFinite(accuracy) || accuracy > 80) {
-          navigationOffRouteCountRef.current = 0;
           setNavigationOffRouteDistance(null);
           return;
         }
 
         const confirmedOffRouteMeters = Math.max(0, match.distanceMeters - accuracy);
-        if (confirmedOffRouteMeters <= 50) {
-          navigationOffRouteCountRef.current = 0;
-          setNavigationOffRouteDistance(null);
-          return;
-        }
         if (confirmedOffRouteMeters < 80) {
           setNavigationOffRouteDistance(null);
           return;
         }
 
         setNavigationOffRouteDistance(match.distanceMeters);
-        navigationOffRouteCountRef.current += 1;
-        const now = Date.now();
-        if (
-          navigationOffRouteCountRef.current < 2
-          || navigationRerouteRef.current
-          || now - navigationLastRerouteAtRef.current < 20_000
-        ) return;
-
-        navigationRerouteRef.current = true;
-        navigationLastRerouteAtRef.current = now;
-        navigationOffRouteCountRef.current = 0;
-        setNavigationOffRouteDistance(null);
-        void requestRoute(directionsTarget, routeMode, {
-          origin: next,
-          preserveRoute: true,
-          navigationReroute: true,
-        }).finally(() => {
-          navigationRerouteRef.current = false;
-        });
+        setNavigationStatus("ออกนอกเส้นทาง · กดคำนวณใหม่เพื่ออัปเดตเส้นทาง");
       },
       (error) => {
         if (error.code === 1) {
@@ -808,7 +785,7 @@ export function FoodDeliveryMapPicker({
         timeout: 15_000,
       },
     );
-  }, [directionsTarget, requestRoute, route, routeMode, standalone, stopNavigation, userLocation]);
+  }, [directionsTarget, route, routeMode, standalone, stopNavigation, userLocation]);
 
   useEffect(() => {
     if (!standalone) return;
@@ -1770,6 +1747,9 @@ export function FoodDeliveryMapPicker({
               {showLegacySearchAttribution ? (
                 <a href="https://locationiq.com" target="_blank" rel="noreferrer">Search by LocationIQ</a>
               ) : null}
+              {routeProvider === "openrouteservice" ? (
+                <a href="https://openrouteservice.org" target="_blank" rel="noreferrer">© openrouteservice.org by HeiGIT</a>
+              ) : null}
               <button type="button" onClick={() => setShowAttribution(false)}>ปิด</button>
             </div>
           ) : null}
@@ -1876,6 +1856,14 @@ export function FoodDeliveryMapPicker({
                   </div>
                 ) : null}
                 {navigationStatus ? <p>{navigationStatus}</p> : null}
+                {navigationOffRouteDistance != null ? (
+                  <button
+                    type="button"
+                    onClick={() => void requestRoute(directionsTarget, routeMode, { origin: userLocation ?? undefined })}
+                  >
+                    คำนวณเส้นทางใหม่
+                  </button>
+                ) : null}
                 <button type="button" onClick={() => stopNavigation()}>หยุดนำทาง</button>
               </div>
             ) : null}
@@ -1886,6 +1874,14 @@ export function FoodDeliveryMapPicker({
                   <span>{formatRouteDistance(route.distanceKm)}</span>
                   <small>เวลาโดยประมาณจาก WYNOS Routing</small>
                 </div>
+                {routeProvider === "openrouteservice" ? (
+                  <small className="wf-map-route-attribution">
+                    © openrouteservice.org by HeiGIT | Map data © OpenStreetMap contributors
+                  </small>
+                ) : null}
+                {routeProvider === "openrouteservice" && routeMode === "motorcycle" ? (
+                  <p className="wf-map-route-status">เส้นทางมอเตอร์ไซค์ใช้โครงข่ายถนนรถยนต์โดยประมาณ</p>
+                ) : null}
                 <button type="button" className="wf-map-start-navigation" onClick={startNavigation}>
                   <Navigation size={17} /> เริ่มนำทาง
                 </button>

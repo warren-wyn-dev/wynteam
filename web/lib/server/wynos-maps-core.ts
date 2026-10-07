@@ -1,3 +1,6 @@
+import { normalizeOrsGeoJson, orsProfileForCosting } from "@/lib/maps-ors";
+import type { MapsTravelMode } from "@/lib/maps-routing";
+
 type GeoPlace = {
   name: string;
   address: string | null;
@@ -13,7 +16,8 @@ type NominatimRow = {
   address?: Record<string, unknown>;
 };
 
-const ALLOWED_ROUTING_COSTINGS = new Set(["auto", "motorcycle", "pedestrian", "bicycle"]);
+const ALLOWED_ROUTING_COSTINGS = new Set<MapsTravelMode>(["auto", "motorcycle", "pedestrian", "bicycle"]);
+const ORS_API_ORIGIN = "https://api.heigit.org/openrouteservice";
 
 function serviceOrigin(value: string | undefined) {
   if (!value) return null;
@@ -24,6 +28,11 @@ function serviceOrigin(value: string | undefined) {
   } catch {
     return null;
   }
+}
+
+function orsApiKey() {
+  const value = process.env.WYNOS_ORS_API_KEY?.trim();
+  return value || null;
 }
 
 function placeName(row: NominatimRow) {
@@ -78,10 +87,68 @@ async function fetchJson(url: URL, init?: RequestInit) {
   }
 }
 
+async function fetchOrsRoute(input: {
+  locations: Array<{ lat: number; lon: number }>;
+  costing: MapsTravelMode;
+  language?: "th-TH" | "en-US";
+}) {
+  const key = orsApiKey();
+  if (!key) return null;
+  const profile = orsProfileForCosting(input.costing);
+  if (!profile) throw new Error("unsupported costing");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const url = new URL(`${ORS_API_ORIGIN}/v2/directions/${profile}/geojson`);
+    const response = await fetch(url, {
+      method: "POST",
+      signal: controller.signal,
+      cache: "no-store",
+      headers: {
+        Accept: "application/geo+json",
+        Authorization: key,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        coordinates: input.locations.map((location) => [location.lon, location.lat]),
+        instructions: true,
+        // ORS does not currently provide Thai turn-by-turn instructions.
+        // Keep the WYNOS UI bilingual while requesting stable English maneuvers.
+        language: "en",
+        preference: "recommended",
+      }),
+    });
+    if (response.status === 429) throw new Error("ors rate limited");
+    if (!response.ok) throw new Error(`ors upstream returned ${response.status}`);
+
+    const raw = await response.json() as unknown;
+    const route = normalizeOrsGeoJson(raw, input.costing);
+    if (!route) throw new Error("ors invalid route");
+    return {
+      payload: {
+        route,
+        provider: "openrouteservice",
+        attribution: "© openrouteservice.org by HeiGIT | Map data © OpenStreetMap contributors",
+      },
+      provider: "openrouteservice" as const,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export function wynosMapsCoreStatus() {
+  const selfHostedRoutingConfigured = Boolean(serviceOrigin(process.env.WYNOS_ROUTING_ORIGIN));
+  const orsConfigured = Boolean(orsApiKey());
   return {
     geoConfigured: Boolean(serviceOrigin(process.env.WYNOS_GEO_ORIGIN)),
-    routingConfigured: Boolean(serviceOrigin(process.env.WYNOS_ROUTING_ORIGIN)),
+    routingConfigured: selfHostedRoutingConfigured || orsConfigured,
+    routingProvider: selfHostedRoutingConfigured
+      ? "self-hosted"
+      : orsConfigured
+        ? "openrouteservice"
+        : "pending",
   };
 }
 
@@ -128,9 +195,7 @@ export async function routeWynosMaps(input: {
   costing: string;
   language?: "th-TH" | "en-US";
 }) {
-  const origin = serviceOrigin(process.env.WYNOS_ROUTING_ORIGIN);
-  if (!origin) return null;
-  if (!ALLOWED_ROUTING_COSTINGS.has(input.costing)) throw new Error("unsupported costing");
+  if (!ALLOWED_ROUTING_COSTINGS.has(input.costing as MapsTravelMode)) throw new Error("unsupported costing");
   if (input.locations.length < 2 || input.locations.length > 25) throw new Error("invalid locations");
 
   for (const location of input.locations) {
@@ -140,17 +205,29 @@ export async function routeWynosMaps(input: {
     }
   }
 
-  const url = new URL(`${origin}/route`);
-  return await fetchJson(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      locations: input.locations,
-      costing: input.costing,
-      units: "kilometers",
-      shape_format: "polyline6",
-      language: input.language ?? "th-TH",
-      directions_options: { units: "kilometers" },
-    }),
+  const origin = serviceOrigin(process.env.WYNOS_ROUTING_ORIGIN);
+  if (origin) {
+    const url = new URL(`${origin}/route`);
+    return {
+      payload: await fetchJson(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locations: input.locations,
+          costing: input.costing,
+          units: "kilometers",
+          shape_format: "polyline6",
+          language: input.language ?? "th-TH",
+          directions_options: { units: "kilometers" },
+        }),
+      }),
+      provider: "wynos-routing" as const,
+    };
+  }
+
+  return await fetchOrsRoute({
+    locations: input.locations,
+    costing: input.costing as MapsTravelMode,
+    language: input.language,
   });
 }
