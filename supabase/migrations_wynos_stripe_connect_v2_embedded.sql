@@ -20,7 +20,11 @@ alter table public.food_stripe_accounts
   add column if not exists requirements_due_count integer not null default 0,
   add column if not exists balance_pending_satang bigint not null default 0,
   add column if not exists balance_available_satang bigint not null default 0,
+  add column if not exists livemode boolean not null default false,
   add column if not exists last_error_code text;
+
+alter table public.food_stripe_payments
+  add column if not exists livemode boolean not null default false;
 
 update public.food_stripe_accounts
 set account_api_version = coalesce(account_api_version, 'v1')
@@ -83,6 +87,20 @@ begin
   end if;
 end
 $guard$;
+
+create table if not exists public.food_stripe_account_mapping_archive (
+  stripe_account_id text primary key,
+  store_id uuid not null,
+  account_api_version text not null check (account_api_version in ('v1','v2')),
+  livemode boolean not null,
+  archived_reason text not null,
+  archived_at timestamptz not null default now(),
+  snapshot jsonb not null
+);
+
+alter table public.food_stripe_account_mapping_archive enable row level security;
+revoke all on table public.food_stripe_account_mapping_archive from public, anon, authenticated;
+grant select, insert, update, delete on table public.food_stripe_account_mapping_archive to service_role;
 
 create table if not exists public.food_stripe_account_creation_locks (
   store_id uuid primary key references public.food_stores(id) on delete cascade,
@@ -166,6 +184,65 @@ $$;
 revoke all on function public.food_release_stripe_account_creation(uuid,uuid)
   from public, anon, authenticated;
 grant execute on function public.food_release_stripe_account_creation(uuid,uuid)
+  to service_role;
+
+create or replace function public.food_archive_stripe_account_mapping(
+  p_store_id uuid,
+  p_expected_livemode boolean,
+  p_reason text
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $archive$
+declare
+  a public.food_stripe_accounts%rowtype;
+begin
+  if length(btrim(coalesce(p_reason,''))) < 3 then
+    raise exception 'archive reason required';
+  end if;
+
+  select *
+  into a
+  from public.food_stripe_accounts
+  where store_id = p_store_id
+  for update;
+
+  if not found then
+    return null;
+  end if;
+  if a.livemode is distinct from p_expected_livemode then
+    raise exception 'stripe environment mismatch';
+  end if;
+
+  insert into public.food_stripe_account_mapping_archive(
+    stripe_account_id, store_id, account_api_version, livemode,
+    archived_reason, archived_at, snapshot
+  )
+  values (
+    a.stripe_account_id, a.store_id, a.account_api_version, a.livemode,
+    left(btrim(p_reason), 240), now(), to_jsonb(a)
+  )
+  on conflict (stripe_account_id) do update set
+    store_id = excluded.store_id,
+    account_api_version = excluded.account_api_version,
+    livemode = excluded.livemode,
+    archived_reason = excluded.archived_reason,
+    archived_at = excluded.archived_at,
+    snapshot = excluded.snapshot;
+
+  delete from public.food_stripe_accounts
+  where store_id = p_store_id
+    and stripe_account_id = a.stripe_account_id;
+
+  return a.stripe_account_id;
+end;
+$archive$;
+
+revoke all on function public.food_archive_stripe_account_mapping(uuid,boolean,text)
+  from public, anon, authenticated;
+grant execute on function public.food_archive_stripe_account_mapping(uuid,boolean,text)
   to service_role;
 
 create or replace function public.food_get_stripe_webhook_secret(p_name text)
