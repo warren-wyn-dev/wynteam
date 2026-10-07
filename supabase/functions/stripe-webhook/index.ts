@@ -251,6 +251,23 @@ async function syncMappedAccount(admin: AdminClient, secret: string, accountId: 
   await admin.from("food_stores").update({ stripe_payments_enabled: ready }).eq("id", saved.store_id);
   return true;
 }
+async function claimAccountSyncEvent(admin: AdminClient, eventId: string, eventType: string, accountId: string | null, objectId: string | null) {
+  const { data, error } = await admin.rpc("food_claim_stripe_webhook_event", {
+    p_event_id: eventId,
+    p_event_type: eventType,
+    p_stripe_account_id: accountId,
+    p_object_id: objectId,
+  });
+  if (error) throw error;
+  return data === true;
+}
+async function releaseAccountSyncEventClaim(admin: AdminClient, eventId: string, eventType: string) {
+  const { error } = await admin.rpc("food_release_stripe_webhook_event_claim", {
+    p_event_id: eventId,
+    p_event_type: eventType,
+  });
+  if (error) console.warn("stripe webhook claim release failed", { eventId, eventType });
+}
 async function recordNoop(admin: AdminClient, eventId: string, eventType: string, accountId: string | null, objectId: string | null) {
   const { data, error } = await admin.rpc("food_apply_stripe_event", {
     p_event_id: eventId, p_event_type: eventType, p_order_id: null, p_stripe_account_id: accountId,
@@ -296,11 +313,14 @@ Deno.serve(async (req: Request) => {
     if (stringValue(related?.type) !== "v2.core.account") return json({ error: "invalid_related_object" }, 400);
     const accountId = stringValue(related?.id);
     if (!accountId || !stripeSecret) return json({ error: "account_sync_unavailable" }, 503);
+    let claimed = false;
     try {
+      claimed = await claimAccountSyncEvent(admin, eventId, eventType, accountId, accountId);
+      if (!claimed) return json({ received: true, duplicate: true });
       const mapped = await syncMappedAccount(admin, stripeSecret, accountId);
-      await recordNoop(admin, eventId, eventType, accountId, accountId);
       return json({ received: true, mapped });
     } catch {
+      if (claimed) await releaseAccountSyncEventClaim(admin, eventId, eventType);
       console.error("stripe v2 account event failed", { eventId, eventType });
       return json({ error: "event_processing_failed" }, 500);
     }
@@ -316,11 +336,14 @@ Deno.serve(async (req: Request) => {
 
   if (eventType === "account.updated") {
     const accountId = stringValue(object.id) ?? stripeAccountId;
+    let claimed = false;
     try {
+      claimed = await claimAccountSyncEvent(admin, eventId, eventType, accountId, accountId);
+      if (!claimed) return json({ received: true, duplicate: true });
       if (accountId && stripeSecret) await syncMappedAccount(admin, stripeSecret, accountId);
-      await recordNoop(admin, eventId, eventType, accountId, accountId);
       return json({ received: true });
     } catch {
+      if (claimed) await releaseAccountSyncEventClaim(admin, eventId, eventType);
       return json({ error: "event_processing_failed" }, 500);
     }
   }
