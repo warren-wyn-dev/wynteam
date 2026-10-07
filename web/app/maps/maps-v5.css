@@ -630,3 +630,104 @@
     transition: transform .16s ease, background .16s ease, color .16s ease, box-shadow .16s ease;
   }
 }
+
+
+/* v5.1 interaction polish: keep the resting screen nearly all-map.
+   Details grow only after the user picks a place or location. */
+.wynos-maps-page .wf-map-sheet.is-peek,
+.wynos-maps-page .wf-map-sheet.is-searching {
+  max-height: calc(40px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -1px 0 var(--m-glass-edge), 0 -5px 18px rgb(0 0 0 / 7%);
+}
+
+.wynos-maps-page .wf-map-sheet.is-peek .wf-map-sheet-handle,
+.wynos-maps-page .wf-map-sheet.is-searching .wf-map-sheet-handle {
+  height: 38px;
+}
+
+.wynos-maps-page .wf-map-sheet.is-half {
+  max-height: calc(286px + env(safe-area-inset-bottom));
+}
+
+.wynos-maps-page .wf-map-sheet.is-peek .wf-map-sheet-body,
+.wynos-maps-page .wf-map-sheet.is-searching .wf-map-sheet-body {
+  display: none;
+}
+
+/* Four shortcuts are enough on the resting screen; search remains the
+   universal path for everything else. */
+.wynos-maps-page .wf-map-floating-search .wf-map-quick-filters {
+  max-width: 100%;
+  padding-bottom: 2px;
+}
+
+.wynos-maps-page .wf-map-floating-search .wf-map-quick-filters button {
+  min-height: 33px;
+  padding: 0 11px;
+  font-size: 12px;
+}
+
+/* Press and keyboard states stay subtle and consistent. */
+.wynos-maps-page button:focus-visible,
+.wynos-maps-page input:focus-visible {
+  outline: 3px solid rgb(10 132 255 / 24%);
+  outline-offset: 2px;
+}
+
+.wynos-maps-page .wf-map-place-actions > button,
+.wynos-maps-page .wf-map-place-actions > a,
+.wynos-maps-page .wf-map-confirm-share,
+.wynos-maps-page .wf-map-favorite-remove {
+  min-height: 42px;
+}
+
+/* Merchant delivery context should read as contextual information rather
+   than permanent map chrome. */
+.wynos-maps-page .wf-map-service-area {
+  border-color: var(--m-glass-edge);
+  color: var(--m-text);
+}
+
+.wynos-maps-page .wf-map-service-area.is-inside .wf-map-service-area-dot {
+  background: #34c759;
+  box-shadow: 0 0 0 4px rgb(52 199 89 / 10%);
+}
+
+.wynos-maps-page .wf-map-service-area.is-outside .wf-map-service-area-dot {
+  background: var(--wynos-maps-red);
+  box-shadow: 0 0 0 4px rgb(255 59 48 / 10%);
+}
+
+/* Compact place cards keep the first decision visible without scrolling. */
+.wynos-maps-page .wf-map-place-card {
+  gap: 10px;
+}
+
+.wynos-maps-page .wf-map-place-actions {
+  gap: 8px;
+}
+
+.wynos-maps-page .wf-map-place-actions > button,
+.wynos-maps-page .wf-map-place-actions > a {
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 430px) {
+  .wynos-maps-page .wf-map-sheet.is-half {
+    max-height: calc(270px + env(safe-area-inset-bottom));
+  }
+
+  .wynos-maps-page .wf-map-floating-search .wf-map-quick-filters {
+    gap: 6px;
+  }
+}
+
+@media (min-width: 768px) {
+  .wynos-maps-page .wf-map-sheet.is-peek,
+  .wynos-maps-page .wf-map-sheet.is-searching {
+    max-height: 42px;
+    padding-bottom: 0;
+  }
+}
