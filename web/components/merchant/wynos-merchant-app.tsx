@@ -50,6 +50,7 @@ import { MerchantStoreTools, RefundControls } from "@/components/merchant/mercha
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { MerchantAds } from "@/components/merchant/merchant-ads";
 import { MerchantFinance } from "@/components/merchant/merchant-finance";
+import { MerchantPaymentSetup } from "@/components/merchant/merchant-payment-setup";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { MerchantNotificationSettings } from "@/components/merchant/merchant-notification-settings";
@@ -64,7 +65,6 @@ import {
   MERCHANT_NOTIFICATION_TEST_RESULT_KEY,
   refreshMerchantStripeStatus,
   setMerchantStorePublished,
-  startMerchantStripeOnboarding,
   type MerchantStripeStatus,
 } from "@/lib/merchant-core";
 import {
@@ -2568,7 +2568,6 @@ function StoreEditor({
   const [coverState, setCoverState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(store.cover_path ? "uploaded" : "idle");
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [stripeBusy, setStripeBusy] = useState(false);
   const [stripeStatus, setStripeStatus] = useState<MerchantStripeStatus | null>(null);
   const [schedule, setSchedule] = useState<FoodBusinessSchedule>(() => {
     const current = store.business_schedule as FoodBusinessSchedule | undefined;
@@ -2613,37 +2612,6 @@ function StoreEditor({
       .catch(() => { if (live) setStripeStatus(null); });
     return () => { live = false; };
   }, [client, store.id]);
-
-  const connectStripe = async () => {
-    setStripeBusy(true);
-    try {
-      const result = await startMerchantStripeOnboarding(client, store.id);
-      setStripeStatus(result.status);
-      if (result.url) {
-        window.location.assign(result.url);
-        return;
-      }
-      onMessage("Stripe พร้อมรับชำระเงินแล้ว");
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : "เปิด Stripe Connect ไม่สำเร็จ");
-    } finally {
-      setStripeBusy(false);
-    }
-  };
-
-  const syncStripe = async () => {
-    setStripeBusy(true);
-    try {
-      const status = await refreshMerchantStripeStatus(client, store.id);
-      setStripeStatus(status);
-      onMessage(status.status === "ready" ? "Stripe พร้อมรับชำระเงินแล้ว" : "อัปเดตสถานะ Stripe แล้ว");
-      if (status.status === "ready") await onSaved();
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : "ตรวจสถานะ Stripe ไม่สำเร็จ");
-    } finally {
-      setStripeBusy(false);
-    }
-  };
 
   useEffect(() => {
     if (!pin) return;
@@ -2957,41 +2925,42 @@ function StoreEditor({
         <section className="wm-settings-category" id="wm-store-section-payment">
           <div className="wm-settings-category-head">
             <span className="wm-settings-category-icon"><CircleDollarSign size={20} /></span>
-            <span><strong>การรับชำระเงิน</strong><small>Stripe เป็นช่องทางอัตโนมัติ พร้อม PromptPay/บัญชีธนาคารเป็นช่องทางสำรอง</small></span>
+            <span><strong>การรับชำระเงิน</strong><small>รับเงินจากลูกค้าผ่านบัตรและ PromptPay เงินจะโอนเข้าบัญชีธนาคารของร้านอัตโนมัติ</small></span>
           </div>
           <div className="wm-settings-category-body">
-        {stripeStatus ? <div className="wm-pickup-zone">
-          <strong>Stripe</strong>
-          <small>{stripeStatus?.status === "ready" ? "พร้อมรับชำระอัตโนมัติจาก WYNOS Food" : stripeStatus?.connected ? "เชื่อมบัญชีแล้ว แต่ยังตั้งค่าไม่เสร็จ" : "เชื่อมบัญชี Stripe ของร้านเพื่อรับบัตรและ PromptPay"}</small>
-          {stripeStatus?.status === "ready" ? <div className="wm-inline-success"><Check size={15} /> Stripe พร้อมใช้งาน</div> : null}
-          {stripeStatus?.status === "restricted" ? <div className="wm-inline-warning">Stripe ต้องการข้อมูลเพิ่มเติม กรุณาดำเนินการต่อใน Stripe</div> : null}
-          <div className="wm-two-actions">
-            <button className="wm-primary" type="button" disabled={stripeBusy} onClick={() => void connectStripe()}>
-              {stripeBusy ? "กำลังเปิด…" : stripeStatus?.connected ? "ดำเนินการต่อใน Stripe" : "เชื่อม Stripe"}
-            </button>
-            {stripeStatus?.connected ? <button className="wm-secondary" type="button" disabled={stripeBusy} onClick={() => void syncStripe()}>ตรวจสถานะ</button> : null}
-          </div>
-          <small>การชำระผ่าน Stripe จะยืนยันจาก Webhook อัตโนมัติ และไม่ต้องแนบสลิป</small>
-        </div> : null}
-        <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
-        <label>ธนาคาร<input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} /></label>
-        <label>ชื่อบัญชี<input value={form.bank_account_name} onChange={(e) => setForm({ ...form, bank_account_name: e.target.value })} /></label>
-        <label>เลขบัญชี<input value={form.bank_account_number} onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })} inputMode="numeric" /></label>
-        <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setQrFile(e.target.files?.[0] ?? null)} /><Upload size={20} /><span>{qrFile ? qrFile.name : "อัปโหลด QR รับเงิน"}</span></label>
-        <div className="wm-tax-settings">
-          <label className="wm-check-row"><input type="checkbox" checked={form.tax_invoice_enabled} onChange={(e) => setForm({ ...form, tax_invoice_enabled: e.target.checked })} /><span><strong>แสดงข้อมูลภาษีในใบเสร็จ</strong><small>ใช้สำหรับเอกสารที่พิมพ์จาก WYNOS Merchant</small></span></label>
-          {form.tax_invoice_enabled ? (
-            <>
-              <label>ชื่อกิจการ / ชื่อนิติบุคคล<input value={form.tax_legal_name} onChange={(e) => setForm({ ...form, tax_legal_name: e.target.value })} maxLength={200} /></label>
-              <div className="wm-form-grid">
-                <label>เลขประจำตัวผู้เสียภาษี<input value={form.tax_id} onChange={(e) => setForm({ ...form, tax_id: e.target.value })} maxLength={40} inputMode="numeric" /></label>
-                <label>สาขา<input value={form.tax_branch} onChange={(e) => setForm({ ...form, tax_branch: e.target.value })} maxLength={120} placeholder="เช่น สำนักงานใหญ่" /></label>
-              </div>
-              <label>ที่อยู่สำหรับเอกสารภาษี<textarea value={form.tax_address} onChange={(e) => setForm({ ...form, tax_address: e.target.value })} maxLength={800} /></label>
-              <small className="wm-tax-note">กรุณาตรวจสอบข้อมูลให้ตรงกับเอกสารจดทะเบียนของร้านก่อนนำเอกสารไปใช้งาน</small>
-            </>
-          ) : null}
-        </div>
+            <MerchantPaymentSetup
+              client={client}
+              storeId={store.id}
+              status={stripeStatus}
+              onStatus={setStripeStatus}
+              onMessage={onMessage}
+              onReady={onSaved}
+            />
+
+            <details className="wm-payment-fallback">
+              <summary>ช่องทางโอนเงินสำรอง</summary>
+              <small>ใช้เฉพาะกรณีที่ร้านต้องการรับโอนและตรวจสลิปเอง</small>
+              <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
+              <label>ธนาคาร<input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} /></label>
+              <label>ชื่อบัญชี<input value={form.bank_account_name} onChange={(e) => setForm({ ...form, bank_account_name: e.target.value })} /></label>
+              <label>เลขบัญชี<input value={form.bank_account_number} onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })} inputMode="numeric" /></label>
+              <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setQrFile(e.target.files?.[0] ?? null)} /><Upload size={20} /><span>{qrFile ? qrFile.name : "อัปโหลด QR รับเงิน"}</span></label>
+            </details>
+
+            <div className="wm-tax-settings">
+              <label className="wm-check-row"><input type="checkbox" checked={form.tax_invoice_enabled} onChange={(e) => setForm({ ...form, tax_invoice_enabled: e.target.checked })} /><span><strong>แสดงข้อมูลภาษีในใบเสร็จ</strong><small>ใช้สำหรับเอกสารที่พิมพ์จาก WYNOS Merchant</small></span></label>
+              {form.tax_invoice_enabled ? (
+                <>
+                  <label>ชื่อกิจการ / ชื่อนิติบุคคล<input value={form.tax_legal_name} onChange={(e) => setForm({ ...form, tax_legal_name: e.target.value })} maxLength={200} /></label>
+                  <div className="wm-form-grid">
+                    <label>เลขประจำตัวผู้เสียภาษี<input value={form.tax_id} onChange={(e) => setForm({ ...form, tax_id: e.target.value })} maxLength={40} inputMode="numeric" /></label>
+                    <label>สาขา<input value={form.tax_branch} onChange={(e) => setForm({ ...form, tax_branch: e.target.value })} maxLength={120} placeholder="เช่น สำนักงานใหญ่" /></label>
+                  </div>
+                  <label>ที่อยู่สำหรับเอกสารภาษี<textarea value={form.tax_address} onChange={(e) => setForm({ ...form, tax_address: e.target.value })} maxLength={800} /></label>
+                  <small className="wm-tax-note">กรุณาตรวจสอบข้อมูลให้ตรงกับเอกสารจดทะเบียนของร้านก่อนนำเอกสารไปใช้งาน</small>
+                </>
+              ) : null}
+            </div>
           </div>
         </section>
 
