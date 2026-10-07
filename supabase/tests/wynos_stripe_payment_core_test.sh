@@ -62,10 +62,16 @@ create table public.food_orders(
   payment_verification_status text default 'not_started',
   payment_verification_note text,
   payment_note text,
+  payment_slip_path text,
   paid_at timestamptz,
   refund_status text default 'none',
+  refund_note text,
+  refund_requested_at timestamptz,
+  refund_updated_by uuid,
   refunded_at timestamptz
 );
+create table public.food_order_events(order_id uuid,event_type text,note text,actor_id uuid);
+create table public.notifications(recipient_id uuid,actor_id uuid,type text,reason text);
 create function public.merchant_has_store_role(p_store_id uuid, p_roles text[] default null)
 returns boolean language sql stable security definer set search_path='' as \$fn\$
   select exists(
@@ -112,6 +118,14 @@ PAID_SQL="set role service_role; select public.food_apply_stripe_event(
 [ "$(val "$PAID_SQL")" = "t" ] || fail "paid event applies"
 [ "$(val "select payment_status||'|'||payment_provider||'|'||stripe_payment_intent_id from public.food_orders where id='$ORDER'")" = "paid|stripe|pi_1" ] || fail "order becomes paid"
 pass "verified webhook marks order paid"
+
+expect_fail "legacy refund RPC cannot fake a Stripe refund" \
+  "set role authenticated; set test.uid='$OWNER'; select public.merchant_set_refund_status('$ORDER','refunded','manual')" \
+  "stripe refunds must be processed through the payment gateway"
+
+expect_fail "legacy payment RPC cannot override a Stripe payment" \
+  "set role authenticated; set test.uid='$OWNER'; select public.food_set_payment_status('$ORDER','refunded','manual')" \
+  "stripe payment status is managed by webhook"
 
 [ "$(val "$PAID_SQL")" = "f" ] || fail "duplicate event ignored"
 [ "$(val "select count(*) from public.food_stripe_webhook_events where event_id='evt_paid'")" = "1" ] || fail "one webhook event row"
