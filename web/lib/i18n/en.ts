@@ -63,6 +63,7 @@ export const EN_EXACT: Record<string, string> = {
   "เบราว์เซอร์นี้ไม่รองรับการนำทางด้วย GPS": "This browser does not support GPS navigation",
   "กำลังติดตามตำแหน่ง…": "Tracking your location…",
   "ไม่สามารถใช้ตำแหน่ง GPS สำหรับการนำทางได้": "GPS location is unavailable for navigation",
+  "สัญญาณ GPS ขาดหาย กำลังรอตำแหน่งใหม่…": "GPS signal lost. Waiting for a new location…",
   "ถึงจุดหมายแล้ว": "You have arrived",
   "คำแนะนำถัดไป": "Next instruction",
   "ตรงไปตามเส้นทาง": "Continue on the route",
