@@ -35,14 +35,22 @@ test("Checkout is a direct connected-account charge with idempotency and server-
   assert.doesNotMatch(checkout, /application_fee_amount|transfer_data|destination/);
 });
 
-test("Connect uses Standard Thai accounts and requires owner/admin for onboarding", () => {
-  assert.match(connect, /params\.set\("type", "standard"\)/);
-  assert.match(connect, /params\.set\("country", "TH"\)/);
-  assert.match(connect, /capabilities\[promptpay_payments\]\[requested\]/);
+test("Connect uses Accounts v2 for new Thai merchants and requires owner/admin for onboarding", () => {
+  assert.match(connect, /https:\/\/api\.stripe\.com\/v2\/core\/accounts/);
+  assert.match(connect, /https:\/\/api\.stripe\.com\/v2\/core\/account_links/);
+  assert.match(connect, /"Stripe-Version": STRIPE_V2_VERSION/);
+  assert.match(connect, /identity: \{ country: "th" \}/);
+  assert.match(connect, /card_payments: \{ requested: true \}/);
+  assert.match(connect, /promptpay_payments: \{ requested: true \}/);
+  assert.match(connect, /fees_collector: "stripe"/);
+  assert.match(connect, /losses_collector: "stripe"/);
+  assert.match(connect, /dashboard: "full"/);
+  assert.match(connect, /configurations: \["merchant"\]/);
   assert.match(connect, /Idempotency-Key/);
-  assert.match(connect, /wynos-connect-/);
+  assert.match(connect, /wynos-connect-v2-/);
   assert.match(connect, /stripe_backend_not_ready/);
-  assert.ok(connect.indexOf("if (savedError)") < connect.indexOf('params.set("type", "standard")'));
+  assert.match(connect, /v1_account_instead_of_v2_account/);
+  assert.doesNotMatch(connect, /params\.set\("type", "standard"\)/);
   assert.match(connect, /\["owner","admin"\]\.includes\(member\.role\)/);
 });
 
