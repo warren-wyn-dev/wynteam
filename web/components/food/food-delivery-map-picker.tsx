@@ -417,7 +417,7 @@ export function FoodDeliveryMapPicker({
   const navigationRerouteRef = useRef(false);
   const navigationLastRerouteAtRef = useRef(0);
   const navigationProgressRef = useRef(0);
-  const navigationAccuracyRef = useRef<number | null>(null);
+  const navigationRouteRef = useRef<MapsRoute | null>(null);
   const routeOriginRef = useRef<{
     location: FoodLocation;
     targetKey: string;
@@ -490,6 +490,8 @@ export function FoodDeliveryMapPicker({
   const [routeStatus, setRouteStatus] = useState("");
   const [navigating, setNavigating] = useState(false);
   const [navigationStatus, setNavigationStatus] = useState("");
+  const [navigationProgress, setNavigationProgress] = useState(0);
+  const [navigationOffRouteDistance, setNavigationOffRouteDistance] = useState<number | null>(null);
 
   const serviceAreaState = standalone && location && serviceAreaBoundary
     ? (pointInServiceArea(location, serviceAreaBoundary) ? "inside" : "outside")
@@ -556,7 +558,8 @@ export function FoodDeliveryMapPicker({
     navigationOffRouteCountRef.current = 0;
     navigationRerouteRef.current = false;
     navigationProgressRef.current = 0;
-    navigationAccuracyRef.current = null;
+    setNavigationProgress(0);
+    setNavigationOffRouteDistance(null);
     if (navigationWatchRef.current != null && typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.clearWatch(navigationWatchRef.current);
     }
@@ -570,6 +573,7 @@ export function FoodDeliveryMapPicker({
     stopNavigation();
     setDirectionsTarget(null);
     setRoute(null);
+    navigationRouteRef.current = null;
     setRouteStatus("");
     setRouteWorking(false);
   }, [stopNavigation]);
@@ -636,6 +640,8 @@ export function FoodDeliveryMapPicker({
       const parsed = parseWynosRoute(payload, mode);
       if (!parsed) throw new Error("ยังไม่พบเส้นทางที่เหมาะสม");
       navigationProgressRef.current = 0;
+      navigationRouteRef.current = parsed;
+      setNavigationProgress(0);
       setRoute(parsed);
       setActiveNearbyPlace(null);
       if (options?.navigationReroute) setNavigationStatus("ปรับเส้นทางใหม่แล้ว");
@@ -660,7 +666,9 @@ export function FoodDeliveryMapPicker({
     navigationActiveRef.current = true;
     navigationLastRerouteAtRef.current = 0;
     navigationProgressRef.current = 0;
-    navigationAccuracyRef.current = null;
+    navigationRouteRef.current = route;
+    setNavigationProgress(0);
+    setNavigationOffRouteDistance(null);
     setNavigating(true);
     setNavigationStatus("กำลังติดตามตำแหน่ง…");
     setSheetDetent("half");
@@ -671,9 +679,9 @@ export function FoodDeliveryMapPicker({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
-        navigationAccuracyRef.current = Number.isFinite(position.coords.accuracy)
+        const accuracy = Number.isFinite(position.coords.accuracy)
           ? Math.max(0, position.coords.accuracy)
-          : null;
+          : Number.POSITIVE_INFINITY;
         setUserLocation(next);
         setCurrentLocationSelected(true);
         setNavigationStatus("");
@@ -681,6 +689,74 @@ export function FoodDeliveryMapPicker({
           center: [next.longitude, next.latitude],
           zoom: 17.2,
           essential: true,
+        });
+
+        const activeRoute = navigationRouteRef.current;
+        if (!activeRoute) return;
+        const previousProgress = navigationProgressRef.current;
+        const previousSegment = Math.floor(previousProgress);
+        const match = nearestRoutePosition(next, activeRoute.coordinates, {
+          minSegmentIndex: Math.max(0, previousSegment - 2),
+          maxSegmentIndex: Math.min(activeRoute.coordinates.length - 2, previousSegment + 120),
+        });
+        if (!match) return;
+
+        const stableProgress = Math.max(previousProgress, match.routeProgress);
+        navigationProgressRef.current = stableProgress;
+        setNavigationProgress(stableProgress);
+        const stableSegmentIndex = Math.min(activeRoute.coordinates.length - 2, Math.floor(stableProgress));
+        const stableSegmentProgress = Math.min(1, Math.max(0, stableProgress - stableSegmentIndex));
+        const remainingMeters = routeRemainingDistanceMeters(
+          activeRoute.coordinates,
+          stableSegmentIndex,
+          stableSegmentProgress,
+        );
+        const destination = activeRoute.coordinates[activeRoute.coordinates.length - 1];
+        const destinationMeters = destination
+          ? distanceToRouteCoordinateMeters(next, destination)
+          : Number.POSITIVE_INFINITY;
+
+        if (accuracy <= 35 && destinationMeters <= 35 && remainingMeters <= 120) {
+          stopNavigation("ถึงจุดหมายแล้ว");
+          return;
+        }
+
+        if (!Number.isFinite(accuracy) || accuracy > 80) {
+          navigationOffRouteCountRef.current = 0;
+          setNavigationOffRouteDistance(null);
+          return;
+        }
+
+        const confirmedOffRouteMeters = Math.max(0, match.distanceMeters - accuracy);
+        if (confirmedOffRouteMeters <= 50) {
+          navigationOffRouteCountRef.current = 0;
+          setNavigationOffRouteDistance(null);
+          return;
+        }
+        if (confirmedOffRouteMeters < 80) {
+          setNavigationOffRouteDistance(null);
+          return;
+        }
+
+        setNavigationOffRouteDistance(match.distanceMeters);
+        navigationOffRouteCountRef.current += 1;
+        const now = Date.now();
+        if (
+          navigationOffRouteCountRef.current < 2
+          || navigationRerouteRef.current
+          || now - navigationLastRerouteAtRef.current < 20_000
+        ) return;
+
+        navigationRerouteRef.current = true;
+        navigationLastRerouteAtRef.current = now;
+        navigationOffRouteCountRef.current = 0;
+        setNavigationOffRouteDistance(null);
+        void requestRoute(directionsTarget, routeMode, {
+          origin: next,
+          preserveRoute: true,
+          navigationReroute: true,
+        }).finally(() => {
+          navigationRerouteRef.current = false;
         });
       },
       (error) => {
@@ -696,69 +772,7 @@ export function FoodDeliveryMapPicker({
         timeout: 15_000,
       },
     );
-  }, [directionsTarget, route, standalone, stopNavigation]);
-
-  useEffect(() => {
-    if (!navigating || !userLocation || !route || !directionsTarget) return;
-    const previousProgress = navigationProgressRef.current;
-    const previousSegment = Math.floor(previousProgress);
-    const match = nearestRoutePosition(userLocation, route.coordinates, {
-      minSegmentIndex: Math.max(0, previousSegment - 2),
-      maxSegmentIndex: Math.min(route.coordinates.length - 2, previousSegment + 120),
-    });
-    if (!match) return;
-
-    const stableProgress = Math.max(previousProgress, match.routeProgress);
-    navigationProgressRef.current = stableProgress;
-    const stableSegmentIndex = Math.min(route.coordinates.length - 2, Math.floor(stableProgress));
-    const stableSegmentProgress = Math.min(1, Math.max(0, stableProgress - stableSegmentIndex));
-    const remainingMeters = routeRemainingDistanceMeters(
-      route.coordinates,
-      stableSegmentIndex,
-      stableSegmentProgress,
-    );
-    const destination = route.coordinates[route.coordinates.length - 1];
-    const destinationMeters = destination
-      ? distanceToRouteCoordinateMeters(userLocation, destination)
-      : Number.POSITIVE_INFINITY;
-    const accuracy = navigationAccuracyRef.current ?? Number.POSITIVE_INFINITY;
-
-    if (accuracy <= 35 && destinationMeters <= 35 && remainingMeters <= 120) {
-      const timer = window.setTimeout(() => stopNavigation("ถึงจุดหมายแล้ว"), 0);
-      return () => window.clearTimeout(timer);
-    }
-
-    if (!Number.isFinite(accuracy) || accuracy > 80) {
-      navigationOffRouteCountRef.current = 0;
-      return;
-    }
-
-    const confirmedOffRouteMeters = Math.max(0, match.distanceMeters - accuracy);
-    if (confirmedOffRouteMeters <= 50) {
-      navigationOffRouteCountRef.current = 0;
-      return;
-    }
-    if (confirmedOffRouteMeters < 80) return;
-
-    navigationOffRouteCountRef.current += 1;
-    const now = Date.now();
-    if (
-      navigationOffRouteCountRef.current < 2
-      || navigationRerouteRef.current
-      || now - navigationLastRerouteAtRef.current < 20_000
-    ) return;
-
-    navigationRerouteRef.current = true;
-    navigationLastRerouteAtRef.current = now;
-    navigationOffRouteCountRef.current = 0;
-    void requestRoute(directionsTarget, routeMode, {
-      origin: userLocation,
-      preserveRoute: true,
-      navigationReroute: true,
-    }).finally(() => {
-      navigationRerouteRef.current = false;
-    });
-  }, [directionsTarget, navigating, requestRoute, route, routeMode, stopNavigation, userLocation]);
+  }, [directionsTarget, requestRoute, route, routeMode, standalone, stopNavigation]);
 
   useEffect(() => {
     if (!standalone) return;
@@ -1643,19 +1657,8 @@ export function FoodDeliveryMapPicker({
     place?.source === "legacy" || results.some((result) => result.source === "legacy");
   const showPhotonAttribution =
     place?.source === "photon" || results.some((result) => result.source === "photon");
-  const navigationPreviousProgress = navigationProgressRef.current;
-  const navigationPreviousSegment = Math.floor(navigationPreviousProgress);
-  const navigationMatch = navigating && userLocation && route
-    ? nearestRoutePosition(userLocation, route.coordinates, {
-        minSegmentIndex: Math.max(0, navigationPreviousSegment - 2),
-        maxSegmentIndex: Math.min(route.coordinates.length - 2, navigationPreviousSegment + 120),
-      })
-    : null;
-  const navigationRenderedProgress = navigationMatch
-    ? Math.max(navigationPreviousProgress, navigationMatch.routeProgress)
-    : navigationPreviousProgress;
-  const navigationRenderedSegment = Math.floor(navigationRenderedProgress);
-  const navigationRenderedSegmentProgress = navigationRenderedProgress - navigationRenderedSegment;
+  const navigationRenderedSegment = Math.floor(navigationProgress);
+  const navigationRenderedSegmentProgress = navigationProgress - navigationRenderedSegment;
   const activeRouteStep = route
     ? nextRouteStep(route, navigationRenderedSegment, navigationRenderedSegmentProgress)
     : null;
@@ -1828,12 +1831,10 @@ export function FoodDeliveryMapPicker({
               <div className="wf-map-navigation-panel" aria-live="polite">
                 <small>คำแนะนำถัดไป</small>
                 <strong>{activeRouteStep?.instruction || "ตรงไปตามเส้นทาง"}</strong>
-                {navigationMatch
-                  && navigationAccuracyRef.current != null
-                  && navigationMatch.distanceMeters - navigationAccuracyRef.current >= 80 ? (
+                {navigationOffRouteDistance != null ? (
                   <div className="wf-map-navigation-offroute">
                     <span>ออกนอกเส้นทาง</span>
-                    <em>{Math.round(navigationMatch.distanceMeters)} ม.</em>
+                    <em>{Math.round(navigationOffRouteDistance)} ม.</em>
                   </div>
                 ) : null}
                 {navigationStatus ? <p>{navigationStatus}</p> : null}
