@@ -30,6 +30,11 @@ on:
           - send-push-notification
           - location-search
           - validate-upload
+          - food-stripe-checkout
+          - food-stripe-cancel
+          - merchant-stripe-connect
+          - merchant-stripe-refund
+          - stripe-webhook
 
 jobs:
   deploy:
@@ -121,12 +126,10 @@ jobs:
           fi
           echo "Deploying ${{ inputs.function }} to project $PROJECT_REF"
 
-          # Deliberately NOT passing --no-verify-jwt. The default (JWT
-          # verification on) is what these functions already run under,
-          # and a Supabase Database Webhook created through the
-          # Dashboard sends an Authorization header, so it satisfies it.
-          # Turning verification off would make the endpoint callable by
-          # anyone on the internet -- not a change to make as a side
-          # effect of automating a deploy.
+          # Per-function auth is defined in supabase/config.toml.
+          # User-invoked Stripe functions require a valid Supabase user JWT.
+          # stripe-webhook is the exception: Stripe cannot send a Supabase JWT,
+          # so platform JWT verification is disabled only for that function and
+          # the handler authenticates requests with Stripe-Signature.
           SUPABASE_ACCESS_TOKEN="$CLEAN_TOKEN" \
             supabase functions deploy "${{ inputs.function }}" --project-ref "$PROJECT_REF"
