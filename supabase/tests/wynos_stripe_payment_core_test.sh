@@ -72,6 +72,7 @@ create table public.food_orders(
 );
 create table public.food_order_events(order_id uuid,event_type text,note text,actor_id uuid);
 create table public.notifications(recipient_id uuid,actor_id uuid,type text,reason text);
+create function public.food_is_permanent_account() returns boolean language sql stable as \$fn\$ select auth.uid() is not null \$fn\$;
 create function public.merchant_has_store_role(p_store_id uuid, p_roles text[] default null)
 returns boolean language sql stable security definer set search_path='' as \$fn\$
   select exists(
@@ -111,6 +112,13 @@ pass "merchant sees sanitized Stripe readiness"
 
 [ "$(val "select internal.food_store_publish_readiness_json('$STORE')->'checks'->>'payment'")" = "true" ] || fail "Stripe satisfies payment readiness"
 pass "Stripe-ready store satisfies payment readiness without manual bank data"
+
+run -c "update public.food_orders set stripe_checkout_session_id='cs_open' where id='$ORDER'" >/dev/null
+expect_fail "manual slip is blocked while Stripe Checkout is open" \
+  "set role authenticated; set test.uid='$BUYER'; select public.food_submit_payment('$ORDER','$BUYER/slips/$ORDER/a.jpg')" \
+  "cancel stripe checkout before submitting slip"
+run -c "update public.food_orders set stripe_checkout_session_id=null where id='$ORDER'" >/dev/null
+pass "manual fallback requires the Stripe session to be expired first"
 
 PAID_SQL="set role service_role; select public.food_apply_stripe_event(
   'evt_paid','checkout.session.completed','$ORDER','acct_test_wynos','cs_1','cs_1','pi_1',12550,'thb','paid','promptpay',null,null
