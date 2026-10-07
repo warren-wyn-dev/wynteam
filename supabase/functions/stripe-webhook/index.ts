@@ -46,15 +46,20 @@ async function verifyStripeSignature(body: string, header: string, secret: strin
   const expected = await hmacHex(secret, `${timestamp}.${body}`);
   return signatures.some((signature) => constantTimeEqual(signature, expected));
 }
-async function verifyAgainstConfiguredSecrets(body: string, header: string) {
-  const secrets = [
-    Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim() ?? "",
-    Deno.env.get("STRIPE_V2_WEBHOOK_SECRET")?.trim() ?? "",
-  ];
+async function verifyAgainstConfiguredSecrets(body: string, header: string, configured: string[]) {
+  const secrets = [...new Set(configured.map((value) => value.trim()).filter(Boolean))];
   for (const secret of secrets) {
-    if (secret && await verifyStripeSignature(body, header, secret)) return true;
+    if (await verifyStripeSignature(body, header, secret)) return true;
   }
   return false;
+}
+async function vaultWebhookSecret(admin: AdminClient, name: "stripe_webhook_secret" | "stripe_v2_webhook_secret") {
+  const { data, error } = await admin.rpc("food_get_stripe_webhook_secret", { p_name: name });
+  if (error) {
+    console.warn("stripe webhook vault secret unavailable", { name });
+    return "";
+  }
+  return typeof data === "string" ? data.trim() : "";
 }
 function stringValue(value: unknown) { return typeof value === "string" ? value : null; }
 function numberValue(value: unknown) { return typeof value === "number" && Number.isFinite(value) ? value : null; }
@@ -284,14 +289,19 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   const url = Deno.env.get("SUPABASE_URL");
   const key = serviceKey();
-  const snapshotSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim() ?? "";
-  const v2Secret = Deno.env.get("STRIPE_V2_WEBHOOK_SECRET")?.trim() ?? "";
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim() ?? "";
-  if (!url || !key || (!snapshotSecret && !v2Secret)) return json({ error: "not_configured" }, 503);
+  if (!url || !key) return json({ error: "not_configured" }, 503);
+
+  const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const envSnapshotSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim() ?? "";
+  const envV2Secret = Deno.env.get("STRIPE_V2_WEBHOOK_SECRET")?.trim() ?? "";
+  const snapshotSecret = envSnapshotSecret || await vaultWebhookSecret(admin, "stripe_webhook_secret");
+  const v2Secret = envV2Secret || await vaultWebhookSecret(admin, "stripe_v2_webhook_secret");
+  if (!snapshotSecret && !v2Secret) return json({ error: "not_configured" }, 503);
 
   const raw = await req.text();
   const signature = req.headers.get("stripe-signature") ?? "";
-  if (!(await verifyAgainstConfiguredSecrets(raw, signature))) {
+  if (!(await verifyAgainstConfiguredSecrets(raw, signature, [snapshotSecret, v2Secret]))) {
     return json({ error: "invalid_signature" }, 400);
   }
 
@@ -302,8 +312,6 @@ Deno.serve(async (req: Request) => {
   const eventId = stringValue(event.id);
   const eventType = stringValue(event.type);
   if (!eventId || !eventType) return json({ error: "invalid_event" }, 400);
-
-  const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
   // Accounts v2 thin events for connected accounts arrive in "Your account"
   // scope. Only the account lifecycle/configuration events WYNOS needs may
