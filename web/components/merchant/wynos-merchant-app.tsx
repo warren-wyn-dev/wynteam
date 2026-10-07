@@ -60,7 +60,13 @@ import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@
 import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
-import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
+import {
+  MERCHANT_NOTIFICATION_TEST_RESULT_KEY,
+  refreshMerchantStripeStatus,
+  setMerchantStorePublished,
+  startMerchantStripeOnboarding,
+  type MerchantStripeStatus,
+} from "@/lib/merchant-core";
 import {
   completeFoodDelivery,
   deleteMenuItem,
@@ -1005,7 +1011,7 @@ function HomePanel({
   const filled = (value: string | null | undefined) => Boolean(value?.trim());
   const checklist = [
     { key: "info", label: "ใส่เบอร์ ที่อยู่ เวลาเปิด และพื้นที่ส่ง", done: filled(store.phone) && filled(store.address) && filled(store.business_hours) && filled(store.delivery_area), action: "แก้ไขร้าน", onGo: onEditStore },
-    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
+    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: store.stripe_payments_enabled === true || (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
     { key: "menu", label: "เปิดขายเมนูอย่างน้อย 1 รายการ", done: availableMenu > 0, action: "ไปที่เมนู", onGo: () => onOpenTab("menu") },
     { key: "publish", label: "เผยแพร่ร้านบน WYNOS Food", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
   ];
@@ -1663,7 +1669,7 @@ function StorePanel({
         </button>
         <button type="button" onClick={() => setPreviewOpen(true)}><span><strong>ดูแบบลูกค้า</strong><small>Preview หน้าร้านก่อนเผยแพร่จริง</small></span><Eye size={19} /></button>
         <button type="button" onClick={onEdit}><span><strong>ข้อมูลร้านและการจัดส่ง</strong><small>เวลาเปิด · ETA · ตำแหน่ง · ค่าส่ง</small></span><ChevronRight size={19} /></button>
-        <button type="button" onClick={onEdit}><span><strong>รับชำระเงิน</strong><small>PromptPay · บัญชีธนาคาร · QR</small></span><ChevronRight size={19} /></button>
+        <button type="button" onClick={onEdit}><span><strong>รับชำระเงิน</strong><small>Stripe · PromptPay · บัญชีธนาคาร · QR</small></span><ChevronRight size={19} /></button>
         {installPrompt ? <button type="button" onClick={onInstall}><span><strong>ติดตั้งเป็นแอป</strong><small>เพิ่ม WYNOS Merchant ไว้บนหน้าจอหลัก</small></span><ChevronRight size={19} /></button> : null}
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><ChevronRight size={19} /></button>
       </section>
@@ -2562,6 +2568,8 @@ function StoreEditor({
   const [coverState, setCoverState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(store.cover_path ? "uploaded" : "idle");
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stripeBusy, setStripeBusy] = useState(false);
+  const [stripeStatus, setStripeStatus] = useState<MerchantStripeStatus | null>(null);
   const [schedule, setSchedule] = useState<FoodBusinessSchedule>(() => {
     const current = store.business_schedule as FoodBusinessSchedule | undefined;
     return current?.weekly ? current : defaultFoodBusinessSchedule();
@@ -2597,6 +2605,45 @@ function StoreEditor({
       if (coverPreview?.startsWith("blob:")) URL.revokeObjectURL(coverPreview);
     };
   }, [logoPreview, coverPreview]);
+
+  useEffect(() => {
+    let live = true;
+    void refreshMerchantStripeStatus(client, store.id)
+      .then((status) => { if (live) setStripeStatus(status); })
+      .catch(() => { if (live) setStripeStatus(null); });
+    return () => { live = false; };
+  }, [client, store.id]);
+
+  const connectStripe = async () => {
+    setStripeBusy(true);
+    try {
+      const result = await startMerchantStripeOnboarding(client, store.id);
+      setStripeStatus(result.status);
+      if (result.url) {
+        window.location.assign(result.url);
+        return;
+      }
+      onMessage("Stripe พร้อมรับชำระเงินแล้ว");
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : "เปิด Stripe Connect ไม่สำเร็จ");
+    } finally {
+      setStripeBusy(false);
+    }
+  };
+
+  const syncStripe = async () => {
+    setStripeBusy(true);
+    try {
+      const status = await refreshMerchantStripeStatus(client, store.id);
+      setStripeStatus(status);
+      onMessage(status.status === "ready" ? "Stripe พร้อมรับชำระเงินแล้ว" : "อัปเดตสถานะ Stripe แล้ว");
+      if (status.status === "ready") await onSaved();
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : "ตรวจสถานะ Stripe ไม่สำเร็จ");
+    } finally {
+      setStripeBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!pin) return;
@@ -2910,9 +2957,22 @@ function StoreEditor({
         <section className="wm-settings-category" id="wm-store-section-payment">
           <div className="wm-settings-category-head">
             <span className="wm-settings-category-icon"><CircleDollarSign size={20} /></span>
-            <span><strong>การรับชำระเงิน</strong><small>PromptPay บัญชีธนาคาร และ QR สำหรับรับเงินเข้าร้าน</small></span>
+            <span><strong>การรับชำระเงิน</strong><small>Stripe เป็นช่องทางอัตโนมัติ พร้อม PromptPay/บัญชีธนาคารเป็นช่องทางสำรอง</small></span>
           </div>
           <div className="wm-settings-category-body">
+        <div className="wm-pickup-zone">
+          <strong>Stripe</strong>
+          <small>{stripeStatus?.status === "ready" ? "พร้อมรับชำระอัตโนมัติจาก WYNOS Food" : stripeStatus?.connected ? "เชื่อมบัญชีแล้ว แต่ยังตั้งค่าไม่เสร็จ" : "เชื่อมบัญชี Stripe ของร้านเพื่อรับบัตรและ PromptPay"}</small>
+          {stripeStatus?.status === "ready" ? <div className="wm-inline-success"><Check size={15} /> Stripe พร้อมใช้งาน</div> : null}
+          {stripeStatus?.status === "restricted" ? <div className="wm-inline-warning">Stripe ต้องการข้อมูลเพิ่มเติม กรุณาดำเนินการต่อใน Stripe</div> : null}
+          <div className="wm-two-actions">
+            <button className="wm-primary" type="button" disabled={stripeBusy} onClick={() => void connectStripe()}>
+              {stripeBusy ? "กำลังเปิด…" : stripeStatus?.connected ? "ดำเนินการต่อใน Stripe" : "เชื่อม Stripe"}
+            </button>
+            {stripeStatus?.connected ? <button className="wm-secondary" type="button" disabled={stripeBusy} onClick={() => void syncStripe()}>ตรวจสถานะ</button> : null}
+          </div>
+          <small>การชำระผ่าน Stripe จะยืนยันจาก Webhook อัตโนมัติ และไม่ต้องแนบสลิป</small>
+        </div>
         <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
         <label>ธนาคาร<input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} /></label>
         <label>ชื่อบัญชี<input value={form.bank_account_name} onChange={(e) => setForm({ ...form, bank_account_name: e.target.value })} /></label>
