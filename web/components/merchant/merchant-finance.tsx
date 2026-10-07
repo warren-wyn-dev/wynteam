@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { money, type FoodStore } from "@/lib/food-merchant";
-import { fetchMerchantStripeStatus, type MerchantStripeStatus } from "@/lib/merchant-core";
+import { fetchMerchantStripeFinance, type MerchantStripeFinance } from "@/lib/merchant-core";
 import {
   addDays,
   bangkokToday,
@@ -56,7 +56,7 @@ export function MerchantFinance({
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [error, setError] = useState("");
   const [picking, setPicking] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<MerchantStripeStatus | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<MerchantStripeFinance | null>(null);
   const [todaySummary, setTodaySummary] = useState<FinanceSummary | null>(null);
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export function MerchantFinance({
   useEffect(() => {
     let live = true;
     void Promise.all([
-      fetchMerchantStripeStatus(client, store.id),
+      fetchMerchantStripeFinance(client, store.id),
       fetchFinanceSummary(client, store.id, periodRange("today")),
     ]).then(([stripe, today]) => {
       if (!live) return;
@@ -110,9 +110,9 @@ export function MerchantFinance({
       {paymentStatus?.connected ? (
         <section className="wm-fin-payout-overview" aria-label="สรุปการรับเงิน">
           <div><small>ยอดขายวันนี้</small><strong>{money(todaySummary?.sales_net ?? 0)}</strong></div>
-          <div><small>กำลังดำเนินการ</small><strong>{money((paymentStatus.balance_pending_satang ?? 0) / 100)}</strong></div>
-          <div><small>พร้อมโอน</small><strong>{money((paymentStatus.balance_available_satang ?? 0) / 100)}</strong></div>
-          <div><small>โอนเข้าธนาคารแล้ว</small><strong>{money((paymentStatus.payouts_paid_today_satang ?? 0) / 100)}</strong></div>
+          <div><small>กำลังดำเนินการ</small><strong>{money(paymentStatus.pending)}</strong></div>
+          <div><small>พร้อมโอน</small><strong>{money(paymentStatus.available)}</strong></div>
+          <div><small>โอนเข้าธนาคารแล้ววันนี้</small><strong>{money(paymentStatus.paid_today)}</strong></div>
           <div><small>คืนเงิน</small><strong>{money(todaySummary?.refunds ?? 0)}</strong></div>
         </section>
       ) : null}
@@ -214,26 +214,54 @@ function FinanceLine({ label, value, positive, total }: { label: string; value: 
   );
 }
 
-function PaymentChannels({ store, paymentStatus, onEditStore }: { store: FoodStore; paymentStatus: MerchantStripeStatus | null; onEditStore: () => void }) {
-  const last4 = (value: string | null) => {
+function PaymentChannels({ store, paymentStatus, onEditStore }: { store: FoodStore; paymentStatus: MerchantStripeFinance | null; onEditStore: () => void }) {
+  const manualLast4 = (value: string | null) => {
     const digits = (value ?? "").replace(/\D/g, "");
-    return digits ? `••••${digits.slice(-4)}` : "";
+    return digits ? `•••• ${digits.slice(-4)}` : "";
   };
-  const channels = [
-    store.stripe_payments_enabled ? "บัตร/PromptPay · ยืนยันอัตโนมัติ" : null,
-    paymentStatus?.bank_ready ? `${paymentStatus.bank_name || "บัญชีรับเงิน"} ${paymentStatus.bank_last4 ? `•••• ${paymentStatus.bank_last4}` : ""}`.trim() : null,
-    store.promptpay_id ? `PromptPay ${store.promptpay_name ?? ""} ${last4(store.promptpay_id)}`.trim() : null,
-    store.bank_account_number ? `${store.bank_name ?? "บัญชีธนาคาร"} ${last4(store.bank_account_number)}` : null,
+  const payoutSchedule = paymentStatus?.payout_interval === "daily"
+    ? "อัตโนมัติ · ทุกวัน"
+    : paymentStatus?.payout_interval === "weekly"
+      ? "อัตโนมัติ · รายสัปดาห์"
+      : paymentStatus?.payout_interval === "monthly"
+        ? "อัตโนมัติ · รายเดือน"
+        : "เงินจะถูกโอนเข้าบัญชีตามรอบของผู้ให้บริการ";
+
+  if (paymentStatus?.connected) {
+    return (
+      <section className="wm-section">
+        <div className="wm-section-title"><h2>บัญชีรับเงิน</h2><button type="button" onClick={onEditStore}>จัดการ <ChevronRight size={15} /></button></div>
+        <div className="wm-payment-summary">
+          <div>
+            <span>บัญชีธนาคาร</span>
+            <strong>{paymentStatus.bank_ready
+              ? `${paymentStatus.bank_name || "บัญชีธนาคาร"} ${paymentStatus.bank_last4 ? `•••• ${paymentStatus.bank_last4}` : ""}`.trim()
+              : "กำลังยืนยันบัญชีรับเงิน"}</strong>
+            <small>{paymentStatus.bank_ready ? "พร้อมรับเงิน" : "อาจต้องยืนยันข้อมูลเพิ่มเติม"}</small>
+          </div>
+          <div>
+            <span>รอบโอนเงิน</span>
+            <strong>{payoutSchedule}</strong>
+            <small>ระบบจะแสดงรอบจริงของบัญชี และไม่สมมติว่าโอนทุกวัน</small>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const backups = [
+    store.promptpay_id ? `PromptPay ${store.promptpay_name ?? ""} ${manualLast4(store.promptpay_id)}`.trim() : null,
+    store.bank_account_number ? `${store.bank_name ?? "บัญชีธนาคาร"} ${manualLast4(store.bank_account_number)}` : null,
     store.payment_qr_path ? "QR รับเงิน" : null,
   ].filter((value): value is string => Boolean(value));
 
   return (
     <section className="wm-section">
-      <div className="wm-section-title"><h2>ช่องทางรับเงิน</h2><button type="button" onClick={onEditStore}>แก้ไข <ChevronRight size={15} /></button></div>
-      {channels.length ? (
-        <div className="wm-money-channels">{channels.map((channel) => <span key={channel}>{channel}</span>)}</div>
+      <div className="wm-section-title"><h2>บัญชีรับเงิน</h2><button type="button" onClick={onEditStore}>ตั้งค่า <ChevronRight size={15} /></button></div>
+      {backups.length ? (
+        <div className="wm-money-channels">{backups.map((channel) => <span key={channel}>{channel}</span>)}</div>
       ) : (
-        <button className="wm-setup-banner" type="button" onClick={onEditStore}><CircleDollarSign size={22} /><span><strong>ยังไม่ได้ตั้งช่องทางรับเงิน</strong><small>ลูกค้าต้องมีช่องทางโอนก่อนสั่งได้</small></span></button>
+        <button className="wm-setup-banner" type="button" onClick={onEditStore}><CircleDollarSign size={22} /><span><strong>ยังไม่ได้เปิดรับชำระเงิน</strong><small>เปิดใช้งานครั้งเดียว แล้วระบบจะจัดการการรับเงินและโอนเข้าบัญชีให้</small></span></button>
       )}
     </section>
   );
