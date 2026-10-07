@@ -1525,6 +1525,10 @@ function AccountPanel({
           <span><Bell size={20} /><div><strong>การแจ้งเตือน WYNOS Food</strong><small>{notificationsEnabled ? "เปิดแล้วสำหรับอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></div></span>
           <ChevronRight size={18} />
         </button>
+        <a href="https://merchant.wynos.online/" aria-label="ขายอาหารบน WYNOS Food">
+          <span><Store size={20} /><div><strong>ขายอาหารบน WYNOS Food</strong><small>ติดต่อทีมงานเพื่อสมัครร้านและเริ่มขายอาหาร</small></div></span>
+          <ChevronRight size={18} />
+        </a>
         {installPrompt ? (
           <button type="button" onClick={onInstall}>
             <span><Home size={20} /><div><strong>ติดตั้ง WYNOS Food</strong><small>เพิ่ม WYNOS Food ไว้บนหน้าจอหลัก</small></div></span>
