@@ -168,6 +168,71 @@ revoke all on function public.food_release_stripe_account_creation(uuid,uuid)
 grant execute on function public.food_release_stripe_account_creation(uuid,uuid)
   to service_role;
 
+create or replace function public.food_get_stripe_webhook_secret(p_name text)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $vault_read$
+declare
+  v_secret text;
+  v_vault_name text;
+begin
+  if p_name not in ('stripe_webhook_secret','stripe_v2_webhook_secret') then
+    raise exception 'invalid stripe webhook secret name';
+  end if;
+  if to_regclass('vault.decrypted_secrets') is null then
+    return null;
+  end if;
+  v_vault_name := 'wynos_' || p_name;
+  execute 'select decrypted_secret from vault.decrypted_secrets where name = $1 order by updated_at desc limit 1'
+    into v_secret using v_vault_name;
+  return nullif(btrim(coalesce(v_secret,'')), '');
+end;
+$vault_read$;
+
+revoke all on function public.food_get_stripe_webhook_secret(text)
+  from public, anon, authenticated;
+grant execute on function public.food_get_stripe_webhook_secret(text)
+  to service_role;
+
+create or replace function public.food_set_stripe_webhook_secret(p_name text, p_secret text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $vault_write$
+declare
+  v_id uuid;
+  v_vault_name text;
+begin
+  if p_name not in ('stripe_webhook_secret','stripe_v2_webhook_secret') then
+    raise exception 'invalid stripe webhook secret name';
+  end if;
+  if length(coalesce(p_secret,'')) < 8 then
+    raise exception 'invalid stripe webhook secret';
+  end if;
+  if to_regclass('vault.secrets') is null then
+    raise exception 'vault unavailable';
+  end if;
+  v_vault_name := 'wynos_' || p_name;
+  execute 'select id from vault.secrets where name = $1 order by updated_at desc limit 1'
+    into v_id using v_vault_name;
+  if v_id is null then
+    execute 'select vault.create_secret($1,$2,$3,null)'
+      using p_secret, v_vault_name, 'WYNOS Stripe webhook signing secret';
+  else
+    execute 'select vault.update_secret($1,$2,$3,$4,null)'
+      using v_id, p_secret, v_vault_name, 'WYNOS Stripe webhook signing secret';
+  end if;
+end;
+$vault_write$;
+
+revoke all on function public.food_set_stripe_webhook_secret(text,text)
+  from public, anon, authenticated;
+grant execute on function public.food_set_stripe_webhook_secret(text,text)
+  to service_role;
+
 create or replace function public.food_claim_stripe_webhook_event(
   p_event_id text,
   p_event_type text,
