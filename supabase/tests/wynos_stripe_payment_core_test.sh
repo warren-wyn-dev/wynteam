@@ -115,6 +115,9 @@ expect_fail "authenticated cannot read Stripe payouts table" \
 expect_fail "authenticated cannot read Stripe provisioning lock" \
   "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_account_creation_locks" \
   "permission denied"
+expect_fail "authenticated cannot read archived Stripe mappings" \
+  "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_account_mapping_archive" \
+  "permission denied"
 
 expect_fail "authenticated cannot read Stripe account table"   "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_accounts"   "permission denied"
 
@@ -132,14 +135,19 @@ pass "merchant sees sanitized Stripe readiness"
 pass "merchant status exposes only sanitized payout account data"
 [ "$(val "select has_table_privilege('service_role','public.food_stripe_accounts','select')")" = "t" ] || fail "service role cannot read Stripe account backend table"
 [ "$(val "select has_table_privilege('authenticated','public.food_stripe_accounts','select')")" = "f" ] || fail "authenticated can read Stripe account backend table"
-pass "raw Stripe account access is service-role only"
+[ "$(val "select has_table_privilege('service_role','public.food_stripe_account_mapping_archive','select')")" = "t" ] || fail "service role cannot read archived Stripe mappings"
+[ "$(val "select has_table_privilege('authenticated','public.food_stripe_account_mapping_archive','select')")" = "f" ] || fail "authenticated can read archived Stripe mappings"
+[ "$(val "select has_function_privilege('service_role','public.food_archive_stripe_account_mapping(uuid,boolean,text)','execute')")" = "t" ] || fail "service role cannot archive Stripe mappings"
+[ "$(val "select has_function_privilege('authenticated','public.food_archive_stripe_account_mapping(uuid,boolean,text)','execute')")" = "f" ] || fail "authenticated can archive Stripe mappings"
+pass "raw Stripe account access and archives are service-role only"
 [ "$(val "select has_function_privilege('authenticated','public.food_get_stripe_webhook_secret(text)','execute')")" = "f" ] || fail "authenticated can read Stripe webhook Vault secret"
 [ "$(val "select has_function_privilege('authenticated','public.food_set_stripe_webhook_secret(text,text)','execute')")" = "f" ] || fail "authenticated can write Stripe webhook Vault secret"
 [ "$(val "select has_function_privilege('service_role','public.food_get_stripe_webhook_secret(text)','execute')")" = "t" ] || fail "service role cannot read Stripe webhook Vault secret"
 [ "$(val "select has_function_privilege('service_role','public.food_set_stripe_webhook_secret(text,text)','execute')")" = "t" ] || fail "service role cannot write Stripe webhook Vault secret"
 pass "Stripe webhook Vault access is service-role only"
 [ "$(val "set role service_role; select account_api_version from public.food_stripe_accounts where store_id='$STORE'")" = "v2" ] || fail "account api version"
-pass "new schema records Accounts v2 without exposing it to Merchant UI"
+[ "$(val "set role service_role; select livemode::text from public.food_stripe_accounts where store_id='$STORE'")" = "false" ] || fail "test mapping default mode"
+pass "new schema records Accounts v2 and Stripe mode without exposing it to Merchant UI"
 
 [ "$(val "set role service_role; select public.food_claim_stripe_webhook_event('evt_account_sync','v2.core.account[requirements].updated','acct_test_wynos','acct_test_wynos')")" = "t" ] || fail "first account webhook claim"
 [ "$(val "set role service_role; select public.food_claim_stripe_webhook_event('evt_account_sync','v2.core.account[requirements].updated','acct_test_wynos','acct_test_wynos')")" = "f" ] || fail "duplicate account webhook claim"
