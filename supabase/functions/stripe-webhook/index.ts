@@ -62,6 +62,11 @@ async function vaultWebhookSecret(admin: AdminClient, name: "stripe_webhook_secr
 }
 function stringValue(value: unknown) { return typeof value === "string" ? value : null; }
 function numberValue(value: unknown) { return typeof value === "number" && Number.isFinite(value) ? value : null; }
+function stripeLivemode(secret: string) {
+  if (/^(?:sk|rk)_live_/.test(secret)) return true;
+  if (/^(?:sk|rk)_test_/.test(secret)) return false;
+  return null;
+}
 function stripeV1Headers(secret: string, account?: string) {
   const headers: Record<string,string> = { Authorization: `Basic ${btoa(secret + ":")}` };
   if (account) headers["Stripe-Account"] = account;
@@ -173,8 +178,10 @@ async function fetchPayoutInterval(secret: string, accountId: string) {
 }
 async function syncMappedAccount(admin: AdminClient, secret: string, accountId: string) {
   const { data: saved } = await admin.from("food_stripe_accounts")
-    .select("store_id,account_api_version").eq("stripe_account_id", accountId).maybeSingle();
+    .select("store_id,account_api_version,livemode").eq("stripe_account_id", accountId).maybeSingle();
   if (!saved?.store_id) return false;
+  const keyLivemode = stripeLivemode(secret);
+  if (keyLivemode == null || saved.livemode !== keyLivemode) return false;
 
   const [bank, balance, payoutSchedule, ppStatus] = await Promise.all([
     fetchBank(secret, accountId),
@@ -290,6 +297,8 @@ Deno.serve(async (req: Request) => {
   const key = serviceKey();
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim() ?? "";
   if (!url || !key) return json({ error: "not_configured" }, 503);
+  const stripeLiveMode = stripeLivemode(stripeSecret);
+  if (stripeSecret && stripeLiveMode == null) return json({ error: "not_configured" }, 503);
 
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   const envSnapshotSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim() ?? "";
@@ -397,6 +406,14 @@ Deno.serve(async (req: Request) => {
   if (!orderId && sessionId) {
     const { data: payment } = await admin.from("food_stripe_payments").select("order_id").eq("checkout_session_id", sessionId).maybeSingle();
     orderId = payment?.order_id ?? null;
+  }
+
+  if (orderId && stripeLiveMode != null) {
+    const { data: paymentEnvironment } = await admin.from("food_stripe_payments")
+      .select("livemode").eq("order_id", orderId).maybeSingle();
+    if (typeof paymentEnvironment?.livemode === "boolean" && paymentEnvironment.livemode !== stripeLiveMode) {
+      return json({ received: true, ignored: true });
+    }
   }
 
   let state: "paid" | "failed" | "refunded" | "noop" = "noop";
