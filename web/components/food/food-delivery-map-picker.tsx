@@ -411,6 +411,11 @@ export function FoodDeliveryMapPicker({
   const reverseRequestRef = useRef(0);
   const nearbyRequestRef = useRef(0);
   const routeRequestRef = useRef(0);
+  const routeOriginRef = useRef<{
+    location: FoodLocation;
+    targetKey: string;
+    capturedAt: number;
+  } | null>(null);
   const nearbyMarkersRef = useRef<MarkerInstance[]>([]);
   const userLocationMarkerRef = useRef<MarkerInstance | null>(null);
   const entranceMarkerRef = useRef<MarkerInstance | null>(null);
@@ -553,15 +558,23 @@ export function FoodDeliveryMapPicker({
     setRoute(null);
     setRouteStatus("");
     setRouteWorking(true);
+    searchRequestRef.current += 1;
+    setSearching(false);
     setSearchFocused(false);
+    setSearchStatus("");
     setResults([]);
     setSheetDetent("half");
 
     try {
-      let origin = userLocation;
-      if (!origin) {
-        origin = await currentFoodLocation();
-        if (routeRequestRef.current !== requestId) return;
+      const targetKey = `${target.latitude.toFixed(6)},${target.longitude.toFixed(6)}`;
+      const cachedOrigin = routeOriginRef.current;
+      const canReuseOrigin = cachedOrigin
+        && cachedOrigin.targetKey === targetKey
+        && Date.now() - cachedOrigin.capturedAt <= 30_000;
+      const origin = canReuseOrigin ? cachedOrigin.location : await currentFoodLocation();
+      if (routeRequestRef.current !== requestId) return;
+      if (!canReuseOrigin) {
+        routeOriginRef.current = { location: origin, targetKey, capturedAt: Date.now() };
         setUserLocation(origin);
       }
 
@@ -598,7 +611,7 @@ export function FoodDeliveryMapPicker({
     } finally {
       if (routeRequestRef.current === requestId) setRouteWorking(false);
     }
-  }, [routeMode, standalone, userLocation]);
+  }, [routeMode, standalone]);
 
   useEffect(() => {
     if (!standalone) return;
@@ -1620,6 +1633,7 @@ export function FoodDeliveryMapPicker({
                   key={mode}
                   type="button"
                   className={routeMode === mode ? "is-active" : ""}
+                  aria-pressed={routeMode === mode}
                   disabled={routeWorking}
                   onClick={() => void requestRoute(directionsTarget, mode)}
                 >
@@ -1723,6 +1737,7 @@ export function FoodDeliveryMapPicker({
               {standalone ? (
                 <button
                   type="button"
+                  disabled={routeWorking}
                   onClick={() => void requestRoute({
                     name: activeNearbyPlace.name || "สถานที่ที่เลือก",
                     latitude: activeNearbyPlace.latitude,
