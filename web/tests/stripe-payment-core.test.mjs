@@ -27,7 +27,7 @@ test("Stripe secrets stay server-side and private gateway tables are locked down
 
 test("Checkout is a direct connected-account charge with idempotency and server-calculated amount", () => {
   assert.match(checkout, /"Stripe-Account": account/);
-  assert.match(checkout, /"Idempotency-Key": idempotencyKey/);
+  assert.match(checkout, /headers\["Idempotency-Key"\]\s*=\s*idempotencyKey/);
   assert.match(checkout, /Math\.round\(Number\(order\.total\) \* 100\)/);
   assert.match(checkout, /params\.set\("payment_method_types\[0\]", "card"\)/);
   assert.match(checkout, /params\.set\("payment_method_types\[1\]", "promptpay"\)/);
