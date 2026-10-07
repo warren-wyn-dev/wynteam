@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(read("../lib/maps-routing.ts"), {
 }).outputText;
 const mod = { exports: {} };
 runInNewContext(compiled, { module: mod, exports: mod.exports, Number, Math, Array, Object });
-const { decodeValhallaPolyline, parseWynosRoute, nearestRoutePosition, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, nextRouteStep, formatRouteDuration, formatRouteDistance } = mod.exports;
+const { decodeValhallaPolyline, parseWynosRoute, parseWynosRoutes, nearestRoutePosition, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, nextRouteStep, formatRouteDuration, formatRouteDistance } = mod.exports;
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -41,6 +41,28 @@ function encode(points, precision = 6) {
 test("Valhalla polyline6 decodes longitude/latitude coordinates", () => {
   const points = [[103.2496, 16.2458], [103.251, 16.2465], [103.255, 16.25]];
   assert.deepEqual(plain(decodeValhallaPolyline(encode(points))), points);
+});
+
+test("canonical WYNOS route alternatives are accepted", () => {
+  const routes = parseWynosRoutes({
+    routes: [
+      {
+        distanceKm: 2.4,
+        durationSeconds: 300,
+        coordinates: [[100, 13], [100.01, 13.01]],
+        steps: [],
+      },
+      {
+        distanceKm: 2.7,
+        durationSeconds: 325,
+        coordinates: [[100, 13], [100.02, 13.015]],
+        steps: [],
+      },
+    ],
+  }, "auto");
+  assert.equal(routes.length, 2);
+  assert.equal(routes[0].distanceKm, 2.4);
+  assert.equal(routes[1].durationSeconds, 325);
 });
 
 test("canonical WYNOS route payload is accepted", () => {
