@@ -1,9 +1,19 @@
 export type MapsTravelMode = "auto" | "motorcycle" | "pedestrian";
 
+export type MapsRouteStep = {
+  instruction: string;
+  distanceKm: number;
+  durationSeconds: number;
+  beginShapeIndex: number;
+  endShapeIndex: number;
+  coordinate: [number, number];
+};
+
 export type MapsRoute = {
   distanceKm: number;
   durationSeconds: number;
   coordinates: Array<[number, number]>;
+  steps: MapsRouteStep[];
   mode: MapsTravelMode;
 };
 
@@ -15,6 +25,10 @@ function record(value: unknown): UnknownRecord | null {
 
 function finiteNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function nonNegativeInteger(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 export function decodeValhallaPolyline(encoded: string, precision = 6): Array<[number, number]> {
@@ -61,23 +75,110 @@ export function parseWynosRoute(raw: unknown, mode: MapsTravelMode): MapsRoute |
   if (distanceKm == null || durationSeconds == null || distanceKm < 0 || durationSeconds < 0 || !legs.length) return null;
 
   const coordinates: Array<[number, number]> = [];
+  const steps: MapsRouteStep[] = [];
+
   for (const value of legs) {
     const leg = record(value);
     const shape = typeof leg?.shape === "string" ? leg.shape : "";
-    const points = decodeValhallaPolyline(shape);
-    if (points.length < 2) continue;
-    if (coordinates.length && points.length) {
-      const previous = coordinates[coordinates.length - 1];
-      const first = points[0];
-      if (previous && first && Math.abs(previous[0] - first[0]) < 1e-7 && Math.abs(previous[1] - first[1]) < 1e-7) {
-        points.shift();
-      }
-    }
+    const originalPoints = decodeValhallaPolyline(shape);
+    if (originalPoints.length < 2) continue;
+
+    const globalStart = coordinates.length;
+    const previous = coordinates[coordinates.length - 1];
+    const first = originalPoints[0];
+    const sharesBoundary = Boolean(previous && first
+      && Math.abs(previous[0] - first[0]) < 1e-7
+      && Math.abs(previous[1] - first[1]) < 1e-7);
+
+    const points = sharesBoundary ? originalPoints.slice(1) : originalPoints;
     coordinates.push(...points);
+
+    const maneuvers = Array.isArray(leg?.maneuvers) ? leg.maneuvers : [];
+    for (const maneuverValue of maneuvers) {
+      const maneuver = record(maneuverValue);
+      const instruction = typeof maneuver?.instruction === "string" ? maneuver.instruction.trim() : "";
+      const length = finiteNumber(maneuver?.length);
+      const time = finiteNumber(maneuver?.time);
+      const begin = nonNegativeInteger(maneuver?.begin_shape_index);
+      const end = nonNegativeInteger(maneuver?.end_shape_index);
+      if (!instruction || length == null || time == null || begin == null || end == null) continue;
+
+      const localToGlobal = (localIndex: number) => {
+        if (sharesBoundary && localIndex === 0) return Math.max(0, globalStart - 1);
+        return globalStart + localIndex - (sharesBoundary ? 1 : 0);
+      };
+      const beginShapeIndex = Math.min(coordinates.length - 1, Math.max(0, localToGlobal(begin)));
+      const endShapeIndex = Math.min(coordinates.length - 1, Math.max(beginShapeIndex, localToGlobal(end)));
+      const coordinate = coordinates[beginShapeIndex];
+      if (!coordinate) continue;
+
+      steps.push({
+        instruction,
+        distanceKm: length,
+        durationSeconds: time,
+        beginShapeIndex,
+        endShapeIndex,
+        coordinate,
+      });
+    }
   }
 
   if (coordinates.length < 2) return null;
-  return { distanceKm, durationSeconds, coordinates, mode };
+  return { distanceKm, durationSeconds, coordinates, steps, mode };
+}
+
+function toLocalMeters(
+  location: { latitude: number; longitude: number },
+  coordinate: [number, number],
+) {
+  const earthRadius = 6_371_000;
+  const latitudeRadians = location.latitude * Math.PI / 180;
+  return {
+    x: (coordinate[0] - location.longitude) * Math.PI / 180 * earthRadius * Math.cos(latitudeRadians),
+    y: (coordinate[1] - location.latitude) * Math.PI / 180 * earthRadius,
+  };
+}
+
+export function nearestRoutePosition(
+  location: { latitude: number; longitude: number },
+  coordinates: Array<[number, number]>,
+) {
+  if (!Number.isFinite(location.latitude) || !Number.isFinite(location.longitude) || coordinates.length < 2) return null;
+
+  let bestDistanceSquared = Number.POSITIVE_INFINITY;
+  let bestIndex = 0;
+  let bestProgress = 0;
+
+  for (let index = 0; index < coordinates.length - 1; index += 1) {
+    const start = toLocalMeters(location, coordinates[index]);
+    const end = toLocalMeters(location, coordinates[index + 1]);
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const progress = lengthSquared > 0
+      ? Math.min(1, Math.max(0, -(start.x * dx + start.y * dy) / lengthSquared))
+      : 0;
+    const x = start.x + dx * progress;
+    const y = start.y + dy * progress;
+    const distanceSquared = x * x + y * y;
+    if (distanceSquared < bestDistanceSquared) {
+      bestDistanceSquared = distanceSquared;
+      bestIndex = index;
+      bestProgress = progress;
+    }
+  }
+
+  return {
+    distanceMeters: Math.sqrt(bestDistanceSquared),
+    shapeIndex: bestProgress >= 0.5 ? bestIndex + 1 : bestIndex,
+    segmentIndex: bestIndex,
+    segmentProgress: bestProgress,
+  };
+}
+
+export function nextRouteStep(route: MapsRoute, shapeIndex: number) {
+  if (!route.steps.length) return null;
+  return route.steps.find((step) => step.endShapeIndex >= shapeIndex) ?? route.steps[route.steps.length - 1] ?? null;
 }
 
 export function formatRouteDuration(seconds: number) {
