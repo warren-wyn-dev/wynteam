@@ -787,6 +787,16 @@ grant execute on function public.admin_add_rider_adjustment(uuid,uuid,bigint,tex
 -- Rider payout engine. Safe to ship while rider_enabled=false.
 -- ---------------------------------------------------------------------------
 
+create table if not exists public.food_rider_payout_jobs (
+  payout_id uuid not null references public.food_rider_payouts(id) on delete cascade,
+  job_id uuid not null references public.food_rider_jobs(id) on delete restrict,
+  primary key(payout_id,job_id),
+  unique(job_id)
+);
+
+alter table public.food_rider_payout_jobs enable row level security;
+revoke all on table public.food_rider_payout_jobs from public,anon,authenticated;
+
 create or replace function internal.food_rider_payout_rows(
   p_rider_id uuid,p_from timestamptz,p_to timestamptz
 )
@@ -818,16 +828,6 @@ $$;
 
 revoke all on function internal.food_rider_payout_rows(uuid,timestamptz,timestamptz)
   from public,anon,authenticated;
-
-create table if not exists public.food_rider_payout_jobs (
-  payout_id uuid not null references public.food_rider_payouts(id) on delete cascade,
-  job_id uuid not null references public.food_rider_jobs(id) on delete restrict,
-  primary key(payout_id,job_id),
-  unique(job_id)
-);
-
-alter table public.food_rider_payout_jobs enable row level security;
-revoke all on table public.food_rider_payout_jobs from public,anon,authenticated;
 
 create or replace function public.admin_rider_payout_preview(
   p_rider_id uuid,p_from timestamptz,p_to timestamptz
