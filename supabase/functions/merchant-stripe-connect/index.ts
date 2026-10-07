@@ -203,6 +203,7 @@ function v1CoreState(account: Record<string,unknown>) {
     promptpayEnabled: pp === "active",
     promptpayStatus: pp,
     dueCount,
+    needsInfo: dueCount > 0,
     restricted: disabled,
   };
 }
@@ -227,6 +228,7 @@ function v2CoreState(account: Record<string,unknown>) {
     promptpayEnabled: pp === "active",
     promptpayStatus: pp,
     dueCount,
+    needsInfo: dueCount > 0,
     restricted,
   };
 }
@@ -236,19 +238,23 @@ function composeState(
   money: MoneySummary,
   payout: PayoutSummary,
 ) {
-  const ready = core.charges && core.payouts && core.dueCount === 0 && bank.ready;
-  const status = ready ? "ready" : core.restricted ? "restricted" : core.dueCount > 0 ? "onboarding" : "pending";
+  const settings = payoutInterval(payout.interval);
+  const charges = core.charges;
+  const payoutsEnabled = core.payouts;
+  const automaticPayouts = settings !== "manual" && settings !== "unknown";
+  const ready = charges && payoutsEnabled && !core.needsInfo && bank.ready && automaticPayouts;
+  const status = ready ? "ready" : core.restricted ? "restricted" : core.needsInfo ? "onboarding" : "pending";
   return {
     details_submitted: core.details,
-    charges_enabled: core.charges,
-    payouts_enabled: core.payouts,
+    charges_enabled: charges,
+    payouts_enabled: payoutsEnabled,
     promptpay_enabled: core.promptpayEnabled,
     promptpay_status: core.promptpayStatus,
     requirements_due_count: core.dueCount,
     bank_ready: bank.ready,
     bank_name: bank.name,
     bank_last4: bank.last4,
-    payout_interval: payout.interval ?? "unknown",
+    payout_interval: settings,
     balance_pending_satang: money.pending,
     balance_available_satang: money.available,
     last_error_code: null,
@@ -330,8 +336,15 @@ async function createV2Account(secret: string, storeId: string, storeName: strin
 async function createAccountSession(secret: string, accountId: string, component: "account_onboarding" | "account_management") {
   const params = new URLSearchParams();
   params.set("account", accountId);
-  params.set(`components[${component}][enabled]`, "true");
-  params.set(`components[${component}][features][external_account_collection]`, "true");
+  if (component === "account_management") {
+    params.set("components[account_management][enabled]", "true");
+    params.set("components[account_management][features][external_account_collection]", "true");
+  } else {
+    params.set("components[account_onboarding][enabled]", "true");
+    params.set("components[account_onboarding][features][external_account_collection]", "true");
+  }
+  // Keep ongoing KYC/risk requests visible inside WYNOS even after first onboarding.
+  params.set("components[notification_banner][enabled]", "true");
   return await stripeJson("https://api.stripe.com/v1/account_sessions", {
     method: "POST",
     headers: stripeV1Headers(secret),
@@ -494,20 +507,20 @@ Deno.serve(async (req: Request) => {
       if (!publishableKey) return json({ error: "embedded_unavailable", message: "ไม่สามารถเปิดหน้าตั้งค่ารับเงินได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง" }, 503);
       const session = await createAccountSession(stripeSecret, accountId, component as "account_onboarding" | "account_management");
       if (typeof session.client_secret !== "string") throw new Error("account_session_missing_secret");
-      return json({ clientSecret: session.client_secret, publishableKey });
+      return json({ surface: "embedded", clientSecret: session.client_secret, publishableKey });
     }
 
     if (synced.state.status === "ready") {
-      return json({ ...publicState, flow: synced.api === "v2" && publishableKey ? "embedded" : "ready", publishableKey: synced.api === "v2" ? publishableKey : null });
+      return json({ ...publicState, flow: synced.api === "v2" && publishableKey ? "embedded" : "ready", surface: synced.api === "v2" && publishableKey ? "embedded" : "none", publishableKey: synced.api === "v2" ? publishableKey : null });
     }
 
     if (synced.api === "v2" && publishableKey) {
-      return json({ ...publicState, flow: "embedded", publishableKey });
+      return json({ ...publicState, flow: "embedded", surface: "embedded", publishableKey });
     }
 
     const link = await createOnboardingLink(stripeSecret, accountId, storeId, synced.api);
     if (typeof link.url !== "string") throw new Error("stripe_onboarding_link_unavailable");
-    return json({ ...publicState, flow: "redirect", url: link.url });
+    return json({ ...publicState, flow: "redirect", surface: "redirect", url: link.url });
   } catch (error) {
     console.error("merchant-stripe-connect failed", { storeId, action, ...safeStripeError(error) });
     return json({ error: "stripe_connect_failed", message: thaiConnectMessage(error) }, 502);
