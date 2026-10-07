@@ -228,7 +228,9 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(overtureWorkflow).toContain("activate_confidence");
   expect(overtureImporter).toContain("source_ref");
   expect(overtureImporter).toContain("activate-confidence");
-  expect(map).toContain("สั่งใน WYNOS Food");
+  expect(map).toContain("สั่งอาหารได้ใน WYNOS Food");
+  expect(map).toContain("wf-map-food-action");
+  expect(map).toContain("> สั่งอาหาร</a>");
   expect(map).toContain("https://food.wynos.online/?store=");
   expect(app).toContain("sharedFoodStoreId(window.location.search)");
   expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
