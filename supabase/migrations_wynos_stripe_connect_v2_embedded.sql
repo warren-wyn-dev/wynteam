@@ -1,6 +1,15 @@
 -- WYNOS Stripe Connect v2 embedded onboarding + automatic payout hardening.
 -- Additive migration. Existing Accounts v1 rows remain valid and continue on the compatibility path.
 
+-- Raw Stripe records are backend-only. Re-assert service-role access explicitly
+-- so a fresh database does not depend on environment-level default grants.
+revoke all on table public.food_stripe_accounts from public, anon, authenticated;
+revoke all on table public.food_stripe_payments from public, anon, authenticated;
+revoke all on table public.food_stripe_webhook_events from public, anon, authenticated;
+grant select, insert, update, delete on table public.food_stripe_accounts to service_role;
+grant select, insert, update, delete on table public.food_stripe_payments to service_role;
+grant select, insert, update, delete on table public.food_stripe_webhook_events to service_role;
+
 alter table public.food_stripe_accounts
   add column if not exists account_api_version text,
   add column if not exists bank_name text,
