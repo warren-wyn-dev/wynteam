@@ -239,6 +239,122 @@ revoke all on function public.food_apply_stripe_event(text,text,uuid,text,text,t
 grant execute on function public.food_apply_stripe_event(text,text,uuid,text,text,text,text,bigint,text,text,text,text,text)
   to service_role;
 
+-- Stripe-backed orders cannot be marked paid/refunded through the legacy
+-- browser-callable Merchant RPCs. Manual fallback remains available after
+-- a customer actually submits a transfer slip.
+create or replace function public.merchant_set_refund_status(
+  p_order_id uuid,
+  p_status text,
+  p_note text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_order public.food_orders%rowtype;
+  v_note text := nullif(left(trim(coalesce(p_note,'')),800),'');
+begin
+  select * into v_order
+  from public.food_orders
+  where id=p_order_id
+  for update;
+
+  if not found then raise exception 'order not found'; end if;
+  if not public.merchant_has_store_role(v_order.store_id, array['owner','admin','manager','orders']) then
+    raise exception 'order management role required';
+  end if;
+  if v_order.payment_provider = 'stripe' then
+    raise exception 'stripe refunds must be processed through the payment gateway';
+  end if;
+  if v_order.status <> 'cancelled' then
+    raise exception 'refund is available after cancellation';
+  end if;
+  if p_status not in ('pending','refunded','failed') then
+    raise exception 'invalid refund status';
+  end if;
+  if v_order.payment_status not in ('paid','refunded') then
+    raise exception 'order is not eligible for refund';
+  end if;
+
+  update public.food_orders
+  set refund_status=p_status,
+      refund_note=v_note,
+      refund_requested_at=case
+        when p_status='pending' then coalesce(refund_requested_at,now())
+        else refund_requested_at
+      end,
+      refunded_at=case when p_status='refunded' then now() else refunded_at end,
+      refund_updated_by=(select auth.uid()),
+      payment_status=case when p_status='refunded' then 'refunded' else payment_status end
+  where id=p_order_id;
+
+  insert into public.food_order_events(order_id,event_type,note,actor_id)
+  values (p_order_id,'refund_' || p_status,v_note,(select auth.uid()));
+
+  if p_status='refunded' and v_order.buyer_id is not null then
+    insert into public.notifications(recipient_id,actor_id,type,reason)
+    values (
+      v_order.buyer_id,null,'system',
+      'คืนเงินออเดอร์ #' || v_order.order_number || ' แล้ว'
+    );
+  end if;
+end;
+$;
+
+revoke all on function public.merchant_set_refund_status(uuid,text,text) from public, anon;
+grant execute on function public.merchant_set_refund_status(uuid,text,text) to authenticated;
+
+create or replace function public.food_set_payment_status(
+  p_order_id uuid,
+  p_status text,
+  p_note text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_order public.food_orders%rowtype;
+  v_note text := nullif(left(trim(coalesce(p_note,'')),800),'');
+begin
+  select * into v_order from public.food_orders where id=p_order_id;
+  if not found or not public.merchant_has_store_role(v_order.store_id, array['owner','admin','manager','orders']) then
+    raise exception 'order management role required';
+  end if;
+  if v_order.payment_provider = 'stripe'
+     or (v_order.stripe_checkout_session_id is not null and v_order.payment_slip_path is null) then
+    raise exception 'stripe payment status is managed by webhook';
+  end if;
+  if p_status not in ('paid','issue','refunded') then raise exception 'invalid payment status'; end if;
+
+  update public.food_orders
+  set payment_status=p_status,
+      payment_note=v_note,
+      payment_verification_status=case
+        when p_status='paid' then 'manual_verified'
+        when p_status='issue' then 'rejected'
+        else payment_verification_status
+      end,
+      payment_provider=case when p_status in ('paid','issue') then 'merchant_manual' else payment_provider end,
+      payment_verified_at=case when p_status in ('paid','issue') then now() else payment_verified_at end,
+      payment_verification_note=case when p_status in ('paid','issue') then v_note else payment_verification_note end,
+      paid_at=case when p_status='paid' then coalesce(paid_at,now()) else paid_at end,
+      refund_status=case when p_status='refunded' then 'refunded' else refund_status end,
+      refunded_at=case when p_status='refunded' then coalesce(refunded_at,now()) else refunded_at end,
+      refund_updated_by=case when p_status='refunded' then auth.uid() else refund_updated_by end
+  where id=p_order_id;
+
+  insert into public.food_order_events(order_id,event_type,note,actor_id)
+  values (p_order_id,'payment_' || p_status,v_note,auth.uid());
+end;
+$;
+
+revoke all on function public.food_set_payment_status(uuid,text,text) from public, anon;
+grant execute on function public.food_set_payment_status(uuid,text,text) to authenticated;
+
 -- Stripe can satisfy store payment readiness while manual PromptPay/bank remains a fallback.
 create or replace function internal.food_store_publish_readiness_json(p_store_id uuid)
 returns jsonb
