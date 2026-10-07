@@ -1,4 +1,4 @@
-export type MapsTravelMode = "auto" | "motorcycle" | "pedestrian";
+export type MapsTravelMode = "auto" | "motorcycle" | "pedestrian" | "bicycle";
 
 export type MapsRouteStep = {
   instruction: string;
