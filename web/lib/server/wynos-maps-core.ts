@@ -1,4 +1,4 @@
-import { normalizeOrsGeoJson, orsProfileForCosting } from "@/lib/maps-ors";
+import { normalizeOrsGeoJsonRoutes, orsProfileForCosting } from "@/lib/maps-ors";
 import type { MapsTravelMode } from "@/lib/maps-routing";
 
 type GeoPlace = {
@@ -91,6 +91,7 @@ async function fetchOrsRoute(input: {
   locations: Array<{ lat: number; lon: number }>;
   costing: MapsTravelMode;
   language?: "th-TH" | "en-US";
+  alternatives?: boolean;
 }) {
   const key = orsApiKey();
   if (!key) return null;
@@ -117,17 +118,28 @@ async function fetchOrsRoute(input: {
         // Keep the WYNOS UI bilingual while requesting stable English maneuvers.
         language: "en",
         preference: "recommended",
+        ...(input.alternatives && (input.costing === "auto" || input.costing === "motorcycle")
+          ? {
+              alternative_routes: {
+                target_count: 2,
+                share_factor: 0.6,
+                weight_factor: 1.4,
+              },
+            }
+          : {}),
       }),
     });
     if (response.status === 429) throw new Error("ors rate limited");
     if (!response.ok) throw new Error(`ors upstream returned ${response.status}`);
 
     const raw = await response.json() as unknown;
-    const route = normalizeOrsGeoJson(raw, input.costing);
+    const routes = normalizeOrsGeoJsonRoutes(raw, input.costing);
+    const route = routes[0] ?? null;
     if (!route) throw new Error("ors invalid route");
     return {
       payload: {
         route,
+        routes,
         provider: "openrouteservice",
         attribution: "© openrouteservice.org by HeiGIT | Map data © OpenStreetMap contributors",
       },
@@ -194,6 +206,7 @@ export async function routeWynosMaps(input: {
   locations: Array<{ lat: number; lon: number }>;
   costing: string;
   language?: "th-TH" | "en-US";
+  alternatives?: boolean;
 }) {
   if (!ALLOWED_ROUTING_COSTINGS.has(input.costing as MapsTravelMode)) throw new Error("unsupported costing");
   if (input.locations.length < 2 || input.locations.length > 25) throw new Error("invalid locations");
@@ -229,5 +242,6 @@ export async function routeWynosMaps(input: {
     locations: input.locations,
     costing: input.costing as MapsTravelMode,
     language: input.language,
+    alternatives: input.alternatives,
   });
 }

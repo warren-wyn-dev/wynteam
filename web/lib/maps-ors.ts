@@ -25,10 +25,8 @@ export function orsProfileForCosting(costing: string) {
   return null;
 }
 
-export function normalizeOrsGeoJson(raw: unknown, mode: MapsTravelMode): MapsRoute | null {
-  const root = record(raw);
-  const features = Array.isArray(root?.features) ? root.features : [];
-  const feature = record(features[0]);
+function normalizeOrsFeature(featureValue: unknown, mode: MapsTravelMode): MapsRoute | null {
+  const feature = record(featureValue);
   const properties = record(feature?.properties);
   const geometry = record(feature?.geometry);
   const summary = record(properties?.summary);
@@ -86,4 +84,17 @@ export function normalizeOrsGeoJson(raw: unknown, mode: MapsTravelMode): MapsRou
     steps,
     mode,
   };
+}
+
+export function normalizeOrsGeoJsonRoutes(raw: unknown, mode: MapsTravelMode): MapsRoute[] {
+  const root = record(raw);
+  const features = Array.isArray(root?.features) ? root.features : [];
+  return features.flatMap((feature) => {
+    const route = normalizeOrsFeature(feature, mode);
+    return route ? [route] : [];
+  });
+}
+
+export function normalizeOrsGeoJson(raw: unknown, mode: MapsTravelMode): MapsRoute | null {
+  return normalizeOrsGeoJsonRoutes(raw, mode)[0] ?? null;
 }

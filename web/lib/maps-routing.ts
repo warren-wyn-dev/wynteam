@@ -181,6 +181,20 @@ export function parseWynosRoute(raw: unknown, mode: MapsTravelMode): MapsRoute |
   return { distanceKm, durationSeconds, coordinates, steps, mode };
 }
 
+export function parseWynosRoutes(raw: unknown, mode: MapsTravelMode): MapsRoute[] {
+  const root = record(raw);
+  const canonicalRoutes = Array.isArray(root?.routes) ? root.routes : [];
+  if (canonicalRoutes.length) {
+    const parsed = canonicalRoutes.flatMap((value) => {
+      const route = parseWynosRoute({ route: value }, mode);
+      return route ? [route] : [];
+    });
+    if (parsed.length) return parsed;
+  }
+  const route = parseWynosRoute(raw, mode);
+  return route ? [route] : [];
+}
+
 function toLocalMeters(
   location: { latitude: number; longitude: number },
   coordinate: [number, number],
