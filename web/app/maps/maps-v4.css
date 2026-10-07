@@ -858,3 +858,116 @@
 .wynos-maps-page .wf-map-place-actions button > svg {
   flex: 0 0 auto;
 }
+
+
+/* Navigation v1: live guidance stays compact inside the Directions sheet. */
+.wynos-maps-page .wf-map-start-navigation {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--wynos-maps-location-blue, #1a73e8);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.wynos-maps-page .wf-map-route-steps {
+  display: grid;
+  gap: 8px;
+}
+
+.wynos-maps-page .wf-map-route-steps > strong {
+  color: var(--m-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.wynos-maps-page .wf-map-route-steps ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 11px;
+  background: var(--m-separator);
+}
+
+.wynos-maps-page .wf-map-route-steps li {
+  min-height: 44px;
+  padding: 9px 11px;
+  background: var(--m-fill);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.wynos-maps-page .wf-map-route-steps li span {
+  color: var(--m-text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.wynos-maps-page .wf-map-route-steps li small {
+  color: var(--m-text-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.wynos-maps-page .wf-map-navigation-panel {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border-radius: 13px;
+  background: var(--m-fill);
+}
+
+.wynos-maps-page .wf-map-navigation-panel > small {
+  color: var(--m-text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wynos-maps-page .wf-map-navigation-panel > strong {
+  color: var(--m-text);
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 750;
+}
+
+.wynos-maps-page .wf-map-navigation-panel > p {
+  margin: 0;
+  color: var(--m-text-2);
+  font-size: 12px;
+}
+
+.wynos-maps-page .wf-map-navigation-offroute {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--m-text);
+  font-size: 12px;
+}
+
+.wynos-maps-page .wf-map-navigation-offroute em {
+  color: var(--m-text-2);
+  font-style: normal;
+}
+
+.wynos-maps-page .wf-map-navigation-panel > button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--m-card);
+  color: var(--m-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}

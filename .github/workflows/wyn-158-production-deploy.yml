@@ -160,12 +160,32 @@ jobs:
           done
           test "$ready" -eq 1 || { echo '::error::wynos.online did not serve the deployed Next.js build'; exit 1; }
 
-          for route in / /search /notifications /chat /settings /profile/me /clubs /bookmarks /suggested; do
+          for route in / /search /notifications /chat /settings /profile/me /clubs /bookmarks /suggested /maps; do
             echo "Checking https://wynos.online$route"
             curl --fail --location --retry 5 --retry-delay 2 --max-time 30 \
               --header 'Cache-Control: no-cache' \
               --output /dev/null "https://wynos.online$route"
           done
+
+          curl --silent --show-error --fail --location --retry 3 --max-time 30 \
+            --output /tmp/wynos-maps-health.json \
+            "https://wynos.online/api/maps/health?_wyn_maps_verify=${GITHUB_RUN_ID}"
+          node -e '
+            const h = require("/tmp/wynos-maps-health.json");
+            if (h.service !== "WYNOS Maps Core" || h.version !== "core-api-v1") process.exit(1);
+          '
+          maps_routing=$(node -e 'const h=require("/tmp/wynos-maps-health.json"); process.stdout.write(String(h.routing || "unknown"))')
+          maps_geo=$(node -e 'const h=require("/tmp/wynos-maps-health.json"); process.stdout.write(String(h.geo || "unknown"))')
+          if [ "$maps_routing" = 'configured' ]; then
+            echo 'WYNOS Maps routing is configured on production.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::WYNOS Maps routing is $maps_routing; Directions UI is live but routing requires WYNOS Maps Core."
+          fi
+          if [ "$maps_geo" = 'configured' ]; then
+            echo 'WYNOS Maps self-hosted geocoding is configured on production.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::WYNOS Maps self-hosted geocoding is $maps_geo; search continues using existing fallbacks."
+          fi
 
           # Check the public readiness flag only. Never print the Firebase
           # keys or VAPID value into Actions logs.
