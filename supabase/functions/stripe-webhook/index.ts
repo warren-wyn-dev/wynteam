@@ -269,7 +269,19 @@ async function syncMappedAccount(admin: AdminClient, secret: string, accountId: 
   }
 
   const automaticPayouts = payoutSchedule !== "manual" && payoutSchedule !== "unknown";
-  const ready = charges && payouts && dueCount === 0 && bank.ready && automaticPayouts;
+  // WYNOS Food production checkout is PromptPay-only. For Accounts v2 the
+  // old card_payments capability is no longer allowed to be the readiness
+  // gate; KYC/requirements, payout capability, bank readiness and PromptPay
+  // availability still all have to pass.
+  const promptPayReady = ppStatus === "active";
+  const paymentAcceptanceReady = accountApi === "v2"
+    ? promptPayReady && dueCount === 0
+    : promptPayReady && charges && dueCount === 0;
+  if (accountApi === "v2" && paymentAcceptanceReady) {
+    details = true;
+    charges = true;
+  }
+  const ready = paymentAcceptanceReady && payouts && bank.ready && automaticPayouts;
   const status = ready ? "ready" : restricted ? "restricted" : dueCount > 0 ? "onboarding" : "pending";
   const now = new Date().toISOString();
   const { error: updateError } = await admin.from("food_stripe_accounts").update({
