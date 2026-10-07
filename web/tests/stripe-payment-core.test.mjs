@@ -26,6 +26,11 @@ test("Stripe secrets and raw gateway data stay server-side", () => {
   assert.match(v2Migration, /revoke all on table public\.food_stripe_payouts from public, anon, authenticated/i);
   assert.match(v2Migration, /revoke all on table public\.food_stripe_account_creation_locks from public, anon, authenticated/i);
   assert.match(v2Migration, /grant execute on function public\.food_record_stripe_payout_event[\s\S]*to service_role/i);
+  assert.match(v2Migration, /food_get_stripe_webhook_secret/);
+  assert.match(v2Migration, /food_set_stripe_webhook_secret/);
+  assert.match(v2Migration, /vault\.decrypted_secrets/);
+  assert.match(v2Migration, /grant execute on function public\.food_get_stripe_webhook_secret\(text\)[\s\S]*to service_role/i);
+  assert.match(v2Migration, /grant execute on function public\.food_set_stripe_webhook_secret\(text,text\)[\s\S]*to service_role/i);
   for (const clientFile of [foodUi, merchantUi, paymentUi, financeUi, refundUi, merchantCore]) {
     assert.doesNotMatch(clientFile, /STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|STRIPE_V2_WEBHOOK_SECRET|sk_live_|sk_test_/);
   }
@@ -123,6 +128,8 @@ test("payout schedule uses Balance Settings and only reports actual interval", (
 test("Webhook verifies signatures, scopes Accounts v2 thin events and records payouts idempotently", () => {
   assert.match(webhook, /verifyAgainstConfiguredSecrets/);
   assert.match(webhook, /STRIPE_V2_WEBHOOK_SECRET/);
+  assert.match(webhook, /food_get_stripe_webhook_secret/);
+  assert.match(webhook, /\[snapshotSecret, v2Secret\]/);
   assert.match(webhook, /V2_ACCOUNT_SYNC_EVENTS/);
   assert.match(webhook, /v2\.core\.account\[configuration\.merchant\]\.capability_status_updated/);
   assert.match(webhook, /v2\.core\.account\[requirements\]\.updated/);
