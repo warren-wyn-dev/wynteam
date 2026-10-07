@@ -25,6 +25,8 @@ test("Stripe secrets and raw gateway data stay server-side", () => {
   assert.match(coreMigration, /revoke all on table public\.food_stripe_accounts from public, anon, authenticated/i);
   assert.match(v2Migration, /revoke all on table public\.food_stripe_payouts from public, anon, authenticated/i);
   assert.match(v2Migration, /revoke all on table public\.food_stripe_account_creation_locks from public, anon, authenticated/i);
+  assert.match(v2Migration, /revoke all on table public\.food_stripe_account_mapping_archive from public, anon, authenticated/i);
+  assert.match(v2Migration, /food_archive_stripe_account_mapping/);
   assert.match(v2Migration, /grant execute on function public\.food_record_stripe_payout_event[\s\S]*to service_role/i);
   assert.match(v2Migration, /food_get_stripe_webhook_secret/);
   assert.match(v2Migration, /food_set_stripe_webhook_secret/);
@@ -40,8 +42,10 @@ test("Checkout remains a direct connected-account charge with server-calculated 
   assert.match(checkout, /"Stripe-Account": account/);
   assert.match(checkout, /headers\["Idempotency-Key"\]\s*=\s*idempotencyKey/);
   assert.match(checkout, /Math\.round\(Number\(order\.total\) \* 100\)/);
-  assert.match(checkout, /params\.set\("payment_method_types\[0\]", "card"\)/);
-  assert.match(checkout, /params\.set\("payment_method_types\[1\]", "promptpay"\)/);
+  assert.doesNotMatch(checkout, /payment_method_types/);
+  assert.match(checkout, /connected account's active payment-method/);
+  assert.match(checkout, /livemode: stripeLiveMode/);
+  assert.match(checkout, /https:\/\/food\.wynos\.online/);
   assert.doesNotMatch(checkout, /application_fee_amount|transfer_data|destination/);
 });
 
@@ -60,6 +64,9 @@ test("new merchants use Accounts v2 and legacy v1 is retrieval-only compatibilit
   assert.match(connect, /wynos-connect-v2-/);
   assert.match(connect, /v1_account_instead_of_v2_account/);
   assert.match(connect, /return \{ account, api: "v1" as const \}/);
+  assert.match(connect, /stripe_environment_mismatch/);
+  assert.match(connect, /livemode: stripeLiveMode/);
+  assert.match(connect, /https:\/\/merchant\.wynos\.online/);
   assert.doesNotMatch(connect, /https:\/\/api\.stripe\.com\/v1\/accounts["'`]/);
   assert.match(connect, /\/v1\/accounts\/\$\{encodeURIComponent\(accountId\)\}/);
 });
@@ -73,6 +80,8 @@ test("double tap and retry protection uses a store lock, unique mapping and Stri
   assert.match(connect, /wynos-connect-v2-/);
   assert.match(coreMigration, /store_id uuid primary key references public\.food_stores/);
   assert.match(coreMigration, /stripe_account_id text not null unique/);
+  assert.match(v2Migration, /add column if not exists livemode boolean not null default false/);
+  assert.match(v2Migration, /food_stripe_account_mapping_archive/);
 });
 
 test("embedded onboarding is primary and hosted Account Links are fallback", () => {
@@ -155,6 +164,9 @@ test("Manual slip fallback expires open Stripe Checkout first", () => {
   assert.match(cancelStripe, /checkout\/sessions\/\$\{encodeURIComponent\(sessionId\)\}\/expire/);
   assert.match(cancelStripe, /payment_status === "paid"/);
   assert.match(cancelStripe, /stripe_checkout_session_id: null/);
+  assert.match(cancelStripe, /food_stripe_payments/);
+  assert.match(cancelStripe, /stripe_account_id,livemode/);
+  assert.match(cancelStripe, /stripe_environment_mismatch/);
   assert.match(coreMigration, /cancel stripe checkout before submitting slip/);
   assert.match(foodUi, /prepareFoodManualPayment/);
 });
@@ -163,6 +175,9 @@ test("Refunds use the gateway and never surface raw gateway messages", () => {
   assert.match(refundUi, /requestStripeRefund/);
   assert.match(refund, /payment_provider !== "stripe"/);
   assert.match(refund, /payment_intent/);
+  assert.match(refund, /food_stripe_payments/);
+  assert.match(refund, /stripe_account_id,livemode/);
+  assert.match(refund, /stripe_environment_mismatch/);
   assert.match(refund, /request_id/);
   assert.match(refund, /คืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง/);
   assert.doesNotMatch(refund, /message: error instanceof Error \? error\.message/);
