@@ -7,7 +7,6 @@ const V2_ACCOUNT_SYNC_EVENTS = new Set([
   "v2.core.account.created",
   "v2.core.account.updated",
   "v2.core.account[defaults].updated",
-  "v2.core.account[future_requirements].updated",
   "v2.core.account[identity].updated",
   "v2.core.account[requirements].updated",
   "v2.core.account[configuration.merchant].updated",
