@@ -140,6 +140,9 @@ test("WYNOS Food profile is delivery-specific and separate from Social profile",
   expect(app).toContain("ที่อยู่หลัก");
   expect(app).toContain("โลเคชั่น");
   expect(app).toContain("รายละเอียดเพิ่มเติม");
+  expect(app).toContain("ขายอาหารบน WYNOS Food");
+  expect(app).toContain("ติดต่อทีมงานเพื่อสมัครร้านและเริ่มขายอาหาร");
+  expect(app).toContain('href="https://merchant.wynos.online/"');
   expect(app).toContain("ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS");
   expect(app).toContain("showPin={true}");
   expect(app).not.toContain('href="/profile/');
