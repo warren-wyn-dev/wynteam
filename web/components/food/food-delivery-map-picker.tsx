@@ -42,7 +42,7 @@ import {
   rememberRecentPlace,
   type MapsRecentPlace,
 } from "@/lib/maps-places";
-import { formatRouteDistance, formatRouteDuration, parseWynosRoute, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
+import { formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoute, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -411,6 +411,11 @@ export function FoodDeliveryMapPicker({
   const reverseRequestRef = useRef(0);
   const nearbyRequestRef = useRef(0);
   const routeRequestRef = useRef(0);
+  const navigationWatchRef = useRef<number | null>(null);
+  const navigationActiveRef = useRef(false);
+  const navigationOffRouteCountRef = useRef(0);
+  const navigationRerouteRef = useRef(false);
+  const navigationLastRerouteAtRef = useRef(0);
   const routeOriginRef = useRef<{
     location: FoodLocation;
     targetKey: string;
@@ -481,6 +486,8 @@ export function FoodDeliveryMapPicker({
   const [route, setRoute] = useState<MapsRoute | null>(null);
   const [routeWorking, setRouteWorking] = useState(false);
   const [routeStatus, setRouteStatus] = useState("");
+  const [navigating, setNavigating] = useState(false);
+  const [navigationStatus, setNavigationStatus] = useState("");
 
   const serviceAreaState = standalone && location && serviceAreaBoundary
     ? (pointInServiceArea(location, serviceAreaBoundary) ? "inside" : "outside")
@@ -542,38 +549,57 @@ export function FoodDeliveryMapPicker({
     }
   }, [moveTo, reverse]);
 
+  const stopNavigation = useCallback((message = "") => {
+    navigationActiveRef.current = false;
+    navigationOffRouteCountRef.current = 0;
+    navigationRerouteRef.current = false;
+    if (navigationWatchRef.current != null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(navigationWatchRef.current);
+    }
+    navigationWatchRef.current = null;
+    setNavigating(false);
+    setNavigationStatus(message);
+  }, []);
+
   const clearRoute = useCallback(() => {
     routeRequestRef.current += 1;
+    stopNavigation();
     setDirectionsTarget(null);
     setRoute(null);
     setRouteStatus("");
     setRouteWorking(false);
-  }, []);
+  }, [stopNavigation]);
 
-  const requestRoute = useCallback(async (target: RouteTarget, mode: MapsTravelMode = routeMode) => {
+  const requestRoute = useCallback(async (
+    target: RouteTarget,
+    mode: MapsTravelMode = routeMode,
+    options?: { origin?: FoodLocation; preserveRoute?: boolean; navigationReroute?: boolean },
+  ) => {
     if (!standalone) return;
     const requestId = ++routeRequestRef.current;
     setDirectionsTarget(target);
     setRouteMode(mode);
-    setRoute(null);
+    if (!options?.preserveRoute) setRoute(null);
     setRouteStatus("");
     setRouteWorking(true);
+    if (options?.navigationReroute) setNavigationStatus("กำลังปรับเส้นทางใหม่…");
     searchRequestRef.current += 1;
     setSearching(false);
     setSearchFocused(false);
     setSearchStatus("");
     setResults([]);
-    setSheetDetent("half");
+    if (!options?.navigationReroute) setSheetDetent("half");
 
     try {
       const targetKey = `${target.latitude.toFixed(6)},${target.longitude.toFixed(6)}`;
       const cachedOrigin = routeOriginRef.current;
-      const canReuseOrigin = cachedOrigin
+      const canReuseOrigin = !options?.origin
+        && cachedOrigin
         && cachedOrigin.targetKey === targetKey
         && Date.now() - cachedOrigin.capturedAt <= 30_000;
-      const origin = canReuseOrigin ? cachedOrigin.location : await currentFoodLocation();
+      const origin = options?.origin ?? (canReuseOrigin ? cachedOrigin.location : await currentFoodLocation());
       if (routeRequestRef.current !== requestId) return;
-      if (!canReuseOrigin) {
+      if (!canReuseOrigin || options?.origin) {
         routeOriginRef.current = { location: origin, targetKey, capturedAt: Date.now() };
         setUserLocation(origin);
       }
@@ -605,6 +631,7 @@ export function FoodDeliveryMapPicker({
       if (!parsed) throw new Error("ยังไม่พบเส้นทางที่เหมาะสม");
       setRoute(parsed);
       setActiveNearbyPlace(null);
+      if (options?.navigationReroute) setNavigationStatus("ปรับเส้นทางใหม่แล้ว");
     } catch (error) {
       if (routeRequestRef.current !== requestId) return;
       setRouteStatus(error instanceof Error ? error.message : "คำนวณเส้นทางไม่สำเร็จ");
@@ -612,6 +639,84 @@ export function FoodDeliveryMapPicker({
       if (routeRequestRef.current === requestId) setRouteWorking(false);
     }
   }, [routeMode, standalone]);
+
+  const startNavigation = useCallback(() => {
+    if (!standalone || !route || !directionsTarget) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setNavigationStatus("เบราว์เซอร์นี้ไม่รองรับการนำทางด้วย GPS");
+      return;
+    }
+
+    stopNavigation();
+    navigationActiveRef.current = true;
+    navigationLastRerouteAtRef.current = 0;
+    setNavigating(true);
+    setNavigationStatus("กำลังติดตามตำแหน่ง…");
+    setSheetDetent("half");
+
+    navigationWatchRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const next = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setUserLocation(next);
+        setCurrentLocationSelected(true);
+        setNavigationStatus("");
+        mapRef.current?.flyTo({
+          center: [next.longitude, next.latitude],
+          zoom: 17.2,
+          essential: true,
+        });
+      },
+      () => {
+        stopNavigation("ไม่สามารถใช้ตำแหน่ง GPS สำหรับการนำทางได้");
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 3_000,
+        timeout: 15_000,
+      },
+    );
+  }, [directionsTarget, route, standalone, stopNavigation]);
+
+  useEffect(() => {
+    if (!navigating || !userLocation || !route || !directionsTarget) return;
+    const match = nearestRoutePosition(userLocation, route.coordinates);
+    if (!match) return;
+
+    const last = route.coordinates[route.coordinates.length - 1];
+    const arrival = last ? nearestRoutePosition(userLocation, [last, last]) : null;
+    if (arrival && arrival.distanceMeters <= 35) {
+      stopNavigation("ถึงจุดหมายแล้ว");
+      return;
+    }
+
+    if (match.distanceMeters <= 50) {
+      navigationOffRouteCountRef.current = 0;
+      return;
+    }
+    if (match.distanceMeters < 80) return;
+
+    navigationOffRouteCountRef.current += 1;
+    const now = Date.now();
+    if (
+      navigationOffRouteCountRef.current < 2
+      || navigationRerouteRef.current
+      || now - navigationLastRerouteAtRef.current < 20_000
+    ) return;
+
+    navigationRerouteRef.current = true;
+    navigationLastRerouteAtRef.current = now;
+    navigationOffRouteCountRef.current = 0;
+    void requestRoute(directionsTarget, routeMode, {
+      origin: userLocation,
+      preserveRoute: true,
+      navigationReroute: true,
+    }).finally(() => {
+      navigationRerouteRef.current = false;
+    });
+  }, [directionsTarget, navigating, requestRoute, route, routeMode, stopNavigation, userLocation]);
 
   useEffect(() => {
     if (!standalone) return;
@@ -736,6 +841,7 @@ export function FoodDeliveryMapPicker({
         const onMoveEnd = () => {
           if (!map) return;
           setMapZoom(map.getZoom());
+          if (navigationActiveRef.current) return;
           const center = map.getCenter();
           const next = { latitude: center.lat, longitude: center.lng };
           void loadNearby(next);
@@ -789,6 +895,11 @@ export function FoodDeliveryMapPicker({
       reverseRequestRef.current += 1;
       nearbyRequestRef.current += 1;
       routeRequestRef.current += 1;
+      navigationActiveRef.current = false;
+      if (navigationWatchRef.current != null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(navigationWatchRef.current);
+      }
+      navigationWatchRef.current = null;
       nearbyMarkersRef.current.forEach((marker) => marker.remove());
       nearbyMarkersRef.current = [];
       userLocationMarkerRef.current?.remove();
@@ -1477,6 +1588,12 @@ export function FoodDeliveryMapPicker({
     place?.source === "legacy" || results.some((result) => result.source === "legacy");
   const showPhotonAttribution =
     place?.source === "photon" || results.some((result) => result.source === "photon");
+  const navigationMatch = navigating && userLocation && route
+    ? nearestRoutePosition(userLocation, route.coordinates)
+    : null;
+  const activeRouteStep = route
+    ? nextRouteStep(route, navigationMatch?.shapeIndex ?? 0)
+    : null;
 
   return (
     <div
@@ -1634,22 +1751,55 @@ export function FoodDeliveryMapPicker({
                   type="button"
                   className={routeMode === mode ? "is-active" : ""}
                   aria-pressed={routeMode === mode}
-                  disabled={routeWorking}
+                  disabled={routeWorking || navigating}
                   onClick={() => void requestRoute(directionsTarget, mode)}
                 >
                   {label}
                 </button>
               ))}
             </div>
-            {routeWorking ? <p className="wf-map-route-status">กำลังคำนวณเส้นทาง…</p> : null}
-            {!routeWorking && route ? (
-              <div className="wf-map-route-summary">
-                <strong>{formatRouteDuration(route.durationSeconds)}</strong>
-                <span>{formatRouteDistance(route.distanceKm)}</span>
-                <small>เวลาโดยประมาณจาก WYNOS Routing</small>
+            {routeWorking && !navigating ? <p className="wf-map-route-status">กำลังคำนวณเส้นทาง…</p> : null}
+            {navigating && route ? (
+              <div className="wf-map-navigation-panel" aria-live="polite">
+                <small>คำแนะนำถัดไป</small>
+                <strong>{activeRouteStep?.instruction || "ตรงไปตามเส้นทาง"}</strong>
+                {navigationMatch && navigationMatch.distanceMeters >= 80 ? (
+                  <div className="wf-map-navigation-offroute">
+                    <span>ออกนอกเส้นทาง</span>
+                    <em>{Math.round(navigationMatch.distanceMeters)} ม.</em>
+                  </div>
+                ) : null}
+                {navigationStatus ? <p>{navigationStatus}</p> : null}
+                <button type="button" onClick={() => stopNavigation()}>หยุดนำทาง</button>
               </div>
             ) : null}
+            {!navigating && !routeWorking && route ? (
+              <>
+                <div className="wf-map-route-summary">
+                  <strong>{formatRouteDuration(route.durationSeconds)}</strong>
+                  <span>{formatRouteDistance(route.distanceKm)}</span>
+                  <small>เวลาโดยประมาณจาก WYNOS Routing</small>
+                </div>
+                <button type="button" className="wf-map-start-navigation" onClick={startNavigation}>
+                  <Navigation size={17} /> เริ่มนำทาง
+                </button>
+                {route.steps.length ? (
+                  <div className="wf-map-route-steps">
+                    <strong>ขั้นตอนเส้นทาง</strong>
+                    <ol>
+                      {route.steps.slice(0, 5).map((step, index) => (
+                        <li key={`${step.beginShapeIndex}-${index}`}>
+                          <span>{step.instruction}</span>
+                          <small>{formatRouteDistance(step.distanceKm)}</small>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
             {!routeWorking && routeStatus ? <p className="wf-map-route-status is-error">{routeStatus}</p> : null}
+            {!navigating && navigationStatus ? <p className="wf-map-route-status">{navigationStatus}</p> : null}
           </div>
         ) : null}
         {activeNearbyPlace ? (
