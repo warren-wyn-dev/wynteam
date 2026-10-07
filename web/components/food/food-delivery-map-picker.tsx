@@ -634,7 +634,9 @@ export function FoodDeliveryMapPicker({
       if (options?.navigationReroute) setNavigationStatus("ปรับเส้นทางใหม่แล้ว");
     } catch (error) {
       if (routeRequestRef.current !== requestId) return;
-      setRouteStatus(error instanceof Error ? error.message : "คำนวณเส้นทางไม่สำเร็จ");
+      const message = error instanceof Error ? error.message : "คำนวณเส้นทางไม่สำเร็จ";
+      setRouteStatus(message);
+      if (options?.navigationReroute) setNavigationStatus(message);
     } finally {
       if (routeRequestRef.current === requestId) setRouteWorking(false);
     }
