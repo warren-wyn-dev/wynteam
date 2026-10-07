@@ -262,6 +262,7 @@ function composeState(
   bank: BankSummary,
   money: MoneySummary,
   payout: PayoutSummary,
+  promptpay: PromptPaySummary,
 ) {
   const settings = payoutInterval(payout.interval);
   const charges = core.charges;
