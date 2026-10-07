@@ -46,6 +46,8 @@ export const EN_EXACT: Record<string, string> = {
   "โรงพยาบาล": "Hospital",
   "ปั๊มน้ำมัน": "Gas station",
   "แนะนำ": "Recommended",
+  "จุดหมาย": "Destination",
+  "เส้นทางทางเลือก": "Alternative routes",
   "ทางเลือก": "Alternative",
   "เหลือถึง": "Remaining to",
   "สั่งอาหารได้ใน WYNOS Food": "Order food in WYNOS Food",
@@ -2729,6 +2731,7 @@ Object.assign(EN_EXACT, {
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["ทางเลือก {0}", "Alternative {0}"],
   ["ชำระด้วย Stripe · {0}", "Pay with Stripe · {0}"],
   ["หมู่ {0}", "Village {0}"],
   ["ซอย {0}", "Soi {0}"],
