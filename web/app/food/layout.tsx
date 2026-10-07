@@ -8,7 +8,7 @@ const FOOD_ICON_512 = "/food/icon-v10?size=512";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://food.wynos.online"),
-  title: "WYNOS Food | สั่งอาหารออนไลน์",
+  title: "WYNOS Food • สั่งอาหาร",
   applicationName: "WYNOS Food",
   description:
     "WYNOS Food (wynosfood) บริการสั่งอาหารออนไลน์จาก WYNOS ค้นหาร้านอาหาร เลือกเมนู และสั่งอาหารผ่าน food.wynos.online",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://food.wynos.online/",
     siteName: "WYNOS Food",
-    title: "WYNOS Food | สั่งอาหารออนไลน์",
+    title: "WYNOS Food • สั่งอาหาร",
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
     // Shared store links (/?store=<id>) preview in LINE/Messenger with the
     // Food icon; store details stay behind sign-in.
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "WYNOS Food | สั่งอาหารออนไลน์",
+    title: "WYNOS Food • สั่งอาหาร",
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
     images: [FOOD_ICON_512],
   },
