@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { money, type FoodStore } from "@/lib/food-merchant";
+import { fetchMerchantStripeStatus, type MerchantStripeStatus } from "@/lib/merchant-core";
 import {
   addDays,
   bangkokToday,
@@ -55,6 +56,8 @@ export function MerchantFinance({
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [error, setError] = useState("");
   const [picking, setPicking] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<MerchantStripeStatus | null>(null);
+  const [todaySummary, setTodaySummary] = useState<FinanceSummary | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -63,6 +66,21 @@ export function MerchantFinance({
       .catch((reason) => { if (live) setError(financeError(reason)); });
     return () => { live = false; };
   }, [client, store.id, range, refreshKey]);
+
+  useEffect(() => {
+    let live = true;
+    void Promise.all([
+      fetchMerchantStripeStatus(client, store.id),
+      fetchFinanceSummary(client, store.id, periodRange("today")),
+    ]).then(([stripe, today]) => {
+      if (!live) return;
+      setPaymentStatus(stripe);
+      setTodaySummary(today);
+    }).catch(() => {
+      if (live) setPaymentStatus(null);
+    });
+    return () => { live = false; };
+  }, [client, store.id, refreshKey]);
 
   const choose = (next: Exclude<FinancePeriod, "custom">) => {
     setPeriod(next);
@@ -88,6 +106,16 @@ export function MerchantFinance({
   return (
     <>
       <div className="wm-page-heading"><div><small>เงินเข้าร้าน</small><h1>การเงิน</h1></div></div>
+
+      {paymentStatus?.connected ? (
+        <section className="wm-fin-payout-overview" aria-label="สรุปการรับเงิน">
+          <div><small>ยอดขายวันนี้</small><strong>{money(todaySummary?.sales_net ?? 0)}</strong></div>
+          <div><small>กำลังดำเนินการ</small><strong>{money((paymentStatus.balance_pending_satang ?? 0) / 100)}</strong></div>
+          <div><small>พร้อมโอน</small><strong>{money((paymentStatus.balance_available_satang ?? 0) / 100)}</strong></div>
+          <div><small>โอนเข้าธนาคารแล้ว</small><strong>{money((paymentStatus.payouts_paid_today_satang ?? 0) / 100)}</strong></div>
+          <div><small>คืนเงิน</small><strong>{money(todaySummary?.refunds ?? 0)}</strong></div>
+        </section>
+      ) : null}
 
       <div className="wm-fin-periods" role="radiogroup" aria-label="ช่วงเวลา">
         {PERIODS.map((item) => (
@@ -161,7 +189,7 @@ export function MerchantFinance({
         </>
       )}
 
-      <PaymentChannels store={store} onEditStore={onEditStore} />
+      <PaymentChannels store={store} paymentStatus={paymentStatus} onEditStore={onEditStore} />
 
       {picking ? (
         <RangePicker
@@ -186,13 +214,14 @@ function FinanceLine({ label, value, positive, total }: { label: string; value: 
   );
 }
 
-function PaymentChannels({ store, onEditStore }: { store: FoodStore; onEditStore: () => void }) {
+function PaymentChannels({ store, paymentStatus, onEditStore }: { store: FoodStore; paymentStatus: MerchantStripeStatus | null; onEditStore: () => void }) {
   const last4 = (value: string | null) => {
     const digits = (value ?? "").replace(/\D/g, "");
     return digits ? `••••${digits.slice(-4)}` : "";
   };
   const channels = [
-    store.stripe_payments_enabled ? "Stripe · ยืนยันอัตโนมัติ" : null,
+    store.stripe_payments_enabled ? "บัตร/PromptPay · ยืนยันอัตโนมัติ" : null,
+    paymentStatus?.bank_ready ? `${paymentStatus.bank_name || "บัญชีรับเงิน"} ${paymentStatus.bank_last4 ? `•••• ${paymentStatus.bank_last4}` : ""}`.trim() : null,
     store.promptpay_id ? `PromptPay ${store.promptpay_name ?? ""} ${last4(store.promptpay_id)}`.trim() : null,
     store.bank_account_number ? `${store.bank_name ?? "บัญชีธนาคาร"} ${last4(store.bank_account_number)}` : null,
     store.payment_qr_path ? "QR รับเงิน" : null,
