@@ -6,6 +6,7 @@ import "./maps.css";
 import "./maps-v2.css";
 import "./maps-v3.css";
 import "./maps-v4.css";
+import "./maps-v5.css";
 
 export const metadata: Metadata = {
   title: "WYNOS Maps",
@@ -22,8 +23,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#0a9f52" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a9f52" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
 
