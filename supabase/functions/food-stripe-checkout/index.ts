@@ -18,6 +18,11 @@ function serviceKey() {
     return keys.default ?? Object.values(keys)[0] ?? null;
   } catch { return null; }
 }
+function stripeLivemode(secret: string) {
+  if (/^(?:sk|rk)_live_/.test(secret)) return true;
+  if (/^(?:sk|rk)_test_/.test(secret)) return false;
+  return null;
+}
 function stripeHeaders(secret: string, account: string, idempotencyKey?: string) {
   const headers: Record<string,string> = {
     Authorization: `Basic ${btoa(secret + ":")}`,
@@ -27,12 +32,22 @@ function stripeHeaders(secret: string, account: string, idempotencyKey?: string)
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
   return headers;
 }
+class StripeCheckoutError extends Error {
+  code: string | null;
+  status: number;
+  constructor(code: string | null, status: number) {
+    super("stripe_checkout_failed");
+    this.name = "StripeCheckoutError";
+    this.code = code;
+    this.status = status;
+  }
+}
 async function stripeJson(url: string, init: RequestInit) {
   const response = await fetch(url, init);
   const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
   if (!response.ok) {
     const err = payload.error as Record<string,unknown> | undefined;
-    throw new Error(typeof err?.message === "string" ? err.message : "Stripe request failed");
+    throw new StripeCheckoutError(typeof err?.code === "string" ? err.code : null, response.status);
   }
   return payload;
 }
@@ -47,6 +62,11 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   if (!url || !key || !authHeader) return json({ error: "unauthorized" }, 401);
   if (!stripeSecret) return json({ error: "stripe_not_configured" }, 503);
+  const stripeLiveMode = stripeLivemode(stripeSecret);
+  if (stripeLiveMode == null) return json({ error: "stripe_key_mode_unknown" }, 503);
+  if (stripeLiveMode && req.headers.get("origin") !== "https://food.wynos.online") {
+    return json({ error: "live_stripe_origin_required" }, 403);
+  }
 
   const token = authHeader.replace(/^Bearer\s+/i, "");
   const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -70,8 +90,11 @@ Deno.serve(async (req: Request) => {
   }
 
   const { data: account } = await admin.from("food_stripe_accounts")
-    .select("stripe_account_id,status,details_submitted,charges_enabled,promptpay_enabled")
+    .select("stripe_account_id,livemode,status,details_submitted,charges_enabled,promptpay_enabled")
     .eq("store_id", order.store_id).maybeSingle();
+  if (account && account.livemode !== stripeLiveMode) {
+    return json({ error: "stripe_environment_mismatch" }, 409);
+  }
   if (!account || account.status !== "ready" || !account.details_submitted || !account.charges_enabled) {
     return json({ error: "stripe_not_ready" }, 422);
   }
@@ -108,8 +131,9 @@ Deno.serve(async (req: Request) => {
   params.set("line_items[0][price_data][product_data][name]", `WYNOS Food #${order.order_number}`);
   params.set("line_items[0][price_data][unit_amount]", String(amountSatang));
   params.set("line_items[0][quantity]", "1");
-  params.set("payment_method_types[0]", "card");
-  if (account.promptpay_enabled) params.set("payment_method_types[1]", "promptpay");
+  // Stripe Checkout uses the connected account's active payment-method
+  // configuration. Card remains capability-gated and PromptPay only appears
+  // when Stripe marks it available for this connected account.
   params.set("metadata[order_id]", order.id);
   params.set("metadata[store_id]", order.store_id);
   params.set("payment_intent_data[metadata][order_id]", order.id);
@@ -125,7 +149,11 @@ Deno.serve(async (req: Request) => {
       body: params,
     });
   } catch (error) {
-    return json({ error: "stripe_checkout_failed", message: error instanceof Error ? error.message : "Stripe request failed" }, 502);
+    console.error("food-stripe-checkout gateway failure", {
+      code: error instanceof StripeCheckoutError ? error.code : "unknown",
+      status: error instanceof StripeCheckoutError ? error.status : 500,
+    });
+    return json({ error: "stripe_checkout_failed", message: "เปิดหน้าชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 502);
   }
 
   if (typeof session.id !== "string" || typeof session.url !== "string") {
@@ -137,6 +165,7 @@ Deno.serve(async (req: Request) => {
     store_id: order.store_id,
     buyer_id: order.buyer_id,
     stripe_account_id: account.stripe_account_id,
+    livemode: stripeLiveMode,
     checkout_session_id: session.id,
     amount_satang: amountSatang,
     currency: "thb",

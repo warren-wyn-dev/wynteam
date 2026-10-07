@@ -603,9 +603,10 @@ test("WYN-205 Merchant finance page and the store's own promotions", () => {
   // WYN-210 replaced the order-based finance panel (opened to every store by the Founder).
   const finance = read("components/merchant/merchant-finance.tsx");
   expect(app).not.toContain("function FinancePanel(");
-  // Payment channels are still masked to the last 4 digits.
-  expect(finance).toContain("const last4 = (value: string | null) => {");
-  expect(finance).toContain('const digits = (value ?? "").replace(/\\D/g, "");');
+  // Receiving account data is sanitized: provider bank last4 only.
+  expect(finance).toContain("paymentStatus.bank_last4");
+  expect(finance).not.toContain("stripe_account_id");
+  expect(finance).not.toContain("bank_account_number");
   // Dynamic promotion text is translated through EN_PATTERNS.
   const en = read("lib/i18n/en.ts");
   expect(en).toContain('["{0} โปรโมชั่นกำลังใช้งาน", "{0} active promotions"]');
@@ -789,4 +790,39 @@ test("WYN-214 Admin merchant polish: service area, order money, refunds, safe ap
   // Approval is final: confirm first, errors in Thai.
   expect(card).toContain("if (!window.confirm(`${what}? อนุมัติแล้วย้อนกลับไม่ได้`)) return;");
   expect(card).toContain('return "คำขอนี้อนุมัติไปแล้ว เปลี่ยนไม่ได้";');
+});
+
+
+test("Merchant payment onboarding stays WYNOS-first across the browser matrix", async ({ page }, testInfo) => {
+  const payment = read("components/merchant/merchant-payment-setup.tsx");
+  const finance = read("components/merchant/merchant-finance.tsx");
+  const css = read("app/merchant/merchant.css");
+  const config = read("playwright.config.ts");
+
+  expect(["webkit-iphone", "chromium-android", "chromium-desktop"]).toContain(testInfo.project.name);
+  expect(config).toContain('devices["iPhone 13"]');
+  expect(config).toContain('devices["Pixel 5"]');
+  expect(config).toContain('devices["Desktop Chrome"]');
+
+  expect(payment).toContain("เปิดรับชำระเงิน");
+  expect(payment).toContain("ต้องยืนยันข้อมูล");
+  expect(payment).toContain("พร้อมรับเงิน");
+  expect(payment).toContain("มีปัญหา กรุณาดำเนินการต่อ");
+  expect(payment).toContain('searchParams.get("payments")');
+  expect(payment).toContain('stripeReturn === "refresh"');
+  expect(payment).toContain("setOnExit");
+  expect(payment).not.toMatch(/Accounts v2|capabilit|webhook|connected account/i);
+
+  expect(finance).toContain("บัญชีรับเงิน");
+  expect(finance).toContain("bank_last4");
+  expect(finance).not.toContain("stripe_account_id");
+  expect(css).toContain(".wm-connect-panel");
+  expect(css).toContain("env(safe-area-inset-top)");
+  expect(css).toContain("@media (min-width: 700px)");
+
+  // Also render a real public Merchant page in each project so WebKit/Android/desktop
+  // exercise the same app shell and responsive CSS rather than only parsing source.
+  await page.goto("/merchant/login");
+  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
+  await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
 });

@@ -95,21 +95,78 @@ SQL
 
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_payment_core_v1.sql"
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_payment_core_v1.sql"
-pass "migration applies twice"
+run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_connect_v2_embedded.sql"
+run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_connect_v2_embedded.sql"
+pass "Stripe core and v2 hardening migrations apply twice"
 
 [ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE')->>'status'")" = "not_connected" ] || fail "unconnected status"
 pass "merchant status hides account ID and reports not connected"
+
+[ "$(val "set role service_role; select public.food_claim_stripe_account_creation('$STORE','00000000-0000-0000-0000-000000000077',45)")" = "t" ] || fail "first connect lock"
+[ "$(val "set role service_role; select public.food_claim_stripe_account_creation('$STORE','00000000-0000-0000-0000-000000000088',45)")" = "f" ] || fail "second connect lock"
+val "set role service_role; select public.food_release_stripe_account_creation('$STORE','00000000-0000-0000-0000-000000000077')" >/dev/null
+[ "$(val "set role service_role; select public.food_claim_stripe_account_creation('$STORE','00000000-0000-0000-0000-000000000088',45)")" = "t" ] || fail "released connect lock"
+val "set role service_role; select public.food_release_stripe_account_creation('$STORE','00000000-0000-0000-0000-000000000088')" >/dev/null
+pass "server-side provisioning lock prevents concurrent account creation"
+
+expect_fail "authenticated cannot read Stripe payouts table" \
+  "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_payouts" \
+  "permission denied"
+expect_fail "authenticated cannot read Stripe provisioning lock" \
+  "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_account_creation_locks" \
+  "permission denied"
+expect_fail "authenticated cannot read archived Stripe mappings" \
+  "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_account_mapping_archive" \
+  "permission denied"
 
 expect_fail "authenticated cannot read Stripe account table"   "set role authenticated; set test.uid='$OWNER'; select * from public.food_stripe_accounts"   "permission denied"
 
 run >/dev/null <<SQL
 insert into public.food_stripe_accounts(store_id,stripe_account_id,details_submitted,charges_enabled,payouts_enabled,promptpay_enabled,status)
 values ('$STORE','acct_test_wynos',true,true,true,true,'ready');
+update public.food_stripe_accounts set account_api_version='v2', bank_ready=true, bank_name='TEST BANK', bank_last4='1234', payout_interval='daily' where store_id='$STORE';
 update public.food_stores set stripe_payments_enabled=true where id='$STORE';
 SQL
 
 [ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE')->>'status'")" = "ready" ] || fail "ready status"
 pass "merchant sees sanitized Stripe readiness"
+[ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE')->>'bank_last4'")" = "1234" ] || fail "sanitized bank last4"
+[ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE') ? 'stripe_account_id'")" = "f" ] || fail "status leaked account id"
+pass "merchant status exposes only sanitized payout account data"
+[ "$(val "select has_table_privilege('service_role','public.food_stripe_accounts','select')")" = "t" ] || fail "service role cannot read Stripe account backend table"
+[ "$(val "select has_table_privilege('authenticated','public.food_stripe_accounts','select')")" = "f" ] || fail "authenticated can read Stripe account backend table"
+[ "$(val "select has_table_privilege('service_role','public.food_stripe_account_mapping_archive','select')")" = "t" ] || fail "service role cannot read archived Stripe mappings"
+[ "$(val "select has_table_privilege('authenticated','public.food_stripe_account_mapping_archive','select')")" = "f" ] || fail "authenticated can read archived Stripe mappings"
+[ "$(val "select has_function_privilege('service_role','public.food_archive_stripe_account_mapping(uuid,boolean,text)','execute')")" = "t" ] || fail "service role cannot archive Stripe mappings"
+[ "$(val "select has_function_privilege('authenticated','public.food_archive_stripe_account_mapping(uuid,boolean,text)','execute')")" = "f" ] || fail "authenticated can archive Stripe mappings"
+pass "raw Stripe account access and archives are service-role only"
+[ "$(val "select has_function_privilege('authenticated','public.food_get_stripe_webhook_secret(text)','execute')")" = "f" ] || fail "authenticated can read Stripe webhook Vault secret"
+[ "$(val "select has_function_privilege('authenticated','public.food_set_stripe_webhook_secret(text,text)','execute')")" = "f" ] || fail "authenticated can write Stripe webhook Vault secret"
+[ "$(val "select has_function_privilege('service_role','public.food_get_stripe_webhook_secret(text)','execute')")" = "t" ] || fail "service role cannot read Stripe webhook Vault secret"
+[ "$(val "select has_function_privilege('service_role','public.food_set_stripe_webhook_secret(text,text)','execute')")" = "t" ] || fail "service role cannot write Stripe webhook Vault secret"
+pass "Stripe webhook Vault access is service-role only"
+[ "$(val "set role service_role; select account_api_version from public.food_stripe_accounts where store_id='$STORE'")" = "v2" ] || fail "account api version"
+[ "$(val "set role service_role; select livemode::text from public.food_stripe_accounts where store_id='$STORE'")" = "false" ] || fail "test mapping default mode"
+pass "new schema records Accounts v2 and Stripe mode without exposing it to Merchant UI"
+
+[ "$(val "set role service_role; select public.food_claim_stripe_webhook_event('evt_account_sync','v2.core.account[requirements].updated','acct_test_wynos','acct_test_wynos')")" = "t" ] || fail "first account webhook claim"
+[ "$(val "set role service_role; select public.food_claim_stripe_webhook_event('evt_account_sync','v2.core.account[requirements].updated','acct_test_wynos','acct_test_wynos')")" = "f" ] || fail "duplicate account webhook claim"
+val "set role service_role; select public.food_release_stripe_webhook_event_claim('evt_account_sync','v2.core.account[requirements].updated')" >/dev/null
+[ "$(val "set role service_role; select public.food_claim_stripe_webhook_event('evt_account_sync','v2.core.account[requirements].updated','acct_test_wynos','acct_test_wynos')")" = "t" ] || fail "released account webhook claim"
+[ "$(val "select has_function_privilege('authenticated','public.food_claim_stripe_webhook_event(text,text,text,text)','execute')")" = "f" ] || fail "authenticated can claim Stripe webhook events"
+pass "account webhook claims deduplicate concurrent delivery and can be released for retry"
+
+[ "$(val "set role service_role; select public.food_record_stripe_payout_event('evt_payout_paid','payout.paid','acct_test_wynos','po_test_1',5000,'thb','paid',current_date,null,now())")" = "t" ] || fail "payout event applies"
+[ "$(val "set role service_role; select public.food_record_stripe_payout_event('evt_payout_paid','payout.paid','acct_test_wynos','po_test_1',5000,'thb','paid',current_date,null,now())")" = "f" ] || fail "duplicate payout event ignored"
+[ "$(val "select status||'|'||amount_satang from public.food_stripe_payouts where payout_id='po_test_1'")" = "paid|5000" ] || fail "payout audit row"
+pass "payout webhook state is mapped and idempotent"
+
+expect_fail "wrong payout connected account is rejected" \
+  "set role service_role; select public.food_record_stripe_payout_event('evt_payout_bad','payout.failed','acct_other','po_bad',1,'thb','failed',null,'account_closed',now())" \
+  "stripe account mismatch"
+[ "$(val "select count(*) from public.food_stripe_webhook_events where event_id='evt_payout_bad'")" = "0" ] || fail "bad payout left event tombstone"
+pass "payout mapping rejects unknown connected accounts atomically"
+
 
 [ "$(val "select internal.food_store_publish_readiness_json('$STORE')->'checks'->>'payment'")" = "true" ] || fail "Stripe satisfies payment readiness"
 pass "Stripe-ready store satisfies payment readiness without manual bank data"

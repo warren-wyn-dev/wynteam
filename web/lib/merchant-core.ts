@@ -46,7 +46,29 @@ export type MerchantStripeStatus = {
   charges_enabled?: boolean;
   payouts_enabled?: boolean;
   promptpay_enabled?: boolean;
+  promptpay_status?: "active" | "pending" | "inactive" | "unsupported" | "unrequested" | "unknown";
+  bank_ready?: boolean;
+  bank_name?: string | null;
+  bank_last4?: string | null;
+  payout_interval?: "daily" | "weekly" | "monthly" | "manual" | "unknown" | null;
+  requirements_due_count?: number;
+  balance_pending_satang?: number;
+  balance_available_satang?: number;
+  payouts_paid_today_satang?: number;
   last_synced_at?: string | null;
+};
+
+export type MerchantPaymentSurface = {
+  status: MerchantStripeStatus;
+  flow: "embedded" | "redirect" | "ready";
+  publishableKey: string | null;
+  url: string | null;
+};
+
+export type MerchantStripeFinance = MerchantStripeStatus & {
+  pending: number;
+  available: number;
+  paid_today: number;
 };
 
 export type MerchantStoreReview = {
@@ -239,63 +261,97 @@ export async function fetchMerchantStripeStatus(client: SupabaseClient, storeId:
 }
 
 async function merchantStripeFunctionError(error: unknown, fallback: string) {
-  const raw = error as { message?: unknown; context?: unknown } | null;
+  const raw = error as { context?: unknown } | null;
   const context = raw && typeof raw === "object" ? raw.context : null;
   if (context instanceof Response) {
     try {
       const payload = await context.clone().json() as { error?: unknown; message?: unknown };
-      if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+      if (typeof payload.message === "string" && /[ก-๙]/.test(payload.message)) return payload.message;
       if (typeof payload.error === "string") {
-        if (payload.error === "stripe_not_configured") return "ยังไม่ได้ตั้งค่า STRIPE_SECRET_KEY ใน Supabase";
+        if (["stripe_not_configured","stripe_backend_not_ready","payments_not_configured","payments_backend_not_ready"].includes(payload.error)) {
+          return "ระบบรับชำระเงินยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง";
+        }
         if (payload.error === "unauthorized") return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง";
-        if (payload.error === "owner_or_admin_required") return "เฉพาะเจ้าของร้านหรือแอดมินเท่านั้นที่เชื่อม Stripe ได้";
-        if (payload.error === "stripe_backend_not_ready") return "ระบบ Stripe ของ WYNOS ยังไม่พร้อม กรุณาลองใหม่อีกครั้ง";
+        if (payload.error === "owner_or_admin_required") return "เฉพาะเจ้าของร้านหรือแอดมินเท่านั้นที่จัดการการรับเงินได้";
         if (payload.error === "store_not_found") return "ไม่พบร้านที่เลือก กรุณาเลือกร้านใหม่แล้วลองอีกครั้ง";
+        if (payload.error === "setup_in_progress") return "กำลังตั้งค่าการรับชำระเงิน กรุณาลองใหม่อีกครั้งในอีกสักครู่";
       }
     } catch {
-      // Fall back to the SDK error or the caller-provided message.
+      // Never surface gateway or technical detail to Merchant UI.
     }
-  }
-  if (typeof raw?.message === "string" && raw.message && raw.message !== "Edge Function returned a non-2xx status code") {
-    return raw.message;
   }
   return fallback;
 }
 
-export async function startMerchantStripeOnboarding(client: SupabaseClient, storeId: string) {
+export async function startMerchantStripeOnboarding(
+  client: SupabaseClient,
+  storeId: string,
+): Promise<MerchantPaymentSurface> {
   const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
     body: { storeId, action: "onboard" },
   });
-  if (error) throw new Error(await merchantStripeFunctionError(error, "เปิด Stripe Connect ไม่สำเร็จ"));
-  const payload = data as (MerchantStripeStatus & { url?: unknown; error?: unknown; message?: unknown }) | null;
-  if (payload?.status === "ready") return { status: payload, url: null as string | null };
-  if (!payload || typeof payload.url !== "string") {
-    throw new Error(typeof payload?.message === "string" ? payload.message : "เปิด Stripe Connect ไม่สำเร็จ");
+  if (error) throw new Error(await merchantStripeFunctionError(error, "เปิดรับชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+  const payload = data as (MerchantStripeStatus & { flow?: unknown; publishableKey?: unknown; url?: unknown }) | null;
+  if (!payload || typeof payload.status !== "string") throw new Error("เปิดรับชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  return {
+    status: payload,
+    flow: payload.flow === "embedded" || payload.flow === "redirect" || payload.flow === "ready"
+      ? payload.flow
+      : payload.status === "ready" ? "ready" : "redirect",
+    publishableKey: typeof payload.publishableKey === "string" ? payload.publishableKey : null,
+    url: typeof payload.url === "string" ? payload.url : null,
+  };
+}
+
+export async function createMerchantStripeSession(
+  client: SupabaseClient,
+  storeId: string,
+  component: "account_onboarding" | "account_management",
+) {
+  const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
+    body: { storeId, action: "session", component },
+  });
+  if (error) throw new Error(await merchantStripeFunctionError(error, "เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+  const payload = data as { clientSecret?: unknown; publishableKey?: unknown } | null;
+  if (!payload || typeof payload.clientSecret !== "string" || typeof payload.publishableKey !== "string") {
+    throw new Error("เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   }
-  return { status: payload, url: payload.url };
+  return { clientSecret: payload.clientSecret, publishableKey: payload.publishableKey };
 }
 
 export async function refreshMerchantStripeStatus(client: SupabaseClient, storeId: string): Promise<MerchantStripeStatus> {
   const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
     body: { storeId, action: "status" },
   });
-  if (error) throw new Error(await merchantStripeFunctionError(error, "ตรวจสถานะ Stripe ไม่สำเร็จ"));
-  const payload = data as (MerchantStripeStatus & { error?: unknown; message?: unknown }) | null;
-  if (!payload || typeof payload.status !== "string") {
-    throw new Error(typeof payload?.message === "string" ? payload.message : "ตรวจสถานะ Stripe ไม่สำเร็จ");
-  }
+  if (error) throw new Error(await merchantStripeFunctionError(error, "อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+  const payload = data as MerchantStripeStatus | null;
+  if (!payload || typeof payload.status !== "string") throw new Error("อัปเดตสถานะการรับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   return payload;
+}
+
+export async function fetchMerchantStripeFinance(client: SupabaseClient, storeId: string): Promise<MerchantStripeFinance> {
+  let payload: MerchantStripeStatus;
+  try {
+    payload = await refreshMerchantStripeStatus(client, storeId);
+  } catch {
+    // Finance remains available from the sanitized DB snapshot if Stripe is temporarily unavailable.
+    payload = await fetchMerchantStripeStatus(client, storeId);
+  }
+  return {
+    ...payload,
+    pending: Number(payload.balance_pending_satang ?? 0) / 100,
+    available: Number(payload.balance_available_satang ?? 0) / 100,
+    paid_today: Number(payload.payouts_paid_today_satang ?? 0) / 100,
+  };
 }
 
 export async function requestStripeRefund(client: SupabaseClient, orderId: string, note?: string) {
   const { data, error } = await client.functions.invoke("merchant-stripe-refund", {
     body: { orderId, note: note?.trim() || null },
   });
-  if (error) throw new Error(await merchantStripeFunctionError(error, "ขอคืนเงินผ่าน Stripe ไม่สำเร็จ"));
-  const payload = data as { status?: unknown; error?: unknown; message?: unknown } | null;
-  if (!payload || typeof payload.status !== "string") {
-    throw new Error(typeof payload?.message === "string" ? payload.message : "ขอคืนเงินผ่าน Stripe ไม่สำเร็จ");
-  }
+  if (error) throw new Error(await merchantStripeFunctionError(error, "ขอคืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+  const payload = data as { status?: unknown } | null;
+  if (!payload || typeof payload.status !== "string") throw new Error("ขอคืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
   return String(payload.status);
 }
 
