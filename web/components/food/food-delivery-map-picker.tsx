@@ -475,7 +475,7 @@ export function FoodDeliveryMapPicker({
   const [chosen, setChosen] = useState(Boolean(initialLocation));
   // Standalone Maps uses a three-stop sheet: peek (search only), half
   // (search + selected place) and full (results or place details).
-  const [sheetDetent, setSheetDetent] = useState<SheetDetent>("half");
+  const [sheetDetent, setSheetDetent] = useState<SheetDetent>(standalone ? "peek" : "half");
   const sheetExpanded = sheetDetent === "full";
   const setSheetExpanded = useCallback((expanded: boolean) => setSheetDetent(expanded ? "full" : "half"), []);
   const [currentLocationSelected, setCurrentLocationSelected] = useState(false);
@@ -532,6 +532,7 @@ export function FoodDeliveryMapPicker({
     setResolvingPlace(false);
     setActiveNearbyPlace(null);
     setCurrentLocationSelected(false);
+    if (standalone) setSheetDetent("half");
     mapRef.current?.flyTo({
       center: [next.longitude, next.latitude],
       zoom: standalone ? 15.8 : 17,
@@ -1243,7 +1244,7 @@ export function FoodDeliveryMapPicker({
         event.preventDefault();
         event.stopPropagation();
         setActiveNearbyPlace(nearbyPlace);
-        if (standalone) setSheetExpanded(true);
+        if (standalone) setSheetDetent("half");
       });
 
       return new maplibre.Marker({ element: button, anchor: selected ? "bottom" : "center" })
@@ -1550,7 +1551,7 @@ export function FoodDeliveryMapPicker({
     setSearching(false);
     setSearchStatus("");
     setSearchFocused(false);
-    if (standalone) setSheetDetent("half");
+    if (standalone) setSheetDetent("peek");
   };
 
   const searchBlock = (
@@ -1604,17 +1605,17 @@ export function FoodDeliveryMapPicker({
           <button type="button" className={query === "คาเฟ่" ? "is-active" : ""} onClick={() => quickSearch("คาเฟ่")}>
             <Coffee size={16} /><span>คาเฟ่</span>
           </button>
-          <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
-            <Building2 size={16} /><span>หอพัก</span>
-          </button>
           <button type="button" className={query === "ร้านค้า" ? "is-active" : ""} onClick={() => quickSearch("ร้านค้า")}>
             <ShoppingBag size={16} /><span>ร้านค้า</span>
+          </button>
+          <button type="button" className={query === "ปั๊มน้ำมัน" ? "is-active" : ""} onClick={() => quickSearch("ปั๊มน้ำมัน")}>
+            <Fuel size={16} /><span>ปั๊มน้ำมัน</span>
           </button>
           <button type="button" className={query === "โรงพยาบาล" ? "is-active" : ""} onClick={() => quickSearch("โรงพยาบาล")}>
             <Hospital size={16} /><span>โรงพยาบาล</span>
           </button>
-          <button type="button" className={query === "ปั๊มน้ำมัน" ? "is-active" : ""} onClick={() => quickSearch("ปั๊มน้ำมัน")}>
-            <Fuel size={16} /><span>ปั๊มน้ำมัน</span>
+          <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
+            <Building2 size={16} /><span>หอพัก</span>
           </button>
           <button type="button" className={query === "ATM" ? "is-active" : ""} onClick={() => quickSearch("ATM")}>
             <CircleDollarSign size={16} /><span>ATM</span>
@@ -1818,7 +1819,7 @@ export function FoodDeliveryMapPicker({
         <div className={`wf-map-center-pin${mapDragging ? " is-dragging" : ""}${currentLocationSelected ? " is-current-location" : ""}${directionsTarget ? " is-route-active" : ""}`} aria-hidden="true">
           <MapPin size={standalone ? 36 : 42} fill="currentColor" />
         </div>
-        {standalone && serviceAreaBoundary ? (
+        {standalone && serviceAreaBoundary && activeNearbyPlace?.merchantStoreId ? (
           <div
             className={`wf-map-service-area${serviceAreaState === "inside" ? " is-inside" : serviceAreaState === "outside" ? " is-outside" : ""}`}
             role="status"
