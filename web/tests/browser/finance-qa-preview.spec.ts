@@ -42,6 +42,7 @@ test("Finance QA date validation and invalid order id fail closed", async ({ pag
 test("Order QA detail uses owner-only RPC mock, no customer PII or actual payout", async ({ page }) => {
   await page.goto(PATH);
   const preview = page.getByRole("region", { name: "พรีวิวรายงานการเงิน QA" });
+  await expect(preview.getByText("ยอดชำระจำลอง")).toBeVisible();
   await preview.getByLabel("UUID ออเดอร์ QA").fill(QA_ORDER);
   await preview.getByRole("button", { name: "ตรวจออเดอร์" }).click();
   await expect(preview.getByText(/QA-ORDER-0002/)).toBeVisible();
