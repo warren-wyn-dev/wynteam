@@ -293,6 +293,9 @@ async function recordNoop(admin: AdminClient, eventId: string, eventType: string
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  // This branch must never run against any other Supabase project.
+  if (Deno.env.get("SUPABASE_URL") !== "https://pcatuxtenluqzjzzwsvl.supabase.co")
+    return json({ error: "sandbox_project_mismatch" }, 503);
   const url = Deno.env.get("SUPABASE_URL");
   const key = serviceKey();
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim() ?? "";
