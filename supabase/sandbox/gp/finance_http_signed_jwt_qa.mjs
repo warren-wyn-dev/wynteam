@@ -145,3 +145,7 @@ if (keys.admin) {
 }
 process.stdout.write('HTTP QA RESULTS pass=' + passed + ' fail=' + failed + ' skip=' + skipped + '\n');
 if (failed) process.exitCode = 1;
+if (process.env.WYNOS_QA_STRICT_AUTH_GATE === 'true' && skipped > 0) {
+  process.stderr.write('INCOMPLETE: required allowlisted QA Admin signed JWT positive test was skipped\\n');
+  process.exitCode = 2;
+}
