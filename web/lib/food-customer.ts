@@ -339,6 +339,8 @@ export type FoodOrderQuote = {
   campaign_id: string | null;
   campaign_name: string | null;
   campaign_type: "percentage" | "fixed" | "free_delivery" | null;
+  coupon_code?: string | null;
+  coupon_applied?: boolean;
   delivery_distance_km: number | null;
   delivery_radius_km: number | null;
   delivery_needs_location: boolean;
@@ -637,12 +639,15 @@ export async function quoteFoodCustomerOrder(
   storeId: string,
   items: FoodCartLine[],
   location: FoodLocation | null = null,
+  couponCode: string | null = null,
 ): Promise<FoodOrderQuote> {
-  const { data, error } = await client.rpc("food_quote_order", {
+  const normalizedCode = couponCode?.trim().toUpperCase() || null;
+  const { data, error } = await client.rpc(normalizedCode ? "food_quote_order_v2" : "food_quote_order", {
     // Coordinates are sent only when there is a pin, so this also works
     // against the pre-WYN-196 RPC signature during a rollout.
     ...pinParams(location),
     p_store_id: storeId,
+    ...(normalizedCode ? { p_coupon_code: normalizedCode } : {}),
     p_items: items.map((line) => ({
       menu_item_id: line.menu_item_id,
       quantity: line.quantity,
@@ -659,6 +664,8 @@ export async function quoteFoodCustomerOrder(
     total: Number(raw.total ?? 0),
     campaign_id: raw.campaign_id ? String(raw.campaign_id) : null,
     campaign_name: raw.campaign_name ? String(raw.campaign_name) : null,
+    coupon_code: raw.coupon_code ? String(raw.coupon_code) : null,
+    coupon_applied: raw.coupon_applied === true,
     campaign_type: raw.campaign_type === "percentage" || raw.campaign_type === "fixed" || raw.campaign_type === "free_delivery"
       ? raw.campaign_type
       : null,
@@ -679,8 +686,10 @@ export async function createFoodCustomerOrder(
     items: FoodCartLine[];
     location: FoodLocation | null;
     scheduledFor?: string | null;
+    couponCode?: string | null;
   },
 ) {
+  const couponCode = input.couponCode?.trim().toUpperCase() || null;
   const params = {
     ...pinParams(input.location),
     p_store_id: storeId,
@@ -696,8 +705,8 @@ export async function createFoodCustomerOrder(
     })),
   };
   const { data, error } = input.scheduledFor
-    ? await client.rpc("food_create_scheduled_order", { ...params, p_scheduled_for: input.scheduledFor })
-    : await client.rpc("food_create_order", params);
+    ? await client.rpc(couponCode ? "food_create_scheduled_order_v2" : "food_create_scheduled_order", { ...params, p_scheduled_for: input.scheduledFor, ...(couponCode ? { p_coupon_code: couponCode } : {}) })
+    : await client.rpc(couponCode ? "food_create_order_v2" : "food_create_order", { ...params, ...(couponCode ? { p_coupon_code: couponCode } : {}) });
   if (error) throw new Error(error.message);
   return String(data);
 }
