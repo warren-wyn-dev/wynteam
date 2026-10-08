@@ -35,6 +35,50 @@ const keys = Object.freeze({
   unrelated: process.env.WYNOS_QA_UNRELATED_JWT,
   admin: process.env.WYNOS_QA_APPROVED_ADMIN_JWT || null
 });
+// Fail closed before network I/O if a credential belongs to another project,
+// is an expired token, or is a service-role token. Parsing unverified claims
+// here is ONLY a local safeguard; Supabase verifies JWT signatures over HTTP.
+function qaUserClaims(jwt, description) {
+  try {
+    const parts = jwt.split('.');
+    if (parts.length !== 3) throw Error();
+    const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (claims.iss !== qaUrl + '/auth/v1'
+        || claims.role !== 'authenticated'
+        || typeof claims.sub !== 'string' || !uuid.test(claims.sub)
+        || !Number.isSafeInteger(claims.exp)
+        || claims.exp <= Date.now() / 1000 + 30
+        || (claims.aud !== 'authenticated'
+          && !(Array.isArray(claims.aud) && claims.aud.includes('authenticated')))) {
+      throw Error();
+    }
+    return claims.sub;
+  } catch {
+    throw new Error('Unsafe/expired/wrong-project ' + description
+      + ' signed QA user JWT; no HTTP requests sent');
+  }
+}
+if (process.env.WYNOS_QA_ANON_KEY.startsWith('sb_secret_')) {
+  throw new Error('QA secret API key forbidden; no HTTP requests sent');
+}
+if (process.env.WYNOS_QA_ANON_KEY.startsWith('eyJ')) {
+  try {
+    const parts = process.env.WYNOS_QA_ANON_KEY.split('.');
+    const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (claims.role !== 'anon' || claims.iss !== qaUrl + '/auth/v1') throw Error();
+  } catch {
+    throw new Error('Refusing non-QA anon API token; no HTTP requests sent');
+  }
+} else if (!process.env.WYNOS_QA_ANON_KEY.startsWith('sb_publishable_')) {
+  throw new Error('Unexpected publishable API key format; no HTTP requests sent');
+}
+const distinctQAUsers = [qaUserClaims(keys.owner, 'owner'),
+  qaUserClaims(keys.unrelated, 'unrelated')];
+if (keys.admin) distinctQAUsers.push(qaUserClaims(keys.admin, 'admin'));
+if (new Set(distinctQAUsers).size !== distinctQAUsers.length) {
+  throw new Error('Use separate QA identities for owner/unrelated/admin; no HTTP requests sent');
+}
+
 let passed = 0, failed = 0, skipped = 0;
 async function request(method, endpoint, role, body) {
   const auth = role === 'anon' ? null : keys[role];
@@ -139,6 +183,13 @@ if (keys.admin) {
     r => r.status === 200 && ensureReport(r.data),'POST',
     '/rest/v1/rpc/admin_food_finance_report_qa','admin',
     {...range,p_store_id:null});
+  await test('QA allowlisted Admin can read v2 daily buckets',
+    r => r.status === 200 && r.data?.mode === 'simulation_only'
+      && r.data?.timezone === 'Asia/Bangkok'
+      && r.data?.merchant_net_payout_satang === null
+      && Array.isArray(r.data?.buckets),'POST',
+    '/rest/v1/rpc/admin_food_finance_buckets_v2_qa','admin',
+    {...range,p_granularity:'day',p_store_id:null});
 } else {
   skipped++;
   process.stdout.write('SKIP QA Admin allowlisted positive test (no approved JWT)\n');
