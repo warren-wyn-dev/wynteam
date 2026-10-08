@@ -241,7 +241,7 @@ expect_fail "wrong connected account is rejected"   "set role service_role; sele
 pass "Stripe webhook finalizes full refund"
 
 # Terminal refund is irreversible through stale webhook reordering.
-[ "$(val "set role service_role; select public.food_apply_stripe_event('evt_paid_after_refund','checkout.session.completed','$ORDER','acct_test_wynos','cs_stale','cs_stale','pi_stale',12550,'thb','paid','card',null,null)")" = "t" ] || fail "late paid event was not handled"
+[ "$(val "set role service_role; select public.food_apply_stripe_event('evt_paid_after_refund','checkout.session.completed','$ORDER','acct_test_wynos','cs_1','cs_1','pi_1',12550,'thb','paid','card',null,null)")" = "t" ] || fail "late paid event was not handled"
 [ "$(val "set role service_role; select public.food_apply_stripe_event('evt_failed_after_refund','payment_intent.payment_failed','$ORDER','acct_test_wynos','pi_late_2',null,'pi_late_2',null,'thb','failed','card','late failure',null)")" = "t" ] || fail "late failed event was not handled"
 [ "$(val "select payment_status||'|'||stripe_refund_id from public.food_orders where id='$ORDER'")" = "refunded|re_1" ] || fail "late webhooks reversed Food refund"
 [ "$(val "select status||'|'||payment_intent_id from public.food_stripe_payments where order_id='$ORDER'")" = "refunded|pi_1" ] || fail "late webhooks reversed Stripe refund"
