@@ -1591,6 +1591,7 @@ export function FoodDeliveryMapPicker({
         ) : null}
       </div>
       {standalone ? (
+        <>
         <div className="wf-map-quick-filters" aria-label="หมวดหมู่สถานที่">
           <button type="button" className={query === "ร้านอาหาร" ? "is-active" : ""} onClick={() => quickSearch("ร้านอาหาร")}>
             <Utensils size={16} /><span>ร้านอาหาร</span>
@@ -1624,6 +1625,7 @@ export function FoodDeliveryMapPicker({
             <button type="button" onClick={() => { setShowMoreCategories(false); quickSearch("ATM"); }}><CircleDollarSign size={17} /> ATM</button>
           </div>
         ) : null}
+        </>
       ) : null}
       {standalone && !results.length && (searching || searchStatus) ? (
         <p className="wf-map-search-status" role="status" aria-live="polite">
