@@ -130,9 +130,9 @@ BEGIN
     or has_function_privilege('anon',
         'public.merchant_food_finance_report_qa(uuid,timestamptz,timestamptz)','EXECUTE')
     or has_function_privilege('authenticated',
-        'public.food_finance_report_core_qa(timestamptz,timestamptz,uuid)','EXECUTE')
+        'wynos_finance_qa_private.food_finance_report_core_qa(timestamptz,timestamptz,uuid)','EXECUTE')
     or has_function_privilege('authenticated',
-        'public.food_finance_events_core_qa(timestamptz,timestamptz,uuid,integer,integer)','EXECUTE') then
+        'wynos_finance_qa_private.food_finance_events_core_qa(timestamptz,timestamptz,uuid,integer,integer)','EXECUTE') then
     raise exception 'Reporting RPC core/client grants unsafe';
   end if;
 
