@@ -38,6 +38,7 @@ export default function StripeSandboxPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [busyOrder, setBusyOrder] = useState<string | null>(null);
+  const [reconcileBusy, setReconcileBusy] = useState(false);
   const [connectBusy, setConnectBusy] = useState(false);
   const [connectMessage, setConnectMessage] = useState("");
   const [connectStatusMessage, setConnectStatusMessage] = useState("");
@@ -69,7 +70,7 @@ export default function StripeSandboxPage() {
     const params = new URLSearchParams(window.location.search);
     const stripe = params.get("stripe");
     if (stripe === "success") {
-      setReturnStatus("Stripe กลับจากหน้าชำระเงินแล้ว โปรดรอ Webhook ยืนยันและกดรีเฟรชสถานะ");
+      setReturnStatus("Stripe กลับจากหน้าชำระเงินแล้ว กดปุ่มตรวจสอบผลชำระกับ Stripe เพื่อยืนยันโดยไม่จ่ายซ้ำ");
     } else if (stripe === "cancelled") {
       setReturnStatus("คุณยกเลิกการชำระเงินทดสอบแล้ว");
     }
@@ -188,6 +189,45 @@ export default function StripeSandboxPage() {
     } catch (error) {
       setConnectMessage(error instanceof Error ? error.message : "ไม่สามารถเริ่ม Stripe Connect ได้");
       setConnectBusy(false);
+    }
+  }
+
+  async function reconcileCheckout(order: Order) {
+    if (!ENABLED || !user || user.id !== QA_MERCHANT_USER_ID ||
+        order.order_number !== "WF000003" || reconcileBusy || busyOrder) return;
+    const client = getSupabaseBrowserClient();
+    if (!client) return;
+    setReconcileBusy(true);
+    setMessage("");
+    try {
+      const { data, error } = await client.functions.invoke("food-stripe-checkout", {
+        body: { orderId: order.id, action: "reconcile" },
+      });
+      if (error) {
+        const response = (error as { context?: Response }).context;
+        const body = response && typeof response.json === "function"
+          ? await response.json().catch(() => null) as { error?: string } | null
+          : null;
+        const messages: Record<string, string> = {
+          checkout_not_paid: "Stripe ยังไม่ยืนยันว่ารายการนี้ชำระสำเร็จ ระบบยังไม่เปลี่ยนสถานะ",
+          qa_checkout_session_not_found: "ยังไม่พบ Checkout Session สำหรับคำสั่งซื้อนี้",
+          stripe_checkout_verification_mismatch: "ข้อมูล Checkout ไม่ตรงกับคำสั่งซื้อทดสอบ ระบบปฏิเสธการยืนยันเพื่อความปลอดภัย",
+          stripe_verification_failed: "ยังเชื่อมต่อ Stripe เพื่อตรวจสอบรายการไม่ได้",
+          payment_intent_not_available: "Stripe ยังไม่ส่งหมายเลข Payment Intent",
+          reconcile_record_failed: "Stripe ยืนยันแล้วแต่การบันทึกสถานะไม่สำเร็จ กรุณาติดต่อผู้ดูแล",
+        };
+        throw new Error((body?.error && messages[body.error]) || "ไม่สามารถตรวจสอบผลชำระจาก Stripe ได้");
+      }
+      const result = data as { reconciled?: boolean; payment_status?: string } | null;
+      if (!result?.reconciled || result.payment_status !== "paid") {
+        throw new Error("Stripe ยังไม่สามารถยืนยันว่าชำระเงินสำเร็จ");
+      }
+      await refresh(user.id);
+      setReturnStatus("Stripe Test API ยืนยันการชำระ ฿50 แล้ว และอัปเดตคำสั่งซื้อเป็น paid ✓");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "ตรวจสอบผลชำระไม่ได้");
+    } finally {
+      setReconcileBusy(false);
     }
   }
 
@@ -369,8 +409,18 @@ export default function StripeSandboxPage() {
                         <p style={{ margin: "8px 0", color: "#64748b" }}>
                           {formatBaht(Number(order.total))} · สถานะ: {order.payment_status} · {order.status}
                         </p>
-                        {["pending", "issue"].includes(order.payment_status) && (
-                          <button disabled={Boolean(busyOrder)} onClick={() => void checkout(order)} style={action}>
+                        {user.id === QA_MERCHANT_USER_ID && order.order_number === "WF000003" &&
+                          ["pending", "issue"].includes(order.payment_status) && (
+                            <div style={{ marginBottom: 12 }}>
+                              <button disabled={reconcileBusy || Boolean(busyOrder)} onClick={() => void reconcileCheckout(order)}
+                                style={{ ...action, backgroundColor: "#136f63" }}>
+                                {reconcileBusy ? "กำลังตรวจสอบกับ Stripe..." : "ตรวจสอบผลชำระกับ Stripe (ไม่จ่ายซ้ำ)"}
+                              </button>
+                            </div>
+                          )}
+                        {["pending", "issue"].includes(order.payment_status) &&
+                          !(user.id === QA_MERCHANT_USER_ID && order.order_number === "WF000003" && returnStatus?.includes("Stripe กลับจากหน้าชำระเงินแล้ว")) && (
+                          <button disabled={Boolean(busyOrder) || reconcileBusy} onClick={() => void checkout(order)} style={action}>
                             {busyOrder === order.id ? "กำลังเปิด Stripe..." : "ชำระเงินทดสอบด้วย Stripe"}
                           </button>
                         )}
