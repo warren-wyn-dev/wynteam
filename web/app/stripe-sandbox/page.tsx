@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -132,14 +132,14 @@ export default function StripeSandboxPage() {
     }
   }
 
-  const panel: React.CSSProperties = {
+  const panel: CSSProperties = {
     border: "1px solid #dfe3ea",
     borderRadius: 18,
     backgroundColor: "#fff",
     padding: 22,
     marginBottom: 16,
   };
-  const action: React.CSSProperties = {
+  const action: CSSProperties = {
     border: 0,
     borderRadius: 12,
     padding: "12px 18px",
@@ -196,7 +196,7 @@ export default function StripeSandboxPage() {
                     รหัสผ่านสำหรับบัญชีทดสอบ
                     <input
                       type="password"
-                      autoComplete={ "current-password" }
+                      autoComplete="current-password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       style={{ display: "block", width: "100%", padding: 12, border: "1px solid #cbd5e1", borderRadius: 9 }}
