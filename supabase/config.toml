@@ -1,6 +1,11 @@
 [functions.stripe-webhook]
 verify_jwt = false
 
+[functions.food-unpaid-timeout]
+# Internal pg_cron caller is authenticated by a Vault-backed x-wynos-cron-key,
+# verified against a service-role-only RPC. Browser calls always return 401.
+verify_jwt = false
+
 [functions.food-stripe-checkout]
 verify_jwt = true
 
