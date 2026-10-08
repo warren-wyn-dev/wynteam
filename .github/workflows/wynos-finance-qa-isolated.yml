@@ -11,6 +11,8 @@ on:
       - supabase/sandbox/gp/finance_http_preflight_qa.test.mjs
       - supabase/sandbox/gp/finance_qa_password_auth_runner.mjs
       - supabase/sandbox/gp/finance_qa_password_auth_preflight.test.mjs
+      - supabase/sandbox/gp/finance_qa_ephemeral_admin_lifecycle.mjs
+      - supabase/sandbox/gp/finance_qa_ephemeral_admin_safety.test.mjs
       - web/components/merchant/merchant-finance-qa-preview.tsx
       - web/components/merchant/merchant-finance.tsx
       - web/tests/finance-qa-preview-gate.test.mjs
@@ -62,7 +64,7 @@ jobs:
         run: node --test web/tests/finance-qa-preview-gate.test.mjs
 
       - name: Offline negative-only QA HTTP credential preflight
-        run: node --test supabase/sandbox/gp/finance_http_preflight_qa.test.mjs supabase/sandbox/gp/finance_qa_password_auth_preflight.test.mjs
+        run: node --test supabase/sandbox/gp/finance_http_preflight_qa.test.mjs supabase/sandbox/gp/finance_qa_password_auth_preflight.test.mjs supabase/sandbox/gp/finance_qa_ephemeral_admin_safety.test.mjs
 
       - name: Run real two-session SQL concurrency checks on disposable PostgreSQL
         env:
