@@ -17,3 +17,8 @@ verify_jwt = true
 
 [functions.merchant-stripe-refund]
 verify_jwt = true
+
+[functions.send-food-promotion]
+# Vault-key-authenticated scheduler call (not a browser/JWT request).
+# The handler verifies a dedicated long random key using a service-role-only RPC.
+verify_jwt = false
