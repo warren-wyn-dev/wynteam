@@ -35,6 +35,8 @@ Deno.serve(async (req: Request) => {
   const url = Deno.env.get("SUPABASE_URL");
   const key = serviceKey();
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
+  // Hard fail closed: never allow sk_live_ in this Sandbox deployment.
+  if (stripeSecret && !stripeSecret.startsWith("sk_test_")) return json({ error: "sandbox_requires_sk_test_key" }, 503);
   const authHeader = req.headers.get("Authorization");
   if (!url || !key || !authHeader) return json({ error: "unauthorized" }, 401);
   if (!stripeSecret) return json({ error: "payments_not_configured", message: "ระบบคืนเงินยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง" }, 503);
