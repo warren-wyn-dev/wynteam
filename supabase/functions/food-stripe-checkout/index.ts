@@ -82,11 +82,14 @@ Deno.serve(async (req: Request) => {
   if (!orderId) return json({ error: "order_id_required" }, 400);
 
   const { data: order } = await admin.from("food_orders")
-    .select("id,order_number,buyer_id,store_id,total,status,payment_status")
+    .select("id,order_number,buyer_id,store_id,total,status,payment_status,payment_due_at")
     .eq("id", orderId).maybeSingle();
   if (!order || order.buyer_id !== user.id) return json({ error: "order_not_found" }, 404);
   if (["cancelled","delivered"].includes(order.status) || !["pending","issue"].includes(order.payment_status)) {
     return json({ error: "order_not_payable" }, 409);
+  }
+  if (order.payment_due_at && new Date(order.payment_due_at).getTime() <= Date.now()) {
+    return json({ error: "payment_deadline_expired", message: "หมดเวลาชำระเงิน 10 นาทีแล้ว ออเดอร์จะถูกยกเลิกอัตโนมัติ" }, 409);
   }
 
   const { data: account } = await admin.from("food_stripe_accounts")
@@ -176,6 +179,23 @@ Deno.serve(async (req: Request) => {
   }, { onConflict: "order_id" });
   if (paymentError) return json({ error: "payment_record_failed" }, 500);
 
-  await admin.from("food_orders").update({ stripe_checkout_session_id: session.id }).eq("id", order.id);
+  // Checkout creation can outlive the 10-minute deadline or race a cron
+  // cancellation. Only publish the URL if the DB still allows payment.
+  const { data: persisted, error: persistError } = await admin.from("food_orders")
+    .update({ stripe_checkout_session_id: session.id })
+    .eq("id", order.id)
+    .eq("status", "pending_acceptance")
+    .in("payment_status", ["pending", "issue"])
+    .or(`payment_due_at.is.null,payment_due_at.gt.${new Date().toISOString()}`)
+    .select("id").maybeSingle();
+  if (persistError || !persisted) {
+    try {
+      await stripeJson(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(session.id)}/expire`, {
+        method: "POST",
+        headers: stripeHeaders(stripeSecret, account.stripe_account_id),
+      });
+    } catch { /* Link was never returned; retry/Stripe logs reconcile if needed. */ }
+    return json({ error: "payment_deadline_expired", message: "หมดเวลาชำระเงินแล้ว กรุณาสั่งอาหารใหม่" }, 409);
+  }
   return json({ url: session.url, sessionId: session.id, reused: false });
 });

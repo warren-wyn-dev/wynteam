@@ -154,6 +154,8 @@ export type FoodCustomerOrder = {
   delivered_at: string | null;
   cancelled_at: string | null;
   paid_at: string | null;
+  /** Only new orders receive a deadline; legacy orders are exempt. */
+  payment_due_at?: string | null;
   scheduled_for?: string | null;
   receipt_legal_name?: string | null;
   receipt_tax_id?: string | null;

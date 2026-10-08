@@ -2286,6 +2286,7 @@ function CheckoutSheet({
 
         <section className="wf-checkout-payment">
           <div className="wf-section-title wf-checkout-section-title"><h2>วิธีการชำระเงิน</h2></div>
+          <div className="wf-inline-warning" role="note">กรุณาชำระเงินหรือส่งสลิปภายใน 10 นาทีหลังยืนยันออเดอร์ หากยังไม่ชำระหรือไม่ส่งสลิป ระบบจะยกเลิกออเดอร์อัตโนมัติ</div>
           <div className="wf-checkout-payment-card">
             <span><ReceiptText size={21} /></span>
             <div>
@@ -2418,9 +2419,15 @@ function OrderDetailSheet({
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [dynamicPaymentQr, setDynamicPaymentQr] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const slipInputRef = useRef<HTMLInputElement>(null);
   const slipPreviewUrlRef = useRef<string | null>(null);
   const proof = orderDeliveryProof(order);
+  useEffect(() => {
+    if (!order.payment_due_at || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") return;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [order.payment_due_at, order.payment_status, order.status]);
 
   useEffect(() => () => {
     if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
@@ -2518,7 +2525,9 @@ function OrderDetailSheet({
 
   const currentIndex = TRACKING_STEPS.findIndex((step) => step.status === order.status);
   const isCancelled = order.status === "cancelled";
-  const canPay = !isCancelled && ["pending", "issue"].includes(order.payment_status);
+  const secondsLeft = order.payment_due_at ? Math.max(0, Math.ceil((new Date(order.payment_due_at).getTime() - clockNow) / 1000)) : null;
+  const paymentExpired = secondsLeft === 0;
+  const canPay = !isCancelled && !paymentExpired && ["pending", "issue"].includes(order.payment_status);
   const canCancel = order.status === "pending_acceptance" && ["pending", "issue"].includes(order.payment_status);
   const paymentQr = dynamicPaymentQr ?? foodPublicUrl(client, store?.payment_qr_path);
   const combinedBusy = busy || working;
@@ -2565,6 +2574,13 @@ function OrderDetailSheet({
 
         <section className="wf-order-section">
           <div className="wf-section-title"><h2>การชำระเงิน</h2><span className={`wf-payment-status wf-payment-status--${order.payment_status}`}>{foodPaymentStatusLabel(order.payment_status)}</span></div>
+          {secondsLeft !== null && !isCancelled && ["pending", "issue"].includes(order.payment_status) ? (
+            <div className="wf-inline-warning" role="status">
+              {paymentExpired
+                ? "หมดเวลาชำระเงินแล้ว ระบบกำลังยกเลิกออเดอร์อัตโนมัติ"
+                : `กรุณาชำระเงินหรือส่งสลิปภายใน ${Math.floor(secondsLeft / 60).toString().padStart(2, "0")}:${(secondsLeft % 60).toString().padStart(2, "0")} นาที`}
+            </div>
+          ) : null}
           {order.payment_note ? <div className="wf-inline-warning">{order.payment_note}</div> : null}
           {order.payment_verification_status === "auto_verified" ? <div className="wf-inline-warning">ตรวจสอบสลิปอัตโนมัติแล้ว</div> : null}
           {order.payment_verification_status === "manual_review" && order.payment_status === "submitted" ? <div className="wf-inline-warning">รอตรวจสอบโดยร้าน</div> : null}

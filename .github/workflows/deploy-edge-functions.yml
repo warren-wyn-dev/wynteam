@@ -30,6 +30,7 @@ on:
           - send-push-notification
           - location-search
           - validate-upload
+          - food-unpaid-timeout
           - food-stripe-checkout
           - food-stripe-cancel
           - merchant-stripe-connect
