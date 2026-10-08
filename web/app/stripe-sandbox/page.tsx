@@ -71,6 +71,12 @@ export default function StripeSandboxPage() {
     } else if (stripe === "cancelled") {
       setReturnStatus("คุณยกเลิกการชำระเงินทดสอบแล้ว");
     }
+    const connect = params.get("connect");
+    if (connect === "return") {
+      setReturnStatus("กลับจาก Stripe Connect Test Mode แล้ว กรุณาตรวจสอบสถานะบัญชีร้านค้าอีกครั้ง");
+    } else if (connect === "refresh") {
+      setReturnStatus("ลิงก์ Stripe Connect หมดอายุ กรุณากดเชื่อมร้านค้าทดลองอีกครั้ง");
+    }
     void client.auth.getUser().then(({ data }) => {
       if (!mounted) return;
       setUser(data.user);
@@ -120,7 +126,7 @@ export default function StripeSandboxPage() {
     setConnectMessage("");
     try {
       const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
-        body: { storeId: QA_CONNECT_STORE_ID, action: "onboard" },
+        body: { storeId: QA_CONNECT_STORE_ID, action: "onboard", qaHostedOnboarding: true },
       });
       if (error) {
         const response = (error as { context?: Response }).context;
@@ -130,7 +136,12 @@ export default function StripeSandboxPage() {
         throw new Error(details?.message || details?.error || error.message);
       }
       const payload = data as { url?: string; message?: string; error?: string } | null;
-      if (!payload?.url) throw new Error(payload?.message || payload?.error || "ยังไม่สามารถเปิด Stripe Connect Test Mode ได้");
+      if (!payload?.url) {
+        if ((payload as { flow?: string } | null)?.flow === "embedded") {
+          throw new Error("ได้รับ Embedded Onboarding แทนลิงก์ทดสอบ กรุณารีเฟรช Preview เวอร์ชันล่าสุด");
+        }
+        throw new Error(payload?.message || payload?.error || "ยังไม่สามารถเปิด Stripe Connect Test Mode ได้");
+      }
       const destination = new URL(payload.url);
       if (destination.protocol !== "https:" ||
           !(destination.hostname === "connect.stripe.com" || destination.hostname.endsWith(".stripe.com"))) {
