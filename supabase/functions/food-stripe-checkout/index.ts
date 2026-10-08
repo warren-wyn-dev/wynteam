@@ -59,6 +59,8 @@ Deno.serve(async (req: Request) => {
   const url = Deno.env.get("SUPABASE_URL");
   const key = serviceKey();
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
+  // Hard fail closed: never allow sk_live_ in this Sandbox deployment.
+  if (stripeSecret && !stripeSecret.startsWith("sk_test_")) return json({ error: "sandbox_requires_sk_test_key" }, 503);
   const authHeader = req.headers.get("Authorization");
   if (!url || !key || !authHeader) return json({ error: "unauthorized" }, 401);
   if (!stripeSecret) return json({ error: "stripe_not_configured" }, 503);
@@ -122,11 +124,19 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Do not send test customers back to food.wynos.online (production).
+  const sandboxFoodReturn = Deno.env.get("WYNOS_STRIPE_SANDBOX_FOOD_URL")?.trim();
+  let sandboxFoodBase: string;
+  try {
+    const parsed = new URL(sandboxFoodReturn ?? "");
+    if (parsed.protocol !== "https:" || ["food.wynos.online","merchant.wynos.online"].includes(parsed.hostname) || parsed.username || parsed.password) throw new Error("bad sandbox return URL");
+    sandboxFoodBase = parsed.origin;
+  } catch { return json({ error: "sandbox_food_redirect_not_configured" }, 503); }
   const params = new URLSearchParams();
   params.set("mode", "payment");
   params.set("client_reference_id", order.id);
-  params.set("success_url", `https://food.wynos.online/?order=${encodeURIComponent(order.order_number)}&stripe=success`);
-  params.set("cancel_url", `https://food.wynos.online/?order=${encodeURIComponent(order.order_number)}&stripe=cancelled`);
+  params.set("success_url", `${sandboxFoodBase}/?order=${encodeURIComponent(order.order_number)}&stripe=success`);
+  params.set("cancel_url", `${sandboxFoodBase}/?order=${encodeURIComponent(order.order_number)}&stripe=cancelled`);
   params.set("line_items[0][price_data][currency]", "thb");
   params.set("line_items[0][price_data][product_data][name]", `WYNOS Food #${order.order_number}`);
   params.set("line_items[0][price_data][unit_amount]", String(amountSatang));
