@@ -17,9 +17,14 @@ const env=process.env;
 const missing=(names)=>names.filter(k=>!env[k]);
 function fail(message){throw Error(message);}
 function assertScope(){
+  const manual=env.GITHUB_EVENT_NAME==="workflow_dispatch";
+  const approvedSandboxPush=env.GITHUB_EVENT_NAME==="push"
+    && env.WYNOS_QA_PUSH_GATE==="true"
+    && Boolean(env.WYNOS_QA_APPROVED_ACTOR)
+    && env.GITHUB_ACTOR===env.WYNOS_QA_APPROVED_ACTOR;
   if(env.CI!=="true" || env.GITHUB_ACTIONS!=="true"
     || env.GITHUB_REPOSITORY!==REPO || env.GITHUB_REF!==BRANCH
-    || env.GITHUB_EVENT_NAME!=="workflow_dispatch"
+    || !(manual || approvedSandboxPush)
     || !/^\d{6,}$/.test(env.GITHUB_RUN_ID||"")
     || !/^\d+$/.test(env.GITHUB_RUN_ATTEMPT||"")
     || env.WYNOS_QA_HTTP_ACK!==PROJECT || env.WYNOS_QA_SUPABASE_URL!==QA
