@@ -642,18 +642,20 @@ export async function quoteFoodCustomerOrder(
   couponCode: string | null = null,
 ): Promise<FoodOrderQuote> {
   const normalizedCode = couponCode?.trim().toUpperCase() || null;
-  const { data, error } = await client.rpc(normalizedCode ? "food_quote_order_v2" : "food_quote_order", {
+  const params = {
     // Coordinates are sent only when there is a pin, so this also works
     // against the pre-WYN-196 RPC signature during a rollout.
     ...pinParams(location),
     p_store_id: storeId,
-    ...(normalizedCode ? { p_coupon_code: normalizedCode } : {}),
     p_items: items.map((line) => ({
       menu_item_id: line.menu_item_id,
       quantity: line.quantity,
       selected_options: line.selected_options ?? [],
     })),
-  });
+  };
+  const { data, error } = normalizedCode
+    ? await client.rpc("food_quote_order_v2", { ...params, p_coupon_code: normalizedCode })
+    : await client.rpc("food_quote_order", params);
   if (error) throw new Error(error.message);
   const raw = (data ?? {}) as Partial<FoodOrderQuote>;
   return {
