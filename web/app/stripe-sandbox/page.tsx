@@ -39,6 +39,7 @@ export default function StripeSandboxPage() {
   const [loading, setLoading] = useState(false);
   const [busyOrder, setBusyOrder] = useState<string | null>(null);
   const [reconcileBusy, setReconcileBusy] = useState(false);
+  const [reconcileMessage, setReconcileMessage] = useState("");
   const [connectBusy, setConnectBusy] = useState(false);
   const [connectMessage, setConnectMessage] = useState("");
   const [connectStatusMessage, setConnectStatusMessage] = useState("");
@@ -198,6 +199,7 @@ export default function StripeSandboxPage() {
     const client = getSupabaseBrowserClient();
     if (!client) return;
     setReconcileBusy(true);
+    setReconcileMessage("");
     setMessage("");
     try {
       const { data, error } = await client.functions.invoke("food-stripe-checkout", {
@@ -224,8 +226,9 @@ export default function StripeSandboxPage() {
       }
       await refresh(user.id);
       setReturnStatus("Stripe Test API ยืนยันการชำระ ฿50 แล้ว และอัปเดตคำสั่งซื้อเป็น paid ✓");
+      setReconcileMessage("สำเร็จ: Stripe ยืนยันว่าได้รับชำระเงินทดสอบแล้ว ✓");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "ตรวจสอบผลชำระไม่ได้");
+      setReconcileMessage(error instanceof Error ? error.message : "ตรวจสอบผลชำระไม่ได้");
     } finally {
       setReconcileBusy(false);
     }
@@ -416,6 +419,7 @@ export default function StripeSandboxPage() {
                                 style={{ ...action, backgroundColor: "#136f63" }}>
                                 {reconcileBusy ? "กำลังตรวจสอบกับ Stripe..." : "ตรวจสอบผลชำระกับ Stripe (ไม่จ่ายซ้ำ)"}
                               </button>
+                              {reconcileMessage && <p role="status" style={{ margin: "10px 0 0", color: "#134e4a", overflowWrap: "anywhere" }}>{reconcileMessage}</p>}
                             </div>
                           )}
                         {["pending", "issue"].includes(order.payment_status) &&
