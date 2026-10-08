@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, BedDouble, Briefcase, Building2, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, Layers, LocateFixed, MapPin, Minus, Moon, MoreHorizontal, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Sun, Utensils, X } from "lucide-react";
+import { ArrowLeft, BedDouble, Briefcase, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, Layers, LocateFixed, MapPin, Minus, Moon, MoreHorizontal, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Sun, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -1008,7 +1008,7 @@ export function FoodDeliveryMapPicker({
     try {
       mapRef.current?.setStyle(mapAppearance === "dark" ? MAP_STYLE_DARK : MAP_STYLE);
     } catch {
-      setStatus("ไม่สามารถสลับรูปแบบแผนที่ได้");
+      // Keep the current map style if the requested layer cannot be loaded.
     }
   }, [mapAppearance, mapReady, standalone]);
 
