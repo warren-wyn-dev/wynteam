@@ -26,3 +26,19 @@ Webhook endpoint: `https://pcatuxtenluqzjzzwsvl.supabase.co/functions/v1/stripe-
 ## Validation record (2026-10-08)
 
 Sandbox database SQL transaction with simulated data: paid -> refunded, failed -> issue, duplicate webhook event rejected, amount mismatch rejected. Transaction was rolled back. This is DB RPC verification, not Stripe Test API or browser End-to-End verification.
+
+
+## Additional verified sandbox QA (same date; synthetic fixture records retained)
+
+A second, **persistent synthetic-only** SQL verification was run on the Sandbox (distinct from the earlier rolled-back transaction above):
+- `WF000001`: database-generated simulated `checkout.session.completed` -> `paid` on order and ledger, then simulated `charge.refunded` -> `refunded` on both.
+- `WF000002`: database-generated simulated failed/expired Stripe event -> order `payment_status=issue`.
+- The RPC rejected mismatched amount with error `amount mismatch`, and mismatched Stripe Account ID with error `stripe account mismatch`.
+- A duplicate webhook event claim was accepted once (`true`) and denied on its second attempt (`false`).
+- The test identifiers (e.g., `acct_SYNTHETIC_DB_FIXTURE_NO_STRIPE`) are NOT valid Stripe resources, and no Stripe API requests or live transactions were made.
+- **These two synthetic order records and their ledger rows remain in Sandbox for later inspection**; they were NOT rolled back. They are clearly tagged `TEST_MODE_SQL_ONLY`.
+- Direct HTTP E2E against the Sandbox Edge URLs could not be completed from the testing runtime owing to a DNS resolution error. No successful signature test or actual Checkout/Connect/refund on Stripe's Test API has occurred.
+- Final SQL verified `food_apply_stripe_event`: no EXECUTE for anon/authenticated, yes for service_role; Stripe account/payment tables enforce `livemode=false` with CHECK constraints.
+- 39 Supabase migrations, 23 public RLS tables, 5 ACTIVE functions as observed at last read. This is a deliberately selective scaffold, NOT the full Food/Merchant production feature schema.
+
+**Pending approvals:** altering the external Stripe Test Mode account (webhook endpoint + signing secret), and publishing distinct Food/Merchant preview environments. Neither action has been carried out by this QA run.
