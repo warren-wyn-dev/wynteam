@@ -65,6 +65,15 @@ begin
     raise exception 'amount mismatch';
   end if;
 
+  -- Different Stripe PaymentIntents must never silently replace an already
+  -- paid order's original charge, including a wrongly routed refund event.
+  -- Roll back the event claim so an operator can reconcile the extra charge.
+  if p_state in ('paid','refunded') and o.stripe_payment_intent_id is not null
+     and p_payment_intent_id is not null
+     and o.stripe_payment_intent_id is distinct from p_payment_intent_id then
+    raise exception 'payment_intent_conflict';
+  end if;
+
   -- Stripe delivers events at least once and not necessarily in event order.
   -- A late unsuccessful checkout must never downgrade a paid/refunded order,
   -- and a late successful checkout must never undo a completed refund.
@@ -77,15 +86,6 @@ begin
   end if;
   if p_state = 'refunded' and o.payment_status = 'refunded' then
     return true;
-  end if;
-
-  -- Different Stripe PaymentIntents must never silently replace an already
-  -- paid order's original charge, including a wrongly routed refund event.
-  -- Roll back the event claim so an operator can reconcile the extra charge.
-  if p_state in ('paid','refunded') and o.stripe_payment_intent_id is not null
-     and p_payment_intent_id is not null
-     and o.stripe_payment_intent_id is distinct from p_payment_intent_id then
-    raise exception 'payment_intent_conflict';
   end if;
 
   -- A refund that beats its payment event cannot safely mark a pending order
