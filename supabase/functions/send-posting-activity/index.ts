@@ -136,7 +136,7 @@ async function sendToWebTokens(
   topic: string,
 ): Promise<{ success: boolean; error?: string }> {
   const tokenRows = await restGet(
-    `push_tokens?user_id=eq.${encodeURIComponent(userId)}&platform=eq.web&select=token`,
+    `push_tokens?user_id=eq.${encodeURIComponent(userId)}&platform=eq.web&app=eq.social&select=token`,
   ) as Array<{ token?: string }>;
 
   if (tokenRows.length === 0) return { success: false, error: "no_web_token" };

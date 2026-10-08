@@ -25,6 +25,12 @@ const edgeLib = readFileSync(
   new URL("../../supabase/functions/send-daily-follow-suggestions/_lib.ts", import.meta.url),
   "utf8",
 );
+const socialSenders = {
+  posting: readFileSync(new URL("../../supabase/functions/send-posting-activity/index.ts", import.meta.url), "utf8"),
+  reactivation: readFileSync(new URL("../../supabase/functions/send-web-reactivation/index.ts", import.meta.url), "utf8"),
+  reactivationPush: readFileSync(new URL("../../supabase/functions/send-web-reactivation-push/index.ts", import.meta.url), "utf8"),
+  standard: readFileSync(new URL("../../supabase/functions/send-push-notification/_lib.ts", import.meta.url), "utf8"),
+};
 const route = readFileSync(new URL("../components/suggested-route.tsx", import.meta.url), "utf8");
 const data = readFileSync(new URL("../lib/phase3-data.ts", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
@@ -81,13 +87,27 @@ test("cron is release-gated and authenticated by a dedicated Vault key", () => {
 
 test("sender is Web-only, data-only, and carries the delivery id for attribution", () => {
   assert.match(edge, /dailyFollowSocialTokenQuery\(claim\.user_id\)/);
-  assert.match(edgeLib, /platform=eq\.web&or=\(app\.eq\.social,app\.is\.null\)&select=token/);
+  assert.match(edgeLib, /platform=eq\.web&app=eq\.social&select=token/);
   assert.match(edge, /type: "daily_follow_suggestion"/);
   assert.match(edge, /delivery_id: claim\.delivery_id/);
   assert.match(edge, /push_title: title/);
   assert.match(edge, /push_body: body/);
   assert.doesNotMatch(edge, /notification:\s*\{/);
   assert.match(edge, /verify_daily_follow_suggestion_cron_key/);
+});
+
+test("every Social Push sender rejects Food, Merchant, and unclassified web tokens", () => {
+  assert.ok(edgeLib.includes("platform=eq.web&app=eq.social&select=token"));
+  for (const sender of [socialSenders.posting, socialSenders.reactivation, socialSenders.reactivationPush]) {
+    assert.ok(
+      sender.includes("platform=eq.web&app=eq.social&select=token") ||
+      sender.includes("platform=eq.web&app=eq.social&select=id,token"),
+    );
+    assert.ok(!sender.includes("platform=eq.web&select=token"));
+    assert.ok(!sender.includes("platform=eq.web&select=id,token"));
+  }
+  assert.ok(socialSenders.standard.includes('if (app === "social") return tokens.filter((token) => token.app === "social")'));
+  assert.ok(socialSenders.standard.includes('return own.length > 0 ? own : ofApp("social")'));
 });
 
 test("Web Push click opens Suggested and does not wake the notification badge", () => {

@@ -92,7 +92,7 @@ test("posting activity cron is Vault-authenticated and release gated", () => {
 });
 
 test("sender uses Web-only data pushes and finishes every claim", () => {
-  assert.match(edge, /platform=eq\.web/);
+  assert.match(edge, /platform=eq\.web&app=eq\.social&select=token/);
   assert.match(edge, /type: "posting_prompt"/);
   assert.match(edge, /type: "followed_post_digest"/);
   assert.match(edge, /finish_posting_nudge/);
