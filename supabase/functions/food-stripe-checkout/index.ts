@@ -107,6 +107,10 @@ Deno.serve(async (req: Request) => {
   if (!account || account.status !== "ready" || !account.details_submitted || !account.charges_enabled) {
     return json({ error: "stripe_not_ready" }, 422);
   }
+  // WYNOS Food PromptPay-only: do not silently offer a card fallback.
+  if (action === "checkout" && !account.promptpay_enabled) {
+    return json({ error: "promptpay_not_available" }, 422);
+  }
 
   const amountSatang = Math.round(Number(order.total) * 100);
   if (!Number.isSafeInteger(amountSatang) || amountSatang <= 0) return json({ error: "invalid_amount" }, 422);
@@ -201,19 +205,46 @@ Deno.serve(async (req: Request) => {
 
   let attempt = Number(existing?.attempt ?? 1);
   if (existing?.checkout_session_id && existing.status === "pending") {
+    let session: Record<string,unknown>;
     try {
-      const session = await stripeJson(
+      session = await stripeJson(
         `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(existing.checkout_session_id)}`,
         { headers: stripeHeaders(stripeSecret, account.stripe_account_id) },
       );
-      if (session.status === "open" && typeof session.url === "string") {
+    } catch {
+      // Do not create a second payment while the previous state is unknown.
+      return json({ error: "stripe_checkout_status_unavailable" }, 502);
+    }
+    if (session.payment_status === "paid") return json({ error: "payment_already_completed" }, 409);
+    // Once checkout is complete but an asynchronous payment is pending,
+    // wait for Stripe's async_payment_succeeded/failed webhook.
+    if (session.status === "complete") return json({ error: "payment_processing" }, 409);
+    if (session.status === "open") {
+      const methods = session.payment_method_types;
+      const promptpayOnly = Array.isArray(methods) &&
+        methods.length === 1 && methods[0] === "promptpay";
+      if (promptpayOnly && typeof session.url === "string") {
         return json({ url: session.url, sessionId: session.id, reused: true });
       }
-      if (session.payment_status === "paid") return json({ error: "payment_already_completed" }, 409);
-      attempt += 1;
-    } catch {
-      attempt += 1;
+      // An earlier QA session exposed Card/Apple Pay. Expire that unpaid
+      // session before issuing a PromptPay-only replacement.
+      try {
+        const expired = await stripeJson(
+          `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(existing.checkout_session_id)}/expire`,
+          {
+            method: "POST",
+            headers: stripeHeaders(stripeSecret, account.stripe_account_id),
+            body: new URLSearchParams(),
+          },
+        );
+        if (expired.status !== "expired") return json({ error: "previous_checkout_not_expired" }, 409);
+      } catch {
+        return json({ error: "previous_checkout_not_expired" }, 409);
+      }
+    } else if (session.status !== "expired") {
+      return json({ error: "payment_processing" }, 409);
     }
+    attempt += 1;
   }
 
   // Do not send test customers back to food.wynos.online (production).
@@ -250,9 +281,9 @@ Deno.serve(async (req: Request) => {
   params.set("line_items[0][price_data][product_data][name]", `WYNOS Food #${order.order_number}`);
   params.set("line_items[0][price_data][unit_amount]", String(amountSatang));
   params.set("line_items[0][quantity]", "1");
-  // Stripe Checkout uses the connected account's active payment-method
-  // configuration. Card remains capability-gated and PromptPay only appears
-  // when Stripe marks it available for this connected account.
+  // Customer checkout must only present the Thai PromptPay QR payment method.
+  // Never fall back to card or Apple Pay when PromptPay is unavailable.
+  params.set("payment_method_types[0]", "promptpay");
   params.set("metadata[order_id]", order.id);
   params.set("metadata[store_id]", order.store_id);
   params.set("payment_intent_data[metadata][order_id]", order.id);
@@ -275,7 +306,18 @@ Deno.serve(async (req: Request) => {
     return json({ error: "stripe_checkout_failed", message: "เปิดหน้าชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 502);
   }
 
-  if (typeof session.id !== "string" || typeof session.url !== "string") {
+  if (typeof session.id !== "string" || typeof session.url !== "string" ||
+      !session.id.startsWith("cs_test_") || session.livemode !== false ||
+      session.currency !== "thb" || session.amount_total !== amountSatang ||
+      session.client_reference_id !== order.id ||
+      !Array.isArray(session.payment_method_types) ||
+      session.payment_method_types.length !== 1 ||
+      session.payment_method_types[0] !== "promptpay") {
+    console.error("sandbox PromptPay-only Checkout verification failed", {
+      order: order.order_number,
+      returned_methods: Array.isArray(session.payment_method_types) ? session.payment_method_types : null,
+    });
+    // Fail closed if Stripe did not honor the requested payment method.
     return json({ error: "stripe_checkout_invalid_response" }, 502);
   }
 
