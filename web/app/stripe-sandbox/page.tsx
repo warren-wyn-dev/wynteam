@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -45,6 +45,7 @@ export default function StripeSandboxPage() {
   const [connectStatusMessage, setConnectStatusMessage] = useState("");
   const [connectCheckBusy, setConnectCheckBusy] = useState(false);
   const [returnStatus, setReturnStatus] = useState<string | null>(null);
+  const autoReconcileStarted = useRef<string | null>(null);
 
   const refresh = useCallback(async (userId: string) => {
     if (!ENABLED) return;
@@ -71,7 +72,7 @@ export default function StripeSandboxPage() {
     const params = new URLSearchParams(window.location.search);
     const stripe = params.get("stripe");
     if (stripe === "success") {
-      setReturnStatus("Stripe กลับจากหน้าชำระเงินแล้ว กดปุ่มตรวจสอบผลชำระกับ Stripe เพื่อยืนยันโดยไม่จ่ายซ้ำ");
+      setReturnStatus("Stripe กลับจากหน้าชำระเงินแล้ว กำลังตรวจสอบผลชำระกับ Stripe อัตโนมัติ โดยไม่เรียกเก็บเงินซ้ำ");
     } else if (stripe === "cancelled") {
       setReturnStatus("คุณยกเลิกการชำระเงินทดสอบแล้ว");
     }
@@ -193,7 +194,7 @@ export default function StripeSandboxPage() {
     }
   }
 
-  async function reconcileCheckout(order: Order) {
+  const reconcileCheckout = useCallback(async (order: Order) => {
     if (!ENABLED || !user || user.id !== QA_MERCHANT_USER_ID ||
         order.order_number !== "WF000003" || reconcileBusy || busyOrder) return;
     const client = getSupabaseBrowserClient();
@@ -232,7 +233,20 @@ export default function StripeSandboxPage() {
     } finally {
       setReconcileBusy(false);
     }
-  }
+  }, [user, busyOrder, reconcileBusy, refresh]);
+
+  useEffect(() => {
+    // Only the explicitly isolated QA order can be reconciled after a Stripe
+    // redirect. The server independently checks Stripe session ID, account,
+    // payment status, THB amount, currency, buyer and metadata. No new charge.
+    if (!ENABLED || !user || user.id !== QA_MERCHANT_USER_ID ||
+        !returnStatus?.startsWith("Stripe กลับจากหน้าชำระเงินแล้ว")) return;
+    const order = orders.find((candidate) =>
+      candidate.order_number === "WF000003" && ["pending", "issue"].includes(candidate.payment_status));
+    if (!order || autoReconcileStarted.current === order.id) return;
+    autoReconcileStarted.current = order.id;
+    void reconcileCheckout(order);
+  }, [orders, user, returnStatus, reconcileCheckout]);
 
   async function checkout(order: Order) {
     if (!ENABLED || busyOrder || !user) return;
