@@ -4,6 +4,7 @@ on:
     paths:
       - 'supabase/migrations/20261008234500_food_verify_uploaded_payment_slip.sql'
       - 'supabase/tests/wynos_stripe_payment_core_test.sh'
+      - 'supabase/tests/wynos_food_slip_object_test.sh'
       - '.github/workflows/food-payment-slip-qa.yml'
   workflow_dispatch: {}
 permissions:
@@ -32,4 +33,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate uploaded slip, payment and Stripe guards
-        run: bash supabase/tests/wynos_stripe_payment_core_test.sh
+        run: bash supabase/tests/wynos_food_slip_object_test.sh
