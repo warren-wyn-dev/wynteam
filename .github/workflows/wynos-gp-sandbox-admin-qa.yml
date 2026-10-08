@@ -5,6 +5,12 @@ on:
       - sandbox/stripe-testmode-20261008
     paths:
       - .github/workflows/wynos-gp-sandbox-admin-qa.yml
+      - 'admin/app/(admin)/food/gp/**'
+      - 'admin/components/admin/food-gp-draft-editor.tsx'
+      - 'admin/lib/admin-food-gp.ts'
+      - 'admin/app/(admin)/food/page.tsx'
+      - 'supabase/migrations_wynos_food_gp_sandbox_draft_v1.sql'
+      - 'supabase/sandbox/gp/**'
 permissions:
   contents: read
 jobs:
