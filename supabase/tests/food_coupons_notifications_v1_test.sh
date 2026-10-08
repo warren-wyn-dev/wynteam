@@ -9,6 +9,7 @@ run() { $PSQL -q -X -v ON_ERROR_STOP=1 -d "$DB" "$@"; }
 ADMIN=00000000-0000-0000-0000-0000000000a0
 BUYER=00000000-0000-0000-0000-0000000000c0
 OTHER=00000000-0000-0000-0000-0000000000d0
+PUSH_ONLY=00000000-0000-0000-0000-0000000000b1
 STORE=00000000-0000-0000-0000-0000000000f1
 PC=00000000-0000-0000-0000-0000000000e1
 CAM=00000000-0000-0000-0000-0000000000e2
@@ -34,8 +35,8 @@ create table public.push_tokens(user_id uuid,platform text,app text,token text);
 create function internal.food_set_scheduled_order(uuid,timestamptz) returns void language plpgsql as \$\$begin null; end\$\$;
 create function public.food_quote_order(uuid,jsonb,double precision,double precision) returns jsonb language sql as \$\$select jsonb_build_object('campaign_id',null)\$\$;
 create function public.food_create_order(uuid,text,text,text,text,jsonb,double precision,double precision) returns uuid language sql as \$\$select '00000000-0000-0000-0000-000000000101'::uuid\$\$;
-insert into auth.users values ('$ADMIN'),('$BUYER'),('$OTHER');
-insert into public.profiles values ('$ADMIN','admin'),('$BUYER','user'),('$OTHER','user');
+insert into auth.users values ('$ADMIN'),('$BUYER'),('$OTHER'),('$PUSH_ONLY');
+insert into public.profiles values ('$ADMIN','admin'),('$BUYER','user'),('$OTHER','user'),('$PUSH_ONLY','user');
 insert into public.food_stores values ('$STORE');
 insert into public.food_platform_campaigns(id,name,starts_at) values ('$PC','Campaign',now()-interval '1 day');
 insert into public.food_campaigns values ('$CAM','$STORE','$PC','WYNOS 50','fixed',50,null,'store',0,now()-interval '1 day',null,null,0,true,null);
@@ -66,13 +67,15 @@ paid_cancelled="$(run -At -c "select internal.food_coupon_usage_active('$O1')")"
 run >/dev/null -c "update public.food_orders set payment_status='pending' where id='$O1'"
 released="$(run -At -c "select set_config('test.uid','$BUYER',false);" -c "select set_config('wyn.food_coupon_code','FOOD50',false);" -c "select count(*) from internal.food_campaign_candidates('$STORE',250,20,'{}'::jsonb)" | tail -1)"
 [[ "$released" == 1 ]] || { echo "FAIL: cancelled order quota"; exit 1; }
-run >/dev/null -c "insert into public.push_tokens values ('$BUYER','web','food','fcm-food'),('$OTHER','web','social','fcm-social'); insert into public.food_marketing_preferences(user_id,push_marketing) values ('$BUYER',true)"
+run >/dev/null -c "insert into public.push_tokens values ('$BUYER','web','food','fcm-food'),('$OTHER','web','social','fcm-social'),('$PUSH_ONLY','web','food','fcm-food-2'); insert into public.food_marketing_preferences(user_id,push_marketing) values ('$BUYER',true); insert into public.food_marketing_preferences(user_id,push_marketing,in_app_marketing) values ('$PUSH_ONLY',true,false)"
 bid="$(run -At -c "select set_config('test.uid','$ADMIN',false);" -c "select public.admin_food_promo_schedule('Food Promotion','Discount available','$cid','all',now()-interval '1 minute')" | tail -1)"
 [[ "$bid" =~ ^[0-9a-f-]{36}$ ]] || { echo "FAIL: schedule promo"; exit 1; }
 sent="$(run -At -c "select count(*) from public.food_promo_claim_batch(10)")"
-[[ "$sent" == 1 ]] || { echo "FAIL: expected exactly one Food delivery ($sent)"; exit 1; }
+[[ "$sent" == 2 ]] || { echo "FAIL: expected both Food marketing recipients ($sent)"; exit 1; }
 notified="$(run -At -c "select count(*) from public.food_notifications")"
-[[ "$notified" == 1 ]] || { echo "FAIL: inbox delivery count"; exit 1; }
+[[ "$notified" == 1 ]] || { echo "FAIL: only In-App consented Food customer gets inbox"; exit 1; }
+push_only="$(run -At -c "select count(*) from public.food_promo_deliveries where recipient_id='$PUSH_ONLY'")"
+[[ "$push_only" == 1 ]] || { echo "FAIL: Push enabled but In-App disabled recipient was skipped"; exit 1; }
 leak="$(run -At -c "select count(*) from public.food_promo_deliveries where recipient_id='$OTHER'")"
 [[ "$leak" == 0 ]] || { echo "FAIL: Social leaked Food marketing"; exit 1; }
 echo "PASS: Food coupon gating, quota, release, and Food-only marketing"
