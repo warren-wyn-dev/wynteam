@@ -8,7 +8,20 @@ type Delivery = {
 };
 
 const URL_BASE = Deno.env.get("SUPABASE_URL") ?? "";
-const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+// Supabase projects may expose a legacy service-role key or the newer
+// JSON secret-key bundle. Use the same backward-compatible fallback as
+// the existing Food unpaid-timeout worker; never accept a public key.
+function serviceKey(): string {
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (legacy) return legacy;
+  const raw = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (!raw) return "";
+  try {
+    const keys = JSON.parse(raw) as Record<string, string>;
+    return keys.default ?? Object.values(keys)[0] ?? "";
+  } catch { return ""; }
+}
+const KEY = serviceKey();
 const SERVICE = Deno.env.get("FCM_SERVICE_ACCOUNT") ?? "";
 const headers = () => ({ apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" });
 
