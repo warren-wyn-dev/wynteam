@@ -284,6 +284,8 @@ Deno.serve(async (req: Request) => {
   // Customer checkout must only present the Thai PromptPay QR payment method.
   // Never fall back to card or Apple Pay when PromptPay is unavailable.
   params.set("payment_method_types[0]", "promptpay");
+  // PromptPay QR is THB-only; do not offer currency switching at Checkout.
+  params.set("adaptive_pricing[enabled]", "false");
   params.set("metadata[order_id]", order.id);
   params.set("metadata[store_id]", order.store_id);
   params.set("payment_intent_data[metadata][order_id]", order.id);
