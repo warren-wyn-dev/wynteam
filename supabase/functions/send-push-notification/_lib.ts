@@ -467,14 +467,16 @@ type AppToken = { app?: string | null };
 
 /**
  * The devices that should show a notification of `app`. Tokens registered
- * before per-app routing (app = null) count as the Social app. Food and
- * Merchant notifications fall back to the Social app when their own app has
+ * before per-app routing (app = null) are never safe destinations for Social
+ * pushes. Food and Merchant notifications retain their existing fallback
+ * to legacy and Social tokens when their own app has
  * no registered device, so nobody silently loses an order notification.
  */
 export function tokensForApp<T extends AppToken>(tokens: T[], app: PushApp): T[] {
   const ofApp = (target: PushApp) =>
     tokens.filter((token) => (token.app ?? "social") === target);
-  if (app === "social") return ofApp("social");
+  // A NULL token may be Food/Merchant: never send Social content to it.
+  if (app === "social") return tokens.filter((token) => token.app === "social");
   const own = ofApp(app);
   return own.length > 0 ? own : ofApp("social");
 }
