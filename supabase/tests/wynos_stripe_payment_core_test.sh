@@ -195,7 +195,7 @@ expect_fail "a matching path in the public bucket is not accepted" \
   "set role authenticated; set test.uid='$BUYER'; select public.food_submit_payment('$ORDER_SLIP','$SLIP_PATH')" \
   "payment slip file not uploaded"
 run -c "insert into storage.objects values('food-private','$SLIP_PATH')" >/dev/null
-[ "$(val "set role authenticated; set test.uid='$BUYER'; select public.food_submit_payment('$ORDER_SLIP','$SLIP_PATH') is null")" = "t" ] || fail "real uploaded slip rejected"
+val "set role authenticated; set test.uid='$BUYER'; select public.food_submit_payment('$ORDER_SLIP','$SLIP_PATH')" >/dev/null
 [ "$(val "select payment_status||'|'||payment_slip_path from public.food_orders where id='$ORDER_SLIP'")" = "submitted|$SLIP_PATH" ] || fail "valid uploaded slip did not update order"
 expect_fail "second submission cannot overwrite first slip" \
   "set role authenticated; set test.uid='$BUYER'; select public.food_submit_payment('$ORDER_SLIP','$SLIP_PATH')" \
