@@ -30,7 +30,8 @@ run >/dev/null <<SQL
 do \$\$ begin create role anon; exception when duplicate_object then null; end \$\$;
 do \$\$ begin create role authenticated; exception when duplicate_object then null; end \$\$;
 do \$\$ begin create role service_role; exception when duplicate_object then null; end \$\$;
-create schema auth; create schema internal;
+create schema auth; create schema internal; create schema storage;
+create table storage.objects(bucket_id text, name text);
 create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('test.uid',true),'')::uuid \$\$;
 create table auth.users(id uuid primary key);
 create table public.merchant_accounts(id uuid primary key);
@@ -97,7 +98,9 @@ run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_payment_core_v1.sql"
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_payment_core_v1.sql"
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_connect_v2_embedded.sql"
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_connect_v2_embedded.sql"
-pass "Stripe core and v2 hardening migrations apply twice"
+run >/dev/null < "$ROOT/supabase/migrations/20261008234500_food_verify_uploaded_payment_slip.sql"
+run >/dev/null < "$ROOT/supabase/migrations/20261008234500_food_verify_uploaded_payment_slip.sql"
+pass "Stripe core, v2 and payment-slip Storage hardening apply twice"
 
 [ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE')->>'status'")" = "not_connected" ] || fail "unconnected status"
 pass "merchant status hides account ID and reports not connected"
@@ -177,6 +180,28 @@ expect_fail "manual slip is blocked while Stripe Checkout is open" \
   "cancel stripe checkout before submitting slip"
 run -c "update public.food_orders set stripe_checkout_session_id=null where id='$ORDER'" >/dev/null
 pass "manual fallback requires the Stripe session to be expired first"
+
+ORDER_SLIP=00000000-0000-0000-0000-000000000088
+SLIP_PATH="$BUYER/slips/$ORDER_SLIP/payment.jpg"
+run -c "insert into public.food_orders(id,order_number,store_id,buyer_id,total)
+ values ('$ORDER_SLIP','WF9004','$STORE','$BUYER',125.50)" >/dev/null
+
+expect_fail "valid-looking but nonexistent slip is rejected" \
+  "set role authenticated; set test.uid='$BUYER'; select public.food_submit_payment('$ORDER_SLIP','$SLIP_PATH')" \
+  "payment slip file not uploaded"
+[ "$(val "select payment_status from public.food_orders where id='$ORDER_SLIP'")" = "pending" ] || fail "invalid slip altered Food order state"
+run -c "insert into storage.objects values('food-public','$SLIP_PATH')" >/dev/null
+expect_fail "a matching path in the public bucket is not accepted" \
+  "set role authenticated; set test.uid='$BUYER'; select public.food_submit_payment('$ORDER_SLIP','$SLIP_PATH')" \
+  "payment slip file not uploaded"
+run -c "insert into storage.objects values('food-private','$SLIP_PATH')" >/dev/null
+[ "$(val "set role authenticated; set test.uid='$BUYER'; select public.food_submit_payment('$ORDER_SLIP','$SLIP_PATH') is null")" = "t" ] || fail "real uploaded slip rejected"
+[ "$(val "select payment_status||'|'||payment_slip_path from public.food_orders where id='$ORDER_SLIP'")" = "submitted|$SLIP_PATH" ] || fail "valid uploaded slip did not update order"
+expect_fail "second submission cannot overwrite first slip" \
+  "set role authenticated; set test.uid='$BUYER'; select public.food_submit_payment('$ORDER_SLIP','$SLIP_PATH')" \
+  "payment already submitted"
+pass "Food slips require a real private object and cannot be resubmitted"
+
 
 PAID_SQL="set role service_role; select public.food_apply_stripe_event(
   'evt_paid','checkout.session.completed','$ORDER','acct_test_wynos','cs_1','cs_1','pi_1',12550,'thb','paid','promptpay',null,null
