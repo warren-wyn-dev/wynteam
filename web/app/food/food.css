@@ -1546,7 +1546,8 @@
   background: #fff;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
+  /* Reserve space for the 44px add target plus its 10px right margin to prevent card clipping. */
+  grid-template-columns: minmax(0, 1fr) 56px;
   grid-template-areas:
     "image image"
     "copy add";
@@ -3919,7 +3920,7 @@
   background: transparent;
   box-shadow: none;
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr) 42px;
+  grid-template-columns: 82px minmax(0, 1fr) 44px;
   grid-template-areas: "image copy add";
   align-items: center;
   gap: 11px;
