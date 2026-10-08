@@ -40,8 +40,9 @@ returns boolean language sql stable set search_path = '' as $fn$
    select 1 from public.food_orders o
    where o.id = p_order_id
      and o.status <> 'cancelled'
-     and o.payment_status <> 'refunded'
-     and (o.payment_status = 'paid'
+     -- Submitted slips and paid/refunded orders retain their redeemed code.
+     -- Only cancelled or genuinely expired unpaid orders release a slot.
+     and (o.payment_status in ('paid','submitted','refunded')
           or o.payment_due_at is null
           or o.payment_due_at > now())
  )
