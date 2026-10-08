@@ -4389,3 +4389,89 @@
     height: 32px;
   }
 }
+
+
+/* WYNOS system UX polish — readability and touch-first controls.
+   Keeps layout/flow intact while bringing Food closer to the shared mobile UI scale. */
+.wyn-food {
+  --wf-red: #ff3b30;
+  --wf-red-dark: #d70015;
+}
+
+.wf-auth-terms,
+.wf-auth-note span,
+.wf-store-meta,
+.wf-section-title small,
+.wf-menu-copy small,
+.wf-cart-copy small,
+.wf-cart-copy em,
+.wf-order-top small,
+.wf-order-mid,
+.wf-order-bottom,
+.wf-settings-list small,
+.wf-address-row small,
+.wf-address-row p,
+.wf-address-choice small,
+.wf-address-choice p,
+.wf-checkout-items small,
+.wf-server-note,
+.wf-order-detail-head small,
+.wf-track-step small,
+.wf-bank-info span,
+.wf-note-label > small,
+.wf-check small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.wf-order-status,
+.wf-payment-status,
+.wf-store-status,
+.wf-soldout {
+  min-height: 26px;
+  font-size: 11.5px;
+}
+
+.wf-nav small {
+  font-size: 11.5px;
+  line-height: 1.15;
+}
+
+.wf-add,
+.wf-qty button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.wf-address-row > button {
+  min-height: 44px;
+  padding-inline: 8px;
+  font-size: 12px;
+}
+
+.wf-section-title button {
+  min-height: 44px;
+  padding-inline: 6px;
+  font-size: 12.5px;
+}
+
+.wf-slip-preview-action {
+  min-height: 44px;
+  font-size: 12px;
+}
+
+.wf-auth-form label {
+  font-size: 12px;
+}
+
+@media (max-width: 370px) {
+  .wf-add,
+  .wf-qty button {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+  }
+}
