@@ -79,3 +79,11 @@ Date: 2026-10-08, restricted to sandbox GitHub and QA Supabase only.
 
 ### Scope and no-live-money safety
 All test orders and monetary totals in the browser CI harness are fake; never run the harness against production. Real GP collection, Stripe refunds, settlement, taxes and Production release still require distinct product/financial/legal approvals plus an explicit deployment action.
+
+### 2026-10-08: JWT preflight and refreshed concurrency CI proof
+
+[Isolated Finance QA run #37812532745](https://github.com/warren-wyn-dev/wynteam/actions/runs/37812532745) completed **successfully** on the sandbox branch. CI job logs show **8/8 negative QA credential-preflight cases passed** (no HTTP requests were made) and **all 5/5 concurrent refund cases passed** again on disposable PostgreSQL 17. Negative preflight tests reject wrong QA URLs, service/secret keys, expired or wrong-project JWT-shaped inputs, duplicated identities and unsafe store selection. These checks do not validate any actual JWT signature: they only prevent accidentally running the future real HTTP test under unsafe settings.
+
+**Last QA DB read-only verification:** QA GP store rates=0, GP order snapshots=0, Finance projections=0, refund adjustments/lines=0, admin allowlist rows=0, actually collected GP=0 satang. Test order `WF000005` remains `paid`, `refund_status=none`, `pending_acceptance`, PromptPay payment `paid`, `livemode=false`.
+
+**REMAINING approval gates:** signed-JWT HTTP with three separate, authorized Supabase QA users (Admin must be explicitly allowlisted), human-in-the-loop real QA merchant browser/auth end-to-end tests, decision/financial/tax review for GP/fees/discounts/delivery/Stripe settlement, assessment of project-level Auth leaked-password protection, and separate Production release approval. No live-money feature or release was enabled.
