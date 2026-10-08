@@ -28,7 +28,7 @@ test("Diagnostic UI never prints environment values or discloses secrets", () =>
   assert.match(page, /SANDBOX_FLAG_OK/);
   assert.match(page, /SANDBOX_URL_OK/);
   assert.match(page, /PUBLISHABLE_KEY_PRESENT/);
-  assert.match(page, /replace\(\/\\\/\+\$\//);
+  assert.ok(page.includes('replace(/\\/+$/, "")'));
   assert.match(page, /ตั้งค่าแล้ว/);
   assert.doesNotMatch(page, /process\.env\.STRIPE_SECRET_KEY/);
 });
