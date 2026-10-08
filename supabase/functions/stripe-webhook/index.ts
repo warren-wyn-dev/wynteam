@@ -296,6 +296,8 @@ Deno.serve(async (req: Request) => {
   const url = Deno.env.get("SUPABASE_URL");
   const key = serviceKey();
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim() ?? "";
+  // Hard fail closed: this deployment is exclusively for the isolated Test Mode project.
+  if (!stripeSecret.startsWith("sk_test_")) return json({ error: "sandbox_requires_sk_test_key" }, 503);
   if (!url || !key) return json({ error: "not_configured" }, 503);
   const stripeLiveMode = stripeLivemode(stripeSecret);
   if (stripeSecret && stripeLiveMode == null) return json({ error: "not_configured" }, 503);
