@@ -1,15 +1,26 @@
 name: Deploy Admin (Next.js) to Vercel
 
-# Manual-only, same reasoning as deploy-web.yml: the connected Vercel
-# account is on the free Hobby plan (100 deployments/day, shared across
-# every project in the account). Run it by hand from the Actions tab
-# ("Run workflow") whenever admin/ is ready to try or ship.
-#
-# The first production bootstrap completed on 2026-10-05 and created
-# the dedicated Vercel project `admin` from the `admin/` root. Future
-# production deployments stay manual and reuse that project.
+# Manual-only. Preview is the default; Production requires explicit typed
+# confirmation. Never create another Vercel project to bypass a quota error.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment environment"
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - production
+      confirm_production:
+        description: "For production only, type DEPLOY_ADMIN_PRODUCTION"
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -17,35 +28,55 @@ jobs:
     defaults:
       run:
         working-directory: admin
+    env:
+      # Exact existing WYNOS Admin project, verified against the Vercel project API.
+      # These public IDs scope the deployment without an untracked .vercel/project.json.
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+      VERCEL_TEAM_SLUG: warren14
+      DEPLOY_TARGET: ${{ inputs.target }}
+      CONFIRM_PRODUCTION: ${{ inputs.confirm_production }}
     steps:
       - uses: actions/checkout@v4
-
-      # Next.js is a framework Vercel builds natively -- unlike
-      # deploy-web.yml's Flutter build, there's no local build step here;
-      # `vercel deploy` uploads the source and builds it on Vercel's own
-      # infrastructure using the env vars below.
-      - name: Deploy to Vercel
+      - name: Verify requested environment
+        run: |
+          set -euo pipefail
+          case "$DEPLOY_TARGET" in
+            preview) echo "Admin preview requested. Production aliases will not change." ;;
+            production)
+              if [ "$CONFIRM_PRODUCTION" != "DEPLOY_ADMIN_PRODUCTION" ]; then
+                echo "::error::Production requires confirm_production=DEPLOY_ADMIN_PRODUCTION."
+                exit 1
+              fi
+              ;;
+            *) echo "::error::Invalid deployment target"; exit 1 ;;
+          esac
+          test "$VERCEL_ORG_ID" = "team_Kamt1PUT5XKn9MWrF404re1w"
+          test "$VERCEL_PROJECT_ID" = "prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5"
+      - name: Deploy existing Admin project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          # Same Supabase project as the Flutter app (Shared Backend
-          # decision, .wyn/company/DECISIONS.md 2026-08-14) -- reusing
-          # deploy-web.yml's existing secrets rather than duplicating them
-          # under new names.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
+          set -euo pipefail
           clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
           VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
           SUPABASE_URL=$(clean "$SUPABASE_URL")
           SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
+          for name in VERCEL_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Required GitHub Actions secret $name is not available"
+              exit 1
+            fi
+          done
+          args=()
+          if [ "$DEPLOY_TARGET" = production ]; then args+=(--prod); fi
 
-          # --build-env: available while Next.js compiles, which is when
-          # NEXT_PUBLIC_* values get inlined into the bundle.
-          # --env: available at request time too, in case any server
-          # code reads process.env directly instead of through the
-          # build-time inline (Next statically replaces NEXT_PUBLIC_*
-          # either way, but this costs nothing extra to also set).
-          npx --yes vercel@latest deploy --prod --yes \
+          # Do not pass --name or project-creation options: the exact pre-existing
+          # Vercel project is locked by VERCEL_ORG_ID and VERCEL_PROJECT_ID.
+          npx --yes vercel@latest deploy "${args[@]}" --yes \
+            --scope "$VERCEL_TEAM_SLUG" \
             --token="$VERCEL_TOKEN" \
             --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
