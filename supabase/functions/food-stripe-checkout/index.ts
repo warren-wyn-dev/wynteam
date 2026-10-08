@@ -112,19 +112,27 @@ Deno.serve(async (req: Request) => {
   if (!Number.isSafeInteger(amountSatang) || amountSatang <= 0) return json({ error: "invalid_amount" }, 422);
 
   const { data: existing } = await admin.from("food_stripe_payments")
-    .select("checkout_session_id,attempt,status").eq("order_id", order.id).maybeSingle();
+    .select("checkout_session_id,attempt,status,stripe_account_id,livemode,amount_satang,currency").eq("order_id", order.id).maybeSingle();
 
   if (action === "reconcile") {
-    // Recovery applies only to the isolated synthetic QA checkout. It never
-    // creates a new Checkout Session or initiates a payment.
+    // Isolated QA-merchant recovery; never creates a new charge.
+    // Authorization, session, merchant, amount and metadata are re-verified.
     if (stripeLiveMode !== false ||
         user.id !== "50956870-1d09-4e0a-98bf-2c1e0e0c722b" ||
-        order.id !== "d6f7277d-adf2-4af2-bc75-239ea4a1aaa9" ||
-        order.store_id !== "6638327e-353f-4151-8d69-d84b5badb831" ||
-        order.order_number !== "WF000003") {
+        order.store_id !== "6638327e-353f-4151-8d69-d84b5badb831") {
       return json({ error: "qa_reconcile_only" }, 403);
     }
-    const existingSessionId = existing?.checkout_session_id;
+    if (order.payment_status === "refunded" || order.status === "cancelled") {
+      return json({ error: "order_not_payable" }, 409);
+    }
+    if (!existing ||
+        existing.livemode !== false ||
+        existing.stripe_account_id !== account.stripe_account_id ||
+        Number(existing.amount_satang) !== amountSatang ||
+        existing.currency !== "thb") {
+      return json({ error: "qa_payment_ledger_mismatch" }, 409);
+    }
+    const existingSessionId = existing.checkout_session_id;
     if (typeof existingSessionId !== "string" || !existingSessionId.startsWith("cs_test_") ||
         order.stripe_checkout_session_id !== existingSessionId) {
       return json({ error: "qa_checkout_session_not_found" }, 404);
@@ -213,7 +221,6 @@ Deno.serve(async (req: Request) => {
     user.id === "50956870-1d09-4e0a-98bf-2c1e0e0c722b" &&
     order.buyer_id === user.id &&
     order.store_id === "6638327e-353f-4151-8d69-d84b5badb831" &&
-    order.order_number === "WF000003" &&
     stripeLiveMode === false;
   // The fixed synthetic QA order always returns to its own sandbox preview.
   // Do not expose this fallback to real stores, other customers, or Production.
