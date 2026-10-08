@@ -22,8 +22,10 @@ test("Food coupon is opt-in, server-priced and atomic; old orders unchanged", ()
   assert.match(sql, /for update;/i);
   assert.match(sql, /food_coupon_redemptions/);
   assert.match(sql, /coupon_not_applicable_or_better_automatic_discount/);
-  assert.match(food, /couponCode \? "food_create_order_v2" : "food_create_order"/);
-  assert.match(food, /couponCode \? "food_create_scheduled_order_v2" : "food_create_scheduled_order"/);
+  assert.match(food, /client\.rpc\("food_create_order_v2"/);
+  assert.match(food, /client\.rpc\("food_create_order", params\)/);
+  assert.match(food, /client\.rpc\("food_create_scheduled_order_v2"/);
+  assert.match(food, /client\.rpc\("food_create_scheduled_order"/);
   assert.match(checkout, /โค้ดส่วนลด WYNOS Food/);
   assert.match(stripe, /Number\(order\.total\)/);
 });
