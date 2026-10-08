@@ -50,7 +50,7 @@ export function MerchantFinanceQaPreview({ client, storeId }: {
   storeId: string;
 }) {
   const qaEnabled = process.env.NEXT_PUBLIC_WYNOS_FINANCE_QA_PREVIEW === "true"
-    && client.supabaseUrl === QA_PROJECT_URL;
+    && process.env.NEXT_PUBLIC_SUPABASE_URL === QA_PROJECT_URL;
   const [from, setFrom] = useState(() => daysEarlier(todayBangkok(), 6));
   const [to, setTo] = useState(() => todayBangkok());
   const [granularity, setGranularity] = useState<"day" | "month">("day");
@@ -104,22 +104,29 @@ function FinanceQaReport({
     const fromIso=new Date(from+"T00:00:00+07:00").toISOString();
     const toIso=new Date(Date.parse(to+"T00:00:00+07:00")+86400000).toISOString();
     setLoading(true);
-    void client.rpc("merchant_food_finance_buckets_v2_qa",{
-      p_store_id:storeId,p_from:fromIso,p_to:toIso,p_granularity:granularity,
-    }).then(({data,error:rpcError})=>{
-      if(!active)return;
-      if(rpcError)throw rpcError;
-      const parsed=data as BucketsResult;
-      if(parsed?.mode!=="simulation_only" || parsed.timezone!=="Asia/Bangkok"
-        || parsed.selected_store_id!==storeId || !Array.isArray(parsed.buckets)
-        || parsed.merchant_net_payout_satang!==null){
-        throw new Error("ผลรายงานไม่ตรงกับสถานะ Simulation QA");
+    const load = async () => {
+      try {
+        const {data, error: rpcError} = await client.rpc("merchant_food_finance_buckets_v2_qa", {
+          p_store_id: storeId, p_from: fromIso, p_to: toIso, p_granularity: granularity,
+        });
+        if (!active) return;
+        if (rpcError) throw rpcError;
+        const parsed = data as BucketsResult;
+        if (parsed?.mode !== "simulation_only" || parsed.timezone !== "Asia/Bangkok"
+          || parsed.selected_store_id !== storeId || !Array.isArray(parsed.buckets)
+          || parsed.merchant_net_payout_satang !== null) {
+          throw new Error("ผลรายงานไม่ตรงกับสถานะ Simulation QA");
+        }
+        setReport(parsed);
+        setLoading(false);
+      } catch {
+        if (active) {
+          setError("ไม่สามารถอ่านรายงาน QA ได้ กรุณาตรวจสอบสิทธิ์เจ้าของร้าน");
+          setLoading(false);
+        }
       }
-      setReport(parsed);
-      setLoading(false);
-    }).catch(()=>{
-      if(active){setError("ไม่สามารถอ่านรายงาน QA ได้ กรุณาตรวจสอบสิทธิ์เจ้าของร้าน");setLoading(false);}
-    });
+    };
+    void load();
     return ()=>{active=false;};
   },[client,storeId,from,to,granularity,setReport,setError,setLoading]);
 
