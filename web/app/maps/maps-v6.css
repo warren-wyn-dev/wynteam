@@ -352,6 +352,30 @@
   color: #1889f5;
   box-shadow: 0 5px 22px rgb(35 47 53 / 12%);
 }
+/* Compact GPS precision feedback, anchored by the Locate button. */
+.wynos-maps-page .wf-map-gps-accuracy {
+  position: absolute;
+  z-index: 38;
+  right: 17px;
+  bottom: calc(262px + env(safe-area-inset-bottom));
+  display: grid;
+  place-items: center;
+  min-height: 29px;
+  padding: 5px 9px;
+  border: 1px solid rgb(255 255 255 / 90%);
+  border-radius: 15px;
+  background: rgb(255 255 255 / 95%);
+  color: #1767b2;
+  box-shadow: 0 3px 12px rgb(32 53 58 / 12%);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.wynos-maps-page .wf-map-place-marker.is-hospital .wf-map-place-dot { color: #dd465c; }
+.wynos-maps-page .wf-map-place-marker.is-fuel .wf-map-place-dot { color: #0e9c72; }
+.wynos-maps-page .wf-map-place-marker.is-atm .wf-map-place-dot { color: #5d64bc; }
+
 .wynos-maps-page .wf-map-gps-message {
   position: absolute;
   z-index: 38;
@@ -419,4 +443,5 @@
   }
   .wynos-maps-page .wf-map-current,
   .wynos-maps-page .wf-map-current.is-active { bottom: 52px; }
+  .wynos-maps-page .wf-map-gps-accuracy { bottom: 111px; }
 }
