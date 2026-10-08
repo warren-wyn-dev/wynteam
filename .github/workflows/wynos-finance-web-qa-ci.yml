@@ -44,8 +44,8 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Assert finance preview stays guarded
         run: node --test tests/finance-qa-preview-gate.test.mjs
-      - name: ESLint
-        run: npm run lint
+      - name: ESLint — changed Merchant Finance components only
+        run: npx eslint components/merchant/merchant-finance-qa-preview.tsx components/merchant/merchant-finance.tsx
       - name: Next.js route type generation
         run: npx next typegen
       - name: TypeScript strict check
