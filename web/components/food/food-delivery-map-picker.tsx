@@ -109,6 +109,7 @@ type MapInstance = {
   remove: () => void;
   resize: () => void;
   setStyle: (style: MapStyle) => void;
+  setLayerZoomRange: (layerId: string, minzoom: number, maxzoom: number) => void;
   getSource: (id: string) => unknown;
   getLayer: (id: string) => unknown;
   addSource: (id: string, source: { type: "geojson"; data: ServiceAreaFeature | RouteLineFeature }) => void;
@@ -292,10 +293,14 @@ function placeIdentity(place: FoodPlace) {
   return place.placeId ?? `${place.latitude.toFixed(6)},${place.longitude.toFixed(6)},${place.name}`;
 }
 
-type MapMarkerKind = "food" | "cafe" | "building" | "shop" | "pickup" | "place";
+type MapMarkerKind = "food" | "cafe" | "building" | "shop" | "pickup" | "place" | "hospital" | "fuel" | "atm";
 
 function placeMarkerKind(place: FoodPlace): MapMarkerKind {
   const name = place.name.toLocaleLowerCase();
+  const category = place.category?.toLocaleLowerCase() ?? "";
+  if (/โรงพยาบาล|คลินิก|hospital|clinic/.test(name) || /hospital|clinic|medical|healthcare/.test(category)) return "hospital";
+  if (/ปั๊ม|สถานีบริการน้ำมัน|petrol|gas station|fuel|shell|ptt|บางจาก/.test(name) || /fuel|gas_station|petrol/.test(category)) return "fuel";
+  if (/เอทีเอ็ม|ธนาคาร|\batm\b|\bbank\b/.test(name) || /atm|bank/.test(category)) return "atm";
   if (/คาเฟ่|กาแฟ|coffee|cafe|café|amazon/.test(name)) return "cafe";
   if (place.merchantStoreId || place.category === "restaurant") return "food";
   if (place.category === "pickup_point") return "pickup";
@@ -310,6 +315,15 @@ function placeMarkerKind(place: FoodPlace): MapMarkerKind {
 
 function placeMarkerSvg(kind: MapMarkerKind) {
   const common = 'viewBox="0 0 24 24" aria-hidden="true" focusable="false"';
+  if (kind === "hospital") {
+    return `<svg ${common}><path d="M5 3h14v18H5z"/><path d="M12 7v8M8 11h8M9 21v-4h6v4"/></svg>`;
+  }
+  if (kind === "fuel") {
+    return `<svg ${common}><path d="M4 20V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v15M3 20h13M6 7h7v5H6zM15 8l3 3v5a2 2 0 0 0 4 0v-5l-4-5"/></svg>`;
+  }
+  if (kind === "atm") {
+    return `<svg ${common}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 13h10M9 17h6"/></svg>`;
+  }
   if (kind === "food") {
     return `<svg ${common}><path d="M7 3v7M4.5 3v4.5A2.5 2.5 0 0 0 7 10v11M16.5 3v18M16.5 3c-2 2.2-3 5-3 8h3"/></svg>`;
   }
@@ -491,6 +505,7 @@ export function FoodDeliveryMapPicker({
   } | null>(null);
   const [status, setStatus] = useState("");
   const [gpsMessage, setGpsMessage] = useState("");
+  const [gpsAccuracyMeters, setGpsAccuracyMeters] = useState<number | null>(null);
   const [working, setWorking] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -580,6 +595,7 @@ export function FoodDeliveryMapPicker({
     dragRef.current = false;
     setMapDragging(false);
     setGpsMessage("");
+    setGpsAccuracyMeters(null);
     reverseRequestRef.current += 1;
     setLocation(next);
     setChosen(true);
@@ -600,6 +616,7 @@ export function FoodDeliveryMapPicker({
     setWorking(true);
     setStatus("");
     setGpsMessage("");
+    setGpsAccuracyMeters(null);
     try {
       const fix = standalone
         ? await freshMapsGpsLocation()
@@ -609,6 +626,9 @@ export function FoodDeliveryMapPicker({
       // Selected coordinates and the blue location marker share the SAME GPS fix.
       moveTo(next);
       setCurrentLocationSelected(true);
+      if (standalone && Number.isFinite(fix.accuracyMeters)) {
+        setGpsAccuracyMeters(Math.ceil(fix.accuracyMeters));
+      }
       if (standalone && fix.accuracyMeters > 60) {
         const radius = Number.isFinite(fix.accuracyMeters) ? `±${Math.ceil(fix.accuracyMeters)} เมตร` : "ยังไม่ทราบ";
         setGpsMessage(`GPS อาจคลาดเคลื่อน ${radius} · เปิดตำแหน่งที่แน่นอนใน Safari แล้วลองใหม่`);
@@ -973,6 +993,23 @@ export function FoodDeliveryMapPicker({
 
         const markReady = () => {
           if (!live) return;
+          // Readable road/POI labels on standalone Maps only. Never alter Food
+          // picker labels, and never fabricate names missing from map tiles.
+          if (standalone) {
+            for (const [layerId, minzoom] of [
+              ["highway-name-minor", 14.0],
+              ["highway-name-path", 14.8],
+              ["poi_r1", 14.3],
+              ["poi_r7", 15.7],
+              ["poi_r20", 17.2],
+            ] as const) {
+              try {
+                if (map?.getLayer(layerId)) map.setLayerZoomRange(layerId, minzoom, 24);
+              } catch {
+                // Missing style layers on fallback/raster tiles are optional.
+              }
+            }
+          }
           styleLoaded = true;
           setMapReady(true);
           setMapFailed(false);
@@ -994,6 +1031,7 @@ export function FoodDeliveryMapPicker({
           dragRef.current = true;
           setMapDragging(true);
           setCurrentLocationSelected(false);
+          setGpsAccuracyMeters(null);
         };
         const onMoveEnd = () => {
           if (!map) return;
@@ -1955,6 +1993,11 @@ export function FoodDeliveryMapPicker({
         >
           <LocateFixed size={19} /> <span>{working ? "กำลังระบุตำแหน่ง…" : "ตำแหน่งปัจจุบัน"}</span>
         </button>
+        {standalone && currentLocationSelected && gpsAccuracyMeters !== null ? (
+          <div className="wf-map-gps-accuracy" role="status">
+            GPS ±{gpsAccuracyMeters} m
+          </div>
+        ) : null}
         {standalone && gpsMessage ? (
           <div className="wf-map-gps-message" role="status">{gpsMessage}</div>
         ) : null}
