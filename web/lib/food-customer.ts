@@ -706,9 +706,15 @@ export async function createFoodCustomerOrder(
       selected_options: line.selected_options ?? [],
     })),
   };
+  // Keep the original no-code RPC paths intact, including their browser QA
+  // contracts. Coupon requests opt into v2 without changing ordinary orders.
   const { data, error } = input.scheduledFor
-    ? await client.rpc(couponCode ? "food_create_scheduled_order_v2" : "food_create_scheduled_order", { ...params, p_scheduled_for: input.scheduledFor, ...(couponCode ? { p_coupon_code: couponCode } : {}) })
-    : await client.rpc(couponCode ? "food_create_order_v2" : "food_create_order", { ...params, ...(couponCode ? { p_coupon_code: couponCode } : {}) });
+    ? couponCode
+      ? await client.rpc("food_create_scheduled_order_v2", { ...params, p_scheduled_for: input.scheduledFor, p_coupon_code: couponCode })
+      : await client.rpc("food_create_scheduled_order", { ...params, p_scheduled_for: input.scheduledFor })
+    : couponCode
+      ? await client.rpc("food_create_order_v2", { ...params, p_coupon_code: couponCode })
+      : await client.rpc("food_create_order", params);
   if (error) throw new Error(error.message);
   return String(data);
 }
