@@ -60,3 +60,22 @@ A trusted QA operator can configure **GitHub repository Actions Secrets** (do no
 The opt-in workflow triggers only on sandbox workflow/HTTP test file changes or when dispatched where GitHub permits; toggling a Variable alone does not start a workflow, and a skipped job is **not a successful HTTP test**. This testing must explicitly complete with green run logs before declaring the Auth HTTP gate closed.
 
 **Signed JWT strict gate update:** `WYNOS_QA_STRICT_AUTH_GATE=true` is enforced in sandbox HTTP CI. A missing positive **explicitly allowlisted** QA Admin JWT causes the runner to exit as **INCOMPLETE**, never green. Setting credentials without QA admin allowlist is not enough; this requires a separately authorized QA-only account/allowlist fixture lifecycle. No permanent QA allowlist entry was created automatically.
+
+## Additional work: Browser E2E and Finance security catalog regression
+
+Date: 2026-10-08, restricted to sandbox GitHub and QA Supabase only.
+
+### Verified automated tests
+- [Browser QA run #37812055147](https://github.com/warren-wyn-dev/wynteam/actions/runs/37812055147) **SUCCESS: 8/8 real Chromium tests**, covering Desktop and Android simulated viewport, day/month bucket selection, date invalidation, detailed simulated QA order lookup, masked real money fields, and error handling when mocked RPC denies access. Tests mount the **real React Finance Preview component** on an ephemeral Next.js route created only inside CI from `web/tests/finance-qa-browser-fixture.page.tsx`; the route is deleted after CI. **Mock RPC**, NOT signed Supabase Auth/browser E2E. No production deployment.
+- First browser run #37811825711 exposed test locator ambiguity (4/8). Fixed Playwright assertions in `web/tests/browser/finance-qa-preview.spec.ts`, then reran to 8/8 PASS. No Finance application backend authorization code was relaxed.
+- Security inventory regression `supabase/sandbox/gp/finance_security_catalog_smoke.sql`: **PASS** on Supabase QA under `BEGIN/ROLLBACK`; inspects 10 Finance public owner/admin gated functions, 4 private `SECURITY INVOKER` read cores, 8 GP/Finance restricted tables with RLS and explicit grants, and refund mutation isolation. **All 10/10 rollback-only Finance SQL regression scripts passed** including this new test.
+- Signed JWT HTTP credential local preflight now checks QA issuer/project, no secret/service keys, legitimate authenticated role claims, short-lived unexpired JWT shape and separate QA identities *before network I/O*. This decoding is NOT JWT signature verification. Offline negative-only preflight regression `finance_http_preflight_qa.test.mjs` is integrated into the sandbox isolated concurrency CI. **Do not claim real signed-JWT HTTP passed.**
+
+### Remaining security review findings
+- Supabase QA Security Advisor lists 25 warning findings of authenticated-executable `SECURITY DEFINER` functions across the QA database; **10 belong to Finance public reporting wrappers** and these were examined with exact role/owner/allowlist checks via SQL. The warnings remain visible: they are an intentional, privileged wrapper architecture, not evidence that they have disappeared.
+- 16 `rls_enabled_no_policy` informational findings; GP/Finance financial tables deliberately use deny-by-default with no direct authenticated/anon table access.
+- `auth_leaked_password_protection` warning remains, requiring an authorized Auth configuration change, outside current Finance schema scope. No QA Auth policy was changed.
+- Actual QA user HTTP signing/authorization remains unverified until authorized QA owner/unrelated user and explicitly allowlisted QA Admin JWTs exist in GitHub Actions Secrets. The opt-in signed-JWT gate job is skipped when `WYNOS_QA_JWT_HTTP_ENABLED` is not enabled and a skip is **not PASS**.
+
+### Scope and no-live-money safety
+All test orders and monetary totals in the browser CI harness are fake; never run the harness against production. Real GP collection, Stripe refunds, settlement, taxes and Production release still require distinct product/financial/legal approvals plus an explicit deployment action.
