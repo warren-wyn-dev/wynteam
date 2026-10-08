@@ -404,3 +404,13 @@
     transition: none;
   }
 }
+
+
+/* WYNOS system UX polish — Thai labels remain legible on compact mobile nav. */
+.wyn-bottom-nav__link {
+  font-size: 11.5px;
+}
+
+.wyn-bottom-nav__label {
+  line-height: 1.2;
+}
