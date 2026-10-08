@@ -9,7 +9,9 @@ trap 'psql -q -X -d postgres -c "drop database if exists $DB" >/dev/null' EXIT
 run() { psql -q -X -v ON_ERROR_STOP=1 -d "$DB" "$@"; }
 value() { run -At -c "$1" | tail -1; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
-as_user() { run -At -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2" | tail -1; }
+# Preserve complete stderr/error context under both raw psql and CI's psql wrapper.
+# Using tail here loses the RAISE EXCEPTION message when CI merges stderr/stdout.
+as_user() { run -At -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2"; }
 allow() { as_user "$1" "$2" >/dev/null || fail "$3"; echo "ok - $3"; }
 deny() { local out; if out="$(as_user "$1" "$2" 2>&1)"; then fail "$3 unexpectedly allowed"; fi
   [[ "$out" == *"$4"* ]] || fail "$3 (wanted $4; got $out)"; echo "ok - $3"; }
