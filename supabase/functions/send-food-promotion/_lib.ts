@@ -9,3 +9,14 @@ export function foodPromoPushPayload(campaignId: string, deliveryId: string, tit
     push_title: title, push_body: body, coupon_code: code ?? "",
   };
 }
+
+/**
+ * Default Food marketing quiet hours in Thailand: 22:00–08:00.
+ * Order notifications do not use this worker and are unaffected.
+ */
+export function isFoodPromoQuietTime(now: Date): boolean {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok", hour: "2-digit", hourCycle: "h23",
+  }).format(now));
+  return hour >= 22 || hour < 8;
+}
