@@ -5,6 +5,7 @@ import {
   isDeadTokenError,
   pushLanguageFrom,
   safeErrorMessage,
+  dailyFollowSocialTokenQuery,
   type FcmServiceAccount,
 } from "./_lib.ts";
 
@@ -106,7 +107,7 @@ Deno.serve(async (req: Request) => {
     for (const claim of claims) {
       try {
         const tokens = await restGet(
-          `push_tokens?user_id=eq.${encodeURIComponent(claim.user_id)}&platform=eq.web&select=token`,
+          dailyFollowSocialTokenQuery(claim.user_id),
         ) as Array<{ token?: string }>;
 
         const { title, body } = copy(claim.language_preference);
