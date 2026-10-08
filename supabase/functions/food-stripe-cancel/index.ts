@@ -65,6 +65,8 @@ Deno.serve(async (req: Request) => {
   if (!sessionId) return json({ cancelled: false, reason: "no_stripe_session" });
 
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
+  // Hard fail closed: never allow sk_live_ in this Sandbox deployment.
+  if (stripeSecret && !stripeSecret.startsWith("sk_test_")) return json({ error: "sandbox_requires_sk_test_key" }, 503);
   if (!stripeSecret) return json({ error: "stripe_not_configured" }, 503);
   const stripeLiveMode = stripeLivemode(stripeSecret);
   if (stripeLiveMode == null) return json({ error: "stripe_key_mode_unknown" }, 503);
