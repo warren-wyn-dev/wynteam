@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, BedDouble, Briefcase, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, Layers, LocateFixed, MapPin, Minus, Moon, MoreHorizontal, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Sun, Utensils, X } from "lucide-react";
+import { ArrowLeft, BedDouble, Briefcase, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, Layers, LocateFixed, MapPin, Moon, MoreHorizontal, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Sun, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -376,6 +376,61 @@ export function FoodLocationMapPreview({
   );
 }
 
+
+/**
+ * Standalone Maps must use a fresh device fix, not a cached location.
+ * A phone can initially report a coarse network location before GPS settles:
+ * keep the most accurate update and wait briefly for a better reading.
+ * Food delivery's existing geolocation behavior remains unchanged.
+ */
+function freshMapsGpsLocation(timeoutMs = 12_000): Promise<{ location: FoodLocation; accuracyMeters: number }> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง"));
+      return;
+    }
+
+    const geolocation = navigator.geolocation;
+    let watchId: number | null = null;
+    let settled = false;
+    let best: { location: FoodLocation; accuracyMeters: number } | null = null;
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      if (watchId != null) geolocation.clearWatch(watchId);
+    };
+    const finish = (fix: typeof best, error?: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (fix) resolve(fix);
+      else reject(error ?? new Error("หาตำแหน่งปัจจุบันไม่สำเร็จ กรุณาลองอีกครั้ง"));
+    };
+
+    const timer = window.setTimeout(() => finish(best, new Error("GPS ยังไม่ส่งตำแหน่งใหม่ กรุณาลองอีกครั้ง")), timeoutMs);
+    watchId = geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)
+          || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return;
+        const fix = {
+          location: { latitude, longitude },
+          accuracyMeters: Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : Number.POSITIVE_INFINITY,
+        };
+        if (!best || fix.accuracyMeters < best.accuracyMeters) best = fix;
+        if (fix.accuracyMeters <= 40) finish(fix);
+      },
+      (error) => {
+        if (error.code === 1) {
+          finish(null, new Error("กรุณาอนุญาตตำแหน่งที่แน่นอน (Precise Location) ในการตั้งค่า Safari"));
+        } else {
+          finish(best, new Error("GPS ไม่พร้อมใช้งาน กรุณาลองใหม่หรือค้นหาสถานที่"));
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs },
+    );
+  });
+}
+
 export function FoodDeliveryMapPicker({
   client,
   storeId,
@@ -435,6 +490,7 @@ export function FoodDeliveryMapPicker({
     value: Awaited<ReturnType<typeof checkFoodDeliveryAvailability>>;
   } | null>(null);
   const [status, setStatus] = useState("");
+  const [gpsMessage, setGpsMessage] = useState("");
   const [working, setWorking] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -521,6 +577,9 @@ export function FoodDeliveryMapPicker({
   }, [client, initialLocation]);
 
   const moveTo = useCallback((next: FoodLocation, nextPlace?: FoodPlace) => {
+    dragRef.current = false;
+    setMapDragging(false);
+    setGpsMessage("");
     reverseRequestRef.current += 1;
     setLocation(next);
     setChosen(true);
@@ -540,18 +599,29 @@ export function FoodDeliveryMapPicker({
   const pickCurrentLocation = useCallback(async () => {
     setWorking(true);
     setStatus("");
+    setGpsMessage("");
     try {
-      const next = await currentFoodLocation();
+      const fix = standalone
+        ? await freshMapsGpsLocation()
+        : { location: await currentFoodLocation(), accuracyMeters: 0 };
+      const next = fix.location;
       setUserLocation(next);
+      // Selected coordinates and the blue location marker share the SAME GPS fix.
       moveTo(next);
       setCurrentLocationSelected(true);
+      if (standalone && fix.accuracyMeters > 60) {
+        const radius = Number.isFinite(fix.accuracyMeters) ? `±${Math.ceil(fix.accuracyMeters)} เมตร` : "ยังไม่ทราบ";
+        setGpsMessage(`GPS อาจคลาดเคลื่อน ${radius} · เปิดตำแหน่งที่แน่นอนใน Safari แล้วลองใหม่`);
+      }
       await reverse(next);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "หาตำแหน่งปัจจุบันไม่สำเร็จ");
+      const message = error instanceof Error ? error.message : "หาตำแหน่งปัจจุบันไม่สำเร็จ";
+      setStatus(message);
+      if (standalone) setGpsMessage(message);
     } finally {
       setWorking(false);
     }
-  }, [moveTo, reverse]);
+  }, [moveTo, reverse, standalone]);
 
   const stopNavigation = useCallback((message = "") => {
     navigationActiveRef.current = false;
@@ -1417,14 +1487,6 @@ export function FoodDeliveryMapPicker({
     moveTo({ latitude: result.latitude, longitude: result.longitude }, result);
   };
 
-  const zoomMap = (delta: number) => {
-    const map = mapRef.current;
-    if (!map) return;
-    const center = map.getCenter();
-    const nextZoom = Math.min(19, Math.max(3, map.getZoom() + delta));
-    map.flyTo({ center: [center.lng, center.lat], zoom: nextZoom, essential: true });
-  };
-
   const searchActive = standalone && searchFocused;
   const showRecents = standalone && searchFocused && !query.trim() && !results.length && recentPlaces.length > 0;
 
@@ -1891,11 +1953,8 @@ export function FoodDeliveryMapPicker({
         >
           <LocateFixed size={19} /> <span>{working ? "กำลังระบุตำแหน่ง…" : "ตำแหน่งปัจจุบัน"}</span>
         </button>
-        {standalone ? (
-          <div className="wf-map-zoom-control" aria-label="ควบคุมการซูมแผนที่">
-            <button type="button" aria-label="ซูมเข้า" onClick={() => zoomMap(1)}><Plus size={18} /></button>
-            <button type="button" aria-label="ซูมออก" onClick={() => zoomMap(-1)}><Minus size={18} /></button>
-          </div>
+        {standalone && gpsMessage ? (
+          <div className="wf-map-gps-message" role="status">{gpsMessage}</div>
         ) : null}
       </div>
 
