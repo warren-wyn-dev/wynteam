@@ -32,10 +32,10 @@ test("Finance QA date validation and invalid order id fail closed", async ({ pag
   await expect(preview.getByText("ยอดชำระจำลอง")).toBeVisible();
   await preview.getByLabel("UUID ออเดอร์ QA").fill("invalid");
   await preview.getByRole("button", { name: "ตรวจออเดอร์" }).click();
-  await expect(preview.getByRole("alert")).toContainText("UUID");
+  await expect(preview.getByText("กรุณากรอก UUID ออเดอร์ QA ที่ถูกต้อง")).toBeVisible();
   await preview.getByLabel("เริ่มต้น").fill("2026-12-31");
   await preview.getByLabel("สิ้นสุด").fill("2026-01-01");
-  await expect(preview.getByRole("alert")).toContainText("เลือกช่วงวันที่ไม่เกิน 366 วัน");
+  await expect(preview.getByText("เลือกช่วงวันที่ไม่เกิน 366 วัน")).toBeVisible();
   await expect(preview.getByText("ยอดชำระจำลอง")).toHaveCount(0);
 });
 
@@ -59,10 +59,10 @@ test("Order QA detail uses owner-only RPC mock, no customer PII or actual payout
 test("Unauthorized mock RPC errors are not converted to optimistic balances", async ({ page }) => {
   await page.goto(PATH + "?scenario=forbidden");
   const preview = page.getByRole("region", { name: "พรีวิวรายงานการเงิน QA" });
-  await expect(preview.getByRole("alert")).toContainText("ไม่มีสิทธิ์เจ้าของร้าน");
+  await expect(preview.getByText("ไม่สามารถอ่านรายงาน QA ได้ กรุณาตรวจสอบสิทธิ์เจ้าของร้าน")).toBeVisible();
   await expect(preview.getByText("ยอดชำระจำลอง")).toHaveCount(0);
   await preview.getByLabel("UUID ออเดอร์ QA").fill(QA_ORDER);
   await preview.getByRole("button", { name: "ตรวจออเดอร์" }).click();
-  await expect(preview.getByRole("alert")).toContainText("อ่านรายละเอียดไม่ได้");
+  await expect(preview.getByText("อ่านรายละเอียดไม่ได้ หรือไม่มีสิทธิ์")).toBeVisible();
   await expect(preview).not.toContainText("QA-ORDER-0002");
 });
