@@ -1,0 +1,62 @@
+name: WYNOS Finance Isolated Concurrency QA
+
+on:
+  push:
+    branches:
+      - sandbox/stripe-testmode-20261008
+    paths:
+      - .github/workflows/wynos-finance-qa-isolated.yml
+      - supabase/sandbox/gp/isolated_refund_concurrency.mjs
+      - supabase/migrations_wynos_food_gp_engine_sandbox_v1.sql
+      - supabase/migrations_wynos_food_finance_sandbox_v1.sql
+      - supabase/migrations_wynos_food_finance_refunds_sandbox_v1.sql
+      - supabase/migrations_wynos_food_finance_refund_guard_sandbox_v2.sql
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-refund-concurrency:
+    if: github.ref == 'refs/heads/sandbox/stripe-testmode-20261008'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_isolated_no_real_secrets
+          POSTGRES_DB: wynos_refund_isolated
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d wynos_refund_isolated"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - name: Checkout isolated sandbox branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install PostgreSQL client if missing
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+          psql --version
+          node --version
+
+      - name: Run real two-session SQL concurrency checks on disposable PostgreSQL
+        env:
+          WYNOS_ISOLATED_PG_ACK: wynos_refund_isolated
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: ci_isolated_no_real_secrets
+          PGDATABASE: wynos_refund_isolated
+        run: node supabase/sandbox/gp/isolated_refund_concurrency.mjs
