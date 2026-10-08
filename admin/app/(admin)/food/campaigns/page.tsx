@@ -38,6 +38,7 @@ export default async function FoodCampaignsPage() {
         <Link href="/food/coupons" className="rounded-lg border px-4 py-2 text-sm font-medium">
           โค้ดส่วนลด Food
         </Link>
+        <Link href="/food/notifications" className="rounded-lg border px-4 py-2 text-sm font-medium">ส่งแจ้งเตือน Food</Link>
       </div>
       <section className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
