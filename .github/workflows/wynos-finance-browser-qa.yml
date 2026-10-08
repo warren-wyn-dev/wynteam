@@ -47,11 +47,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Install Chromium browser for real desktop / Android emulation
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
       - name: Generate ephemeral local test route, no app code committed or deployment
         run: node tests/finance-qa-browser-fixture.mjs
       - name: Run interactive Finance Preview browser tests
-        run: npx playwright test tests/browser/finance-qa-preview.spec.ts --project=chromium-desktop --project=chromium-android
+        run: npx playwright test tests/browser/finance-qa-preview.spec.ts --project=chromium-desktop --project=chromium-android --project=webkit-iphone
       - name: Remove disposable test route
         if: always()
         run: node tests/finance-qa-browser-fixture.mjs --cleanup
