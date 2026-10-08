@@ -279,6 +279,10 @@ export default function StripeSandboxPage() {
         const safeCodes: Record<string, string> = {
           sandbox_food_redirect_not_configured: "ยังไม่ได้ตั้งค่า URL สำหรับกลับจาก Stripe Checkout ใน Sandbox",
           stripe_not_ready: "ร้านค้าทดสอบยังไม่พร้อมรับชำระเงิน",
+          promptpay_not_available: "ร้านค้านี้ยังไม่เปิดรับ PromptPay กรุณาตรวจสอบการตั้งค่าบน Stripe",
+          previous_checkout_not_expired: "ยังปิดหน้าชำระด้วยบัตรเดิมไม่ได้ กรุณารอสักครู่แล้วลองใหม่",
+          stripe_checkout_status_unavailable: "ยังตรวจสอบสถานะ Checkout เดิมไม่ได้ กรุณาลองใหม่",
+          payment_processing: "กำลังรอ Stripe ยืนยันการชำระผ่าน PromptPay อยู่ กรุณาอย่าชำระซ้ำ",
           stripe_checkout_failed: "Stripe ไม่สามารถสร้าง Checkout ได้ กรุณาแจ้งผู้ดูแลทดสอบ",
           sandbox_test_keys_required: "คีย์ Stripe Test Mode ยังไม่พร้อมใช้งาน",
           stripe_not_configured: "คีย์ Stripe Test Mode ยังไม่ถูกตั้งค่าใน Supabase Sandbox",
@@ -327,7 +331,7 @@ export default function StripeSandboxPage() {
         </p>
         <h1 style={{ fontSize: 30, margin: "4px 0 8px" }}>Stripe Sandbox</h1>
         <p style={{ color: "#64748b", marginBottom: 24 }}>
-          หน้า QA แยกสำหรับทดสอบบัญชี คำสั่งซื้อ และ Stripe Checkout ไม่มีการใช้คีย์ Live
+          หน้า QA สำหรับทดสอบชำระด้วย PromptPay QR Code เท่านั้น ไม่มีบัตรหรือ Apple Pay และไม่ใช้คีย์ Live
         </p>
 
         {!ENABLED ? (
@@ -451,7 +455,7 @@ export default function StripeSandboxPage() {
                         {["pending", "issue"].includes(order.payment_status) &&
                           !(user.id === QA_MERCHANT_USER_ID && order.store_id === QA_CONNECT_STORE_ID && stripeReturnOrder === order.order_number && returnStatus?.includes("Stripe กลับจากหน้าชำระเงินแล้ว")) && (
                           <button disabled={Boolean(busyOrder) || reconcileBusy} onClick={() => void checkout(order)} style={action}>
-                            {busyOrder === order.id ? "กำลังเปิด Stripe..." : "ชำระเงินทดสอบด้วย Stripe"}
+                            {busyOrder === order.id ? "กำลังเปิด Stripe..." : "ชำระด้วย PromptPay (QR ทดสอบ)"}
                           </button>
                         )}
                       </div>
