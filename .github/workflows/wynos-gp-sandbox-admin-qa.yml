@@ -1,0 +1,27 @@
+name: WYNOS GP Sandbox Admin QA
+on:
+  push:
+    branches:
+      - sandbox/stripe-testmode-20261008
+    paths:
+      - .github/workflows/wynos-gp-sandbox-admin-qa.yml
+permissions:
+  contents: read
+jobs:
+  check-admin-gp:
+    name: Lint and type-check isolated Admin GP UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefix admin --ignore-scripts --no-audit --no-fund
+      - name: Lint
+        run: npm run lint --prefix admin
+      - name: Typecheck
+        run: cd admin && npx tsc --noEmit
