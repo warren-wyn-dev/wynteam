@@ -417,8 +417,16 @@ async function createAccountSession(secret: string, accountId: string, component
   });
 }
 async function createOnboardingLink(secret: string, accountId: string, storeId: string, api: "v1" | "v2") {
-  const refreshUrl = `https://merchant.wynos.online/?payments=refresh&store=${encodeURIComponent(storeId)}`;
-  const returnUrl = `https://merchant.wynos.online/?payments=return&store=${encodeURIComponent(storeId)}`;
+  // Sandbox onboarding must never return to the production merchant site.
+  const sandboxMerchantReturn = Deno.env.get("WYNOS_STRIPE_SANDBOX_MERCHANT_URL")?.trim();
+  let sandboxMerchantBase: string;
+  try {
+    const parsed = new URL(sandboxMerchantReturn ?? "");
+    if (parsed.protocol !== "https:" || ["food.wynos.online","merchant.wynos.online"].includes(parsed.hostname) || parsed.username || parsed.password) throw new Error("bad sandbox return URL");
+    sandboxMerchantBase = parsed.origin;
+  } catch { throw new Error("sandbox_merchant_redirect_not_configured"); }
+  const refreshUrl = `${sandboxMerchantBase}/?payments=refresh&store=${encodeURIComponent(storeId)}`;
+  const returnUrl = `${sandboxMerchantBase}/?payments=return&store=${encodeURIComponent(storeId)}`;
   if (api === "v1") {
     const params = new URLSearchParams();
     params.set("account", accountId);
@@ -478,6 +486,8 @@ Deno.serve(async (req: Request) => {
   const url = Deno.env.get("SUPABASE_URL");
   const key = serviceKey();
   const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
+  // Hard fail closed: never allow sk_live_ in this Sandbox deployment.
+  if (stripeSecret && !stripeSecret.startsWith("sk_test_")) return json({ error: "sandbox_requires_sk_test_key" }, 503);
   const publishableKey = Deno.env.get("STRIPE_PUBLISHABLE_KEY")?.trim() ?? null;
   const authHeader = req.headers.get("Authorization");
   if (!url || !key || !authHeader) return json({ error: "unauthorized", message: "กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }, 401);
