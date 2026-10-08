@@ -21,6 +21,10 @@ const edge = readFileSync(
   new URL("../../supabase/functions/send-daily-follow-suggestions/index.ts", import.meta.url),
   "utf8",
 );
+const edgeLib = readFileSync(
+  new URL("../../supabase/functions/send-daily-follow-suggestions/_lib.ts", import.meta.url),
+  "utf8",
+);
 const route = readFileSync(new URL("../components/suggested-route.tsx", import.meta.url), "utf8");
 const data = readFileSync(new URL("../lib/phase3-data.ts", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
@@ -76,7 +80,8 @@ test("cron is release-gated and authenticated by a dedicated Vault key", () => {
 });
 
 test("sender is Web-only, data-only, and carries the delivery id for attribution", () => {
-  assert.match(edge, /platform=eq\.web/);
+  assert.match(edge, /dailyFollowSocialTokenQuery\(claim\.user_id\)/);
+  assert.match(edgeLib, /platform=eq\.web&or=\(app\.eq\.social,app\.is\.null\)&select=token/);
   assert.match(edge, /type: "daily_follow_suggestion"/);
   assert.match(edge, /delivery_id: claim\.delivery_id/);
   assert.match(edge, /push_title: title/);
