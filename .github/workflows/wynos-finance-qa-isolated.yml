@@ -7,6 +7,9 @@ on:
     paths:
       - .github/workflows/wynos-finance-qa-isolated.yml
       - supabase/sandbox/gp/isolated_refund_concurrency.mjs
+      - web/components/merchant/merchant-finance-qa-preview.tsx
+      - web/components/merchant/merchant-finance.tsx
+      - web/tests/finance-qa-preview-gate.test.mjs
       - supabase/migrations_wynos_food_gp_engine_sandbox_v1.sql
       - supabase/migrations_wynos_food_finance_sandbox_v1.sql
       - supabase/migrations_wynos_food_finance_refunds_sandbox_v1.sql
@@ -50,6 +53,9 @@ jobs:
           fi
           psql --version
           node --version
+
+      - name: Check QA finance preview remains opt-in and isolated
+        run: node --test web/tests/finance-qa-preview-gate.test.mjs
 
       - name: Run real two-session SQL concurrency checks on disposable PostgreSQL
         env:
