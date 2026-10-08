@@ -171,19 +171,22 @@ begin
 
     -- Only recipients who explicitly enabled marketing Push and have a
     -- currently classified WYNOS Food token are queued for Web Push.
+    -- Push consent is independent from the In-App marketing preference.
+    -- A customer who disables the inbox but allows Push still receives
+    -- Food-only promotional pushes. Never use Food order-alert consent.
     insert into public.food_promo_deliveries(broadcast_id,recipient_id)
-    select v_b.id,n.recipient_id
-    from public.food_notifications n
-    join public.food_marketing_preferences pref on pref.user_id=n.recipient_id
-      and pref.push_marketing=true
-    where n.broadcast_id=v_b.id
-      and exists (select 1 from public.push_tokens pt where pt.user_id=n.recipient_id
+    select v_b.id,pref.user_id
+    from public.food_marketing_preferences pref
+    where pref.push_marketing=true
+      and (v_b.audience='all' or exists (
+        select 1 from public.food_orders o where o.buyer_id=pref.user_id
+      ))
+      and exists (select 1 from public.push_tokens pt where pt.user_id=pref.user_id
                   and pt.platform='web' and pt.app='food')
       and not exists (
         select 1 from public.food_promo_deliveries recent
-        join public.food_promo_broadcasts bp on bp.id=recent.broadcast_id
-        where recent.recipient_id=n.recipient_id and recent.state='sent'
-          and recent.sent_at > now()-interval '24 hours'
+        where recent.recipient_id=pref.user_id and recent.state='sent'
+          and recent.sent_at>now()-interval '24 hours'
       )
     on conflict on constraint food_promo_deliveries_unique do nothing;
 
