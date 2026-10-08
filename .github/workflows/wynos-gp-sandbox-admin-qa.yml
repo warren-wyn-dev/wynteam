@@ -24,4 +24,4 @@ jobs:
       - name: Lint
         run: npm run lint --prefix admin
       - name: Typecheck
-        run: cd admin && npx tsc --noEmit
+        run: cd admin && npx next typegen && npx tsc --noEmit
