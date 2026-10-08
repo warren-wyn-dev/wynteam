@@ -4,6 +4,11 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "หาตำแหน่งปัจจุบันไม่สำเร็จ กรุณาลองอีกครั้ง": "Couldn't get your current location. Please try again",
+  "GPS ยังไม่ส่งตำแหน่งใหม่ กรุณาลองอีกครั้ง": "GPS has not provided a fresh location yet. Please try again",
+  "กรุณาอนุญาตตำแหน่งที่แน่นอน (Precise Location) ในการตั้งค่า Safari": "Enable Precise Location for Safari in your device settings",
+  "GPS ไม่พร้อมใช้งาน กรุณาลองใหม่หรือค้นหาสถานที่": "GPS is unavailable. Try again or search for a place",
+  "ยังไม่ทราบ": "Unknown",
   "ค้นหาสถานที่ ร้านอาหาร ปั๊มน้ำมัน...": "Search places, restaurants, gas stations...",
   "สถานที่ที่บันทึก": "Saved places",
   "หมวดหมู่เพิ่มเติม": "More categories",
@@ -2799,6 +2804,8 @@ Object.assign(EN_EXACT, {
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["±{0} เมตร", "±{0} m"],
+  ["GPS อาจคลาดเคลื่อน {0} · เปิดตำแหน่งที่แน่นอนใน Safari แล้วลองใหม่", "GPS location may be off by {0} · Enable Precise Location for Safari and try again"],
   ["ทางเลือก {0}", "Alternative {0}"],
   ["ชำระด้วย Stripe · {0}", "Pay with Stripe · {0}"],
   ["หมู่ {0}", "Village {0}"],
