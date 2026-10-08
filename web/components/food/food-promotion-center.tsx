@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { subscribeToPushNotifications, pushReasonDescription } from "@/lib/push-notifications";
 import { Bell, BellRing, Copy, Check } from "lucide-react";
 
 type Notification = {
@@ -46,6 +47,14 @@ export function FoodPromotionCenter({ client, userId }: { client: SupabaseClient
 
   const preferences = async (push: boolean, inApp: boolean) => {
     setBusy(true); setNotice("");
+    if (push && !pushMarketing) {
+      const device = await subscribeToPushNotifications(client,userId);
+      if (!device.ok) {
+        setNotice(pushReasonDescription(device.reason));
+        setBusy(false);
+        return;
+      }
+    }
     const { error } = await client.from("food_marketing_preferences").upsert({
       user_id: userId, push_marketing: push, in_app_marketing: inApp, updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
