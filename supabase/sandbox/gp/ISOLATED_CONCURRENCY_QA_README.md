@@ -53,3 +53,10 @@ This runner actively refuses remote PostgreSQL hosts, unknown target DB names, a
 - Do not pause existing WYNOS projects to reclaim a Free-plan slot.
 - Do not merge this sandbox GitHub branch to main, change Production Supabase, issue real Stripe refund/transfer/payout, collect real GP, or deploy Vercel.
 - Phase 1 is not fully closed until signed-JWT HTTP verification and concurrency CI run results are confirmed.
+
+
+## Additional verified QA rollback-only integration (completed)
+
+To validate the isolated harness's SQL composition without relying on CI being available yet, a private schema named `wynos_ci_compile_qa_20261008` was created inside a single `BEGIN; ... ROLLBACK;` transaction **on Supabase QA ONLY**. The same original QA GP snapshot, Finance projection, Refund Adjustment/lines DDL and original Refund calculator/guard function definitions were schema-qualified, inserted with **fully fake** paid PromptPay identity values, and exercised as two simulated adjustments of 3333 and 1667 satang. Database assertions verified **2 adjustments**, **5000 satang** combined refunds, **375 satang** cumulative GP reversal, and both ledger books balancing. The SQL execution completed successfully; `ROLLBACK` dropped the ephemeral schema and all its fixtures. This proves original SQL compiles and works with the minimal isolated dependencies, **not** concurrency.
+
+A successful verified GitHub Actions job must still be observed before declaring the 2-session / 10-session tests PASSED.
