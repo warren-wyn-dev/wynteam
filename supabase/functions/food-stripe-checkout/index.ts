@@ -80,17 +80,21 @@ Deno.serve(async (req: Request) => {
   if (userError || !user) return json({ error: "unauthorized" }, 401);
 
   let orderId = "";
+  let action = "checkout";
   try {
-    const body = await req.json() as { orderId?: unknown };
+    const body = await req.json() as { orderId?: unknown; action?: unknown };
     orderId = typeof body.orderId === "string" ? body.orderId : "";
+    action = typeof body.action === "string" ? body.action : "checkout";
   } catch { return json({ error: "invalid_body" }, 400); }
   if (!orderId) return json({ error: "order_id_required" }, 400);
+  if (!["checkout", "reconcile"].includes(action)) return json({ error: "invalid_action" }, 400);
 
   const { data: order } = await admin.from("food_orders")
     .select("id,order_number,buyer_id,store_id,total,status,payment_status")
     .eq("id", orderId).maybeSingle();
   if (!order || order.buyer_id !== user.id) return json({ error: "order_not_found" }, 404);
-  if (["cancelled","delivered"].includes(order.status) || !["pending","issue"].includes(order.payment_status)) {
+  if (action === "checkout" &&
+      (["cancelled","delivered"].includes(order.status) || !["pending","issue"].includes(order.payment_status))) {
     return json({ error: "order_not_payable" }, 409);
   }
 
@@ -109,6 +113,83 @@ Deno.serve(async (req: Request) => {
 
   const { data: existing } = await admin.from("food_stripe_payments")
     .select("checkout_session_id,attempt,status").eq("order_id", order.id).maybeSingle();
+
+  if (action === "reconcile") {
+    // Recovery applies only to the isolated synthetic QA checkout. It never
+    // creates a new Checkout Session or initiates a payment.
+    if (stripeLiveMode !== false ||
+        user.id !== "50956870-1d09-4e0a-98bf-2c1e0e0c722b" ||
+        order.id !== "d6f7277d-adf2-4af2-bc75-239ea4a1aaa9" ||
+        order.store_id !== "6638327e-353f-4151-8d69-d84b5badb831" ||
+        order.order_number !== "WF000003") {
+      return json({ error: "qa_reconcile_only" }, 403);
+    }
+    const existingSessionId = existing?.checkout_session_id;
+    if (typeof existingSessionId !== "string" || !existingSessionId.startsWith("cs_test_") ||
+        order.stripe_checkout_session_id !== existingSessionId) {
+      return json({ error: "qa_checkout_session_not_found" }, 404);
+    }
+    let session: Record<string,unknown>;
+    try {
+      session = await stripeJson(
+        `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(existingSessionId)}`,
+        { headers: stripeHeaders(stripeSecret, account.stripe_account_id) },
+      );
+    } catch (error) {
+      console.warn("sandbox QA checkout verification failed", {
+        code: error instanceof StripeCheckoutError ? error.code : "unknown",
+        status: error instanceof StripeCheckoutError ? error.status : 500,
+      });
+      return json({ error: "stripe_verification_failed" }, 502);
+    }
+    const metadata = (session.metadata ?? {}) as Record<string,unknown>;
+    const expected = {
+      sessionId: existingSessionId,
+      totalSatang: amountSatang,
+      orderId: order.id,
+      storeId: order.store_id,
+    };
+    if (session.id !== expected.sessionId ||
+        session.livemode !== false ||
+        session.currency !== "thb" ||
+        session.amount_total !== expected.totalSatang ||
+        session.client_reference_id !== expected.orderId ||
+        metadata.order_id !== expected.orderId ||
+        metadata.store_id !== expected.storeId) {
+      return json({ error: "stripe_checkout_verification_mismatch" }, 409);
+    }
+    if (session.status !== "complete" || session.payment_status !== "paid") {
+      return json({ error: "checkout_not_paid" }, 409);
+    }
+    const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
+    if (!paymentIntentId || !paymentIntentId.startsWith("pi_")) {
+      return json({ error: "payment_intent_not_available" }, 409);
+    }
+    const { error: reconcileError } = await admin.rpc("food_apply_stripe_event", {
+      p_event_id: `qa_reconcile_${existingSessionId}`,
+      p_event_type: "checkout.session.reconciled",
+      p_order_id: order.id,
+      p_stripe_account_id: account.stripe_account_id,
+      p_object_id: existingSessionId,
+      p_checkout_session_id: existingSessionId,
+      p_payment_intent_id: paymentIntentId,
+      p_amount_satang: amountSatang,
+      p_currency: "thb",
+      p_state: "paid",
+      p_payment_method: null,
+      p_note: "Verified via Stripe API after missing webhook",
+      p_refund_id: null,
+    });
+    if (reconcileError) {
+      console.error("sandbox QA reconciliation failed", { code: reconcileError.code });
+      return json({ error: "reconcile_record_failed" }, 500);
+    }
+    // Make the non-webhook recovery origin explicit in the audit record.
+    await admin.from("food_orders").update({
+      payment_verification_note: "Verified via Stripe Test API; recovery due to missing webhook",
+    }).eq("id", order.id).eq("payment_provider_code", "checkout.session.reconciled");
+    return json({ reconciled: true, payment_status: "paid", source: "stripe_test_api" });
+  }
 
   let attempt = Number(existing?.attempt ?? 1);
   if (existing?.checkout_session_id && existing.status === "pending") {
