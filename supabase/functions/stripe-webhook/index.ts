@@ -320,6 +320,8 @@ Deno.serve(async (req: Request) => {
   try { event = JSON.parse(raw) as Record<string,unknown>; }
   catch { return json({ error: "invalid_json" }, 400); }
 
+  // Sandbox must never process a live Stripe event, even if a signing secret is misconfigured.
+  if (event.livemode !== false) return json({ error: "sandbox_test_events_only" }, 403);
   const eventId = stringValue(event.id);
   const eventType = stringValue(event.type);
   if (!eventId || !eventType) return json({ error: "invalid_event" }, 400);
