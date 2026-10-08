@@ -81,7 +81,7 @@ begin
   raise exception 'Owner read raw private finance table';
  exception when sqlstate '42501' then null;end;
  begin
-  perform public.food_finance_report_core_qa(now()-interval '1 day',now()+interval '1 day',null);
+  perform wynos_finance_qa_private.food_finance_report_core_qa(now()-interval '1 day',now()+interval '1 day',null);
   raise exception 'Owner bypassed finance report core';
  exception when sqlstate '42501' then null;end;
  begin
