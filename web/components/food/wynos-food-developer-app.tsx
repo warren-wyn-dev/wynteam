@@ -36,6 +36,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
+import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { rememberFoodArea } from "@/lib/food-area-memory";
 import {
@@ -2045,8 +2046,21 @@ function CheckoutSheet({
   )?.id ?? "";
   const [addressId, setAddressId] = useState(initialAddressId);
   const [note, setNote] = useState("");
-  const [couponDraft, setCouponDraft] = useState("");
-  const [couponCode, setCouponCode] = useState<string | null>(null);
+  const [couponDraft, setCouponDraft] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const fromLink = new URLSearchParams(window.location.search).get("promo");
+    let saved: string | null = null;
+    try { saved = localStorage.getItem("wynos-food-promo-code-v1"); } catch { /* private mode */ }
+    return (fromLink || saved || "").toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0,24);
+  });
+  const [couponCode, setCouponCode] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    let stored: string | null = null;
+    try { stored = localStorage.getItem("wynos-food-promo-code-v1"); } catch { /* private mode */ }
+    const linked = new URLSearchParams(window.location.search).get("promo");
+    const code = (linked || stored || "").toUpperCase();
+    return /^[A-Z0-9][A-Z0-9_-]{3,23}$/.test(code) ? code : null;
+  });
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const canSchedule = store.scheduled_orders_enabled === true;
   const minNotice = Math.max(15, Number(store.scheduled_min_notice_minutes ?? 30));
@@ -2257,10 +2271,10 @@ function CheckoutSheet({
               placeholder="เช่น FOOD50" value={couponDraft}
               onChange={(event) => setCouponDraft(event.target.value.toUpperCase())} />
             <button type="button" className="rounded-lg border px-4 py-2 text-sm"
-              onClick={() => setCouponCode(couponDraft.trim().toUpperCase() || null)}
+              onClick={() => { const normalized = couponDraft.trim().toUpperCase(); setCouponCode(normalized || null); try { if (normalized) localStorage.setItem("wynos-food-promo-code-v1",normalized); } catch { /* private mode */ } }}
               disabled={busy || !couponDraft.trim()}>ใช้โค้ด</button>
             {couponCode && <button type="button" className="rounded-lg border px-3 py-2 text-sm"
-              onClick={() => { setCouponCode(null); setCouponDraft(""); }}>ลบ</button>}
+              onClick={() => { setCouponCode(null); setCouponDraft(""); try { localStorage.removeItem("wynos-food-promo-code-v1"); } catch { /* private mode */ } }}>ลบ</button>}
           </div>
           {couponCode && current?.quote?.coupon_applied && <p role="status" className="mt-2 text-sm text-green-700">
             ใช้โค้ด {couponCode} สำเร็จ · ยอดสุทธิคำนวณโดยระบบแล้ว
@@ -3126,6 +3140,7 @@ function FoodCustomerInner({
 
       <PullToRefreshIndicator pull={pull} topOffset={tab === "home" && storefrontOpen ? "0px" : "58px"} refreshingLabel="กำลังอัปเดต WYNOS Food" />
       <section className="wf-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
+        {tab === "home" && !storefrontOpen && <FoodPromotionCenter client={client} userId={userId} />}
         {tab === "home" ? (
           <HomePanel
             key={`${store?.id ?? "none"}:${storefrontOpen ? "open" : "directory"}`}
