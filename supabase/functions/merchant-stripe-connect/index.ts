@@ -416,11 +416,17 @@ async function createAccountSession(secret: string, accountId: string, component
     body: params,
   });
 }
-async function createOnboardingLink(secret: string, accountId: string, storeId: string, api: "v1" | "v2") {
-  const merchantBase = sandboxMerchantBase();
+async function createOnboardingLink(secret: string, accountId: string, storeId: string, api: "v1" | "v2", qaHostedOnboarding = false) {
+  // QA route is hardcoded only in the isolated sandbox. Never use real WYNOS domains.
+  const qaPreviewUrl = "https://wynteam-gesb-git-sandbox-stripe-testmode-20261008-warren14.vercel.app/stripe-sandbox";
+  const merchantBase = qaHostedOnboarding ? qaPreviewUrl : sandboxMerchantBase();
   if (!merchantBase) throw new Error("sandbox_return_url_required");
-  const refreshUrl = `${merchantBase}/?payments=refresh&store=${encodeURIComponent(storeId)}`;
-  const returnUrl = `${merchantBase}/?payments=return&store=${encodeURIComponent(storeId)}`;
+  const refreshUrl = qaHostedOnboarding
+    ? `${merchantBase}?connect=refresh`
+    : `${merchantBase}/?payments=refresh&store=${encodeURIComponent(storeId)}`;
+  const returnUrl = qaHostedOnboarding
+    ? `${merchantBase}?connect=return`
+    : `${merchantBase}/?payments=return&store=${encodeURIComponent(storeId)}`;
   if (api === "v1") {
     const params = new URLSearchParams();
     params.set("account", accountId);
@@ -517,18 +523,26 @@ Deno.serve(async (req: Request) => {
   const user = userData.user;
   if (userError || !user) return json({ error: "unauthorized", message: "กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง" }, 401);
 
-  let storeId = "", action = "status", component = "account_onboarding";
+  let storeId = "", action = "status", component = "account_onboarding", requestedQaHosted = false;
   try {
-    const body = await req.json() as { storeId?: unknown; action?: unknown; component?: unknown };
+    const body = await req.json() as { storeId?: unknown; action?: unknown; component?: unknown; qaHostedOnboarding?: unknown };
     storeId = typeof body.storeId === "string" ? body.storeId : "";
     action = typeof body.action === "string" ? body.action : "status";
     component = body.component === "account_management" ? "account_management" : "account_onboarding";
+    requestedQaHosted = body.qaHostedOnboarding === true;
   } catch {
     return json({ error: "invalid_body", message: "คำขอไม่ถูกต้อง กรุณาลองใหม่" }, 400);
   }
   if (!storeId || !["status","onboard","session"].includes(action)) {
     return json({ error: "invalid_request", message: "คำขอไม่ถูกต้อง กรุณาลองใหม่" }, 400);
   }
+
+  // Only the pre-authorized synthetic merchant QA user can force hosted onboarding.
+  const qaHostedOnboarding = requestedQaHosted
+    && action === "onboard"
+    && storeId === "6638327e-353f-4151-8d69-d84b5badb831"
+    && user.id === "50956870-1d09-4e0a-98bf-2c1e0e0c722b";
+  if (requestedQaHosted && !qaHostedOnboarding) return json({ error: "qa_hosted_forbidden" }, 403);
 
   const { data: store } = await admin.from("food_stores").select("id,merchant_account_id,name").eq("id", storeId).maybeSingle();
   if (!store?.merchant_account_id) return json({ error: "store_not_found", message: "ไม่พบร้านที่เลือก" }, 404);
@@ -634,11 +648,11 @@ Deno.serve(async (req: Request) => {
       return json({ ...publicState, flow: synced.api === "v2" && publishableKey ? "embedded" : "ready", surface: synced.api === "v2" && publishableKey ? "embedded" : "none", publishableKey: synced.api === "v2" ? publishableKey : null });
     }
 
-    if (synced.api === "v2" && publishableKey) {
+    if (synced.api === "v2" && publishableKey && !qaHostedOnboarding) {
       return json({ ...publicState, flow: "embedded", surface: "embedded", publishableKey });
     }
 
-    const link = await createOnboardingLink(stripeSecret, accountId, storeId, synced.api);
+    const link = await createOnboardingLink(stripeSecret, accountId, storeId, synced.api, qaHostedOnboarding);
     if (typeof link.url !== "string") throw new Error("stripe_onboarding_link_unavailable");
     return json({ ...publicState, flow: "redirect", surface: "redirect", url: link.url });
   } catch (error) {
