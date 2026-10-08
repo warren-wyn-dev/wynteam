@@ -42,8 +42,14 @@ test("Checkout remains a direct connected-account charge with server-calculated 
   assert.match(checkout, /"Stripe-Account": account/);
   assert.match(checkout, /headers\["Idempotency-Key"\]\s*=\s*idempotencyKey/);
   assert.match(checkout, /Math\.round\(Number\(order\.total\) \* 100\)/);
-  assert.doesNotMatch(checkout, /payment_method_types/);
-  assert.match(checkout, /connected account's active payment-method/);
+  assert.match(checkout, /params\.set\("payment_method_types\[0\]", "promptpay"\)/);
+  assert.match(checkout, /promptpay_not_available/);
+  assert.match(checkout, /session\.payment_method_types\.length !== 1/);
+  assert.match(checkout, /session\.payment_method_types\[0\] !== "promptpay"/);
+  assert.match(checkout, /previous_checkout_not_expired/);
+  assert.match(checkout, /payment_processing/);
+  assert.doesNotMatch(checkout, /params\.set\("payment_method_types\[0\]", "card"\)/);
+  assert.doesNotMatch(checkout, /params\.set\("payment_method_types\[1\]"/);
   assert.match(checkout, /livemode: stripeLiveMode/);
   assert.match(checkout, /https:\/\/food\.wynos\.online/);
   assert.doesNotMatch(checkout, /application_fee_amount|transfer_data|destination/);
