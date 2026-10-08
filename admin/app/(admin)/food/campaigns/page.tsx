@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { PlatformCampaignFormButton, PlatformSettleButton } from "@/components/admin/platform-campaign-actions";
 import { formatBaht, formatThaiDate } from "@/lib/admin-food";
@@ -33,6 +34,11 @@ export default async function FoodCampaignsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Link href="/food/coupons" className="rounded-lg border px-4 py-2 text-sm font-medium">
+          โค้ดส่วนลด Food
+        </Link>
+      </div>
       <section className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-semibold">แคมเปญ WYNOS</h2>
