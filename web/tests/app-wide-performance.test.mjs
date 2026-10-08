@@ -155,6 +155,7 @@ test("source: app startup only warms route manifests after authentication; entry
   const chrome = readFileSync(new URL("../components/phase3-ui.tsx", import.meta.url), "utf8");
   const motion = readFileSync(new URL("../components/ui/page-transition.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(root, /for \(const href of PREFETCH_ROUTES\) router\.prefetch/);
+  assert.match(root, /process\.env\.NODE_ENV !== "production"/);
   assert.match(root, /requestIdleCallback\(register/);
   assert.match(root, /if \(process\.env\.NODE_ENV !== "production"\) return;/,
     "dev/test servers must not register the production service worker");
