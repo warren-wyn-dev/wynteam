@@ -31,7 +31,7 @@ test("Food marketing does not share Social or Merchant tokens", () => {
   assert.match(senderLib, /platform=eq\.web&app=eq\.food&select=token/);
   assert.doesNotMatch(senderLib, /app\.is\.null/);
   assert.match(sender, /foodPromoTokenQuery\(recipientId\)/);
-  assert.match(sender, /presented !== `Bearer \$\{KEY\}`/);
+  assert.match(sender, /verify_food_promo_cron_key/);
   assert.match(campaign, /pt\.app='food'/);
   assert.match(campaign, /pref\.push_marketing=true/);
   assert.match(inbox, /push_marketing/);
