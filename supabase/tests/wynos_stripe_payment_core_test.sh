@@ -211,6 +211,14 @@ pass "rejected event leaves no idempotency tombstone"
 [ "$(val "select status||'|'||payment_intent_id from public.food_stripe_payments where order_id='$ORDER'")" = "paid|pi_1" ] || fail "late failure downgraded paid Stripe payment"
 pass "out-of-order failed webhook cannot downgrade a paid order"
 
+expect_fail "a different PaymentIntent cannot overwrite the original paid charge" \
+  "set role service_role; select public.food_apply_stripe_event('evt_second_charge','checkout.session.completed','$ORDER','acct_test_wynos','cs_extra','cs_extra','pi_second',12550,'thb','paid','card',null,null)" \
+  "payment_intent_conflict"
+[ "$(val "select count(*) from public.food_stripe_webhook_events where event_id='evt_second_charge'")" = "0" ] || fail "conflicting payment event was consumed without reconciliation"
+[ "$(val "select status||'|'||payment_intent_id from public.food_stripe_payments where order_id='$ORDER'")" = "paid|pi_1" ] || fail "original PaymentIntent overwritten by extra charge"
+pass "second PaymentIntent is rejected for manual financial reconciliation"
+
+
 # A refund delivered before its related paid event must retry later, without
 # creating a misleading refunded payment entry or a deduplication tombstone.
 ORDER_EARLY_REFUND=00000000-0000-0000-0000-000000000099
@@ -238,6 +246,17 @@ pass "Stripe webhook finalizes full refund"
 [ "$(val "select payment_status||'|'||stripe_refund_id from public.food_orders where id='$ORDER'")" = "refunded|re_1" ] || fail "late webhooks reversed Food refund"
 [ "$(val "select status||'|'||payment_intent_id from public.food_stripe_payments where order_id='$ORDER'")" = "refunded|pi_1" ] || fail "late webhooks reversed Stripe refund"
 pass "late paid/failed webhooks never reverse a completed refund"
+
+expect_fail "refund from a different PaymentIntent is rejected" \
+  "set role service_role; select public.food_apply_stripe_event('evt_unrelated_refund','refund.updated','$ORDER_EARLY_REFUND','acct_test_wynos','re_unrelated',null,'pi_unrelated',12550,'thb','refunded',null,null,'re_unrelated')" \
+  "payment_intent_conflict"
+[ "$(val "select count(*) from public.food_stripe_webhook_events where event_id='evt_unrelated_refund'")" = "0" ] || fail "unrelated refund event claim was committed"
+pass "refund must match the paid PaymentIntent"
+
+[ "$(val "set role service_role; select public.food_apply_stripe_event('evt_duplicate_refund_other','refund.updated','$ORDER','acct_test_wynos','re_other',null,'pi_1',12550,'thb','refunded',null,null,'re_other')")" = "t" ] || fail "another refund notification was not idempotently absorbed"
+[ "$(val "select stripe_refund_id from public.food_orders where id='$ORDER'")" = "re_1" ] || fail "already completed refund ID changed"
+pass "later refund events cannot overwrite settled refund evidence"
+
 
 
 [ "$(val "select has_function_privilege('authenticated','public.food_apply_stripe_event(text,text,uuid,text,text,text,text,bigint,text,text,text,text,text)','execute')")" = "f" ] || fail "authenticated can execute webhook mutation"
