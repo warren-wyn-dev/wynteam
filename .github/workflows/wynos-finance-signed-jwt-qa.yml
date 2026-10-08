@@ -9,6 +9,7 @@ on:
     paths:
       - .github/workflows/wynos-finance-signed-jwt-qa.yml
       - supabase/sandbox/gp/finance_http_signed_jwt_qa.mjs
+      - supabase/sandbox/gp/finance_qa_password_auth_runner.mjs
   workflow_dispatch:
 
 permissions:
@@ -29,6 +30,14 @@ jobs:
       WYNOS_QA_OWNER_JWT: ${{ secrets.WYNOS_QA_OWNER_JWT }}
       WYNOS_QA_UNRELATED_JWT: ${{ secrets.WYNOS_QA_UNRELATED_JWT }}
       WYNOS_QA_APPROVED_ADMIN_JWT: ${{ secrets.WYNOS_QA_APPROVED_ADMIN_JWT }}
+      WYNOS_QA_USE_PASSWORD_AUTH: ${{ vars.WYNOS_QA_USE_PASSWORD_AUTH }}
+      WYNOS_QA_PASSWORD_GRANT_ACK: existing-three-qa-users-only
+      WYNOS_QA_OWNER_EMAIL: ${{ secrets.WYNOS_QA_OWNER_EMAIL }}
+      WYNOS_QA_OWNER_PASSWORD: ${{ secrets.WYNOS_QA_OWNER_PASSWORD }}
+      WYNOS_QA_UNRELATED_EMAIL: ${{ secrets.WYNOS_QA_UNRELATED_EMAIL }}
+      WYNOS_QA_UNRELATED_PASSWORD: ${{ secrets.WYNOS_QA_UNRELATED_PASSWORD }}
+      WYNOS_QA_APPROVED_ADMIN_EMAIL: ${{ secrets.WYNOS_QA_APPROVED_ADMIN_EMAIL }}
+      WYNOS_QA_APPROVED_ADMIN_PASSWORD: ${{ secrets.WYNOS_QA_APPROVED_ADMIN_PASSWORD }}
       WYNOS_QA_OWNER_STORE_ID: ${{ vars.WYNOS_QA_OWNER_STORE_ID }}
       WYNOS_QA_OTHER_STORE_ID: ${{ vars.WYNOS_QA_OTHER_STORE_ID }}
     steps:
@@ -43,4 +52,9 @@ jobs:
           test "$WYNOS_QA_HTTP_ACK" = "pcatuxtenluqzjzzwsvl"
           test "$WYNOS_QA_SUPABASE_URL" = "https://pcatuxtenluqzjzzwsvl.supabase.co"
       - name: Verify real Supabase-signed QA JWT owner, outsider and Admin RPC authorization
-        run: node supabase/sandbox/gp/finance_http_signed_jwt_qa.mjs
+        run: |
+          if [ "$WYNOS_QA_USE_PASSWORD_AUTH" = "true" ]; then
+            node supabase/sandbox/gp/finance_qa_password_auth_runner.mjs
+          else
+            node supabase/sandbox/gp/finance_http_signed_jwt_qa.mjs
+          fi
