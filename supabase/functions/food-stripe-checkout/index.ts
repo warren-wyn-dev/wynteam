@@ -55,6 +55,9 @@ async function stripeJson(url: string, init: RequestInit) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  // This branch must never run against any other Supabase project.
+  if (Deno.env.get("SUPABASE_URL") !== "https://pcatuxtenluqzjzzwsvl.supabase.co")
+    return json({ error: "sandbox_project_mismatch" }, 503);
 
   const url = Deno.env.get("SUPABASE_URL");
   const key = serviceKey();
@@ -129,7 +132,7 @@ Deno.serve(async (req: Request) => {
   let sandboxFoodBase: string;
   try {
     const parsed = new URL(sandboxFoodReturn ?? "");
-    if (parsed.protocol !== "https:" || ["food.wynos.online","merchant.wynos.online"].includes(parsed.hostname) || parsed.username || parsed.password) throw new Error("bad sandbox return URL");
+    if (parsed.protocol !== "https:" || ["wynos.online","food.wynos.online","merchant.wynos.online","maps.wynos.online"].includes(parsed.hostname) || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error("bad sandbox return URL");
     sandboxFoodBase = parsed.origin;
   } catch { return json({ error: "sandbox_food_redirect_not_configured" }, 503); }
   const params = new URLSearchParams();
