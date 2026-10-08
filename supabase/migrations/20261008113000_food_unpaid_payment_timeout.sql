@@ -227,21 +227,5 @@ end;
 $$;
 revoke all on function internal.food_timeout_tick() from public, anon, authenticated;
 
--- Only enable the job after the worker is deployed and verified.
--- This section is idempotent when rerun on the production project.
-do $$
-declare v_job bigint;
-begin
-  if exists (select 1 from pg_extension where extname='pg_cron')
-     and exists (select 1 from pg_extension where extname='pg_net') then
-    for v_job in select jobid from cron.job
-      where jobname='wynos-food-unpaid-timeout' loop
-      perform cron.unschedule(v_job);
-    end loop;
-    perform cron.schedule('wynos-food-unpaid-timeout','* * * * *',
-      'select internal.food_timeout_tick();');
-  else
-    raise exception 'pg_cron and pg_net required to enforce the timeout';
-  end if;
-end;
-$$;
+-- Activation is separated so no timeout begins until the updated Stripe Checkout
+-- function and cron worker have both been deployed and verified.
