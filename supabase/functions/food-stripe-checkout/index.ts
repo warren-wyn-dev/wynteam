@@ -133,7 +133,8 @@ Deno.serve(async (req: Request) => {
   try {
     const parsed = new URL(sandboxFoodReturn ?? "");
     if (parsed.protocol !== "https:" || ["wynos.online","food.wynos.online","merchant.wynos.online","maps.wynos.online"].includes(parsed.hostname) || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error("bad sandbox return URL");
-    sandboxFoodBase = parsed.origin;
+    // Preserve /food on a shared preview host (e.g. preview.vercel.app/food).
+    sandboxFoodBase = parsed.origin + parsed.pathname.replace(/\/+$/, "");
   } catch { return json({ error: "sandbox_food_redirect_not_configured" }, 503); }
   const params = new URLSearchParams();
   params.set("mode", "payment");
