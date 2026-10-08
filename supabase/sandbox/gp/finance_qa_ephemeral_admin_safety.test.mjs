@@ -45,6 +45,8 @@ const cases=[
   ["production branch",{GITHUB_REF:"refs/heads/main"},"Refusing Finance Admin lifecycle"],
   ["unapproved repo",{GITHUB_REPOSITORY:"other-owner/other-repo"},"Refusing Finance Admin lifecycle"],
   ["push event forbidden",{GITHUB_EVENT_NAME:"push"},"Refusing Finance Admin lifecycle"],
+  ["wrong actor on approved push",{GITHUB_EVENT_NAME:"push",WYNOS_QA_PUSH_GATE:"true",WYNOS_QA_APPROVED_ACTOR:"warren-admin",GITHUB_ACTOR:"untrusted-author"},"Refusing Finance Admin lifecycle"],
+  ["push requires explicit QA gate",{GITHUB_EVENT_NAME:"push",WYNOS_QA_PUSH_GATE:"false",WYNOS_QA_APPROVED_ACTOR:"warren-admin",GITHUB_ACTOR:"warren-admin"},"Refusing Finance Admin lifecycle"],
   ["no human approval",{WYNOS_QA_TEMP_ADMIN_APPROVED:"false"},"Refusing Finance Admin lifecycle"],
   ["wrong QA host",{WYNOS_QA_SUPABASE_URL:"https://supabase-not-qa.invalid"},"Refusing Finance Admin lifecycle"],
   ["missing high-privilege secret",{WYNOS_QA_SERVICE_ROLE_LEGACY_JWT:""},"Missing QA legacy service-role JWT"],
@@ -70,6 +72,14 @@ test("cleanup with no lifecycle state is an idempotent no-op without network",()
   const r=attempt({},["--cleanup"]);
   assert.equal(r.signal,null);
   assert.equal(r.status,0,"cleanup should safely skip with no state");
+  assert.match(r.stdout,/no created admin fixture/);
+});
+test("manually gated Sandbox request push is accepted for NO-STATE cleanup only",()=>{
+  const r=attempt({
+    GITHUB_EVENT_NAME:"push",WYNOS_QA_PUSH_GATE:"true",
+    WYNOS_QA_APPROVED_ACTOR:"warren-admin",GITHUB_ACTOR:"warren-admin"
+  },["--cleanup"]);
+  assert.equal(r.status,0,"approved push should allow idempotent no-state cleanup");
   assert.match(r.stdout,/no created admin fixture/);
 });
 test.after(()=>{rmSync(temp,{recursive:true,force:true});});
