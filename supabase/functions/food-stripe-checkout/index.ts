@@ -128,19 +128,36 @@ Deno.serve(async (req: Request) => {
   }
 
   // Do not send test customers back to food.wynos.online (production).
-  const sandboxFoodReturn = Deno.env.get("WYNOS_STRIPE_SANDBOX_FOOD_URL")?.trim();
+  const isIsolatedQaCheckout =
+    user.id === "50956870-1d09-4e0a-98bf-2c1e0e0c722b" &&
+    order.buyer_id === user.id &&
+    order.store_id === "6638327e-353f-4151-8d69-d84b5badb831" &&
+    order.order_number === "WF000003" &&
+    stripeLiveMode === false;
+  // The fixed synthetic QA order always returns to its own sandbox preview.
+  // Do not expose this fallback to real stores, other customers, or Production.
+  const qaReturnUrl =
+    "https://wynteam-gesb-git-sandbox-stripe-testmode-20261008-warren14.vercel.app/stripe-sandbox";
+  const sandboxFoodReturn = isIsolatedQaCheckout
+    ? qaReturnUrl
+    : Deno.env.get("WYNOS_STRIPE_SANDBOX_FOOD_URL")?.trim();
   let sandboxFoodBase: string;
   try {
     const parsed = new URL(sandboxFoodReturn ?? "");
-    if (parsed.protocol !== "https:" || ["wynos.online","food.wynos.online","merchant.wynos.online","maps.wynos.online"].includes(parsed.hostname) || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error("bad sandbox return URL");
-    // Preserve /food on a shared preview host (e.g. preview.vercel.app/food).
+    if (parsed.protocol !== "https:" ||
+        ["wynos.online","food.wynos.online","merchant.wynos.online","maps.wynos.online"].includes(parsed.hostname) ||
+        parsed.username || parsed.password || parsed.search || parsed.hash) {
+      throw new Error("bad sandbox return URL");
+    }
     sandboxFoodBase = parsed.origin + parsed.pathname.replace(/\/+$/, "");
   } catch { return json({ error: "sandbox_food_redirect_not_configured" }, 503); }
   const params = new URLSearchParams();
   params.set("mode", "payment");
   params.set("client_reference_id", order.id);
-  params.set("success_url", `${sandboxFoodBase}/?order=${encodeURIComponent(order.order_number)}&stripe=success`);
-  params.set("cancel_url", `${sandboxFoodBase}/?order=${encodeURIComponent(order.order_number)}&stripe=cancelled`);
+  // For the dedicated Next.js QA page, append search params to the page itself.
+  const returnSeparator = isIsolatedQaCheckout ? "?" : "/?";
+  params.set("success_url", `${sandboxFoodBase}${returnSeparator}order=${encodeURIComponent(order.order_number)}&stripe=success`);
+  params.set("cancel_url", `${sandboxFoodBase}${returnSeparator}order=${encodeURIComponent(order.order_number)}&stripe=cancelled`);
   params.set("line_items[0][price_data][currency]", "thb");
   params.set("line_items[0][price_data][product_data][name]", `WYNOS Food #${order.order_number}`);
   params.set("line_items[0][price_data][unit_amount]", String(amountSatang));
