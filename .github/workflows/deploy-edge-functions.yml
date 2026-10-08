@@ -31,6 +31,7 @@ on:
           - location-search
           - validate-upload
           - food-unpaid-timeout
+          - send-food-promotion
           - food-stripe-checkout
           - food-stripe-cancel
           - merchant-stripe-connect
@@ -129,8 +130,8 @@ jobs:
 
           # Per-function auth is defined in supabase/config.toml.
           # User-invoked Stripe functions require a valid Supabase user JWT.
-          # stripe-webhook is the exception: Stripe cannot send a Supabase JWT,
-          # so platform JWT verification is disabled only for that function and
-          # the handler authenticates requests with Stripe-Signature.
+          # Stripe webhooks and Vault-scheduled background jobs cannot send a
+          # Supabase user JWT; the listed functions instead authenticate at
+          # the application layer using Stripe-Signature or a dedicated Vault key.
           SUPABASE_ACCESS_TOKEN="$CLEAN_TOKEN" \
             supabase functions deploy "${{ inputs.function }}" --project-ref "$PROJECT_REF"
