@@ -34,7 +34,7 @@ function startB(){
  startedB=true;
  const bSql=`BEGIN;
 SET LOCAL lock_timeout = '700ms';
-DO $$$$
+DO $
 DECLARE blocked boolean := false;
 BEGIN
   BEGIN
@@ -46,7 +46,7 @@ BEGIN
     RAISE EXCEPTION 'QA lock contention was NOT observed';
   END IF;
   RAISE NOTICE 'QA_LOCK_CONTENTION_PASS';
-END;$$$$;
+END;$;
 ROLLBACK;`;
  promiseB=start(bSql,'B');
 }
