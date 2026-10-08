@@ -54,7 +54,7 @@ export function FoodPromotionCenter({ client, userId }: { client: SupabaseClient
     else { setPushMarketing(push); setInAppMarketing(inApp); setNotice("บันทึกการตั้งค่าแล้ว"); }
   };
 
-  const useCode = async (n: Notification) => {
+  const applyPromoCode = async (n: Notification) => {
     if (!n.coupon_code) return;
     const code = n.coupon_code;
     try { window.localStorage.setItem("wynos-food-promo-code-v1", code); } catch { /* private mode */ }
@@ -84,7 +84,7 @@ export function FoodPromotionCenter({ client, userId }: { client: SupabaseClient
             <small className="text-muted-foreground">{new Date(row.created_at).toLocaleDateString("th-TH")}</small>
           </button>
           {row.coupon_code && <button type="button" className="mt-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
-            onClick={() => void useCode(row)}><Copy size={14}/>{row.coupon_code} · ใช้โค้ดนี้</button>}
+            onClick={() => void applyPromoCode(row)}><Copy size={14}/>{row.coupon_code} · ใช้โค้ดนี้</button>}
         </article>)}
       <div className="space-y-2 rounded-lg bg-muted p-3">
         <strong className="text-sm">ตั้งค่าการรับโปรโมชัน</strong>
