@@ -104,6 +104,36 @@ await test('QA unrelated user cannot read raw refund adjustments',denied,'GET',
 await test('Anonymous request cannot access internal finance core',r => [401,403,404].includes(r.status),'POST',
   '/rest/v1/rpc/food_finance_report_core_qa','anon',
   {...range,p_store_id:null});
+
+// v2 QA API: buckets have an explicit Asia/Bangkok date basis and no assumed settlement.
+const validV2 = r => r.status === 200
+  && r.data?.mode === 'simulation_only'
+  && r.data?.timezone === 'Asia/Bangkok'
+  && r.data?.granularity === 'day'
+  && Array.isArray(r.data?.buckets)
+  && r.data?.merchant_net_payout_satang === null
+  && r.data?.stripe_processing_fee_satang === null
+  && r.data?.selected_store_id === ownerStore;
+await test('QA store owner can read private-backed v2 daily buckets',validV2,'POST',
+  '/rest/v1/rpc/merchant_food_finance_buckets_v2_qa','owner',
+  {p_store_id:ownerStore,...range,p_granularity:'day'});
+await test('QA store owner cannot read other store v2 buckets',denied,'POST',
+  '/rest/v1/rpc/merchant_food_finance_buckets_v2_qa','owner',
+  {p_store_id:otherStore,...range,p_granularity:'day'});
+await test('QA unrelated user cannot read v2 finance order detail',denied,'POST',
+  '/rest/v1/rpc/merchant_food_finance_order_details_v2_qa','unrelated',
+  {p_store_id:ownerStore,p_order_id:'10000000-0000-4000-8000-000000000001'});
+await test('QA unrelated user cannot read admin v2 buckets',denied,'POST',
+  '/rest/v1/rpc/admin_food_finance_buckets_v2_qa','unrelated',
+  {...range,p_granularity:'day',p_store_id:null});
+await test('Anonymous request cannot read merchant v2 buckets',denied,'POST',
+  '/rest/v1/rpc/merchant_food_finance_buckets_v2_qa','anon',
+  {p_store_id:ownerStore,...range,p_granularity:'day'});
+await test('Anonymous request cannot invoke private v2 reporting core',
+  r => [401,403,404].includes(r.status),'POST',
+  '/rest/v1/rpc/food_finance_buckets_core_v2_qa','anon',
+  {...range,p_granularity:'day',p_store_id:null});
+
 if (keys.admin) {
   await test('QA allowlisted Admin can read report',
     r => r.status === 200 && ensureReport(r.data),'POST',
