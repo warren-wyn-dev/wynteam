@@ -1,5 +1,26 @@
 # WYNOS Finance — real QA Auth/JWT & browser handoff
 
+## 2026-10-09 approved one-time, self-cleaning QA Admin automation
+
+**Implementation already committed to Sandbox, with no real user created or granted yet.**
+
+- `supabase/sandbox/gp/finance_qa_ephemeral_admin_lifecycle.mjs`: QA-only Auth Admin REST `createUser` with synthetic `@wynos.online` email + 36-byte random temporary password generated inside runner memory. Automatically writes a scoped Finance Admin allowlist entry for that exact new user and invokes existing `finance_qa_password_auth_runner.mjs` to test the original QA owner, unrelated QA user and new Admin through **real signed JWT HTTP**.
+- The script deletes **the allowlist grant first**, confirms it is absent, and deletes **only the newly created Auth user** after checking its exact CI-generated ID and email. Cleanup runs in `finally` and in a second GitHub Actions `if: always()` step. If cleanup fails, the job is red; an authorized operator must manually revoke it by exact QA Auth user ID. No Production user is modified.
+- `.github/workflows/wynos-finance-approved-auth-lifecycle.yml` runs on Sandbox only using a protected GitHub Environment `wynos-finance-qa-approved`, requiring explicit variable/actor gate and human environment review. **The normal GitHub “Run workflow” option is not reliably available for a workflow present only on a non-default branch**. To comply with the no-main rule, the workflow supports a one-time **Sandbox push of `supabase/sandbox/gp/FINANCE_AUTH_QA_RUN_REQUEST.md`** rather than changing main. The newly created request file is `DISARMED` and its initial run was correctly **skipped**.
+- `finance_qa_ephemeral_admin_safety.test.mjs` checks refusal of wrong repo/project/branch, unapproved pushes, bad secrets and no-op cleanup without network calls. No secrets are saved in GitHub source.
+
+### Required authorized GitHub UI setup (not accessible via current GitHub connector)
+
+1. In repository **Settings → Environments**, configure `wynos-finance-qa-approved` to allow **only** branch `sandbox/stripe-testmode-20261008`, enable required trusted reviewers if the GitHub plan supports it, and confirm the access controls are enforced. **Do not store a service-role key in an unrestricted repository secret. Stop if protected Environment secrets are unavailable.**
+2. In **that protected Environment's Secrets**, set `WYNOS_QA_SERVICE_ROLE_LEGACY_JWT` (legacy **service_role JWT for QA PROJECT ONLY**, never Production), `WYNOS_QA_ANON_KEY` (publishable or legacy QA anon), `WYNOS_QA_OWNER_EMAIL`, `WYNOS_QA_OWNER_PASSWORD`, `WYNOS_QA_UNRELATED_EMAIL` and `WYNOS_QA_UNRELATED_PASSWORD` (credentials only for already-existing, dedicated QA owner/outsider users). These are server-side runner environment secrets, NEVER frontend/client or committed code. Verify both existing QA users genuinely support email/password Auth; do not modify their passwords without separate consent.
+3. In **Environment or Repository Actions Variables**, set `WYNOS_QA_OWNER_STORE_ID` to a QA store owned by that owner user; `WYNOS_QA_OTHER_STORE_ID` to a different QA store; `WYNOS_QA_ONE_TIME_TRIGGER=true`; and `WYNOS_QA_APPROVED_ACTOR` to the exact GitHub login of the trusted operator who will push the request. The workflow still validates project URL, branch, project acknowledgement and manually approved workflow mode.
+4. Trusted operator edits only the `RUN_REQUEST: DISARMED` line in <https://github.com/warren-wyn-dev/wynteam/blob/sandbox/stripe-testmode-20261008/supabase/sandbox/gp/FINANCE_AUTH_QA_RUN_REQUEST.md> to a one-time run marker and commits it **on Sandbox only**. A `push` touching that specific file then requests the protected CI job; environment reviewer should inspect the changed SHA before allowing execution. It must not be merged to main.
+5. Confirm **real signed-JWT HTTP PASS** for owner/outsider/Admin in GitHub run logs and **cleanup PASS**. **Immediately** set `WYNOS_QA_ONE_TIME_TRIGGER=false`; remove or rotate the temporary provisioning credentials as appropriate, confirm QA Auth user count returns to the expected baseline 2 and `food_gp_admin_allowlist` returns to 0, with no finance snapshots, adjustments or real GP collection.
+6. If a CI crash or missed cleanup leaves a synthetic `finance-qa-<runId>-...@wynos.online` account, the operator must **first** revoke its exact Finance QA allowlist entry and then delete only that synthetic Auth user from the QA Auth dashboard. Do not delete existing QA owner/outsider accounts or use SQL INSERT/DELETE on `auth.users`.
+
+**No Auth account, allowlist grant, or GitHub credential was created in this conversation:** the existing Supabase/GitHub connectors do not expose the necessary Admin API / protected secret management actions. The approved QA operation remains **armed only by the human operator's secure environment configuration and file edit**.
+
+
 **Scope:** GitHub branch `sandbox/stripe-testmode-20261008`; Supabase QA project `pcatuxtenluqzjzzwsvl` ONLY. Do **not** deploy, merge `main`, access Supabase Production, collect GP, call Stripe Refund, or create actual transfers/payouts.
 
 ## Readiness observed on 2026-10-09 local time
@@ -11,7 +32,7 @@ Read-only Supabase QA catalog counts:
 - `food_gp_admin_allowlist` entries: **0**
 - Persistent GP order snapshots: **0**
 
-**BLOCKER:** Full independent-owner/unrelated/allowlisted-admin HTTP proof needs three distinct, legitimately authenticated QA users. The existing QA does **not** have all three accounts/roles. A role claim or user_metadata value cannot substitute for genuine allowlist membership. **Do not create Auth accounts or modify the allowlist without the founder's explicit approval of the specific QA-only fixture lifecycle.**
+**APPROVAL RECEIVED (2026-10-09), BUT NOT EXECUTED:** The founder explicitly approved provisioning ONE temporary third QA Auth Admin and its temporary allowlist grant, with removal after testing. Full independent-owner/unrelated/allowlisted-admin HTTP proof still needs three genuinely authenticated QA users. The existing QA does **not** have all three accounts/roles. A role claim or user_metadata value cannot substitute for genuine allowlist membership. **The approved procedure is restricted to the temporary QA-only lifecycle, not persistent accounts, credentials, Production or actual payouts.**
 
 ## Infrastructure already in Sandbox (no real user JWT execution yet)
 
