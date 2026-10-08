@@ -219,6 +219,12 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(map).toContain("nearbyRadiusForZoom");
   expect(map).toContain("fetchNearbyWynosPlaces");
   expect(map).toContain("wf-map-place-label");
+  expect(map).toContain("mapZoom >= 16.6 && index < 4");
+  expect(map).toContain('wf-map-confirm-tool-label">เส้นทาง');
+  expect(map).toContain('wf-map-confirm-tool-label">บันทึก');
+  expect(map).toContain('wf-map-confirm-tool-label">แชร์');
+  expect(read("app/maps/maps-v5.css")).toContain("v5.3 — match the approved premium-minimal Maps visual direction");
+  expect(read("app/maps/maps-v5.css")).toContain("background: rgb(255 59 48 / 10%)");
   expect(map).toContain("เพิ่มสถานที่ที่หายไป");
   expect(map).toContain("submitWynosPlaceSuggestion");
   expect(data).toContain('client.rpc("submit_wynos_place_suggestion"');
