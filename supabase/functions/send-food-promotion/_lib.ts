@@ -20,3 +20,8 @@ export function isFoodPromoQuietTime(now: Date): boolean {
   }).format(now));
   return hour >= 22 || hour < 8;
 }
+
+// Recheck consent immediately before sending; a customer may opt out after the queue was created.
+export function foodPromoConsentQuery(userId: string): string {
+  return `food_marketing_preferences?user_id=eq.${encodeURIComponent(userId)}&push_marketing=eq.true&select=user_id&limit=1`;
+}
