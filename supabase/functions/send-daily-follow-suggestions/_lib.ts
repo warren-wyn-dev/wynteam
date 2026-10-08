@@ -6,10 +6,10 @@ export interface FcmServiceAccount {
 
 /**
  * Daily account recommendations belong to WYNOS Social only.
- * WYN-215 treats older NULL app labels as Social; never send to Food/Merchant.
+ * Legacy NULL labels cannot prove the app: fail closed until re-registration.
  */
 export function dailyFollowSocialTokenQuery(userId: string): string {
-  return `push_tokens?user_id=eq.${encodeURIComponent(userId)}&platform=eq.web&or=(app.eq.social,app.is.null)&select=token`;
+  return `push_tokens?user_id=eq.${encodeURIComponent(userId)}&platform=eq.web&app=eq.social&select=token`;
 }
 
 export type PushLanguage = "th" | "en";
