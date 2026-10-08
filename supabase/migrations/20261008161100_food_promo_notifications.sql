@@ -167,7 +167,7 @@ begin
       ))
       and (select count(*) from public.food_notifications recent
            where recent.recipient_id=r.uid and recent.created_at>now()-interval '7 days')<3
-    on conflict (recipient_id,broadcast_id) do nothing;
+    on conflict on constraint food_notifications_unique_delivery do nothing;
 
     -- Only recipients who explicitly enabled marketing Push and have a
     -- currently classified WYNOS Food token are queued for Web Push.
@@ -185,7 +185,7 @@ begin
         where recent.recipient_id=n.recipient_id and recent.state='sent'
           and recent.sent_at > now()-interval '24 hours'
       )
-    on conflict (broadcast_id,recipient_id) do nothing;
+    on conflict on constraint food_promo_deliveries_unique do nothing;
 
     update public.food_promo_broadcasts set state='sent',processed_at=now()
     where id=v_b.id;
