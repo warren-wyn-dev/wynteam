@@ -37,3 +37,24 @@ test("standalone Maps requests a fresh high-accuracy GPS fix and reports coarse 
   assert.match(map, /setGpsMessage\(/);
   assert.match(map, /setUserLocation\(next\);[\s\S]*?moveTo\(next\);/);
 });
+
+test("standalone Maps never overlays its destination pin on the current GPS dot", () => {
+  const map = readFileSync(new URL("../components/food/food-delivery-map-picker.tsx", import.meta.url), "utf8");
+  // An explicit manual/search/deep-linked selection has a red pin. Merely
+  // opening Maps or locating yourself does not, so the GPS blue dot is clear.
+  assert.match(map, /\(!standalone \|\| \(chosen && !currentLocationSelected && !navigating && !directionsTarget\)\)/);
+  assert.match(map, /setUserLocation\(next\);[\s\S]*?moveTo\(next\);[\s\S]*?setCurrentLocationSelected\(true\);/);
+  assert.match(map, /const \[chosen, setChosen\] = useState\(Boolean\(initialLocation\)\)/);
+});
+
+test("Maps launch UI has clear saved places, distinctive POI markers and readable near labels", () => {
+  const map = readFileSync(new URL("../components/food/food-delivery-map-picker.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/maps/maps-v6.css", import.meta.url), "utf8");
+  assert.match(map, /className="wf-map-saved-shortcut" aria-label="สถานที่ที่บันทึก"/);
+  assert.match(map, /<Bookmark size=\{21\}/);
+  assert.doesNotMatch(map, /<span>W<\/span>/);
+  assert.match(map, /const showLabel = selected \|\| \(standalone \? \(mapZoom >= 15\.5/);
+  assert.match(map, /M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 0 1 14 0Z/);
+  assert.match(css, /wf-map-place-marker\.has-label:not\(\.is-selected\) \.wf-map-place-label/);
+  assert.match(css, /min-height: 44px/);
+});
