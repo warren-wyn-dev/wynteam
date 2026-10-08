@@ -10,7 +10,7 @@ const finance=readFileSync(resolve(here,"../components/merchant/merchant-finance
 
 test("QA preview must require env flag AND exact Supabase QA project URL",()=>{
   assert.match(preview,/NEXT_PUBLIC_WYNOS_FINANCE_QA_PREVIEW === "true"/);
-  assert.match(preview,/client\.supabaseUrl === QA_PROJECT_URL/);
+  assert.match(preview,/process\.env\.NEXT_PUBLIC_SUPABASE_URL === QA_PROJECT_URL/);
   assert.match(preview,/https:\/\/pcatuxtenluqzjzzwsvl\.supabase\.co/);
   assert.match(preview,/if \(!qaEnabled\) return null/);
 });
