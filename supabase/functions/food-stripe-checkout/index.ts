@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
   if (!["checkout", "reconcile"].includes(action)) return json({ error: "invalid_action" }, 400);
 
   const { data: order } = await admin.from("food_orders")
-    .select("id,order_number,buyer_id,store_id,total,status,payment_status")
+    .select("id,order_number,buyer_id,store_id,total,status,payment_status,stripe_checkout_session_id")
     .eq("id", orderId).maybeSingle();
   if (!order || order.buyer_id !== user.id) return json({ error: "order_not_found" }, 404);
   if (action === "checkout" &&
