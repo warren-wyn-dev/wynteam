@@ -80,9 +80,11 @@ begin
     return false;
   end if;
 
+  perform set_config('wynos.food_auto_cancel','on',true);
   update public.food_orders
   set status='cancelled', cancelled_at=clock_timestamp()
   where id=v_order.id;
+  perform set_config('wynos.food_auto_cancel','off',true);
 
   insert into public.food_order_events
     (order_id,event_type,from_status,to_status,note,actor_id)
@@ -124,6 +126,73 @@ as $$
 $$;
 revoke all on function public.food_timeout_cron_authorized(text) from public, anon, authenticated;
 grant execute on function public.food_timeout_cron_authorized(text) to service_role;
+
+-- Keep customer push wording accurate: an automatic timeout is NOT a store
+-- cancellation. Other order-status notifications retain their existing flow.
+create or replace function internal.food_order_status_notify()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, internal
+as $
+declare
+  v_actor uuid := auth.uid();
+  v_account_id uuid;
+  v_reason text;
+begin
+  if new.status is not distinct from old.status then return new; end if;
+
+  if new.status = 'preparing' and new.buyer_id is not null then
+    insert into public.notifications(recipient_id, actor_id, type, reason)
+    values (new.buyer_id, null, 'system',
+      'ออเดอร์ #' || new.order_number || ' ร้านรับออเดอร์แล้ว · กำลังเตรียมอาหาร'
+      || case when new.eta_minutes is not null then ' (ประมาณ ' || new.eta_minutes || ' นาที)' else '' end);
+  elsif new.status = 'out_for_delivery' and new.buyer_id is not null then
+    insert into public.notifications(recipient_id, actor_id, type, reason)
+    values (new.buyer_id, null, 'system',
+      'ออเดอร์ #' || new.order_number || ' กำลังจัดส่ง · เตรียมรับอาหารได้เลย');
+  elsif new.status = 'cancelled' then
+    if current_setting('wynos.food_auto_cancel',true) = 'on' then
+      if new.buyer_id is not null then
+        insert into public.notifications(recipient_id, actor_id, type, reason)
+        values (new.buyer_id, null, 'system',
+          'ออเดอร์ #' || new.order_number || ' ถูกยกเลิกอัตโนมัติ เพราะไม่ชำระเงินภายใน 10 นาที');
+      end if;
+      v_reason := 'WYNOS Merchant · ออเดอร์ #' || new.order_number ||
+                  ' ยกเลิกอัตโนมัติ (ไม่ได้ชำระเงินภายใน 10 นาที)';
+      select s.merchant_account_id into v_account_id
+      from public.food_stores s where s.id = new.store_id;
+      if v_account_id is not null then
+        insert into public.merchant_notifications(merchant_account_id, recipient_user_id, type, reason)
+        select v_account_id, mm.user_id, 'order', v_reason
+        from public.merchant_memberships mm
+        where mm.merchant_account_id = v_account_id and mm.active;
+      end if;
+    elsif new.buyer_id is not null and v_actor is not distinct from new.buyer_id then
+      v_reason := 'WYNOS Merchant · ลูกค้ายกเลิกออเดอร์ #' || new.order_number;
+      select s.merchant_account_id into v_account_id from public.food_stores s where s.id = new.store_id;
+      if v_account_id is not null then
+        insert into public.merchant_notifications(merchant_account_id, recipient_user_id, type, reason)
+        select v_account_id, mm.user_id, 'order', v_reason
+        from public.merchant_memberships mm
+        where mm.merchant_account_id = v_account_id and mm.active;
+      end if;
+      insert into public.notifications(recipient_id, actor_id, type, reason)
+      select fs.user_id, null, 'system', v_reason
+      from public.food_staff fs
+      where fs.store_id = new.store_id and fs.active and fs.role in ('owner','staff');
+    elsif new.buyer_id is not null then
+      insert into public.notifications(recipient_id, actor_id, type, reason)
+      values (new.buyer_id, null, 'system',
+        'ออเดอร์ #' || new.order_number || ' ถูกร้านยกเลิก'
+          || case when new.payment_status = 'paid' then ' · ร้านจะคืนเงินให้คุณ' else '' end);
+    end if;
+  end if;
+
+  return new;
+end;
+$;
+revoke all on function internal.food_order_status_notify() from public, anon, authenticated;
 
 -- The cron launcher only sends a signed request. Stripe processing and the
 -- atomic cancellation happen in the Edge worker, never in this function.
