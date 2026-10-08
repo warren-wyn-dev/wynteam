@@ -202,7 +202,22 @@ export default function StripeSandboxPage() {
       const { data, error } = await client.functions.invoke("food-stripe-checkout", {
         body: { orderId: order.id },
       });
-      if (error) throw error;
+      if (error) {
+        const response = (error as { context?: Response }).context;
+        const body = response && typeof response.json === "function"
+          ? await response.json().catch(() => null) as { error?: string; message?: string } | null
+          : null;
+        const safeCodes: Record<string, string> = {
+          sandbox_food_redirect_not_configured: "ยังไม่ได้ตั้งค่า URL สำหรับกลับจาก Stripe Checkout ใน Sandbox",
+          stripe_not_ready: "ร้านค้าทดสอบยังไม่พร้อมรับชำระเงิน",
+          stripe_checkout_failed: "Stripe ไม่สามารถสร้าง Checkout ได้ กรุณาแจ้งผู้ดูแลทดสอบ",
+          sandbox_test_keys_required: "คีย์ Stripe Test Mode ยังไม่พร้อมใช้งาน",
+          stripe_not_configured: "คีย์ Stripe Test Mode ยังไม่ถูกตั้งค่าใน Supabase Sandbox",
+          payment_record_failed: "บันทึกข้อมูล Checkout ไม่สำเร็จ",
+          order_not_payable: "คำสั่งซื้อนี้ยังไม่พร้อมชำระเงิน",
+        };
+        throw new Error(body?.message || (body?.error && safeCodes[body.error]) || (body?.error ? "ไม่สามารถเปิด Checkout ได้ (" + body.error + ")" : error.message));
+      }
       const payload = data as { url?: string; error?: string; message?: string } | null;
       if (!payload?.url) {
         throw new Error(payload?.error || payload?.message || "ยังไม่สามารถสร้าง Checkout ได้");
