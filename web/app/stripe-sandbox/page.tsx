@@ -245,13 +245,19 @@ export default function StripeSandboxPage() {
     // payment status, THB amount, currency, buyer and metadata. No new charge.
     if (!ENABLED || !user || user.id !== QA_MERCHANT_USER_ID || !stripeReturnOrder ||
         !returnStatus?.startsWith("Stripe กลับจากหน้าชำระเงินแล้ว")) return;
-    const order = orders.find((candidate) =>
+    const matchingOrder = orders.find((candidate) =>
       candidate.store_id === QA_CONNECT_STORE_ID &&
-      candidate.order_number === stripeReturnOrder &&
-      ["pending", "issue"].includes(candidate.payment_status));
-    if (!order || autoReconcileStarted.current === order.id) return;
-    autoReconcileStarted.current = order.id;
-    void reconcileCheckout(order);
+      candidate.order_number === stripeReturnOrder);
+    if (!matchingOrder) return;
+    // A webhook may have marked the payment paid before the return page loads.
+    if (matchingOrder.payment_status === "paid") {
+      setReturnStatus("คำสั่งซื้อทดสอบชำระสำเร็จแล้ว ✓ ไม่มีการเรียกเก็บเงินซ้ำ");
+      return;
+    }
+    if (!["pending", "issue"].includes(matchingOrder.payment_status) ||
+        autoReconcileStarted.current === matchingOrder.id) return;
+    autoReconcileStarted.current = matchingOrder.id;
+    void reconcileCheckout(matchingOrder);
   }, [orders, user, returnStatus, stripeReturnOrder, reconcileCheckout]);
 
   async function checkout(order: Order) {
