@@ -72,6 +72,13 @@ function pushTarget(data) {
   const order = typeof data?.order_number === "string" && /^WF\d{4,9}$/.test(data.order_number)
     ? `?order=${data.order_number}`
     : "";
+  // Promotions must stay within Food, and can prefill the code in checkout.
+  if (data?.type === "food_promotion" && data?.app === "food") {
+    const code = typeof data.coupon_code === "string" && /^[A-Z0-9][A-Z0-9_-]{3,23}$/.test(data.coupon_code)
+      ? `?promo=${encodeURIComponent(data.coupon_code)}`
+      : "";
+    return `/food${code}`;
+  }
   if (data?.app === "merchant") return `/merchant${order}`;
   if (data?.app === "food") return `/food${order}`;
   if (data?.type === "daily_follow_suggestion") {
@@ -210,8 +217,8 @@ self.addEventListener("push", (event) => {
     pushString(notification.title) || pushString(data.push_title) || "WYNOS",
     {
       body: pushString(notification.body) || pushString(data.push_body) || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: data.type === "food_promotion" && data.app === "food" ? "/icons/food/icon-192-v10.png" : "/icons/icon-192.png",
+      badge: data.type === "food_promotion" && data.app === "food" ? "/icons/food/icon-192-v10.png" : "/icons/icon-192.png",
       tag,
       data,
       ...merchantAlert,

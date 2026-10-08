@@ -36,6 +36,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
+import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { rememberFoodArea } from "@/lib/food-area-memory";
 import {
@@ -2035,7 +2036,7 @@ function CheckoutSheet({
   onClose: () => void;
   onAddAddress: () => void;
   onEditAddress: (address: FoodCustomerAddress) => void;
-  onSubmit: (address: FoodCustomerAddress, note: string, scheduledFor?: string | null) => void;
+  onSubmit: (address: FoodCustomerAddress, note: string, scheduledFor?: string | null, couponCode?: string | null) => void;
 }) {
   const initialAddressId = (
     addresses.find((address) => address.is_default && foodCustomerAddressStructuredComplete(address))
@@ -2045,6 +2046,21 @@ function CheckoutSheet({
   )?.id ?? "";
   const [addressId, setAddressId] = useState(initialAddressId);
   const [note, setNote] = useState("");
+  const [couponDraft, setCouponDraft] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const fromLink = new URLSearchParams(window.location.search).get("promo");
+    let saved: string | null = null;
+    try { saved = localStorage.getItem("wynos-food-promo-code-v1"); } catch { /* private mode */ }
+    return (fromLink || saved || "").toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0,24);
+  });
+  const [couponCode, setCouponCode] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    let stored: string | null = null;
+    try { stored = localStorage.getItem("wynos-food-promo-code-v1"); } catch { /* private mode */ }
+    const linked = new URLSearchParams(window.location.search).get("promo");
+    const code = (linked || stored || "").toUpperCase();
+    return /^[A-Z0-9][A-Z0-9_-]{3,23}$/.test(code) ? code : null;
+  });
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const canSchedule = store.scheduled_orders_enabled === true;
   const minNotice = Math.max(15, Number(store.scheduled_min_notice_minutes ?? 30));
@@ -2088,18 +2104,18 @@ function CheckoutSheet({
 
   useEffect(() => {
     let live = true;
-    const key = `${addressId}|${locationKey}`;
+    const key = `${addressId}|${locationKey}|${couponCode ?? ""}`;
     const loc = zone && locationKey
       ? { latitude: Number(locationKey.split(",")[0]), longitude: Number(locationKey.split(",")[1]) }
       : null;
     if (!addressId || (zone && !loc)) return () => { live = false; };
-    void quoteFoodCustomerOrder(client, store.id, cart, loc)
+    void quoteFoodCustomerOrder(client, store.id, cart, loc, couponCode)
       .then((next) => { if (live) setAddressQuote({ key, quote: next, error: "" }); })
       .catch((error) => { if (live) setAddressQuote({ key, quote: null, error: foodCustomerError(error) }); });
     return () => { live = false; };
-  }, [addressId, cart, client, locationKey, store.id, zone]);
+  }, [addressId, cart, client, couponCode, locationKey, store.id, zone]);
 
-  const current = addressQuote?.key === `${addressId}|${locationKey}` ? addressQuote : null;
+  const current = addressQuote?.key === `${addressId}|${locationKey}|${couponCode ?? ""}` ? addressQuote : null;
   const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
   const effectiveQuote = current?.quote ?? quote;
 
@@ -2144,7 +2160,7 @@ function CheckoutSheet({
 
   const submitOrder = () => {
     if (!address) return;
-    onSubmit(address, note, scheduleMode === "scheduled" && scheduledDate ? scheduledDate.toISOString() : null);
+    onSubmit(address, note, scheduleMode === "scheduled" && scheduledDate ? scheduledDate.toISOString() : null, couponCode);
   };
 
   const paymentLabel = store.promptpay_id || store.payment_qr_path
@@ -2246,6 +2262,27 @@ function CheckoutSheet({
             </> : null}
           </section>
         ) : null}
+
+        <section className="wf-checkout-coupon rounded-xl border p-3" aria-label="โค้ดส่วนลด">
+          <label htmlFor="wynos-food-coupon" className="mb-2 block text-sm font-semibold">โค้ดส่วนลด WYNOS Food</label>
+          <div className="flex gap-2">
+            <input id="wynos-food-coupon" type="text" autoCapitalize="characters" maxLength={24}
+              className="min-w-0 flex-1 rounded-lg border bg-background px-3 py-2 text-sm"
+              placeholder="เช่น FOOD50" value={couponDraft}
+              onChange={(event) => setCouponDraft(event.target.value.toUpperCase())} />
+            <button type="button" className="rounded-lg border px-4 py-2 text-sm"
+              onClick={() => { const normalized = couponDraft.trim().toUpperCase(); setCouponCode(normalized || null); try { if (normalized) localStorage.setItem("wynos-food-promo-code-v1",normalized); } catch { /* private mode */ } }}
+              disabled={busy || !couponDraft.trim()}>ใช้โค้ด</button>
+            {couponCode && <button type="button" className="rounded-lg border px-3 py-2 text-sm"
+              onClick={() => { setCouponCode(null); setCouponDraft(""); try { localStorage.removeItem("wynos-food-promo-code-v1"); } catch { /* private mode */ } }}>ลบ</button>}
+          </div>
+          {couponCode && current?.quote?.coupon_applied && <p role="status" className="mt-2 text-sm text-green-700">
+            ใช้โค้ด {couponCode} สำเร็จ · ยอดสุทธิคำนวณโดยระบบแล้ว
+          </p>}
+          {couponCode && current?.error && <p role="alert" className="mt-2 text-sm text-red-700">
+            ใช้โค้ดนี้ไม่ได้: {current.error} · ลบโค้ดเพื่อใช้โปรโมชันปกติ
+          </p>}
+        </section>
 
         <div className="wf-section-title wf-section-title--spaced"><h2>สรุปคำสั่งซื้อ</h2></div>
         <div className="wf-checkout-items wf-checkout-items--visual">
@@ -2998,7 +3035,7 @@ function FoodCustomerInner({
     }
   };
 
-  const createOrder = async (address: FoodCustomerAddress, note: string, scheduledFor?: string | null) => {
+  const createOrder = async (address: FoodCustomerAddress, note: string, scheduledFor?: string | null, couponCode?: string | null) => {
     if (!store) return;
     setBusy(true);
     try {
@@ -3017,6 +3054,7 @@ function FoodCustomerInner({
         items: cart,
         location: storeHasDeliveryZone(store) ? addressLocation(address) : null,
         scheduledFor: scheduledFor ?? null,
+        couponCode: couponCode ?? null,
       });
       // Lets the store see orders that came from its shared link.
       if (hasShareRef(store.id)) void markFoodOrderFromShare(client, orderId).catch(() => undefined);
@@ -3102,6 +3140,7 @@ function FoodCustomerInner({
 
       <PullToRefreshIndicator pull={pull} topOffset={tab === "home" && storefrontOpen ? "0px" : "58px"} refreshingLabel="กำลังอัปเดต WYNOS Food" />
       <section className="wf-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
+        {tab === "home" && !storefrontOpen && <FoodPromotionCenter client={client} userId={userId} />}
         {tab === "home" ? (
           <HomePanel
             key={`${store?.id ?? "none"}:${storefrontOpen ? "open" : "directory"}`}
@@ -3239,7 +3278,7 @@ function FoodCustomerInner({
             isDefault: address.is_default,
             location: addressLocation(address),
           })}
-          onSubmit={(address, note, scheduledFor) => void createOrder(address, note, scheduledFor)}
+          onSubmit={(address, note, scheduledFor, couponCode) => void createOrder(address, note, scheduledFor, couponCode)}
         />
       ) : null}
 
