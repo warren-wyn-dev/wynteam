@@ -311,11 +311,21 @@ Deno.serve(async (req: Request) => {
   const vaultSnapshotSecret = await vaultWebhookSecret(admin, "stripe_webhook_secret");
   const vaultV2Secret = await vaultWebhookSecret(admin, "stripe_v2_webhook_secret");
   const configuredSecrets = [envSnapshotSecret, vaultSnapshotSecret, envV2Secret, vaultV2Secret];
-  if (!configuredSecrets.some(Boolean)) return json({ error: "not_configured" }, 503);
+  if (!configuredSecrets.some(Boolean)) {
+    // Diagnostics only: never log webhook signing secret values or HTTP payloads.
+    console.error("stripe-webhook sandbox signing secret not configured", {
+      env_snapshot_present: Boolean(envSnapshotSecret),
+      vault_snapshot_present: Boolean(vaultSnapshotSecret),
+      env_v2_present: Boolean(envV2Secret),
+      vault_v2_present: Boolean(vaultV2Secret),
+    });
+    return json({ error: "not_configured" }, 503);
+  }
 
   const raw = await req.text();
   const signature = req.headers.get("stripe-signature") ?? "";
   if (!(await verifyAgainstConfiguredSecrets(raw, signature, configuredSecrets))) {
+    console.warn("stripe-webhook sandbox signature rejected");
     return json({ error: "invalid_signature" }, 400);
   }
 
@@ -328,6 +338,12 @@ Deno.serve(async (req: Request) => {
   const eventId = stringValue(event.id);
   const eventType = stringValue(event.type);
   if (!eventId || !eventType) return json({ error: "invalid_event" }, 400);
+  // The event must be signed before logging its type; never log sensitive payloads.
+  console.info("stripe-webhook sandbox received signed event", {
+    event_type: eventType,
+    connected_account: Boolean(event.account),
+    test_mode: event.livemode === false,
+  });
 
   // Accounts v2 thin events for connected accounts arrive in "Your account"
   // scope. Only the account lifecycle/configuration events WYNOS needs may
@@ -483,6 +499,17 @@ Deno.serve(async (req: Request) => {
     p_note: note,
     p_refund_id: refundId,
   });
-  if (error) return json({ error: "event_processing_failed" }, 500);
+  if (error) {
+    console.error("stripe-webhook sandbox event processing error", {
+      event_type: eventType,
+      db_error_code: error.code,
+    });
+    return json({ error: "event_processing_failed" }, 500);
+  }
+  console.info("stripe-webhook sandbox event applied", {
+    event_type: eventType,
+    outcome: state,
+    linked_order: Boolean(orderId),
+  });
   return json({ received: true });
 });
