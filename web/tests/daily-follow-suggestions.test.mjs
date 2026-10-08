@@ -97,13 +97,17 @@ test("sender is Web-only, data-only, and carries the delivery id for attribution
 });
 
 test("every Social Push sender rejects Food, Merchant, and unclassified web tokens", () => {
-  assert.match(edgeLib, /platform=eq\\.web&app=eq\\.social&select=token/);
+  assert.ok(edgeLib.includes("platform=eq.web&app=eq.social&select=token"));
   for (const sender of [socialSenders.posting, socialSenders.reactivation, socialSenders.reactivationPush]) {
-    assert.match(sender, /platform=eq\\.web&app=eq\\.social&select=(?:id,)?token/);
-    assert.doesNotMatch(sender, /platform=eq\\.web&select=(?:id,)?token/);
+    assert.ok(
+      sender.includes("platform=eq.web&app=eq.social&select=token") ||
+      sender.includes("platform=eq.web&app=eq.social&select=id,token"),
+    );
+    assert.ok(!sender.includes("platform=eq.web&select=token"));
+    assert.ok(!sender.includes("platform=eq.web&select=id,token"));
   }
-  assert.match(socialSenders.standard, /if \\(app === "social"\\) return tokens\\.filter\\(\\(token\\) => token\\.app === "social"\\)/);
-  assert.match(socialSenders.standard, /return own\\.length > 0 \\? own : ofApp\\("social"\\)/);
+  assert.ok(socialSenders.standard.includes('if (app === "social") return tokens.filter((token) => token.app === "social")'));
+  assert.ok(socialSenders.standard.includes('return own.length > 0 ? own : ofApp("social")'));
 });
 
 test("Web Push click opens Suggested and does not wake the notification badge", () => {
