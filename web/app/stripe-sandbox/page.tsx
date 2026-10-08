@@ -40,6 +40,8 @@ export default function StripeSandboxPage() {
   const [busyOrder, setBusyOrder] = useState<string | null>(null);
   const [connectBusy, setConnectBusy] = useState(false);
   const [connectMessage, setConnectMessage] = useState("");
+  const [connectStatusMessage, setConnectStatusMessage] = useState("");
+  const [connectCheckBusy, setConnectCheckBusy] = useState(false);
   const [returnStatus, setReturnStatus] = useState<string | null>(null);
 
   const refresh = useCallback(async (userId: string) => {
@@ -115,6 +117,41 @@ export default function StripeSandboxPage() {
       setMessage(error instanceof Error ? error.message : "ดำเนินการไม่สำเร็จ");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function checkConnectStatus() {
+    if (!ENABLED || !user || user.id !== QA_MERCHANT_USER_ID || connectCheckBusy) return;
+    const client = getSupabaseBrowserClient();
+    if (!client) return;
+    setConnectCheckBusy(true);
+    try {
+      const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
+        body: { storeId: QA_CONNECT_STORE_ID, action: "status" },
+      });
+      if (error) throw error;
+      const state = data as {
+        connected?: boolean;
+        status?: string;
+        charges_enabled?: boolean;
+        payouts_enabled?: boolean;
+        requirements_due_count?: number;
+      } | null;
+      if (!state?.connected) {
+        setConnectStatusMessage("ยังไม่พบบัญชี Stripe Connect Test Mode ของร้านทดลอง");
+      } else if (state.status === "ready" && state.charges_enabled && state.payouts_enabled) {
+        setConnectStatusMessage("Stripe Connect Test Mode พร้อมรับชำระเงินทดสอบแล้ว ✓");
+      } else if (state.requirements_due_count && state.requirements_due_count > 0) {
+        setConnectStatusMessage("Stripe ยังต้องการข้อมูลร้านค้าเพิ่ม " + state.requirements_due_count + " รายการ กรุณากดเชื่อมร้านค้าทดลองเพื่อดำเนินการต่อ");
+      } else if (state.charges_enabled && !state.payouts_enabled) {
+        setConnectStatusMessage("Stripe เปิดรับชำระเงินแล้ว แต่ยังรอเปิดการเบิกจ่าย (Payouts) จึงยังไม่พร้อมทดสอบ Checkout");
+      } else {
+        setConnectStatusMessage("สถานะร้านค้าทดสอบ: " + (state.status || "กำลังดำเนินการ") + " — ยังไม่พร้อม Checkout");
+      }
+    } catch {
+      setConnectStatusMessage("ตรวจสอบสถานะ Stripe ไม่สำเร็จ กรุณาลองอีกครั้ง");
+    } finally {
+      setConnectCheckBusy(false);
     }
   }
 
@@ -292,6 +329,10 @@ export default function StripeSandboxPage() {
                       เพื่อเปิดรับการชำระเงินด้วย Stripe Test Mode ไม่มีการรับเงินจริง
                     </p>
                     {connectMessage && <p role="alert" style={{ color: "#b91c1c", overflowWrap: "anywhere" }}>{connectMessage}</p>}
+                    {connectStatusMessage && <p role="status" style={{ color: "#334155", overflowWrap: "anywhere" }}>{connectStatusMessage}</p>}
+                    <button style={{ ...action, marginBottom: 10 }} disabled={connectCheckBusy} onClick={() => void checkConnectStatus()}>
+                      {connectCheckBusy ? "กำลังตรวจสถานะ Stripe..." : "ตรวจสอบสถานะ Stripe Connect"}
+                    </button>
                     <button style={action} disabled={connectBusy} onClick={() => void connectMerchant()}>
                       {connectBusy ? "กำลังเตรียม Stripe Connect..." : "เชื่อมร้านค้าทดลองกับ Stripe Connect"}
                     </button>
