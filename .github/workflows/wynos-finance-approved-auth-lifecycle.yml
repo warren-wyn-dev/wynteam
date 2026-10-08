@@ -4,6 +4,14 @@ name: WYNOS Finance Approved Ephemeral Auth QA
 # QA service-role credential MUST be configured as an Environment secret
 # behind protected reviewers; never a browser or production secret.
 on:
+  # GitHub only exposes workflow_dispatch UI for workflows in the default
+  # branch. WYNOS MUST NOT modify main, so allow a narrowly-scoped
+  # one-time request-file edit on the Sandbox branch instead.
+  push:
+    branches:
+      - sandbox/stripe-testmode-20261008
+    paths:
+      - supabase/sandbox/gp/FINANCE_AUTH_QA_RUN_REQUEST.md
   workflow_dispatch:
     inputs:
       qa_confirmation:
@@ -20,7 +28,7 @@ concurrency:
 
 jobs:
   signed-jwt-three-role-qa:
-    if: github.ref == 'refs/heads/sandbox/stripe-testmode-20261008' && github.event_name == 'workflow_dispatch' && inputs.qa_confirmation == 'WYNOS_QA_ONE_TIME'
+    if: github.ref == 'refs/heads/sandbox/stripe-testmode-20261008' && ((github.event_name == 'workflow_dispatch' && inputs.qa_confirmation == 'WYNOS_QA_ONE_TIME') || (github.event_name == 'push' && vars.WYNOS_QA_ONE_TIME_TRIGGER == 'true' && vars.WYNOS_QA_APPROVED_ACTOR != '' && github.actor == vars.WYNOS_QA_APPROVED_ACTOR))
     runs-on: ubuntu-latest
     timeout-minutes: 9
     environment: wynos-finance-qa-approved
@@ -30,6 +38,8 @@ jobs:
       WYNOS_QA_SUPABASE_URL: https://pcatuxtenluqzjzzwsvl.supabase.co
       WYNOS_QA_STRICT_AUTH_GATE: "true"
       WYNOS_QA_TEMP_ADMIN_APPROVED: "true"
+      WYNOS_QA_PUSH_GATE: ${{ vars.WYNOS_QA_ONE_TIME_TRIGGER }}
+      WYNOS_QA_APPROVED_ACTOR: ${{ vars.WYNOS_QA_APPROVED_ACTOR }}
       WYNOS_QA_EPHEMERAL_ADMIN_ENABLED: "true"
       WYNOS_QA_PASSWORD_GRANT_ACK: existing-three-qa-users-only
       WYNOS_QA_SERVICE_ROLE_LEGACY_JWT: ${{ secrets.WYNOS_QA_SERVICE_ROLE_LEGACY_JWT }}
