@@ -60,6 +60,10 @@ run >/dev/null -c "update public.food_orders set payment_status='refunded' where
 refunded="$(run -At -c "select internal.food_coupon_usage_active('$O1')")"
 [[ "$refunded" == t ]] || { echo "FAIL: refunded used coupon should remain consumed by default"; exit 1; }
 run >/dev/null -c "update public.food_orders set status='cancelled' where id='$O1'"
+paid_cancelled="$(run -At -c "select internal.food_coupon_usage_active('$O1')")"
+[[ "$paid_cancelled" == t ]] || { echo "FAIL: refunded cancelled order should not restore coupon"; exit 1; }
+# Simulate a distinct unpaid cancellation: only unpaid orders return a slot.
+run >/dev/null -c "update public.food_orders set payment_status='pending' where id='$O1'"
 released="$(run -At -c "select set_config('test.uid','$BUYER',false);" -c "select set_config('wyn.food_coupon_code','FOOD50',false);" -c "select count(*) from internal.food_campaign_candidates('$STORE',250,20,'{}'::jsonb)" | tail -1)"
 [[ "$released" == 1 ]] || { echo "FAIL: cancelled order quota"; exit 1; }
 run >/dev/null -c "insert into public.push_tokens values ('$BUYER','web','food','fcm-food'),('$OTHER','web','social','fcm-social'); insert into public.food_marketing_preferences(user_id,push_marketing) values ('$BUYER',true)"
