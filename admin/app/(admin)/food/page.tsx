@@ -74,6 +74,11 @@ export default async function FoodStoresPage({
             <Link href="/food/campaigns" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
               <Gift className="size-4" /> แคมเปญ WYNOS
             </Link>
+            {role === "admin" && process.env.NEXT_PUBLIC_SUPABASE_URL === "https://pcatuxtenluqzjzzwsvl.supabase.co" ? (
+              <Link href="/food/gp" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
+                <Wallet className="size-4" /> GP แบบร่าง (Sandbox)
+              </Link>
+            ) : null}
             {role === "admin" ? (
               <Link href="/food/ads" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
                 <Megaphone className="size-4" /> โฆษณา
