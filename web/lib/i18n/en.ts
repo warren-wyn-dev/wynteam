@@ -4,6 +4,8 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "กรุณาชำระเงินหรือส่งสลิปภายใน 10 นาทีหลังยืนยันออเดอร์ หากยังไม่ชำระหรือไม่ส่งสลิป ระบบจะยกเลิกออเดอร์อัตโนมัติ": "Please pay or submit a payment slip within 10 minutes of placing your order. Otherwise, the order will be cancelled automatically",
+  "หมดเวลาชำระเงินแล้ว ระบบกำลังยกเลิกออเดอร์อัตโนมัติ": "The payment deadline has passed. Your order is being cancelled automatically",
   "หาตำแหน่งปัจจุบันไม่สำเร็จ กรุณาลองอีกครั้ง": "Couldn't get your current location. Please try again",
   "GPS ยังไม่ส่งตำแหน่งใหม่ กรุณาลองอีกครั้ง": "GPS has not provided a fresh location yet. Please try again",
   "กรุณาอนุญาตตำแหน่งที่แน่นอน (Precise Location) ในการตั้งค่า Safari": "Enable Precise Location for Safari in your device settings",
@@ -2804,6 +2806,7 @@ Object.assign(EN_EXACT, {
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["กรุณาชำระเงินหรือส่งสลิปภายใน {0}:{1} นาที", "Please pay or submit your slip within {0}:{1} minutes"],
   ["±{0} เมตร", "±{0} m"],
   ["GPS อาจคลาดเคลื่อน {0} · เปิดตำแหน่งที่แน่นอนใน Safari แล้วลองใหม่", "GPS location may be off by {0} · Enable Precise Location for Safari and try again"],
   ["ทางเลือก {0}", "Alternative {0}"],
