@@ -231,13 +231,6 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
 
 // Same rule as the app theme (lib/theme-preference.ts): an explicit
 // data-theme wins, otherwise follow the phone.
-function prefersDarkMap() {
-  const theme = document.documentElement.dataset.theme;
-  if (theme === "dark") return true;
-  if (theme === "light") return false;
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-}
-
 type SheetDetent = "peek" | "half" | "full";
 
 function mapsStorage() {
@@ -1615,7 +1608,7 @@ export function FoodDeliveryMapPicker({
             <Hospital size={16} /><span>โรงพยาบาล</span>
           </button>
           <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
-            <Building2 size={16} /><span>หอพัก</span>
+            <BedDouble size={16} /><span>หอพัก</span>
           </button>
           <button type="button" className={query === "ATM" ? "is-active" : ""} onClick={() => quickSearch("ATM")}>
             <CircleDollarSign size={16} /><span>ATM</span>
