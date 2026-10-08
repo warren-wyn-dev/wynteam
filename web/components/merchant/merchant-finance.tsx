@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
 
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
+import { MerchantFinanceQaPreview } from "@/components/merchant/merchant-finance-qa-preview";
 import { money, type FoodStore } from "@/lib/food-merchant";
 import { fetchMerchantStripeFinance, type MerchantStripeFinance } from "@/lib/merchant-core";
 import {
@@ -106,6 +107,7 @@ export function MerchantFinance({
   return (
     <>
       <div className="wm-page-heading"><div><small>เงินเข้าร้าน</small><h1>การเงิน</h1></div></div>
+      <MerchantFinanceQaPreview client={client} storeId={store.id} />
 
       {paymentStatus?.connected ? (
         <section className="wm-fin-payout-overview" aria-label="สรุปการรับเงิน">
