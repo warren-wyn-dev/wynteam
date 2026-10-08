@@ -4748,3 +4748,71 @@ button.wm-menu-tool:disabled {
 .wm-fin-payout-overview > div:first-child { grid-column: 1 / -1; }
 .wm-fin-payout-overview small { color: var(--wm-secondary); font-size: 11.5px; }
 .wm-fin-payout-overview strong { overflow: hidden; text-overflow: ellipsis; font-size: 17px; letter-spacing: -.2px; }
+
+
+/* WYNOS system UX polish — reduce admin-density and improve mobile scanning.
+   Merchant keeps its approved red identity; this pass changes density, not product colour. */
+
+.wm-small-primary {
+  min-height: 44px;
+  padding-inline: 14px;
+  font-size: 13px;
+}
+
+.wm-filter-tabs button {
+  min-height: 44px;
+  font-size: 12.5px;
+}
+
+.wm-filter-tabs b {
+  min-width: 20px;
+  height: 20px;
+  font-size: 10.5px;
+}
+
+.wm-status {
+  min-height: 28px;
+  padding-inline: 9px;
+  font-size: 11.5px;
+}
+
+.wm-menu-row-actions > button:first-child {
+  min-height: 44px;
+  padding-inline: 10px;
+  font-size: 11.5px;
+}
+
+.wm-menu-more {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.wm-sort-controls button {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.wm-menu-stock-editor small,
+.wm-onboarding-checks span,
+.wm-live,
+.wm-metric small {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.wm-nav small {
+  font-size: 11.5px;
+}
+
+@media (max-width: 370px) {
+  .wm-menu-more {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+  }
+}
