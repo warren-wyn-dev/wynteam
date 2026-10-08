@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { foodPromoPushPayload, foodPromoTokenQuery, isFoodPromoQuietTime } from "./_lib.ts";
+import { foodPromoPushPayload, foodPromoTokenQuery, foodPromoConsentQuery, isFoodPromoQuietTime } from "./_lib.ts";
 
 Deno.test("Food promotions select only explicit Food web tokens", () => {
   const q = new URL(foodPromoTokenQuery("id&app=eq.social"), "https://example.invalid/");
@@ -20,4 +20,12 @@ Deno.test("Food marketing quiet hours suppress night messages in Thailand", () =
   assertEquals(isFoodPromoQuietTime(new Date("2026-10-08T15:00:00Z")), true); // 22:00
   assertEquals(isFoodPromoQuietTime(new Date("2026-10-08T23:59:00Z")), true); // 06:59
   assertEquals(isFoodPromoQuietTime(new Date("2026-10-09T01:00:00Z")), false); // 08:00
+});
+
+Deno.test("Food promo consent is independently rechecked immediately before send", () => {
+  const url = new URL(foodPromoConsentQuery("safe-user"), "https://example.invalid/");
+  assertEquals(url.pathname, "/food_marketing_preferences");
+  assertEquals(url.searchParams.get("user_id"), "eq.safe-user");
+  assertEquals(url.searchParams.get("push_marketing"), "eq.true");
+  assertEquals(url.searchParams.get("limit"), "1");
 });
