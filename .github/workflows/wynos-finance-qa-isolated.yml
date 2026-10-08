@@ -7,6 +7,8 @@ on:
     paths:
       - .github/workflows/wynos-finance-qa-isolated.yml
       - supabase/sandbox/gp/isolated_refund_concurrency.mjs
+      - supabase/sandbox/gp/finance_http_signed_jwt_qa.mjs
+      - supabase/sandbox/gp/finance_http_preflight_qa.test.mjs
       - web/components/merchant/merchant-finance-qa-preview.tsx
       - web/components/merchant/merchant-finance.tsx
       - web/tests/finance-qa-preview-gate.test.mjs
@@ -56,6 +58,9 @@ jobs:
 
       - name: Check QA finance preview remains opt-in and isolated
         run: node --test web/tests/finance-qa-preview-gate.test.mjs
+
+      - name: Offline negative-only QA HTTP credential preflight
+        run: node --test supabase/sandbox/gp/finance_http_preflight_qa.test.mjs
 
       - name: Run real two-session SQL concurrency checks on disposable PostgreSQL
         env:
