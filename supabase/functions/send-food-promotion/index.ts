@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { fetchFcmAccessToken, isDeadTokenError, webPushTopic, type FcmServiceAccount } from "../send-push-notification/_lib.ts";
-import { foodPromoTokenQuery, foodPromoPushPayload, isFoodPromoQuietTime } from "./_lib.ts";
+import { foodPromoTokenQuery, foodPromoPushPayload, foodPromoConsentQuery, isFoodPromoQuietTime } from "./_lib.ts";
 
 type Delivery = {
   delivery_id: string; recipient_id: string; broadcast_id: string;
@@ -20,6 +20,13 @@ async function rpc<T>(name: string, payload: Record<string, unknown>): Promise<T
   return await response.json() as T;
 }
 
+async function recipientStillOptedIn(recipientId: string): Promise<boolean> {
+  const response = await fetch(`${URL_BASE}/rest/v1/${foodPromoConsentQuery(recipientId)}`, { headers: headers() });
+  if (!response.ok) throw new Error(`marketing consent lookup HTTP ${response.status}`);
+  const rows = await response.json() as Array<{ user_id?: string }>;
+  return rows.length > 0 && rows[0]?.user_id === recipientId;
+}
+
 async function tokensForFood(recipientId: string): Promise<string[]> {
   const response = await fetch(`${URL_BASE}/rest/v1/${foodPromoTokenQuery(recipientId)}`, { headers: headers() });
   if (!response.ok) throw new Error(`food token lookup HTTP ${response.status}`);
@@ -35,6 +42,7 @@ async function discardDeadToken(token: string) {
 }
 
 async function sendOne(accessToken: string, service: FcmServiceAccount, claim: Delivery): Promise<boolean> {
+  if (!await recipientStillOptedIn(claim.recipient_id)) return false;
   const tokens = await tokensForFood(claim.recipient_id);
   if (!tokens.length) return false;
   const data = foodPromoPushPayload(claim.broadcast_id, claim.delivery_id, claim.push_title, claim.push_body, claim.coupon_code);
