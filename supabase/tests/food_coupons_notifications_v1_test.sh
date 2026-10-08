@@ -51,6 +51,12 @@ on="$(run -At -c "select set_config('test.uid','$BUYER',false);" -c "select set_
 run >/dev/null -c "insert into public.food_orders(id,buyer_id) values ('$O1','$BUYER'); insert into public.food_coupon_redemptions(order_id,coupon_id,user_id) values ('$O1','$cid','$BUYER')"
 used="$(run -At -c "select set_config('test.uid','$BUYER',false);" -c "select set_config('wyn.food_coupon_code','FOOD50',false);" -c "select count(*) from internal.food_campaign_candidates('$STORE',250,20,'{}'::jsonb)" | tail -1)"
 [[ "$used" == 0 ]] || { echo "FAIL: coupon quota"; exit 1; }
+run >/dev/null -c "update public.food_orders set payment_status='submitted',payment_due_at=now()-interval '1 minute' where id='$O1'"
+submitted="$(run -At -c "select internal.food_coupon_usage_active('$O1')")"
+[[ "$submitted" == t ]] || { echo "FAIL: slip awaiting review released coupon"; exit 1; }
+run >/dev/null -c "update public.food_orders set payment_status='refunded' where id='$O1'"
+refunded="$(run -At -c "select internal.food_coupon_usage_active('$O1')")"
+[[ "$refunded" == t ]] || { echo "FAIL: refunded used coupon should remain consumed by default"; exit 1; }
 run >/dev/null -c "update public.food_orders set status='cancelled' where id='$O1'"
 released="$(run -At -c "select set_config('test.uid','$BUYER',false);" -c "select set_config('wyn.food_coupon_code','FOOD50',false);" -c "select count(*) from internal.food_campaign_candidates('$STORE',250,20,'{}'::jsonb)" | tail -1)"
 [[ "$released" == 1 ]] || { echo "FAIL: cancelled order quota"; exit 1; }
