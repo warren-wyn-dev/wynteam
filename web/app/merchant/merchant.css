@@ -4750,12 +4750,8 @@ button.wm-menu-tool:disabled {
 .wm-fin-payout-overview strong { overflow: hidden; text-overflow: ellipsis; font-size: 17px; letter-spacing: -.2px; }
 
 
-/* WYNOS system UX polish — reduce admin-density and improve mobile scanning. */
-.wyn-merchant,
-.wm-auth-shell {
-  --wm-red: #ff3b30;
-  --wm-red-strong: #d70015;
-}
+/* WYNOS system UX polish — reduce admin-density and improve mobile scanning.
+   Merchant keeps its approved red identity; this pass changes density, not product colour. */
 
 .wm-small-primary {
   min-height: 44px;
