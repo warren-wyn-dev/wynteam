@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, BedDouble, Briefcase, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, Layers, LocateFixed, MapPin, Moon, MoreHorizontal, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Sun, Utensils, X } from "lucide-react";
+import { ArrowLeft, BedDouble, Bookmark, Briefcase, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, Layers, LocateFixed, MapPin, Moon, MoreHorizontal, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Sun, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -325,7 +325,7 @@ function placeMarkerSvg(kind: MapMarkerKind) {
   if (kind === "pickup") {
     return `<svg ${common}><path d="M5 7.5 12 4l7 3.5V17l-7 3-7-3V7.5Z"/><path d="m5 7.5 7 3.5 7-3.5M12 11v9"/></svg>`;
   }
-  return `<svg ${common}><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>`;
+  return `<svg ${common}><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 0 1 14 0Z"/><circle cx="12" cy="10" r="2"/></svg>`;
 }
 
 export function FoodLocationMapPreview({
@@ -1274,7 +1274,7 @@ export function FoodDeliveryMapPicker({
       button.type = "button";
       const selected = selectedIdentity === placeIdentity(nearbyPlace);
       const kind = placeMarkerKind(nearbyPlace);
-      const showLabel = selected || (mapZoom >= 16.6 && index < 4);
+      const showLabel = selected || (standalone ? (mapZoom >= 15.5 && index < (mapZoom >= 17 ? 5 : 3)) : (mapZoom >= 16.6 && index < 4));
       button.className = `wf-map-place-marker is-${kind}${nearbyPlace.merchantStoreId ? " is-merchant" : ""}${nearbyPlace.verificationStatus === "wynos_verified" ? " is-verified" : ""}${selected ? " is-selected" : ""}${showLabel ? " has-label" : ""}`;
       button.setAttribute("aria-label", `${placeCategory(nearbyPlace)} ${nearbyPlace.name}`);
       button.title = nearbyPlace.name;
@@ -1649,7 +1649,7 @@ export function FoodDeliveryMapPicker({
             setSearchFocused(true);
             setShowMoreCategories(false);
             void refreshSaved();
-          }}><span>W</span></button>
+          }}><Bookmark size={21} strokeWidth={2.2} aria-hidden="true" /></button>
         ) : null}
       </div>
       {standalone ? (
@@ -1896,9 +1896,11 @@ export function FoodDeliveryMapPicker({
             }}><RefreshCw size={16} /> ลองใหม่</button>
           </div>
         ) : null}
-        <div className={`wf-map-center-pin${mapDragging ? " is-dragging" : ""}${currentLocationSelected ? " is-current-location" : ""}${directionsTarget ? " is-route-active" : ""}`} aria-hidden="true">
-          <MapPin size={standalone ? 36 : 42} fill="currentColor" />
-        </div>
+        {(!standalone || (chosen && !currentLocationSelected && !navigating && !directionsTarget)) ? (
+          <div className={`wf-map-center-pin${mapDragging ? " is-dragging" : ""}${directionsTarget ? " is-route-active" : ""}`} aria-hidden="true">
+            <MapPin size={standalone ? 36 : 42} fill="currentColor" />
+          </div>
+        ) : null}
         {standalone && serviceAreaBoundary && activeNearbyPlace?.merchantStoreId ? (
           <div
             className={`wf-map-service-area${serviceAreaState === "inside" ? " is-inside" : serviceAreaState === "outside" ? " is-outside" : ""}`}
