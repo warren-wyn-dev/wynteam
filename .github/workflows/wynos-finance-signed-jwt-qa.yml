@@ -1,8 +1,14 @@
 name: WYNOS Finance Signed-JWT HTTP QA
 
-# Manual only. Deliberately NOT run on every push: QA user access JWTs are
-# short-lived and must be supplied by an authorized tester at run time.
+# QA-only, explicitly opt-in. Normally skipped on Sandbox pushes.
+# Signing credentials must be supplied securely by authorized QA tester.
 on:
+  push:
+    branches:
+      - sandbox/stripe-testmode-20261008
+    paths:
+      - .github/workflows/wynos-finance-signed-jwt-qa.yml
+      - supabase/sandbox/gp/finance_http_signed_jwt_qa.mjs
   workflow_dispatch:
 
 permissions:
@@ -10,7 +16,7 @@ permissions:
 
 jobs:
   signed-jwt-http-qa:
-    if: github.ref == 'refs/heads/sandbox/stripe-testmode-20261008'
+    if: github.ref == 'refs/heads/sandbox/stripe-testmode-20261008' && vars.WYNOS_QA_JWT_HTTP_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
