@@ -13,6 +13,9 @@ const inbox = source("../components/food/food-promotion-center.tsx");
 const worker = source("../public/sw.js");
 const admin = source("../../admin/components/admin/food-promotion-broadcast-manager.tsx");
 const stripe = source("../../supabase/functions/food-stripe-checkout/index.ts");
+const edgeConfig = source("../../supabase/config.toml");
+const deployWorkflow = source("../../.github/workflows/deploy-edge-functions.yml");
+const cron = source("../../supabase/migrations/20261008161200_food_promo_cron.sql");
 
 test("Food coupon is opt-in, server-priced and atomic; old orders unchanged", () => {
   assert.match(sql, /coupon_required boolean not null default false/);
@@ -48,4 +51,13 @@ test("Admin can schedule or cancel a Food promo; server rechecks role", () => {
   assert.match(admin, /admin_food_promo_cancel/);
   assert.match(campaign, /food_promo_claim_batch/);
   assert.match(campaign, /grant execute on function public\.food_promo_claim_batch\(integer\) to service_role/);
+});
+
+test("Food scheduled promotion can be deployed securely and remains disabled until approved", () => {
+  assert.match(edgeConfig, /\[functions\.send-food-promotion\]\s*#[^]*?verify_jwt\s*=\s*false/);
+  assert.match(deployWorkflow, /^\s+- send-food-promotion\s*$/m);
+  assert.match(cron, /active\s*:=\s*false/);
+  assert.match(cron, /wynos_food_promo_cron_key/);
+  assert.match(sender, /SUPABASE_SECRET_KEYS/);
+  assert.match(sender, /verify_food_promo_cron_key/);
 });
