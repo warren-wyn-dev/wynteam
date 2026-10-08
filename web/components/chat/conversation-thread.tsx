@@ -6,17 +6,37 @@ import { Avatar } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { MESSAGE_REACTIONS, type MessageReaction, type MessageRow, type ProfileRow } from "@/lib/phase3-data";
 
+const CHAT_TIME_ZONE = "Asia/Bangkok";
+
 export function chatDayKey(value: string): string {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CHAT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value));
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  return `${year}-${month}-${day}`;
 }
 
 function chatDateLabel(value: string): string {
-  return new Intl.DateTimeFormat("th-TH-u-ca-gregory", { day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
+  return new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
+    timeZone: CHAT_TIME_ZONE,
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 function chatTimeLabel(value: string): string {
-  return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
+  return new Intl.DateTimeFormat("th-TH", {
+    timeZone: CHAT_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
 }
 
 /** Messages from one sender at most this far apart, on the same day, form one group (WYN-031 spec §2). */
