@@ -12,6 +12,8 @@ const SANDBOX_URL_OK =
   (process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "") ?? "") === SANDBOX_URL;
 const PUBLISHABLE_KEY_PRESENT = Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim());
 const ENABLED = SANDBOX_FLAG_OK && SANDBOX_URL_OK && PUBLISHABLE_KEY_PRESENT;
+const QA_MERCHANT_USER_ID = "50956870-1d09-4e0a-98bf-2c1e0e0c722b";
+const QA_CONNECT_STORE_ID = "6638327e-353f-4151-8d69-d84b5badb831";
 
 type Order = {
   id: string;
@@ -36,6 +38,8 @@ export default function StripeSandboxPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [busyOrder, setBusyOrder] = useState<string | null>(null);
+  const [connectBusy, setConnectBusy] = useState(false);
+  const [connectMessage, setConnectMessage] = useState("");
   const [returnStatus, setReturnStatus] = useState<string | null>(null);
 
   const refresh = useCallback(async (userId: string) => {
@@ -105,6 +109,37 @@ export default function StripeSandboxPage() {
       setMessage(error instanceof Error ? error.message : "ดำเนินการไม่สำเร็จ");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function connectMerchant() {
+    if (!ENABLED || !user || user.id !== QA_MERCHANT_USER_ID || connectBusy) return;
+    const client = getSupabaseBrowserClient();
+    if (!client) return;
+    setConnectBusy(true);
+    setConnectMessage("");
+    try {
+      const { data, error } = await client.functions.invoke("merchant-stripe-connect", {
+        body: { storeId: QA_CONNECT_STORE_ID, action: "onboard" },
+      });
+      if (error) {
+        const response = (error as { context?: Response }).context;
+        const details = response && typeof response.json === "function"
+          ? await response.json().catch(() => null) as { message?: string; error?: string } | null
+          : null;
+        throw new Error(details?.message || details?.error || error.message);
+      }
+      const payload = data as { url?: string; message?: string; error?: string } | null;
+      if (!payload?.url) throw new Error(payload?.message || payload?.error || "ยังไม่สามารถเปิด Stripe Connect Test Mode ได้");
+      const destination = new URL(payload.url);
+      if (destination.protocol !== "https:" ||
+          !(destination.hostname === "connect.stripe.com" || destination.hostname.endsWith(".stripe.com"))) {
+        throw new Error("ลิงก์ Stripe Connect ไม่ผ่านการตรวจสอบ");
+      }
+      window.location.assign(destination.href);
+    } catch (error) {
+      setConnectMessage(error instanceof Error ? error.message : "ไม่สามารถเริ่ม Stripe Connect ได้");
+      setConnectBusy(false);
     }
   }
 
@@ -238,6 +273,19 @@ export default function StripeSandboxPage() {
                     ออกจากระบบ
                   </button>
                 </div>
+                {user.id === QA_MERCHANT_USER_ID && (
+                  <div style={{ border: "1px solid #bfdbfe", borderRadius: 12, padding: 16, marginTop: 24, background: "#f8fbff" }}>
+                    <h2 style={{ margin: "0 0 8px" }}>ร้านค้าทดลอง · Stripe Connect</h2>
+                    <p style={{ color: "#64748b" }}>
+                      เชื่อมร้าน WYNOS Stripe QA Store เฉพาะ Supabase Sandbox เท่านั้น
+                      เพื่อเปิดรับการชำระเงินด้วย Stripe Test Mode ไม่มีการรับเงินจริง
+                    </p>
+                    {connectMessage && <p role="alert" style={{ color: "#b91c1c", overflowWrap: "anywhere" }}>{connectMessage}</p>}
+                    <button style={action} disabled={connectBusy} onClick={() => void connectMerchant()}>
+                      {connectBusy ? "กำลังเตรียม Stripe Connect..." : "เชื่อมร้านค้าทดลองกับ Stripe Connect"}
+                    </button>
+                  </div>
+                )}
                 <h2 style={{ marginTop: 26 }}>คำสั่งซื้อของคุณ</h2>
                 <button style={{ ...action, marginBottom: 16 }} onClick={() => void refresh(user.id)}>
                   รีเฟรชสถานะจากฐานข้อมูล
