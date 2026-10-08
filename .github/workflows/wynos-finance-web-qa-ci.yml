@@ -1,0 +1,54 @@
+name: WYNOS Finance Sandbox Web QA
+
+on:
+  push:
+    branches:
+      - sandbox/stripe-testmode-20261008
+    paths:
+      - .github/workflows/wynos-finance-web-qa-ci.yml
+      - web/components/merchant/merchant-finance-qa-preview.tsx
+      - web/components/merchant/merchant-finance.tsx
+      - web/tests/finance-qa-preview-gate.test.mjs
+      - web/package.json
+      - web/package-lock.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-web-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  finance-web-qa:
+    if: github.ref == 'refs/heads/sandbox/stripe-testmode-20261008'
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    defaults:
+      run:
+        working-directory: web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_WYNOS_FINANCE_QA_PREVIEW: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Reproducible dependency install
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assert finance preview stays guarded
+        run: node --test tests/finance-qa-preview-gate.test.mjs
+      - name: ESLint
+        run: npm run lint
+      - name: Next.js route type generation
+        run: npx next typegen
+      - name: TypeScript strict check
+        run: npm run typecheck
+      - name: Next.js build without deployment
+        run: npm run build
