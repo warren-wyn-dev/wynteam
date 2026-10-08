@@ -1,0 +1,56 @@
+name: WYNOS Finance Approved Ephemeral Auth QA
+
+# SECURITY: manual dispatch ONLY on the existing Sandbox branch.
+# QA service-role credential MUST be configured as an Environment secret
+# behind protected reviewers; never a browser or production secret.
+on:
+  workflow_dispatch:
+    inputs:
+      qa_confirmation:
+        description: "Type WYNOS_QA_ONE_TIME to acknowledge temporary QA-only Auth and Finance Admin user provisioning/cleanup"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wynos-finance-approved-auth-only
+  cancel-in-progress: false
+
+jobs:
+  signed-jwt-three-role-qa:
+    if: github.ref == 'refs/heads/sandbox/stripe-testmode-20261008' && github.event_name == 'workflow_dispatch' && inputs.qa_confirmation == 'WYNOS_QA_ONE_TIME'
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    environment: wynos-finance-qa-approved
+    env:
+      CI: "true"
+      WYNOS_QA_HTTP_ACK: pcatuxtenluqzjzzwsvl
+      WYNOS_QA_SUPABASE_URL: https://pcatuxtenluqzjzzwsvl.supabase.co
+      WYNOS_QA_STRICT_AUTH_GATE: "true"
+      WYNOS_QA_TEMP_ADMIN_APPROVED: "true"
+      WYNOS_QA_EPHEMERAL_ADMIN_ENABLED: "true"
+      WYNOS_QA_PASSWORD_GRANT_ACK: existing-three-qa-users-only
+      WYNOS_QA_SERVICE_ROLE_LEGACY_JWT: ${{ secrets.WYNOS_QA_SERVICE_ROLE_LEGACY_JWT }}
+      WYNOS_QA_ANON_KEY: ${{ secrets.WYNOS_QA_ANON_KEY }}
+      WYNOS_QA_OWNER_EMAIL: ${{ secrets.WYNOS_QA_OWNER_EMAIL }}
+      WYNOS_QA_OWNER_PASSWORD: ${{ secrets.WYNOS_QA_OWNER_PASSWORD }}
+      WYNOS_QA_UNRELATED_EMAIL: ${{ secrets.WYNOS_QA_UNRELATED_EMAIL }}
+      WYNOS_QA_UNRELATED_PASSWORD: ${{ secrets.WYNOS_QA_UNRELATED_PASSWORD }}
+      WYNOS_QA_OWNER_STORE_ID: ${{ vars.WYNOS_QA_OWNER_STORE_ID }}
+      WYNOS_QA_OTHER_STORE_ID: ${{ vars.WYNOS_QA_OTHER_STORE_ID }}
+    steps:
+      - name: Checkout approved Sandbox branch without persistent credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use Node.js 22 (no third-party CLI dependencies)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Create one temporary QA Admin, verify three signed JWT roles, always clean up
+        run: node supabase/sandbox/gp/finance_qa_ephemeral_admin_lifecycle.mjs
+      - name: Independent cleanup retry after errors or failed tests
+        if: always()
+        run: node supabase/sandbox/gp/finance_qa_ephemeral_admin_lifecycle.mjs --cleanup
