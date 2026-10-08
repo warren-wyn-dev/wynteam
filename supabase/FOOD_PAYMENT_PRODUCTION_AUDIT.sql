@@ -26,6 +26,12 @@ WITH
       count(*) FILTER (WHERE p.status='refunded' AND p.refunded_at IS NULL) AS stripe_refund_missing_timestamp,
       count(*) FILTER (WHERE p.order_id IS NOT NULL AND abs(p.amount_satang - round(o.total*100)::bigint)>0) AS stripe_order_amount_mismatch,
       count(*) FILTER (WHERE p.order_id IS NOT NULL AND p.store_id IS DISTINCT FROM o.store_id) AS stripe_order_store_mismatch,
+      -- Catch the precise out-of-order event bug: order PAID but the
+      -- Stripe payment row overwritten to FAILED, or any other mismatch.
+      count(*) FILTER (WHERE
+        (o.payment_status IN ('paid','refunded') AND p.status IS DISTINCT FROM o.payment_status)
+        OR (p.status IN ('paid','refunded') AND o.payment_status IS DISTINCT FROM p.status)
+      ) AS stripe_order_payment_state_conflicts,
       count(*) FILTER (WHERE p.order_id IS NOT NULL AND p.status='paid' AND o.payment_status='refunded') AS stripe_row_unreconciled_refund,
       count(*) FILTER (WHERE p.order_id IS NOT NULL AND p.status='refunded' AND o.payment_status='paid') AS order_unreconciled_refund
     FROM public.food_stripe_payments p
