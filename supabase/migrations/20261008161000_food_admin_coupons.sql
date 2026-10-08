@@ -39,12 +39,12 @@ returns boolean language sql stable set search_path = '' as $fn$
  select exists(
    select 1 from public.food_orders o
    where o.id = p_order_id
-     and o.status <> 'cancelled'
-     -- Submitted slips and paid/refunded orders retain their redeemed code.
-     -- Only cancelled or genuinely expired unpaid orders release a slot.
+     -- Paid, refunded and submitted-slip orders remain used even if the
+     -- store cancels the order later. Only unprocessed unpaid orders
+     -- release their coupon on cancellation or payment timeout.
      and (o.payment_status in ('paid','submitted','refunded')
-          or o.payment_due_at is null
-          or o.payment_due_at > now())
+          or (o.status <> 'cancelled'
+              and (o.payment_due_at is null or o.payment_due_at > now())))
  )
 $fn$;
 
