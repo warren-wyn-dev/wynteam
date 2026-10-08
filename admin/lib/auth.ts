@@ -29,6 +29,21 @@ export async function requireAdminRole(): Promise<{
     redirect("/login");
   }
 
+  // Isolated QA Supabase has no platform_role profile column. On this
+  // *exact* QA project, use a verified Supabase Auth email plus the
+  // independently service-role-provisioned GP allowlist instead.
+  // No email string or GitHub identity alone may grant admin access.
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL === "https://pcatuxtenluqzjzzwsvl.supabase.co") {
+    if (!user.email || !user.email_confirmed_at) {
+      redirect("/login?status=verify_email");
+    }
+    const { data: gpAuthorized, error: gpError } = await supabase.rpc("wynos_gp_qa_is_admin");
+    if (gpError || gpAuthorized !== true) {
+      redirect("/login?status=awaiting_gp_authorization");
+    }
+    return { userId: user.id, email: user.email, role: "admin" };
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("platform_role")
