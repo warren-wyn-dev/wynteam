@@ -59,11 +59,15 @@ async function sendOne(accessToken: string, service: FcmServiceAccount, claim: D
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return Response.json({ error: "method_not_allowed" }, { status: 405 });
-  // Service-role-only scheduler. All privileged RPCs are also restricted to service_role.
-  const presented = req.headers.get("Authorization") ?? "";
-  if (!KEY || !URL_BASE || presented !== `Bearer ${KEY}`) {
+  // Vault-authenticated pg_cron, never exposed as a URL/query value.
+  const key = req.headers.get("x-wynos-food-promo-key") ?? "";
+  if (!KEY || !URL_BASE || key.length < 32) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
+  const authorized = await rpc<boolean>("verify_food_promo_cron_key", { p_key: key }).catch(() => false);
+  if (!authorized) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const body = await req.json().catch(() => null) as { source?: unknown } | null;
+  if (body?.source !== "pg_cron") return Response.json({ error: "forbidden_source" }, { status: 403 });
   if (!SERVICE) return Response.json({ error: "fcm_not_configured" }, { status: 503 });
   try {
     const service = JSON.parse(SERVICE) as FcmServiceAccount;
