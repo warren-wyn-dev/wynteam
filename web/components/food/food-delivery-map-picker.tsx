@@ -1216,12 +1216,13 @@ export function FoodDeliveryMapPicker({
       visiblePlaces.push(nearbyPlace);
     }
 
-    const markers = visiblePlaces.map((nearbyPlace) => {
+    const markers = visiblePlaces.map((nearbyPlace, index) => {
       const button = document.createElement("button");
       button.type = "button";
       const selected = selectedIdentity === placeIdentity(nearbyPlace);
       const kind = placeMarkerKind(nearbyPlace);
-      button.className = `wf-map-place-marker is-${kind}${nearbyPlace.merchantStoreId ? " is-merchant" : ""}${nearbyPlace.verificationStatus === "wynos_verified" ? " is-verified" : ""}${selected ? " is-selected" : ""}`;
+      const showLabel = selected || (mapZoom >= 16.6 && index < 4);
+      button.className = `wf-map-place-marker is-${kind}${nearbyPlace.merchantStoreId ? " is-merchant" : ""}${nearbyPlace.verificationStatus === "wynos_verified" ? " is-verified" : ""}${selected ? " is-selected" : ""}${showLabel ? " has-label" : ""}`;
       button.setAttribute("aria-label", `${placeCategory(nearbyPlace)} ${nearbyPlace.name}`);
       button.title = nearbyPlace.name;
 
@@ -1233,7 +1234,7 @@ export function FoodDeliveryMapPicker({
       dot.appendChild(symbol);
       button.appendChild(dot);
 
-      if (selected) {
+      if (showLabel) {
         const label = document.createElement("strong");
         label.className = "wf-map-place-label";
         label.textContent = nearbyPlace.name;
@@ -2203,6 +2204,7 @@ export function FoodDeliveryMapPicker({
                 })}
               >
                 <Navigation size={18} />
+                <span className="wf-map-confirm-tool-label">เส้นทาง</span>
               </button>
               {saved.status !== "unavailable" ? (
                 <button
@@ -2218,6 +2220,7 @@ export function FoodDeliveryMapPicker({
                   })}
                 >
                   <Star size={18} />
+                  <span className="wf-map-confirm-tool-label">บันทึก</span>
                 </button>
               ) : null}
               <button
@@ -2227,6 +2230,7 @@ export function FoodDeliveryMapPicker({
                 onClick={() => void sharePlace({ name: place?.name, latitude: location.latitude, longitude: location.longitude })}
               >
                 <Share size={18} />
+                <span className="wf-map-confirm-tool-label">แชร์</span>
               </button>
             </div>
           ) : null}
