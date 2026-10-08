@@ -19,3 +19,21 @@ test("Maps markers keep MapLibre's absolute positioning", () => {
   const css = readFileSync(new URL("../app/maps/maps-v3.css", import.meta.url), "utf8");
   assert.match(css, /\.wynos-maps-page \.maplibregl-marker\.wf-map-user-location,\s*\.wynos-maps-page \.maplibregl-marker\.wf-map-place-marker \{\s*position: absolute;/);
 });
+
+test("standalone Maps hides manual zoom controls but retains pinch-to-zoom", () => {
+  const map = readFileSync(new URL("../components/food/food-delivery-map-picker.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(map, /className="wf-map-zoom-control"/);
+  assert.doesNotMatch(map, /aria-label="ซูมเข้า"/);
+  assert.doesNotMatch(map, /aria-label="ซูมออก"/);
+  assert.match(map, /touchZoomRotate: true/);
+});
+
+test("standalone Maps requests a fresh high-accuracy GPS fix and reports coarse fixes", () => {
+  const map = readFileSync(new URL("../components/food/food-delivery-map-picker.tsx", import.meta.url), "utf8");
+  assert.match(map, /function freshMapsGpsLocation\(/);
+  assert.match(map, /watchPosition\(/);
+  assert.match(map, /enableHighAccuracy: true, maximumAge: 0/);
+  assert.match(map, /freshMapsGpsLocation\(\)/);
+  assert.match(map, /setGpsMessage\(/);
+  assert.match(map, /setUserLocation\(next\);[\s\S]*?moveTo\(next\);/);
+});
