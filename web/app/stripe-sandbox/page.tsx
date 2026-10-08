@@ -17,6 +17,7 @@ const QA_CONNECT_STORE_ID = "6638327e-353f-4151-8d69-d84b5badb831";
 
 type Order = {
   id: string;
+  store_id: string;
   order_number: string;
   total: number;
   status: string;
@@ -45,6 +46,7 @@ export default function StripeSandboxPage() {
   const [connectStatusMessage, setConnectStatusMessage] = useState("");
   const [connectCheckBusy, setConnectCheckBusy] = useState(false);
   const [returnStatus, setReturnStatus] = useState<string | null>(null);
+  const [stripeReturnOrder, setStripeReturnOrder] = useState<string | null>(null);
   const autoReconcileStarted = useRef<string | null>(null);
 
   const refresh = useCallback(async (userId: string) => {
@@ -53,7 +55,7 @@ export default function StripeSandboxPage() {
     if (!client) return;
     const { data, error } = await client
       .from("food_orders")
-      .select("id,order_number,total,status,payment_status")
+      .select("id,store_id,order_number,total,status,payment_status")
       .eq("buyer_id", userId)
       .order("created_at", { ascending: false })
       .limit(20);
@@ -72,6 +74,8 @@ export default function StripeSandboxPage() {
     const params = new URLSearchParams(window.location.search);
     const stripe = params.get("stripe");
     if (stripe === "success") {
+      const returnedOrder = params.get("order");
+      setStripeReturnOrder(returnedOrder && /^WF\d{6}$/.test(returnedOrder) ? returnedOrder : null);
       setReturnStatus("Stripe กลับจากหน้าชำระเงินแล้ว กำลังตรวจสอบผลชำระกับ Stripe อัตโนมัติ โดยไม่เรียกเก็บเงินซ้ำ");
     } else if (stripe === "cancelled") {
       setReturnStatus("คุณยกเลิกการชำระเงินทดสอบแล้ว");
@@ -196,7 +200,7 @@ export default function StripeSandboxPage() {
 
   const reconcileCheckout = useCallback(async (order: Order) => {
     if (!ENABLED || !user || user.id !== QA_MERCHANT_USER_ID ||
-        order.order_number !== "WF000003" || reconcileBusy || busyOrder) return;
+        order.store_id !== QA_CONNECT_STORE_ID || reconcileBusy || busyOrder) return;
     const client = getSupabaseBrowserClient();
     if (!client) return;
     setReconcileBusy(true);
@@ -239,14 +243,16 @@ export default function StripeSandboxPage() {
     // Only the explicitly isolated QA order can be reconciled after a Stripe
     // redirect. The server independently checks Stripe session ID, account,
     // payment status, THB amount, currency, buyer and metadata. No new charge.
-    if (!ENABLED || !user || user.id !== QA_MERCHANT_USER_ID ||
+    if (!ENABLED || !user || user.id !== QA_MERCHANT_USER_ID || !stripeReturnOrder ||
         !returnStatus?.startsWith("Stripe กลับจากหน้าชำระเงินแล้ว")) return;
     const order = orders.find((candidate) =>
-      candidate.order_number === "WF000003" && ["pending", "issue"].includes(candidate.payment_status));
+      candidate.store_id === QA_CONNECT_STORE_ID &&
+      candidate.order_number === stripeReturnOrder &&
+      ["pending", "issue"].includes(candidate.payment_status));
     if (!order || autoReconcileStarted.current === order.id) return;
     autoReconcileStarted.current = order.id;
     void reconcileCheckout(order);
-  }, [orders, user, returnStatus, reconcileCheckout]);
+  }, [orders, user, returnStatus, stripeReturnOrder, reconcileCheckout]);
 
   async function checkout(order: Order) {
     if (!ENABLED || busyOrder || !user) return;
@@ -426,7 +432,7 @@ export default function StripeSandboxPage() {
                         <p style={{ margin: "8px 0", color: "#64748b" }}>
                           {formatBaht(Number(order.total))} · สถานะ: {order.payment_status} · {order.status}
                         </p>
-                        {user.id === QA_MERCHANT_USER_ID && order.order_number === "WF000003" &&
+                        {user.id === QA_MERCHANT_USER_ID && order.store_id === QA_CONNECT_STORE_ID &&
                           ["pending", "issue"].includes(order.payment_status) && (
                             <div style={{ marginBottom: 12 }}>
                               <button disabled={reconcileBusy || Boolean(busyOrder)} onClick={() => void reconcileCheckout(order)}
@@ -437,7 +443,7 @@ export default function StripeSandboxPage() {
                             </div>
                           )}
                         {["pending", "issue"].includes(order.payment_status) &&
-                          !(user.id === QA_MERCHANT_USER_ID && order.order_number === "WF000003" && returnStatus?.includes("Stripe กลับจากหน้าชำระเงินแล้ว")) && (
+                          !(user.id === QA_MERCHANT_USER_ID && order.store_id === QA_CONNECT_STORE_ID && stripeReturnOrder === order.order_number && returnStatus?.includes("Stripe กลับจากหน้าชำระเงินแล้ว")) && (
                           <button disabled={Boolean(busyOrder) || reconcileBusy} onClick={() => void checkout(order)} style={action}>
                             {busyOrder === order.id ? "กำลังเปิด Stripe..." : "ชำระเงินทดสอบด้วย Stripe"}
                           </button>
