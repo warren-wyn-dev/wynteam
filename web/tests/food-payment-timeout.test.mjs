@@ -7,6 +7,7 @@ const root = new URL("..", import.meta.url).pathname;
 const read = (path) => readFileSync(join(root, path), "utf8");
 
 const sql = read("../supabase/migrations/20261008113000_food_unpaid_payment_timeout.sql");
+const cronActivation = read("../supabase/migrations/20261008113001_food_unpaid_payment_timeout_enable_cron.sql");
 const worker = read("../supabase/functions/food-unpaid-timeout/index.ts");
 const checkout = read("../supabase/functions/food-stripe-checkout/index.ts");
 const config = read("../supabase/config.toml");
@@ -46,7 +47,8 @@ test("live Stripe Checkout is expired or deferred, never blindly cancelled", () 
 test("worker requires vault-backed auth and is scheduled every minute", () => {
   assert.match(worker, /food_timeout_cron_authorized/);
   assert.match(sql, /vault\.create_secret/);
-  assert.match(sql, /cron\.schedule\('wynos-food-unpaid-timeout','\* \* \* \* \*'/);
+  assert.match(cronActivation, /cron\.schedule\('wynos-food-unpaid-timeout','\* \* \* \* \*'/);
+  assert.doesNotMatch(sql, /cron\.schedule\('wynos-food-unpaid-timeout'/);
   assert.match(config, /\[functions\.food-unpaid-timeout\][\s\S]*verify_jwt = false/);
   assert.match(worker, /x-wynos-cron-key/);
 });
