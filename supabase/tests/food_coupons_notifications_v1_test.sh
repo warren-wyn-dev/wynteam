@@ -14,7 +14,9 @@ PC=00000000-0000-0000-0000-0000000000e1
 CAM=00000000-0000-0000-0000-0000000000e2
 O1=00000000-0000-0000-0000-000000000101
 run >/dev/null <<SQL
-create role anon; create role authenticated; create role service_role;
+do \$\$ begin create role anon; exception when duplicate_object then null; end \$\$;
+do \$\$ begin create role authenticated; exception when duplicate_object then null; end \$\$;
+do \$\$ begin create role service_role; exception when duplicate_object then null; end \$\$;
 create schema auth; create schema internal;
 create table auth.users(id uuid primary key);
 create function auth.uid() returns uuid language sql stable as \$\$select nullif(current_setting('test.uid',true),'')::uuid\$\$;
