@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { fetchFcmAccessToken, isDeadTokenError, webPushTopic, type FcmServiceAccount } from "../send-push-notification/_lib.ts";
-import { foodPromoTokenQuery, foodPromoPushPayload } from "./_lib.ts";
+import { foodPromoTokenQuery, foodPromoPushPayload, isFoodPromoQuietTime } from "./_lib.ts";
 
 type Delivery = {
   delivery_id: string; recipient_id: string; broadcast_id: string;
@@ -68,6 +68,7 @@ Deno.serve(async (req: Request) => {
   if (!authorized) return Response.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => null) as { source?: unknown } | null;
   if (body?.source !== "pg_cron") return Response.json({ error: "forbidden_source" }, { status: 403 });
+  if (isFoodPromoQuietTime(new Date())) return Response.json({ claimed: 0, deferred: "quiet_hours" });
   if (!SERVICE) return Response.json({ error: "fcm_not_configured" }, { status: 503 });
   try {
     const service = JSON.parse(SERVICE) as FcmServiceAccount;
