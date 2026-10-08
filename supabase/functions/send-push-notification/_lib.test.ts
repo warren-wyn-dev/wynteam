@@ -686,7 +686,7 @@ Deno.test("tokensForApp sends only to the app's own devices", () => {
     { id: "c", app: "merchant" },
     { id: "d", app: "food" },
   ];
-  assertEquals(tokensForApp(tokens, "social").map((t) => t.id), ["a", "b"]);
+  assertEquals(tokensForApp(tokens, "social").map((t) => t.id), ["a"]);
   assertEquals(tokensForApp(tokens, "merchant").map((t) => t.id), ["c"]);
   assertEquals(tokensForApp(tokens, "food").map((t) => t.id), ["d"]);
 });
@@ -694,7 +694,7 @@ Deno.test("tokensForApp sends only to the app's own devices", () => {
 Deno.test("tokensForApp falls back to Wynos when Food or Merchant is not installed", () => {
   const tokens = [{ id: "a", app: null }, { id: "c", app: "merchant" }];
   assertEquals(tokensForApp(tokens, "food").map((t) => t.id), ["a"]);
-  assertEquals(tokensForApp([{ id: "c", app: "merchant" }], "social"), []);
+  assertEquals(tokensForApp([{ id: "c", app: "merchant" }, { id: "old", app: null }], "social"), []);
 });
 
 Deno.test("buildDataPayload names the Food and Merchant app for the click target", () => {
