@@ -6,9 +6,12 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const SANDBOX_URL = "https://pcatuxtenluqzjzzwsvl.supabase.co";
-const ENABLED =
-  process.env.NEXT_PUBLIC_WYNOS_STRIPE_SANDBOX === "true" &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL === SANDBOX_URL;
+// Client-visible diagnostics expose only whether a setting is valid, never its value.
+const SANDBOX_FLAG_OK = process.env.NEXT_PUBLIC_WYNOS_STRIPE_SANDBOX === "true";
+const SANDBOX_URL_OK =
+  (process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "") ?? "") === SANDBOX_URL;
+const PUBLISHABLE_KEY_PRESENT = Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim());
+const ENABLED = SANDBOX_FLAG_OK && SANDBOX_URL_OK && PUBLISHABLE_KEY_PRESENT;
 
 type Order = {
   id: string;
@@ -163,7 +166,15 @@ export default function StripeSandboxPage() {
         {!ENABLED ? (
           <section style={panel}>
             <h2>ปิดการทำงานเพื่อความปลอดภัย</h2>
-            <p>โปรเจกต์นี้ต้องตั้ง NEXT_PUBLIC_WYNOS_STRIPE_SANDBOX=true และชี้ไปยัง Supabase Sandbox เท่านั้น</p>
+            <p>โปรเจกต์นี้ต้องใช้ Supabase Sandbox และตั้งค่าทดสอบให้ครบก่อนเริ่มชำระเงิน</p>
+            <ul style={{ lineHeight: 2, marginTop: 12 }}>
+              <li>เปิดโหมดทดสอบ: {SANDBOX_FLAG_OK ? "ถูกต้อง ✓" : "ยังไม่ถูกต้อง ✕"}</li>
+              <li>Supabase URL เป็น Sandbox: {SANDBOX_URL_OK ? "ถูกต้อง ✓" : "ยังไม่ถูกต้อง ✕"}</li>
+              <li>มี Publishable Key: {PUBLISHABLE_KEY_PRESENT ? "ตั้งค่าแล้ว ✓" : "ยังไม่มี ✕"}</li>
+            </ul>
+            <p style={{ fontSize: 13, color: "#64748b" }}>
+              ข้อมูลนี้บอกเพียงผลตรวจสอบ ไม่แสดงค่า API Keys หรือ Secrets และมีผลเฉพาะ Preview ที่ Deploy ล่าสุด
+            </p>
           </section>
         ) : (
           <>
