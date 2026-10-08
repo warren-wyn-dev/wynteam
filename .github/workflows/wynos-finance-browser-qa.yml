@@ -1,0 +1,64 @@
+name: WYNOS Finance Browser QA (Local Mock Only)
+
+on:
+  push:
+    branches:
+      - sandbox/stripe-testmode-20261008
+    paths:
+      - .github/workflows/wynos-finance-browser-qa.yml
+      - web/components/merchant/merchant-finance-qa-preview.tsx
+      - web/tests/finance-qa-browser-fixture.mjs
+      - web/tests/finance-qa-browser-fixture.page.tsx
+      - web/tests/browser/finance-qa-preview.spec.ts
+      - web/playwright.config.ts
+      - web/package-lock.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wynos-finance-browser-local-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-qa:
+    if: github.ref == 'refs/heads/sandbox/stripe-testmode-20261008'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    defaults:
+      run:
+        working-directory: web
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_WYNOS_FINANCE_QA_PREVIEW: "true"
+      NEXT_PUBLIC_SUPABASE_URL: https://pcatuxtenluqzjzzwsvl.supabase.co
+      WYNOS_FINANCE_BROWSER_CI_ACK: ephemeral-local-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium browser for real desktop / Android emulation
+        run: npx playwright install --with-deps chromium
+      - name: Generate ephemeral local test route, no app code committed or deployment
+        run: node tests/finance-qa-browser-fixture.mjs
+      - name: Run interactive Finance Preview browser tests
+        run: npx playwright test tests/browser/finance-qa-preview.spec.ts --project=chromium-desktop --project=chromium-android
+      - name: Remove disposable test route
+        if: always()
+        run: node tests/finance-qa-browser-fixture.mjs --cleanup
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-finance-browser-qa-failures
+          path: web/test-results/
+          retention-days: 3
