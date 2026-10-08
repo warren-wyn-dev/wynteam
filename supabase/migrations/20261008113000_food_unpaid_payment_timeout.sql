@@ -134,7 +134,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public, internal
-as $
+as $$
 declare
   v_actor uuid := auth.uid();
   v_account_id uuid;
@@ -191,7 +191,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 revoke all on function internal.food_order_status_notify() from public, anon, authenticated;
 
 -- The cron launcher only sends a signed request. Stripe processing and the
