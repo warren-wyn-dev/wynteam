@@ -1,0 +1,39 @@
+name: WYNOS Finance Signed-JWT HTTP QA
+
+# Manual only. Deliberately NOT run on every push: QA user access JWTs are
+# short-lived and must be supplied by an authorized tester at run time.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-jwt-http-qa:
+    if: github.ref == 'refs/heads/sandbox/stripe-testmode-20261008'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      WYNOS_QA_HTTP_ACK: pcatuxtenluqzjzzwsvl
+      WYNOS_QA_SUPABASE_URL: https://pcatuxtenluqzjzzwsvl.supabase.co
+      # QA-only publishable/anon key and QA-only signed Auth JWTs.
+      # NEVER inject service_role keys, Stripe keys, or Production credentials.
+      WYNOS_QA_ANON_KEY: ${{ secrets.WYNOS_QA_ANON_KEY }}
+      WYNOS_QA_OWNER_JWT: ${{ secrets.WYNOS_QA_OWNER_JWT }}
+      WYNOS_QA_UNRELATED_JWT: ${{ secrets.WYNOS_QA_UNRELATED_JWT }}
+      WYNOS_QA_APPROVED_ADMIN_JWT: ${{ secrets.WYNOS_QA_APPROVED_ADMIN_JWT }}
+      WYNOS_QA_OWNER_STORE_ID: ${{ vars.WYNOS_QA_OWNER_STORE_ID }}
+      WYNOS_QA_OTHER_STORE_ID: ${{ vars.WYNOS_QA_OTHER_STORE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove QA-only target before calling an external endpoint
+        run: |
+          test "$WYNOS_QA_HTTP_ACK" = "pcatuxtenluqzjzzwsvl"
+          test "$WYNOS_QA_SUPABASE_URL" = "https://pcatuxtenluqzjzzwsvl.supabase.co"
+      - name: Verify real Supabase-signed QA JWT owner, outsider and Admin RPC authorization
+        run: node supabase/sandbox/gp/finance_http_signed_jwt_qa.mjs
