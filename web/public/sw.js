@@ -217,8 +217,8 @@ self.addEventListener("push", (event) => {
     pushString(notification.title) || pushString(data.push_title) || "WYNOS",
     {
       body: pushString(notification.body) || pushString(data.push_body) || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: data.type === "food_promotion" && data.app === "food" ? "/icons/food/icon-192-v10.png" : "/icons/icon-192.png",
+      badge: data.type === "food_promotion" && data.app === "food" ? "/icons/food/icon-192-v10.png" : "/icons/icon-192.png",
       tag,
       data,
       ...merchantAlert,
