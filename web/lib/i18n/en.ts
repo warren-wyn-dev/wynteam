@@ -4,6 +4,14 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "ค้นหาสถานที่ ร้านอาหาร ปั๊มน้ำมัน...": "Search places, restaurants, gas stations...",
+  "สถานที่ที่บันทึก": "Saved places",
+  "หมวดหมู่เพิ่มเติม": "More categories",
+  "เปลี่ยนรูปแบบแผนที่": "Change map style",
+  "รูปแบบแผนที่": "Map styles",
+  "เลเยอร์แผนที่": "Map layers",
+  "แผนที่มาตรฐาน": "Standard map",
+  "แผนที่กลางคืน": "Night map",
   "Stripe ชำระเงินสำเร็จแล้ว ไม่สามารถเปลี่ยนเป็นสลิปได้": "Stripe payment is already complete and cannot be switched to a payment slip",
   "ร้านยังไม่พร้อมรับชำระผ่าน Stripe": "The merchant is not ready to accept Stripe payments yet",
   "Stripe ยังไม่ได้เปิดใช้งานบน WYNOS": "Stripe is not enabled on WYNOS yet",

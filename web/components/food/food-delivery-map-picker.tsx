@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ArrowLeft, Briefcase, Building2, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, LocateFixed, MapPin, Minus, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Utensils, X } from "lucide-react";
+import { ArrowLeft, BedDouble, Briefcase, Check, CircleDollarSign, Clock, Coffee, Fuel, Home, Hospital, ImagePlus, Info, Layers, LocateFixed, MapPin, Minus, Moon, MoreHorizontal, Navigation, Plus, RefreshCw, Search, Share, ShoppingBag, Star, Store, Sun, Utensils, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -231,13 +231,6 @@ function loadMapLibre(): Promise<MapLibreGlobal> {
 
 // Same rule as the app theme (lib/theme-preference.ts): an explicit
 // data-theme wins, otherwise follow the phone.
-function prefersDarkMap() {
-  const theme = document.documentElement.dataset.theme;
-  if (theme === "dark") return true;
-  if (theme === "light") return false;
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-}
-
 type SheetDetent = "peek" | "half" | "full";
 
 function mapsStorage() {
@@ -461,6 +454,9 @@ export function FoodDeliveryMapPicker({
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const [showAttribution, setShowAttribution] = useState(false);
+  const [showLayers, setShowLayers] = useState(false);
+  const [mapAppearance, setMapAppearance] = useState<"light" | "dark">("light");
+  const [showMoreCategories, setShowMoreCategories] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestionName, setSuggestionName] = useState("");
   const [suggestionCategory, setSuggestionCategory] = useState<"place" | "restaurant" | "store" | "building" | "residence" | "poi">("place");
@@ -886,7 +882,7 @@ export function FoodDeliveryMapPicker({
 
         map = new maplibre.Map({
           container: mapNode.current,
-          style: standalone && prefersDarkMap() ? MAP_STYLE_DARK : MAP_STYLE,
+          style: MAP_STYLE,
           center: start,
           zoom: initialLocation ? 16 : 5.4,
           attributionControl: false,
@@ -1006,28 +1002,15 @@ export function FoodDeliveryMapPicker({
     };
   }, [initialLocation, loadNearby, mapAttempt, reverse, standalone]);
 
+  // Standalone Maps defaults to the approved pastel style. Food stays unchanged.
   useEffect(() => {
     if (!standalone || !mapReady) return;
-    let dark = prefersDarkMap();
-    const sync = () => {
-      const next = prefersDarkMap();
-      if (next === dark) return;
-      dark = next;
-      try {
-        mapRef.current?.setStyle(next ? MAP_STYLE_DARK : MAP_STYLE);
-      } catch {
-        // Keep the current style if the swap fails.
-      }
-    };
-    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-    media?.addEventListener("change", sync);
-    const observer = new MutationObserver(sync);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => {
-      media?.removeEventListener("change", sync);
-      observer.disconnect();
-    };
-  }, [mapReady, standalone]);
+    try {
+      mapRef.current?.setStyle(mapAppearance === "dark" ? MAP_STYLE_DARK : MAP_STYLE);
+    } catch {
+      // Keep the current map style if the requested layer cannot be loaded.
+    }
+  }, [mapAppearance, mapReady, standalone]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1156,7 +1139,7 @@ export function FoodDeliveryMapPicker({
   useEffect(() => {
     if (!mapReady || !autoLocate || initialLocation || autoLocateRef.current) return;
     autoLocateRef.current = true;
-    const timer = window.setTimeout(() => void pickCurrentLocation(), 0);
+    const timer = window.setTimeout(() => { void pickCurrentLocation().finally(() => setSheetDetent("peek")); }, 0);
     return () => window.clearTimeout(timer);
   }, [autoLocate, initialLocation, mapReady, pickCurrentLocation]);
 
@@ -1585,7 +1568,7 @@ export function FoodDeliveryMapPicker({
               cancelSearch();
             }
           }}
-          placeholder={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"}
+          placeholder={standalone ? "ค้นหาสถานที่ ร้านอาหาร ปั๊มน้ำมัน..." : "ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"}
           aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}
           autoComplete="off"
         />
@@ -1597,8 +1580,18 @@ export function FoodDeliveryMapPicker({
         {standalone && (searchFocused || query) ? (
           <button type="button" className="wf-map-search-cancel" onClick={cancelSearch}>ยกเลิก</button>
         ) : null}
+        {standalone ? (
+          <button type="button" className="wf-map-saved-shortcut" aria-label="สถานที่ที่บันทึก" onClick={() => {
+            setQuery("");
+            setResults([]);
+            setSearchFocused(true);
+            setShowMoreCategories(false);
+            void refreshSaved();
+          }}><span>W</span></button>
+        ) : null}
       </div>
       {standalone ? (
+        <>
         <div className="wf-map-quick-filters" aria-label="หมวดหมู่สถานที่">
           <button type="button" className={query === "ร้านอาหาร" ? "is-active" : ""} onClick={() => quickSearch("ร้านอาหาร")}>
             <Utensils size={16} /><span>ร้านอาหาร</span>
@@ -1616,12 +1609,23 @@ export function FoodDeliveryMapPicker({
             <Hospital size={16} /><span>โรงพยาบาล</span>
           </button>
           <button type="button" className={query === "หอพัก" ? "is-active" : ""} onClick={() => quickSearch("หอพัก")}>
-            <Building2 size={16} /><span>หอพัก</span>
+            <BedDouble size={16} /><span>หอพัก</span>
           </button>
           <button type="button" className={query === "ATM" ? "is-active" : ""} onClick={() => quickSearch("ATM")}>
             <CircleDollarSign size={16} /><span>ATM</span>
           </button>
+          <button type="button" className="wf-map-more-shortcut" aria-label="หมวดหมู่เพิ่มเติม" aria-expanded={showMoreCategories} onClick={() => setShowMoreCategories((value) => !value)}>
+            <MoreHorizontal size={20} /><span>เพิ่มเติม</span>
+          </button>
         </div>
+        {showMoreCategories ? (
+          <div className="wf-map-more-panel" role="group" aria-label="หมวดหมู่เพิ่มเติม">
+            <button type="button" onClick={() => { setShowMoreCategories(false); quickSearch("คาเฟ่"); }}><Coffee size={17} /> คาเฟ่</button>
+            <button type="button" onClick={() => { setShowMoreCategories(false); quickSearch("โรงพยาบาล"); }}><Hospital size={17} /> โรงพยาบาล</button>
+            <button type="button" onClick={() => { setShowMoreCategories(false); quickSearch("ATM"); }}><CircleDollarSign size={17} /> ATM</button>
+          </div>
+        ) : null}
+        </>
       ) : null}
       {standalone && !results.length && (searching || searchStatus) ? (
         <p className="wf-map-search-status" role="status" aria-live="polite">
@@ -1773,6 +1777,19 @@ export function FoodDeliveryMapPicker({
 
       <div className="wf-map-canvas-wrap">
         <div ref={mapNode} className="wf-map-canvas" />
+        {standalone && !navigating ? (
+          <>
+            <div className="wf-map-brand-chip"><Sun size={18} aria-hidden="true" /><span>WYNOS Maps</span></div>
+            <button type="button" className="wf-map-layers" aria-label="เปลี่ยนรูปแบบแผนที่" aria-expanded={showLayers} onClick={() => { setShowLayers((value) => !value); setShowMoreCategories(false); }}><Layers size={22} /></button>
+            {showLayers ? (
+              <div className="wf-map-layers-panel" role="group" aria-label="รูปแบบแผนที่">
+                <strong>เลเยอร์แผนที่</strong>
+                <button type="button" aria-pressed={mapAppearance === "light"} className={mapAppearance === "light" ? "is-selected" : ""} onClick={() => { setMapAppearance("light"); setShowLayers(false); }}><Sun size={18} /> แผนที่มาตรฐาน {mapAppearance === "light" ? <Check size={17} /> : null}</button>
+                <button type="button" aria-pressed={mapAppearance === "dark"} className={mapAppearance === "dark" ? "is-selected" : ""} onClick={() => { setMapAppearance("dark"); setShowLayers(false); }}><Moon size={18} /> แผนที่กลางคืน {mapAppearance === "dark" ? <Check size={17} /> : null}</button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
         {standalone && navigating && route ? (
           <>
             <div className="wf-map-navigation-top" aria-live="polite">
@@ -2037,7 +2054,7 @@ export function FoodDeliveryMapPicker({
           <article className="wf-map-place-card">
             <button className="wf-map-place-close" type="button" aria-label="ปิดข้อมูลสถานที่" onClick={() => {
               setActiveNearbyPlace(null);
-              if (standalone) setSheetExpanded(false);
+              if (standalone) setSheetDetent("peek");
             }}>
               <X size={16} />
             </button>
