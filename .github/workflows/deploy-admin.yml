@@ -53,6 +53,11 @@ jobs:
           esac
           test "$VERCEL_ORG_ID" = "team_Kamt1PUT5XKn9MWrF404re1w"
           test "$VERCEL_PROJECT_ID" = "prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5"
+          # Explicitly link this clean CI checkout to the existing Admin project;
+          # never let the CLI create or infer a different project by directory.
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' \
+            "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
       - name: Deploy existing Admin project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
