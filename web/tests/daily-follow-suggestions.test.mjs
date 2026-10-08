@@ -81,7 +81,7 @@ test("cron is release-gated and authenticated by a dedicated Vault key", () => {
 
 test("sender is Web-only, data-only, and carries the delivery id for attribution", () => {
   assert.match(edge, /dailyFollowSocialTokenQuery\(claim\.user_id\)/);
-  assert.match(edgeLib, /platform=eq\.web&or=\(app\.eq\.social,app\.is\.null\)&select=token/);
+  assert.match(edgeLib, /platform=eq\.web&app=eq\.social&select=token/);
   assert.match(edge, /type: "daily_follow_suggestion"/);
   assert.match(edge, /delivery_id: claim\.delivery_id/);
   assert.match(edge, /push_title: title/);
