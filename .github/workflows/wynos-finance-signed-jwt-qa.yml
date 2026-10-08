@@ -21,6 +21,7 @@ jobs:
     timeout-minutes: 8
     env:
       WYNOS_QA_HTTP_ACK: pcatuxtenluqzjzzwsvl
+      WYNOS_QA_STRICT_AUTH_GATE: "true"
       WYNOS_QA_SUPABASE_URL: https://pcatuxtenluqzjzzwsvl.supabase.co
       # QA-only publishable/anon key and QA-only signed Auth JWTs.
       # NEVER inject service_role keys, Stripe keys, or Production credentials.
