@@ -72,6 +72,13 @@ function pushTarget(data) {
   const order = typeof data?.order_number === "string" && /^WF\d{4,9}$/.test(data.order_number)
     ? `?order=${data.order_number}`
     : "";
+  // Promotions must stay within Food, and can prefill the code in checkout.
+  if (data?.type === "food_promotion" && data?.app === "food") {
+    const code = typeof data.coupon_code === "string" && /^[A-Z0-9][A-Z0-9_-]{3,23}$/.test(data.coupon_code)
+      ? `?promo=${encodeURIComponent(data.coupon_code)}`
+      : "";
+    return `/food${code}`;
+  }
   if (data?.app === "merchant") return `/merchant${order}`;
   if (data?.app === "food") return `/food${order}`;
   if (data?.type === "daily_follow_suggestion") {
