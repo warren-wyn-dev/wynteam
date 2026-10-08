@@ -58,3 +58,28 @@ test("Maps launch UI has clear saved places, distinctive POI markers and readabl
   assert.match(css, /wf-map-place-marker\.has-label:not\(\.is-selected\) \.wf-map-place-label/);
   assert.match(css, /min-height: 44px/);
 });
+
+test("Maps reports the browser GPS accuracy without showing a red selection pin over the blue dot", () => {
+  const source = readFileSync(new URL("../components/food/food-delivery-map-picker.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/maps/maps-v6.css", import.meta.url), "utf8");
+  assert.match(source, /const \[gpsAccuracyMeters, setGpsAccuracyMeters\] = useState<number \| null>\(null\)/);
+  assert.match(source, /setGpsAccuracyMeters\(Math\.ceil\(fix\.accuracyMeters\)\)/);
+  assert.match(source, /currentLocationSelected && gpsAccuracyMeters !== null/);
+  assert.match(source, /\(!standalone \|\| \(chosen && !currentLocationSelected && !navigating && !directionsTarget\)\)/);
+  assert.match(css, /\.wynos-maps-page \.wf-map-gps-accuracy/);
+});
+
+test("Maps uses real labeled road tiles and distinct icons for hospitals, fuel and ATMs", () => {
+  const source = readFileSync(new URL("../components/food/food-delivery-map-picker.tsx", import.meta.url), "utf8");
+  const style = JSON.parse(readFileSync(new URL("../public/maps/wynos-green.json", import.meta.url), "utf8"));
+  for (const name of ["highway-name-minor", "highway-name-path", "poi_r1", "poi_r7"]) {
+    const layer = style.layers.find((entry) => entry.id === name);
+    assert.ok(layer, `missing named map style layer: ${name}`);
+    assert.ok(JSON.stringify(layer.layout?.["text-field"] ?? "").includes("name"), `place names must be sourced from real tiles: ${name}`);
+    assert.ok(source.includes(`["${name}", `), `standalone Maps should show named ${name} earlier`);
+  }
+  assert.match(source, /map\.setLayerZoomRange\(layerId, minzoom, 24\)/);
+  for (const kind of ["hospital", "fuel", "atm"]) {
+    assert.ok(source.includes(`kind === "${kind}"`), `missing marker glyph ${kind}`);
+  }
+});
