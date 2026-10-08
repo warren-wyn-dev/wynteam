@@ -1,0 +1,46 @@
+name: WYNOS GP Sandbox Staging HTTP Smoke
+on:
+  push:
+    branches:
+      - sandbox/stripe-testmode-20261008
+    paths:
+      - '.github/workflows/wynos-gp-staging-smoke.yml'
+permissions:
+  contents: read
+jobs:
+  sandbox-staging-http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Ensure GP staging uses QA and cannot collect real GP
+        env:
+          QA_URL: https://wynos-gp-sandbox-admin-j4djxbkek-warren14.vercel.app
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 25); do
+            CODE=$(curl -sS -o /tmp/gp-qa-health.json --max-time 12 -w '%{http_code}' "$QA_URL/api/qa-gp-health" || true)
+            echo "QA preflight attempt $i: $CODE"
+            if [ "$CODE" = "200" ]; then break; fi
+            if [ "$i" = "25" ]; then
+              echo "QA health endpoint failed"; cat /tmp/gp-qa-health.json || true; exit 1
+            fi
+            sleep 10
+          done
+          node -e '
+            const fs=require("node:fs");
+            const j=JSON.parse(fs.readFileSync("/tmp/gp-qa-health.json","utf8"));
+            if (j.sandbox!==true || j.gp_mode!=="simulation_only" ||
+                j.gp_collection_enabled!==false ||
+                j.admin_access!=="authenticated_user_and_explicit_gp_allowlist_required")
+              throw new Error("QA GP preflight rejects unsafe configuration");
+            console.log("PASS: QA-only configuration, zero real GP collection");
+          '
+          CODE=$(curl -sS -o /tmp/gp-unauth.txt --max-time 12 -w '%{http_code}' "$QA_URL/food/gp" || true)
+          echo "Unauthenticated GP page HTTP status $CODE"
+          if [ "$CODE" = "200" ]; then
+            echo "FAIL: unauthenticated GP admin page might be visible"; exit 1
+          fi
+          if [ "$CODE" != "301" ] && [ "$CODE" != "302" ] && [ "$CODE" != "303" ] && [ "$CODE" != "307" ] && [ "$CODE" != "308" ] && [ "$CODE" != "401" ] && [ "$CODE" != "403" ]; then
+            echo "FAIL: unexpected admin access status $CODE"; exit 1
+          fi
+          echo "PASS: GP admin page is gated for anonymous visitors"
