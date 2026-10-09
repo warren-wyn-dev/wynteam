@@ -16,7 +16,6 @@ import {
   LayoutGrid,
   ListPlus,
   LogOut,
-  GripVertical,
   Eye,
   CalendarDays,
   History,
@@ -52,6 +51,7 @@ import { MerchantAds } from "@/components/merchant/merchant-ads";
 import { MerchantFinance } from "@/components/merchant/merchant-finance";
 import { MerchantPaymentSetup } from "@/components/merchant/merchant-payment-setup";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
+import { useMerchantTouchDrag } from "@/components/merchant/use-touch-reorder";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { MerchantNotificationSettings } from "@/components/merchant/merchant-notification-settings";
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
@@ -753,11 +753,11 @@ function MerchantInner({
             }}
             onReorder={async (ids) => {
               try { await saveMenuSortOrder(client, store.id, ids); await load(true); }
-              catch (error) { setMessage(merchantError(error)); }
+              catch (error) { setMessage(merchantError(error)); throw error; }
             }}
             onCategoryOrder={async (categories) => {
               try { await saveMenuCategoryOrder(client, store.id, categories); await load(true); }
-              catch (error) { setMessage(merchantError(error)); }
+              catch (error) { setMessage(merchantError(error)); throw error; }
             }}
           />
         ) : null}
@@ -1280,63 +1280,137 @@ function MenuPanel({
   onAdd: () => void;
   onToggle: (item: FoodMenuItem) => void;
   onSoldOut: (item: FoodMenuItem, soldOut: boolean) => void;
-  onReorder: (ids: string[]) => void;
-  onCategoryOrder: (categories: string[]) => void;
+  onReorder: (ids: string[]) => Promise<void>;
+  onCategoryOrder: (categories: string[]) => Promise<void>;
 }) {
   const [sortMode, setSortMode] = useState(false);
+  const [sortScope, setSortScope] = useState<"items" | "categories">("items");
+  const [draftItemOrder, setDraftItemOrder] = useState<string[]>([]);
+  const [draftCategoryOrder, setDraftCategoryOrder] = useState<string[]>([]);
+  const [sortRenderVersion, setSortRenderVersion] = useState(0);
+  const [savingSort, setSavingSort] = useState(false);
+  const [sortFeedback, setSortFeedback] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set());
+  const sortAreaRef = useRef<HTMLDivElement>(null);
+
   const q = query.trim().toLocaleLowerCase("th-TH");
   const presentCategories = Array.from(new Set(menu.map((item) => item.category.trim() || "อื่น ๆ")));
   const preferred = Array.isArray(store.menu_category_order) ? store.menu_category_order : [];
-  const categoryOrder = [...preferred.filter((name) => presentCategories.includes(name)), ...presentCategories.filter((name) => !preferred.includes(name))];
+  const currentCategoryOrder = [...preferred.filter((name) => presentCategories.includes(name)), ...presentCategories.filter((name) => !preferred.includes(name))];
+  const categoryOrder = sortMode
+    ? [...draftCategoryOrder.filter((name) => presentCategories.includes(name)), ...currentCategoryOrder.filter((name) => !draftCategoryOrder.includes(name))]
+    : currentCategoryOrder;
+  const sortedMenu = sortMode
+    ? [...menu].sort((a, b) => {
+        const left = draftItemOrder.indexOf(a.id);
+        const right = draftItemOrder.indexOf(b.id);
+        return (left < 0 ? menu.indexOf(a) : left) - (right < 0 ? menu.indexOf(b) : right);
+      })
+    : menu;
   const visibleCategoryOrder = categoryFilter === "all" ? categoryOrder : categoryOrder.filter((name) => name === categoryFilter);
   const displayMenu = q
-    ? menu.filter((item) => `${item.name} ${item.category} ${item.description ?? ""}`.toLocaleLowerCase("th-TH").includes(q))
-    : menu;
+    ? sortedMenu.filter((item) => `${item.name} ${item.category} ${item.description ?? ""}`.toLocaleLowerCase("th-TH").includes(q))
+    : sortedMenu;
   const categories = visibleCategoryOrder
     .map((category) => [category, displayMenu.filter((item) => (item.category.trim() || "อื่น ๆ") === category)] as const)
     .filter(([, items]) => items.length);
 
+  const beginSort = () => {
+    if (q || categoryFilter !== "all") return;
+    setDraftItemOrder(menu.map((item) => item.id));
+    setDraftCategoryOrder(currentCategoryOrder);
+    setSortScope("items");
+    setOpenActionId(null);
+    setSortFeedback("");
+    setSortMode(true);
+  };
+
+  const cancelSort = () => {
+    setSortMode(false);
+    setDraftItemOrder([]);
+    setDraftCategoryOrder([]);
+    setSortFeedback("");
+  };
+
   const moveItem = (dragId: string, targetId: string) => {
-    if (q || dragId === targetId) return;
-    const ids = menu.map((item) => item.id);
+    if (!sortMode || sortScope !== "items" || q || dragId === targetId) return;
+    const dragItem = menu.find((item) => item.id === dragId);
+    const targetItem = menu.find((item) => item.id === targetId);
+    if (!dragItem || !targetItem || dragItem.category !== targetItem.category) return;
+    const ids = sortedMenu.map((item) => item.id);
     const from = ids.indexOf(dragId);
     const to = ids.indexOf(targetId);
     if (from < 0 || to < 0) return;
     const next = [...ids];
     next.splice(to, 0, next.splice(from, 1)[0]);
-    onReorder(next);
+    setDraftItemOrder(next);
   };
 
   const moveCategory = (dragCategory: string, targetCategory: string) => {
-    if (q || dragCategory === targetCategory) return;
+    if (!sortMode || sortScope !== "categories" || q || dragCategory === targetCategory) return;
     const next = [...categoryOrder];
     const from = next.indexOf(dragCategory);
     const to = next.indexOf(targetCategory);
     if (from < 0 || to < 0) return;
     next.splice(to, 0, next.splice(from, 1)[0]);
-    onCategoryOrder(next);
+    setDraftCategoryOrder(next);
   };
 
   const shiftCategory = (category: string, delta: -1 | 1) => {
     const index = categoryOrder.indexOf(category);
     const target = index + delta;
-    if (q || index < 0 || target < 0 || target >= categoryOrder.length) return;
+    if (!sortMode || sortScope !== "categories" || index < 0 || target < 0 || target >= categoryOrder.length) return;
     const next = [...categoryOrder];
     [next[index], next[target]] = [next[target], next[index]];
-    onCategoryOrder(next);
+    setDraftCategoryOrder(next);
   };
 
   const shiftItem = (items: FoodMenuItem[], itemId: string, delta: -1 | 1) => {
     const index = items.findIndex((item) => item.id === itemId);
     const target = index + delta;
-    if (q || index < 0 || target < 0 || target >= items.length) return;
+    if (!sortMode || sortScope !== "items" || index < 0 || target < 0 || target >= items.length) return;
     moveItem(itemId, items[target].id);
   };
 
+  const saveSort = async () => {
+    if (savingSort) return;
+    const itemsChanged = draftItemOrder.some((id, index) => menu[index]?.id !== id);
+    const catsChanged = draftCategoryOrder.some((name, index) => currentCategoryOrder[index] !== name);
+    setSavingSort(true);
+    setSortFeedback("");
+    try {
+      if (itemsChanged) await onReorder(draftItemOrder);
+      if (catsChanged) await onCategoryOrder(draftCategoryOrder);
+      setSortMode(false);
+      setDraftItemOrder([]);
+      setDraftCategoryOrder([]);
+      setSortFeedback("บันทึกลำดับเรียบร้อยแล้ว");
+    } catch {
+      setSortFeedback("บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง");
+    } finally {
+      setSavingSort(false);
+    }
+  };
+
+  const onTouchOrder = useCallback((ids: string[], category?: string) => {
+    if (sortScope === "categories") {
+      if (ids.length === categoryOrder.length) setDraftCategoryOrder(ids);
+    } else if (category) {
+      const existing = sortedMenu.map((item) => item.id);
+      const belongsToCategory = new Set(menu.filter((item) => (item.category.trim() || "อื่น ๆ") === category).map((item) => item.id));
+      if (ids.length === belongsToCategory.size && ids.every((id) => belongsToCategory.has(id))) {
+        let nextIndex = 0;
+        setDraftItemOrder(existing.map((id) => belongsToCategory.has(id) ? ids[nextIndex++] : id));
+      }
+    }
+    setSortRenderVersion((version) => version + 1);
+  }, [sortScope, categoryOrder, sortedMenu, menu]);
+  useMerchantTouchDrag(sortAreaRef, sortMode && !q, sortScope, sortRenderVersion, onTouchOrder);
+
   const toggleCategory = (category: string) => {
+    if (sortMode) return;
     setCollapsedCategories((current) => {
       const next = new Set(current);
       if (next.has(category)) next.delete(category);
@@ -1358,7 +1432,7 @@ function MenuPanel({
           value={query}
           onChange={(event) => {
             onQuery(event.target.value);
-            if (event.target.value) setSortMode(false);
+            if (event.target.value) cancelSort();
           }}
           placeholder="ค้นหาเมนูหรือหมวดหมู่"
         />
@@ -1370,14 +1444,14 @@ function MenuPanel({
             className={`wm-menu-tool ${sortMode ? "is-active" : ""}`}
             type="button"
             aria-pressed={sortMode}
-            disabled={Boolean(q) || categoryFilter !== "all"}
+            disabled={Boolean(q) || categoryFilter !== "all" || savingSort}
             onClick={() => {
-              setSortMode((value) => !value);
-              setOpenActionId(null);
+              if (sortMode) cancelSort();
+              else beginSort();
             }}
           >
             <ArrowUpDown size={17} />
-            <span>{sortMode ? "เสร็จสิ้น" : "จัดลำดับ"}</span>
+            <span>{sortMode ? "ออกจากโหมดจัดเรียง" : "จัดลำดับ"}</span>
             {sortMode ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
           </button>
           <label className="wm-menu-tool wm-menu-category-filter">
@@ -1385,9 +1459,10 @@ function MenuPanel({
             <select
               aria-label="กรองตามหมวดหมู่"
               value={categoryFilter}
+              disabled={sortMode}
               onChange={(event) => {
                 setCategoryFilter(event.target.value);
-                setSortMode(false);
+                cancelSort();
                 setOpenActionId(null);
               }}
             >
@@ -1400,40 +1475,54 @@ function MenuPanel({
       ) : null}
 
       {sortMode ? (
-        <div className="wm-menu-sort-hint"><GripVertical size={15} /> ลากหมวดหมู่หรือเมนูเพื่อจัดลำดับหน้าร้าน</div>
+        <div className="wm-menu-sort-panel" aria-label="จัดเรียงด้วยนิ้ว">
+          <div className="wm-menu-sort-scopes">
+            <button type="button" className={sortScope === "items" ? "is-active" : ""} aria-pressed={sortScope === "items"} onClick={() => setSortScope("items")}>เมนูอาหาร</button>
+            <button type="button" className={sortScope === "categories" ? "is-active" : ""} aria-pressed={sortScope === "categories"} onClick={() => setSortScope("categories")}>หมวดหมู่</button>
+          </div>
+          <p>ใช้นิ้วแตะแล้วลาก${sortScope === "items" ? "รายการอาหารทั้งแถวภายในหมวดหมู่" : "แถบชื่อหมวดหมู่ทั้งแถบ"}เพื่อสลับลำดับ</p>
+          <div className="wm-menu-sort-actions">
+            <button type="button" disabled={savingSort} onClick={cancelSort}>ยกเลิก</button>
+            <button className="is-primary" type="button" disabled={savingSort} onClick={() => void saveSort()}>{savingSort ? "กำลังบันทึก..." : "บันทึกลำดับ"}</button>
+          </div>
+        </div>
       ) : null}
+      {sortFeedback ? <div className="wm-menu-sort-feedback" role="status">{sortFeedback}</div> : null}
 
-      <div className="wm-menu-categories">
+      <div
+        className={`wm-menu-categories ${sortMode ? "is-touch-sorting" : ""} ${sortMode && sortScope === "categories" ? "is-category-sorting" : ""}`}
+        ref={sortAreaRef}
+        key={sortRenderVersion}
+      >
         {categories.map(([category, items]) => {
           const categoryIndex = categoryOrder.indexOf(category);
-          const collapsed = collapsedCategories.has(category);
+          const collapsed = !sortMode && collapsedCategories.has(category);
           return (
             <section
               className={`wm-menu-category ${collapsed ? "is-collapsed" : ""}`}
               key={category}
-              draggable={sortMode && !q}
-              onDragStart={(event) => event.dataTransfer.setData("text/wynos-category", category)}
-              onDragOver={(event) => { if (sortMode && event.dataTransfer.types.includes("text/wynos-category")) event.preventDefault(); }}
+              data-wm-category={category}
+              draggable={sortMode && sortScope === "categories" && !q}
+              onDragStart={(event) => { if (sortMode && sortScope === "categories") event.dataTransfer.setData("text/wynos-category", category); }}
+              onDragOver={(event) => { if (sortMode && sortScope === "categories" && event.dataTransfer.types.includes("text/wynos-category")) event.preventDefault(); }}
               onDrop={(event) => {
                 const source = event.dataTransfer.getData("text/wynos-category");
-                if (sortMode && source) { event.preventDefault(); moveCategory(source, category); }
+                if (sortMode && sortScope === "categories" && source) { event.preventDefault(); moveCategory(source, category); }
               }}
             >
               <div className="wm-menu-category-heading">
                 <div className="wm-menu-category-title">
-                  <span className={`wm-menu-category-drag ${sortMode ? "is-active" : ""}`} aria-hidden="true"><GripVertical size={17} /></span>
-                  <span className={`wm-menu-category-mark is-tone-${categoryIndex % 3}`} aria-hidden="true"><UtensilsCrossed size={16} /></span>
-                  <button type="button" onClick={() => toggleCategory(category)}><strong>{category}</strong></button>
+                  <button type="button" disabled={sortMode} onClick={() => toggleCategory(category)}><strong>{category}</strong></button>
                 </div>
                 <div className="wm-menu-category-meta">
                   <em>{items.length} เมนู</em>
-                  {sortMode ? (
+                  {sortMode && sortScope === "categories" ? (
                     <span className="wm-sort-controls">
-                      <button type="button" aria-label="เลื่อนหมวดหมู่ขึ้น" disabled={Boolean(q) || categoryIndex === 0} onClick={() => shiftCategory(category, -1)}><ChevronUp size={14} /></button>
-                      <button type="button" aria-label="เลื่อนหมวดหมู่ลง" disabled={Boolean(q) || categoryIndex === categoryOrder.length - 1} onClick={() => shiftCategory(category, 1)}><ChevronDown size={14} /></button>
+                      <button type="button" aria-label="เลื่อนหมวดหมู่ขึ้น" disabled={savingSort || categoryIndex === 0} onClick={() => shiftCategory(category, -1)}><ChevronUp size={14} /></button>
+                      <button type="button" aria-label="เลื่อนหมวดหมู่ลง" disabled={savingSort || categoryIndex === categoryOrder.length - 1} onClick={() => shiftCategory(category, 1)}><ChevronDown size={14} /></button>
                     </span>
                   ) : null}
-                  <button className={`wm-menu-collapse ${collapsed ? "is-collapsed" : ""}`} type="button" aria-label={collapsed ? "แสดงเมนูในหมวด" : "ซ่อนเมนูในหมวด"} aria-expanded={!collapsed} onClick={() => toggleCategory(category)}>
+                  <button className={`wm-menu-collapse ${collapsed ? "is-collapsed" : ""}`} type="button" disabled={sortMode} aria-label={collapsed ? "แสดงเมนูในหมวด" : "ซ่อนเมนูในหมวด"} aria-expanded={!collapsed} onClick={() => toggleCategory(category)}>
                     <ChevronDown size={17} />
                   </button>
                 </div>
@@ -1453,16 +1542,16 @@ function MenuPanel({
                       <article
                         className={`wm-menu-row ${available ? "" : "is-off"} ${soldOutToday ? "is-sold-out" : ""} ${sortMode ? "is-sorting" : ""}`}
                         key={item.id}
-                        draggable={sortMode && !q}
-                        onDragStart={(event) => event.dataTransfer.setData("text/wynos-menu", item.id)}
-                        onDragOver={(event) => { if (sortMode && event.dataTransfer.types.includes("text/wynos-menu")) event.preventDefault(); }}
+                        data-wm-item={item.id}
+                        draggable={sortMode && sortScope === "items" && !q}
+                        onDragStart={(event) => { if (sortMode && sortScope === "items") event.dataTransfer.setData("text/wynos-menu", item.id); }}
+                        onDragOver={(event) => { if (sortMode && sortScope === "items" && event.dataTransfer.types.includes("text/wynos-menu")) event.preventDefault(); }}
                         onDrop={(event) => {
                           const source = event.dataTransfer.getData("text/wynos-menu");
-                          if (sortMode && source) { event.preventDefault(); moveItem(source, item.id); }
+                          if (sortMode && sortScope === "items" && source) { event.preventDefault(); moveItem(source, item.id); }
                         }}
                       >
-                        {sortMode ? <span className="wm-menu-drag" aria-hidden="true"><GripVertical size={18} /></span> : null}
-                        <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
+                        <button className="wm-menu-main" type="button" disabled={sortMode} onClick={() => onEdit(item)}>
                           <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
                           <span className="wm-menu-copy">
                             <strong>{item.name}</strong>
@@ -1471,29 +1560,31 @@ function MenuPanel({
                           </span>
                         </button>
                         <div className="wm-menu-row-actions">
-                          {sortMode ? (
+                          {sortMode && sortScope === "items" ? (
                             <span className="wm-sort-controls">
-                              <button type="button" aria-label="เลื่อนเมนูขึ้น" disabled={Boolean(q) || itemIndex === 0} onClick={() => shiftItem(items, item.id, -1)}><ChevronUp size={13} /></button>
-                              <button type="button" aria-label="เลื่อนเมนูลง" disabled={Boolean(q) || itemIndex === items.length - 1} onClick={() => shiftItem(items, item.id, 1)}><ChevronDown size={13} /></button>
+                              <button type="button" aria-label="เลื่อนเมนูขึ้น" disabled={savingSort || itemIndex === 0} onClick={() => shiftItem(items, item.id, -1)}><ChevronUp size={13} /></button>
+                              <button type="button" aria-label="เลื่อนเมนูลง" disabled={savingSort || itemIndex === items.length - 1} onClick={() => shiftItem(items, item.id, 1)}><ChevronDown size={13} /></button>
                             </span>
                           ) : null}
-                          {soldOutToday && !sortMode ? <span className="wm-menu-soldout-badge">หมดวันนี้</span> : null}
-                          <button
-                            className={`wm-switch ${available ? "is-on" : ""}`}
-                            type="button"
-                            aria-label={available ? "ปิดขาย" : "เปิดขาย"}
-                            onClick={() => soldOutToday ? onSoldOut(item, false) : onToggle(item)}
-                          ><i /></button>
                           {!sortMode ? (
-                            <div className="wm-menu-overflow">
-                              <button className="wm-menu-more" type="button" aria-label={`ตัวเลือกสำหรับ ${item.name}`} aria-expanded={actionOpen} onClick={() => setOpenActionId(actionOpen ? null : item.id)}>⋯</button>
-                              {actionOpen ? (
-                                <div className="wm-menu-action-popover" role="menu">
-                                  <button type="button" role="menuitem" onClick={() => { setOpenActionId(null); onEdit(item); }}>แก้ไขเมนู</button>
-                                  <button className={soldOutToday ? "is-active" : ""} type="button" role="menuitem" onClick={() => { setOpenActionId(null); onSoldOut(item, !soldOutToday); }}>{soldOutToday ? "ยกเลิกหมดวันนี้" : "หมดวันนี้"}</button>
-                                </div>
-                              ) : null}
-                            </div>
+                            <>
+                              {soldOutToday ? <span className="wm-menu-soldout-badge">หมดวันนี้</span> : null}
+                              <button
+                                className={`wm-switch ${available ? "is-on" : ""}`}
+                                type="button"
+                                aria-label={available ? "ปิดขาย" : "เปิดขาย"}
+                                onClick={() => soldOutToday ? onSoldOut(item, false) : onToggle(item)}
+                              ><i /></button>
+                              <div className="wm-menu-overflow">
+                                <button className="wm-menu-more" type="button" aria-label={`ตัวเลือกสำหรับ ${item.name}`} aria-expanded={actionOpen} onClick={() => setOpenActionId(actionOpen ? null : item.id)}>⋯</button>
+                                {actionOpen ? (
+                                  <div className="wm-menu-action-popover" role="menu">
+                                    <button type="button" role="menuitem" onClick={() => { setOpenActionId(null); onEdit(item); }}>แก้ไขเมนู</button>
+                                    <button className={soldOutToday ? "is-active" : ""} type="button" role="menuitem" onClick={() => { setOpenActionId(null); onSoldOut(item, !soldOutToday); }}>{soldOutToday ? "ยกเลิกหมดวันนี้" : "หมดวันนี้"}</button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </>
                           ) : null}
                         </div>
                       </article>
