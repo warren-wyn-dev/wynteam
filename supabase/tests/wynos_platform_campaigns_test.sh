@@ -129,6 +129,15 @@ expect_db "select has_function_privilege('anon', 'public.admin_settle_platform_s
 echo "PASS: WYNOS campaigns are Admin-designed, store-joined, hybrid-funded and settled once"
 
 
+# Internal pricing candidates are server-only; use privileged test execution
+# while supplying the buyer identity, rather than granting clients access.
+as_internal() { run -At -c "select set_config('test.uid','$1',false);" -c "$2" 2>&1 | tail -n1; }
+expect_internal_eq() {
+  local got
+  got="$(as_internal "$1" "$2")"
+  [[ "$got" == "$3" ]] || { echo "FAIL: $4 (got '$got', want '$3')"; exit 1; }
+}
+
 # First-order fixed offer integration: exercise the actual additive migration
 # on this throwaway PostgreSQL DB, not on Production.
 run >/dev/null <<SQL
