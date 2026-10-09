@@ -4903,7 +4903,7 @@ button.wm-menu-tool:disabled {
   cursor: grab;
 }
 
-.wm-menu-categories.is-touch-sorting .wm-menu-row.is-sorting,
+.wm-menu-categories.is-touch-sorting:not(.is-category-sorting) .wm-menu-row.is-sorting,
 .wm-menu-categories.is-category-sorting .wm-menu-category-heading {
   touch-action: none;
   -webkit-user-select: none;
