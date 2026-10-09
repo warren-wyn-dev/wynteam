@@ -826,3 +826,32 @@ test("Merchant payment onboarding stays WYNOS-first across the browser matrix", 
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
   await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
 });
+
+
+test("Merchant iPhone direct-touch sorting uses separate scoped drafts with explicit save/cancel", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const touch = read("components/merchant/use-touch-reorder.ts");
+  const css = read("app/merchant/merchant.css");
+  const data = read("lib/food-merchant.ts");
+
+  expect(app).toContain('useMerchantTouchDrag(sortAreaRef, sortMode && !q');
+  expect(app).toContain('setSortScope("items")');
+  expect(app).toContain('setSortScope("categories")');
+  expect(app).toContain('setDraftItemOrder(next)');
+  expect(app).toContain('setDraftCategoryOrder(next)');
+  expect(app).toContain('onClick={() => void saveSort()}');
+  expect(app).toContain('onClick={cancelSort}');
+  expect(app).toContain('if (itemsChanged) await onReorder(draftItemOrder)');
+  expect(app).toContain('if (catsChanged) await onCategoryOrder(draftCategoryOrder)');
+  expect(app).not.toContain("GripVertical");
+  expect(app).not.toContain("wm-menu-category-mark");
+  expect(touch).toContain('addEventListener("touchstart", onTouchStart, { passive: false })');
+  expect(touch).toContain('addEventListener("touchmove", onTouchMove, { passive: false })');
+  expect(touch).toContain('addEventListener("touchcancel", onTouchCancel, { passive: false })');
+  expect(touch).toContain("if (hadChanged) onCancelled()");
+  expect(touch).toContain('scope === "items" && !list.classList.contains("wm-menu-list")');
+  expect(css).toContain("touch-action: none;");
+  expect(css).toContain(".wm-touch-drag-ghost");
+  expect(data).toContain('update({ sort_order: index }).eq("id", id).eq("store_id", storeId)');
+  expect(data).toContain('update({ menu_category_order: unique }).eq("id", storeId)');
+});
