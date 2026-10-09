@@ -97,7 +97,7 @@ jobs:
           fi
           grep -q 'WYN Admin' "$RUNNER_TEMP/admin-login.html"
           curl --silent --show-error --head --max-time 10 http://127.0.0.1:3107/food/notifications \
-            | grep -i -E '^location: /login' || { echo "Admin protected page not redirected"; exit 1; }
+            | grep -i -E '^location: (https?://[^/]+)?/login' || { echo "Admin protected page not redirected"; exit 1; }
           echo "PASS Admin login renders and anonymous protected route redirects"
 
   edge-functions:
