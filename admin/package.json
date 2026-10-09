@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:workspaces": "node --test tests/*.test.mjs",
-    "check:deployment-env": "node scripts/check-admin-environment.mjs"
+    "check:deployment-env": "node scripts/check-admin-environment.mjs",
+    "prebuild": "node scripts/check-admin-build.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
