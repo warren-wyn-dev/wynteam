@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 35
     env:
       CI: "true"
-      WYNOS_LOCAL_STACK_DIR: ${{ runner.temp }}/wynos-admin-qa-local
+      WYNOS_LOCAL_STACK_DIR: /tmp/wynos-admin-qa-local
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
