@@ -90,7 +90,7 @@ export default async function FoodCampaignsPage() {
                   <div><p className="text-muted-foreground">ออเดอร์สำเร็จ</p><p className="font-medium">{campaign.delivered_orders}</p></div>
                   <div><p className="text-muted-foreground">ส่วนลดรวม</p><p className="font-medium">{formatBaht(campaign.discount_total)}</p></div>
                   <div><p className="text-muted-foreground">WYNOS ออก</p><p className="font-medium">{formatBaht(campaign.platform_funded_total)}</p></div>
-                  {isAdmin ? <PlatformCampaignFormButton campaign={campaign} /> : null}
+                  {isAdmin && !campaign.first_order_only ? <PlatformCampaignFormButton campaign={campaign} /> : null}
                 </div>
               </div>
             ))}
