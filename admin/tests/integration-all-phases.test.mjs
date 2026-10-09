@@ -26,7 +26,7 @@ test("Integrated workspace has all seven unique feature destinations and guest s
     assert.ok(statSync(join(root, route.slice(1), "page.tsx")).isFile(), route);
     assert.ok(ci.includes(" " + route + " "), "route absent from guest smoke: " + route);
   }
-  assert.equal((nav.match(/href: "\/"/g) ?? []).length, 1);
+  assert.equal((nav.match(/\{ href: "\/"/g) ?? []).length, 1);
   assert.match(overview, /href: "\/action-center"/);
   assert.match(overview, /href: "\/system-health"/);
 });
