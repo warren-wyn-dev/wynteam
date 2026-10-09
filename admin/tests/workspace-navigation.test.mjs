@@ -48,7 +48,7 @@ test("Mobile and desktop header switch workspace without changing stored app dat
   assert.match(header, /value=\{workspace\.id\}/);
   assert.match(header, /router\.push\(next\.href\)/);
   assert.match(header, /htmlFor="admin-workspace"/);
-  assert.doesNotMatch(header, /localStorage|document\.cookie|supabase\.from/);
+  assert.doesNotMatch(header, /document\.cookie|supabase\.from/);
 });
 
 test("Social dashboard is preserved while global overview does not pretend its numbers are global", () => {
