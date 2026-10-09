@@ -106,3 +106,17 @@ test("Admin deployment stays scoped to the existing project, Preview by default"
   assert.match(deployAdmin, /args\+\=\(--prod\)/);
   assert.doesNotMatch(deployAdmin, /deploy-web\.yml|food-apply-.*\.yml|merchant\/|web\//);
 });
+
+test("Only one menu item is active for a Food child route on desktop and mobile", () => {
+  assert.match(sidebar, /getAdminCurrentItem\(pathname\)/);
+  assert.match(sidebar, /const currentItem = getAdminCurrentItem\(pathname\)/);
+  assert.equal((sidebar.match(/const active = currentItem\?\.href === item\.href;/g) ?? []).length, 2);
+  assert.doesNotMatch(sidebar, /isAdminNavActive\(pathname, item\.href\)/);
+  // getAdminCurrentItem prioritizes the most-specific nested route
+  assert.match(nav, /right\.href\.length - left\.href\.length/);
+});
+
+test("Mobile navigation remounts per workspace, resetting old horizontal scroll", () => {
+  assert.match(sidebar, /<nav\s+key=\{workspace\.id\}/);
+  assert.match(sidebar, /overflow-x-auto/);
+});
