@@ -4,7 +4,7 @@
 
 ## First slice (delivered in feature PR)
 
-- Authenticated **Admin-only** route `/analytics`. Both page and data loader check `requireAdminRole()` then reject non-Admin roles before any Finance/Merchant RPC executes. Sidebar and Overview link likewise filter to `admin`.
+- **Release flag OFF by default:** `NEXT_PUBLIC_ADMIN_ANALYTICS_ENABLED` must be exactly `true` to show the route/Overview link; direct access returns 404 while disabled. Do not activate this on Production before browser, security and data-contract acceptance.\n- Authenticated **Admin-only** route `/analytics`. Both page and data loader check `requireAdminRole()` then reject non-Admin roles before any Finance/Merchant RPC executes. Sidebar and Overview link likewise filter to `admin`.
 - Existing Social RPCs: `admin_dashboard_metrics()` for DAU/WAU/MAU, `admin_signup_counts()` for today/week/month/year signup counts, and `admin_dashboard_trends()` for 14-day DAU (only genuine supplied dates, no interpolation).
 - Existing Food `admin_food_overview()`: today orders, active orders, total stores, today sales, and supplied daily-order counts for at most seven recent dates. Sales semantics follow the original Food dashboard ("delivered orders"); **no payment processing, refunds or order details**.
 - Existing Merchant `admin_merchant_applications()`, max 200 records: server-only summary of rows returned (seen/pending/approved) after discarding applicant names, contacts, addresses and notes. This is a **sample of returned rows, NOT a certified platform total**. A full daily onboarding trend needs an approved dedicated aggregate RPC and is **not** fabricated.
