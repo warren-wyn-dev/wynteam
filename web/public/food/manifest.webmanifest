@@ -24,7 +24,7 @@
       "purpose": "any"
     },
     {
-      "src": "/icons/food/icon-512-v11.png",
+      "src": "/icons/food/icon-512-maskable-v11.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

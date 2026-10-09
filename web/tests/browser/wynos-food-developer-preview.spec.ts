@@ -44,12 +44,21 @@ test("WYNOS Food supplied glossy icon is static, consistent and cache-busted", (
   expect(manifest).toContain("/icons/food/icon-512-v11.png");
   expect(publicManifest).toContain("/icons/food/icon-192-v11.png");
   expect(publicManifest).toContain("/icons/food/icon-512-v11.png");
+  expect(manifest).toContain("/icons/food/icon-512-maskable-v11.png");
+  expect(publicManifest).toContain("/icons/food/icon-512-maskable-v11.png");
   expect(auth).toContain('src="/icons/food/icon-192-v11.png"');
   expect(app).toContain('className="wf-brand-logo"');
   for (const size of [32, 192, 512]) {
     const png = readFileSync(join(process.cwd(), `public/icons/food/icon-${size}-v11.png`));
     expect(png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))).toBe(true);
   }
+  // Android maskable assets are opaque and full-bleed; transparent corners cause launcher artifacts.
+  const maskable = readFileSync(join(process.cwd(), "public/icons/food/icon-512-maskable-v11.png"));
+  expect(maskable.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))).toBe(true);
+  expect(maskable.readUInt32BE(16)).toBe(512);
+  expect(maskable.readUInt32BE(20)).toBe(512);
+  expect([2, 3]).toContain(maskable[25]);
+  expect(maskable.includes(Buffer.from("tRNS"))).toBe(false);
   expect(layout).not.toContain("/food/icon-v10");
   expect(manifest).not.toContain("/food/icon-v10");
 });
