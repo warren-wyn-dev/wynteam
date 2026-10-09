@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import {
+  getAdminCurrentItem,
   getAdminVisibleItems,
   getAdminWorkspace,
-  isAdminNavActive,
 } from "@/lib/admin-nav";
 import type { AdminRole } from "@/lib/auth";
 
@@ -20,6 +20,7 @@ import type { AdminRole } from "@/lib/auth";
 export function AdminSidebar({ role }: { role: AdminRole }) {
   const pathname = usePathname();
   const workspace = getAdminWorkspace(pathname);
+  const currentItem = getAdminCurrentItem(pathname);
   const items = getAdminVisibleItems(workspace, role);
   const WorkspaceIcon = workspace.icon;
 
@@ -55,7 +56,7 @@ export function AdminSidebar({ role }: { role: AdminRole }) {
           <nav aria-label={"เมนู" + workspace.label} className="flex flex-col gap-1">
             {items.map((item) => {
               const Icon = item.icon;
-              const active = isAdminNavActive(pathname, item.href);
+              const active = currentItem?.href === item.href;
               return (
                 <Link
                   href={item.href}
@@ -80,13 +81,14 @@ export function AdminSidebar({ role }: { role: AdminRole }) {
       </aside>
 
       <nav
+        key={workspace.id}
         aria-label={"เมนูมือถือ " + workspace.label}
         className="fixed inset-x-0 bottom-0 z-40 flex min-h-16 items-stretch overflow-x-auto border-t bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
         <div className="flex w-full min-w-max items-stretch justify-around gap-1">
           {items.map((item) => {
             const Icon = item.icon;
-            const active = isAdminNavActive(pathname, item.href);
+            const active = currentItem?.href === item.href;
             return (
               <Link
                 href={item.href}
