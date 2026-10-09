@@ -19,7 +19,11 @@ export function validIsoDay(day) {
   return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === day;
 }
 
-/** Supplied points only: never synthesize a zero for a missing calendar day. */
+/**
+ * Supplied points only: never synthesize a zero for a missing calendar day.
+ * @param {unknown} input
+ * @param {{ dateKey?: string, countKey?: string, limit?: number }} [options]
+ */
 export function safeDaySeries(input, { dateKey, countKey, limit = 14 } = {}) {
   if (!Array.isArray(input) || typeof dateKey !== "string" || typeof countKey !== "string" ||
       !Number.isSafeInteger(limit) || limit < 1 || limit > 31) return null;
