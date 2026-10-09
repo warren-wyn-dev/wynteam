@@ -1268,18 +1268,21 @@ function CartPanel({
   onCart: (cart: FoodCartLine[]) => void;
   onCheckout: () => void;
 }) {
-  const [firstOrderOffer, setFirstOrderOffer] = useState(false);
+  const [firstOrderState, setFirstOrderState] = useState<{ storeId: string; eligible: boolean } | null>(null);
+  const storeId = store?.id;
+  const firstOrderOffer = Boolean(storeId && firstOrderState?.storeId === storeId && firstOrderState.eligible);
   useEffect(() => {
+    if (!storeId) return;
     let live = true;
-    setFirstOrderOffer(false);
-    if (!store?.id) return () => { live = false; };
-    void client.rpc("food_first_order_offer", { p_store_id: store.id })
+    void client.rpc("food_first_order_offer", { p_store_id: storeId })
       .then(({ data, error }) => {
-        if (live) setFirstOrderOffer(!error && data?.eligible === true);
+        if (live) setFirstOrderState({ storeId, eligible: !error && data?.eligible === true });
       })
-      .catch(() => { if (live) setFirstOrderOffer(false); });
+      .catch(() => {
+        if (live) setFirstOrderState({ storeId, eligible: false });
+      });
     return () => { live = false; };
-  }, [client, store?.id]);
+  }, [client, storeId]);
 
   const priced = cart.map((line) => {
     const item = itemFor(menu, line.menu_item_id);
