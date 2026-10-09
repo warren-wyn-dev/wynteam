@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   MapPinned,
   Megaphone,
-  ReceiptText,
   ScrollText,
   ShieldAlert,
   ShoppingBag,
