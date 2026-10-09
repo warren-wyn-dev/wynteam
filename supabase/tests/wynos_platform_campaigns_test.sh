@@ -152,8 +152,8 @@ expect_db "select campaign_type || '|' || discount_value || '|' || min_subtotal 
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "cannot use offer before merchant joins"
 expect_eq "$OWNER" "select public.merchant_join_platform_campaign('$STORE','$FIRST_ID')::text" "" "merchant opts in"
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "true" "new buyer eligible at joined store"
-expect_db "select campaign_discount from internal.food_campaign_candidates('$STORE',120,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%' limit 1" "20.00" "threshold of 120 discounts 20"
-expect_db "select count(*) from internal.food_campaign_candidates('$STORE',119,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%'" "0" "below 120 no first-order discount"
+expect_eq "$BUYER" "select campaign_discount from internal.food_campaign_candidates('$STORE',120,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%' limit 1" "20.00" "threshold of 120 discounts 20"
+expect_eq "$BUYER" "select count(*) from internal.food_campaign_candidates('$STORE',119,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%'" "0" "below 120 no first-order discount"
 
 FIRST_STORE_ID="$(db "select id from public.food_campaigns where platform_campaign_id='$FIRST_ID' and deleted_at is null")"
 O3=00000000-0000-0000-0000-000000000103
