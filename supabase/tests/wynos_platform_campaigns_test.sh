@@ -143,7 +143,7 @@ create table public.food_coupon_redemptions(order_id uuid, coupon_id uuid, user_
 create function internal.food_coupon_usage_active(p_order_id uuid)
 returns boolean language sql stable as \$\$ select false \$\$;
 SQL
-run >/dev/null < "$ROOT/supabase/migrations/20261009120000_food_first_order_merchant_funded.sql"
+run < "$ROOT/supabase/migrations/20261009120000_food_first_order_merchant_funded.sql" >/dev/null
 expect_db "select count(*) from public.food_platform_campaigns where first_order_only" "0" "first-order offer starts disabled and is not created by migration"
 expect_fail "$MOD" "select public.admin_food_first_order_set_active(true)" "moderators cannot enable the offer" "Only admins"
 FIRST_ID="$(as "$ADMIN" "select public.admin_food_first_order_set_active(true)")"
