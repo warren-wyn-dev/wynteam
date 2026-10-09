@@ -106,6 +106,9 @@ export function MerchantPlatformCampaigns({
                     {campaign.joined ? <b className="wm-pc-chip">เข้าร่วมแล้ว</b> : null}
                   </div>
                   <p className="wm-pc-terms">{platformCampaignTerms(campaign)}</p>
+                  {campaign.first_order_only ? (
+                    <p className="wm-pc-desc">เฉพาะการสั่งอาหารครั้งแรกทั่ว WYNOS Food · ร้านรับผิดชอบส่วนลด ฿20 เต็มจำนวน · ไม่ต้องใช้โค้ด</p>
+                  ) : null}
                   {campaign.description ? <p className="wm-pc-desc">{campaign.description}</p> : null}
                   <div className="wm-pc-split" aria-label={`WYNOS ออก ${wynos}% ร้านออก ${100 - wynos}%`}>
                     <span className="wm-pc-bar"><i style={{ width: `${wynos}%` }} /></span>
@@ -116,6 +119,7 @@ export function MerchantPlatformCampaigns({
                       <span><small>ออเดอร์สำเร็จ</small><strong>{campaign.delivered_orders}</strong></span>
                       <span><small>ส่วนลดรวม</small><strong>{money(campaign.discount_total)}</strong></span>
                       <span><small>WYNOS ออกให้</small><strong>{money(campaign.platform_funded_total)}</strong></span>
+                      <span><small>ร้านรับผิดชอบ</small><strong>{money(Math.max(0, Number(campaign.discount_total) - Number(campaign.platform_funded_total)))}</strong></span>
                     </div>
                   ) : null}
                   {snapshot.can_manage ? (
@@ -158,6 +162,7 @@ export function MerchantPlatformCampaigns({
               <ul>
                 <li>{`ทุกออเดอร์ที่ใช้แคมเปญนี้ WYNOS ออกส่วนลดให้ ${Number(confirming.platform_share_percent)}% ร้านออก ${100 - Number(confirming.platform_share_percent)}%`}</li>
                 <li>ลูกค้าโอนเงินที่ลดแล้วเข้าร้านโดยตรง ส่วนที่ WYNOS ออก WYNOS จะโอนคืนร้านหลังส่งอาหารสำเร็จ</li>
+                {confirming.first_order_only ? <li>ใช้ได้เฉพาะคำสั่งซื้อครั้งแรกของลูกค้าทั่ว WYNOS Food ยอดอาหารขั้นต่ำ ฿120 ลด ฿20</li> : null}
                 <li>ใช้ได้ 1 ส่วนลดต่อออเดอร์ ระบบเลือกส่วนลดที่ลูกค้าประหยัดที่สุดให้อัตโนมัติ</li>
                 <li>ออกจากแคมเปญได้ทุกเมื่อ</li>
               </ul>

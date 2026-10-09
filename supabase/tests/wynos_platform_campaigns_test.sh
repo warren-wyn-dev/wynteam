@@ -127,3 +127,79 @@ expect_db "select count(*) from internal.food_campaign_candidates('$STORE', 300,
 expect_db "select has_function_privilege('anon', 'public.admin_settle_platform_store(uuid,text,text)', 'execute')::text || has_function_privilege('anon', 'public.food_platform_campaign_badges()', 'execute')::text" "falsefalse" "anon cannot call the RPCs"
 
 echo "PASS: WYNOS campaigns are Admin-designed, store-joined, hybrid-funded and settled once"
+
+
+# Internal pricing candidates are server-only; use privileged test execution
+# while supplying the buyer identity, rather than granting clients access.
+as_internal() { run -At -c "select set_config('test.uid','$1',false);" -c "$2" 2>&1 | tail -n1; }
+expect_internal_eq() {
+  local got
+  got="$(as_internal "$1" "$2")"
+  [[ "$got" == "$3" ]] || { echo "FAIL: $4 (got '$got', want '$3')"; exit 1; }
+}
+
+expect_internal_fail() {
+  local err
+  if err="$(run -c "select set_config('test.uid','$1',false);" -c "$2" 2>&1)"; then
+    echo "FAIL (expected server rejection): $3"
+    exit 1
+  fi
+  [[ "$err" == *"$4"* ]] || { echo "FAIL: $3 (wrong error: $err)"; exit 1; }
+}
+
+# First-order fixed offer integration: exercise the actual additive migration
+# on this throwaway PostgreSQL DB, not on Production.
+run >/dev/null <<SQL
+alter table public.food_orders add column if not exists buyer_id uuid;
+alter table public.food_platform_campaigns add column if not exists coupon_required boolean not null default false;
+create table public.food_coupon_codes (
+  id uuid primary key, platform_campaign_id uuid, code text,
+  is_active boolean not null default true, starts_at timestamptz default now(),
+  ends_at timestamptz, max_total_uses integer, max_uses_per_user integer
+);
+create table public.food_coupon_redemptions(order_id uuid, coupon_id uuid, user_id uuid);
+create function internal.food_coupon_usage_active(p_order_id uuid)
+returns boolean language sql stable as \$\$ select false \$\$;
+SQL
+run < "$ROOT/supabase/migrations/20261009120000_food_first_order_merchant_funded.sql" >/dev/null
+expect_db "select count(*) from public.food_platform_campaigns where first_order_only" "0" "first-order offer starts disabled and is not created by migration"
+expect_fail "$MOD" "select public.admin_food_first_order_set_active(true)" "moderators cannot enable the offer" "Only admins"
+FIRST_ID="$(as "$ADMIN" "select public.admin_food_first_order_set_active(true)")"
+[[ "$FIRST_ID" =~ ^[0-9a-f-]{36}$ ]] || { echo "FAIL: first-order Admin activation returned '$FIRST_ID'"; exit 1; }
+expect_db "select campaign_type || '|' || discount_value || '|' || min_subtotal || '|' || platform_share_percent from public.food_platform_campaigns where id='$FIRST_ID'" "fixed|20.00|120.00|0.00" "first-order offer terms are locked and merchant funded"
+expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "cannot use offer before merchant joins"
+expect_eq "$OWNER" "select public.merchant_join_platform_campaign('$STORE','$FIRST_ID')::text" "" "merchant opts in"
+expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "true" "new buyer eligible at joined store"
+# Internal pricing is not directly executable by the authenticated API role:
+# quote/create RPCs call it from SECURITY DEFINER. Test it as the DB owner
+# while preserving the buyer JWT identity in test.uid.
+buyer_db() { run -At -c "select set_config('test.uid','$BUYER',false);" -c "$1" 2>&1 | tail -n1; }
+[[ "$(buyer_db "select campaign_discount from internal.food_campaign_candidates('$STORE',120,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%' limit 1")" == "20.00" ]] || { echo "FAIL: threshold 120 discount 20"; exit 1; }
+[[ "$(buyer_db "select count(*) from internal.food_campaign_candidates('$STORE',119,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%'")" == "0" ]] || { echo "FAIL: below 120 no first-order discount"; exit 1; }
+
+FIRST_STORE_ID="$(db "select id from public.food_campaigns where platform_campaign_id='$FIRST_ID' and deleted_at is null")"
+O3=00000000-0000-0000-0000-000000000103
+O4=00000000-0000-0000-0000-000000000104
+O5=00000000-0000-0000-0000-000000000105
+run -q -c "insert into public.food_orders(id,order_number,store_id,buyer_id,status,payment_status,subtotal,total)
+  values ('$O3','1003','$STORE','$BUYER','pending_acceptance','pending',120,100);
+  insert into public.food_order_campaigns(order_id,campaign_id,campaign_name,campaign_type,campaign_discount,delivery_discount)
+  values ('$O3','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',20,0);" >/dev/null
+expect_db "select platform_funded from public.food_order_campaigns where order_id='$O3'" "0.00" "WYNOS bears no part of the discount"
+expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "pending first order reserves first-order eligibility"
+run -q -c "update public.food_orders set status='cancelled',payment_status='pending' where id='$O3';" >/dev/null
+expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "true" "unpaid cancelled order releases first-order eligibility"
+run -q -c "insert into public.food_orders(id,order_number,store_id,buyer_id,status,payment_status,subtotal,total)
+  values ('$O4','1004','$STORE','$BUYER','pending_acceptance','pending',120,100);
+  insert into public.food_order_campaigns(order_id,campaign_id,campaign_name,campaign_type,campaign_discount,delivery_discount)
+  values ('$O4','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',20,0);" >/dev/null
+expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "a second first-order redemption is ineligible"
+expect_internal_fail "$BUYER" "insert into public.food_orders(id,order_number,store_id,buyer_id,status,payment_status,subtotal,total)
+  values ('$O5','1005','$STORE','$BUYER','pending_acceptance','pending',120,100);
+  insert into public.food_order_campaigns(order_id,campaign_id,campaign_name,campaign_type,campaign_discount,delivery_discount)
+  values ('$O5','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',20,0)" "second first-order redemption blocked at server" "first_order_already_used"
+run -q -c "update public.food_orders set status='cancelled',payment_status='paid' where id='$O4';" >/dev/null
+expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "paid then cancelled order still consumes the one-time benefit"
+expect_eq "$ADMIN" "select public.admin_food_first_order_set_active(false)='$FIRST_ID'" "t" "Admin can deactivate"
+expect_db "select is_active::text from public.food_campaigns where id='$FIRST_STORE_ID'" "false" "deactivation disables joined store campaign"
+echo "PASS: First-order fixed offer integration, merchant cost, cancellation and server redemption enforcement"

@@ -77,6 +77,14 @@ export async function savePlatformCampaign(input: PlatformCampaignInput): Promis
   return data as string;
 }
 
+/** Merchant-funded preset: Admin activates it, each store opts in separately. */
+export async function setFirstOrderFoodCampaignActive(active: boolean): Promise<string> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("admin_food_first_order_set_active", { p_active: active });
+  if (error) throw error;
+  return data as string;
+}
+
 /** WYN-206: record that WYNOS transferred what it owes a store. */
 export async function settlePlatformStore(params: {
   storeId: string;

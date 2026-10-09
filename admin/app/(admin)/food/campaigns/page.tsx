@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { PlatformCampaignFormButton, PlatformSettleButton } from "@/components/admin/platform-campaign-actions";
+import { FirstOrderFoodCampaignButton, PlatformCampaignFormButton, PlatformSettleButton } from "@/components/admin/platform-campaign-actions";
 import { formatBaht, formatThaiDate } from "@/lib/admin-food";
 import {
   fetchAdminPlatformCampaigns,
@@ -31,6 +31,7 @@ export default async function FoodCampaignsPage() {
     isAdmin ? fetchAdminPlatformOwed() : Promise.resolve([]),
   ]);
   const owedTotal = owed.reduce((sum, row) => sum + Number(row.owed), 0);
+  const firstOrderCampaign = campaigns.find((campaign) => campaign.first_order_only);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -46,6 +47,23 @@ export default async function FoodCampaignsPage() {
           <p className="text-sm text-muted-foreground">ออกแบบแคมเปญให้ร้านเลือกเข้าร่วม กำหนดว่า WYNOS ออกส่วนลดกี่ % และบันทึกการโอนคืนร้าน</p>
         </div>
         {isAdmin ? <PlatformCampaignFormButton /> : null}
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-xl border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="font-semibold">โปรลูกค้าใหม่ · สั่งครบ ฿120 ลด ฿20</h3>
+            <p className="text-sm text-muted-foreground">
+              สั่งครั้งแรกใน WYNOS Food เท่านั้น · ใช้ได้หนึ่งครั้งต่อผู้ใช้ทั่วทั้งระบบ
+              · ร้านค้าที่สมัครเข้าร่วมรับผิดชอบส่วนลด 20 บาทเอง (WYNOS ออก 0%)
+            </p>
+            <p className="text-sm">
+              สถานะ: {firstOrderCampaign?.is_active ? "เปิดใช้งาน" : "ปิดอยู่"}
+              {firstOrderCampaign ? ` · ร้านเข้าร่วม ${firstOrderCampaign.joined_stores} ร้าน · ส่วนลดที่ใช้แล้ว ${formatBaht(firstOrderCampaign.discount_total)}` : " · ยังไม่สร้างโปรโมชัน"}
+            </p>
+          </div>
+          {isAdmin ? <FirstOrderFoodCampaignButton active={firstOrderCampaign?.is_active ?? false} /> : null}
+        </div>
       </section>
 
       <section className="flex flex-col gap-3">
@@ -72,7 +90,7 @@ export default async function FoodCampaignsPage() {
                   <div><p className="text-muted-foreground">ออเดอร์สำเร็จ</p><p className="font-medium">{campaign.delivered_orders}</p></div>
                   <div><p className="text-muted-foreground">ส่วนลดรวม</p><p className="font-medium">{formatBaht(campaign.discount_total)}</p></div>
                   <div><p className="text-muted-foreground">WYNOS ออก</p><p className="font-medium">{formatBaht(campaign.platform_funded_total)}</p></div>
-                  {isAdmin ? <PlatformCampaignFormButton campaign={campaign} /> : null}
+                  {isAdmin && !campaign.first_order_only ? <PlatformCampaignFormButton campaign={campaign} /> : null}
                 </div>
               </div>
             ))}

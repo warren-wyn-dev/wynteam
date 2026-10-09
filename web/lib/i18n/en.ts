@@ -4,6 +4,13 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "สิทธิ์ลูกค้าใหม่ · ค่าอาหารครบ ฿120 ลดทันที ฿20": "New customer offer · spend ฿120 on food, save ฿20 instantly",
+  "ระบบคำนวณส่วนลดที่เหมาะสมให้อัตโนมัติ ไม่ต้องใส่โค้ด": "The best available discount is calculated automatically · no code needed",
+  "โปรลูกค้าใหม่": "New customer offer",
+  "สิทธิ์สั่งครั้งแรกเท่านั้น · ส่วนลดได้รับการสนับสนุนจากร้านอาหาร · ระบบจะตรวจสอบสิทธิ์อีกครั้ง": "For your first order only · funded by the restaurant · eligibility will be checked again",
+  "เฉพาะการสั่งอาหารครั้งแรกทั่ว WYNOS Food · ร้านรับผิดชอบส่วนลด ฿20 เต็มจำนวน · ไม่ต้องใช้โค้ด": "For the customer's first WYNOS Food order · restaurant covers all ฿20 · no code needed",
+  "ร้านรับผิดชอบ": "Restaurant funds",
+  "ใช้ได้เฉพาะคำสั่งซื้อครั้งแรกของลูกค้าทั่ว WYNOS Food ยอดอาหารขั้นต่ำ ฿120 ลด ฿20": "Only for the customer's first WYNOS Food order · ฿120 minimum food subtotal · ฿20 off",
   "บันทึกการตั้งค่าไม่สำเร็จ กรุณาลองใหม่": "Could not save your preferences. Please try again",
   "บันทึกการตั้งค่าแล้ว": "Preferences saved",
   "โปรโมชัน WYNOS Food": "WYNOS Food promotions",
@@ -2823,6 +2830,7 @@ Object.assign(EN_EXACT, {
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["เพิ่มค่าอาหารอีก {0} เพื่อถึงยอดขั้นต่ำ", "Add {0} more in food to reach the minimum"],
   ["บันทึกโค้ด {0} แล้ว เปิดตะกร้าเพื่อใช้ส่วนลด", "Saved code {0}. Open your cart to apply the discount"],
   ["กรุณาชำระเงินหรือส่งสลิปภายใน {0}:{1} นาที", "Please pay or submit your slip within {0}:{1} minutes"],
   ["±{0} เมตร", "±{0} m"],

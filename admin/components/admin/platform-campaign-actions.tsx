@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { platformCampaignError, savePlatformCampaign, settlePlatformStore, type PlatformCampaignInput } from "@/lib/admin-food-actions";
+import { platformCampaignError, savePlatformCampaign, setFirstOrderFoodCampaignActive, settlePlatformStore, type PlatformCampaignInput } from "@/lib/admin-food-actions";
 import type { AdminPlatformCampaign } from "@/lib/admin-platform-campaigns";
 
 function toLocalInput(value: string | null | undefined) {
@@ -25,6 +25,52 @@ function toLocalInput(value: string | null | undefined) {
 }
 
 const fieldClass = "h-11 w-full rounded-md border bg-background px-3 text-sm";
+
+/** Single merchant-funded preset, never enabled by default. */
+export function FirstOrderFoodCampaignButton({ active }: { active: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function submit() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await setFirstOrderFoodCampaignActive(!active);
+        setOpen(false);
+        router.refresh();
+      } catch (err) {
+        setError(platformCampaignError(err, "ไม่สามารถเปลี่ยนสถานะโปรลูกค้าใหม่ได้"));
+      }
+    });
+  }
+
+  return (
+    <>
+      <Button variant={active ? "outline" : "default"} onClick={() => setOpen(true)}>
+        {active ? "ปิดโปรลูกค้าใหม่" : "เปิดโปรลูกค้าใหม่"}
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{active ? "ปิดโปรลูกค้าใหม่?" : "เปิดโปรลูกค้าใหม่?"}</DialogTitle>
+            <DialogDescription>
+              ลูกค้าที่ไม่เคยสั่งอาหารบน WYNOS Food ได้ลด 20 บาทเมื่อยอดอาหารครบ 120 บาท
+              เฉพาะร้านที่เลือกเข้าร่วม โดยร้านรับผิดชอบส่วนลดทั้งหมด
+              การเปิดโปรจะไม่สมัครร้านอาหารเข้าร่วมให้อัตโนมัติ
+            </DialogDescription>
+          </DialogHeader>
+          {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+          <DialogFooter>
+            <Button variant="outline" disabled={pending} onClick={() => setOpen(false)}>ยกเลิก</Button>
+            <Button disabled={pending} onClick={submit}>{pending ? "กำลังบันทึก…" : "ยืนยัน"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 /** WYN-206: create or edit a WYNOS campaign, including who funds the discount. */
 export function PlatformCampaignFormButton({ campaign }: { campaign?: AdminPlatformCampaign }) {
