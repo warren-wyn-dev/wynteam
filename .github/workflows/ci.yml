@@ -96,12 +96,13 @@ jobs:
             exit 1
           fi
           grep -q 'WYN Admin' "$RUNNER_TEMP/admin-workspaces-login.html"
-          for route in / /social /food /merchants /audit-log; do
+          # Every live Admin destination is protected, not only the five hubs.
+          for route in / /social /users /moderation /reports /announcements /food /food/orders /food/campaigns /food/coupons /food/notifications /food/ads /food/places /merchants /audit-log; do
             curl --silent --show-error --head --max-time 10 "http://127.0.0.1:3109$route" \
               | grep -i -E '^location: (https?://[^/]+)?/login' \
               || { echo "Guest route not protected: $route"; exit 1; }
           done
-          echo "PASS: all five workspace routes protect guest access"
+          echo "PASS: all 15 Admin workspace destinations protect guest access"
 
   edge-functions:
     name: Supabase Edge Functions (Deno)
