@@ -29,24 +29,29 @@ test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*"]');
 });
 
-test("WYNOS Food install icons are static and cache-busted", () => {
+test("WYNOS Food supplied glossy icon is static, consistent and cache-busted", () => {
   const layout = read("app/food/layout.tsx");
   const manifest = read("app/food/manifest.ts");
   const publicManifest = read("public/food/manifest.webmanifest");
-  const iconRoute = read("app/food/icon-v10/route.tsx");
+  const auth = read("components/food/food-auth.tsx");
+  const app = read("components/food/wynos-food-developer-app.tsx");
 
-  expect(layout).toContain("/icons/food/icon-192-v10.png");
-  expect(layout).toContain("/food/icon-v10?size=512");
-  expect(layout).toContain("manifest.webmanifest?v=20261006-11");
-  expect(layout).not.toContain("/food/icon-v7");
-  expect(manifest).toContain("/icons/food/icon-192-v10.png");
-  expect(manifest).toContain("/food/icon-v10?size=512");
-  expect(manifest).not.toContain("/food/icon-v7");
-  expect(publicManifest).toContain("/icons/food/icon-192-v10.png");
-  expect(publicManifest).toContain("/food/icon-v10?size=512");
-  expect(publicManifest).not.toContain("/food/icon-v7");
-  expect(iconRoute).toContain("data:image/png;base64,");
-  expect(iconRoute).not.toContain("https://wynos.online/icons/food");
+  expect(layout).toContain("/icons/food/icon-32-v11.png");
+  expect(layout).toContain("/icons/food/icon-192-v11.png");
+  expect(layout).toContain("/icons/food/icon-512-v11.png");
+  expect(layout).toContain("manifest.webmanifest?v=20261009-12");
+  expect(manifest).toContain("/icons/food/icon-192-v11.png");
+  expect(manifest).toContain("/icons/food/icon-512-v11.png");
+  expect(publicManifest).toContain("/icons/food/icon-192-v11.png");
+  expect(publicManifest).toContain("/icons/food/icon-512-v11.png");
+  expect(auth).toContain('src="/icons/food/icon-192-v11.png"');
+  expect(app).toContain('className="wf-brand-logo"');
+  for (const size of [32, 192, 512]) {
+    const png = readFileSync(join(process.cwd(), `public/icons/food/icon-${size}-v11.png`));
+    expect(png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))).toBe(true);
+  }
+  expect(layout).not.toContain("/food/icon-v10");
+  expect(manifest).not.toContain("/food/icon-v10");
 });
 
 test("WYNOS Food hides the persistent Social bottom navigation", () => {

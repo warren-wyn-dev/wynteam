@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, LockKeyhole, Mail, UtensilsCrossed } from "lucide-react";
+import { Check, LockKeyhole, Mail } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { GoogleGlyph } from "@/components/auth-flow/screens";
@@ -20,7 +21,7 @@ import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supaba
 function FoodAuthBrand() {
   return (
     <div className="wf-auth-brand" aria-label="WYNOS Food">
-      <span className="wf-auth-mark"><UtensilsCrossed size={25} strokeWidth={1.8} /></span>
+      <span className="wf-auth-mark"><Image src="/icons/food/icon-192-v11.png" width={48} height={48} alt="" /></span>
       <span><strong>WYNOS</strong><b>Food</b></span>
     </div>
   );
