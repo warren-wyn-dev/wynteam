@@ -60,7 +60,9 @@ export const ADMIN_WORKSPACES: readonly AdminWorkspace[] = [
     icon: House,
     items: [
       { href: "/", label: "ศูนย์รวมระบบ", icon: LayoutDashboard, task: "ADMIN-WORKSPACES", feature: "Platform overview" },
-      { href: "/analytics", label: "รายงานภาพรวม", icon: BarChart3, task: "ADMIN-ANALYTICS", feature: "Analytics Center", roles: ["admin"] },
+      ...(process.env.NEXT_PUBLIC_ADMIN_ANALYTICS_ENABLED === "true"
+        ? [{ href: "/analytics", label: "รายงานภาพรวม", icon: BarChart3, task: "ADMIN-ANALYTICS", feature: "Analytics Center", roles: ["admin"] as const }]
+        : []),
     ],
   },
   {
