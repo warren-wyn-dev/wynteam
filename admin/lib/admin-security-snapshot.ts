@@ -1,6 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminRole } from "@/lib/auth";
 
+function safeAssuranceLevel(value: unknown): "aal1" | "aal2" | "unknown" {
+  if (value === "aal1" || value === "aal2") return value;
+  return "unknown";
+}
+
 export type AdminSecuritySnapshot = {
   checkedAt: string;
   session: "verified";
@@ -48,8 +53,8 @@ export async function fetchOwnAdminSecuritySnapshot(): Promise<AdminSecuritySnap
       // If Auth fails, show unknown rather than falsely claiming 0 factors.
       verifiedTotp: factorsResult ? verifiedFactors.filter((f) => f.factor_type === "totp").length : null,
       verifiedPhone: factorsResult ? verifiedFactors.filter((f) => f.factor_type === "phone").length : null,
-      assurance: currentLevel === "aal1" || currentLevel === "aal2" ? currentLevel : "unknown",
-      nextAssurance: nextLevel === "aal1" || nextLevel === "aal2" ? nextLevel : "unknown",
+      assurance: safeAssuranceLevel(currentLevel),
+      nextAssurance: safeAssuranceLevel(nextLevel),
     },
     // Supabase client session metadata alone does not list all remote devices.
     otherDevices: "unavailable",
