@@ -28,7 +28,7 @@
 - [x] Expanded guest smoke to 26 Admin destinations, including all 7 feature routes
 - [x] Updated combined-CI route-string expectations in five feature suites; feature PR tests remain unchanged
 - [x] Added `admin/tests/integration-all-phases.test.mjs`: route/menu uniqueness, flags, auth boundaries, single Workspace selector and malicious-input handling
-- [ ] Latest integration branch CI fully successful: [GitHub Actions](https://github.com/warren-wyn-dev/wynteam/actions/workflows/ci.yml) — check exact current SHA and final job conclusions
+- [x] Complete integration CI **SUCCESS** at exact QA commit `89f6d21bfc1f92f035823f66b49ba976411c5193`: [run #37942371349](https://github.com/warren-wyn-dev/wynteam/actions/runs/37942371349), Admin, Flutter, Supabase PostgreSQL integration, Supabase Edge Functions and schema.sql ordering all completed successfully
 - [ ] **Signed-in browser QA:** isolated staging not ready; no actual Admin/Moderator/User E2E, role-appropriate database data, keyboard-only/screen-reader testing or phone/desktop visual QA yet
 
 ## Browser + security test matrix (blocked until approved isolated Staging)
@@ -72,4 +72,17 @@
 
 ## Exit criteria
 
-The integration QA branch can be called **offline CI PASS** only when the exact most recent QA SHA has clean Admin Lint, Tests, TypeScript, Next.js Build and 26-route guest smoke. Full integration/Release readiness still requires the isolated authenticated Admin/Moderator/User browser matrix and critical/high security review, the individual PR review gates, founder release approval and rollback readiness. **Never merge or deploy this temporary QA PR.**
+**Offline integration QA exit criterion PASSED** on exact commit `89f6d21bfc1f92f035823f66b49ba976411c5193`: Admin Lint, Tests, TypeScript, Next.js Build, 26-route guest smoke, plus full repository CI all passed. Full integration/Release readiness still requires the isolated authenticated Admin/Moderator/User browser matrix and critical/high security review, the individual PR review gates, founder release approval and rollback readiness. **Never merge or deploy this temporary QA PR.**
+
+
+## Verified closeout — offline QA only (2026-10-09)
+
+**Result:** PASS — all five CI jobs completed SUCCESS for the exact integration commit `89f6d21bfc1f92f035823f66b49ba976411c5193`. This closes **offline / source-level integration QA**. It does **not** close signed-in browser, staging, or release QA.
+
+**External blockers verified after CI:**
+1. Intended Admin staging project `yydgdapzlrjmlrjgijkj` remains `INACTIVE`; current free organization has two active projects (WYNOS Production `kqokpocajhfbidcxpvhh` and Stripe Sandbox `pcatuxtenluqzjzzwsvl`). Do not unpause, replace, upgrade, or spend without explicit capacity/budget approval.
+2. Admin Preview environment is configured with public Supabase URL/key pointing to Stripe Sandbox, **not** a role-compatible isolated Admin staging backend; use the fail-closed URL/key guards when a dedicated staging backend is approved.
+3. A prior Vercel Preview at commit `eae0058...` was READY, but it is **not** this QA commit and is protected by Vercel Authentication. No authenticated Admin/Moderator/User E2E has been run on this integrated artifact.
+4. The integration PR #1062 is a temporary **Draft**; no human security/code approval, no merge and no Production release. The seven feature PRs and Workspace PR #1053 retain their own release gates.
+
+**Decision needed to finish live QA:** Approve isolated active Admin staging capacity **without affecting either running project** and provide authorized synthetic staff test accounts. Then configure Preview only, run all roles/device/feature-flag checks in the matrix above, triage runtime/security findings, review the seven independent PRs, and follow the Admin-only production release/rollback procedure. If isolated staging is not currently available without cost, keep this item BLOCKED and do not label Production READY.
