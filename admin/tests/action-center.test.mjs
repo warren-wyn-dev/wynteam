@@ -21,7 +21,7 @@ test("Action Center uses the authenticated Admin role and is read-only", () => {
 
 test("Action Center does not leak Merchant applicant or Food customer fields into rendered actions", () => {
   assert.match(source, /fetchMerchantApplications\("pending"\)/);
-  assert.match(source, /items: \[\],\s*\/\/ Never return merchant applicant PII/);
+  assert.match(source, /\/\/ Never return merchant applicant PII[\s\S]*items: \[\],/);
   assert.doesNotMatch(source, /\.phone|\.address|\.contact_name|\.recipient_name|\.recipient_phone/);
   assert.doesNotMatch(page, /\.detail|\.target_id|\.phone|\.address|\.recipient/);
 });
