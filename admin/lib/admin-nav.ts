@@ -117,6 +117,9 @@ export const ADMIN_WORKSPACES: readonly AdminWorkspace[] = [
     icon: BookOpenText,
     items: [
       { href: "/audit-log", label: "ประวัติการดำเนินงาน", icon: ScrollText, task: "WYN-054", feature: "Audit Log" },
+      ...(process.env.NEXT_PUBLIC_ADMIN_NOTIFICATIONS_ENABLED === "true"
+        ? [{ href: "/admin-notifications", label: "แจ้งงานเจ้าหน้าที่", icon: Bell, task: "ADMIN-NOTIFICATIONS", feature: "Admin Notifications" }]
+        : []),
     ],
   },
 ];
