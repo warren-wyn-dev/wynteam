@@ -1252,6 +1252,7 @@ function HomePanel({
 }
 
 function CartPanel({
+  client,
   store,
   menu,
   cart,
@@ -1259,6 +1260,7 @@ function CartPanel({
   onCart,
   onCheckout,
 }: {
+  client: SupabaseClient;
   store: FoodCustomerStore | null;
   menu: FoodCustomerMenuItem[];
   cart: FoodCartLine[];
@@ -1266,6 +1268,19 @@ function CartPanel({
   onCart: (cart: FoodCartLine[]) => void;
   onCheckout: () => void;
 }) {
+  const [firstOrderOffer, setFirstOrderOffer] = useState(false);
+  useEffect(() => {
+    let live = true;
+    setFirstOrderOffer(false);
+    if (!store?.id) return () => { live = false; };
+    void client.rpc("food_first_order_offer", { p_store_id: store.id })
+      .then(({ data, error }) => {
+        if (live) setFirstOrderOffer(!error && data?.eligible === true);
+      })
+      .catch(() => { if (live) setFirstOrderOffer(false); });
+    return () => { live = false; };
+  }, [client, store?.id]);
+
   const priced = cart.map((line) => {
     const item = itemFor(menu, line.menu_item_id);
     return { line, item, key: foodCartLineKey(line), unitPrice: item ? foodCartLineUnitPrice(item, line) : 0 };
@@ -1354,6 +1369,12 @@ function CartPanel({
             <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(total)}</b></div>
           </div>
           {quote?.campaign_name ? <div className="wf-promo-applied"><strong>ใช้แคมเปญ {quote.campaign_name}</strong><small>WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ</small></div> : null}
+          {firstOrderOffer ? (
+            <div className="wf-promo-applied" role="status">
+              <strong>สิทธิ์ลูกค้าใหม่ · ค่าอาหารครบ ฿120 ลดทันที ฿20</strong>
+              <small>{subtotal < 120 ? `เพิ่มค่าอาหารอีก ${foodMoney(120 - subtotal)} เพื่อถึงยอดขั้นต่ำ` : "ระบบคำนวณส่วนลดที่เหมาะสมให้อัตโนมัติ ไม่ต้องใส่โค้ด"}</small>
+            </div>
+          ) : null}
 
           {belowMinimum && store ? (
             <div className="wf-inline-warning">เพิ่มอีก {foodMoney(Math.max(0, minimum - subtotal))} เพื่อถึงยอดขั้นต่ำ {foodMoney(minimum)}</div>
@@ -2337,7 +2358,7 @@ function CheckoutSheet({
         {effectiveQuote?.campaign_name ? (
           <div className="wf-promo-applied">
             <strong>แคมเปญ {effectiveQuote.campaign_name}</strong>
-            <small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small>
+            <small>{effectiveQuote.campaign_name.startsWith("โปรลูกค้าใหม่") ? "สิทธิ์สั่งครั้งแรกเท่านั้น · ส่วนลดได้รับการสนับสนุนจากร้านอาหาร · ระบบจะตรวจสอบสิทธิ์อีกครั้ง" : "ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์"}</small>
           </div>
         ) : null}
         <p className="wf-server-note">ยอดจริงจะถูกตรวจและคำนวณจากระบบอีกครั้งก่อนสร้างออเดอร์</p>
@@ -3163,7 +3184,7 @@ function FoodCustomerInner({
         ) : null}
         {tab === "orders" ? <OrdersPanel orders={orders} reviewedOrderIds={reviewedOrderIds} hasMore={snapshot.has_more_orders} loadingMore={loadingMoreOrders} onLoadMore={() => void loadMoreOrders()} onOrder={setSelectedOrder} /> : null}
         {tab === "messages" ? <MessagesPanel /> : null}
-        {tab === "cart" ? <CartPanel store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}
+        {tab === "cart" ? <CartPanel client={client} store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}
         {tab === "account" ? (
           <AccountPanel
             addresses={addresses}
