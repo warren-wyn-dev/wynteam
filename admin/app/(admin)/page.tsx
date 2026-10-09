@@ -2,12 +2,13 @@ import Link from "next/link";
 import { ArrowUpRight, BookOpenText, ShieldCheck } from "lucide-react";
 
 import { ADMIN_WORKSPACES } from "@/lib/admin-nav";
-import { requireAdminRole } from "@/lib/auth";
+import { requireAdminRole, type AdminRole } from "@/lib/auth";
 
-const QUICK_LINKS = [
+const QUICK_LINKS: { href: string; label: string; detail: string; roles?: AdminRole[] }[] = [
   { href: "/users", label: "จัดการผู้ใช้", detail: "WYNOS Social" },
   { href: "/reports", label: "ตรวจสอบรายงาน", detail: "WYNOS Social" },
   { href: "/merchants", label: "คำขอเปิดร้าน", detail: "WYNOS Merchant" },
+  { href: "/food/orders", label: "ดูคำสั่งซื้อ Food", detail: "WYNOS Food", roles: ["admin"] },
   { href: "/food/campaigns", label: "แคมเปญ Food", detail: "WYNOS Food" },
   { href: "/audit-log", label: "ประวัติเจ้าหน้าที่", detail: "ระบบส่วนกลาง" },
 ];
@@ -17,7 +18,7 @@ const QUICK_LINKS = [
  * rather than displaying Social-only data as if it were platform-wide totals.
  */
 export default async function AdminOverviewPage() {
-  await requireAdminRole();
+  const { role } = await requireAdminRole();
   const primary = ADMIN_WORKSPACES.filter((workspace) =>
     workspace.id === "social" || workspace.id === "food" || workspace.id === "merchant",
   );
@@ -67,7 +68,7 @@ export default async function AdminOverviewPage() {
           <h3 className="font-semibold">ทางลัดสำหรับเจ้าหน้าที่</h3>
           <p className="mt-1 text-sm text-muted-foreground">ไปยังหน้าที่มีอยู่แล้ว โดยไม่ต้องค้นหาข้ามเมนู</p>
           <div className="mt-4 divide-y">
-            {QUICK_LINKS.map((link) => (
+            {QUICK_LINKS.filter((link) => !link.roles || link.roles.includes(role)).map((link) => (
               <Link key={link.href} href={link.href} className="flex min-h-12 items-center justify-between gap-3 py-2 text-sm hover:text-foreground">
                 <span className="font-medium">{link.label}</span>
                 <span className="flex items-center gap-2 text-xs text-muted-foreground">
