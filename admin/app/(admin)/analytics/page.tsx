@@ -87,6 +87,8 @@ function AnalyticsCard({ panel }: { panel: AnalyticsPanel }) {
 export default async function AdminAnalyticsCenterPage() {
   const { role } = await requireAdminRole();
   if (role !== "admin") notFound();
+  // New cross-service financial reporting stays hidden until QA approval.
+  if (process.env.NEXT_PUBLIC_ADMIN_ANALYTICS_ENABLED !== "true") notFound();
 
   const panels = await fetchAdminAnalytics();
 
