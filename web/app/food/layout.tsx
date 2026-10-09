@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 
 import "./food.css";
 
-const FOOD_ICON_32 = "/icons/food/icon-32-v11.png";
-const FOOD_ICON_192 = "/icons/food/icon-192-v11.png";
-const FOOD_ICON_512 = "/icons/food/icon-512-v11.png";
+const FOOD_ICON_32 = "/icons/food/icon-32-v12.png";
+const FOOD_ICON_192 = "/icons/food/icon-192-v12.png";
+const FOOD_ICON_512 = "/icons/food/icon-512-v12.png";
 
 const FOOD_WEBSITE_STRUCTURED_DATA = {
   "@context": "https://schema.org",
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
     images: [FOOD_ICON_512],
   },
-  manifest: "/food/manifest.webmanifest?v=20261009-12",
+  manifest: "/food/manifest.webmanifest?v=20261009-13",
   icons: {
     // All Food icons are versioned static assets to avoid mobile PWA stale-cache issues.
     icon: [

@@ -346,7 +346,7 @@ function FoodHeader({
       ) : null}
       <div className="wf-brand-stack">
         <div className="wf-brand">
-          <Image className="wf-brand-logo" src="/icons/food/icon-192-v11.png" width={32} height={32} alt="" />
+          <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
           <span>WYNOS</span>
           <b>Food</b>
         </div>
