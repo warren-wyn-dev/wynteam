@@ -1,26 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { ArrowRight, History } from "lucide-react";
 
-import { ADMIN_WORKSPACES, type AdminWorkspace } from "@/lib/admin-nav";
+import { ADMIN_WORKSPACES } from "@/lib/admin-nav";
 
 /** UI-only preference; never store identifiers, credentials or app data. */
 export const LAST_ADMIN_WORKSPACE_KEY = "wynos-admin:last-workspace";
 
-export function RecentWorkspaceLink() {
-  const [workspace, setWorkspace] = useState<AdminWorkspace | null>(null);
+function subscribeToStorageChange(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(LAST_ADMIN_WORKSPACE_KEY);
-      const recent = ADMIN_WORKSPACES.find((item) => item.id === saved && item.id !== "overview");
-      setWorkspace(recent ?? null);
-    } catch {
-      // Storage can be blocked by privacy settings; navigation still works.
-    }
-  }, []);
+function readLastWorkspace() {
+  try {
+    return window.localStorage.getItem(LAST_ADMIN_WORKSPACE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function serverLastWorkspace() {
+  return null;
+}
+
+export function RecentWorkspaceLink() {
+  const saved = useSyncExternalStore(subscribeToStorageChange, readLastWorkspace, serverLastWorkspace);
+  const workspace = ADMIN_WORKSPACES.find((item) => item.id === saved && item.id !== "overview");
 
   if (!workspace) return null;
 
