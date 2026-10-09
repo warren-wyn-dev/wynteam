@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowUpRight, BookOpenText, ShieldCheck } from "lucide-react";
 
+import { RecentWorkspaceLink } from "@/components/admin/recent-workspace-link";
+
 import { ADMIN_WORKSPACES } from "@/lib/admin-nav";
 import { requireAdminRole, type AdminRole } from "@/lib/auth";
 
@@ -35,6 +37,7 @@ export default async function AdminOverviewPage() {
           จัดการ WYNOS Social, Food และ Merchant แยกจากกันอย่างชัดเจน
           เลือกพื้นที่ทำงานเพื่อดูข้อมูลและเครื่องมือเฉพาะบริการ
         </p>
+        <RecentWorkspaceLink />
       </section>
 
       <section aria-labelledby="workspaces-heading" className="space-y-3">
