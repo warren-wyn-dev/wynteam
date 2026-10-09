@@ -16,6 +16,7 @@ import {
   LayoutGrid,
   ListPlus,
   LogOut,
+  GripVertical,
   Eye,
   CalendarDays,
   History,
@@ -1394,7 +1395,7 @@ function MenuPanel({
     }
   };
 
-  const onTouchOrder = useCallback((ids: string[], category?: string) => {
+  const onTouchOrder = (ids: string[], category?: string) => {
     if (sortScope === "categories") {
       if (ids.length === categoryOrder.length) setDraftCategoryOrder(ids);
     } else if (category) {
@@ -1406,7 +1407,7 @@ function MenuPanel({
       }
     }
     setSortRenderVersion((version) => version + 1);
-  }, [sortScope, categoryOrder, sortedMenu, menu]);
+  };
   useMerchantTouchDrag(sortAreaRef, sortMode && !q, sortScope, sortRenderVersion, onTouchOrder, () => setSortRenderVersion((version) => version + 1));
 
   const toggleCategory = (category: string) => {
