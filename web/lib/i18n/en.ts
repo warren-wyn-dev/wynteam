@@ -4,14 +4,6 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
-  "บันทึกลำดับเรียบร้อยแล้ว": "Menu order saved",
-  "บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง": "Could not save. Please try again",
-  "ออกจากโหมดจัดเรียง": "Exit sorting mode",
-  "จัดเรียงด้วยนิ้ว": "Sort by touch",
-  "แตะและลากรายการอาหารทั้งแถวเพื่อจัดลำดับภายในหมวดหมู่": "Touch and drag a whole menu row to reorder items within the category",
-  "แตะและลากแถบชื่อหมวดหมู่เพื่อเปลี่ยนลำดับทั้งกลุ่ม": "Touch and drag a category header to reorder the entire group",
-  "กำลังบันทึก...": "Saving...",
-  "บันทึกลำดับ": "Save order",
   "สิทธิ์ลูกค้าใหม่ · ค่าอาหารครบ ฿120 ลดทันที ฿20": "New customer offer · spend ฿120 on food, save ฿20 instantly",
   "ระบบคำนวณส่วนลดที่เหมาะสมให้อัตโนมัติ ไม่ต้องใส่โค้ด": "The best available discount is calculated automatically · no code needed",
   "โปรลูกค้าใหม่": "New customer offer",
@@ -2835,6 +2827,14 @@ Object.assign(EN_EXACT, {
   "กำลังตั้งค่าการรับชำระเงิน กรุณาลองใหม่อีกครั้งในอีกสักครู่": "Payment setup is in progress. Please try again shortly",
   "เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง": "Couldn't open payout settings. Please try again",
   "ขอคืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง": "Couldn't request a refund. Please try again",
+  "บันทึกลำดับเรียบร้อยแล้ว": "Menu order saved",
+  "บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง": "Could not save. Please try again",
+  "ออกจากโหมดจัดเรียง": "Exit sorting mode",
+  "จัดเรียงด้วยนิ้ว": "Sort by touch",
+  "แตะและลากรายการอาหารทั้งแถวเพื่อจัดลำดับภายในหมวดหมู่": "Touch and drag a whole menu row to reorder items within the category",
+  "แตะและลากแถบชื่อหมวดหมู่เพื่อเปลี่ยนลำดับทั้งกลุ่ม": "Touch and drag a category header to reorder the entire group",
+  "กำลังบันทึก...": "Saving...",
+  "บันทึกลำดับ": "Save order",
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
