@@ -66,6 +66,7 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
+      - run: npm run test:qa
       - run: npx next typegen
       - run: npx tsc --noEmit
 
