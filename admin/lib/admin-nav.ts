@@ -10,6 +10,7 @@ import {
   Megaphone,
   ScrollText,
   ShieldAlert,
+  ShieldCheck,
   ShoppingBag,
   Store,
   TicketPercent,
@@ -117,6 +118,9 @@ export const ADMIN_WORKSPACES: readonly AdminWorkspace[] = [
     icon: BookOpenText,
     items: [
       { href: "/audit-log", label: "ประวัติการดำเนินงาน", icon: ScrollText, task: "WYN-054", feature: "Audit Log" },
+      ...(process.env.NEXT_PUBLIC_ADMIN_SECURITY_CENTER_ENABLED === "true"
+        ? [{ href: "/security-center", label: "ความปลอดภัยบัญชี", icon: ShieldCheck, task: "ADMIN-SECURITY", feature: "Admin Security Center" }]
+        : []),
     ],
   },
 ];
