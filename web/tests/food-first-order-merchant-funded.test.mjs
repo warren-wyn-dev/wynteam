@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const migration = source("../../supabase/migrations/20261009120000_food_first_order_merchant_funded.sql");
+const updated = source("../../supabase/migrations/20261009230000_food_first_order_100_40.sql");
 const food = source("../components/food/wynos-food-developer-app.tsx");
 const merchant = source("../components/merchant/merchant-platform-campaigns.tsx");
 const adminPage = source("../../admin/app/(admin)/food/campaigns/page.tsx");
@@ -19,6 +20,20 @@ test("first-order preset is 120/20 merchant funded and never pre-enabled", () =>
   assert.match(migration, /first_order_only\s+for update/);
   assert.match(migration, /Only admins can manage WYNOS first-order promotions/);
   assert.match(migration, /join_open = coalesce\(p_active,false\)/);
+});
+
+test("100/40 migration replaces terms without automatically enrolling stores or activating the offer", () => {
+  assert.match(updated, /discount_value=40, min_subtotal=100/);
+  assert.match(updated, /discount_value=40 and min_subtotal=100/);
+  assert.match(updated, /new\.campaign_discount <> 40/);
+  assert.match(updated, /'fixed',40,100,null,0,true,false,true,auth\.uid\(\)/);
+  assert.match(updated, /'min_subtotal', 100/);
+  assert.match(updated, /'discount_amount', 40/);
+  assert.match(updated, /deleted_at=now\(\)/);
+  assert.match(updated, /is_active=false, join_open=false/);
+  assert.match(food, /ค่าอาหารครบ ฿100 ลดทันที ฿40/);
+  assert.match(food, /subtotal < 100/);
+  assert.match(merchant, /ยอดอาหารขั้นต่ำ ฿100 ลด ฿40/);
 });
 
 test("first-order eligibility is global across Food, not per merchant", () => {
@@ -54,7 +69,7 @@ test("customer eligibility is exposed as booleans without revealing history", ()
 
 test("Merchant confirms opt-in and sees funding responsibility", () => {
   assert.match(merchant, /campaign\.first_order_only/);
-  assert.match(merchant, /ร้านรับผิดชอบส่วนลด ฿20 เต็มจำนวน/);
+  assert.match(merchant, /ร้านรับผิดชอบส่วนลด ฿40 เต็มจำนวน/);
   assert.match(merchant, /ร้านรับผิดชอบ/);
   assert.match(merchant, /joinPlatformCampaign/);
 });

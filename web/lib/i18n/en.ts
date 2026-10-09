@@ -4,7 +4,9 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
-  "สิทธิ์ลูกค้าใหม่ · ค่าอาหารครบ ฿120 ลดทันที ฿20": "New customer offer · spend ฿120 on food, save ฿20 instantly",
+  "สิทธิ์ลูกค้าใหม่ · ค่าอาหารครบ ฿100 ลดทันที ฿40": "New customer offer · spend ฿100 on food, save ฿40 instantly",
+  "เฉพาะการสั่งอาหารครั้งแรกทั่ว WYNOS Food · ร้านรับผิดชอบส่วนลด ฿40 เต็มจำนวน · ไม่ต้องใช้โค้ด": "First food order on WYNOS Food only · restaurant funds the full ฿40 discount · no code required",
+  "ใช้ได้เฉพาะคำสั่งซื้อครั้งแรกของลูกค้าทั่ว WYNOS Food ยอดอาหารขั้นต่ำ ฿100 ลด ฿40": "Only for the customer's first WYNOS Food order · minimum ฿100 in food, ฿40 off",
   "ระบบคำนวณส่วนลดที่เหมาะสมให้อัตโนมัติ ไม่ต้องใส่โค้ด": "The best available discount is calculated automatically · no code needed",
   "โปรลูกค้าใหม่": "New customer offer",
   "สิทธิ์สั่งครั้งแรกเท่านั้น · ส่วนลดได้รับการสนับสนุนจากร้านอาหาร · ระบบจะตรวจสอบสิทธิ์อีกครั้ง": "For your first order only · funded by the restaurant · eligibility will be checked again",

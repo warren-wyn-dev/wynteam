@@ -164,9 +164,11 @@ SQL
 run < "$ROOT/supabase/migrations/20261009120000_food_first_order_merchant_funded.sql" >/dev/null
 expect_db "select count(*) from public.food_platform_campaigns where first_order_only" "0" "first-order offer starts disabled and is not created by migration"
 expect_fail "$MOD" "select public.admin_food_first_order_set_active(true)" "moderators cannot enable the offer" "Only admins"
-FIRST_ID="$(as "$ADMIN" "select public.admin_food_first_order_set_active(true)")"
+FIRST_ID="$(as "$ADMIN" "select public.admin_food_first_order_set_active(false)")"
+run < "$ROOT/supabase/migrations/20261009230000_food_first_order_100_40.sql" >/dev/null
+expect_eq "$ADMIN" "select public.admin_food_first_order_set_active(true)='$FIRST_ID'" "t" "Admin enables updated offer only after migration"
 [[ "$FIRST_ID" =~ ^[0-9a-f-]{36}$ ]] || { echo "FAIL: first-order Admin activation returned '$FIRST_ID'"; exit 1; }
-expect_db "select campaign_type || '|' || discount_value || '|' || min_subtotal || '|' || platform_share_percent from public.food_platform_campaigns where id='$FIRST_ID'" "fixed|20.00|120.00|0.00" "first-order offer terms are locked and merchant funded"
+expect_db "select campaign_type || '|' || discount_value || '|' || min_subtotal || '|' || platform_share_percent from public.food_platform_campaigns where id='$FIRST_ID'" "fixed|40.00|100.00|0.00" "first-order offer terms are locked and merchant funded"
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "cannot use offer before merchant joins"
 expect_eq "$OWNER" "select public.merchant_join_platform_campaign('$STORE','$FIRST_ID')::text" "" "merchant opts in"
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "true" "new buyer eligible at joined store"
@@ -174,30 +176,30 @@ expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'"
 # quote/create RPCs call it from SECURITY DEFINER. Test it as the DB owner
 # while preserving the buyer JWT identity in test.uid.
 buyer_db() { run -At -c "select set_config('test.uid','$BUYER',false);" -c "$1" 2>&1 | tail -n1; }
-[[ "$(buyer_db "select campaign_discount from internal.food_campaign_candidates('$STORE',120,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%' limit 1")" == "20.00" ]] || { echo "FAIL: threshold 120 discount 20"; exit 1; }
-[[ "$(buyer_db "select count(*) from internal.food_campaign_candidates('$STORE',119,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%'")" == "0" ]] || { echo "FAIL: below 120 no first-order discount"; exit 1; }
+[[ "$(buyer_db "select campaign_discount from internal.food_campaign_candidates('$STORE',100,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%' limit 1")" == "40.00" ]] || { echo "FAIL: threshold 100 discount 40"; exit 1; }
+[[ "$(buyer_db "select count(*) from internal.food_campaign_candidates('$STORE',99,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%'")" == "0" ]] || { echo "FAIL: below 100 no first-order discount"; exit 1; }
 
 FIRST_STORE_ID="$(db "select id from public.food_campaigns where platform_campaign_id='$FIRST_ID' and deleted_at is null")"
 O3=00000000-0000-0000-0000-000000000103
 O4=00000000-0000-0000-0000-000000000104
 O5=00000000-0000-0000-0000-000000000105
 run -q -c "insert into public.food_orders(id,order_number,store_id,buyer_id,status,payment_status,subtotal,total)
-  values ('$O3','1003','$STORE','$BUYER','pending_acceptance','pending',120,100);
+  values ('$O3','1003','$STORE','$BUYER','pending_acceptance','pending',100,60);
   insert into public.food_order_campaigns(order_id,campaign_id,campaign_name,campaign_type,campaign_discount,delivery_discount)
-  values ('$O3','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',20,0);" >/dev/null
+  values ('$O3','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',40,0);" >/dev/null
 expect_db "select platform_funded from public.food_order_campaigns where order_id='$O3'" "0.00" "WYNOS bears no part of the discount"
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "pending first order reserves first-order eligibility"
 run -q -c "update public.food_orders set status='cancelled',payment_status='pending' where id='$O3';" >/dev/null
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "true" "unpaid cancelled order releases first-order eligibility"
 run -q -c "insert into public.food_orders(id,order_number,store_id,buyer_id,status,payment_status,subtotal,total)
-  values ('$O4','1004','$STORE','$BUYER','pending_acceptance','pending',120,100);
+  values ('$O4','1004','$STORE','$BUYER','pending_acceptance','pending',100,60);
   insert into public.food_order_campaigns(order_id,campaign_id,campaign_name,campaign_type,campaign_discount,delivery_discount)
-  values ('$O4','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',20,0);" >/dev/null
+  values ('$O4','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',40,0);" >/dev/null
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "a second first-order redemption is ineligible"
 expect_internal_fail "$BUYER" "insert into public.food_orders(id,order_number,store_id,buyer_id,status,payment_status,subtotal,total)
-  values ('$O5','1005','$STORE','$BUYER','pending_acceptance','pending',120,100);
+  values ('$O5','1005','$STORE','$BUYER','pending_acceptance','pending',100,60);
   insert into public.food_order_campaigns(order_id,campaign_id,campaign_name,campaign_type,campaign_discount,delivery_discount)
-  values ('$O5','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',20,0)" "second first-order redemption blocked at server" "first_order_already_used"
+  values ('$O5','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',40,0)" "second first-order redemption blocked at server" "first_order_already_used"
 run -q -c "update public.food_orders set status='cancelled',payment_status='paid' where id='$O4';" >/dev/null
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "paid then cancelled order still consumes the one-time benefit"
 expect_eq "$ADMIN" "select public.admin_food_first_order_set_active(false)='$FIRST_ID'" "t" "Admin can deactivate"
