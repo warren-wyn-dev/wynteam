@@ -1481,7 +1481,7 @@ function MenuPanel({
             <button type="button" className={sortScope === "items" ? "is-active" : ""} aria-pressed={sortScope === "items"} onClick={() => setSortScope("items")}>เมนูอาหาร</button>
             <button type="button" className={sortScope === "categories" ? "is-active" : ""} aria-pressed={sortScope === "categories"} onClick={() => setSortScope("categories")}>หมวดหมู่</button>
           </div>
-          <p>ใช้นิ้วแตะแล้วลาก${sortScope === "items" ? "รายการอาหารทั้งแถวภายในหมวดหมู่" : "แถบชื่อหมวดหมู่ทั้งแถบ"}เพื่อสลับลำดับ</p>
+          <p>{sortScope === "items" ? "แตะและลากรายการอาหารทั้งแถวเพื่อจัดลำดับภายในหมวดหมู่" : "แตะและลากแถบชื่อหมวดหมู่เพื่อเปลี่ยนลำดับทั้งกลุ่ม"}</p>
           <div className="wm-menu-sort-actions">
             <button type="button" disabled={savingSort} onClick={cancelSort}>ยกเลิก</button>
             <button className="is-primary" type="button" disabled={savingSort} onClick={() => void saveSort()}>{savingSort ? "กำลังบันทึก..." : "บันทึกลำดับ"}</button>
