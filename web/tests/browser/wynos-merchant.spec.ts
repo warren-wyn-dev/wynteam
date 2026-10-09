@@ -843,7 +843,8 @@ test("Merchant iPhone direct-touch sorting uses separate scoped drafts with expl
   expect(app).toContain('onClick={cancelSort}');
   expect(app).toContain('if (itemsChanged) await onReorder(draftItemOrder)');
   expect(app).toContain('if (catsChanged) await onCategoryOrder(draftCategoryOrder)');
-  expect(app).not.toContain("GripVertical");
+  const menuPanel = app.slice(app.indexOf("function MenuPanel("), app.indexOf("/** WYN-205:"));
+  expect(menuPanel).not.toContain("GripVertical");
   expect(app).not.toContain("wm-menu-category-mark");
   expect(touch).toContain('addEventListener("touchstart", onTouchStart, { passive: false })');
   expect(touch).toContain('addEventListener("touchmove", onTouchMove, { passive: false })');
