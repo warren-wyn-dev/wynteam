@@ -37,7 +37,7 @@ test("Search enforces server-side auth, least privilege and source isolation", (
   assert.match(source, /status: "unavailable"/);
   assert.match(source, /\.select\("id, username, display_name"\)/);
   assert.match(source, /\.ilike\("username", pattern\)/);
-  assert.match(source, /\\.ilike\("display_name", pattern\)/);
+  assert.match(source, /\.ilike\("display_name", pattern\)/);
   assert.doesNotMatch(source, /(?:supabase|query)\.or\(|service_role|\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
   assert.doesNotMatch(page, /recipient_phone|contact_name|address|payment_status|\\.email/);
   assert.match(header, /href="\/search" aria-label="ค้นหาทั้งระบบ"/);
