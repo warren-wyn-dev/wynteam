@@ -11,6 +11,7 @@ const landing = read("../app/(admin)/page.tsx");
 const social = read("../app/(admin)/social/page.tsx");
 const layout = read("../app/(admin)/layout.tsx");
 const recent = read("../components/admin/recent-workspace-link.tsx");
+const deployAdmin = read("../../.github/workflows/deploy-admin.yml");
 
 test("All WYNOS services have their own clearly named workspace and live route", () => {
   for (const id of ["overview", "social", "food", "merchant", "central"]) {
@@ -93,4 +94,15 @@ test("Workspace choice appears only in the top header and sidebar stays service-
   assert.match(sidebar, /workspace\.domain/);
   assert.match(sidebar, /items\.map/g);
   assert.doesNotMatch(sidebar, /<select\b/);
+});
+
+test("Admin deployment stays scoped to the existing project, Preview by default", () => {
+  assert.match(deployAdmin, /default: preview/);
+  assert.match(deployAdmin, /CONFIRM_PRODUCTION.*DEPLOY_ADMIN_PRODUCTION/);
+  assert.match(deployAdmin, /working-directory: \. # Vercel project rootDirectory/);
+  assert.match(deployAdmin, /VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5/);
+  assert.match(deployAdmin, /vercel@63\.1\.0 deploy/);
+  assert.doesNotMatch(deployAdmin, /--token=/);
+  assert.match(deployAdmin, /args\+\=\(--prod\)/);
+  assert.doesNotMatch(deployAdmin, /deploy-web\.yml|food-apply-.*\.yml|merchant\/|web\//);
 });
