@@ -82,6 +82,8 @@ const server = spawn("npm", ["run", "start"], {
   cwd: adminDir,
   env: baseEnv,
   stdio: ["ignore", "pipe", "pipe"],
+  // Isolate the whole Next.js process group, not just the npm wrapper.
+  detached: true,
 });
 let serverOutput = "";
 for (const output of [server.stdout, server.stderr]) {
@@ -162,5 +164,9 @@ try {
   throw error;
 } finally {
   await browser.close();
-  server.kill("SIGTERM");
+  // Killing only npm leaves next-server and open log pipes alive on CI.
+  // Stop the entire synthetic local web process group on success or failure.
+  try { process.kill(-server.pid, "SIGTERM"); } catch { server.kill("SIGTERM"); }
+  server.stdout.destroy();
+  server.stderr.destroy();
 }
