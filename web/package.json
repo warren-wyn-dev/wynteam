@@ -30,7 +30,7 @@
     "test:club-chat-actions": "node --test tests/club-chat-actions.test.mjs tests/wyn135-sql-approval.test.mjs",
     "test:share-links": "node --test tests/share-links.test.mjs tests/food-share-links.test.mjs",
     "test:food-account": "node --test tests/food-standalone-account.test.mjs",
-    "test:stripe": "node --test tests/stripe-payment-core.test.mjs tests/food-payment-timeout.test.mjs"
+    "test:stripe": "node --test tests/stripe-payment-core.test.mjs tests/food-payment-timeout.test.mjs tests/food-first-order-merchant-funded.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
