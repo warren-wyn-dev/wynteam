@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -86,4 +87,31 @@ test("Admin deploy workflow uses separate Staging secrets and validates target b
   assert.match(wf, /check-admin-environment\.mjs/);
   assert.match(wf, /DEPLOY_ADMIN_PRODUCTION/);
   assert.doesNotMatch(wf, /--token=/);
+});
+
+test("Automatic Vercel Preview builds block the Stripe Sandbox without exposing credentials", () => {
+  const script = fileURLToPath(new URL("../scripts/check-admin-build.mjs", import.meta.url));
+  const run = (vars) => spawnSync(process.execPath, [script], {
+    encoding: "utf8",
+    env: { ...process.env, ...vars },
+  });
+  const wrong = run({
+    VERCEL_ENV: "preview",
+    NEXT_PUBLIC_SUPABASE_URL: stripeSandbox,
+    ADMIN_PREVIEW_SUPABASE_PROJECT_REF: "yydgdapzlrjmlrjgijkj",
+  });
+  assert.equal(wrong.status, 1);
+  assert.match(wrong.stderr, /BLOCKED:/);
+  assert.doesNotMatch(wrong.stderr + wrong.stdout, /pcatuxtenluqzjzzwsvl/);
+
+  const ready = run({
+    VERCEL_ENV: "preview",
+    NEXT_PUBLIC_SUPABASE_URL: staging,
+    ADMIN_PREVIEW_SUPABASE_PROJECT_REF: "yydgdapzlrjmlrjgijkj",
+  });
+  assert.equal(ready.status, 0, ready.stderr);
+  const prod = run({ VERCEL_ENV: "production", NEXT_PUBLIC_SUPABASE_URL: production });
+  assert.equal(prod.status, 0, prod.stderr);
+  const local = run({ VERCEL_ENV: "", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321" });
+  assert.equal(local.status, 0, local.stderr);
 });
