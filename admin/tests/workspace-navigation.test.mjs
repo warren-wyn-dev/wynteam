@@ -10,6 +10,7 @@ const header = read("../components/admin/header.tsx");
 const landing = read("../app/(admin)/page.tsx");
 const social = read("../app/(admin)/social/page.tsx");
 const layout = read("../app/(admin)/layout.tsx");
+const recent = read("../components/admin/recent-workspace-link.tsx");
 
 test("All WYNOS services have their own clearly named workspace and live route", () => {
   for (const id of ["overview", "social", "food", "merchant", "central"]) {
@@ -65,4 +66,13 @@ test("Menu respects legacy Admin and Moderator permission boundaries", () => {
   assert.match(nav, /item\.roles\.includes\(role\)/);
   assert.match(landing, /link\.roles\.includes\(role\)/);
   assert.match(layout, /requireAdminRole\(\)/);
+});
+
+test("Last-workspace UI preference is local only and overview remains reachable", () => {
+  assert.match(header, /window\.localStorage\.setItem\(LAST_ADMIN_WORKSPACE_KEY, workspace\.id\)/);
+  assert.match(header, /workspace\.id === "overview"/);
+  assert.match(recent, /window\.localStorage\.getItem\(LAST_ADMIN_WORKSPACE_KEY\)/);
+  assert.match(recent, /item\.id !== "overview"/);
+  assert.match(landing, /<RecentWorkspaceLink \/>/);
+  assert.doesNotMatch(recent, /supabase|fetch\(|sessionStorage|document\.cookie/);
 });
