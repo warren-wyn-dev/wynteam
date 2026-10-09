@@ -61,8 +61,11 @@ jobs:
       - name: Deploy existing Admin project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          # Preview must use its own isolated Admin staging credentials.
+          # Never reuse Production or the independent Stripe Sandbox project.
+          SUPABASE_URL: ${{ inputs.target == 'production' && secrets.SUPABASE_URL || secrets.ADMIN_STAGING_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ inputs.target == 'production' && secrets.SUPABASE_PUBLISHABLE_KEY || secrets.ADMIN_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          ADMIN_PREVIEW_SUPABASE_PROJECT_REF: ${{ vars.ADMIN_PREVIEW_SUPABASE_PROJECT_REF }}
         run: |
           set -euo pipefail
           clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
@@ -75,6 +78,10 @@ jobs:
               exit 1
             fi
           done
+          # Fail before a build/deploy if Admin targets a wrong Supabase project.
+          # Outputs a PASS/BLOCKED status only: no credentials or keys in logs.
+          node admin/scripts/check-admin-environment.mjs "$DEPLOY_TARGET"
+
           args=()
           if [ "$DEPLOY_TARGET" = production ]; then args+=(--prod); fi
 
