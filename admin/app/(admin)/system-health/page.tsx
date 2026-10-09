@@ -28,7 +28,7 @@ export default async function AdminSystemHealthPage() {
           <h1 className="text-2xl font-semibold tracking-tight">สถานะการเข้าถึงบริการ</h1>
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
             ข้อมูลนี้ตรวจเฉพาะการตอบสนอง HTTP และการอ่านข้อมูล Admin เบื้องต้น
-            ไม่ใช่การรับรองว่า Login, ออเดอร์, การชำระเงิน หรือทุกบริการทำงานครบ
+            ไม่ได้ยืนยันว่า Login, ออเดอร์, การชำระเงิน หรือทุกบริการทำงานครบ
           </p>
         </div>
         <Link href="/system-health" className="inline-flex min-h-11 items-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium hover:bg-accent">
