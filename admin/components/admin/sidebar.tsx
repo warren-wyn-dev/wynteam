@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -23,6 +24,20 @@ export function AdminSidebar({ role }: { role: AdminRole }) {
   const currentItem = getAdminCurrentItem(pathname);
   const items = getAdminVisibleItems(workspace, role);
   const WorkspaceIcon = workspace.icon;
+  const mobileNavRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    // A selected tab must remain visible even when the active destination
+    // is beyond the phone's 320px viewport (e.g. Social reports or Food ads).
+    const nav = mobileNavRef.current;
+    const active = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!nav || !active) return;
+    const navBox = nav.getBoundingClientRect();
+    const itemBox = active.getBoundingClientRect();
+    const centered = nav.scrollLeft + itemBox.left - navBox.left -
+      (nav.clientWidth - itemBox.width) / 2;
+    nav.scrollTo({ left: Math.max(0, centered), behavior: "auto" });
+  }, [pathname, workspace.id]);
 
   return (
     <>
@@ -81,6 +96,7 @@ export function AdminSidebar({ role }: { role: AdminRole }) {
       </aside>
 
       <nav
+        ref={mobileNavRef}
         key={workspace.id}
         aria-label={"เมนูมือถือ " + workspace.label}
         className="fixed inset-x-0 bottom-0 z-40 flex min-h-16 items-stretch overflow-x-auto border-t bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
