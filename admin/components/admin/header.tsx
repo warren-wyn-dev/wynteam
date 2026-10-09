@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LAST_ADMIN_WORKSPACE_KEY } from "@/components/admin/recent-workspace-link";
 import { ADMIN_WORKSPACES, getAdminCurrentItem, getAdminWorkspace } from "@/lib/admin-nav";
 import type { AdminRole } from "@/lib/auth";
 
@@ -26,6 +28,15 @@ export function AdminHeader({
   const workspace = getAdminWorkspace(pathname);
   const current = getAdminCurrentItem(pathname);
   const title = current?.label ?? workspace.label;
+
+  useEffect(() => {
+    if (workspace.id === "overview") return;
+    try {
+      window.localStorage.setItem(LAST_ADMIN_WORKSPACE_KEY, workspace.id);
+    } catch {
+      // Private-mode storage restrictions must not break navigation.
+    }
+  }, [workspace.id]);
 
   return (
     <header className="sticky top-0 z-30 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
