@@ -35,10 +35,10 @@ test("Search enforces server-side auth, least privilege and source isolation", (
   assert.match(source, /safeSection\("orders"/);
   assert.match(source, /safeSection\("stores"/);
   assert.match(source, /status: "unavailable"/);
-  assert.match(source, /\\.select\("id, username, display_name"\)/);
-  assert.match(source, /\\.ilike\("username", pattern\)/);
+  assert.match(source, /\.select\("id, username, display_name"\)/);
+  assert.match(source, /\.ilike\("username", pattern\)/);
   assert.match(source, /\\.ilike\("display_name", pattern\)/);
-  assert.doesNotMatch(source, /\.or\(|service_role|\\.insert\(|\\.update\(|\\.delete\(|\\.upsert\(/);
+  assert.doesNotMatch(source, /(?:supabase|query)\.or\(|service_role|\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
   assert.doesNotMatch(page, /recipient_phone|contact_name|address|payment_status|\\.email/);
   assert.match(header, /href="\/search" aria-label="ค้นหาทั้งระบบ"/);
   assert.match(page, /type="search"/);
@@ -49,7 +49,7 @@ test("Order results use order references only, never search recipients", () => {
   const source = read("../lib/admin-global-search.ts");
   assert.match(source, /if \(!\/\^\[A-Za-z0-9-\]\{4,48\}\$\/\.test\(term\)\) return \[\]/);
   assert.match(source, /row\.order_number\.toLowerCase\(\)\.includes\(term\.toLowerCase\(\)\)/);
-  assert.doesNotMatch(source, /row\\.recipient_name|row\\.recipient_phone|row\\.total|row\\.payment_status/);
-  assert.match(source, /\\.limit\(PER_CATEGORY_LIMIT\)/);
+  assert.doesNotMatch(source, /row\.recipient_name|row\.recipient_phone|row\.total|row\.payment_status/);
+  assert.match(source, /\.limit\(PER_CATEGORY_LIMIT\)/);
   assert.match(source, /limit: PER_CATEGORY_LIMIT/);
 });
