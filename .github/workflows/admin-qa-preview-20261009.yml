@@ -37,6 +37,7 @@ jobs:
       - run: npx next typegen
       - run: npx tsc --noEmit
       - name: Deploy only the existing Admin project to Preview
+        working-directory: . # Vercel project's rootDirectory is already admin; avoid admin/admin
         shell: bash
         run: |
           set -euo pipefail
