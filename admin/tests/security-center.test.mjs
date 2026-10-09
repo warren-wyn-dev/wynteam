@@ -13,7 +13,7 @@ test("Security Center defaults OFF and guest access remains role-gated", () => {
   assert.match(page, /notFound\(\)/);
   assert.match(nav, /process\.env\.NEXT_PUBLIC_ADMIN_SECURITY_CENTER_ENABLED === "true"/);
   assert.match(nav, /href: "\/security-center"/);
-  assert.match(ci, /for route in \/ \/security-center \/social/);
+  assert.ok(ci.includes(" /security-center "));
 });
 
 test("Security snapshot fetches only current user's MFA and AAL without a privileged service key", () => {

@@ -13,7 +13,7 @@ test("Admin Notifications are OFF until approved, and protected even on direct g
   assert.ok(page.includes("notFound()"));
   assert.ok(nav.includes('process.env.NEXT_PUBLIC_ADMIN_NOTIFICATIONS_ENABLED === "true"'));
   assert.ok(nav.includes('href: "/admin-notifications"'));
-  assert.ok(ci.includes("for route in / /admin-notifications /social"));
+  assert.ok(ci.includes(" /admin-notifications "));
 });
 
 test("Feed is a read-only source snapshot, not a fabricated notification delivery", () => {

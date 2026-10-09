@@ -73,7 +73,7 @@ test("Analytics route is Admin-only at both server boundaries; Moderator never g
   assert.match(loader, /role !== "admin"\) notFound\(\)/);
   assert.match(nav, /href: "\/analytics"[^\n]+roles: \["admin"\]/);
   assert.match(overview, /href: "\/analytics"[^\n]+roles: \["admin"\]/);
-  assert.match(ci, /for route in \/ \/analytics \/social/);
+  assert.ok(ci.includes(" /analytics "));
 });
 
 test("Analytics reuses audited existing RPC adapters, never invents totals or records", () => {

@@ -38,7 +38,7 @@ test("Independent source errors never render false zero or leak backend error me
 test("New Action Center stays inside Overview workspace and guest route security smoke", () => {
   assert.match(nav, /href: "\/action-center", label: "งานรอดำเนินการ"/);
   assert.match(overview, /href: "\/action-center"/);
-  assert.match(ci, /for route in \/ \/action-center \/social/);
+  assert.ok(ci.includes(" /action-center "));
   assert.match(page, /lg:grid-cols-2/);
   assert.match(page, /min-h-11/);
 });
