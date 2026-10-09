@@ -131,10 +131,19 @@ try {
       await page.goto(base + "/");
       const picker = page.locator("#admin-workspace");
       assert.equal(await picker.count(), 1, "Exactly one workspace selector is required");
-      await page.goto(base + "/analytics");
       if (person.role === "moderator") {
-        const res = await page.goto(base + "/analytics", { waitUntil: "domcontentloaded" });
-        assert.equal(res.status(), 404, "Moderator must not open Admin financial Analytics");
+        const res = await page.goto(base + "/analytics", { waitUntil: "networkidle" });
+        const html = await page.content();
+        // Next App Router can stream a 404 boundary with HTTP 200 after
+        // response headers have already been sent. Check the rendered
+        // denial AND absence of sensitive finance panels instead of
+        // trusting the HTTP status alone.
+        const notFound = res.status() === 404 ||
+          /This page could not be found|<title>404|ไม่พบหน้า|NOT_FOUND/.test(html);
+        assert.ok(notFound, "Moderator Analytics must render the Not Found boundary");
+        assert.ok(!html.includes("ยอดขายวันนี้ (บาท)") &&
+          !html.includes("WYNOS Social · ผู้ใช้งาน"),
+          "Moderator must never receive financial Analytics panel content");
         console.log("PASS: Moderator login and scoped routes; Analytics denied");
       } else {
         console.log("PASS: Admin login and all enabled local non-network feature routes");
