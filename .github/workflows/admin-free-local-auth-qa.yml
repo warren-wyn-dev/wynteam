@@ -10,11 +10,6 @@ on:
       - ".github/workflows/admin-free-local-auth-qa.yml"
       - "admin/tests/fixtures/free-local-auth.sql"
       - "admin/scripts/qa-free-local-auth.mjs"
-  pull_request:
-    branches: [feat/admin-workspaces-20261009]
-    paths:
-      - ".github/workflows/admin-free-local-auth-qa.yml"
-      - "admin/**"
   workflow_dispatch: {}
 
 permissions:
@@ -26,7 +21,7 @@ concurrency:
 
 jobs:
   local-auth-browser:
-    if: github.ref == 'refs/heads/qa/admin-all-phases-integration-20261009' || github.head_ref == 'qa/admin-all-phases-integration-20261009'
+    if: github.ref == 'refs/heads/qa/admin-all-phases-integration-20261009'
     name: Isolated Supabase Auth + signed-in browser
     runs-on: ubuntu-latest
     timeout-minutes: 35
