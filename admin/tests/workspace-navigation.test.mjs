@@ -35,8 +35,12 @@ test("Existing deep link routes are preserved and not relocated into other apps"
 test("Desktop and mobile use the same workspace-scoped navigation source", () => {
   assert.match(sidebar, /getAdminWorkspace\(pathname\)/);
   assert.match(sidebar, /getAdminVisibleItems\(workspace, role\)/);
-  assert.match(sidebar, /ADMIN_WORKSPACES\.map/);
-  assert.match(sidebar, /aria-label="เลือกพื้นที่ทำงาน"/);
+  // The top header is the only workspace selector; no duplicated list in the sidebar.
+  assert.doesNotMatch(sidebar, /ADMIN_WORKSPACES\.map/);
+  assert.doesNotMatch(sidebar, /aria-label="เลือกพื้นที่ทำงาน"/);
+  assert.match(sidebar, /const items = getAdminVisibleItems\(workspace, role\)/);
+  assert.match(sidebar, /items\.map/g);
+  assert.match(sidebar, /เมนูจัดการ/);
   assert.match(sidebar, /md:hidden/);
   assert.match(sidebar, /safe-area-inset-bottom/);
   assert.match(layout, /<AdminSidebar role=\{role\} \/>/);
@@ -48,6 +52,9 @@ test("Mobile and desktop header switch workspace without changing stored app dat
   assert.match(header, /value=\{workspace\.id\}/);
   assert.match(header, /router\.push\(next\.href\)/);
   assert.match(header, /htmlFor="admin-workspace"/);
+  assert.match(header, /sticky top-0/);
+  assert.match(header, /ADMIN_WORKSPACES\.map/);
+  assert.equal((header.match(/<select\b/g) ?? []).length, 1);
   assert.doesNotMatch(header, /document\.cookie|supabase\.from/);
 });
 
@@ -75,4 +82,15 @@ test("Last-workspace UI preference is local only and overview remains reachable"
   assert.match(recent, /item\.id !== "overview"/);
   assert.match(landing, /<RecentWorkspaceLink \/>/);
   assert.doesNotMatch(recent, /supabase|fetch\(|sessionStorage|document\.cookie/);
+});
+
+test("Workspace choice appears only in the top header and sidebar stays service-specific", () => {
+  assert.match(header, /id="admin-workspace"/);
+  assert.match(header, /router\.push\(next\.href\)/);
+  assert.doesNotMatch(sidebar, /ADMIN_WORKSPACES/);
+  assert.doesNotMatch(sidebar, /section\.href/);
+  assert.match(sidebar, /workspace\.icon/);
+  assert.match(sidebar, /workspace\.domain/);
+  assert.match(sidebar, /items\.map/g);
+  assert.doesNotMatch(sidebar, /<select\b/);
 });
