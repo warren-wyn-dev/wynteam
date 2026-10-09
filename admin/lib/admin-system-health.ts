@@ -53,16 +53,22 @@ export async function fetchAdminHealthObservations(): Promise<AdminHealthObserva
   return [
     {
       ...social,
+      id: "social",
+      status: social.status as HealthState,
       label: "WYNOS Social",
       source: "HTTP HEAD · wynos.online",
     },
     {
       ...food,
+      id: "food",
+      status: food.status as HealthState,
       label: "WYNOS Food",
       source: "HTTP HEAD · food.wynos.online",
     },
     {
       ...merchant,
+      id: "merchant",
+      status: merchant.status as HealthState,
       label: "WYNOS Merchant",
       source: "HTTP HEAD · merchant.wynos.online",
     },
