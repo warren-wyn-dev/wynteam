@@ -1,0 +1,76 @@
+name: Admin free local Auth / browser QA
+
+# ONLY the temporary Admin QA PR receives this check. No deployment.
+# This repository is PUBLIC; standard ubuntu-latest GitHub runners are free.
+# No GitHub artifacts or paid runners; no production keys or provider secrets.
+on:
+  pull_request:
+    branches: [feat/admin-workspaces-20261009]
+    paths:
+      - ".github/workflows/admin-free-local-auth-qa.yml"
+      - "admin/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-free-local-auth-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-auth-browser:
+    if: github.head_ref == 'qa/admin-all-phases-integration-20261009'
+    name: Isolated Supabase Auth + signed-in browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: "true"
+      WYNOS_LOCAL_STACK_DIR: ${{ runner.temp }}/wynos-admin-qa-local
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start fresh localhost-only Supabase Auth stack (not any hosted project)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$WYNOS_LOCAL_STACK_DIR"
+          cd "$WYNOS_LOCAL_STACK_DIR"
+          supabase init --yes
+          # Initialize a separate temporary project, not this repository's
+          # Production migrations, linked project or live database.
+          supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,mailpit
+          supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=' | cut -d= -f1
+
+      - name: Create minimal synthetic-only RLS profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          PGPASSWORD=postgres psql             -h 127.0.0.1 -p 54322 -U postgres -d postgres             -v ON_ERROR_STOP=1             -f admin/tests/fixtures/free-local-auth.sql
+
+      - name: Install pinned Admin and temporary browser tooling
+        working-directory: admin
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false playwright@1.58.2
+          npx playwright install --with-deps chromium
+
+      - name: Exercise three synthetic roles and browser navigation
+        working-directory: admin
+        run: node scripts/qa-free-local-auth.mjs
+
+      - name: Confirm no remote resources or project linking used
+        if: always()
+        run: |
+          echo "Local isolated test only. No project link, Vercel deploy, database migration to a hosted project, or service keys uploaded."
