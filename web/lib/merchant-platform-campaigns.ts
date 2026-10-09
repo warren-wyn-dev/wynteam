@@ -21,6 +21,7 @@ export type PlatformCampaign = {
   ends_at: string | null;
   usage_limit_per_store: number | null;
   platform_share_percent: number | string;
+  first_order_only: boolean;
   join_open: boolean;
   is_active: boolean;
   joined: boolean;
