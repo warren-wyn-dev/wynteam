@@ -117,6 +117,13 @@ test("Only one menu item is active for a Food child route on desktop and mobile"
 });
 
 test("Mobile navigation remounts per workspace, resetting old horizontal scroll", () => {
-  assert.match(sidebar, /<nav\s+key=\{workspace\.id\}/);
+  assert.match(sidebar, /ref=\{mobileNavRef\}\s+key=\{workspace\.id\}/);
   assert.match(sidebar, /overflow-x-auto/);
+});
+
+test("Phone navigation keeps the selected destination in view", () => {
+  assert.match(sidebar, /mobileNavRef = useRef<HTMLElement>\(null\)/);
+  assert.match(sidebar, /querySelector<HTMLElement>\('\[aria-current="page"\]'\)/);
+  assert.match(sidebar, /nav\.scrollTo\(\{ left: Math\.max\(0, centered\), behavior: "auto" \}\)/);
+  assert.match(sidebar, /\[pathname, workspace\.id\]/);
 });
