@@ -1407,7 +1407,7 @@ function MenuPanel({
     }
     setSortRenderVersion((version) => version + 1);
   }, [sortScope, categoryOrder, sortedMenu, menu]);
-  useMerchantTouchDrag(sortAreaRef, sortMode && !q, sortScope, sortRenderVersion, onTouchOrder);
+  useMerchantTouchDrag(sortAreaRef, sortMode && !q, sortScope, sortRenderVersion, onTouchOrder, () => setSortRenderVersion((version) => version + 1));
 
   const toggleCategory = (category: string) => {
     if (sortMode) return;
