@@ -3,6 +3,13 @@
 -- Requires staging security review before production application.
 -- Evidence is NOT proof of service sign-in or activation.
 
+-- Existing merchant_memberships_user_idx is PARTIAL (active only). The snapshot
+-- intentionally checks inactive historical memberships too, so it needs a full
+-- user_id index to avoid a cross-tenant sequential scan at scale.
+-- Review lock timing on staging before any production migration.
+create index if not exists wynos_admin_merchant_memberships_user_id_idx
+  on public.merchant_memberships (user_id);
+
 create or replace function public.admin_wynos_account_snapshot(p_user_id uuid)
 returns jsonb
 language plpgsql
