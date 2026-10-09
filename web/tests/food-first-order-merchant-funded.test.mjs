@@ -47,7 +47,7 @@ test("customer eligibility is exposed as booleans without revealing history", ()
   assert.match(migration, /'eligible', v_joined and v_new_customer/);
   assert.match(migration, /revoke all on function public\.food_first_order_offer\(uuid\) from public, anon/);
   assert.match(migration, /grant execute on function public\.food_first_order_offer\(uuid\) to authenticated/);
-  assert.match(food, /client\.rpc\("food_first_order_offer", \{ p_store_id: store\.id \}\)/);
+  assert.match(food, /client\.rpc\("food_first_order_offer", \{ p_store_id: storeId \}\)/);
   assert.match(food, /สิทธิ์ลูกค้าใหม่/);
   assert.match(food, /ระบบคำนวณส่วนลดที่เหมาะสมให้อัตโนมัติ/);
 });
