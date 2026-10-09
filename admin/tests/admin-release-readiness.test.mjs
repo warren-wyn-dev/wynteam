@@ -93,7 +93,7 @@ test("Automatic Vercel Preview builds block the Stripe Sandbox without exposing 
   const script = fileURLToPath(new URL("../scripts/check-admin-build.mjs", import.meta.url));
   const run = (vars) => spawnSync(process.execPath, [script], {
     encoding: "utf8",
-    env: { ...process.env, ...vars },
+    env: { ...process.env, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_synthetic_test_only", ...vars },
   });
   const wrong = run({
     VERCEL_ENV: "preview",
@@ -103,6 +103,19 @@ test("Automatic Vercel Preview builds block the Stripe Sandbox without exposing 
   assert.equal(wrong.status, 1);
   assert.match(wrong.stderr, /BLOCKED:/);
   assert.doesNotMatch(wrong.stderr + wrong.stdout, /pcatuxtenluqzjzzwsvl/);
+
+  // A correct project URL is not usable when the auth client key is absent.
+  for (const badKey of ["", "   ", "qa_dummy_publishable_key", "placeholder_fake_key"]) {
+    const missing = run({
+      VERCEL_ENV: "preview",
+      NEXT_PUBLIC_SUPABASE_URL: staging,
+      ADMIN_PREVIEW_SUPABASE_PROJECT_REF: "yydgdapzlrjmlrjgijkj",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: badKey,
+    });
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /publishable key is missing or a test placeholder/);
+    assert.doesNotMatch(missing.stderr + missing.stdout, /sb_publishable_synthetic_test_only/);
+  }
 
   const ready = run({
     VERCEL_ENV: "preview",
