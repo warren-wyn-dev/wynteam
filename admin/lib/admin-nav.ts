@@ -2,6 +2,7 @@ import {
   Bell,
   BookOpenText,
   ClipboardCheck,
+  ClipboardList,
   Flag,
   Gift,
   House,
@@ -59,6 +60,7 @@ export const ADMIN_WORKSPACES: readonly AdminWorkspace[] = [
     icon: House,
     items: [
       { href: "/", label: "ศูนย์รวมระบบ", icon: LayoutDashboard, task: "ADMIN-WORKSPACES", feature: "Platform overview" },
+      { href: "/action-center", label: "งานรอดำเนินการ", icon: ClipboardList, task: "ADMIN-ACTION-CENTER", feature: "Action Center" },
     ],
   },
   {
