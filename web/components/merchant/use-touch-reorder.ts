@@ -15,6 +15,7 @@ export function useMerchantTouchDrag(
   scope: SortScope,
   renderVersion: number,
   onReordered: TouchOrderCallback,
+  onCancelled: () => void,
 ) {
   useEffect(() => {
     const root = rootRef.current;
@@ -53,6 +54,7 @@ export function useMerchantTouchDrag(
       const element = event.target instanceof Element ? event.target : null;
       if (!element) return;
 
+      if (element.closest(".wm-sort-controls button")) return;
       const head = element.closest<HTMLElement>(".wm-menu-category-heading");
       const row = element.closest<HTMLElement>(".wm-menu-row");
       const source = scope === "categories"
@@ -141,16 +143,10 @@ export function useMerchantTouchDrag(
     };
 
     const onTouchCancel = () => {
-      // Return to the original React ordering after an interrupted gesture.
-      if (drag?.changed) {
-        const ids = Array.from(drag.list.children)
-          .filter((node): node is HTMLElement => node instanceof HTMLElement)
-          .map((node) => scope === "categories" ? node.dataset.wmCategory : node.dataset.wmItem)
-          .filter((id): id is string => Boolean(id));
-        const category = drag.category;
-        clearDrag();
-        onReordered(ids, category);
-      } else clearDrag();
+      const hadChanged = Boolean(drag?.changed);
+      clearDrag();
+      // Interrupted iPhone gestures must never commit a new draft order.
+      if (hadChanged) onCancelled();
     };
 
     root.addEventListener("touchstart", onTouchStart, { passive: false });
@@ -164,5 +160,5 @@ export function useMerchantTouchDrag(
       window.removeEventListener("touchcancel", onTouchCancel);
       clearDrag();
     };
-  }, [rootRef, active, scope, renderVersion, onReordered]);
+  }, [rootRef, active, scope, renderVersion, onReordered, onCancelled]);
 }
