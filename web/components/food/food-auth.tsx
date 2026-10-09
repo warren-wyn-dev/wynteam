@@ -21,7 +21,7 @@ import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supaba
 function FoodAuthBrand() {
   return (
     <div className="wf-auth-brand" aria-label="WYNOS Food">
-      <span className="wf-auth-mark"><Image src="/icons/food/icon-192-v11.png" width={48} height={48} alt="" /></span>
+      <span className="wf-auth-mark"><Image src="/icons/food/icon-192-v12.png" width={48} height={48} alt="" /></span>
       <span><strong>WYNOS</strong><b>Food</b></span>
     </div>
   );
