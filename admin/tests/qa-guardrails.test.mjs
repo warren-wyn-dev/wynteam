@@ -7,6 +7,7 @@ const migration = load("../../supabase/migrations/20261009140000_admin_qa_guardr
 const page = load("../app/(admin)/food/notifications/page.tsx");
 const manager = load("../components/admin/food-promotion-broadcast-manager.tsx");
 const campaigns = load("../components/admin/platform-campaign-actions.tsx");
+const deployWorkflow = load("../../.github/workflows/deploy-admin.yml");
 
 test("Scheduler health is role gated and does not mutate delivery state", () => {
   assert.match(migration, /function public\.admin_food_promo_scheduler_status\(\)/);
@@ -51,4 +52,14 @@ test("First-order campaign requires typed confirmation only for activation", () 
   assert.match(campaigns, /if \(pending \|\| !canConfirm\) return/);
   assert.match(campaigns, /disabled=\{pending \|\| !canConfirm\}/);
   assert.match(campaigns, /await setFirstOrderFoodCampaignActive\(!active\)/);
+});
+
+test("Admin deploy workflow targets only existing Admin project with preview default", () => {
+  assert.match(deployWorkflow, /working-directory: \. # Vercel project rootDirectory/);
+  assert.match(deployWorkflow, /default: preview/);
+  assert.match(deployWorkflow, /CONFIRM_PRODUCTION.*DEPLOY_ADMIN_PRODUCTION/);
+  assert.match(deployWorkflow, /VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5/);
+  assert.match(deployWorkflow, /vercel@63\.1\.0 deploy/);
+  assert.doesNotMatch(deployWorkflow, /--token=/);
+  assert.match(deployWorkflow, /args\+\=\(--prod\)/);
 });
