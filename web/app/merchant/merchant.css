@@ -4816,3 +4816,132 @@ button.wm-menu-tool:disabled {
     min-height: 42px;
   }
 }
+
+
+/* WYNOS Merchant — direct-touch menu/category ordering (iPhone Touch v3).
+   Sorting gestures are isolated to the explicit sort mode. */
+.wm-menu-sort-panel {
+  display: grid;
+  gap: 11px;
+  margin: 0 0 14px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--wm-red) 14%, var(--wm-border));
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--wm-red-soft) 38%, var(--wm-bg));
+}
+
+.wm-menu-sort-scopes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 11px;
+  background: var(--wm-surface);
+}
+
+.wm-menu-sort-scopes button {
+  min-height: 41px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--wm-secondary);
+  font: inherit;
+  font-weight: 720;
+  font-size: 12px;
+}
+
+.wm-menu-sort-scopes button.is-active {
+  background: var(--wm-bg);
+  color: var(--wm-red-text);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 5%);
+}
+
+.wm-menu-sort-panel p {
+  margin: 0;
+  color: var(--wm-secondary);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.wm-menu-sort-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.wm-menu-sort-actions button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--wm-border);
+  border-radius: 10px;
+  background: var(--wm-bg);
+  color: var(--wm-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.wm-menu-sort-actions button.is-primary {
+  border-color: var(--wm-red);
+  color: #fff;
+  background: var(--wm-red);
+}
+
+.wm-menu-sort-actions button:disabled { opacity: .55; }
+
+.wm-menu-sort-feedback {
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  color: var(--wm-secondary);
+  background: var(--wm-surface);
+  font-size: 12px;
+}
+
+.wm-menu-row.is-sorting {
+  grid-template-columns: minmax(0, 1fr) auto;
+  cursor: grab;
+}
+
+.wm-menu-categories.is-touch-sorting .wm-menu-row.is-sorting,
+.wm-menu-categories.is-category-sorting .wm-menu-category-heading {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.wm-menu-categories.is-touch-sorting .wm-menu-main:disabled,
+.wm-menu-categories.is-touch-sorting .wm-menu-category-title button:disabled,
+.wm-menu-categories.is-touch-sorting .wm-menu-collapse:disabled {
+  pointer-events: none;
+}
+
+.wm-menu-categories.is-category-sorting .wm-menu-category-heading {
+  cursor: grab;
+}
+
+.wm-touch-drag-source { opacity: .22 !important; }
+
+.wm-touch-drag-ghost {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--wm-red-border);
+  border-radius: 12px;
+  background: var(--wm-bg);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 18%);
+  opacity: .97;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.wm-touch-drag-ghost.wm-menu-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wm-touch-drag-ghost { transition: none; }
+}
