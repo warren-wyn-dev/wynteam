@@ -152,8 +152,12 @@ expect_db "select campaign_type || '|' || discount_value || '|' || min_subtotal 
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "cannot use offer before merchant joins"
 expect_eq "$OWNER" "select public.merchant_join_platform_campaign('$STORE','$FIRST_ID')::text" "" "merchant opts in"
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "true" "new buyer eligible at joined store"
-expect_eq "$BUYER" "select campaign_discount from internal.food_campaign_candidates('$STORE',120,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%' limit 1" "20.00" "threshold of 120 discounts 20"
-expect_eq "$BUYER" "select count(*) from internal.food_campaign_candidates('$STORE',119,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%'" "0" "below 120 no first-order discount"
+# Internal pricing is not directly executable by the authenticated API role:
+# quote/create RPCs call it from SECURITY DEFINER. Test it as the DB owner
+# while preserving the buyer JWT identity in test.uid.
+buyer_db() { run -At -c "select set_config('test.uid','$BUYER',false);" -c "$1" 2>&1 | tail -n1; }
+[[ "$(buyer_db "select campaign_discount from internal.food_campaign_candidates('$STORE',120,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%' limit 1")" == "20.00" ]] || { echo "FAIL: threshold 120 discount 20"; exit 1; }
+[[ "$(buyer_db "select count(*) from internal.food_campaign_candidates('$STORE',119,15,'{}'::jsonb) where campaign_name like 'โปรลูกค้าใหม่%'")" == "0" ]] || { echo "FAIL: below 120 no first-order discount"; exit 1; }
 
 FIRST_STORE_ID="$(db "select id from public.food_campaigns where platform_campaign_id='$FIRST_ID' and deleted_at is null")"
 O3=00000000-0000-0000-0000-000000000103
