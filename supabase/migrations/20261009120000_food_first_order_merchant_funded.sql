@@ -308,3 +308,41 @@ $$;
 
 revoke all on function public.merchant_platform_campaigns(uuid) from public, anon;
 grant execute on function public.merchant_platform_campaigns(uuid) to authenticated;
+
+
+-- Public to signed-in customers only: no order history is exposed.
+create or replace function public.food_first_order_offer(p_store_id uuid)
+returns jsonb language plpgsql stable security definer set search_path = '' as $fn$
+declare
+  v_joined boolean := false;
+  v_new_customer boolean := false;
+begin
+  if auth.uid() is null then
+    return jsonb_build_object('eligible',false,'joined',false);
+  end if;
+  select exists (
+    select 1 from public.food_campaigns c
+    join public.food_platform_campaigns pc on pc.id = c.platform_campaign_id
+    where c.store_id = p_store_id and pc.first_order_only
+      and pc.is_active and pc.join_open
+      and c.deleted_at is null and c.is_active
+      and c.starts_at <= now()
+      and (c.ends_at is null or c.ends_at > now())
+      and (c.usage_limit is null or c.usage_count < c.usage_limit)
+  ) into v_joined;
+  select not exists (
+    select 1 from public.food_orders prior
+    where prior.buyer_id = auth.uid()
+      and (prior.status <> 'cancelled'
+           or prior.payment_status in ('paid','submitted','refunded'))
+  ) into v_new_customer;
+  return jsonb_build_object(
+    'eligible', v_joined and v_new_customer,
+    'joined', v_joined,
+    'min_subtotal', 120,
+    'discount_amount', 20
+  );
+end;
+$fn$;
+revoke all on function public.food_first_order_offer(uuid) from public, anon;
+grant execute on function public.food_first_order_offer(uuid) to authenticated;
