@@ -138,6 +138,15 @@ expect_internal_eq() {
   [[ "$got" == "$3" ]] || { echo "FAIL: $4 (got '$got', want '$3')"; exit 1; }
 }
 
+expect_internal_fail() {
+  local err
+  if err="$(run -c "select set_config('test.uid','$1',false);" -c "$2" 2>&1)"; then
+    echo "FAIL (expected server rejection): $3"
+    exit 1
+  fi
+  [[ "$err" == *"$4"* ]] || { echo "FAIL: $3 (wrong error: $err)"; exit 1; }
+}
+
 # First-order fixed offer integration: exercise the actual additive migration
 # on this throwaway PostgreSQL DB, not on Production.
 run >/dev/null <<SQL
@@ -185,7 +194,7 @@ run -q -c "insert into public.food_orders(id,order_number,store_id,buyer_id,stat
   insert into public.food_order_campaigns(order_id,campaign_id,campaign_name,campaign_type,campaign_discount,delivery_discount)
   values ('$O4','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',20,0);" >/dev/null
 expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'" "false" "a second first-order redemption is ineligible"
-expect_fail "$BUYER" "insert into public.food_orders(id,order_number,store_id,buyer_id,status,payment_status,subtotal,total)
+expect_internal_fail "$BUYER" "insert into public.food_orders(id,order_number,store_id,buyer_id,status,payment_status,subtotal,total)
   values ('$O5','1005','$STORE','$BUYER','pending_acceptance','pending',120,100);
   insert into public.food_order_campaigns(order_id,campaign_id,campaign_name,campaign_type,campaign_discount,delivery_discount)
   values ('$O5','$FIRST_STORE_ID','โปรลูกค้าใหม่','fixed',20,0)" "second first-order redemption blocked at server" "first_order_already_used"
