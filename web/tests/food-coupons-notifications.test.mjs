@@ -42,7 +42,7 @@ test("Food marketing does not share Social or Merchant tokens", () => {
   assert.match(inbox, /push_marketing/);
   assert.match(inbox, /in_app_marketing/);
   assert.match(worker, /data\?\.type === "food_promotion"/);
-  assert.match(worker, /icons\/food\/icon-192-v10\.png/);
+  assert.match(worker, /icons\/food\/icon-192-v11\.png/);
 });
 test("Admin can schedule or cancel a Food promo; server rechecks role", () => {
   assert.match(campaign, /Only admins can send Food promotions/);

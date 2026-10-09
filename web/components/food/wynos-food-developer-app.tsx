@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -345,6 +346,7 @@ function FoodHeader({
       ) : null}
       <div className="wf-brand-stack">
         <div className="wf-brand">
+          <Image className="wf-brand-logo" src="/icons/food/icon-192-v11.png" width={32} height={32} alt="" />
           <span>WYNOS</span>
           <b>Food</b>
         </div>

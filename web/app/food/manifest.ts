@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
-const FOOD_ICON_192 = "/icons/food/icon-192-v10.png";
-const FOOD_ICON_512 = "/food/icon-v10?size=512";
+const FOOD_ICON_192 = "/icons/food/icon-192-v11.png";
+const FOOD_ICON_512 = "/icons/food/icon-512-v11.png";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {

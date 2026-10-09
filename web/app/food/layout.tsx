@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 
 import "./food.css";
 
-const FOOD_ICON_192 = "/icons/food/icon-192-v10.png";
-const FOOD_ICON_512 = "/food/icon-v10?size=512";
+const FOOD_ICON_32 = "/icons/food/icon-32-v11.png";
+const FOOD_ICON_192 = "/icons/food/icon-192-v11.png";
+const FOOD_ICON_512 = "/icons/food/icon-512-v11.png";
 
 const FOOD_WEBSITE_STRUCTURED_DATA = {
   "@context": "https://schema.org",
@@ -47,16 +48,15 @@ export const metadata: Metadata = {
     description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
     images: [FOOD_ICON_512],
   },
-  manifest: "/food/manifest.webmanifest?v=20261006-11",
+  manifest: "/food/manifest.webmanifest?v=20261009-12",
   icons: {
-    // Home Screen/PWA icons must be static files. The previous icon-v7 route
-    // rendered a remote image inside ImageResponse; iOS could cache the red
-    // background even when the foreground image failed to render.
+    // All Food icons are versioned static assets to avoid mobile PWA stale-cache issues.
     icon: [
+      { url: FOOD_ICON_32, sizes: "32x32", type: "image/png" },
       { url: FOOD_ICON_192, sizes: "192x192", type: "image/png" },
       { url: FOOD_ICON_512, sizes: "512x512", type: "image/png" },
     ],
-    shortcut: [{ url: FOOD_ICON_192, sizes: "192x192", type: "image/png" }],
+    shortcut: [{ url: FOOD_ICON_32, sizes: "32x32", type: "image/png" }],
     apple: [{ url: FOOD_ICON_192, sizes: "192x192", type: "image/png" }],
     other: [
       { rel: "apple-touch-icon-precomposed", url: FOOD_ICON_192, sizes: "192x192", type: "image/png" },
