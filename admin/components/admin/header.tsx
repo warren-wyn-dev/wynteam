@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LAST_ADMIN_WORKSPACE_KEY } from "@/components/admin/recent-workspace-link";
@@ -27,7 +28,7 @@ export function AdminHeader({
   const router = useRouter();
   const workspace = getAdminWorkspace(pathname);
   const current = getAdminCurrentItem(pathname);
-  const title = current?.label ?? workspace.label;
+  const title = pathname === "/search" ? "ค้นหาทั้งระบบ" : current?.label ?? workspace.label;
 
   useEffect(() => {
     if (workspace.id === "overview") return;
@@ -64,6 +65,10 @@ export function AdminHeader({
         </div>
       </div>
       <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+        <Link href="/search" aria-label="ค้นหาทั้งระบบ" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border bg-background px-3 text-sm font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2">
+          <Search aria-hidden="true" className="size-4" />
+          <span className="hidden sm:inline">ค้นหา</span>
+        </Link>
         <span className="hidden rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground sm:inline-flex">
           {ROLE_LABEL[role]}
         </span>
