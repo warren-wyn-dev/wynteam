@@ -45,6 +45,7 @@ ADMIN=00000000-0000-0000-0000-0000000000a0
 MOD=00000000-0000-0000-0000-0000000000b0
 USER=00000000-0000-0000-0000-0000000000c0
 PARTNER=00000000-0000-0000-0000-0000000000d0
+NO_PROFILE=00000000-0000-0000-0000-0000000000e0
 as() { run -At -c "select set_config('test.uid','$1',false)" -c "set role authenticated" -c "$2" 2>&1 | tail -n1; }
 db() { run -At -c "$1" 2>&1 | tail -n1; }
 eq() {
@@ -69,16 +70,20 @@ for view in moderation_queue admin_user_moderation_history admin_audit_log; do
   eq "$MOD" "select count(*) from public.$view" "1" "moderator sees $view"
   eq "$USER" "select count(*) from public.$view" "0" "user denied $view"
   eq "$PARTNER" "select count(*) from public.$view" "0" "unknown role denied $view"
+  eq "$NO_PROFILE" "select count(*) from public.$view" "0" "no-profile user denied $view"
 done
 eq "$ADMIN" "select public.admin_food_promo_scheduler_status()->>'active'" "false" "paused scheduler"
 eq "$MOD" "select public.admin_food_promo_scheduler_status()->>'active'" "false" "moderator reads health"
 deny "$USER" "select public.admin_food_promo_scheduler_status()" "user cannot read health" "Admin access required"
+deny "$NO_PROFILE" "select public.admin_food_promo_scheduler_status()" "no-profile user cannot read health" "Admin access required"
 deny "$ADMIN" "select public.admin_food_promo_schedule('Test','Message test')" "disabled scheduler denies enqueue" "food_promo_scheduler_disabled"
 eq_db "select count(*) from public.food_promo_broadcasts" "0" "no queue insertion"
 run >/dev/null -c "update cron.job set active=true where jobname='wynos-food-promotions-5min'"
 eq "$ADMIN" "select public.admin_food_promo_scheduler_status()->>'active'" "true" "scheduler active"
 deny "$MOD" "select public.admin_food_promo_schedule('Test','Message test')" "moderator denied" "Only admins"
+deny "$NO_PROFILE" "select public.admin_food_promo_schedule('Test','Message test')" "no-profile user cannot enqueue" "Only admins"
 eq "$ADMIN" "select (public.admin_food_promo_schedule('Test','Message test') is not null)::text" "true" "admin can queue"
 eq_db "select count(*) from public.food_promo_broadcasts" "1" "one queue record"
 eq_db "select has_function_privilege('anon','public.admin_food_promo_scheduler_status()','execute')::text" "false" "anonymous role denied"
+eq_db "select has_function_privilege('anon','public.admin_food_promo_schedule(text,text,uuid,text,timestamptz)','execute')::text" "false" "anonymous cannot enqueue"
 echo "PASS: Admin-only cron, queue and staff-view authorization"
