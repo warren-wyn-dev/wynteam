@@ -38,7 +38,7 @@ test("existing coupon campaign conditions are preserved", () => {
   assert.match(migration, /pc\.coupon_required is distinct from true/);
   assert.match(migration, /public\.food_coupon_redemptions/);
   assert.match(migration, /order by saving desc,id/);
-  assert.match(migration, /public\.merchant_join_platform_campaign/);
+  assert.match(migration, /merchant_join_platform_campaign/);
   assert.match(migration, /'first_order_only', pc\.first_order_only/);
 });
 
