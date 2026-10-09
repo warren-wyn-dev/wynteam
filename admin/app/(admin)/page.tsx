@@ -7,6 +7,7 @@ import { ADMIN_WORKSPACES } from "@/lib/admin-nav";
 import { requireAdminRole, type AdminRole } from "@/lib/auth";
 
 const QUICK_LINKS: { href: string; label: string; detail: string; roles?: AdminRole[] }[] = [
+  { href: "/analytics", label: "Analytics Center", detail: "สถิติแยก Social, Food และ Merchant", roles: ["admin"] },
   { href: "/users", label: "จัดการผู้ใช้", detail: "WYNOS Social" },
   { href: "/reports", label: "ตรวจสอบรายงาน", detail: "WYNOS Social" },
   { href: "/merchants", label: "คำขอเปิดร้าน", detail: "WYNOS Merchant" },
