@@ -66,8 +66,42 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
+      - run: npm run test:workspaces
       - run: npx next typegen
       - run: npx tsc --noEmit
+      - name: Build Admin production bundle with offline test backend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: qa_dummy_publishable_key
+        run: npm run build
+      - name: Smoke login and guest workspace protection
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: qa_dummy_publishable_key
+        run: |
+          set -euo pipefail
+          PORT=3109 npm run start > "$RUNNER_TEMP/admin-workspaces-smoke.log" 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:3109/login -o "$RUNNER_TEMP/admin-workspaces-login.html"; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat "$RUNNER_TEMP/admin-workspaces-smoke.log"
+            exit 1
+          fi
+          grep -q 'WYN Admin' "$RUNNER_TEMP/admin-workspaces-login.html"
+          for route in / /social /food /merchants /audit-log; do
+            curl --silent --show-error --head --max-time 10 "http://127.0.0.1:3109$route" \
+              | grep -i -E '^location: (https?://[^/]+)?/login' \
+              || { echo "Guest route not protected: $route"; exit 1; }
+          done
+          echo "PASS: all five workspace routes protect guest access"
 
   edge-functions:
     name: Supabase Edge Functions (Deno)
