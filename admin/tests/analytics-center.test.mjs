@@ -67,6 +67,9 @@ test("Analytics route is Admin-only at both server boundaries; Moderator never g
   assert.match(page, /await requireAdminRole\(\)/);
   assert.match(loader, /await requireAdminRole\(\)/);
   assert.match(page, /role !== "admin"\) notFound\(\)/);
+  assert.match(page, /process\.env\.NEXT_PUBLIC_ADMIN_ANALYTICS_ENABLED !== "true"/);
+  assert.match(nav, /process\.env\.NEXT_PUBLIC_ADMIN_ANALYTICS_ENABLED === "true"/);
+  assert.match(overview, /process\.env\.NEXT_PUBLIC_ADMIN_ANALYTICS_ENABLED === "true"/);
   assert.match(loader, /role !== "admin"\) notFound\(\)/);
   assert.match(nav, /href: "\/analytics"[^\n]+roles: \["admin"\]/);
   assert.match(overview, /href: "\/analytics"[^\n]+roles: \["admin"\]/);
