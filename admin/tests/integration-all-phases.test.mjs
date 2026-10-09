@@ -18,7 +18,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../app/(admin)");
 test("Integrated workspace has all seven unique feature destinations and guest smoke covers every one", () => {
   const routes = ["/action-center", "/audit-log", "/search", "/system-health", "/security-center", "/admin-notifications", "/analytics"];
   for (const route of routes) {
-    assert.equal((nav.match(new RegExp('href: "' + route + '"', "g")) ?? []).length, 1, route);
+    assert.equal((nav.match(new RegExp('\\{ href: "' + route + '"', "g")) ?? []).length, 1, route);
     assert.ok(statSync(join(root, route.slice(1), "page.tsx")).isFile(), route);
     assert.ok(ci.includes(" " + route + " "), "route absent from guest smoke: " + route);
   }
