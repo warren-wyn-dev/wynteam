@@ -917,14 +917,16 @@ test("Merchant native touch input actually reorders rows/categories and handles 
       const from = src.top + src.height / 2;
       const to = dst.top + Math.min(12, dst.height / 3);
       const send = (type, y) => {
-        const touch = new Touch({ identifier: 9, target: source, clientX: x, clientY: y });
+        // WebKit does not expose a constructible Touch in every test context.
+        // A touch-shaped event exercises the same native listener and TouchList
+        // contract in Chromium and WebKit without browser-only constructors.
+        const touch = { identifier: 9, target: source, clientX: x, clientY: y };
         const isEnd = type === "touchend" || type === "touchcancel";
-        const event = new TouchEvent(type, {
-          bubbles: true,
-          cancelable: true,
-          touches: isEnd ? [] : [touch],
-          targetTouches: isEnd ? [] : [touch],
-          changedTouches: [touch],
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperties(event, {
+          touches: { value: isEnd ? [] : [touch] },
+          targetTouches: { value: isEnd ? [] : [touch] },
+          changedTouches: { value: [touch] },
         });
         (type === "touchstart" ? source : window).dispatchEvent(event);
       };
