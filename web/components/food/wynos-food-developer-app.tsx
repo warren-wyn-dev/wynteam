@@ -1274,7 +1274,7 @@ function CartPanel({
   useEffect(() => {
     if (!storeId) return;
     let live = true;
-    void client.rpc("food_first_order_offer", { p_store_id: storeId })
+    void Promise.resolve(client.rpc("food_first_order_offer", { p_store_id: storeId }))
       .then(({ data, error }) => {
         if (live) setFirstOrderState({ storeId, eligible: !error && data?.eligible === true });
       })
