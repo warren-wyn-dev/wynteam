@@ -2,21 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
-  ADMIN_WORKSPACES,
   getAdminVisibleItems,
   getAdminWorkspace,
   isAdminNavActive,
 } from "@/lib/admin-nav";
 import type { AdminRole } from "@/lib/auth";
 
+/**
+ * The workspace selector lives in AdminHeader, not in the sidebar.
+ * Both desktop and mobile navigation only show pages belonging to the
+ * selected workspace. All existing routes and server-side permissions stay
+ * unchanged.
+ */
 export function AdminSidebar({ role }: { role: AdminRole }) {
   const pathname = usePathname();
   const workspace = getAdminWorkspace(pathname);
   const items = getAdminVisibleItems(workspace, role);
+  const WorkspaceIcon = workspace.icon;
 
   return (
     <>
@@ -33,40 +38,20 @@ export function AdminSidebar({ role }: { role: AdminRole }) {
           </Link>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            พื้นที่ทำงาน
-          </p>
-          <nav aria-label="เลือกพื้นที่ทำงาน" className="flex flex-col gap-1">
-            {ADMIN_WORKSPACES.map((section) => {
-              const Icon = section.icon;
-              const active = workspace.id === section.id;
-              return (
-                <Link
-                  href={section.href}
-                  key={section.id}
-                  aria-current={active ? "location" : undefined}
-                  className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px]",
-                    active ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                  )}
-                >
-                  <Icon aria-hidden="true" className="size-[18px] shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{section.label}</span>
-                  {active ? <span aria-hidden="true" className="size-1.5 rounded-full bg-foreground" /> : null}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="mx-3 my-5 border-t" />
-
-          <div className="flex items-center justify-between gap-2 px-3 pb-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {workspace.label}
-            </p>
-            <ChevronsUpDown aria-hidden="true" className="size-3 text-muted-foreground" />
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
+          <div className="mb-5 flex items-center gap-3 border-b px-3 pb-5">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <WorkspaceIcon className="size-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{workspace.label}</p>
+              <p className="truncate text-xs text-muted-foreground">{workspace.domain}</p>
+            </div>
           </div>
+
+          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            เมนูจัดการ
+          </p>
           <nav aria-label={"เมนู" + workspace.label} className="flex flex-col gap-1">
             {items.map((item) => {
               const Icon = item.icon;
@@ -77,7 +62,7 @@ export function AdminSidebar({ role }: { role: AdminRole }) {
                   key={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px]",
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px]",
                     active ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
@@ -88,8 +73,9 @@ export function AdminSidebar({ role }: { role: AdminRole }) {
             })}
           </nav>
         </div>
+
         <p className="border-t px-5 py-3 text-xs text-muted-foreground">
-          {workspace.domain}
+          เปลี่ยน Workspace ได้จากแถบด้านบน
         </p>
       </aside>
 
