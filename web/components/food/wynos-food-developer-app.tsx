@@ -1376,8 +1376,8 @@ function CartPanel({
           {quote?.campaign_name ? <div className="wf-promo-applied"><strong>ใช้แคมเปญ {quote.campaign_name}</strong><small>WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ</small></div> : null}
           {firstOrderOffer ? (
             <div className="wf-promo-applied" role="status">
-              <strong>สิทธิ์ลูกค้าใหม่ · ค่าอาหารครบ ฿120 ลดทันที ฿20</strong>
-              <small>{subtotal < 120 ? `เพิ่มค่าอาหารอีก ${foodMoney(120 - subtotal)} เพื่อถึงยอดขั้นต่ำ` : "ระบบคำนวณส่วนลดที่เหมาะสมให้อัตโนมัติ ไม่ต้องใส่โค้ด"}</small>
+              <strong>สิทธิ์ลูกค้าใหม่ · ค่าอาหารครบ ฿100 ลดทันที ฿40</strong>
+              <small>{subtotal < 100 ? `เพิ่มค่าอาหารอีก ${foodMoney(100 - subtotal)} เพื่อถึงยอดขั้นต่ำ` : "ระบบคำนวณส่วนลดที่เหมาะสมให้อัตโนมัติ ไม่ต้องใส่โค้ด"}</small>
             </div>
           ) : null}
 
