@@ -43,7 +43,7 @@ test("Every Admin workspace route has a corresponding page and is behind the ser
   const root = dirname(fileURLToPath(import.meta.url));
   const adminPagesRoot = join(root, "../app/(admin)");
   const nav = read("../lib/admin-nav.ts");
-  const urls = [...nav.matchAll(/href: "(\/[^"]*)"/g)].map((match) => match[1]);
+  const urls = [...nav.matchAll(/\{ href: "(\/[^"]*)", label:/g)].map((match) => match[1]);
   assert.ok(urls.length >= 15, "all functional workspace entries remain visible in the registry");
   assert.equal(new Set(urls).size, urls.length, "menu routes are not duplicated");
   for (const url of urls) {
