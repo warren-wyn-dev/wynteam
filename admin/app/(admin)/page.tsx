@@ -7,6 +7,11 @@ import { ADMIN_WORKSPACES } from "@/lib/admin-nav";
 import { requireAdminRole, type AdminRole } from "@/lib/auth";
 
 const QUICK_LINKS: { href: string; label: string; detail: string; roles?: AdminRole[] }[] = [
+  { href: "/action-center", label: "งานรอดำเนินการ", detail: "ทุก Workspace ที่เข้าถึงได้" },
+  { href: "/system-health", label: "สถานะการเข้าถึงบริการ", detail: "WYNOS Admin" },
+  ...(process.env.NEXT_PUBLIC_ADMIN_ANALYTICS_ENABLED === "true"
+    ? [{ href: "/analytics", label: "Analytics Center", detail: "สถิติแยก Social, Food และ Merchant", roles: ["admin"] as AdminRole[] }]
+    : []),
   { href: "/users", label: "จัดการผู้ใช้", detail: "WYNOS Social" },
   { href: "/reports", label: "ตรวจสอบรายงาน", detail: "WYNOS Social" },
   { href: "/merchants", label: "คำขอเปิดร้าน", detail: "WYNOS Merchant" },

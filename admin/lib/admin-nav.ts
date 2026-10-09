@@ -1,7 +1,10 @@
 import {
+  Activity,
+  BarChart3,
   Bell,
   BookOpenText,
   ClipboardCheck,
+  ClipboardList,
   Flag,
   Gift,
   House,
@@ -10,6 +13,7 @@ import {
   Megaphone,
   ScrollText,
   ShieldAlert,
+  ShieldCheck,
   ShoppingBag,
   Store,
   TicketPercent,
@@ -59,6 +63,11 @@ export const ADMIN_WORKSPACES: readonly AdminWorkspace[] = [
     icon: House,
     items: [
       { href: "/", label: "ศูนย์รวมระบบ", icon: LayoutDashboard, task: "ADMIN-WORKSPACES", feature: "Platform overview" },
+      { href: "/action-center", label: "งานรอดำเนินการ", icon: ClipboardList, task: "ADMIN-ACTION-CENTER", feature: "Action Center" },
+      { href: "/system-health", label: "สถานะบริการ", icon: Activity, task: "ADMIN-HEALTH", feature: "System Health" },
+      ...(process.env.NEXT_PUBLIC_ADMIN_ANALYTICS_ENABLED === "true"
+        ? [{ href: "/analytics", label: "รายงานภาพรวม", icon: BarChart3, task: "ADMIN-ANALYTICS", feature: "Analytics Center", roles: ["admin"] as const }]
+        : []),
     ],
   },
   {
@@ -117,6 +126,12 @@ export const ADMIN_WORKSPACES: readonly AdminWorkspace[] = [
     icon: BookOpenText,
     items: [
       { href: "/audit-log", label: "ประวัติการดำเนินงาน", icon: ScrollText, task: "WYN-054", feature: "Audit Log" },
+      ...(process.env.NEXT_PUBLIC_ADMIN_SECURITY_CENTER_ENABLED === "true"
+        ? [{ href: "/security-center", label: "ความปลอดภัยบัญชี", icon: ShieldCheck, task: "ADMIN-SECURITY", feature: "Admin Security Center" }]
+        : []),
+      ...(process.env.NEXT_PUBLIC_ADMIN_NOTIFICATIONS_ENABLED === "true"
+        ? [{ href: "/admin-notifications", label: "แจ้งงานเจ้าหน้าที่", icon: Bell, task: "ADMIN-NOTIFICATIONS", feature: "Admin Notifications" }]
+        : []),
     ],
   },
 ];
