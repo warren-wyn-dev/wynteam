@@ -66,6 +66,8 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
+      - name: Verify four-service WYNOS Account UI states
+        run: node tests/account-service-status-render.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
       # Anonymous Admin runtime smoke, no real credentials / no database access.
