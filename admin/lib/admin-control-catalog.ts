@@ -117,7 +117,8 @@ export const ADMIN_CONTROL_AREAS: readonly AdminControlArea[] = [
     subtitle: "Feature Flags · สุขภาพระบบและการตั้งค่าบริการ",
     capabilities: [
       { id: "action-center", label: "ดูงานค้างข้ามบริการตามสิทธิ์", stage: "existing-route", href: "/action-center" },
-      { id: "platform-health", label: "ตรวจสุขภาพบริการและเหตุขัดข้อง", stage: "planned" },
+      { id: "platform-health", label: "ตรวจสถานะการเข้าถึงบริการ", stage: "existing-route", href: "/system-health" },
+      { id: "platform-incidents-detail", label: "ตรวจสอบเหตุขัดข้องจากข้อมูล Runtime ที่ผ่านการอนุมัติ", stage: "planned" },
       { id: "platform-flags", label: "กำหนด Feature Flags และทยอยเปิดบริการ", stage: "planned", roles: ["admin"] },
       { id: "platform-limits", label: "ตั้งค่าขีดจำกัดและนโยบายที่มี Backend รองรับ", stage: "planned", roles: ["admin"] },
       { id: "platform-incidents", label: "บันทึกเหตุขัดข้องและกระบวนการแก้ไข", stage: "planned" },
