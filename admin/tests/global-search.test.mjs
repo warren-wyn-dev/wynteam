@@ -18,7 +18,7 @@ test("Search rejects sensitive identifiers, operators and malformed query arrays
   for (const value of [
     "a", "z".repeat(49), "somebody@example.com", "0812345678", "id%foo",
     "hello,or(username.neq.x)", "\nhello", ["valid", "invalid"],
-    "hello\\world", "123456789", "foo;select", "foo()",
+    "hello\\world", "123456789", "081-234-5678", "02 234 5678", "foo;select", "foo()",
   ]) {
     assert.throws(() => parseAdminSearchQuery(value), undefined, String(value));
   }
