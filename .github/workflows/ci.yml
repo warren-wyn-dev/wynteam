@@ -68,6 +68,7 @@ jobs:
       - run: npm run lint
       - run: npx next typegen
       - run: npx tsc --noEmit
+      - run: npm test
 
   edge-functions:
     name: Supabase Edge Functions (Deno)
