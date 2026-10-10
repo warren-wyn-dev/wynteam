@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:workspaces": "node --test tests/*.test.mjs",
+    "check:free-local-qa": "node scripts/check-admin-local-qa.mjs",
     "check:deployment-env": "node scripts/check-admin-environment.mjs",
     "prebuild": "node scripts/check-admin-build.mjs"
   },
