@@ -2185,3 +2185,11 @@ Founder ตอบ (AskUserQuestion, 2026-10-10):
 - **แยกสิทธิ์ "ดูอย่างเดียว" กับ "แก้ไขได้"** ในแต่ละระบบ
 - สิทธิ์ของ moderator เดิมในระบบใหม่: Founder ตอบว่า "ข้อนี้งง" — ยังไม่มีคำตัดสิน ต้องอธิบายและถามใหม่ก่อนออกแบบ Phase 2
 - (ถามใหม่หลังอธิบาย) **Moderator เดิม → เห็นเฉพาะ WYNOS Social** — ไม่เห็น Food/Maps อีก; ให้สิทธิ์เพิ่มรายคนภายหลังได้
+
+## [2026-10-10] WYN-219 Phase 2 — Founder อนุมัติแผนสิทธิ์รายระบบ
+
+Founder ตอบ (AskUserQuestion, 2026-10-10) และอนุมัติ `.wyn/docs/engineering/wyn-219-phase2-admin-permissions-proposal.md`:
+- **admin เดิมนอกจาก Founder → ไม่ได้สิทธิ์อะไร** Founder ให้เองรายคนในหน้า "สิทธิ์ทีมงาน"
+- **การแบน/ระงับผู้ใช้เป็นสิทธิ์ของ Social** — moderator ทำต่อได้
+- **Audit log ดูได้เฉพาะ super admin**
+- **อนุมัติเริ่มขั้นที่ 1** (foundation, additive) — การ apply กับ production database ยังต้องขออนุมัติแยก

@@ -612,5 +612,5 @@
 - Risks: privilege escalation หรือ admin lockout ถ้าย้ายผิด; ~60 functions ต้องดึงนิยามจาก production ก่อนแก้
 - Files affected: `supabase/migrations/*` (ใหม่), `supabase/tests/*`, `admin/lib/auth.ts`, `admin/lib/admin-nav.ts`, admin layout/sidebar, หน้าใหม่ "สิทธิ์ทีมงาน"
 - Recommendation: อนุมัติหลังตอบ Q1–Q3 ใน `.wyn/docs/engineering/wyn-219-phase2-admin-permissions-proposal.md`; rollout 3 ขั้น แยก PR ต่อระบบ
-- สถานะ: รออนุมัติ
-- วันที่ตัดสินใจ:
+- สถานะ: อนุมัติแล้ว ("อนุมัติ เริ่มขั้นที่ 1") พร้อมคำตอบ Q1: admin อื่นไม่ได้สิทธิ์, Q2: การแบนเป็นของ Social, Q3: audit log เฉพาะ super admin — การ apply production แต่ละขั้นต้องขออนุมัติแยก
+- วันที่ตัดสินใจ: 2026-10-10

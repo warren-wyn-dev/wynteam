@@ -1,6 +1,6 @@
 # WYN-219 Phase 2 — Per-system Admin Permissions (Architecture Proposal)
 
-Status: **APPROVAL_REQUIRED — รอ Founder อนุมัติ** (authorization architecture change ตาม `AGENTS.md` Change Control)
+Status: **approved by the Founder 2026-10-10** ("อนุมัติ เริ่มขั้นที่ 1") — production apply of each step still needs explicit Founder approval
 Author: Software Architect (AI) · Date: 2026-10-10
 Product spec: `.wyn/docs/product/wyn-219-admin-control-center.md`
 
@@ -69,7 +69,7 @@ internal.is_super_admin() returns boolean
 | Account | `admin_user_directory`, `admin_user_moderation_history` | staff | account:view |
 | Account | `admin_count_inactive_users`, `admin_send_inactive_reminder` | admin | account:edit |
 | Social | `moderation_queue`, `admin_search_drops`, `admin_get_drop`, `get_message_for_moderation`, appeals | staff | social:view |
-| Social | `admin_remove_drop`, `admin_restore_drop`, `decide_appeal`, `admin_apply_user_action`, `admin_unban_user` | staff | social:edit (ดูคำถาม Q2) |
+| Social | `admin_remove_drop`, `admin_restore_drop`, `decide_appeal`, `admin_apply_user_action`, `admin_unban_user` | staff | social:edit (Q2) |
 | Social | `admin_send_announcement`, `send_system_notification` | admin | social:edit |
 | Social | `admin_feed_algorithm_dashboard` | staff | social:view |
 | Food | `admin_food_overview`, `admin_food_stores`, `admin_food_store_detail`, `admin_platform_campaigns`, `admin_food_promo_list` | staff | food:view |
@@ -79,7 +79,7 @@ internal.is_super_admin() returns boolean
 | Maps | `admin_wynos_places`, `admin_wynos_place_photos`, `admin_wynos_place_suggestions`, `admin_wynos_place_for_store` | staff | maps:view |
 | Maps | upsert/import/set-active place, review photo/suggestion, place photo storage policy | admin | maps:edit |
 | ส่วนกลาง | `admin_dashboard_metrics`, `admin_dashboard_trends`, `admin_signup_counts` | staff | สิทธิ์ใดก็ได้ ≥ 1 ระบบ |
-| ส่วนกลาง | `admin_audit_log` | staff | ดูคำถาม Q3 |
+| ส่วนกลาง | `admin_audit_log` | staff | super admin เท่านั้น (Q3) |
 
 ตัวเลขจริงและรายชื่อครบจะอยู่ใน migration checklist ก่อน implement (ทุกจุดที่ grep `platform_role`/`food_is_platform_admin` เจอ ต้องมีแถวใน checklist)
 
@@ -87,7 +87,7 @@ internal.is_super_admin() returns boolean
 
 - Founder → `internal.platform_super_admins` (ระบุ user id ผ่าน workflow input ตอน apply — **ไม่ commit ข้อมูลส่วนตัวลง repo**)
 - `moderator` ทุกคน → `social: edit` (ดู Q2)
-- `admin` อื่นที่ไม่ใช่ Founder → ดู Q1
+- `admin` อื่นที่ไม่ใช่ Founder → ไม่ได้สิทธิ์ (Q1)
 
 ### 3.6 Admin app
 
@@ -117,11 +117,11 @@ internal.is_super_admin() returns boolean
 - ขั้น 2: ทุก migration มีไฟล์ rollback ที่คืนนิยาม function เดิม (ดึงจาก production ก่อนแก้) ; ระหว่างนั้นสามารถให้ `has_admin_permission` fallback เป็น role เดิมได้ในจุดเดียว
 - ขั้น 3: revert PR ของ admin app
 
-## 7. Open questions (ต้องให้ Founder ตอบก่อน implement)
+## 7. Founder answers (AskUserQuestion, 2026-10-10)
 
-- **Q1:** บัญชีที่เป็น `admin` อยู่ตอนนี้ (นอกจาก Founder) จะได้สิทธิ์อะไร
-- **Q2:** วันนี้ moderator **แบน/ระงับผู้ใช้** ได้ — การลงโทษผู้ใช้นับเป็นงานของ Social (moderator ทำต่อได้) หรือ Account
-- **Q3:** Audit log (รวมทุกระบบ) ให้ใครดู — super admin เท่านั้น หรือทุกคนเห็นเฉพาะระบบที่ตัวเองมีสิทธิ์
+- **Q1:** บัญชี `admin` อื่นนอกจาก Founder → **ไม่ได้สิทธิ์อะไร** Founder ให้เองรายคน (ระวัง: เมื่อขั้น 2 ย้ายจุดตรวจของระบบใด admin เหล่านี้จะเข้าระบบนั้นไม่ได้จนกว่าจะได้รับสิทธิ์)
+- **Q2:** การแบน/ระงับผู้ใช้ → **Social** (moderator ทำต่อได้)
+- **Q3:** Audit log → **super admin เท่านั้น**
 
 ## 8. Estimated effort / cost
 
