@@ -2163,3 +2163,16 @@ Founder สั่งชัดเจนว่า **"พัก แอปของ�
 - ไม่ลบโค้ด, ไม่ลบ branch และไม่ปิด CI (`android.yml` รันเฉพาะเมื่อมีการแก้ `android/**`) เพื่อให้กลับมาทำต่อได้
 - แอป Flutter (`app/`) ยังพักอยู่ตาม decision 2026-09-19 — โฟกัสทั้งหมดอยู่ที่ WYNOS Web
 
+
+## [2026-10-10] WYN-219 — WYNOS product family และ Admin ควบคุมได้ทุกระบบ
+
+Founder สั่ง: **"จะมี WYNOS Admin / WYNOS Account / WYNOS Food / WYNOS Merchant / WYNOS Maps หัวข้อหลักๆ
+อยากให้ระบบ Admin ควบคุมได้ทุกระบบ"**
+
+Founder ตัดสินใจ (AskUserQuestion, 2026-10-10):
+- **WYNOS Social แยกเป็นหัวข้อของตัวเอง** ใน Admin — หัวข้อหลักคือ Account, Social, Food, Merchant, Maps
+- **สิทธิ์ admin แยกตามระบบ** (super admin เห็นทุกระบบ, admin ของแต่ละระบบเห็นเฉพาะระบบตัวเอง) —
+  เป็น authorization architecture change จึงต้องมี proposal จาก Software Architect ให้ Founder อนุมัติก่อน implement
+- **เริ่มจากจัดเมนู Admin เป็นหัวข้อหลักก่อน** (Phase 1, ไม่แตะสิทธิ์/DB)
+
+PRD: `.wyn/docs/product/wyn-219-admin-control-center.md` (draft, รอ Founder อนุมัติ) · Task: `.wyn/tasks/backlog/WYN-219-admin-control-center.md`
