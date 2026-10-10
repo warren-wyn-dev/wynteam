@@ -66,8 +66,42 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
+      - name: Verify four-service WYNOS Account UI states
+        run: node tests/account-service-status-render.test.mjs
       - run: npx next typegen
       - run: npx tsc --noEmit
+      # Anonymous Admin runtime smoke, no real credentials / no database access.
+      # Builds every PR so a typed but unbuildable Admin change cannot pass CI.
+      - name: Build Admin with non-production placeholders
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-not-a-secret
+          WYNOS_ACCOUNT_OVERVIEW_ENABLED: "false"
+      - name: Anonymous Admin route remains protected
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-not-a-secret
+          WYNOS_ACCOUNT_OVERVIEW_ENABLED: "false"
+        run: |
+          set -euo pipefail
+          npm run start -- --port 3100 > /tmp/wynos-admin-ci-start.log 2>&1 &
+          admin_pid=$!
+          trap 'kill "$admin_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -sS -o /dev/null "http://127.0.0.1:3100/login"; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/wynos-admin-ci-start.log; exit 1; fi
+          status="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3100/users/00000000-0000-0000-0000-000000000001")"
+          # Protected Admin routes must never render user detail for visitors.
+          if [ "$status" != "307" ] && [ "$status" != "302" ] && [ "$status" != "303" ]; then
+            echo "FAIL: unauthenticated user detail returned HTTP $status (expected redirect)"
+            cat /tmp/wynos-admin-ci-start.log
+            exit 1
+          fi
+          echo "PASS: anonymous users cannot open Admin user detail ($status)"
 
   edge-functions:
     name: Supabase Edge Functions (Deno)
