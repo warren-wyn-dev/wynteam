@@ -3,6 +3,12 @@
 > Scope: WYNOS **Admin web app only**. Planning and offline QA; this file does not
 > change deployments, accounts, data, orders, payments or scheduler settings.
 
+## Audit Log Plus integration candidate (2026-10-10)
+
+Read-only enhanced Audit Log at `/audit-log`: bounded event, actor ID, date-range and validated cursor filters; at most 50 rows per page. Raw `detail` JSON (possible PII) is excluded from the new page projection. No migration, permission grant, export, deletion, event write or payment action.
+
+Free-only tests cover user input validation, filter escaping and pagination; authenticated Admin/Moderator RLS QA remains a release gate.
+
 ## System Health integration candidate (2026-10-10)
 
 This stacked draft adds role-protected `/system-health` with bounded read-only checks of public Social, Food, Merchant, Maps and a scoped Admin database read. `reachable` means only HTTP/network access, not end-to-end product health. No provider credentials, arbitrary URL input, payments, deployment controls, database writes or billing changes. Run free-only synthetic role QA and verify status behavior independently before release.
