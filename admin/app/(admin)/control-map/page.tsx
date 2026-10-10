@@ -6,6 +6,7 @@ import {
   summarizeAdminControlCoverage,
 } from "@/lib/admin-control-catalog";
 import { requireAdminRole } from "@/lib/auth";
+import { canOpenAdminControl } from "@/lib/admin-control-access.mjs";
 
 /**
  * Read-only implementation map. This does not execute administrative commands
@@ -49,9 +50,7 @@ export default async function AdminControlMapPage() {
             </header>
             <ul className="divide-y">
               {area.capabilities.map((capability) => {
-                const canOpen = capability.stage === "existing-route"
-                  && !!capability.href
-                  && (!capability.roles || capability.roles.includes(role));
+                const canOpen = canOpenAdminControl(role, capability);
                 return (
                   <li key={capability.id} className="flex min-w-0 items-start justify-between gap-3 py-3">
                     <span className="min-w-0 flex-1 text-sm leading-6">{capability.label}</span>
