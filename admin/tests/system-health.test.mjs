@@ -77,5 +77,8 @@ test("System Health requires authenticated staff and does not request privileged
   assert.doesNotMatch(source + probe, /service_role|\\.update\(|\\.insert\(|\\.delete\(|\\.upsert\(|\\.rpc\(/);
   assert.doesNotMatch(probe, /headers:\s*\{[^}]*Authorization/);
   assert.match(nav, /href: "\/system-health"/);
-  assert.match(ci, /for route in \/ \/action-center \/system-health \/social/);
+  assert.match(ci, /for route in \/ /);
+  assert.match(ci, / \/action-center /);
+  assert.match(ci, / \/system-health /);
+  assert.match(ci, / \/search /);
 });
