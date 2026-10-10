@@ -3,6 +3,14 @@
 > Scope: WYNOS **Admin web app only**. Planning and offline QA; this file does not
 > change deployments, accounts, data, orders, payments or scheduler settings.
 
+## Free-only restriction — Founder decision (2026-10-10)
+
+**No paid services, upgrades or spending.** Use the [free-only QA runbook](./free-only-qa-plan.md) to run synthetic Auth/role tests against local Supabase CLI + Docker, using the existing GitHub CI and disposable PostgreSQL containers.
+Production and Stripe Sandbox stay active and untouched. Do not pause them to free a Supabase project slot.
+Do not use Production, Stripe Sandbox or an inaccessible shared Supabase staging instance for QA. The local preflight command `npm run check:free-local-qa` rejects non-loopback targets.
+Local integrated role testing can replace some hosted-staging evidence, but cannot validate domain binding, hosted Preview environment or real Production operator sessions. Those remain distinct gates; an unavailable free resource is not permission to omit security testing.
+No Vercel/Supabase billing change or domain transfer is authorized.
+
 ## Central Control Phase 1 — truthful service coverage (2026-10-10)
 
 This PR organizes **existing** Admin routes for Social, Food, Merchant and shared staff tools.
