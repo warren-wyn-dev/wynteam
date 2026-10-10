@@ -36,10 +36,11 @@ import Image from "next/image";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { FoodGuestBrowse, readGuestFoodBasket, clearGuestFoodBasket } from "@/components/food/food-guest-browse";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
-import { rememberFoodArea } from "@/lib/food-area-memory";
 import {
   clearRequestedOrder,
   clearSharedFoodStore,
@@ -73,9 +74,7 @@ import {
   fetchFoodCustomerOrdersPage,
   markFoodOrderFromShare,
   fetchFoodPromptPayQr,
-  checkFoodServiceArea,
   checkFoodDeliveryAvailability,
-  currentFoodLocation,
   foodCartLineKey,
   foodCartLineOptionText,
   foodCartLineOptionsValid,
@@ -269,49 +268,6 @@ function FoodLoadError({ message, onRetry }: { message: string; onRetry: () => v
         <button className="wf-primary" type="button" onClick={onRetry}>ลองใหม่</button>
         <a className="wf-area-home" href="https://wynos.online/">กลับ WYNOS</a>
       </section>
-    </main>
-  );
-}
-
-type FoodAreaState = "checking" | "inside" | "outside" | "unknown";
-
-/** WYN-211: what customers outside Maha Sarakham (or without a location) see. */
-function FoodServiceAreaIntro({
-  client,
-  state,
-  onCheck,
-  onUseLocation,
-}: {
-  client: SupabaseClient;
-  state: FoodAreaState;
-  onCheck: (location: FoodLocation) => void;
-  onUseLocation: () => void;
-}) {
-  const [picking, setPicking] = useState(false);
-  if (state === "checking") return <FoodLoading />;
-  return (
-    <main className="wyn-food wf-area">
-      <section className="wf-area-card">
-        <span className="wf-area-icon"><MapPin size={30} /></span>
-        <h1>WYNOS Food เปิดให้บริการเฉพาะจังหวัดมหาสารคาม</h1>
-        <p>
-          {state === "outside"
-            ? "ตำแหน่งของคุณอยู่นอกจังหวัดมหาสารคาม ตอนนี้ยังสั่งอาหารไม่ได้ เรากำลังขยายพื้นที่ให้บริการ"
-            : "อนุญาตให้ใช้ตำแหน่ง หรือเลือกตำแหน่งบนแผนที่ เพื่อเช็กว่าคุณอยู่ในพื้นที่ให้บริการ"}
-        </p>
-        <button className="wf-primary" type="button" onClick={onUseLocation}><LocateFixed size={18} />ใช้ตำแหน่งปัจจุบัน</button>
-        <button className="wf-secondary" type="button" onClick={() => setPicking(true)}><MapPin size={18} />เลือกตำแหน่งบนแผนที่</button>
-        <a className="wf-area-home" href="https://wynos.online/">กลับหน้าหลัก</a>
-      </section>
-      {picking ? (
-        <FoodDeliveryMapPicker
-          client={client}
-          storeId={null}
-          initialLocation={null}
-          onClose={() => setPicking(false)}
-          onConfirm={(location) => { setPicking(false); onCheck(location); }}
-        />
-      ) : null}
     </main>
   );
 }
@@ -2767,23 +2723,6 @@ function FoodCustomerInner({
 }) {
   const [snapshot, setSnapshot] = useState<FoodCustomerSnapshot | null>(null);
   const [loadError, setLoadError] = useState("");
-  // WYN-211: Food is open to everyone, but only customers in Maha Sarakham
-  // get past the introduction page (developers skip it, like the server).
-  const [area, setArea] = useState<FoodAreaState>("checking");
-  const resolveArea = useCallback(async (location: FoodLocation | null) => {
-    try {
-      const point = location ?? await currentFoodLocation();
-      const inside = await checkFoodServiceArea(client, point);
-      rememberFoodArea(userId, inside ? "inside" : "outside");
-      setArea(inside ? "inside" : "outside");
-    } catch {
-      setArea("unknown");
-    }
-  }, [client, userId]);
-  const checkArea = (location: FoodLocation | null) => {
-    setArea("checking");
-    void resolveArea(location);
-  };
   // WYN-207: the store picked from the directory (remembered on this device).
   const storeKey = `wynos-food-store-v1:${userId}`;
   // A shared link (?store=, or one kept across sign-in) wins over the pick
@@ -2817,7 +2756,12 @@ function FoodCustomerInner({
   }, [opening, storeKey]);
   const [tab, setTab] = useState<FoodTab>("home");
   const [storefrontOpen, setStorefrontOpen] = useState(() => opening.fromLink && Boolean(opening.storeId));
+  // Bring an anonymous basket into the signed-in cart only for the store the
+  // customer explicitly selected. All actual prices/availability are still
+  // validated server-side when the customer submits an order.
+  const [guestBasket] = useState(() => readGuestFoodBasket());
   const [cart, setCart] = useState<FoodCartLine[]>(() => {
+    if (guestBasket?.storeId === opening.storeId && guestBasket.lines.length) return guestBasket.lines;
     if (typeof window === "undefined" || opening.cartCleared) return [];
     try {
       const raw = localStorage.getItem(`wynos-food-cart-v1:${userId}`);
@@ -2930,26 +2874,9 @@ function FoodCustomerInner({
     }
   }, [cart, userId]);
 
-  // A saved delivery pin answers without asking for GPS.
-  const savedPin = snapshot?.addresses.find((address) => address.is_default && address.latitude != null && address.longitude != null)
-    ?? snapshot?.addresses.find((address) => address.latitude != null && address.longitude != null);
-  const savedPinKey = savedPin ? `${savedPin.latitude},${savedPin.longitude}` : "";
-  const areaNeeded = Boolean(snapshot?.allowed && !snapshot.developer);
   useEffect(() => {
-    if (!areaNeeded) return;
-    let live = true;
-    const [lat, lng] = savedPinKey.split(",").map(Number);
-    const point = savedPinKey ? Promise.resolve({ latitude: lat, longitude: lng }) : currentFoodLocation();
-    void point
-      .then((location) => checkFoodServiceArea(client, location))
-      .then((inside) => {
-        // WYN-212: Home shows its Food banner only to people found inside.
-        rememberFoodArea(userId, inside ? "inside" : "outside");
-        if (live) setArea(inside ? "inside" : "outside");
-      })
-      .catch(() => { if (live) setArea("unknown"); });
-    return () => { live = false; };
-  }, [areaNeeded, client, savedPinKey, userId]);
+    if (guestBasket?.storeId === opening.storeId) clearGuestFoodBasket();
+  }, [guestBasket, opening.storeId]);
 
   useEffect(() => {
     if (!snapshot?.allowed) return;
@@ -3136,17 +3063,6 @@ function FoodCustomerInner({
 
   if (!snapshot) return loadError ? <FoodLoadError message={loadError} onRetry={() => { setLoadError(""); void load(); }} /> : <FoodLoading />;
   if (!snapshot.allowed) return <FoodDenied />;
-  if (!snapshot.developer && area !== "inside") {
-    return (
-      <FoodServiceAreaIntro
-        client={client}
-        state={area}
-        onCheck={(location) => checkArea(location)}
-        onUseLocation={() => checkArea(null)}
-      />
-    );
-  }
-
   return (
     <main className={`wyn-food${tab === "home" && storefrontOpen ? " wf-storefront-open" : ""}${tab === "home" && storefrontOpen && cartCount > 0 ? " has-store-cart" : ""}`}>
       {tab === "home" && storefrontOpen ? null : (
@@ -3341,14 +3257,38 @@ function FoodCustomerInner({
 }
 
 export function WynosFoodDeveloperApp() {
-  // A layout effect runs before the sign-in redirect (a passive effect in the
-  // gate) leaves this page, so a signed-out customer who tapped a shared store
-  // link still opens that store after signing in. It also runs before the
-  // signed-in app clears the kept store once it has opened it.
+  const client = useMemo(() => getSupabaseBrowserClient(), []);
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+
+  // A signed-out visitor can see only the public, published catalogue.
+  // Do not relax the authenticated gate for orders, payment, addresses,
+  // notifications or any other WYNOS product.
+  useEffect(() => {
+    if (!client) return;
+    let live = true;
+    let newerAuthEvent = false;
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+      if (!live || event === "INITIAL_SESSION") return;
+      newerAuthEvent = true;
+      setSignedIn(Boolean(session));
+    });
+    void client.auth.getSession().then(({ data }) => {
+      if (live && !newerAuthEvent) setSignedIn(Boolean(data.session));
+    }).catch(() => {
+      if (live && !newerAuthEvent) setSignedIn(false);
+    });
+    return () => { live = false; subscription.unsubscribe(); };
+  }, [client]);
+
+  // Keep shared store deep links through a login/Google OAuth round trip.
   useLayoutEffect(() => {
     const shared = sharedFoodStoreId(window.location.search);
     if (shared) rememberSharedFoodStore(shared);
   }, []);
+
+  if (!client) return <FoodDenied />;
+  if (signedIn === null) return <FoodLoading />;
+  if (!signedIn) return <FoodGuestBrowse client={client} />;
   return (
     <DeveloperRouteGate signedOutPath="/food/login" afterSignOutPath="/food/login">
       {({ client, userId, signOut }) => <FoodCustomerInner key={userId} client={client} userId={userId} signOut={signOut} />}
