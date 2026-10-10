@@ -24,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       >
         ข้ามไปยังเนื้อหาหลัก
       </a>
-      <AdminSidebar role={role} superAdmin={access.superAdmin} />
+      <AdminSidebar role={role} access={access} />
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminHeader email={email} role={role} signOutAction={signOutAction} />
         <main

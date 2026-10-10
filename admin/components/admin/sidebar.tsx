@@ -7,10 +7,11 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ADMIN_NAV_GROUPS, adminNavItemsForRole, findActiveAdminNavItem } from "@/lib/admin-nav";
 import type { AdminRole } from "@/lib/auth";
+import type { AdminSystemAccess } from "@/lib/admin-systems";
 
-export function AdminSidebar({ role, superAdmin }: { role: AdminRole; superAdmin: boolean }) {
+export function AdminSidebar({ role, access }: { role: AdminRole; access: AdminSystemAccess }) {
   const pathname = usePathname();
-  const items = adminNavItemsForRole(role, superAdmin);
+  const items = adminNavItemsForRole(role, access);
   const active = findActiveAdminNavItem(pathname, items);
 
   return (
