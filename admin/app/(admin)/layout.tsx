@@ -22,13 +22,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       >
         ข้ามไปยังเนื้อหาหลัก
       </a>
-      <AdminSidebar />
+      <AdminSidebar role={role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminHeader email={email} role={role} signOutAction={signOutAction} />
         <main
           id="admin-main-content"
           tabIndex={-1}
-          className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col pb-24 md:pb-0"
+          className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0"
         >
           {children}
         </main>
