@@ -30,7 +30,7 @@ test("guest sees stores and menus without requesting location or placing an anon
   assert.match(guest, /foodCartLineOptionsValid/);
   assert.match(guest, /saveGuestFoodBasket\(basket\)/);
   assert.match(guest, /rememberSharedFoodStore\(basket\.storeId\)/);
-  assert.match(guest, /window\.location\.assign\("\/food\/login"\)/);
+  assert.match(guest, /router\.push\("\/food\/login"\)/);
 });
 
 test("authenticated Food no longer blocks catalog behind GPS; checkout still checks address and delivery", () => {
