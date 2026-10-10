@@ -133,11 +133,22 @@ begin
     raise exception 'audit_log event_type check constraint not found';
   end if;
 
+  -- Two equivalent shapes exist: `event_type in ('a', 'b')` (each value
+  -- quoted) and, after some rewrites, `event_type = ANY ('{a,b}'::text[])`
+  -- (one quoted array literal, as in production on 2026-10-10).
   select array_agg(distinct x.m[1] order by x.m[1])
     into v_values
   from regexp_matches(v_def, '''([a-z0-9_]+)''', 'g') as x(m);
 
-  if v_values is null or cardinality(v_values) < 2 then
+  if v_values is null then
+    select array_agg(distinct btrim(v) order by btrim(v))
+      into v_values
+    from regexp_matches(v_def, '''\{([^}]*)\}''') as x(m),
+         unnest(string_to_array(x.m[1], ',')) as v;
+  end if;
+
+  if v_values is null or cardinality(v_values) < 2
+     or exists (select 1 from unnest(v_values) as v where v !~ '^[a-z0-9_]+$') then
     raise exception 'Could not read the audit_log event types from: %', v_def;
   end if;
 
