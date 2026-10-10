@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 import { ADMIN_NAV_GROUPS, adminNavItemsForRole, findActiveAdminNavItem } from "@/lib/admin-nav";
 import type { AdminRole } from "@/lib/auth";
 
-export function AdminSidebar({ role }: { role: AdminRole }) {
+export function AdminSidebar({ role, superAdmin }: { role: AdminRole; superAdmin: boolean }) {
   const pathname = usePathname();
-  const items = adminNavItemsForRole(role);
+  const items = adminNavItemsForRole(role, superAdmin);
   const active = findActiveAdminNavItem(pathname, items);
 
   return (
