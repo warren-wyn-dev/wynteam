@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { AdAccountToggle, AdSettingsForm, AdTopupReview } from "@/components/admin/ad-actions";
 import { fetchAdminAdOverview } from "@/lib/admin-ads";
 import { formatBaht, formatThaiDate, signAdminFoodEvidence } from "@/lib/admin-food";
-import { requireAdminRole } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
+import { NoAccess } from "@/components/admin/no-access";
 
 /**
  * WYN-207: WYNOS Food ads, pay per click. Admin sets the price and WYNOS's
@@ -11,8 +12,10 @@ import { requireAdminRole } from "@/lib/auth";
  * store's ads. Money, so admin only.
  */
 export default async function FoodAdsPage() {
-  const { role } = await requireAdminRole();
-  if (role !== "admin") {
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
+  const canEditFood = adminCan(ctx, "food", "edit");
+  if (!canEditFood) {
     return (
       <div className="p-6">
         <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ระบบโฆษณาเกี่ยวกับเงิน จัดการได้เฉพาะ Admin</p>

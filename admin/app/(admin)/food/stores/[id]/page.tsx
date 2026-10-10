@@ -16,7 +16,8 @@ import {
 } from "@/lib/admin-food";
 import { fetchAdminAccess } from "@/lib/admin-permissions";
 import { hasSystemAccess } from "@/lib/admin-systems";
-import { requireAdminRole } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
+import { NoAccess } from "@/components/admin/no-access";
 
 /** WYN-203: one store — status, numbers, suspension, team, recent orders. */
 export default async function FoodStoreDetailPage({
@@ -24,7 +25,9 @@ export default async function FoodStoreDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { role } = await requireAdminRole();
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
+  const canEditFood = adminCan(ctx, "food", "edit");
   const { id } = await params;
   const store = await fetchAdminFoodStoreDetail(id);
   if (!store) notFound();
@@ -32,7 +35,7 @@ export default async function FoodStoreDetailPage({
   const canSeeMaps = hasSystemAccess(await fetchAdminAccess(), "maps") !== false;
   const mapPlace = canSeeMaps ? await fetchAdminWynosPlaceForStore(store.id) : null;
   // Orders carry customer data: admins only.
-  const orders = role === "admin" ? await fetchAdminFoodOrders({ storeId: store.id, limit: 20 }) : [];
+  const orders = canEditFood ? await fetchAdminFoodOrders({ storeId: store.id, limit: 20 }) : [];
   const suspended = Boolean(store.admin_suspended_at);
 
   return (
@@ -52,7 +55,7 @@ export default async function FoodStoreDetailPage({
           <p className="text-sm text-muted-foreground">{[store.phone, store.address, store.business_hours].filter(Boolean).join(" · ") || "ยังไม่ได้ใส่ข้อมูลติดต่อ"}</p>
           <p className="text-xs text-muted-foreground">สร้างเมื่อ {formatThaiDate(store.created_at)}</p>
         </div>
-        {role === "admin" ? <FoodStoreSuspensionActions storeId={store.id} storeName={store.name} suspended={suspended} /> : null}
+        {canEditFood ? <FoodStoreSuspensionActions storeId={store.id} storeName={store.name} suspended={suspended} /> : null}
       </section>
 
       <section className="rounded-xl border p-4 text-sm">
@@ -136,7 +139,7 @@ export default async function FoodStoreDetailPage({
                   </div>
                   {member.display_name ? <p className="text-sm text-muted-foreground">{member.display_name}</p> : null}
                 </div>
-                {role === "admin" ? (
+                {canEditFood ? (
                   <FoodTeamMemberToggle storeId={store.id} userId={member.user_id} active={member.active} label={`@${member.username ?? "สมาชิก"}`} />
                 ) : null}
               </div>
@@ -145,7 +148,7 @@ export default async function FoodStoreDetailPage({
         )}
       </section>
 
-      {role === "admin" ? (
+      {canEditFood ? (
         <section className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold">ออเดอร์ล่าสุด</h3>

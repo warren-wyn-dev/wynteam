@@ -9,6 +9,7 @@ import type { AdminRole } from "@/lib/auth";
 const ROLE_LABEL: Record<AdminRole, string> = {
   admin: "Admin",
   moderator: "Moderator",
+  staff: "Staff",
 };
 
 export function AdminHeader({

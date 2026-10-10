@@ -11,8 +11,9 @@ import {
   formatThaiDate,
   type AdminFoodOrderStatusFilter,
 } from "@/lib/admin-food";
-import { requireAdminRole } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { NoAccess } from "@/components/admin/no-access";
 
 const FILTERS: Array<{ value: "all" | AdminFoodOrderStatusFilter; label: string }> = [
   { value: "all", label: "ทั้งหมด" },
@@ -30,8 +31,10 @@ export default async function FoodOrdersPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string; store?: string }>;
 }) {
-  const { role } = await requireAdminRole();
-  if (role !== "admin") {
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
+  const canEditFood = adminCan(ctx, "food", "edit");
+  if (!canEditFood) {
     return (
       <div className="p-6">
         <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ออเดอร์มีข้อมูลลูกค้า ดูได้เฉพาะ Admin</p>

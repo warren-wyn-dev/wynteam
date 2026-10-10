@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { UserActionsBar } from "@/components/admin/user-actions-bar";
+import { NoAccess } from "@/components/admin/no-access";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 import {
   currentActiveAction,
   fetchModerationHistory,
@@ -56,6 +58,8 @@ export default async function UserDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const ctx = await requireAdminRole();
+  if (!(adminCan(ctx, "account") || adminCan(ctx, "social"))) return <NoAccess what=" WYNOS Account หรือ WYNOS Social" />;
   const { id } = await params;
 
   const [profile, history, reports] = await Promise.all([
@@ -89,7 +93,9 @@ export default async function UserDetailPage({
         ) : null}
       </div>
 
-      <UserActionsBar userId={profile.id} username={profile.username} isCurrentlyBlocked={active !== null} />
+      {adminCan(ctx, "social", "edit") ? (
+        <UserActionsBar userId={profile.id} username={profile.username} isCurrentlyBlocked={active !== null} />
+      ) : null}
 
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-medium text-muted-foreground">รายงานที่มีต่อผู้ใช้นี้</h3>

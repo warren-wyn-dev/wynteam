@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAdminAccess } from "@/lib/admin-permissions";
+import { mayEnterAdmin } from "@/lib/auth";
 
 export type SignInResult = {
   error: string | null;
@@ -39,8 +41,9 @@ export async function signIn(formData: FormData): Promise<SignInResult> {
     .eq("id", data.user.id)
     .single();
 
-  const role = profile?.platform_role;
-  if (role !== "admin" && role !== "moderator") {
+  // WYN-219: platform admins/moderators, or anyone the super admin granted a
+  // per-system permission.
+  if (!mayEnterAdmin(profile?.platform_role, await fetchAdminAccess())) {
     // Sign out immediately -- a `user`-role account must never be left
     // in a signed-in-but-nowhere-to-go state (Design spec's Screen 1,
     // step 3).

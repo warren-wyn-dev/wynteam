@@ -2,12 +2,16 @@ import { Suspense } from "react";
 
 import { SearchForm } from "./search-form";
 import { SearchResults } from "./results";
+import { NoAccess } from "@/components/admin/no-access";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 
 export default async function ModerationPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  const ctx = await requireAdminRole();
+  if (!(adminCan(ctx, "social"))) return <NoAccess what=" WYNOS Social" />;
   const { q } = await searchParams;
   const query = (q ?? "").trim();
 
