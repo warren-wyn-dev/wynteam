@@ -76,7 +76,7 @@ Do not make each screen write directly to arbitrary tables. Use auditable server
 Authenticated landing page, existing Social/Food/Merchant tools regrouped without duplicating routes, shared audit access, pending Maps and Account cards explicitly noninteractive, responsive role-based menu, login/preflight and CI. Add full coverage inventory/backlog in this document. **No new privileges or money movement.**
 
 **Phase 2 — Core Operations:**
-Action Center, enhanced Audit Log, scoped Global Search, live read-only Health and Analytics, staff notifications preview; then review/action APIs for missing Social/Food/Merchant operations with reason/confirmation/audit and reversible moderation. Compose **individual reviewed PRs**, not QA branch #1062.
+Action Center (stacked read-only candidate with Social/Merchant/Admin-only Food sources), enhanced Audit Log, scoped Global Search, live read-only Health and Analytics, staff notifications preview; then review/action APIs for missing Social/Food/Merchant operations with reason/confirmation/audit and reversible moderation. Compose **individual reviewed PRs**, not QA branch #1062.
 
 **Phase 3 — Maps and Account:**
 Verified Places moderation with RLS, provenance, duplicate resolution and reversible edits; central user identity evidence; service-level entitlements; separately design/test real single sign-on and account privacy lifecycle. Read-only evidence first, write actions later.
