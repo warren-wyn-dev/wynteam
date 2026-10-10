@@ -11,11 +11,18 @@ export type UserSearchResult = {
  * authenticated caller read any profile -- no new RPC needed for
  * search itself, per the Design spec's Screen 1. */
 export async function searchUsers(query: string): Promise<UserSearchResult[]> {
+  // The text goes inside a PostgREST or() filter string: drop the characters
+  // that filter syntax gives meaning to (commas and parentheses split or nest
+  // conditions, quotes/backslash escape, % and * are wildcards) so a search
+  // can only ever be the two ilike conditions below.
+  const term = query.replace(/[,()"\\%*:]/g, " ").trim().slice(0, 64);
+  if (!term) return [];
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
     .select("id, username, display_name, platform_role")
-    .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
+    .or(`username.ilike.%${term}%,display_name.ilike.%${term}%`)
     .order("username")
     .limit(30);
 
