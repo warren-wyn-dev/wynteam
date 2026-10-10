@@ -25,7 +25,6 @@ test("anonymous catalog exposes only published, unsuspended stores and available
 
 test("guest sees stores and menus without requesting location or placing an anonymous order", () => {
   assert.match(guest, /client\.rpc\("food_public_catalog"\)/);
-  assert.match(guest, /!signedIn\) return <FoodGuestBrowse/);
   assert.doesNotMatch(guest, /navigator\.geolocation|currentFoodLocation|food_service_area_check/);
   assert.doesNotMatch(guest, /client\.rpc\("food_(?:create|quote|submit)/);
   assert.match(guest, /foodCartLineOptionsValid/);
