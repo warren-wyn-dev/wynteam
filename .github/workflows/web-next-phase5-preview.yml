@@ -29,9 +29,10 @@ jobs:
   preview:
     # Fork and Dependabot PRs get no secrets (GitHub runs Dependabot like a
     # fork, with a read-only token), so only other same-repository PRs deploy.
-    # Beta2 automatic Vercel previews remain paused generally. PR #996 is
+    # Beta2 automatic Vercel previews remain paused generally. PR #1065 is a founder-authorized one-off Merchant touch QA preview.
+    # PR #996 is
     # an explicit one-off launch-readiness QA requested before production.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.number == 996 || github.event.pull_request.number == 1008))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.number == 996 || github.event.pull_request.number == 1008 || github.event.pull_request.number == 1065))
     runs-on: ubuntu-latest
     defaults:
       run:
