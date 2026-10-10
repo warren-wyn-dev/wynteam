@@ -97,12 +97,12 @@ jobs:
           fi
           grep -q 'WYNOS Admin' "$RUNNER_TEMP/admin-workspaces-login.html"
           # Every live Admin destination is protected, not only the five hubs.
-          for route in / /social /users /moderation /reports /announcements /control-map /food /food/orders /food/campaigns /food/coupons /food/notifications /food/ads /food/places /merchants /audit-log /users/00000000-0000-0000-0000-000000000001 /moderation/00000000-0000-0000-0000-000000000001 /reports/00000000-0000-0000-0000-000000000001 /food/orders/00000000-0000-0000-0000-000000000001 /food/stores/00000000-0000-0000-0000-000000000001; do
+          for route in / /action-center /social /users /moderation /reports /announcements /control-map /food /food/orders /food/campaigns /food/coupons /food/notifications /food/ads /food/places /merchants /audit-log /users/00000000-0000-0000-0000-000000000001 /moderation/00000000-0000-0000-0000-000000000001 /reports/00000000-0000-0000-0000-000000000001 /food/orders/00000000-0000-0000-0000-000000000001 /food/stores/00000000-0000-0000-0000-000000000001; do
             curl --silent --show-error --head --max-time 10 "http://127.0.0.1:3109$route" \
               | grep -i -E '^location: (https?://[^/]+)?/login' \
               || { echo "Guest route not protected: $route"; exit 1; }
           done
-          echo "PASS: all 21 Admin workspace and deep-link destinations protect guest access"
+          echo "PASS: all 22 Admin workspace and deep-link destinations protect guest access"
 
   edge-functions:
     name: Supabase Edge Functions (Deno)
