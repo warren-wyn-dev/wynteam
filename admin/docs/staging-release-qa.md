@@ -3,6 +3,10 @@
 > Scope: WYNOS **Admin web app only**. Planning and offline QA; this file does not
 > change deployments, accounts, data, orders, payments or scheduler settings.
 
+## System Health integration candidate (2026-10-10)
+
+This stacked draft adds role-protected `/system-health` with bounded read-only checks of public Social, Food, Merchant, Maps and a scoped Admin database read. `reachable` means only HTTP/network access, not end-to-end product health. No provider credentials, arbitrary URL input, payments, deployment controls, database writes or billing changes. Run free-only synthetic role QA and verify status behavior independently before release.
+
 ## Action Center integration candidate (2026-10-10)
 
 This **stacked draft branch** adds the role-scoped `/action-center` route to the Phase 1 Admin workspace. It reads current Social moderation-queue work, Merchant application-count work, and Admin-only Food active-order totals from existing approved data sources. Every source can fail independently; it does not represent an outage as zero tasks, return applicant/customer PII, or write any orders/refunds.
@@ -138,7 +142,7 @@ other person's data. Only Admin may see customer payment/contact details.
 ## What CI can and cannot prove now
 
 CI: `npm run lint`, `npm run test:workspaces`, TypeScript, offline
-`next build`, an anonymous **22-route** redirect smoke, plus the existing
+`next build`, an anonymous **23-route** redirect smoke, plus the existing
 Flutter/Edge/PostgreSQL checks. This checks code and guest routing; it is
 **not** evidence of real signed-in QA or Production health. The backend,
 auth-provider and responsive viewport checks above require an isolated local Supabase Auth stack or available no-cost staging. Hosted Preview and DNS still need separate verification.

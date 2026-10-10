@@ -1,4 +1,5 @@
 import {
+  Activity,
   Bell,
   BookOpenText,
   ClipboardCheck,
@@ -62,6 +63,7 @@ export const ADMIN_WORKSPACES: readonly AdminWorkspace[] = [
     items: [
       { href: "/", label: "ศูนย์รวมระบบ", icon: LayoutDashboard, task: "ADMIN-WORKSPACES", feature: "Platform overview" },
       { href: "/action-center", label: "งานรอดำเนินการ", icon: ClipboardList, task: "ADMIN-ACTION-CENTER", feature: "Action Center" },
+      { href: "/system-health", label: "สถานะบริการ", icon: Activity, task: "ADMIN-HEALTH", feature: "System Health" },
     ],
   },
   {

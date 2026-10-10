@@ -8,6 +8,7 @@ import { requireAdminRole, type AdminRole } from "@/lib/auth";
 
 const QUICK_LINKS: { href: string; label: string; detail: string; roles?: AdminRole[] }[] = [
   { href: "/action-center", label: "งานรอดำเนินการ", detail: "Social, Merchant และ Food ตามสิทธิ์" },
+  { href: "/system-health", label: "สถานะการเข้าถึงบริการ", detail: "Social, Food, Merchant และ Maps" },
   { href: "/users", label: "จัดการผู้ใช้", detail: "WYNOS Social" },
   { href: "/reports", label: "ตรวจสอบรายงาน", detail: "WYNOS Social" },
   { href: "/merchants", label: "คำขอเปิดร้าน", detail: "WYNOS Merchant" },

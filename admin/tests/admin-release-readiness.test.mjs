@@ -105,8 +105,10 @@ test("Control Map inventories every service without granting planned capabilitie
 
   assert.match(nav, /href: "\/control-map"/);
   assert.match(page, /await requireAdminRole\(\)/);
-  assert.match(page, /capability\.stage === "existing-route"/);
-  assert.match(page, /capability\.roles\.includes\(role\)/);
+  assert.match(page, /canOpenAdminControl\(role, capability\)/);
+  const accessPolicy = read("../lib/admin-control-access.mjs");
+  assert.match(accessPolicy, /capability\?\.stage !== "existing-route"/);
+  assert.match(accessPolicy, /allowedRoles\.includes\(role\)/);
   assert.match(page, /canOpen && capability\.href/);
   assert.doesNotMatch(page, /<button\b|<form\b/, "the inventory must not implement privileged write actions");
 });
