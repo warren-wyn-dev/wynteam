@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   MapPinned,
   Megaphone,
+  Network,
   ScrollText,
   ShieldAlert,
   ShoppingBag,
@@ -116,6 +117,7 @@ export const ADMIN_WORKSPACES: readonly AdminWorkspace[] = [
     href: "/audit-log",
     icon: BookOpenText,
     items: [
+      { href: "/control-map", label: "ผังควบคุมทั้งระบบ", icon: Network, task: "ADMIN-CONTROL-MAP", feature: "Read-only capability inventory" },
       { href: "/audit-log", label: "ประวัติการดำเนินงาน", icon: ScrollText, task: "WYN-054", feature: "Audit Log" },
     ],
   },
