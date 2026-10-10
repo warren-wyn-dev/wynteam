@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, BookOpenText, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, BookOpenText, MapPinned, ShieldCheck, UserRoundCog } from "lucide-react";
 
 import { RecentWorkspaceLink } from "@/components/admin/recent-workspace-link";
 
@@ -14,6 +14,27 @@ const QUICK_LINKS: { href: string; label: string; detail: string; roles?: AdminR
   { href: "/food/campaigns", label: "แคมเปญ Food", detail: "WYNOS Food" },
   { href: "/audit-log", label: "ประวัติเจ้าหน้าที่", detail: "ระบบส่วนกลาง" },
 ];
+
+/**
+ * Services without an operational Admin backend stay informational. Do not
+ * render navigation/actions for them until role-scoped routes and RPCs exist.
+ */
+const PLANNED_SERVICES = [
+  {
+    id: "maps",
+    label: "WYNOS Maps",
+    domain: "maps.wynos.online",
+    description: "การตรวจสอบสถานที่ รายงาน และคำขอแก้ไขแผนที่ ยังต้องพัฒนาระบบจัดการและสิทธิ์เจ้าหน้าที่",
+    icon: MapPinned,
+  },
+  {
+    id: "account",
+    label: "WYNOS Account",
+    domain: "บัญชีส่วนกลาง",
+    description: "การมองเห็นสิทธิ์เข้าใช้แต่ละบริการและการจัดการบัญชีส่วนกลาง ยังไม่ใช่ระบบ SSO หรือการเปิดใช้บัญชีข้ามบริการ",
+    icon: UserRoundCog,
+  },
+] as const;
 
 /**
  * Navigation hub across Admin workspaces. Metrics remain on /social and /food,
@@ -61,6 +82,37 @@ export default async function AdminOverviewPage() {
                 <p className="mt-0.5 text-xs text-muted-foreground">{workspace.domain}</p>
                 <p className="mt-3 text-sm text-muted-foreground">{workspace.description}</p>
               </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      <section aria-labelledby="planned-services-heading" className="space-y-3">
+        <div className="space-y-1">
+          <h3 id="planned-services-heading" className="text-sm font-semibold">
+            พื้นที่จัดการที่กำลังพัฒนา
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            แสดงขอบเขตบริการทั้งหมดของ WYNOS เท่านั้น ยังไม่มีปุ่มควบคุมสำหรับสองบริการนี้
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {PLANNED_SERVICES.map((service) => {
+            const Icon = service.icon;
+            return (
+              <article key={service.id} className="flex flex-col rounded-xl border border-dashed bg-muted/20 p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <span aria-hidden="true" className="flex size-11 items-center justify-center rounded-xl border bg-background">
+                    <Icon className="size-5" />
+                  </span>
+                  <span className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
+                    ยังไม่เปิดใช้งาน
+                  </span>
+                </div>
+                <h4 className="font-semibold">{service.label}</h4>
+                <p className="mt-0.5 text-xs text-muted-foreground">{service.domain}</p>
+                <p className="mt-3 text-sm text-muted-foreground">{service.description}</p>
+              </article>
             );
           })}
         </div>
