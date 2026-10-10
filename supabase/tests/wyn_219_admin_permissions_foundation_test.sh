@@ -150,6 +150,23 @@ insert into public.profiles (id, username, display_name, platform_role, is_priva
 
 insert into public.audit_log (actor_id, event_type, detail)
 values (null, 'system_notification_sent', '{}'::jsonb);
+
+-- Production stores this constraint as `event_type = ANY ('{a,b,...}'::text[])`
+-- (one array literal, values not individually quoted). Rewrite it to that
+-- exact shape so the migration is tested against what it will really meet.
+do $$
+declare v_name text; v_values text;
+begin
+  select c.conname into v_name from pg_constraint c
+  where c.conrelid = 'public.audit_log'::regclass and c.contype = 'c'
+    and pg_get_constraintdef(c.oid) like '%event_type%';
+  select string_agg(x.m[1], ',' order by x.m[1]) into v_values
+  from pg_constraint c, regexp_matches(pg_get_constraintdef(c.oid), '''([a-z0-9_]+)''', 'g') as x(m)
+  where c.conname = v_name;
+  execute format('alter table public.audit_log drop constraint %I', v_name);
+  execute format('alter table public.audit_log add constraint audit_log_event_type_check check (event_type = any (%L::text[]))', '{' || v_values || '}');
+end
+$$;
 EOF
 
 cat > "$WORK_DIR/10_assert.sql" <<'EOF'
