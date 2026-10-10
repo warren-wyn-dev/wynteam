@@ -84,16 +84,16 @@ test("Food menu card photos stay square at every responsive width", async () => 
 
 test("Food Home removes preview UI, promotes Social and hides the back button", async () => {
   const source = await read("components/food/wynos-food-developer-app.tsx");
-  const css = await read("app/food/food.css");
+  const css = await read("app/food/food-app.css");
   assert.doesNotMatch(source, /<small>Developer Preview<\/small>/);
   assert.doesNotMatch(source, /Developer Preview เท่านั้น/);
-  assert.match(source, /className="wf-social-promo" href="https:\/\/wynos\.online\/" aria-label="เปิด WYNOS Social"/);
+  assert.match(source, /className="fx-social-promo" href="https:\/\/wynos\.online\/" aria-label="เปิด WYNOS Social"/);
   assert.match(source, /โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos\.online/);
-  assert.match(source, /tab === "home" && storefrontOpen \? null : \(/);
-  assert.match(source, /showBack=\{tab !== "home"\}/);
-  assert.match(source, /className="wf-store-back"/);
+  // Brand header only on the Home directory; inner pages use FoodPageHeader with a back button.
+  assert.match(source, /\{tab === "home" && !storefrontOpen \? \(/);
+  assert.match(source, /aria-label="กลับหน้าหลัก WYNOS Food" onClick=\{onBackStorefront\}/);
   assert.match(source, /setStorefrontOpen\(false\)/);
-  assert.match(css, /\.wf-header--home\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\) auto;/);
+  assert.match(css, /\.fx-header\s*\{/);
 });
 
 test("Food Public Beta has no user-facing Developer Preview copy", async () => {
@@ -130,37 +130,30 @@ test("Food reviews are verified, masked and use yellow five-star UI", async () =
 
 test("Food Home v2 matches the approved discovery layout and keeps favorite toggles inside stores", async () => {
   const source = await read("components/food/wynos-food-developer-app.tsx");
-  const css = await read("app/food/food.css");
+  const css = await read("app/food/food-app.css");
   const data = await read("lib/food-customer.ts");
   const migration = await read("../supabase/migrations_wynos_food_home_directory_v2.sql");
 
   for (const label of [
     "ค้นหาร้านหรือเมนูอาหาร",
-    "จัดส่ง",
-    "รับเองที่ร้าน",
     "รวมโค้ดลดเพิ่ม",
-    "ร้านที่เคยสั่งล่าสุด",
-    "ร้านค้าใกล้คุณ",
-    "ร้านค้ายอดนิยม",
+    "สั่งอีกครั้ง",
+    "ร้านใกล้คุณ",
+    "ร้านยอดนิยม",
   ]) assert.match(source, new RegExp(label));
+  // Founder decision (2026-10-10): delivery only — no pickup and no scheduled orders.
+  assert.doesNotMatch(source, /รับเองที่ร้าน|สั่งล่วงหน้า/);
+  assert.match(source, /scheduledFor: null/);
 
   assert.match(source, /aria-label="ร้านโปรด"/);
-  assert.match(source, /wf-store-favorite/);
-  const homeRows = source.slice(source.indexOf("function FoodDirectoryStoreRow"), source.indexOf("function FavoriteStoresSheet"));
+  assert.match(source, /aria-label="รายการโปรด"\s*aria-pressed=\{favorite\}/);
+  const homeRows = source.slice(source.indexOf("function FoodDirectoryStoreCard"), source.indexOf("function FoodHomeSectionHeader"));
+  assert.ok(homeRows.length > 0);
   assert.doesNotMatch(homeRows, /<Heart\b/);
-  assert.doesNotMatch(homeRows, /wf-home-store-logo/);
-  assert.doesNotMatch(css, /\.wf-home-store-logo/);
-  assert.match(css, /\.wf-home-store-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 17px;/);
 
-  assert.match(css, /\.wf-home-store-photo\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
-  assert.match(css, /\.wf-recent-store > span\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1;/);
-  assert.match(source, /distance < 0\.1[\s\S]*?"ใกล้คุณ"/);
-  assert.match(source, /<Bike size=\{13\} \/>ค่าส่ง/);
-  assert.match(source, /<Bike size=\{15\} \/>จัดส่ง/);
+  assert.match(css, /\.fx-store-card-photo\s*\{[\s\S]*?aspect-ratio:/);
+  assert.match(source, /distance < 0\.1\) return "ใกล้คุณ"/);
   assert.doesNotMatch(source, /🛵/);
-  assert.match(css, /\.wf-home-deals-empty\s*\{[\s\S]*?min-height:\s*42px;/);
-  assert.match(css, /\.wf-home-store-row\s*\{[\s\S]*?min-height:\s*116px;/);
-  assert.match(css, /\.wf-fulfillment-tabs button\s*\{[\s\S]*?min-height:\s*32px;/);
   assert.match(data, /rating_average\?: number \| string \| null/);
   assert.match(migration, /rating_average numeric/);
   assert.match(migration, /delivered_order_count bigint/);

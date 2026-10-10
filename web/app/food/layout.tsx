@@ -1,7 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Anuphan } from "next/font/google";
 import type { ReactNode } from "react";
 
 import "./food.css";
+import "./food-app.css";
+
+// Thai loopless face for the redesigned Food app; self-hosted by next/font at build time.
+const anuphan = Anuphan({
+  subsets: ["thai", "latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-anuphan",
+});
 
 const FOOD_ICON_32 = "/icons/food/icon-32-v12.png";
 const FOOD_ICON_192 = "/icons/food/icon-192-v12.png";
@@ -96,7 +106,7 @@ export default function FoodLayout({ children }: { children: ReactNode }) {
           __html: JSON.stringify(FOOD_WEBSITE_STRUCTURED_DATA).replace(/</g, "\\u003c"),
         }}
       />
-      {children}
+      <div className={`${anuphan.variable} fx-font`}>{children}</div>
     </>
   );
 }

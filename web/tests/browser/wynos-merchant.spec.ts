@@ -528,7 +528,7 @@ test("WYN-201 Merchant and Food lists refresh with a pull-down gesture", () => {
   expect(merchant).toContain('enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports" || tab === "finance",');
   expect(merchant).toContain('<section className="wm-content" onTouchStart={pull.onTouchStart}');
   expect(food).toContain('usePullToRefresh({ enabled: tab === "home" || tab === "orders"');
-  expect(food).toContain('<section className="wf-content" onTouchStart={pull.onTouchStart}');
+  expect(food).toContain('<section className="fx-content" onTouchStart={pull.onTouchStart}');
   expect(read("lib/use-pull-to-refresh.ts")).toContain('[role="dialog"]');
 });
 
@@ -667,7 +667,7 @@ test("WYN-207 pay-per-click ads: Admin-controlled, charged on the server, labell
   expect(app).toContain("<MerchantAds client={client} store={store} onMessage={setMessage} />");
   expect(ads).toContain("ส่งสลิปให้ WYNOS ตรวจ");
   // Food: ads first, always labelled; opening one reports the click.
-  expect(food).toContain('{store.is_ad ? <b className="wf-ad-label">โฆษณา</b> : null}');
+  expect(food).toContain('{store.is_ad ? <b className="fx-ad-label">โฆษณา</b> : null}');
   expect(food).toContain("if (next.is_ad) void recordFoodAdClick(client, next.id, placement)");
 });
 
