@@ -3,6 +3,10 @@
 > Scope: WYNOS **Admin web app only**. Planning and offline QA; this file does not
 > change deployments, accounts, data, orders, payments or scheduler settings.
 
+## Global Search integration candidate (2026-10-10)
+
+Adds `/search` with a universal header entry. Admin can lookup public user names, store names and order references using validated bounded queries; Moderator gets only the allowed user-profile source. Phone/email/contact and arbitrary SQL/PostgREST operations are rejected. Missing backends report unavailable, never false zero. This is read-only and does not enable cross-service SSO or direct customer access. Local synthetic roles and read-only RLS tests remain required.
+
 ## Audit Log Plus integration candidate (2026-10-10)
 
 Read-only enhanced Audit Log at `/audit-log`: bounded event, actor ID, date-range and validated cursor filters; at most 50 rows per page. Raw `detail` JSON (possible PII) is excluded from the new page projection. No migration, permission grant, export, deletion, event write or payment action.
@@ -148,7 +152,7 @@ other person's data. Only Admin may see customer payment/contact details.
 ## What CI can and cannot prove now
 
 CI: `npm run lint`, `npm run test:workspaces`, TypeScript, offline
-`next build`, an anonymous **23-route** redirect smoke, plus the existing
+`next build`, an anonymous **24-route** redirect smoke, plus the existing
 Flutter/Edge/PostgreSQL checks. This checks code and guest routing; it is
 **not** evidence of real signed-in QA or Production health. The backend,
 auth-provider and responsive viewport checks above require an isolated local Supabase Auth stack or available no-cost staging. Hosted Preview and DNS still need separate verification.
