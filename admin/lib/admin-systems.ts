@@ -21,3 +21,22 @@ export const ADMIN_LEVEL_LABEL: Record<AdminLevel, string> = {
   view: "ดูอย่างเดียว",
   edit: "แก้ไขได้",
 };
+
+export type AdminSystemAccess = {
+  available: boolean;
+  superAdmin: boolean;
+  permissions: Partial<Record<AdminSystem, AdminLevel>>;
+};
+
+/**
+ * Whether the caller may use `system` at `level` (edit includes view), or
+ * null before the WYN-219 foundation exists in this database, in which case
+ * callers keep the older platform_role behaviour. UI only: the database
+ * re-checks every call.
+ */
+export function hasSystemAccess(access: AdminSystemAccess, system: AdminSystem, level: AdminLevel = "view"): boolean | null {
+  if (!access.available) return null;
+  if (access.superAdmin) return true;
+  const granted = access.permissions[system];
+  return granted === "edit" || (granted === "view" && level === "view");
+}

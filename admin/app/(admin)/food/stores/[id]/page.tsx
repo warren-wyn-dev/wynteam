@@ -14,6 +14,8 @@ import {
   formatBaht,
   formatThaiDate,
 } from "@/lib/admin-food";
+import { fetchAdminAccess } from "@/lib/admin-permissions";
+import { hasSystemAccess } from "@/lib/admin-systems";
 import { requireAdminRole } from "@/lib/auth";
 
 /** WYN-203: one store — status, numbers, suspension, team, recent orders. */
@@ -26,7 +28,9 @@ export default async function FoodStoreDetailPage({
   const { id } = await params;
   const store = await fetchAdminFoodStoreDetail(id);
   if (!store) notFound();
-  const mapPlace = await fetchAdminWynosPlaceForStore(store.id);
+  // WYN-219: the store's map pin comes from a WYNOS Maps RPC (maps:view).
+  const canSeeMaps = hasSystemAccess(await fetchAdminAccess(), "maps") !== false;
+  const mapPlace = canSeeMaps ? await fetchAdminWynosPlaceForStore(store.id) : null;
   // Orders carry customer data: admins only.
   const orders = role === "admin" ? await fetchAdminFoodOrders({ storeId: store.id, limit: 20 }) : [];
   const suspended = Boolean(store.admin_suspended_at);
@@ -55,7 +59,9 @@ export default async function FoodStoreDetailPage({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-medium">WYNOS Maps</p>
-            {mapPlace ? (
+            {!canSeeMaps ? (
+              <p className="mt-1 text-muted-foreground">ต้องมีสิทธิ์ WYNOS Maps เพื่อดูหมุดของร้านนี้</p>
+            ) : mapPlace ? (
               <p className="mt-1 text-muted-foreground">
                 {mapPlace.id} · {mapPlace.latitude.toFixed(5)}, {mapPlace.longitude.toFixed(5)} · {mapPlace.is_active ? "แสดงบนแผนที่" : "ยังไม่แสดง"}
               </p>
@@ -63,7 +69,9 @@ export default async function FoodStoreDetailPage({
               <p className="mt-1 text-muted-foreground">ร้านนี้ยังไม่มี WYNOS Place — Merchant ต้องปักหมุดก่อนเผยแพร่</p>
             )}
           </div>
-          <Link href="/maps/places?category=restaurant" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent">เปิด Places Manager</Link>
+          {canSeeMaps ? (
+            <Link href="/maps/places?category=restaurant" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent">เปิด Places Manager</Link>
+          ) : null}
         </div>
       </section>
 

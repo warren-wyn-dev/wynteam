@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import type { AdminRole } from "@/lib/auth";
+import { hasSystemAccess, type AdminSystem, type AdminSystemAccess } from "@/lib/admin-systems";
 
 /**
  * WYN-219 Phase 1: the sidebar is grouped by WYNOS system (Founder decision
@@ -47,6 +48,11 @@ export type AdminNavItem = {
   adminOnly?: boolean;
   /** Shown only to the WYN-219 super admin (navigation only, as above). */
   superAdminOnly?: boolean;
+  /**
+   * WYN-219 step 2: once a system's checks use per-system permissions, its
+   * items show only to people with at least view access to that system.
+   */
+  system?: AdminSystem;
   /** The task that will fill this page in -- shown on its placeholder. */
   task: string;
   feature: string;
@@ -65,15 +71,19 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/food/ads", label: "Ads", icon: BadgeDollarSign, group: "food", adminOnly: true, task: "WYN-219", feature: "WYNOS Food ads" },
   { href: "/food/notifications", label: "Promo Notifications", icon: BellRing, group: "food", task: "WYN-219", feature: "WYNOS Food promo notifications" },
   { href: "/merchants", label: "Merchant Applications", icon: Store, group: "merchant", task: "MERCHANT", feature: "Merchant Application Review" },
-  { href: "/maps/places", label: "Places", icon: MapPinned, group: "maps", task: "WYN-219", feature: "WYNOS Places Manager" },
+  { href: "/maps/places", label: "Places", icon: MapPinned, group: "maps", system: "maps", task: "WYN-219", feature: "WYNOS Places Manager" },
   { href: "/audit-log", label: "Audit Log", icon: ScrollText, group: "system", task: "WYN-054", feature: "Audit Log" },
   { href: "/team", label: "Team Permissions", icon: KeyRound, group: "system", superAdminOnly: true, task: "WYN-219", feature: "Team Permissions" },
 ];
 
-export function adminNavItemsForRole(role: AdminRole, superAdmin = false): AdminNavItem[] {
-  return ADMIN_NAV_ITEMS.filter(
-    (item) => (role === "admin" || !item.adminOnly) && (superAdmin || !item.superAdminOnly),
-  );
+export function adminNavItemsForRole(role: AdminRole, access: AdminSystemAccess): AdminNavItem[] {
+  return ADMIN_NAV_ITEMS.filter((item) => {
+    if (item.superAdminOnly && !access.superAdmin) return false;
+    // Per-system items follow the permission once it exists in this database.
+    const systemAccess = item.system ? hasSystemAccess(access, item.system) : null;
+    if (systemAccess !== null) return systemAccess;
+    return role === "admin" || !item.adminOnly;
+  });
 }
 
 /**

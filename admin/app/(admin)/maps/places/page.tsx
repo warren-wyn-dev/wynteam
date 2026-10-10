@@ -3,6 +3,8 @@ import { MapPinned } from "lucide-react";
 import { WynosPlacePhotoReview } from "@/components/admin/wynos-place-photo-review";
 import { WynosPlacesManager } from "@/components/admin/wynos-places-manager";
 import { fetchAdminWynosPlacePhotos, fetchAdminWynosPlaces, fetchAdminWynosPlaceSuggestions } from "@/lib/admin-food";
+import { fetchAdminAccess } from "@/lib/admin-permissions";
+import { hasSystemAccess } from "@/lib/admin-systems";
 import { requireAdminRole } from "@/lib/auth";
 
 export default async function WynosPlacesPage({
@@ -11,6 +13,16 @@ export default async function WynosPlacesPage({
   searchParams: Promise<{ q?: string; category?: string; status?: string }>;
 }) {
   await requireAdminRole();
+  // WYN-219: WYNOS Maps admin access is per-system (maps:view / maps:edit).
+  if (hasSystemAccess(await fetchAdminAccess(), "maps") === false) {
+    return (
+      <div className="p-6">
+        <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+          คุณยังไม่มีสิทธิ์ WYNOS Maps ติดต่อ super admin เพื่อขอสิทธิ์
+        </p>
+      </div>
+    );
+  }
   const params = await searchParams;
   const [places, suggestions, photos] = await Promise.all([
     fetchAdminWynosPlaces({

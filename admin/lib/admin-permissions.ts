@@ -1,12 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import type { AdminLevel, AdminSystem } from "@/lib/admin-systems";
+import type { AdminLevel, AdminSystem, AdminSystemAccess } from "@/lib/admin-systems";
 
-export type AdminAccess = {
-  /** False until the WYN-219 foundation migration is applied to this database. */
-  available: boolean;
-  superAdmin: boolean;
-  permissions: Partial<Record<AdminSystem, AdminLevel>>;
-};
+/** `available` is false until the WYN-219 foundation migration is applied. */
+export type AdminAccess = AdminSystemAccess;
 
 /**
  * The signed-in user's own access (admin_my_access, WYN-219). Fails closed:
