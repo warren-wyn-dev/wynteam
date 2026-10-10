@@ -2193,3 +2193,13 @@ Founder ตอบ (AskUserQuestion, 2026-10-10) และอนุมัติ `
 - **การแบน/ระงับผู้ใช้เป็นสิทธิ์ของ Social** — moderator ทำต่อได้
 - **Audit log ดูได้เฉพาะ super admin**
 - **อนุมัติเริ่มขั้นที่ 1** (foundation, additive) — การ apply กับ production database ยังต้องขออนุมัติแยก
+
+## [2026-10-10] WYN-219 — super admin คือบัญชี @wynos_s (ยกระดับเป็น platform admin)
+
+Founder ตอบ (AskUserQuestion, 2026-10-10): super admin ให้เป็น **@wynos_s** (บัญชี Official ที่ Founder กู้คืนการเข้าถึงได้แล้ว)
+ซึ่งยังเป็น `platform_role = 'user'` — Founder เลือก "@wynos_s (ต้องทำให้เป็น admin ก่อน)"
+
+- apply workflow เพิ่มตัวเลือก `promote_to_platform_admin` (ค่าเริ่มต้น `no`) ที่ยกระดับด้วยขั้นตอนเดิมของ WYN-029
+  (ปิด trigger `profiles_prevent_platform_role_change` เฉพาะ UPDATE เดียวใน transaction เดียวกัน แล้วเปิดกลับ) และเขียน audit_log
+- workflow ตรวจหลัง apply ว่า super admin เป็น platform admin และ trigger ป้องกันกลับมาเปิดอยู่
+- แนะนำ: ตั้งรหัสผ่านที่แข็งแรงและเก็บใน password manager เพราะบัญชีนี้ถืออำนาจสูงสุดของ Admin

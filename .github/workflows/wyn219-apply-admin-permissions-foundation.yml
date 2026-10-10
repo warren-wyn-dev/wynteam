@@ -21,9 +21,15 @@ on:
         required: true
         type: string
       super_admin_username:
-        description: 'WYNOS username of the Founder account to make super admin (must already be a platform admin)'
+        description: 'WYNOS username of the Founder account to make super admin'
         required: true
         type: string
+      promote_to_platform_admin:
+        description: 'Also make that account a platform admin first (Founder decision 2026-10-10 for @wynos_s). Leave "no" unless the Founder asked.'
+        required: true
+        type: choice
+        default: 'no'
+        options: ['no', 'yes']
 
 permissions:
   contents: read
@@ -36,6 +42,7 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPER_ADMIN_USERNAME: ${{ github.event.inputs.super_admin_username }}
+      PROMOTE: ${{ github.event.inputs.promote_to_platform_admin }}
     steps:
       - uses: actions/checkout@v4
       - name: Apply and verify
@@ -52,6 +59,7 @@ jobs:
             echo "::error::super_admin_username must be a plain WYNOS username"
             exit 1
           fi
+          case "$PROMOTE" in yes) PROMOTE_SQL=true ;; no) PROMOTE_SQL=false ;; *) echo "::error::bad promote input"; exit 1 ;; esac
 
           PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
           API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
@@ -75,16 +83,30 @@ jobs:
           }
 
           # Migration and super admin seed in one transaction: the seed refuses
-          # an unknown account, a non-admin account, or a second super admin.
+          # an unknown account, a non-admin account (unless the Founder asked to
+          # promote it), or a second super admin. Promotion uses the WYN-029
+          # procedure (lift the platform_role guard trigger for one UPDATE) and
+          # writes an audit_log row.
           run_sql "begin;
           $(cat supabase/migrations/20261010150000_wyn219_admin_permissions_foundation.sql)
           do \$seed\$
-          declare v_id uuid;
+          declare v_id uuid; v_role text;
           begin
-            select id into v_id from public.profiles
-             where username = '$SUPER_ADMIN_USERNAME' and platform_role = 'admin';
+            select id, platform_role into v_id, v_role from public.profiles
+             where username = '$SUPER_ADMIN_USERNAME';
             if v_id is null then
-              raise exception 'No platform admin with that username';
+              raise exception 'No account with that username';
+            end if;
+            if v_role <> 'admin' then
+              if not $PROMOTE_SQL then
+                raise exception 'That account is not a platform admin (promotion not requested)';
+              end if;
+              execute 'alter table public.profiles disable trigger profiles_prevent_platform_role_change';
+              update public.profiles set platform_role = 'admin' where id = v_id;
+              execute 'alter table public.profiles enable trigger profiles_prevent_platform_role_change';
+              perform internal.log_audit_event(null, 'admin_permission_granted', v_id,
+                jsonb_build_object('platform_role', 'admin', 'previous_platform_role', v_role,
+                                   'via', 'wyn219-apply-admin-permissions-foundation'));
             end if;
             if exists (select 1 from internal.platform_super_admins where user_id <> v_id) then
               raise exception 'A different super admin already exists';
@@ -99,6 +121,10 @@ jobs:
               to_regclass('public.admin_permissions') is not null as permissions_table,
               to_regclass('internal.platform_super_admins') is not null as super_admin_table,
               (select count(*) from internal.platform_super_admins) = 1 as one_super_admin,
+              (select p.platform_role = 'admin' from internal.platform_super_admins s
+                 join public.profiles p on p.id = s.user_id) as super_admin_is_platform_admin,
+              (select tgenabled <> 'D' from pg_trigger
+                where tgname = 'profiles_prevent_platform_role_change') as role_guard_enabled,
               (select count(*) from public.admin_permissions where system = 'social' and level = 'edit')
                 = (select count(*) from public.profiles where platform_role = 'moderator') as moderators_seeded,
               has_table_privilege('authenticated','public.admin_permissions','insert') as direct_insert,
@@ -108,6 +134,7 @@ jobs:
               has_function_privilege('anon','internal.has_admin_permission(text,text)','execute') as anon_helper")
           echo "$result"
           echo "$result" | jq -e '.[0] | .permissions_table and .super_admin_table and .one_super_admin and .moderators_seeded
+            and .super_admin_is_platform_admin and .role_guard_enabled
             and (.direct_insert | not) and (.super_admin_readable | not) and .grant_exec
             and (.anon_grant | not) and (.anon_helper | not)' >/dev/null \
             || { echo "::error::Post-apply verification failed"; exit 1; }
