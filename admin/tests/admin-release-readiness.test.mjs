@@ -64,6 +64,24 @@ test("Every Admin workspace route has a corresponding page and is behind the ser
   assert.match(ads, /role !== "admin"/);
 });
 
+test("Platform coverage advertises Maps and Account without unsafe navigation or fake control actions", () => {
+  const overview = read("../app/(admin)/page.tsx");
+  const nav = read("../lib/admin-nav.ts");
+  const planned = overview.match(/const PLANNED_SERVICES = \\[([\\s\\S]*?)\\] as const;/);
+  assert.ok(planned, "Overview retains explicit pending-service metadata");
+  assert.match(planned[1], /id: "maps"[\\s\\S]*?domain: "maps\\.wynos\\.online"/);
+  assert.match(planned[1], /id: "account"[\\s\\S]*?label: "WYNOS Account"/);
+  assert.doesNotMatch(planned[1], /\\bhref\\s*:/, "unimplemented services must not have live destinations");
+
+  const cardMarkup = overview.split("{PLANNED_SERVICES.map((service) => {")[1]?.split("          })}")[0];
+  assert.ok(cardMarkup, "Overview must render the pending-service cards");
+  assert.match(cardMarkup, /<article\\b/);
+  assert.match(cardMarkup, /ยังไม่เปิดใช้งาน/);
+  assert.doesNotMatch(cardMarkup, /<Link\\b|href=/, "pending cards must not offer an actionable route");
+  assert.match(overview, /await requireAdminRole\\(\\)/);
+  assert.doesNotMatch(nav, /id: "(?:maps|account)"/, "future services must not enter operational navigation early");
+});
+
 test("Admin route tree has loading and retry UI and login field labels", () => {
   const login = read("../app/login/login-form.tsx");
   const error = read("../app/(admin)/error.tsx");
