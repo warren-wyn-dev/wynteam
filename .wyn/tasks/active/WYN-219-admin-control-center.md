@@ -1,6 +1,6 @@
 # Product Task — WYN-219
 
-Status: active — Phase 1 (#1076), step 1 foundation (#1078) and step 3 team page (#1080) merged; not deployed. Next: foundation apply, staging QA (.wyn/docs/qa/wyn-219-admin-staging-checklist.md), step 2 per system
+Status: active — LIVE in production 2026-10-10: Admin (grouped nav, Team Permissions), permissions foundation (super admin @wynos_s) and step 2 Maps. Remaining: step 2 for Merchant → Food → Social → Account → central. Deployment log: .wyn/logs/deployments/2026-10-10-wyn-219-admin-control-center-deploy.md
 Owner: AI Product Manager
 Feature: WYNOS Admin Control Center — Admin ควบคุมได้ทุกระบบ (Account, Social, Food, Merchant, Maps)
 Goal: จัด Admin เป็นหัวข้อหลักตามระบบ แล้วแยกสิทธิ์ admin ตามระบบ
