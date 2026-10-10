@@ -14,6 +14,7 @@ import {
   BellRing,
   MapPinned,
   KeyRound,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ import { hasSystemAccess, type AdminSystem, type AdminSystemAccess } from "@/lib
  */
 export const ADMIN_NAV_GROUPS = [
   { id: "overview", label: "ภาพรวม" },
+  { id: "ai", label: "AI Secretary" },
   { id: "account", label: "WYNOS Account" },
   { id: "social", label: "WYNOS Social" },
   { id: "food", label: "WYNOS Food" },
@@ -60,6 +62,7 @@ export type AdminNavItem = {
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, group: "overview", task: "WYN-050", feature: "Admin Dashboard" },
+  { href: "/ai", label: "AI Secretary", icon: Sparkles, group: "ai", superAdminOnly: true, task: "WYN-220", feature: "WYNOS AI Secretary" },
   { href: "/users", label: "User Management", icon: Users, group: "account", task: "WYN-051", feature: "Admin User Management" },
   { href: "/moderation", label: "Content Moderation", icon: ShieldAlert, group: "social", task: "WYN-052", feature: "Admin Content Moderation" },
   { href: "/reports", label: "Report Center", icon: Flag, group: "social", task: "WYN-053", feature: "Admin Report Center" },
