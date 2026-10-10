@@ -141,7 +141,10 @@ export default async function AdminOverviewPage() {
             </span>
             <h3 className="font-semibold">{central.label}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{central.description}</p>
-            <Link href={central.href} className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-medium underline-offset-4 hover:underline">
+            <Link href="/control-map" className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-medium underline-offset-4 hover:underline">
+              ดูผังควบคุมทุกบริการ <ArrowUpRight aria-hidden="true" className="size-4" />
+            </Link>
+            <Link href={central.href} className="inline-flex min-h-11 items-center gap-2 text-sm font-medium underline-offset-4 hover:underline">
               ดูประวัติการดำเนินงาน <ArrowUpRight aria-hidden="true" className="size-4" />
             </Link>
             <p className="mt-auto flex items-center gap-2 pt-4 text-xs text-muted-foreground">
