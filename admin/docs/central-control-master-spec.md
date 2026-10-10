@@ -1,8 +1,8 @@
 # WYNOS Admin Central Control — whole-platform master specification
 
 Status: **Founder direction / implementation backlog; not a claim of deployed functionality**.
-Date: 2026-10-10. Target: existing \`admin\` Next.js/Vercel project, intended custom domain \`admin.wynos.online\`.
-Web-first: use common backend/API contracts; Social \`wynos.online\`, Food \`food.wynos.online\`, Merchant \`merchant.wynos.online\`, Maps \`maps.wynos.online\`.
+Date: 2026-10-10. Target: existing `admin` Next.js/Vercel project, intended custom domain `admin.wynos.online`.
+Web-first: use common backend/API contracts; Social `wynos.online`, Food `food.wynos.online`, Merchant `merchant.wynos.online`, Maps `maps.wynos.online`.
 
 ## 1. Product outcome
 
@@ -26,7 +26,7 @@ This document is a **release contract**, not an instruction to auto-enable risky
 | Notifications | In-app and Web Push templates, rules, audiences, quiet hours, delivery status, throttling, subscription health, broadcast approvals, user choices, official messages | **No email notifications**, per WYNOS product scope. Admin Notifications #1060 is preview/read-only, not a delivery system |
 | Support, Safety & Policy | Ticket/dispute queues, content/merchant appeals, cross-service incident cases, identity redaction, evidence retention, anti-fraud flags, role-scoped activity history, case resolution | Extend existing reports/audit logs only via approved data access |
 | Platform & Engineering | Product flags, rollout percentage, content policy settings, maintenance banners/mode, public configuration, feature availability per Web/Android/iOS, rate limits, app health, errors, queues/cron, API quota, tracing, job retry/disable | Never allow arbitrary environment-secret read/edit or unreviewed deployments from generic staff screens. Controls must have safe bounded APIs |
-| Staff & Audit | Staff invitation and role assignments, permission matrix, MFA posture, approvals, immutable audit trail, sensitive exports, audit search, incident emergency access | Existing \`admin\`/\`moderator\` roles. Future higher tier must be separately approved and verified; #1051 and #1059 are security drafts |
+| Staff & Audit | Staff invitation and role assignments, permission matrix, MFA posture, approvals, immutable audit trail, sensitive exports, audit search, incident emergency access | Existing `admin`/`moderator` roles. Future higher tier must be separately approved and verified; #1051 and #1059 are security drafts |
 
 ### Interaction completeness for every screen
 
@@ -34,7 +34,7 @@ A complete operator experience includes list/search/filter/sort, detail, valid a
 
 ## 3. Permission and action policy
 
-**Current production roles:** \`admin\` and \`moderator\`. The label \`Super Admin\` may be designed for a future phase, but is not an existing elevated grant. Add a future role only through separately reviewed schema, RLS/RPC and migration with automated authorization tests. Do not equate visibility of a menu with permission to execute its action.
+**Current production roles:** `admin` and `moderator`. The label `Super Admin` may be designed for a future phase, but is not an existing elevated grant. Add a future role only through separately reviewed schema, RLS/RPC and migration with automated authorization tests. Do not equate visibility of a menu with permission to execute its action.
 
 Classify actions by severity:
 
@@ -43,18 +43,18 @@ Classify actions by severity:
 3. **High impact:** ban/unban, changing public visibility, changing staff access, cross-service account restriction, platform-wide flag, bulk messaging. Require explicit reason, reauthentication/MFA for appropriate operations, protected confirmation and audit.
 4. **Financial/irreversible:** refund, settlement payout, fee/commission change, sensitive export, permanent deletion/retention exception. Require distinct elevated permission, two-person approval where appropriate, limit, anti-replay/idempotency, external-provider reconciliation and compensation plan. "Approval" must be checked on the server.
 
-Base authorization on **actor + action + resource + scope + state**, not just \`platform_role\`. Validate owner/store/tenant/service binding. Return no sensitive fields to a Moderator if not required for their task. Rate-limit staff operations and exports.
+Base authorization on **actor + action + resource + scope + state**, not just `platform_role`. Validate owner/store/tenant/service binding. Return no sensitive fields to a Moderator if not required for their task. Rate-limit staff operations and exports.
 
 ## 4. Admin command/API contract
 
 Do not make each screen write directly to arbitrary tables. Use auditable server endpoints/RPCs per domain. Recommended operation contract:
 
-- \`action_key\`, immutable \`request_id\`/idempotency key, \`target_type\` + \`target_id\`, \`expected_version\`/optimistic concurrency token, explicit input schema, normalized reason, optional approved case ID.
+- `action_key`, immutable `request_id`/idempotency key, `target_type` + `target_id`, `expected_version`/optimistic concurrency token, explicit input schema, normalized reason, optional approved case ID.
 - Server obtains the authenticated operator identity independently of any browser claims, authorizes that exact operation+scope, validates state transitions, and commits atomically where possible.
 - Append action attempt/result to an **audited, minimally exposed history** with actor, scope, reason, timestamps, before/after field allowlist (redacted), correlation ID, outcome, provider reference, approval metadata and rollback/compensation state.
 - Avoid log values that expose passwords, sessions, bearer tokens, full addresses/phones/payment slips. Define retention/access rules.
 - Use dual-write/outbox event patterns for side effects; reconcile Stripe/provider callbacks. No "success" UI before the backend confirms durable success.
-- UI receives normalized \`success|pending_approval|denied|stale|failed\` states with accessible, actionable error copy. Network retries must not duplicate orders, refunds, pushes or approvals.
+- UI receives normalized `success|pending_approval|denied|stale|failed` states with accessible, actionable error copy. Network retries must not duplicate orders, refunds, pushes or approvals.
 - Feature flags default OFF for new write paths, have named operator/reviewer, audit change, stage rollout and kill switch.
 
 **Data access design:** preserve a shared Supabase Auth user ID for all services, but **do not claim complete SSO** until cross-subdomain session/callback, scopes, revocation and privacy tests exist. Avoid copying sensitive customer data into Admin local storage.
@@ -64,7 +64,7 @@ Do not make each screen write directly to arbitrary tables. Use auditable server
 - Test anonymous, regular user, moderator, admin, revoked admin, unexpected role, stale session, direct RPC access and cross-tenant writes in isolated PostgreSQL and browser QA.
 - Verify real signed-in Admin and Moderator sessions on **isolated** staging. Production and Stripe Sandbox are not substitutes. Staging presently blocked by the two-active-project Supabase Free limit; do not pause either without explicit Founder approval.
 - Require current head lint, TypeScript, unit, permissions, Next.js build, guest protection, responsive mobile/browser and integration tests. GitHub CI green is **not** equal to integrated authenticated staging QA.
-- Separate Admin Vercel project and \`admin.wynos.online\` verified DNS/domain attachment; configure intended rootDirectory, protected Preview and health/smoke routes. Record exact deployment SHAs, approval, flags and rollback.
+- Separate Admin Vercel project and `admin.wynos.online` verified DNS/domain attachment; configure intended rootDirectory, protected Preview and health/smoke routes. Record exact deployment SHAs, approval, flags and rollback.
 - Do not import QA-only integration branch #1062 into Production. Review individually: #1053 workspaces, #1051 staff/security, #1055-#1061 operational slices, #1063 account evidence, #1028 finance, #1040 webhook hardening.
 - Audit and observe every high-impact operation; alerts for spike/failure, customer-impacting rollback and access-review schedules.
 - Platform Web may ship ahead of Android/iOS. Admin should show per-platform release/flag scopes, not assume features are 1:1.
@@ -88,7 +88,7 @@ Webhook/idempotency and order/payment reconciliation, ledger/fees, case-based re
 Staff permissions/MFA, protected configuration changes, push delivery management, observability/incident center, maintenance controls and granular platform releases. Limit operational blast radius, instrument audit + rollback.
 
 **Phase 6 — Whole-platform acceptance:**
-For each capability, mark exact state \`planned -> backend ready -> UI ready -> isolated QA -> approved -> production verified\`, link code owner/PR, API, role matrix, tests, feature flag, deployment and incident/runbook. Do not consider "every detail" complete while a route merely renders.
+For each capability, mark exact state `planned -> backend ready -> UI ready -> isolated QA -> approved -> production verified`, link code owner/PR, API, role matrix, tests, feature flag, deployment and incident/runbook. Do not consider "every detail" complete while a route merely renders.
 
 ## 7. Acceptance gates
 
@@ -100,7 +100,7 @@ For each capability, mark exact state \`planned -> backend ready -> UI ready -> 
 - [ ] Flagged or unavailable services show truthful "not enabled" state—not fake success.
 - [ ] Authenticated Admin, Moderator, regular user and revoked-role browser flows tested on isolated staging.
 - [ ] Mobile UI at 320/390/768/1440px, Thai/English and accessibility reviewed.
-- [ ] \`admin.wynos.online\` domain is attached, protected and production smoke-tested independently.
+- [ ] `admin.wynos.online` domain is attached, protected and production smoke-tested independently.
 - [ ] Launch, audit, alerting and rollback are documented with exact Production deployment artifacts.
 
 **Change control:** this specification authorizes planning/development of separate draft branches only; it does not approve applying production migrations, enabling promotions/payments, editing domains, granting staff roles, or releasing drafts.
