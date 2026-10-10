@@ -1,0 +1,114 @@
+name: WYN-219 -- apply admin permissions foundation
+
+# Applies supabase/migrations/20261010150000_wyn219_admin_permissions_foundation.sql
+# and seeds the one super admin (the Founder) named at run time, so the
+# account is not committed to the repository.
+#
+# Additive: internal.platform_super_admins, public.admin_permissions, the
+# internal.has_admin_permission()/is_super_admin() helpers, grant/revoke/list
+# RPCs and two audit_log event types. Existing moderators are seeded with
+# social:edit. No existing RPC, policy or view changes behaviour yet.
+# Behaviour test: supabase/tests/wyn_219_admin_permissions_foundation_test.sh.
+# Run only after explicit Founder approval of the production apply.
+#
+# ROLLBACK: see the header of the migration file (drop the new functions and
+# tables; nothing reads them until WYN-219 step 2).
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-WYN-219-FOUNDATION to confirm the production migration'
+        required: true
+        type: string
+      super_admin_username:
+        description: 'WYNOS username of the Founder account to make super admin (must already be a platform admin)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-219-FOUNDATION'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPER_ADMIN_USERNAME: ${{ github.event.inputs.super_admin_username }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"
+            exit 1
+          fi
+          if ! printf '%s' "$SUPER_ADMIN_USERNAME" | grep -Eq '^[A-Za-z0-9_.]{1,40}$'; then
+            echo "::error::super_admin_username must be a plain WYNOS username"
+            exit 1
+          fi
+
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2
+              cat "$out" >&2
+              rm -f "$out"
+              return 1
+            fi
+            cat "$out"
+            rm -f "$out"
+          }
+
+          # Migration and super admin seed in one transaction: the seed refuses
+          # an unknown account, a non-admin account, or a second super admin.
+          run_sql "begin;
+          $(cat supabase/migrations/20261010150000_wyn219_admin_permissions_foundation.sql)
+          do \$seed\$
+          declare v_id uuid;
+          begin
+            select id into v_id from public.profiles
+             where username = '$SUPER_ADMIN_USERNAME' and platform_role = 'admin';
+            if v_id is null then
+              raise exception 'No platform admin with that username';
+            end if;
+            if exists (select 1 from internal.platform_super_admins where user_id <> v_id) then
+              raise exception 'A different super admin already exists';
+            end if;
+            insert into internal.platform_super_admins (user_id) values (v_id)
+            on conflict (user_id) do nothing;
+          end
+          \$seed\$;
+          commit;" >/dev/null
+
+          result=$(run_sql "select
+              to_regclass('public.admin_permissions') is not null as permissions_table,
+              to_regclass('internal.platform_super_admins') is not null as super_admin_table,
+              (select count(*) from internal.platform_super_admins) = 1 as one_super_admin,
+              (select count(*) from public.admin_permissions where system = 'social' and level = 'edit')
+                = (select count(*) from public.profiles where platform_role = 'moderator') as moderators_seeded,
+              has_table_privilege('authenticated','public.admin_permissions','insert') as direct_insert,
+              has_table_privilege('authenticated','internal.platform_super_admins','select') as super_admin_readable,
+              has_function_privilege('authenticated','public.admin_grant_permission(uuid,text,text)','execute') as grant_exec,
+              has_function_privilege('anon','public.admin_grant_permission(uuid,text,text)','execute') as anon_grant,
+              has_function_privilege('anon','internal.has_admin_permission(text,text)','execute') as anon_helper")
+          echo "$result"
+          echo "$result" | jq -e '.[0] | .permissions_table and .super_admin_table and .one_super_admin and .moderators_seeded
+            and (.direct_insert | not) and (.super_admin_readable | not) and .grant_exec
+            and (.anon_grant | not) and (.anon_helper | not)' >/dev/null \
+            || { echo "::error::Post-apply verification failed"; exit 1; }
+          echo "WYN-219 admin permissions foundation applied and verified."
