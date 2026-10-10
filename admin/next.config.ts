@@ -38,6 +38,11 @@ const nextConfig: NextConfig = {
     // .wyn/company/APPROVALS.md) since this is a security-policy change.
     dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
   },
+  // WYN-219: Places moved from WYNOS Food to WYNOS Maps. Keep old links and
+  // bookmarks working; the query string (?q=, ?category=) is carried over.
+  async redirects() {
+    return [{ source: "/food/places", destination: "/maps/places", permanent: false }];
+  },
 };
 
 export default nextConfig;

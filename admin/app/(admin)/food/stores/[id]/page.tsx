@@ -63,7 +63,7 @@ export default async function FoodStoreDetailPage({
               <p className="mt-1 text-muted-foreground">ร้านนี้ยังไม่มี WYNOS Place — Merchant ต้องปักหมุดก่อนเผยแพร่</p>
             )}
           </div>
-          <Link href="/food/places?category=restaurant" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent">เปิด Places Manager</Link>
+          <Link href="/maps/places?category=restaurant" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent">เปิด Places Manager</Link>
         </div>
       </section>
 

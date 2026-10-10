@@ -68,7 +68,7 @@ export default async function FoodStoresPage({
             <button type="submit" className="h-11 rounded-md border px-4 text-sm font-medium hover:bg-accent">ค้นหา</button>
           </form>
           <div className="flex flex-wrap gap-2">
-            <Link href="/food/places" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
+            <Link href="/maps/places" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
               <MapPinned className="size-4" /> WYNOS Places
             </Link>
             <Link href="/food/campaigns" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
