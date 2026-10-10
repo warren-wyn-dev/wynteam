@@ -2,12 +2,16 @@ import { Suspense } from "react";
 
 import { StatusFilter } from "./status-filter";
 import { QueueResults } from "./results";
+import { NoAccess } from "@/components/admin/no-access";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 
 export default async function ReportsPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  const ctx = await requireAdminRole();
+  if (!(adminCan(ctx, "social"))) return <NoAccess what=" WYNOS Social" />;
   const { status } = await searchParams;
   const resolvedStatus = status ?? "open";
 

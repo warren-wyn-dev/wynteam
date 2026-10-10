@@ -6,8 +6,9 @@ import {
   fetchMerchantApplications,
   type MerchantApplicationStatus,
 } from "@/lib/admin-merchants";
-import { requireAdminRole } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { NoAccess } from "@/components/admin/no-access";
 
 const FILTERS: Array<{ value: "all" | MerchantApplicationStatus; label: string }> = [
   { value: "pending", label: "รอตรวจสอบ" },
@@ -21,7 +22,9 @@ export default async function MerchantApplicationsPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  const { role } = await requireAdminRole();
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "merchant")) return <NoAccess what=" WYNOS Merchant" />;
+  const canReview = adminCan(ctx, "merchant", "edit");
   const { status } = await searchParams;
   const resolved = FILTERS.some((item) => item.value === status) ? status! : "pending";
   const applications = await fetchMerchantApplications(
@@ -69,7 +72,7 @@ export default async function MerchantApplicationsPage({
             <MerchantApplicationCard
               key={application.id}
               application={application}
-              role={role}
+              canReview={canReview}
             />
           ))}
         </div>

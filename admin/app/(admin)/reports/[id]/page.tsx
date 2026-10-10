@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ReportActionsBar } from "@/components/admin/report-actions-bar";
 import { fetchReport, type ReportTargetType } from "@/lib/admin-reports";
+import { NoAccess } from "@/components/admin/no-access";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 
 const TARGET_TYPE_LABEL: Record<ReportTargetType, string> = {
   user: "ผู้ใช้",
@@ -58,6 +60,8 @@ export default async function ReportDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const ctx = await requireAdminRole();
+  if (!(adminCan(ctx, "social"))) return <NoAccess what=" WYNOS Social" />;
   const { id } = await params;
   const report = await fetchReport(id);
 
@@ -85,7 +89,7 @@ export default async function ReportDetailPage({
       </div>
 
       {report.status === "pending" || report.status === "reviewing" ? (
-        <ReportActionsBar reportId={report.id} targetType={report.target_type} />
+        adminCan(ctx, "social", "edit") ? <ReportActionsBar reportId={report.id} targetType={report.target_type} /> : null
       ) : (
         <p className="text-sm text-muted-foreground">รายงานนี้ถูกดำเนินการไปแล้ว</p>
       )}

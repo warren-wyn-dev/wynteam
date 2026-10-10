@@ -13,7 +13,8 @@ import {
   formatThaiDate,
   signAdminFoodEvidence,
 } from "@/lib/admin-food";
-import { requireAdminRole } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
+import { NoAccess } from "@/components/admin/no-access";
 
 /** WYN-203: one order for a complaint — items, timeline, slip, delivery photo (admin only, audited). */
 export default async function FoodOrderDetailPage({
@@ -21,8 +22,10 @@ export default async function FoodOrderDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { role } = await requireAdminRole();
-  if (role !== "admin") redirect("/food");
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
+  const canEditFood = adminCan(ctx, "food", "edit");
+  if (!canEditFood) redirect("/food");
   const { id } = await params;
   const detail = await fetchAdminFoodOrderDetail(id);
   if (!detail) notFound();

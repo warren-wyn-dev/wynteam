@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdminRole } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 import { FoodPromotionBroadcastManager, type BroadcastRow, type CouponChoice } from "@/components/admin/food-promotion-broadcast-manager";
+import { NoAccess } from "@/components/admin/no-access";
 
 export default async function FoodNotificationAdminPage() {
-  const { role } = await requireAdminRole();
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
+  const canEditFood = adminCan(ctx, "food", "edit");
   const client = await createClient();
   const [list, coupons] = await Promise.all([
     client.rpc("admin_food_promo_list"),
-    role === "admin" ? client.rpc("admin_food_coupon_list") : Promise.resolve({ data: [], error: null }),
+    canEditFood ? client.rpc("admin_food_coupon_list") : Promise.resolve({ data: [], error: null }),
   ]);
   const unavailable = list.error?.code === "PGRST202" || list.error?.code === "42883";
   if (list.error && !unavailable) throw new Error(list.error.message);
@@ -22,7 +25,7 @@ export default async function FoodNotificationAdminPage() {
       <Link href="/food/campaigns" className="rounded-lg border px-4 py-2 text-sm">แคมเปญ WYNOS</Link>
     </div>
     {unavailable && <p className="rounded-lg border p-4">Backend สำหรับโปรโมชันยังไม่ได้เปิดใช้งาน</p>}
-    <FoodPromotionBroadcastManager canManage={role === "admin" && !unavailable}
+    <FoodPromotionBroadcastManager canManage={canEditFood && !unavailable}
       coupons={Array.isArray(coupons.data) ? (coupons.data as CouponChoice[]).filter(c => c.is_active) : []}
       initialRows={Array.isArray(list.data) ? list.data as BroadcastRow[] : []} />
   </main>;

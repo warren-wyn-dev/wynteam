@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { requireAdminRole } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 import { fetchAdminPlatformCampaigns } from "@/lib/admin-platform-campaigns";
 import { createClient } from "@/lib/supabase/server";
 import { FoodCouponManager, type FoodCouponRow } from "@/components/admin/food-coupon-manager";
+import { NoAccess } from "@/components/admin/no-access";
 
 export default async function FoodCouponsPage() {
-  const { role } = await requireAdminRole();
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
+  const canEditFood = adminCan(ctx, "food", "edit");
   const supabase = await createClient();
   const [campaigns, res] = await Promise.all([
     fetchAdminPlatformCampaigns(),
@@ -26,7 +29,7 @@ export default async function FoodCouponsPage() {
         <Link href="/food/campaigns" className="rounded-lg border px-4 py-2 text-sm">กลับไปแคมเปญ</Link>
       </div>
       {res.error ? <p className="rounded-lg border px-4 py-3 text-sm">ระบบคูปองยังไม่เปิดในฐานข้อมูล Production</p> : null}
-      <FoodCouponManager canManage={role === "admin"} campaigns={campaigns.map(c => ({
+      <FoodCouponManager canManage={canEditFood} campaigns={campaigns.map(c => ({
         id: c.id, name: c.name, starts_at: c.starts_at, ends_at: c.ends_at,
         joined_stores: c.joined_stores, delivered_orders: c.delivered_orders,
       }))} initialCoupons={Array.isArray(res.data) ? res.data as FoodCouponRow[] : []} />

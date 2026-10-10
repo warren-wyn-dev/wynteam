@@ -8,7 +8,8 @@ import {
   platformCampaignTerms,
   type AdminPlatformCampaign,
 } from "@/lib/admin-platform-campaigns";
-import { requireAdminRole } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
+import { NoAccess } from "@/components/admin/no-access";
 
 function campaignStatus(campaign: AdminPlatformCampaign) {
   if (!campaign.is_active) return <Badge variant="outline">หยุดแล้ว</Badge>;
@@ -24,8 +25,10 @@ function campaignStatus(campaign: AdminPlatformCampaign) {
  * the transfer here. Moderators can read the campaign list only.
  */
 export default async function FoodCampaignsPage() {
-  const { role } = await requireAdminRole();
-  const isAdmin = role === "admin";
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
+  const canEditFood = adminCan(ctx, "food", "edit");
+  const isAdmin = canEditFood;
   const [campaigns, owed] = await Promise.all([
     fetchAdminPlatformCampaigns(),
     isAdmin ? fetchAdminPlatformOwed() : Promise.resolve([]),

@@ -5,12 +5,16 @@ import { SearchResults } from "./results";
 import { DirectorySortPills, DirectoryRolePills, DirectoryStatusPills } from "./directory-controls";
 import { UserDirectory } from "./directory";
 import type { DirectorySort, DirectoryStatus } from "@/lib/admin-users";
+import { NoAccess } from "@/components/admin/no-access";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 
 export default async function UsersPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; sort?: string; role?: string; status?: string }>;
 }) {
+  const ctx = await requireAdminRole();
+  if (!(adminCan(ctx, "account") || adminCan(ctx, "social"))) return <NoAccess what=" WYNOS Account หรือ WYNOS Social" />;
   const { q, sort, role, status } = await searchParams;
   const query = (q ?? "").trim();
 
@@ -30,6 +34,10 @@ export default async function UsersPage({
         >
           <SearchResults query={query} />
         </Suspense>
+      ) : !adminCan(ctx, "account") ? (
+        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          พิมพ์ชื่อผู้ใช้เพื่อค้นหา — รายชื่อผู้ใช้ทั้งหมดต้องมีสิทธิ์ WYNOS Account
+        </p>
       ) : (
         // The "wide-angle" view -- rank/filter every user instead of
         // typing a username. Search above still works exactly as

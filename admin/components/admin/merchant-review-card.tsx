@@ -18,7 +18,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { reviewMerchantApplication } from "@/lib/admin-merchant-actions";
 import type { AdminMerchantApplication } from "@/lib/admin-merchants";
-import type { AdminRole } from "@/lib/auth";
 
 const BUSINESS_LABEL: Record<AdminMerchantApplication["business_type"], string> = {
   food: "อาหาร / เครื่องดื่ม",
@@ -78,10 +77,11 @@ function merchantReviewError(error: unknown, fallback: string) {
 
 export function MerchantApplicationCard({
   application,
-  role,
+  canReview: canReviewMerchants,
 }: {
   application: AdminMerchantApplication;
-  role: AdminRole;
+  /** merchant:edit (WYN-219); the RPC re-checks. */
+  canReview: boolean;
 }) {
   const router = useRouter();
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -90,7 +90,7 @@ export function MerchantApplicationCard({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const canReview = role === "admin" && application.status !== "approved";
+  const canReview = canReviewMerchants && application.status !== "approved";
 
   function approve() {
     // WYN-214: approval is final and creates the store; confirm first.
@@ -239,7 +239,7 @@ export function MerchantApplicationCard({
                     {pending ? "กำลังอนุมัติ..." : application.business_type === "food" ? "อนุมัติและเปิด Merchant" : "อนุมัติคำขอ"}
                   </Button>
                 </>
-              ) : role !== "admin" && application.status !== "approved" ? (
+              ) : !canReviewMerchants && application.status !== "approved" ? (
                 <p className="text-sm text-muted-foreground">เฉพาะ Admin เท่านั้นที่อนุมัติหรือปฏิเสธคำขอได้</p>
               ) : null}
             </div>

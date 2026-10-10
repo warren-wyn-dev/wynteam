@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import type { AdminRole } from "@/lib/auth";
-import { hasSystemAccess, type AdminSystem, type AdminSystemAccess } from "@/lib/admin-systems";
+import { hasSystemAccess, type AdminLevel, type AdminSystem, type AdminSystemAccess } from "@/lib/admin-systems";
 
 /**
  * WYN-219 Phase 1: the sidebar is grouped by WYNOS system (Founder decision
@@ -49,39 +49,47 @@ export type AdminNavItem = {
   /** Shown only to the WYN-219 super admin (navigation only, as above). */
   superAdminOnly?: boolean;
   /**
-   * WYN-219 step 2: once a system's checks use per-system permissions, its
-   * items show only to people with at least view access to that system.
+   * WYN-219: who sees the item once per-system permissions exist -- any of
+   * these systems at `level` (default view), or "any" permission at all.
+   * Navigation only: every page and RPC re-checks.
    */
-  system?: AdminSystem;
+  requires?: { systems: AdminSystem[]; level?: AdminLevel } | "any";
   /** The task that will fill this page in -- shown on its placeholder. */
   task: string;
   feature: string;
 };
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, group: "overview", task: "WYN-050", feature: "Admin Dashboard" },
-  { href: "/users", label: "User Management", icon: Users, group: "account", task: "WYN-051", feature: "Admin User Management" },
-  { href: "/moderation", label: "Content Moderation", icon: ShieldAlert, group: "social", task: "WYN-052", feature: "Admin Content Moderation" },
-  { href: "/reports", label: "Report Center", icon: Flag, group: "social", task: "WYN-053", feature: "Admin Report Center" },
-  { href: "/announcements", label: "Announcements", icon: Megaphone, group: "social", task: "WYN-055", feature: "Official Announcements" },
-  { href: "/food", label: "Stores", icon: UtensilsCrossed, group: "food", task: "WYN-203", feature: "WYNOS Food store operations" },
-  { href: "/food/orders", label: "Orders", icon: ShoppingBag, group: "food", adminOnly: true, task: "WYN-203", feature: "WYNOS Food orders" },
-  { href: "/food/coupons", label: "Coupons", icon: TicketPercent, group: "food", task: "WYN-219", feature: "WYNOS Food coupons" },
-  { href: "/food/campaigns", label: "Campaigns", icon: Gift, group: "food", task: "WYN-219", feature: "WYNOS campaigns" },
-  { href: "/food/ads", label: "Ads", icon: BadgeDollarSign, group: "food", adminOnly: true, task: "WYN-219", feature: "WYNOS Food ads" },
-  { href: "/food/notifications", label: "Promo Notifications", icon: BellRing, group: "food", task: "WYN-219", feature: "WYNOS Food promo notifications" },
-  { href: "/merchants", label: "Merchant Applications", icon: Store, group: "merchant", task: "MERCHANT", feature: "Merchant Application Review" },
-  { href: "/maps/places", label: "Places", icon: MapPinned, group: "maps", system: "maps", task: "WYN-219", feature: "WYNOS Places Manager" },
-  { href: "/audit-log", label: "Audit Log", icon: ScrollText, group: "system", task: "WYN-054", feature: "Audit Log" },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, group: "overview", requires: "any", task: "WYN-050", feature: "Admin Dashboard" },
+  // Moderators (Social only) still open user pages to apply sanctions.
+  { href: "/users", label: "User Management", icon: Users, group: "account", requires: { systems: ["account", "social"] }, task: "WYN-051", feature: "Admin User Management" },
+  { href: "/moderation", label: "Content Moderation", icon: ShieldAlert, group: "social", requires: { systems: ["social"] }, task: "WYN-052", feature: "Admin Content Moderation" },
+  { href: "/reports", label: "Report Center", icon: Flag, group: "social", requires: { systems: ["social"] }, task: "WYN-053", feature: "Admin Report Center" },
+  { href: "/announcements", label: "Announcements", icon: Megaphone, group: "social", requires: { systems: ["social"] }, task: "WYN-055", feature: "Official Announcements" },
+  { href: "/food", label: "Stores", icon: UtensilsCrossed, group: "food", requires: { systems: ["food"] }, task: "WYN-203", feature: "WYNOS Food store operations" },
+  { href: "/food/orders", label: "Orders", icon: ShoppingBag, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" }, task: "WYN-203", feature: "WYNOS Food orders" },
+  { href: "/food/coupons", label: "Coupons", icon: TicketPercent, group: "food", requires: { systems: ["food"] }, task: "WYN-219", feature: "WYNOS Food coupons" },
+  { href: "/food/campaigns", label: "Campaigns", icon: Gift, group: "food", requires: { systems: ["food"] }, task: "WYN-219", feature: "WYNOS campaigns" },
+  { href: "/food/ads", label: "Ads", icon: BadgeDollarSign, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" }, task: "WYN-219", feature: "WYNOS Food ads" },
+  { href: "/food/notifications", label: "Promo Notifications", icon: BellRing, group: "food", requires: { systems: ["food"] }, task: "WYN-219", feature: "WYNOS Food promo notifications" },
+  { href: "/merchants", label: "Merchant Applications", icon: Store, group: "merchant", requires: { systems: ["merchant"] }, task: "MERCHANT", feature: "Merchant Application Review" },
+  { href: "/maps/places", label: "Places", icon: MapPinned, group: "maps", requires: { systems: ["maps"] }, task: "WYN-219", feature: "WYNOS Places Manager" },
+  { href: "/audit-log", label: "Audit Log", icon: ScrollText, group: "system", superAdminOnly: true, task: "WYN-054", feature: "Audit Log" },
   { href: "/team", label: "Team Permissions", icon: KeyRound, group: "system", superAdminOnly: true, task: "WYN-219", feature: "Team Permissions" },
 ];
 
 export function adminNavItemsForRole(role: AdminRole, access: AdminSystemAccess): AdminNavItem[] {
   return ADMIN_NAV_ITEMS.filter((item) => {
-    if (item.superAdminOnly && !access.superAdmin) return false;
-    // Per-system items follow the permission once it exists in this database.
-    const systemAccess = item.system ? hasSystemAccess(access, item.system) : null;
-    if (systemAccess !== null) return systemAccess;
+    if (item.superAdminOnly) {
+      // Before the foundation exists the audit log stays visible to staff as before.
+      return access.superAdmin || (!access.available && item.href === "/audit-log");
+    }
+    if (access.available && item.requires) {
+      if (access.superAdmin) return true;
+      if (item.requires === "any") return Object.keys(access.permissions).length > 0;
+      const { systems, level = "view" } = item.requires;
+      return systems.some((system) => hasSystemAccess(access, system, level) === true);
+    }
     return role === "admin" || !item.adminOnly;
   });
 }

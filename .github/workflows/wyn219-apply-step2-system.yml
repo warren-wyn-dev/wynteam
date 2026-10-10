@@ -1,0 +1,108 @@
+name: WYN-219 -- apply step 2 permissions for one system
+
+# Applies one of the WYN-219 step 2 migrations (Merchant, Food, Social, Account,
+# central): that system's admin RPCs, views and policies check
+# internal.has_admin_permission() instead of platform_role. Definitions come
+# from the 2026-10-10 production dump. Requires the WYN-219 foundation and
+# refuses to run without it. Run only after explicit Founder approval, one
+# system at a time, in the order Merchant -> Food -> Social -> Account -> central.
+# Behaviour test: supabase/tests/wyn_219_step2_remaining_systems_test.sh.
+#
+# ROLLBACK: apply supabase/rollbacks/<same file name>_rollback.sql
+on:
+  workflow_dispatch:
+    inputs:
+      system:
+        description: 'Which system to switch to per-system permissions'
+        required: true
+        type: choice
+        options: [merchant, food, social, account, central]
+      confirm:
+        description: 'Type APPLY-WYN-219-STEP2 to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-219-STEP2'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SYSTEM: ${{ github.event.inputs.system }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"
+            exit 1
+          fi
+          case "$SYSTEM" in
+            merchant) FILE=20261010170000_wyn219_step2_merchant_permissions.sql; FNS="'admin_merchant_applications','admin_review_merchant_application'"; NFNS=2 ;;
+            food) FILE=20261010170100_wyn219_step2_food_permissions.sql; FNS="'admin_ad_overview','admin_food_coupon_list','admin_food_coupon_set_active','admin_food_first_order_set_active','admin_food_issue_coupon','admin_food_order_detail','admin_food_orders','admin_food_overview','admin_food_promo_cancel','admin_food_promo_list','admin_food_promo_schedule','admin_food_store_detail','admin_food_stores','admin_platform_campaigns','admin_platform_owed','admin_review_ad_topup','admin_set_ad_account_status','admin_set_food_store_member_active','admin_set_food_store_suspension','admin_settle_platform_store','admin_update_ad_settings','admin_upsert_platform_campaign','food_is_platform_admin'"; NFNS=23 ;;
+            social) FILE=20261010170200_wyn219_step2_social_permissions.sql; FNS="'admin_apply_user_action','admin_feed_algorithm_dashboard','admin_get_drop','admin_remove_drop','admin_restore_drop','admin_search_drops','admin_send_announcement','admin_unban_user','apply_moderation_action','decide_appeal','get_message_for_moderation','send_system_notification'"; NFNS=12 ;;
+            account) FILE=20261010170300_wyn219_step2_account_permissions.sql; FNS="'admin_count_inactive_users','admin_send_inactive_reminder','admin_user_directory'"; NFNS=3 ;;
+            central) FILE=20261010170400_wyn219_step2_central_permissions.sql; FNS="'admin_activity_trend','admin_dashboard_metrics','admin_dashboard_trends','admin_signup_counts'"; NFNS=4 ;;
+            *) echo "::error::unknown system"; exit 1 ;;
+          esac
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2
+              cat "$out" >&2
+              rm -f "$out"
+              return 1
+            fi
+            cat "$out"
+            rm -f "$out"
+          }
+
+          ready=$(run_sql "select to_regprocedure('internal.has_admin_permission(text,text)') is not null
+                             and (select count(*) from internal.platform_super_admins) = 1 as ready")
+          echo "$ready" | jq -e '.[0].ready' >/dev/null \
+            || { echo "::error::WYN-219 foundation is not applied (or has no super admin); apply it first"; exit 1; }
+
+          run_sql "begin;
+          $(cat "supabase/migrations/$FILE")
+          commit;" >/dev/null
+
+          result=$(run_sql "select
+              (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname = 'public' and p.proname = any (array[$FNS])) as functions_found,
+              (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname = 'public' and p.proname = any (array[$FNS])
+                  and p.prosrc not like '%has_admin_permission%'
+                  and p.prosrc not like '%has_any_admin_permission%') as functions_not_switched,
+              (select count(*) from pg_views where viewname in ('moderation_queue', 'admin_user_moderation_history', 'admin_audit_log')
+                and definition like '%current_platform_role%') as views_on_role,
+              (select count(*) from pg_policies where policyname in ('Moderators can view all appeals',
+                'Moderators can view moderation action history', 'Appellants and moderators can view appeal evidence')
+                and qual like '%current_platform_role%') as social_policies_on_role,
+              (select prosrc like '%has_admin_permission%' from pg_proc where proname = 'food_is_platform_admin') as fipa_switched")
+          echo "$result"
+          case "$SYSTEM" in
+            social)  extra='.views_on_role <= 1 and .social_policies_on_role == 0' ;;
+            central) extra='.views_on_role == 0' ;;
+            food)    extra='.fipa_switched' ;;
+            *)       extra='true' ;;
+          esac
+          echo "$result" | jq -e ".[0] | .functions_found >= $NFNS and .functions_not_switched == 0 and ($extra)" >/dev/null \
+            || { echo "::error::Post-apply verification failed"; exit 1; }
+          echo "WYN-219 step 2 ($SYSTEM) applied and verified."

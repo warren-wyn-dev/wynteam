@@ -10,7 +10,8 @@ import {
   formatThaiDate,
   type AdminFoodStore,
 } from "@/lib/admin-food";
-import { requireAdminRole } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
+import { NoAccess } from "@/components/admin/no-access";
 
 function storeStatus(store: AdminFoodStore) {
   if (store.admin_suspended_at) return <Badge variant="destructive">ระงับโดย WYNOS</Badge>;
@@ -24,7 +25,9 @@ export default async function FoodStoresPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const { role } = await requireAdminRole();
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
+  const canEditFood = adminCan(ctx, "food", "edit");
   const { q } = await searchParams;
   const [overview, stores] = await Promise.all([fetchAdminFoodOverview(), fetchAdminFoodStores(q)]);
 
@@ -74,12 +77,12 @@ export default async function FoodStoresPage({
             <Link href="/food/campaigns" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
               <Gift className="size-4" /> แคมเปญ WYNOS
             </Link>
-            {role === "admin" ? (
+            {canEditFood ? (
               <Link href="/food/ads" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
                 <Megaphone className="size-4" /> โฆษณา
               </Link>
             ) : null}
-            {role === "admin" ? (
+            {canEditFood ? (
               <Link href="/food/orders" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
                 <ShoppingBag className="size-4" /> ออเดอร์ทุกร้าน
               </Link>

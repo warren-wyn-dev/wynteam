@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { DropModerationActions } from "@/components/admin/drop-moderation-actions";
+import { NoAccess } from "@/components/admin/no-access";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 import {
   currentActiveRemoval,
   fetchDrop,
@@ -44,6 +46,8 @@ export default async function DropModerationDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const ctx = await requireAdminRole();
+  if (!(adminCan(ctx, "social"))) return <NoAccess what=" WYNOS Social" />;
   const { id } = await params;
 
   const [drop, history, reports] = await Promise.all([
@@ -79,7 +83,7 @@ export default async function DropModerationDetailPage({
       {drop.caption ? <p>{drop.caption}</p> : null}
 
       <div className="flex flex-col gap-2">
-        <DropModerationActions dropId={drop.id} isDeleted={isDeleted} />
+        {adminCan(ctx, "social", "edit") ? <DropModerationActions dropId={drop.id} isDeleted={isDeleted} /> : null}
         {isDeleted ? (
           <p className="text-sm text-muted-foreground">
             {activeRemoval ? "ลบโดยผู้ดูแลระบบ" : "ลบโดยเจ้าของเอง"}
