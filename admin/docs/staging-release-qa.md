@@ -3,6 +3,12 @@
 > Scope: WYNOS **Admin web app only**. Planning and offline QA; this file does not
 > change deployments, accounts, data, orders, payments or scheduler settings.
 
+## Action Center integration candidate (2026-10-10)
+
+This **stacked draft branch** adds the role-scoped `/action-center` route to the Phase 1 Admin workspace. It reads current Social moderation-queue work, Merchant application-count work, and Admin-only Food active-order totals from existing approved data sources. Every source can fail independently; it does not represent an outage as zero tasks, return applicant/customer PII, or write any orders/refunds.
+
+Release still requires free-only local synthetic Admin/Moderator role QA; the branch and its PR do not authorize Production deployment or database mutation.
+
 ## Free-only restriction — Founder decision (2026-10-10)
 
 **No paid services, upgrades or spending.** Use the [free-only QA runbook](./free-only-qa-plan.md) to run synthetic Auth/role tests against local Supabase CLI + Docker, using the existing GitHub CI and disposable PostgreSQL containers.
@@ -132,7 +138,7 @@ other person's data. Only Admin may see customer payment/contact details.
 ## What CI can and cannot prove now
 
 CI: `npm run lint`, `npm run test:workspaces`, TypeScript, offline
-`next build`, an anonymous **21-route** redirect smoke, plus the existing
+`next build`, an anonymous **22-route** redirect smoke, plus the existing
 Flutter/Edge/PostgreSQL checks. This checks code and guest routing; it is
 **not** evidence of real signed-in QA or Production health. The backend,
 auth-provider and responsive viewport checks above require an isolated local Supabase Auth stack or available no-cost staging. Hosted Preview and DNS still need separate verification.
