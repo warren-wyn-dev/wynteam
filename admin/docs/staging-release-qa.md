@@ -3,6 +3,23 @@
 > Scope: WYNOS **Admin web app only**. Planning and offline QA; this file does not
 > change deployments, accounts, data, orders, payments or scheduler settings.
 
+## Central Control Phase 1 — truthful service coverage (2026-10-10)
+
+This PR organizes **existing** Admin routes for Social, Food, Merchant and shared staff tools.
+It does not give an operator new powers by reorganizing navigation.
+
+- **Social** (`wynos.online`): existing accounts, reports, moderation and announcements; Social metrics stay on `/social`.
+- **Food** (`food.wynos.online`): existing store, order and promotion operations. Sensitive order and advertising routes stay Admin-only server-side. No payment rule changes.
+- **Merchant** (`merchant.wynos.online`): existing application reviews, not unrestricted merchant impersonation.
+- **Shared**: existing staff audit history; no new export or permission grant.
+- **Maps** (`maps.wynos.online`) and **WYNOS Account**: visible as **non-interactive planned cards** on Overview, with no operational links, actions or new RPC privileges. This does not implement Maps moderation, cross-service rights or SSO.
+
+Do not present planned services as operational, or present service-only metrics as cross-platform totals.
+Production `admin.wynos.online` domain attachment is a separate infrastructure change; a READY Vercel Preview does not prove the custom domain is configured.
+
+Release gates remain: current PR-head CI, isolated staging with `profiles.platform_role`, authenticated Admin/Moderator/User role tests, responsive browser QA, correct Admin Preview, and rollback plan.
+Do not use Production or Stripe Sandbox as staging. No Supabase migration, PR merge, domain mutation or Production deployment is authorized by this PR update.
+
 ## Current environment findings (2026-10-09)
 
 | Area | Observed condition | Release gate |
@@ -97,7 +114,7 @@ other person's data. Only Admin may see customer payment/contact details.
 ## What CI can and cannot prove now
 
 CI: `npm run lint`, `npm run test:workspaces`, TypeScript, offline
-`next build`, an anonymous **15-route** redirect smoke, plus the existing
+`next build`, an anonymous **20-route** redirect smoke, plus the existing
 Flutter/Edge/PostgreSQL checks. This checks code and guest routing; it is
 **not** evidence of real signed-in QA or Production health. The backend,
 auth-provider and responsive viewport checks above require isolated staging.
