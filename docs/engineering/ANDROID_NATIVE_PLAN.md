@@ -1,6 +1,8 @@
 # Wynos Android — native app plan (Kotlin + Jetpack Compose)
 
-Status: **approved; M0 done, M1 done except Google sign-in (see M1 status).**
+Status: **paused by the Founder on 2026-10-10** ("พัก แอปของแอนดรอยไปก่อน"). Do not start new Android work or an
+Android release without asking the Founder. Progress when paused: M0 done, M1 done except Google sign-in (see M1 status).
+See `.wyn/company/DECISIONS.md` (2026-10-10).
 
 ## Founder decision (2026-09-27)
 

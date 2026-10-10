@@ -14,6 +14,10 @@
 > - **Wynos iOS v1.0.0 Beta 1** — แอป Flutter บน iOS
 > ป้ายในแอปเลือกตามเครื่อง (`app/lib/core/app_version.dart`) การพักพัฒนาแอปตาม 2026-09-19 ยังมีผล
 
+> **[2026-10-10] พัก Wynos Android ไปก่อน**: Founder สั่ง "พัก แอปของแอนดรอยไปก่อน" — หยุดพัฒนา Wynos Android
+> v1.0.0 Beta 1 (native, `android/`) ห้ามเริ่มงานใหม่หรือ release โดยไม่ถาม Founder ก่อน ตอนนี้โฟกัสเฉพาะ WYNOS Web
+> รายละเอียดที่ `.wyn/company/DECISIONS.md` (2026-10-10)
+
 ## Current Version
 
 **WYNOS v1.0.0 Beta4** คือ Baseline ปัจจุบันที่ผู้ใช้ทั่วไปใช้งานอยู่ (production, deploy จริงตั้งแต่ 2026-09-03 — ดู `.wyn/logs/deployments/2026-09-03-wynos-beta4-real-deploy.md`)

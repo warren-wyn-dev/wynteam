@@ -2151,3 +2151,15 @@ Founder สั่งชัดเจนว่า **"อยากให้ฟั�
 การเปิดใช้งานครั้งนี้เป็นการปลด **product rollout gate** เท่านั้น ไม่ลดทอน authentication, RLS, ownership,
 Club membership/role, moderation, block/mute หรือ privacy checks เดิม และ Club Announcement notification
 fan-out ยังไม่เพิ่มจนกว่าจะรองรับ notification type ข้าม client ได้ครบ
+
+## [2026-10-10] พักการพัฒนา Wynos Android (native) ไปก่อน
+
+Founder สั่งชัดเจนว่า **"พัก แอปของแอนดรอยไปก่อน"**
+
+- หยุดการพัฒนา Wynos Android v1.0.0 Beta 1 (Kotlin + Jetpack Compose ใน `android/`) ตั้งแต่วันนี้
+  ห้าม AI role ใดเริ่มงานใหม่ใน `android/` หรือสั่ง Android release (`android-release.yml`) โดยไม่ถาม Founder ก่อน
+  จนกว่าจะมีคำสั่งให้กลับมาทำต่อ
+- สถานะ ณ ตอนพัก: M0 เสร็จ, M1 เสร็จยกเว้น Google sign-in (ดู `docs/engineering/ANDROID_NATIVE_PLAN.md`)
+- ไม่ลบโค้ด, ไม่ลบ branch และไม่ปิด CI (`android.yml` รันเฉพาะเมื่อมีการแก้ `android/**`) เพื่อให้กลับมาทำต่อได้
+- แอป Flutter (`app/`) ยังพักอยู่ตาม decision 2026-09-19 — โฟกัสทั้งหมดอยู่ที่ WYNOS Web
+

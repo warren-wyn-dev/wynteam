@@ -33,8 +33,9 @@
 - **Founder สั่งพักการพัฒนายาวตั้งแต่ 2026-09-19** ห้ามเริ่มงานใหม่ใน `app/` โดยไม่ถาม Founder ก่อน
 - ยังมี CI job (Flutter analyze/test) เพื่อป้องกัน regression
 
-### Wynos Android Native (`android/`)
+### Wynos Android Native (`android/`) — พักการพัฒนา
 
+- **Founder สั่งพักการพัฒนาตั้งแต่ 2026-10-10** ห้ามเริ่มงานใหม่ใน `android/` หรือสั่ง Android release โดยไม่ถาม Founder ก่อน
 - Kotlin + Jetpack Compose (ไม่ใช้ TWA/PWA/WebView) และใช้ backend เดียวกับเว็บ (Founder decision 2026-09-27)
 - applicationId `io.wyn.wyn`; สถานะตาม `docs/engineering/ANDROID_NATIVE_PLAN.md`: M0 เสร็จ, M1 เสร็จยกเว้น Google sign-in
 - release process อยู่ที่ `docs/engineering/ANDROID_RELEASE.md`
@@ -97,7 +98,7 @@ workflows อื่นที่สำคัญ: browser QA ของ merchant/we
 - `.github/workflows/wyn-158-production-deploy.yml` — deploy WYNOS Web (Next.js) ไป Vercel production; manual `workflow_dispatch`
 - `.github/workflows/deploy-admin.yml` — deploy admin ไป Vercel; manual
 - `.github/workflows/deploy-edge-functions.yml` — ตรวจและ deploy Edge Function ที่เลือก; manual
-- `.github/workflows/android-release.yml` — build Android release bundle; manual
+- `.github/workflows/android-release.yml` — build Android release bundle; manual (พักตาม decision 2026-10-10)
 - `.github/workflows/deploy-web.yml` — deploy Flutter Web แบบเดิม (app track ที่พักไว้)
 - schema/migration workflows แยกตาม task และต้องปฏิบัติตาม approval/deployment records
 - production deployment ต้องผ่าน QA และได้รับคำสั่ง/อนุมัติตาม `.wyn/company/WORKFLOW.md`; ห้ามถือว่า merge เท่ากับ deploy
@@ -109,7 +110,7 @@ workflows อื่นที่สำคัญ: browser QA ของ merchant/we
 |---|---|---|---|
 | WYNOS Web | **Web Beta1** (launch baseline 2026-09-26, PR #725) | **Web Beta2** เฉพาะ developer accounts | `.wyn/company/WEB_VERSION_CONTROL.md` |
 | WYNOS App (Flutter) | **v1.0.0 Beta4** | Beta5 (developer-only) — **พักการพัฒนา** ตั้งแต่ 2026-09-19 | `.wyn/company/VERSION_CONTROL.md` |
-| Wynos Android (native) | ยังไม่มี production release | v1.0.0 Beta 1 | `docs/engineering/ANDROID_NATIVE_PLAN.md` |
+| Wynos Android (native) | ยังไม่มี production release | v1.0.0 Beta 1 — **พักการพัฒนา** ตั้งแต่ 2026-10-10 | `docs/engineering/ANDROID_NATIVE_PLAN.md` |
 
 - `RELEASE_NOTES.md` เก็บ current release summary และ historical Beta1 snapshot
 - Owner เท่านั้นที่ประกาศ version ใหม่หรือสั่ง rollback; agent ห้ามเปลี่ยน version/rollback เอง
@@ -147,7 +148,7 @@ Snapshot ณ 2026-10-10 จาก `.wyn/tasks/`:
 
 1. อ่านเอกสารบังคับทั้งหมดใน `AGENTS.md`
 2. ตรวจ `.wyn/company/CONTEXT.md`, `.wyn/company/DECISIONS.md`, `.wyn/company/VERSION_CONTROL.md` และ `.wyn/company/WEB_VERSION_CONTROL.md`
-3. งานเว็บใหม่ต้องอยู่หลัง Beta2 developer gate ตาม `docs/engineering/WEB_BETA2.md`; ห้ามเริ่มงานใน `app/` โดยไม่ถาม Founder
+3. งานเว็บใหม่ต้องอยู่หลัง Beta2 developer gate ตาม `docs/engineering/WEB_BETA2.md`; ห้ามเริ่มงานใน `app/` หรือ `android/` โดยไม่ถาม Founder
 4. หา Product/Design spec และ task file ที่ตรงกับงาน
 5. ตรวจ Git/PR/deployment state จริงก่อนเปลี่ยนสถานะ task
 6. ทำ smallest safe change, รัน checks ที่เกี่ยวข้อง และส่ง QA ก่อน production
