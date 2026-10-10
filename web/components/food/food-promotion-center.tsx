@@ -72,44 +72,39 @@ export function FoodPromotionCenter({ client, userId }: { client: SupabaseClient
     await markRead(n);
   };
 
-  return <section className="mx-3 mb-3 rounded-2xl border bg-background p-3" aria-label="โปรโมชัน WYNOS Food">
-    <button type="button" className="flex w-full items-center justify-between gap-3 text-left"
-      onClick={() => setOpen(p => !p)} aria-expanded={open}>
-      <span className="flex items-center gap-2 font-semibold">
-        {unread ? <BellRing size={19} /> : <Bell size={19} />}
-        โปรโมชันและข่าวสาร {unread > 0 && <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs text-white">{unread}</span>}
-      </span>
-      <span className="text-sm text-muted-foreground">{open ? "ปิด" : "ดูทั้งหมด"}</span>
+  return <section className="fx-promo-center" aria-label="โปรโมชัน WYNOS Food">
+    <button type="button" className="fx-promo-center-toggle" onClick={() => setOpen(p => !p)} aria-expanded={open}>
+      {unread ? <BellRing size={20} /> : <Bell size={20} />}
+      <span>โปรโมชันและข่าวสาร</span>
+      {unread > 0 ? <i aria-label={`${unread} ข้อความใหม่`}>{unread}</i> : null}
+      <small>{open ? "ปิด" : "ดูทั้งหมด"}</small>
     </button>
-    {open && <div className="mt-3 space-y-3">
-      {rows.length === 0 ? <p className="text-sm text-muted-foreground">ยังไม่มีข้อความโปรโมชัน</p> :
-        rows.map(row => <article key={row.id} className="rounded-lg border p-3">
-          <button type="button" className="w-full text-left" onClick={() => void markRead(row)}>
-            <div className="flex items-center justify-between gap-2">
-              <strong>{row.title}</strong>
-              {!row.read_at && <span className="h-2 w-2 rounded-full bg-red-600" />}
-            </div>
-            <p className="mt-1 text-sm">{row.body}</p>
-            <small className="text-muted-foreground">{new Date(row.created_at).toLocaleDateString("th-TH")}</small>
+    {open && <div className="fx-promo-center-body">
+      {rows.length === 0 ? <p className="fx-empty-line">ยังไม่มีข้อความโปรโมชัน</p> :
+        rows.map(row => <article key={row.id} className="fx-promo-item">
+          <button type="button" onClick={() => void markRead(row)}>
+            <strong>{!row.read_at ? <i aria-label="ยังไม่อ่าน" /> : null}{row.title}</strong>
+            <p>{row.body}</p>
+            <small>{new Date(row.created_at).toLocaleDateString("th-TH")}</small>
           </button>
-          {row.coupon_code && <button type="button" className="mt-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+          {row.coupon_code && <button type="button" className="fx-btn fx-btn--outline fx-btn--sm"
             onClick={() => void applyPromoCode(row)}><Copy size={14}/>{row.coupon_code} · ใช้โค้ดนี้</button>}
         </article>)}
-      <div className="space-y-2 rounded-lg bg-muted p-3">
-        <strong className="text-sm">ตั้งค่าการรับโปรโมชัน</strong>
-        <label className="flex items-center justify-between gap-2 text-sm">
+      <div className="fx-promo-settings">
+        <strong>ตั้งค่าการรับโปรโมชัน</strong>
+        <label>
           ข่าวสารภายใน WYNOS Food
           <input type="checkbox" disabled={busy} checked={inAppMarketing}
             onChange={e => void preferences(pushMarketing,e.target.checked)} />
         </label>
-        <label className="flex items-center justify-between gap-2 text-sm">
+        <label>
           Push โปรโมชั่น (ไม่รวมแจ้งเตือนออเดอร์)
           <input type="checkbox" disabled={busy} checked={pushMarketing}
             onChange={e => void preferences(e.target.checked,inAppMarketing)} />
         </label>
-        <p className="text-xs text-muted-foreground">การปิดโปรโมชันไม่กระทบการแจ้งเตือนคำสั่งซื้อของร้านค้า</p>
+        <p>การปิดโปรโมชันไม่กระทบการแจ้งเตือนคำสั่งซื้อของร้านค้า</p>
       </div>
-      {notice && <p role="status" className="flex items-center gap-1 text-sm"><Check size={14}/>{notice}</p>}
+      {notice && <p role="status" className="fx-promo-notice"><Check size={14}/>{notice}</p>}
     </div>}
   </section>;
 }
