@@ -341,7 +341,8 @@
   gap: 12px;
   width: 100%;
   min-height: 72px;
-  padding: 12px 16px;
+  /* Keep wrapped daily prompts below the 75px release limit at 390px. */
+  padding: 8px 16px;
   border-bottom: 1px solid var(--wyn-border);
   background: var(--wyn-bg);
   color: var(--wyn-text-secondary);
