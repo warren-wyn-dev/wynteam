@@ -82,6 +82,35 @@ test("Platform coverage advertises Maps and Account without unsafe navigation or
   assert.doesNotMatch(nav, /id: "(?:maps|account)"/, "future services must not enter operational navigation early");
 });
 
+test("Control Map inventories every service without granting planned capabilities", () => {
+  const source = read("../lib/admin-control-catalog.ts");
+  const nav = read("../lib/admin-nav.ts");
+  const page = read("../app/(admin)/control-map/page.tsx");
+  const entries = [...source.matchAll(/^\s*\{ id: "[^"]+", label: "[^"]+", stage: "(existing-route|planned)"[^\n]*\},?$/gm)];
+  assert.ok(entries.length >= 45, "entire WYNOS platform capability inventory is present");
+  const areaIds = [...source.matchAll(/^\s*id: "(social|food|merchant|maps|account|finance|notifications|platform|security)",$/gm)].map((m) => m[1]);
+  assert.equal(new Set(areaIds).size, 9, "all nine platform control categories remain present");
+
+  const adminPagesRoot = join(dirname(fileURLToPath(import.meta.url)), "../app/(admin)");
+  for (const entry of entries) {
+    const line = entry[0];
+    if (entry[1] === "planned") {
+      assert.doesNotMatch(line, /\bhref:/, "planned capabilities must not expose active routes");
+    } else {
+      const href = line.match(/\bhref: "(\/[^"]+)"/)?.[1];
+      assert.ok(href, "each existing-route capability must name an actual page");
+      assert.ok(statSync(join(adminPagesRoot, href.slice(1), "page.tsx")).isFile(), href);
+    }
+  }
+
+  assert.match(nav, /href: "\/control-map"/);
+  assert.match(page, /await requireAdminRole\(\)/);
+  assert.match(page, /capability\.stage === "existing-route"/);
+  assert.match(page, /capability\.roles\.includes\(role\)/);
+  assert.match(page, /canOpen && capability\.href/);
+  assert.doesNotMatch(page, /<button\b|<form\b/, "the inventory must not implement privileged write actions");
+});
+
 test("Admin route tree has loading and retry UI and login field labels", () => {
   const login = read("../app/login/login-form.tsx");
   const error = read("../app/(admin)/error.tsx");
