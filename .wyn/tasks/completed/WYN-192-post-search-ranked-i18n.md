@@ -1,6 +1,6 @@
 # WYN-192 — Ranked bilingual Post Search
 
-Status: Active
+Status: Completed — closed by Founder 2026-10-10 ("ปิดจบทุกงาน"); production migration `20260929140657_web_post_search_ranked_i18n` applied.
 Date: 2026-09-29
 Owner: WYN Engineering
 Platform: WYNOS Web
