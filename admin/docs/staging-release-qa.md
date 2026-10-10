@@ -20,6 +20,16 @@ Production `admin.wynos.online` domain attachment is a separate infrastructure c
 Release gates remain: current PR-head CI, isolated staging with `profiles.platform_role`, authenticated Admin/Moderator/User role tests, responsive browser QA, correct Admin Preview, and rollback plan.
 Do not use Production or Stripe Sandbox as staging. No Supabase migration, PR merge, domain mutation or Production deployment is authorized by this PR update.
 
+## Full-coverage Central Control follow-up (2026-10-10)
+
+Founder scope is **every WYNOS service and administrative detail**, implemented via reviewed capabilities, not unlimited staff privilege.
+See [Central Control master specification](./central-control-master-spec.md) for service-by-service inventory, role/approval matrix, API contracts, auditing, staging release gates and rollout.
+
+New read-only `/control-map` shows existing Admin routes and planned capabilities.
+Only authorized existing routes create clickable links; planned capabilities are not granted, triggered or linked.
+The route is protected by server-side `requireAdminRole()` and is included in guest smoke tests.
+**This is a roadmap and inventory feature, not the complete administrative backend.**
+
 ## Current environment findings (2026-10-09)
 
 | Area | Observed condition | Release gate |
@@ -114,7 +124,7 @@ other person's data. Only Admin may see customer payment/contact details.
 ## What CI can and cannot prove now
 
 CI: `npm run lint`, `npm run test:workspaces`, TypeScript, offline
-`next build`, an anonymous **20-route** redirect smoke, plus the existing
+`next build`, an anonymous **21-route** redirect smoke, plus the existing
 Flutter/Edge/PostgreSQL checks. This checks code and guest routing; it is
 **not** evidence of real signed-in QA or Production health. The backend,
 auth-provider and responsive viewport checks above require isolated staging.
