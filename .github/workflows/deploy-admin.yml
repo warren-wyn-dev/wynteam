@@ -25,9 +25,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: admin
+    # Runs from the repository root: the pinned Vercel project's Root Directory
+    # setting is `admin`, which Vercel resolves relative to where the CLI runs.
+    # Running inside admin/ made it look for admin/admin and fail.
     env:
       # Exact existing WYNOS Admin project, verified against the Vercel project API.
       # These public IDs scope the deployment without an untracked .vercel/project.json.
