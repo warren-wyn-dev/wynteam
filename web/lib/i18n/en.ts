@@ -2852,6 +2852,14 @@ Object.assign(EN_EXACT, {
   "กำลังตั้งค่าการรับชำระเงิน กรุณาลองใหม่อีกครั้งในอีกสักครู่": "Payment setup is in progress. Please try again shortly",
   "เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง": "Couldn't open payout settings. Please try again",
   "ขอคืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง": "Couldn't request a refund. Please try again",
+  "บันทึกลำดับเรียบร้อยแล้ว": "Menu order saved",
+  "บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง": "Could not save. Please try again",
+  "ออกจากโหมดจัดเรียง": "Exit sorting mode",
+  "จัดเรียงด้วยนิ้ว": "Sort by touch",
+  "แตะและลากรายการอาหารทั้งแถวเพื่อจัดลำดับภายในหมวดหมู่": "Touch and drag a whole menu row to reorder items within the category",
+  "แตะและลากแถบชื่อหมวดหมู่เพื่อเปลี่ยนลำดับทั้งกลุ่ม": "Touch and drag a category header to reorder the entire group",
+  "กำลังบันทึก...": "Saving...",
+  "บันทึกลำดับ": "Save order",
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [

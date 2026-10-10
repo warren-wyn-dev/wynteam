@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import ts from "typescript";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { orderDeliveryProof } from "../../lib/food-delivery-proof";
@@ -242,7 +243,8 @@ test("Merchant production readiness suite covers hours, publish gate, ETA, order
   expect(app).toContain("ปิดชั่วคราว");
   expect(app).toContain("Preview หน้าร้าน");
   expect(app).toContain("หมดวันนี้");
-  expect(app).toContain("draggable={sortMode && !q}");
+  expect(app).toContain('useMerchantTouchDrag(sortAreaRef, sortMode && !q');
+  expect(app).toContain("onClick={() => void saveSort()}");
   expect(app).toContain("wm-menu-toolbar");
   expect(app).toContain("ทุกหมวดหมู่");
   expect(app).toContain("wm-menu-action-popover");
@@ -825,4 +827,144 @@ test("Merchant payment onboarding stays WYNOS-first across the browser matrix", 
   await page.goto("/merchant/login");
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
   await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
+});
+
+
+test("Merchant iPhone direct-touch sorting uses separate scoped drafts with explicit save/cancel", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const touch = read("components/merchant/use-touch-reorder.ts");
+  const css = read("app/merchant/merchant.css");
+  const data = read("lib/food-merchant.ts");
+
+  expect(app).toContain('useMerchantTouchDrag(sortAreaRef, sortMode && !q');
+  expect(app).toContain('setSortScope("items")');
+  expect(app).toContain('setSortScope("categories")');
+  expect(app).toContain('setDraftItemOrder(next)');
+  expect(app).toContain('setDraftCategoryOrder(next)');
+  expect(app).toContain('onClick={() => void saveSort()}');
+  expect(app).toContain('onClick={cancelSort}');
+  expect(app).toContain('if (itemsChanged) await onReorder(draftItemOrder)');
+  expect(app).toContain('if (catsChanged) await onCategoryOrder(draftCategoryOrder)');
+  const menuPanel = app.slice(app.indexOf("function MenuPanel("), app.indexOf("/** WYN-205:"));
+  expect(menuPanel).not.toContain("GripVertical");
+  expect(app).not.toContain("wm-menu-category-mark");
+  expect(touch).toContain('addEventListener("touchstart", onTouchStart, { passive: false })');
+  expect(touch).toContain('addEventListener("touchmove", onTouchMove, { passive: false })');
+  expect(touch).toContain('addEventListener("touchcancel", onTouchCancel, { passive: false })');
+  expect(touch).toContain("if (hadChanged) onCancelled()");
+  expect(touch).toContain('scope === "items" && !list.classList.contains("wm-menu-list")');
+  expect(css).toContain("touch-action: none;");
+  expect(css).toContain(".wm-touch-drag-ghost");
+  expect(data).toContain('update({ sort_order: index }).eq("id", id).eq("store_id", storeId)');
+  expect(data).toContain('update({ menu_category_order: unique }).eq("id", storeId)');
+});
+
+
+test("Merchant native touch input actually reorders rows/categories and handles cancellation", async ({ page }) => {
+  // Execute the actual hook source in a small browser fixture, not a rewritten
+  // imitation. useEffect is given a minimal mount adapter for this DOM-level QA.
+  const hookSource = read("components/merchant/use-touch-reorder.ts")
+    .replace('"use client";', "")
+    .replace('import { useEffect, type RefObject } from "react";', "")
+    .replace("export function useMerchantTouchDrag(", "function useMerchantTouchDrag(");
+  const browserSource = ts.transpileModule(
+    `function useEffect(fn) { window.__cleanupMerchantSort = fn(); }\n${hookSource}`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } },
+  ).outputText;
+
+  await page.setContent(`
+    <style>
+      body { margin: 0; }
+      .wm-menu-category-heading { height: 60px; }
+      .wm-menu-row { display: block; height: 100px; }
+      .wm-menu-list, .wm-menu-categories { display: block; }
+    </style>
+    <div id="merchant-sort-root" class="wm-menu-categories">
+      <section class="wm-menu-category" data-wm-category="Meals">
+        <div class="wm-menu-category-heading">Meals</div>
+        <div class="wm-menu-list">
+          <article class="wm-menu-row" data-wm-item="a">A</article>
+          <article class="wm-menu-row" data-wm-item="b">B</article>
+          <article class="wm-menu-row" data-wm-item="c">C</article>
+        </div>
+      </section>
+      <section class="wm-menu-category" data-wm-category="Drinks">
+        <div class="wm-menu-category-heading">Drinks</div>
+        <div class="wm-menu-list">
+          <article class="wm-menu-row" data-wm-item="d">D</article>
+        </div>
+      </section>
+    </div>
+  `);
+  await page.addScriptTag({ content: browserSource });
+  await page.evaluate(`
+    window.__merchantSortRecords = [];
+    window.__merchantSortCancels = 0;
+    window.__merchantSortStart = (scope, active = true) => {
+      if (window.__cleanupMerchantSort) window.__cleanupMerchantSort();
+      useMerchantTouchDrag(
+        { current: document.getElementById("merchant-sort-root") }, active, scope, 0,
+        (ids, category) => window.__merchantSortRecords.push({ ids, category }),
+        () => { window.__merchantSortCancels += 1; },
+      );
+    };
+    window.__merchantSortGesture = (sourceSelector, destinationSelector, endType = "touchend") => {
+      const source = document.querySelector(sourceSelector);
+      const destination = document.querySelector(destinationSelector);
+      const src = source.getBoundingClientRect();
+      const dst = destination.getBoundingClientRect();
+      const x = src.left + Math.min(15, src.width / 2);
+      const from = src.top + src.height / 2;
+      const to = dst.top + Math.min(12, dst.height / 3);
+      const send = (type, y) => {
+        // WebKit does not expose a constructible Touch in every test context.
+        // A touch-shaped event exercises the same native listener and TouchList
+        // contract in Chromium and WebKit without browser-only constructors.
+        const touch = { identifier: 9, target: source, clientX: x, clientY: y };
+        const isEnd = type === "touchend" || type === "touchcancel";
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperties(event, {
+          touches: { value: isEnd ? [] : [touch] },
+          targetTouches: { value: isEnd ? [] : [touch] },
+          changedTouches: { value: [touch] },
+        });
+        (type === "touchstart" ? source : window).dispatchEvent(event);
+      };
+      send("touchstart", from);
+      send("touchmove", to);
+      send(endType, to);
+    };
+    window.__merchantSortStart("items");
+  `);
+  await page.evaluate('window.__merchantSortGesture(\'[data-wm-item="b"]\', \'[data-wm-item="a"]\')');
+  await expect.poll(() => page.evaluate('JSON.stringify(window.__merchantSortRecords)'))
+    .toBe(JSON.stringify([{ ids: ["b", "a", "c"], category: "Meals" }]));
+
+  // A category drop moves the header and the entire category section.
+  await page.evaluate(`
+    window.__merchantSortRecords = [];
+    window.__merchantSortStart("categories");
+    window.__merchantSortGesture('[data-wm-category="Drinks"] .wm-menu-category-heading',
+      '[data-wm-category="Meals"] .wm-menu-category-heading');
+  `);
+  await expect.poll(() => page.evaluate('JSON.stringify(window.__merchantSortRecords)'))
+    .toBe(JSON.stringify([{ ids: ["Drinks", "Meals"] }]));
+
+  // System touchcancel must never call onReordered. React receives a cancel
+  // callback and remounts its original draft order after the interrupted move.
+  await page.evaluate(`
+    window.__merchantSortRecords = [];
+    window.__merchantSortStart("items");
+    window.__merchantSortGesture('[data-wm-item="c"]', '[data-wm-item="a"]', "touchcancel");
+  `);
+  await expect.poll(() => page.evaluate('JSON.stringify({ records: window.__merchantSortRecords, cancelled: window.__merchantSortCancels })'))
+    .toBe(JSON.stringify({ records: [], cancelled: 1 }));
+
+  // Sorting outside the explicit mode must not attach an active listener.
+  await page.evaluate(`
+    window.__merchantSortRecords = [];
+    window.__merchantSortStart("items", false);
+    window.__merchantSortGesture('[data-wm-item="a"]', '[data-wm-item="c"]');
+  `);
+  expect(await page.evaluate('window.__merchantSortRecords.length')).toBe(0);
 });
