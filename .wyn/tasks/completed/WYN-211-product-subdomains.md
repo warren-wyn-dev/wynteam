@@ -1,6 +1,6 @@
 # Product Task — WYN-211 — WYNOS product subdomains
 
-Status: active — Founder requested production routing on 2026-10-04.
+Status: Completed — closed by Founder 2026-10-10. Verified 2026-10-10: https://food.wynos.online → 200 "WYNOS Food • สั่งอาหาร", https://merchant.wynos.online → 200 "WYNOS Merchant | ระบบร้านอาหาร WYNOS", https://maps.wynos.online → 307 to /maps.
 
 ## Scope
 

@@ -1,6 +1,6 @@
 # WYN-191 — People Search Ranking + Thai/English
 
-Status: Active
+Status: Completed — closed by Founder 2026-10-10 ("ปิดจบทุกงาน"); production migration applied and production probes passed (see below).
 Date: 2026-09-29
 Owner: WYN Engineering
 Platform: WYNOS Web

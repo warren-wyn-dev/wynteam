@@ -1,6 +1,6 @@
 # Product Task — WYN-112
 
-Status: active — root cause **ระบุแล้วและแก้+deploy จริงแล้ว** (`WYN-114`, 2026-09-06), รอ Founder แชร์ลิงก์ใหม่แล้วดูผล signup รอบถัดไปก่อนปิดงาน
+Status: Completed — closed by Founder 2026-10-10 ("ปิดจบทุกงาน"). Root cause fixed and production-verified via WYN-114 (2026-09-06); the follow-up signup observation was not recorded here.
 Owner: AI Product Manager
 Feature: Activation Funnel Investigation (สมัครเยอะแต่ engagement เป็นศูนย์)
 Goal: หา root cause จริงจากข้อมูล ว่าผู้ใช้ที่สมัครจากลิงก์ที่แชร์ในกลุ่ม/โซเชียลกว้างๆ หลุดออกจาก funnel ตรงจุดไหนกันแน่ (สมัครไม่เสร็จ / สมัครเสร็จแต่ไม่เปิดแอปอีกเลย / เปิดแอปแต่ไม่กด action ใดๆ เลย) แทนที่จะเดา ก่อนตัดสินใจลงทุนแก้ onboarding หรือเปลี่ยนช่องทางเพิ่มเติม
