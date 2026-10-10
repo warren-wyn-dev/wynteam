@@ -25,7 +25,7 @@ It does not give an operator new powers by reorganizing navigation.
 Do not present planned services as operational, or present service-only metrics as cross-platform totals.
 Production `admin.wynos.online` domain attachment is a separate infrastructure change; a READY Vercel Preview does not prove the custom domain is configured.
 
-Release gates remain: current PR-head CI, isolated staging with `profiles.platform_role`, authenticated Admin/Moderator/User role tests, responsive browser QA, correct Admin Preview, and rollback plan.
+Release gates remain: current PR-head CI, isolated local Supabase/Auth role tests with `profiles.platform_role` (or no-cost isolated staging), Admin/Moderator/User browser QA, responsive checks, hosted environment review where available, and rollback plan.
 Do not use Production or Stripe Sandbox as staging. No Supabase migration, PR merge, domain mutation or Production deployment is authorized by this PR update.
 
 ## Full-coverage Central Control follow-up (2026-10-10)
@@ -44,7 +44,7 @@ The route is protected by server-side `requireAdminRole()` and is included in gu
 | --- | --- | --- |
 | Admin Vercel Preview | A prior build was READY at an older commit; subsequent builds may hit Hobby quota | Build and verify **exact PR head** |
 | Admin Preview backend | Configured to Stripe Sandbox `pcatuxtenluqzjzzwsvl` | **Incorrect** for Admin login: `profiles.platform_role` missing |
-| WYNOS Web Beta 2 Staging | Project `yydgdapzlrjmlrjgijkj` is INACTIVE | Activate **only with explicit cost/capacity approval**, then verify schema and safe QA user fixtures |
+| WYNOS Web Beta 2 Staging | Project `yydgdapzlrjmlrjgijkj` is INACTIVE/inaccessible | Do not upgrade or pause active projects; use separate free local Supabase QA until a legitimate no-cost isolated option exists |
 | WYNOS Production backend | Project `kqokpocajhfbidcxpvhh` is ACTIVE | **Do not use** to test Admin Preview; preserve all live data |
 | Security QA PR #1051 | Separate, draft; tests isolated; migrations un-applied | Review independently and do not apply on Production during UI QA |
 
@@ -135,7 +135,7 @@ CI: `npm run lint`, `npm run test:workspaces`, TypeScript, offline
 `next build`, an anonymous **21-route** redirect smoke, plus the existing
 Flutter/Edge/PostgreSQL checks. This checks code and guest routing; it is
 **not** evidence of real signed-in QA or Production health. The backend,
-auth-provider and responsive viewport checks above require isolated staging.
+auth-provider and responsive viewport checks above require an isolated local Supabase Auth stack or available no-cost staging. Hosted Preview and DNS still need separate verification.
 
 ## Security PR #1051 — intentionally separate
 
