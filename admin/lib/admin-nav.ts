@@ -13,6 +13,7 @@ import {
   BadgeDollarSign,
   BellRing,
   MapPinned,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,6 +45,8 @@ export type AdminNavItem = {
    * enforces its own role check server-side.
    */
   adminOnly?: boolean;
+  /** Shown only to the WYN-219 super admin (navigation only, as above). */
+  superAdminOnly?: boolean;
   /** The task that will fill this page in -- shown on its placeholder. */
   task: string;
   feature: string;
@@ -64,10 +67,13 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/merchants", label: "Merchant Applications", icon: Store, group: "merchant", task: "MERCHANT", feature: "Merchant Application Review" },
   { href: "/maps/places", label: "Places", icon: MapPinned, group: "maps", task: "WYN-219", feature: "WYNOS Places Manager" },
   { href: "/audit-log", label: "Audit Log", icon: ScrollText, group: "system", task: "WYN-054", feature: "Audit Log" },
+  { href: "/team", label: "Team Permissions", icon: KeyRound, group: "system", superAdminOnly: true, task: "WYN-219", feature: "Team Permissions" },
 ];
 
-export function adminNavItemsForRole(role: AdminRole): AdminNavItem[] {
-  return ADMIN_NAV_ITEMS.filter((item) => role === "admin" || !item.adminOnly);
+export function adminNavItemsForRole(role: AdminRole, superAdmin = false): AdminNavItem[] {
+  return ADMIN_NAV_ITEMS.filter(
+    (item) => (role === "admin" || !item.adminOnly) && (superAdmin || !item.superAdminOnly),
+  );
 }
 
 /**

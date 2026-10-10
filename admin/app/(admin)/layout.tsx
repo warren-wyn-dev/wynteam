@@ -1,5 +1,6 @@
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { AdminHeader } from "@/components/admin/header";
+import { fetchAdminAccess } from "@/lib/admin-permissions";
 import { requireAdminRole } from "@/lib/auth";
 
 import { signOutAction } from "./actions";
@@ -13,6 +14,7 @@ import { signOutAction } from "./actions";
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { email, role } = await requireAdminRole();
+  const access = await fetchAdminAccess();
 
   return (
     <div className="flex min-h-screen min-w-0 bg-muted/30">
@@ -22,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       >
         ข้ามไปยังเนื้อหาหลัก
       </a>
-      <AdminSidebar role={role} />
+      <AdminSidebar role={role} superAdmin={access.superAdmin} />
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminHeader email={email} role={role} signOutAction={signOutAction} />
         <main
