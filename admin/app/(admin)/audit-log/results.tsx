@@ -1,73 +1,80 @@
-import { fetchAuditLog, type AuditLogEventType } from "@/lib/admin-audit-log";
+import Link from "next/link";
 
-const EVENT_TYPE_LABEL: Record<AuditLogEventType, string> = {
-  moderation_action_applied: "ดำเนินการตาม Report",
-  appeal_decided: "ตัดสินการอุทธรณ์",
-  system_notification_sent: "ส่งแจ้งเตือนระบบ (รายคน)",
-  account_deleted: "ลบบัญชี",
-  data_exported: "ส่งออกข้อมูล",
-  admin_user_action_applied: "ดำเนินการผู้ใช้โดยตรง",
-  admin_user_unbanned: "ยกเลิกบล็อกผู้ใช้",
-  admin_content_removed: "ลบเนื้อหา (Admin)",
-  admin_content_restored: "กู้คืนเนื้อหา (Admin)",
-  admin_announcement_sent: "ส่งประกาศ",
-  admin_inactive_reminder_sent: "เตือนผู้ใช้ที่ไม่ได้ใช้งาน",
-};
+import { fetchAuditLogPage, type AuditLogFilters } from "@/lib/admin-audit-log";
+import { AUDIT_EVENT_LABELS } from "@/lib/audit-log-labels";
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("th-TH", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+  return new Date(iso).toLocaleString("th-TH", {
+    timeZone: "Asia/Bangkok",
+    dateStyle: "medium",
+    timeStyle: "medium",
   });
 }
 
-export async function AuditLogResults({ eventType }: { eventType?: AuditLogEventType }) {
-  const rows = await fetchAuditLog(eventType);
-
-  if (rows.length === 0) {
-    return <p className="p-6 text-center text-muted-foreground">ไม่มีรายการในหมวดนี้</p>;
+export async function AuditLogResults({ filters }: { filters: AuditLogFilters }) {
+  let data;
+  try {
+    data = await fetchAuditLogPage(filters);
+  } catch {
+    return (
+      <div role="status" className="rounded-xl border bg-background p-5 text-sm text-muted-foreground">
+        ไม่สามารถโหลดประวัติการดำเนินงานได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง
+      </div>
+    );
   }
 
+  const { rows, nextCursor } = data;
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-xl border bg-background p-6 text-center text-sm text-muted-foreground">
+        ไม่มีประวัติที่ตรงกับตัวกรองนี้
+      </div>
+    );
+  }
+
+  const params = new URLSearchParams();
+  if (filters.eventType) params.set("event_type", filters.eventType);
+  if (filters.actorId) params.set("actor_id", filters.actorId);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (nextCursor) params.set("cursor", nextCursor);
+
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="border-b bg-muted/40 text-left text-muted-foreground">
-          <tr>
-            <th className="px-4 py-2 font-medium">ผู้ดำเนินการ</th>
-            <th className="px-4 py-2 font-medium">เหตุการณ์</th>
-            <th className="px-4 py-2 font-medium">Target ID</th>
-            <th className="px-4 py-2 font-medium">รายละเอียด</th>
-            <th className="px-4 py-2 font-medium">เวลา</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b align-top last:border-0">
-              <td className="px-4 py-2">{row.actor_username_snapshot ?? "—"}</td>
-              <td className="px-4 py-2">{EVENT_TYPE_LABEL[row.event_type] ?? row.event_type}</td>
-              <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
-                {row.target_id ?? "—"}
-              </td>
-              <td className="px-4 py-2">
-                {row.detail ? (
-                  <pre className="max-w-md overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">
-                    {JSON.stringify(row.detail, null, 2)}
-                  </pre>
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
-                {formatDate(row.created_at)}
-              </td>
+    <section aria-label="ผลลัพธ์ประวัติการดำเนินงาน" className="flex flex-col gap-3">
+      <div className="min-w-0 overflow-x-auto rounded-xl border bg-background">
+        <table className="w-full min-w-[700px] text-sm">
+          <thead className="border-b bg-muted/40 text-left text-muted-foreground">
+            <tr>
+              <th scope="col" className="px-4 py-3 font-medium">เจ้าหน้าที่</th>
+              <th scope="col" className="px-4 py-3 font-medium">เหตุการณ์</th>
+              <th scope="col" className="px-4 py-3 font-medium">รหัสเป้าหมาย</th>
+              <th scope="col" className="px-4 py-3 font-medium">วันที่และเวลา (ไทย)</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} className="border-b align-top last:border-b-0 hover:bg-accent/40">
+                <td className="px-4 py-3">
+                  <span className="font-medium">{row.actor_username_snapshot ?? "ไม่ระบุ"}</span>
+                </td>
+                <td className="px-4 py-3">{AUDIT_EVENT_LABELS[row.event_type] ?? row.event_type}</td>
+                <td className="max-w-48 break-all px-4 py-3 font-mono text-xs text-muted-foreground">{row.target_id ?? "—"}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{formatDate(row.created_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          แสดง {rows.length} รายการในหน้านี้ · ไม่แสดงรายละเอียดดิบที่อาจมีข้อมูลส่วนตัว
+        </p>
+        {nextCursor ? (
+          <Link href={`/audit-log?${params.toString()}`} className="inline-flex min-h-11 items-center rounded-lg border bg-background px-4 text-sm font-medium hover:bg-accent">
+            รายการเก่ากว่า →
+          </Link>
+        ) : <span className="text-xs text-muted-foreground">สิ้นสุดรายการ</span>}
+      </div>
+    </section>
   );
 }
