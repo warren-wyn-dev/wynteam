@@ -62,7 +62,7 @@ Do not make each screen write directly to arbitrary tables. Use auditable server
 ## 5. Security, operations, availability
 
 - Test anonymous, regular user, moderator, admin, revoked admin, unexpected role, stale session, direct RPC access and cross-tenant writes in isolated PostgreSQL and browser QA.
-- Verify real signed-in Admin and Moderator sessions on **isolated** staging. Production and Stripe Sandbox are not substitutes. Staging presently blocked by the two-active-project Supabase Free limit; do not pause either without explicit Founder approval.
+- Verify signed-in Admin, Moderator, User and revoked-role sessions with synthetic users on an **isolated local Supabase Auth stack** (or separately approved no-cost isolated staging). Production and Stripe Sandbox are not substitutes. Founder approved **free-only** infrastructure: do not pause either active project, upgrade plans or incur spending. See [free-only QA runbook](./free-only-qa-plan.md).
 - Require current head lint, TypeScript, unit, permissions, Next.js build, guest protection, responsive mobile/browser and integration tests. GitHub CI green is **not** equal to integrated authenticated staging QA.
 - Separate Admin Vercel project and `admin.wynos.online` verified DNS/domain attachment; configure intended rootDirectory, protected Preview and health/smoke routes. Record exact deployment SHAs, approval, flags and rollback.
 - Do not import QA-only integration branch #1062 into Production. Review individually: #1053 workspaces, #1051 staff/security, #1055-#1061 operational slices, #1063 account evidence, #1028 finance, #1040 webhook hardening.
@@ -98,7 +98,7 @@ For each capability, mark exact state `planned -> backend ready -> UI ready -> i
 - [ ] Each high-impact mutation is server-authorized, reasoned, idempotent and auditable.
 - [ ] Payments/refunds have provider reconciliation and approval gates; negative/duplicate/replayed tests pass.
 - [ ] Flagged or unavailable services show truthful "not enabled" state—not fake success.
-- [ ] Authenticated Admin, Moderator, regular user and revoked-role browser flows tested on isolated staging.
+- [ ] Authenticated Admin, Moderator, regular user and revoked-role browser flows tested using isolated local Supabase or no-cost isolated staging; separately verify any remaining hosted environment gaps.
 - [ ] Mobile UI at 320/390/768/1440px, Thai/English and accessibility reviewed.
 - [ ] `admin.wynos.online` domain is attached, protected and production smoke-tested independently.
 - [ ] Launch, audit, alerting and rollback are documented with exact Production deployment artifacts.
