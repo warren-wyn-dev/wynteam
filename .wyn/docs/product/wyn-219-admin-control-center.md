@@ -1,6 +1,6 @@
 # Product Spec — WYN-219 WYNOS Admin Control Center (Admin ควบคุมได้ทุกระบบ)
 
-Status: **draft — รอ Founder อนุมัติ PRD** (Phase 1 เริ่ม design/coding ได้หลังอนุมัติ; Phase 2 ต้องอนุมัติ architecture proposal แยกอีกครั้ง)
+Status: **Phase 1 approved by the Founder** (AskUserQuestion 2026-10-10: "อนุมัติ เริ่มเลย"). Phase 2 ต้องอนุมัติ architecture proposal แยกอีกครั้ง
 Source: Founder request (2026-10-10): "จะมี WYNOS Admin / WYNOS Account / WYNOS Food / WYNOS Merchant / WYNOS Maps หัวข้อหลักๆ อยากให้ระบบ Admin ควบคุมได้ทุกระบบ"
 Founder scope decisions (AskUserQuestion, 2026-10-10):
 - **WYNOS Social แยกเป็นหัวข้อของตัวเอง** ใน Admin (ไม่รวมใต้ Account)
@@ -37,11 +37,11 @@ Goal: เปิด Admin แล้วเห็นทันทีว่าแต�
    - **ภาพรวม:** Dashboard
    - **WYNOS Account:** User Management
    - **WYNOS Social:** Content Moderation, Report Center, Announcements
-   - **WYNOS Food:** Stores & Orders, Coupons, Campaigns, Ads, Promo Notifications
+   - **WYNOS Food:** Stores, Orders, Coupons, Campaigns, Ads, Promo Notifications
    - **WYNOS Merchant:** Merchant Applications
    - **WYNOS Maps:** Places (หน้าเดียวกับ `/food/places` ปัจจุบัน)
    - **ระบบ:** Audit Log
-2. หน้า Places ต้องเข้าได้จากหัวข้อ Maps; URL เดิม `/food/places` ต้องยังใช้ได้ (redirect ไป path ใหม่ หรือคง path เดิมไว้ — ให้ Architect ตัดสิน) เพื่อไม่ทำลาย bookmark/ลิงก์เดิม
+2. หน้า Places ต้องเข้าได้จากหัวข้อ Maps; URL เดิม `/food/places` ต้องยังใช้ได้ เพื่อไม่ทำลาย bookmark/ลิงก์เดิม (implemented: ย้ายไป `/maps/places` และ `/food/places` redirect แบบ 307 พร้อม query string)
 3. เมนูย่อยของ Food ที่ตอนนี้เป็นปุ่มในหน้า `/food` ต้องเข้าถึงได้จาก sidebar โดยตรง
 4. รายการที่ moderator เข้าไม่ได้วันนี้ ต้องยังเข้าไม่ได้ (ไม่ขยายสิทธิ์) — ถ้าเมนูนั้น moderator ใช้ไม่ได้ ให้ซ่อนจาก sidebar ของ moderator
 5. Mobile-first: บนจอ 390px sidebar ยังใช้งานได้ (drawer/collapse ตาม pattern เดิม), ปุ่มสูงอย่างน้อย 44px, หัวกลุ่มอ่านได้ทั้งธีมสว่าง/เข้ม (ถ้ามี)
@@ -72,10 +72,10 @@ Goal: ทีมแต่ละระบบเข้าได้เฉพาะ�
 5. การให้/ถอนสิทธิ์ทุกครั้งบันทึกลง Audit Log (ใคร, ให้ใคร, ระบบไหน, เมื่อไร)
 6. ห้าม admin ถอนสิทธิ์ super admin คนสุดท้าย
 
-### คำถามที่ต้องให้ Founder ตอบก่อน Phase 2
-- ใครคือ super admin เริ่มต้น
-- ภายในแต่ละระบบต้องแยกระดับ "ดูอย่างเดียว" กับ "แก้ไขได้" หรือไม่
-- Moderator เดิมจะถูก map เป็นสิทธิ์ Social เท่านั้นหรือไม่
+### Founder answers (AskUserQuestion, 2026-10-10)
+- **Super admin เริ่มต้น: Founder คนเดียว** — ให้สิทธิ์คนอื่นภายหลัง
+- **แยกระดับ "ดูอย่างเดียว" กับ "แก้ไขได้"** ในแต่ละระบบ
+- Moderator เดิมจะได้สิทธิ์อะไร: **ยังไม่ได้คำตอบ** (Founder ขอคำอธิบายเพิ่ม) — ต้องถามใหม่ก่อน Architect ออกแบบ mapping
 
 ---
 

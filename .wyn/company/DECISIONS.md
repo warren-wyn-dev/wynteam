@@ -2176,3 +2176,11 @@ Founder ตัดสินใจ (AskUserQuestion, 2026-10-10):
 - **เริ่มจากจัดเมนู Admin เป็นหัวข้อหลักก่อน** (Phase 1, ไม่แตะสิทธิ์/DB)
 
 PRD: `.wyn/docs/product/wyn-219-admin-control-center.md` (draft, รอ Founder อนุมัติ) · Task: `.wyn/tasks/backlog/WYN-219-admin-control-center.md`
+
+## [2026-10-10] WYN-219 — Founder อนุมัติ Phase 1 และตอบคำถาม Phase 2
+
+Founder ตอบ (AskUserQuestion, 2026-10-10):
+- **อนุมัติ PRD Phase 1** (จัดเมนู Admin เป็นหัวข้อหลัก ไม่เปลี่ยนสิทธิ์/ไม่แตะ DB) — "อนุมัติ เริ่มเลย"
+- **Super admin เริ่มต้นคือ Founder คนเดียว**
+- **แยกสิทธิ์ "ดูอย่างเดียว" กับ "แก้ไขได้"** ในแต่ละระบบ
+- สิทธิ์ของ moderator เดิมในระบบใหม่: Founder ตอบว่า "ข้อนี้งง" — ยังไม่มีคำตัดสิน ต้องอธิบายและถามใหม่ก่อนออกแบบ Phase 2

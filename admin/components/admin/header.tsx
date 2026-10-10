@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { ADMIN_NAV_ITEMS } from "@/lib/admin-nav";
+import { findActiveAdminNavItem } from "@/lib/admin-nav";
 import type { AdminRole } from "@/lib/auth";
 
 const ROLE_LABEL: Record<AdminRole, string> = {
@@ -21,7 +21,7 @@ export function AdminHeader({
   signOutAction: () => void;
 }) {
   const pathname = usePathname();
-  const title = ADMIN_NAV_ITEMS.find((item) => item.href === pathname)?.label ?? "WYN Admin";
+  const title = findActiveAdminNavItem(pathname)?.label ?? "WYN Admin";
 
   return (
     <header className="sticky top-0 z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur sm:px-6">

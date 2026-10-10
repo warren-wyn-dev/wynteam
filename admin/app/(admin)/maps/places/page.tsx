@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ArrowLeft, MapPinned } from "lucide-react";
+import { MapPinned } from "lucide-react";
 
 import { WynosPlacePhotoReview } from "@/components/admin/wynos-place-photo-review";
 import { WynosPlacesManager } from "@/components/admin/wynos-places-manager";
@@ -26,10 +25,6 @@ export default async function WynosPlacesPage({
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <Link href="/food" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> WYNOS Food
-      </Link>
-
       <section className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <MapPinned className="size-5" />
@@ -38,7 +33,7 @@ export default async function WynosPlacesPage({
         <p className="text-sm text-muted-foreground">จัดการสถานที่สาธารณะ, Merchant Places, Verification และข้อมูลนำเข้าสำหรับ WYNOS Maps</p>
       </section>
 
-      <form action="/food/places" className="grid gap-2 rounded-xl border p-4 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
+      <form action="/maps/places" className="grid gap-2 rounded-xl border p-4 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
         <input name="q" defaultValue={params.q ?? ""} placeholder="ค้นหาชื่อ ที่อยู่ หรือ source ref" className="h-10 rounded-md border bg-background px-3 text-sm" />
         <select name="category" defaultValue={params.category ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
           <option value="">ทุกประเภท</option>
