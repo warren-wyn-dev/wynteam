@@ -1,6 +1,6 @@
 # WYN-219 Phase 2 Step 2 — Admin Check Migration Checklist
 
-Status: **preparation** — ใช้หลังจาก foundation (#1078) ถูก apply กับ production แล้ว
+Status: **preparation** — ใช้หลังจาก foundation (#1078) ถูก apply กับ production แล้ว · production dump ตรวจแล้ว 2026-10-10 (ดูหัวข้อ "Production comparison")
 Spec: `.wyn/docs/engineering/wyn-219-phase2-admin-permissions-proposal.md` (mapping section 3.4, Founder answers Q1–Q3)
 
 ## วิธีใช้
@@ -94,3 +94,15 @@ Spec: `.wyn/docs/engineering/wyn-219-phase2-admin-permissions-proposal.md` (mapp
 Total: 69
 
 > รายการนี้สร้างจาก SQL ใน repository — รายการที่เชื่อถือได้คือ dump จาก production; ถ้า dump มี function ที่ไม่อยู่ในตารางนี้ ต้องเพิ่มก่อนเริ่มระบบนั้น
+
+## Production comparison (2026-10-10)
+
+Dump: `wyn219-dump-admin-check-definitions.yml` run [38059388028](https://github.com/warren-wyn-dev/wynteam/actions/runs/38059388028) (artifact `wyn219-admin-check-definitions`, kept until 2026-11-09) — 60 functions, 7 policies, 3 views
+
+| ผล | Object | ข้อสรุป |
+|---|---|---|
+| **มีใน production แต่ไม่มีใน repo เลย** | `public.admin_activity_trend` | drift: สร้างนอก repo; ตรวจ `not in ('admin','moderator')` → เพิ่มเข้า **ส่วนกลาง: any permission** และต้องเก็บนิยามจาก dump ลง migration ของ step 2 (ไม่มีไฟล์ใน repo ให้อ้างอิง) |
+| มีใน repo inventory แต่ production ไม่อ้าง `platform_role` แล้ว | `public.home_feed`, `public.authors_posting_blocked`, policy `Users can update their own notification settings` | เป็นแถว "not an admin gate" อยู่แล้ว — ตัดออกจากงาน step 2 |
+| ตรงกัน | ที่เหลือทั้งหมด รวม 7 policies (appeals, moderation_actions, profiles insert, storage: appeal evidence, food-private, place photos ×2) | ใช้ mapping ตามตาราง |
+
+ยังไม่มี object ของ WYN-219 foundation ใน production (ถูกต้อง — ยังไม่ apply)
