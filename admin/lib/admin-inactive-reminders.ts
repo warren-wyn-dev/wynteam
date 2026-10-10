@@ -1,4 +1,4 @@
-import { fetchAuditLog } from "@/lib/admin-audit-log";
+import { fetchAdminMessageHistory } from "@/lib/admin-audit-history";
 
 export { INACTIVE_DAY_OPTIONS } from "@/lib/admin-inactive-reminder-options";
 
@@ -13,7 +13,7 @@ export type InactiveReminderHistoryRow = {
 
 /** Sent reminders, read from admin_audit_log like the announcement history. */
 export async function fetchInactiveReminderHistory(): Promise<InactiveReminderHistoryRow[]> {
-  const rows = await fetchAuditLog("admin_inactive_reminder_sent");
+  const rows = await fetchAdminMessageHistory("admin_inactive_reminder_sent");
   return rows.map((row) => {
     const detail = (row.detail ?? {}) as Record<string, unknown>;
     return {
