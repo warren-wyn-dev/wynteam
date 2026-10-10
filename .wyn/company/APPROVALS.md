@@ -604,3 +604,13 @@
   2. Dispatch `merchant-apply-order-reminders.yml` with `APPLY-MERCHANT-REMINDERS`.
 - Rollback: SQL in the migration header (unschedule the job, drop the function and table), and/or revert the PR.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-06
+
+### APPROVAL_REQUIRED — [2026-10-10] WYN-219 Phase 2: Per-system admin permissions
+- Proposed change: เพิ่ม `admin_permissions` (สิทธิ์รายระบบ view/edit) และ `internal.platform_super_admins`, helper `internal.has_admin_permission()` แล้วย้ายจุดตรวจ `platform_role` ~60 จุดใน RPC/RLS ไปใช้ helper ทีละระบบ
+- Reason: Founder ต้องการให้ Admin ควบคุมได้ทุกระบบ โดยแยกสิทธิ์ตามระบบ (decision 2026-10-10)
+- Benefits: least privilege, ทีมแต่ละระบบเห็นเฉพาะงานตัวเอง, ทุกการให้สิทธิ์ถูก audit
+- Risks: privilege escalation หรือ admin lockout ถ้าย้ายผิด; ~60 functions ต้องดึงนิยามจาก production ก่อนแก้
+- Files affected: `supabase/migrations/*` (ใหม่), `supabase/tests/*`, `admin/lib/auth.ts`, `admin/lib/admin-nav.ts`, admin layout/sidebar, หน้าใหม่ "สิทธิ์ทีมงาน"
+- Recommendation: อนุมัติหลังตอบ Q1–Q3 ใน `.wyn/docs/engineering/wyn-219-phase2-admin-permissions-proposal.md`; rollout 3 ขั้น แยก PR ต่อระบบ
+- สถานะ: อนุมัติแล้ว ("อนุมัติ เริ่มขั้นที่ 1") พร้อมคำตอบ Q1: admin อื่นไม่ได้สิทธิ์, Q2: การแบนเป็นของ Social, Q3: audit log เฉพาะ super admin — การ apply production แต่ละขั้นต้องขออนุมัติแยก
+- วันที่ตัดสินใจ: 2026-10-10

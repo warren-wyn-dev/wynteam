@@ -2151,3 +2151,45 @@ Founder สั่งชัดเจนว่า **"อยากให้ฟั�
 การเปิดใช้งานครั้งนี้เป็นการปลด **product rollout gate** เท่านั้น ไม่ลดทอน authentication, RLS, ownership,
 Club membership/role, moderation, block/mute หรือ privacy checks เดิม และ Club Announcement notification
 fan-out ยังไม่เพิ่มจนกว่าจะรองรับ notification type ข้าม client ได้ครบ
+
+## [2026-10-10] พักการพัฒนา Wynos Android (native) ไปก่อน
+
+Founder สั่งชัดเจนว่า **"พัก แอปของแอนดรอยไปก่อน"**
+
+- หยุดการพัฒนา Wynos Android v1.0.0 Beta 1 (Kotlin + Jetpack Compose ใน `android/`) ตั้งแต่วันนี้
+  ห้าม AI role ใดเริ่มงานใหม่ใน `android/` หรือสั่ง Android release (`android-release.yml`) โดยไม่ถาม Founder ก่อน
+  จนกว่าจะมีคำสั่งให้กลับมาทำต่อ
+- สถานะ ณ ตอนพัก: M0 เสร็จ, M1 เสร็จยกเว้น Google sign-in (ดู `docs/engineering/ANDROID_NATIVE_PLAN.md`)
+- ไม่ลบโค้ด, ไม่ลบ branch และไม่ปิด CI (`android.yml` รันเฉพาะเมื่อมีการแก้ `android/**`) เพื่อให้กลับมาทำต่อได้
+- แอป Flutter (`app/`) ยังพักอยู่ตาม decision 2026-09-19 — โฟกัสทั้งหมดอยู่ที่ WYNOS Web
+
+
+## [2026-10-10] WYN-219 — WYNOS product family และ Admin ควบคุมได้ทุกระบบ
+
+Founder สั่ง: **"จะมี WYNOS Admin / WYNOS Account / WYNOS Food / WYNOS Merchant / WYNOS Maps หัวข้อหลักๆ
+อยากให้ระบบ Admin ควบคุมได้ทุกระบบ"**
+
+Founder ตัดสินใจ (AskUserQuestion, 2026-10-10):
+- **WYNOS Social แยกเป็นหัวข้อของตัวเอง** ใน Admin — หัวข้อหลักคือ Account, Social, Food, Merchant, Maps
+- **สิทธิ์ admin แยกตามระบบ** (super admin เห็นทุกระบบ, admin ของแต่ละระบบเห็นเฉพาะระบบตัวเอง) —
+  เป็น authorization architecture change จึงต้องมี proposal จาก Software Architect ให้ Founder อนุมัติก่อน implement
+- **เริ่มจากจัดเมนู Admin เป็นหัวข้อหลักก่อน** (Phase 1, ไม่แตะสิทธิ์/DB)
+
+PRD: `.wyn/docs/product/wyn-219-admin-control-center.md` (draft, รอ Founder อนุมัติ) · Task: `.wyn/tasks/backlog/WYN-219-admin-control-center.md`
+
+## [2026-10-10] WYN-219 — Founder อนุมัติ Phase 1 และตอบคำถาม Phase 2
+
+Founder ตอบ (AskUserQuestion, 2026-10-10):
+- **อนุมัติ PRD Phase 1** (จัดเมนู Admin เป็นหัวข้อหลัก ไม่เปลี่ยนสิทธิ์/ไม่แตะ DB) — "อนุมัติ เริ่มเลย"
+- **Super admin เริ่มต้นคือ Founder คนเดียว**
+- **แยกสิทธิ์ "ดูอย่างเดียว" กับ "แก้ไขได้"** ในแต่ละระบบ
+- สิทธิ์ของ moderator เดิมในระบบใหม่: Founder ตอบว่า "ข้อนี้งง" — ยังไม่มีคำตัดสิน ต้องอธิบายและถามใหม่ก่อนออกแบบ Phase 2
+- (ถามใหม่หลังอธิบาย) **Moderator เดิม → เห็นเฉพาะ WYNOS Social** — ไม่เห็น Food/Maps อีก; ให้สิทธิ์เพิ่มรายคนภายหลังได้
+
+## [2026-10-10] WYN-219 Phase 2 — Founder อนุมัติแผนสิทธิ์รายระบบ
+
+Founder ตอบ (AskUserQuestion, 2026-10-10) และอนุมัติ `.wyn/docs/engineering/wyn-219-phase2-admin-permissions-proposal.md`:
+- **admin เดิมนอกจาก Founder → ไม่ได้สิทธิ์อะไร** Founder ให้เองรายคนในหน้า "สิทธิ์ทีมงาน"
+- **การแบน/ระงับผู้ใช้เป็นสิทธิ์ของ Social** — moderator ทำต่อได้
+- **Audit log ดูได้เฉพาะ super admin**
+- **อนุมัติเริ่มขั้นที่ 1** (foundation, additive) — การ apply กับ production database ยังต้องขออนุมัติแยก
