@@ -27,6 +27,12 @@ This **stacked draft branch** adds the role-scoped `/action-center` route to the
 
 Release still requires free-only local synthetic Admin/Moderator role QA; the branch and its PR do not authorize Production deployment or database mutation.
 
+## Audit history compatibility hardening (2026-10-10)
+
+Audit Log Plus UI reads a minimal, paged field projection without any `detail` JSON. Announcement and inactive-user reminder history legitimately depend on message metadata stored in the existing audit view; they now use the separate **server-guarded** `fetchAdminMessageHistory` helper, which accepts *only* `admin_announcement_sent` or `admin_inactive_reminder_sent` and preserves the original 200-row bound.
+
+The broad legacy `fetchAuditLog()` detail-fetching API is retired from the draft. This narrows accidental reuse **inside Admin code**, but does not change the Supabase `admin_audit_log` view grants. Direct database exposure must be reviewed separately with isolated role tests; no Production SQL/permissions are altered in this draft. This remains 0-baht, no deployment.
+
 ## Free-only restriction — Founder decision (2026-10-10)
 
 **No paid services, upgrades or spending.** Use the [free-only QA runbook](./free-only-qa-plan.md) to run synthetic Auth/role tests against local Supabase CLI + Docker, using the existing GitHub CI and disposable PostgreSQL containers.
