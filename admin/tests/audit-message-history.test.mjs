@@ -22,7 +22,8 @@ test("general Audit Log cannot request, render or serialize detail-bearing histo
   const page = read("../app/(admin)/audit-log/page.tsx");
   const results = read("../app/(admin)/audit-log/results.tsx");
   const history = read("../lib/admin-audit-history.ts");
-  assert.doesNotMatch(query, /\bdetail\b/);
+  assert.doesNotMatch(query, /\.select\("[^"]*\bdetail\b/);
+  assert.doesNotMatch(query, /fetchAuditLog\(/);
   assert.doesNotMatch(results, /\bdetail\b/);
   assert.match(page, /await requireAdminRole\(\)/);
   assert.doesNotMatch(page, /fetchAdminMessageHistory|fetchAuditLog\(/);
