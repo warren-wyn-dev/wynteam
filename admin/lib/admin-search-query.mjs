@@ -14,7 +14,9 @@ export function parseAdminSearchQuery(raw) {
   if (!/^[\p{L}\p{M}\p{N}_.\- ]+$/u.test(query)) {
     throw new Error("ค้นหาได้เฉพาะชื่อผู้ใช้ ชื่อร้าน และหมายเลขออเดอร์ ไม่รองรับอีเมลหรือเบอร์โทร");
   }
-  if (/^\d{9,12}$/.test(query)) {
+  // Dashes/spaces must not make a phone number safe to put in URL history.
+  // Do not discard letters: real order references still need to work.
+  if (/^\d{9,12}$/.test(query.replace(/[- ]/g, ""))) {
     throw new Error("ห้ามค้นหาด้วยเบอร์โทรศัพท์");
   }
   return { query, hasQuery: true };
