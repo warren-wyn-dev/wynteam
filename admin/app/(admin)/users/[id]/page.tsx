@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { UserActionsBar } from "@/components/admin/user-actions-bar";
+import { AccountServiceStatus } from "@/components/admin/account-service-status";
+import { fetchWynosAccountSnapshot } from "@/lib/admin-account-services";
+import { requireAdminRole } from "@/lib/auth";
 import {
   currentActiveAction,
   fetchModerationHistory,
@@ -57,11 +60,15 @@ export default async function UserDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { role } = await requireAdminRole();
 
-  const [profile, history, reports] = await Promise.all([
+  const [profile, history, reports, accountSnapshot] = await Promise.all([
     fetchUserProfile(id),
     fetchModerationHistory(id),
     fetchReportsAgainstUser(id),
+    role === "admin" && process.env.WYNOS_ACCOUNT_OVERVIEW_ENABLED === "true"
+      ? fetchWynosAccountSnapshot(id)
+      : Promise.resolve(null),
   ]);
 
   if (!profile) notFound();
@@ -90,6 +97,8 @@ export default async function UserDetailPage({
       </div>
 
       <UserActionsBar userId={profile.id} username={profile.username} isCurrentlyBlocked={active !== null} />
+
+      {accountSnapshot ? <AccountServiceStatus snapshot={accountSnapshot} /> : null}
 
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-medium text-muted-foreground">รายงานที่มีต่อผู้ใช้นี้</h3>

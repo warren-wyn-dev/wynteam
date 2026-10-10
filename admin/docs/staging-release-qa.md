@@ -3,6 +3,10 @@
 > Scope: WYNOS **Admin web app only**. Planning and offline QA; this file does not
 > change deployments, accounts, data, orders, payments or scheduler settings.
 
+## WYNOS Account read-only evidence candidate (2026-10-10)
+
+A separately reviewed SQL/RLS migration and Admin-only user-detail evidence panel show which of Social/Food/Merchant/Maps have records for one account. This is **not SSO or permission to access a service**. The panel is OFF by default (`WYNOS_ACCOUNT_OVERVIEW_ENABLED=false`) and cannot be enabled until the SQL migration and synthetic Admin/Moderator/User/RLS tests pass in isolated local Supabase. Never apply SQL directly on Production from this PR; no account grants, Finance, DNS or payment changes.
+
 ## Global Search integration candidate (2026-10-10)
 
 Adds `/search` with a universal header entry. Admin can lookup public user names, store names and order references using validated bounded queries; Moderator gets only the allowed user-profile source. Phone/email/contact and arbitrary SQL/PostgREST operations are rejected. Missing backends report unavailable, never false zero. This is read-only and does not enable cross-service SSO or direct customer access. Local synthetic roles and read-only RLS tests remain required.
