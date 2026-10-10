@@ -103,19 +103,18 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
 
   useEffect(() => {
     let live = true;
-    void client.rpc("food_public_catalog").then(({ data, error: rpcError }) => {
-      if (!live) return;
-      if (rpcError || !Array.isArray(data)) {
+    void (async () => {
+      try {
+        const { data, error: rpcError } = await client.rpc("food_public_catalog");
+        if (!live) return;
+        if (rpcError || !Array.isArray(data)) throw rpcError ?? new Error("Invalid Food catalog response");
+        setStores(data as GuestStore[]);
+      } catch {
+        if (!live) return;
         setError("โหลดร้านอาหารไม่สำเร็จ กรุณาลองอีกครั้ง");
         setStores([]);
-        return;
       }
-      setStores(data as GuestStore[]);
-    }).catch(() => {
-      if (!live) return;
-      setError("โหลดร้านอาหารไม่สำเร็จ กรุณาลองอีกครั้ง");
-      setStores([]);
-    });
+    })();
     return () => { live = false; };
   }, [client]);
 
