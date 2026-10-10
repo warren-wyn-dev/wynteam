@@ -1,1 +1,4 @@
-WYNOS web production deploy trigger — 2026-10-05 Merchant KDS scheduled orders receipt rollout
+WYNOS WYN-158 guarded production release trigger — 2026-10-10
+Base release: c1fc939e9f1cc0d1838c7a332be4631b78586537
+Purpose: invoke existing production preflight and browser QA after git_info_fail on Vercel API Preview attempts.
+No changes to application features, environment variables, payments, or database.
