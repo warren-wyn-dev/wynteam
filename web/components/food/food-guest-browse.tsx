@@ -2,6 +2,8 @@
 
 import { ArrowLeft, ChevronRight, MapPin, Minus, Plus, Search, ShoppingBag, Store, UtensilsCrossed, X } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { foodCartLineKey, foodCartLineOptionsValid, foodCartLineUnitPrice, foodMoney, foodPublicUrl, type FoodCartLine, type FoodMenuOptionGroup } from "@/lib/food-customer";
@@ -84,6 +86,7 @@ function available(item: GuestMenuItem) {
  * Never use an anonymous session to call private order, quote, or payment endpoints.
  */
 export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
+  const router = useRouter();
   const [stores, setStores] = useState<GuestStore[] | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -195,7 +198,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
     }
     // The Food login screen returns to /food, which imports this basket into
     // the authenticated user's existing order/cart state.
-    window.location.assign("/food/login");
+    router.push("/food/login");
   };
 
   const toggleChoice = (group: FoodMenuOptionGroup, choiceId: string) => {
@@ -216,7 +219,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
     <main className="wyn-food wf-guest">
       <header className="wf-guest-header">
         <div className="wf-guest-brand"><UtensilsCrossed size={22} /><strong>WYNOS Food</strong></div>
-        <a href="/food/login" className="wf-guest-login">เข้าสู่ระบบ</a>
+        <Link href="/food/login" className="wf-guest-login">เข้าสู่ระบบ</Link>
       </header>
 
       <section className="wf-guest-intro">
