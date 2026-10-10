@@ -4394,11 +4394,8 @@
 
 
 /* WYNOS system UX polish — readability and touch-first controls.
-   Keeps layout/flow intact while bringing Food closer to the shared mobile UI scale. */
-.wyn-food {
-  --wf-red: #ff3b30;
-  --wf-red-dark: #d70015;
-}
+   Keeps layout/flow intact while bringing Food closer to the shared mobile UI scale.
+   Brand red tokens live in the button system layer at the end of this file. */
 
 .wf-auth-terms,
 .wf-auth-note span,
@@ -4547,3 +4544,169 @@
 .wf-guest-basket-line b { font-size: 12px; }
 @media (min-width: 720px) { .wf-guest-overlay { align-items: center; } .wf-guest-sheet { border-radius: 22px; padding: 25px; } }
 @media (max-width: 600px) { .wf-guest-intro { margin: 0 12px; } .wf-guest-header { padding: 0 16px; } .wf-guest-shop-photo { flex-basis: 72px; height: 72px; } }
+
+
+/* WYN Food button system.
+   Colours come from the WYN Food logo. Brand red (#fb0542) is for icons and
+   badges only; button fills use a slightly deeper red so white labels pass
+   WCAG AA. One solid red CTA per screen; secondary actions are neutral
+   outline, destructive actions are red outline (never solid red). */
+.wyn-food,
+.wf-auth-shell {
+  --wf-red: #e4053a;
+  --wf-red-dark: #c20030;
+  --wf-red-soft: #fff0f4;
+  --wf-red-line: #ffd6e0;
+  --wf-red-text: #c8002f;
+  --wf-red-brand: #fb0542;
+  --wf-red-shadow: rgb(228 5 58 / 26%);
+  --wf-btn-radius: 14px;
+  --wf-btn-line: #e1e1e6;
+  --wf-disabled-bg: #f1f1f3;
+  --wf-disabled-text: #a1a1a8;
+}
+
+.wyn-food button:focus-visible,
+.wyn-food a:focus-visible,
+.wf-auth-shell button:focus-visible,
+.wf-auth-shell a:focus-visible {
+  outline: 2px solid var(--wf-red);
+  outline-offset: 2px;
+}
+
+/* Primary — solid red, the one main action. */
+.wyn-food .wf-primary,
+.wf-auth-primary,
+.wyn-food .wf-guest-primary,
+.wyn-food .wf-guest-cartbar button {
+  border: 0;
+  border-radius: var(--wf-btn-radius);
+  background: var(--wf-red);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 8px 18px var(--wf-red-shadow);
+  transition: transform .12s ease, background-color .15s ease, box-shadow .15s ease;
+}
+@media (hover: hover) {
+  .wyn-food .wf-primary:hover:not(:disabled),
+  .wf-auth-primary:hover:not(:disabled),
+  .wyn-food .wf-guest-primary:hover:not(:disabled),
+  .wyn-food .wf-guest-cartbar button:hover { background: var(--wf-red-dark); }
+}
+.wyn-food .wf-primary:active:not(:disabled),
+.wf-auth-primary:active:not(:disabled),
+.wyn-food .wf-guest-primary:active:not(:disabled),
+.wyn-food .wf-guest-cartbar button:active {
+  background: var(--wf-red-dark);
+  transform: scale(.97);
+}
+/* Disabled uses real grey, not opacity, so the label stays readable. */
+.wyn-food .wf-primary:disabled,
+.wf-auth-primary:disabled,
+.wyn-food .wf-guest-primary:disabled {
+  opacity: 1;
+  background: var(--wf-disabled-bg);
+  color: var(--wf-disabled-text);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Secondary — neutral outline for edit / call / load more. */
+.wyn-food .wf-secondary {
+  border: 1.5px solid var(--wf-btn-line);
+  border-radius: var(--wf-btn-radius);
+  background: #fff;
+  color: var(--wf-text);
+  font-weight: 700;
+  transition: transform .12s ease, background-color .15s ease;
+}
+.wyn-food .wf-secondary:active:not(:disabled) { background: var(--wf-surface); transform: scale(.97); }
+.wyn-food .wf-secondary:disabled {
+  opacity: 1;
+  border-color: var(--wf-disabled-bg);
+  background: var(--wf-disabled-bg);
+  color: var(--wf-disabled-text);
+}
+
+/* Destructive — red outline; solid red always means "order / pay". */
+.wyn-food .wf-danger-link {
+  min-height: 48px;
+  border: 1.5px solid var(--wf-red-line);
+  border-radius: var(--wf-btn-radius);
+  background: #fff;
+  color: var(--wf-red-text);
+  font-size: 13px;
+}
+.wyn-food .wf-danger-link:active:not(:disabled) { background: var(--wf-red-soft); transform: scale(.97); }
+.wyn-food .wf-danger-link:disabled { border-color: var(--wf-disabled-bg); color: var(--wf-disabled-text); }
+
+/* Menu add button and quantity stepper. */
+.wyn-food .wf-add,
+.wyn-food .wf-guest-add {
+  background: var(--wf-red);
+  color: #fff;
+  box-shadow: 0 6px 14px var(--wf-red-shadow);
+}
+.wyn-food .wf-qty button {
+  border: 1.5px solid var(--wf-btn-line);
+  background: #fff;
+  color: var(--wf-text);
+  transition: transform .12s ease, background-color .15s ease;
+}
+.wyn-food .wf-qty button:last-child {
+  border-color: var(--wf-red-soft);
+  background: var(--wf-red-soft);
+  color: var(--wf-red-text);
+}
+.wyn-food .wf-qty button:active:not(:disabled) { transform: scale(.94); }
+.wyn-food .wf-qty button:disabled {
+  opacity: 1;
+  border-color: var(--wf-disabled-bg);
+  background: var(--wf-disabled-bg);
+  color: var(--wf-disabled-text);
+}
+
+/* Category chips — selected is solid red, the rest white with a grey line. */
+.wyn-food .wf-category-tabs button {
+  border: 1.5px solid var(--wf-btn-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--wf-text);
+  font-weight: 600;
+}
+.wyn-food .wf-category-tabs button.is-active {
+  border-color: var(--wf-red);
+  background: var(--wf-red);
+  color: #fff;
+  box-shadow: none;
+}
+
+.wyn-food .wf-schedule-choice button { border-width: 1.5px; }
+.wyn-food .wf-schedule-choice button.is-active { border-color: var(--wf-red); background: var(--wf-red-soft); }
+
+/* Sticky cart bar — thumb zone, total on the right as a chip. */
+.wyn-food .wf-store-cart-bar {
+  min-height: 60px;
+  padding: 0 8px 0 18px;
+  border-radius: 18px;
+  background: var(--wf-red);
+  box-shadow: 0 12px 28px var(--wf-red-shadow);
+}
+.wyn-food .wf-store-cart-bar span { font-size: 13px; font-weight: 700; }
+.wyn-food .wf-store-cart-bar b {
+  min-height: 44px;
+  padding: 0 10px 0 14px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 16%);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.wyn-food .wf-guest-login { border-color: var(--wf-red); color: var(--wf-red-text); }
+.wyn-food .wf-guest-brand svg { color: var(--wf-red-brand); }
+
+@media (prefers-reduced-motion: reduce) {
+  .wyn-food button,
+  .wyn-food a,
+  .wf-auth-shell button { transition: none; }
+}
