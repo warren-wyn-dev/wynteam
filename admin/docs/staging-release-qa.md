@@ -3,6 +3,10 @@
 > Scope: WYNOS **Admin web app only**. Planning and offline QA; this file does not
 > change deployments, accounts, data, orders, payments or scheduler settings.
 
+## Audit Log Plus integration candidate (2026-10-10)
+
+This stacked draft upgrades the existing `/audit-log` read-only interface: role-scoped server gate, bounded 50-row keyset pagination, validated filters by event type, actor UUID, and Bangkok calendar days. Admin UI no longer fetches or displays raw audit `detail` JSON, which may contain sensitive information. The audit-source RLS/view permission remains authoritative; this frontend-only change does **not** narrow access to the underlying database view directly. No new SQL, permission grants, financial actions, or paid services. Test with local synthetic Moderator/Admin roles and a snapshot of safe audit fixture data before release.
+
 ## System Health integration candidate (2026-10-10)
 
 This stacked draft adds role-protected `/system-health` with bounded read-only checks of public Social, Food, Merchant, Maps and a scoped Admin database read. `reachable` means only HTTP/network access, not end-to-end product health. No provider credentials, arbitrary URL input, payments, deployment controls, database writes or billing changes. Run free-only synthetic role QA and verify status behavior independently before release.
