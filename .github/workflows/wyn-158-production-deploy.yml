@@ -167,6 +167,24 @@ jobs:
               --output /dev/null "https://wynos.online$route"
           done
 
+          # Coupon and promotional-notification UI is delivered by Next.js, not
+          # the legacy Flutter deployment workflow. Verify the production Food
+          # and Merchant entry points on the existing WYNOS domains.
+          for route in /food /food/login /merchant; do
+            echo "Checking WYNOS Food/Merchant route https://wynos.online$route"
+            curl --fail --location --retry 5 --retry-delay 2 --max-time 30 \
+              --header 'Cache-Control: no-cache' \
+              --output /dev/null "https://wynos.online$route"
+          done
+          for url in https://food.wynos.online/ https://merchant.wynos.online/; do
+            echo "Checking WYNOS subdomain $url"
+            verify_next "${url}?_wyn_food_promo_verify=${GITHUB_RUN_ID}" || {
+              echo "::error::$url did not serve the Next.js consumer web"
+              exit 1
+            }
+          done
+          echo 'Food and Merchant production domains returned Next.js.' >> "$GITHUB_STEP_SUMMARY"
+
           curl --silent --show-error --fail --location --retry 3 --max-time 30 \
             --output /tmp/wynos-maps-health.json \
             "https://wynos.online/api/maps/health?_wyn_maps_verify=${GITHUB_RUN_ID}"
