@@ -75,6 +75,8 @@ test("Audit Log Plus remains read-only and omits raw detail payloads", () => {
   assert.match(query, /\.or\(/);
   assert.match(query, /\.select\("id, actor_id, actor_username_snapshot, event_type, target_id, created_at"\)/);
   assert.doesNotMatch(results, /JSON\.stringify\(row\.detail/);
+  assert.doesNotMatch(query, /fetchAuditLog\(/, "obsolete full-detail API must stay removed");
+  assert.doesNotMatch(query, /target_id, detail, created_at/, "raw detail must not be queried");
   assert.doesNotMatch(query.slice(query.indexOf("export async function fetchAuditLogPage")), /\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
   assert.match(results, /nextCursor/);
   assert.match(page, /type="date"/);

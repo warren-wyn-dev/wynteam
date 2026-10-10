@@ -1,4 +1,4 @@
-import { fetchAuditLog } from "@/lib/admin-audit-log";
+import { fetchAdminMessageHistory } from "@/lib/admin-audit-history";
 
 export type AnnouncementCategory = "system_update" | "policy_update" | "maintenance" | "important";
 export type AnnouncementAudience = "all" | "users" | "staff";
@@ -17,7 +17,7 @@ export type AnnouncementHistoryRow = {
  * this one event type -- no parallel storage, per the Product spec's
  * Requirement 4. */
 export async function fetchAnnouncementHistory(): Promise<AnnouncementHistoryRow[]> {
-  const rows = await fetchAuditLog("admin_announcement_sent");
+  const rows = await fetchAdminMessageHistory("admin_announcement_sent");
   return rows.map((row) => {
     const detail = (row.detail ?? {}) as Record<string, unknown>;
     return {
