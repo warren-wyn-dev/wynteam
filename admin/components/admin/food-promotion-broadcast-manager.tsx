@@ -12,8 +12,9 @@ export type BroadcastRow = {
 };
 const field = "w-full rounded-lg border bg-background px-3 py-2 text-sm";
 
-export function FoodPromotionBroadcastManager({ canManage, coupons, initialRows }: {
+export function FoodPromotionBroadcastManager({ canManage, coupons, initialRows, schedulerState }: {
   canManage: boolean; coupons: CouponChoice[]; initialRows: BroadcastRow[];
+  schedulerState: "active" | "paused" | "unknown";
 }) {
   const router = useRouter();
   const [pending, begin] = useTransition();
@@ -24,6 +25,7 @@ export function FoodPromotionBroadcastManager({ canManage, coupons, initialRows 
   const [scheduleAt, setScheduleAt] = useState("");
   const [rows, setRows] = useState(initialRows);
   const [feedback, setFeedback] = useState("");
+  const schedulerActive = schedulerState === "active";
 
   const refresh = async () => {
     const { data, error } = await createClient().rpc("admin_food_promo_list");
@@ -34,6 +36,10 @@ export function FoodPromotionBroadcastManager({ canManage, coupons, initialRows 
 
   const schedule = () => begin(async () => {
     setFeedback("");
+    if (!schedulerActive) {
+      setFeedback("ระบบส่งโปรโมชันอัตโนมัติยังไม่พร้อม กรุณาตรวจ Scheduler ก่อนตั้งคิว");
+      return;
+    }
     try {
       const { error } = await createClient().rpc("admin_food_promo_schedule", {
         p_title: title.trim(), p_body: body.trim(), p_coupon_id: couponId || null,
@@ -43,8 +49,13 @@ export function FoodPromotionBroadcastManager({ canManage, coupons, initialRows 
       if (error) throw error;
       await refresh();
       setTitle(""); setBody(""); setCouponId(""); setScheduleAt("");
-      setFeedback("เพิ่มแคมเปญเข้า Queue แล้ว ระบบส่งตามรอบ Scheduler");
-    } catch (e) { setFeedback(e instanceof Error ? e.message : "สร้างแคมเปญไม่สำเร็จ"); }
+      setFeedback("บันทึกเข้าคิวแล้ว โดย Scheduler ที่เปิดอยู่จะรับไปประมวลผลตามเวลา");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "สร้างแคมเปญไม่สำเร็จ";
+      setFeedback(message.includes("food_promo_scheduler_disabled")
+        ? "Scheduler ถูกปิดระหว่างบันทึก จึงไม่มีการเพิ่มข้อความเข้าคิว กรุณารีเฟรชหน้า"
+        : message);
+    }
   });
   const cancel = (id: string) => begin(async () => {
     setFeedback("");
@@ -56,6 +67,15 @@ export function FoodPromotionBroadcastManager({ canManage, coupons, initialRows 
   });
 
   return <div className="flex flex-col gap-5">
+    <div className="rounded-lg border p-4 text-sm" role="status">
+      <p className="font-semibold">
+        สถานะ Scheduler: {schedulerState === "active" ? "เปิดใช้งาน" : schedulerState === "paused" ? "ปิดอยู่" : "ยังตรวจสอบไม่ได้"}
+      </p>
+      {!schedulerActive && <p className="mt-1 text-muted-foreground">
+        ไม่สามารถตั้งคิวแจ้งเตือนโปรโมชันใหม่ได้จนกว่า Scheduler จะเปิดและตรวจสอบสถานะสำเร็จ
+        รายการที่อยู่ในคิวเดิมจะยังไม่ถูกส่งอัตโนมัติเมื่อ Scheduler ปิด
+      </p>}
+    </div>
     {canManage && <section className="rounded-xl border p-4">
       <h2 className="font-semibold">สร้างข้อความโปรโมชัน</h2>
       <p className="my-2 text-sm text-muted-foreground">
@@ -94,7 +114,7 @@ export function FoodPromotionBroadcastManager({ canManage, coupons, initialRows 
         <p className="mt-2 text-xs">เป้าหมาย Push: Food เท่านั้น · ไม่มี Email</p>
       </div>
       <button className="mt-4 rounded-lg bg-foreground px-4 py-2 text-background disabled:opacity-40"
-        disabled={pending || title.trim().length < 3 || body.trim().length < 5}
+        disabled={!schedulerActive || pending || title.trim().length < 3 || body.trim().length < 5}
         type="button" onClick={schedule}>บันทึกและเข้าคิวส่ง</button>
     </section>}
     {feedback && <p role="status" className="rounded-lg border p-3 text-sm">{feedback}</p>}

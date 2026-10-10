@@ -30,15 +30,27 @@ const fieldClass = "h-11 w-full rounded-md border bg-background px-3 text-sm";
 export function FirstOrderFoodCampaignButton({ active }: { active: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const activationPhrase = "เปิดโปรลูกค้าใหม่";
+  const canConfirm = active || confirmation.trim() === activationPhrase;
+
+  function changeOpen(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setConfirmation("");
+      setError(null);
+    }
+  }
 
   function submit() {
+    if (pending || !canConfirm) return;
     setError(null);
     startTransition(async () => {
       try {
         await setFirstOrderFoodCampaignActive(!active);
-        setOpen(false);
+        changeOpen(false);
         router.refresh();
       } catch (err) {
         setError(platformCampaignError(err, "ไม่สามารถเปลี่ยนสถานะโปรลูกค้าใหม่ได้"));
@@ -48,23 +60,39 @@ export function FirstOrderFoodCampaignButton({ active }: { active: boolean }) {
 
   return (
     <>
-      <Button variant={active ? "outline" : "default"} onClick={() => setOpen(true)}>
+      <Button variant={active ? "outline" : "default"} onClick={() => changeOpen(true)}>
         {active ? "ปิดโปรลูกค้าใหม่" : "เปิดโปรลูกค้าใหม่"}
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={changeOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{active ? "ปิดโปรลูกค้าใหม่?" : "เปิดโปรลูกค้าใหม่?"}</DialogTitle>
+            <DialogTitle>{active ? "ปิดโปรลูกค้าใหม่?" : "เปิดโปรลูกค้าใหม่บน Production?"}</DialogTitle>
             <DialogDescription>
               ลูกค้าที่ไม่เคยสั่งอาหารบน WYNOS Food ได้ลด 20 บาทเมื่อยอดอาหารครบ 120 บาท
-              เฉพาะร้านที่เลือกเข้าร่วม โดยร้านรับผิดชอบส่วนลดทั้งหมด
+              เฉพาะร้านที่สมัครใจเข้าร่วม โดยร้านรับผิดชอบส่วนลดทั้งหมด
               การเปิดโปรจะไม่สมัครร้านอาหารเข้าร่วมให้อัตโนมัติ
             </DialogDescription>
           </DialogHeader>
+          {!active && (
+            <label className="grid gap-2 text-sm">
+              <span>การเปิดโปรจะเริ่มให้ส่วนลดกับออเดอร์ใหม่ของร้านที่เข้าร่วมทันที
+                เพื่อยืนยันการเปิดใช้งานจริง พิมพ์ <strong>{activationPhrase}</strong></span>
+              <input
+                autoComplete="off"
+                className="w-full rounded-md border bg-background px-3 py-2"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                placeholder={activationPhrase}
+              />
+            </label>
+          )}
+          {active && <p className="text-sm text-muted-foreground">การปิดโปรจะหยุดส่วนลดใหม่ แต่ไม่เปลี่ยนออเดอร์ที่ชำระแล้ว</p>}
           {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
           <DialogFooter>
-            <Button variant="outline" disabled={pending} onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button disabled={pending} onClick={submit}>{pending ? "กำลังบันทึก…" : "ยืนยัน"}</Button>
+            <Button variant="outline" disabled={pending} onClick={() => changeOpen(false)}>ยกเลิก</Button>
+            <Button disabled={pending || !canConfirm} onClick={submit}>
+              {pending ? "กำลังบันทึก…" : active ? "ยืนยันปิดโปร" : "ยืนยันเปิดโปรจริง"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

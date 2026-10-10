@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: admin
+        working-directory: . # Vercel project rootDirectory already points to admin/
     env:
       # Exact existing WYNOS Admin project, verified against the Vercel project API.
       # These public IDs scope the deployment without an untracked .vercel/project.json.
@@ -80,9 +80,9 @@ jobs:
 
           # Do not pass --name or project-creation options: the exact pre-existing
           # Vercel project is locked by VERCEL_ORG_ID and VERCEL_PROJECT_ID.
-          npx --yes vercel@latest deploy "${args[@]}" --yes \
+          # The CLI reads VERCEL_TOKEN from the environment; never expose it in argv.
+          npx --yes vercel@63.1.0 deploy "${args[@]}" --yes \
             --scope "$VERCEL_TEAM_SLUG" \
-            --token="$VERCEL_TOKEN" \
             --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
