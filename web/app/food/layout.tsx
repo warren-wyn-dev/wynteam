@@ -116,7 +116,7 @@ export default function FoodLayout({ children }: { children: ReactNode }) {
       <script dangerouslySetInnerHTML={{ __html: FOOD_SPLASH_BOOT_SCRIPT }} />
       <div className={`${anuphan.variable} fx-font`}>
         <div className="fx-splash" aria-hidden="true">
-          <Image className="fx-splash-logo" src={FOOD_ICON_192} width={96} height={96} alt="" priority />
+          <Image className="fx-splash-logo" src={FOOD_ICON_512} width={96} height={96} alt="" priority />
           <span className="fx-splash-name">WYNOS <b>Food</b></span>
         </div>
         {children}
