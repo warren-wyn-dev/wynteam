@@ -50,7 +50,10 @@
 .fx-app button:focus-visible,
 .fx-app a:focus-visible,
 .fx-app input:focus-visible,
-.fx-app textarea:focus-visible,
+.fx-app textarea:focus-visible {
+  outline: 2px solid var(--fx-red);
+  outline-offset: 2px;
+}
 .fx-app label:focus-within:has(input[type="file"]) {
   outline: 2px solid var(--fx-red);
   outline-offset: 2px;
@@ -272,6 +275,8 @@
 }
 .fx-search input::placeholder { color: var(--fx-muted); }
 .fx-app .fx-search input:focus-visible { outline: none; }
+.fx-search input[type="search"] { appearance: none; -webkit-appearance: none; }
+.fx-search input::-webkit-search-cancel-button { display: none; }
 .fx-search:focus-within { box-shadow: 0 0 0 2px var(--fx-red); background: #fff; }
 .fx-search-clear {
   width: 30px;
@@ -1038,3 +1043,38 @@
 @media (prefers-reduced-motion: reduce) {
   .fx-app *, .fx-sheet, .fx-sheet * { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Guest browse (signed out) ---------- */
+.fx-app.fx-guest { --fx-nav-space: calc(28px + env(safe-area-inset-bottom)); }
+.fx-guest.has-cart-bar { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+.fx-guest .fx-cart-bar { bottom: calc(16px + env(safe-area-inset-bottom)); }
+.fx-guest .fx-header-top .fx-btn { flex: 0 0 auto; }
+.fx-guest-hero {
+  margin: 8px 16px 14px;
+  padding: 18px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--fx-red-soft) 0%, #fff 100%);
+  display: grid;
+  gap: 6px;
+}
+.fx-guest-hero h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; line-height: 1.3; }
+.fx-guest-hero p { color: var(--fx-sub); font-size: 14px; line-height: 1.55; }
+.fx-guest-tag {
+  justify-self: start;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--fx-red);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.fx-guest-stores { margin-top: 18px; }
+.fx-guest-stores .fx-note { margin: 0 16px 12px; }
+.fx-guest-login { background: #fff; }
+.fx-guest-basket-store { margin: 4px 16px 6px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.fx-guest .fx-store-info .fx-store-min { display: flex; align-items: center; gap: 4px; }
+.fx-guest .fx-menu-row:disabled { cursor: default; opacity: 1; }

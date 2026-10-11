@@ -27,6 +27,20 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(target, 307);
   }
 
+  // On the Food origin, the shared WYNOS auth URLs open Food's own auth pages
+  // so a typed or bookmarked food.wynos.online/login never lands on Social.
+  if (host === "food.wynos.online") {
+    const path = request.nextUrl.pathname;
+    const foodAuth = path === "/login" ? "/food/login"
+      : path === "/signup" || path.startsWith("/signup/") ? "/food/signup"
+      : null;
+    if (foodAuth) {
+      const target = request.nextUrl.clone();
+      target.pathname = foodAuth;
+      return NextResponse.redirect(target, 307);
+    }
+  }
+
   if (request.nextUrl.pathname !== "/") return NextResponse.next();
 
   const redirectTo = ROOT_REDIRECT_BY_HOST[host];
@@ -45,5 +59,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/food", "/food/:path*"],
+  matcher: ["/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*"],
 };

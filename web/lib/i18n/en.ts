@@ -1761,6 +1761,7 @@ export const EN_EXACT: Record<string, string> = {
   "แทนที่รายการในตะกร้าเดิมด้วยออเดอร์นี้?": "Replace your current cart with this order?",
   "ร้านนี้ยังไม่เปิดให้สั่งในตอนนี้": "This restaurant is not taking orders right now",
   "รายละเอียดเพิ่มเติม ·": "More details ·",
+  "ยังไม่รวมค่าจัดส่งและส่วนลดที่ระบบคำนวณตอนสั่งจริง": "Delivery fees and discounts are calculated at checkout",
 };
 
 // WYNOS Merchant v1 is a separate installable surface but follows the same
@@ -2972,6 +2973,7 @@ Object.assign(EN_EXACT, {
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["เพิ่มลงตะกร้า · {0}", "Add to cart · {0}"],
   ["{0} ข้อความใหม่", "{0} new messages"],
   ["{0} ออเดอร์ที่กำลังดำเนินการ", "{0} active orders"],
   ["ผลการค้นหา “{0}”", "Results for “{0}”"],

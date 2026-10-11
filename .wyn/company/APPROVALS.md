@@ -614,3 +614,33 @@
 - Recommendation: อนุมัติหลังตอบ Q1–Q3 ใน `.wyn/docs/engineering/wyn-219-phase2-admin-permissions-proposal.md`; rollout 3 ขั้น แยก PR ต่อระบบ
 - สถานะ: อนุมัติแล้ว ("อนุมัติ เริ่มขั้นที่ 1") พร้อมคำตอบ Q1: admin อื่นไม่ได้สิทธิ์, Q2: การแบนเป็นของ Social, Q3: audit log เฉพาะ super admin — การ apply production แต่ละขั้นต้องขออนุมัติแยก
 - วันที่ตัดสินใจ: 2026-10-10
+
+### DECISION — [2026-10-10] WYNOS Food is delivery only (no pickup, no scheduled orders)
+
+- Founder: "เอานัดรับหน้าร้านออก มีแค่จัดส่ง ไม่ต้องแสดง" และ "ไม่ต้องมีสั่งล่วงหน้า".
+- Change: the Food customer app shows delivery only. The pickup tab and the "สั่งล่วงหน้า" (scheduled order) option are removed from the UI, and every new order sends `scheduledFor: null`.
+- Not changed: the server, the `food_create_scheduled_order` RPC, and existing scheduled orders (still shown via `order.scheduled_for`). Merchant still lists scheduled orders.
+- Rollback: revert PR #1093 (the UI only).
+- สถานะ: **ตัดสินใจแล้ว**. วันที่ 2026-10-10
+
+### APPROVAL — [2026-10-10] WYNOS Food customer app redesign → production (PR #1093)
+
+- Founder: "จัดการขึ้นเว็บ food.wynos.online ให้หน่อย ก่อนDeploy QAก่อน … จัดการทำได้เลย อนุญาตทุกอย่าง".
+- Change: new `fx-` design system (`web/app/food/food-app.css`, Anuphan font) for the Food customer app. Covers the floating bottom nav, home, storefront, item sheet, cart, checkout, orders, payment, tracking, review, account, messages and states. It also fixes three bugs: order detail could show another store's bank/QR, the promotion center and coupon were unstyled, and the home header was clipped.
+- Also: two WYN-211/212 source tests had gone stale after PR #1075 and were blocking production deploys. They now check that the client GPS gate is gone. The server's service-area checks are unchanged.
+- QA: `npm run check` passed. Visual QA at 390/360px with a local mock. The staging run (`web-next-phase5-preview.yml`, run 38092343792) passed, as did CI.
+- Deploy: merged 2026-10-10 23:02 UTC. `WYN-158 Production Deploy` run 38093629330 succeeded. Post-deploy QA on food.wynos.online covered the public pages at 390/360px with no console errors. Logged-in ordering still needs a Founder test order.
+- Rollback: Vercel Instant Rollback, or revert the merge commit `7f09136`.
+- สถานะ: **อนุมัติและ deploy แล้ว**. วันที่ 2026-10-10
+
+### APPROVAL — [2026-10-11] Food guest page redesign, Food-host auth URLs, and branch cleanup
+
+- Founder: "ทำข้อ 3-4-5-6 ให้เสร็จเลย อนุญาต".
+- Change:
+  - The signed-out Food page (`food-guest-browse.tsx`) now uses the same `fx-` design as the signed-in app. Its logic is unchanged: it still uses only the public catalog RPC, requests no GPS, and places no anonymous orders.
+  - On food.wynos.online, `/login` and `/signup[/…]` now redirect (307) to `/food/login` and `/food/signup`. Other hosts are unchanged.
+  - Fixed the search box focus ring, which showed a square inside the rounded field.
+  - Recorded the two decisions above.
+  - Retired the superseded branch `feat/food-button-system`, which was never merged and must not be merged. The local copy is deleted. The remote branch still has to be deleted in the GitHub UI, because the session's git proxy refused the delete.
+- Rollback: revert the PR.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-11

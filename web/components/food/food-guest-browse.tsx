@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowLeft, ChevronRight, MapPin, Minus, Plus, Search, ShoppingBag, Store, UtensilsCrossed, X } from "lucide-react";
+import { ArrowLeft, Check, Clock3, Info, MapPin, Minus, Plus, Search, Store, Trash2, UtensilsCrossed, X } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -214,127 +215,273 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
     });
   };
 
+  const itemSelection = selectedItem
+    ? { selected_options: (selectedItem.options ?? []).flatMap((group) => (chosen[group.id] ?? []).map((choiceId) => ({ group_id: group.id, choice_id: choiceId }))) }
+    : null;
+  const itemValid = selectedItem && itemSelection ? foodCartLineOptionsValid(selectedItem, itemSelection) : false;
+  const itemUnitPrice = selectedItem ? foodCartLineUnitPrice(selectedItem, { selected_options: (selectedItem.options ?? []).flatMap((group) => (chosen[group.id] ?? []).map((choiceId) => {
+    const choice = group.choices.find((row) => row.id === choiceId);
+    return { group_id: group.id, group_name: group.name, choice_id: choiceId, choice_name: choice?.name ?? "", price: choice?.price ?? 0 };
+  })) }) : 0;
+  const storeCover = store ? foodPublicUrl(client, store.cover_path) : null;
+
   return (
-    <main className="wyn-food wf-guest">
-      <header className="wf-guest-header">
-        <div className="wf-guest-brand"><UtensilsCrossed size={22} /><strong>WYNOS Food</strong></div>
-        <Link href="/food/login" className="wf-guest-login">เข้าสู่ระบบ</Link>
-      </header>
-
-      <section className="wf-guest-intro">
-        <span className="wf-guest-tag"><MapPin size={14} /> ให้บริการในพื้นที่มหาสารคาม</span>
-        <h1>เลือกอาหารที่อยากกินได้เลย</h1>
-        <p>ดูร้านและเมนูได้ทันที ไม่ต้องล็อกอินหรือเปิด GPS ตรวจสอบพื้นที่จัดส่งเมื่อสั่งซื้อจริง</p>
-      </section>
-
+    <main className={`wyn-food fx-app fx-guest${cartCount > 0 && !showBasket ? " has-cart-bar" : ""}`}>
       {store ? (
-        <section className="wf-guest-shop">
-          <button type="button" className="wf-guest-back" onClick={() => { setSelectedId(null); setShowBasket(false); }}>
-            <ArrowLeft size={18} /> ดูร้านทั้งหมด
-          </button>
-          {store.cover_path && <div className="wf-guest-cover">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={foodPublicUrl(client, store.cover_path) ?? ""} alt="" />
-          </div>}
-          <div className="wf-guest-shop-head">
-            <h2>{store.name}</h2>
-            <span className={store.is_open ? "wf-guest-open" : "wf-guest-closed"}>{store.is_open ? "เปิดรับออเดอร์" : "ร้านปิดอยู่"}</span>
-          </div>
-          <p className="wf-guest-secondary">{store.description ?? ""}</p>
-          <p className="wf-guest-secondary">ค่าจัดส่งเริ่มต้น {foodMoney(store.delivery_fee)} · ตรวจสอบพื้นที่ตอนสั่งซื้อ</p>
-          {[...new Set(store.menu.map((item) => item.category))].map((category) => (
-            <div key={category}>
-              <h3 className="wf-guest-category">{category}</h3>
-              <div className="wf-guest-items">
-                {store.menu.filter((item) => item.category === category).map((item) => (
-                  <button key={item.id} type="button" className="wf-guest-item" onClick={() => showItem(item)} disabled={!store.is_open || !available(item)}>
-                    {item.image_path ? <span className="wf-guest-item-photo">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={foodPublicUrl(client, item.image_path) ?? ""} alt="" loading="lazy" />
-                    </span> : <span className="wf-guest-item-photo"><UtensilsCrossed size={25}/></span>}
-                    <span className="wf-guest-item-info"><strong>{item.name}</strong>{item.description && <small>{item.description}</small>}<b>{foodMoney(item.price)}</b></span>
-                    <span className="wf-guest-add">{store.is_open && available(item) ? <Plus size={17} /> : "หมด"}</span>
+        <>
+          <section className={`fx-store-hero${store.is_open ? "" : " is-closed"}`}>
+            <div className="fx-store-cover">
+              {storeCover ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={storeCover} alt="" decoding="async" fetchPriority="high" />
+              ) : <Store size={46} strokeWidth={1.25} />}
+            </div>
+            <div className="fx-store-hero-actions">
+              <button className="fx-float-btn" type="button" aria-label="ดูร้านทั้งหมด" onClick={() => { setSelectedId(null); setShowBasket(false); }}>
+                <ArrowLeft size={21} strokeWidth={2.3} />
+              </button>
+              <Link href="/food/login" className="fx-btn fx-btn--outline fx-btn--sm fx-guest-login">เข้าสู่ระบบ</Link>
+            </div>
+            {!store.is_open ? <span className="fx-store-closed-badge"><Clock3 size={16} strokeWidth={2.4} />ร้านปิดอยู่</span> : null}
+          </section>
+
+          <section className="fx-store-info">
+            <h1>{store.name}</h1>
+            <p className="fx-store-meta">{store.menu.length} เมนู · ค่าส่งเริ่มต้น {foodMoney(store.delivery_fee)}</p>
+            {store.is_open ? (
+              <p className="fx-store-open"><Clock3 size={14} strokeWidth={2.3} />เปิดรับออเดอร์</p>
+            ) : (
+              <div className="fx-store-closed-box" role="status">
+                <strong>ปิดรับออเดอร์ชั่วคราว</strong>
+                <span>ดูเมนูไว้ก่อนได้ สั่งได้เมื่อร้านเปิด</span>
+              </div>
+            )}
+            {store.description ? <p className="fx-store-min">{store.description}</p> : null}
+            {store.address ? <p className="fx-store-min"><MapPin size={14} /> {store.address}</p> : null}
+          </section>
+
+          <section className="fx-store-menu">
+            {[...new Set(store.menu.map((item) => item.category))].map((category) => (
+              <section className="fx-menu-section" key={category}>
+                <h2>{category}</h2>
+                <div className="fx-menu-list">
+                  {store.menu.filter((item) => item.category === category).map((item) => {
+                    const orderable = store.is_open && available(item);
+                    const photo = foodPublicUrl(client, item.image_path);
+                    return (
+                      <button key={item.id} type="button" className={`fx-menu-row${available(item) ? "" : " is-off"}`} onClick={() => showItem(item)} disabled={!orderable} aria-label={`${item.name} ${foodMoney(item.price)}${available(item) ? "" : " สินค้าหมด"}`}>
+                        <span className="fx-menu-row-copy">
+                          <strong>{item.name}</strong>
+                          {item.description ? <small>{item.description}</small> : null}
+                          <b>{foodMoney(item.price)}</b>
+                        </span>
+                        <span className="fx-menu-row-photo">
+                          <span className="fx-menu-image">
+                            {photo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={photo} alt="" loading="lazy" decoding="async" />
+                            ) : <UtensilsCrossed size={26} strokeWidth={1.45} />}
+                          </span>
+                          {!available(item) ? <span className="fx-soldout-tag">สินค้าหมด</span> : orderable ? <span className="fx-plus" aria-hidden="true"><Plus size={18} strokeWidth={2.8} /></span> : null}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+            {!store.menu.length ? (
+              <div className="fx-state" role="status">
+                <span className="fx-state-icon"><UtensilsCrossed size={44} strokeWidth={1.6} /></span>
+                <h2>ยังไม่มีเมนู</h2>
+                <div className="fx-state-copy"><p>ร้านนี้ยังไม่มีเมนูที่พร้อมขาย</p></div>
+              </div>
+            ) : null}
+          </section>
+        </>
+      ) : (
+        <>
+          <header className="fx-header">
+            <div className="fx-header-top">
+              <div className="fx-brand">
+                <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
+                <span>WYNOS <b>Food</b></span>
+              </div>
+              <Link href="/food/login" className="fx-btn fx-btn--outline fx-btn--sm">เข้าสู่ระบบ</Link>
+            </div>
+          </header>
+
+          <section className="fx-guest-hero">
+            <span className="fx-guest-tag"><MapPin size={14} /> ให้บริการในพื้นที่มหาสารคาม</span>
+            <h1>เลือกอาหารที่อยากกินได้เลย</h1>
+            <p>ดูร้านและเมนูได้ทันที ไม่ต้องล็อกอินหรือเปิด GPS ตรวจสอบพื้นที่จัดส่งเมื่อสั่งซื้อจริง</p>
+          </section>
+
+          <label className="fx-search">
+            <Search size={20} strokeWidth={2} />
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาร้านหรือชื่ออาหาร" aria-label="ค้นหาร้านหรือชื่ออาหาร" />
+            {query ? <button type="button" className="fx-search-clear" aria-label="ล้างการค้นหา" onClick={() => setQuery("")}><X size={14} strokeWidth={3} /></button> : null}
+          </label>
+
+          <section className="fx-section fx-guest-stores">
+            <div className="fx-section-head"><h2>ร้านอาหารที่เปิดเผยแพร่</h2></div>
+            {stores === null ? <p className="fx-empty-line" role="status">กำลังโหลดร้านอาหาร…</p> : null}
+            {error ? <div className="fx-note fx-note--danger" role="alert">{error}</div> : null}
+            {stores && !error && !filtered.length ? (
+              <div className="fx-state" role="status">
+                <span className="fx-state-icon"><Search size={40} strokeWidth={1.6} /></span>
+                <h2>ยังไม่พบร้านอาหารที่ตรงกับการค้นหา</h2>
+                <div className="fx-state-copy"><p>ลองค้นด้วยชื่อร้าน ชื่อเมนู หรือคำที่สั้นลง</p></div>
+              </div>
+            ) : null}
+            <div className="fx-store-grid">
+              {filtered.map((entry) => {
+                const cover = foodPublicUrl(client, entry.cover_path);
+                return (
+                  <button type="button" className={`fx-store-card${entry.is_open ? "" : " is-closed"}`} key={entry.id} onClick={() => pickStore(entry)}>
+                    <span className="fx-store-card-photo">
+                      {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cover} alt="" loading="lazy" decoding="async" />
+                      ) : <Store size={30} strokeWidth={1.4} />}
+                      {!entry.is_open ? <b className="fx-closed-label"><Clock3 size={12} strokeWidth={2.4} />ปิดอยู่</b> : null}
+                    </span>
+                    <span className="fx-store-card-name">{entry.name}</span>
+                    <span className="fx-store-card-tags">
+                      <span>{entry.menu.length} เมนู</span>
+                      <span>ค่าส่ง {foodMoney(entry.delivery_fee)}</span>
+                    </span>
                   </button>
-                ))}
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
+
+      {cartCount > 0 && !showBasket ? (
+        <button className="fx-cart-bar" type="button" onClick={() => setShowBasket(true)} aria-label={`ดูตะกร้า ${cartCount} รายการ ${foodMoney(subtotal)}`}>
+          <span className="fx-cart-bar-count">{cartCount > 99 ? "99+" : cartCount}</span>
+          <span className="fx-cart-bar-label">ดูตะกร้า</span>
+          <b>{foodMoney(subtotal)}</b>
+        </button>
+      ) : null}
+
+      {selectedItem ? (
+        <div className="fx-sheet-backdrop is-page fx-item-backdrop" role="presentation">
+          <section className="fx-sheet is-page fx-item" role="dialog" aria-modal="true" aria-label={selectedItem.name}>
+            <button className="fx-float-btn fx-item-close" type="button" aria-label="ปิด" onClick={() => setSelectedItem(null)}><X size={20} strokeWidth={2.4} /></button>
+            <div className="fx-item-scroll">
+              <div className="fx-item-photo">
+                {foodPublicUrl(client, selectedItem.image_path) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={foodPublicUrl(client, selectedItem.image_path) ?? ""} alt="" />
+                ) : <UtensilsCrossed size={48} strokeWidth={1.35} />}
+              </div>
+              <div className="fx-item-head">
+                <h3>{selectedItem.name}</h3>
+                {selectedItem.description ? <p>{selectedItem.description}</p> : null}
+                <strong>{foodMoney(itemUnitPrice)}</strong>
+              </div>
+              {(selectedItem.options ?? []).map((group) => {
+                const maxSelect = Math.max(1, Math.min(20, Number(group.max_select ?? 1)));
+                const picked = chosen[group.id] ?? [];
+                return (
+                  <section className="fx-option-group" key={group.id}>
+                    <div className="fx-option-head">
+                      <strong>{group.name}</strong>
+                      {group.required ? (
+                        <span className={`fx-required${picked.length ? " is-done" : ""}`}>{picked.length ? "เลือกแล้ว" : "ต้องเลือก"}</span>
+                      ) : <small>{maxSelect === 1 ? "เลือกได้ 1 รายการ" : `เลือกได้สูงสุด ${maxSelect} รายการ`}</small>}
+                    </div>
+                    <div className="fx-option-choices">
+                      {group.choices.map((choice) => {
+                        const active = picked.includes(choice.id);
+                        const extra = Math.max(0, Number(choice.price ?? 0));
+                        return (
+                          <button key={choice.id} type="button" className={active ? "is-active" : ""} role={maxSelect === 1 ? "radio" : "checkbox"} aria-checked={active} onClick={() => toggleChoice(group, choice.id)}>
+                            <i className={`fx-control ${maxSelect === 1 ? "is-radio" : "is-checkbox"}`} aria-hidden="true">{maxSelect > 1 && active ? <Check size={14} strokeWidth={3} /> : null}</i>
+                            <span>{choice.name}</span>
+                            <b>{extra > 0 ? `+${foodMoney(extra)}` : ""}</b>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+              {!itemValid ? <div className="fx-note fx-note--warn fx-item-warn" role="status">กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ</div> : null}
+              <label className="fx-field fx-item-note">
+                <span className="fx-field-label"><strong>หมายเหตุถึงร้าน</strong><small>{note.length}/250</small></span>
+                <textarea value={note} maxLength={250} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ไม่ใส่ผัก, แยกน้ำจิ้ม" />
+              </label>
+            </div>
+            <div className="fx-item-actions">
+              <div className="fx-stepper">
+                <button type="button" disabled={qty <= 1} onClick={() => setQty((v) => Math.max(1, v - 1))} aria-label="ลดจำนวน"><Minus size={18} strokeWidth={2.6} /></button>
+                <b aria-live="polite">{qty}</b>
+                <button type="button" disabled={qty >= 99} onClick={() => setQty((v) => Math.min(99, v + 1))} aria-label="เพิ่มจำนวน"><Plus size={18} strokeWidth={2.6} /></button>
+              </div>
+              <button className="fx-btn fx-btn--primary fx-btn--grow" type="button" disabled={!itemValid} onClick={addItem}>
+                {itemValid ? `เพิ่มลงตะกร้า · ${foodMoney(itemUnitPrice * qty)}` : "เลือกตัวเลือกที่จำเป็นก่อน"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {showBasket ? (
+        <div className="fx-sheet-backdrop is-page" role="presentation">
+          <section className="fx-sheet is-page" role="dialog" aria-modal="true" aria-label="ตะกร้าอาหาร">
+            <header className="fx-sheet-head">
+              <button className="fx-icon-btn" type="button" aria-label="ย้อนกลับ" onClick={() => setShowBasket(false)}><ArrowLeft size={22} strokeWidth={2.1} /></button>
+              <h2>ตะกร้าอาหาร</h2>
+              <span />
+            </header>
+            <div className="fx-sheet-body">
+              {basketStore ? <p className="fx-guest-basket-store"><Store size={18} /> {basketStore.name}</p> : null}
+              <div className="fx-cart-lines">
+                {basket?.lines.map((line, index) => {
+                  const item = basketStore?.menu.find((row) => row.id === line.menu_item_id);
+                  if (!item) return null;
+                  const photo = foodPublicUrl(client, item.image_path);
+                  const optionText = line.selected_options?.map((x) => x.choice_name).filter(Boolean).join(" · ");
+                  return (
+                    <article className="fx-cart-line" key={index}>
+                      <span className="fx-menu-image fx-cart-thumb">
+                        {photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={photo} alt="" loading="lazy" decoding="async" />
+                        ) : <UtensilsCrossed size={22} />}
+                      </span>
+                      <div className="fx-cart-line-copy">
+                        <strong>{item.name}</strong>
+                        {optionText ? <small>{optionText}</small> : null}
+                        {line.note ? <small>หมายเหตุ · {line.note}</small> : null}
+                        <b>{foodMoney(foodCartLineUnitPrice(item, line) * line.quantity)}</b>
+                      </div>
+                      <div className="fx-cart-line-side">
+                        <div className="fx-stepper fx-stepper--sm">
+                          <button type="button" aria-label="ลดจำนวน" onClick={() => updateQty(index, -1)}>{line.quantity === 1 ? <Trash2 size={15} /> : <Minus size={15} strokeWidth={2.6} />}</button>
+                          <b aria-live="polite">{line.quantity}</b>
+                          <button type="button" aria-label="เพิ่มจำนวน" disabled={line.quantity >= 99} onClick={() => updateQty(index, 1)}><Plus size={15} strokeWidth={2.6} /></button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+              <div className="fx-note fx-note--info" role="note">
+                <Info size={18} />
+                <span><strong>ยอดอาหารโดยประมาณ {foodMoney(subtotal)}</strong><small>ยังไม่รวมค่าจัดส่งและส่วนลดที่ระบบคำนวณตอนสั่งจริง</small></span>
               </div>
             </div>
-          ))}
-          {!store.menu.length && <p className="wf-guest-empty">ร้านนี้ยังไม่มีเมนูที่พร้อมขาย</p>}
-        </section>
-      ) : (
-        <section className="wf-guest-shops">
-          <div className="wf-guest-search"><Search size={19}/><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาร้านหรือชื่ออาหาร" aria-label="ค้นหาร้านหรือชื่ออาหาร"/></div>
-          <h2>ร้านอาหารที่เปิดเผยแพร่</h2>
-          {stores === null && <p className="wf-guest-empty">กำลังโหลดร้านอาหาร…</p>}
-          {error && <p role="alert" className="wf-guest-empty">{error}</p>}
-          {stores && !filtered.length && <p className="wf-guest-empty">ยังไม่พบร้านอาหารที่ตรงกับการค้นหา</p>}
-          <div className="wf-guest-shop-list">
-            {filtered.map((entry) => (
-              <button type="button" className="wf-guest-shop-card" key={entry.id} onClick={() => pickStore(entry)}>
-                {entry.cover_path ? <span className="wf-guest-shop-photo">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={foodPublicUrl(client, entry.cover_path) ?? ""} alt="" loading="lazy"/>
-                </span> : <span className="wf-guest-shop-photo"><Store size={27}/></span>}
-                <span className="wf-guest-shop-details"><strong>{entry.name}</strong><small>{entry.menu.length} เมนู · ค่าส่งเริ่มต้น {foodMoney(entry.delivery_fee)}</small><small>{entry.is_open ? "เปิดรับออเดอร์" : "ร้านปิดอยู่"}</small></span>
-                <ChevronRight size={18}/>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {cartCount > 0 && <div className="wf-guest-cartbar">
-        <button type="button" onClick={() => setShowBasket(true)}><ShoppingBag size={19}/> ดูตะกร้า ({cartCount}) <b>{foodMoney(subtotal)}</b></button>
-      </div>}
-
-      {selectedItem && (
-        <div className="wf-guest-overlay" role="presentation">
-          <section className="wf-guest-sheet" role="dialog" aria-modal="true" aria-label={selectedItem.name}>
-            <button type="button" className="wf-guest-close" aria-label="ปิด" onClick={() => setSelectedItem(null)}><X size={21}/></button>
-            <h2>{selectedItem.name}</h2>
-            <p>{selectedItem.description}</p>
-            <strong>{foodMoney(selectedItem.price)}</strong>
-            {(selectedItem.options ?? []).map((group) => (
-              <fieldset key={group.id} className="wf-guest-options">
-                <legend>{group.name} {group.required ? "(จำเป็น)" : "(ไม่จำเป็น)"}</legend>
-                {group.choices.map((choice) => (
-                  <label key={choice.id}>
-                    <input type={group.max_select > 1 ? "checkbox" : "radio"} name={group.id} checked={(chosen[group.id] ?? []).includes(choice.id)} onChange={() => toggleChoice(group, choice.id)}/>
-                    <span>{choice.name}</span>
-                    <small>{Number(choice.price) > 0 ? `+${foodMoney(choice.price)}` : ""}</small>
-                  </label>
-                ))}
-              </fieldset>
-            ))}
-            <label className="wf-guest-note">หมายเหตุเพิ่มเติม<textarea value={note} maxLength={250} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ไม่ใส่ผัก"/></label>
-            <div className="wf-guest-stepper">
-              <button type="button" disabled={qty<=1} onClick={() => setQty(v => Math.max(1,v-1))} aria-label="ลดจำนวน"><Minus size={18}/></button>
-              <b>{qty}</b>
-              <button type="button" disabled={qty>=99} onClick={() => setQty(v => Math.min(99,v+1))} aria-label="เพิ่มจำนวน"><Plus size={18}/></button>
-            </div>
-            <button type="button" className="wf-guest-primary" disabled={!foodCartLineOptionsValid(selectedItem, { selected_options: (selectedItem.options ?? []).flatMap((group) => (chosen[group.id] ?? []).map((choiceId) => ({ group_id: group.id, choice_id: choiceId }))) })} onClick={addItem}>เพิ่มลงตะกร้า</button>
+            <footer className="fx-sheet-footer">
+              <button type="button" className="fx-btn fx-btn--primary fx-btn--block" disabled={!cartCount} onClick={signInForOrder}>เข้าสู่ระบบเพื่อยืนยันคำสั่งซื้อ</button>
+            </footer>
           </section>
         </div>
-      )}
-
-      {showBasket && (
-        <div className="wf-guest-overlay" role="presentation">
-          <section className="wf-guest-sheet" role="dialog" aria-modal="true" aria-label="ตะกร้าอาหาร">
-            <button type="button" className="wf-guest-close" aria-label="ปิด" onClick={() => setShowBasket(false)}><X size={21}/></button>
-            <h2>ตะกร้าอาหาร</h2>
-            {basket?.lines.map((line, index) => {
-              const item = basketStore?.menu.find((row) => row.id === line.menu_item_id);
-              if (!item) return null;
-              return <div className="wf-guest-basket-line" key={index}>
-                <div><strong>{item.name}</strong><small>{line.selected_options?.map((x) => x.choice_name).filter(Boolean).join(" · ")}</small><b>{foodMoney(foodCartLineUnitPrice(item,line)*line.quantity)}</b></div>
-                <span className="wf-guest-stepper"><button type="button" aria-label="ลดจำนวน" onClick={() => updateQty(index,-1)}><Minus size={16}/></button><b>{line.quantity}</b><button type="button" aria-label="เพิ่มจำนวน" disabled={line.quantity>=99} onClick={() => updateQty(index,1)}><Plus size={16}/></button></span>
-              </div>;
-            })}
-            <p className="wf-guest-secondary">ยอดอาหารโดยประมาณ {foodMoney(subtotal)} · ยังไม่รวมค่าจัดส่งและส่วนลดที่ระบบคำนวณตอนสั่งจริง</p>
-            <button type="button" className="wf-guest-primary" disabled={!cartCount} onClick={signInForOrder}>เข้าสู่ระบบเพื่อยืนยันคำสั่งซื้อ</button>
-          </section>
-        </div>
-      )}
+      ) : null}
     </main>
   );
 }

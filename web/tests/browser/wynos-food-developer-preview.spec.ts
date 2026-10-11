@@ -26,7 +26,7 @@ test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   expect(manifest).toContain('description: "WYNOS Food Public Beta"');
   const proxy = read("proxy.ts");
   expect(proxy).toContain('new URL("https://food.wynos.online")');
-  expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*"]');
+  expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*"]');
 });
 
 test("WYNOS Food approved glossy pink-red shadow-free icon is static, consistent and cache-busted", () => {
