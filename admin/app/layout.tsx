@@ -9,8 +9,8 @@ import "./globals.css";
  * needs no network dependency and is standard for an internal tool.
  */
 export const metadata: Metadata = {
-  title: "WYN Admin",
-  description: "WYN Admin -- ระบบหลังบ้านสำหรับผู้ดูแลระบบและผู้ตรวจสอบเนื้อหา",
+  title: "WYNOS Admin",
+  description: "WYNOS Admin -- ระบบหลังบ้านสำหรับผู้ดูแลระบบและผู้ตรวจสอบเนื้อหา",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

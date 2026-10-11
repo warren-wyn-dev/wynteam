@@ -48,7 +48,7 @@ export async function signIn(formData: FormData): Promise<SignInResult> {
     // in a signed-in-but-nowhere-to-go state (Design spec's Screen 1,
     // step 3).
     await supabase.auth.signOut();
-    return { error: "บัญชีนี้ไม่มีสิทธิ์เข้าใช้งาน WYN Admin" };
+    return { error: "บัญชีนี้ไม่มีสิทธิ์เข้าใช้งาน WYNOS Admin" };
   }
 
   redirect("/");

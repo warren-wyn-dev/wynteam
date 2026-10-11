@@ -2242,3 +2242,11 @@ Founder ส่ง Master Implementation Prompt (WYNOS Admin — Complete Central
 - เรื่อง GP (B1–B7), สิทธิ์ระดับฟีเจอร์ (D1) และการย้ายโปรลูกค้าใหม่ (B8): อนุมัติให้ดำเนินการต่อ
   แต่ **ยังไม่มีค่าทางธุรกิจ** (อัตรา GP, ฐานคำนวณ, วิธีเก็บเงิน, ภาษี, ผู้อนุมัติ) — ต้องถาม Founder ก่อน implement
   ห้ามสร้างค่าเอง
+
+## [2026-10-11] Admin — ชื่อแบรนด์ "WYNOS Admin" และคำตอบเรื่องที่ค้าง
+
+Founder ตอบ (AskUserQuestion, 2026-10-11):
+- **ชื่อแบรนด์: WYNOS Admin** (แทน "WYN Admin") บน Sidebar, Header, หน้า Login และ title ของเว็บ
+- **Campaigns คงอยู่ใต้ WYNOS Merchant** (ไม่ย้ายไป Platform Marketing)
+- **Vercel คงแพลนฟรี (Hobby) ไว้ก่อน** — โควตา deploy 100 ครั้ง/วัน; ถ้าเต็มให้รอรีเซ็ต
+- **Founder จะเชื่อม GitHub กับ Vercel ใหม่เอง** (Account Settings → Git Connections) เพื่อให้ preview อัตโนมัติของโปรเจกต์อื่นกลับมาทำงาน

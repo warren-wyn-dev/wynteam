@@ -27,11 +27,11 @@ export function AdminHeader({
   const pathname = usePathname();
   const { drawerOpen, setDrawerOpen } = useAdminNav();
   const active = findActiveAdminNavItem(pathname);
-  const title = active?.label ?? "WYN Admin";
+  const title = active?.label ?? "WYNOS Admin";
   // The section the page sits in, so a moved item (e.g. Stores under WYNOS
   // Merchant) still says where it lives. Pages outside every section say
-  // "WYN Admin", as the mobile header always did.
-  const section = ADMIN_NAV_GROUPS.find((group) => group.id === active?.group)?.label ?? "WYN Admin";
+  // "WYNOS Admin", as the mobile header always did.
+  const section = ADMIN_NAV_GROUPS.find((group) => group.id === active?.group)?.label ?? "WYNOS Admin";
 
   return (
     <header className="sticky top-0 z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur sm:px-6">
