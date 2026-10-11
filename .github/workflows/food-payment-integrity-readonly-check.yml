@@ -88,7 +88,10 @@ jobs:
                    pg_get_functiondef(p.oid) ilike '%cancel stripe checkout before submitting slip%' as slip_blocked_while_stripe_open,
                    pg_get_functiondef(p.oid) ilike '%stripe payment status is managed by webhook%' as merchant_blocked_on_stripe,
                    pg_get_functiondef(p.oid) ilike '%for update%' as locks_row,
-                   pg_get_functiondef(p.oid) ilike '%stripe_checkout_session_id%' as mentions_stripe_session
+                   pg_get_functiondef(p.oid) ilike '%stripe_checkout_session_id%' as mentions_stripe_session,
+                   -- Heuristic only: a paid event must not land silently on a cancelled order.
+                   -- Confirm by reading food_apply_stripe_event in the artifact.
+                   pg_get_functiondef(p.oid) ilike '%''cancelled''%' as mentions_cancelled_status
             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public'
               and p.proname in ('food_submit_payment','food_set_payment_status','food_cancel_order',
@@ -116,15 +119,21 @@ jobs:
 
           run_sql "5. Stripe ledger vs order mismatch (counts only)" "
             select
-              count(*) filter (where o.payment_status = 'paid' and o.payment_provider = 'stripe' and sp.status <> 'paid') as order_paid_ledger_not_paid,
+              count(*) filter (where o.payment_status = 'paid' and o.payment_provider = 'stripe'
+                and sp.order_id is null) as order_paid_ledger_missing,
+              count(*) filter (where o.payment_status = 'paid' and o.payment_provider = 'stripe'
+                and sp.status is distinct from 'paid' and sp.order_id is not null) as order_paid_ledger_not_paid,
               count(*) filter (where sp.status = 'paid' and o.payment_status not in ('paid', 'refunded')) as ledger_paid_order_not_paid
-            from public.food_stripe_payments sp join public.food_orders o on o.id = sp.order_id;"
+            from public.food_orders o left join public.food_stripe_payments sp on sp.order_id = o.id;"
 
           run_sql "6. Food cron jobs" "
             select jobname, schedule, active from cron.job where jobname ilike '%food%' order by 1;"
 
           run_sql "7. Full live definitions (artifact only)" "
-            select p.oid::regprocedure::text as signature, pg_get_functiondef(p.oid) as definition
+            select p.oid::regprocedure::text as signature,
+                   pg_get_userbyid(p.proowner) as owner,
+                   p.proacl::text as acl,
+                   pg_get_functiondef(p.oid) as definition
             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public' and p.proname in ($FUNCS)
             order by 1;" live-function-definitions.json
