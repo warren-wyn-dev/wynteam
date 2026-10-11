@@ -47,15 +47,27 @@ jobs:
             # raw) and print every log line of the requested level in a request,
             # not only the CLI's one-line summary. --limit stays at 50: larger
             # limits repeat the first page in current CLIs (vercel/vercel#16286).
-            jq -R -c --arg level "$level" 'fromjson? | . as $r
+            # Redact before printing: query strings are dropped from paths and
+            # JWTs, credentials, emails, UUIDs, phone-like numbers and long
+            # tokens are masked in messages (AGENTS.md: never log secrets/PII).
+            jq -R -c --arg level "$level" '
+              def redact:
+                tostring
+                | gsub("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]*"; "[jwt]")
+                | gsub("(?<k>(?i)(bearer|apikey|api[_-]?key|access[_-]?token|refresh[_-]?token|token|password|secret|authorization))(?<s>[\"'"'"'=: ]+)[^\\s\"'"'"',&]+"; "\(.k)\(.s)[redacted]")
+                | gsub("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"; "[email]")
+                | gsub("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"; "[id]")
+                | gsub("\\+?[0-9][0-9 -]{7,}[0-9]"; "[number]")
+                | gsub("[A-Za-z0-9+/_-]{32,}={0,2}"; "[long-token]");
+              fromjson? | . as $r
               | ((.logs // []) | map(select((.level // "") == $level))) as $lines
               | (if ($lines | length) > 0 then $lines[] else {level: $r.level, message: $r.message} end)
               | {
                   time: ($r.timestamp // $r.timestampInMs // $r.date // null),
-                  path: ($r.requestPath // $r.path // null),
+                  path: (($r.requestPath // $r.path // "") | tostring | split("?")[0] | redact),
                   status: ($r.statusCode // $r.responseStatusCode // null),
                   level: (.level // null),
-                  message: ((.message // "") | tostring | .[0:600])
+                  message: ((.message // "") | tostring | .[0:600] | redact)
                 }' "logs-$level.jsonl"
             echo "records: $(jq -R 'fromjson? | 1' "logs-$level.jsonl" | wc -l)"
           done
