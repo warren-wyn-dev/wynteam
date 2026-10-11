@@ -7,7 +7,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-[400px]">
         <CardHeader>
-          <CardTitle className="text-xl">WYN Admin</CardTitle>
+          <CardTitle className="text-xl">WYNOS Admin</CardTitle>
           <CardDescription>
             สำหรับผู้ดูแลระบบและผู้ตรวจสอบเนื้อหาเท่านั้น
           </CardDescription>

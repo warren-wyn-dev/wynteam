@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Image from "next/image";
 import { Anuphan } from "next/font/google";
 import type { ReactNode } from "react";
 
@@ -16,6 +17,12 @@ const anuphan = Anuphan({
 const FOOD_ICON_32 = "/icons/food/icon-32-v12.png";
 const FOOD_ICON_192 = "/icons/food/icon-192-v12.png";
 const FOOD_ICON_512 = "/icons/food/icon-512-v12.png";
+
+// Founder decision (2026-10-11): show a brand splash (logo only) when Food opens.
+// It plays once per browser session; the boot script marks <html> before the
+// splash paints so later loads in the same session skip it without a flash.
+const FOOD_SPLASH_BOOT_SCRIPT =
+  "try{if(sessionStorage.getItem('wynos-food-splash')){document.documentElement.setAttribute('data-fx-splash','seen')}else{sessionStorage.setItem('wynos-food-splash','1')}}catch(e){}";
 
 const FOOD_WEBSITE_STRUCTURED_DATA = {
   "@context": "https://schema.org",
@@ -106,7 +113,14 @@ export default function FoodLayout({ children }: { children: ReactNode }) {
           __html: JSON.stringify(FOOD_WEBSITE_STRUCTURED_DATA).replace(/</g, "\\u003c"),
         }}
       />
-      <div className={`${anuphan.variable} fx-font`}>{children}</div>
+      <script dangerouslySetInnerHTML={{ __html: FOOD_SPLASH_BOOT_SCRIPT }} />
+      <div className={`${anuphan.variable} fx-font`}>
+        <div className="fx-splash" aria-hidden="true">
+          <Image className="fx-splash-logo" src={FOOD_ICON_512} width={96} height={96} alt="" priority />
+          <span className="fx-splash-name">WYNOS <b>Food</b></span>
+        </div>
+        {children}
+      </div>
     </>
   );
 }

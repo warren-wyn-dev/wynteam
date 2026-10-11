@@ -404,10 +404,10 @@ function FoodNav({
   onTab: (tab: FoodTab) => void;
 }) {
   const items: Array<{ key: FoodTab; label: string; icon: React.ReactNode }> = [
-    { key: "home", label: "หน้าหลัก", icon: <House size={22} strokeWidth={tab === "home" ? 2.3 : 1.9} fill={tab === "home" ? "currentColor" : "none"} /> },
-    { key: "orders", label: "ออเดอร์", icon: <ReceiptText size={22} strokeWidth={tab === "orders" ? 2.3 : 1.9} /> },
-    { key: "messages", label: "ข้อความ", icon: <MessageCircle size={22} strokeWidth={tab === "messages" ? 2.3 : 1.9} /> },
-    { key: "account", label: "บัญชี", icon: <UserRound size={22} strokeWidth={tab === "account" ? 2.3 : 1.9} /> },
+    { key: "home", label: "หน้าหลัก", icon: <House size={20} strokeWidth={tab === "home" ? 2.3 : 1.9} fill={tab === "home" ? "currentColor" : "none"} /> },
+    { key: "orders", label: "ออเดอร์", icon: <ReceiptText size={20} strokeWidth={tab === "orders" ? 2.3 : 1.9} /> },
+    { key: "messages", label: "ข้อความ", icon: <MessageCircle size={20} strokeWidth={tab === "messages" ? 2.3 : 1.9} /> },
+    { key: "account", label: "บัญชี", icon: <UserRound size={20} strokeWidth={tab === "account" ? 2.3 : 1.9} /> },
   ];
   return (
     <nav className="fx-nav" aria-label="WYNOS Food">

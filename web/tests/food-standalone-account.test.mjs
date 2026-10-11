@@ -170,3 +170,14 @@ test("Food framed photos fill their frame on iOS Safari (absolute fill, not grid
     assert.match(css, new RegExp(`${escaped} img \\{ position: absolute; inset: 0; width: 100%; height: 100%;`), `${frame} img must be absolutely filled`);
   }
 });
+
+test("Food launch splash shows the brand once per session without hydration mismatch", async () => {
+  const layout = await read("app/food/layout.tsx");
+  const css = await read("app/food/food-app.css");
+  assert.match(layout, /className="fx-splash" aria-hidden="true"/);
+  assert.match(layout, /sessionStorage\.getItem\('wynos-food-splash'\)/);
+  // Only <html> (suppressHydrationWarning in the root layout) is touched before hydration.
+  assert.match(layout, /document\.documentElement\.setAttribute\('data-fx-splash','seen'\)/);
+  assert.match(css, /html\[data-fx-splash="seen"\] \.fx-splash \{ display: none; \}/);
+  assert.match(css, /@keyframes fx-splash-out \{ to \{ opacity: 0; visibility: hidden; \} \}/);
+});

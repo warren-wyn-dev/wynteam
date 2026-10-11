@@ -1,22 +1,73 @@
 name: Admin -- fetch recent Vercel runtime logs (read-only)
 
-# The Admin Dashboard throws on every load ("โหลดข้อมูลไม่สำเร็จ") --
 # app/(admin)/error.tsx deliberately shows only a generic message to the
-# browser, so the real thrown error (from fetchAdminDashboardMetrics())
-# only exists in this deployment's own runtime function logs. Read-only:
-# fetches logs, changes nothing.
+# browser ("โหลดข้อมูลไม่สำเร็จ"), so the real thrown error only exists in the
+# Admin project's runtime logs. Read-only: fetches retained production logs
+# (error and fatal) for a past window and prints only selected fields.
 on:
   workflow_dispatch:
+    inputs:
+      since:
+        # The Hobby plan keeps runtime logs for 1 hour; a longer window only
+        # helps on a paid plan. Run this soon after reproducing the failure.
+        description: "How far back to read (Hobby keeps 1h), e.g. 30m, 1h"
+        type: string
+        required: false
+        default: "1h"
+
+permissions:
+  contents: read
 
 jobs:
   logs:
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      # Same pinned project and team as deploy-admin.yml.
+      VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+      VERCEL_TEAM_SLUG: warren14
+      SINCE: ${{ inputs.since }}
     steps:
-      - name: Fetch recent runtime logs
+      - name: Read retained production error/fatal logs
         run: |
           set -euo pipefail
-          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
-          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
-          npx --yes vercel@latest inspect https://admin-lilac-seven-85.vercel.app --logs --token="$VERCEL_TOKEN" || true
+          case "$SINCE" in
+            [0-9]*[mhd]) ;;
+            *) echo "::error::since must look like 30m, 3h or 1d"; exit 1 ;;
+          esac
+          VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r ')
+          for level in error fatal; do
+            echo "== level: $level (since $SINCE)"
+            # Fails the job on any CLI/API error (auth, project, quota).
+            npx --yes vercel@latest logs \
+              --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_TEAM_SLUG" --token "$VERCEL_TOKEN" \
+              --environment production --level "$level" --since "$SINCE" --limit 50 --json \
+              > "logs-$level.jsonl"
+            # Parse record by record (malformed lines are dropped, never printed
+            # raw) and print every log line of the requested level in a request,
+            # not only the CLI's one-line summary. --limit stays at 50: larger
+            # limits repeat the first page in current CLIs (vercel/vercel#16286).
+            # Redact before printing: query strings are dropped from paths and
+            # JWTs, credentials, emails, UUIDs, phone-like numbers and long
+            # tokens are masked in messages (AGENTS.md: never log secrets/PII).
+            jq -R -c --arg level "$level" '
+              def redact:
+                tostring
+                | gsub("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]*"; "[jwt]")
+                | gsub("(?<k>(?i)(bearer|apikey|api[_-]?key|access[_-]?token|refresh[_-]?token|token|password|secret|authorization))(?<s>[\"'"'"'=: ]+)[^\\s\"'"'"',&]+"; "\(.k)\(.s)[redacted]")
+                | gsub("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"; "[email]")
+                | gsub("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"; "[id]")
+                | gsub("\\+?[0-9][0-9 -]{7,}[0-9]"; "[number]")
+                | gsub("[A-Za-z0-9+/_-]{32,}={0,2}"; "[long-token]");
+              fromjson? | . as $r
+              | ((.logs // []) | map(select((.level // "") == $level))) as $lines
+              | (if ($lines | length) > 0 then $lines[] else {level: $r.level, message: $r.message} end)
+              | {
+                  time: ($r.timestamp // $r.timestampInMs // $r.date // null),
+                  path: (($r.requestPath // $r.path // "") | tostring | split("?")[0] | redact),
+                  status: ($r.statusCode // $r.responseStatusCode // null),
+                  level: (.level // null),
+                  message: ((.message // "") | redact | .[0:600])
+                }' "logs-$level.jsonl"
+            echo "records: $(jq -R 'fromjson? | 1' "logs-$level.jsonl" | wc -l)"
+          done

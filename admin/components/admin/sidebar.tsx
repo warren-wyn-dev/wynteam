@@ -81,7 +81,7 @@ function Brand() {
       <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-foreground text-base font-bold text-background">
         W
       </span>
-      <span className="text-base font-semibold tracking-tight">WYN Admin</span>
+      <span className="text-base font-semibold tracking-tight">WYNOS Admin</span>
     </div>
   );
 }
