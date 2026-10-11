@@ -162,3 +162,11 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
   assert.match(migration, /search_menu\.category ilike v_pattern/);
   assert.match(migration, /grant execute on function public\.food_store_directory\(text\) to authenticated/);
 });
+
+test("Food framed photos fill their frame on iOS Safari (absolute fill, not grid-centered height:100%)", async () => {
+  const css = await read("app/food/food-app.css");
+  for (const frame of [".fx-store-cover", ".fx-store-card-photo", ".fx-menu-image", ".fx-item-photo", ".fx-recent-store", ".fx-cart-store-logo"]) {
+    const escaped = frame.replace(/[.]/g, "\\.");
+    assert.match(css, new RegExp(`${escaped} img \\{ position: absolute; inset: 0; width: 100%; height: 100%;`), `${frame} img must be absolutely filled`);
+  }
+});
