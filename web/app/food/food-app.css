@@ -390,8 +390,8 @@
 .fx-recent-stores { padding: 0 16px; display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; }
 .fx-recent-stores::-webkit-scrollbar { display: none; }
 .fx-recent-store { width: 76px; flex: 0 0 76px; padding: 0; border: 0; background: transparent; color: var(--fx-ink); display: grid; justify-items: center; gap: 6px; text-align: center; }
-.fx-recent-store > span { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--fx-surface); color: var(--fx-muted); display: grid; place-items: center; }
-.fx-recent-store img { width: 100%; height: 100%; object-fit: cover; }
+.fx-recent-store > span { position: relative; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--fx-surface); color: var(--fx-muted); display: grid; place-items: center; }
+.fx-recent-store img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .fx-recent-store strong { width: 100%; font-size: 12.5px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Store cards */
@@ -399,7 +399,7 @@
 .fx-sheet-body .fx-store-grid { padding: 0; }
 .fx-store-card { min-width: 0; padding: 0; border: 0; background: transparent; color: var(--fx-ink); display: grid; gap: 5px; text-align: left; }
 .fx-store-card-photo { position: relative; aspect-ratio: 4 / 3; border-radius: 16px; overflow: hidden; background: var(--fx-surface); color: var(--fx-muted); display: grid; place-items: center; }
-.fx-store-card-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
+.fx-store-card-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
 .fx-store-card:active .fx-store-card-photo img { transform: scale(1.03); }
 .fx-store-card-photo b { position: absolute; font-size: 11px; font-weight: 700; line-height: 1; padding: 5px 8px; border-radius: 999px; white-space: nowrap; }
 .fx-ad-label { top: 8px; left: 8px; background: rgb(22 22 26 / 72%); color: #fff; }
@@ -465,7 +465,7 @@
 .fx-storefront-open .fx-content { min-height: 100vh; }
 .fx-store-hero { position: relative; height: 230px; background: var(--fx-surface); }
 .fx-store-cover { position: absolute; inset: 0; color: var(--fx-muted); display: grid; place-items: center; overflow: hidden; }
-.fx-store-cover img { width: 100%; height: 100%; object-fit: cover; }
+.fx-store-cover img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }
 .fx-store-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(0 0 0 / 38%) 0%, rgb(0 0 0 / 0%) 46%); pointer-events: none; }
 .fx-store-hero-actions {
   position: absolute;
@@ -543,8 +543,8 @@
 .fx-menu-tile-photo .fx-menu-image { width: 100%; height: 100%; border-radius: 16px; }
 .fx-menu-tile strong { font-size: 13.5px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .fx-menu-tile b { font-size: 14px; }
-.fx-menu-image { background: var(--fx-surface); color: var(--fx-muted); display: grid; place-items: center; overflow: hidden; }
-.fx-menu-image img { width: 100%; height: 100%; object-fit: cover; }
+.fx-menu-image { position: relative; background: var(--fx-surface); color: var(--fx-muted); display: grid; place-items: center; overflow: hidden; }
+.fx-menu-image img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .fx-plus {
   position: absolute;
   right: 6px;
@@ -758,8 +758,8 @@
 /* ---------- Page / cart ---------- */
 .fx-page { padding-bottom: 12px; }
 .fx-cart-store { margin: 4px 16px 0; padding: 10px 0 12px; border-bottom: 1px solid #f0f0f3; display: flex; align-items: center; gap: 12px; }
-.fx-cart-store-logo { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; overflow: hidden; background: var(--fx-red); color: #fff; display: grid; place-items: center; }
-.fx-cart-store-logo img { width: 100%; height: 100%; object-fit: cover; }
+.fx-cart-store-logo { position: relative; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; overflow: hidden; background: var(--fx-red); color: #fff; display: grid; place-items: center; }
+.fx-cart-store-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .fx-cart-store > span:last-child { display: grid; min-width: 0; }
 .fx-cart-store strong { font-size: 16px; }
 .fx-cart-store small { color: var(--fx-sub); font-size: 13px; }
