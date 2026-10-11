@@ -644,3 +644,21 @@
   - Retired the superseded branch `feat/food-button-system`, which was never merged and must not be merged. The local copy is deleted. The remote branch still has to be deleted in the GitHub UI, because the session's git proxy refused the delete.
 - Rollback: revert the PR.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-11
+
+### APPROVAL — [2026-10-11] Admin Sidebar restructure → production (PR #1096)
+
+- Founder: "อนุญาต" in reply to "อนุมัติ merge และ deploy production".
+- Change: the Admin sidebar is regrouped by WYNOS system. Stores, Coupons, Campaigns, Ads and Promo Notifications move under WYNOS Merchant. Five per-system dashboards are added, and the mobile menu is now a drawer. URLs, permissions, the API and the database are unchanged.
+- QA: `.wyn/docs/qa/admin-sidebar-restructure-qa.md`. Lint, typecheck and build passed, and E2E passed 81/81. Deploy record: `.wyn/logs/deployments/2026-10-11-admin-sidebar-restructure-deploy.md`.
+- Rollback: revert the merge commit `4cbf8c5` and redeploy.
+- สถานะ: **อนุมัติและ deploy แล้ว**. วันที่ 2026-10-11
+
+### APPROVAL — [2026-10-11] Attach admin.wynos.online to the Admin Vercel project (production infrastructure)
+
+- Founder: "อนุญาต" in reply to the proposal to attach the domain via a workflow, after being told the custom production domain would not sit behind Vercel Authentication.
+- Proposal: run `admin-attach-domain.yml` manually (it requires typing `ATTACH_ADMIN_DOMAIN`). It adds `admin.wynos.online` to the pinned Admin project `prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5`. DNS (`*.wynos.online` → Vercel) is unchanged.
+- Benefits: Admin gets its intended address and a valid certificate. Today the domain fails TLS in browsers, and Admin is reachable only at `admin-lilac-seven-85.vercel.app`.
+- Risks: the Admin login page becomes publicly reachable on the custom domain. Access stays guarded by Supabase auth, the layout-level role gate and per-page/RPC WYN-219 permission checks. Cost: none expected, since a custom domain on an existing project carries no extra charge.
+- Affected files: `.github/workflows/admin-attach-domain.yml`, `.wyn/company/DECISIONS.md`, this file.
+- Rollback: remove the domain in Vercel (Project → Settings → Domains), or `DELETE /v9/projects/{id}/domains/admin.wynos.online`.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-11

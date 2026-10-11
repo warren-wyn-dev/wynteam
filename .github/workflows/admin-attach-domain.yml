@@ -66,8 +66,16 @@ jobs:
             exit 1
           fi
           if [ "$(jq -r '.verified' domain.json)" != "true" ]; then
-            echo "::error::Domain added but not verified; see the verification records above."
-            exit 1
+            # Ask Vercel to re-check the challenge (a plain GET only reads the
+            # stored state), then read the result.
+            curl --silent --output verify.json --write-out 'verify: HTTP %{http_code}\n' \
+              --request POST "$api/v9/projects/$VERCEL_PROJECT_ID/domains/$DOMAIN/verify?teamId=$VERCEL_ORG_ID" \
+              --header "Authorization: Bearer $VERCEL_TOKEN"
+            jq '{name, verified, verification, error: .error.code, message: .error.message}' verify.json || cat verify.json
+            if [ "$(jq -r '.verified // false' verify.json)" != "true" ]; then
+              echo "::error::Domain is on the project but not verified; add the verification records above, then re-run."
+              exit 1
+            fi
           fi
 
       - name: Wait for HTTPS on the domain
