@@ -31,7 +31,7 @@ jobs:
     # fork, with a read-only token), so only other same-repository PRs deploy.
     # Beta2 automatic Vercel previews remain paused generally. PR #996 is
     # an explicit one-off launch-readiness QA requested before production.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.number == 996 || github.event.pull_request.number == 1008))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.number == 996 || github.event.pull_request.number == 1008 || github.event.pull_request.number == 1065))
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -132,7 +132,7 @@ jobs:
           # curl does not keep cookies unless a cookie jar is enabled. The bypass
           # header is sufficient for smoke checks; requesting a bypass cookie here
           # would cause Vercel's cookie-setting redirect to repeat on some routes.
-          for route in / /search /notifications /chat /settings /profile/me; do
+          for route in / /search /notifications /chat /settings /profile/me /merchant/login /merchant; do
             echo "Checking $PREVIEW_URL$route"
             curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
               --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
