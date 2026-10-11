@@ -669,5 +669,6 @@
 - Change: Food shows a red WYNOS Food splash (app icon plus wordmark) for about 1.2 s, once per browser session. Android also keeps the manifest's red launch screen.
 - Deferred: an Admin-managed full-screen promo (image, link, start and end dates). It needs a new table, storage and an Admin page, so it requires a separate proposal and Founder approval before any schema change.
 - Public rollout (WYN-125): the Founder explicitly said "เปิดให้ทุกคน" on 2026-10-11, so the splash ships ungated to all users. A developer-account gate also can't run before first paint.
+- Duration update (PR #1109): the Founder's iPhone recording showed a white loading skeleton after the ~1.2 s splash. I proposed keeping the splash until the screen's data is ready (at least 1 s, at most ~4 s), plus iOS launch images and a pink status bar during the splash. The Founder replied "แก้ไข ทั้งหมดให้ด้วยนะ" (2026-10-11), approving all three. This replaces the fixed ~1.2 s above. Rollback: revert PR #1109.
 - Rollback: revert the PR.
 - สถานะ: **ตัดสินใจแล้ว**. วันที่ 2026-10-11

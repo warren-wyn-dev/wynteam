@@ -31,10 +31,12 @@ const FOOD_SPLASH_BOOT_SCRIPT =
 
 // iOS shows these while the installed app launches (it ignores the manifest
 // background), so there is no white flash before the splash. One image per
-// iPhone screen size; see public/icons/food/splash/.
+// iPhone/iPad screen size; see public/icons/food/splash/.
 const FOOD_IOS_LAUNCH_SIZES: Array<[number, number, number]> = [
   [440, 956, 3], [430, 932, 3], [428, 926, 3], [420, 912, 3], [414, 896, 3], [414, 896, 2],
   [414, 736, 3], [402, 874, 3], [393, 852, 3], [390, 844, 3], [375, 812, 3], [360, 780, 3], [375, 667, 2], [320, 568, 2],
+  // iPad (same sizes the root layout covers, plus iPad Air 10.9).
+  [1024, 1366, 2], [834, 1194, 2], [820, 1180, 2], [810, 1080, 2], [744, 1133, 2],
 ];
 const FOOD_IOS_LAUNCH_IMAGES = FOOD_IOS_LAUNCH_SIZES.map(([width, height, ratio]) => ({
   url: `/icons/food/splash/launch-${width * ratio}x${height * ratio}.png`,
