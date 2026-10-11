@@ -11,6 +11,7 @@ drop trigger if exists food_orders_gp_snapshot on public.food_orders;
 drop function if exists internal.food_orders_gp_snapshot();
 drop function if exists public.admin_cancel_gp_rate(uuid, text);
 drop function if exists public.admin_set_gp_rate(uuid, integer, timestamptz, timestamptz, text, uuid);
+drop function if exists public.admin_gp_history(timestamptz, integer);
 drop function if exists public.admin_gp_settings();
 drop function if exists public.food_order_gp_quote(uuid);
 drop function if exists internal.food_order_gp(uuid);

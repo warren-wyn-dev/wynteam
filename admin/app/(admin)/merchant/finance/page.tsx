@@ -16,7 +16,7 @@ import {
   type MerchantFinanceOverview,
 } from "@/lib/admin-merchant-finance";
 import { adminCan, requireAdminRole } from "@/lib/auth";
-import { fetchGpSettings, type GpSettings } from "@/lib/admin-gp";
+import { fetchGpHistory, fetchGpSettings, type GpSettings } from "@/lib/admin-gp";
 import { formatGpRate, gpRowLabel } from "@/lib/admin-gp-format";
 import { GpCancelButton, GpRateDialog } from "@/components/admin/gp-rate-dialog";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,7 @@ type View = (typeof VIEWS)[number]["value"];
 export default async function MerchantFinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; range?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ view?: string; range?: string; from?: string; to?: string; gp_before?: string }>;
 }) {
   const ctx = await requireAdminRole();
   if (!adminCan(ctx, "merchant")) return <NoAccess what=" WYNOS Merchant" />;
@@ -113,7 +113,7 @@ export default async function MerchantFinancePage({
       </nav>
 
       {view === "gp" ? (
-        <GpSection />
+        <GpSection before={params.gp_before && !Number.isNaN(Date.parse(params.gp_before)) ? params.gp_before : null} />
       ) : (
         <>
           <RangeBar range={range} href={href} view={view} />
@@ -406,10 +406,11 @@ function History({ data, canOpenStores }: { data: MerchantFinanceOverview; canOp
   );
 }
 
-async function GpSection() {
+async function GpSection({ before }: { before: string | null }) {
   let gp: GpSettings;
+  let history: Awaited<ReturnType<typeof fetchGpHistory>>;
   try {
-    gp = await fetchGpSettings();
+    [gp, history] = await Promise.all([fetchGpSettings(), fetchGpHistory(before)]);
   } catch {
     return <Empty text="ระบบ GP ยังไม่ได้ติดตั้งบนฐานข้อมูลนี้ หรือโหลดไม่สำเร็จ" />;
   }
@@ -483,12 +484,15 @@ async function GpSection() {
       {own.length === 0 ? <p className="text-xs text-muted-foreground">ยังไม่มีร้านที่ตั้ง GP เฉพาะ</p> : null}
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-base font-semibold">ประวัติการเปลี่ยนแปลง GP</h3>
-        {gp.history.length === 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold">ประวัติการเปลี่ยนแปลง GP{before ? " (เก่ากว่า)" : ""}</h3>
+          {before ? <Link href="/merchant/finance?view=gp" className="text-sm underline">กลับไปล่าสุด</Link> : null}
+        </div>
+        {history.rows.length === 0 ? (
           <Empty text="ยังไม่เคยตั้ง GP" />
         ) : (
           <ul className="flex flex-col divide-y rounded-xl border bg-background">
-            {gp.history.map((row) => (
+            {history.rows.map((row) => (
               <li key={row.id} className="flex flex-col gap-0.5 px-4 py-3 text-sm">
                 <p className="font-medium">
                   {row.store_name ?? "GP เริ่มต้นทุกร้าน"} → {gpRowLabel(row.rate_bp)}
@@ -507,6 +511,14 @@ async function GpSection() {
             ))}
           </ul>
         )}
+        {history.has_more && history.rows.length > 0 ? (
+          <Link
+            href={`/merchant/finance?view=gp&gp_before=${encodeURIComponent(history.rows[history.rows.length - 1].created_at)}`}
+            className="w-fit text-sm underline"
+          >
+            ดูประวัติเก่ากว่านี้
+          </Link>
+        ) : null}
       </div>
     </section>
   );

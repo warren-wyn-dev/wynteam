@@ -53,7 +53,7 @@ create table public.merchant_memberships(merchant_account_id uuid, user_id uuid,
 create table public.food_staff(store_id uuid, user_id uuid, role text, active boolean default true);
 create table public.food_stores(id uuid primary key, merchant_account_id uuid, name text, is_published boolean default true, admin_suspended_at timestamptz);
 create table public.food_orders(id uuid primary key default gen_random_uuid(), store_id uuid, status text, payment_status text,
-  refund_status text default 'none', subtotal numeric, delivery_fee numeric, total numeric,
+  refund_status text default 'none', payment_provider text, subtotal numeric, delivery_fee numeric, total numeric,
   paid_at timestamptz, refunded_at timestamptz, created_at timestamptz default now(), updated_at timestamptz default now());
 create table public.food_order_campaigns(order_id uuid, platform_funded numeric default 0, released_at timestamptz, settlement_id uuid, campaign_discount numeric default 0);
 create table public.food_ad_clicks(store_id uuid, click_day date, cost numeric);
@@ -213,6 +213,7 @@ expect_eq "$SUPER" "select jsonb_array_length(($F)->'payouts')" "2" "payouts sti
 # Order B (paid by Stripe) carried a 30.00 GP fee.
 run -q -c "insert into public.food_stripe_payments values ('00000000-0000-0000-0000-0000000000b2', 20000)" >/dev/null
 run -q -c "update public.food_stripe_payments set application_fee_satang = 3000" >/dev/null
+run -q -c "update public.food_orders set payment_provider = 'stripe' where id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
 expect_eq "$SUPER" "select (($A)->>'gp')::numeric" "30.00" "admin: GP collected on store A"
 expect_eq "$SUPER" "select (($A)->>'income')::numeric" "230.00" "admin: income = 260 - 30"
 expect_eq "$OWNER" "select (public.merchant_finance_summary('$STORE','2026-10-04','2026-10-04')->>'gp')::numeric" "30.00" "merchant: GP line"
@@ -222,19 +223,32 @@ for key in orders sales_net platform_funded gp income platform_owed; do
   merchant="$(as "$OWNER" "select public.merchant_finance_summary('$STORE','2026-10-04','2026-10-04')->>'$key'")"
   [[ "$(as "$SUPER" "select '$admin'::numeric = '$merchant'::numeric")" == "t" ]] || { echo "FAIL (GP): $key admin=$admin merchant=$merchant"; exit 1; }
 done
-# Refund on 6 Oct returns the fee (review finding): the 4 Oct period keeps the
-# GP it really collected; 6 Oct shows the fee coming back; the two together net 0.
+# Review finding: a late `payment_failed` webhook from an older checkout
+# attempt rewrites the ledger row to `failed`; the order was still paid by
+# Stripe, so the fee still counts.
+run -q -c "update public.food_stripe_payments set status = 'failed' where order_id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
+expect_eq "$SUPER" "select (($A)->>'gp')::numeric" "30.00" "stale failed ledger row does not drop collected GP"
+expect_eq "$OWNER" "select (public.merchant_finance_summary('$STORE','2026-10-04','2026-10-04')->>'gp')::numeric" "30.00" "merchant: same"
+
+# Review finding: refunded from the Stripe Dashboard (no fee refund) -> WYNOS
+# keeps the fee, nothing is reversed.
 run -q -c "update public.food_orders set payment_status = 'refunded', refund_status = 'refunded', refunded_at = '2026-10-06 10:00+07' where id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
 run -q -c "update public.food_stripe_payments set status = 'refunded', refunded_at = '2026-10-06 10:00+07' where order_id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
-expect_eq "$SUPER" "select (($A)->>'gp')::numeric" "30.00" "4 Oct keeps the GP collected that day"
 R6="(select s from jsonb_array_elements(public.admin_merchant_finance_overview('2026-10-06','2026-10-06')->'stores') s where s->>'store_id' = '$STORE')"
+expect_eq "$SUPER" "select (($R6)->>'gp')::numeric = 0" "t" "refund without fee refund: nothing reversed"
+expect_eq "$OWNER" "select (public.merchant_finance_summary('$STORE','2026-10-06','2026-10-06')->>'gp')::numeric" "0" "merchant: nothing reversed"
+
+# Refund through WYNOS on 6 Oct returns the fee: 4 Oct keeps the GP it really
+# collected, 6 Oct shows it coming back, the two net 0.
+run -q -c "update public.food_stripe_payments set application_fee_refunded_satang = 3000, application_fee_refunded_at = '2026-10-06 10:00+07' where order_id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
+expect_eq "$SUPER" "select (($A)->>'gp')::numeric" "30.00" "4 Oct keeps the GP collected that day"
 expect_eq "$SUPER" "select (($R6)->>'gp')::numeric" "-30.00" "admin: 6 Oct returns the fee"
 expect_eq "$OWNER" "select (public.merchant_finance_summary('$STORE','2026-10-06','2026-10-06')->>'gp')::numeric" "-30.00" "merchant: 6 Oct returns the fee"
 expect_eq "$OWNER" "select (public.merchant_finance_summary('$STORE','2026-10-04','2026-10-06')->>'gp')::numeric" "0.00" "over both days GP nets to zero"
 R46="(select s from jsonb_array_elements(public.admin_merchant_finance_overview('2026-10-04','2026-10-06')->'stores') s where s->>'store_id' = '$STORE')"
 expect_eq "$SUPER" "select (($R46)->>'gp')::numeric" "0.00" "admin: over both days GP nets to zero (same as the store's page)"
 run -q -c "update public.food_orders set payment_status = 'paid', refund_status = 'none', refunded_at = null where id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
-run -q -c "update public.food_stripe_payments set status = 'paid', refunded_at = null where order_id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
+run -q -c "update public.food_stripe_payments set status = 'paid', refunded_at = null, application_fee_refunded_satang = 0, application_fee_refunded_at = null where order_id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
 
 # Slip order placed under a 10% store rate: GP worked out but not collectable.
 run -q -c "insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, reason, idempotency_key, request_fingerprint) values ('$OTHER', 1000, '2026-01-01', 'test rate', gen_random_uuid(), 'fixture')" >/dev/null
@@ -253,5 +267,12 @@ expect_eq "$SUPER" "select (($B)->>'gp_uncollected')::numeric" "16.00" "abandone
 run -q -c "insert into public.food_orders(id, store_id, status, payment_status, subtotal, delivery_fee, total, paid_at) values ('00000000-0000-0000-0000-0000000000ba','$STORE','delivered','paid',10,0,10,'2026-10-04 16:00+07')" >/dev/null
 run -q -c "insert into public.food_stripe_payments(order_id, amount_satang, status, application_fee_satang) values ('00000000-0000-0000-0000-0000000000ba', 1000, 'failed', 500)" >/dev/null
 expect_eq "$OWNER" "select (public.merchant_finance_summary('$STORE','2026-10-04','2026-10-04')->>'gp')::numeric" "30.00" "merchant: failed Stripe row not deducted (still only order B's 30)"
+
+# Review finding: a slip order refunded later keeps its uncollected GP on the
+# paid day and reverses it on the refund day.
+run -q -c "update public.food_orders set payment_status = 'refunded', refund_status = 'refunded', refunded_at = '2026-10-06 09:00+07' where id = '00000000-0000-0000-0000-0000000000b9'" >/dev/null
+expect_eq "$SUPER" "select (($B)->>'gp_uncollected')::numeric" "16.00" "4 Oct uncollected unchanged after a later refund"
+B6="(select s from jsonb_array_elements(public.admin_merchant_finance_overview('2026-10-06','2026-10-06')->'stores') s where s->>'store_id' = '$OTHER')"
+expect_eq "$SUPER" "select (($B6)->>'gp_uncollected')::numeric" "-10.00" "6 Oct reverses the refunded slip order's uncollected GP"
 
 echo "PASS: admin merchant finance overview"

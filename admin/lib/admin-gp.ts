@@ -38,6 +38,16 @@ export type GpSettings = {
   }>;
 };
 
+export type GpHistoryRow = GpSettings["history"][number];
+
+/** One page of the full GP history (admin_gp_history), newest first. */
+export async function fetchGpHistory(before: string | null): Promise<{ rows: GpHistoryRow[]; has_more: boolean }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_gp_history", { p_before: before, p_limit: 200 });
+  if (error) throw error;
+  return data as { rows: GpHistoryRow[]; has_more: boolean };
+}
+
 export async function fetchGpSettings(): Promise<GpSettings> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_gp_settings");

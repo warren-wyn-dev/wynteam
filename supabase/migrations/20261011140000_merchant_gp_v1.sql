@@ -144,7 +144,11 @@ alter table public.food_orders
   add column if not exists gp_rule_version text;
 
 alter table public.food_stripe_payments
-  add column if not exists application_fee_satang bigint not null default 0;
+  add column if not exists application_fee_satang bigint not null default 0,
+  -- Set by merchant-stripe-refund when it asks Stripe to return the fee
+  -- (refund_application_fee). A refund made outside WYNOS keeps the fee.
+  add column if not exists application_fee_refunded_satang bigint not null default 0,
+  add column if not exists application_fee_refunded_at timestamptz;
 
 do $$
 begin
@@ -152,6 +156,11 @@ begin
     alter table public.food_stripe_payments
       add constraint food_stripe_payments_application_fee_check
       check (application_fee_satang >= 0 and application_fee_satang <= amount_satang);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'food_stripe_payments_fee_refunded_check') then
+    alter table public.food_stripe_payments
+      add constraint food_stripe_payments_fee_refunded_check
+      check (application_fee_refunded_satang >= 0 and application_fee_refunded_satang <= application_fee_satang);
   end if;
 end
 $$;
@@ -371,6 +380,60 @@ $$;
 
 revoke all on function public.admin_gp_settings() from public, anon;
 grant execute on function public.admin_gp_settings() to authenticated;
+
+-- Full GP history, newest first, one page at a time (merchant:view):
+-- rows created before p_before (null = now), at most 500 per page.
+create or replace function public.admin_gp_history(p_before timestamptz default null, p_limit integer default 200)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_limit integer := least(greatest(coalesce(p_limit, 200), 1), 500);
+  v_rows jsonb;
+begin
+  if not internal.has_admin_permission('merchant', 'view') then
+    raise exception 'Not authorized';
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'id', r.id,
+      'store_id', r.store_id,
+      'store_name', s.name,
+      'rate_bp', r.rate_bp,
+      'effective_from', r.effective_from,
+      'effective_to', r.effective_to,
+      'reason', r.reason,
+      'created_by_username', cb.username,
+      'created_at', r.created_at,
+      'cancelled_at', r.cancelled_at,
+      'cancelled_by_username', xb.username,
+      'cancel_reason', r.cancel_reason
+    ) order by r.created_at desc, r.id desc), '[]'::jsonb)
+  into v_rows
+  from (
+    select * from public.merchant_gp_rates
+    where created_at < coalesce(p_before, 'infinity'::timestamptz)
+    order by created_at desc, id desc
+    limit v_limit + 1
+  ) r
+  left join public.food_stores s on s.id = r.store_id
+  left join public.profiles cb on cb.id = r.created_by
+  left join public.profiles xb on xb.id = r.cancelled_by;
+
+  -- One extra row tells the page whether an older page exists.
+  return jsonb_build_object(
+    'rows', (select coalesce(jsonb_agg(e order by ord), '[]'::jsonb)
+             from jsonb_array_elements(v_rows) with ordinality as t(e, ord) where ord <= v_limit),
+    'has_more', jsonb_array_length(v_rows) > v_limit
+  );
+end;
+$$;
+
+revoke all on function public.admin_gp_history(timestamptz, integer) from public, anon;
+grant execute on function public.admin_gp_history(timestamptz, integer) to authenticated;
 
 -- Write: super admin only. p_store_id null = the default rate.
 -- p_rate_bp null (store only) = the store goes back to following the default.

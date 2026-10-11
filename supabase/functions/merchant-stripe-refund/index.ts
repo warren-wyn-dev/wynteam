@@ -95,7 +95,8 @@ Deno.serve(async (req: Request) => {
   params.set("payment_intent", order.stripe_payment_intent_id);
   params.set("reason", "requested_by_customer");
   // GP v1: a full refund also returns the WYNOS GP (application fee) to the store.
-  if (Number(payment?.application_fee_satang ?? 0) > 0) params.set("refund_application_fee", "true");
+  const feeSatang = Number(payment?.application_fee_satang ?? 0);
+  if (feeSatang > 0) params.set("refund_application_fee", "true");
   params.set("metadata[wynos_order_id]", order.id);
   if (note) params.set("metadata[wynos_note]", note);
 
@@ -123,6 +124,13 @@ Deno.serve(async (req: Request) => {
       refund_updated_by: user.id,
       stripe_refund_id: payload.id,
     }).eq("id", order.id);
+    // GP v1: finance reports reverse GP only for a fee WYNOS actually returned.
+    if (feeSatang > 0) {
+      await admin.from("food_stripe_payments").update({
+        application_fee_refunded_satang: feeSatang,
+        application_fee_refunded_at: new Date().toISOString(),
+      }).eq("order_id", order.id).eq("application_fee_refunded_satang", 0);
+    }
     return json({ status: payload.status ?? "pending", refundId: payload.id });
   } catch (error) {
     console.error("merchant-stripe-refund failed", {

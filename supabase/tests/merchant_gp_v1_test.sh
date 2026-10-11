@@ -190,6 +190,15 @@ O6="$(new_order "$STORE" 100 0 100)"
 eq "$(q "select gp_rate_bp from public.food_orders where id = '$O6'")" "2000" "new order snapshots the default"
 eq "$(q "select gp_rate_bp from public.food_orders where id = '$O1'")" "1500" "older order still keeps its own rate"
 
+# Full history, paged (review finding: no hard 500-row cap).
+TOTAL="$(q "select count(*) from public.merchant_gp_rates")"
+eq "$(as "$SUPER" "select jsonb_array_length(public.admin_gp_history(null, 3)->'rows')")" "3" "first page"
+eq "$(as "$SUPER" "select (public.admin_gp_history(null, 3)->>'has_more')")" "true" "more pages exist"
+LAST="$(as "$SUPER" "select public.admin_gp_history(null, 3)->'rows'->2->>'created_at'")"
+eq "$(as "$SUPER" "select jsonb_array_length(public.admin_gp_history('$LAST', 500)->'rows') + 3")" "$TOTAL" "pages cover every row"
+eq "$(as "$MERCHANT_VIEW" "select jsonb_typeof(public.admin_gp_history(null, 5)->'rows')")" "array" "merchant:view can read history"
+fails "$USER" "select public.admin_gp_history(null, 5)" "plain user cannot read history" "Not authorized"
+
 # Append-only history, even for the table owner.
 if run -q -c "update public.merchant_gp_rates set rate_bp = 1 where id = '$ID1'" >/dev/null 2>&1; then echo "FAIL: live rate edited"; exit 1; fi
 if run -q -c "delete from public.merchant_gp_rates where id = '$ID1'" >/dev/null 2>&1; then echo "FAIL: history deleted"; exit 1; fi
