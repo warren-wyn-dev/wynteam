@@ -976,8 +976,8 @@ function MenuSearchSheet({
 
   return (
     <Sheet title="ค้นหาเมนูอาหาร" onClose={onClose}>
-      <label className="wf-menu-search-field">
-        <Search size={19} strokeWidth={1.8} />
+      <label className="fx-search fx-menu-search-field">
+        <Search size={20} strokeWidth={2} />
         <input
           autoFocus
           value={query}
@@ -986,19 +986,22 @@ function MenuSearchSheet({
           placeholder="ค้นหาเมนูอาหาร"
           autoComplete="off"
         />
-        {query ? <button type="button" aria-label="ปิด" onClick={() => setQuery("")}><X size={17} /></button> : null}
+        {query ? <button type="button" className="fx-search-clear" aria-label="ล้างการค้นหา" onClick={() => setQuery("")}><X size={14} strokeWidth={3} /></button> : null}
       </label>
 
       {!query.trim() && popular.length ? (
-        <section className="wf-menu-search-section">
-          <div className="wf-menu-search-heading">
-            <h3>เมนูยอดนิยม</h3>
+        <section className="fx-menu-section">
+          <div className="fx-section-head fx-section-head--flush">
+            <h2>เมนูยอดนิยม</h2>
             <button type="button" onClick={() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>ดูทั้งหมด</button>
           </div>
-          <div className="wf-menu-popular">
+          <div className="fx-menu-tiles">
             {popular.map((item) => (
-              <button key={item.id} type="button" onClick={() => openItem(item)}>
-                <MenuImage client={client} item={item} className="wf-menu-popular-image" />
+              <button key={item.id} type="button" className="fx-menu-tile" onClick={() => openItem(item)} aria-label={`${item.name} ${foodMoney(item.price)}`}>
+                <span className="fx-menu-tile-photo">
+                  <MenuImage client={client} item={item} />
+                  <span className="fx-plus" aria-hidden="true"><Plus size={18} strokeWidth={2.8} /></span>
+                </span>
                 <strong>{item.name}</strong>
                 <b>{foodMoney(item.price)}</b>
               </button>
@@ -1008,11 +1011,11 @@ function MenuSearchSheet({
       ) : null}
 
       {!query.trim() && recent.length ? (
-        <section className="wf-menu-search-section">
-          <div className="wf-menu-search-heading"><h3>คำค้นหาล่าสุด</h3></div>
-          <div className="wf-menu-recent">
+        <section className="fx-menu-section">
+          <div className="fx-section-head fx-section-head--flush"><h2>คำค้นหาล่าสุด</h2></div>
+          <div className="fx-chips fx-menu-recent">
             {recent.map((value) => (
-              <button key={value} type="button" onClick={() => setQuery(value)}>
+              <button key={value} type="button" className="fx-chip" onClick={() => setQuery(value)}>
                 <Clock3 size={15} />{value}
               </button>
             ))}
@@ -1020,34 +1023,19 @@ function MenuSearchSheet({
         </section>
       ) : null}
 
-      <section className="wf-menu-search-section" ref={resultsRef}>
-        <div className="wf-menu-search-heading">
-          <h3>{query.trim() ? "ผลการค้นหา" : "เมนูทั้งหมด"}</h3>
+      <section className="fx-menu-section" ref={resultsRef}>
+        <div className="fx-section-head fx-section-head--flush">
+          <h2>{query.trim() ? "ผลการค้นหา" : "เมนูทั้งหมด"}</h2>
           <small>{results.length} เมนู</small>
         </div>
         {results.length ? (
-          <div className="wf-menu-search-list">
-            {results.map((item) => (
-              <div className="wf-menu-search-row" key={item.id}>
-                <button className="wf-menu-search-main" type="button" onClick={() => openItem(item)}>
-                  <MenuImage client={client} item={item} className="wf-menu-search-image" />
-                  <span>
-                    <strong>{item.name}</strong>
-                    <small>{item.category}</small>
-                    <b>{foodMoney(item.price)}</b>
-                  </span>
-                </button>
-                <button className="wf-menu-search-add" type="button" aria-label={item.name} onClick={() => openItem(item)}>
-                  <Plus size={19} strokeWidth={2.2} />
-                </button>
-              </div>
-            ))}
+          <div className="fx-menu-list">
+            {results.map((item) => <FoodMenuRow key={item.id} client={client} item={item} onItem={openItem} subtitle={item.category} />)}
           </div>
         ) : (
-          <div className="wf-empty wf-empty--compact">
-            <Search size={35} strokeWidth={1.4} />
-            <strong>ไม่พบเมนู</strong>
-          </div>
+          <FoodStateScreen icon={<Search size={40} strokeWidth={1.6} />} title="ไม่พบเมนู">
+            <p>ลองค้นด้วยชื่อเมนู หรือคำที่สั้นลง</p>
+          </FoodStateScreen>
         )}
       </section>
     </Sheet>
@@ -1066,25 +1054,29 @@ function FoodMenuRow({
   client,
   item,
   onItem,
+  subtitle,
 }: {
   client: SupabaseClient;
   item: FoodCustomerMenuItem;
   onItem: (item: FoodCustomerMenuItem) => void;
+  subtitle?: string;
 }) {
   const available = foodMenuIsEffectivelyAvailable(item) && foodMenuQuantityLimit(item) > 0;
   const note = foodMenuStockNote(item);
+  const detail = subtitle ?? item.description;
   return (
     <button type="button" className={`fx-menu-row${available ? "" : " is-off"}`} onClick={() => onItem(item)} aria-label={`${item.name} ${foodMoney(item.price)}${available ? "" : " สินค้าหมด"}`}>
+      <span className="fx-menu-row-photo">
+        <MenuImage client={client} item={item} />
+        {available ? null : <span className="fx-soldout-tag">สินค้าหมด</span>}
+      </span>
       <span className="fx-menu-row-copy">
         <strong>{item.name}</strong>
-        {item.description ? <small>{item.description}</small> : null}
+        {detail ? <small>{detail}</small> : null}
         {note ? <em className={`fx-stock-note is-${note.tone}`}>{note.text}</em> : null}
         <b>{foodMoney(item.price)}</b>
       </span>
-      <span className="fx-menu-row-photo">
-        <MenuImage client={client} item={item} />
-        {available ? <span className="fx-plus" aria-hidden="true"><Plus size={18} strokeWidth={2.8} /></span> : <span className="fx-soldout-tag">สินค้าหมด</span>}
-      </span>
+      {available ? <span className="fx-menu-row-add" aria-hidden="true"><Plus size={20} strokeWidth={2.8} /></span> : null}
     </button>
   );
 }

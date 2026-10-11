@@ -26,7 +26,7 @@ test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   expect(manifest).toContain('description: "WYNOS Food Public Beta"');
   const proxy = read("proxy.ts");
   expect(proxy).toContain('new URL("https://food.wynos.online")');
-  expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*"]');
+  expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*"]');
 });
 
 test("WYNOS Food approved glossy pink-red shadow-free icon is static, consistent and cache-busted", () => {
@@ -567,28 +567,19 @@ test("WYNOS Food storefront uses compact search and keeps favorite off the categ
 
 test("WYNOS Food menu search shows popular, recent and compact result rows", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
-  const css = read("app/food/food.css");
+  const css = read("app/food/food-app.css");
   const en = read("lib/i18n/en.ts");
 
-  expect(app).toContain("<h3>เมนูยอดนิยม</h3>");
-  expect(app).toContain("<h3>คำค้นหาล่าสุด</h3>");
-  expect(app).toContain('className="wf-menu-popular"');
-  expect(app).toContain('className="wf-menu-recent"');
-  expect(app).toContain('className="wf-menu-search-row"');
-  expect(app).toContain('className="wf-menu-search-add"');
+  expect(app).toContain("<h2>เมนูยอดนิยม</h2>");
+  expect(app).toContain("<h2>คำค้นหาล่าสุด</h2>");
+  expect(app).toContain('className="fx-menu-tiles"');
+  expect(app).toContain('className="fx-chips fx-menu-recent"');
+  // Results reuse the storefront row: photo left, name and price, add button bottom-right.
+  expect(app).toContain("<FoodMenuRow key={item.id} client={client} item={item} onItem={openItem} subtitle={item.category} />");
+  expect(app).toContain('className="fx-menu-row-add"');
   expect(app).toContain("wynos-food-menu-search-v1:");
-  expect(css).toContain(".wf-menu-popular");
-  expect(css).toContain("grid-auto-columns: 118px;");
-  expect(css).toContain("grid-area: auto !important;");
-  expect(css).toContain(".wf-menu-recent");
-  expect(css).toContain(".wf-menu-search-row");
-  expect(css).toContain("min-height: 70px;");
-  expect(css).toContain("min-height: 60px;");
-  expect(css).toContain("display: flex;");
-  expect(css).toContain("flex: 0 0 60px;");
-  expect(css).toContain("white-space: normal;");
-  expect(css).toContain(".wf-menu-search-add");
-  expect(css).toContain("width: 36px;");
+  expect(css).toContain(".fx-menu-row-photo { position: relative; width: 104px; height: 104px; flex: 0 0 104px; }");
+  expect(css).toContain(".fx-menu-row-add {");
   expect(en).toContain('"เมนูยอดนิยม": "Popular menu"');
   expect(en).toContain('"คำค้นหาล่าสุด": "Recent searches"');
 });
