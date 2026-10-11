@@ -2203,3 +2203,17 @@ Founder ตอบ (AskUserQuestion, 2026-10-10): super admin ให้เป็�
   (ปิด trigger `profiles_prevent_platform_role_change` เฉพาะ UPDATE เดียวใน transaction เดียวกัน แล้วเปิดกลับ) และเขียน audit_log
 - workflow ตรวจหลัง apply ว่า super admin เป็น platform admin และ trigger ป้องกันกลับมาเปิดอยู่
 - แนะนำ: ตั้งรหัสผ่านที่แข็งแรงและเก็บใน password manager เพราะบัญชีนี้ถืออำนาจสูงสุดของ Admin
+
+## [2026-10-11] Admin Sidebar — จัดโครงสร้างเมนูใหม่ตามหมวดระบบ WYNOS
+
+Founder สั่ง (พร้อม WYNOS_Admin_Sidebar_Kit) ให้จัด Sidebar ของ admin.wynos.online ใหม่ โดย **ห้าม deploy production จนกว่า Founder จะอนุมัติ**:
+- **Dashboard รวม** อยู่บนสุด นอกทุกหมวด; ตามด้วยหมวด WYNOS Account, Social, Food, Merchant, Maps และ อื่นๆ (ยุบ/ขยายได้ มีเส้นคั่น)
+- **ย้าย Stores, Coupons, Campaigns, Ads, Promo Notifications ไปอยู่ใต้ WYNOS Merchant** — Food เน้นลูกค้า/คำสั่งซื้อ, Merchant เน้นร้านค้าและการตลาดของร้าน
+- **URL เดิมทั้งหมดคงเดิม** (`/food`, `/food/coupons` ฯลฯ) และ **สิทธิ์ไม่เปลี่ยน** — เมนูที่ย้ายไป Merchant ยังใช้สิทธิ์ `food` ตาม WYN-219; การย้ายเมนูไม่ใช่การย้าย ownership ของ DB/API
+- เพิ่ม **Dashboard รายระบบ 5 หน้า** ที่ `/dashboard/{account,social,food,merchant,maps}` ใช้ข้อมูลจาก RPC/view เดิมเท่านั้นภายใต้สิทธิ์เดิม; Account ยังไม่มี API สรุปจึงแสดงข้อความแจ้งแทนตัวเลข
+- ฟีเจอร์ที่ยังไม่มีหน้า (Account Security, Customers, Payments & Refunds, Customer Support, Menu Management, Map Reports, AI Secretary, Platform Marketing, System Settings) แสดงเป็น **"เร็วๆ นี้" กดไม่ได้** — ไม่มีลิงก์ 404 ไม่มีข้อมูลปลอม
+- มือถือเปลี่ยนจากแถบเมนูล่างเป็น **Drawer**
+- Campaigns (`/food/campaigns` = แคมเปญ WYNOS ที่ร้านเลือกเข้าร่วม) วางใต้ Merchant ตามคำสั่ง Founder; Platform Marketing แยกไว้สำหรับการตลาดระดับแพลตฟอร์มในอนาคต
+- ไม่เพิ่ม Email Notifications หรือ Check-in
+
+QA: `.wyn/docs/qa/admin-sidebar-restructure-qa.md`
