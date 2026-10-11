@@ -16,6 +16,8 @@ export type FinanceDay = {
   sales_net: number;
   ad_spend: number;
   platform_funded: number;
+  /** GP v1: WYNOS GP collected (Stripe application fee); 0 until a rate is set. */
+  gp: number;
   income: number;
 };
 
@@ -34,7 +36,7 @@ export type FinanceSummary = Omit<FinanceDay, "day"> & {
 export type FinancePeriod = "today" | "yesterday" | "week" | "month" | "custom";
 export type DateRange = { from: string; to: string };
 
-const NUMBER_KEYS = ["orders", "food", "delivery", "discounts", "refunds", "sales_net", "ad_spend", "platform_funded", "income"] as const;
+const NUMBER_KEYS = ["orders", "food", "delivery", "discounts", "refunds", "sales_net", "ad_spend", "platform_funded", "gp", "income"] as const;
 
 function toDay(raw: Record<string, unknown>): FinanceDay {
   const day = { day: String(raw.day ?? "") } as FinanceDay;
@@ -124,6 +126,7 @@ const CSV_COLUMNS: [keyof FinanceDay, string][] = [
   ["sales_net", "ยอดขายสุทธิ"],
   ["ad_spend", "ค่าโฆษณา"],
   ["platform_funded", "WYNOS ช่วยจ่ายส่วนลด"],
+  ["gp", "GP WYNOS"],
   ["income", "รายได้ร้าน"],
 ];
 
