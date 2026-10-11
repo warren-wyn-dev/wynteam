@@ -196,6 +196,8 @@ test("Food iOS launch has no white flash and the status bar matches the splash",
   }
   // Temporary pink theme-color while the splash shows, removed when it fades.
   assert.match(layout, /m\.content='#ff7aa6'/);
+  // iOS 26 colours the status bar from the fixed splash's background-color, so it must be the top pink.
+  assert.match(await read("app/food/food-app.css"), /background-color: #ff7aa6;/);
   assert.match(layout, /\[360, 780, 3\]/); // iPhone 12/13 mini
   assert.match(layout, /\[1024, 1366, 2\], \[834, 1194, 2\], \[820, 1180, 2\], \[810, 1080, 2\], \[744, 1133, 2\]/); // iPad
   assert.match(layout, /document\.head\.prepend\(m\)/);
