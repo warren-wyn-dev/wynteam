@@ -1,0 +1,86 @@
+name: Admin -- attach admin.wynos.online
+
+# Manual-only. Adds the custom domain admin.wynos.online to the existing WYNOS
+# Admin Vercel project (the same project deploy-admin.yml deploys to) so the
+# production Admin build is served there with a Vercel-issued certificate.
+# DNS for *.wynos.online already points at Vercel; no DNS change is made here.
+#
+# Founder approved 2026-10-11, including that the custom production domain is
+# reachable without Vercel Authentication: access is guarded by the Admin
+# login and the server-side permission checks on every page and RPC.
+#
+# Idempotent: re-running when the domain is already on this project only
+# re-verifies it. Rollback: remove the domain in Vercel (Project -> Settings ->
+# Domains) or DELETE /v9/projects/{id}/domains/admin.wynos.online.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type ATTACH_ADMIN_DOMAIN"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    env:
+      # Same pinned IDs as deploy-admin.yml.
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+      DOMAIN: admin.wynos.online
+      CONFIRM: ${{ inputs.confirm }}
+    steps:
+      - name: Check confirmation
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRM" != "ATTACH_ADMIN_DOMAIN" ]; then
+            echo "::error::Type ATTACH_ADMIN_DOMAIN to run."
+            exit 1
+          fi
+
+      - name: Add domain to the Admin project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r ')
+          api="https://api.vercel.com"
+          status=$(curl --silent --output add.json --write-out '%{http_code}' \
+            --request POST "$api/v10/projects/$VERCEL_PROJECT_ID/domains?teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data "{\"name\":\"$DOMAIN\"}")
+          echo "add domain: HTTP $status"
+          jq '{name, projectId, verified, error: .error.code, message: .error.message}' add.json || cat add.json
+          # A refusal is fine only when the domain is already on this project
+          # (re-run); the lookup below decides.
+          get=$(curl --silent --output domain.json --write-out '%{http_code}' \
+            "$api/v9/projects/$VERCEL_PROJECT_ID/domains/$DOMAIN?teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN")
+          jq '{name, projectId, verified, verification}' domain.json || cat domain.json
+          if [ "$get" != "200" ] || [ "$(jq -r '.projectId' domain.json)" != "$VERCEL_PROJECT_ID" ]; then
+            echo "::error::Domain is not on the Admin project (add: HTTP $status). If another project owns it, move it in the Vercel dashboard."
+            exit 1
+          fi
+          if [ "$(jq -r '.verified' domain.json)" != "true" ]; then
+            echo "::error::Domain added but not verified; see the verification records above."
+            exit 1
+          fi
+
+      - name: Wait for HTTPS on the domain
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 40); do
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "https://$DOMAIN/login" || true)
+            echo "attempt $attempt: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "https://$DOMAIN/login is serving the Admin login."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::https://$DOMAIN did not answer 200 within 10 minutes (certificate may still be issuing)."
+          exit 1
