@@ -1111,7 +1111,9 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: #e40036;
+  /* Founder: red ~80%, blending up into pink ~20% at the top. */
+  background: linear-gradient(0deg, #e40036 0%, #e40036 58%, #f0306a 80%, #ff7aa6 100%);
+  background-color: #e40036;
   color: #fff;
   display: grid;
   place-content: center;
