@@ -1,0 +1,135 @@
+name: Food -- payment integrity read-only check
+
+# Step 0 of the WYNOS Food payment-safety plan (P1 paid-after-cancel,
+# P2 duplicated SQL function versions, P3 merchant payment status).
+# Founder approved this read-only production check.
+#
+# READ-ONLY: every query below is a plain SELECT. The run_sql guard refuses
+# any query that is not a SELECT/WITH or that contains a write/DDL keyword,
+# so this workflow cannot change data, schema, grants or cron jobs.
+# PRIVACY: the log shows only counts, booleans and definition hashes. No
+# order, buyer or payment rows are printed. Full function definitions (no
+# secrets; Vault values are never read) go to a 7-day artifact so the next
+# migration's rollback restores exactly what production runs today.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK-FOOD-PAYMENT to run the read-only production check'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event.inputs.confirm == 'CHECK-FOOD-PAYMENT'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Read-only checks
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          mkdir -p out
+
+          # run_sql <label> <sql> [file]: SELECT-only; prints the result, or
+          # saves it to [file] instead when given (used for definitions).
+          run_sql() {
+            local label="$1" sql="$2" file="${3:-}" body tmp code bare
+            # Keywords are checked outside string literals ('%for update%' is a pattern, not a statement).
+            bare=$(sed "s/'[^']*'//g" <<<"$sql")
+            if ! grep -Eiq '^[[:space:]]*(select|with)[[:space:]]' <<<"$bare" \
+               || grep -Eiq '\b(insert|update|delete|merge|drop|alter|create|grant|revoke|truncate|vacuum|call|do|set|copy|lock|comment|refresh|reindex|cluster)\b' <<<"$bare" \
+               || grep -q ';.*[^[:space:]]' <<<"$(tr '\n' ' ' <<<"$bare")"; then
+              echo "::error::refused non read-only query: $label"; exit 1
+            fi
+            body=$(jq -n --arg q "$sql" '{query: $q}')
+            tmp=$(mktemp)
+            code=$(curl -sS -o "$tmp" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            echo "=== $label (HTTP $code) ==="
+            if [ -n "$file" ]; then
+              cp "$tmp" "out/$file"; echo "saved to artifact: $file ($(wc -c < "$tmp") bytes)"
+            else
+              jq . "$tmp" 2>/dev/null || cat "$tmp"; echo
+            fi
+            rm -f "$tmp"
+            [ "$code" -lt 300 ] || { echo "::error::$label failed"; exit 1; }
+          }
+
+          FUNCS="'food_create_order','food_create_order_v2','food_create_scheduled_order','food_create_scheduled_order_v2',
+                 'food_quote_order','food_quote_order_v2','food_submit_payment','food_set_payment_status',
+                 'food_cancel_order','food_transition_order','food_apply_stripe_event','merchant_set_refund_status',
+                 'food_record_payment_verification','food_timeout_cancel'"
+
+          run_sql "1. Payment/order function signatures, overloads and privileges" "
+            select p.oid::regprocedure::text as signature,
+                   p.prosecdef as security_definer,
+                   p.proconfig as config,
+                   md5(pg_get_functiondef(p.oid)) as def_md5,
+                   has_function_privilege('anon', p.oid, 'execute') as anon_execute,
+                   has_function_privilege('authenticated', p.oid, 'execute') as authenticated_execute
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname in ($FUNCS)
+            order by 1;"
+
+          run_sql "2. Guards present in the live definitions" "
+            select p.oid::regprocedure::text as signature,
+                   pg_get_functiondef(p.oid) ilike '%cancel stripe checkout before submitting slip%' as slip_blocked_while_stripe_open,
+                   pg_get_functiondef(p.oid) ilike '%stripe payment status is managed by webhook%' as merchant_blocked_on_stripe,
+                   pg_get_functiondef(p.oid) ilike '%for update%' as locks_row,
+                   pg_get_functiondef(p.oid) ilike '%stripe_checkout_session_id%' as mentions_stripe_session
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public'
+              and p.proname in ('food_submit_payment','food_set_payment_status','food_cancel_order',
+                                'food_transition_order','food_apply_stripe_event')
+            order by 1;"
+
+          run_sql "3. Legacy 6-argument food_create_order (no delivery-zone check) still exists?" "
+            select count(*) as legacy_create_order_overloads
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname = 'food_create_order' and p.pronargs = 6;"
+
+          run_sql "4. Orders that may already be affected (counts only)" "
+            select
+              count(*) filter (where status = 'cancelled' and payment_status = 'paid'
+                and coalesce(refund_status, 'none') not in ('pending', 'refunded')) as cancelled_paid_no_refund,
+              count(*) filter (where status = 'cancelled' and payment_status = 'paid'
+                and payment_provider = 'stripe') as cancelled_paid_stripe,
+              count(*) filter (where payment_provider = 'stripe' and payment_slip_path is not null) as stripe_paid_with_slip,
+              count(*) filter (where status = 'cancelled' and payment_status = 'paid'
+                and payment_provider = 'merchant_manual') as manual_paid_on_cancelled,
+              count(*) filter (where payment_status = 'refunded' and paid_at is null) as refunded_never_paid,
+              count(*) filter (where status = 'pending_acceptance' and payment_status in ('pending', 'issue')
+                and stripe_checkout_session_id is not null) as open_orders_with_stripe_session
+            from public.food_orders;"
+
+          run_sql "5. Stripe ledger vs order mismatch (counts only)" "
+            select
+              count(*) filter (where o.payment_status = 'paid' and o.payment_provider = 'stripe' and sp.status <> 'paid') as order_paid_ledger_not_paid,
+              count(*) filter (where sp.status = 'paid' and o.payment_status not in ('paid', 'refunded')) as ledger_paid_order_not_paid
+            from public.food_stripe_payments sp join public.food_orders o on o.id = sp.order_id;"
+
+          run_sql "6. Food cron jobs" "
+            select jobname, schedule, active from cron.job where jobname ilike '%food%' order by 1;"
+
+          run_sql "7. Full live definitions (artifact only)" "
+            select p.oid::regprocedure::text as signature, pg_get_functiondef(p.oid) as definition
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname in ($FUNCS)
+            order by 1;" live-function-definitions.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: food-payment-live-function-definitions
+          path: out/
+          retention-days: 7
