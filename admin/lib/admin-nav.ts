@@ -24,6 +24,7 @@ import {
   MapPinOff,
   Bot,
   Settings,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,7 +43,7 @@ export const ADMIN_NAV_GROUPS = [
   { id: "food", label: "WYNOS Food", icon: UtensilsCrossed, description: "ดูแลฝั่งลูกค้า คำสั่งซื้อ และการชำระเงิน" },
   { id: "merchant", label: "WYNOS Merchant", icon: Store, description: "ดูแลร้านค้า เมนู คูปอง แคมเปญ และโฆษณาของร้านค้า" },
   { id: "maps", label: "WYNOS Maps", icon: MapIcon, description: "สถานที่และความถูกต้องของข้อมูลแผนที่" },
-  { id: "other", label: "อื่นๆ", icon: Settings, description: "เครื่องมือข้ามระบบ การตลาดระดับแพลตฟอร์ม และการตั้งค่า" },
+  { id: "other", label: "ส่วนกลางและระบบ", icon: Settings, description: "ฟังก์ชันที่ครอบคลุมหลายบริการ: การตลาดระดับแพลตฟอร์ม สิทธิ์ Audit Log และการตั้งค่า" },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; icon: LucideIcon; description: string }>;
 
 export type AdminNavGroupId = (typeof ADMIN_NAV_GROUPS)[number]["id"];
@@ -131,6 +132,9 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: "campaigns", href: "/food/campaigns", label: "Campaigns", icon: Gift, group: "merchant", requires: { systems: ["food"] } },
   { id: "ads", href: "/food/ads", label: "Ads", icon: BadgeDollarSign, group: "merchant", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
   { id: "promo-notifications", href: "/food/notifications", label: "Promo Notifications", icon: BellRing, group: "merchant", requires: { systems: ["food"] } },
+  // GP, store income, payouts and settlement history live here, never as a
+  // top-level section. Read only; reads need merchant:view.
+  { id: "merchant-finance", href: "/merchant/finance", label: "การเงินร้านค้า", icon: Wallet, group: "merchant", requires: { systems: ["merchant"] } },
 
   systemDashboard("maps"),
   { id: "places", href: "/maps/places", label: "Place Management", icon: MapPinned, group: "maps", requires: { systems: ["maps"] } },

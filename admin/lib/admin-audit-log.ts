@@ -42,3 +42,21 @@ export async function fetchAuditLog(eventType?: AuditLogEventType): Promise<Audi
   if (error) throw error;
   return data ?? [];
 }
+
+/**
+ * Audit rows about one store (Store Detail -> Activity Logs): rows whose
+ * target is the store (suspend/unsuspend) or whose detail names it (team
+ * changes). Same super-admin-only view as the Audit Log page.
+ */
+export async function fetchStoreAuditLog(storeId: string): Promise<Array<Omit<AuditLogRow, "event_type"> & { event_type: string }>> {
+  if (!/^[0-9a-f-]{36}$/i.test(storeId)) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("admin_audit_log")
+    .select("id, actor_id, actor_username_snapshot, event_type, target_id, detail, created_at")
+    .or(`target_id.eq.${storeId},detail->>store_id.eq.${storeId}`)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return data ?? [];
+}

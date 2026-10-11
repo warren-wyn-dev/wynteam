@@ -2224,3 +2224,21 @@ QA: `.wyn/docs/qa/admin-sidebar-restructure-qa.md`
 Founder อนุมัติ ("อนุญาต", 2026-10-11) ให้ผูกโดเมนผ่าน workflow `admin-attach-domain.yml` (manual, ต้องพิมพ์ `ATTACH_ADMIN_DOMAIN`)
 - รับทราบว่าโดเมนจริงของ production ไม่อยู่หลัง Vercel Authentication — การป้องกันคือหน้า login ของ WYN Admin + การตรวจสิทธิ์ฝั่ง server ทุกหน้า/RPC (WYN-219)
 - ไม่แก้ DNS; rollback = ลบโดเมนออกจากโปรเจกต์ใน Vercel
+
+## [2026-10-11] WYNOS Admin Master Prompt — รอบแรก: การเงินร้านค้าใต้ WYNOS Merchant (อ่านอย่างเดียว)
+
+Founder ส่ง Master Implementation Prompt (WYNOS Admin — Complete Central Management System) ให้ตรวจระบบจริง ทำ Gap Analysis แล้วลงมือทีละ Phase โดยห้ามสร้างค่าทางธุรกิจเอง
+
+- หมวดสุดท้ายของ Sidebar เปลี่ยนชื่อ **"อื่นๆ" → "ส่วนกลางและระบบ"** ตาม Prompt (§2.2) — Dashboard รวม + 6 หมวดเหมือนเดิม
+- เพิ่ม **WYNOS Merchant → การเงินร้านค้า** (`/merchant/finance`) แบบ **อ่านอย่างเดียว** ผ่าน RPC ใหม่ `admin_merchant_finance_overview` (merchant:view) ที่ใช้สูตรเดียวกับหน้าการเงินของร้าน (WYN-210) — ไม่มีปุ่มจ่ายเงิน/คืนเงิน/แก้ค่า
+- **ไม่สร้าง GP**: ตรวจแล้วระบบจริงไม่มี GP/commission (Stripe direct charge ไม่มี application fee) — สูตร/อัตรา/วิธีเก็บ/ภาษี/การปัดเศษ เป็น Business Decision (B1–B7 ใน `docs/engineering/WYNOS-ADMIN-MASTER-GAP-ANALYSIS.md`)
+- Store Detail แบ่งเป็น 7 แท็บ; แท็บที่ยังไม่มี API (Menus, Promotions รายร้าน) แจ้งตามจริง ไม่มีข้อมูลปลอม
+- Migration additive; **apply production และ deploy Admin ยังต้องได้รับอนุมัติจาก Founder**
+
+### Founder อนุมัติ (2026-10-11): "อนุมัติทุกอย่าง"
+
+- อนุมัติเปิด PR, merge, apply migration `20261011120000_admin_merchant_finance_overview.sql` บน production
+  (workflow `admin-apply-merchant-finance.yml`) และ deploy WYNOS Admin production
+- เรื่อง GP (B1–B7), สิทธิ์ระดับฟีเจอร์ (D1) และการย้ายโปรลูกค้าใหม่ (B8): อนุมัติให้ดำเนินการต่อ
+  แต่ **ยังไม่มีค่าทางธุรกิจ** (อัตรา GP, ฐานคำนวณ, วิธีเก็บเงิน, ภาษี, ผู้อนุมัติ) — ต้องถาม Founder ก่อน implement
+  ห้ามสร้างค่าเอง
