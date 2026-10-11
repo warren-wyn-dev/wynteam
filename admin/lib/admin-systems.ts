@@ -6,6 +6,10 @@
 export const ADMIN_SYSTEMS = ["account", "social", "food", "merchant", "maps"] as const;
 export type AdminSystem = (typeof ADMIN_SYSTEMS)[number];
 
+export function isAdminSystem(value: string): value is AdminSystem {
+  return (ADMIN_SYSTEMS as readonly string[]).includes(value);
+}
+
 export const ADMIN_LEVELS = ["view", "edit"] as const;
 export type AdminLevel = (typeof ADMIN_LEVELS)[number];
 
