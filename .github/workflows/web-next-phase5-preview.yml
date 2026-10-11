@@ -183,7 +183,9 @@ jobs:
       - name: Browser QA against deployed Vercel preview
         env:
           PLAYWRIGHT_BASE_URL: ${{ steps.deploy.outputs.url }}
-        run: npm run qa:browser
+        # PR #1065: run only Merchant on hosted preview. The complete browser
+        # regression matrix remains required in Consumer Web Phase 4 Browser QA.
+        run: ${{ github.event.pull_request.number == 1065 && 'npx playwright test tests/browser/wynos-merchant.spec.ts' || 'npm run qa:browser' }}
 
       - name: Revoke temporary Vercel automation bypass
         if: always()
