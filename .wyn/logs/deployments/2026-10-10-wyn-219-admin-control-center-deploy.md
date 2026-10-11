@@ -87,3 +87,13 @@ order (central → Account → Social → Food → Merchant).
 - Founder: manual QA with `@wynos_s` (`.wyn/docs/qa/wyn-219-admin-staging-checklist.md`) and grant
   permissions to staff who still need access.
 
+## Admin app redeploy (2026-10-11)
+
+Retries 38073213789 (2026-10-10) failed on the same Vercel quota. Run
+[38103457413](https://github.com/warren-wyn-dev/wynteam/actions/runs/38103457413) — **success**:
+production Admin (https://admin-lilac-seven-85.vercel.app) now runs the permission-aware build.
+The run built main at `7f09136`; `admin/` is unchanged since `85ac787` (the later commits are the
+WYNOS Food customer app, PR #1093), so the Admin build is the one reviewed in PR #1091.
+
+WYN-219 is now fully live. Left for the Founder: manual QA with `@wynos_s` and permission grants.
+

@@ -1,6 +1,6 @@
 # WYN Project Status (ผลตรวจสอบ repository)
 
-> ตรวจสอบล่าสุด: 2026-10-10 จาก codebase, manifests, Git history (ถึง PR #1075), CI/CD workflows, decision records และ deployment logs ใน repository
+> ตรวจสอบล่าสุด: 2026-10-11 จาก codebase, manifests, Git history (ถึง PR #1094), CI/CD workflows, decision records และ deployment logs ใน repository
 
 ## 1. Repository
 
@@ -43,8 +43,9 @@
 ### WYN Admin (`admin/`)
 
 - Next.js 16 App Router + React 19 + TypeScript + Tailwind CSS + shadcn/ui primitives
-- ใช้ Supabase project เดียวกันผ่าน `@supabase/ssr`; แยก authorization สำหรับ `admin` และ `moderator`
-- พื้นที่ admin: dashboard, users, moderation, reports, announcements, audit log, **food** (เช่น coupons) และ **merchants**
+- ใช้ Supabase project เดียวกันผ่าน `@supabase/ssr`
+- WYN-219 (LIVE 2026-10-11): เมนูจัดกลุ่มตามระบบ WYNOS (Account, Social, Food, Merchant, Maps) และสิทธิ์แยกตามระบบ ระดับ view/edit (`public.admin_permissions`); super admin คนเดียวคือ `@wynos_s` ให้สิทธิ์ผ่านหน้า **ระบบ → Team Permissions**; Audit Log ดูได้เฉพาะ super admin
+- พื้นที่ admin: dashboard, users, moderation, reports, announcements, audit log, Team Permissions, **food** (เช่น coupons), **merchants** และ **maps** (places)
 - มี manual Vercel deployment workflow แยก
 
 ### Design Reference (`design-reference/`, `prototypes/`)
@@ -69,7 +70,7 @@
 - ใช้ Supabase Auth; เปิด Google และ email/password ตาม release notes และ password policy/recovery email ผ่าน workflow ที่บันทึกไว้
 - Apple และ phone/SMS ยังปิด/พักไว้ตาม configuration และ Founder decisions ปัจจุบัน
 - WYNOS Food ให้ guest ดูร้าน/เมนูผ่าน public catalog แบบ least-privilege ได้; การสั่งซื้อและชำระเงินยังต้องล็อกอิน
-- Admin ตรวจ `platform_role` ฝั่ง server ก่อนให้เข้าพื้นที่ protected
+- Admin ตรวจสิทธิ์ฝั่ง server: เข้าได้เมื่อเป็น admin/moderator หรือได้สิทธิ์ WYN-219 อย่างน้อยหนึ่งระบบ; RPC/view/policy ของ admin ทุกระบบตรวจ `internal.has_admin_permission(system, level)` แทน `platform_role` (step 2 ครบทุกระบบ 2026-10-10)
 - ฟีเจอร์ใหม่ของ Web Beta2 ต้องอยู่หลัง developer gate (`useBeta2Feature` / `is_developer_account()` ทั้งฝั่ง UI และ server) จนกว่า Founder จะอนุมัติ release ดู `docs/engineering/WEB_BETA2.md`
 - ณ ตอนนี้ `BETA2_RELEASED` ใน `web/lib/beta2.ts` เปิดครบทั้ง `chatThreads`, `clubChatActions` และ `clubAnnouncements` ให้ทุกบัญชี (Founder decision 2026-09-30)
 
@@ -117,21 +118,21 @@ workflows อื่นที่สำคัญ: browser QA ของ merchant/we
 
 ## 8. Task Tracking Snapshot
 
-Snapshot ณ 2026-10-10 จาก `.wyn/tasks/`:
+Snapshot ณ 2026-10-11 จาก `.wyn/tasks/`:
 
 | สถานะ | จำนวนไฟล์ `WYN-*.md` |
 |---|---:|
 | backlog | 9 |
-| active | 27 |
+| active | 0 |
 | review | 0 |
 | qa | 0 |
 | bugs | 38 |
 | approved | 106 |
-| completed | 50 |
+| completed | 78 |
 
 ข้อสังเกต:
 
-- จำนวนไฟล์เป็น inventory ไม่ใช่หลักฐานว่า production state ตรงกับชื่อโฟลเดอร์ทุกไฟล์ (active เพิ่มจาก 1 เป็น 27 นับตั้งแต่ snapshot 2026-09-08 ควร audit ว่างานไหนเสร็จแล้วจริง)
+- จำนวนไฟล์เป็น inventory ไม่ใช่หลักฐานว่า production state ตรงกับชื่อโฟลเดอร์ทุกไฟล์ (audit 2026-10-10 ย้ายงาน active ที่เสร็จแล้วไป completed ดู `.wyn/docs/qa/active-tasks-audit-2026-10-10.md`; WYN-219 ปิด 2026-10-11)
 - งาน Food/Merchant/Maps หลายชิ้นติดตามด้วย branch/PR โดยตรงและอาจไม่มี task file
 - พบ legacy duplicate ID เช่น `WYN-024` มากกว่าหนึ่งไฟล์ใน `bugs/`; ห้าม rename/delete โดยไม่มี audit เพราะอาจมี commit, PR และ log อ้างอิงชื่อเดิม
 - ก่อนเลือกงานใหม่ให้เทียบ task file กับ Git history, PR, QA record และ deployment log แล้วค่อยย้ายสถานะ
