@@ -2,9 +2,16 @@ name: Admin -- fetch recent Vercel runtime logs (read-only)
 
 # app/(admin)/error.tsx deliberately shows only a generic message to the
 # browser ("โหลดข้อมูลไม่สำเร็จ"), so the real thrown error only exists in the
-# production deployment's runtime logs. Read-only: fetches logs, changes nothing.
+# Admin project's runtime logs. Read-only: fetches retained production logs
+# (error and fatal) for a past window and prints only selected fields.
 on:
   workflow_dispatch:
+    inputs:
+      since:
+        description: "How far back to read, e.g. 1h, 6h, 1d"
+        type: string
+        required: false
+        default: "3h"
 
 permissions:
   contents: read
@@ -14,23 +21,33 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      # Same pinned IDs as deploy-admin.yml.
-      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      # Same pinned project and team as deploy-admin.yml.
       VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+      VERCEL_TEAM_SLUG: warren14
+      SINCE: ${{ inputs.since }}
     steps:
-      - name: Fetch recent runtime logs of the current production deployment
+      - name: Read retained production error/fatal logs
         run: |
           set -euo pipefail
+          case "$SINCE" in
+            [0-9]*[mhd]) ;;
+            *) echo "::error::since must look like 30m, 3h or 1d"; exit 1 ;;
+          esac
           VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r ')
-          api="https://api.vercel.com"
-          auth=(--header "Authorization: Bearer $VERCEL_TOKEN")
-          dep=$(curl --silent --fail "${auth[@]}" \
-            "$api/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID&target=production&state=READY&limit=1" \
-            | jq -r '.deployments[0].uid')
-          echo "production deployment: $dep"
-          # The endpoint streams NDJSON; stop after 20s and keep what arrived.
-          curl --silent --max-time 20 "${auth[@]}" \
-            "$api/v1/projects/$VERCEL_PROJECT_ID/deployments/$dep/runtime-logs?teamId=$VERCEL_ORG_ID" \
-            > logs.ndjson || true
-          echo "lines: $(wc -l < logs.ndjson)"
-          jq -r 'select(.level == "error" or (.message // "" | test("rror|exception|Not permitted|Not authorized"))) | "\(.timestampInMs // "") \(.requestPath // "") \(.level // "") \(.message // "" | .[0:600])"' logs.ndjson | tail -60 || tail -c 6000 logs.ndjson
+          for level in error fatal; do
+            echo "== level: $level (since $SINCE)"
+            # Fails the job on any CLI/API error (auth, project, quota).
+            npx --yes vercel@latest logs \
+              --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_TEAM_SLUG" --token "$VERCEL_TOKEN" \
+              --environment production --level "$level" --since "$SINCE" --limit 100 --json \
+              > "logs-$level.jsonl"
+            # Parse record by record; malformed lines are dropped, never printed raw.
+            jq -R -c 'fromjson? | {
+                time: (.timestamp // .timestampInMs // .date // null),
+                path: (.requestPath // .path // null),
+                status: (.statusCode // .responseStatusCode // null),
+                level: (.level // null),
+                message: ((.message // "") | tostring | .[0:600])
+              }' "logs-$level.jsonl"
+            echo "records: $(jq -R 'fromjson? | 1' "logs-$level.jsonl" | wc -l)"
+          done
