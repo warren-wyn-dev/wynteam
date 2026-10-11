@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
  * nothing here does floating-point money maths.
  */
 
-export type GpNext = { id: string; rate_bp: number; effective_from: string; effective_to: string | null } | null;
+/** rate_bp null = the store goes back to following the default. */
+export type GpNext = { id: string; rate_bp: number | null; effective_from: string; effective_to: string | null } | null;
 
 export type GpSettings = {
   can_edit: boolean;
@@ -25,7 +26,7 @@ export type GpSettings = {
     id: string;
     store_id: string | null;
     store_name: string | null;
-    rate_bp: number;
+    rate_bp: number | null;
     effective_from: string;
     effective_to: string | null;
     reason: string;

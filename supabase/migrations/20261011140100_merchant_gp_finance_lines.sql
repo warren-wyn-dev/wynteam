@@ -85,11 +85,13 @@ begin
     where c.store_id = p_store_id and c.click_day between v_prev_from and p_to
   ),
   -- GP v1: WYNOS GP actually collected (Stripe application fee) on orders
-  -- that stay paid; a refund returns the fee to the store.
+  -- that stay paid. Only a Stripe ledger row that is itself `paid` counts:
+  -- a checkout the buyer abandoned for a slip keeps a `failed` row carrying
+  -- the fee that was never charged; a refund returns the fee (row `refunded`).
   gp as (
     select p.day, round(fsp.application_fee_satang / 100.0, 2) as amount
     from paid p
-    join public.food_stripe_payments fsp on fsp.order_id = p.id
+    join public.food_stripe_payments fsp on fsp.order_id = p.id and fsp.status = 'paid'
     where p.payment_status = 'paid' and fsp.application_fee_satang > 0
   ),
   funded as (
@@ -237,15 +239,16 @@ begin
       and p.payment_status <> 'refunded'
     group by p.store_id
   ),
-  -- GP v1: collected = Stripe application fees on orders that stay paid;
-  -- uncollected = GP worked out for paid non-Stripe (PromptPay slip) orders,
-  -- which pay the store directly so WYNOS cannot take a fee.
+  -- GP v1: collected = application fees on Stripe ledger rows that are
+  -- `paid` (orders that stay paid); uncollected = GP worked out for paid
+  -- orders with no paid Stripe row (PromptPay slip, including a checkout the
+  -- buyer abandoned for a slip), which pay the store directly.
   gp_by_store as (
     select p.store_id,
            round(coalesce(sum(fsp.application_fee_satang) filter (where fsp.order_id is not null), 0) / 100.0, 2) as gp,
            round(coalesce(sum(g.gp_satang) filter (where fsp.order_id is null), 0) / 100.0, 2) as gp_uncollected
     from paid p
-    left join public.food_stripe_payments fsp on fsp.order_id = p.id
+    left join public.food_stripe_payments fsp on fsp.order_id = p.id and fsp.status = 'paid'
     cross join lateral internal.food_order_gp(p.id) g
     where p.payment_status = 'paid'
     group by p.store_id

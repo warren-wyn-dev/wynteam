@@ -1,5 +1,10 @@
 /** GP v1 helpers shared by server pages and client dialogs (no server imports). */
 
+/** A rate row's label: null means the store follows the default again. */
+export function gpRowLabel(rateBp: number | null): string {
+  return rateBp === null ? "ใช้ GP เริ่มต้น" : formatGpRate(rateBp);
+}
+
 /** 1550 -> "15.5%", 2000 -> "20%". */
 export function formatGpRate(rateBp: number): string {
   const whole = Math.trunc(rateBp / 100);
@@ -36,6 +41,8 @@ export function bangkokLocalToIso(value: string): string | null {
 
 export function adminGpError(error: unknown): string {
   const message = (error as { message?: string } | null)?.message ?? "";
+  if (message.includes("needs a rate")) return "GP เริ่มต้นต้องระบุอัตรา";
+  if (message.includes("different change")) return "คำขอนี้ถูกส่งไปแล้วด้วยค่าที่ต่างกัน ปิดหน้าต่างแล้วลองใหม่";
   if (message.includes("Only the super admin")) return "เฉพาะ super admin เท่านั้นที่แก้ GP ได้";
   if (message.includes("between 0 and 100")) return "GP ต้องอยู่ระหว่าง 0–100%";
   if (message.includes("reason")) return "กรุณาใส่เหตุผล 3–300 ตัวอักษร";

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cancelGpRate, setGpRate } from "@/lib/admin-gp-actions";
-import { adminGpError, bangkokLocalToIso, formatGpRate, parseGpPercent, previewGpSatang } from "@/lib/admin-gp-format";
+import { adminGpError, bangkokLocalToIso, formatGpRate, gpRowLabel, parseGpPercent, previewGpSatang } from "@/lib/admin-gp-format";
 
 function baht(satang: number) {
   return `฿${(satang / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -27,18 +27,22 @@ export function GpRateDialog({
   storeId,
   storeName,
   currentRateBp,
+  hasOwnRate = false,
   triggerLabel = "แก้ไข GP",
 }: {
   /** null = the default for every store without its own rate. */
   storeId: string | null;
   storeName: string;
   currentRateBp: number;
+  /** The store has its own rate now, so "back to the default" is offered. */
+  hasOwnRate?: boolean;
   triggerLabel?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"form" | "confirm">("form");
   const [percent, setPercent] = useState("");
+  const [followDefault, setFollowDefault] = useState(false);
   const [startNow, setStartNow] = useState(true);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -47,22 +51,25 @@ export function GpRateDialog({
   const [key, setKey] = useState("");
   const [pending, startTransition] = useTransition();
 
-  const rateBp = parseGpPercent(percent);
+  const parsedRate = parseGpPercent(percent);
+  // null = back to the default (store rows only).
+  const rateBp = followDefault ? null : parsedRate;
   const fromIso = startNow ? null : bangkokLocalToIso(from);
   const toIso = to ? bangkokLocalToIso(to) : null;
   const formError = useMemo(() => {
-    if (rateBp === null) return "ใส่ GP เป็นตัวเลข 0–100 ทศนิยมไม่เกิน 2 ตำแหน่ง";
+    if (!followDefault && parsedRate === null) return "ใส่ GP เป็นตัวเลข 0–100 ทศนิยมไม่เกิน 2 ตำแหน่ง";
     if (!startNow && !fromIso) return "เลือกวันเวลาเริ่มมีผล";
     if (to && !toIso) return "วันสิ้นสุดไม่ถูกต้อง";
     if (toIso && fromIso && Date.parse(toIso) <= Date.parse(fromIso)) return "วันสิ้นสุดต้องอยู่หลังวันเริ่ม";
     const trimmed = reason.trim().length;
     if (trimmed < 3 || trimmed > 300) return "ใส่เหตุผล 3–300 ตัวอักษร";
     return null;
-  }, [rateBp, startNow, fromIso, to, toIso, reason]);
+  }, [followDefault, parsedRate, startNow, fromIso, to, toIso, reason]);
 
   function reset() {
     setStep("form");
     setPercent("");
+    setFollowDefault(false);
     setStartNow(true);
     setFrom("");
     setTo("");
@@ -80,7 +87,7 @@ export function GpRateDialog({
   }
 
   function submit() {
-    if (rateBp === null) return;
+    if (!followDefault && rateBp === null) return;
     setError(null);
     startTransition(async () => {
       try {
@@ -120,10 +127,18 @@ export function GpRateDialog({
 
         {step === "form" ? (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="gp-percent">GP ใหม่ (%)</Label>
-              <Input id="gp-percent" inputMode="decimal" autoComplete="off" value={percent} onChange={(e) => setPercent(e.target.value)} placeholder="เช่น 15 หรือ 15.5" disabled={pending} />
-            </div>
+            {storeId !== null && hasOwnRate ? (
+              <label className="flex min-h-10 items-center gap-2 text-sm">
+                <input type="checkbox" checked={followDefault} onChange={(e) => setFollowDefault(e.target.checked)} disabled={pending} />
+                กลับไปใช้ GP เริ่มต้น (ยกเลิกอัตราเฉพาะร้าน)
+              </label>
+            ) : null}
+            {!followDefault ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="gp-percent">GP ใหม่ (%)</Label>
+                <Input id="gp-percent" inputMode="decimal" autoComplete="off" value={percent} onChange={(e) => setPercent(e.target.value)} placeholder="เช่น 15 หรือ 15.5" disabled={pending} />
+              </div>
+            ) : null}
 
             <fieldset className="flex flex-col gap-2">
               <legend className="text-sm font-medium">เริ่มมีผล (เวลาไทย)</legend>
@@ -161,12 +176,12 @@ export function GpRateDialog({
               </div>
             ) : null}
 
-            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : formError && percent ? <p className="text-sm text-muted-foreground">{formError}</p> : null}
+            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : formError && (percent || followDefault) ? <p className="text-sm text-muted-foreground">{formError}</p> : null}
           </div>
         ) : (
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt className="text-muted-foreground">ใช้กับ</dt><dd>{storeName}</dd>
-            <dt className="text-muted-foreground">GP</dt><dd className="font-semibold">{formatGpRate(currentRateBp)} → {formatGpRate(rateBp ?? 0)}</dd>
+            <dt className="text-muted-foreground">GP</dt><dd className="font-semibold">{formatGpRate(currentRateBp)} → {gpRowLabel(rateBp)}</dd>
             <dt className="text-muted-foreground">เริ่ม</dt><dd>{when(fromIso)}</dd>
             <dt className="text-muted-foreground">สิ้นสุด</dt><dd>{toIso ? when(toIso) : "ไม่กำหนด"}</dd>
             <dt className="text-muted-foreground">เหตุผล</dt><dd className="break-words">{reason.trim()}</dd>

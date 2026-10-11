@@ -19,7 +19,8 @@
 --
 -- History is append-only: a rate is never edited or deleted. A new row with a
 -- later effective_from replaces the older one; a temporary rate ends at
--- effective_to and the earlier rate applies again. Only a rate that has not
+-- effective_to and the earlier rate applies again. A store row with no rate
+-- (rate_bp null) means "back to the default" from its start. Only a rate that has not
 -- started yet can be cancelled. Rates cannot start in the past, so a change
 -- never moves money on orders already placed: each order keeps the rate it
 -- was placed with (gp_rate_bp / gp_rate_id / gp_rule_version).
@@ -35,17 +36,21 @@ create table if not exists public.merchant_gp_rates (
   id uuid primary key default gen_random_uuid(),
   -- null = the default for every store without a rate of its own.
   store_id uuid references public.food_stores (id) on delete restrict,
-  rate_bp integer not null check (rate_bp between 0 and 10000),
+  -- null (store rows only) = follow the default from effective_from.
+  rate_bp integer check (rate_bp between 0 and 10000),
   effective_from timestamptz not null,
   effective_to timestamptz,
   reason text not null check (char_length(btrim(reason)) between 3 and 300),
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now(),
   idempotency_key uuid not null,
+  -- md5 of the whole request, so a reused key with any different value is refused.
+  request_fingerprint text not null,
   cancelled_at timestamptz,
   cancelled_by uuid references public.profiles (id) on delete set null,
   cancel_reason text check (cancel_reason is null or char_length(btrim(cancel_reason)) between 3 and 300),
   constraint merchant_gp_rates_period_check check (effective_to is null or effective_to > effective_from),
+  constraint merchant_gp_rates_default_has_rate check (rate_bp is not null or store_id is not null),
   constraint merchant_gp_rates_idempotency_unique unique (idempotency_key)
 );
 
@@ -75,10 +80,10 @@ begin
   end if;
   if new.cancelled_at is null
      or (new.id, new.store_id, new.rate_bp, new.effective_from, new.effective_to, new.reason,
-         new.created_by, new.created_at, new.idempotency_key)
+         new.created_by, new.created_at, new.idempotency_key, new.request_fingerprint)
         is distinct from
         (old.id, old.store_id, old.rate_bp, old.effective_from, old.effective_to, old.reason,
-         old.created_by, old.created_at, old.idempotency_key) then
+         old.created_by, old.created_at, old.idempotency_key, old.request_fingerprint) then
     raise exception 'GP rates are append-only; only a future rate can be cancelled';
   end if;
   return new;
@@ -91,7 +96,8 @@ create trigger merchant_gp_rates_guard
   for each row execute function internal.merchant_gp_rates_guard();
 
 -- The rate row that applies to a store at a moment: the store's own latest
--- rate covering that moment, else the default's, else none (0%).
+-- row covering that moment, unless that row says "back to the default"
+-- (rate_bp null); then the default's latest covering row; else none (0%).
 create or replace function internal.merchant_gp_rate_at(p_store_id uuid, p_at timestamptz)
 returns table (rate_id uuid, rate_bp integer, source text)
 language sql
@@ -99,18 +105,31 @@ stable
 security definer
 set search_path = ''
 as $$
-  select x.id, x.rate_bp, x.source
-  from (
-    select r.id, r.rate_bp, case when r.store_id is null then 'default' else 'store' end as source,
-           case when r.store_id is null then 1 else 0 end as pref, r.effective_from, r.created_at
+  with store_row as (
+    select r.id, r.rate_bp
     from public.merchant_gp_rates r
-    where (r.store_id = p_store_id or r.store_id is null)
+    where p_store_id is not null
+      and r.store_id = p_store_id
       and r.cancelled_at is null
       and r.effective_from <= p_at
       and (r.effective_to is null or p_at < r.effective_to)
-  ) x
-  order by x.pref, x.effective_from desc, x.created_at desc
-  limit 1;
+    order by r.effective_from desc, r.created_at desc
+    limit 1
+  ),
+  default_row as (
+    select r.id, r.rate_bp
+    from public.merchant_gp_rates r
+    where r.store_id is null
+      and r.cancelled_at is null
+      and r.effective_from <= p_at
+      and (r.effective_to is null or p_at < r.effective_to)
+    order by r.effective_from desc, r.created_at desc
+    limit 1
+  )
+  select s.id, s.rate_bp, 'store' from store_row s where s.rate_bp is not null
+  union all
+  select d.id, d.rate_bp, 'default' from default_row d
+  where not exists (select 1 from store_row s where s.rate_bp is not null);
 $$;
 
 revoke all on function internal.merchant_gp_rate_at(uuid, timestamptz) from public, anon, authenticated;
@@ -354,8 +373,10 @@ revoke all on function public.admin_gp_settings() from public, anon;
 grant execute on function public.admin_gp_settings() to authenticated;
 
 -- Write: super admin only. p_store_id null = the default rate.
+-- p_rate_bp null (store only) = the store goes back to following the default.
 -- p_effective_from null = now. Never in the past (one minute of clock slack).
--- Repeating the same p_idempotency_key returns the first row unchanged.
+-- Repeating the same p_idempotency_key with the same request returns the
+-- first row unchanged; with any different value it is refused.
 create or replace function public.admin_set_gp_rate(
   p_store_id uuid,
   p_rate_bp integer,
@@ -376,6 +397,7 @@ declare
   v_existing public.merchant_gp_rates%rowtype;
   v_id uuid;
   v_previous integer;
+  v_fingerprint text;
 begin
   if not internal.is_super_admin() then
     raise exception 'Only the super admin can change GP';
@@ -384,17 +406,25 @@ begin
     raise exception 'idempotency key is required';
   end if;
 
+  v_fingerprint := md5(concat_ws('|',
+    coalesce(p_store_id::text, 'default'),
+    coalesce(p_rate_bp::text, 'inherit'),
+    coalesce(p_effective_from::text, 'now'),
+    coalesce(p_effective_to::text, 'open'),
+    v_reason));
+
   select * into v_existing from public.merchant_gp_rates where idempotency_key = p_idempotency_key;
   if found then
-    if v_existing.created_by is distinct from v_admin
-       or v_existing.store_id is distinct from p_store_id
-       or v_existing.rate_bp <> p_rate_bp then
+    if v_existing.created_by is distinct from v_admin or v_existing.request_fingerprint <> v_fingerprint then
       raise exception 'idempotency key was used for a different change';
     end if;
     return v_existing.id;
   end if;
 
-  if p_rate_bp is null or p_rate_bp < 0 or p_rate_bp > 10000 then
+  if p_rate_bp is null and p_store_id is null then
+    raise exception 'the default GP needs a rate';
+  end if;
+  if p_rate_bp is not null and (p_rate_bp < 0 or p_rate_bp > 10000) then
     raise exception 'GP must be between 0 and 100 percent';
   end if;
   if char_length(v_reason) < 3 or char_length(v_reason) > 300 then
@@ -412,8 +442,8 @@ begin
 
   select g.rate_bp into v_previous from internal.merchant_gp_rate_at(p_store_id, v_from) g;
 
-  insert into public.merchant_gp_rates (store_id, rate_bp, effective_from, effective_to, reason, created_by, idempotency_key)
-  values (p_store_id, p_rate_bp, greatest(v_from, now()), p_effective_to, v_reason, v_admin, p_idempotency_key)
+  insert into public.merchant_gp_rates (store_id, rate_bp, effective_from, effective_to, reason, created_by, idempotency_key, request_fingerprint)
+  values (p_store_id, p_rate_bp, greatest(v_from, now()), p_effective_to, v_reason, v_admin, p_idempotency_key, v_fingerprint)
   returning id into v_id;
 
   perform internal.log_audit_event(
@@ -426,6 +456,7 @@ begin
       'scope', case when p_store_id is null then 'default' else 'store' end,
       'previous_rate_bp', coalesce(v_previous, 0),
       'rate_bp', p_rate_bp,
+      'follows_default', p_rate_bp is null,
       'effective_from', greatest(v_from, now()),
       'effective_to', p_effective_to,
       'reason', v_reason

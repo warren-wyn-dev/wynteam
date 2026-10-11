@@ -17,7 +17,7 @@ import {
 } from "@/lib/admin-merchant-finance";
 import { adminCan, requireAdminRole } from "@/lib/auth";
 import { fetchGpSettings, type GpSettings } from "@/lib/admin-gp";
-import { formatGpRate } from "@/lib/admin-gp-format";
+import { formatGpRate, gpRowLabel } from "@/lib/admin-gp-format";
 import { GpCancelButton, GpRateDialog } from "@/components/admin/gp-rate-dialog";
 import { cn } from "@/lib/utils";
 
@@ -425,14 +425,14 @@ async function GpSection() {
             <p className="mt-1 text-2xl font-semibold tabular-nums">{formatGpRate(gp.default.rate_bp)}</p>
             {gp.default.next ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                ตั้งไว้: {formatGpRate(gp.default.next.rate_bp)} ตั้งแต่ {when(gp.default.next.effective_from)}
+                ตั้งไว้: {gpRowLabel(gp.default.next.rate_bp)} ตั้งแต่ {when(gp.default.next.effective_from)}
               </p>
             ) : null}
           </div>
           {gp.can_edit ? (
             <div className="flex flex-wrap gap-2">
               <GpRateDialog storeId={null} storeName="GP เริ่มต้นทุกร้าน" currentRateBp={gp.default.rate_bp} triggerLabel="แก้ GP เริ่มต้น" />
-              {gp.default.next ? <GpCancelButton rateId={gp.default.next.id} label={`GP เริ่มต้น ${formatGpRate(gp.default.next.rate_bp)}`} /> : null}
+              {gp.default.next ? <GpCancelButton rateId={gp.default.next.id} label={`GP เริ่มต้น ${gpRowLabel(gp.default.next.rate_bp)}`} /> : null}
             </div>
           ) : null}
         </div>
@@ -465,13 +465,13 @@ async function GpSection() {
                   </Badge>
                 </td>
                 <td className="px-3 py-3 text-xs text-muted-foreground">
-                  {store.next ? `${formatGpRate(store.next.rate_bp)} ตั้งแต่ ${when(store.next.effective_from)}${store.next.effective_to ? ` ถึง ${when(store.next.effective_to)}` : ""}` : "—"}
+                  {store.next ? `${gpRowLabel(store.next.rate_bp)} ตั้งแต่ ${when(store.next.effective_from)}${store.next.effective_to ? ` ถึง ${when(store.next.effective_to)}` : ""}` : "—"}
                 </td>
                 {gp.can_edit ? (
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap justify-end gap-2">
-                      <GpRateDialog storeId={store.store_id} storeName={store.store_name} currentRateBp={store.rate_bp} />
-                      {store.next ? <GpCancelButton rateId={store.next.id} label={`${store.store_name} ${formatGpRate(store.next.rate_bp)}`} /> : null}
+                      <GpRateDialog storeId={store.store_id} storeName={store.store_name} currentRateBp={store.rate_bp} hasOwnRate={store.source === "store"} />
+                      {store.next ? <GpCancelButton rateId={store.next.id} label={`${store.store_name} ${gpRowLabel(store.next.rate_bp)}`} /> : null}
                     </div>
                   </td>
                 ) : null}
@@ -491,7 +491,7 @@ async function GpSection() {
             {gp.history.map((row) => (
               <li key={row.id} className="flex flex-col gap-0.5 px-4 py-3 text-sm">
                 <p className="font-medium">
-                  {row.store_name ?? "GP เริ่มต้นทุกร้าน"} → {formatGpRate(row.rate_bp)}
+                  {row.store_name ?? "GP เริ่มต้นทุกร้าน"} → {gpRowLabel(row.rate_bp)}
                   {row.cancelled_at ? <Badge variant="outline" className="ml-2">ยกเลิกแล้ว</Badge> : null}
                 </p>
                 <p className="text-xs text-muted-foreground">

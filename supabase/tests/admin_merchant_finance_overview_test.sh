@@ -70,7 +70,7 @@ create function internal.food_platform_owed_rows(p_store_id uuid) returns table 
   where o.store_id = p_store_id and foc.platform_funded > 0 and foc.released_at is null and foc.settlement_id is null
     and o.status = 'delivered' and o.payment_status <> 'refunded' \$\$;
 -- For GP v1 (applied at the end of this test).
-create table public.food_stripe_payments(order_id uuid primary key, amount_satang bigint not null);
+create table public.food_stripe_payments(order_id uuid primary key, amount_satang bigint not null, status text not null default 'paid');
 create function internal.is_super_admin() returns boolean language sql stable security definer set search_path = '' as \$\$
   select exists (select 1 from internal.platform_super_admins s where s.user_id = auth.uid()) \$\$;
 create table public.audit_log(id bigserial primary key, actor_id uuid, actor_username_snapshot text, event_type text, target_id uuid, detail jsonb,
@@ -227,11 +227,21 @@ expect_eq "$SUPER" "select (($A)->>'gp')::numeric" "0.00" "refunded order: fee r
 run -q -c "update public.food_orders set payment_status = 'paid' where id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
 
 # Slip order placed under a 10% store rate: GP worked out but not collectable.
-run -q -c "insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, reason, idempotency_key) values ('$OTHER', 1000, '2026-01-01', 'test rate', gen_random_uuid())" >/dev/null
+run -q -c "insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, reason, idempotency_key, request_fingerprint) values ('$OTHER', 1000, '2026-01-01', 'test rate', gen_random_uuid(), 'fixture')" >/dev/null
 run -q -c "insert into public.food_orders(store_id, status, payment_status, subtotal, delivery_fee, total, paid_at) values ('$OTHER','delivered','paid',60,20,80,'2026-10-04 14:00+07')" >/dev/null
 expect_eq "$SUPER" "select (($B)->>'gp_uncollected')::numeric" "6.00" "slip order GP 10% of 60 not collectable"
 expect_eq "$SUPER" "select (($B)->>'gp')::numeric" "0.00" "nothing collected on slip"
 expect_eq "$SUPER" "select ($B)->>'gp_rate_bp'" "1000" "store B current rate"
 expect_eq "$SUPER" "select ($A)->>'gp_rate_bp'" "0" "store A has no rate: 0"
+
+# Review finding: a checkout abandoned for a slip leaves a `failed` Stripe row
+# that still carries the fee; that order paid by slip, so nothing was collected.
+run -q -c "insert into public.food_orders(id, store_id, status, payment_status, subtotal, delivery_fee, total, paid_at) values ('00000000-0000-0000-0000-0000000000b9','$OTHER','delivered','paid',100,0,100,'2026-10-04 15:00+07')" >/dev/null
+run -q -c "insert into public.food_stripe_payments(order_id, amount_satang, status, application_fee_satang) values ('00000000-0000-0000-0000-0000000000b9', 10000, 'failed', 1000)" >/dev/null
+expect_eq "$SUPER" "select (($B)->>'gp')::numeric" "0.00" "failed Stripe row is not collected GP"
+expect_eq "$SUPER" "select (($B)->>'gp_uncollected')::numeric" "16.00" "abandoned-checkout slip order counts as uncollected (6 + 10)"
+run -q -c "insert into public.food_orders(id, store_id, status, payment_status, subtotal, delivery_fee, total, paid_at) values ('00000000-0000-0000-0000-0000000000ba','$STORE','delivered','paid',10,0,10,'2026-10-04 16:00+07')" >/dev/null
+run -q -c "insert into public.food_stripe_payments(order_id, amount_satang, status, application_fee_satang) values ('00000000-0000-0000-0000-0000000000ba', 1000, 'failed', 500)" >/dev/null
+expect_eq "$OWNER" "select (public.merchant_finance_summary('$STORE','2026-10-04','2026-10-04')->>'gp')::numeric" "30.00" "merchant: failed Stripe row not deducted (still only order B's 30)"
 
 echo "PASS: admin merchant finance overview"

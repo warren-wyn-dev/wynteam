@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 /** Super admin only; the RPC re-checks. Same key = same change (safe to retry). */
 export async function setGpRate(params: {
   storeId: string | null;
-  rateBp: number;
+  /** null (store only) = back to following the default. */
+  rateBp: number | null;
   effectiveFrom: string | null;
   effectiveTo: string | null;
   reason: string;

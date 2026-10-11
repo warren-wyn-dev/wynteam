@@ -88,10 +88,10 @@ eq "$(q "select gp_satang from internal.food_order_gp('00000000-0000-0000-0000-0
 
 # 2. Resolution (rows inserted directly to place them in the past).
 run -q >/dev/null <<SQL
-insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, effective_to, reason, idempotency_key)
-  values (null, 2000, '2026-01-01', null, 'default seed', gen_random_uuid()),
-         ('$STORE', 1500, '2026-02-01', null, 'store A deal', gen_random_uuid()),
-         ('$STORE', 1000, '2026-03-01', '2026-03-08', 'promo week', gen_random_uuid());
+insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, effective_to, reason, idempotency_key, request_fingerprint)
+  values (null, 2000, '2026-01-01', null, 'default seed', gen_random_uuid(), 'fixture'),
+         ('$STORE', 1500, '2026-02-01', null, 'store A deal', gen_random_uuid(), 'fixture'),
+         ('$STORE', 1000, '2026-03-01', '2026-03-08', 'promo week', gen_random_uuid(), 'fixture');
 SQL
 eq "$(rate_at "$OTHER" "'2026-01-15'")" "2000:default" "store without own rate uses default"
 eq "$(rate_at "$STORE" "'2026-01-15'")" "2000:default" "before store rate starts: default"
@@ -118,7 +118,7 @@ O4="$(new_order "$STORE" 50 30 50)"
 run -q -c "insert into public.food_order_campaigns(order_id, campaign_discount, delivery_discount, platform_funded) values ('$O4', 0, 30, 30)" >/dev/null
 eq "$(q "select base_satang from internal.food_order_gp('$O4')")" "5000" "delivery discount not in base"
 # Cap at total: 100% GP on 100 food where customer pays 90 (store discount 0, WYNOS funds 10).
-run -q -c "insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, reason, idempotency_key) values ('$OTHER', 10000, '2026-04-01', 'cap test', gen_random_uuid())" >/dev/null
+run -q -c "insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, reason, idempotency_key, request_fingerprint) values ('$OTHER', 10000, '2026-04-01', 'cap test', gen_random_uuid(), 'fixture')" >/dev/null
 O5="$(new_order "$OTHER" 100 0 90)"
 run -q -c "insert into public.food_order_campaigns(order_id, campaign_discount, platform_funded) values ('$O5', 10, 10)" >/dev/null
 eq "$(q "select base_satang || ':' || gp_satang from internal.food_order_gp('$O5')")" "10000:9000" "GP capped at what the customer pays"
@@ -141,6 +141,8 @@ ID1="$(as "$SUPER" "select public.admin_set_gp_rate('$STORE', 1200, null, null, 
 ID1b="$(as "$SUPER" "select public.admin_set_gp_rate('$STORE', 1200, null, null, 'ตกลงกับร้าน A', '$K1')")"
 eq "$ID1b" "$ID1" "same idempotency key returns the same row"
 fails "$SUPER" "select public.admin_set_gp_rate('$OTHER', 500, null, null, 'reuse key', '$K1')" "key reused for other change" "different change"
+fails "$SUPER" "select public.admin_set_gp_rate('$STORE', 1200, null, null, 'เหตุผลอื่น', '$K1')" "key reused with a different reason" "different change"
+fails "$SUPER" "select public.admin_set_gp_rate('$STORE', 1200, now() + interval '1 day', null, 'ตกลงกับร้าน A', '$K1')" "key reused with a different start" "different change"
 eq "$(q "select count(*) from public.merchant_gp_rates where idempotency_key = '$K1'")" "1" "only one row for the key"
 eq "$(rate_at "$STORE" "now()")" "1200:store" "new rate applies now"
 eq "$(q "select gp_rate_bp from public.food_orders where id = '$O1'")" "1500" "placed order keeps its old rate"
@@ -156,6 +158,15 @@ as "$SUPER" "select public.admin_cancel_gp_rate('$ID2', 'เลื่อนอ�
 eq "$(q "select (cancelled_at is not null)::text from public.merchant_gp_rates where id = '$ID2'")" "true" "future rate cancelled"
 fails "$SUPER" "select public.admin_cancel_gp_rate('$ID2', 'again')" "cannot cancel twice" "already cancelled"
 eq "$(q "select count(*) from public.audit_log where event_type = 'admin_gp_rate_cancelled'")" "1" "cancel audited"
+
+# Back to the default (append-only): store A follows the default again.
+fails "$SUPER" "select public.admin_set_gp_rate(null, null, null, null, 'default without rate', gen_random_uuid())" "default needs a rate" "needs a rate"
+as "$SUPER" "select public.admin_set_gp_rate('$STORE', null, null, null, 'กลับไปใช้ค่าเริ่มต้น', gen_random_uuid())" >/dev/null
+eq "$(rate_at "$STORE" "now()")" "2000:default" "store A follows the default again"
+eq "$(as "$SUPER" "select s->>'source' from jsonb_array_elements(public.admin_gp_settings()->'stores') s where s->>'store_id' = '$STORE'")" "default" "settings show store A on the default"
+O6="$(new_order "$STORE" 100 0 100)"
+eq "$(q "select gp_rate_bp from public.food_orders where id = '$O6'")" "2000" "new order snapshots the default"
+eq "$(q "select gp_rate_bp from public.food_orders where id = '$O1'")" "1500" "older order still keeps its own rate"
 
 # Append-only history, even for the table owner.
 if run -q -c "update public.merchant_gp_rates set rate_bp = 1 where id = '$ID1'" >/dev/null 2>&1; then echo "FAIL: live rate edited"; exit 1; fi
