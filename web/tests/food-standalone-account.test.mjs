@@ -177,6 +177,9 @@ test("Food launch splash shows the brand once per session without hydration mism
   const css = await read("app/food/food-app.css");
   assert.match(layout, /className="fx-splash" aria-hidden="true"/);
   assert.match(layout, /sessionStorage\.getItem\('wynos-food-splash'\)/);
+  // Blocked storage must not stop the ready hook and timer from being set up.
+  assert.match(layout, /try\{seen=sessionStorage\.getItem\('wynos-food-splash'\)\}catch\(e\)\{\}/);
+  assert.match(layout, /try\{sessionStorage\.setItem\('wynos-food-splash','1'\)\}catch\(e\)\{\}/);
   // Only <html> (suppressHydrationWarning in the root layout) is touched before hydration.
   assert.match(layout, /d\.setAttribute\('data-fx-splash','seen'\)/);
   assert.match(css, /html\[data-fx-splash="seen"\] \.fx-splash \{ display: none; \}/);
