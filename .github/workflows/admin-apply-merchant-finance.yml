@@ -1,0 +1,74 @@
+name: Admin -- apply Merchant Finance overview
+
+# Applies supabase/migrations/20261011120000_admin_merchant_finance_overview.sql:
+# one read-only RPC, admin_merchant_finance_overview(from, to), used by
+# WYNOS Admin -> WYNOS Merchant -> การเงินร้านค้า (/merchant/finance) and the
+# Finance tab of a store. Manual dispatch on main only, after the Founder
+# approves production.
+# Behaviour test: supabase/tests/admin_merchant_finance_overview_test.sh.
+#
+# SAFETY: additive and read only. No table, column, policy or data changes.
+# merchant:view (WYN-219) required inside the function. Returns no bank
+# account number, PromptPay ID or Stripe account ID.
+# ROLLBACK: supabase/rollbacks/20261011120000_admin_merchant_finance_overview_rollback.sql
+# (the Admin page then shows its "not installed" state).
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-ADMIN-MERCHANT-FINANCE to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-ADMIN-MERCHANT-FINANCE'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          # Requires the WYN-219 permission foundation.
+          run_sql "select (to_regprocedure('internal.has_admin_permission(text,text)') is not null) as ok;" | tee pre.json | jq .
+          jq -e '.[0].ok == true' pre.json >/dev/null || { echo "::error::WYN-219 foundation missing"; exit 1; }
+          run_sql "begin;
+          $(cat supabase/migrations/20261011120000_admin_merchant_finance_overview.sql)
+          commit;" >/dev/null
+          # Definitions and privileges only; no personal or financial data is read.
+          run_sql "select
+              (select count(*) from pg_proc where proname = 'admin_merchant_finance_overview' and prosecdef and provolatile = 's') as fn_ready,
+              has_function_privilege('anon', 'public.admin_merchant_finance_overview(date,date)', 'execute') as anon_can_call,
+              has_function_privilege('authenticated', 'public.admin_merchant_finance_overview(date,date)', 'execute') as members_can_call,
+              (select pg_get_functiondef('public.admin_merchant_finance_overview(date,date)'::regprocedure)
+                 like '%has_admin_permission(''merchant'', ''view'')%') as merchant_view_checked;" \
+            | tee result.json | jq .
+          jq -e '.[0].fn_ready == 1 and .[0].anon_can_call == false and .[0].members_can_call == true and .[0].merchant_view_checked == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "Admin Merchant Finance overview is installed."

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   UserPlus,
   Activity,
@@ -22,6 +23,7 @@ import { FeedAlgorithmObservability } from "@/components/admin/feed-algorithm-ob
 import {
   deltaPct,
   fetchAdminDashboardMetrics,
+  fetchAdminActivityTrend,
   fetchAdminDashboardTrends,
   fetchSignupCounts,
 } from "@/lib/admin-metrics";
@@ -45,16 +47,40 @@ import {
  *    reports_total is still useful context) and การเติบโต last, same as
  *    before -- both less immediately actionable day-to-day.
  */
-export async function DashboardMetrics() {
-  const [m, t, s] = await Promise.all([
+export async function DashboardMetrics({ showFeed }: { showFeed: boolean }) {
+  // Each source fails on its own: one RPC error hides only the sections that
+  // need it (with a notice) instead of taking down the whole Dashboard.
+  const [mResult, tResult, sResult, aResult] = await Promise.allSettled([
     fetchAdminDashboardMetrics(),
     fetchAdminDashboardTrends(),
     fetchSignupCounts(),
+    fetchAdminActivityTrend(14),
   ]);
+  const m = settledValue(mResult, "admin_dashboard_metrics");
+  const t = settledValue(tResult, "admin_dashboard_trends");
+  const s = settledValue(sResult, "admin_signup_counts");
+  // The production admin_dashboard_trends() no longer returns dau_last_14d
+  // (WYN-219 step 2), so the chart reads admin_activity_trend(); the older
+  // field is only a fallback, and an empty or malformed series hides the chart.
+  const activity = settledValue(aResult, "admin_activity_trend");
+  const dauDays = activity && activity.length > 0 ? activity : Array.isArray(t?.dau_last_14d) ? t.dau_last_14d : [];
+  const failed = [
+    !m && "ตัวเลขหลัก",
+    !t && "การเทียบกับเมื่อวาน",
+    dauDays.length === 0 && "กราฟ DAU",
+    !s && "ผู้สมัครสมาชิกใหม่",
+  ].filter(Boolean);
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      {m.reports_pending > 0 ? (
+      {failed.length > 0 ? (
+        <p role="alert" className="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground">
+          <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+          {`โหลดข้อมูลบางส่วนไม่สำเร็จ: ${failed.join(", ")} — ลองกดรีเฟรชอีกครั้ง`}
+        </p>
+      ) : null}
+
+      {m && m.reports_pending > 0 ? (
         <div
           role="alert"
           className="flex items-center gap-3 rounded-lg border border-destructive bg-destructive/10 p-4"
@@ -67,10 +93,17 @@ export async function DashboardMetrics() {
         </div>
       ) : null}
 
-      <DauTrendChart days={t.dau_last_14d} />
+      {dauDays.length > 0 ? <DauTrendChart days={dauDays} /> : null}
 
-      <FeedAlgorithmObservability />
+      {/* Needs social:view (admin_feed_algorithm_dashboard re-checks); it
+          catches its own errors so it never blanks the page. */}
+      {showFeed ? (
+        <Suspense fallback={null}>
+          <FeedAlgorithmObservability />
+        </Suspense>
+      ) : null}
 
+      {m ? (
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">ผู้ใช้งาน</h2>
         <p className="-mt-2 text-xs text-muted-foreground">
@@ -84,14 +117,16 @@ export async function DashboardMetrics() {
             value={m.new_users_today}
             icon={UserPlus}
             sublabel="ใน 24 ชม.ล่าสุด"
-            deltaPct={deltaPct(m.new_users_today, t.new_users_yesterday)}
+            deltaPct={t ? deltaPct(m.new_users_today, t.new_users_yesterday) : undefined}
           />
           <StatCard label="DAU" value={m.dau} icon={Activity} sublabel="Active ใน 1 วัน" />
           <StatCard label="WAU" value={m.wau} icon={Activity} sublabel="Active ใน 7 วัน" />
           <StatCard label="MAU" value={m.mau} icon={Activity} sublabel="Active ใน 30 วัน" />
         </div>
       </section>
+      ) : null}
 
+      {s ? (
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">ผู้สมัครสมาชิกใหม่</h2>
         <p className="-mt-2 text-xs text-muted-foreground">
@@ -105,7 +140,10 @@ export async function DashboardMetrics() {
           <StatCard label="ปีนี้" value={s.this_year} icon={UserPlus} />
         </div>
       </section>
+      ) : null}
 
+      {m ? (
+        <>
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">เนื้อหา</h2>
         <p className="-mt-2 text-xs text-muted-foreground">
@@ -118,14 +156,14 @@ export async function DashboardMetrics() {
             value={m.drops_today}
             icon={ImageIcon}
             sublabel="ใน 24 ชม.ล่าสุด"
-            deltaPct={deltaPct(m.drops_today, t.drops_yesterday)}
+            deltaPct={t ? deltaPct(m.drops_today, t.drops_yesterday) : undefined}
           />
           <StatCard
             label="ยอดดู Drop"
             value={m.views_today}
             icon={Eye}
             sublabel="ใน 24 ชม.ล่าสุด"
-            deltaPct={deltaPct(m.views_today, t.views_yesterday)}
+            deltaPct={t ? deltaPct(m.views_today, t.views_yesterday) : undefined}
           />
           <StatCard
             label="Club"
@@ -148,28 +186,28 @@ export async function DashboardMetrics() {
             value={m.likes_today}
             icon={Heart}
             sublabel="ใน 24 ชม.ล่าสุด"
-            deltaPct={deltaPct(m.likes_today, t.likes_yesterday)}
+            deltaPct={t ? deltaPct(m.likes_today, t.likes_yesterday) : undefined}
           />
           <StatCard
             label="คอมเมนต์"
             value={m.comments_today}
             icon={MessageCircle}
             sublabel="ใน 24 ชม.ล่าสุด"
-            deltaPct={deltaPct(m.comments_today, t.comments_yesterday)}
+            deltaPct={t ? deltaPct(m.comments_today, t.comments_yesterday) : undefined}
           />
           <StatCard
             label="ReDrop"
             value={m.redrops_today}
             icon={Repeat2}
             sublabel="ใน 24 ชม.ล่าสุด"
-            deltaPct={deltaPct(m.redrops_today, t.redrops_yesterday)}
+            deltaPct={t ? deltaPct(m.redrops_today, t.redrops_yesterday) : undefined}
           />
           <StatCard
             label="ข้อความ"
             value={m.messages_today}
             icon={Mail}
             sublabel="ใน 24 ชม.ล่าสุด"
-            deltaPct={deltaPct(m.messages_today, t.messages_yesterday)}
+            deltaPct={t ? deltaPct(m.messages_today, t.messages_yesterday) : undefined}
           />
         </div>
       </section>
@@ -230,6 +268,15 @@ export async function DashboardMetrics() {
           <TopSourcesCard sources={m.top_sources} />
         </div>
       </section>
+        </>
+      ) : null}
     </div>
   );
+}
+
+function settledValue<T>(result: PromiseSettledResult<T>, source: string): T | null {
+  if (result.status === "fulfilled") return result.value;
+  // Server log only (the browser gets the generic notice above).
+  console.error(`[admin dashboard] ${source} failed:`, result.reason instanceof Error ? result.reason.message : result.reason);
+  return null;
 }
