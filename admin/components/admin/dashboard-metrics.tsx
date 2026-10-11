@@ -23,6 +23,7 @@ import { FeedAlgorithmObservability } from "@/components/admin/feed-algorithm-ob
 import {
   deltaPct,
   fetchAdminDashboardMetrics,
+  fetchAdminActivityTrend,
   fetchAdminDashboardTrends,
   fetchSignupCounts,
 } from "@/lib/admin-metrics";
@@ -49,15 +50,26 @@ import {
 export async function DashboardMetrics({ showFeed }: { showFeed: boolean }) {
   // Each source fails on its own: one RPC error hides only the sections that
   // need it (with a notice) instead of taking down the whole Dashboard.
-  const [mResult, tResult, sResult] = await Promise.allSettled([
+  const [mResult, tResult, sResult, aResult] = await Promise.allSettled([
     fetchAdminDashboardMetrics(),
     fetchAdminDashboardTrends(),
     fetchSignupCounts(),
+    fetchAdminActivityTrend(14),
   ]);
   const m = settledValue(mResult, "admin_dashboard_metrics");
   const t = settledValue(tResult, "admin_dashboard_trends");
   const s = settledValue(sResult, "admin_signup_counts");
-  const failed = [!m && "ตัวเลขหลัก", !t && "กราฟ DAU และการเทียบกับเมื่อวาน", !s && "ผู้สมัครสมาชิกใหม่"].filter(Boolean);
+  // The production admin_dashboard_trends() no longer returns dau_last_14d
+  // (WYN-219 step 2), so the chart reads admin_activity_trend(); the older
+  // field is only a fallback, and an empty or malformed series hides the chart.
+  const activity = settledValue(aResult, "admin_activity_trend");
+  const dauDays = activity && activity.length > 0 ? activity : Array.isArray(t?.dau_last_14d) ? t.dau_last_14d : [];
+  const failed = [
+    !m && "ตัวเลขหลัก",
+    !t && "การเทียบกับเมื่อวาน",
+    dauDays.length === 0 && "กราฟ DAU",
+    !s && "ผู้สมัครสมาชิกใหม่",
+  ].filter(Boolean);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -81,7 +93,7 @@ export async function DashboardMetrics({ showFeed }: { showFeed: boolean }) {
         </div>
       ) : null}
 
-      {t ? <DauTrendChart days={t.dau_last_14d} /> : null}
+      {dauDays.length > 0 ? <DauTrendChart days={dauDays} /> : null}
 
       {/* Needs social:view (admin_feed_algorithm_dashboard re-checks); it
           catches its own errors so it never blanks the page. */}

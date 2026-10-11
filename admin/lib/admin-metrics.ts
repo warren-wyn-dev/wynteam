@@ -74,7 +74,12 @@ export type AdminDashboardTrends = {
   comments_yesterday: number;
   redrops_yesterday: number;
   messages_yesterday: number;
-  dau_last_14d: DauDay[];
+  /**
+   * Only in the repository's older definition: the production function
+   * (rewritten by WYN-219 step 2) no longer returns it, so the DAU chart uses
+   * fetchAdminActivityTrend() instead. Never rely on it being present.
+   */
+  dau_last_14d?: DauDay[];
 };
 
 export async function fetchAdminDashboardTrends(): Promise<AdminDashboardTrends> {
@@ -86,6 +91,23 @@ export async function fetchAdminDashboardTrends(): Promise<AdminDashboardTrends>
   }
 
   return data as AdminDashboardTrends;
+}
+
+/**
+ * Daily active users for the last `days` days, oldest first, from
+ * admin_activity_trend(p_days) (production, WYN-219 step 2; requires any admin
+ * permission). Rows that don't have the expected shape are dropped.
+ */
+export async function fetchAdminActivityTrend(days = 14): Promise<DauDay[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_activity_trend", { p_days: days });
+  if (error) throw error;
+  if (!Array.isArray(data)) throw new Error("admin_activity_trend() returned no rows");
+  return (data as Array<{ day?: unknown; active_users?: unknown }>)
+    .filter((row) => typeof row.day === "string" && row.active_users != null)
+    .map((row) => ({ date: row.day as string, count: Number(row.active_users) }))
+    .filter((row) => Number.isFinite(row.count))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**
