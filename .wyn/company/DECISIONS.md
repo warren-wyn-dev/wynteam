@@ -2234,3 +2234,11 @@ Founder ส่ง Master Implementation Prompt (WYNOS Admin — Complete Central
 - **ไม่สร้าง GP**: ตรวจแล้วระบบจริงไม่มี GP/commission (Stripe direct charge ไม่มี application fee) — สูตร/อัตรา/วิธีเก็บ/ภาษี/การปัดเศษ เป็น Business Decision (B1–B7 ใน `docs/engineering/WYNOS-ADMIN-MASTER-GAP-ANALYSIS.md`)
 - Store Detail แบ่งเป็น 7 แท็บ; แท็บที่ยังไม่มี API (Menus, Promotions รายร้าน) แจ้งตามจริง ไม่มีข้อมูลปลอม
 - Migration additive; **apply production และ deploy Admin ยังต้องได้รับอนุมัติจาก Founder**
+
+### Founder อนุมัติ (2026-10-11): "อนุมัติทุกอย่าง"
+
+- อนุมัติเปิด PR, merge, apply migration `20261011120000_admin_merchant_finance_overview.sql` บน production
+  (workflow `admin-apply-merchant-finance.yml`) และ deploy WYNOS Admin production
+- เรื่อง GP (B1–B7), สิทธิ์ระดับฟีเจอร์ (D1) และการย้ายโปรลูกค้าใหม่ (B8): อนุมัติให้ดำเนินการต่อ
+  แต่ **ยังไม่มีค่าทางธุรกิจ** (อัตรา GP, ฐานคำนวณ, วิธีเก็บเงิน, ภาษี, ผู้อนุมัติ) — ต้องถาม Founder ก่อน implement
+  ห้ามสร้างค่าเอง
