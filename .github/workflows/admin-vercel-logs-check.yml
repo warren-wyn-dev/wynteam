@@ -67,7 +67,7 @@ jobs:
                   path: (($r.requestPath // $r.path // "") | tostring | split("?")[0] | redact),
                   status: ($r.statusCode // $r.responseStatusCode // null),
                   level: (.level // null),
-                  message: ((.message // "") | tostring | .[0:600] | redact)
+                  message: ((.message // "") | redact | .[0:600])
                 }' "logs-$level.jsonl"
             echo "records: $(jq -R 'fromjson? | 1' "logs-$level.jsonl" | wc -l)"
           done
