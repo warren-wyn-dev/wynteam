@@ -1,0 +1,80 @@
+name: Merchant -- apply GP v1
+
+# Applies, in one transaction:
+#   supabase/migrations/20261011140000_merchant_gp_v1.sql
+#   supabase/migrations/20261011140100_merchant_gp_finance_lines.sql
+# GP rate history (append-only), per-order GP snapshot, super-admin set/cancel
+# RPCs, service-role GP quote, and finance summaries that subtract collected GP.
+# Manual dispatch on main only, after the Founder approves production.
+# Tests: supabase/tests/merchant_gp_v1_test.sh,
+#        supabase/tests/admin_merchant_finance_overview_test.sh
+#
+# SAFETY: no rate row is created, so every store stays at 0% and no order,
+# checkout or finance number changes until the super admin sets a rate.
+# Apply this BEFORE deploying food-stripe-checkout / merchant-stripe-refund
+# (the checkout also treats a missing quote function as 0%).
+# ROLLBACK: supabase/rollbacks/20261011140000_merchant_gp_v1_rollback.sql
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-MERCHANT-GP-V1 to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-MERCHANT-GP-V1'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          # Requires the WYN-219 permission foundation.
+          run_sql "select (to_regprocedure('internal.has_admin_permission(text,text)') is not null) as ok;" | tee pre.json | jq .
+          jq -e '.[0].ok == true' pre.json >/dev/null || { echo "::error::WYN-219 foundation missing"; exit 1; }
+          run_sql "select (to_regprocedure('public.admin_merchant_finance_overview(date,date)') is not null) as ok;" | tee pre2.json | jq .
+          jq -e '.[0].ok == true' pre2.json >/dev/null || { echo "::error::Admin Merchant Finance overview missing"; exit 1; }
+          run_sql "begin;
+          $(cat supabase/migrations/20261011140000_merchant_gp_v1.sql)
+          $(cat supabase/migrations/20261011140100_merchant_gp_finance_lines.sql)
+          commit;" >/dev/null
+          # Definitions, privileges and counts only; no personal or financial rows are read.
+          run_sql "select
+              (select count(*) from public.merchant_gp_rates) as rate_rows,
+              (select count(*) from pg_trigger where tgname in ('food_orders_gp_snapshot','merchant_gp_rates_guard') and not tgisinternal) as triggers,
+              has_function_privilege('authenticated', 'public.food_order_gp_quote(uuid)', 'execute') as members_can_quote,
+              has_function_privilege('anon', 'public.admin_set_gp_rate(uuid,integer,timestamptz,timestamptz,text,uuid)', 'execute') as anon_can_set,
+              has_table_privilege('authenticated', 'public.merchant_gp_rates', 'select') as members_read_table,
+              (select pg_get_functiondef('public.merchant_finance_summary(uuid,date,date)'::regprocedure) like '%platform_funded - gp as income%') as merchant_income_has_gp;" \
+            | tee result.json | jq .
+          jq -e '.[0].rate_rows == 0 and .[0].triggers == 2 and .[0].members_can_quote == false and .[0].anon_can_set == false and .[0].members_read_table == false and .[0].merchant_income_has_gp == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "Merchant GP v1 is installed (all stores 0%)."

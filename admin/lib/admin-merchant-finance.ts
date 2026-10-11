@@ -22,6 +22,10 @@ export type MerchantFinanceStore = {
   sales_net: number;
   ad_spend: number;
   platform_funded: number;
+  /** GP v1 (absent before 20261011140100 is applied). */
+  gp?: number;
+  gp_uncollected?: number;
+  gp_rate_bp?: number;
   income: number;
   platform_owed: number;
   last_settled_at: string | null;
@@ -70,6 +74,8 @@ export type MerchantFinanceOverview = {
     sales_net: number;
     ad_spend: number;
     platform_funded: number;
+    gp?: number;
+    gp_uncollected?: number;
     income: number;
     platform_owed: number;
     stores_payout_ready: number;

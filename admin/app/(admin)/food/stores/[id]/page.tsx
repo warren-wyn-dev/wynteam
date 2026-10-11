@@ -24,6 +24,7 @@ import {
   type MerchantFinanceStore,
 } from "@/lib/admin-merchant-finance";
 import { fetchAdminAccess } from "@/lib/admin-permissions";
+import { formatGpRate } from "@/lib/admin-gp-format";
 import { hasSystemAccess } from "@/lib/admin-systems";
 import { adminCan, requireAdminRole, type AdminContext } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -350,7 +351,7 @@ async function FinanceTab({ store, ctx }: { store: AdminFoodStoreDetail; ctx: Ad
         <Stat label="ส่วนแบ่งแคมเปญ WYNOS" value={formatBaht(row.platform_funded)} />
         <Stat label="รายได้ร้าน" value={formatBaht(row.income)} />
         <Stat label="WYNOS ค้างโอน (ปัจจุบัน)" value={formatBaht(row.platform_owed)} />
-        <Stat label="GP" value="ยังไม่มีในระบบ" />
+        <Stat label={`GP ที่เก็บแล้ว (อัตราปัจจุบัน ${formatGpRate(row.gp_rate_bp ?? 0)})`} value={formatBaht(row.gp ?? 0)} />
         <Stat
           label="การรับเงิน (Stripe)"
           value={row.stripe_status ? STRIPE_STATUS_LABEL[row.stripe_status] : "ยังไม่มีบัญชี"}
