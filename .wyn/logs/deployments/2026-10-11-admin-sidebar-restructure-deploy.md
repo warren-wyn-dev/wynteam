@@ -3,7 +3,10 @@
 **Date**: 2026-10-11
 **Approval**: Founder — "อนุญาต" in reply to the request "อนุมัติ merge และ deploy production" (2026-10-11),
 then "อนุญาต" for the smoke test and this record.
-**Scope**: `admin/` navigation only — no Auth, API, database, RLS or environment change.
+**Scope**: the original release (PR #1096) is `admin/` navigation only, with no Auth, API, database, RLS or
+environment change. The follow-up below adds more controlled changes: a Dashboard behaviour fix (#1102),
+the production custom domain `admin.wynos.online` (#1099), and a build that includes #1104
+(Merchant Finance: new read-only RPC and migration).
 
 ## What went live
 
@@ -31,19 +34,40 @@ permissions unchanged); per-system dashboards at `/dashboard/[system]`; unbuilt 
 Revert merge commit `4cbf8c5` and run `deploy-admin.yml` (production), or promote the previous production
 deployment in Vercel. No data or schema to roll back.
 
-## Follow-up — Dashboard รวม fix (PR #1102) and admin.wynos.online
+## Follow-up — Dashboard รวม fix (PR #1102), admin.wynos.online, and the 28b2df0 release
 
 - Founder report: Dashboard รวม (`/`) showed "โหลดข้อมูลไม่สำเร็จ". Root cause: the production
   `admin_dashboard_trends()` (WYN-219 step 2) no longer returns `dau_last_14d`, so the DAU chart threw on
   every load. This predates the sidebar change. Reproduced locally against a mock returning the
   production shape.
 - Fix (PR #1102, approved "อนุญาต"): the DAU chart reads `admin_activity_trend(14)`. Metrics, trends and
-  signups now load independently, and the Feed panel needs `social:view`.
-- `admin.wynos.online` was attached to the Admin project (PR #1099, approved; run 38111279950).
+  signups now load independently, and the Feed panel needs `social:view`. No RPC or schema change.
+- `admin.wynos.online` was attached to the Admin Vercel project (PR #1099, approved, recorded in
+  APPROVALS.md; run 38111279950). DNS was not changed.
 - Deploy run 38112932614 (`d6d17ec`) failed on Vercel `api-deployments-free-per-day`. Retry
   [38125094225](https://github.com/warren-wyn-dev/wynteam/actions/runs/38125094225) succeeded at
-  `main` @ `28b2df0`. That build also includes PR #1104 (Merchant Finance), which has its own Founder
-  approval recorded in DECISIONS.md.
-- Smoke test (unauthenticated): `/login` 200 "WYN Admin"; `/`, `/dashboard/food` and `/merchant/finance`
-  return 307 → `/login`. The Founder still has to confirm logged in that Dashboard รวม renders.
-- PR #1100 adds `admin-vercel-logs-check.yml` (redacted, read-only runtime logs) for future diagnosis.
+  `main` @ `28b2df0`.
+- That artifact also contains PR #1104 (Merchant Finance, Founder approval in DECISIONS.md, merged by
+  another session). Its migration `20261011120000_admin_merchant_finance_overview.sql` is additive
+  and read-only (one RPC). It was applied by `admin-apply-merchant-finance.yml`, run
+  [38114995748](https://github.com/warren-wyn-dev/wynteam/actions/runs/38114995748) (success,
+  `28b2df0`), before this deploy.
+- PR #1100 updated the existing `admin-vercel-logs-check.yml` (added in `ce0cba9`): it now reads
+  retained runtime logs with redaction instead of `vercel inspect --logs`.
+
+### Verification
+
+- Unauthenticated smoke test: `/login` 200 "WYN Admin"; `/`, `/dashboard/food` and
+  `/merchant/finance` return 307 → `/login`.
+- **Production verification is NOT complete.** The fixed Dashboard รวม and the Merchant Finance page
+  have not yet rendered with a logged-in session against production data. The agent has no Admin
+  account. The Founder must log in and confirm both before this release counts as verified. If either
+  fails, run `admin-vercel-logs-check.yml` within 1h to get the redacted error.
+
+### Rollback for the 28b2df0 release
+
+- App: promote the previous production deployment in Vercel (Instant Rollback), or revert the merge
+  commits `d6d17ec` (#1102) and/or `28b2df0` (#1104) and run `deploy-admin.yml`.
+- Database (#1104 only): run `supabase/rollbacks/20261011120000_admin_merchant_finance_overview_rollback.sql`
+  (drops the read-only RPC; the page then shows "not installed"). #1102 and #1096 have no DB changes.
+- Domain: remove `admin.wynos.online` from the Admin project in Vercel.
