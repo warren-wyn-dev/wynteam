@@ -270,11 +270,6 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                     const photo = foodPublicUrl(client, item.image_path);
                     return (
                       <button key={item.id} type="button" className={`fx-menu-row${available(item) ? "" : " is-off"}`} onClick={() => showItem(item)} disabled={!orderable} aria-label={`${item.name} ${foodMoney(item.price)}${available(item) ? "" : " สินค้าหมด"}`}>
-                        <span className="fx-menu-row-copy">
-                          <strong>{item.name}</strong>
-                          {item.description ? <small>{item.description}</small> : null}
-                          <b>{foodMoney(item.price)}</b>
-                        </span>
                         <span className="fx-menu-row-photo">
                           <span className="fx-menu-image">
                             {photo ? (
@@ -282,8 +277,14 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                               <img src={photo} alt="" loading="lazy" decoding="async" />
                             ) : <UtensilsCrossed size={26} strokeWidth={1.45} />}
                           </span>
-                          {!available(item) ? <span className="fx-soldout-tag">สินค้าหมด</span> : orderable ? <span className="fx-plus" aria-hidden="true"><Plus size={18} strokeWidth={2.8} /></span> : null}
+                          {!available(item) ? <span className="fx-soldout-tag">สินค้าหมด</span> : null}
                         </span>
+                        <span className="fx-menu-row-copy">
+                          <strong>{item.name}</strong>
+                          {item.description ? <small>{item.description}</small> : null}
+                          <b>{foodMoney(item.price)}</b>
+                        </span>
+                        {orderable ? <span className="fx-menu-row-add" aria-hidden="true"><Plus size={20} strokeWidth={2.8} /></span> : null}
                       </button>
                     );
                   })}

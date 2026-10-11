@@ -1762,6 +1762,7 @@ export const EN_EXACT: Record<string, string> = {
   "ร้านนี้ยังไม่เปิดให้สั่งในตอนนี้": "This restaurant is not taking orders right now",
   "รายละเอียดเพิ่มเติม ·": "More details ·",
   "ยังไม่รวมค่าจัดส่งและส่วนลดที่ระบบคำนวณตอนสั่งจริง": "Delivery fees and discounts are calculated at checkout",
+  "ลองค้นด้วยชื่อเมนู หรือคำที่สั้นลง": "Try a dish name or a shorter search",
 };
 
 // WYNOS Merchant v1 is a separate installable surface but follows the same
