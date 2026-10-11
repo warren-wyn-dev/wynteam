@@ -58,7 +58,8 @@ function writeStoredThemePreference(preference: ThemePreference | null) {
 
 /** Point every theme-color meta tag at the chosen theme (or back to the phone). */
 function applyChromeColor(preference: ThemePreference | null) {
-  const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
+  // The Food launch splash owns its temporary theme-color until it fades.
+  const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]:not([data-fx-splash-theme])');
   metas.forEach((meta) => {
     if (!meta.dataset.wynMedia) meta.dataset.wynMedia = meta.getAttribute("media") ?? "";
     const media = meta.dataset.wynMedia;

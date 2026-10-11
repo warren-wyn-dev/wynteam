@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
@@ -176,8 +177,45 @@ test("Food launch splash shows the brand once per session without hydration mism
   const css = await read("app/food/food-app.css");
   assert.match(layout, /className="fx-splash" aria-hidden="true"/);
   assert.match(layout, /sessionStorage\.getItem\('wynos-food-splash'\)/);
+  // Blocked storage must not stop the ready hook and timer from being set up.
+  assert.match(layout, /try\{seen=sessionStorage\.getItem\('wynos-food-splash'\)\}catch\(e\)\{\}/);
+  assert.match(layout, /try\{sessionStorage\.setItem\('wynos-food-splash','1'\)\}catch\(e\)\{\}/);
   // Only <html> (suppressHydrationWarning in the root layout) is touched before hydration.
-  assert.match(layout, /document\.documentElement\.setAttribute\('data-fx-splash','seen'\)/);
+  assert.match(layout, /d\.setAttribute\('data-fx-splash','seen'\)/);
   assert.match(css, /html\[data-fx-splash="seen"\] \.fx-splash \{ display: none; \}/);
   assert.match(css, /@keyframes fx-splash-out \{ to \{ opacity: 0; visibility: hidden; \} \}/);
+});
+
+test("Food iOS launch has no white flash and the status bar matches the splash", async () => {
+  const layout = await read("app/food/layout.tsx");
+  // iOS ignores the manifest background; it needs apple-touch-startup-image per screen size.
+  assert.match(layout, /startupImage: FOOD_IOS_LAUNCH_IMAGES/);
+  assert.match(layout, /\/icons\/food\/splash\/launch-\$\{width \* ratio\}x\$\{height \* ratio\}\.png/);
+  for (const size of ["1290x2796", "1179x2556", "1170x2532", "1080x2340", "750x1334", "2048x2732", "1668x2388", "1640x2360", "1620x2160", "1488x2266"]) {
+    assert.ok(existsSync(new URL(`../public/icons/food/splash/launch-${size}.png`, import.meta.url)), `missing launch image ${size}`);
+  }
+  // Temporary pink theme-color while the splash shows, removed when it fades.
+  assert.match(layout, /m\.content='#ff7aa6'/);
+  assert.match(layout, /\[360, 780, 3\]/); // iPhone 12/13 mini
+  assert.match(layout, /\[1024, 1366, 2\], \[834, 1194, 2\], \[820, 1180, 2\], \[810, 1080, 2\], \[744, 1133, 2\]/); // iPad
+  assert.match(layout, /document\.head\.prepend\(m\)/);
+  // Theme sync must not repaint the splash's temporary status-bar color.
+  assert.match(await read("lib/theme-preference.ts"), /meta\[name="theme-color"\]:not\(\[data-fx-splash-theme\]\)/);
+  assert.match(layout, /d\.setAttribute\('data-fx-splash-ready',''\);setTimeout\(function\(\)\{m\.remove\(\)\},350\)/);
+});
+
+test("Food splash stays until the screen has data (min 1 s, max ~4 s)", async () => {
+  const layout = await read("app/food/layout.tsx");
+  const css = await read("app/food/food-app.css");
+  const helper = await read("lib/food-splash.ts");
+  assert.match(layout, /Math\.max\(0,1000-\(Date\.now\(\)-t\)\)/);
+  assert.match(layout, /setTimeout\(window\.__fxSplashReady,4000\)/);
+  assert.match(css, /animation: fx-splash-out \.35s ease 4\.4s forwards;/);
+  assert.match(css, /html\[data-fx-splash-ready\] \.fx-splash \{ animation: fx-splash-ready \.35s ease forwards; \}/);
+  assert.match(css, /@keyframes fx-splash-ready \{ to \{ opacity: 0; visibility: hidden; \} \}/);
+  assert.match(helper, /__fxSplashReady\?\.\(\)/);
+  const app = await read("components/food/wynos-food-developer-app.tsx");
+  assert.match(app, /if \(snapshot \|\| loadError\) markFoodSplashReady\(\)/);
+  assert.match(await read("components/food/food-guest-browse.tsx"), /if \(stores !== null\) markFoodSplashReady\(\)/);
+  assert.equal((await read("components/food/food-auth.tsx")).match(/if \(!checking\) markFoodSplashReady\(\)/g)?.length, 2);
 });

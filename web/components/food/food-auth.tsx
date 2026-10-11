@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { GoogleGlyph } from "@/components/auth-flow/screens";
+import { markFoodSplashReady } from "@/lib/food-splash";
 
 import {
   EmailAlreadyRegisteredError,
@@ -89,6 +90,8 @@ export function FoodLoginScreen() {
   useEffect(() => () => {
     if (googlePwaWatchdog.current !== null) window.clearTimeout(googlePwaWatchdog.current);
   }, []);
+
+  useEffect(() => { if (!checking) markFoodSplashReady(); }, [checking]);
 
   useEffect(() => {
     let mounted = true;
@@ -363,6 +366,8 @@ export function FoodSignupScreen() {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => { if (!checking) markFoodSplashReady(); }, [checking]);
 
   useEffect(() => {
     let mounted = true;
