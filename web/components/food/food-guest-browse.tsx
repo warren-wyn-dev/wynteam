@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { foodCartLineKey, foodCartLineOptionsValid, foodCartLineUnitPrice, foodMoney, foodPublicUrl, type FoodCartLine, type FoodMenuOptionGroup } from "@/lib/food-customer";
+import { markFoodSplashReady } from "@/lib/food-splash";
 import { rememberSharedFoodStore, sharedFoodStoreId } from "@/lib/food-share";
 
 export const GUEST_BASKET_KEY = "wynos-food-guest-basket-v1";
@@ -118,6 +119,8 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
     })();
     return () => { live = false; };
   }, [client]);
+
+  useEffect(() => { if (stores !== null) markFoodSplashReady(); }, [stores]);
 
   const store = stores?.find((entry) => entry.id === selectedId) ?? null;
   const filtered = useMemo(() => (stores ?? []).filter((entry) => (

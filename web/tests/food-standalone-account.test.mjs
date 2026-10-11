@@ -178,7 +178,7 @@ test("Food launch splash shows the brand once per session without hydration mism
   assert.match(layout, /className="fx-splash" aria-hidden="true"/);
   assert.match(layout, /sessionStorage\.getItem\('wynos-food-splash'\)/);
   // Only <html> (suppressHydrationWarning in the root layout) is touched before hydration.
-  assert.match(layout, /document\.documentElement\.setAttribute\('data-fx-splash','seen'\)/);
+  assert.match(layout, /d\.setAttribute\('data-fx-splash','seen'\)/);
   assert.match(css, /html\[data-fx-splash="seen"\] \.fx-splash \{ display: none; \}/);
   assert.match(css, /@keyframes fx-splash-out \{ to \{ opacity: 0; visibility: hidden; \} \}/);
 });
@@ -193,5 +193,22 @@ test("Food iOS launch has no white flash and the status bar matches the splash",
   }
   // Temporary pink theme-color while the splash shows, removed when it fades.
   assert.match(layout, /m\.content='#ff7aa6'/);
-  assert.match(layout, /document\.head\.prepend\(m\);setTimeout\(function\(\)\{m\.remove\(\)\},1250\)/);
+  assert.match(layout, /document\.head\.prepend\(m\)/);
+  assert.match(layout, /d\.setAttribute\('data-fx-splash-ready',''\);setTimeout\(function\(\)\{m\.remove\(\)\},350\)/);
+});
+
+test("Food splash stays until the screen has data (min 1 s, max ~4 s)", async () => {
+  const layout = await read("app/food/layout.tsx");
+  const css = await read("app/food/food-app.css");
+  const helper = await read("lib/food-splash.ts");
+  assert.match(layout, /Math\.max\(0,1000-\(Date\.now\(\)-t\)\)/);
+  assert.match(layout, /setTimeout\(window\.__fxSplashReady,4000\)/);
+  assert.match(css, /animation: fx-splash-out \.35s ease 4\.4s forwards;/);
+  assert.match(css, /html\[data-fx-splash-ready\] \.fx-splash \{ animation: fx-splash-ready \.35s ease forwards; \}/);
+  assert.match(css, /@keyframes fx-splash-ready \{ to \{ opacity: 0; visibility: hidden; \} \}/);
+  assert.match(helper, /__fxSplashReady\?\.\(\)/);
+  const app = await read("components/food/wynos-food-developer-app.tsx");
+  assert.match(app, /if \(snapshot \|\| loadError\) markFoodSplashReady\(\)/);
+  assert.match(await read("components/food/food-guest-browse.tsx"), /if \(stores !== null\) markFoodSplashReady\(\)/);
+  assert.equal((await read("components/food/food-auth.tsx")).match(/if \(!checking\) markFoodSplashReady\(\)/g)?.length, 2);
 });

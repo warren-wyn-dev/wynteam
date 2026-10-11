@@ -24,8 +24,10 @@ const FOOD_ICON_512 = "/icons/food/icon-512-v12.png";
 // While the splash shows, a temporary pink theme-color (prepended, so iOS uses
 // it first) keeps the status-bar strip the same pink as the splash top; it is
 // removed when the splash fades so the app keeps its normal theme color.
+// The splash waits for the screen underneath to report its data is ready
+// (markFoodSplashReady in lib/food-splash.ts): at least 1 s, at most ~4 s.
 const FOOD_SPLASH_BOOT_SCRIPT =
-  "try{if(sessionStorage.getItem('wynos-food-splash')){document.documentElement.setAttribute('data-fx-splash','seen')}else{sessionStorage.setItem('wynos-food-splash','1');var m=document.createElement('meta');m.name='theme-color';m.content='#ff7aa6';m.setAttribute('data-fx-splash-theme','');document.head.prepend(m);setTimeout(function(){m.remove()},1250)}}catch(e){}";
+  "try{var d=document.documentElement;if(sessionStorage.getItem('wynos-food-splash')){d.setAttribute('data-fx-splash','seen')}else{sessionStorage.setItem('wynos-food-splash','1');var m=document.createElement('meta');m.name='theme-color';m.content='#ff7aa6';m.setAttribute('data-fx-splash-theme','');document.head.prepend(m);var t=Date.now(),r=0;window.__fxSplashReady=function(){if(r)return;r=1;setTimeout(function(){d.setAttribute('data-fx-splash-ready','');setTimeout(function(){m.remove()},350)},Math.max(0,1000-(Date.now()-t)))};setTimeout(window.__fxSplashReady,4000)}}catch(e){}";
 
 // iOS shows these while the installed app launches (it ignores the manifest
 // background), so there is no white flash before the splash. One image per

@@ -50,6 +50,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodGuestBrowse, readGuestFoodBasket, clearGuestFoodBasket } from "@/components/food/food-guest-browse";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { markFoodSplashReady } from "@/lib/food-splash";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
@@ -295,6 +296,7 @@ function FoodStateScreen({
 }
 
 function FoodDenied() {
+  useEffect(() => { markFoodSplashReady(); }, []);
   return (
     <main className="wyn-food fx-app fx-app--bare">
       <FoodStateScreen
@@ -3396,6 +3398,8 @@ function FoodCustomerInner({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const pull = usePullToRefresh({ enabled: tab === "home" || tab === "orders", onRefresh: async () => { await load(true); } });
+
+  useEffect(() => { if (snapshot || loadError) markFoodSplashReady(); }, [snapshot, loadError]);
 
   if (!snapshot) return loadError ? <FoodLoadError message={loadError} onRetry={() => { setLoadError(""); void load(); }} /> : <FoodLoading />;
   if (!snapshot.allowed) return <FoodDenied />;
