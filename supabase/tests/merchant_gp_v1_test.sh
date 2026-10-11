@@ -19,6 +19,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PSQL="${PSQL:-psql}"
 DB="merchant_gp_v1_test_$$"
+TMPDIR_GP="$(mktemp -d)"
 
 $PSQL -q -v ON_ERROR_STOP=1 -d postgres -c "create database $DB" >/dev/null
 trap '$PSQL -q -d postgres -c "drop database if exists $DB" >/dev/null' EXIT
@@ -158,6 +159,27 @@ as "$SUPER" "select public.admin_cancel_gp_rate('$ID2', 'เลื่อนอ�
 eq "$(q "select (cancelled_at is not null)::text from public.merchant_gp_rates where id = '$ID2'")" "true" "future rate cancelled"
 fails "$SUPER" "select public.admin_cancel_gp_rate('$ID2', 'again')" "cannot cancel twice" "already cancelled"
 eq "$(q "select count(*) from public.audit_log where event_type = 'admin_gp_rate_cancelled'")" "1" "cancel audited"
+
+# Two scheduled rows with the same start: the later one wins, and "next"
+# shows that same row (review finding).
+T1="$(as "$SUPER" "select public.admin_set_gp_rate('$OTHER', 700, '2031-01-01', null, 'first plan', gen_random_uuid())")"
+T2="$(as "$SUPER" "select public.admin_set_gp_rate('$OTHER', 800, '2031-01-01', null, 'second plan', gen_random_uuid())")"
+eq "$(rate_at "$OTHER" "'2031-02-01'")" "800:store" "resolver picks the later of two same-start rows"
+eq "$(as "$SUPER" "select s->'next'->>'id' from jsonb_array_elements(public.admin_gp_settings()->'stores') s where s->>'store_id' = '$OTHER'")" "$T2" "next shows the row that will apply"
+as "$SUPER" "select public.admin_cancel_gp_rate('$T1', 'tidy up')" >/dev/null
+as "$SUPER" "select public.admin_cancel_gp_rate('$T2', 'tidy up')" >/dev/null
+
+# Same key sent twice at the same time: both get the same row, no error.
+KC=33333333-3333-3333-3333-333333333333
+( run -At -c "select set_config('test.uid','$SUPER',false);" -c "set role authenticated;" \
+    -c "begin;" -c "select public.admin_set_gp_rate('$OTHER', 900, '2032-01-01', null, 'concurrent', '$KC');" -c "select pg_sleep(1.5);" -c "commit;" \
+    > "$TMPDIR_GP/a.out" 2>&1 ) &
+sleep 0.5
+B_ID="$(as "$SUPER" "select public.admin_set_gp_rate('$OTHER', 900, '2032-01-01', null, 'concurrent', '$KC')")"
+wait
+A_ID="$(grep -E '^[0-9a-f-]{36}$' "$TMPDIR_GP/a.out" | grep -v "$SUPER" | tail -1)"
+eq "$B_ID" "$A_ID" "concurrent retry returns the first row instead of failing"
+eq "$(q "select count(*) from public.merchant_gp_rates where idempotency_key = '$KC'")" "1" "only one row for the concurrent key"
 
 # Back to the default (append-only): store A follows the default again.
 fails "$SUPER" "select public.admin_set_gp_rate(null, null, null, null, 'default without rate', gen_random_uuid())" "default needs a rate" "needs a rate"

@@ -71,7 +71,7 @@ create function internal.food_platform_owed_rows(p_store_id uuid) returns table 
   where o.store_id = p_store_id and foc.platform_funded > 0 and foc.released_at is null and foc.settlement_id is null
     and o.status = 'delivered' and o.payment_status <> 'refunded' \$\$;
 -- For GP v1 (applied at the end of this test).
-create table public.food_stripe_payments(order_id uuid primary key, amount_satang bigint not null, status text not null default 'paid');
+create table public.food_stripe_payments(order_id uuid primary key, amount_satang bigint not null, status text not null default 'paid', refunded_at timestamptz);
 create function internal.is_super_admin() returns boolean language sql stable security definer set search_path = '' as \$\$
   select exists (select 1 from internal.platform_super_admins s where s.user_id = auth.uid()) \$\$;
 create table public.audit_log(id bigserial primary key, actor_id uuid, actor_username_snapshot text, event_type text, target_id uuid, detail jsonb,
@@ -222,10 +222,19 @@ for key in orders sales_net platform_funded gp income platform_owed; do
   merchant="$(as "$OWNER" "select public.merchant_finance_summary('$STORE','2026-10-04','2026-10-04')->>'$key'")"
   [[ "$(as "$SUPER" "select '$admin'::numeric = '$merchant'::numeric")" == "t" ]] || { echo "FAIL (GP): $key admin=$admin merchant=$merchant"; exit 1; }
 done
-# A refunded order returns its fee: no GP counted.
-run -q -c "update public.food_orders set payment_status = 'refunded' where id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
-expect_eq "$SUPER" "select (($A)->>'gp')::numeric" "0.00" "refunded order: fee returned, no GP"
-run -q -c "update public.food_orders set payment_status = 'paid' where id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
+# Refund on 6 Oct returns the fee (review finding): the 4 Oct period keeps the
+# GP it really collected; 6 Oct shows the fee coming back; the two together net 0.
+run -q -c "update public.food_orders set payment_status = 'refunded', refund_status = 'refunded', refunded_at = '2026-10-06 10:00+07' where id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
+run -q -c "update public.food_stripe_payments set status = 'refunded', refunded_at = '2026-10-06 10:00+07' where order_id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
+expect_eq "$SUPER" "select (($A)->>'gp')::numeric" "30.00" "4 Oct keeps the GP collected that day"
+R6="(select s from jsonb_array_elements(public.admin_merchant_finance_overview('2026-10-06','2026-10-06')->'stores') s where s->>'store_id' = '$STORE')"
+expect_eq "$SUPER" "select (($R6)->>'gp')::numeric" "-30.00" "admin: 6 Oct returns the fee"
+expect_eq "$OWNER" "select (public.merchant_finance_summary('$STORE','2026-10-06','2026-10-06')->>'gp')::numeric" "-30.00" "merchant: 6 Oct returns the fee"
+expect_eq "$OWNER" "select (public.merchant_finance_summary('$STORE','2026-10-04','2026-10-06')->>'gp')::numeric" "0.00" "over both days GP nets to zero"
+R46="(select s from jsonb_array_elements(public.admin_merchant_finance_overview('2026-10-04','2026-10-06')->'stores') s where s->>'store_id' = '$STORE')"
+expect_eq "$SUPER" "select (($R46)->>'gp')::numeric" "0.00" "admin: over both days GP nets to zero (same as the store's page)"
+run -q -c "update public.food_orders set payment_status = 'paid', refund_status = 'none', refunded_at = null where id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
+run -q -c "update public.food_stripe_payments set status = 'paid', refunded_at = null where order_id = '00000000-0000-0000-0000-0000000000b2'" >/dev/null
 
 # Slip order placed under a 10% store rate: GP worked out but not collectable.
 run -q -c "insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, reason, idempotency_key, request_fingerprint) values ('$OTHER', 1000, '2026-01-01', 'test rate', gen_random_uuid(), 'fixture')" >/dev/null

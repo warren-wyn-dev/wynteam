@@ -84,15 +84,27 @@ begin
     from public.food_ad_clicks c
     where c.store_id = p_store_id and c.click_day between v_prev_from and p_to
   ),
-  -- GP v1: WYNOS GP actually collected (Stripe application fee) on orders
-  -- that stay paid. Only a Stripe ledger row that is itself `paid` counts:
-  -- a checkout the buyer abandoned for a slip keeps a `failed` row carrying
-  -- the fee that was never charged; a refund returns the fee (row `refunded`).
+  -- GP v1, booked like sales and refunds: the Stripe application fee counts
+  -- on the day the order was paid, and comes back (negative) on the day it
+  -- was refunded, so a past period never changes when a later refund happens.
+  -- Only a Stripe ledger row that was actually charged counts (`paid`, or
+  -- `refunded` after being paid): a checkout the buyer abandoned for a slip
+  -- keeps a `failed` row carrying a fee that was never charged.
   gp as (
     select p.day, round(fsp.application_fee_satang / 100.0, 2) as amount
     from paid p
-    join public.food_stripe_payments fsp on fsp.order_id = p.id and fsp.status = 'paid'
-    where p.payment_status = 'paid' and fsp.application_fee_satang > 0
+    join public.food_stripe_payments fsp
+      on fsp.order_id = p.id and fsp.status in ('paid', 'refunded')
+    where fsp.application_fee_satang > 0
+    union all
+    select (coalesce(fsp.refunded_at, o.refunded_at, o.updated_at) at time zone 'Asia/Bangkok')::date,
+           -round(fsp.application_fee_satang / 100.0, 2)
+    from public.food_stripe_payments fsp
+    join public.food_orders o on o.id = fsp.order_id
+    where o.store_id = p_store_id
+      and fsp.status = 'refunded'
+      and fsp.application_fee_satang > 0
+      and (coalesce(fsp.refunded_at, o.refunded_at, o.updated_at) at time zone 'Asia/Bangkok')::date between v_prev_from and p_to
   ),
   funded as (
     select p.day, foc.platform_funded as amount
@@ -239,19 +251,34 @@ begin
       and p.payment_status <> 'refunded'
     group by p.store_id
   ),
-  -- GP v1: collected = application fees on Stripe ledger rows that are
-  -- `paid` (orders that stay paid); uncollected = GP worked out for paid
-  -- orders with no paid Stripe row (PromptPay slip, including a checkout the
-  -- buyer abandoned for a slip), which pay the store directly.
+  -- GP v1, booked like sales and refunds (same rule as the store's page):
+  -- fees on charged Stripe rows (`paid`, or `refunded` after being paid) on
+  -- the paid day, minus fees returned on the refund day. Uncollected = GP
+  -- worked out for paid orders with no charged Stripe row (PromptPay slip,
+  -- including a checkout the buyer abandoned for a slip).
   gp_by_store as (
-    select p.store_id,
-           round(coalesce(sum(fsp.application_fee_satang) filter (where fsp.order_id is not null), 0) / 100.0, 2) as gp,
-           round(coalesce(sum(g.gp_satang) filter (where fsp.order_id is null), 0) / 100.0, 2) as gp_uncollected
-    from paid p
-    left join public.food_stripe_payments fsp on fsp.order_id = p.id and fsp.status = 'paid'
-    cross join lateral internal.food_order_gp(p.id) g
-    where p.payment_status = 'paid'
-    group by p.store_id
+    select x.store_id,
+           round(coalesce(sum(x.collected), 0) / 100.0, 2) as gp,
+           round(coalesce(sum(x.uncollected), 0) / 100.0, 2) as gp_uncollected
+    from (
+      select p.store_id,
+             case when fsp.order_id is not null then fsp.application_fee_satang else 0 end as collected,
+             case when fsp.order_id is null and p.payment_status = 'paid' then g.gp_satang else 0 end as uncollected
+      from paid p
+      left join public.food_stripe_payments fsp
+        on fsp.order_id = p.id and fsp.status in ('paid', 'refunded')
+      cross join lateral internal.food_order_gp(p.id) g
+      union all
+      select o.store_id, -fsp.application_fee_satang, 0
+      from public.food_stripe_payments fsp
+      join public.food_orders o on o.id = fsp.order_id
+      where fsp.status = 'refunded'
+        and fsp.application_fee_satang > 0
+        and ((fsp.refunded_at >= v_lo and fsp.refunded_at < v_hi)
+             or (fsp.refunded_at is null and coalesce(o.refunded_at, o.updated_at) >= v_lo
+                 and coalesce(o.refunded_at, o.updated_at) < v_hi))
+    ) x
+    group by x.store_id
   ),
   store_rows as (
     select

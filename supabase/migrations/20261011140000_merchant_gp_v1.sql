@@ -317,7 +317,7 @@ begin
           select jsonb_build_object('id', n.id, 'rate_bp', n.rate_bp, 'effective_from', n.effective_from, 'effective_to', n.effective_to)
           from public.merchant_gp_rates n
           where n.store_id is null and n.cancelled_at is null and n.effective_from > now()
-          order by n.effective_from limit 1
+          order by n.effective_from, n.created_at desc limit 1
         )
       )
       from (select 1) one
@@ -337,7 +337,7 @@ begin
           select jsonb_build_object('id', n.id, 'rate_bp', n.rate_bp, 'effective_from', n.effective_from, 'effective_to', n.effective_to)
           from public.merchant_gp_rates n
           where n.store_id = s.id and n.cancelled_at is null and n.effective_from > now()
-          order by n.effective_from limit 1
+          order by n.effective_from, n.created_at desc limit 1
         )
       ) order by s.name)
       from public.food_stores s
@@ -442,9 +442,19 @@ begin
 
   select g.rate_bp into v_previous from internal.merchant_gp_rate_at(p_store_id, v_from) g;
 
+  -- A concurrent request with the same key waits here for the first one,
+  -- then inserts nothing and is answered like any other retry.
   insert into public.merchant_gp_rates (store_id, rate_bp, effective_from, effective_to, reason, created_by, idempotency_key, request_fingerprint)
   values (p_store_id, p_rate_bp, greatest(v_from, now()), p_effective_to, v_reason, v_admin, p_idempotency_key, v_fingerprint)
+  on conflict (idempotency_key) do nothing
   returning id into v_id;
+  if v_id is null then
+    select * into v_existing from public.merchant_gp_rates where idempotency_key = p_idempotency_key;
+    if v_existing.created_by is distinct from v_admin or v_existing.request_fingerprint <> v_fingerprint then
+      raise exception 'idempotency key was used for a different change';
+    end if;
+    return v_existing.id;
+  end if;
 
   perform internal.log_audit_event(
     v_admin,
