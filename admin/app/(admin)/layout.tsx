@@ -1,5 +1,6 @@
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { AdminHeader } from "@/components/admin/header";
+import { AdminNavProvider } from "@/components/admin/nav-state";
 import { fetchAdminAccess } from "@/lib/admin-permissions";
 import { requireAdminRole } from "@/lib/auth";
 
@@ -17,24 +18,26 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const access = await fetchAdminAccess();
 
   return (
-    <div className="flex min-h-screen min-w-0 bg-muted/30">
-      <a
-        href="#admin-main-content"
-        className="sr-only z-50 rounded-md bg-background px-4 py-3 font-medium shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
-      >
-        ข้ามไปยังเนื้อหาหลัก
-      </a>
-      <AdminSidebar role={role} access={access} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <AdminHeader email={email} role={role} signOutAction={signOutAction} />
-        <main
-          id="admin-main-content"
-          tabIndex={-1}
-          className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col pb-24 md:pb-0"
+    <AdminNavProvider>
+      <div className="flex min-h-screen min-w-0 bg-muted/30">
+        <a
+          href="#admin-main-content"
+          className="sr-only z-50 rounded-md bg-background px-4 py-3 font-medium shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
         >
-          {children}
-        </main>
+          ข้ามไปยังเนื้อหาหลัก
+        </a>
+        <AdminSidebar role={role} access={access} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <AdminHeader email={email} role={role} signOutAction={signOutAction} />
+          <main
+            id="admin-main-content"
+            tabIndex={-1}
+            className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col"
+          >
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </AdminNavProvider>
   );
 }
