@@ -1,6 +1,6 @@
 # Product Task — WYN-219
 
-Status: active — awaiting Founder manual QA only. LIVE in production: permission-aware Admin app (2026-10-11, run 38103457413), permissions foundation (super admin @wynos_s) and step 2 for every system (Maps, Merchant, Food, Social, Account, central). Remaining (Founder): manual QA with @wynos_s and granting staff permissions on Team Permissions; then move this task to completed. Deployment log: .wyn/logs/deployments/2026-10-10-wyn-219-admin-control-center-deploy.md
+Status: completed — closed by Founder instruction 2026-10-11 ("อนุญาตให้ปิดจบครบทุกงานเลยนะ"). LIVE in production: permission-aware Admin app (run 38103457413), permissions foundation (super admin @wynos_s) and step 2 for every system (Maps, Merchant, Food, Social, Account, central). Founder follow-ups outside this task: manual QA with @wynos_s (.wyn/docs/qa/wyn-219-admin-staging-checklist.md) and granting staff permissions on Team Permissions. Deployment log: .wyn/logs/deployments/2026-10-10-wyn-219-admin-control-center-deploy.md
 Owner: AI Product Manager
 Feature: WYNOS Admin Control Center — Admin ควบคุมได้ทุกระบบ (Account, Social, Food, Merchant, Maps)
 Goal: จัด Admin เป็นหัวข้อหลักตามระบบ แล้วแยกสิทธิ์ admin ตามระบบ
