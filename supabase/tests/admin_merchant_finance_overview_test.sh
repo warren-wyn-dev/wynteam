@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# WYNOS Admin Merchant Finance overview
+# (supabase/migrations/20261011120000_admin_merchant_finance_overview.sql).
+#
+#   1. Only merchant:view (or edit, or the super admin) may call it; food-only,
+#      signed-out and plain users are refused; anon has no execute grant.
+#   2. Per-store money lines match public.merchant_finance_summary (WYN-210)
+#      for the same store and range, so Admin and the merchant app agree.
+#   3. Bangkok day boundaries, refunds, ad spend, WYNOS share and owed.
+#   4. Stripe payouts / settlements are range bound; no bank account number,
+#      PromptPay ID or Stripe account ID is ever returned.
+#   5. Bad ranges are refused; the function is stable (read only) and the
+#      migration can be applied twice.
+#
+# Runs on a throwaway local PostgreSQL database with minimal stubs.
+# Usage: PSQL="sudo -u postgres psql" supabase/tests/admin_merchant_finance_overview_test.sh
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PSQL="${PSQL:-psql}"
+DB="admin_merchant_finance_test_$$"
+
+$PSQL -q -v ON_ERROR_STOP=1 -d postgres -c "create database $DB" >/dev/null
+trap '$PSQL -q -d postgres -c "drop database if exists $DB" >/dev/null' EXIT
+run() { $PSQL -q -X -v ON_ERROR_STOP=1 -d "$DB" "$@"; }
+
+SUPER=00000000-0000-0000-0000-0000000000a1
+MERCHANT_VIEW=00000000-0000-0000-0000-0000000000a2
+MERCHANT_EDIT=00000000-0000-0000-0000-0000000000a3
+FOOD_ONLY=00000000-0000-0000-0000-0000000000a4
+USER=00000000-0000-0000-0000-0000000000a5
+OWNER=00000000-0000-0000-0000-0000000000d1
+ACCOUNT=00000000-0000-0000-0000-0000000000e1
+STORE=00000000-0000-0000-0000-0000000000f1
+OTHER=00000000-0000-0000-0000-0000000000f2
+QUIET=00000000-0000-0000-0000-0000000000f3
+
+run >/dev/null <<SQL
+do \$\$ begin create role anon; exception when duplicate_object then null; end \$\$;
+do \$\$ begin create role authenticated; exception when duplicate_object then null; end \$\$;
+create schema auth; create schema internal;
+create table auth.users(id uuid primary key);
+create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('test.uid',true),'')::uuid \$\$;
+create table public.profiles(id uuid primary key, username text);
+-- Same contract as WYN-219 internal.has_admin_permission (edit includes view).
+create table internal.platform_super_admins(user_id uuid primary key);
+create table public.admin_permissions(user_id uuid, system text, level text, primary key (user_id, system));
+create function internal.has_admin_permission(p_system text, p_level text) returns boolean language sql stable security definer set search_path = '' as \$\$
+  select exists (select 1 from internal.platform_super_admins s where s.user_id = auth.uid())
+      or exists (select 1 from public.admin_permissions ap where ap.user_id = auth.uid() and ap.system = p_system
+                 and (ap.level = 'edit' or p_level = 'view')) \$\$;
+create table public.merchant_memberships(merchant_account_id uuid, user_id uuid, role text, active boolean default true, primary key (merchant_account_id, user_id));
+create table public.food_staff(store_id uuid, user_id uuid, role text, active boolean default true);
+create table public.food_stores(id uuid primary key, merchant_account_id uuid, name text, is_published boolean default true, admin_suspended_at timestamptz);
+create table public.food_orders(id uuid primary key default gen_random_uuid(), store_id uuid, status text, payment_status text,
+  refund_status text default 'none', subtotal numeric, delivery_fee numeric, total numeric,
+  paid_at timestamptz, refunded_at timestamptz, created_at timestamptz default now(), updated_at timestamptz default now());
+create table public.food_order_campaigns(order_id uuid, platform_funded numeric default 0, released_at timestamptz, settlement_id uuid);
+create table public.food_ad_clicks(store_id uuid, click_day date, cost numeric);
+create table public.food_platform_settlements(id uuid primary key default gen_random_uuid(), store_id uuid, amount numeric, order_count int,
+  reference text, note text, settled_by uuid, created_at timestamptz default now());
+create table public.food_stripe_accounts(store_id uuid primary key, stripe_account_id text, status text, payouts_enabled boolean,
+  bank_name text, bank_last4 text, payout_interval text, livemode boolean default false);
+create table public.food_stripe_payouts(payout_id text primary key, store_id uuid, stripe_account_id text, amount_satang bigint,
+  currency text default 'thb', status text, arrival_date date, failure_code text, stripe_created_at timestamptz);
+-- PromptPay / bank account details live on the store in production; the overview must never read them out.
+alter table public.food_stores add column promptpay_id text, add column bank_account_number text;
+-- Same rule as WYN-206: delivered, not refunded, not released, not settled.
+create function internal.food_platform_owed_rows(p_store_id uuid) returns table (order_id uuid, amount numeric) language sql stable set search_path = '' as \$\$
+  select foc.order_id, foc.platform_funded from public.food_order_campaigns foc join public.food_orders o on o.id = foc.order_id
+  where o.store_id = p_store_id and foc.platform_funded > 0 and foc.released_at is null and foc.settlement_id is null
+    and o.status = 'delivered' and o.payment_status <> 'refunded' \$\$;
+grant usage on schema public, auth, internal to authenticated, anon;
+
+insert into auth.users values ('$SUPER'), ('$MERCHANT_VIEW'), ('$MERCHANT_EDIT'), ('$FOOD_ONLY'), ('$USER'), ('$OWNER');
+insert into public.profiles values ('$SUPER','founder'), ('$OWNER','owner_a');
+insert into internal.platform_super_admins values ('$SUPER');
+insert into public.admin_permissions values ('$MERCHANT_VIEW','merchant','view'), ('$MERCHANT_EDIT','merchant','edit'), ('$FOOD_ONLY','food','edit');
+insert into public.merchant_memberships values ('$ACCOUNT','$OWNER','owner',true);
+insert into public.food_stores(id, merchant_account_id, name, promptpay_id, bank_account_number) values
+  ('$STORE','$ACCOUNT','ร้าน A','0812345678','1234567890'),
+  ('$OTHER',null,'ร้าน B',null,null),
+  ('$QUIET',null,'ร้าน C',null,null);
+
+-- Same fixtures as wynos_merchant_finance_test.sh for STORE.
+insert into public.food_orders(store_id, status, payment_status, subtotal, delivery_fee, total, paid_at)
+  values ('$STORE','delivered','paid',100,20,110,'2026-10-03 05:00+07');
+insert into public.food_orders(id, store_id, status, payment_status, subtotal, delivery_fee, total, paid_at)
+  values ('00000000-0000-0000-0000-0000000000b2','$STORE','delivered','paid',200,30,200,'2026-10-04 12:00+07');
+insert into public.food_order_campaigns values ('00000000-0000-0000-0000-0000000000b2', 15, null, null);
+insert into public.food_orders(store_id, status, payment_status, refund_status, subtotal, delivery_fee, total, paid_at, refunded_at)
+  values ('$STORE','cancelled','refunded','refunded',80,20,100,'2026-10-04 13:00+07','2026-10-04 18:00+07');
+insert into public.food_orders(store_id, status, payment_status, subtotal, delivery_fee, total, paid_at)
+  values ('$STORE','delivered','paid',50,0,50,'2026-10-04 23:30+07');
+-- 00:30 on 5 Oct Bangkok is 4 Oct in UTC: not part of 4 Oct.
+insert into public.food_orders(store_id, status, payment_status, subtotal, delivery_fee, total, paid_at)
+  values ('$STORE','delivered','paid',40,0,40,'2026-10-05 00:30+07');
+insert into public.food_orders(store_id, status, payment_status, subtotal, delivery_fee, total)
+  values ('$STORE','pending_acceptance','pending',999,0,999), ('$STORE','pending_acceptance','submitted',70,20,90);
+insert into public.food_ad_clicks values ('$STORE','2026-10-04',2.5), ('$STORE','2026-10-04',2.5);
+-- Store B: one big order on 4 Oct, ad spend 500.
+insert into public.food_orders(store_id, status, payment_status, subtotal, delivery_fee, total, paid_at)
+  values ('$OTHER','delivered','paid',5000,0,5000,'2026-10-04 12:00+07');
+insert into public.food_ad_clicks values ('$OTHER','2026-10-04',500);
+
+insert into public.food_stripe_accounts values
+  ('$STORE','acct_SECRET_A','ready',true,'KBank','4321','daily',false);
+insert into public.food_stripe_payouts values
+  ('po_in','$STORE','acct_SECRET_A',12345,'thb','paid','2026-10-05',null,'2026-10-04 10:00+07'),
+  ('po_failed','$STORE','acct_SECRET_A',500,'thb','failed',null,'account_closed','2026-10-04 11:00+07'),
+  ('po_out','$STORE','acct_SECRET_A',999,'thb','paid','2026-09-02',null,'2026-09-01 10:00+07');
+insert into public.food_platform_settlements(store_id, amount, order_count, reference, settled_by, created_at) values
+  ('$OTHER', 30, 2, 'TRF-001', '$SUPER', '2026-10-04 15:00+07');
+SQL
+
+MIGRATION="$ROOT/supabase/migrations/20261011120000_admin_merchant_finance_overview.sql"
+run >/dev/null < "$MIGRATION"
+run >/dev/null < "$MIGRATION"   # idempotent
+# The store app's own summary, to compare against.
+run >/dev/null 2>&1 < "$ROOT/supabase/migrations_wynos_merchant_finance_v1.sql"
+
+as() { run -At -c "select set_config('test.uid','$1',false);" -c "set role authenticated;" -c "$2" 2>&1 | tail -n1; }
+expect_eq()   { local got; got="$(as "$1" "$2")"; [[ "$got" == "$3" ]] || { echo "FAIL: $4 (got '$got', want '$3')"; exit 1; }; }
+expect_fail() { local err; if err="$(run -c "select set_config('test.uid','$1',false);" -c "set role authenticated;" -c "$2" 2>&1)"; then echo "FAIL (expected error): $3"; exit 1; fi
+                [[ "$err" == *"$4"* ]] || { echo "FAIL: $3 (wrong error: $err)"; exit 1; }; }
+
+F="public.admin_merchant_finance_overview('2026-10-04','2026-10-04')"
+A="(select s from jsonb_array_elements(($F)->'stores') s where s->>'store_id' = '$STORE')"
+B="(select s from jsonb_array_elements(($F)->'stores') s where s->>'store_id' = '$OTHER')"
+
+# 1. Access.
+expect_fail "$FOOD_ONLY" "select $F" "food-only admin is refused" "Not authorized"
+expect_fail "$USER" "select $F" "a plain user is refused" "Not authorized"
+expect_fail "$OWNER" "select $F" "a store owner cannot see every store" "Not authorized"
+expect_fail "" "select $F" "signed out is refused" "Not authorized"
+expect_eq "$MERCHANT_VIEW" "select jsonb_array_length(($F)->'stores')" "3" "merchant:view sees every store"
+expect_eq "$MERCHANT_EDIT" "select jsonb_array_length(($F)->'stores')" "3" "merchant:edit includes view"
+expect_eq "$SUPER" "select jsonb_array_length(($F)->'stores')" "3" "super admin passes"
+expect_eq "$SUPER" "select has_function_privilege('anon', 'public.admin_merchant_finance_overview(date,date)', 'execute')" "f" "anon cannot execute"
+expect_eq "$SUPER" "select provolatile from pg_proc where proname = 'admin_merchant_finance_overview'" "s" "stable (read only)"
+
+# 2. Ranges.
+expect_fail "$SUPER" "select public.admin_merchant_finance_overview('2026-10-05','2026-10-04')" "from after to" "invalid date range"
+expect_fail "$SUPER" "select public.admin_merchant_finance_overview(null,'2026-10-04')" "null from" "invalid date range"
+expect_fail "$SUPER" "select public.admin_merchant_finance_overview('2025-01-01','2026-10-04')" "over a year" "date range is too long"
+
+# 3. Store A lines on 4 Oct (Bangkok).
+expect_eq "$SUPER" "select ($A)->>'orders'" "3" "three paid orders on 4 Oct (not the 00:30 5 Oct one)"
+expect_eq "$SUPER" "select (($A)->>'food')::numeric" "330" "food"
+expect_eq "$SUPER" "select (($A)->>'discounts')::numeric" "30" "discounts"
+expect_eq "$SUPER" "select (($A)->>'refunds')::numeric" "100" "refunds"
+expect_eq "$SUPER" "select (($A)->>'sales_net')::numeric" "250" "net sales"
+expect_eq "$SUPER" "select (($A)->>'ad_spend')::numeric" "5.0" "ad spend"
+expect_eq "$SUPER" "select (($A)->>'platform_funded')::numeric" "15" "WYNOS share"
+expect_eq "$SUPER" "select (($A)->>'income')::numeric" "260.0" "income"
+expect_eq "$SUPER" "select (($A)->>'platform_owed')::numeric" "15" "WYNOS still owes 15"
+
+# Matches the merchant app's own summary for the same store and range, line
+# by line. merchant_finance_summary only answers the store's own managers,
+# so it is read as the owner.
+for key in orders food delivery discounts refund_count refunds sales_net ad_spend platform_funded income platform_owed; do
+  admin="$(as "$SUPER" "select ($A)->>'$key'")"
+  merchant="$(as "$OWNER" "select public.merchant_finance_summary('$STORE','2026-10-04','2026-10-04')->>'$key'")"
+  [[ "$(as "$SUPER" "select '$admin'::numeric = '$merchant'::numeric")" == "t" ]] || { echo "FAIL: $key admin=$admin merchant=$merchant"; exit 1; }
+done
+
+# Store B and the totals.
+expect_eq "$SUPER" "select (($B)->>'income')::numeric" "4500" "store B income = 5000 - 500"
+expect_eq "$SUPER" "select (($F)->'totals'->>'sales_net')::numeric" "5250" "total net sales"
+expect_eq "$SUPER" "select (($F)->'totals'->>'orders')::numeric" "4" "total orders"
+expect_eq "$SUPER" "select ($F)->'totals'->>'stores_with_sales'" "2" "two stores sold"
+expect_eq "$SUPER" "select ($F)->'stores'->0->>'store_id'" "$OTHER" "ordered by net sales"
+expect_eq "$SUPER" "select ($F)->'totals'->>'stores_without_stripe'" "2" "B and C have no Stripe account"
+expect_eq "$SUPER" "select ($F)->'totals'->>'stores_payout_ready'" "1" "A can receive payouts"
+
+# 4. Payouts and settlements.
+expect_eq "$SUPER" "select jsonb_array_length(($F)->'payouts')" "2" "only payouts created on 4 Oct"
+expect_eq "$SUPER" "select ($F)->'payout_status_counts'->>'failed'" "1" "one failed payout"
+expect_eq "$SUPER" "select ($F)->'payouts'->0->>'payout_id'" "po_failed" "newest payout first"
+expect_eq "$SUPER" "select jsonb_array_length(($F)->'settlements')" "1" "one settlement"
+expect_eq "$SUPER" "select ($F)->'settlements'->0->>'settled_by_username'" "founder" "settled by"
+expect_eq "$SUPER" "select ($A)->>'stripe_bank_last4'" "4321" "bank last 4 only"
+expect_eq "$SUPER" "select ($F)::text like '%acct_SECRET%'" "f" "no Stripe account id"
+expect_eq "$SUPER" "select ($F)::text like '%1234567890%' or ($F)::text like '%0812345678%'" "f" "no bank account / PromptPay number"
+
+# Empty range.
+expect_eq "$SUPER" "select (public.admin_merchant_finance_overview('2026-11-01','2026-11-07')->'totals'->>'income')::numeric" "0" "empty week is zero"
+
+echo "PASS: admin merchant finance overview"
