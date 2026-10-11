@@ -46,7 +46,8 @@ jobs:
             local label="$1" sql="$2" file="${3:-}" body tmp code bare
             # Keywords are checked outside string literals ('%for update%' is a pattern, not a statement).
             bare=$(sed "s/'[^']*'//g" <<<"$sql")
-            if ! grep -Eiq '^[[:space:]]*(select|with)[[:space:]]' <<<"$bare" \
+            # The whole query (newlines folded) must start with SELECT or WITH.
+            if ! grep -Eiq '^[[:space:]]*(select|with)[[:space:]]' <<<"$(tr '\n' ' ' <<<"$bare")" \
                || grep -Eiq '\b(insert|update|delete|merge|drop|alter|create|grant|revoke|truncate|vacuum|call|do|set|copy|lock|comment|refresh|reindex|cluster)\b' <<<"$bare" \
                || grep -q ';.*[^[:space:]]' <<<"$(tr '\n' ' ' <<<"$bare")"; then
               echo "::error::refused non read-only query: $label"; exit 1
