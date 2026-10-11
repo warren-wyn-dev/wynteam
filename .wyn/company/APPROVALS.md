@@ -662,3 +662,12 @@
 - Affected files: `.github/workflows/admin-attach-domain.yml`, `.wyn/company/DECISIONS.md`, this file.
 - Rollback: remove the domain in Vercel (Project → Settings → Domains), or `DELETE /v9/projects/{id}/domains/admin.wynos.online`.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-11
+
+### DECISION — [2026-10-11] WYNOS Food launch splash (logo only); full-screen ads deferred
+
+- Founder: asked for a launch screen like Grab's (a logo screen first, then a full-screen promo). When asked, the Founder chose the logo-only splash for now, and chose "Admin uploads" as the source of future full-screen ads.
+- Change: Food shows a red WYNOS Food splash (app icon plus wordmark) for about 1.2 s, once per browser session. Android also keeps the manifest's red launch screen.
+- Deferred: an Admin-managed full-screen promo (image, link, start and end dates). It needs a new table, storage and an Admin page, so it requires a separate proposal and Founder approval before any schema change.
+- Public rollout (WYN-125): the Founder explicitly said "เปิดให้ทุกคน" on 2026-10-11, so the splash ships ungated to all users. A developer-account gate also can't run before first paint.
+- Rollback: revert the PR.
+- สถานะ: **ตัดสินใจแล้ว**. วันที่ 2026-10-11

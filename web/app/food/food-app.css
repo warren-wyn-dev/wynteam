@@ -1108,3 +1108,32 @@
 .fx-guest-basket-store { margin: 4px 16px 6px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
 .fx-guest .fx-store-info .fx-store-min { display: flex; align-items: center; gap: 4px; }
 .fx-guest .fx-menu-row:disabled { cursor: default; opacity: 1; }
+
+/* ---------- Launch splash (once per session) ---------- */
+.fx-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  /* Founder: red ~80%, blending up into pink ~20% at the top. */
+  background: linear-gradient(0deg, #e40036 0%, #e40036 58%, #f0306a 80%, #ff7aa6 100%);
+  background-color: #e40036;
+  color: #fff;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  font-family: var(--font-anuphan), "Noto Sans Thai", system-ui, sans-serif;
+  /* Stays visible even while the root layout hides <body> for the English pass. */
+  visibility: visible;
+  animation: fx-splash-out .35s ease .9s forwards;
+}
+.fx-splash-logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 10px 28px rgb(0 0 0 / 22%), 0 0 0 3px rgb(255 255 255 / 92%); animation: fx-splash-pop .5s cubic-bezier(.2, .9, .3, 1.2) both; }
+.fx-splash-name { font-size: 26px; font-weight: 700; letter-spacing: -.3px; animation: fx-splash-pop .5s .08s cubic-bezier(.2, .9, .3, 1.2) both; }
+.fx-splash-name b { font-weight: 700; opacity: .92; }
+html[data-fx-splash="seen"] .fx-splash { display: none; }
+@keyframes fx-splash-out { to { opacity: 0; visibility: hidden; } }
+@keyframes fx-splash-pop { from { opacity: 0; transform: scale(.86); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .fx-splash { animation-delay: .6s; }
+  .fx-splash-logo, .fx-splash-name { animation: none; }
+}
