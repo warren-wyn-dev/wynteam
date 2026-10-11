@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
@@ -180,4 +181,17 @@ test("Food launch splash shows the brand once per session without hydration mism
   assert.match(layout, /document\.documentElement\.setAttribute\('data-fx-splash','seen'\)/);
   assert.match(css, /html\[data-fx-splash="seen"\] \.fx-splash \{ display: none; \}/);
   assert.match(css, /@keyframes fx-splash-out \{ to \{ opacity: 0; visibility: hidden; \} \}/);
+});
+
+test("Food iOS launch has no white flash and the status bar matches the splash", async () => {
+  const layout = await read("app/food/layout.tsx");
+  // iOS ignores the manifest background; it needs apple-touch-startup-image per screen size.
+  assert.match(layout, /startupImage: FOOD_IOS_LAUNCH_IMAGES/);
+  assert.match(layout, /\/icons\/food\/splash\/launch-\$\{width \* ratio\}x\$\{height \* ratio\}\.png/);
+  for (const size of ["1290x2796", "1179x2556", "1170x2532", "750x1334"]) {
+    assert.ok(existsSync(new URL(`../public/icons/food/splash/launch-${size}.png`, import.meta.url)), `missing launch image ${size}`);
+  }
+  // Temporary pink theme-color while the splash shows, removed when it fades.
+  assert.match(layout, /m\.content='#ff7aa6'/);
+  assert.match(layout, /document\.head\.prepend\(m\);setTimeout\(function\(\)\{m\.remove\(\)\},1250\)/);
 });

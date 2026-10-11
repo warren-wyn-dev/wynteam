@@ -21,8 +21,23 @@ const FOOD_ICON_512 = "/icons/food/icon-512-v12.png";
 // Founder decision (2026-10-11): show a brand splash (logo only) when Food opens.
 // It plays once per browser session; the boot script marks <html> before the
 // splash paints so later loads in the same session skip it without a flash.
+// While the splash shows, a temporary pink theme-color (prepended, so iOS uses
+// it first) keeps the status-bar strip the same pink as the splash top; it is
+// removed when the splash fades so the app keeps its normal theme color.
 const FOOD_SPLASH_BOOT_SCRIPT =
-  "try{if(sessionStorage.getItem('wynos-food-splash')){document.documentElement.setAttribute('data-fx-splash','seen')}else{sessionStorage.setItem('wynos-food-splash','1')}}catch(e){}";
+  "try{if(sessionStorage.getItem('wynos-food-splash')){document.documentElement.setAttribute('data-fx-splash','seen')}else{sessionStorage.setItem('wynos-food-splash','1');var m=document.createElement('meta');m.name='theme-color';m.content='#ff7aa6';m.setAttribute('data-fx-splash-theme','');document.head.prepend(m);setTimeout(function(){m.remove()},1250)}}catch(e){}";
+
+// iOS shows these while the installed app launches (it ignores the manifest
+// background), so there is no white flash before the splash. One image per
+// iPhone screen size; see public/icons/food/splash/.
+const FOOD_IOS_LAUNCH_SIZES: Array<[number, number, number]> = [
+  [440, 956, 3], [430, 932, 3], [428, 926, 3], [420, 912, 3], [414, 896, 3], [414, 896, 2],
+  [414, 736, 3], [402, 874, 3], [393, 852, 3], [390, 844, 3], [375, 812, 3], [375, 667, 2], [320, 568, 2],
+];
+const FOOD_IOS_LAUNCH_IMAGES = FOOD_IOS_LAUNCH_SIZES.map(([width, height, ratio]) => ({
+  url: `/icons/food/splash/launch-${width * ratio}x${height * ratio}.png`,
+  media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`,
+}));
 
 const FOOD_WEBSITE_STRUCTURED_DATA = {
   "@context": "https://schema.org",
@@ -84,6 +99,7 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "WYNOS Food",
+    startupImage: FOOD_IOS_LAUNCH_IMAGES,
   },
   other: {
     "msapplication-TileColor": "#e32636",
