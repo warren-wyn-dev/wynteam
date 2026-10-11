@@ -2,7 +2,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { fetchFeedAlgorithmDashboard } from "@/lib/admin-metrics";
 
 export async function FeedAlgorithmObservability() {
-  const metrics = await fetchFeedAlgorithmDashboard(24);
+  let metrics: Awaited<ReturnType<typeof fetchFeedAlgorithmDashboard>>;
+  try {
+    metrics = await fetchFeedAlgorithmDashboard(24);
+  } catch (error) {
+    console.error("[admin dashboard] admin_feed_algorithm_dashboard failed:", error instanceof Error ? error.message : error);
+    return (
+      <p className="rounded-lg border p-4 text-sm text-muted-foreground">โหลดข้อมูล Feed Algorithm ไม่สำเร็จ</p>
+    );
+  }
   return (
     <section className="flex flex-col gap-3">
       <div>

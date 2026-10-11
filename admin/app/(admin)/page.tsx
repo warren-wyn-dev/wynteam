@@ -4,7 +4,7 @@ import { DashboardMetrics } from "@/components/admin/dashboard-metrics";
 import { DashboardSkeleton } from "@/components/admin/dashboard-skeleton";
 import { RefreshButton } from "@/components/admin/refresh-button";
 import { NoAccess } from "@/components/admin/no-access";
-import { adminCanAny, requireAdminRole } from "@/lib/auth";
+import { adminCan, adminCanAny, requireAdminRole } from "@/lib/auth";
 
 export default async function DashboardPage() {
   const ctx = await requireAdminRole();
@@ -15,7 +15,7 @@ export default async function DashboardPage() {
         <RefreshButton />
       </div>
       <Suspense fallback={<DashboardSkeleton />}>
-        <DashboardMetrics />
+        <DashboardMetrics showFeed={adminCan(ctx, "social")} />
       </Suspense>
     </div>
   );
