@@ -34,7 +34,7 @@ const FOOD_SPLASH_BOOT_SCRIPT =
 // iPhone screen size; see public/icons/food/splash/.
 const FOOD_IOS_LAUNCH_SIZES: Array<[number, number, number]> = [
   [440, 956, 3], [430, 932, 3], [428, 926, 3], [420, 912, 3], [414, 896, 3], [414, 896, 2],
-  [414, 736, 3], [402, 874, 3], [393, 852, 3], [390, 844, 3], [375, 812, 3], [375, 667, 2], [320, 568, 2],
+  [414, 736, 3], [402, 874, 3], [393, 852, 3], [390, 844, 3], [375, 812, 3], [360, 780, 3], [375, 667, 2], [320, 568, 2],
 ];
 const FOOD_IOS_LAUNCH_IMAGES = FOOD_IOS_LAUNCH_SIZES.map(([width, height, ratio]) => ({
   url: `/icons/food/splash/launch-${width * ratio}x${height * ratio}.png`,
