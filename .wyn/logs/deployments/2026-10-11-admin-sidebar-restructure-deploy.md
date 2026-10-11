@@ -73,3 +73,15 @@ deployment in Vercel. No data or schema to roll back.
 - Database (#1104 only): run `supabase/rollbacks/20261011120000_admin_merchant_finance_overview_rollback.sql`
   (drops the read-only RPC; the page then shows "not installed"). #1102 and #1096 have no DB changes.
 - Domain: remove `admin.wynos.online` from the Admin project in Vercel.
+
+## Follow-up release: brand rename to "WYNOS Admin" (#1107)
+
+- Founder approval: "อนุญาต" (2026-10-11) for merge + production deploy of PR #1107.
+- First attempt, run [38126503044](https://github.com/warren-wyn-dev/wynteam/actions/runs/38126503044),
+  failed on the Vercel Hobby `api-deployments-free-per-day` quota (Founder chose to stay on Hobby).
+- Deployed by run [38143528093](https://github.com/warren-wyn-dev/wynteam/actions/runs/38143528093)
+  (success) from `main` @ `f9bfb08`. No `admin/` changes landed between `1dd1d7c` (#1107) and
+  `f9bfb08`; the only new commits were the Food splash (#1103, `food/`), which this workflow does not build.
+- Smoke test: `https://admin.wynos.online/login` serves `<title>WYNOS Admin</title>`; `/` returns 307 → `/login`.
+- Rollback: Vercel Instant Rollback to the `28b2df0` deployment, or revert `1dd1d7c` and run
+  `deploy-admin.yml`. Text-only change; no DB, auth or permission changes.
