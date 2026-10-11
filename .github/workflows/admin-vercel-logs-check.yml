@@ -8,10 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       since:
-        description: "How far back to read, e.g. 1h, 6h, 1d"
+        # The Hobby plan keeps runtime logs for 1 hour; a longer window only
+        # helps on a paid plan. Run this soon after reproducing the failure.
+        description: "How far back to read (Hobby keeps 1h), e.g. 30m, 1h"
         type: string
         required: false
-        default: "3h"
+        default: "1h"
 
 permissions:
   contents: read
@@ -39,15 +41,21 @@ jobs:
             # Fails the job on any CLI/API error (auth, project, quota).
             npx --yes vercel@latest logs \
               --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_TEAM_SLUG" --token "$VERCEL_TOKEN" \
-              --environment production --level "$level" --since "$SINCE" --limit 100 --json \
+              --environment production --level "$level" --since "$SINCE" --limit 50 --json \
               > "logs-$level.jsonl"
-            # Parse record by record; malformed lines are dropped, never printed raw.
-            jq -R -c 'fromjson? | {
-                time: (.timestamp // .timestampInMs // .date // null),
-                path: (.requestPath // .path // null),
-                status: (.statusCode // .responseStatusCode // null),
-                level: (.level // null),
-                message: ((.message // "") | tostring | .[0:600])
-              }' "logs-$level.jsonl"
+            # Parse record by record (malformed lines are dropped, never printed
+            # raw) and print every log line of the requested level in a request,
+            # not only the CLI's one-line summary. --limit stays at 50: larger
+            # limits repeat the first page in current CLIs (vercel/vercel#16286).
+            jq -R -c --arg level "$level" 'fromjson? | . as $r
+              | ((.logs // []) | map(select((.level // "") == $level))) as $lines
+              | (if ($lines | length) > 0 then $lines[] else {level: $r.level, message: $r.message} end)
+              | {
+                  time: ($r.timestamp // $r.timestampInMs // $r.date // null),
+                  path: ($r.requestPath // $r.path // null),
+                  status: ($r.statusCode // $r.responseStatusCode // null),
+                  level: (.level // null),
+                  message: ((.message // "") | tostring | .[0:600])
+                }' "logs-$level.jsonl"
             echo "records: $(jq -R 'fromjson? | 1' "logs-$level.jsonl" | wc -l)"
           done
