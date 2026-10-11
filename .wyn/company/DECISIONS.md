@@ -2217,3 +2217,10 @@ Founder สั่ง (พร้อม WYNOS_Admin_Sidebar_Kit) ให้จั�
 - ไม่เพิ่ม Email Notifications หรือ Check-in
 
 QA: `.wyn/docs/qa/admin-sidebar-restructure-qa.md`
+
+## [2026-10-11] Admin — ผูกโดเมน admin.wynos.online กับโปรเจกต์ Admin บน Vercel
+
+พบว่า `admin.wynos.online` ไม่เคยถูกผูกกับโปรเจกต์ Admin (DNS `*.wynos.online` ชี้ Vercel แต่ไม่มีโปรเจกต์รับโดเมน → ไม่มี certificate; Admin production อยู่ที่ `admin-lilac-seven-85.vercel.app`)
+Founder อนุมัติ ("อนุญาต", 2026-10-11) ให้ผูกโดเมนผ่าน workflow `admin-attach-domain.yml` (manual, ต้องพิมพ์ `ATTACH_ADMIN_DOMAIN`)
+- รับทราบว่าโดเมนจริงของ production ไม่อยู่หลัง Vercel Authentication — การป้องกันคือหน้า login ของ WYN Admin + การตรวจสิทธิ์ฝั่ง server ทุกหน้า/RPC (WYN-219)
+- ไม่แก้ DNS; rollback = ลบโดเมนออกจากโปรเจกต์ใน Vercel
