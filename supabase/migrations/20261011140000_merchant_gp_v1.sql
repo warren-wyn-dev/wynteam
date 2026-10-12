@@ -295,8 +295,8 @@ begin
 end
 $$;
 
--- The next moment the GP that applies to a store (or, for null, the default)
--- changes, and what it becomes: a scheduled row starting, the current
+-- The next moment the GP rate that applies to a store (or, for null, the
+-- default) actually changes, and what it becomes: a scheduled row starting, the current
 -- temporary rate ending (falls back to the earlier rate), or -- for a store
 -- following the default -- the default changing. scheduled_id is set only
 -- when that change is one of this scope's own scheduled rows (cancellable).
@@ -315,9 +315,18 @@ as $$
   times as (
     select effective_from as t from scope where effective_from > now()
     union
-    select effective_to from scope where effective_to is not null and effective_to > now() and effective_from <= now()
+    select effective_to from scope where effective_to is not null and effective_to > now()
   ),
-  nxt as (select min(t) as t from times)
+  cur as (
+    select coalesce((select g.rate_bp from internal.merchant_gp_rate_at(p_store_id, now()) g), 0) as rate_bp
+  ),
+  -- Only a boundary where the resolved rate really differs from now counts:
+  -- a default event hidden by the store's own rate, or a row ending under a
+  -- newer one, changes nothing.
+  nxt as (
+    select min(times.t) as t from times, cur
+    where coalesce((select g.rate_bp from internal.merchant_gp_rate_at(p_store_id, times.t) g), 0) <> cur.rate_bp
+  )
   select case when nxt.t is null then null else jsonb_build_object(
     'effective_from', nxt.t,
     'effective_to', null,

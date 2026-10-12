@@ -117,7 +117,7 @@ export function GpRateDialog({
       <Button type="button" variant="outline" className="min-h-10" onClick={() => { setKey(crypto.randomUUID()); setOpen(true); }}>
         {triggerLabel}
       </Button>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{step === "form" ? `ตั้ง GP · ${storeName}` : "ยืนยันการเปลี่ยน GP"}</DialogTitle>
           <DialogDescription>

@@ -185,6 +185,11 @@ eq "$(q "select count(*) from public.merchant_gp_rates where idempotency_key = '
 # temporary 3% until next week falls back to its 10000bp rate.
 run -q -c "insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, effective_to, reason, idempotency_key, request_fingerprint) values ('$OTHER', 300, now() - interval '1 hour', now() + interval '7 day', 'temp', gen_random_uuid(), 'fixture')" >/dev/null
 eq "$(as "$SUPER" "select s->'next'->>'kind' || ':' || (s->'next'->>'rate_bp') || ':' || coalesce(s->'next'->>'id','null') from jsonb_array_elements(public.admin_gp_settings()->'stores') s where s->>'store_id' = '$OTHER'")" "expiry:10000:null" "temporary rate end shown as the next change"
+# A default change hidden by store B's own rate is not a change for B
+# (review finding): next stays the real expiry, not the default event.
+DFUT="$(as "$SUPER" "select public.admin_set_gp_rate(null, 2500, now() + interval '2 day', null, 'future default', gen_random_uuid())")"
+eq "$(as "$SUPER" "select s->'next'->>'kind' || ':' || (s->'next'->>'rate_bp') from jsonb_array_elements(public.admin_gp_settings()->'stores') s where s->>'store_id' = '$OTHER'")" "expiry:10000" "hidden default change skipped"
+as "$SUPER" "select public.admin_cancel_gp_rate('$DFUT', 'tidy up')" >/dev/null
 
 # Back to the default (append-only): store A follows the default again.
 fails "$SUPER" "select public.admin_set_gp_rate(null, null, null, null, 'default without rate', gen_random_uuid())" "default needs a rate" "needs a rate"
