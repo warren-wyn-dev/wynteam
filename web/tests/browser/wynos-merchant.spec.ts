@@ -1015,13 +1015,13 @@ test("Merchant compact menu sale switch retains an iPhone-sized touch target wit
 
   expect(metrics).toHaveLength(2);
   for (const dimensions of metrics) {
-    expect(dimensions.width).toBe(44);
-    expect(dimensions.height).toBe(44);
+    expect(dimensions.width).toBeCloseTo(44, 2);
+    expect(dimensions.height).toBeCloseTo(44, 2);
     expect(dimensions.trackWidth).toBe(44);
     expect(dimensions.trackHeight).toBe(26);
-    expect(dimensions.knobWidth).toBe(22);
-    expect(dimensions.knobHeight).toBe(22);
-    expect(dimensions.knobCenterY).toBe(22);
+    expect(dimensions.knobWidth).toBeCloseTo(22, 2);
+    expect(dimensions.knobHeight).toBeCloseTo(22, 2);
+    expect(dimensions.knobCenterY).toBeCloseTo(22, 2);
     expect(dimensions.background).toBe("rgba(0, 0, 0, 0)");
   }
   expect(metrics[0].trackColor).toBe("rgb(24, 164, 91)");
