@@ -4968,6 +4968,7 @@ button.wm-menu-tool:disabled {
   border: 0;
   border-radius: 12px;
   background: transparent;
+  transition: none; /* never animate the entire hit area into a red circle */
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
