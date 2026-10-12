@@ -190,7 +190,8 @@ test("Food iOS launch has no white flash and the status bar matches the splash",
   const layout = await read("app/food/layout.tsx");
   // iOS ignores the manifest background; it needs apple-touch-startup-image per screen size.
   assert.match(layout, /startupImage: FOOD_IOS_LAUNCH_IMAGES/);
-  assert.match(layout, /\/icons\/food\/splash\/launch-\$\{width \* ratio\}x\$\{height \* ratio\}\.png/);
+  assert.match(layout, /\/icons\/food\/splash\/launch-\$\{width \* ratio\}x\$\{height \* ratio\}\.png\?v=\$\{FOOD_IOS_LAUNCH_VERSION\}/);
+  assert.match(layout, /const FOOD_IOS_LAUNCH_VERSION = 2;/);
   for (const size of ["1290x2796", "1179x2556", "1170x2532", "1080x2340", "750x1334", "2048x2732", "1668x2388", "1640x2360", "1620x2160", "1488x2266"]) {
     assert.ok(existsSync(new URL(`../public/icons/food/splash/launch-${size}.png`, import.meta.url)), `missing launch image ${size}`);
   }

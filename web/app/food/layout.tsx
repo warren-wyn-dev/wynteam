@@ -41,8 +41,10 @@ const FOOD_IOS_LAUNCH_SIZES: Array<[number, number, number]> = [
   // iPad (same sizes the root layout covers, plus iPad Air 10.9).
   [1024, 1366, 2], [834, 1194, 2], [820, 1180, 2], [810, 1080, 2], [744, 1133, 2],
 ];
+const FOOD_IOS_LAUNCH_VERSION = 2;
 const FOOD_IOS_LAUNCH_IMAGES = FOOD_IOS_LAUNCH_SIZES.map(([width, height, ratio]) => ({
-  url: `/icons/food/splash/launch-${width * ratio}x${height * ratio}.png`,
+  // Bump the version when the images change so iOS and caches fetch the new ones.
+  url: `/icons/food/splash/launch-${width * ratio}x${height * ratio}.png?v=${FOOD_IOS_LAUNCH_VERSION}`,
   media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`,
 }));
 
