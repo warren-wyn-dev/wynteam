@@ -112,6 +112,7 @@ import {
   MERCHANT_ORDER_PAGE_SIZE,
 } from "@/lib/food-merchant";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
+import { retryMerchantJwtRead } from "@/lib/merchant-jwt-recovery";
 import { checkFoodServiceArea, currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation, type FoodPlace } from "@/lib/food-customer";
 import {
   FOOD_DAY_KEYS,
@@ -410,7 +411,7 @@ function MerchantInner({
     else setRefreshing(true);
     if (!quiet) setMessage("");
     try {
-      const next = await fetchMerchantSnapshot(client, selectedStoreId);
+      const next = await retryMerchantJwtRead(() => fetchMerchantSnapshot(client, selectedStoreId));
       setAccess(next.access);
       setStores(next.stores);
       setStore(next.store);
@@ -460,7 +461,7 @@ function MerchantInner({
     let live = true;
     const storeId = store.id;
     const revision = dataRevision;
-    void fetchMerchantSalesReport(client, storeId)
+    void retryMerchantJwtRead(() => fetchMerchantSalesReport(client, storeId))
       .then((next) => {
         if (live) setSalesReportState({ storeId, revision, report: next, error: "" });
       })
@@ -699,6 +700,16 @@ function MerchantInner({
       <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดตข้อมูลร้าน" />
       {store ? <MerchantOrderScreenBar soundReady={soundReady} /> : null}
       <section className="wm-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
+        {access === null && !loading ? (
+          <div className="wm-empty wm-empty--compact" role="alert">
+            <AlertTriangle size={32} strokeWidth={1.6} />
+            <strong>เชื่อมต่อข้อมูลร้านค้าไม่ได้ชั่วคราว</strong>
+            <p>ระบบตรวจสอบการเข้าสู่ระบบหรือข้อมูลร้านค้ามีปัญหา กรุณาลองเชื่อมต่อใหม่ โดยไม่ต้องออกจากบัญชี</p>
+            <button className="wm-small-primary" type="button" disabled={refreshing} onClick={() => void load()}>
+              {refreshing ? "กำลังเชื่อมต่อ..." : "ลองโหลดข้อมูลอีกครั้ง"}
+            </button>
+          </div>
+        ) : null}
         {tab === "home" && store ? (
           <HomePanel
             client={client}
