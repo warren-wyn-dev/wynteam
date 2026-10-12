@@ -2979,6 +2979,9 @@ Object.assign(EN_EXACT, {
   "แตะและลากแถบชื่อหมวดหมู่เพื่อเปลี่ยนลำดับทั้งกลุ่ม": "Touch and drag a category header to reorder the entire group",
   "กำลังบันทึก...": "Saving...",
   "บันทึกลำดับ": "Save order",
+
+  "พร้อมขาย กดเพื่อปิดขาย": "Available · tap to stop selling",
+  "ปิดขาย กดเพื่อเปิดขาย": "Unavailable · tap to start selling",
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
