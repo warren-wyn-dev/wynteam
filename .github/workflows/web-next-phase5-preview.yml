@@ -31,7 +31,7 @@ jobs:
     # fork, with a read-only token), so only other same-repository PRs deploy.
     # Beta2 automatic Vercel previews remain paused generally. PR #996 is
     # an explicit one-off launch-readiness QA requested before production.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.number == 996 || github.event.pull_request.number == 1008 || github.event.pull_request.number == 1065))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.number == 996 || github.event.pull_request.number == 1008))
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -132,7 +132,7 @@ jobs:
           # curl does not keep cookies unless a cookie jar is enabled. The bypass
           # header is sufficient for smoke checks; requesting a bypass cookie here
           # would cause Vercel's cookie-setting redirect to repeat on some routes.
-          for route in / /search /notifications /chat /settings /profile/me /merchant/login /merchant; do
+          for route in / /search /notifications /chat /settings /profile/me; do
             echo "Checking $PREVIEW_URL$route"
             curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
               --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
@@ -183,9 +183,7 @@ jobs:
       - name: Browser QA against deployed Vercel preview
         env:
           PLAYWRIGHT_BASE_URL: ${{ steps.deploy.outputs.url }}
-        # PR #1065: run only Merchant on hosted preview. The complete browser
-        # regression matrix remains required in Consumer Web Phase 4 Browser QA.
-        run: ${{ github.event.pull_request.number == 1065 && 'npx playwright test tests/browser/wynos-merchant.spec.ts' || 'npm run qa:browser' }}
+        run: npm run qa:browser
 
       - name: Revoke temporary Vercel automation bypass
         if: always()
