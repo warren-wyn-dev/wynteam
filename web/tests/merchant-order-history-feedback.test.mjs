@@ -11,7 +11,7 @@ const style = fs.readFileSync(new URL("../app/merchant/merchant.css", import.met
 
 const source = lib.match(/export function isRecentCompletedOrder\(order: FoodOrder, now = Date\.now\(\)\): boolean \{[\s\S]*?\n\}/)?.[0];
 assert.ok(source, "24-hour predicate must exist");
-const recent = vm.runInNewContext(source.replace("export function", "function").replace("order: FoodOrder, now = Date.now(): boolean", "order, now = Date.now()") + "\nisRecentCompletedOrder");
+const recent = vm.runInNewContext(source.replace("export function", "function").replace("order: FoodOrder, now = Date.now()): boolean", "order, now = Date.now())") + "\nisRecentCompletedOrder");
 
 test("Done tab shows delivered/cancelled orders for 24h from terminal event, never deletes", () => {
   const now = Date.parse("2026-10-12T10:00:00Z");
