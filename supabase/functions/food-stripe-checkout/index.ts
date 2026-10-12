@@ -109,11 +109,14 @@ Deno.serve(async (req: Request) => {
 
   // GP v1: WYNOS GP from the order's snapshotted rate, as an application fee.
   let feeSatang = 0;
+  // false only before the GP v1 migration exists: then the ledger has no
+  // application_fee_satang column either, so it must not be written.
+  let gpInstalled = true;
   try {
     const { data: quote, error: quoteError } = await admin.rpc("food_order_gp_quote", { p_order_id: order.id });
     // Function not installed yet means GP v1 (and so any GP rate) does not
     // exist in this database: there is nothing to collect.
-    if (quoteError?.code === "PGRST202") feeSatang = 0;
+    if (quoteError?.code === "PGRST202") gpInstalled = false;
     else if (quoteError) throw quoteError;
     else feeSatang = applicationFeeSatang(quote, amountSatang);
   } catch (error) {
@@ -193,7 +196,7 @@ Deno.serve(async (req: Request) => {
     livemode: stripeLiveMode,
     checkout_session_id: session.id,
     amount_satang: amountSatang,
-    application_fee_satang: feeSatang,
+    ...(gpInstalled ? { application_fee_satang: feeSatang } : {}),
     currency: "thb",
     status: "pending",
     attempt,

@@ -181,6 +181,11 @@ A_ID="$(grep -E '^[0-9a-f-]{36}$' "$TMPDIR_GP/a.out" | grep -v "$SUPER" | tail -
 eq "$B_ID" "$A_ID" "concurrent retry returns the first row instead of failing"
 eq "$(q "select count(*) from public.merchant_gp_rates where idempotency_key = '$KC'")" "1" "only one row for the concurrent key"
 
+# Next change includes a temporary rate ending (review finding): store B on a
+# temporary 3% until next week falls back to its 10000bp rate.
+run -q -c "insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, effective_to, reason, idempotency_key, request_fingerprint) values ('$OTHER', 300, now() - interval '1 hour', now() + interval '7 day', 'temp', gen_random_uuid(), 'fixture')" >/dev/null
+eq "$(as "$SUPER" "select s->'next'->>'kind' || ':' || (s->'next'->>'rate_bp') || ':' || coalesce(s->'next'->>'id','null') from jsonb_array_elements(public.admin_gp_settings()->'stores') s where s->>'store_id' = '$OTHER'")" "expiry:10000:null" "temporary rate end shown as the next change"
+
 # Back to the default (append-only): store A follows the default again.
 fails "$SUPER" "select public.admin_set_gp_rate(null, null, null, null, 'default without rate', gen_random_uuid())" "default needs a rate" "needs a rate"
 as "$SUPER" "select public.admin_set_gp_rate('$STORE', null, null, null, 'กลับไปใช้ค่าเริ่มต้น', gen_random_uuid())" >/dev/null
@@ -195,7 +200,17 @@ TOTAL="$(q "select count(*) from public.merchant_gp_rates")"
 eq "$(as "$SUPER" "select jsonb_array_length(public.admin_gp_history(null, 3)->'rows')")" "3" "first page"
 eq "$(as "$SUPER" "select (public.admin_gp_history(null, 3)->>'has_more')")" "true" "more pages exist"
 LAST="$(as "$SUPER" "select public.admin_gp_history(null, 3)->'rows'->2->>'created_at'")"
-eq "$(as "$SUPER" "select jsonb_array_length(public.admin_gp_history('$LAST', 500)->'rows') + 3")" "$TOTAL" "pages cover every row"
+LAST_ID="$(as "$SUPER" "select public.admin_gp_history(null, 3)->'rows'->2->>'id'")"
+eq "$(as "$SUPER" "select jsonb_array_length(public.admin_gp_history('$LAST', 500, '$LAST_ID')->'rows') + 3")" "$TOTAL" "pages cover every row exactly once"
+# Rows sharing one created_at are never skipped across a page break (review finding).
+run -q -c "insert into public.merchant_gp_rates(store_id, rate_bp, effective_from, reason, idempotency_key, request_fingerprint, created_at) select '$OTHER', 100 + g, '2040-01-01', 'same time ' || g, gen_random_uuid(), 'fixture', '2000-01-01 00:00+00' from generate_series(1, 5) g" >/dev/null
+SAME="$(q "select count(*) from public.merchant_gp_rates where created_at = '2000-01-01 00:00+00'")"
+P1_AT="$(as "$SUPER" "select (select e->>'created_at' from jsonb_array_elements(public.admin_gp_history('2000-01-01 00:00:01+00', 2)->'rows') e order by e->>'id' limit 1)")"
+P1_ID="$(as "$SUPER" "select public.admin_gp_history('2000-01-01 00:00:01+00', 2)->'rows'->1->>'id'")"
+P2="$(as "$SUPER" "select jsonb_array_length(public.admin_gp_history('2000-01-01 00:00+00', 500, '$P1_ID')->'rows')")"
+eq "$(( P2 + 2 ))" "$SAME" "same-timestamp rows all reachable across pages"
+eq "$(as "$SUPER" "select (public.admin_gp_history('2000-01-01 00:00:01+00', 1)->'rows'->0->>'cancellable')")" "true" "future row is cancellable"
+run -q -c "update public.merchant_gp_rates set cancelled_at = now(), cancel_reason = 'cleanup' where created_at = '2000-01-01 00:00+00'" >/dev/null
 eq "$(as "$MERCHANT_VIEW" "select jsonb_typeof(public.admin_gp_history(null, 5)->'rows')")" "array" "merchant:view can read history"
 fails "$USER" "select public.admin_gp_history(null, 5)" "plain user cannot read history" "Not authorized"
 

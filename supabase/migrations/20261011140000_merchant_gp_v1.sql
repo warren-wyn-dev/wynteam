@@ -295,6 +295,46 @@ begin
 end
 $$;
 
+-- The next moment the GP that applies to a store (or, for null, the default)
+-- changes, and what it becomes: a scheduled row starting, the current
+-- temporary rate ending (falls back to the earlier rate), or -- for a store
+-- following the default -- the default changing. scheduled_id is set only
+-- when that change is one of this scope's own scheduled rows (cancellable).
+create or replace function internal.merchant_gp_next_change(p_store_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with scope as (
+    select r.* from public.merchant_gp_rates r
+    where r.cancelled_at is null
+      and (r.store_id is not distinct from p_store_id or (p_store_id is not null and r.store_id is null))
+  ),
+  times as (
+    select effective_from as t from scope where effective_from > now()
+    union
+    select effective_to from scope where effective_to is not null and effective_to > now() and effective_from <= now()
+  ),
+  nxt as (select min(t) as t from times)
+  select case when nxt.t is null then null else jsonb_build_object(
+    'effective_from', nxt.t,
+    'effective_to', null,
+    'rate_bp', coalesce((select g.rate_bp from internal.merchant_gp_rate_at(p_store_id, nxt.t) g), 0),
+    'id', (select r.id from scope r
+           where r.store_id is not distinct from p_store_id and r.effective_from = nxt.t
+           order by r.created_at desc limit 1),
+    'kind', case
+      when exists (select 1 from scope r where r.store_id is not distinct from p_store_id and r.effective_from = nxt.t) then 'scheduled'
+      when exists (select 1 from scope r where r.store_id is not distinct from p_store_id and r.effective_to = nxt.t) then 'expiry'
+      else 'default_change' end
+  ) end
+  from nxt;
+$$;
+
+revoke all on function internal.merchant_gp_next_change(uuid) from public, anon, authenticated;
+
 -- ------------------------------------------------------------
 -- Admin RPCs
 -- ------------------------------------------------------------
@@ -322,12 +362,7 @@ begin
       select jsonb_build_object(
         'rate_bp', coalesce(r.rate_bp, 0),
         'rate_id', r.rate_id,
-        'next', (
-          select jsonb_build_object('id', n.id, 'rate_bp', n.rate_bp, 'effective_from', n.effective_from, 'effective_to', n.effective_to)
-          from public.merchant_gp_rates n
-          where n.store_id is null and n.cancelled_at is null and n.effective_from > now()
-          order by n.effective_from, n.created_at desc limit 1
-        )
+        'next', internal.merchant_gp_next_change(null)
       )
       from (select 1) one
       left join lateral (
@@ -342,12 +377,7 @@ begin
         'suspended', s.admin_suspended_at is not null,
         'rate_bp', coalesce(cur.rate_bp, 0),
         'source', coalesce(cur.source, 'none'),
-        'next', (
-          select jsonb_build_object('id', n.id, 'rate_bp', n.rate_bp, 'effective_from', n.effective_from, 'effective_to', n.effective_to)
-          from public.merchant_gp_rates n
-          where n.store_id = s.id and n.cancelled_at is null and n.effective_from > now()
-          order by n.effective_from, n.created_at desc limit 1
-        )
+        'next', internal.merchant_gp_next_change(s.id)
       ) order by s.name)
       from public.food_stores s
       left join lateral (select * from internal.merchant_gp_rate_at(s.id, now())) cur on true
@@ -364,6 +394,7 @@ begin
         'created_by_username', cb.username,
         'created_at', r.created_at,
         'cancelled_at', r.cancelled_at,
+        'cancellable', r.cancelled_at is null and r.effective_from > now(),
         'cancelled_by_username', xb.username,
         'cancel_reason', r.cancel_reason
       ) order by r.created_at desc)
@@ -382,8 +413,9 @@ revoke all on function public.admin_gp_settings() from public, anon;
 grant execute on function public.admin_gp_settings() to authenticated;
 
 -- Full GP history, newest first, one page at a time (merchant:view):
--- rows created before p_before (null = now), at most 500 per page.
-create or replace function public.admin_gp_history(p_before timestamptz default null, p_limit integer default 200)
+-- rows before the (p_before, p_before_id) cursor (null = newest), at most
+-- 500 per page.
+create or replace function public.admin_gp_history(p_before timestamptz default null, p_limit integer default 200, p_before_id uuid default null)
 returns jsonb
 language plpgsql
 stable
@@ -409,13 +441,17 @@ begin
       'created_by_username', cb.username,
       'created_at', r.created_at,
       'cancelled_at', r.cancelled_at,
+      'cancellable', r.cancelled_at is null and r.effective_from > now(),
       'cancelled_by_username', xb.username,
       'cancel_reason', r.cancel_reason
     ) order by r.created_at desc, r.id desc), '[]'::jsonb)
   into v_rows
   from (
     select * from public.merchant_gp_rates
-    where created_at < coalesce(p_before, 'infinity'::timestamptz)
+    -- (created_at, id) cursor, same order as the result, so rows sharing a
+    -- timestamp are never skipped between pages.
+    where p_before is null
+       or (created_at, id) < (p_before, coalesce(p_before_id, 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))
     order by created_at desc, id desc
     limit v_limit + 1
   ) r
@@ -432,8 +468,8 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_gp_history(timestamptz, integer) from public, anon;
-grant execute on function public.admin_gp_history(timestamptz, integer) to authenticated;
+revoke all on function public.admin_gp_history(timestamptz, integer, uuid) from public, anon;
+grant execute on function public.admin_gp_history(timestamptz, integer, uuid) to authenticated;
 
 -- Write: super admin only. p_store_id null = the default rate.
 -- p_rate_bp null (store only) = the store goes back to following the default.

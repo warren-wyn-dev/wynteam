@@ -6,8 +6,18 @@ import { createClient } from "@/lib/supabase/server";
  * nothing here does floating-point money maths.
  */
 
-/** rate_bp null = the store goes back to following the default. */
-export type GpNext = { id: string; rate_bp: number | null; effective_from: string; effective_to: string | null } | null;
+/**
+ * The next time the applying GP changes: a scheduled row starting (id set,
+ * cancellable), the current temporary rate ending, or the default changing.
+ * rate_bp is the rate that applies from then on.
+ */
+export type GpNext = {
+  id: string | null;
+  rate_bp: number;
+  effective_from: string;
+  effective_to: string | null;
+  kind: "scheduled" | "expiry" | "default_change";
+} | null;
 
 export type GpSettings = {
   can_edit: boolean;
@@ -35,15 +45,23 @@ export type GpSettings = {
     cancelled_at: string | null;
     cancelled_by_username: string | null;
     cancel_reason: string | null;
+    /** Not started and not cancelled: the super admin may cancel it. */
+    cancellable: boolean;
   }>;
 };
 
 export type GpHistoryRow = GpSettings["history"][number];
 
 /** One page of the full GP history (admin_gp_history), newest first. */
-export async function fetchGpHistory(before: string | null): Promise<{ rows: GpHistoryRow[]; has_more: boolean }> {
+export async function fetchGpHistory(
+  before: { at: string; id: string } | null,
+): Promise<{ rows: GpHistoryRow[]; has_more: boolean }> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_gp_history", { p_before: before, p_limit: 200 });
+  const { data, error } = await supabase.rpc("admin_gp_history", {
+    p_before: before?.at ?? null,
+    p_before_id: before?.id ?? null,
+    p_limit: 200,
+  });
   if (error) throw error;
   return data as { rows: GpHistoryRow[]; has_more: boolean };
 }

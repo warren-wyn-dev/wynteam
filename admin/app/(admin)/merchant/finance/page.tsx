@@ -42,7 +42,7 @@ type View = (typeof VIEWS)[number]["value"];
 export default async function MerchantFinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; range?: string; from?: string; to?: string; gp_before?: string }>;
+  searchParams: Promise<{ view?: string; range?: string; from?: string; to?: string; gp_before?: string; gp_before_id?: string }>;
 }) {
   const ctx = await requireAdminRole();
   if (!adminCan(ctx, "merchant")) return <NoAccess what=" WYNOS Merchant" />;
@@ -113,7 +113,13 @@ export default async function MerchantFinancePage({
       </nav>
 
       {view === "gp" ? (
-        <GpSection before={params.gp_before && !Number.isNaN(Date.parse(params.gp_before)) ? params.gp_before : null} />
+        <GpSection
+          before={
+            params.gp_before && !Number.isNaN(Date.parse(params.gp_before)) && /^[0-9a-f-]{36}$/i.test(params.gp_before_id ?? "")
+              ? { at: params.gp_before, id: params.gp_before_id! }
+              : null
+          }
+        />
       ) : (
         <>
           <RangeBar range={range} href={href} view={view} />
@@ -406,7 +412,7 @@ function History({ data, canOpenStores }: { data: MerchantFinanceOverview; canOp
   );
 }
 
-async function GpSection({ before }: { before: string | null }) {
+async function GpSection({ before }: { before: { at: string; id: string } | null }) {
   let gp: GpSettings;
   let history: Awaited<ReturnType<typeof fetchGpHistory>>;
   try {
@@ -416,6 +422,12 @@ async function GpSection({ before }: { before: string | null }) {
   }
   const own = gp.stores.filter((store) => store.source === "store" || store.next);
   const when = (iso: string) => formatThaiDate(iso);
+  const nextLabel = (next: NonNullable<GpSettings["default"]["next"]>) =>
+    next.kind === "expiry"
+      ? `อัตราชั่วคราวหมด ${when(next.effective_from)} → ${formatGpRate(next.rate_bp)}`
+      : next.kind === "default_change"
+        ? `GP เริ่มต้นเปลี่ยน ${when(next.effective_from)} → ${formatGpRate(next.rate_bp)}`
+        : `ตั้งไว้: ${formatGpRate(next.rate_bp)} ตั้งแต่ ${when(next.effective_from)}`;
 
   return (
     <section className="flex flex-col gap-4">
@@ -426,14 +438,14 @@ async function GpSection({ before }: { before: string | null }) {
             <p className="mt-1 text-2xl font-semibold tabular-nums">{formatGpRate(gp.default.rate_bp)}</p>
             {gp.default.next ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                ตั้งไว้: {gpRowLabel(gp.default.next.rate_bp)} ตั้งแต่ {when(gp.default.next.effective_from)}
+                {nextLabel(gp.default.next)}
               </p>
             ) : null}
           </div>
           {gp.can_edit ? (
             <div className="flex flex-wrap gap-2">
               <GpRateDialog storeId={null} storeName="GP เริ่มต้นทุกร้าน" currentRateBp={gp.default.rate_bp} triggerLabel="แก้ GP เริ่มต้น" />
-              {gp.default.next ? <GpCancelButton rateId={gp.default.next.id} label={`GP เริ่มต้น ${gpRowLabel(gp.default.next.rate_bp)}`} /> : null}
+              {gp.default.next?.id ? <GpCancelButton rateId={gp.default.next.id} label={`GP เริ่มต้น ${gpRowLabel(gp.default.next.rate_bp)}`} /> : null}
             </div>
           ) : null}
         </div>
@@ -466,13 +478,13 @@ async function GpSection({ before }: { before: string | null }) {
                   </Badge>
                 </td>
                 <td className="px-3 py-3 text-xs text-muted-foreground">
-                  {store.next ? `${gpRowLabel(store.next.rate_bp)} ตั้งแต่ ${when(store.next.effective_from)}${store.next.effective_to ? ` ถึง ${when(store.next.effective_to)}` : ""}` : "—"}
+                  {store.next ? nextLabel(store.next) : "—"}
                 </td>
                 {gp.can_edit ? (
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap justify-end gap-2">
                       <GpRateDialog storeId={store.store_id} storeName={store.store_name} currentRateBp={store.rate_bp} hasOwnRate={store.source === "store"} />
-                      {store.next ? <GpCancelButton rateId={store.next.id} label={`${store.store_name} ${gpRowLabel(store.next.rate_bp)}`} /> : null}
+                      {store.next?.id ? <GpCancelButton rateId={store.next.id} label={`${store.store_name} ${gpRowLabel(store.next.rate_bp)}`} /> : null}
                     </div>
                   </td>
                 ) : null}
@@ -502,6 +514,11 @@ async function GpSection({ before }: { before: string | null }) {
                   มีผล {when(row.effective_from)}{row.effective_to ? ` ถึง ${when(row.effective_to)}` : ""} · ตั้งเมื่อ {when(row.created_at)}
                   {row.created_by_username ? ` โดย @${row.created_by_username}` : ""} · เหตุผล: {row.reason}
                 </p>
+                {gp.can_edit && row.cancellable ? (
+                  <div className="pt-1">
+                    <GpCancelButton rateId={row.id} label={`${row.store_name ?? "GP เริ่มต้นทุกร้าน"} ${gpRowLabel(row.rate_bp)} ตั้งแต่ ${when(row.effective_from)}`} />
+                  </div>
+                ) : null}
                 {row.cancelled_at ? (
                   <p className="text-xs text-muted-foreground">
                     ยกเลิก {when(row.cancelled_at)}{row.cancelled_by_username ? ` โดย @${row.cancelled_by_username}` : ""} · {row.cancel_reason}
@@ -513,7 +530,7 @@ async function GpSection({ before }: { before: string | null }) {
         )}
         {history.has_more && history.rows.length > 0 ? (
           <Link
-            href={`/merchant/finance?view=gp&gp_before=${encodeURIComponent(history.rows[history.rows.length - 1].created_at)}`}
+            href={`/merchant/finance?view=gp&gp_before=${encodeURIComponent(history.rows[history.rows.length - 1].created_at)}&gp_before_id=${history.rows[history.rows.length - 1].id}`}
             className="w-fit text-sm underline"
           >
             ดูประวัติเก่ากว่านี้

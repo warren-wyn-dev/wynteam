@@ -125,13 +125,30 @@ Deno.serve(async (req: Request) => {
       stripe_refund_id: payload.id,
     }).eq("id", order.id);
     // GP v1: finance reports reverse GP only for a fee WYNOS actually returned.
+    // Stripe has already refunded, so a failed write must not undo that answer;
+    // retry, then log loudly with the ids needed to reconcile by hand.
+    let gpRecordPending = false;
     if (feeSatang > 0) {
-      await admin.from("food_stripe_payments").update({
-        application_fee_refunded_satang: feeSatang,
-        application_fee_refunded_at: new Date().toISOString(),
-      }).eq("order_id", order.id).eq("application_fee_refunded_satang", 0);
+      const refundedAt = new Date().toISOString();
+      let recordError: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const { error: updateError } = await admin.from("food_stripe_payments").update({
+          application_fee_refunded_satang: feeSatang,
+          application_fee_refunded_at: refundedAt,
+        }).eq("order_id", order.id).eq("application_fee_refunded_satang", 0);
+        recordError = updateError;
+        if (!updateError) break;
+      }
+      if (recordError) {
+        gpRecordPending = true;
+        console.error("merchant-stripe-refund gp fee refund not recorded", {
+          order_id: order.id,
+          stripe_refund_id: payload.id,
+          fee_satang: feeSatang,
+        });
+      }
     }
-    return json({ status: payload.status ?? "pending", refundId: payload.id });
+    return json({ status: payload.status ?? "pending", refundId: payload.id, gpRecordPending });
   } catch (error) {
     console.error("merchant-stripe-refund failed", {
       code: error instanceof Error ? error.message.slice(0, 80) : "unknown",
