@@ -59,6 +59,22 @@ test("Merchant orders keep status tabs without search/filter controls", () => {
   assert.doesNotMatch(app, /dateFilter/);
 });
 
+test("Merchant order tabs keep the status keys but show updated Thai labels", () => {
+  assert.ok(app.includes('key: "new", label: "ใหม่"'));
+  assert.ok(app.includes('key: "cooking", label: "กำลังเตรียม"'));
+  assert.ok(app.includes('key: "delivery", label: "จัดส่ง"'));
+  assert.ok(app.includes('key: "done", label: "เสร็จแล้ว"'));
+
+  const css = fs.readFileSync(new URL("../app/merchant/merchant.css", import.meta.url), "utf8");
+  assert.ok(css.includes(".wm-filter-tabs--simple button > span { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: center; }"));
+
+  const english = fs.readFileSync(new URL("../lib/i18n/en.ts", import.meta.url), "utf8");
+  for (const label of ["กำลังเตรียม", "จัดส่ง"]) {
+    const hits = english.split("\n").filter((line) => line.trimStart().startsWith('"' + label + '":'));
+    assert.equal(hits.length, 1, label + " must appear only once in English translations");
+  }
+});
+
 
 const notificationTest = fs.readFileSync(new URL("../components/merchant/merchant-notification-test.tsx", import.meta.url), "utf8");
 const notificationTestMigration = fs.readFileSync(new URL("../../supabase/migrations_wynos_merchant_notification_test_center_v1.sql", import.meta.url), "utf8");
