@@ -222,3 +222,13 @@ test("Food splash stays until the screen has data (min 1 s, max ~4 s)", async ()
   assert.match(await read("components/food/food-guest-browse.tsx"), /if \(stores !== null\) markFoodSplashReady\(\)/);
   assert.equal((await read("components/food/food-auth.tsx")).match(/if \(!checking\) markFoodSplashReady\(\)/g)?.length, 2);
 });
+
+test("Supabase browser clients retry a just-issued session the database sees as from the future", async () => {
+  // Never show the raw English PostgREST message to customers or merchants.
+  for (const file of ["lib/food-customer.ts", "lib/food-merchant.ts"]) {
+    assert.match(await read(file), /const sessionCopy = sessionErrorCopy\(message\);\n  if \(sessionCopy\) return sessionCopy;/, file);
+  }
+  for (const file of ["lib/supabase/browser.ts", "lib/supabase/merchant-browser.ts"]) {
+    assert.match(await read(file), /global: \{ fetch: createClockSkewRetryFetch\(\) \}/, file);
+  }
+});

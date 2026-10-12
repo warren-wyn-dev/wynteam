@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+import { createClockSkewRetryFetch } from "@/lib/supabase/clock-skew-fetch";
+
 export const MERCHANT_AUTH_STORAGE_KEY = "wynos-merchant-auth-v1";
 
 let merchantClient: SupabaseClient | null | undefined;
@@ -29,6 +31,7 @@ export function getMerchantSupabaseBrowserClient(): SupabaseClient | null {
       detectSessionInUrl: true,
       flowType: "pkce",
     },
+    global: { fetch: createClockSkewRetryFetch() },
   });
   return merchantClient;
 }

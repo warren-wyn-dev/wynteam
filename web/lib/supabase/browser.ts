@@ -2,6 +2,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { getActiveAccountStorageKey } from "@/lib/account-registry";
+import { createClockSkewRetryFetch } from "@/lib/supabase/clock-skew-fetch";
 
 let client: SupabaseClient | null | undefined;
 
@@ -34,8 +35,9 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
           // otherwise a logout-created slot silently falls back to implicit OAuth.
           flowType: "pkce",
         },
+        global: { fetch: createClockSkewRetryFetch() },
       })
-    : createBrowserClient(url, publishableKey);
+    : createBrowserClient(url, publishableKey, { global: { fetch: createClockSkewRetryFetch() } });
   return client;
 }
 

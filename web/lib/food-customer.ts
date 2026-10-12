@@ -3,6 +3,7 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
+import { sessionErrorCopy } from "@/lib/supabase/clock-skew-fetch";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 
@@ -1004,6 +1005,8 @@ export function foodPaymentStatusLabel(status: FoodCustomerOrder["payment_status
 
 export function foodCustomerError(error: unknown, fallback = "ดำเนินการไม่สำเร็จ") {
   const message = error instanceof Error ? error.message : String(error ?? "");
+  const sessionCopy = sessionErrorCopy(message);
+  if (sessionCopy) return sessionCopy;
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
   if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";
