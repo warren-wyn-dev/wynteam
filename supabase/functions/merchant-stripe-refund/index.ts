@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
   if (!orderId) return json({ error: "order_id_required" }, 400);
 
   const { data: order } = await admin.from("food_orders")
-    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status")
+    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status,stripe_refund_id")
     .eq("id", orderId).maybeSingle();
   if (!order) return json({ error: "order_not_found" }, 404);
 
@@ -73,6 +73,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: "stripe_refund_not_eligible" }, 409);
   }
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
+  // A refund already sent (e.g. the automatic paid-after-cancel refund) is awaiting Stripe.
+  if (order.refund_status === "pending" && order.stripe_refund_id) return json({ error: "refund_in_progress" }, 409);
 
   const { data: payment } = await admin.from("food_stripe_payments")
     .select("stripe_account_id,livemode").eq("order_id", order.id).maybeSingle();

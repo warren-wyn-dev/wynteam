@@ -477,5 +477,46 @@ Deno.serve(async (req: Request) => {
     p_refund_id: refundId,
   });
   if (error) return json({ error: "event_processing_failed" }, 500);
+  if (state === "paid" && orderId && stripeAccountId && stripeSecret) {
+    await refundPaidAfterCancel(admin, stripeSecret, stripeAccountId, orderId);
+  }
   return json({ received: true });
 });
+
+// Founder decision 2026-10-11: a Stripe payment that lands on an order that
+// was already cancelled is refunded automatically. food_apply_stripe_event
+// has recorded it and set refund_status='pending'. The idempotency key is tied
+// to the PaymentIntent, so a redelivered event cannot refund twice. On any
+// failure the order stays refund-pending and the store can refund it from
+// WYNOS Merchant (merchant-stripe-refund); the webhook still answers 200
+// because the payment itself is recorded.
+async function refundPaidAfterCancel(admin: AdminClient, secret: string, accountId: string, orderId: string) {
+  const { data: order } = await admin.from("food_orders")
+    .select("id,status,payment_status,payment_provider,refund_status,stripe_payment_intent_id,stripe_refund_id")
+    .eq("id", orderId).maybeSingle();
+  if (!order || order.status !== "cancelled" || order.payment_status !== "paid" || order.payment_provider !== "stripe"
+      || order.refund_status !== "pending" || order.stripe_refund_id || !order.stripe_payment_intent_id) return;
+  const params = new URLSearchParams();
+  params.set("payment_intent", order.stripe_payment_intent_id);
+  params.set("reason", "requested_by_customer");
+  params.set("metadata[wynos_order_id]", order.id);
+  params.set("metadata[wynos_reason]", "paid_after_cancel");
+  try {
+    const refund = await stripeJson("https://api.stripe.com/v1/refunds", {
+      method: "POST",
+      headers: {
+        ...stripeV1Headers(secret, accountId),
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Idempotency-Key": `wynos-auto-refund-${order.stripe_payment_intent_id}`,
+      },
+      body: params,
+    });
+    const refundId = stringValue(refund.id);
+    if (refundId) {
+      await admin.from("food_orders").update({ stripe_refund_id: refundId })
+        .eq("id", order.id).is("stripe_refund_id", null);
+    }
+  } catch {
+    console.error("stripe auto refund after cancel failed", { order_id: order.id });
+  }
+}
