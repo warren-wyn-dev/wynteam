@@ -223,12 +223,12 @@ test("Food splash stays until the screen has data (min 1 s, max ~4 s)", async ()
   assert.equal((await read("components/food/food-auth.tsx")).match(/if \(!checking\) markFoodSplashReady\(\)/g)?.length, 2);
 });
 
-test("Food retries a just-issued session the database sees as from the future", async () => {
+test("Supabase browser clients retry a just-issued session the database sees as from the future", async () => {
   const lib = await read("lib/food-customer.ts");
-  const app = await read("components/food/wynos-food-developer-app.tsx");
   assert.match(lib, /export function isFoodSessionClockSkew\(error: unknown\)/);
-  assert.match(lib, /message\.includes\("JWT issued at future"\)/);
   // Never show the raw English PostgREST message to customers.
   assert.match(lib, /if \(isFoodSessionClockSkew\(error\)\) return "กำลังยืนยันการเข้าสู่ระบบ/);
-  assert.match(app, /if \(!isFoodSessionClockSkew\(error\) \|\| attempt >= 4\) throw error;/);
+  for (const file of ["lib/supabase/browser.ts", "lib/supabase/merchant-browser.ts"]) {
+    assert.match(await read(file), /global: \{ fetch: createClockSkewRetryFetch\(\) \}/, file);
+  }
 });
