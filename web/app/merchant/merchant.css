@@ -4946,3 +4946,75 @@ button.wm-menu-tool:disabled {
 @media (prefers-reduced-motion: reduce) {
   .wm-touch-drag-ghost { transition: none; }
 }
+
+
+/* WYNOS Merchant: compact sale switch on iPhone.
+   Keep a 44x44 touch target but render a 44x26 capsule. The shared
+   > button:first-child mobile rule must not inflate the colored track.
+   Green = ready for sale, neutral gray = closed. */
+.wm-menu-row-actions > button.wm-menu-availability-toggle,
+.wm-menu-row-actions > button.wm-menu-availability-toggle.is-on {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  transition: none; /* never animate the entire hit area into a red circle */
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.wm-menu-row-actions > button.wm-menu-availability-toggle::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 0;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: #d7d9df;
+  transition: background-color 160ms ease;
+}
+
+.wm-menu-row-actions > button.wm-menu-availability-toggle.is-on::before {
+  background: #18a45b;
+}
+
+.wm-menu-row-actions > button.wm-menu-availability-toggle > i,
+.wm-menu-row-actions > button.wm-menu-availability-toggle.is-on > i {
+  position: absolute;
+  top: 11px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 17%);
+  transform: translateX(0);
+}
+
+.wm-menu-row-actions > button.wm-menu-availability-toggle.is-on > i {
+  transform: translateX(18px);
+}
+
+.wm-menu-row-actions > button.wm-menu-availability-toggle:focus-visible {
+  outline: 2px solid var(--wm-red);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wm-menu-row-actions > button.wm-menu-availability-toggle::before,
+  .wm-menu-row-actions > button.wm-menu-availability-toggle > i {
+    transition: none;
+  }
+}

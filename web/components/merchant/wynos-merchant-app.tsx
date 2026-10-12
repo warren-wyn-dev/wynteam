@@ -1571,9 +1571,11 @@ function MenuPanel({
                             <>
                               {soldOutToday ? <span className="wm-menu-soldout-badge">หมดวันนี้</span> : null}
                               <button
-                                className={`wm-switch ${available ? "is-on" : ""}`}
+                                className={`wm-switch wm-menu-availability-toggle ${available ? "is-on" : ""}`}
                                 type="button"
-                                aria-label={available ? "ปิดขาย" : "เปิดขาย"}
+                                role="switch"
+                                aria-checked={available}
+                                aria-label={available ? "พร้อมขาย กดเพื่อปิดขาย" : "ปิดขาย กดเพื่อเปิดขาย"}
                                 onClick={() => soldOutToday ? onSoldOut(item, false) : onToggle(item)}
                               ><i /></button>
                               <div className="wm-menu-overflow">

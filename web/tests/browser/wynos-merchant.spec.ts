@@ -968,3 +968,65 @@ test("Merchant native touch input actually reorders rows/categories and handles 
   `);
   expect(await page.evaluate('window.__merchantSortRecords.length')).toBe(0);
 });
+
+
+test("Merchant compact menu sale switch retains an iPhone-sized touch target without the oversized red circle", async ({ page }) => {
+  const css = read("app/merchant/merchant.css");
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  expect(app).toContain('wm-switch wm-menu-availability-toggle');
+  expect(app).toContain('aria-checked={available}');
+  expect(app).toContain('onClick={() => soldOutToday ? onSoldOut(item, false) : onToggle(item)}');
+
+  // Use the real merchant stylesheet, not a reconstructed test approximation.
+  // First-child matches the iPhone screenshot's layout regression selector;
+  // second row verifies that a sold-out badge preceding the switch is also safe.
+  await page.setContent(`
+    <div class="wm-force-light"><main class="wyn-merchant">
+      <div class="wm-menu-row-actions">
+        <button type="button" class="wm-switch wm-menu-availability-toggle is-on" role="switch" aria-checked="true" aria-label="พร้อมขาย กดเพื่อปิดขาย"><i></i></button>
+        <button type="button" class="wm-menu-more">⋯</button>
+      </div>
+      <div class="wm-menu-row-actions">
+        <span class="wm-menu-soldout-badge">หมดวันนี้</span>
+        <button type="button" class="wm-switch wm-menu-availability-toggle" role="switch" aria-checked="false" aria-label="ปิดขาย กดเพื่อเปิดขาย"><i></i></button>
+        <button type="button" class="wm-menu-more">⋯</button>
+      </div>
+    </main></div>
+  `);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addStyleTag({ content: css });
+
+  const metrics = await page.locator(".wm-menu-availability-toggle").evaluateAll((buttons) => buttons.map((button) => {
+    const rect = button.getBoundingClientRect();
+    const knob = button.querySelector("i")!;
+    const knobRect = knob.getBoundingClientRect();
+    const track = window.getComputedStyle(button, "::before");
+    return {
+      width: rect.width,
+      height: rect.height,
+      background: window.getComputedStyle(button).backgroundColor,
+      trackColor: track.backgroundColor,
+      trackWidth: parseFloat(track.width),
+      trackHeight: parseFloat(track.height),
+      knobWidth: knobRect.width,
+      knobHeight: knobRect.height,
+      knobCenterY: knobRect.top + knobRect.height / 2 - rect.top,
+    };
+  }));
+
+  expect(metrics).toHaveLength(2);
+  for (const dimensions of metrics) {
+    expect(dimensions.width).toBeCloseTo(44, 2);
+    expect(dimensions.height).toBeCloseTo(44, 2);
+    expect(dimensions.trackWidth).toBe(44);
+    expect(dimensions.trackHeight).toBe(26);
+    expect(dimensions.knobWidth).toBeCloseTo(22, 2);
+    expect(dimensions.knobHeight).toBeCloseTo(22, 2);
+    expect(dimensions.knobCenterY).toBeCloseTo(22, 2);
+    expect(dimensions.background).toBe("rgba(0, 0, 0, 0)");
+  }
+  expect(metrics[0].trackColor).toBe("rgb(24, 164, 91)");
+  expect(metrics[1].trackColor).toBe("rgb(215, 217, 223)");
+  await expect(page.getByRole("switch", { checked: true })).toHaveCount(1);
+  await expect(page.getByRole("switch", { checked: false })).toHaveCount(1);
+});
