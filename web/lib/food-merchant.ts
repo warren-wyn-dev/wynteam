@@ -277,6 +277,42 @@ export async function fetchMerchantOrdersPage(
   return { orders: rows.slice(0, safeLimit), hasMore: rows.length > safeLimit };
 }
 
+/** Completed orders remain in the live "Done" tab for 24 hours after the terminal event. */
+export function isRecentCompletedOrder(order: FoodOrder, now = Date.now()): boolean {
+  const terminalAt = order.status === "delivered" ? order.delivered_at
+    : order.status === "cancelled" ? order.cancelled_at : null;
+  if (!terminalAt) return false;
+  const age = now - Date.parse(terminalAt);
+  return Number.isFinite(age) && age >= 0 && age < 24 * 60 * 60 * 1000;
+}
+
+export type MerchantOrderHistoryFilter = "all" | "delivered" | "cancelled";
+
+/** Paginate finished orders directly in the database, not from the live orders cache. */
+export async function fetchMerchantOrderHistoryPage(
+  client: SupabaseClient,
+  storeId: string,
+  options: { offset?: number; limit?: number; status?: MerchantOrderHistoryFilter; search?: string; sinceDays?: 7 | 30 | null } = {},
+): Promise<{ orders: FoodOrder[]; hasMore: boolean }> {
+  const offset = Math.max(0, Math.floor(options.offset ?? 0));
+  const limit = Math.max(1, Math.min(100, Math.floor(options.limit ?? 30)));
+  let query = client.from("food_orders")
+    .select("*,food_order_items(*),food_delivery_proofs(*)")
+    .eq("store_id", storeId)
+    .in("status", ["delivered", "cancelled"]);
+  if (options.status && options.status !== "all") query = query.eq("status", options.status);
+  // Strip wildcard and query syntax; users search by the visible order number.
+  const search = (options.search ?? "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
+  if (search) query = query.ilike("order_number", `%${search}%`);
+  if (options.sinceDays) {
+    query = query.gte("created_at", new Date(Date.now() - options.sinceDays * 86400000).toISOString());
+  }
+  const { data, error } = await query.order("created_at", { ascending: false }).range(offset, offset + limit);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as FoodOrder[];
+  return { orders: rows.slice(0, limit), hasMore: rows.length > limit };
+}
+
 const BANGKOK_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   timeZone: "Asia/Bangkok",
   year: "numeric",
