@@ -210,6 +210,8 @@ test("Food iOS launch has no white flash and the status bar matches the splash",
 test("Food splash stays until the screen has data (min 1 s, max ~4 s)", async () => {
   const layout = await read("app/food/layout.tsx");
   const css = await read("app/food/food-app.css");
+  // The launch image already shows the logo; a pop-in animation made it blink on hand-off.
+  assert.doesNotMatch(css, /fx-splash-pop/);
   const helper = await read("lib/food-splash.ts");
   assert.match(layout, /Math\.max\(0,1000-\(Date\.now\(\)-t\)\)/);
   assert.match(layout, /setTimeout\(window\.__fxSplashReady,4000\)/);
