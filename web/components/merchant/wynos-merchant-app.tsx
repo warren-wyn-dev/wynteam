@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   MapPin,
   Menu as MenuIcon,
+  MessageSquareText,
   PackageCheck,
   Pencil,
   Printer,
@@ -58,6 +59,8 @@ import { MerchantNotificationSettings } from "@/components/merchant/merchant-not
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
 import { MerchantOrderScreenBar, MerchantOrderScreenCard } from "@/components/merchant/merchant-order-screen";
 import { MerchantShareCard } from "@/components/merchant/merchant-share-card";
+import { MerchantOrderHistory } from "@/components/merchant/merchant-order-history";
+import { MerchantFeedbackPanel } from "@/components/merchant/merchant-feedback";
 import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@/lib/food-share";
 import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
@@ -75,6 +78,7 @@ import {
   fetchStorePlaces,
   fetchMerchantSnapshot,
   fetchMerchantOrdersPage,
+  isRecentCompletedOrder,
   fetchMerchantSalesReport,
   fetchMerchantStoreReadiness,
   fetchMerchantAuditHistory,
@@ -125,8 +129,8 @@ import {
 // WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
 // and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
 // WYN-205: finance, ads, WYNOS campaigns and the store's own promotions.
-type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions" | "help" | "notifications";
-const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions", "help", "notifications"]);
+type MerchantTab = "home" | "orders" | "menu" | "more" | "history" | "feedback" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions" | "help" | "notifications";
+const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "history", "feedback", "reports", "store", "finance", "ads", "campaigns", "promotions", "help", "notifications"]);
 const MERCHANT_STORE_KEY = "wynos-merchant-store-v1";
 type OrderFilter = "new" | "cooking" | "delivery" | "done";
 
@@ -191,11 +195,11 @@ const ORDER_FILTERS: Array<{ key: OrderFilter; label: string }> = [
   { key: "done", label: "เสร็จแล้ว" },
 ];
 
-function orderInFilter(order: FoodOrder, filter: OrderFilter) {
+function orderInFilter(order: FoodOrder, filter: OrderFilter, now = Date.now()) {
   if (filter === "new") return order.status === "pending_acceptance";
   if (filter === "cooking") return order.status === "preparing" || order.status === "ready_for_delivery";
   if (filter === "delivery") return order.status === "out_for_delivery";
-  return order.status === "delivered" || order.status === "cancelled";
+  return isRecentCompletedOrder(order, now);
 }
 
 /** An order the store can accept now: it is new and the customer has paid or sent a slip. */
@@ -373,6 +377,11 @@ function MerchantInner({
   // A tapped order notification (?order=WF0015) opens that order once loaded.
   const requestedOrderRef = useRef<string | null>(typeof window === "undefined" ? null : requestedOrderNumber(window.location.search));
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("new");
+  const [orderClock, setOrderClock] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setOrderClock(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
   // WYN-198: one-tap card actions and the new-order alert.
   // Order id -> the status it had when the store pressed its card button. The
   // card stays busy until a reload shows a different status (or the call fails),
@@ -428,7 +437,7 @@ function MerchantInner({
         setTab("orders");
       }
       if (requestedOrder) setSelectedOrder(requestedOrder);
-      else setSelectedOrder((current) => current ? next.orders.find((order) => order.id === current.id) ?? null : null);
+      else setSelectedOrder((current) => current ? next.orders.find((order) => order.id === current.id) ?? current : null);
       return next;
     } catch (error) {
       setMessage(merchantError(error, "โหลดข้อมูลร้านไม่สำเร็จ"));
@@ -607,7 +616,7 @@ function MerchantInner({
     () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length,
     [orders],
   );
-  const filteredOrders = useMemo(() => orders.filter((order) => orderInFilter(order, orderFilter)), [orderFilter, orders]);
+  const filteredOrders = useMemo(() => orders.filter((order) => orderInFilter(order, orderFilter, orderClock)), [orderFilter, orders, orderClock]);
   const alertQueue = useMemo(
     () => orders.filter((order) => needsStoreNow(order) && !seenAlerts.has(alertKey(order))),
     [orders, seenAlerts],
@@ -719,6 +728,7 @@ function MerchantInner({
           <OrdersPanel
             orders={filteredOrders}
             allOrders={orders}
+            now={orderClock}
             filter={orderFilter}
             onFilter={setOrderFilter}
             onOpen={setSelectedOrder}
@@ -776,6 +786,14 @@ function MerchantInner({
             onOpenTab={setTab}
             onSignOut={() => void signOut()}
           />
+        ) : null}
+
+        {tab === "history" && store ? (
+          <MerchantOrderHistory client={client} store={store} onOpenOrder={setSelectedOrder} />
+        ) : null}
+
+        {tab === "feedback" && store ? (
+          <MerchantFeedbackPanel client={client} store={store} userId={userId} onMessage={setMessage} />
         ) : null}
 
         {tab === "reports" && store ? <ReportsPanel report={currentSalesReport} error={currentSalesReportError} /> : null}
@@ -1134,6 +1152,8 @@ function MorePanel({
         <div className="wm-section-title"><h2>เครื่องมือร้าน</h2></div>
         <div className="wm-service-grid">
           <button type="button" onClick={() => onOpenTab("reports")}><span className="wm-tile-icon"><MerchantIcon3D name="reports" size={52} /></span>รายงานยอดขาย</button>
+          <button type="button" onClick={() => onOpenTab("history")}><span className="wm-tile-icon wm-tile-icon--flat"><History size={28} /></span>ประวัติออเดอร์</button>
+          <button type="button" onClick={() => onOpenTab("feedback")}><span className="wm-tile-icon wm-tile-icon--flat"><MessageSquareText size={28} /></span>ฟีดแบ็ก</button>
           <button type="button" onClick={() => onOpenTab("finance")}><span className="wm-tile-icon"><MerchantIcon3D name="finance" size={52} /></span>การเงิน</button>
           <button type="button" onClick={() => onOpenTab("promotions")}><span className="wm-tile-icon"><MerchantIcon3D name="promotion" size={52} /></span>โปรโมชั่น</button>
           <button type="button" onClick={() => onOpenTab("campaigns")}><span className="wm-tile-icon"><MerchantIcon3D name="campaign" size={52} /></span>แคมเปญ</button>
@@ -1212,6 +1232,7 @@ function HelpPanel({ store, onMessage }: { store: FoodStore; onMessage: (message
 function OrdersPanel({
   orders,
   allOrders,
+  now,
   filter,
   onFilter,
   onOpen,
@@ -1223,6 +1244,7 @@ function OrdersPanel({
 }: {
   orders: FoodOrder[];
   allOrders: FoodOrder[];
+  now: number;
   filter: OrderFilter;
   onFilter: (value: OrderFilter) => void;
   onOpen: (order: FoodOrder) => void;
@@ -1232,12 +1254,12 @@ function OrdersPanel({
   loadingMore: boolean;
   onLoadMore: () => void;
 }) {
-  // "Done" keeps growing, so only the working tabs show a count.
+  // "Done" only shows completed orders from the last 24 hours.
   const counts: Record<OrderFilter, number> = {
     new: allOrders.filter((o) => orderInFilter(o, "new")).length,
     cooking: allOrders.filter((o) => orderInFilter(o, "cooking")).length,
     delivery: allOrders.filter((o) => orderInFilter(o, "delivery")).length,
-    done: 0,
+    done: allOrders.filter((o) => orderInFilter(o, "done", now)).length,
   };
   return (
     <>
