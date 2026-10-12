@@ -3012,6 +3012,18 @@ Object.assign(EN_EXACT, {
   "ตอบกลับลูกค้าแล้ว": "Customer reply sent",
   "แก้ไขคำตอบแล้ว": "Reply updated",
   "ระบบรีวิวของร้านยังไม่พร้อมใช้งาน": "Reviews are currently unavailable",
+  "โหลดฟีดแบ็กไม่สำเร็จ": "Couldn't load feedback",
+  "ส่งคำตอบไม่สำเร็จ": "Couldn't send reply",
+  "ความคิดเห็นจากลูกค้า WYNOS Food ที่สั่งจริง": "Feedback from verified WYNOS Food customers",
+  "กรองรีวิว": "Filter reviews",
+  "กำลังแสดงรีวิวล่าสุด": "Showing the latest",
+  "รายการ จากทั้งหมด": "reviews of",
+  "โหลดประวัติออเดอร์ไม่สำเร็จ": "Couldn't load order history",
+  "รายการที่สิ้นสุดแล้ว ไม่ถูกลบจากระบบ": "Completed orders stay safely stored",
+  "ค้นหาเลขออเดอร์ เช่น WF0032": "Search order number, e.g. WF0032",
+  "ค้นหาออเดอร์ที่ส่งสำเร็จหรือยกเลิก รวมถึงรายการที่ซ่อนจากแท็บ “เสร็จแล้ว” หลัง 24 ชั่วโมง": "Find delivered and cancelled orders, including orders hidden from Done after 24 hours",
+  "สั่งเมื่อ": "Ordered",
+  "(ยังมีรายการเก่า)": "(more orders available)",
   "ปิดขาย กดเพื่อเปิดขาย": "Unavailable · tap to start selling",
 });
 
