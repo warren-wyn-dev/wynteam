@@ -2250,3 +2250,22 @@ Founder ตอบ (AskUserQuestion, 2026-10-11):
 - **Campaigns คงอยู่ใต้ WYNOS Merchant** (ไม่ย้ายไป Platform Marketing)
 - **Vercel คงแพลนฟรี (Hobby) ไว้ก่อน** — โควตา deploy 100 ครั้ง/วัน; ถ้าเต็มให้รอรีเซ็ต
 - **Founder จะเชื่อม GitHub กับ Vercel ใหม่เอง** (Account Settings → Git Connections) เพื่อให้ preview อัตโนมัติของโปรเจกต์อื่นกลับมาทำงาน
+
+## [2026-10-11] GP v1 — Founder ตัดสินค่าทางธุรกิจของ GP
+
+Founder ตอบ (AskUserQuestion, 2026-10-11):
+- **Default GP: ยังไม่เก็บ GP ตอนนี้** → ไม่มีแถวอัตราใดถูกสร้าง ทุกร้าน 0% จนกว่า super admin จะตั้ง
+- **ฐาน GP: ค่าอาหารหลังส่วนลดของร้าน** — ไม่รวมค่าส่ง; ส่วนลดที่ WYNOS ออกให้ไม่ลดฐาน
+  (`base = subtotal − max(campaign_discount − platform_funded, 0)`)
+- **วิธีเก็บ: Stripe application fee ต่อออเดอร์** — ออเดอร์ที่จ่ายด้วยสลิป PromptPay เข้าบัญชีร้านตรงเก็บไม่ได้ (รายงานเป็น "เก็บไม่ได้")
+- **ผู้แก้ GP: super admin เท่านั้น** ไม่มีผู้อนุมัติคนที่สอง
+
+ค่าทางเทคนิคที่ทีมเลือกและต้องให้ Founder ยืนยันก่อนตั้ง GP > 0 ครั้งแรก:
+ปัดเศษครึ่งขึ้นเป็นสตางค์, GP ไม่เกินยอดที่ลูกค้าจ่าย, คืนเงินเต็มจำนวน → คืน GP ให้ร้าน (`refund_application_fee`),
+ตั้งย้อนหลังไม่ได้ และแต่ละออเดอร์บันทึกอัตรา ณ เวลาสั่ง (แก้ภายหลังไม่กระทบยอดเก่า)
+
+ต้องทำก่อนตั้ง GP > 0 ครั้งแรก (งานแยก): ทดสอบ application fee/คืน fee ใน Stripe test mode และ
+reconciliation ที่ทนทานสำหรับการคืน GP — ตอนนี้ `merchant-stripe-refund` บันทึก fee ที่คืนแล้วด้วยการลอง 3 ครั้ง
+ถ้ายังล้มเหลวจะ log `order_id`/`stripe_refund_id` ให้แก้มือ (ระหว่าง GP = 0% ไม่มี fee จึงไม่เกิดกรณีนี้)
+reconciliation นี้ต้องอ่านจาก Stripe (`application_fee.refunded` / `ApplicationFee.amount_refunded`) เพื่อรองรับ
+การคืน fee ผ่าน Stripe Dashboard และการคืนบางส่วนด้วย — ต้องเพิ่ม event subscription ระดับ platform ใน Stripe (Founder)

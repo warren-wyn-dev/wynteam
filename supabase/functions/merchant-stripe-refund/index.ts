@@ -75,7 +75,7 @@ Deno.serve(async (req: Request) => {
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
 
   const { data: payment } = await admin.from("food_stripe_payments")
-    .select("stripe_account_id,livemode").eq("order_id", order.id).maybeSingle();
+    .select("stripe_account_id,livemode,application_fee_satang").eq("order_id", order.id).maybeSingle();
 
   let stripeAccountId = typeof payment?.stripe_account_id === "string" ? payment.stripe_account_id : null;
   let paymentLivemode = typeof payment?.livemode === "boolean" ? payment.livemode : null;
@@ -94,6 +94,9 @@ Deno.serve(async (req: Request) => {
   const params = new URLSearchParams();
   params.set("payment_intent", order.stripe_payment_intent_id);
   params.set("reason", "requested_by_customer");
+  // GP v1: a full refund also returns the WYNOS GP (application fee) to the store.
+  const feeSatang = Number(payment?.application_fee_satang ?? 0);
+  if (feeSatang > 0) params.set("refund_application_fee", "true");
   params.set("metadata[wynos_order_id]", order.id);
   if (note) params.set("metadata[wynos_note]", note);
 
@@ -121,7 +124,31 @@ Deno.serve(async (req: Request) => {
       refund_updated_by: user.id,
       stripe_refund_id: payload.id,
     }).eq("id", order.id);
-    return json({ status: payload.status ?? "pending", refundId: payload.id });
+    // GP v1: finance reports reverse GP only for a fee WYNOS actually returned.
+    // Stripe has already refunded, so a failed write must not undo that answer;
+    // retry, then log loudly with the ids needed to reconcile by hand.
+    let gpRecordPending = false;
+    if (feeSatang > 0) {
+      const refundedAt = new Date().toISOString();
+      let recordError: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const { error: updateError } = await admin.from("food_stripe_payments").update({
+          application_fee_refunded_satang: feeSatang,
+          application_fee_refunded_at: refundedAt,
+        }).eq("order_id", order.id).eq("application_fee_refunded_satang", 0);
+        recordError = updateError;
+        if (!updateError) break;
+      }
+      if (recordError) {
+        gpRecordPending = true;
+        console.error("merchant-stripe-refund gp fee refund not recorded", {
+          order_id: order.id,
+          stripe_refund_id: payload.id,
+          fee_satang: feeSatang,
+        });
+      }
+    }
+    return json({ status: payload.status ?? "pending", refundId: payload.id, gpRecordPending });
   } catch (error) {
     console.error("merchant-stripe-refund failed", {
       code: error instanceof Error ? error.message.slice(0, 80) : "unknown",

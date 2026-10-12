@@ -191,3 +191,24 @@ Sidebar ยังมี Dashboard รวม + 6 หมวด ตามที่�
 5. Menu Management อ่านอย่างเดียวจาก Merchant backend
 
 แต่ละข้อเป็น PR แยก มี migration + test + rollback + workflow apply ของตัวเอง
+
+
+---
+
+## Update 2026-10-11 (รอบ 2) — GP v1
+
+Founder อนุมัติและตอบค่าทางธุรกิจ (ดู `.wyn/company/DECISIONS.md` "GP v1")
+
+| ฟีเจอร์ | สถานะ |
+|---|---|
+| ประวัติอัตรา GP (default + รายร้าน, วันเริ่ม/สิ้นสุด, เหตุผล, ผู้แก้, ยกเลิกรายการล่วงหน้า, append-only) | 🟡 tested locally — รอ apply `merchant-apply-gp-v1.yml` |
+| บันทึกอัตรา GP บนทุกออเดอร์ตอนสร้าง (ไม่เปลี่ยนย้อนหลัง) | 🟡 |
+| คำนวณ GP (satang, ปัดครึ่งขึ้น, cap ที่ยอดจ่าย) | 🟡 |
+| เก็บ GP เป็น Stripe application fee / คืนเมื่อ refund | 🟡 รอ deploy `food-stripe-checkout`, `merchant-stripe-refund` (หลัง migration) |
+| หน้า Admin "ตั้งค่า GP รายร้าน" + preview + ยืนยัน 2 ขั้น + ประวัติ + Audit Log | 🟡 |
+| รายได้ร้านหัก GP ทั้งใน Admin และ merchant.wynos.online | 🟡 |
+| Approval workflow แบบ 2 คน | ไม่ทำ (Founder: super admin เท่านั้น) |
+
+Review findings จาก PR #1104 (Codex) แก้ในรอบนี้: ฟอร์มช่วงวันที่คงแท็บเดิม, query ช่วงวันใช้ index (timestamptz bounds + index ใหม่), ผู้มีสิทธิ์ merchant อย่างเดียวไม่ถูกลิงก์ไปหน้าร้านที่ต้องใช้สิทธิ์ food
+
+ลำดับ production: apply migration → deploy edge functions 2 ตัว → deploy Admin + Web (ตอนนี้ Vercel ติด limit 100 deployments/วัน — ตั้งเวลาลองใหม่ 2026-10-12 05:45 UTC)

@@ -1419,6 +1419,8 @@ export const EN_EXACT: Record<string, string> = {
   "จากยอดขายสุทธิ เป็นรายได้": "From net sales to income",
   "หักค่าโฆษณา": "Ad spend",
   "WYNOS ช่วยจ่ายส่วนลด": "Discount paid by WYNOS",
+  "หัก GP WYNOS": "WYNOS GP",
+  "คืน GP WYNOS (จากการคืนเงินลูกค้า)": "WYNOS GP returned (customer refunds)",
   "ยอดขายสุทธิมาจาก": "Net sales breakdown",
   "คืนเงินลูกค้า": "Customer refunds",
   "เทียบช่วงก่อน": "vs previous period",

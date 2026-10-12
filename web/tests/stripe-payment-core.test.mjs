@@ -46,7 +46,13 @@ test("Checkout remains a direct connected-account charge with server-calculated 
   assert.match(checkout, /connected account's active payment-method/);
   assert.match(checkout, /livemode: stripeLiveMode/);
   assert.match(checkout, /https:\/\/food\.wynos\.online/);
-  assert.doesNotMatch(checkout, /application_fee_amount|transfer_data|destination/);
+  assert.doesNotMatch(checkout, /transfer_data|destination/);
+  // GP v1 (Founder, 2026-10-11): WYNOS GP is an application fee on the direct
+  // charge, only when the database quote says GP > 0 (every store is 0% until
+  // the super admin sets a rate), never computed in the function itself.
+  assert.match(checkout, /if \(feeSatang > 0\) \{\s*params\.set\("payment_intent_data\[application_fee_amount\]", String\(feeSatang\)\)/);
+  assert.match(checkout, /admin\.rpc\("food_order_gp_quote"/);
+  assert.match(checkout, /applicationFeeSatang\(quote, amountSatang\)/);
 });
 
 test("new merchants use Accounts v2 and legacy v1 is retrieval-only compatibility", () => {

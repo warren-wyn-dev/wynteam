@@ -143,6 +143,9 @@ export function MerchantFinance({
             <FinanceLine label="ยอดขายสุทธิ" value={current.sales_net} />
             <FinanceLine label="หักค่าโฆษณา" value={-current.ad_spend} />
             {current.platform_funded > 0 ? <FinanceLine label="WYNOS ช่วยจ่ายส่วนลด" value={current.platform_funded} positive /> : null}
+            {current.gp > 0 ? <FinanceLine label="หัก GP WYNOS" value={-current.gp} /> : null}
+            {/* GP is booked on the paid day and returned on the refund day, so a period with a refund can net negative. */}
+            {current.gp < 0 ? <FinanceLine label="คืน GP WYNOS (จากการคืนเงินลูกค้า)" value={-current.gp} positive /> : null}
             <FinanceLine label="รายได้ร้าน" value={current.income} total />
           </section>
 

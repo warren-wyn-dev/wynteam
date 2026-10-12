@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+import { applicationFeeSatang } from "./_lib.ts";
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -105,6 +107,25 @@ Deno.serve(async (req: Request) => {
   const amountSatang = Math.round(Number(order.total) * 100);
   if (!Number.isSafeInteger(amountSatang) || amountSatang <= 0) return json({ error: "invalid_amount" }, 422);
 
+  // GP v1: WYNOS GP from the order's snapshotted rate, as an application fee.
+  let feeSatang = 0;
+  // false only before the GP v1 migration exists: then the ledger has no
+  // application_fee_satang column either, so it must not be written.
+  let gpInstalled = true;
+  try {
+    const { data: quote, error: quoteError } = await admin.rpc("food_order_gp_quote", { p_order_id: order.id });
+    // Function not installed yet means GP v1 (and so any GP rate) does not
+    // exist in this database: there is nothing to collect.
+    if (quoteError?.code === "PGRST202") gpInstalled = false;
+    else if (quoteError) throw quoteError;
+    else feeSatang = applicationFeeSatang(quote, amountSatang);
+  } catch (error) {
+    console.error("food-stripe-checkout gp quote failure", {
+      code: error instanceof Error ? error.message.slice(0, 80) : "unknown",
+    });
+    return json({ error: "gp_quote_failed", message: "เปิดหน้าชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 503);
+  }
+
   const { data: existing } = await admin.from("food_stripe_payments")
     .select("checkout_session_id,attempt,status").eq("order_id", order.id).maybeSingle();
 
@@ -141,6 +162,10 @@ Deno.serve(async (req: Request) => {
   params.set("metadata[store_id]", order.store_id);
   params.set("payment_intent_data[metadata][order_id]", order.id);
   params.set("payment_intent_data[metadata][store_id]", order.store_id);
+  if (feeSatang > 0) {
+    params.set("payment_intent_data[application_fee_amount]", String(feeSatang));
+    params.set("payment_intent_data[metadata][wynos_gp_satang]", String(feeSatang));
+  }
   if (user.email) params.set("customer_email", user.email);
   params.set("locale", "th");
 
@@ -171,6 +196,7 @@ Deno.serve(async (req: Request) => {
     livemode: stripeLiveMode,
     checkout_session_id: session.id,
     amount_satang: amountSatang,
+    ...(gpInstalled ? { application_fee_satang: feeSatang } : {}),
     currency: "thb",
     status: "pending",
     attempt,
