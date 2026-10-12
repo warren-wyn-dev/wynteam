@@ -522,8 +522,9 @@ async function recordRefundFailure(
     stripe_refund_id: refundId,
   }).eq("id", order.id).eq("refund_status", order.refund_status);
   update = order.stripe_refund_id ? update.eq("stripe_refund_id", order.stripe_refund_id) : update.is("stripe_refund_id", null);
-  const { error: updateError } = await update;
-  return !updateError;
+  // No row means the order changed since it was read: retry on redelivery.
+  const { data: rows, error: updateError } = await update.select("id");
+  return !updateError && (rows?.length ?? 0) > 0;
 }
 
 // Founder decision 2026-10-11: a Stripe payment that lands on an order that
