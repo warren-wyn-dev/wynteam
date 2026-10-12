@@ -479,7 +479,7 @@ Deno.serve(async (req: Request) => {
   if (error) return json({ error: "event_processing_failed" }, 500);
   // These follow-ups also run when the event is a redelivery (the RPC then
   // reports a duplicate), so answering 500 below makes Stripe retry them.
-  if (state === "paid" && orderId && stripeAccountId && stripeSecret) {
+  if (state === "paid" && orderId && stripeAccountId) {
     const refunded = await refundPaidAfterCancel(admin, stripeSecret, stripeAccountId, orderId);
     if (!refunded) return json({ error: "auto_refund_failed" }, 500);
   }
@@ -488,20 +488,43 @@ Deno.serve(async (req: Request) => {
     ? stringValue(object.id)
     : null;
   if (failedRefundId && orderId) {
-    // Free the order for a new refund from WYNOS Merchant. Matched by the
-    // order (refund metadata), so it also works when the failure arrives
-    // before the refund's creator stored its ID; the creators never overwrite
-    // a refund ID that is already recorded.
-    const { error: refundStateError } = await admin.from("food_orders").update({
-      refund_status: "failed",
-      refund_note: "Stripe แจ้งว่าการคืนเงินไม่สำเร็จ กรุณาคืนเงินอีกครั้ง",
-      stripe_refund_id: failedRefundId,
-    }).eq("id", orderId).neq("refund_status", "refunded")
-      .or(`stripe_refund_id.is.null,stripe_refund_id.eq.${failedRefundId}`);
-    if (refundStateError) return json({ error: "event_processing_failed" }, 500);
+    const settled = await recordRefundFailure(admin, orderId, stripeAccountId, stringValue(object.payment_intent), failedRefundId);
+    if (!settled) return json({ error: "event_processing_failed" }, 500);
   }
   return json({ received: true });
 });
+
+// A refund Stripe reports as failed or canceled frees the order for a new
+// refund from WYNOS Merchant. The refund must belong to this order's own
+// PaymentIntent on the store's own Stripe account (metadata alone is
+// untrusted). It applies when no refund is recorded yet, when this refund is
+// the recorded one, or when the recorded one already failed (a retry whose
+// failure arrives before its creator stores the new ID). The refund creators
+// never overwrite a refund ID that is already recorded.
+async function recordRefundFailure(
+  admin: AdminClient, orderId: string, accountId: string | null, paymentIntentId: string | null, refundId: string,
+) {
+  const { data: order, error } = await admin.from("food_orders")
+    .select("id,refund_status,stripe_refund_id,stripe_payment_intent_id")
+    .eq("id", orderId).maybeSingle();
+  if (error) return false;
+  if (!order || !paymentIntentId || order.stripe_payment_intent_id !== paymentIntentId) return true;
+  const { data: payment, error: paymentError } = await admin.from("food_stripe_payments")
+    .select("stripe_account_id").eq("order_id", order.id).maybeSingle();
+  if (paymentError) return false;
+  if (!accountId || payment?.stripe_account_id !== accountId) return true;
+  if (order.refund_status === "refunded") return true;
+  const applies = !order.stripe_refund_id || order.stripe_refund_id === refundId || order.refund_status === "failed";
+  if (!applies) return true;
+  let update = admin.from("food_orders").update({
+    refund_status: "failed",
+    refund_note: "Stripe แจ้งว่าการคืนเงินไม่สำเร็จ กรุณาคืนเงินอีกครั้ง",
+    stripe_refund_id: refundId,
+  }).eq("id", order.id).eq("refund_status", order.refund_status);
+  update = order.stripe_refund_id ? update.eq("stripe_refund_id", order.stripe_refund_id) : update.is("stripe_refund_id", null);
+  const { error: updateError } = await update;
+  return !updateError;
+}
 
 // Founder decision 2026-10-11: a Stripe payment that lands on an order that
 // was already cancelled is refunded automatically. food_apply_stripe_event
@@ -516,6 +539,8 @@ async function refundPaidAfterCancel(admin: AdminClient, secret: string, account
   if (orderError) return false;
   if (!order || order.status !== "cancelled" || order.payment_status !== "paid" || order.payment_provider !== "stripe"
       || order.refund_status !== "pending" || order.stripe_refund_id || !order.stripe_payment_intent_id) return true;
+  // A refund is owed but the API key is missing (e.g. mid-rotation): retry later.
+  if (!secret) return false;
   const params = new URLSearchParams();
   params.set("payment_intent", order.stripe_payment_intent_id);
   params.set("reason", "requested_by_customer");
