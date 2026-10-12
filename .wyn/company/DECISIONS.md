@@ -2267,3 +2267,5 @@ Founder ตอบ (AskUserQuestion, 2026-10-11):
 ต้องทำก่อนตั้ง GP > 0 ครั้งแรก (งานแยก): ทดสอบ application fee/คืน fee ใน Stripe test mode และ
 reconciliation ที่ทนทานสำหรับการคืน GP — ตอนนี้ `merchant-stripe-refund` บันทึก fee ที่คืนแล้วด้วยการลอง 3 ครั้ง
 ถ้ายังล้มเหลวจะ log `order_id`/`stripe_refund_id` ให้แก้มือ (ระหว่าง GP = 0% ไม่มี fee จึงไม่เกิดกรณีนี้)
+reconciliation นี้ต้องอ่านจาก Stripe (`application_fee.refunded` / `ApplicationFee.amount_refunded`) เพื่อรองรับ
+การคืน fee ผ่าน Stripe Dashboard และการคืนบางส่วนด้วย — ต้องเพิ่ม event subscription ระดับ platform ใน Stripe (Founder)
