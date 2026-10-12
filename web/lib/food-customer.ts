@@ -1002,8 +1002,18 @@ export function foodPaymentStatusLabel(status: FoodCustomerOrder["payment_status
   } satisfies Record<FoodCustomerOrder["payment_status"], string>)[status];
 }
 
+// Supabase Auth can sign a fresh session a moment ahead of the database
+// clock, and PostgREST rejects it ("JWT issued at future") until the clocks
+// agree, usually within a second. Callers retry this instead of failing.
+export function isFoodSessionClockSkew(error: unknown) {
+  const message = error instanceof Error ? error.message : String((error as { message?: unknown } | null)?.message ?? error ?? "");
+  return message.includes("JWT issued at future");
+}
+
 export function foodCustomerError(error: unknown, fallback = "ดำเนินการไม่สำเร็จ") {
   const message = error instanceof Error ? error.message : String(error ?? "");
+  if (isFoodSessionClockSkew(error)) return "กำลังยืนยันการเข้าสู่ระบบ กรุณาลองอีกครั้งในอีกสักครู่";
+  if (message.includes("JWT expired")) return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง";
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
   if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";

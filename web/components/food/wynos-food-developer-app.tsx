@@ -93,6 +93,7 @@ import {
   foodCartLineOptionsValid,
   foodCartLineUnitPrice,
   foodCustomerError,
+  isFoodSessionClockSkew,
   foodMenuQuantityLimit,
   foodMoney,
   foodOrderStatusLabel,
@@ -3089,7 +3090,18 @@ function FoodCustomerInner({
     loadingRef.current = true;
     if (quiet) setRefreshing(true);
     try {
-      const next = await fetchFoodCustomerSnapshot(client, userId, pickedStoreRef.current || null);
+      let next: FoodCustomerSnapshot;
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          next = await fetchFoodCustomerSnapshot(client, userId, pickedStoreRef.current || null);
+          break;
+        } catch (error) {
+          // A just-issued session can be "from the future" for the database for
+          // a second; wait and retry rather than showing an error.
+          if (!isFoodSessionClockSkew(error) || attempt >= 4) throw error;
+          await new Promise((resolve) => window.setTimeout(resolve, 1000));
+        }
+      }
       setLoadError("");
       if (!next.allowed) {
         setSnapshot(next);
