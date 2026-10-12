@@ -487,12 +487,17 @@ Deno.serve(async (req: Request) => {
     || (eventType === "refund.updated" && (object.status === "failed" || object.status === "canceled"))
     ? stringValue(object.id)
     : null;
-  if (failedRefundId) {
-    // Free the order for a new refund from WYNOS Merchant.
+  if (failedRefundId && orderId) {
+    // Free the order for a new refund from WYNOS Merchant. Matched by the
+    // order (refund metadata), so it also works when the failure arrives
+    // before the refund's creator stored its ID; the creators never overwrite
+    // a refund ID that is already recorded.
     const { error: refundStateError } = await admin.from("food_orders").update({
       refund_status: "failed",
       refund_note: "Stripe แจ้งว่าการคืนเงินไม่สำเร็จ กรุณาคืนเงินอีกครั้ง",
-    }).eq("stripe_refund_id", failedRefundId).eq("refund_status", "pending");
+      stripe_refund_id: failedRefundId,
+    }).eq("id", orderId).neq("refund_status", "refunded")
+      .or(`stripe_refund_id.is.null,stripe_refund_id.eq.${failedRefundId}`);
     if (refundStateError) return json({ error: "event_processing_failed" }, 500);
   }
   return json({ received: true });
@@ -500,11 +505,10 @@ Deno.serve(async (req: Request) => {
 
 // Founder decision 2026-10-11: a Stripe payment that lands on an order that
 // was already cancelled is refunded automatically. food_apply_stripe_event
-// has recorded it and set refund_status='pending'. The idempotency key is tied
-// to the PaymentIntent, so a redelivered event cannot refund twice. On any
-// failure it returns false so the webhook answers 500 and Stripe redelivers
-// the event, retrying with the same key. Until then the order stays
-// refund-pending and the store can also refund it from WYNOS Merchant.
+// has recorded it and set refund_status='pending'. On a failure it returns
+// false, so the webhook answers 500 and Stripe redelivers the event to retry.
+// Until then the order stays refund-pending and the store can also refund it
+// from WYNOS Merchant.
 async function refundPaidAfterCancel(admin: AdminClient, secret: string, accountId: string, orderId: string) {
   const { data: order, error: orderError } = await admin.from("food_orders")
     .select("id,status,payment_status,payment_provider,refund_status,stripe_payment_intent_id,stripe_refund_id")
@@ -518,15 +522,21 @@ async function refundPaidAfterCancel(admin: AdminClient, secret: string, account
   params.set("metadata[wynos_order_id]", order.id);
   params.set("metadata[wynos_reason]", "paid_after_cancel");
   try {
-    const refund = await stripeJson("https://api.stripe.com/v1/refunds", {
+    // No idempotency key: Stripe stores a key's first result, 500 included,
+    // which would block the retry. A charge is never refunded past its amount,
+    // so a repeat fails with charge_already_refunded and is treated as done
+    // (that refund's own events settle the order).
+    const response = await fetch("https://api.stripe.com/v1/refunds", {
       method: "POST",
-      headers: {
-        ...stripeV1Headers(secret, accountId),
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Idempotency-Key": `wynos-auto-refund-${order.stripe_payment_intent_id}`,
-      },
+      headers: { ...stripeV1Headers(secret, accountId), "Content-Type": "application/x-www-form-urlencoded" },
       body: params,
     });
+    const refund = await response.json().catch(() => ({})) as Record<string,unknown>;
+    if (!response.ok) {
+      const code = stringValue((refund.error as Record<string,unknown> | undefined)?.code);
+      console.error("stripe auto refund after cancel failed", { order_id: order.id, status: response.status, code });
+      return code === "charge_already_refunded";
+    }
     const refundId = stringValue(refund.id);
     if (!refundId) return false;
     const { error } = await admin.from("food_orders").update({ stripe_refund_id: refundId })

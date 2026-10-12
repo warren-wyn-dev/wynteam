@@ -21,6 +21,10 @@
 -- Same signatures and grants as production (checked 2026-10-11 by
 -- food-payment-integrity-readonly-check.yml). No table, column or data
 -- change. Safe to re-run.
+-- ROLLOUT ORDER: deploy the stripe-webhook Edge Function from the same release
+-- FIRST (it does nothing extra on the old database). Applied before it, a
+-- payment landing on a cancelled order would be left refund-pending without
+-- the automatic refund.
 -- Apply: .github/workflows/food-apply-payment-integrity.yml (Founder approval).
 -- Rollback: supabase/rollbacks/20261012090000_food_payment_integrity_v1_rollback.sql
 

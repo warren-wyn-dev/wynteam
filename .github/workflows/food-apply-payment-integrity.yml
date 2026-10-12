@@ -7,8 +7,10 @@ name: Food -- apply payment integrity (P1/P3)
 # Step "integrity" -> supabase/migrations/20261012090000_food_payment_integrity_v1.sql
 #   Webhook flags a payment on a cancelled order for automatic refund,
 #   flags Stripe payment during slip review, keeps paid ledgers; merchant
-#   payment-status rules (P3). Same signatures and grants. Apply first, then
-#   deploy the stripe-webhook and merchant-stripe-refund Edge Functions.
+#   payment-status rules (P3). Same signatures and grants. Apply ONLY after
+#   the new stripe-webhook and merchant-stripe-refund Edge Functions are
+#   deployed: the new webhook is a no-op on the old database, while the old
+#   webhook would leave a refund-pending order without the automatic refund.
 # Step "cancel-guard" -> supabase/migrations/20261012090100_food_cancel_requires_closed_checkout.sql
 #   The buyer cannot cancel while a Stripe Checkout is open. Apply ONLY after
 #   the WYNOS Food web release that expires the Checkout before cancelling is

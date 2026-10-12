@@ -20,12 +20,14 @@ function stripeLivemode(secret: string) {
   if (/^(?:sk|rk)_test_/.test(secret)) return false;
   return null;
 }
-function stripeHeaders(secret: string, account: string, idempotencyKey: string) {
+// No idempotency key: Stripe stores a key's first result, 500 included, so a
+// fixed key would block retries. Stripe never refunds a charge past its
+// amount, so a second request fails with charge_already_refunded instead.
+function stripeHeaders(secret: string, account: string) {
   return {
     Authorization: `Basic ${btoa(secret + ":")}`,
     "Stripe-Account": account,
     "Content-Type": "application/x-www-form-urlencoded",
-    "Idempotency-Key": idempotencyKey,
   };
 }
 
@@ -104,7 +106,7 @@ Deno.serve(async (req: Request) => {
   try {
     const response = await fetch("https://api.stripe.com/v1/refunds", {
       method: "POST",
-      headers: stripeHeaders(stripeSecret, stripeAccountId, `wynos-refund-${order.id}`),
+      headers: stripeHeaders(stripeSecret, stripeAccountId),
       body: params,
     });
     const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
@@ -116,15 +118,21 @@ Deno.serve(async (req: Request) => {
         status: response.status,
         request_id: response.headers.get("request-id"),
       });
+      // Another refund (a double tap or the automatic refund) already covers
+      // the payment; its own webhook events settle the order.
+      if (err?.code === "charge_already_refunded") {
+        return json({ error: "already_refunded", message: "ออเดอร์นี้คืนเงินแล้ว หรือกำลังคืนเงินอยู่" }, 409);
+      }
       throw new Error("gateway_refund_failed");
     }
+    // Skip if stripe-webhook already recorded this refund (e.g. as failed).
     await admin.from("food_orders").update({
       refund_status: "pending",
       refund_note: note || "Stripe refund requested",
       refund_requested_at: new Date().toISOString(),
       refund_updated_by: user.id,
       stripe_refund_id: payload.id,
-    }).eq("id", order.id);
+    }).eq("id", order.id).or(`stripe_refund_id.is.null,stripe_refund_id.neq.${payload.id}`);
     return json({ status: payload.status ?? "pending", refundId: payload.id });
   } catch (error) {
     console.error("merchant-stripe-refund failed", {
