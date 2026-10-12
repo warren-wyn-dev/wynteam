@@ -73,7 +73,9 @@ Deno.serve(async (req: Request) => {
     return json({ error: "stripe_refund_not_eligible" }, 409);
   }
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
-  // A refund already sent (e.g. the automatic paid-after-cancel refund) is awaiting Stripe.
+  // A refund already sent (e.g. the automatic paid-after-cancel refund) is
+  // awaiting Stripe. stripe-webhook sets refund_status='failed' when Stripe
+  // reports it failed or canceled, which allows a new refund here.
   if (order.refund_status === "pending" && order.stripe_refund_id) return json({ error: "refund_in_progress" }, 409);
 
   const { data: payment } = await admin.from("food_stripe_payments")

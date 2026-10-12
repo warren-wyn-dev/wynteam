@@ -7,8 +7,9 @@
 -- buyer-only food-stripe-cancel Edge Function (which clears
 -- stripe_checkout_session_id), then cancels as before.
 -- Store and admin cancels are not blocked (food-stripe-cancel stays
--- buyer-only); if a payment still lands, stripe-webhook refunds it
--- automatically (20261012090000_food_payment_integrity_v1.sql).
+-- buyer-only), including a store manager who ordered from their own store;
+-- if a payment still lands, stripe-webhook refunds it automatically
+-- (20261012090000_food_payment_integrity_v1.sql).
 -- The 10-minute timeout worker runs without a user and is exempt as well.
 -- Implemented as a trigger so food_cancel_order itself is not rewritten.
 --
@@ -32,7 +33,9 @@ begin
      and old.payment_status in ('pending','issue')
      and old.stripe_checkout_session_id is not null
      and old.buyer_id is not null
-     and auth.uid() is not distinct from old.buyer_id then
+     and auth.uid() is not distinct from old.buyer_id
+     -- A store manager who is also this order's buyer cancels as the store.
+     and not public.merchant_has_store_role(old.store_id, array['owner','admin','manager','orders']) then
     raise exception 'stripe checkout still open' using errcode = 'P0001';
   end if;
   return new;

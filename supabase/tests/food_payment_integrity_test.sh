@@ -116,6 +116,10 @@ expect_ok "10-minute timeout worker stays exempt" postgres "" \
 reset_order pending_acceptance pending "'cs_1'"
 expect_ok "store cancel is not blocked (late payment is auto-refunded)" authenticated "$OWNER" \
   "select public.food_transition_order('$ORDER','cancelled',null,null)"
+reset_order pending_acceptance pending "'cs_1'"
+run >/dev/null -c "update public.food_orders set buyer_id='$OWNER' where id='$ORDER'"
+expect_ok "a store manager who ordered from their own store can cancel as the store" authenticated "$OWNER" \
+  "select public.food_transition_order('$ORDER','cancelled',null,null)"
 reset_order pending_acceptance paid "'cs_1'" null "'stripe'"
 expect_ok "store can cancel a paid order (refund flow)" authenticated "$OWNER" \
   "select public.food_transition_order('$ORDER','cancelled',null,null)"

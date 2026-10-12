@@ -477,8 +477,23 @@ Deno.serve(async (req: Request) => {
     p_refund_id: refundId,
   });
   if (error) return json({ error: "event_processing_failed" }, 500);
+  // These follow-ups also run when the event is a redelivery (the RPC then
+  // reports a duplicate), so answering 500 below makes Stripe retry them.
   if (state === "paid" && orderId && stripeAccountId && stripeSecret) {
-    await refundPaidAfterCancel(admin, stripeSecret, stripeAccountId, orderId);
+    const refunded = await refundPaidAfterCancel(admin, stripeSecret, stripeAccountId, orderId);
+    if (!refunded) return json({ error: "auto_refund_failed" }, 500);
+  }
+  const failedRefundId = eventType === "refund.failed"
+    || (eventType === "refund.updated" && (object.status === "failed" || object.status === "canceled"))
+    ? stringValue(object.id)
+    : null;
+  if (failedRefundId) {
+    // Free the order for a new refund from WYNOS Merchant.
+    const { error: refundStateError } = await admin.from("food_orders").update({
+      refund_status: "failed",
+      refund_note: "Stripe แจ้งว่าการคืนเงินไม่สำเร็จ กรุณาคืนเงินอีกครั้ง",
+    }).eq("stripe_refund_id", failedRefundId).eq("refund_status", "pending");
+    if (refundStateError) return json({ error: "event_processing_failed" }, 500);
   }
   return json({ received: true });
 });
@@ -487,15 +502,16 @@ Deno.serve(async (req: Request) => {
 // was already cancelled is refunded automatically. food_apply_stripe_event
 // has recorded it and set refund_status='pending'. The idempotency key is tied
 // to the PaymentIntent, so a redelivered event cannot refund twice. On any
-// failure the order stays refund-pending and the store can refund it from
-// WYNOS Merchant (merchant-stripe-refund); the webhook still answers 200
-// because the payment itself is recorded.
+// failure it returns false so the webhook answers 500 and Stripe redelivers
+// the event, retrying with the same key. Until then the order stays
+// refund-pending and the store can also refund it from WYNOS Merchant.
 async function refundPaidAfterCancel(admin: AdminClient, secret: string, accountId: string, orderId: string) {
-  const { data: order } = await admin.from("food_orders")
+  const { data: order, error: orderError } = await admin.from("food_orders")
     .select("id,status,payment_status,payment_provider,refund_status,stripe_payment_intent_id,stripe_refund_id")
     .eq("id", orderId).maybeSingle();
+  if (orderError) return false;
   if (!order || order.status !== "cancelled" || order.payment_status !== "paid" || order.payment_provider !== "stripe"
-      || order.refund_status !== "pending" || order.stripe_refund_id || !order.stripe_payment_intent_id) return;
+      || order.refund_status !== "pending" || order.stripe_refund_id || !order.stripe_payment_intent_id) return true;
   const params = new URLSearchParams();
   params.set("payment_intent", order.stripe_payment_intent_id);
   params.set("reason", "requested_by_customer");
@@ -512,11 +528,12 @@ async function refundPaidAfterCancel(admin: AdminClient, secret: string, account
       body: params,
     });
     const refundId = stringValue(refund.id);
-    if (refundId) {
-      await admin.from("food_orders").update({ stripe_refund_id: refundId })
-        .eq("id", order.id).is("stripe_refund_id", null);
-    }
+    if (!refundId) return false;
+    const { error } = await admin.from("food_orders").update({ stripe_refund_id: refundId })
+      .eq("id", order.id).is("stripe_refund_id", null);
+    return !error;
   } catch {
     console.error("stripe auto refund after cancel failed", { order_id: order.id });
+    return false;
   }
 }
