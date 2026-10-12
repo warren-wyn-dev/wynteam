@@ -1013,7 +1013,7 @@ export function isFoodSessionClockSkew(error: unknown) {
 export function foodCustomerError(error: unknown, fallback = "ดำเนินการไม่สำเร็จ") {
   const message = error instanceof Error ? error.message : String(error ?? "");
   if (isFoodSessionClockSkew(error)) return "กำลังยืนยันการเข้าสู่ระบบ กรุณาลองอีกครั้งในอีกสักครู่";
-  if (message.includes("JWT expired")) return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง";
+  if (message.includes("JWT expired")) return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง";
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
   if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";

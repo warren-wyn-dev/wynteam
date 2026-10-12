@@ -1795,6 +1795,7 @@ Object.assign(EN_EXACT, {
   "เปิดรับออเดอร์": "Accepting orders",
   "ปิดรับออเดอร์": "Not accepting orders",
   "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้": "The store is closed by schedule or temporarily closed right now",
+  "กำลังยืนยันการเข้าสู่ระบบ กรุณาลองอีกครั้งในอีกสักครู่": "Confirming your sign-in. Please try again in a moment",
   "เมนูจำนวนจำกัดขายครบสำหรับวันนี้แล้ว กรุณาตรวจตะกร้าอีกครั้ง": "This limited-quantity item has sold out for today. Please review your cart",
   "กำลังเปิดรับออเดอร์": "Now accepting orders",
   "หยุดรับออเดอร์อยู่": "Orders are paused",
