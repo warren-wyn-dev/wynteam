@@ -186,8 +186,8 @@ function localFutureInput(minutes: number) {
 // WYN-198: four simple tabs, in the order the store works through them.
 const ORDER_FILTERS: Array<{ key: OrderFilter; label: string }> = [
   { key: "new", label: "ใหม่" },
-  { key: "cooking", label: "กำลังทำ" },
-  { key: "delivery", label: "กำลังส่ง" },
+  { key: "cooking", label: "กำลังเตรียม" },
+  { key: "delivery", label: "จัดส่ง" },
   { key: "done", label: "เสร็จแล้ว" },
 ];
 
