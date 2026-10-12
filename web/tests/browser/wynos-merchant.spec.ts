@@ -993,6 +993,7 @@ test("Merchant compact menu sale switch retains an iPhone-sized touch target wit
       </div>
     </main></div>
   `);
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addStyleTag({ content: css });
 
   const metrics = await page.locator(".wm-menu-availability-toggle").evaluateAll((buttons) => buttons.map((button) => {
