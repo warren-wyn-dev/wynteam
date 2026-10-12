@@ -30,27 +30,31 @@ export function MerchantOrderHistory({ client, store, onOpenOrder }: {
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const generation = useRef(0);
-  const sinceDays = period === "7" ? 7 : period === "30" ? 30 : null;
+  const sinceDays: 7 | 30 | null = period === "7" ? 7 : period === "30" ? 30 : null;
 
   useEffect(() => {
-    const current = ++generation.current;
-    setLoading(true);
-    setOrders([]);
-    setHasMore(false);
-    setError("");
-    void fetchMerchantOrderHistoryPage(client, store.id, { status, search, sinceDays, limit: PAGE_SIZE })
-      .then((result) => {
-        if (current !== generation.current) return;
-        setOrders(result.orders);
-        setHasMore(result.hasMore);
-      })
-      .catch((reason: unknown) => {
-        if (current === generation.current) setError(reason instanceof Error ? reason.message : "โหลดประวัติออเดอร์ไม่สำเร็จ");
-      })
-      .finally(() => {
-        if (current === generation.current) setLoading(false);
-      });
-    return () => { generation.current++; };
+    const generationRef = generation;
+    const current = ++generationRef.current;
+    // Defer state updates to the timer callback to avoid cascading effect renders.
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      setOrders([]);
+      setHasMore(false);
+      setError("");
+      void fetchMerchantOrderHistoryPage(client, store.id, { status, search, sinceDays, limit: PAGE_SIZE })
+        .then((result) => {
+          if (current !== generationRef.current) return;
+          setOrders(result.orders);
+          setHasMore(result.hasMore);
+        })
+        .catch((reason: unknown) => {
+          if (current === generationRef.current) setError(reason instanceof Error ? reason.message : "โหลดประวัติออเดอร์ไม่สำเร็จ");
+        })
+        .finally(() => {
+          if (current === generationRef.current) setLoading(false);
+        });
+    }, 0);
+    return () => { window.clearTimeout(timer); generationRef.current++; };
   }, [client, store.id, status, search, sinceDays, revision]);
 
   const loadMore = async () => {
