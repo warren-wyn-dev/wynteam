@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 
-import { createClockSkewRetryFetch } from "../lib/supabase/clock-skew-fetch.ts";
+import { createClockSkewRetryFetch, sessionErrorCopy } from "../lib/supabase/clock-skew-fetch.ts";
 
 const skew = () => new Response(JSON.stringify({ code: "PGRST303", message: "JWT issued at future" }), { status: 401 });
 const ok = () => new Response("[]", { status: 200 });
@@ -36,4 +36,22 @@ test("does not resend a streamed body", async () => {
   const response = await retryFetch("https://example.test/storage/v1/x", { method: "POST", body: new ReadableStream() });
   assert.equal(response.status, 401);
   assert.equal(calls, 1);
+});
+
+test("returns the skew 401 once retries are exhausted, and the copy is Thai", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    let calls = 0;
+    const retryFetch = createClockSkewRetryFetch(async () => { calls += 1; return skew(); });
+    const pending = retryFetch("https://example.test/rest/v1/rpc/x", { method: "POST", body: "{}" });
+    for (let i = 0; i < 8; i += 1) { await new Promise((r) => setImmediate(r)); mock.timers.tick(13000); }
+    const response = await pending;
+    assert.equal(response.status, 401);
+    assert.equal(calls, 8);
+  } finally {
+    mock.timers.reset();
+  }
+  assert.equal(sessionErrorCopy("JWT issued at future"), "กำลังยืนยันการเข้าสู่ระบบ กรุณาลองอีกครั้งในอีกสักครู่");
+  assert.equal(sessionErrorCopy("JWT expired"), "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง");
+  assert.equal(sessionErrorCopy("store is closed"), null);
 });

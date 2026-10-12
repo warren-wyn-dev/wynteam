@@ -4,6 +4,7 @@ import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { foodSoldOutUntilTomorrowBangkok } from "@/lib/food-store-availability";
+import { sessionErrorCopy } from "@/lib/supabase/clock-skew-fetch";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 
@@ -706,6 +707,8 @@ export function paymentLabel(status: FoodOrder["payment_status"]) {
 
 export function merchantError(error: unknown, fallback = "ดำเนินการไม่สำเร็จ") {
   const message = errorMessage(error, fallback);
+  const sessionCopy = sessionErrorCopy(message);
+  if (sessionCopy) return sessionCopy;
   if (message.includes("store suspension can only be changed by WYNOS admin")) return "การระงับร้านเปลี่ยนได้โดยทีม WYNOS เท่านั้น";
   if (message.includes("store is suspended")) return "ร้านถูกระงับโดยทีม WYNOS เปิดร้านหรือเผยแพร่ไม่ได้จนกว่าจะยกเลิกการระงับ";
   return message;

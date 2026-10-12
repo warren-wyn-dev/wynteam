@@ -34,3 +34,11 @@ export function createClockSkewRetryFetch(baseFetch: typeof fetch = (...args) =>
     }
   };
 }
+
+// Last-resort Thai copy for session errors that outlived the retries above, so
+// the raw English PostgREST message never reaches customers or merchants.
+export function sessionErrorCopy(message: string): string | null {
+  if (message.includes("JWT issued at future")) return "กำลังยืนยันการเข้าสู่ระบบ กรุณาลองอีกครั้งในอีกสักครู่";
+  if (message.includes("JWT expired")) return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง";
+  return null;
+}
