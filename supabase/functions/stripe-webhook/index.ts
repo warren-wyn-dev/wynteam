@@ -542,9 +542,17 @@ async function refundPaidAfterCancel(admin: AdminClient, secret: string, account
       || order.refund_status !== "pending" || order.stripe_refund_id || !order.stripe_payment_intent_id) return true;
   // A refund is owed but the API key is missing (e.g. mid-rotation): retry later.
   if (!secret) return false;
+  // The platform GP is a Stripe application fee on the store's direct charge.
+  // A paid-after-cancel refund must also reverse that fee, as merchant refunds do.
+  const { data: payment, error: paymentError } = await admin.from("food_stripe_payments")
+    .select("stripe_account_id,application_fee_satang")
+    .eq("order_id", order.id).maybeSingle();
+  if (paymentError || (payment && payment.stripe_account_id !== accountId)) return false;
+  const feeSatang = Math.max(0, Math.round(Number(payment?.application_fee_satang ?? 0)));
   const params = new URLSearchParams();
   params.set("payment_intent", order.stripe_payment_intent_id);
   params.set("reason", "requested_by_customer");
+  if (feeSatang > 0) params.set("refund_application_fee", "true");
   params.set("metadata[wynos_order_id]", order.id);
   params.set("metadata[wynos_reason]", "paid_after_cancel");
   try {
@@ -567,7 +575,20 @@ async function refundPaidAfterCancel(admin: AdminClient, secret: string, account
     if (!refundId) return false;
     const { error } = await admin.from("food_orders").update({ stripe_refund_id: refundId })
       .eq("id", order.id).is("stripe_refund_id", null);
-    return !error;
+    if (error) return false;
+    if (feeSatang > 0) {
+      // Mirror merchant refunds so finance reports include refunded GP.
+      // Do not mark a fee as refunded until Stripe accepted this request.
+      const { error: feeError } = await admin.from("food_stripe_payments").update({
+        application_fee_refunded_satang: feeSatang,
+        application_fee_refunded_at: new Date().toISOString(),
+      }).eq("order_id", order.id).eq("application_fee_refunded_satang", 0);
+      if (feeError) {
+        console.error("stripe auto refund GP ledger write failed", { order_id: order.id, refund_id: refundId });
+        return false;
+      }
+    }
+    return true;
   } catch {
     console.error("stripe auto refund after cancel failed", { order_id: order.id });
     return false;
