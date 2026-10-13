@@ -484,7 +484,9 @@ fun WebStoreScreen(
         contentPadding = PaddingValues(bottom = 34.dp),
     ) {
         item {
-            Column {
+            // CSS uses margin-top:-20px to overlap the cover. Negative
+            // spacing overlaps in layout as well, avoiding a blank 20dp gap.
+            Column(verticalArrangement = Arrangement.spacedBy((-20).dp)) {
                 Box(Modifier.fillMaxWidth().height(230.dp)) {
                     WebImage(store.coverPath, "food-public", Modifier.fillMaxSize())
                     Box(Modifier.fillMaxWidth().height(80.dp).background(
@@ -514,16 +516,23 @@ fun WebStoreScreen(
                     }
                 }
                 Column(
-                    Modifier.fillMaxWidth().offset(y = (-20).dp).clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
                         .background(Color.White).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 3.dp),
-                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Text(store.name, fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = WebInk)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(14.dp))
-                        if (!guest) Text(" " + stringResource(R.string.store_new) + " · ", color = WebSub, fontSize = 13.sp)
-                        Text(stringResource(R.string.store_menu_count, store.menu.size), color = WebSub, fontSize = 13.sp)
-                        Text(" · ฿" + (store.deliveryFee ?: "—"), color = WebSub, fontSize = 13.sp)
+                        if (guest) {
+                            Text(
+                                stringResource(R.string.store_meta_guest, store.menu.size, store.deliveryFee ?: "—"),
+                                color = WebSub, fontSize = 13.5.sp, lineHeight = 18.sp,
+                            )
+                        } else {
+                            Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(14.dp))
+                            Text(" " + stringResource(R.string.store_new) + " · ", color = WebSub, fontSize = 13.sp)
+                            Text(stringResource(R.string.store_menu_count, store.menu.size), color = WebSub, fontSize = 13.sp)
+                            Text(" · ฿" + (store.deliveryFee ?: "—"), color = WebSub, fontSize = 13.sp)
+                        }
                     }
                     if (store.isOpen) {
                         Text(stringResource(R.string.store_open_now), color = WebGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
