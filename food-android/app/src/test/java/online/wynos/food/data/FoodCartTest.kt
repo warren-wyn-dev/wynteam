@@ -20,6 +20,18 @@ class FoodCartTest {
         assertEquals(3, merged.itemCount)
     }
 
+    @Test fun differentNotesRemainSeparateLines() {
+        val first = FoodCartDraft().add(store, menu, mapOf("spicy" to setOf("low")), 1, "แยกน้ำจิ้ม")
+        val next = first.add(store, menu, mapOf("spicy" to setOf("low")), 1, "ไม่ใส่ผัก")
+        assertEquals(2, next.lines.size)
+        assertEquals("แยกน้ำจิ้ม", next.lines[0].note)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun tooLongNoteIsRejected() {
+        FoodCartDraft().add(store, menu, mapOf("spicy" to setOf("low")), 1, "a".repeat(251))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun missingRequiredChoiceFailsClosed() { FoodCartDraft().add(store, menu, emptyMap(), 1) }
 

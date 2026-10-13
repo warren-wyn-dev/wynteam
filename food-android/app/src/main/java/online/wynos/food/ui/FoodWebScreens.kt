@@ -467,7 +467,7 @@ fun WebStoreScreen(
     guest: Boolean,
     onBack: () -> Unit,
     onAccount: () -> Unit,
-    onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int) -> Boolean,
+    onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int, String) -> Boolean,
     onClear: () -> Unit,
 ) {
     var selectedMenu by remember(store.id) { mutableStateOf<FoodMenu?>(null) }
@@ -487,7 +487,7 @@ fun WebStoreScreen(
             // CSS uses margin-top:-20px to overlap the cover. Negative
             // spacing overlaps in layout as well, avoiding a blank 20dp gap.
             Column(verticalArrangement = Arrangement.spacedBy((-20).dp)) {
-                Box(Modifier.fillMaxWidth().height(230.dp)) {
+                Box(Modifier.fillMaxWidth().height(205.dp)) {
                     WebImage(store.coverPath, "food-public", Modifier.fillMaxSize())
                     Box(Modifier.fillMaxWidth().height(80.dp).background(
                         Brush.verticalGradient(listOf(Color.Black.copy(alpha = .36f), Color.Transparent))
@@ -650,7 +650,7 @@ fun WebStoreScreen(
         FoodMenuOptionsDialog(
             menu = menu,
             onDismiss = { selectedMenu = null },
-            onAdd = { opts, qty -> if (onAdd(store, menu, opts, qty)) selectedMenu = null },
+            onAdd = { opts, qty, note -> if (onAdd(store, menu, opts, qty, note)) selectedMenu = null },
         )
     }
     if (showCart) FoodCartPreview(cart, onDismiss = { showCart = false }, onClear = { onClear(); showCart = false })
