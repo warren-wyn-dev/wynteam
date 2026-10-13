@@ -58,28 +58,28 @@ fun WelcomeScreen(
 ) {
     val c = Wyn.colors
     Column(
-        modifier = Modifier.fillMaxSize().background(c.bg).safeDrawingPadding().padding(horizontal = 24.dp, vertical = 32.dp),
+        modifier = Modifier.fillMaxSize().background(c.bg).safeDrawingPadding().padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
             Image(
                 painter = painterResource(R.drawable.wynos_logo_mark),
                 contentDescription = "Wynos",
                 // The mark is black; like the web (theme-dark.css), invert it on dark.
                 colorFilter = if (c.bg == DarkWynColors.bg) InvertColors else null,
-                modifier = Modifier.height(110.dp).padding(bottom = 18.dp),
+                modifier = Modifier.height(88.dp).padding(bottom = 12.dp),
             )
             Text(
                 stringResource(R.string.welcome_headline),
-                color = c.text, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center,
+                color = c.text, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center,
             )
             Text(
                 stringResource(R.string.welcome_subtitle),
                 color = c.textSecondary, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp),
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             if (!configured) {
                 Text(
                     stringResource(R.string.config_missing),
@@ -102,9 +102,17 @@ fun WelcomeScreen(
             }
             WynPrimaryButton(stringResource(R.string.welcome_create_account), onCreateAccount, enabled = configured && gate == InviteGate.Open)
             WynOutlineButton(stringResource(R.string.welcome_sign_in), onSignIn, enabled = configured)
+            // Google OAuth for native Android is not configured yet. Disable the
+            // action rather than showing a tappable sign-in that can only fail.
+            // Re-enable only after credential flow and device tests are implemented.
             WynOutlineButton(
-                stringResource(R.string.welcome_sign_in_google), onGoogle, enabled = configured,
+                stringResource(R.string.welcome_sign_in_google), onGoogle, enabled = false,
                 leading = { Image(painterResource(R.drawable.ic_google), contentDescription = null, modifier = Modifier.size(18.dp)) },
+            )
+            Text(
+                stringResource(R.string.google_not_ready),
+                color = c.textSecondary, fontSize = 12.sp, lineHeight = 17.sp,
+                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
             )
             ErrorText(error)
             Spacer(Modifier.height(6.dp))
