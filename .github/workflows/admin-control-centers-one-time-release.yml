@@ -1,0 +1,114 @@
+name: One-time WYNOS Admin Control Center Release
+
+# Explicitly scoped one-time release authorized for Admin control centers.
+# Executes only for a specific merge commit message and a change to THIS file.
+# Other commits and all subsequent changes to app code do not trigger it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/admin-control-centers-one-time-release.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-control-centers-one-time-release
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    if: >-
+      github.repository == 'warren-wyn-dev/wynteam' &&
+      startsWith(github.event.head_commit.message, 'release(admin): deploy tested Admin control centers')
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.stage.outputs.url }}
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Checkout precisely the Admin source that passed CI
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: c47e0f7c9de372b695d15592a71f21906e130b7c
+          persist-credentials: false
+      - name: Validate target and required credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$VERCEL_ORG_ID" = 'team_Kamt1PUT5XKn9MWrF404re1w'
+          test "$VERCEL_PROJECT_ID" = 'prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5'
+          for name in VERCEL_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name:-}" ]; then echo "::error::Missing required configured secret: $name"; exit 1; fi
+          done
+          grep -Fq 'id: "food-control"' admin/lib/admin-nav.ts
+          grep -Fq 'id: "merchant-control"' admin/lib/admin-nav.ts
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - name: Verify Admin (lint, typecheck)
+        working-directory: admin
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run lint
+          npx next typegen
+          npx tsc --noEmit
+      - name: Stage production build without assigning any domain
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          deployment_url="$(npx --yes vercel@latest deploy --prod --skip-domain --yes \
+            --scope warren14 \
+            --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY")"
+          DEPLOYMENT_URL="$deployment_url" node -e '
+            const v = process.env.DEPLOYMENT_URL.trim();
+            const u = new URL(v);
+            if (u.protocol !== "https:" || u.origin !== v || !u.hostname.endsWith(".vercel.app")) process.exit(1);
+          '
+          printf 'url=%s\n' "$deployment_url" >> "$GITHUB_OUTPUT"
+          npx --yes vercel@latest inspect "$deployment_url" --scope warren14
+
+  promote:
+    needs: stage
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      DEPLOYMENT_URL: ${{ needs.stage.outputs.url }}
+    steps:
+      - name: Verify staged deployment URL and exact target
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN"
+          test "$VERCEL_PROJECT_ID" = 'prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5'
+          DEPLOYMENT_URL="$DEPLOYMENT_URL" node -e '
+            const v = process.env.DEPLOYMENT_URL.trim();
+            const u = new URL(v);
+            if (u.protocol !== "https:" || u.origin !== v || !u.hostname.endsWith(".vercel.app")) process.exit(1);
+          '
+      - name: Promote tested production build to existing Admin domain
+        run: |
+          set -euo pipefail
+          npx --yes vercel@latest promote "$DEPLOYMENT_URL" --scope warren14 --yes
+      - name: Smoke-check domain (public login only, never logs private data)
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 25 --retry 3 --retry-delay 3 -o /dev/null https://admin.wynos.online/login
+          echo 'Admin login endpoint responds over HTTPS.'
