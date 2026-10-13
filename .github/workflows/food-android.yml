@@ -23,10 +23,16 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      # GitHub ubuntu-latest already includes Android cmdline-tools/sdkmanager.
-      # Avoid setup-android's obsolete 'sdkmanager tools' install attempt.
       - uses: gradle/actions/setup-gradle@v4
       - name: Install Android SDK 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDK_MANAGER="$(find "$SDK_ROOT/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -n 1)"
+          if [ -z "$SDK_MANAGER" ]; then
+            echo "Android SDK command-line tools not found" >&2
+            exit 1
+          fi
+          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0"
       - name: Build and verify demo
         run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
