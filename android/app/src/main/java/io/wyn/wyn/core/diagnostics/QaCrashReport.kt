@@ -52,28 +52,27 @@ object QaCrashReport {
     }
 
     /** Only static exception and code-location metadata, never exception messages. */
+    /** Only static exception and code-location metadata, never exception messages. */
     internal fun summarize(error: Throwable): String {
         var root = error
-        repeat(5) { if (root.cause != null && root.cause !== root) root = root.cause!! }
+        repeat(5) {
+            if (root.cause != null && root.cause !== root) root = root.cause!!
+        }
         val type = root.javaClass.simpleName.ifBlank { "UnknownError" }
             .filter { it.isLetterOrDigit() || it == '_' }.take(48)
-        // The previous code always preferred the WYNOS callsite, hiding the
-        // SDK frame that actually threw. A static stack frame (not its message)
-        // identifies the failing library/initialization method on a phone.
         val origin = root.stackTrace.firstOrNull()
         val appCaller = root.stackTrace.firstOrNull { it.className.startsWith("io.wyn.wyn.") }
         fun location(frame: StackTraceElement?): String = frame?.let {
             val cls = it.className.substringAfterLast('.')
-                .filter { ch -> ch.isLetterOrDigit() || ch == '_' || ch == '
-    }
-}
- }.take(42)
+                .filter { ch -> ch.isLetterOrDigit() || ch == '_' || ch.code == 36 }.take(42)
             val method = it.methodName.filter { ch -> ch.isLetterOrDigit() || ch == '_' }.take(32)
             "${cls}.${method}:${it.lineNumber.coerceAtLeast(0)}"
         } ?: "unknown"
         val detail = if (appCaller != null && appCaller !== origin) {
             "${location(origin)} > ${location(appCaller)}"
-        } else location(origin)
+        } else {
+            location(origin)
+        }
         return "QA-$type/$detail".take(MAX_REPORT_LENGTH)
     }
 }
