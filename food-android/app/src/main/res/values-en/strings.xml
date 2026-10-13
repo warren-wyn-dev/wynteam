@@ -13,7 +13,7 @@
     <string name="readonly_notice">Android Beta — browse real menus; ordering is not yet available</string>
     <string name="search_stores">Search restaurants or food</string>
     <string name="configure_supabase">Android Supabase is not configured. Please set local.properties.</string>
-    <string name="catalog_load_failed">Couldn't load restaurants. Check your connection and API permissions.</string>
+    <string name="catalog_load_failed">Unable to load restaurants. Check your connection and API permissions.</string>
     <string name="retry">Retry</string>
     <string name="no_stores">No restaurants are available yet, or public browsing is not enabled.</string>
     <string name="no_menu">No menu items available</string>
