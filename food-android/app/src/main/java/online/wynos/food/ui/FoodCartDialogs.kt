@@ -1,19 +1,39 @@
 package online.wynos.food.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,16 +44,34 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
 import online.wynos.food.R
 import online.wynos.food.data.FoodCartDraft
 import online.wynos.food.data.FoodMenu
+import online.wynos.food.data.FoodPublicMedia
+import java.math.BigDecimal
+
+private val Red = Color(0xFFE40036)
+private val RedSoft = Color(0xFFFCEDF0)
+private val Ink = Color(0xFF16161A)
+private val Sub = Color(0xFF6B6B76)
+private val SurfaceGrey = Color(0xFFF6F6F8)
+private val Line = Color(0xFFEBEBEF)
 
 /**
- * Draft menu selections only. Radio controls are vertical for single-choice
- * groups (including spicy level). Multiple-choice options use checkboxes.
+ * Web's guest item panel is a whole-screen page, not a small alert dialog.
+ * Preserve a real native screen with vertical radio options for spicy level.
+ * This remains a LOCAL CART only; no server order or payment is created.
  */
 @Composable
 fun FoodMenuOptionsDialog(
@@ -41,102 +79,199 @@ fun FoodMenuOptionsDialog(
     onDismiss: () -> Unit,
     onAdd: (Map<String, Set<String>>, Int) -> Unit,
 ) {
-    var selected by remember(menu.id) { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
+    var selection by remember(menu.id) { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
     var quantity by remember(menu.id) { mutableIntStateOf(1) }
-    val requiredValid = menu.optionGroups.all { group ->
-        !group.required || selected[group.id].orEmpty().isNotEmpty()
+    val valid = menu.optionGroups.all { !it.required || selection[it.id].orEmpty().isNotEmpty() }
+    val extra = menu.optionGroups.fold(BigDecimal.ZERO) { sum, group ->
+        sum + group.choices.filter { it.id in selection[group.id].orEmpty() }
+            .fold(BigDecimal.ZERO) { total, choice -> total + (choice.price.toBigDecimalOrNull() ?: BigDecimal.ZERO) }
     }
-    AlertDialog(
+    val estimate = ((menu.price.toBigDecimalOrNull() ?: BigDecimal.ZERO) + extra) * quantity.toBigDecimal()
+
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text(menu.name, fontWeight = FontWeight.Bold) },
-        text = {
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 440.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                menu.optionGroups.forEach { group ->
-                    item(key = group.id) {
-                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(
-                                group.name + if (group.required) " *" else "",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            group.choices.forEach { choice ->
-                                val chosen = choice.id in selected[group.id].orEmpty()
-                                val toggle = {
-                                    val old = selected[group.id].orEmpty()
-                                    val next = if (group.maxSelect == 1) {
-                                        if (chosen && !group.required) emptySet() else setOf(choice.id)
-                                    } else {
-                                        if (chosen) old - choice.id
-                                        else if (old.size < group.maxSelect) old + choice.id
-                                        else old
-                                    }
-                                    selected = selected + (group.id to next)
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().clickable { toggle() }.padding(vertical = 5.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    if (group.maxSelect == 1) {
-                                        RadioButton(selected = chosen, onClick = toggle)
-                                    } else {
-                                        Checkbox(checked = chosen, onCheckedChange = { toggle() })
-                                    }
-                                    Text(choice.name, modifier = Modifier.weight(1f))
-                                    if (choice.price != "0") Text(stringResource(R.string.option_extra_price, choice.price))
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(color = Color.White, modifier = Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        val photoHeight = (maxWidth * 0.64f).coerceAtMost(300.dp)
+                        Box(Modifier.fillMaxWidth().height(photoHeight).background(SurfaceGrey)) {
+                            val url = FoodPublicMedia.url("food-public", menu.imagePath)
+                            if (url == null) {
+                                Icon(Icons.Outlined.Restaurant, contentDescription = null,
+                                    modifier = Modifier.align(Alignment.Center).size(44.dp), tint = Sub)
+                            } else {
+                                AsyncImage(model = url, contentDescription = null,
+                                    contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            }
+                            Surface(
+                                shape = CircleShape, color = Color.White,
+                                modifier = Modifier.align(Alignment.TopStart).padding(14.dp)
+                                    .size(42.dp).clickable(onClick = onDismiss),
+                                shadowElevation = 3.dp,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Outlined.ArrowBack, stringResource(R.string.back), tint = Ink)
                                 }
                             }
                         }
                     }
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(menu.name, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        menu.description?.let { Text(it, fontSize = 14.sp, color = Sub) }
+                        Text("฿" + menu.price, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Box(Modifier.fillMaxWidth().height(8.dp).background(SurfaceGrey))
+                    menu.optionGroups.forEach { group ->
+                        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 17.dp, bottom = 6.dp)) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(group.name, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                if (group.required) {
+                                    Text(stringResource(R.string.required_option), color = Red,
+                                        fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clip(CircleShape).background(RedSoft)
+                                            .padding(horizontal = 11.dp, vertical = 4.dp))
+                                }
+                            }
+                            if (group.maxSelect > 1) Text(
+                                stringResource(R.string.option_up_to, group.maxSelect),
+                                fontSize = 12.sp, color = Sub, modifier = Modifier.padding(top = 3.dp))
+                            group.choices.forEach { choice ->
+                                val chosen = choice.id in selection[group.id].orEmpty()
+                                val toggle = {
+                                    val previous = selection[group.id].orEmpty()
+                                    val next = if (group.maxSelect == 1) {
+                                        if (chosen && !group.required) emptySet() else setOf(choice.id)
+                                    } else if (chosen) previous - choice.id
+                                    else if (previous.size < group.maxSelect) previous + choice.id
+                                    else previous
+                                    selection = selection + (group.id to next)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                                        .clickable { toggle() },
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (group.maxSelect == 1) RadioButton(
+                                        selected = chosen, onClick = toggle,
+                                        colors = androidx.compose.material3.RadioButtonDefaults.colors(selectedColor = Red))
+                                    else Checkbox(
+                                        checked = chosen, onCheckedChange = { toggle() },
+                                        colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = Red))
+                                    Text(choice.name, color = Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                                    if (choice.price != "0") Text(
+                                        stringResource(R.string.option_extra_price, choice.price),
+                                        fontSize = 14.sp, color = Sub)
+                                }
+                                HorizontalDivider(color = SurfaceGrey)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(22.dp))
                 }
-                item {
-                    Text(stringResource(R.string.quantity_label, quantity), fontWeight = FontWeight.SemiBold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedButton(onClick = { quantity = (quantity - 1).coerceAtLeast(1) }, enabled = quantity > 1) {
-                            Text("−")
-                        }
-                        Text(quantity.toString())
-                        OutlinedButton(onClick = { quantity = (quantity + 1).coerceAtMost(20) }, enabled = quantity < 20) {
-                            Text("+")
-                        }
+                Row(
+                    modifier = Modifier.fillMaxWidth().shadow(7.dp).background(Color.White)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        modifier = Modifier.clip(CircleShape).background(SurfaceGrey).height(52.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(
+                            onClick = { quantity = (quantity - 1).coerceAtLeast(1) },
+                            enabled = quantity > 1) { Text("−", fontSize = 22.sp, color = Ink) }
+                        Text(quantity.toString(), fontSize = 16.sp, color = Ink, fontWeight = FontWeight.Bold)
+                        TextButton(
+                            onClick = { quantity = (quantity + 1).coerceAtMost(20) },
+                            enabled = quantity < 20) { Text("+", fontSize = 21.sp, color = Ink) }
+                    }
+                    Button(
+                        onClick = { onAdd(selection, quantity) },
+                        enabled = valid,
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = Red),
+                    ) {
+                        Text(
+                            if (valid) stringResource(R.string.cart_add_total, estimate.stripTrailingZeros().toPlainString())
+                            else stringResource(R.string.select_required_options),
+                            fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(onClick = { onAdd(selected, quantity) }, enabled = requiredValid) {
-                Text(stringResource(R.string.add_to_cart))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) } },
-    )
+        }
+    }
 }
 
 @Composable
 fun FoodCartPreview(cart: FoodCartDraft, onDismiss: () -> Unit, onClear: () -> Unit) {
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.cart_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                cart.lines.forEach { line ->
-                    Text(stringResource(R.string.cart_line, line.name, line.quantity, line.estimatedTotal().stripTrailingZeros().toPlainString()))
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(color = Color.White, modifier = Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Outlined.ArrowBack, stringResource(R.string.back), tint = Ink)
+                    }
+                    Text(stringResource(R.string.cart_title), fontWeight = FontWeight.Bold,
+                        fontSize = 19.sp, color = Ink, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onClear) {
+                        Text(stringResource(R.string.clear_cart), color = Red)
+                    }
                 }
-                Text(
-                    stringResource(R.string.estimated_subtotal, cart.estimatedSubtotal.stripTrailingZeros().toPlainString()),
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(stringResource(R.string.estimate_not_final), style = MaterialTheme.typography.bodySmall)
+                HorizontalDivider(color = Line)
+                Column(
+                    Modifier.weight(1f).verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    if (cart.lines.isEmpty()) {
+                        Text(stringResource(R.string.cart_empty), color = Sub)
+                    } else {
+                        cart.lines.forEach { line ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(line.name, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("×" + line.quantity, fontSize = 13.sp, color = Sub)
+                                    if (line.options.isNotEmpty()) Text(
+                                        line.options.joinToString(" · ") { it.name },
+                                        color = Sub, fontSize = 12.sp)
+                                }
+                                Text("฿" + line.estimatedTotal().stripTrailingZeros().toPlainString(),
+                                    fontWeight = FontWeight.Bold, color = Ink)
+                            }
+                            HorizontalDivider(color = Line)
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(stringResource(R.string.estimated_subtotal_label), color = Ink, fontWeight = FontWeight.SemiBold)
+                        Text("฿" + cart.estimatedSubtotal.stripTrailingZeros().toPlainString(),
+                            color = Ink, fontWeight = FontWeight.Bold)
+                    }
+                    Text(stringResource(R.string.estimate_not_final), color = Sub, fontSize = 12.sp)
+                }
+                Box(Modifier.fillMaxWidth().shadow(8.dp).padding(16.dp)) {
+                    Button(
+                        onClick = {}, enabled = false,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = CircleShape,
+                    ) { Text(stringResource(R.string.checkout_unavailable)) }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onClear) { Text(stringResource(R.string.clear_cart)) }
-        },
-    )
+        }
+    }
 }
