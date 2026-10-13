@@ -14,12 +14,22 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.wyn.wyn.core.diagnostics.QaCrashReport
 import io.wyn.wyn.core.data.PreferencesAccountStore
 import io.wyn.wyn.core.data.DevicePreferences
 import io.wyn.wyn.core.data.ThemePreference
@@ -62,30 +72,60 @@ class MainActivity : ComponentActivity() {
             pushTarget = PushTarget.from(intent?.extras)
             appLink = AppLink.from(intent)
         }
-        val push = PushSetup.controller(applicationContext)
-        val factory = viewModelFactory {
-            initializer {
-                AccountFlowViewModel(
-                    SupabaseAuthRepository(SupabaseProvider.client),
-                    PreferencesAccountStore(applicationContext),
-                    SupabaseProvider.isConfigured,
-                    push,
-                )
-            }
+        // A previous unhandled DEBUG crash is shown on the next launch.
+        // Only exception type and static code location are kept, never messages.
+        QaCrashReport.read(this)?.let { code ->
+            showQaStartupScreen(code)
+            return
         }
-        val device = DevicePreferences(applicationContext)
-        val repos = Repositories.supabase(SupabaseProvider.client, push, device)
+        try {
+            val push = PushSetup.controller(applicationContext)
+            val factory = viewModelFactory {
+                initializer {
+                    AccountFlowViewModel(
+                        SupabaseAuthRepository(SupabaseProvider.client),
+                        PreferencesAccountStore(applicationContext),
+                        SupabaseProvider.isConfigured,
+                        push,
+                    )
+                }
+            }
+            val device = DevicePreferences(applicationContext)
+            val repos = Repositories.supabase(SupabaseProvider.client, push, device)
+            setContent {
+                WynosTheme(device.theme.toChoice()) {
+                    WynosApp(
+                        viewModel(factory = factory),
+                        repos,
+                        onExit = ::finish,
+                        pushTarget = pushTarget,
+                        onPushTargetHandled = { pushTarget = null },
+                        appLink = appLink,
+                        onAppLinkHandled = { appLink = null },
+                    )
+                }
+            }
+        } catch (error: Exception) {
+            if (!BuildConfig.DEBUG) throw error
+            showQaStartupScreen(QaCrashReport.record(this, error))
+        }
+    }
+
+    private fun showQaStartupScreen(code: String) {
         setContent {
-            WynosTheme(device.theme.toChoice()) {
-                WynosApp(
-                    viewModel(factory = factory),
-                    repos,
-                    onExit = ::finish,
-                    pushTarget = pushTarget,
-                    onPushTargetHandled = { pushTarget = null },
-                    appLink = appLink,
-                    onAppLinkHandled = { appLink = null },
-                )
+            Column(
+                Modifier.fillMaxSize().background(Color.White).padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text("WYNOS Android Beta 1 — QA", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                Text("พบข้อผิดพลาดขณะเปิดแอป กรุณาส่งภาพรหัสปัญหานี้ให้ทีมพัฒนา", color = Color.DarkGray, modifier = Modifier.padding(top = 12.dp))
+                Text(code, color = Color.Black, modifier = Modifier.padding(vertical = 20.dp))
+                Button(onClick = {
+                    QaCrashReport.clear(this@MainActivity)
+                    recreate()
+                }) {
+                    Text("ลองเปิดแอปอีกครั้ง")
+                }
             }
         }
     }
