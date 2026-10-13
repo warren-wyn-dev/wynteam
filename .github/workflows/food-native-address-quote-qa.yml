@@ -97,23 +97,7 @@ jobs:
             adb shell settings put global private_dns_mode off || true
             adb shell svc wifi enable || true
             echo "Guest catalog DNS probe:"
-            resolved=0
-            for attempt in 1 2 3 4; do
-              check=$(adb shell ping -c 1 -W 3 kqokpocajhfbidcxpvhh.supabase.co 2>&1 || true)
-              echo "attempt $attempt: $check"
-              if ! echo "$check" | grep -Eiq "unknown host|bad address|Name or service not known"; then
-                resolved=1
-                break
-              fi
-              adb shell svc wifi disable || true
-              sleep 2
-              adb shell svc wifi enable || true
-              sleep 5
-            done
-            if [ "$resolved" -ne 1 ]; then
-              echo "Android emulator could not resolve Supabase; visual comparison is INVALID" >&2
-              exit 1
-            fi
+            resolved=0; for attempt in 1 2 3 4; do check="$(adb shell ping -c 1 -W 3 kqokpocajhfbidcxpvhh.supabase.co 2>&1 || true)"; if ! echo "$check" | grep -Eiq "unknown host|bad address|Name or service not known"; then resolved=1; break; fi; adb shell svc wifi disable || true; sleep 2; adb shell svc wifi enable || true; sleep 5; done; if [ "$resolved" -ne 1 ]; then echo "Emulator cannot resolve Supabase; screenshot invalid" >&2; exit 1; fi
             adb shell am force-stop online.wynos.food || true
             adb shell am start -n online.wynos.food/.MainActivity
             sleep 35
