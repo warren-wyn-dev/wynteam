@@ -25,6 +25,7 @@ class FoodAddressManagementTest {
         assertTrue(json.containsKey("p_latitude"))
         assertTrue(json.containsKey("p_longitude"))
         assertEquals(JsonNull, json["p_place_id"])
+        assertEquals("\\"location-123\\"", valid.copy(placeId = "location-123").toRpcParams()["p_place_id"].toString())
         assertFalse(json.containsKey("user_id")) // never allow client-selected owner
     }
 
