@@ -53,6 +53,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
+import { FoodOrderModification } from "@/components/food/food-order-modification";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import {
   clearRequestedOrder,
@@ -66,12 +67,15 @@ import {
   sharedFoodStoreId,
 } from "@/lib/food-share";
 import { shareOrCopyLink } from "@/lib/share";
+import { checkoutIntentKey, checkoutIntentUsesV3, clearCheckoutIntent } from "@/lib/food-checkout-intent";
 import {
   isCurrentDevicePushEnabled,
   pushReasonDescription,
   subscribeToPushNotifications,
 } from "@/lib/push-notifications";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
+import { foodOptionSelectionBounds, foodOptionSelectionHint } from "@/lib/food-option-rules";
+import { createOrderRecovery } from "@/lib/order-recovery";
 import {
   foodEstimateDeliveryRange,
   foodMenuIsEffectivelyAvailable,
@@ -1851,7 +1855,6 @@ function ItemSheet({
   const stockLimit = foodMenuQuantityLimit(item);
   const reservedByOtherVariants = Math.max(0, cartQuantity - (existing?.quantity ?? 0));
   const quantityLimit = Math.max(0, stockLimit - reservedByOtherVariants);
-  const selectionValid = optionGroups.every((group) => !group.required || (selected[group.id]?.length ?? 0) > 0);
   const selectedOptions = optionGroups.flatMap((group) => {
     const ids = new Set(selected[group.id] ?? []);
     return group.choices
@@ -1864,6 +1867,7 @@ function ItemSheet({
         price: Number(choice.price ?? 0),
       }));
   });
+  const selectionValid = foodCartLineOptionsValid(item, { selected_options: selectedOptions });
   const unitPrice = Number(item.price) + selectedOptions.reduce((sum, option) => sum + Math.max(0, Number(option.price ?? 0)), 0);
   const orderingDisabled = !itemAvailable || !storeOpen || quantityLimit <= 0;
   const canAdd = !orderingDisabled && selectionValid && quantity <= quantityLimit;
@@ -1920,17 +1924,19 @@ function ItemSheet({
           ) : null}
 
           {optionGroups.map((group) => {
-            const maxSelect = Math.max(1, Math.min(20, Number(group.max_select ?? 1)));
+            const { min: minSelect, max: maxSelect } = foodOptionSelectionBounds(group);
             const chosen = selected[group.id] ?? [];
+            const minimumMet = chosen.length >= minSelect;
+            const selectionHint = foodOptionSelectionHint({ min: minSelect, max: maxSelect });
             return (
               <section className="fx-option-group" key={group.id}>
                 <div className="fx-option-head">
                   <strong>{group.name}</strong>
-                  {group.required ? (
-                    <span className={`fx-required${chosen.length ? " is-done" : ""}`}>{chosen.length ? "เลือกแล้ว" : "ต้องเลือก"}</span>
-                  ) : <small>{maxSelect === 1 ? "เลือกได้ 1 รายการ" : `เลือกได้สูงสุด ${maxSelect} รายการ`}</small>}
+                  {minSelect > 0 ? (
+                    <span className={`fx-required${minimumMet ? " is-done" : ""}`}>{minimumMet ? "เลือกแล้ว" : "ต้องเลือก"}</span>
+                  ) : <small>{selectionHint}</small>}
                 </div>
-                {group.required ? <small className="fx-option-hint">{maxSelect === 1 ? "เลือก 1 รายการ" : `เลือกได้สูงสุด ${maxSelect} รายการ`}</small> : null}
+                {minSelect > 0 ? <small className="fx-option-hint">{selectionHint}</small> : null}
                 <div className="fx-option-choices">
                   {group.choices.map((choice) => {
                     const active = chosen.includes(choice.id);
@@ -2243,7 +2249,7 @@ function CheckoutSheet({
   onClose: () => void;
   onAddAddress: () => void;
   onEditAddress: (address: FoodCustomerAddress) => void;
-  onSubmit: (address: FoodCustomerAddress, note: string, couponCode?: string | null) => void;
+  onSubmit: (address: FoodCustomerAddress, note: string, couponCode?: string | null, quote?: FoodOrderQuote | null) => void;
 }) {
   const initialAddressId = (
     addresses.find((address) => address.is_default && foodCustomerAddressStructuredComplete(address))
@@ -2350,7 +2356,8 @@ function CheckoutSheet({
 
   const submitOrder = () => {
     if (!address) return;
-    onSubmit(address, note, couponCode);
+    if (confirmDisabled) return;
+    onSubmit(address, note, couponCode, effectiveQuote);
   };
 
   const paymentMethods = [
@@ -2493,6 +2500,7 @@ function CheckoutSheet({
 
         <div className="fx-summary">
           <div><span>ค่าอาหาร</span><b>{foodMoney(serverSubtotal)}</b></div>
+          {Number(effectiveQuote?.small_order_fee ?? 0) > 0 ? <div><span>ค่าธรรมเนียมออเดอร์เล็ก (ค่าอาหารก่อนส่วนลดต่ำกว่า ฿60)</span><b>{foodMoney(effectiveQuote?.small_order_fee ?? 0)}</b></div> : null}
           <div><span>ค่าจัดส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{addressProblem ? "—" : foodMoney(deliveryFee)}</b></div>
           {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "ส่วนลด · " + effectiveQuote.campaign_name : "ส่วนลดค่าอาหาร"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
           {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
@@ -2984,6 +2992,7 @@ function OrderDetailSheet({
           </div>
           <div className="fx-summary">
             <div><span>ค่าอาหาร</span><b>{foodMoney(order.subtotal)}</b></div>
+            {Number(order.small_order_fee ?? 0) > 0 ? <div><span>ค่าธรรมเนียมออเดอร์เล็ก</span><b>{foodMoney(order.small_order_fee ?? 0)}</b></div> : null}
             <div><span>ค่าจัดส่ง</span><b>{foodMoney(order.delivery_fee)}</b></div>
             {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "ส่วนลด · " + order.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(order.campaign_discount)}</b></div> : null}
             {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(order.delivery_discount)}</b></div> : null}
@@ -2998,6 +3007,7 @@ function OrderDetailSheet({
           {orderStore?.phone ? <a className="fx-btn fx-btn--outline fx-btn--block" href={`tel:${orderStore.phone}`}><Phone size={17} />ติดต่อร้าน</a> : null}
         </section>
 
+        <FoodOrderModification key={order.id} client={client} orderId={order.id} onReload={() => { void onReload(); }} onMessage={onMessage} />
         {["delivered", "cancelled"].includes(order.status) ? (
           <button className="fx-btn fx-btn--primary fx-btn--block" type="button" onClick={onReorder}>สั่งรายการเดิมอีกครั้ง</button>
         ) : null}
@@ -3082,10 +3092,14 @@ function FoodCustomerInner({
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const loadingRef = useRef(false);
+  const reloadQueuedRef = useRef(false);
   const previousOrdersRef = useRef<Map<string, string>>(new Map());
 
   const load = useCallback(async (quiet = false) => {
-    if (loadingRef.current) return null;
+    if (loadingRef.current) {
+      reloadQueuedRef.current = true;
+      return null;
+    }
     loadingRef.current = true;
     if (quiet) setRefreshing(true);
     try {
@@ -3129,8 +3143,14 @@ function FoodCustomerInner({
     } finally {
       loadingRef.current = false;
       setRefreshing(false);
+      if (reloadQueuedRef.current) {
+        reloadQueuedRef.current = false;
+        void loadRef.current?.(true);
+      }
     }
   }, [client, userId]);
+  const loadRef = useRef<typeof load | null>(null);
+  useEffect(() => { loadRef.current = load; }, [load]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -3175,8 +3195,12 @@ function FoodCustomerInner({
 
   useEffect(() => {
     if (!snapshot?.allowed) return;
-    const channel = subscribeFoodCustomerOrders(client, userId, () => void load(true));
-    return () => { void client.removeChannel(channel); };
+    const recovery = createOrderRecovery(() => load(true), { document, window });
+    const channel = subscribeFoodCustomerOrders(client, userId, recovery.request, recovery.onSubscriptionStatus);
+    return () => {
+      recovery.dispose();
+      void client.removeChannel(channel);
+    };
   }, [client, load, snapshot?.allowed, userId]);
 
   useEffect(() => {
@@ -3284,8 +3308,10 @@ function FoodCustomerInner({
   };
 
   // Founder decision (2026-10-10): WYNOS Food offers delivery as soon as possible only; no scheduled orders and no pickup.
-  const createOrder = async (address: FoodCustomerAddress, note: string, couponCode?: string | null) => {
-    if (!store) return;
+  const checkoutSubmittingRef = useRef(false);
+  const createOrder = async (address: FoodCustomerAddress, note: string, couponCode?: string | null, quote?: FoodOrderQuote | null) => {
+    if (!store || checkoutSubmittingRef.current) return;
+    checkoutSubmittingRef.current = true;
     setBusy(true);
     try {
       const structuredAddress = [
@@ -3295,7 +3321,7 @@ function FoodCustomerInner({
         address.landmark ? `จุดสังเกต ${address.landmark}` : "",
       ].filter(Boolean).join(" · ");
       const combinedNote = [structuredAddress, address.delivery_note, note.trim()].filter(Boolean).join(" · ");
-      const orderId = await createFoodCustomerOrder(client, store.id, {
+      const input = {
         recipientName: address.recipient_name,
         recipientPhone: address.recipient_phone,
         shippingAddress: address.address,
@@ -3304,7 +3330,16 @@ function FoodCustomerInner({
         location: storeHasDeliveryZone(store) ? addressLocation(address) : null,
         scheduledFor: null,
         couponCode: couponCode ?? null,
+        expectedTotal: quote?.total ?? null,
+        pricingRuleVersion: quote?.pricing_rule_version ?? null,
+      };
+      let storage: Storage | null = null;
+      try { storage = window.sessionStorage; } catch { /* private mode */ }
+      const idempotencyKey = await checkoutIntentKey(userId, { storeId: store.id, ...input }, storage);
+      const orderId = await createFoodCustomerOrder(client, store.id, {
+        ...input, idempotencyKey, resolveIdempotentIntent: checkoutIntentUsesV3(userId, storage),
       });
+      clearCheckoutIntent(userId, storage);
       // Lets the store see orders that came from its shared link.
       if (hasShareRef(store.id)) void markFoodOrderFromShare(client, orderId).catch(() => undefined);
       setCart([]);
@@ -3317,6 +3352,7 @@ function FoodCustomerInner({
     } catch (error) {
       setMessage(foodCustomerError(error));
     } finally {
+      checkoutSubmittingRef.current = false;
       setBusy(false);
     }
   };

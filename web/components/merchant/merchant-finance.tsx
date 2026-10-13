@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
 
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
+import { MerchantOrderPerformance } from "@/components/merchant/merchant-order-performance";
 import { money, type FoodStore } from "@/lib/food-merchant";
 import { fetchMerchantStripeFinance, type MerchantStripeFinance } from "@/lib/merchant-core";
 import {
@@ -126,6 +127,7 @@ export function MerchantFinance({
         </button>
       </div>
       <p className="wm-fin-range">{current ? `${rangeLabel(range)} · ${current.orders} ออเดอร์` : rangeLabel(range)}</p>
+      <MerchantOrderPerformance client={client} storeId={store.id} range={range} refreshKey={refreshKey} />
 
       {error ? (
         <div className="wm-empty wm-empty--compact"><MerchantIcon3D name="finance" size={64} /><strong>{error}</strong></div>

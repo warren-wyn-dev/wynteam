@@ -126,23 +126,32 @@ Deno.serve(async (req: Request) => {
     return json({ error: "gp_quote_failed", message: "เปิดหน้าชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 503);
   }
 
-  const { data: existing } = await admin.from("food_stripe_payments")
+  const { data: existing, error: existingError } = await admin.from("food_stripe_payments")
     .select("checkout_session_id,attempt,status").eq("order_id", order.id).maybeSingle();
+  if (existingError) return json({ error: "payment_record_unavailable" }, 503);
 
   let attempt = Number(existing?.attempt ?? 1);
-  if (existing?.checkout_session_id && existing.status === "pending") {
+  if (existing?.status === "paid" || existing?.status === "refunded") {
+    return json({ error: "payment_already_completed" }, 409);
+  }
+  if (existing?.checkout_session_id) {
     try {
       const session = await stripeJson(
         `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(existing.checkout_session_id)}`,
         { headers: stripeHeaders(stripeSecret, account.stripe_account_id) },
       );
-      if (session.status === "open" && typeof session.url === "string") {
+      if (session.payment_status === "paid") return json({ error: "payment_already_completed" }, 409);
+      if (session.status === "open" && session.payment_status === "unpaid" && typeof session.url === "string") {
         return json({ url: session.url, sessionId: session.id, reused: true });
       }
-      if (session.payment_status === "paid") return json({ error: "payment_already_completed" }, 409);
+      // A completed asynchronous payment can still be processing. An unknown
+      // response must not create another payable session for this order.
+      if (session.status !== "expired" || session.payment_status !== "unpaid") {
+        return json({ error: "stripe_checkout_unavailable", message: "ยังตรวจสอบหน้าชำระเงินเดิมไม่ได้ กรุณาลองใหม่อีกครั้ง" }, 503);
+      }
       attempt += 1;
     } catch {
-      attempt += 1;
+      return json({ error: "stripe_checkout_unavailable", message: "ยังตรวจสอบหน้าชำระเงินเดิมไม่ได้ กรุณาลองใหม่อีกครั้ง" }, 503);
     }
   }
 

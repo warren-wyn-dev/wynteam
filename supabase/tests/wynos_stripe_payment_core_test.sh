@@ -29,7 +29,8 @@ MENU=00000000-0000-0000-0000-000000000066
 run >/dev/null <<SQL
 do \$\$ begin create role anon; exception when duplicate_object then null; end \$\$;
 do \$\$ begin create role authenticated; exception when duplicate_object then null; end \$\$;
-do \$\$ begin create role service_role; exception when duplicate_object then null; end \$\$;
+do \$\$ begin create role service_role bypassrls; exception when duplicate_object then null; end \$\$;
+alter role service_role bypassrls; -- Match Supabase's server-only role in this local cluster.
 create schema auth; create schema internal;
 create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('test.uid',true),'')::uuid \$\$;
 create table auth.users(id uuid primary key);
@@ -97,6 +98,10 @@ run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_payment_core_v1.sql"
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_payment_core_v1.sql"
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_connect_v2_embedded.sql"
 run >/dev/null < "$ROOT/supabase/migrations_wynos_stripe_connect_v2_embedded.sql"
+run >/dev/null < "$ROOT/supabase/migrations/20261013050100_food_stripe_event_integrity.sql"
+run >/dev/null < "$ROOT/supabase/migrations/20261013050100_food_stripe_event_integrity.sql"
+run >/dev/null < "$ROOT/supabase/migrations/20261013050101_food_stripe_historical_account.sql"
+run >/dev/null < "$ROOT/supabase/migrations/20261013050101_food_stripe_historical_account.sql"
 pass "Stripe core and v2 hardening migrations apply twice"
 
 [ "$(val "set role authenticated; set test.uid='$OWNER'; select public.merchant_stripe_status('$STORE')->>'status'")" = "not_connected" ] || fail "unconnected status"
@@ -185,6 +190,21 @@ PAID_SQL="set role service_role; select public.food_apply_stripe_event(
 [ "$(val "select payment_status||'|'||payment_provider||'|'||stripe_payment_intent_id from public.food_orders where id='$ORDER'")" = "paid|stripe|pi_1" ] || fail "order becomes paid"
 pass "verified webhook marks order paid"
 
+val "set role service_role; select public.food_apply_stripe_event('evt_late_failed','payment_intent.payment_failed','$ORDER','acct_test_wynos','pi_old','cs_old','pi_old',12550,'thb','failed',null,null,null)" >/dev/null
+[ "$(val "select status from public.food_stripe_payments where order_id='$ORDER'")" = "paid" ] || fail "late payment failure regressed paid ledger"
+pass "late payment failure cannot regress paid ledger"
+[ "$(val "select payment_intent_id||'|'||checkout_session_id from public.food_stripe_payments where order_id='$ORDER'")" = "pi_1|cs_1" ] || fail "late failed payment overwrote settled identity"
+pass "late failure preserves the paid transaction identity"
+run -c "update public.food_orders set refund_status='pending',stripe_refund_id='re_1' where id='$ORDER'" >/dev/null
+REFUND_FAILED="set role service_role; select public.food_record_stripe_refund_failure('evt_refund_failed','refund.failed','$ORDER','acct_test_wynos','re_1','pi_1',12550,'thb')"
+[ "$(val "$REFUND_FAILED")" = "t" ] || fail "refund failure apply"
+[ "$(val "$REFUND_FAILED")" = "f" ] || fail "refund failure duplicate"
+[ "$(val "select payment_status||'|'||refund_status from public.food_orders where id='$ORDER'")" = "paid|failed" ] || fail "refund failed should retain paid"
+pass "refund failure changes refund only and deduplicates"
+expect_fail "refund failure wrong account is denied" "set role service_role; select public.food_record_stripe_refund_failure('evt_bad_refund','refund.failed','$ORDER','acct_other','re_1','pi_1',12550,'thb')" "refund account or payment mismatch"
+[ "$(val "select count(*) from public.food_stripe_webhook_events where event_id='evt_bad_refund'")" = "0" ] || fail "bad refund event tombstone"
+[ "$(val "select has_function_privilege('authenticated','public.food_record_stripe_refund_failure(text,text,uuid,text,text,text,bigint,text)','execute')")" = "f" ] || fail "buyer can fail refund"
+
 expect_fail "legacy refund RPC cannot fake a Stripe refund" \
   "set role authenticated; set test.uid='$OWNER'; select public.merchant_set_refund_status('$ORDER','refunded','manual')" \
   "stripe refunds must be processed through the payment gateway"
@@ -202,10 +222,55 @@ expect_fail "wrong amount is rejected"   "set role service_role; select public.f
 pass "rejected event leaves no idempotency tombstone"
 
 expect_fail "wrong connected account is rejected"   "set role service_role; select public.food_apply_stripe_event('evt_bad_account','checkout.session.completed','$ORDER','acct_other','cs_3','cs_3','pi_3',12550,'thb','paid','card',null,null)"   "stripe account mismatch"
+run -c "update public.food_stripe_accounts set stripe_account_id='acct_new_mapping' where store_id='$STORE'" >/dev/null
+
+expect_fail "same-account refund for another payment cannot refund this order" \
+  "set role service_role; select public.food_apply_stripe_event('evt_refund_wrong_pi','refund.updated','$ORDER','acct_test_wynos','re_other',null,'pi_other',12550,'thb','refunded',null,null,'re_other')" \
+  "refund payment intent mismatch"
+expect_fail "refund without a payment identity is rejected" \
+  "set role service_role; select public.food_apply_stripe_event('evt_refund_null_pi','refund.updated','$ORDER','acct_test_wynos','re_missing',null,null,12550,'thb','refunded',null,null,'re_missing')" \
+  "refund payment intent mismatch"
+[ "$(val "select count(*) from public.food_stripe_webhook_events where event_id in ('evt_refund_wrong_pi','evt_refund_null_pi')")" = "0" ] || fail "invalid refund PI left event tombstones"
+[ "$(val "select payment_status from public.food_orders where id='$ORDER'")" = "paid" ] || fail "invalid refund PI changed paid order"
+pass "invalid refund identity rolls back atomically"
 
 [ "$(val "set role service_role; select public.food_apply_stripe_event('evt_refund','refund.updated','$ORDER','acct_test_wynos','re_1',null,'pi_1',12550,'thb','refunded',null,null,'re_1')")" = "t" ] || fail "refund event applies"
 [ "$(val "select payment_status||'|'||refund_status||'|'||stripe_refund_id from public.food_orders where id='$ORDER'")" = "refunded|refunded|re_1" ] || fail "refund finalizes"
 pass "Stripe webhook finalizes full refund"
+val "set role service_role; select public.food_apply_stripe_event('evt_paid_after_refund','checkout.session.completed','$ORDER','acct_test_wynos','cs_1','cs_1','pi_1',12550,'thb','paid',null,null,null)" >/dev/null
+[ "$(val "select status from public.food_stripe_payments where order_id='$ORDER'")" = "refunded" ] || fail "late paid regressed refund ledger"
+val "set role service_role; select public.food_record_stripe_refund_failure('evt_failure_after_refund','refund.failed','$ORDER','acct_test_wynos','re_1','pi_1',12550,'thb')" >/dev/null
+[ "$(val "select payment_status||'|'||refund_status from public.food_orders where id='$ORDER'")" = "refunded|refunded" ] || fail "late failed regressed refund"
+pass "out of order paid/failed refund events preserve refunded state"
+
+LEGACY_ORDER=00000000-0000-0000-0000-000000000077
+AMBIGUOUS_ORDER=00000000-0000-0000-0000-000000000088
+run >/dev/null <<SQL
+insert into public.food_orders(id,order_number,store_id,buyer_id,total,status,payment_status,payment_provider,stripe_payment_intent_id)
+values ('$LEGACY_ORDER','WF9002','$STORE','$BUYER',125.50,'cancelled','paid','stripe','pi_legacy'),
+       ('$AMBIGUOUS_ORDER','WF9003','$STORE','$BUYER',125.50,'cancelled','paid','stripe',null);
+SQL
+expect_fail "legacy order still rejects a refund for another payment" \
+  "set role service_role; select public.food_apply_stripe_event('evt_legacy_wrong_pi','refund.updated','$LEGACY_ORDER','acct_new_mapping','re_legacy_wrong',null,'pi_other',12550,'thb','refunded',null,null,'re_legacy_wrong')" \
+  "refund payment intent mismatch"
+expect_fail "legacy missing identity requires reconciliation before refund confirmation" \
+  "set role service_role; select public.food_apply_stripe_event('evt_legacy_ambiguous','refund.updated','$AMBIGUOUS_ORDER','acct_new_mapping','re_ambiguous',null,'pi_unknown',12550,'thb','refunded',null,null,'re_ambiguous')" \
+  "refund payment intent mismatch"
+[ "$(val "set role service_role; select public.food_apply_stripe_event('evt_legacy_refund','refund.updated','$LEGACY_ORDER','acct_new_mapping','re_legacy',null,'pi_legacy',12550,'thb','refunded',null,null,'re_legacy')")" = "t" ] || fail "legacy canonical PI refund denied"
+[ "$(val "select payment_status from public.food_orders where id='$LEGACY_ORDER'")" = "refunded" ] || fail "legacy canonical refund did not finalize"
+pass "legacy canonical payment identity supports refunds without a ledger"
+
+PENDING_ORDER=00000000-0000-0000-0000-000000000099
+run -c "insert into public.food_orders(id,order_number,store_id,buyer_id,total,status,payment_status,payment_provider,stripe_payment_intent_id) values ('$PENDING_ORDER','WF9004','$STORE','$BUYER',125.50,'pending','pending','stripe','pi_pending')" >/dev/null
+EARLY_REFUND="set role service_role; select public.food_apply_stripe_event('evt_early_refund','refund.updated','$PENDING_ORDER','acct_new_mapping','re_before_paid',null,'pi_pending',12550,'thb','refunded',null,null,'re_before_paid')"
+expect_fail "refund delivered before paid is deferred for provider retry" "$EARLY_REFUND" "payment not settled; retry refund webhook"
+[ "$(val "select payment_status from public.food_orders where id='$PENDING_ORDER'")" = "pending" ] || fail "early refund changed pending order"
+[ "$(val "select count(*) from public.food_stripe_payments where order_id='$PENDING_ORDER'")" = "0" ] || fail "early refund created settled ledger"
+[ "$(val "select count(*) from public.food_stripe_webhook_events where event_id='evt_early_refund'")" = "0" ] || fail "early refund left retry tombstone"
+val "set role service_role; select public.food_apply_stripe_event('evt_pending_paid','checkout.session.completed','$PENDING_ORDER','acct_new_mapping','cs_pending','cs_pending','pi_pending',12550,'thb','paid','card',null,null)" >/dev/null
+[ "$(val "$EARLY_REFUND")" = "t" ] || fail "same deferred refund event could not retry after payment settled"
+[ "$(val "select o.payment_status||'|'||p.status from public.food_orders o join public.food_stripe_payments p on p.order_id=o.id where o.id='$PENDING_ORDER'")" = "refunded|refunded" ] || fail "paid then deferred refund did not finalize consistently"
+pass "paid event followed by deferred refund retry finalizes both records"
 
 [ "$(val "select has_function_privilege('authenticated','public.food_apply_stripe_event(text,text,uuid,text,text,text,text,bigint,text,text,text,text,text)','execute')")" = "f" ] || fail "authenticated can execute webhook mutation"
 [ "$(val "select has_function_privilege('service_role','public.food_apply_stripe_event(text,text,uuid,text,text,text,text,bigint,text,text,text,text,text)','execute')")" = "t" ] || fail "service role cannot execute webhook mutation"

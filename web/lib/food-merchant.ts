@@ -5,6 +5,9 @@ import { imageUploadType } from "@/lib/upload-image";
 import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { foodSoldOutUntilTomorrowBangkok } from "@/lib/food-store-availability";
 import { sessionErrorCopy } from "@/lib/supabase/clock-skew-fetch";
+import { normalizeFoodMenuOptionGroups, type FoodMenuOptionGroup } from "@/lib/food-option-rules";
+
+export type { FoodMenuOptionChoice, FoodMenuOptionGroup } from "@/lib/food-option-rules";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 
@@ -63,20 +66,6 @@ export type FoodStore = {
   admin_suspended_reason?: string | null;
   created_at: string;
   updated_at: string;
-};
-
-export type FoodMenuOptionChoice = {
-  id: string;
-  name: string;
-  price: number | string;
-};
-
-export type FoodMenuOptionGroup = {
-  id: string;
-  name: string;
-  required: boolean;
-  max_select: number;
-  choices: FoodMenuOptionChoice[];
 };
 
 export type FoodMenuItem = {
@@ -158,6 +147,7 @@ export type FoodOrder = {
   campaign_discount: number | string;
   delivery_discount: number | string;
   total: number | string;
+  small_order_fee?: number | string;
   eta_minutes: number | null;
   accepted_at: string | null;
   ready_at: string | null;
@@ -600,19 +590,7 @@ export async function saveMenuItem(client: SupabaseClient, storeId: string, draf
     description: draft.description.trim() || null,
     price,
     image_path: draft.image_path || null,
-    options: (draft.options ?? []).map((group) => ({
-      id: String(group.id || "").trim(),
-      name: String(group.name || "").trim(),
-      required: Boolean(group.required),
-      max_select: Math.max(1, Number(group.max_select) || 1),
-      choices: (group.choices ?? [])
-        .map((choice) => ({
-          id: String(choice.id || "").trim(),
-          name: String(choice.name || "").trim(),
-          price: Math.max(0, Number(choice.price) || 0),
-        }))
-        .filter((choice) => choice.name),
-    })).filter((group) => group.name && group.choices.length),
+    options: normalizeFoodMenuOptionGroups(draft.options ?? []),
     is_available: draft.is_available,
     sold_out_until: draft.sold_out_until ?? null,
     daily_stock_limit: draft.daily_stock_limit == null || draft.daily_stock_limit === "" ? null : Math.max(1, Number(draft.daily_stock_limit) || 1),
@@ -689,6 +667,19 @@ export async function transitionFoodOrder(client: SupabaseClient, orderId: strin
   if (error) throw new Error(error.message);
 }
 
+/** Preserve older installations only when the additive RPC is unavailable. */
+export async function rejectFoodOrder(client: SupabaseClient, orderId: string, reason: string) {
+  const note = reason.trim();
+  if (!note || note.length > 1000) throw new Error("กรุณาระบุเหตุผลไม่เกิน 1,000 ตัวอักษร");
+  const { error } = await client.rpc("food_reject_order", { p_order_id: orderId, p_reason: note });
+  if (!error) return;
+  if (error.code === "PGRST202" || error.code === "42883") {
+    await transitionFoodOrder(client, orderId, "cancelled", undefined, note);
+    return;
+  }
+  throw new Error(error.message);
+}
+
 export async function completeFoodDelivery(
   client: SupabaseClient,
   orderId: string,
@@ -709,6 +700,7 @@ export function subscribeMerchantOrders(
   client: SupabaseClient,
   storeId: string,
   onOrderChange: (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => void,
+  onSubscriptionStatus?: (status: string) => void,
 ): RealtimeChannel {
   return client
     .channel(`wynos-merchant-orders:${storeId}`)
@@ -717,7 +709,7 @@ export function subscribeMerchantOrders(
       { event: "*", schema: "public", table: "food_orders", filter: `store_id=eq.${storeId}` },
       (payload) => onOrderChange(payload as unknown as { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }),
     )
-    .subscribe();
+    .subscribe(onSubscriptionStatus);
 }
 
 export function statusLabel(status: FoodOrder["status"]) {
