@@ -18,7 +18,6 @@ export const EN_EXACT: Record<string, string> = {
   "ร้านนี้ยังไม่มีเมนูที่พร้อมขาย": "This restaurant has no available dishes yet",
   "ร้านอาหารที่เปิดเผยแพร่": "Available restaurants",
   "แบนเนอร์ WYNOS Food": "WYNOS Food banners",
-  "ร้านแนะนำ": "Featured restaurants",
   "กำลังโหลดร้านอาหาร…": "Loading restaurants…",
   "ยังไม่พบร้านอาหารที่ตรงกับการค้นหา": "No restaurants match your search",
   "เข้าสู่ระบบเพื่อยืนยันคำสั่งซื้อ": "Sign in to place your order",
