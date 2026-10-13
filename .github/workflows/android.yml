@@ -35,6 +35,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build and test
         run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug bundleRelease
+      # CI provides an installable debug APK for device QA only (not a Play release).
+      # No Supabase/Firebase credentials are injected into pull-request builds.
+      - name: Upload Beta 1 debug APK (device QA only)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-android-beta1-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+          if-no-files-found: error
       - name: Upload screen renders and reports
         if: always()
         uses: actions/upload-artifact@v4
