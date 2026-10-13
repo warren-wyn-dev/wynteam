@@ -3,6 +3,7 @@ package online.wynos.food.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,16 +24,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -131,15 +132,21 @@ fun FoodMenuOptionsDialog(
                                 horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(group.name, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 if (group.required) {
-                                    Text(stringResource(R.string.required_option), color = Red,
+                                    val groupComplete = selection[group.id].orEmpty().isNotEmpty()
+                                    Text(
+                                        stringResource(if (groupComplete) R.string.option_selected else R.string.required_option),
+                                        color = if (groupComplete) Color(0xFF1F8A4C) else Red,
                                         fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clip(CircleShape).background(RedSoft)
+                                        modifier = Modifier.clip(CircleShape)
+                                            .background(if (groupComplete) Color(0xFFE9F7EF) else RedSoft)
                                             .padding(horizontal = 11.dp, vertical = 4.dp))
+                                } else {
+                                    Text(
+                                        if (group.maxSelect == 1) stringResource(R.string.option_single_allowed)
+                                        else stringResource(R.string.option_up_to, group.maxSelect),
+                                        fontSize = 12.sp, color = Sub)
                                 }
                             }
-                            if (group.maxSelect > 1) Text(
-                                stringResource(R.string.option_up_to, group.maxSelect),
-                                fontSize = 12.sp, color = Sub, modifier = Modifier.padding(top = 3.dp))
                             group.choices.forEach { choice ->
                                 val chosen = choice.id in selection[group.id].orEmpty()
                                 val toggle = {
@@ -153,16 +160,24 @@ fun FoodMenuOptionsDialog(
                                 }
                                 Row(
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                                        .clickable { toggle() },
+                                        .clickable(role = if (group.maxSelect == 1) Role.RadioButton else Role.Checkbox) { toggle() },
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    if (group.maxSelect == 1) RadioButton(
-                                        selected = chosen, onClick = toggle,
-                                        colors = androidx.compose.material3.RadioButtonDefaults.colors(selectedColor = Red))
-                                    else Checkbox(
-                                        checked = chosen, onCheckedChange = { toggle() },
-                                        colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = Red))
+                                    val shape = if (group.maxSelect == 1) CircleShape else RoundedCornerShape(6.dp)
+                                    Box(
+                                        Modifier.size(22.dp)
+                                            .background(if (group.maxSelect > 1 && chosen) Red else Color.White, shape)
+                                            .border(
+                                                if (group.maxSelect == 1 && chosen) 7.dp else 2.dp,
+                                                if (chosen) Red else Color(0xFFC9C9D1), shape),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        if (group.maxSelect > 1 && chosen) {
+                                            Icon(Icons.Outlined.Check, contentDescription = null,
+                                                tint = Color.White, modifier = Modifier.size(14.dp))
+                                        }
+                                    }
                                     Text(choice.name, color = Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
                                     if (choice.price != "0") Text(
                                         stringResource(R.string.option_extra_price, choice.price),
@@ -173,6 +188,16 @@ fun FoodMenuOptionsDialog(
                         }
                     }
                     Spacer(Modifier.height(22.dp))
+                }
+                if (!valid) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
+                            .clip(RoundedCornerShape(13.dp)).background(Color(0xFFFFF6E5))
+                            .padding(horizontal = 14.dp, vertical = 13.dp),
+                    ) {
+                        Text(stringResource(R.string.select_required_hint),
+                            color = Color(0xFF9A5800), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().shadow(7.dp).background(Color.White)
