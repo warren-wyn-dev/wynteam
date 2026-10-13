@@ -115,4 +115,19 @@
     <string name="close">Close</string>
     <string name="menu_note_title">Note for the restaurant</string>
     <string name="menu_note_hint">e.g. no vegetables, sauce separately</string>
+    <string name="sign_in_to_quote">Sign in to WYNOS to get a server price quote</string>
+    <string name="loading_addresses">Loading saved addresses…</string>
+    <string name="addresses_load_error">Could not load saved addresses. Please try again.</string>
+    <string name="no_saved_addresses">No saved addresses. Add an address on the WYNOS Food website first.</string>
+    <string name="refresh_addresses">Refresh delivery addresses</string>
+    <string name="server_quote_button">Check server price and delivery</string>
+    <string name="server_quote_loading">Checking the server price…</string>
+    <string name="server_quote_error">Quote unavailable. Store, menu, or delivery area may have changed.</string>
+    <string name="server_quote_label">Server price quote</string>
+    <string name="server_delivery_fee">Delivery fee</string>
+    <string name="server_campaign_discount">Food discount</string>
+    <string name="server_delivery_discount">Delivery discount</string>
+    <string name="server_quote_total">Server-calculated total</string>
+    <string name="server_quote_needs_pin">Select a pinned address to confirm delivery pricing.</string>
+    <string name="server_quote_not_payment">Not an order or payment. Amounts may change before order confirmation.</string>
 </resources>

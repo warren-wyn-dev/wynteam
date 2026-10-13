@@ -48,4 +48,23 @@ class FoodCartTest {
     fun notesCannotExceedWebLength() {
         FoodCartDraft().add(store, menu, mapOf("spicy" to setOf("low")), 1, "x".repeat(251))
     }
+    @Test fun quantityUpdatesAndRemovesSpecificCustomizedItems() {
+        val first = FoodCartDraft().add(store, menu, mapOf("spicy" to setOf("low")), 2, "ไม่ใส่ผัก")
+        val another = first.add(store, menu, mapOf("spicy" to setOf("high")), 1, "ปกติ")
+        val edited = another.withQuantity(first.lines[0].identity, 1)
+        assertEquals(2, edited.lines.size)
+        assertEquals(1, edited.lines[0].quantity)
+        val removed = edited.withQuantity(first.lines[0].identity, 0)
+        assertEquals(1, removed.lines.size)
+        assertEquals("ปกติ", removed.lines.first().note)
+        val empty = removed.withQuantity(removed.lines.first().identity, 0)
+        assertEquals(0, empty.lines.size)
+        assertEquals(null, empty.storeId)
+    }
+    @Test(expected = IllegalArgumentException::class)
+    fun quantityEditRejectsUnknownLines() {
+        FoodCartDraft().add(store, menu, mapOf("spicy" to setOf("low")), 1)
+            .withQuantity("untrusted", 1)
+    }
+
 }
