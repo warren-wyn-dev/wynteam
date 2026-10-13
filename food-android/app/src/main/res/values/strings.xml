@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WYNOS Food (Beta Demo)</string>
+    <string name="home">หน้าหลัก</string>
+    <string name="orders">ออเดอร์</string>
+    <string name="account">บัญชี</string>
+    <string name="browse_heading">วันนี้อยากกินอะไร?</string>
+    <string name="browse_intro">ค้นพบอาหารอร่อยใกล้คุณ</string>
+    <string name="stores_heading">ร้านอาหาร</string>
+    <string name="menu_heading">เมนูแนะนำ</string>
+    <string name="demo_notice">โหมดตัวอย่าง — ยังไม่เชื่อมร้านอาหารหรือรับออเดอร์จริง</string>
+    <string name="sample_store">ร้านอาหารตัวอย่าง • ไม่ใช่ร้านจริง</string>
+    <string name="delivery_by_store">ร้านจัดส่งเอง</string>
+    <string name="order_disabled">สั่งอาหาร (ยังไม่เปิดใช้)</string>
+    <string name="orders_empty">ประวัติออเดอร์จะเปิดใช้หลังเชื่อมระบบจริง</string>
+    <string name="account_empty">WYNOS Account จะเปิดใช้ในขั้นตอนเชื่อมต่อระบบ</string>
+    <string name="coming_soon">อยู่ระหว่างพัฒนา</string>
+    <string name="back">ย้อนกลับ</string>
+    <string name="promotional_title">WYNOS Food</string>
+    <string name="promotional_subtitle">เลือกของอร่อยในแบบของคุณ</string>
+</resources>
