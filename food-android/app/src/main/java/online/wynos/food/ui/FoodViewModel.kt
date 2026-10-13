@@ -8,6 +8,7 @@ import online.wynos.food.data.FoodHomeBanner
 import online.wynos.food.data.FoodCartDraft
 import online.wynos.food.data.FoodMenu
 import online.wynos.food.data.FoodOrderSummary
+import online.wynos.food.data.FoodOrderDetail
 import online.wynos.food.data.FoodCustomerAddress
 import online.wynos.food.data.FoodAddressDraft
 import online.wynos.food.data.FoodServerQuote
@@ -29,6 +30,10 @@ data class FoodUiState(
     val orders: List<FoodOrderSummary> = emptyList(),
     val ordersLoading: Boolean = false,
     val ordersFailed: Boolean = false,
+    val selectedOrderId: String? = null,
+    val orderDetail: FoodOrderDetail? = null,
+    val orderDetailLoading: Boolean = false,
+    val orderDetailFailed: Boolean = false,
     val addresses: List<FoodCustomerAddress> = emptyList(),
     val addressesLoading: Boolean = false,
     val addressesFailed: Boolean = false,
@@ -56,6 +61,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     private var accountGeneration = 0L
     private var addressGeneration = 0L
     private var orderGeneration = 0L
+    private var orderDetailGeneration = 0L
     private var quoteGeneration = 0L
 
     private fun invalidateQuote() {
@@ -69,6 +75,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         accountGeneration++
         addressGeneration++
         orderGeneration++
+        orderDetailGeneration++
+        mutableState.update { it.copy(selectedOrderId = null, orderDetail = null, orderDetailLoading = false, orderDetailFailed = false) }
         invalidateQuote()
     }
 
@@ -127,7 +135,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         mutableState.update {
             it.copy(accountBusy = true, accountFailed = false, resetEmailSent = false,
                 accountLoading = false, orders = emptyList(), addresses = emptyList(),
-                ordersLoading = false, addressesLoading = false, selectedAddressId = null)
+                ordersLoading = false, addressesLoading = false, selectedAddressId = null,
+                selectedOrderId = null, orderDetail = null, orderDetailLoading = false, orderDetailFailed = false)
         }
         viewModelScope.launch {
             try {
@@ -161,6 +170,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                 mutableState.update { it.copy(
                     accountBusy = false, accountEmail = null, accountLoading = false,
                     orders = emptyList(), ordersLoading = false, ordersFailed = false,
+                    selectedOrderId = null, orderDetail = null, orderDetailLoading = false, orderDetailFailed = false,
                     cart = FoodCartDraft(), addresses = emptyList(), addressesLoading = false,
                     addressesFailed = false, selectedAddressId = null,
                     addressBusy = false, addressMutationError = false, addressMutationSuccess = false,
@@ -341,6 +351,45 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                     mutableState.update { it.copy(quoteLoading = false, quoteFailed = true) }
                 }
             }
+        }
+    }
+
+    fun openOrderDetails(orderId: String) {
+        val current = mutableState.value
+        if (!gateway.configured || current.accountEmail == null ||
+            current.orders.none { it.id == orderId }) return
+        val session = accountGeneration
+        val generation = ++orderDetailGeneration
+        mutableState.update {
+            it.copy(selectedOrderId = orderId, orderDetail = null,
+                orderDetailLoading = true, orderDetailFailed = false)
+        }
+        viewModelScope.launch {
+            try {
+                val detail = gateway.orderDetail(orderId)
+                if (session != accountGeneration || generation != orderDetailGeneration) return@launch
+                mutableState.update { state ->
+                    if (state.accountEmail == null || state.selectedOrderId != orderId) state
+                    else state.copy(orderDetail = detail, orderDetailLoading = false,
+                        orderDetailFailed = detail == null)
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (session == accountGeneration && generation == orderDetailGeneration) {
+                    mutableState.update {
+                        it.copy(orderDetailLoading = false, orderDetailFailed = true)
+                    }
+                }
+            }
+        }
+    }
+
+    fun closeOrderDetails() {
+        orderDetailGeneration++
+        mutableState.update {
+            it.copy(selectedOrderId = null, orderDetail = null,
+                orderDetailLoading = false, orderDetailFailed = false)
         }
     }
 
