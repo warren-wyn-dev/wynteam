@@ -33,6 +33,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,16 +80,18 @@ private val Line = Color(0xFFEBEBEF)
 fun FoodMenuOptionsDialog(
     menu: FoodMenu,
     onDismiss: () -> Unit,
-    onAdd: (Map<String, Set<String>>, Int) -> Unit,
+    onAdd: (Map<String, Set<String>>, Int, String) -> Unit,
 ) {
     var selection by remember(menu.id) { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
     var quantity by remember(menu.id) { mutableIntStateOf(1) }
+    var note by rememberSaveable(menu.id) { mutableStateOf("") }
     val valid = menu.optionGroups.all { !it.required || selection[it.id].orEmpty().isNotEmpty() }
     val extra = menu.optionGroups.fold(BigDecimal.ZERO) { sum, group ->
         sum + group.choices.filter { it.id in selection[group.id].orEmpty() }
             .fold(BigDecimal.ZERO) { total, choice -> total + (choice.price.toBigDecimalOrNull() ?: BigDecimal.ZERO) }
     }
-    val estimate = ((menu.price.toBigDecimalOrNull() ?: BigDecimal.ZERO) + extra) * quantity.toBigDecimal()
+    val unit = (menu.price.toBigDecimalOrNull() ?: BigDecimal.ZERO) + extra
+    val estimate = unit * quantity.toBigDecimal()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -123,7 +127,7 @@ fun FoodMenuOptionsDialog(
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(menu.name, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         menu.description?.let { Text(it, fontSize = 14.sp, color = Sub) }
-                        Text("฿" + menu.price, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text("฿" + unit.stripTrailingZeros().toPlainString(), color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     }
                     Box(Modifier.fillMaxWidth().height(8.dp).background(SurfaceGrey))
                     menu.optionGroups.forEach { group ->
@@ -195,9 +199,40 @@ fun FoodMenuOptionsDialog(
                             }
                         }
                     }
+                    if (!valid) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
+                                .clip(RoundedCornerShape(13.dp)).background(Color(0xFFFFF6E5))
+                                .padding(horizontal = 14.dp, vertical = 13.dp),
+                        ) {
+                            Text(stringResource(R.string.select_required_hint),
+                                color = Color(0xFF9A5800), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    Column(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(R.string.menu_note_title), color = Ink, fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold)
+                            Text("${note.length}/250", color = Sub, fontSize = 12.sp)
+                        }
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it.take(250) },
+                            placeholder = { Text(stringResource(R.string.menu_note_hint), color = Sub) },
+                            shape = RoundedCornerShape(14.dp),
+                            minLines = 2,
+                            maxLines = 4,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                     Spacer(Modifier.height(22.dp))
                 }
-                if (!valid) {
+                /* The required-options notice is part of the scroll area,
+                   like on the website, rather than covering the fixed footer. */
+                if (false && !valid) {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
                             .clip(RoundedCornerShape(13.dp)).background(Color(0xFFFFF6E5))
@@ -222,11 +257,11 @@ fun FoodMenuOptionsDialog(
                             enabled = quantity > 1) { Text("−", fontSize = 22.sp, color = Ink) }
                         Text(quantity.toString(), fontSize = 16.sp, color = Ink, fontWeight = FontWeight.Bold)
                         TextButton(
-                            onClick = { quantity = (quantity + 1).coerceAtMost(20) },
-                            enabled = quantity < 20) { Text("+", fontSize = 21.sp, color = Ink) }
+                            onClick = { quantity = (quantity + 1).coerceAtMost(99) },
+                            enabled = quantity < 99) { Text("+", fontSize = 21.sp, color = Ink) }
                     }
                     Button(
-                        onClick = { onAdd(selection, quantity) },
+                        onClick = { onAdd(selection, quantity, note.trim()) },
                         enabled = valid,
                         modifier = Modifier.weight(1f).height(52.dp),
                         shape = CircleShape,
@@ -282,6 +317,9 @@ fun FoodCartPreview(cart: FoodCartDraft, onDismiss: () -> Unit, onClear: () -> U
                                     Text("×" + line.quantity, fontSize = 13.sp, color = Sub)
                                     if (line.options.isNotEmpty()) Text(
                                         line.options.joinToString(" · ") { it.name },
+                                        color = Sub, fontSize = 12.sp)
+                                    if (line.note.isNotBlank()) Text(
+                                        stringResource(R.string.menu_note_title) + ": " + line.note,
                                         color = Sub, fontSize = 12.sp)
                                 }
                                 Text("฿" + line.estimatedTotal().stripTrailingZeros().toPlainString(),
