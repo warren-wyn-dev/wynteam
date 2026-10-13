@@ -58,7 +58,7 @@
     <string name="public_stores">Published restaurants</string>
     <string name="recommended_stores">Recommended stores</string>
     <string name="store_menu_count">%1$d menu items</string>
-    <string name="store_delivery">Delivery %1$s THB</string>
+    <string name="store_delivery">Delivery %1$s</string>
     <string name="public_store_closed">Closed</string>
     <string name="delivery_to">Deliver to</string>
     <string name="select_delivery">Choose delivery address</string>
@@ -102,4 +102,15 @@
     <string name="readonly_order_notice">Read-only in Android Beta</string>
     <string name="account_signup_pending">Android registration is still in development</string>
     <string name="store_meta_guest">%1$d items · delivery from ฿%2$s</string>
+    <string name="required_option">Required</string>
+    <string name="option_up_to">Choose up to %1$d</string>
+    <string name="cart_add_total">Add to cart · ฿%1$s</string>
+    <string name="select_required_options">Select required options</string>
+    <string name="cart_empty">Your cart is empty</string>
+    <string name="estimated_subtotal_label">Estimated food subtotal</string>
+    <string name="option_selected">Selected</string>
+    <string name="option_single_allowed">Choose 1 option</string>
+    <string name="select_required_hint">Please select all required options</string>
+    <string name="option_required_single">Choose 1 option</string>
+    <string name="close">Close</string>
 </resources>

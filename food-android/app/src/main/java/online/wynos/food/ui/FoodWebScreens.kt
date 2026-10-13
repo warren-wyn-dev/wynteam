@@ -115,7 +115,7 @@ private fun WebImage(path: String?, bucket: String, modifier: Modifier = Modifie
 
 @Composable
 fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Color.White).padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 6.dp)) {
+    Column(Modifier.fillMaxWidth().background(Color.White).padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Image(
@@ -247,8 +247,8 @@ fun WebHomeScreen(
                     Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 9.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(Brush.horizontalGradient(listOf(WebRedSoft, Color.White)))
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                        .padding(15.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Surface(color = Color.White, shape = CircleShape) {
                         Row(
@@ -260,15 +260,15 @@ fun WebHomeScreen(
                             Text(stringResource(R.string.guest_location), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                         }
                     }
-                    Text(stringResource(R.string.guest_hero_title), fontSize = 22.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold, color = WebInk)
-                    Text(stringResource(R.string.guest_hero_note), fontSize = 14.sp, lineHeight = 22.sp, color = WebSub)
+                    Text(stringResource(R.string.guest_hero_title), fontSize = 20.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = WebInk)
+                    Text(stringResource(R.string.guest_hero_note), fontSize = 13.sp, lineHeight = 18.sp, color = WebSub)
                 }
             }
         }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-                    .height(48.dp).clip(CircleShape).background(WebChip).padding(horizontal = 16.dp),
+                    .height(44.dp).clip(CircleShape).background(WebChip).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -329,7 +329,7 @@ fun WebHomeScreen(
             }
             filtered.isEmpty() -> item { CenterStateText(R.string.no_stores) }
             else -> {
-                item { SectionTitleWeb(stringResource(if (guest) R.string.public_stores else R.string.recommended_stores)) }
+                item { SectionTitleWeb(stringResource(if (guest) R.string.public_stores else R.string.recommended_stores), topSpacing = if (guest) 10 else 21) }
                 items(filtered.chunked(2), key = { row -> row.first().id }) { row ->
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -387,13 +387,13 @@ private fun BannerStrip(banners: List<FoodHomeBanner>, onStore: (String) -> Unit
 }
 
 @Composable
-private fun SectionTitleWeb(title: String) {
+private fun SectionTitleWeb(title: String, topSpacing: Int = 21) {
     Text(
         title,
         color = WebInk,
         fontWeight = FontWeight.Bold,
         fontSize = 18.sp,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 21.dp, bottom = 5.dp),
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = topSpacing.dp, bottom = 5.dp),
     )
 }
 
