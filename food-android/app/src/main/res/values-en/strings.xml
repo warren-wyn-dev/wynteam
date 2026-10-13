@@ -108,4 +108,7 @@
     <string name="select_required_options">Select required options</string>
     <string name="cart_empty">Your cart is empty</string>
     <string name="estimated_subtotal_label">Estimated food subtotal</string>
+    <string name="option_selected">Selected</string>
+    <string name="option_single_allowed">Choose 1 option</string>
+    <string name="select_required_hint">Please select all required options</string>
 </resources>

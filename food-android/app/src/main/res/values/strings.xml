@@ -108,4 +108,7 @@
     <string name="select_required_options">เลือกตัวเลือกที่จำเป็นก่อน</string>
     <string name="cart_empty">ตะกร้ายังว่างอยู่</string>
     <string name="estimated_subtotal_label">ยอดรวมค่าอาหารโดยประมาณ</string>
+    <string name="option_selected">เลือกแล้ว</string>
+    <string name="option_single_allowed">เลือกได้ 1 รายการ</string>
+    <string name="select_required_hint">กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ</string>
 </resources>
