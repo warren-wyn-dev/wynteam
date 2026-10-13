@@ -116,7 +116,7 @@ fun SearchScreen(vm: SearchViewModel, posts: SearchPostsViewModel, nav: SearchNa
         AlertDialog(
             onDismissRequest = vm::dismissConfirm,
             containerColor = c.bg,
-            title = { Text(stringResource(R.string.follow_cancel_confirm, person.username), color = c.text, fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+            title = { Text(stringResource(R.string.follow_cancel_confirm, person.username), color = c.text, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             confirmButton = { TextButton(onClick = { vm.follow(person, confirmed = true) }) { Text(stringResource(R.string.follow_cancel), color = Color(0xFFE0203D), fontWeight = FontWeight.Bold) } },
             dismissButton = { TextButton(onClick = vm::dismissConfirm) { Text(stringResource(R.string.cancel), color = c.textSecondary) } },
         )
@@ -235,7 +235,7 @@ private fun LazyListScope.discovery(vm: SearchViewModel, nav: SearchNavigation) 
 private fun SectionTitle(title: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) {
     val c = Wyn.colors
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, color = c.text, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text(title, color = c.text, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         if (action != null && onAction != null) {
             Text(
                 action, color = Sapphire, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
@@ -255,7 +255,7 @@ fun HashtagRow(rank: Int, tag: RankedHashtag, showMore: Boolean) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(rank.toString(), color = c.textMuted, fontSize = 17.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End, modifier = Modifier.width(28.dp))
+            Text(rank.toString(), color = c.textMuted, fontSize = 16.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End, modifier = Modifier.width(28.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("#${tag.tag}", color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(stringResource(R.string.hashtag_meta, memberCount(tag.postCount)), color = c.textSecondary, fontSize = 12.sp)
@@ -283,7 +283,7 @@ private fun LazyListScope.status(vm: SearchViewModel, empty: Boolean, emptyText:
         vm.loading && empty -> item(key = "loading") { loading() }
         vm.error != null && empty -> item(key = "error") {
             Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(vm.error.text().orEmpty(), color = Wyn.colors.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+                Text(vm.error.text().orEmpty(), color = Wyn.colors.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(12.dp))
                 PillButton(stringResource(R.string.retry), filled = false, outlined = true, onClick = vm::load)
             }
@@ -363,11 +363,11 @@ private fun ClubRow(club: Club, onOpen: () -> Unit) {
                 if (club.iconUrl != null) {
                     AsyncImage(club.iconUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 } else {
-                    Text(club.name.take(1), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(club.name.take(1), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(club.name, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(club.name, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val meta = stringResource(R.string.clubs_members, memberCount(club.memberCount)) + (club.category?.takeIf { it.isNotEmpty() }?.let { " · $it" } ?: "")
                 Text(meta, color = c.textSecondary, fontSize = 13.sp, maxLines = 1)
             }
@@ -394,7 +394,7 @@ fun TrendingScreen(vm: TrendingViewModel, onBack: () -> Unit) {
             when {
                 vm.error != null -> item(key = "error") {
                     Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(vm.error.text().orEmpty(), color = c.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+                        Text(vm.error.text().orEmpty(), color = c.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(12.dp))
                         PillButton(stringResource(R.string.retry), filled = false, outlined = true, enabled = !vm.loading, onClick = vm::load)
                     }
@@ -422,7 +422,7 @@ fun BookmarksScreen(vm: BookmarksViewModel, nav: HomeNavigation, onBack: () -> U
                 when {
                     snapshot == null && vm.error != null -> item(key = "error") {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.bookmarks_failed), color = c.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+                            Text(stringResource(R.string.bookmarks_failed), color = c.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center)
                             Spacer(Modifier.height(12.dp))
                             PillButton(stringResource(R.string.retry), filled = false, outlined = true) { vm.load() }
                         }

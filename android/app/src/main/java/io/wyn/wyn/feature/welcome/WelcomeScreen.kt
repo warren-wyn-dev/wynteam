@@ -72,7 +72,7 @@ fun WelcomeScreen(
             )
             Text(
                 stringResource(R.string.welcome_headline),
-                color = c.text, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center,
+                color = c.text, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center,
             )
             Text(
                 stringResource(R.string.welcome_subtitle),

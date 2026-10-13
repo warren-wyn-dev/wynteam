@@ -92,7 +92,7 @@ fun PostDetailScreen(vm: PostDetailViewModel, onBack: () -> Unit, onOpenAuthor: 
         when {
             row == null && vm.loading -> DetailSkeleton()
             row == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(vm.error.text() ?: stringResource(R.string.post_not_found), color = c.textSecondary, fontSize = 15.sp)
+                Text(vm.error.text() ?: stringResource(R.string.post_not_found), color = c.textSecondary, fontSize = 14.5.sp)
             }
             else -> {
                 LazyColumn(Modifier.weight(1f)) {
@@ -161,7 +161,7 @@ private fun DetailHeader(onBack: () -> Unit) {
             Modifier.size(48.dp, 56.dp).clickable(role = Role.Button, onClick = onBack).semantics { contentDescription = back },
             contentAlignment = Alignment.Center,
         ) { Icon(WynIcons.Back, contentDescription = null, tint = c.text, modifier = Modifier.size(22.dp)) }
-        Text(stringResource(R.string.post_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+        Text(stringResource(R.string.post_title), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
     }
     HorizontalDivider(color = c.border, thickness = 1.dp)
 }
@@ -182,7 +182,7 @@ private fun PostBody(vm: PostDetailViewModel, row: FeedRow, onOpenAuthor: (Strin
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            row.authorLabel + if (row.authorIsVerified) " ✓" else "", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                            row.authorLabel + if (row.authorIsVerified) " ✓" else "", color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                         )
                         Spacer(Modifier.width(8.dp))
@@ -223,7 +223,7 @@ private fun PostBody(vm: PostDetailViewModel, row: FeedRow, onOpenAuthor: (Strin
         ) {
             Icon(WynIcons.Poll, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(27.dp))
-            Text(stringResource(R.string.view_activity), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.view_activity), color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Icon(WynIcons.ChevronRight, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(27.dp))
         }
     }
@@ -423,7 +423,7 @@ private fun SheetButton(icon: ImageVector, label: String, tint: Color, onClick: 
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(19.dp))
         Spacer(Modifier.width(14.dp))
-        Text(label, color = tint, fontSize = 15.sp)
+        Text(label, color = tint, fontSize = 14.5.sp)
     }
 }
 
@@ -436,7 +436,7 @@ private fun TextDialog(
     AlertDialog(
         onDismissRequest = onCancel,
         containerColor = c.bg,
-        title = { Text(title, color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold) },
+        title = { Text(title, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
         text = { WynTextField(title, value, onChange, placeholder.orEmpty(), singleLine = false, minHeight = 110) },
         confirmButton = { TextButton(onClick = onConfirm, enabled = enabled) { Text(confirm, color = if (enabled) c.text else c.textMuted, fontWeight = FontWeight.Bold) } },
         dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel), color = c.textSecondary) } },
@@ -449,7 +449,7 @@ private fun ConfirmDialog(title: String, body: String?, onConfirm: () -> Unit, o
     AlertDialog(
         onDismissRequest = onCancel,
         containerColor = c.bg,
-        title = { Text(title, color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold) },
+        title = { Text(title, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
         text = body?.let { { Text(it, color = c.textSecondary, fontSize = 14.sp) } },
         confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.delete), color = Color(0xFFB42318), fontWeight = FontWeight.Bold) } },
         dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel), color = c.textSecondary) } },
@@ -467,7 +467,7 @@ private fun ActivitySheet(vm: PostDetailViewModel) {
         containerColor = c.bg, shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp), dragHandle = null,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(54.dp).padding(start = 18.dp, end = 8.dp)) {
-            Text(stringResource(R.string.post_activity), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.post_activity), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Box(Modifier.size(44.dp).clickable { vm.open(null) }, contentAlignment = Alignment.Center) {
                 Icon(WynIcons.Close, contentDescription = stringResource(R.string.close), tint = c.text, modifier = Modifier.size(20.dp))
             }
