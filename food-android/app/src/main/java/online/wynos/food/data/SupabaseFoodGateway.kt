@@ -125,7 +125,7 @@ class SupabaseFoodGateway : FoodGateway {
                 "address", "delivery_note", "is_default", "latitude", "longitude",
                 "address_line1", "moo", "soi", "road", "subdistrict",
                 "district", "province", "postal_code", "building_name",
-                "floor", "room", "landmark",
+                "floor", "room", "landmark", "place_id", "place_name",
             )
         ) {
             filter { eq("user_id", owner) }
