@@ -9,6 +9,7 @@ import online.wynos.food.data.FoodCartDraft
 import online.wynos.food.data.FoodMenu
 import online.wynos.food.data.FoodOrderSummary
 import online.wynos.food.data.FoodCustomerAddress
+import online.wynos.food.data.FoodAddressDraft
 import online.wynos.food.data.FoodServerQuote
 import online.wynos.food.data.SupabaseFoodGateway
 import kotlinx.coroutines.CancellationException
@@ -31,6 +32,10 @@ data class FoodUiState(
     val addresses: List<FoodCustomerAddress> = emptyList(),
     val addressesLoading: Boolean = false,
     val addressesFailed: Boolean = false,
+    val addressWritesEnabled: Boolean = false,
+    val addressBusy: Boolean = false,
+    val addressMutationError: Boolean = false,
+    val addressMutationSuccess: Boolean = false,
     val selectedAddressId: String? = null,
     val quote: FoodServerQuote? = null,
     val quoteLoading: Boolean = false,
@@ -43,7 +48,7 @@ data class FoodUiState(
 )
 
 class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : ViewModel() {
-    private val mutableState = MutableStateFlow(FoodUiState(configured = gateway.configured))
+    private val mutableState = MutableStateFlow(FoodUiState(configured = gateway.configured, addressWritesEnabled = gateway.addressWritesEnabled))
     val uiState = mutableState.asStateFlow()
 
     // A request must belong to the currently active account AND current input generation.
@@ -158,6 +163,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                     orders = emptyList(), ordersLoading = false, ordersFailed = false,
                     cart = FoodCartDraft(), addresses = emptyList(), addressesLoading = false,
                     addressesFailed = false, selectedAddressId = null,
+                    addressBusy = false, addressMutationError = false, addressMutationSuccess = false,
                     quote = null, quoteLoading = false, quoteFailed = false,
                 ) }
                 refreshCatalog()
@@ -234,6 +240,68 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             } catch (_: Exception) {
                 if (session == accountGeneration && generation == addressGeneration) {
                     mutableState.update { it.copy(addressesLoading = false, addressesFailed = true) }
+                }
+            }
+        }
+    }
+
+    fun clearAddressMutationStatus() {
+        mutableState.update { it.copy(addressMutationError = false, addressMutationSuccess = false) }
+    }
+
+    fun saveAddress(draft: FoodAddressDraft) {
+        if (!gateway.addressWritesEnabled || !draft.validate() ||
+            mutableState.value.accountEmail == null || mutableState.value.addressBusy) {
+            mutableState.update { it.copy(addressMutationError = true, addressMutationSuccess = false) }
+            return
+        }
+        val session = accountGeneration
+        mutableState.update { it.copy(addressBusy = true, addressMutationError = false, addressMutationSuccess = false) }
+        viewModelScope.launch {
+            try {
+                val id = gateway.saveAddress(draft)
+                if (session != accountGeneration) return@launch
+                // Old quote, addresses, and order-related delivery assumptions are no longer valid.
+                invalidateQuote()
+                mutableState.update {
+                    it.copy(addressBusy = false, addressMutationSuccess = true, selectedAddressId = id)
+                }
+                refreshAddresses()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (session == accountGeneration) {
+                    mutableState.update {
+                        it.copy(addressBusy = false, addressMutationError = true, addressMutationSuccess = false)
+                    }
+                }
+            }
+        }
+    }
+
+    fun deleteAddress(id: String) {
+        if (!gateway.addressWritesEnabled || mutableState.value.accountEmail == null ||
+            mutableState.value.addressBusy || mutableState.value.addresses.none { it.id == id }) return
+        val session = accountGeneration
+        mutableState.update { it.copy(addressBusy = true, addressMutationError = false, addressMutationSuccess = false) }
+        viewModelScope.launch {
+            try {
+                gateway.deleteAddress(id)
+                if (session != accountGeneration) return@launch
+                invalidateQuote()
+                mutableState.update {
+                    it.copy(
+                        addressBusy = false, addressMutationSuccess = true,
+                        selectedAddressId = it.selectedAddressId?.takeUnless { selected -> selected == id },
+                        addresses = it.addresses.filterNot { row -> row.id == id },
+                    )
+                }
+                refreshAddresses()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (session == accountGeneration) {
+                    mutableState.update { it.copy(addressBusy = false, addressMutationError = true) }
                 }
             }
         }
