@@ -61,7 +61,7 @@ Deno.serve(async (req: Request) => {
   if (!orderId) return json({ error: "order_id_required" }, 400);
 
   const { data: order } = await admin.from("food_orders")
-    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status,stripe_refund_id")
+    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status,refund_note,stripe_refund_id")
     .eq("id", orderId).maybeSingle();
   if (!order) return json({ error: "order_not_found" }, 404);
 
@@ -75,6 +75,11 @@ Deno.serve(async (req: Request) => {
     return json({ error: "stripe_refund_not_eligible" }, 409);
   }
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
+  // An unknown Stripe outcome must be reconciled with the actual payment
+  // before anyone sends another refund request for this order.
+  if (order.refund_status === "pending" && order.refund_note?.startsWith("[RECONCILE]")) {
+    return json({ error: "refund_reconciliation_required" }, 409);
+  }
   // An automatic or merchant refund has reached Stripe and is awaiting a webhook.
   // Retry is allowed only after a failed/canceled refund has been recorded.
   if (order.refund_status === "pending" && order.stripe_refund_id) {
@@ -180,7 +185,7 @@ Deno.serve(async (req: Request) => {
     });
     const { error: flagError } = await admin.from("food_orders").update({
       refund_status: "pending",
-      refund_note: "กำลังตรวจสอบผลการคืนเงินกับ Stripe กรุณาติดต่อผู้ดูแลก่อนลองใหม่",
+      refund_note: "[RECONCILE] กำลังตรวจสอบผลการคืนเงินกับ Stripe กรุณาติดต่อผู้ดูแลก่อนลองใหม่",
       refund_updated_by: user.id,
     }).eq("id", order.id).eq("refund_status", order.refund_status).is("stripe_refund_id", null);
     if (flagError) console.error("merchant-stripe-refund pending marker failed", { order_id: order.id });
