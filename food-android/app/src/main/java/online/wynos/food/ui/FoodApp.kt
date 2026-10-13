@@ -85,13 +85,13 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         onAccount = { selectedStoreId = null; tab = 3 },
                         onCart = { homeCart = true },
                     )
-                } else {
+                } else if (!guest) {
                     val title = when (tab) {
-                        1 -> stringResource(R.string.orders)
+                        1 -> stringResource(R.string.my_orders_title)
                         2 -> stringResource(R.string.messages)
                         else -> stringResource(R.string.account)
                     }
-                    WebPageHeader(title, onBack = { tab = 0; selectedStoreId = null })
+                    WebTabHeader(title)
                 }
             }
         },
@@ -124,13 +124,18 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onStore = { selectedStoreId = it },
                     onRetry = vm::refreshCatalog,
                 )
-                tab == 1 -> OrdersContent(state, onRetry = vm::refreshOrders)
-                tab == 2 -> Placeholder(R.string.messages_unavailable)
-                else -> AccountContent(
+                tab == 1 -> WebOrdersPage(
+                    state = state,
+                    onRetry = vm::refreshOrders,
+                    onBrowse = { tab = 0 },
+                )
+                tab == 2 -> WebMessagesPage()
+                else -> WebAccountPage(
                     state = state,
                     onSignIn = vm::signIn,
                     onSignOut = vm::signOut,
                     onResetPassword = vm::requestPasswordReset,
+                    onOrders = { tab = 1 },
                 )
             }
         }
