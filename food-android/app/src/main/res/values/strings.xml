@@ -35,4 +35,21 @@
     <string name="signed_in_as">เข้าสู่ระบบ: %1$s</string>
     <string name="account_action_failed">ดำเนินการไม่สำเร็จ กรุณาตรวจข้อมูลและลองอีกครั้ง</string>
     <string name="reset_email_sent">หากอีเมลนี้มีบัญชี คุณจะได้รับลิงก์รีเซ็ตรหัสผ่าน</string>
+    <string name="view_cart">ดูตะกร้า (%1$d)</string>
+    <string name="cart_validation_error">ไม่สามารถเพิ่มเมนูได้ โปรดเลือกตัวเลือกให้ครบ และตรวจสอบว่าตะกร้าเป็นร้านเดียวกัน</string>
+    <string name="menu_unavailable">เมนูไม่พร้อมจำหน่าย</string>
+    <string name="sign_in_to_view_orders">กรุณาเข้าสู่ระบบเพื่อดูประวัติออเดอร์ของคุณ</string>
+    <string name="orders_load_failed">โหลดประวัติออเดอร์ไม่สำเร็จ</string>
+    <string name="orders_none">ยังไม่มีออเดอร์ในบัญชีนี้</string>
+    <string name="refresh_orders">รีเฟรชออเดอร์</string>
+    <string name="order_status_value">สถานะ: %1$s</string>
+    <string name="order_payment_value">ชำระเงิน: %1$s</string>
+    <string name="option_extra_price">+%1$s บาท</string>
+    <string name="quantity_label">จำนวน: %1$d</string>
+    <string name="add_to_cart">เพิ่มลงตะกร้า</string>
+    <string name="cart_title">ตะกร้าอาหาร</string>
+    <string name="cart_line">%1$s × %2$d — %3$s บาท</string>
+    <string name="estimated_subtotal">ยอดอาหารประมาณ %1$s บาท</string>
+    <string name="estimate_not_final">ยอดนี้ไม่ใช่ราคาชำระจริง ยังไม่รวมส่วนลด ค่าส่ง และค่าธรรมเนียม ระบบจะคำนวณจาก Server เมื่อเปิด Checkout</string>
+    <string name="clear_cart">ล้างตะกร้า</string>
 </resources>

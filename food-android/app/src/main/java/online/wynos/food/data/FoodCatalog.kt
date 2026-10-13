@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import java.math.BigDecimal
 
 /**
@@ -25,6 +26,16 @@ data class FoodStore(
     val menu: List<FoodMenu>,
 )
 
+data class FoodOptionChoice(val id: String, val name: String, val price: String)
+
+data class FoodOptionGroup(
+    val id: String,
+    val name: String,
+    val required: Boolean,
+    val maxSelect: Int,
+    val choices: List<FoodOptionChoice>,
+)
+
 data class FoodMenu(
     val id: String,
     val name: String,
@@ -32,7 +43,17 @@ data class FoodMenu(
     val description: String?,
     val price: String,
     val optionGroupNames: List<String>,
-)
+    val optionGroups: List<FoodOptionGroup> = emptyList(),
+    val soldOutUntil: String? = null,
+    val dailyStockLimit: Int? = null,
+) {
+    fun isAvailable(now: java.time.Instant = java.time.Instant.now()): Boolean {
+        if (dailyStockLimit != null && dailyStockLimit <= 0) return false
+        val soldOut = soldOutUntil?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+        return soldOut == null || !soldOut.isAfter(now)
+    }
+}
+
 
 object FoodCatalogParser {
     fun parse(raw: String): List<FoodStore> =
@@ -52,6 +73,24 @@ object FoodCatalogParser {
                 val groups = (menu["options"] as? JsonArray).orEmpty().mapNotNull {
                     (it as? JsonObject)?.text("name")?.takeIf(String::isNotBlank)
                 }
+                val optionGroups = (menu["options"] as? JsonArray).orEmpty().mapNotNull { groupElement ->
+                    val group = groupElement as? JsonObject ?: return@mapNotNull null
+                    val groupId = group.text("id")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                    val groupName = group.text("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                    val choices = (group["choices"] as? JsonArray).orEmpty().mapNotNull { choiceElement ->
+                        val choice = choiceElement as? JsonObject ?: return@mapNotNull null
+                        val choiceId = choice.text("id")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                        val choiceName = choice.text("name")?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                        FoodOptionChoice(choiceId, choiceName, choice.text("price").orEmpty().toPriceLabel())
+                    }
+                    FoodOptionGroup(
+                        id = groupId,
+                        name = groupName,
+                        required = (group["required"] as? JsonPrimitive)?.booleanOrNull == true,
+                        maxSelect = (group["max_select"] as? JsonPrimitive)?.intOrNull?.coerceIn(1, 50) ?: 1,
+                        choices = choices,
+                    )
+                }
                 FoodMenu(
                     id = menuId,
                     name = menuName,
@@ -59,6 +98,9 @@ object FoodCatalogParser {
                     description = menu.text("description"),
                     price = menu.text("price").orEmpty().toPriceLabel(),
                     optionGroupNames = groups,
+                    optionGroups = optionGroups,
+                    soldOutUntil = menu.text("sold_out_until"),
+                    dailyStockLimit = (menu["daily_stock_limit"] as? JsonPrimitive)?.intOrNull,
                 )
             }
             FoodStore(
