@@ -34,7 +34,19 @@ android {
     }
 
     buildTypes {
+        // Address mutations are disabled in ordinary APKs and ALL release builds.
+        // Explicit staging-only opt-in must name the exact connected staging project.
+        debug {
+            val projectRef = foodConfig("WYNOS_FOOD_STAGING_PROJECT_REF")
+            val targetUrl = foodConfig("WYNOS_FOOD_SUPABASE_URL")
+            val stagingAddressWrites = foodConfig("WYNOS_FOOD_ADDRESS_WRITE_STAGING") == "true" &&
+                projectRef.matches(Regex("[a-z0-9]{20}")) &&
+                projectRef != "kqokpocajhfbidcxpvhh" &&
+                targetUrl == "https://$projectRef.supabase.co"
+            buildConfigField("boolean", "ADDRESS_WRITES_ALLOWED", stagingAddressWrites.toString())
+        }
         release {
+            buildConfigField("boolean", "ADDRESS_WRITES_ALLOWED", "false")
             isMinifyEnabled = false // Enable and verify R8 before production.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
