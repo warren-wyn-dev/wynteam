@@ -26,6 +26,7 @@ import {
   Settings,
   Wallet,
   Truck,
+  Clock3,
   SlidersHorizontal,
   Images,
   type LucideIcon,
@@ -144,6 +145,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // top-level section. Read only; reads need merchant:view.
   { id: "merchant-finance", href: "/merchant/finance", label: "การเงินร้านค้า", icon: Wallet, group: "merchant", requires: { systems: ["merchant"] } },
   { id: "merchant-delivery", href: "/merchant/delivery", label: "ค่าส่งและรัศมีรายร้าน", icon: Truck, group: "merchant", requires: { systems: ["merchant"] } },
+  { id: "merchant-operations", href: "/merchant/operations", label: "เปิด–ปิดร้านและเวลาเตรียม", icon: Clock3, group: "merchant", requires: { systems: ["merchant"] } },
 
   systemDashboard("maps"),
   { id: "places", href: "/maps/places", label: "Place Management", icon: MapPinned, group: "maps", requires: { systems: ["maps"] } },
