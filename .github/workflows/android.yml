@@ -88,11 +88,20 @@ jobs:
           import json
           import os
           import sys
+          from urllib.parse import urlsplit
 
           url = os.environ.get("WYNOS_SUPABASE_URL", "").strip()
           key = os.environ.get("WYNOS_SUPABASE_PUBLISHABLE_KEY", "").strip()
           if not url.startswith("https://") or not key:
               sys.exit("::error::Configure Supabase HTTPS URL and publishable client key in android-qa.")
+          # supabase-kt 3.1.x throws IllegalStateException when the client URL
+          # is an API endpoint (/rest/v1, /auth/v1, ...), rather than the
+          # project base URL. Never print the configured URL or key.
+          parsed = urlsplit(url)
+          if (parsed.scheme != "https" or not parsed.hostname or parsed.username or
+              parsed.password or parsed.path not in ("", "/") or
+              parsed.query or parsed.fragment or any(ch.isspace() for ch in url)):
+              sys.exit("::error::SUPABASE_URL must be the HTTPS Project URL only (no /rest/v1, /auth/v1, path or query).")
           if key.startswith("sb_publishable_"):
               pass
           elif key.count(".") == 2:
