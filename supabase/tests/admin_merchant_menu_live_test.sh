@@ -66,7 +66,7 @@ expect_eq "$EDIT" "select (public.admin_update_merchant_menu_item('$ITEM','$OLD'
 expect_eq "$EDIT" "select name||'|'||price||'|'||is_available||'|'||daily_stock_limit from public.food_menu_items where id='$ITEM'" "Rice Bowl|59.00|false|20" "real menu updated"
 expect_fail "$EDIT" "$CHANGE" "stale edit denied" "Menu item changed"
 expect_eq "$EDIT" "select count(*) from audit_log where event_type='merchant_menu_updated' and detail->>'admin_menu_override'='true'" "1" "one audit"
-expect_eq "$EDIT" "select count(*) from audit_log where detail->'before'->>'price'='55' and detail->'after'->>'price'='59'" "1" "price history"
+expect_eq "$EDIT" "select count(*) from audit_log where (detail->'before'->>'price')::numeric=55 and (detail->'after'->>'price')::numeric=59" "1" "price history"
 expect_fail "$NONE" "$CHANGE" "outsider denied update" "Not authorized"
 expect_eq "$EDIT" "select has_function_privilege('anon','public.admin_update_merchant_menu_item(uuid,jsonb,text,text,text,numeric,boolean,integer,text)','EXECUTE')" "f" "anon no execute"
 echo "PASS Admin Merchant menu read/write, permission, price, stale conflicts, audit"
