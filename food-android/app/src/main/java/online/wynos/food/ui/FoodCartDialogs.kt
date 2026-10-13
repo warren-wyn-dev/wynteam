@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -268,7 +269,14 @@ fun FoodMenuOptionsDialog(
 }
 
 @Composable
-fun FoodCartPreview(cart: FoodCartDraft, onDismiss: () -> Unit, onClear: () -> Unit) {
+fun FoodCartPreview(
+    cart: FoodCartDraft,
+    onDismiss: () -> Unit,
+    onClear: () -> Unit,
+    state: FoodUiState? = null,
+    onQuote: () -> Unit = {},
+    onSelectAddress: (String?) -> Unit = {},
+) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -322,6 +330,73 @@ fun FoodCartPreview(cart: FoodCartDraft, onDismiss: () -> Unit, onClear: () -> U
                             color = Ink, fontWeight = FontWeight.Bold)
                     }
                     Text(stringResource(R.string.estimate_not_final), color = Sub, fontSize = 12.sp)
+                    if (state != null && cart.lines.isNotEmpty()) {
+                        HorizontalDivider(color = Line)
+                        Text(stringResource(R.string.delivery_addresses),
+                            color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        when {
+                            state.accountEmail == null ->
+                                Text(stringResource(R.string.sign_in_to_quote), color = Sub, fontSize = 13.sp)
+                            state.addressesLoading ->
+                                Text(stringResource(R.string.loading_addresses), color = Sub, fontSize = 13.sp)
+                            state.addressesFailed ->
+                                Text(stringResource(R.string.addresses_load_error), color = Red, fontSize = 13.sp)
+                            state.addresses.isEmpty() ->
+                                Text(stringResource(R.string.no_saved_addresses), color = Sub, fontSize = 13.sp)
+                            else -> state.addresses.forEach { address ->
+                                val selected = state.selectedAddressId == address.id
+                                Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
+                                        .background(if (selected) RedSoft else SurfaceGrey)
+                                        .clickable { onSelectAddress(address.id) }
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    androidx.compose.material3.RadioButton(
+                                        selected = selected, onClick = { onSelectAddress(address.id) },
+                                        colors = androidx.compose.material3.RadioButtonDefaults.colors(selectedColor = Red),
+                                    )
+                                    Column(Modifier.weight(1f)) {
+                                        Text(address.label, fontWeight = FontWeight.Bold, color = Ink)
+                                        Text(address.address, color = Sub, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = onQuote,
+                            enabled = state.accountEmail != null && !state.quoteLoading,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.server_quote_button)) }
+                        if (state.quoteLoading) {
+                            Text(stringResource(R.string.server_quote_loading), color = Sub, fontSize = 13.sp)
+                        }
+                        if (state.quoteFailed) {
+                            Text(stringResource(R.string.server_quote_error), color = Red, fontSize = 13.sp)
+                        }
+                        state.quote?.let { quote ->
+                            Column(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                                    .background(SurfaceGrey).padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(stringResource(R.string.server_quote_label), color = Ink,
+                                    fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                QuoteRow(stringResource(R.string.estimated_subtotal_label), quote.subtotal.toPlainString())
+                                QuoteRow(stringResource(R.string.server_delivery_fee), quote.deliveryFee.toPlainString())
+                                QuoteRow(stringResource(R.string.server_campaign_discount), "-" + quote.campaignDiscount.toPlainString())
+                                QuoteRow(stringResource(R.string.server_delivery_discount), "-" + quote.deliveryDiscount.toPlainString())
+                                HorizontalDivider(color = Line)
+                                QuoteRow(stringResource(R.string.server_quote_total), quote.total.toPlainString())
+                                if (quote.needsLocation) {
+                                    Text(stringResource(R.string.server_quote_needs_pin),
+                                        color = Red, fontSize = 12.sp)
+                                }
+                                Text(stringResource(R.string.server_quote_not_payment), color = Sub, fontSize = 12.sp)
+                            }
+                        }
+                    }
                 }
                 Box(Modifier.fillMaxWidth().shadow(8.dp).padding(16.dp)) {
                     Button(
@@ -332,5 +407,13 @@ fun FoodCartPreview(cart: FoodCartDraft, onDismiss: () -> Unit, onClear: () -> U
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun QuoteRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = Sub, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Text("฿" + value, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
