@@ -51,6 +51,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodGuestBrowse, readGuestFoodBasket, clearGuestFoodBasket } from "@/components/food/food-guest-browse";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fetchFoodHomeBanners, foodHomeBannerImage, type FoodHomeBanner } from "@/lib/food-home-banners";
+import { fetchFoodFeaturedStores, type FoodFeaturedPlacement } from "@/lib/food-featured-stores";
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
@@ -599,6 +600,7 @@ function StoreDirectory({
   const [filter, setFilter] = useState<FoodDirectoryFilter>("all");
   const [stores, setStores] = useState<FoodDirectoryStore[] | null>(null);
   const [homeBanners, setHomeBanners] = useState<FoodHomeBanner[]>([]);
+  const [featuredPlacements,setFeaturedPlacements]=useState<FoodFeaturedPlacement[]>([]);
   const [browse, setBrowse] = useState<"promos" | "recent" | "nearby" | "popular" | null>(null);
   const promoKey = `wynos-food-collected-promos-v1:${userId}`;
   const [collectedPromos, setCollectedPromos] = useState<string[]>(() => {
@@ -630,6 +632,12 @@ function StoreDirectory({
   const directory = stores ?? [];
   const distanceFor = (store: FoodDirectoryStore) => foodDistanceKm(customerLocation, store);
   const storeMap = new Map(directory.map((store) => [store.id, store]));
+
+  useEffect(() => {
+    let live=true;
+    void fetchFoodFeaturedStores(client).then(rows=>{if(live)setFeaturedPlacements(rows);});
+    return ()=>{live=false;};
+  },[client]);
 
   const recentStores = Array.from(new Set(
     [...orders]
@@ -667,6 +675,7 @@ function StoreDirectory({
     return a.name.localeCompare(b.name, "th");
   });
   const promoStores = directory.filter((store) => Boolean(store.promo_name));
+  const featuredStores=featuredPlacements.map(p=>filtered.find(store=>store.id===p.store_id)).filter((store):store is FoodDirectoryStore=>Boolean(store));
 
   const toggleCollected = (store: FoodDirectoryStore) => {
     const id = store.id;
@@ -788,6 +797,13 @@ function StoreDirectory({
               </button>
             ))}
           </div>
+
+          {filter === "all" && featuredStores.length > 0 ? (
+            <section className="fx-home-section" aria-label="ร้านแนะนำ">
+              <FoodHomeSectionHeader title="ร้านแนะนำ" />
+              <div className="fx-store-grid">{featuredStores.map(store=>card(store))}</div>
+            </section>
+          ) : null}
 
           {filter === "all" && promoStores.length ? (
             <section className="fx-home-section">
