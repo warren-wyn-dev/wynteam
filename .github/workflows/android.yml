@@ -2,8 +2,8 @@ name: Android
 
 # Wynos Android v1.0.0 Beta 1: the native Kotlin + Jetpack Compose app in
 # android/ (Founder decision 2026-09-27, docs/engineering/ANDROID_NATIVE_PLAN.md).
-# Builds the debug APK and runs the JVM tests (including the Roborazzi
-# screen renders, compared in verify mode once baselines are committed).
+# Builds the debug APK, verifies the unsigned release bundle with R8, and runs
+# the JVM tests + lint (including screenshot tests). Never signs or uploads to Play.
 on:
   pull_request:
     paths: ["android/**", ".github/workflows/android.yml"]
@@ -34,7 +34,7 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - name: Build and test
-        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug bundleRelease
       - name: Upload screen renders and reports
         if: always()
         uses: actions/upload-artifact@v4
