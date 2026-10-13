@@ -1,0 +1,65 @@
+name: WYNOS Food Web vs Native Screenshot QA
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/food-android-visual-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compare-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the exact QA APK shared with the tester
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 38429819491
+          name: wynos-food-android-debug
+          github-token: ${{ github.token }}
+          path: visual
+      - name: Capture WYNOS Food web at mobile width
+        shell: bash
+        run: |
+          mkdir -p visual
+          CHROME="$(command -v google-chrome || command -v chromium || true)"
+          if [ -z "$CHROME" ]; then echo "Chrome not available" >&2; exit 1; fi
+          "$CHROME" --headless --no-sandbox --disable-gpu --hide-scrollbars \
+            --disable-dev-shm-usage --window-size=390,844 \
+            --screenshot=visual/food-web-390.png \
+            https://food.wynos.online/
+          test -s visual/food-web-390.png
+      - name: Enable KVM virtualization
+        shell: bash
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Capture Android on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb install -r visual/app-debug.apk
+            adb shell wm size 390x844
+            adb shell wm density 160
+            adb shell am start -n online.wynos.food/.MainActivity
+            sleep 18
+            adb exec-out screencap -p > visual/food-android-390.png
+            test -s visual/food-android-390.png
+      - name: Upload visual comparison for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-food-visual-compare
+          path: visual/*390.png
+          retention-days: 3
+          if-no-files-found: warn
