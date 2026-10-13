@@ -533,10 +533,19 @@ fun WebStoreScreen(
                         }
                     }
                     store.description?.let { Text(it, color = WebSub, fontSize = 13.sp) }
+                    if (guest && !store.address.isNullOrBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(Icons.Outlined.LocationOn, null, tint = WebSub, modifier = Modifier.size(14.dp))
+                            Text(store.address, color = WebSub, fontSize = 13.sp)
+                        }
+                    }
                 }
             }
         }
-        item {
+        if (!guest) item {
             Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 listOf(R.string.store_tab_menu, R.string.store_tab_reviews, R.string.store_tab_info).forEachIndexed { i, label ->
                     Column(
@@ -555,7 +564,7 @@ fun WebStoreScreen(
             HorizontalDivider(color = WebLine)
         }
         if (storeTab == 0) {
-            if (categories.size > 1) {
+            if (!guest && categories.size > 1) {
                 item {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -565,7 +574,7 @@ fun WebStoreScreen(
                     }
                 }
             }
-            if (category == "ทั้งหมด" && available.size >= 3) {
+            if (!guest && category == "ทั้งหมด" && available.size >= 3) {
                 item { SectionTitleWeb(stringResource(R.string.popular_menu)) }
                 item {
                     Row(
@@ -648,20 +657,14 @@ private fun RoundHeroButton(icon: androidx.compose.ui.graphics.vector.ImageVecto
 private fun WebMenuRow(menu: FoodMenu, enabled: Boolean, onClick: () -> Unit) {
     Column {
         Row(
-            Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            Modifier.fillMaxWidth().heightIn(min = 136.dp).clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(13.dp),
         ) {
             Box(Modifier.size(104.dp)) {
                 WebImage(menu.imagePath, "food-public", Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
-                if (enabled) {
-                    Box(
-                        Modifier.align(Alignment.BottomEnd).size(36.dp).shadow(4.dp, CircleShape)
-                            .background(WebRed, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Outlined.Add, null, tint = Color.White, modifier = Modifier.size(23.dp)) }
-                } else {
+                if (!enabled) {
                     Box(Modifier.align(Alignment.BottomCenter).clip(CircleShape).background(WebRedSoft).padding(5.dp)) {
                         Text(stringResource(R.string.menu_unavailable), color = WebRedDark, fontSize = 10.sp)
                     }
@@ -670,7 +673,16 @@ private fun WebMenuRow(menu: FoodMenu, enabled: Boolean, onClick: () -> Unit) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(menu.name, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2)
                 menu.description?.let { Text(it, color = WebSub, fontSize = 12.sp, maxLines = 2) }
-                Text("฿" + menu.price, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("฿" + menu.price, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            if (enabled) {
+                Box(
+                    Modifier.size(36.dp).align(Alignment.Bottom).shadow(4.dp, CircleShape)
+                        .background(WebRed, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.Add, null, tint = Color.White, modifier = Modifier.size(23.dp))
+                }
             }
         }
         HorizontalDivider(color = WebLine.copy(alpha = .65f), modifier = Modifier.padding(horizontal = 16.dp))
