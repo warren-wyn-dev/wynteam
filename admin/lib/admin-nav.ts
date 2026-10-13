@@ -131,7 +131,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: "merchant-control", href: "/merchant/control", label: "ศูนย์ควบคุม Merchant", icon: SlidersHorizontal, group: "merchant", requires: { systems: ["merchant"] } },
   { id: "stores", href: "/food", label: "Stores", icon: Store, group: "merchant", requires: { systems: ["food"] } },
   { id: "merchant-verification", href: "/merchants", label: "Merchant Verification", icon: BadgeCheck, group: "merchant", requires: { systems: ["merchant"] } },
-  { id: "menu-management", label: "Menu Management", icon: BookOpen, group: "merchant", requires: { systems: ["merchant", "food"] } },
+  { id: "menu-management", href: "/merchant/menu", label: "Menu Management", icon: BookOpen, group: "merchant", requires: { systems: ["merchant"] } },
   { id: "coupons", href: "/food/coupons", label: "Coupons", icon: TicketPercent, group: "merchant", requires: { systems: ["food"] } },
   { id: "campaigns", href: "/food/campaigns", label: "Campaigns", icon: Gift, group: "merchant", requires: { systems: ["food"] } },
   { id: "ads", href: "/food/ads", label: "Ads", icon: BadgeDollarSign, group: "merchant", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
