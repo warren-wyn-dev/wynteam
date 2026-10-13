@@ -115,7 +115,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     guest = guest,
                     onBack = { selectedStoreId = null },
                     onAccount = { selectedStoreId = null; tab = 3 },
-                    onAdd = vm::addToCart,
+                    onAdd = vm::addToCartWithNote,
                     onClear = vm::clearCart,
                 )
                 tab == 0 -> WebHomeScreen(
@@ -289,7 +289,7 @@ private fun StoreContent(
         FoodMenuOptionsDialog(
             menu = menu,
             onDismiss = { selectedMenu = null },
-            onAdd = { selected, quantity ->
+            onAdd = { selected, quantity, _ ->
                 if (onAdd(store, menu, selected, quantity)) selectedMenu = null
             },
         )

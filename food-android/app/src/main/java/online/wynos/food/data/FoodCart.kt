@@ -11,8 +11,9 @@ data class FoodCartLine(
     val basePrice: String,
     val options: List<SelectedOption>,
     val quantity: Int,
+    val note: String = "",
 ) {
-    val identity: String get() = menuId + ":" + options.joinToString("|") { it.groupId + "/" + it.choiceId }
+    val identity: String get() = menuId + ":" + options.joinToString("|") { it.groupId + "/" + it.choiceId } + ":" + note
 
     fun estimatedTotal(): BigDecimal {
         val unit = (basePrice.toBigDecimalOrNull() ?: BigDecimal.ZERO) +
@@ -28,11 +29,12 @@ data class FoodCartDraft(
     val itemCount: Int get() = lines.sumOf { it.quantity }
     val estimatedSubtotal: BigDecimal get() = lines.fold(BigDecimal.ZERO) { sum, line -> sum + line.estimatedTotal() }
 
-    fun add(store: FoodStore, menu: FoodMenu, selection: Map<String, Set<String>>, quantity: Int): FoodCartDraft {
+    fun add(store: FoodStore, menu: FoodMenu, selection: Map<String, Set<String>>, quantity: Int, note: String = ""): FoodCartDraft {
         require(store.isOpen && menu.isAvailable()) { "unavailable" }
         require(store.menu.any { it.id == menu.id }) { "not_in_store" }
         require(storeId == null || storeId == store.id) { "different_store" }
         require(quantity in 1..99) { "invalid_quantity" }
+        require(note.length <= 250) { "note_too_long" }
         require(selection.keys.all { key -> menu.optionGroups.any { it.id == key } }) { "unknown_group" }
 
         val picked = menu.optionGroups.flatMap { group ->
@@ -45,7 +47,7 @@ data class FoodCartDraft(
         require(menu.price.toBigDecimalOrNull()?.let { it >= BigDecimal.ZERO } == true) { "invalid_price" }
         require(picked.all { it.price.toBigDecimalOrNull()?.let { n -> n >= BigDecimal.ZERO } == true }) { "invalid_option_price" }
 
-        val incoming = FoodCartLine(menu.id, menu.name, menu.price, picked, quantity)
+        val incoming = FoodCartLine(menu.id, menu.name, menu.price, picked, quantity, note.trim())
         val existing = lines.find { it.identity == incoming.identity }
         val updated = if (existing == null) lines + incoming else {
             val combined = existing.quantity + quantity

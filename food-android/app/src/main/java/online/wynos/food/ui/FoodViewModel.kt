@@ -136,6 +136,19 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         }
     }
 
+    fun addToCartWithNote(
+        store: FoodStore, menu: FoodMenu, selected: Map<String, Set<String>>, quantity: Int, note: String,
+    ): Boolean {
+        return try {
+            val next = mutableState.value.cart.add(store, menu, selected, quantity, note)
+            mutableState.update { it.copy(cart = next, cartError = false) }
+            true
+        } catch (_: IllegalArgumentException) {
+            mutableState.update { it.copy(cartError = true) }
+            false
+        }
+    }
+
     fun clearCart() {
         mutableState.update { it.copy(cart = FoodCartDraft(), cartError = false) }
     }
