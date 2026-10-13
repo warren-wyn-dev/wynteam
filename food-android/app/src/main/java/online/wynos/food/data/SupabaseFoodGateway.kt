@@ -20,6 +20,8 @@ interface FoodGateway {
     suspend fun homeBanners(): List<FoodHomeBanner>
     suspend fun accountEmail(): String?
     suspend fun orderHistory(): List<FoodOrderSummary>
+    suspend fun addresses(): List<FoodCustomerAddress>
+    suspend fun quote(cart: FoodCartDraft, address: FoodCustomerAddress?): FoodServerQuote
     suspend fun signIn(email: String, password: String): String?
     suspend fun signOut()
     suspend fun resetPassword(email: String)
@@ -75,6 +77,35 @@ class SupabaseFoodGateway : FoodGateway {
             limit(50)
         }.decodeList<JsonObject>()
         return rows.mapNotNull(FoodOrderSummary::fromJson).sortedByDescending { it.createdAt }
+    }
+
+    override suspend fun addresses(): List<FoodCustomerAddress> {
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        val owner = supabase.auth.currentUserOrNull()?.id ?: return emptyList()
+        val rows = supabase.from("food_customer_addresses").select(
+            Columns.list(
+                "id", "label", "recipient_name", "recipient_phone",
+                "address", "delivery_note", "is_default", "latitude", "longitude",
+            )
+        ) {
+            filter { eq("user_id", owner) }
+            limit(50)
+        }.decodeList<JsonObject>()
+        // Must also have Postgres RLS; buyer-owned rows only.
+        return FoodAddressParser.parse(rows)
+    }
+
+    override suspend fun quote(cart: FoodCartDraft, address: FoodCustomerAddress?): FoodServerQuote {
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        require(supabase.auth.currentUserOrNull() != null) { "sign_in_required" }
+        // Quote RPC only: does not create an order, payment, or customer mutation.
+        val response = supabase.postgrest.rpc(
+            "food_quote_order",
+            FoodQuoteRequest.fromCart(cart, address),
+        ).decodeAs<JsonElement>()
+        return FoodServerQuote.parse(response)
     }
 
     override suspend fun signIn(email: String, password: String): String? {
