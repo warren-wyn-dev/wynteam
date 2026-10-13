@@ -70,8 +70,9 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     val guest = state.accountEmail == null
     val selectedStore = state.stores.firstOrNull { it.id == selectedStoreId }
 
-    BackHandler(enabled = selectedStore != null && tab == 0) {
-        selectedStoreId = null
+    BackHandler(enabled = selectedStore != null || tab != 0) {
+        if (selectedStore != null) selectedStoreId = null
+        else tab = 0
     }
 
     Scaffold(
