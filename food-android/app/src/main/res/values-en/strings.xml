@@ -167,4 +167,11 @@
     <string name="address_writes_staging_only">This test build can view saved addresses. Production address editing is disabled.</string>
     <string name="address_delete_confirm_title">Delete this delivery address?</string>
     <string name="address_delete_confirm_body">Delete %1$s?</string>
+    <string name="checkout_review_action">Review order</string>
+    <string name="checkout_review_title">Review your order</string>
+    <string name="checkout_review_address">Delivery address</string>
+    <string name="checkout_review_items">Your items</string>
+    <string name="checkout_review_not_final">Server quote only. Promotions and delivery fees may change before final confirmation.</string>
+    <string name="checkout_review_payment_locked">Place order and pay (not available)</string>
+    <string name="checkout_review_staging_notice">This is a preview only. No order or payment is created.</string>
 </resources>
