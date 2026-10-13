@@ -17,6 +17,7 @@ import kotlinx.serialization.json.JsonElement
 interface FoodGateway {
     val configured: Boolean
     suspend fun catalog(): List<FoodStore>
+    suspend fun homeBanners(): List<FoodHomeBanner>
     suspend fun accountEmail(): String?
     suspend fun orderHistory(): List<FoodOrderSummary>
     suspend fun signIn(email: String, password: String): String?
@@ -47,6 +48,12 @@ class SupabaseFoodGateway : FoodGateway {
         // Never read food_stores / food_menu_items anonymously.
         val response = requireClient().postgrest.rpc("food_public_catalog").decodeAs<JsonElement>()
         return FoodCatalogParser.parse(response)
+    }
+
+    override suspend fun homeBanners(): List<FoodHomeBanner> {
+        // Same public, admin-controlled homepage banners RPC used by web.
+        val response = requireClient().postgrest.rpc("food_active_home_banners").decodeAs<JsonElement>()
+        return FoodHomeBannerParser.parse(response)
     }
 
     override suspend fun accountEmail(): String? {

@@ -24,6 +24,9 @@ data class FoodStore(
     val isOpen: Boolean,
     val deliveryFee: String?,
     val menu: List<FoodMenu>,
+    val coverPath: String? = null,
+    val logoPath: String? = null,
+    val address: String? = null,
 )
 
 data class FoodOptionChoice(val id: String, val name: String, val price: String)
@@ -46,6 +49,7 @@ data class FoodMenu(
     val optionGroups: List<FoodOptionGroup> = emptyList(),
     val soldOutUntil: String? = null,
     val dailyStockLimit: Int? = null,
+    val imagePath: String? = null,
 ) {
     fun isAvailable(now: java.time.Instant = java.time.Instant.now()): Boolean {
         if (dailyStockLimit != null && dailyStockLimit <= 0) return false
@@ -101,6 +105,7 @@ object FoodCatalogParser {
                     optionGroups = optionGroups,
                     soldOutUntil = menu.text("sold_out_until"),
                     dailyStockLimit = (menu["daily_stock_limit"] as? JsonPrimitive)?.intOrNull,
+                    imagePath = menu.text("image_path"),
                 )
             }
             FoodStore(
@@ -110,6 +115,9 @@ object FoodCatalogParser {
                 isOpen = (row["is_open"] as? JsonPrimitive)?.booleanOrNull == true,
                 deliveryFee = row.text("delivery_fee")?.toPriceLabel(),
                 menu = menus,
+                coverPath = row.text("cover_path"),
+                logoPath = row.text("logo_path"),
+                address = row.text("address"),
             )
         }
     }
