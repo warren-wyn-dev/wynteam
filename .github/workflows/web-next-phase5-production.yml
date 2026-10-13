@@ -10,6 +10,12 @@ on:
         description: 'Type CUTOVER-WYNOS-ONLINE to confirm the production switch'
         required: true
         type: string
+      release_confirmation:
+        description: "Coordinated WYNOS release only, after ten acceptance issues pass"
+        type: choice
+        required: true
+        default: CANCEL
+        options: [CANCEL, RELEASE_ALL_APPROVED]
       iphone_qa:
         description: 'After real-device Safari QA passes, type IPHONE-PASS'
         required: true
@@ -17,19 +23,27 @@ on:
 
 permissions:
   contents: read
+  issues: read
 
 jobs:
   cutover:
     if: >-
       github.ref == 'refs/heads/main' &&
       github.event.inputs.confirm == 'CUTOVER-WYNOS-ONLINE' &&
-      github.event.inputs.iphone_qa == 'IPHONE-PASS'
+      github.event.inputs.iphone_qa == 'IPHONE-PASS' &&
+      inputs.release_confirmation == 'RELEASE_ALL_APPROVED'
+    environment: production
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+      - name: Enforce WYNOS final cross-system release freeze
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WYNOS_RELEASE_CONFIRMATION: ${{ inputs.release_confirmation }}
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/require-wynos-final-release-ready.sh"
 
       - uses: actions/setup-node@v4
         with:

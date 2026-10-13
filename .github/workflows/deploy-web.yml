@@ -3,10 +3,24 @@ name: Deploy Flutter web to Vercel (production)
 # Manual-only on purpose. Build the Flutter bundle in Actions, then deploy the
 # already-built static output to the existing Vercel production project.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      release_confirmation:
+        description: "Coordinated WYNOS release only, after ten acceptance issues pass"
+        type: choice
+        required: true
+        default: CANCEL
+        options: [CANCEL, RELEASE_ALL_APPROVED]
+
+
+permissions:
+  contents: read
+  issues: read
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main' && inputs.release_confirmation == 'RELEASE_ALL_APPROVED'
+    environment: production
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -14,6 +28,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Enforce WYNOS final cross-system release freeze
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WYNOS_RELEASE_CONFIRMATION: ${{ inputs.release_confirmation }}
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/require-wynos-final-release-ready.sh"
 
       - uses: subosito/flutter-action@v2
         with:
