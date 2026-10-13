@@ -83,14 +83,30 @@ jobs:
           WYNOS_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         shell: bash
         run: |
-          if [[ "$WYNOS_SUPABASE_URL" != https://* || -z "$WYNOS_SUPABASE_PUBLISHABLE_KEY" ]]; then
-            echo "::error::Missing Supabase HTTPS URL or publishable client key in android-qa environment."
-            exit 1
-          fi
-          if [[ "$WYNOS_SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* && "$WYNOS_SUPABASE_PUBLISHABLE_KEY" != eyJ* ]]; then
-            echo "::error::Only a Supabase publishable/anon client key is permitted for Android QA."
-            exit 1
-          fi
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import sys
+
+          url = os.environ.get("WYNOS_SUPABASE_URL", "").strip()
+          key = os.environ.get("WYNOS_SUPABASE_PUBLISHABLE_KEY", "").strip()
+          if not url.startswith("https://") or not key:
+              sys.exit("::error::Configure Supabase HTTPS URL and publishable client key in android-qa.")
+          if key.startswith("sb_publishable_"):
+              pass
+          elif key.count(".") == 2:
+              try:
+                  encoded = key.split(".")[1]
+                  payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+                  if payload.get("role") != "anon":
+                      raise ValueError("not an anon key")
+              except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+                  sys.exit("::error::Only Supabase publishable/anon client keys are allowed.")
+          else:
+              sys.exit("::error::Only Supabase publishable/anon client keys are allowed.")
+          print("Android QA Supabase client configuration format checked (values not shown).")
+          PY
       - name: Build connected Beta 1 debug APK
         env:
           # Client-public settings only. Never use service_role or database credentials.
