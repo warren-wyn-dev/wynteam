@@ -329,7 +329,7 @@ fun WebHomeScreen(
             }
             filtered.isEmpty() -> item { CenterStateText(R.string.no_stores) }
             else -> {
-                item { SectionTitleWeb(stringResource(if (guest) R.string.public_stores else R.string.recommended_stores)) }
+                item { SectionTitleWeb(stringResource(if (guest) R.string.public_stores else R.string.recommended_stores), topSpacing = if (guest) 10 else 21) }
                 items(filtered.chunked(2), key = { row -> row.first().id }) { row ->
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -387,13 +387,13 @@ private fun BannerStrip(banners: List<FoodHomeBanner>, onStore: (String) -> Unit
 }
 
 @Composable
-private fun SectionTitleWeb(title: String) {
+private fun SectionTitleWeb(title: String, topSpacing: Int = 21) {
     Text(
         title,
         color = WebInk,
         fontWeight = FontWeight.Bold,
         fontSize = 18.sp,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 21.dp, bottom = 5.dp),
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = topSpacing.dp, bottom = 5.dp),
     )
 }
 
