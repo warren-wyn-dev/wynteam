@@ -35,4 +35,17 @@ class FoodCartTest {
     @Test fun soldOutItemUnavailable() {
         assertTrue(!menu.copy(soldOutUntil = "2999-01-01T00:00:00Z").isAvailable(Instant.parse("2026-10-13T00:00:00Z")))
     }
+    @Test fun merchantNotesKeepSeparatelyConfiguredLines() {
+        val a = FoodCartDraft().add(store, menu, mapOf("spicy" to setOf("low")), 1, "ไม่ใส่ผัก")
+        val b = a.add(store, menu, mapOf("spicy" to setOf("low")), 1, "แยกน้ำจิ้ม")
+        assertEquals(2, b.lines.size)
+        assertEquals("ไม่ใส่ผัก", b.lines[0].note)
+        assertEquals("แยกน้ำจิ้ม", b.lines[1].note)
+        assertEquals("120", b.estimatedSubtotal.stripTrailingZeros().toPlainString())
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun notesCannotExceedWebLength() {
+        FoodCartDraft().add(store, menu, mapOf("spicy" to setOf("low")), 1, "x".repeat(251))
+    }
 }

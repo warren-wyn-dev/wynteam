@@ -113,4 +113,6 @@
     <string name="select_required_hint">กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ</string>
     <string name="option_required_single">เลือก 1 รายการ</string>
     <string name="close">ปิด</string>
+    <string name="menu_note_title">หมายเหตุถึงร้าน</string>
+    <string name="menu_note_hint">เช่น ไม่ใส่ผัก, แยกน้ำจิ้ม</string>
 </resources>

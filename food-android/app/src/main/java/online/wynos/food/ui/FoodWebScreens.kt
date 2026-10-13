@@ -467,7 +467,7 @@ fun WebStoreScreen(
     guest: Boolean,
     onBack: () -> Unit,
     onAccount: () -> Unit,
-    onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int) -> Boolean,
+    onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int, String) -> Boolean,
     onClear: () -> Unit,
 ) {
     var selectedMenu by remember(store.id) { mutableStateOf<FoodMenu?>(null) }
@@ -650,7 +650,7 @@ fun WebStoreScreen(
         FoodMenuOptionsDialog(
             menu = menu,
             onDismiss = { selectedMenu = null },
-            onAdd = { opts, qty -> if (onAdd(store, menu, opts, qty)) selectedMenu = null },
+            onAdd = { opts, qty, note -> if (onAdd(store, menu, opts, qty, note)) selectedMenu = null },
         )
     }
     if (showCart) FoodCartPreview(cart, onDismiss = { showCart = false }, onClear = { onClear(); showCart = false })

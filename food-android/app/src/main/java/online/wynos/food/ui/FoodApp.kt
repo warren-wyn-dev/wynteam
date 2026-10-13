@@ -239,7 +239,7 @@ private fun StoreContent(
     store: FoodStore,
     cart: FoodCartDraft,
     cartError: Boolean,
-    onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int) -> Boolean,
+    onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int, String) -> Boolean,
     onClear: () -> Unit,
 ) {
     var selectedMenu by androidx.compose.runtime.remember(store.id) { mutableStateOf<FoodMenu?>(null) }
@@ -289,8 +289,8 @@ private fun StoreContent(
         FoodMenuOptionsDialog(
             menu = menu,
             onDismiss = { selectedMenu = null },
-            onAdd = { selected, quantity ->
-                if (onAdd(store, menu, selected, quantity)) selectedMenu = null
+            onAdd = { selected, quantity, note ->
+                if (onAdd(store, menu, selected, quantity, note)) selectedMenu = null
             },
         )
     }
