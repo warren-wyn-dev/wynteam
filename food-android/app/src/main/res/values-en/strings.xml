@@ -113,4 +113,6 @@
     <string name="select_required_hint">Please select all required options</string>
     <string name="option_required_single">Choose 1 option</string>
     <string name="close">Close</string>
+    <string name="menu_note_title">Note for the restaurant</string>
+    <string name="menu_note_hint">e.g. no vegetables, sauce separately</string>
 </resources>
