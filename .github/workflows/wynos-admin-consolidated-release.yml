@@ -10,11 +10,12 @@ on:
         description: "Type DEPLOY_ADMIN to stage and promote this pinned Admin build"
         required: true
         type: choice
-        options: ["CANCEL", "DEPLOY_ADMIN"]
+        options: ["CANCEL", "RELEASE_ALL_APPROVED"]
         default: "CANCEL"
 
 permissions:
   contents: read
+  issues: read
 
 concurrency:
   group: wynos-admin-consolidated-production
@@ -25,7 +26,7 @@ jobs:
     if: >-
       github.repository == 'warren-wyn-dev/wynteam' &&
       github.ref == 'refs/heads/main' &&
-      inputs.confirmation == 'DEPLOY_ADMIN'
+      inputs.confirmation == 'RELEASE_ALL_APPROVED'
     environment: production
     runs-on: ubuntu-latest
     outputs:
@@ -43,6 +44,19 @@ jobs:
           # Pinned reviewed main commit; update only after CI passes for newer changes.
           ref: 92a0947768d77eb6598a37ee39822a11477ccc62
           persist-credentials: false
+      - name: Require all feature acceptance issues closed before Admin Production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for number in 1142 1143 1144 1145 1146 1147 1148 1149 1150 1151; do
+            state="$(gh api "repos/$GITHUB_REPOSITORY/issues/$number" --jq .state)"
+            if [ "$state" != "closed" ]; then
+              echo "::error::Release blocked: WYNOS Admin feature acceptance #$number is $state"
+              exit 1
+            fi
+          done
+          echo "All feature issues closed; continue checked-source build and production review."
       - name: Validate scoped project and credentials
         shell: bash
         run: |
