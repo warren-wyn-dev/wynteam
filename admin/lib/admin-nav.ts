@@ -121,6 +121,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   systemDashboard("food"),
   { id: "food-control", href: "/food/control", label: "ศูนย์ควบคุม Food", icon: SlidersHorizontal, group: "food", requires: { systems: ["food"] } },
   { id: "food-banners", href: "/food/banners", label: "แบนเนอร์หน้าแรก Food", icon: Images, group: "food", requires: { systems: ["food"] } },
+  { id: "food-reviews", href: "/food/reviews", label: "ตรวจสอบรีวิว Food", icon: MessageCircle, group: "food", requires: { systems: ["food"] } },
   { id: "food-orders", href: "/food/orders", label: "Orders", icon: ShoppingBag, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
   { id: "food-customers", label: "Customers", icon: Users, group: "food", requires: { systems: ["food"] } },
   { id: "food-payments", label: "Payments & Refunds", icon: CreditCard, group: "food", requires: { systems: ["food"] } },
