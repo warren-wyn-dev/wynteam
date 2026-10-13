@@ -1,0 +1,43 @@
+name: WYNOS Food Native Anuphan Weight Instances
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/food-anuphan-static-weights.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  generate:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'feat/food-android-parity-polish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/food-android-parity-polish
+      - name: Generate weight-specific static OFL Anuphan font assets
+        run: |
+          set -euo pipefail
+          python -m pip install 'fonttools==4.60.1'
+          python - <<'PY'
+          from fontTools.ttLib import TTFont
+          from fontTools.varLib.instancer import instantiateVariableFont
+          from pathlib import Path
+          directory = Path("food-android/app/src/main/res/font")
+          variable = directory / "anuphan.ttf"
+          assert variable.is_file()
+          for label, weight in [("regular",400),("medium",500),("semibold",600),("bold",700)]:
+              font = TTFont(str(variable))
+              if "fvar" not in font:
+                  raise RuntimeError("Not a variable font; can't derive static weights")
+              static = instantiateVariableFont(font, {"wght":weight}, inplace=True, optimize=True)
+              output = directory / ("anuphan_"+label+".ttf")
+              static.save(str(output))
+              print(label, output.stat().st_size)
+          PY
+          git add food-android/app/src/main/res/font/anuphan_*.ttf
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'assets(food-android): use Anuphan proper 400-700 font weights'
+          git push origin HEAD:refs/heads/feat/food-android-parity-polish
