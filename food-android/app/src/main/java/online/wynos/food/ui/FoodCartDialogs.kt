@@ -276,6 +276,7 @@ fun FoodCartPreview(
     state: FoodUiState? = null,
     onQuote: () -> Unit = {},
     onSelectAddress: (String?) -> Unit = {},
+    onChangeQuantity: (String, Int) -> Unit = { _, _ -> },
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -310,7 +311,23 @@ fun FoodCartPreview(
                                 verticalAlignment = Alignment.Top) {
                                 Column(Modifier.weight(1f)) {
                                     Text(line.name, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("×" + line.quantity, fontSize = 13.sp, color = Sub)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = { onChangeQuantity(line.identity, line.quantity - 1) },
+                                            modifier = Modifier.height(36.dp),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+                                        ) { Text("−", fontSize = 16.sp) }
+                                        Text(line.quantity.toString(), fontSize = 14.sp, color = Ink)
+                                        OutlinedButton(
+                                            onClick = { onChangeQuantity(line.identity, line.quantity + 1) },
+                                            enabled = line.quantity < 99,
+                                            modifier = Modifier.height(36.dp),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+                                        ) { Text("+", fontSize = 16.sp) }
+                                    }
                                     if (line.options.isNotEmpty()) Text(
                                         line.options.joinToString(" · ") { it.name },
                                         color = Sub, fontSize = 12.sp)

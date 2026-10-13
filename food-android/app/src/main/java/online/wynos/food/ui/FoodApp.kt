@@ -120,6 +120,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onClear = vm::clearCart,
                     onQuote = vm::requestServerQuote,
                     onSelectAddress = vm::selectAddress,
+                    onChangeQuantity = vm::updateCartLine,
                 )
                 tab == 0 -> WebHomeScreen(
                     state = state,
@@ -151,6 +152,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
             state = state,
             onQuote = vm::requestServerQuote,
             onSelectAddress = vm::selectAddress,
+            onChangeQuantity = vm::updateCartLine,
             onDismiss = { homeCart = false },
             onClear = { vm.clearCart(); homeCart = false },
         )

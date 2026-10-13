@@ -472,6 +472,7 @@ fun WebStoreScreen(
     onClear: () -> Unit,
     onQuote: () -> Unit,
     onSelectAddress: (String?) -> Unit,
+    onChangeQuantity: (String, Int) -> Unit,
 ) {
     var selectedMenu by remember(store.id) { mutableStateOf<FoodMenu?>(null) }
     var showCart by remember(store.id) { mutableStateOf(false) }
@@ -663,6 +664,7 @@ fun WebStoreScreen(
         onClear = { onClear(); showCart = false },
         onQuote = onQuote,
         onSelectAddress = onSelectAddress,
+        onChangeQuantity = onChangeQuantity,
     )
 }
 
