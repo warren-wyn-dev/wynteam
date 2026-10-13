@@ -461,6 +461,18 @@ Deno.serve(async (req: Request) => {
     refundId = stringValue(object.id);
   }
 
+  if (orderId && (eventType === "refund.failed"
+    || (eventType === "refund.updated" && (object.status === "failed" || object.status === "canceled")))) {
+    const { error: failureError } = await admin.rpc("food_record_stripe_refund_failure", {
+      p_event_id: eventId, p_event_type: eventType, p_order_id: orderId,
+      p_stripe_account_id: stripeAccountId, p_refund_id: stringValue(object.id),
+      p_payment_intent_id: paymentIntentId, p_amount_satang: numberValue(object.amount),
+      p_currency: currency,
+    });
+    if (failureError) return json({ error: "event_processing_failed" }, 500);
+    return json({ received: true });
+  }
+
   const { error } = await admin.rpc("food_apply_stripe_event", {
     p_event_id: eventId,
     p_event_type: eventType,

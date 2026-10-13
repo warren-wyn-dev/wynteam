@@ -1,6 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import { MerchantOrderModification } from "@/components/merchant/merchant-order-modification";
+import { MerchantBusyMode } from "@/components/merchant/merchant-busy-mode";
+
 import {
   ArrowUpDown,
   Bell,
@@ -98,6 +101,7 @@ import {
   statusLabel,
   subscribeMerchantOrders,
   transitionFoodOrder,
+  rejectFoodOrder,
   updateFoodStore,
   uploadFoodPrivateImage,
   orderDeliveryProof,
@@ -116,6 +120,8 @@ import {
   MERCHANT_ORDER_PAGE_SIZE,
 } from "@/lib/food-merchant";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
+import { foodOptionSelectionBounds } from "@/lib/food-option-rules";
+import { createOrderRecovery } from "@/lib/order-recovery";
 import { checkFoodServiceArea, currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation, type FoodPlace } from "@/lib/food-customer";
 import {
   FOOD_DAY_KEYS,
@@ -525,10 +531,11 @@ function MerchantInner({
 
   useEffect(() => {
     if (!store?.id) return;
+    const recovery = createOrderRecovery(() => load(true), { document, window });
     const channel = subscribeMerchantOrders(client, store.id, (payload) => {
       const next = payload.new as Partial<FoodOrder>;
-      if (payload.eventType === "INSERT") {
-        if (typeof next.id === "string" && next.payment_status) paymentStatusRef.current.set(next.id, next.payment_status);
+      if (payload.eventType === "INSERT" && typeof next.id === "string" && !paymentStatusRef.current.has(next.id)) {
+        if (next.payment_status) paymentStatusRef.current.set(next.id, next.payment_status);
         if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([180, 80, 180]);
         if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
           const notificationTitle = `ออเดอร์ใหม่ #${String(next.order_number ?? "")} · ${money(next.total as number | string | undefined)}`;
@@ -559,9 +566,12 @@ function MerchantInner({
           }
         }
       }
-      void load(true);
-    });
-    return () => { void client.removeChannel(channel); };
+      recovery.request();
+    }, recovery.onSubscriptionStatus);
+    return () => {
+      recovery.dispose();
+      void client.removeChannel(channel);
+    };
   }, [client, load, store?.id]);
 
   useEffect(() => {
@@ -1914,6 +1924,7 @@ function OrderSheet({
 }) {
   const [busy, setBusy] = useState(false);
   const [eta, setEta] = useState(order.eta_minutes ?? 30);
+  const [cancellationReason, setCancellationReason] = useState("");
   // The signed slip URL for a given slip path; null url = it failed to load.
   const [slip, setSlip] = useState<{ path: string | null; url: string | null } | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
@@ -2154,6 +2165,7 @@ function OrderSheet({
         </div>
         <div className="wm-totals">
           <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
+          {Number(order.small_order_fee ?? 0) > 0 ? <div><span>ค่าธรรมเนียมออเดอร์เล็ก</span><b>{money(order.small_order_fee)}</b></div> : null}
           {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? `โปรโมชั่น · ${order.campaign_name}` : "ส่วนลดโปรโมชั่น"}</span><b>−{money(order.campaign_discount)}</b></div> : null}
           <div><span>ค่าส่ง{order.delivery_distance_km != null ? ` · ${Number(order.delivery_distance_km).toFixed(1)} กม.` : ""}</span><b>{money(order.delivery_fee)}</b></div>
           {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{money(order.delivery_discount)}</b></div> : null}
@@ -2215,11 +2227,16 @@ function OrderSheet({
         <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
       ) : null}
 
+      <MerchantOrderModification key={order.id} client={client} order={order} canManageOrders={true} onReload={onReload} onMessage={onMessage} />
       {!["delivered", "cancelled"].includes(order.status) ? (
+        <section className="wm-detail-section">
+        <label>เหตุผลที่ปฏิเสธหรือยกเลิกออเดอร์<textarea maxLength={1000} value={cancellationReason} onChange={(e) => setCancellationReason(e.target.value)} placeholder="เช่น เมนูหมด หรือร้านไม่สามารถจัดส่งได้" /></label>
         <button className="wm-danger-link" disabled={locked} type="button" onClick={() => {
+          if (!cancellationReason.trim()) { onMessage("กรุณาระบุเหตุผลก่อนยกเลิกออเดอร์"); return; }
           if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
-          void run(() => transitionFoodOrder(client, order.id, "cancelled"), "ยกเลิกออเดอร์แล้ว");
+          void run(() => rejectFoodOrder(client, order.id, cancellationReason), "ยกเลิกออเดอร์แล้ว");
         }}>ยกเลิกออเดอร์</button>
+        </section>
       ) : null}
     </Sheet>
   );
@@ -2454,7 +2471,16 @@ function MenuEditor({
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(() => foodPublicUrl(client, draft.image_path ?? null));
   const [imageState, setImageState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(draft.image_path ? "uploaded" : "idle");
+  const [minimumOptionsEnabled, setMinimumOptionsEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void Promise.resolve(client.rpc("food_checkout_features")).then(({ data, error }) => {
+      if (live) setMinimumOptionsEnabled(!error && data?.menu_min_select === true);
+    }).catch(() => { if (live) setMinimumOptionsEnabled(false); });
+    return () => { live = false; };
+  }, [client]);
 
   useEffect(() => {
     return () => {
@@ -2488,6 +2514,7 @@ function MenuEditor({
       id: menuOptionId("group"),
       name: "",
       required: false,
+      min_select: 0,
       max_select: 1,
       choices: [{ id: menuOptionId("choice"), name: "", price: 0 }],
     };
@@ -2600,7 +2627,11 @@ function MenuEditor({
                 <button type="button" aria-label="ลบกลุ่มตัวเลือก" onClick={() => setForm((current) => ({ ...current, options: current.options.filter((row) => row.id !== group.id) }))}><X size={16} /></button>
               </div>
               <div className="wm-option-rules">
-                <label><input type="checkbox" checked={group.required} onChange={(e) => updateGroup(group.id, { required: e.target.checked })} /> บังคับเลือก</label>
+                <label><input type="checkbox" checked={foodOptionSelectionBounds(group).min > 0} onChange={(e) => updateGroup(group.id, { required: e.target.checked, min_select: e.target.checked ? Math.max(1, group.min_select ?? 1) : 0 })} /> บังคับเลือก</label>
+                {minimumOptionsEnabled ? <label>เลือกอย่างน้อย <input type="number" min="0" max={group.max_select} value={foodOptionSelectionBounds(group).min} onChange={(e) => {
+                  const min = Math.max(0, Math.min(20, Number(e.target.value) || 0));
+                  updateGroup(group.id, { min_select: min, required: min > 0 });
+                }} /></label> : null}
                 <label>เลือกได้สูงสุด <input type="number" min="1" max="20" value={group.max_select} onChange={(e) => updateGroup(group.id, { max_select: Math.max(1, Number(e.target.value) || 1) })} /></label>
               </div>
               <div className="wm-option-choices">
@@ -2931,6 +2962,7 @@ function StoreEditor({
         </section>
 
         <section className="wm-settings-category" id="wm-store-section-hours">
+          <MerchantBusyMode client={client} store={store} onReload={onSaved} onMessage={onMessage} />
           <div className="wm-settings-category-head">
             <span className="wm-settings-category-icon"><CalendarDays size={20} /></span>
             <span><strong>เวลาเปิด–ปิดและการเตรียมอาหาร</strong><small>กำหนดเวลารายวัน วันหยุด ปิดชั่วคราว และเวลาเตรียมออเดอร์</small></span>

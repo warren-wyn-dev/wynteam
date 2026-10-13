@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-PSQL=psql
+PSQL="${PSQL:-psql}"
 DB="wyn_food_coupon_regression_$$"
 $PSQL -q -v ON_ERROR_STOP=1 -d postgres -c "create database $DB" >/dev/null
 trap '$PSQL -q -d postgres -c "drop database if exists $DB" >/dev/null' EXIT

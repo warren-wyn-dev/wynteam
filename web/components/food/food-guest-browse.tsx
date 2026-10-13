@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { foodCartLineKey, foodCartLineOptionsValid, foodCartLineUnitPrice, foodMoney, foodPublicUrl, type FoodCartLine, type FoodMenuOptionGroup } from "@/lib/food-customer";
+import { foodOptionSelectionBounds, foodOptionSelectionHint } from "@/lib/food-option-rules";
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { fetchFoodHomeBanners, foodHomeBannerImage, type FoodHomeBanner } from "@/lib/food-home-banners";
 import { fetchFoodFeaturedStores, type FoodFeaturedPlacement } from "@/lib/food-featured-stores";
@@ -442,16 +443,19 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                 <strong>{foodMoney(itemUnitPrice)}</strong>
               </div>
               {(selectedItem.options ?? []).map((group) => {
-                const maxSelect = Math.max(1, Math.min(20, Number(group.max_select ?? 1)));
+                const { min: minSelect, max: maxSelect } = foodOptionSelectionBounds(group);
                 const picked = chosen[group.id] ?? [];
+                const minimumMet = picked.length >= minSelect;
+                const selectionHint = foodOptionSelectionHint({ min: minSelect, max: maxSelect });
                 return (
                   <section className="fx-option-group" key={group.id}>
                     <div className="fx-option-head">
                       <strong>{group.name}</strong>
-                      {group.required ? (
-                        <span className={`fx-required${picked.length ? " is-done" : ""}`}>{picked.length ? "เลือกแล้ว" : "ต้องเลือก"}</span>
-                      ) : <small>{maxSelect === 1 ? "เลือกได้ 1 รายการ" : `เลือกได้สูงสุด ${maxSelect} รายการ`}</small>}
+                      {minSelect > 0 ? (
+                        <span className={`fx-required${minimumMet ? " is-done" : ""}`}>{minimumMet ? "เลือกแล้ว" : "ต้องเลือก"}</span>
+                      ) : <small>{selectionHint}</small>}
                     </div>
+                    {minSelect > 0 ? <small className="fx-option-hint">{selectionHint}</small> : null}
                     <div className="fx-option-choices">
                       {group.choices.map((choice) => {
                         const active = picked.includes(choice.id);

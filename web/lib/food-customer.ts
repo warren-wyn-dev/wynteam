@@ -4,6 +4,9 @@ import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { sessionErrorCopy } from "@/lib/supabase/clock-skew-fetch";
+import { foodMenuSelectionsValid, type FoodMenuOptionGroup, type FoodMenuOptionSelection } from "@/lib/food-option-rules";
+
+export type { FoodMenuOptionChoice, FoodMenuOptionGroup, FoodMenuOptionSelection } from "@/lib/food-option-rules";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 
@@ -52,28 +55,6 @@ export type FoodCustomerStore = {
   is_published: boolean;
   created_at: string;
   updated_at: string;
-};
-
-export type FoodMenuOptionChoice = {
-  id: string;
-  name: string;
-  price: number | string;
-};
-
-export type FoodMenuOptionGroup = {
-  id: string;
-  name: string;
-  required: boolean;
-  max_select: number;
-  choices: FoodMenuOptionChoice[];
-};
-
-export type FoodMenuOptionSelection = {
-  group_id: string;
-  group_name?: string;
-  choice_id: string;
-  choice_name?: string;
-  price?: number | string;
 };
 
 export type FoodCustomerMenuItem = {
@@ -142,6 +123,7 @@ export type FoodCustomerOrder = {
   stripe_refund_id?: string | null;
   source_drop_id: string | null;
   subtotal: number | string;
+  small_order_fee?: number | string;
   delivery_fee: number | string;
   campaign_id: string | null;
   campaign_name: string | null;
@@ -296,21 +278,7 @@ export function foodCartLineOptionsValid(
 ) {
   const groups = Array.isArray(item.options) ? item.options : [];
   const selected = line.selected_options ?? [];
-  const seen = new Set<string>();
-
-  for (const option of selected) {
-    const key = `${option.group_id}:${option.choice_id}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    const group = groups.find((row) => row.id === option.group_id);
-    if (!group || !group.choices.some((choice) => choice.id === option.choice_id)) return false;
-  }
-
-  return groups.every((group) => {
-    const count = selected.filter((option) => option.group_id === group.id).length;
-    const max = Math.max(1, Math.min(20, Number(group.max_select ?? 1)));
-    return (!group.required || count > 0) && count <= max;
-  });
+  return foodMenuSelectionsValid(groups, selected);
 }
 
 export function foodCartLineUnitPrice(
@@ -333,6 +301,8 @@ export function foodMenuQuantityLimit(item: Pick<FoodCustomerMenuItem, "daily_st
 
 export type FoodOrderQuote = {
   subtotal: number;
+  small_order_fee?: number;
+  pricing_rule_version?: string | null;
   delivery_fee: number;
   campaign_discount: number;
   delivery_discount: number;
@@ -654,13 +624,18 @@ export async function quoteFoodCustomerOrder(
       selected_options: line.selected_options ?? [],
     })),
   };
-  const { data, error } = normalizedCode
+  const features = await fetchFoodCheckoutFeatures(client);
+  const { data, error } = features.checkout_v3
+    ? await client.rpc("food_quote_order_v3", { ...params, p_coupon_code: normalizedCode })
+    : normalizedCode
     ? await client.rpc("food_quote_order_v2", { ...params, p_coupon_code: normalizedCode })
     : await client.rpc("food_quote_order", params);
   if (error) throw new Error(error.message);
   const raw = (data ?? {}) as Partial<FoodOrderQuote>;
   return {
     subtotal: Number(raw.subtotal ?? 0),
+    small_order_fee: Number(raw.small_order_fee ?? 0),
+    pricing_rule_version: raw.pricing_rule_version ? String(raw.pricing_rule_version) : null,
     delivery_fee: Number(raw.delivery_fee ?? 0),
     campaign_discount: Number(raw.campaign_discount ?? 0),
     delivery_discount: Number(raw.delivery_discount ?? 0),
@@ -678,6 +653,17 @@ export async function quoteFoodCustomerOrder(
   };
 }
 
+export async function fetchFoodCheckoutFeatures(client: SupabaseClient): Promise<{ checkout_v3: boolean }> {
+  const { data, error } = await client.rpc("food_checkout_features");
+  // Only an older database lacking this RPC may use the legacy path. An
+  // outage/auth error must never turn an idempotent retry into a new order.
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return { checkout_v3: false };
+    throw new Error(error.message);
+  }
+  return { checkout_v3: data?.checkout_v3 === true };
+}
+
 export async function createFoodCustomerOrder(
   client: SupabaseClient,
   storeId: string,
@@ -690,6 +676,10 @@ export async function createFoodCustomerOrder(
     location: FoodLocation | null;
     scheduledFor?: string | null;
     couponCode?: string | null;
+    idempotencyKey?: string;
+    expectedTotal?: number | null;
+    pricingRuleVersion?: string | null;
+    resolveIdempotentIntent?: boolean;
   },
 ) {
   const couponCode = input.couponCode?.trim().toUpperCase() || null;
@@ -707,6 +697,28 @@ export async function createFoodCustomerOrder(
       selected_options: line.selected_options ?? [],
     })),
   };
+  if (input.pricingRuleVersion === "food_checkout_v3" || input.resolveIdempotentIntent) {
+    if (!input.idempotencyKey) throw new Error("idempotency_key_required");
+    if (input.scheduledFor) throw new Error("scheduled checkout v3 not supported");
+    const resolved = await client.rpc("food_resolve_checkout_request", { p_idempotency_key: input.idempotencyKey });
+    if (resolved.error) throw new Error(resolved.error.message);
+    if (resolved.data) return String(resolved.data);
+    const { data, error } = await client.rpc("food_create_order_v3", {
+      ...params, p_coupon_code: couponCode, p_idempotency_key: input.idempotencyKey,
+      p_expected_total: input.expectedTotal ?? null,
+    });
+    if (error) {
+      // An older unresolved request may have committed between lookup and
+      // create, including after a re-quote. Resolve the original, never issue
+      // a fresh idempotency key or call the non-idempotent legacy endpoint.
+      if (error.message.includes("idempotency_key_conflict")) {
+        const outcome = await client.rpc("food_resolve_checkout_request", { p_idempotency_key: input.idempotencyKey });
+        if (!outcome.error && outcome.data) return String(outcome.data);
+      }
+      throw new Error(error.message);
+    }
+    return String(data);
+  }
   // Keep the original no-code RPC paths intact, including their browser QA
   // contracts. Coupon requests opt into v2 without changing ordinary orders.
   const { data, error } = input.scheduledFor
@@ -971,6 +983,7 @@ export function subscribeFoodCustomerOrders(
   client: SupabaseClient,
   userId: string,
   onChange: () => void,
+  onSubscriptionStatus?: (status: string) => void,
 ): RealtimeChannel {
   return client
     .channel(`wynos-food-customer:${userId}`)
@@ -979,7 +992,7 @@ export function subscribeFoodCustomerOrders(
       { event: "*", schema: "public", table: "food_orders", filter: `buyer_id=eq.${userId}` },
       onChange,
     )
-    .subscribe();
+    .subscribe(onSubscriptionStatus);
 }
 
 export function foodOrderStatusLabel(status: FoodCustomerOrder["status"]) {
@@ -1007,12 +1020,16 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   const message = error instanceof Error ? error.message : String(error ?? "");
   const sessionCopy = sessionErrorCopy(message);
   if (sessionCopy) return sessionCopy;
+  if (message.includes("food_quote_changed")) return "ราคาเปลี่ยนแล้ว กรุณาตรวจยอดล่าสุดก่อนยืนยันอีกครั้ง";
+  if (message.includes("idempotency_key_conflict")) return "รายการสั่งซื้อเปลี่ยนแล้ว กรุณาตรวจตะกร้าก่อนยืนยันอีกครั้ง";
+  if (message.includes("food_feature_disabled")) return "ระบบสั่งซื้อรุ่นนี้ยังไม่เปิดใช้งาน กรุณาโหลดหน้าใหม่";
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
   if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";
   if (message.includes("menu item is unavailable")) return "มีเมนูที่ไม่พร้อมขาย กรุณาตรวจตะกร้าอีกครั้ง";
   if (message.includes("menu item daily stock exceeded")) return "จำนวนเมนูที่เลือกเกินสต็อกที่เหลือสำหรับวันนี้ กรุณาตรวจตะกร้าอีกครั้ง";
   if (message.includes("required menu option missing")) return "กรุณาเลือกตัวเลือกที่จำเป็นของเมนูให้ครบ";
+  if (message.includes("too few menu options selected")) return "กรุณาเลือกตัวเลือกของเมนูให้ครบจำนวนขั้นต่ำที่ร้านกำหนด";
   if (message.includes("too many menu options selected")) return "เลือกตัวเลือกของเมนูเกินจำนวนที่ร้านกำหนด";
   if (message.includes("invalid menu option")) return "ตัวเลือกของเมนูเปลี่ยนแปลงแล้ว กรุณาเลือกใหม่อีกครั้ง";
   if (message.includes("too many pending orders")) return "มีออเดอร์ที่รอร้านรับอยู่หลายรายการ กรุณารอร้านรับออเดอร์ก่อน";

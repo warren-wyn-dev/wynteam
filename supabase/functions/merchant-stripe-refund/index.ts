@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+import { refundResponseState, verifiedApplicationFeeRefund } from "./_lib.ts";
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -74,8 +76,9 @@ Deno.serve(async (req: Request) => {
   }
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
 
-  const { data: payment } = await admin.from("food_stripe_payments")
+  const { data: payment, error: paymentError } = await admin.from("food_stripe_payments")
     .select("stripe_account_id,livemode,application_fee_satang").eq("order_id", order.id).maybeSingle();
+  if (paymentError) return json({ error: "payment_record_unavailable" }, 503);
 
   let stripeAccountId = typeof payment?.stripe_account_id === "string" ? payment.stripe_account_id : null;
   let paymentLivemode = typeof payment?.livemode === "boolean" ? payment.livemode : null;
@@ -96,17 +99,20 @@ Deno.serve(async (req: Request) => {
   params.set("reason", "requested_by_customer");
   // GP v1: a full refund also returns the WYNOS GP (application fee) to the store.
   const feeSatang = Number(payment?.application_fee_satang ?? 0);
+  if (!Number.isSafeInteger(feeSatang) || feeSatang < 0) return json({ error: "application_fee_record_invalid" }, 503);
   if (feeSatang > 0) params.set("refund_application_fee", "true");
   params.set("metadata[wynos_order_id]", order.id);
   if (note) params.set("metadata[wynos_note]", note);
 
+  let payload: Record<string, unknown>;
+  let refundStatus: "pending" | "failed";
   try {
     const response = await fetch("https://api.stripe.com/v1/refunds", {
       method: "POST",
       headers: stripeHeaders(stripeSecret, stripeAccountId, `wynos-refund-${order.id}`),
       body: params,
     });
-    const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
+    payload = await response.json().catch(() => ({})) as Record<string,unknown>;
     if (!response.ok || typeof payload.id !== "string") {
       const err = payload.error as Record<string,unknown> | undefined;
       console.error("merchant-stripe-refund gateway failure", {
@@ -117,50 +123,80 @@ Deno.serve(async (req: Request) => {
       });
       throw new Error("gateway_refund_failed");
     }
-    await admin.from("food_orders").update({
-      refund_status: "pending",
-      refund_note: note || "Stripe refund requested",
-      refund_requested_at: new Date().toISOString(),
-      refund_updated_by: user.id,
-      stripe_refund_id: payload.id,
-    }).eq("id", order.id);
-    // GP v1: finance reports reverse GP only for a fee WYNOS actually returned.
-    // Stripe has already refunded, so a failed write must not undo that answer;
-    // retry, then log loudly with the ids needed to reconcile by hand.
-    let gpRecordPending = false;
-    if (feeSatang > 0) {
-      const refundedAt = new Date().toISOString();
-      let recordError: unknown = null;
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const { error: updateError } = await admin.from("food_stripe_payments").update({
-          application_fee_refunded_satang: feeSatang,
-          application_fee_refunded_at: refundedAt,
-        }).eq("order_id", order.id).eq("application_fee_refunded_satang", 0);
-        recordError = updateError;
-        if (!updateError) break;
-      }
-      if (recordError) {
-        gpRecordPending = true;
-        console.error("merchant-stripe-refund gp fee refund not recorded", {
-          order_id: order.id,
-          stripe_refund_id: payload.id,
-          fee_satang: feeSatang,
-        });
-      }
-    }
-    return json({ status: payload.status ?? "pending", refundId: payload.id, gpRecordPending });
-  } catch (error) {
-    console.error("merchant-stripe-refund failed", {
-      code: error instanceof Error ? error.message.slice(0, 80) : "unknown",
-    });
-    await admin.from("food_orders").update({
-      refund_status: "failed",
-      refund_note: note || "การคืนเงินไม่สำเร็จ",
-      refund_updated_by: user.id,
-    }).eq("id", order.id);
+    refundStatus = refundResponseState(payload.status);
+  } catch {
+    // A timeout/invalid response can occur after Stripe accepted the request.
+    // Keep the persisted state and reuse the same idempotency key on retry.
+    console.error("merchant-stripe-refund request outcome unavailable", { order_id: order.id });
     return json({
       error: "refund_failed",
       message: "คืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
     }, 502);
   }
+
+  let orderRecordPending = false;
+  try {
+    const { data: recorded, error: recordError } = await admin.from("food_orders").update({
+      refund_status: refundStatus,
+      refund_note: note || "Stripe refund requested",
+      refund_requested_at: new Date().toISOString(),
+      refund_updated_by: user.id,
+      stripe_refund_id: payload.id,
+    }).eq("id", order.id).eq("status", "cancelled").eq("payment_status", "paid")
+      .neq("refund_status", "refunded").select("id").maybeSingle();
+    orderRecordPending = Boolean(recordError) || !recorded;
+  } catch {
+    orderRecordPending = true;
+  }
+  if (orderRecordPending) {
+    console.warn("merchant-stripe-refund order recording requires reconciliation", { order_id: order.id, stripe_refund_id: payload.id });
+  }
+
+  // A pending customer refund must never create a GP credit. Even a succeeded
+  // customer refund needs independent evidence from the platform's fee object.
+  let gpRecordPending = feeSatang > 0;
+  if (feeSatang > 0 && payload.status === "succeeded" && typeof payload.charge === "string") {
+    try {
+      const chargeResponse = await fetch(`https://api.stripe.com/v1/charges/${encodeURIComponent(payload.charge)}`, {
+        headers: { Authorization: `Basic ${btoa(stripeSecret + ":")}`, "Stripe-Account": stripeAccountId },
+      });
+      const charge = await chargeResponse.json() as Record<string, unknown>;
+      const feeId = chargeResponse.ok && charge.id === payload.charge && typeof charge.application_fee === "string"
+        ? charge.application_fee : null;
+      if (!feeId) throw new Error("application_fee_unavailable");
+      const feeResponse = await fetch(`https://api.stripe.com/v1/application_fees/${encodeURIComponent(feeId)}`, {
+        headers: { Authorization: `Basic ${btoa(stripeSecret + ":")}` },
+      });
+      const fee = await feeResponse.json() as Record<string, unknown>;
+      const confirmedSatang = feeResponse.ok && fee.id === feeId
+        ? verifiedApplicationFeeRefund(fee, feeSatang, stripeAccountId, payload.charge) : null;
+      if (confirmedSatang == null) throw new Error("application_fee_refund_unconfirmed");
+      const refundedAt = new Date().toISOString();
+      let recordError: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const { data: updated, error: updateError } = await admin.from("food_stripe_payments").update({
+          application_fee_refunded_satang: confirmedSatang,
+          application_fee_refunded_at: refundedAt,
+        }).eq("order_id", order.id).eq("application_fee_refunded_satang", 0).select("order_id").maybeSingle();
+        recordError = updateError;
+        if (!updateError && !updated) {
+          const { data: saved, error: readError } = await admin.from("food_stripe_payments")
+            .select("application_fee_refunded_satang").eq("order_id", order.id).maybeSingle();
+          recordError = readError || (Number(saved?.application_fee_refunded_satang) === confirmedSatang
+            ? null : new Error("application_fee_record_missing"));
+        }
+        if (!recordError) break;
+      }
+      gpRecordPending = Boolean(recordError);
+    } catch {
+      console.warn("merchant-stripe-refund GP refund requires reconciliation", { order_id: order.id, stripe_refund_id: payload.id });
+    }
+  }
+  if (refundStatus === "failed") {
+    return json({
+      error: "refund_failed",
+      message: "คืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    }, 502);
+  }
+  return json({ status: payload.status, refundId: payload.id, gpRecordPending, orderRecordPending });
 });
