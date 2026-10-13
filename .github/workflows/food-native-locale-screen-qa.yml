@@ -1,0 +1,110 @@
+name: WYNOS Food Native Locale Screens QA
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/food-native-locale-screen-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-and-web-screens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDK_MANAGER="$(find "$SDK_ROOT/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -n 1)"
+          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0"
+      - name: Build native QA APK (all mutations disabled)
+        working-directory: food-android
+        env:
+          WYNOS_FOOD_SUPABASE_URL: https://kqokpocajhfbidcxpvhh.supabase.co
+          WYNOS_FOOD_SUPABASE_PUBLISHABLE_KEY: sb_publishable_FzWdursjrE36_LvtJnayiA_-kWuw9Lt
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Capture web guest reference in Thai and English
+        shell: bash
+        run: |
+          mkdir -p visual
+          npm install --no-save --prefix /tmp/wynos-playwright playwright-core@1.56.1
+          NODE_PATH=/tmp/wynos-playwright/node_modules node <<'NODE'
+          const { chromium } = require('playwright-core');
+          (async () => {
+            const browser = await chromium.launch({
+              executablePath: '/usr/bin/google-chrome',
+              args: ['--no-sandbox','--disable-dev-shm-usage'],
+              headless: true,
+            });
+            for (const width of [360,390,430]) {
+              for (const locale of ['th-TH','en-US']) {
+                const context = await browser.newContext({
+                  viewport:{width,height:844}, deviceScaleFactor:1,
+                  isMobile:true, hasTouch:true, locale,
+                });
+                const page = await context.newPage();
+                await page.goto('https://food.wynos.online/', {waitUntil:'domcontentloaded', timeout:60000});
+                await page.waitForTimeout(8000);
+                await page.screenshot({path:`visual/web-home-${width}-${locale}.png`});
+                await context.close();
+              }
+            }
+            await browser.close();
+          })().catch(e => { console.error(e); process.exit(1); });
+          NODE
+      - name: Enable KVM
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Capture Android native guest screens and enforce network check
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -dns-server 8.8.8.8,1.1.1.1
+          script: |
+            set -e
+            adb install -r food-android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell settings put global private_dns_mode off || true
+            adb shell svc wifi enable || true
+            resolved=0
+            for attempt in 1 2 3 4; do
+              check="$(adb shell ping -c 1 -W 3 kqokpocajhfbidcxpvhh.supabase.co 2>&1 || true)"
+              if ! echo "$check" | grep -Eiq "unknown host|bad address|Name or service not known"; then resolved=1; break; fi
+              sleep 6
+            done
+            echo "DNS_RESULT=$resolved" | tee visual/android-network.txt
+            if [ "$resolved" -ne 1 ]; then
+              echo "Android emulator cannot resolve Supabase: UI parity NOT certified." >&2
+              exit 1
+            fi
+            for width in 360 390 430; do
+              adb shell wm size "${width}x844"
+              adb shell wm density 160
+              for locale in th-TH en-US; do
+                adb shell cmd locale set-app-locales online.wynos.food --user 0 --locales "$locale" || true
+                adb shell am force-stop online.wynos.food || true
+                adb shell am start -n online.wynos.food/.MainActivity
+                sleep 20
+                adb exec-out screencap -p > "visual/android-home-${width}-${locale}.png"
+              done
+            done
+            adb logcat -d -v brief -s AndroidRuntime:E System.err:E > visual/android-errors.txt || true
+      - name: Upload paired screenshots (not an automatic parity certificate)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-food-360-390-430-th-en-native-screens
+          path: visual/
+          if-no-files-found: warn
+          retention-days: 7
