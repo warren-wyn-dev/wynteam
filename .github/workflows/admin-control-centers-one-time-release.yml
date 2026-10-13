@@ -34,7 +34,7 @@ jobs:
       - name: Checkout precisely the Admin source that passed CI
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: 292d53dcb22ffe41da6cfcd6a76672a6f13cc054
+          ref: cad61807a2f6494f3815add51893ba64ca6cfc38
           persist-credentials: false
       - name: Validate target and required credentials
         shell: bash
@@ -51,6 +51,7 @@ jobs:
           grep -Fq 'id: "merchant-delivery"' admin/lib/admin-nav.ts
           test -f admin/app/\(admin\)/merchant/delivery/page.tsx
           test -f admin/app/\(admin\)/merchant/menu/page.tsx
+          test -f admin/app/\(admin\)/food/banners/page.tsx
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
       - name: Set up Node
