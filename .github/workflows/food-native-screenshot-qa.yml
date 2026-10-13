@@ -19,7 +19,7 @@ jobs:
       - name: Download verified APK from parity build
         uses: actions/download-artifact@v4
         with:
-          run-id: 38433404378
+          run-id: 38435660634
           name: wynos-food-android-debug
           github-token: ${{ github.token }}
           path: visual
@@ -64,7 +64,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -dns-server 8.8.8.8,1.1.1.1
           script: |
             adb install -r visual/app-debug.apk
             adb shell wm size 390x844
