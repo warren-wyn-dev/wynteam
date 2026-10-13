@@ -58,5 +58,13 @@ data class FoodCartDraft(
         return FoodCartDraft(store.id, updated)
     }
 
+    fun withQuantity(identity: String, quantity: Int): FoodCartDraft {
+        require(quantity in 0..99) { "invalid_quantity" }
+        require(lines.any { it.identity == identity }) { "unknown_cart_line" }
+        val next = if (quantity == 0) lines.filterNot { it.identity == identity }
+        else lines.map { if (it.identity == identity) it.copy(quantity = quantity) else it }
+        return if (next.isEmpty()) clear() else copy(lines = next)
+    }
+
     fun clear() = FoodCartDraft()
 }
