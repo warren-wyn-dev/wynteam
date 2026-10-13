@@ -12,10 +12,17 @@ import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.serialization.json.JsonObject
 import online.wynos.food.BuildConfig
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.put
 
 /** A minimal auth + anonymous catalog surface; deliberately NO order/payment writes. */
 interface FoodGateway {
     val configured: Boolean
+    val addressWritesEnabled: Boolean get() = false
+    suspend fun saveAddress(draft: FoodAddressDraft): String =
+        throw IllegalStateException("address_writes_disabled")
+    suspend fun deleteAddress(id: String) {
+        throw IllegalStateException("address_writes_disabled")
+    }
     suspend fun catalog(): List<FoodStore>
     suspend fun homeBanners(): List<FoodHomeBanner>
     suspend fun accountEmail(): String?
@@ -28,6 +35,35 @@ interface FoodGateway {
 }
 
 class SupabaseFoodGateway : FoodGateway {
+    override val addressWritesEnabled: Boolean get() =
+        configured && BuildConfig.ADDRESS_WRITES_ALLOWED
+
+    private suspend fun requireWritableClient(): SupabaseClient {
+        check(addressWritesEnabled) { "address_writes_disabled" }
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        check(supabase.auth.currentUserOrNull() != null) { "sign_in_required" }
+        return supabase
+    }
+
+    override suspend fun saveAddress(draft: FoodAddressDraft): String {
+        // No direct table writes and no privileged keys. RPC checks auth.uid() ownership.
+        val response = requireWritableClient().postgrest.rpc(
+            "food_upsert_customer_address_v3", draft.toRpcParams()
+        ).decodeAs<JsonElement>()
+        val id = (response as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty().trim('"')
+        require(id.isNotBlank()) { "missing_saved_address_id" }
+        return id
+    }
+
+    override suspend fun deleteAddress(id: String) {
+        require(id.matches(Regex("[0-9a-fA-F-]{36}"))) { "invalid_address_id" }
+        requireWritableClient().postgrest.rpc(
+            "food_delete_customer_address", kotlinx.serialization.json.buildJsonObject {
+                put("p_address_id", id)
+            }
+        )
+    }
     override val configured: Boolean
         get() = BuildConfig.SUPABASE_URL.startsWith("https://") &&
             BuildConfig.SUPABASE_PUBLISHABLE_KEY.isNotBlank()
@@ -87,6 +123,9 @@ class SupabaseFoodGateway : FoodGateway {
             Columns.list(
                 "id", "label", "recipient_name", "recipient_phone",
                 "address", "delivery_note", "is_default", "latitude", "longitude",
+                "address_line1", "moo", "soi", "road", "subdistrict",
+                "district", "province", "postal_code", "building_name",
+                "floor", "room", "landmark",
             )
         ) {
             filter { eq("user_id", owner) }
