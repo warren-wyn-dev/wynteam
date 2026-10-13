@@ -1,38 +1,38 @@
-# Integration handoff — WYNOS Food Android
+# WYNOS Food Android — verified source contracts for Step 2
 
-Step 1 is an **offline Native Android foundation**. Step 2 must be designed
-against these existing, versioned repository contracts, not guessed endpoints.
+## Source of truth
 
-## Grounded web/backend source
+- `web/components/food/food-guest-browse.tsx` uses `client.rpc("food_public_catalog")`.
+- `supabase/migrations/20261010120000_food_public_guest_catalog.sql` defines
+  public read-only JSONB result of at most 60 published, unsuspended stores
+  including up to 100 available menu entries each (behind the rollout gate).
+- `web/lib/food-customer.ts` provides authenticated orders / address and
+  server RPC contracts; **none of those are called in Step 2**.
+- `android/app/src/main/java/io/wyn/wyn/core/data/SupabaseAuthRepository.kt`
+  shows the existing WYNOS Supabase email-login and reset flow.
+- `web/lib/supabase/browser.ts` uses public browser Supabase config.
 
-- `web/app/food/page.tsx`: WYNOS Food entry screen.
-- `web/components/food/wynos-food-developer-app.tsx`: web customer flow.
-- `web/lib/food-customer.ts`: customer domain types and operations.
-- `web/lib/supabase/browser.ts`: browser-side Supabase publishable client.
-- `supabase/functions/food-stripe-checkout/index.ts`: Stripe checkout edge function.
+## Android implementation
 
-## Already used by Web Food
+- `data/FoodCatalog.kt`: defensive mapping from the public JSONB RPC to
+  native UI models. Menu prices are display-only strings, not checkout quotes.
+- `data/SupabaseFoodGateway.kt`: shared Supabase backend client with Auth
+  and Postgrest modules, email login/logout/reset, public catalog read only.
+- `ui/FoodViewModel.kt`: loading, error, signed-in and empty-state handling.
+- `ui/FoodApp.kt`: native Material 3 UI and disabled checkout.
 
-- `food_store_directory`: restaurant listing RPC.
-- `food_quote_order` / `food_quote_order_v2`: server quote.
-- `food_create_order` / `food_create_order_v2`: server order creation.
-- `food_delivery_availability`: delivery feasibility.
-- `food-stripe-checkout`: payment function.
+## Never do this
 
-Names above are observational only. Before implementation verify current RPC
-signatures, auth/session behavior, RLS policies, failure handling,
-idempotency, and production deployment/version parity.
+- No direct anonymous table queries to `food_stores`, `food_menu_items`,
+  `food_orders`, customer addresses, merchant finance, or private storage.
+- No use of any service-role or secret key in a mobile client.
+- No spoofing browser Origin to bypass Stripe's live checkout restriction.
+- No production schema/edge-function/deployment changes without approval.
 
-## Payment blocker requiring backend work
+## Planned next milestone
 
-The existing `food-stripe-checkout` code enforces
-`origin == https://food.wynos.online` in Stripe live mode. Native clients
-must **not** spoof a browser Origin header. Design a secure native-capable
-server authorization path, preserving order ownership, payment state
-and idempotency, then test in Stripe test mode and review it before rollout.
-
-## Next milestone
-
-Connect real catalog read-only to Supabase, then WYNOS Account sign-in, secure
-server-side quote/order flows, payment and notification integration. No
-production network configuration or secrets are included in Step 1.
+- Verify Supabase project/public keys in developer environment.
+- Verify login and guest catalog with a test account/device.
+- Add authenticated order history and customer address flows only once
+  current RLS and RPC contracts have passed security review.
+- Design native-safe payment initiation separately; no unreviewed live Stripe.
