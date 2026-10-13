@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1";
-import { normalizedGpFeeSatang, paidAfterCancelRefundParams } from "./_refund.ts";
+import { AUTO_REFUND_MARKER, mayResumeAutomaticGpRefund, normalizedGpFeeSatang, paidAfterCancelRefundParams } from "./_refund.ts";
 
 Deno.test("refund with 0 GP leaves application fee unchanged", () => {
   const params = paidAfterCancelRefundParams("ord-1", "pi_1", 0);
@@ -27,4 +27,11 @@ Deno.test("refund IDs and fee must be valid", () => {
   assertThrows(() => paidAfterCancelRefundParams("", "pi_1", 0), Error, "missing_refund_identifier");
   assertThrows(() => paidAfterCancelRefundParams("ord-1", "", 0), Error, "missing_refund_identifier");
   assertThrows(() => paidAfterCancelRefundParams("ord-1", "pi_1", -1), Error, "invalid_gp_fee_satang");
+});
+
+Deno.test("only an identified automatic refund may resume GP ledger repair", () => {
+  assertEquals(mayResumeAutomaticGpRefund("re_123", AUTO_REFUND_MARKER), true);
+  assertEquals(mayResumeAutomaticGpRefund(null, AUTO_REFUND_MARKER), false);
+  assertEquals(mayResumeAutomaticGpRefund("re_123", null), false);
+  assertEquals(mayResumeAutomaticGpRefund("re_123", "Merchant refund requested"), false);
 });
