@@ -20,12 +20,13 @@ function stripeLivemode(secret: string) {
   if (/^(?:sk|rk)_test_/.test(secret)) return false;
   return null;
 }
-function stripeHeaders(secret: string, account: string, idempotencyKey: string) {
+// A fixed Stripe idempotency key persists its first result, even a 500;
+// use Stripe's remaining refundable amount as the duplicate-refund safeguard.
+function stripeHeaders(secret: string, account: string) {
   return {
     Authorization: `Basic ${btoa(secret + ":")}`,
     "Stripe-Account": account,
     "Content-Type": "application/x-www-form-urlencoded",
-    "Idempotency-Key": idempotencyKey,
   };
 }
 
@@ -59,7 +60,7 @@ Deno.serve(async (req: Request) => {
   if (!orderId) return json({ error: "order_id_required" }, 400);
 
   const { data: order } = await admin.from("food_orders")
-    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status")
+    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status,stripe_refund_id")
     .eq("id", orderId).maybeSingle();
   if (!order) return json({ error: "order_not_found" }, 404);
 
@@ -73,6 +74,11 @@ Deno.serve(async (req: Request) => {
     return json({ error: "stripe_refund_not_eligible" }, 409);
   }
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
+  // An automatic or merchant refund has reached Stripe and is awaiting a webhook.
+  // Retry is allowed only after a failed/canceled refund has been recorded.
+  if (order.refund_status === "pending" && order.stripe_refund_id) {
+    return json({ error: "refund_in_progress" }, 409);
+  }
 
   const { data: payment } = await admin.from("food_stripe_payments")
     .select("stripe_account_id,livemode,application_fee_satang").eq("order_id", order.id).maybeSingle();
@@ -103,7 +109,7 @@ Deno.serve(async (req: Request) => {
   try {
     const response = await fetch("https://api.stripe.com/v1/refunds", {
       method: "POST",
-      headers: stripeHeaders(stripeSecret, stripeAccountId, `wynos-refund-${order.id}`),
+      headers: stripeHeaders(stripeSecret, stripeAccountId),
       body: params,
     });
     const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
@@ -115,6 +121,9 @@ Deno.serve(async (req: Request) => {
         status: response.status,
         request_id: response.headers.get("request-id"),
       });
+      if (err?.code === "charge_already_refunded") {
+        return json({ error: "already_refunded", message: "ออเดอร์นี้คืนเงินแล้ว หรือกำลังคืนเงินอยู่" }, 409);
+      }
       throw new Error("gateway_refund_failed");
     }
     await admin.from("food_orders").update({
@@ -123,7 +132,7 @@ Deno.serve(async (req: Request) => {
       refund_requested_at: new Date().toISOString(),
       refund_updated_by: user.id,
       stripe_refund_id: payload.id,
-    }).eq("id", order.id);
+    }).eq("id", order.id).or(`stripe_refund_id.is.null,stripe_refund_id.neq.${payload.id}`);
     // GP v1: finance reports reverse GP only for a fee WYNOS actually returned.
     // Stripe has already refunded, so a failed write must not undo that answer;
     // retry, then log loudly with the ids needed to reconcile by hand.
