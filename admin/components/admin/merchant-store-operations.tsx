@@ -42,8 +42,8 @@ export function MerchantStoreOperations({initial,canEdit}:{
  const min=Number(form.min),max=Number(form.max);
  const until=form.until?Date.parse(form.until):null;
  const validTime=Number.isInteger(min)&&min>=1&&min<=240&&Number.isInteger(max)&&max>=min&&max<=240;
- const validClose=until===null?!form.tempReason.trim():Number.isFinite(until)&&until>Date.now()
-   && until<Date.now()+30*24*60*60*1000 && form.tempReason.trim().length>=5&&form.tempReason.trim().length<=200;
+ const validClose=until===null?!form.tempReason.trim():Number.isFinite(until)
+   && form.tempReason.trim().length>=5&&form.tempReason.trim().length<=200;
  const changed=!!selected && (
   form.open!==selected.is_open||
   form.until!==(selected.temporary_closed_until?local(selected.temporary_closed_until):"")||
@@ -61,6 +61,9 @@ export function MerchantStoreOperations({initial,canEdit}:{
   if(!canEdit||!selected||!validTime||!validClose||!changed||reason.trim().length<5||reason.trim().length>300) {
    setError("กรอกข้อมูลให้ถูกต้อง ต้องมีการเปลี่ยนแปลงและระบุเหตุผล 5–300 ตัวอักษร");
    return;
+  }
+  if(until!==null && (until<=Date.now() || until>Date.now()+30*24*60*60*1000)){
+   setError("กำหนดเวลาปิดชั่วคราวต้องอยู่ในอนาคตไม่เกิน 30 วัน");return;
   }
   const message=form.open?"เปิดรับออเดอร์ใหม่เมื่ออยู่ในเวลาเปิดร้านและไม่มีเงื่อนไขปิดอื่น":"หยุดรับออเดอร์ใหม่";
   if(!window.confirm(`ยืนยันแก้สถานะร้าน "${selected.name}"? ระบบจะ${message}ทันทีหลังบันทึก`))return;
