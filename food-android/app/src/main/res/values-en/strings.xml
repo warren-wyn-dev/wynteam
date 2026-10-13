@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WYNOS Food (Beta Demo)</string>
+    <string name="home">Home</string>
+    <string name="orders">Orders</string>
+    <string name="account">Account</string>
+    <string name="browse_heading">What are you craving?</string>
+    <string name="browse_intro">Discover delicious food near you</string>
+    <string name="stores_heading">Restaurants</string>
+    <string name="menu_heading">Featured menu</string>
+    <string name="demo_notice">Demo mode — no real restaurants or orders connected</string>
+    <string name="sample_store">Sample restaurant • fictional</string>
+    <string name="delivery_by_store">Restaurant delivery</string>
+    <string name="order_disabled">Place order (not available)</string>
+    <string name="orders_empty">Order history will appear after backend integration</string>
+    <string name="account_empty">WYNOS Account will be integrated in the next phase</string>
+    <string name="coming_soon">Under development</string>
+    <string name="back">Back</string>
+    <string name="promotional_title">WYNOS Food</string>
+    <string name="promotional_subtitle">Delicious food, your way</string>
+</resources>
