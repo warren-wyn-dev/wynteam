@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { foodCartLineKey, foodCartLineOptionsValid, foodCartLineUnitPrice, foodMoney, foodPublicUrl, type FoodCartLine, type FoodMenuOptionGroup } from "@/lib/food-customer";
 import { markFoodSplashReady } from "@/lib/food-splash";
+import { fetchFoodHomeBanners, foodHomeBannerImage, type FoodHomeBanner } from "@/lib/food-home-banners";
 import { rememberSharedFoodStore, sharedFoodStoreId } from "@/lib/food-share";
 
 export const GUEST_BASKET_KEY = "wynos-food-guest-basket-v1";
@@ -90,6 +91,7 @@ function available(item: GuestMenuItem) {
 export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
   const router = useRouter();
   const [stores, setStores] = useState<GuestStore[] | null>(null);
+  const [homeBanners,setHomeBanners]=useState<FoodHomeBanner[]>([]);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(() => {
@@ -121,6 +123,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
   }, [client]);
 
   useEffect(() => { if (stores !== null) markFoodSplashReady(); }, [stores]);
+  useEffect(() => { let live=true; void fetchFoodHomeBanners(client).then(rows=>{if(live)setHomeBanners(rows);}); return ()=>{live=false;}; },[client]);
 
   const store = stores?.find((entry) => entry.id === selectedId) ?? null;
   const filtered = useMemo(() => (stores ?? []).filter((entry) => (
@@ -326,6 +329,28 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
             <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาร้านหรือชื่ออาหาร" aria-label="ค้นหาร้านหรือชื่ออาหาร" />
             {query ? <button type="button" className="fx-search-clear" aria-label="ล้างการค้นหา" onClick={() => setQuery("")}><X size={14} strokeWidth={3} /></button> : null}
           </label>
+
+
+          {!query.trim() && homeBanners.length > 0 ? (
+            <div className="fx-home-banners" aria-label="แบนเนอร์ WYNOS Food">
+              {homeBanners.map((banner) => {
+                const target=banner.destination_store_id?stores?.find(x=>x.id===banner.destination_store_id):null;
+                const media=<>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={foodHomeBannerImage(client,banner.image_path)} alt="" loading="lazy" decoding="async"/>
+                  <span className="fx-home-banner-copy">
+                    <strong>{banner.title}</strong>
+                    {banner.subtitle?<small>{banner.subtitle}</small>:null}
+                  </span>
+                </>;
+                return target ? (
+                  <button key={banner.id} type="button" className="fx-home-banner" onClick={()=>pickStore(target)} aria-label={banner.title}>{media}</button>
+                ) : (
+                  <div key={banner.id} className="fx-home-banner" role="group" aria-label={banner.title}>{media}</div>
+                );
+              })}
+            </div>
+          ) : null}
 
           <section className="fx-section fx-guest-stores">
             <div className="fx-section-head"><h2>ร้านอาหารที่เปิดเผยแพร่</h2></div>
