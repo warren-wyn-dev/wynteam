@@ -135,7 +135,7 @@ fun WebOrdersPage(state: FoodUiState, onRetry: () -> Unit, onBrowse: () -> Unit,
         when {
             !state.configured -> item { EmptyPanel(stringResource(R.string.configure_supabase)) }
             state.accountEmail == null -> item { EmptyPanel(stringResource(R.string.sign_in_to_view_orders)) }
-            state.ordersLoading -> item { Box(Modifier.fillMaxWidth().padding(30.dp), Alignment.Center) { CircularProgressIndicator(color = BrandRed) } }
+            state.ordersLoading && state.orders.isEmpty() -> item { Box(Modifier.fillMaxWidth().padding(30.dp), Alignment.Center) { CircularProgressIndicator(color = BrandRed) } }
             state.ordersFailed -> item {
                 EmptyPanel(stringResource(R.string.orders_load_failed))
                 OutlinedButton(
