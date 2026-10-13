@@ -69,20 +69,27 @@ jobs:
             adb install -r visual/app-debug.apk
             adb shell wm size 390x844
             adb shell wm density 160
-            adb shell settings put system system_locales th-TH
-            adb shell am broadcast -a android.intent.action.LOCALE_CHANGED || true
+            adb shell cmd locale set-app-locales online.wynos.food --user 0 --locales th-TH || true
+            echo "APP LOCALE:"
+            adb shell cmd locale get-app-locales online.wynos.food --user 0 || true
+            echo "NETWORK:"
+            adb shell dumpsys connectivity | grep -m 2 "VALIDATED" || true
+            adb shell ping -c 1 -W 4 kqokpocajhfbidcxpvhh.supabase.co || true
             adb shell am force-stop online.wynos.food || true
             adb shell am start -n online.wynos.food/.MainActivity
-            sleep 22
+            sleep 35
             adb exec-out screencap -p > visual/android-home.png
-            adb shell input tap 90 400
-            sleep 3
+            adb shell input tap 90 425
+            sleep 5
             adb exec-out screencap -p > visual/android-store.png
+            adb logcat -d -v brief -s AndroidRuntime:E chromium:E System.err:E > visual/android-error-log.txt || true
       - name: Upload comparison screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: wynos-food-390px-parity
-          path: visual/*.png
+          path: |
+            visual/*.png
+            visual/android-error-log.txt
           if-no-files-found: warn
           retention-days: 3
