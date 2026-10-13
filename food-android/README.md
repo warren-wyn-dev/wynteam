@@ -55,6 +55,17 @@ enabled). Never make test purchases against live Stripe.
   as a short-lived GitHub Actions artifact with **no backend credentials**.
 - See `STEP3_QA.md` for staging blocker and release gates.
 
-**Current test limitation:** the connected Stripe Sandbox is missing the
-`food_public_catalog` RPC currently present on WYNOS Web; no live Food
-integration was run, and no database schema has been changed.
+**Connected GitHub Actions QA debug build:** the CI workflow injects the
+public Supabase URL and **publishable (non-secret) API key** of the existing
+WYNOS Web project. This is intentional only for the QA debug APK; its
+public catalog is already accessible to signed-out website visitors. The
+app still cannot place orders or pay. Don't use any service_role or secret
+key. Manual Android Studio builds still need local.properties as above.
+
+The connected Stripe Sandbox is missing the food_public_catalog RPC
+currently present on WYNOS Web. No live end-to-end login or order test was
+performed, and no database schema has been changed. After installing the
+updated APK, verify catalog loading and login with a dedicated test account.
+Android debug signing certificates can differ between GitHub runners: if
+installing an APK reports a signature conflict, uninstall the older beta app
+first and then install the new one.
