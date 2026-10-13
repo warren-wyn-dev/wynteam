@@ -185,7 +185,11 @@ test("Refunds use the gateway and never surface raw gateway messages", () => {
   assert.match(refund, /stripe_account_id,livemode/);
   assert.match(refund, /stripe_environment_mismatch/);
   assert.match(refund, /request_id/);
-  assert.match(refund, /คืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง/);
+  // Unknown Stripe outcomes are not retried automatically: the payment might
+  // already be refunded even though the gateway response was interrupted.
+  assert.match(refund, /ยังยืนยันผลการคืนเงินไม่ได้ กรุณาตรวจสอบกับผู้ดูแลก่อนดำเนินการอีกครั้ง/);
+  assert.match(refund, /refund_reconciliation_required/);
+  assert.match(refund, /requiresRefundReconciliation/);
   assert.doesNotMatch(refund, /message: error instanceof Error \? error\.message/);
 });
 
