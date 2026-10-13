@@ -3,7 +3,7 @@ name: WYNOS Food Native Anuphan Visual QA
 on:
   pull_request:
     paths:
-      - ".github/workflows/food-native-screenshot-qa.yml"
+      - ".github/workflows/food-anuphan-visual-qa.yml"
   workflow_dispatch:
 
 permissions:
