@@ -568,7 +568,7 @@ async function refundPaidAfterCancel(admin: AdminClient, secret: string, account
     // redelivery resumes it using the stored refund ID. Never issue a second
     // refund just to repair internal reporting.
     const { data: ledger, error: ledgerError } = await admin.from("food_stripe_payments")
-      .select("application_fee_refunded_satang").eq("order_id", order.id).maybeSingle();
+      .select("application_fee_refunded_satang").eq("order_id", orderId).maybeSingle();
     if (ledgerError || !ledger) return false;
     if (Number(ledger.application_fee_refunded_satang) === feeSatang) return true;
     if (Number(ledger.application_fee_refunded_satang) !== 0) return false;
@@ -576,10 +576,10 @@ async function refundPaidAfterCancel(admin: AdminClient, secret: string, account
       const { data: changed, error: feeError } = await admin.from("food_stripe_payments").update({
         application_fee_refunded_satang: feeSatang,
         application_fee_refunded_at: new Date().toISOString(),
-      }).eq("order_id", order.id).eq("application_fee_refunded_satang", 0).select("order_id");
+      }).eq("order_id", orderId).eq("application_fee_refunded_satang", 0).select("order_id");
       if (!feeError && (changed?.length ?? 0) > 0) return true;
     }
-    console.error("stripe auto refund GP ledger write failed", { order_id: order.id, refund_id: refundId });
+    console.error("stripe auto refund GP ledger write failed", { order_id: orderId, refund_id: refundId });
     return false;
   }
   if (isTrackedAutoRefund) return await recordGpFeeRefund(order.stripe_refund_id!);
