@@ -58,7 +58,7 @@
     <string name="public_stores">ร้านอาหารที่เปิดเผยแพร่</string>
     <string name="recommended_stores">ร้านแนะนำ</string>
     <string name="store_menu_count">%1$d เมนู</string>
-    <string name="store_delivery">ค่าส่ง %1$s บาท</string>
+    <string name="store_delivery">ค่าส่ง %1$s</string>
     <string name="public_store_closed">ปิดอยู่</string>
     <string name="delivery_to">ส่งถึง</string>
     <string name="select_delivery">เลือกที่อยู่จัดส่ง</string>
@@ -102,4 +102,10 @@
     <string name="readonly_order_notice">ดูได้อย่างเดียวใน Android Beta</string>
     <string name="account_signup_pending">การสมัครสมาชิกบน Android อยู่ระหว่างพัฒนา</string>
     <string name="store_meta_guest">%1$d เมนู · ค่าส่งเริ่มต้น ฿%2$s</string>
+    <string name="required_option">จำเป็น</string>
+    <string name="option_up_to">เลือกได้สูงสุด %1$d รายการ</string>
+    <string name="cart_add_total">เพิ่มลงตะกร้า · ฿%1$s</string>
+    <string name="select_required_options">เลือกตัวเลือกที่จำเป็นก่อน</string>
+    <string name="cart_empty">ตะกร้ายังว่างอยู่</string>
+    <string name="estimated_subtotal_label">ยอดรวมค่าอาหารโดยประมาณ</string>
 </resources>
