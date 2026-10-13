@@ -131,7 +131,8 @@ fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart:
                 OutlinedButton(
                     onClick = onAccount,
                     shape = CircleShape,
-                    contentPadding = PaddingValues(horizontal = 15.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, WebRed),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.height(40.dp),
                 ) {
                     Text(stringResource(R.string.guest_sign_in), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
@@ -242,7 +243,7 @@ fun WebHomeScreen(
         if (guest) {
             item {
                 Column(
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 14.dp)
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 9.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(Brush.horizontalGradient(listOf(WebRedSoft, Color.White)))
                         .padding(18.dp),
@@ -334,7 +335,7 @@ fun WebHomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         row.forEach { store ->
-                            StoreCardWeb(store, Modifier.weight(1f), onClick = { onStore(store.id) })
+                            StoreCardWeb(store, Modifier.weight(1f), showRating = !guest, onClick = { onStore(store.id) })
                         }
                         if (row.size == 1) Spacer(Modifier.weight(1f))
                     }
@@ -343,7 +344,7 @@ fun WebHomeScreen(
                     item { SectionTitleWeb(stringResource(R.string.public_stores)) }
                     items(filtered.chunked(2), key = { row -> "all_" + row.first().id }) { row ->
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            row.forEach { store -> StoreCardWeb(store, Modifier.weight(1f), onClick = { onStore(store.id) }) }
+                            row.forEach { store -> StoreCardWeb(store, Modifier.weight(1f), showRating = true, onClick = { onStore(store.id) }) }
                             if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
@@ -417,7 +418,7 @@ private fun FilterChipWeb(title: String, selected: Boolean, onClick: () -> Unit)
 }
 
 @Composable
-private fun StoreCardWeb(store: FoodStore, modifier: Modifier, onClick: () -> Unit) {
+private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boolean, onClick: () -> Unit) {
     Column(
         modifier = modifier.clickable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(5.dp),
@@ -434,13 +435,16 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, onClick: () -> Un
             }
         }
         Text(store.name, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(13.dp))
-            Text(stringResource(R.string.store_new), color = WebInk, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        if (showRating) {
+            // The signed-in site shows a rating row; public guest cards don't.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(13.dp))
+                Text(stringResource(R.string.store_new), color = WebInk, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TagWeb(stringResource(R.string.store_menu_count, store.menu.size))
-            TagWeb(stringResource(R.string.store_delivery, store.deliveryFee ?: "—"))
+            TagWeb(stringResource(R.string.store_delivery, "฿" + (store.deliveryFee ?: "—")))
         }
     }
 }
@@ -448,9 +452,9 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, onClick: () -> Un
 @Composable
 private fun TagWeb(title: String) {
     Text(
-        title, color = WebSub, fontSize = 11.sp, maxLines = 1,
+        title, color = WebSub, fontSize = 11.5.sp, maxLines = 1,
         modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(WebChip)
-            .padding(horizontal = 6.dp, vertical = 3.dp),
+            .padding(horizontal = 7.dp, vertical = 2.dp),
     )
 }
 
@@ -516,7 +520,7 @@ fun WebStoreScreen(
                     Text(store.name, fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = WebInk)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(14.dp))
-                        Text(" " + stringResource(R.string.store_new) + " · ", color = WebSub, fontSize = 13.sp)
+                        if (!guest) Text(" " + stringResource(R.string.store_new) + " · ", color = WebSub, fontSize = 13.sp)
                         Text(stringResource(R.string.store_menu_count, store.menu.size), color = WebSub, fontSize = 13.sp)
                         Text(" · ฿" + (store.deliveryFee ?: "—"), color = WebSub, fontSize = 13.sp)
                     }
@@ -551,7 +555,7 @@ fun WebStoreScreen(
             HorizontalDivider(color = WebLine)
         }
         if (storeTab == 0) {
-            if (categories.size > 2) {
+            if (categories.size > 1) {
                 item {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
