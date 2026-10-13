@@ -230,15 +230,16 @@ private fun FoodAddressEditor(
         try {
             locationError = false
             LocationManagerCompat.getCurrentLocation(
-                manager, provider, null, ContextCompat.getMainExecutor(context)
-            ) { location ->
+                manager, provider, null, ContextCompat.getMainExecutor(context),
+                androidx.core.util.Consumer<android.location.Location> { location ->
                 if (location != null) {
                     draft = draft.copy(latitude = location.latitude, longitude = location.longitude)
                     locationError = false
                 } else {
                     locationError = true
                 }
-            }
+                },
+            )
         } catch (_: SecurityException) {
             locationError = true
         } catch (_: IllegalArgumentException) {
