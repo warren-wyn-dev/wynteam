@@ -1,6 +1,6 @@
 # WYNOS Food / Merchant — ผลส่งมอบ Development increment
 
-ตรวจวันที่ 2026-10-13 บน branch `feat/food-production-hardening` เริ่มจาก `cf2e2cf9` และปรับฐานเข้ากับ main `7a8fdae2` ซึ่งเพิ่ม Admin control centers โดยไม่มีไฟล์ที่แก้ทับกัน
+ตรวจวันที่ 2026-10-13 บน branch `feat/food-production-hardening` เริ่มจาก `cf2e2cf9` และปรับฐานเข้ากับ main `42a8f937` ซึ่งเพิ่ม Admin modules และ production release freeze; Food banner/featured-store changes รวมเข้ากับงานนี้แล้ว
 
 **ผล: ส่วนที่พัฒนารอบนี้ผ่านการตรวจรวมใน local/synthetic environment ยังไม่พร้อมประกาศเปิด Production** ไม่อ่าน Production Secrets/credential files ไม่ใช้ฐานข้อมูลจริง ไม่ deploy ไม่เปลี่ยนโดเมนหรือ environment จริง และไม่เรียกเงินจริง/คืนเงินจริง/payout จริง
 
@@ -34,7 +34,7 @@ Next.js/React/TypeScript สำหรับ Food/Merchant/Social/Maps, Admin แ
 - `web/components/merchant/{wynos-merchant-app,merchant-finance,merchant-busy-mode,merchant-order-modification,merchant-order-performance}.tsx`
 - `web/lib/{food-customer,food-merchant,food-checkout-intent,food-option-rules,food-rider-pricing,order-recovery,order-modification,merchant-order-performance}.ts`
 - Edge Functions `food-stripe-checkout`, `merchant-stripe-refund`, `stripe-webhook` และ refund helpers/tests
-- Migrations 6 ไฟล์, SQL regression scripts, web tests, `web/package.json`, `.github/workflows/web-next-ci.yml` และรายงาน 2 ไฟล์
+- Migrations 6 ไฟล์, SQL regression scripts, web tests, `web/package.json`, `.github/workflows/web-next-ci.yml` dictionary `web/lib/i18n/en.ts` และรายงาน 2 ไฟล์
 
 ## 5. Database
 
@@ -75,6 +75,7 @@ Order modification execution/replacement/repricing/refund/extra charge ยัง
 | `npm run test:food-hardening` | PASS 9 files | runtime client/helper/mocks และบาง static rendering |
 | `npm run test:stripe` | PASS 5 files | actual mocked Checkout/refund handlers + source contracts |
 | `npm run test:notifications` | PASS 9 files | recovery/history/notification regressions เดิม |
+| `npm run test:i18n` | PASS 6 files | English coverage รวม 90 exact strings / 5 templates ใหม่ |
 | Deno check Edge Functions ที่แก้ 3 ตัว | PASS | Deno 2.9.6 ไม่ start handler จริง |
 | Deno checkout/refund helper tests | PASS 14 cases | ไม่เรียก provider |
 | Deno webhook tests | PASS 6 cases | source contracts ไม่ใช่ signed HTTP E2E |
@@ -82,6 +83,7 @@ Order modification execution/replacement/repricing/refund/extra charge ยัง
 | Existing options/stock/access/finance/GP/Admin finance/campaign/coupon/readiness/delivery storage SQL regressions | PASS | isolated fixture schemas; ไม่ใช่ deployment schema audit |
 | Food/Merchant Chromium Android/Desktop | PASS 134 checks | source checks + browser fixtures ก่อน final Merchant rerun |
 | Merchant final browser matrix | PASS 120 checks | Chromium Android/Desktop และ WebKit iPhone หลัง integration; มี actual touch/DOM cases |
+| Food/Merchant หลังรวม main | PASS 134 checks | Chromium Desktop + WebKit iPhone; รักษา main banners/featured stores และงานนี้ |
 | `python3 supabase/check_schema_ordering.py`, `git diff --check` | PASS | schema source ordering / whitespace |
 
 คำสั่ง SQL ใช้ `PSQL=/tmp/wynos-local-psql bash supabase/tests/<suite>.sh` ชี้ Unix socket ของ PostgreSQL local ที่ไม่รับ TCP. แต่ละ suite สร้างและลบเฉพาะฐานข้อมูลจำลองของตัวเอง. New scripts ใช้ `PSQL` override หรือ CI PostgreSQL service ได้ ห้ามชี้ไป production
@@ -95,5 +97,7 @@ Order modification execution/replacement/repricing/refund/extra charge ยัง
 - ต้องยืนยันเจ้าของรายได้/settlement/tax ของค่าธรรมเนียม 15 บาทก่อนเปิด flag โดยรักษาเกณฑ์ 60/15 และโปรโมชัน 100/40 ตามที่กำหนด
 - Stripe Thailand/Connect configuration ของบัญชี WYNOS ยังไม่มี official account-specific confirmation; ไม่รับรอง marketplace payout readiness จาก source หรือเอกสารทั่วไป
 - ต้องทดสอบ migrations กับ dependencies ทั้งชุดใน isolated staging, complete order/payment/refund/realtime flows, merchant isolation, financial reconciliation และ monitoring/rollback
-- คงแท็บ Merchant 4 แท็บ, 24 ชั่วโมง/history, whole-row iPhone drag, vertical radio options และ Food home เดิม; Admin control centers ใหม่ใน main เป็น inventory/link surface ไม่ใช่หลักฐานว่าฟีเจอร์ที่ระบุทั้งหมดทำงานแล้ว
-- การ merge main มี production deploy workflow ที่มีอยู่ จึงส่งเป็น Draft PR เพื่อ review เท่านั้น ต้องมี production release approval แยกก่อน merge/deploy/enableเงินจริง
+- คงแท็บ Merchant 4 แท็บ, 24 ชั่วโมง/history, whole-row iPhone drag, vertical radio options และ Food home เดิม; Admin modules ใหม่ใน main มี RPC/editor ของบางความสามารถ แต่ยังไม่ใช่หลักฐานว่า catalog ทุกส่วนพร้อมหรือมี Production QA ครบ
+- คง production release freeze/manual gates จาก main และส่งเป็น Draft PR เพื่อ review เท่านั้น ไม่เรียก deploy workflow หรือเปิดเงินจริง
+
+GitHub CI รอบแรกพบ missing English coverage และ metrics negative-assertion output บน CI wrapper; แก้แล้วและ local rerun ผ่าน. ผล CI ทั้งชุดของ updated candidate ต้องอ่านจาก PR ไม่ใช้ผล local แทนคำว่า CI green.

@@ -15,7 +15,9 @@ as_user() { run -At -c "set role authenticated; set test.uid='$1'; $2" | tail -1
 expect_user() { [ "$(as_user "$1" "$2")" = "$3" ] || fail "$4"; pass "$4"; }
 expect_error() {
   local output
-  if output=$(as_user "$2" "$3" 2>&1); then fail "$1 (unexpected success)"; fi
+  # CI's psql wrapper combines stdout/stderr. Preserve the whole diagnostic:
+  # as_user's last-row filter would retain CONTEXT and discard the ERROR line.
+  if output=$(run -At -c "set role authenticated; set test.uid='$2'; $3" 2>&1); then fail "$1 (unexpected success)"; fi
   [[ "$output" == *"$4"* ]] || fail "$1 (got $output)"
   pass "$1"
 }

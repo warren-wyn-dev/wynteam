@@ -55,10 +55,10 @@ export default async function FoodCampaignsPage() {
       <section className="flex flex-col gap-3 rounded-xl border p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
-            <h3 className="font-semibold">โปรลูกค้าใหม่ · สั่งครบ ฿120 ลด ฿20</h3>
+            <h3 className="font-semibold">โปรลูกค้าใหม่{firstOrderCampaign ? ` · ${platformCampaignTerms(firstOrderCampaign)}` : ""}</h3>
             <p className="text-sm text-muted-foreground">
               สั่งครั้งแรกใน WYNOS Food เท่านั้น · ใช้ได้หนึ่งครั้งต่อผู้ใช้ทั่วทั้งระบบ
-              · ร้านค้าที่สมัครเข้าร่วมรับผิดชอบส่วนลด 20 บาทเอง (WYNOS ออก 0%)
+              · {firstOrderCampaign ? `ร้านที่เข้าร่วมรับผิดชอบส่วนลด ${100 - Number(firstOrderCampaign.platform_share_percent)}% (WYNOS ออก ${Number(firstOrderCampaign.platform_share_percent)}%)` : "ยังไม่พบเงื่อนไขแคมเปญในระบบ"}
             </p>
             <p className="text-sm">
               สถานะ: {firstOrderCampaign?.is_active ? "เปิดใช้งาน" : "ปิดอยู่"}

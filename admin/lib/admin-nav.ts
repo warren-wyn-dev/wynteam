@@ -25,7 +25,10 @@ import {
   Bot,
   Settings,
   Wallet,
+  Truck,
+  Clock3,
   SlidersHorizontal,
+  Images,
   type LucideIcon,
 } from "lucide-react";
 
@@ -118,6 +121,9 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // WYNOS Food: the customer and order side.
   systemDashboard("food"),
   { id: "food-control", href: "/food/control", label: "ศูนย์ควบคุม Food", icon: SlidersHorizontal, group: "food", requires: { systems: ["food"] } },
+  { id: "food-banners", href: "/food/banners", label: "แบนเนอร์หน้าแรก Food", icon: Images, group: "food", requires: { systems: ["food"] } },
+  { id: "food-reviews", href: "/food/reviews", label: "ตรวจสอบรีวิว Food", icon: MessageCircle, group: "food", requires: { systems: ["food"] } },
+  { id: "food-featured", href: "/food/featured", label: "ร้านแนะนำ Food", icon: Store, group: "food", requires: { systems: ["food"] } },
   { id: "food-orders", href: "/food/orders", label: "Orders", icon: ShoppingBag, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
   { id: "food-customers", label: "Customers", icon: Users, group: "food", requires: { systems: ["food"] } },
   { id: "food-payments", label: "Payments & Refunds", icon: CreditCard, group: "food", requires: { systems: ["food"] } },
@@ -130,7 +136,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: "merchant-control", href: "/merchant/control", label: "ศูนย์ควบคุม Merchant", icon: SlidersHorizontal, group: "merchant", requires: { systems: ["merchant"] } },
   { id: "stores", href: "/food", label: "Stores", icon: Store, group: "merchant", requires: { systems: ["food"] } },
   { id: "merchant-verification", href: "/merchants", label: "Merchant Verification", icon: BadgeCheck, group: "merchant", requires: { systems: ["merchant"] } },
-  { id: "menu-management", label: "Menu Management", icon: BookOpen, group: "merchant", requires: { systems: ["merchant", "food"] } },
+  { id: "menu-management", href: "/merchant/menu", label: "Menu Management", icon: BookOpen, group: "merchant", requires: { systems: ["merchant"] } },
   { id: "coupons", href: "/food/coupons", label: "Coupons", icon: TicketPercent, group: "merchant", requires: { systems: ["food"] } },
   { id: "campaigns", href: "/food/campaigns", label: "Campaigns", icon: Gift, group: "merchant", requires: { systems: ["food"] } },
   { id: "ads", href: "/food/ads", label: "Ads", icon: BadgeDollarSign, group: "merchant", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
@@ -138,6 +144,8 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // GP, store income, payouts and settlement history live here, never as a
   // top-level section. Read only; reads need merchant:view.
   { id: "merchant-finance", href: "/merchant/finance", label: "การเงินร้านค้า", icon: Wallet, group: "merchant", requires: { systems: ["merchant"] } },
+  { id: "merchant-delivery", href: "/merchant/delivery", label: "ค่าส่งและรัศมีรายร้าน", icon: Truck, group: "merchant", requires: { systems: ["merchant"] } },
+  { id: "merchant-operations", href: "/merchant/operations", label: "เปิด–ปิดร้านและเวลาเตรียม", icon: Clock3, group: "merchant", requires: { systems: ["merchant"] } },
 
   systemDashboard("maps"),
   { id: "places", href: "/maps/places", label: "Place Management", icon: MapPinned, group: "maps", requires: { systems: ["maps"] } },

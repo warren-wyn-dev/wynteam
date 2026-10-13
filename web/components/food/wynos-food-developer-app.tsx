@@ -50,6 +50,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodGuestBrowse, readGuestFoodBasket, clearGuestFoodBasket } from "@/components/food/food-guest-browse";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { fetchFoodHomeBanners, foodHomeBannerImage, type FoodHomeBanner } from "@/lib/food-home-banners";
+import { fetchFoodFeaturedStores, type FoodFeaturedPlacement } from "@/lib/food-featured-stores";
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
@@ -601,6 +603,8 @@ function StoreDirectory({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FoodDirectoryFilter>("all");
   const [stores, setStores] = useState<FoodDirectoryStore[] | null>(null);
+  const [homeBanners, setHomeBanners] = useState<FoodHomeBanner[]>([]);
+  const [featuredPlacements,setFeaturedPlacements]=useState<FoodFeaturedPlacement[]>([]);
   const [browse, setBrowse] = useState<"promos" | "recent" | "nearby" | "popular" | null>(null);
   const promoKey = `wynos-food-collected-promos-v1:${userId}`;
   const [collectedPromos, setCollectedPromos] = useState<string[]>(() => {
@@ -621,11 +625,23 @@ function StoreDirectory({
     return () => { live = false; window.clearTimeout(timer); };
   }, [client, query]);
 
+  useEffect(() => {
+    let live = true;
+    void fetchFoodHomeBanners(client).then((rows) => { if (live) setHomeBanners(rows); });
+    return () => { live = false; };
+  }, [client]);
+
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const customerLocation = addressLocation(primaryAddress);
   const directory = stores ?? [];
   const distanceFor = (store: FoodDirectoryStore) => foodDistanceKm(customerLocation, store);
   const storeMap = new Map(directory.map((store) => [store.id, store]));
+
+  useEffect(() => {
+    let live=true;
+    void fetchFoodFeaturedStores(client).then(rows=>{if(live)setFeaturedPlacements(rows);});
+    return ()=>{live=false;};
+  },[client]);
 
   const recentStores = Array.from(new Set(
     [...orders]
@@ -663,6 +679,7 @@ function StoreDirectory({
     return a.name.localeCompare(b.name, "th");
   });
   const promoStores = directory.filter((store) => Boolean(store.promo_name));
+  const featuredStores=featuredPlacements.map(p=>filtered.find(store=>store.id===p.store_id)).filter((store):store is FoodDirectoryStore=>Boolean(store));
 
   const toggleCollected = (store: FoodDirectoryStore) => {
     const id = store.id;
@@ -719,6 +736,34 @@ function StoreDirectory({
         {query ? <button type="button" className="fx-search-clear" aria-label="ล้างการค้นหา" onClick={() => setQuery("")}><X size={14} strokeWidth={3} /></button> : null}
       </label>
 
+
+      {!searching && homeBanners.length > 0 ? (
+        <div className="fx-home-banners" aria-label="แบนเนอร์ WYNOS Food">
+          {homeBanners.map((banner) => {
+            const destination = banner.destination_store_id ? storeMap.get(banner.destination_store_id) : null;
+            const media = (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={foodHomeBannerImage(client, banner.image_path)} alt="" loading="lazy" decoding="async" />
+                <span className="fx-home-banner-copy">
+                  <strong>{banner.title}</strong>
+                  {banner.subtitle ? <small>{banner.subtitle}</small> : null}
+                </span>
+              </>
+            );
+            return destination ? (
+              <button key={banner.id} type="button" className="fx-home-banner" onClick={() => onPick(destination, "home")} aria-label={banner.title}>
+                {media}
+              </button>
+            ) : (
+              <div key={banner.id} className="fx-home-banner" role="group" aria-label={banner.title}>
+                {media}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       {stores === null ? (
         <div className="fx-skel-grid fx-skel-grid--inline" aria-busy="true" aria-label="กำลังโหลดร้านอาหาร">
           <div><div className="fx-skel fx-skel--card" /><div className="fx-skel fx-skel--line" /></div>
@@ -756,6 +801,13 @@ function StoreDirectory({
               </button>
             ))}
           </div>
+
+          {filter === "all" && featuredStores.length > 0 ? (
+            <section className="fx-home-section" aria-label="ร้านแนะนำ">
+              <FoodHomeSectionHeader title="ร้านแนะนำ" />
+              <div className="fx-store-grid">{featuredStores.map(store=>card(store))}</div>
+            </section>
+          ) : null}
 
           {filter === "all" && promoStores.length ? (
             <section className="fx-home-section">
