@@ -101,4 +101,5 @@
     <string name="order_history_link">Order history</string>
     <string name="readonly_order_notice">Read-only in Android Beta</string>
     <string name="account_signup_pending">Android registration is still in development</string>
+    <string name="store_meta_guest">%1$d items · delivery from ฿%2$s</string>
 </resources>

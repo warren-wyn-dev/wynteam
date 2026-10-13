@@ -101,4 +101,5 @@
     <string name="order_history_link">ประวัติการสั่งอาหาร</string>
     <string name="readonly_order_notice">ดูได้อย่างเดียวใน Android Beta</string>
     <string name="account_signup_pending">การสมัครสมาชิกบน Android อยู่ระหว่างพัฒนา</string>
+    <string name="store_meta_guest">%1$d เมนู · ค่าส่งเริ่มต้น ฿%2$s</string>
 </resources>
