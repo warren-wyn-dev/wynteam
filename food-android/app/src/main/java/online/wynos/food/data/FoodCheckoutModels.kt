@@ -24,6 +24,20 @@ data class FoodCustomerAddress(
     val isDefault: Boolean,
     val latitude: Double?,
     val longitude: Double?,
+    val addressLine1: String = "",
+    val moo: String = "",
+    val soi: String = "",
+    val road: String = "",
+    val subdistrict: String = "",
+    val district: String = "",
+    val province: String = "",
+    val postalCode: String = "",
+    val buildingName: String = "",
+    val floor: String = "",
+    val room: String = "",
+    val landmark: String = "",
+    val placeId: String = "",
+    val placeName: String = "",
 ) {
     val validPin: Boolean get() =
         latitude != null && longitude != null &&
@@ -44,6 +58,16 @@ object FoodAddressParser {
             deliveryNote = text("delivery_note"),
             isDefault = text("is_default") == "true",
             latitude = number("latitude"), longitude = number("longitude"),
+            addressLine1 = text("address_line1").orEmpty().ifBlank { text("address").orEmpty() },
+            moo = text("moo").orEmpty(), soi = text("soi").orEmpty(),
+            road = text("road").orEmpty(), subdistrict = text("subdistrict").orEmpty(),
+            district = text("district").orEmpty(), province = text("province").orEmpty(),
+            postalCode = text("postal_code").orEmpty(),
+            buildingName = text("building_name").orEmpty(),
+            floor = text("floor").orEmpty(), room = text("room").orEmpty(),
+            landmark = text("landmark").orEmpty(),
+            placeId = text("place_id").orEmpty(),
+            placeName = text("place_name").orEmpty(),
         )
     }.sortedWith(compareByDescending<FoodCustomerAddress> { it.isDefault }.thenBy { it.label })
 }

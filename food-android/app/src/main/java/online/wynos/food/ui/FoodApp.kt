@@ -142,6 +142,9 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onResetPassword = vm::requestPasswordReset,
                     onOrders = { tab = 1 },
                     onRefreshAddresses = vm::refreshAddresses,
+                    onSaveAddress = vm::saveAddress,
+                    onDeleteAddress = vm::deleteAddress,
+                    onClearAddressStatus = vm::clearAddressMutationStatus,
                 )
             }
         }

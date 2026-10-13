@@ -61,6 +61,7 @@ import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import online.wynos.food.R
 import online.wynos.food.data.FoodCartDraft
+import online.wynos.food.data.FoodCheckoutReviewGuard
 import online.wynos.food.data.FoodMenu
 import online.wynos.food.data.FoodPublicMedia
 import java.math.BigDecimal
@@ -278,6 +279,11 @@ fun FoodCartPreview(
     onSelectAddress: (String?) -> Unit = {},
     onChangeQuantity: (String, Int) -> Unit = { _, _ -> },
 ) {
+    var showReview by remember { mutableStateOf(false) }
+    val chosenAddress = state?.addresses?.firstOrNull { it.id == state.selectedAddressId }
+    val reviewEligible = state != null && FoodCheckoutReviewGuard.canReview(
+        cart, state.quote, chosenAddress, state.quoteLoading, state.addressesLoading,
+    )
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -417,13 +423,27 @@ fun FoodCartPreview(
                 }
                 Box(Modifier.fillMaxWidth().shadow(8.dp).padding(16.dp)) {
                     Button(
-                        onClick = {}, enabled = false,
+                        onClick = { showReview = true },
+                        enabled = reviewEligible,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = CircleShape,
-                    ) { Text(stringResource(R.string.checkout_unavailable)) }
+                        colors = ButtonDefaults.buttonColors(containerColor = Red),
+                    ) {
+                        Text(stringResource(
+                            if (reviewEligible) R.string.checkout_review_action else R.string.checkout_unavailable
+                        ))
+                    }
                 }
             }
         }
+    }
+    if (showReview && reviewEligible && chosenAddress != null && state?.quote != null) {
+        FoodCheckoutReviewDialog(
+            cart = cart,
+            address = chosenAddress,
+            quote = state.quote,
+            onDismiss = { showReview = false },
+        )
     }
 }
 

@@ -69,6 +69,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -443,9 +444,19 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boole
                 Text(stringResource(R.string.store_new), color = WebInk, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TagWeb(stringResource(R.string.store_menu_count, store.menu.size))
-            TagWeb(stringResource(R.string.store_delivery, "฿" + (store.deliveryFee ?: "—")))
+        val menuCountTag = stringResource(R.string.store_menu_count, store.menu.size)
+        val deliveryTag = stringResource(R.string.store_delivery, "฿" + (store.deliveryFee ?: "—"))
+        // The website wraps these English badges into two lines at mobile widths.
+        if (LocalConfiguration.current.locales[0].language == "en") {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                TagWeb(menuCountTag)
+                TagWeb(deliveryTag)
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TagWeb(menuCountTag)
+                TagWeb(deliveryTag)
+            }
         }
     }
 }
