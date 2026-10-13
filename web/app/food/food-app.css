@@ -1128,15 +1128,12 @@
   visibility: visible;
   animation: fx-splash-out .35s ease 4.4s forwards;
 }
-.fx-splash-logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 10px 28px rgb(0 0 0 / 22%), 0 0 0 3px rgb(255 255 255 / 92%); animation: fx-splash-pop .5s cubic-bezier(.2, .9, .3, 1.2) both; }
-.fx-splash-name { font-size: 26px; font-weight: 700; letter-spacing: -.3px; animation: fx-splash-pop .5s .08s cubic-bezier(.2, .9, .3, 1.2) both; }
+/* No pop-in: the iOS launch image already shows the logo here, so animating it in reads as a blink. */
+.fx-splash-logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 10px 28px rgb(0 0 0 / 22%), 0 0 0 3px rgb(255 255 255 / 92%); }
+.fx-splash-name { font-size: 26px; font-weight: 700; letter-spacing: -.3px; }
 .fx-splash-name b { font-weight: 700; opacity: .92; }
 html[data-fx-splash="seen"] .fx-splash { display: none; }
 /* A separate keyframes name restarts the animation, so it fades instead of jumping to the end. */
 html[data-fx-splash-ready] .fx-splash { animation: fx-splash-ready .35s ease forwards; }
 @keyframes fx-splash-out { to { opacity: 0; visibility: hidden; } }
 @keyframes fx-splash-ready { to { opacity: 0; visibility: hidden; } }
-@keyframes fx-splash-pop { from { opacity: 0; transform: scale(.86); } to { opacity: 1; transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) {
-  .fx-splash-logo, .fx-splash-name { animation: none; }
-}
