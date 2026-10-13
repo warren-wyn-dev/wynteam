@@ -6,8 +6,6 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.ExperimentalTextApi
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -18,16 +16,11 @@ import online.wynos.food.R
  * see web/app/food/layout.tsx and web/app/food/food-app.css.
  * The font is bundled offline. Never load the website in a WebView.
  */
-@OptIn(ExperimentalTextApi::class)
 private val Anuphan = FontFamily(
-    Font(R.font.anuphan, weight = FontWeight.Normal,
-        variationSettings = FontVariation.Settings(FontVariation.weight(400))),
-    Font(R.font.anuphan, weight = FontWeight.Medium,
-        variationSettings = FontVariation.Settings(FontVariation.weight(500))),
-    Font(R.font.anuphan, weight = FontWeight.SemiBold,
-        variationSettings = FontVariation.Settings(FontVariation.weight(600))),
-    Font(R.font.anuphan, weight = FontWeight.Bold,
-        variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+    Font(R.font.anuphan_regular, FontWeight.Normal),
+    Font(R.font.anuphan_medium, FontWeight.Medium),
+    Font(R.font.anuphan_semibold, FontWeight.SemiBold),
+    Font(R.font.anuphan_bold, FontWeight.Bold),
 )
 
 private val defaults = Typography()
