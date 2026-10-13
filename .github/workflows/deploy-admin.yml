@@ -13,6 +13,12 @@ on:
         options:
           - preview
           - production
+      release_confirmation:
+        description: "Only release after all 10 WYNOS acceptance issues pass"
+        type: choice
+        required: true
+        default: CANCEL
+        options: [CANCEL, RELEASE_ALL_APPROVED]
       confirm_production:
         description: "For production only, type DEPLOY_ADMIN_PRODUCTION"
         type: string
@@ -21,9 +27,12 @@ on:
 
 permissions:
   contents: read
+  issues: read
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main' && inputs.release_confirmation == 'RELEASE_ALL_APPROVED'
+    environment: production
     runs-on: ubuntu-latest
     # Runs from the repository root: the pinned Vercel project's Root Directory
     # setting is `admin`, which Vercel resolves relative to where the CLI runs.
@@ -38,6 +47,11 @@ jobs:
       CONFIRM_PRODUCTION: ${{ inputs.confirm_production }}
     steps:
       - uses: actions/checkout@v4
+      - name: Enforce WYNOS final cross-system release freeze
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WYNOS_RELEASE_CONFIRMATION: ${{ inputs.release_confirmation }}
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/require-wynos-final-release-ready.sh"
       - name: Verify requested environment
         run: |
           set -euo pipefail
