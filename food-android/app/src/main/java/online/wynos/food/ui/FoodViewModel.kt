@@ -394,7 +394,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     }
 
     fun refreshOrders() {
-        if (!gateway.configured || mutableState.value.accountEmail == null) return
+        if (!gateway.configured || mutableState.value.accountEmail == null ||
+            mutableState.value.ordersLoading) return
         val session = accountGeneration
         val generation = ++orderGeneration
         mutableState.update { it.copy(ordersLoading = true, ordersFailed = false) }
