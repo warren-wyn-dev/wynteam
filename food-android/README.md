@@ -69,3 +69,14 @@ updated APK, verify catalog loading and login with a dedicated test account.
 Android debug signing certificates can differ between GitHub runners: if
 installing an APK reports a signature conflict, uninstall the older beta app
 first and then install the new one.
+
+## Native visual QA build — 2026-10-14
+
+This QA branch includes the identical Kotlin/Compose application code as
+`feat/food-android-parity-polish`, with the OFL Anuphan 400/500/600/700
+weights, full-screen item note, cart draft, floating native cart bar,
+and guest storefront layout adjustments. Building this branch generates the
+test-installable QA APK in GitHub Actions artifacts.
+
+**Never treat appearance-only parity as payment/order readiness.** Real
+checkout, Play release and production deployment remain disabled/pending review.
