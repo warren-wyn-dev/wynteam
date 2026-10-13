@@ -41,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import androidx.lifecycle.viewmodel.compose.viewModel
 import online.wynos.food.R
 import online.wynos.food.data.FoodMenu
@@ -69,6 +74,20 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     var homeCart by rememberSaveable { mutableStateOf(false) }
     val guest = state.accountEmail == null
     val selectedStore = state.stores.firstOrNull { it.id == selectedStoreId }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Refresh order status only while the user is viewing their orders in the foreground.
+    // Native polling is a safe read-only fallback until verified push/realtime is released.
+    LaunchedEffect(tab, state.accountEmail, lifecycleOwner) {
+        if (tab == 1 && state.accountEmail != null) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    vm.refreshOrders()
+                    delay(30_000L)
+                }
+            }
+        }
+    }
 
     BackHandler(enabled = selectedStore != null || tab != 0) {
         if (selectedStore != null) selectedStoreId = null
