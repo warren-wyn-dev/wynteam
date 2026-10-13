@@ -1,0 +1,50 @@
+name: WYNOS Food Android (Native)
+
+on:
+  pull_request:
+    paths:
+      - "food-android/**"
+      - ".github/workflows/food-android.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build, unit tests and lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: food-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK 36
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDK_MANAGER="$(find "$SDK_ROOT/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -n 1)"
+          if [ -z "$SDK_MANAGER" ]; then
+            echo "Android SDK command-line tools not found" >&2
+            exit 1
+          fi
+          "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0"
+      # QA debug APK only. Both values below are publicly distributable
+      # Supabase client configuration. Never use sb_secret/service_role here.
+      - name: Build and verify demo
+        env:
+          WYNOS_FOOD_SUPABASE_URL: https://kqokpocajhfbidcxpvhh.supabase.co
+          WYNOS_FOOD_SUPABASE_PUBLISHABLE_KEY: sb_publishable_FzWdursjrE36_LvtJnayiA_-kWuw9Lt
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
+      - name: Upload unsigned debug APK for QA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-food-android-debug
+          path: food-android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7

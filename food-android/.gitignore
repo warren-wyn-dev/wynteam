@@ -1,0 +1,14 @@
+# Android Studio / local machine
+.gradle/
+.idea/
+*.iml
+local.properties
+.DS_Store
+build/
+**/build/
+captures/
+*.hprof
+*.jks
+*.keystore
+*.apk
+*.aab
