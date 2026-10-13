@@ -28,6 +28,8 @@ data class FoodAddressDraft(
     val floor: String = "",
     val room: String = "",
     val landmark: String = "",
+    val placeId: String = "",
+    val placeName: String = "",
     val isDefault: Boolean = false,
     val latitude: Double? = null,
     val longitude: Double? = null,
@@ -48,6 +50,7 @@ data class FoodAddressDraft(
         moo.length <= 40 && soi.length <= 120 && road.length <= 120 &&
         deliveryNote.length <= 500 && buildingName.length <= 160 &&
         floor.length <= 40 && room.length <= 40 && landmark.length <= 240 &&
+        placeId.length <= 80 && placeName.length <= 160 &&
         validPin
 
     fun toRpcParams(): JsonObject {
@@ -78,8 +81,8 @@ data class FoodAddressDraft(
             optional("p_floor", floor)
             optional("p_room", room)
             optional("p_landmark", landmark)
-            put("p_place_id", JsonNull)
-            put("p_place_name", JsonNull)
+            optional("p_place_id", placeId)
+            optional("p_place_name", placeName)
         }
     }
 
@@ -102,6 +105,8 @@ data class FoodAddressDraft(
             floor = address.floor,
             room = address.room,
             landmark = address.landmark,
+            placeId = address.placeId,
+            placeName = address.placeName,
             isDefault = address.isDefault,
             latitude = address.latitude,
             longitude = address.longitude,
