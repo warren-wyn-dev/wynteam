@@ -8,6 +8,8 @@ import online.wynos.food.data.FoodHomeBanner
 import online.wynos.food.data.FoodCartDraft
 import online.wynos.food.data.FoodMenu
 import online.wynos.food.data.FoodOrderSummary
+import online.wynos.food.data.FoodCustomerAddress
+import online.wynos.food.data.FoodServerQuote
 import online.wynos.food.data.SupabaseFoodGateway
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +28,13 @@ data class FoodUiState(
     val orders: List<FoodOrderSummary> = emptyList(),
     val ordersLoading: Boolean = false,
     val ordersFailed: Boolean = false,
+    val addresses: List<FoodCustomerAddress> = emptyList(),
+    val addressesLoading: Boolean = false,
+    val addressesFailed: Boolean = false,
+    val selectedAddressId: String? = null,
+    val quote: FoodServerQuote? = null,
+    val quoteLoading: Boolean = false,
+    val quoteFailed: Boolean = false,
     val accountLoading: Boolean = false,
     val accountBusy: Boolean = false,
     val accountEmail: String? = null,
@@ -69,7 +78,10 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             try {
                 val email = gateway.accountEmail()
                 mutableState.update { it.copy(accountLoading = false, accountEmail = email) }
-                if (email != null) refreshOrders()
+                if (email != null) {
+                    refreshOrders()
+                    refreshAddresses()
+                }
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
@@ -87,6 +99,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                 mutableState.update { it.copy(accountBusy = false, accountEmail = accountEmail) }
                 refreshCatalog()
                 refreshOrders()
+                refreshAddresses()
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
@@ -101,7 +114,11 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             mutableState.update { it.copy(accountBusy = true, accountFailed = false) }
             try {
                 gateway.signOut()
-                mutableState.update { it.copy(accountBusy = false, accountEmail = null, orders = emptyList(), cart = FoodCartDraft()) }
+                mutableState.update { it.copy(
+                    accountBusy = false, accountEmail = null, orders = emptyList(),
+                    cart = FoodCartDraft(), addresses = emptyList(), selectedAddressId = null,
+                    quote = null, quoteLoading = false, quoteFailed = false,
+                ) }
                 refreshCatalog()
             } catch (cancel: CancellationException) {
                 throw cancel
@@ -128,7 +145,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     fun addToCart(store: FoodStore, menu: FoodMenu, selected: Map<String, Set<String>>, quantity: Int, note: String): Boolean {
         return try {
             val next = mutableState.value.cart.add(store, menu, selected, quantity, note)
-            mutableState.update { it.copy(cart = next, cartError = false) }
+            mutableState.update { it.copy(cart = next, cartError = false, quote = null, quoteFailed = false) }
             true
         } catch (_: IllegalArgumentException) {
             mutableState.update { it.copy(cartError = true) }
@@ -137,7 +154,63 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     }
 
     fun clearCart() {
-        mutableState.update { it.copy(cart = FoodCartDraft(), cartError = false) }
+        mutableState.update { it.copy(cart = FoodCartDraft(), cartError = false, quote = null, quoteFailed = false) }
+    }
+
+    fun refreshAddresses() {
+        if (!gateway.configured || mutableState.value.accountEmail == null) return
+        viewModelScope.launch {
+            mutableState.update { it.copy(addressesLoading = true, addressesFailed = false) }
+            try {
+                val addresses = gateway.addresses()
+                mutableState.update { state ->
+                    val selected = state.selectedAddressId?.takeIf { id -> addresses.any { it.id == id } }
+                        ?: addresses.find { it.isDefault }?.id ?: addresses.firstOrNull()?.id
+                    state.copy(
+                        addresses = addresses, addressesLoading = false,
+                        selectedAddressId = selected, quote = null, quoteFailed = false,
+                    )
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                mutableState.update { it.copy(addressesLoading = false, addressesFailed = true) }
+            }
+        }
+    }
+
+    fun selectAddress(id: String?) {
+        mutableState.update { state ->
+            if (id != null && state.addresses.none { it.id == id }) state else state.copy(
+                selectedAddressId = id, quote = null, quoteFailed = false,
+            )
+        }
+    }
+
+    fun requestServerQuote() {
+        val state = mutableState.value
+        if (!gateway.configured || state.accountEmail == null ||
+            state.cart.lines.isEmpty() || state.quoteLoading) return
+        val draft = state.cart
+        val addressId = state.selectedAddressId
+        val address = state.addresses.firstOrNull { it.id == addressId }
+        viewModelScope.launch {
+            mutableState.update { it.copy(quoteLoading = true, quoteFailed = false, quote = null) }
+            try {
+                val serverQuote = gateway.quote(draft, address)
+                mutableState.update { current ->
+                    if (current.cart != draft || current.selectedAddressId != addressId ||
+                        current.accountEmail == null) current.copy(quoteLoading = false)
+                    else current.copy(quote = serverQuote, quoteLoading = false)
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                mutableState.update { current ->
+                    current.copy(quoteLoading = false, quoteFailed = true)
+                }
+            }
+        }
     }
 
     fun refreshOrders() {
