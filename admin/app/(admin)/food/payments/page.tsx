@@ -67,7 +67,7 @@ export default async function FoodPaymentsPage({
           <p className="text-xs text-muted-foreground">WYNOS Food</p>
           <h2 className="text-xl font-semibold">Payments &amp; Refunds</h2>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            ดูคิวตรวจสอบการชำระเงินและออเดอร์รอคืนเงินจากทุก ร้าน (อ่านอย่างเดียว)
+            ดูคิวตรวจสอบการชำระเงินและออเดอร์รอคืนเงินจากทุกร้าน (อ่านอย่างเดียว)
             การคืนเงินยังต้องทำผ่านขั้นตอนที่ได้รับอนุญาต ไม่ใช่จากหน้านี้
           </p>
         </div>
