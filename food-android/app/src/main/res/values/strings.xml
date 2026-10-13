@@ -174,4 +174,19 @@
     <string name="checkout_review_not_final">ยอดนี้มาจากระบบ ค่าส่งและโปรโมชันอาจเปลี่ยนได้ก่อนยืนยันจริง</string>
     <string name="checkout_review_payment_locked">สั่งอาหารและชำระเงิน (ยังไม่เปิดใช้)</string>
     <string name="checkout_review_staging_notice">หน้านี้เป็นตัวอย่างการตรวจคำสั่งซื้อ ยังไม่มีการสร้างออเดอร์หรือชำระเงิน</string>
+    <string name="food_order_detail_title">รายละเอียดออเดอร์</string>
+    <string name="food_order_detail_error">ไม่สามารถโหลดรายละเอียดออเดอร์ได้ โปรดลองใหม่</string>
+    <string name="food_order_detail_delivery">ข้อมูลจัดส่ง</string>
+    <string name="food_order_detail_payment">สถานะชำระเงิน</string>
+    <string name="food_order_detail_items">รายการอาหาร</string>
+    <string name="food_order_detail_events">กิจกรรมออเดอร์</string>
+    <string name="food_order_detail_no_events">ยังไม่มีรายการกิจกรรม</string>
+    <string name="food_order_detail_readonly">อัปเดตจาก WYNOS Merchant ผ่านระบบกลาง (อ่านอย่างเดียวในรุ่นทดสอบ)</string>
+    <string name="food_order_detail_view">ดูรายละเอียด</string>
+    <string name="food_payment_pending">รอชำระเงิน</string>
+    <string name="food_payment_submitted">กำลังตรวจสอบสลิป</string>
+    <string name="food_payment_paid">ชำระเงินแล้ว</string>
+    <string name="food_payment_issue">การชำระเงินมีปัญหา</string>
+    <string name="food_payment_refunded">คืนเงินแล้ว</string>
+    <string name="food_event_created">สร้างคำสั่งซื้อ</string>
 </resources>
