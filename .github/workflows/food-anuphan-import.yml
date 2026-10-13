@@ -1,0 +1,36 @@
+name: WYNOS Food Android licensed typography import
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/food-anuphan-import.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  font:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'feat/food-android-font-and-fidelity'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/food-android-font-and-fidelity
+      - name: Download OFL-licensed Anuphan from canonical Google Fonts source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p food-android/app/src/main/res/font food-android/licenses
+          curl --fail --location --retry 3 \
+            'https://raw.githubusercontent.com/google/fonts/main/ofl/anuphan/Anuphan%5Bwght%5D.ttf' \
+            -o food-android/app/src/main/res/font/anuphan.ttf
+          curl --fail --location --retry 3 \
+            'https://raw.githubusercontent.com/google/fonts/main/ofl/anuphan/OFL.txt' \
+            -o food-android/licenses/ANUPHAN-OFL.txt
+          test "$(stat -c%s food-android/app/src/main/res/font/anuphan.ttf)" -gt 50000
+          grep -q 'SIL OPEN FONT LICENSE' food-android/licenses/ANUPHAN-OFL.txt
+          git add food-android/app/src/main/res/font/anuphan.ttf food-android/licenses/ANUPHAN-OFL.txt
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'assets(food-android): add licensed Anuphan typeface to match Food Web'
+          git push origin HEAD:refs/heads/feat/food-android-font-and-fidelity
