@@ -779,7 +779,15 @@ export async function prepareFoodManualPayment(client: SupabaseClient, orderId: 
   const { data, error } = await client.functions.invoke("food-stripe-cancel", {
     body: { orderId },
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Non-2xx answers arrive as an error; read the function's own code from it.
+    const context = (error as { context?: { json?: () => Promise<unknown> } }).context;
+    const body = (await context?.json?.().catch(() => null)) as { error?: unknown } | null;
+    if (body?.error === "stripe_payment_already_completed") {
+      throw new Error("Stripe ชำระเงินสำเร็จแล้ว ไม่สามารถเปลี่ยนเป็นสลิปได้");
+    }
+    throw new Error(error.message);
+  }
   const payload = data as { cancelled?: unknown; error?: unknown } | null;
   if (payload?.error === "stripe_payment_already_completed") {
     throw new Error("Stripe ชำระเงินสำเร็จแล้ว ไม่สามารถเปลี่ยนเป็นสลิปได้");
@@ -957,11 +965,16 @@ export async function markFoodOrderFromShare(client: SupabaseClient, orderId: st
 
 export async function cancelFoodCustomerOrder(
   client: SupabaseClient,
-  orderId: string,
+  order: Pick<FoodCustomerOrder, "id" | "payment_status" | "stripe_checkout_session_id">,
   reason?: string,
 ) {
+  // An open Stripe Checkout is expired first so it cannot take money after
+  // the cancel. If Stripe cannot confirm that, the cancel stops here.
+  if (order.stripe_checkout_session_id && (order.payment_status === "pending" || order.payment_status === "issue")) {
+    await prepareFoodManualPayment(client, order.id);
+  }
   const { error } = await client.rpc("food_cancel_order", {
-    p_order_id: orderId,
+    p_order_id: order.id,
     p_reason: reason || null,
   });
   if (error) throw new Error(error.message);

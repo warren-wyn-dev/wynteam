@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
+import { AUTO_REFUND_MARKER, mayResumeAutomaticGpRefund, normalizedGpFeeSatang, paidAfterCancelRefundParams } from "./_refund.ts";
 
 type AdminClient = ReturnType<typeof createClient<any>>;
 
@@ -477,5 +478,137 @@ Deno.serve(async (req: Request) => {
     p_refund_id: refundId,
   });
   if (error) return json({ error: "event_processing_failed" }, 500);
+  // These follow-ups also run when the event is a redelivery (the RPC then
+  // reports a duplicate), so answering 500 below makes Stripe retry them.
+  if (state === "paid" && orderId && stripeAccountId) {
+    const refunded = await refundPaidAfterCancel(admin, stripeSecret, stripeAccountId, orderId);
+    if (!refunded) return json({ error: "auto_refund_failed" }, 500);
+  }
+  const failedRefundId = eventType === "refund.failed"
+    || (eventType === "refund.updated" && (object.status === "failed" || object.status === "canceled"))
+    ? stringValue(object.id)
+    : null;
+  if (failedRefundId && orderId) {
+    const settled = await recordRefundFailure(admin, orderId, stripeAccountId, stringValue(object.payment_intent), failedRefundId);
+    if (!settled) return json({ error: "event_processing_failed" }, 500);
+  }
   return json({ received: true });
 });
+
+// A refund Stripe reports as failed or canceled frees the order for a new
+// refund from WYNOS Merchant. The refund must belong to this order's own
+// PaymentIntent on the store's own Stripe account (metadata alone is
+// untrusted). It applies when no refund is recorded yet, when this refund is
+// the recorded one, or when the recorded one already failed (a retry whose
+// failure arrives before its creator stores the new ID). The refund creators
+// never overwrite a refund ID that is already recorded.
+async function recordRefundFailure(
+  admin: AdminClient, orderId: string, accountId: string | null, paymentIntentId: string | null, refundId: string,
+) {
+  const { data: order, error } = await admin.from("food_orders")
+    .select("id,refund_status,stripe_refund_id,stripe_payment_intent_id")
+    .eq("id", orderId).maybeSingle();
+  if (error) return false;
+  if (!order || !paymentIntentId || order.stripe_payment_intent_id !== paymentIntentId) return true;
+  const { data: payment, error: paymentError } = await admin.from("food_stripe_payments")
+    .select("stripe_account_id").eq("order_id", order.id).maybeSingle();
+  if (paymentError) return false;
+  if (!accountId || payment?.stripe_account_id !== accountId) return true;
+  if (order.refund_status === "refunded") return true;
+  const applies = !order.stripe_refund_id || order.stripe_refund_id === refundId || order.refund_status === "failed";
+  if (!applies) return true;
+  let update = admin.from("food_orders").update({
+    refund_status: "failed",
+    refund_note: "Stripe แจ้งว่าการคืนเงินไม่สำเร็จ กรุณาคืนเงินอีกครั้ง",
+    stripe_refund_id: refundId,
+  }).eq("id", order.id).eq("refund_status", order.refund_status);
+  update = order.stripe_refund_id ? update.eq("stripe_refund_id", order.stripe_refund_id) : update.is("stripe_refund_id", null);
+  // No row means the order changed since it was read: retry on redelivery.
+  const { data: rows, error: updateError } = await update.select("id");
+  return !updateError && (rows?.length ?? 0) > 0;
+}
+
+// Founder decision 2026-10-11: a Stripe payment that lands on an order that
+// was already cancelled is refunded automatically. food_apply_stripe_event
+// has recorded it and set refund_status='pending'. On a failure it returns
+// false, so the webhook answers 500 and Stripe redelivers the event to retry.
+// Until then the order stays refund-pending and the store can also refund it
+// from WYNOS Merchant.
+async function refundPaidAfterCancel(admin: AdminClient, secret: string, accountId: string, orderId: string) {
+  const { data: order, error: orderError } = await admin.from("food_orders")
+    .select("id,status,payment_status,payment_provider,refund_status,refund_note,stripe_payment_intent_id,stripe_refund_id")
+    .eq("id", orderId).maybeSingle();
+  if (orderError) return false;
+  if (!order || order.status !== "cancelled" || order.payment_provider !== "stripe"
+      || !order.stripe_payment_intent_id) return true;
+  const isTrackedAutoRefund = mayResumeAutomaticGpRefund(order.stripe_refund_id, order.refund_note);
+  if (!isTrackedAutoRefund && (order.payment_status !== "paid" || order.refund_status !== "pending" || order.stripe_refund_id)) return true;
+  // A refund is owed but the API key is missing (e.g. mid-rotation): retry later.
+  if (!secret) return false;
+  // The platform GP is a Stripe application fee on the store's direct charge.
+  // A paid-after-cancel refund must also reverse that fee, as merchant refunds do.
+  const { data: payment, error: paymentError } = await admin.from("food_stripe_payments")
+    .select("stripe_account_id,application_fee_satang")
+    .eq("order_id", order.id).maybeSingle();
+  if (paymentError || (payment && payment.stripe_account_id !== accountId)) return false;
+  let feeSatang: number;
+  let params: URLSearchParams;
+  try {
+    feeSatang = normalizedGpFeeSatang(payment?.application_fee_satang);
+    params = paidAfterCancelRefundParams(order.id, order.stripe_payment_intent_id, feeSatang);
+  } catch {
+    // Never refund only the buyer when GP data is invalid: the application
+    // fee may otherwise remain with the platform and finance will diverge.
+    console.error("stripe auto refund GP quote invalid", { order_id: order.id });
+    return false;
+  }
+  async function recordGpFeeRefund(refundId: string): Promise<boolean> {
+    if (feeSatang === 0) return true;
+    // If this ledger write failed after Stripe accepted the refund, a webhook
+    // redelivery resumes it using the stored refund ID. Never issue a second
+    // refund just to repair internal reporting.
+    const { data: ledger, error: ledgerError } = await admin.from("food_stripe_payments")
+      .select("application_fee_refunded_satang").eq("order_id", orderId).maybeSingle();
+    if (ledgerError || !ledger) return false;
+    if (Number(ledger.application_fee_refunded_satang) === feeSatang) return true;
+    if (Number(ledger.application_fee_refunded_satang) !== 0) return false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data: changed, error: feeError } = await admin.from("food_stripe_payments").update({
+        application_fee_refunded_satang: feeSatang,
+        application_fee_refunded_at: new Date().toISOString(),
+      }).eq("order_id", orderId).eq("application_fee_refunded_satang", 0).select("order_id");
+      if (!feeError && (changed?.length ?? 0) > 0) return true;
+    }
+    console.error("stripe auto refund GP ledger write failed", { order_id: orderId, refund_id: refundId });
+    return false;
+  }
+  if (isTrackedAutoRefund) return await recordGpFeeRefund(order.stripe_refund_id!);
+  try {
+    // No idempotency key: Stripe stores a key's first result, 500 included,
+    // which would block the retry. A charge is never refunded past its amount,
+    // so a repeat fails with charge_already_refunded and is treated as done
+    // (that refund's own events settle the order).
+    const response = await fetch("https://api.stripe.com/v1/refunds", {
+      method: "POST",
+      headers: { ...stripeV1Headers(secret, accountId), "Content-Type": "application/x-www-form-urlencoded" },
+      body: params,
+    });
+    const refund = await response.json().catch(() => ({})) as Record<string,unknown>;
+    if (!response.ok) {
+      const code = stringValue((refund.error as Record<string,unknown> | undefined)?.code);
+      console.error("stripe auto refund after cancel failed", { order_id: order.id, status: response.status, code });
+      return code === "charge_already_refunded";
+    }
+    const refundId = stringValue(refund.id);
+    if (!refundId) return false;
+    const { data: tracked, error } = await admin.from("food_orders").update({
+      stripe_refund_id: refundId,
+      refund_note: AUTO_REFUND_MARKER,
+    }).eq("id", order.id).is("stripe_refund_id", null).select("id");
+    if (error || (tracked?.length ?? 0) !== 1) return false;
+    return await recordGpFeeRefund(refundId);
+  } catch {
+    console.error("stripe auto refund after cancel failed", { order_id: order.id });
+    return false;
+  }
+}

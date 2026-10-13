@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
+import { normalizedGpFeeSatang } from "../stripe-webhook/_refund.ts";
+import { REFUND_RECONCILE_MARKER, requiresRefundReconciliation } from "./_state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -20,12 +22,13 @@ function stripeLivemode(secret: string) {
   if (/^(?:sk|rk)_test_/.test(secret)) return false;
   return null;
 }
-function stripeHeaders(secret: string, account: string, idempotencyKey: string) {
+// A fixed Stripe idempotency key persists its first result, even a 500;
+// use Stripe's remaining refundable amount as the duplicate-refund safeguard.
+function stripeHeaders(secret: string, account: string) {
   return {
     Authorization: `Basic ${btoa(secret + ":")}`,
     "Stripe-Account": account,
     "Content-Type": "application/x-www-form-urlencoded",
-    "Idempotency-Key": idempotencyKey,
   };
 }
 
@@ -59,7 +62,7 @@ Deno.serve(async (req: Request) => {
   if (!orderId) return json({ error: "order_id_required" }, 400);
 
   const { data: order } = await admin.from("food_orders")
-    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status")
+    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status,refund_note,stripe_refund_id")
     .eq("id", orderId).maybeSingle();
   if (!order) return json({ error: "order_not_found" }, 404);
 
@@ -73,6 +76,16 @@ Deno.serve(async (req: Request) => {
     return json({ error: "stripe_refund_not_eligible" }, 409);
   }
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
+  // An unknown Stripe outcome must be reconciled with the actual payment
+  // before anyone sends another refund request for this order.
+  if (requiresRefundReconciliation(order.refund_status, order.refund_note)) {
+    return json({ error: "refund_reconciliation_required" }, 409);
+  }
+  // An automatic or merchant refund has reached Stripe and is awaiting a webhook.
+  // Retry is allowed only after a failed/canceled refund has been recorded.
+  if (order.refund_status === "pending" && order.stripe_refund_id) {
+    return json({ error: "refund_in_progress" }, 409);
+  }
 
   const { data: payment } = await admin.from("food_stripe_payments")
     .select("stripe_account_id,livemode,application_fee_satang").eq("order_id", order.id).maybeSingle();
@@ -95,7 +108,13 @@ Deno.serve(async (req: Request) => {
   params.set("payment_intent", order.stripe_payment_intent_id);
   params.set("reason", "requested_by_customer");
   // GP v1: a full refund also returns the WYNOS GP (application fee) to the store.
-  const feeSatang = Number(payment?.application_fee_satang ?? 0);
+  let feeSatang: number;
+  try {
+    feeSatang = normalizedGpFeeSatang(payment?.application_fee_satang);
+  } catch {
+    // Never return the buyer's money but accidentally retain the platform GP.
+    return json({ error: "invalid_gp_fee_satang" }, 409);
+  }
   if (feeSatang > 0) params.set("refund_application_fee", "true");
   params.set("metadata[wynos_order_id]", order.id);
   if (note) params.set("metadata[wynos_note]", note);
@@ -103,7 +122,7 @@ Deno.serve(async (req: Request) => {
   try {
     const response = await fetch("https://api.stripe.com/v1/refunds", {
       method: "POST",
-      headers: stripeHeaders(stripeSecret, stripeAccountId, `wynos-refund-${order.id}`),
+      headers: stripeHeaders(stripeSecret, stripeAccountId),
       body: params,
     });
     const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
@@ -115,15 +134,23 @@ Deno.serve(async (req: Request) => {
         status: response.status,
         request_id: response.headers.get("request-id"),
       });
-      throw new Error("gateway_refund_failed");
+      if (err?.code === "charge_already_refunded") {
+        return json({ error: "already_refunded", message: "ออเดอร์นี้คืนเงินแล้ว หรือกำลังคืนเงินอยู่" }, 409);
+      }
+      // Any ambiguous Stripe response must be reconciled, never blindly
+      // changed to failed: the charge might have already been refunded.
+      throw new Error("gateway_refund_outcome_unconfirmed");
     }
-    await admin.from("food_orders").update({
+    const { error: orderWriteError } = await admin.from("food_orders").update({
       refund_status: "pending",
       refund_note: note || "Stripe refund requested",
       refund_requested_at: new Date().toISOString(),
       refund_updated_by: user.id,
       stripe_refund_id: payload.id,
-    }).eq("id", order.id);
+    }).eq("id", order.id).is("stripe_refund_id", null);
+    if (orderWriteError) {
+      console.error("merchant-stripe-refund order record failed", { order_id: order.id, refund_id: payload.id });
+    }
     // GP v1: finance reports reverse GP only for a fee WYNOS actually returned.
     // Stripe has already refunded, so a failed write must not undo that answer;
     // retry, then log loudly with the ids needed to reconcile by hand.
@@ -150,17 +177,22 @@ Deno.serve(async (req: Request) => {
     }
     return json({ status: payload.status ?? "pending", refundId: payload.id, gpRecordPending });
   } catch (error) {
-    console.error("merchant-stripe-refund failed", {
+    // A request timeout, transient Stripe error or unknown response cannot
+    // prove that Stripe did not refund the charge. Do NOT mark failed and
+    // invite a retry that could create a second refund attempt.
+    console.error("merchant-stripe-refund outcome unconfirmed", {
       code: error instanceof Error ? error.message.slice(0, 80) : "unknown",
+      order_id: order.id,
     });
-    await admin.from("food_orders").update({
-      refund_status: "failed",
-      refund_note: note || "การคืนเงินไม่สำเร็จ",
+    const { error: flagError } = await admin.from("food_orders").update({
+      refund_status: "pending",
+      refund_note: `${REFUND_RECONCILE_MARKER} กำลังตรวจสอบผลการคืนเงินกับ Stripe กรุณาติดต่อผู้ดูแลก่อนลองใหม่`,
       refund_updated_by: user.id,
-    }).eq("id", order.id);
+    }).eq("id", order.id).eq("refund_status", order.refund_status).is("stripe_refund_id", null);
+    if (flagError) console.error("merchant-stripe-refund pending marker failed", { order_id: order.id });
     return json({
-      error: "refund_failed",
-      message: "คืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
-    }, 502);
+      error: "refund_outcome_unconfirmed",
+      message: "ยังยืนยันผลการคืนเงินไม่ได้ กรุณาตรวจสอบกับผู้ดูแลก่อนดำเนินการอีกครั้ง",
+    }, 503);
   }
 });

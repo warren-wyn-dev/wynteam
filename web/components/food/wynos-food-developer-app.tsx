@@ -2818,7 +2818,7 @@ function OrderDetailSheet({
     if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
     setWorking(true);
     try {
-      await cancelFoodCustomerOrder(client, order.id, "ยกเลิกโดยลูกค้าใน WYNOS Food");
+      await cancelFoodCustomerOrder(client, order, "ยกเลิกโดยลูกค้าใน WYNOS Food");
       onMessage("ยกเลิกออเดอร์แล้ว");
       await onReload();
     } catch (error) {
