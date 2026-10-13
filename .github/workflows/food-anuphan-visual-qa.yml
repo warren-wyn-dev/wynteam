@@ -16,6 +16,20 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Wait for verified native APK build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 32); do
+            count=$(gh api repos/warren-wyn-dev/wynteam/actions/runs/38440839800/artifacts \
+              --jq '[.artifacts[] | select(.name == "wynos-food-android-debug")] | length' || echo 0)
+            if [ "$count" -gt 0 ]; then exit 0; fi
+            echo "Waiting for Android build artifact ($i/32)"
+            sleep 15
+          done
+          echo "Native build did not upload its APK" >&2
+          exit 1
       - name: Download verified APK from parity build
         uses: actions/download-artifact@v4
         with:
