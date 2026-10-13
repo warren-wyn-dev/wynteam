@@ -8,9 +8,17 @@ name: WYN-158 Production Deploy
 # must be explicitly started via workflow_dispatch. Never auto-deploy on push.
 on:
   workflow_dispatch:
+    inputs:
+      release_confirmation:
+        description: "Only after full WYNOS Admin+Food+Merchant UAT, choose RELEASE_ALL_APPROVED"
+        type: choice
+        required: true
+        default: CANCEL
+        options: [CANCEL, RELEASE_ALL_APPROVED]
 
 permissions:
   contents: read
+  issues: read
 
 # Only the newest main build may ship. A newer web commit supersedes any
 # queued/in-progress production deployment so an older commit can never go
@@ -21,6 +29,8 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main' && inputs.release_confirmation == 'RELEASE_ALL_APPROVED'
+    environment: production
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,6 +39,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Require all feature acceptance issues closed before Consumer Production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for number in 1142 1143 1144 1145 1146 1147 1148 1149 1150 1151; do
+            state="$(gh api "repos/$GITHUB_REPOSITORY/issues/$number" --jq .state)"
+            if [ "$state" != "closed" ]; then
+              echo "::error::Release blocked: WYNOS Admin feature acceptance #$number is $state"
+              exit 1
+            fi
+          done
+          echo "All feature acceptance issues are closed. Still require reviewer approval, test results and canary checks."
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
