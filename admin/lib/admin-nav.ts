@@ -25,6 +25,7 @@ import {
   Bot,
   Settings,
   Wallet,
+  Truck,
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
@@ -138,6 +139,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // GP, store income, payouts and settlement history live here, never as a
   // top-level section. Read only; reads need merchant:view.
   { id: "merchant-finance", href: "/merchant/finance", label: "การเงินร้านค้า", icon: Wallet, group: "merchant", requires: { systems: ["merchant"] } },
+  { id: "merchant-delivery", href: "/merchant/delivery", label: "ค่าส่งและรัศมีรายร้าน", icon: Truck, group: "merchant", requires: { systems: ["merchant"] } },
 
   systemDashboard("maps"),
   { id: "places", href: "/maps/places", label: "Place Management", icon: MapPinned, group: "maps", requires: { systems: ["maps"] } },
