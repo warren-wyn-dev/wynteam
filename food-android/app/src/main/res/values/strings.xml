@@ -115,4 +115,19 @@
     <string name="close">ปิด</string>
     <string name="menu_note_title">หมายเหตุถึงร้าน</string>
     <string name="menu_note_hint">เช่น ไม่ใส่ผัก, แยกน้ำจิ้ม</string>
+    <string name="sign_in_to_quote">เข้าสู่ระบบ WYNOS เพื่อคำนวณราคาจาก Server</string>
+    <string name="loading_addresses">กำลังโหลดที่อยู่จัดส่ง…</string>
+    <string name="addresses_load_error">โหลดที่อยู่ไม่สำเร็จ กรุณาลองใหม่</string>
+    <string name="no_saved_addresses">ยังไม่มีที่อยู่ที่บันทึกไว้ เพิ่มที่อยู่บนเว็บไซต์ WYNOS Food ก่อน</string>
+    <string name="refresh_addresses">รีเฟรชที่อยู่จัดส่ง</string>
+    <string name="server_quote_button">ตรวจสอบราคาและค่าจัดส่ง</string>
+    <string name="server_quote_loading">กำลังตรวจราคากับระบบ…</string>
+    <string name="server_quote_error">ตรวจราคาไม่สำเร็จ อาจเป็นเพราะร้านปิด เมนูเปลี่ยน หรือไม่อยู่ในพื้นที่บริการ</string>
+    <string name="server_quote_label">ราคาจากระบบ</string>
+    <string name="server_delivery_fee">ค่าจัดส่ง</string>
+    <string name="server_campaign_discount">ส่วนลดอาหาร</string>
+    <string name="server_delivery_discount">ส่วนลดค่าจัดส่ง</string>
+    <string name="server_quote_total">ยอดที่ระบบคำนวณ</string>
+    <string name="server_quote_needs_pin">โปรดเลือกที่อยู่ที่ปักหมุด ก่อนยืนยันค่าจัดส่ง</string>
+    <string name="server_quote_not_payment">ยังไม่ใช่การสั่งซื้อหรือชำระเงิน และยอดอาจเปลี่ยนได้จนกว่าจะยืนยันออเดอร์</string>
 </resources>

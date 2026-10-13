@@ -112,11 +112,14 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     store = selectedStore,
                     cart = state.cart,
                     cartError = state.cartError,
+                    state = state,
                     guest = guest,
                     onBack = { selectedStoreId = null },
                     onAccount = { selectedStoreId = null; tab = 3 },
                     onAdd = vm::addToCart,
                     onClear = vm::clearCart,
+                    onQuote = vm::requestServerQuote,
+                    onSelectAddress = vm::selectAddress,
                 )
                 tab == 0 -> WebHomeScreen(
                     state = state,
@@ -137,6 +140,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onSignOut = vm::signOut,
                     onResetPassword = vm::requestPasswordReset,
                     onOrders = { tab = 1 },
+                    onRefreshAddresses = vm::refreshAddresses,
                 )
             }
         }
@@ -144,6 +148,9 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     if (homeCart) {
         FoodCartPreview(
             cart = state.cart,
+            state = state,
+            onQuote = vm::requestServerQuote,
+            onSelectAddress = vm::selectAddress,
             onDismiss = { homeCart = false },
             onClear = { vm.clearCart(); homeCart = false },
         )

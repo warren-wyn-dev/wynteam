@@ -464,11 +464,14 @@ fun WebStoreScreen(
     store: FoodStore,
     cart: FoodCartDraft,
     cartError: Boolean,
+    state: FoodUiState,
     guest: Boolean,
     onBack: () -> Unit,
     onAccount: () -> Unit,
     onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int, String) -> Boolean,
     onClear: () -> Unit,
+    onQuote: () -> Unit,
+    onSelectAddress: (String?) -> Unit,
 ) {
     var selectedMenu by remember(store.id) { mutableStateOf<FoodMenu?>(null) }
     var showCart by remember(store.id) { mutableStateOf(false) }
@@ -653,7 +656,14 @@ fun WebStoreScreen(
             onAdd = { opts, qty, note -> if (onAdd(store, menu, opts, qty, note)) selectedMenu = null },
         )
     }
-    if (showCart) FoodCartPreview(cart, onDismiss = { showCart = false }, onClear = { onClear(); showCart = false })
+    if (showCart) FoodCartPreview(
+        cart = cart,
+        state = state,
+        onDismiss = { showCart = false },
+        onClear = { onClear(); showCart = false },
+        onQuote = onQuote,
+        onSelectAddress = onSelectAddress,
+    )
 }
 
 @Composable
