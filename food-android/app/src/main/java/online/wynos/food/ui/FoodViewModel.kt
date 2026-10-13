@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import online.wynos.food.data.FoodGateway
 import online.wynos.food.data.FoodStore
+import online.wynos.food.data.FoodCartDraft
+import online.wynos.food.data.FoodMenu
+import online.wynos.food.data.FoodOrderSummary
 import online.wynos.food.data.SupabaseFoodGateway
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +19,11 @@ data class FoodUiState(
     val catalogLoading: Boolean = false,
     val catalogFailed: Boolean = false,
     val stores: List<FoodStore> = emptyList(),
+    val cart: FoodCartDraft = FoodCartDraft(),
+    val cartError: Boolean = false,
+    val orders: List<FoodOrderSummary> = emptyList(),
+    val ordersLoading: Boolean = false,
+    val ordersFailed: Boolean = false,
     val accountLoading: Boolean = false,
     val accountBusy: Boolean = false,
     val accountEmail: String? = null,
@@ -55,6 +63,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             try {
                 val email = gateway.accountEmail()
                 mutableState.update { it.copy(accountLoading = false, accountEmail = email) }
+                if (email != null) refreshOrders()
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
@@ -71,6 +80,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                 val accountEmail = gateway.signIn(email.trim(), password)
                 mutableState.update { it.copy(accountBusy = false, accountEmail = accountEmail) }
                 refreshCatalog()
+                refreshOrders()
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
@@ -85,7 +95,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             mutableState.update { it.copy(accountBusy = true, accountFailed = false) }
             try {
                 gateway.signOut()
-                mutableState.update { it.copy(accountBusy = false, accountEmail = null) }
+                mutableState.update { it.copy(accountBusy = false, accountEmail = null, orders = emptyList(), cart = FoodCartDraft()) }
                 refreshCatalog()
             } catch (cancel: CancellationException) {
                 throw cancel
@@ -109,4 +119,34 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             }
         }
     }
+    fun addToCart(store: FoodStore, menu: FoodMenu, selected: Map<String, Set<String>>, quantity: Int): Boolean {
+        return try {
+            val next = mutableState.value.cart.add(store, menu, selected, quantity)
+            mutableState.update { it.copy(cart = next, cartError = false) }
+            true
+        } catch (_: IllegalArgumentException) {
+            mutableState.update { it.copy(cartError = true) }
+            false
+        }
+    }
+
+    fun clearCart() {
+        mutableState.update { it.copy(cart = FoodCartDraft(), cartError = false) }
+    }
+
+    fun refreshOrders() {
+        if (!gateway.configured || mutableState.value.accountEmail == null) return
+        viewModelScope.launch {
+            mutableState.update { it.copy(ordersLoading = true, ordersFailed = false) }
+            try {
+                val orders = gateway.orderHistory()
+                mutableState.update { it.copy(orders = orders, ordersLoading = false) }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                mutableState.update { it.copy(ordersLoading = false, ordersFailed = true) }
+            }
+        }
+    }
+
 }

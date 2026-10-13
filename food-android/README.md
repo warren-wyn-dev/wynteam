@@ -42,3 +42,30 @@ enabled). Never make test purchases against live Stripe.
   live Supabase or user-account testing has been performed in this task*.
 - The existing public rollout gate still controls whether stores are visible.
 - All work stays on separate GitHub branches / draft PRs pending review.
+
+## Step 3 developer preview — additional scope
+
+- Native, temporary cart with menu add-on choices: vertical radio buttons for
+  single-select (including spicy levels), checkboxes for multi-select,
+  quantity and single-store constraints. Prices displayed are **estimates**;
+  the checkout button stays disabled.
+- Signed-in users can inspect their own order summaries read-only, subject to
+  Supabase RLS and an explicit buyer ID filter.
+- Test builds from the Android pull request publish an unsigned **debug APK**
+  as a short-lived GitHub Actions artifact with **no backend credentials**.
+- See `STEP3_QA.md` for staging blocker and release gates.
+
+**Connected GitHub Actions QA debug build:** the CI workflow injects the
+public Supabase URL and **publishable (non-secret) API key** of the existing
+WYNOS Web project. This is intentional only for the QA debug APK; its
+public catalog is already accessible to signed-out website visitors. The
+app still cannot place orders or pay. Don't use any service_role or secret
+key. Manual Android Studio builds still need local.properties as above.
+
+The connected Stripe Sandbox is missing the food_public_catalog RPC
+currently present on WYNOS Web. No live end-to-end login or order test was
+performed, and no database schema has been changed. After installing the
+updated APK, verify catalog loading and login with a dedicated test account.
+Android debug signing certificates can differ between GitHub runners: if
+installing an APK reports a signature conflict, uninstall the older beta app
+first and then install the new one.

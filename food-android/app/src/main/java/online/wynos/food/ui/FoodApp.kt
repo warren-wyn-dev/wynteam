@@ -57,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import online.wynos.food.R
 import online.wynos.food.data.FoodMenu
+import online.wynos.food.data.FoodCartDraft
 import online.wynos.food.data.FoodStore
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,7 +109,13 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
             ReadOnlyNotice()
             when (tab) {
                 0 -> if (selectedStore != null) {
-                    StoreContent(selectedStore)
+                    StoreContent(
+                        store = selectedStore,
+                        cart = state.cart,
+                        cartError = state.cartError,
+                        onAdd = vm::addToCart,
+                        onClear = vm::clearCart,
+                    )
                 } else {
                     HomeContent(
                         state = state,
@@ -116,7 +123,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         onRetry = vm::refreshCatalog,
                     )
                 }
-                1 -> Placeholder(R.string.orders_empty)
+                1 -> OrdersContent(state, onRetry = vm::refreshOrders)
                 else -> AccountContent(
                     state = state,
                     onSignIn = vm::signIn,
@@ -213,7 +220,15 @@ private fun HomeContent(
 }
 
 @Composable
-private fun StoreContent(store: FoodStore) {
+private fun StoreContent(
+    store: FoodStore,
+    cart: FoodCartDraft,
+    cartError: Boolean,
+    onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int) -> Boolean,
+    onClear: () -> Unit,
+) {
+    var selectedMenu by androidx.compose.runtime.remember(store.id) { mutableStateOf<FoodMenu?>(null) }
+    var showCart by androidx.compose.runtime.remember(store.id) { mutableStateOf(false) }
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -234,21 +249,50 @@ private fun StoreContent(store: FoodStore) {
         if (store.menu.isEmpty()) {
             item { InfoState(R.string.no_menu) }
         } else {
-            items(store.menu, key = { it.id }) { menu -> MenuRow(menu) }
+            items(store.menu, key = { it.id }) { menu ->
+                MenuRow(menu, enabled = store.isOpen && menu.isAvailable()) { selectedMenu = menu }
+            }
         }
         item {
             HorizontalDivider()
+            if (cart.storeId == store.id && cart.itemCount > 0) {
+                Button(onClick = { showCart = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.view_cart, cart.itemCount))
+                }
+            }
+            if (cartError) Text(
+                stringResource(R.string.cart_validation_error),
+                color = MaterialTheme.colorScheme.error,
+            )
             Text(stringResource(R.string.checkout_unavailable), style = MaterialTheme.typography.bodySmall)
             Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.order_disabled))
             }
         }
     }
+    selectedMenu?.let { menu ->
+        FoodMenuOptionsDialog(
+            menu = menu,
+            onDismiss = { selectedMenu = null },
+            onAdd = { selected, quantity ->
+                if (onAdd(store, menu, selected, quantity)) selectedMenu = null
+            },
+        )
+    }
+    if (showCart) {
+        FoodCartPreview(
+            cart = cart,
+            onDismiss = { showCart = false },
+            onClear = { onClear(); showCart = false },
+        )
+    }
 }
 
 @Composable
-private fun MenuRow(menu: FoodMenu) {
+private fun MenuRow(menu: FoodMenu, enabled: Boolean, onClick: () -> Unit) {
     Card(
+        onClick = onClick,
+        enabled = enabled,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(14.dp),
     ) {
@@ -261,6 +305,7 @@ private fun MenuRow(menu: FoodMenu) {
                 Text(menu.name, fontWeight = FontWeight.SemiBold)
                 if (menu.category.isNotBlank()) Text(menu.category, style = MaterialTheme.typography.bodySmall)
                 menu.description?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                if (!enabled) Text(stringResource(R.string.menu_unavailable), style = MaterialTheme.typography.labelSmall)
                 if (menu.optionGroupNames.isNotEmpty()) {
                     Text(
                         stringResource(R.string.menu_options, menu.optionGroupNames.joinToString(" · ")),
@@ -349,6 +394,43 @@ private fun InfoState(messageRes: Int) {
 private fun LoadingState() {
     Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun OrdersContent(state: FoodUiState, onRetry: () -> Unit) {
+    LazyColumn(
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Text(stringResource(R.string.orders), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+        when {
+            !state.configured -> item { InfoState(R.string.configure_supabase) }
+            state.accountLoading -> item { LoadingState() }
+            state.accountEmail == null -> item { InfoState(R.string.sign_in_to_view_orders) }
+            state.ordersLoading -> item { LoadingState() }
+            state.ordersFailed -> item {
+                InfoState(R.string.orders_load_failed)
+                OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+            }
+            state.orders.isEmpty() -> item { InfoState(R.string.orders_none) }
+            else -> {
+                item { OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.refresh_orders)) } }
+                items(state.orders, key = { it.id }) { order ->
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(order.number, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.order_status_value, order.status))
+                            Text(stringResource(R.string.order_payment_value, order.paymentStatus))
+                            Text(stringResource(R.string.baht_price, order.total))
+                            Text(order.createdAt.take(16), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -34,5 +34,17 @@ jobs:
             exit 1
           fi
           "$SDK_MANAGER" "platforms;android-36" "build-tools;36.0.0"
+      # QA debug APK only. Both values below are publicly distributable
+      # Supabase client configuration. Never use sb_secret/service_role here.
       - name: Build and verify demo
+        env:
+          WYNOS_FOOD_SUPABASE_URL: https://kqokpocajhfbidcxpvhh.supabase.co
+          WYNOS_FOOD_SUPABASE_PUBLISHABLE_KEY: sb_publishable_FzWdursjrE36_LvtJnayiA_-kWuw9Lt
         run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
+      - name: Upload unsigned debug APK for QA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-food-android-debug
+          path: food-android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7

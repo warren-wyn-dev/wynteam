@@ -35,4 +35,21 @@
     <string name="signed_in_as">Signed in: %1$s</string>
     <string name="account_action_failed">Action failed. Check your details and try again.</string>
     <string name="reset_email_sent">If an account exists for this email, a reset link will be sent.</string>
+    <string name="view_cart">View cart (%1$d)</string>
+    <string name="cart_validation_error">Unable to add item. Check options or clear your cart before switching stores.</string>
+    <string name="menu_unavailable">Item unavailable</string>
+    <string name="sign_in_to_view_orders">Sign in to see your order history.</string>
+    <string name="orders_load_failed">Unable to load order history.</string>
+    <string name="orders_none">No orders on this account yet.</string>
+    <string name="refresh_orders">Refresh orders</string>
+    <string name="order_status_value">Status: %1$s</string>
+    <string name="order_payment_value">Payment: %1$s</string>
+    <string name="option_extra_price">+%1$s THB</string>
+    <string name="quantity_label">Quantity: %1$d</string>
+    <string name="add_to_cart">Add to cart</string>
+    <string name="cart_title">Food cart</string>
+    <string name="cart_line">%1$s × %2$d — %3$s THB</string>
+    <string name="estimated_subtotal">Estimated food subtotal: %1$s THB</string>
+    <string name="estimate_not_final">Not a final checkout quote. Excludes promotions, delivery and fees. The server will calculate final prices when checkout is enabled.</string>
+    <string name="clear_cart">Clear cart</string>
 </resources>
