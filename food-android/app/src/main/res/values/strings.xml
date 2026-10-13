@@ -113,4 +113,5 @@
     <string name="select_required_hint">กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ</string>
     <string name="item_note_label">หมายเหตุถึงร้าน</string>
     <string name="item_note_hint">เช่น ไม่ใส่ผัก, แยกน้ำจิ้ม</string>
+    <string name="cart_view_label">ดูตะกร้า</string>
 </resources>

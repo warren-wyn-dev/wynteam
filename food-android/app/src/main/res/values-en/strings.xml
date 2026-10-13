@@ -113,4 +113,5 @@
     <string name="select_required_hint">Please select all required options</string>
     <string name="item_note_label">Note to restaurant</string>
     <string name="item_note_hint">e.g. No vegetables, sauce on the side</string>
+    <string name="cart_view_label">View cart</string>
 </resources>

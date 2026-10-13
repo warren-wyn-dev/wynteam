@@ -479,10 +479,11 @@ fun WebStoreScreen(
     val groupedMenus = store.menu
         .filter { category == "ทั้งหมด" || category == it.category }
         .groupBy { if (it.category.isBlank()) "เมนูอาหาร" else it.category }
-    LazyColumn(
-        Modifier.fillMaxSize().background(Color.White),
-        contentPadding = PaddingValues(bottom = 34.dp),
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize().background(Color.White),
+            contentPadding = PaddingValues(bottom = if (cart.storeId == store.id && cart.itemCount > 0 && storeTab == 0) 112.dp else 34.dp),
+        ) {
         item {
             // CSS uses margin-top:-20px to overlap the cover. Negative
             // spacing overlaps in layout as well, avoiding a blank 20dp gap.
@@ -614,16 +615,6 @@ fun WebStoreScreen(
                     )
                 }
             }
-            if (cart.storeId == store.id && cart.itemCount > 0) {
-                item {
-                    Button(
-                        onClick = { showCart = true },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = WebRed),
-                    ) { Text(stringResource(R.string.view_cart, cart.itemCount), fontWeight = FontWeight.Bold) }
-                }
-            }
             if (cartError) item { Text(stringResource(R.string.cart_validation_error), color = WebRed, modifier = Modifier.padding(16.dp)) }
             item { CenterStateText(R.string.checkout_unavailable) }
         } else if (storeTab == 1) {
@@ -642,6 +633,35 @@ fun WebStoreScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+        }
+        if (storeTab == 0 && cart.storeId == store.id && cart.itemCount > 0) {
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)
+                    .height(60.dp).clickable { showCart = true },
+                shape = CircleShape,
+                color = WebRed,
+                shadowElevation = 9.dp,
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier.size(40.dp).clip(CircleShape).background(Color.White),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(cart.itemCount.toString(), color = WebRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                    Text(stringResource(R.string.cart_view_label), modifier = Modifier.weight(1f),
+                        color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("฿" + cart.estimatedSubtotal.stripTrailingZeros().toPlainString(),
+                        color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(end = 12.dp))
                 }
             }
         }
