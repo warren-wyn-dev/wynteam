@@ -111,4 +111,6 @@
     <string name="option_selected">เลือกแล้ว</string>
     <string name="option_single_allowed">เลือกได้ 1 รายการ</string>
     <string name="select_required_hint">กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ</string>
+    <string name="item_note_label">หมายเหตุถึงร้าน</string>
+    <string name="item_note_hint">เช่น ไม่ใส่ผัก, แยกน้ำจิ้ม</string>
 </resources>

@@ -33,6 +33,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -78,10 +79,11 @@ private val Line = Color(0xFFEBEBEF)
 fun FoodMenuOptionsDialog(
     menu: FoodMenu,
     onDismiss: () -> Unit,
-    onAdd: (Map<String, Set<String>>, Int) -> Unit,
+    onAdd: (Map<String, Set<String>>, Int, String) -> Unit,
 ) {
     var selection by remember(menu.id) { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
     var quantity by remember(menu.id) { mutableIntStateOf(1) }
+    var note by remember(menu.id) { mutableStateOf("") }
     val valid = menu.optionGroups.all { !it.required || selection[it.id].orEmpty().isNotEmpty() }
     val extra = menu.optionGroups.fold(BigDecimal.ZERO) { sum, group ->
         sum + group.choices.filter { it.id in selection[group.id].orEmpty() }
@@ -187,6 +189,25 @@ fun FoodMenuOptionsDialog(
                             }
                         }
                     }
+                    Column(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(R.string.item_note_label),
+                                color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("${note.length}/250", color = Sub, fontSize = 12.sp)
+                        }
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it.take(250) },
+                            placeholder = { Text(stringResource(R.string.item_note_hint), color = Sub) },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            minLines = 2,
+                            maxLines = 4,
+                        )
+                    }
                     Spacer(Modifier.height(22.dp))
                 }
                 if (!valid) {
@@ -214,11 +235,11 @@ fun FoodMenuOptionsDialog(
                             enabled = quantity > 1) { Text("−", fontSize = 22.sp, color = Ink) }
                         Text(quantity.toString(), fontSize = 16.sp, color = Ink, fontWeight = FontWeight.Bold)
                         TextButton(
-                            onClick = { quantity = (quantity + 1).coerceAtMost(20) },
-                            enabled = quantity < 20) { Text("+", fontSize = 21.sp, color = Ink) }
+                            onClick = { quantity = (quantity + 1).coerceAtMost(99) },
+                            enabled = quantity < 99) { Text("+", fontSize = 21.sp, color = Ink) }
                     }
                     Button(
-                        onClick = { onAdd(selection, quantity) },
+                        onClick = { onAdd(selection, quantity, note) },
                         enabled = valid,
                         modifier = Modifier.weight(1f).height(52.dp),
                         shape = CircleShape,
@@ -275,6 +296,8 @@ fun FoodCartPreview(cart: FoodCartDraft, onDismiss: () -> Unit, onClear: () -> U
                                     if (line.options.isNotEmpty()) Text(
                                         line.options.joinToString(" · ") { it.name },
                                         color = Sub, fontSize = 12.sp)
+                                    if (line.note.isNotBlank()) Text(
+                                        line.note, color = Sub, fontSize = 12.sp)
                                 }
                                 Text("฿" + line.estimatedTotal().stripTrailingZeros().toPlainString(),
                                     fontWeight = FontWeight.Bold, color = Ink)

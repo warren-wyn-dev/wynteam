@@ -111,4 +111,6 @@
     <string name="option_selected">Selected</string>
     <string name="option_single_allowed">Choose 1 option</string>
     <string name="select_required_hint">Please select all required options</string>
+    <string name="item_note_label">Note to restaurant</string>
+    <string name="item_note_hint">e.g. No vegetables, sauce on the side</string>
 </resources>
