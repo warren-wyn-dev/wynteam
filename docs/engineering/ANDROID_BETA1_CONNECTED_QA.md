@@ -32,6 +32,23 @@ The Supabase **publishable/anon** client key, by design, will be embedded inside
 7. Debug signing keys on different runners may not match. An install update can fail with a signature conflict; **before removing any existing app, back up required local data**. Only uninstall the previous debug package after verifying its contents are disposable. Never uninstall a real Play-installed app just to test a debug APK.
 8. Android QA: app loads without the red not-configured message; login **using a dedicated test account**; verify correct profile, home feed, post/media, comments, chat, clubs, settings and logout. Do not post real credentials or account data in screenshots. Report device model, Android version, observed result and any error text with sensitive fields redacted.
 
+## Phone-only startup crash diagnostics (Pixel 5, Android 12)
+
+The Founder has **no Windows/Mac computer** and the connected APK previously appeared to exit immediately after splash. That observation alone does not establish a root cause.
+
+A DEBUG-only diagnostic mode is now included in `WynosApplication`, `MainActivity` and `QaCrashReport`. On an unhandled Java/Kotlin exception the app locally stores **only the exception type and static code location** (no exception messages, credentials, URLs, emails, tokens, or full system report). On the next launch, before initializing Supabase, it displays a screen beginning **WYNOS Android Beta 1 — QA**, followed by a code like `QA-IllegalStateException/SomeClass.method:42`. If the failure is caught during initial Activity setup, it displays that screen immediately. Release AAB builds do not enable this code path.
+
+**Phone-only process:**
+
+1. Let the Android CI for the diagnostic PR commit finish green.
+2. Open GitHub Actions → **Android** → **Run workflow** with branch `fix/android-beta1-play-api36-20261013`. This must be a **manual** run (not a `pull_request` run) to build `wynos-android-beta1-connected-qa-apk`.
+3. Download the **connected** artifact after both jobs finish successfully. Extract the ZIP on the Pixel 5, then install `app-debug.apk`.
+4. If Android says `App not installed` because the debug signing key changed, **do not delete user data blindly**; back up any app data that matters and only remove the expendable QA app before re-installing.
+5. Open the app. If it exits at splash, **open WYNOS a second time**; a recorded safe diagnostic screen may now be shown. Screenshot **only the QA error code** (and redact notifications and personal data).
+6. If no diagnostic screen appears and the app still exits, the issue could be a native/process/launch failure the handler cannot intercept. Do **not** infer its root cause from a successful CI build. Ask for the Android system crash message; a short phone-only screen recording can help but may not show a stack trace.
+
+No need to enable Developer options, install a third-party log reader, share an entire Android bug report, or obtain a computer. Do not send a password or full crash report into chat.
+
 ## What is NOT finished yet
 
 - [ ] `android-qa` protected GitHub Environment created and reviewer/branch protection verified by the Founder
