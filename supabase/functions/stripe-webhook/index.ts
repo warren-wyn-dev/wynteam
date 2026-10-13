@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
-import { normalizedGpFeeSatang, paidAfterCancelRefundParams } from "./_refund.ts";
+import { AUTO_REFUND_MARKER, mayResumeAutomaticGpRefund, normalizedGpFeeSatang, paidAfterCancelRefundParams } from "./_refund.ts";
 
 type AdminClient = ReturnType<typeof createClient<any>>;
 
@@ -534,8 +534,6 @@ async function recordRefundFailure(
 // false, so the webhook answers 500 and Stripe redelivers the event to retry.
 // Until then the order stays refund-pending and the store can also refund it
 // from WYNOS Merchant.
-const AUTO_REFUND_MARKER = "[AUTO_PAID_AFTER_CANCEL]";
-
 async function refundPaidAfterCancel(admin: AdminClient, secret: string, accountId: string, orderId: string) {
   const { data: order, error: orderError } = await admin.from("food_orders")
     .select("id,status,payment_status,payment_provider,refund_status,refund_note,stripe_payment_intent_id,stripe_refund_id")
@@ -543,7 +541,7 @@ async function refundPaidAfterCancel(admin: AdminClient, secret: string, account
   if (orderError) return false;
   if (!order || order.status !== "cancelled" || order.payment_provider !== "stripe"
       || !order.stripe_payment_intent_id) return true;
-  const isTrackedAutoRefund = Boolean(order.stripe_refund_id && order.refund_note === AUTO_REFUND_MARKER);
+  const isTrackedAutoRefund = mayResumeAutomaticGpRefund(order.stripe_refund_id, order.refund_note);
   if (!isTrackedAutoRefund && (order.payment_status !== "paid" || order.refund_status !== "pending" || order.stripe_refund_id)) return true;
   // A refund is owed but the API key is missing (e.g. mid-rotation): retry later.
   if (!secret) return false;
