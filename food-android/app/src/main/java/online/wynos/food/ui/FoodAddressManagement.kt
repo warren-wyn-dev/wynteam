@@ -252,7 +252,7 @@ private fun FoodAddressEditor(
         if (granted.values.any { it }) useLocation() else locationError = true
     }
     val fields: @Composable () -> Unit = {
-        @Composable fun field(label: String, value: String, changed: (String) -> Unit, numeric: Boolean = false) {
+        @Composable fun field(label: String, value: String, numeric: Boolean = false, changed: (String) -> Unit) {
             OutlinedTextField(
                 value = value, onValueChange = changed,
                 label = { Text(label) }, modifier = Modifier.fillMaxWidth(),
@@ -278,7 +278,7 @@ private fun FoodAddressEditor(
         field(stringResource(R.string.address_subdistrict), draft.subdistrict) { draft = draft.copy(subdistrict = it) }
         field(stringResource(R.string.address_district), draft.district) { draft = draft.copy(district = it) }
         field(stringResource(R.string.address_province), draft.province) { draft = draft.copy(province = it) }
-        field(stringResource(R.string.address_postal), draft.postalCode, { draft = draft.copy(postalCode = it) }, numeric = true)
+        field(stringResource(R.string.address_postal), draft.postalCode, numeric = true) { draft = draft.copy(postalCode = it) }
         field(stringResource(R.string.address_building), draft.buildingName) { draft = draft.copy(buildingName = it) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.weight(1f)) {
