@@ -1,8 +1,9 @@
 # Wynos Android — native app plan (Kotlin + Jetpack Compose)
 
-Status: **paused by the Founder on 2026-10-10** ("พัก แอปของแอนดรอยไปก่อน"). Do not start new Android work or an
-Android release without asking the Founder. Progress when paused: M0 done, M1 done except Google sign-in (see M1 status).
-See `.wyn/company/DECISIONS.md` (2026-10-10).
+Status: **development resumed by the Founder on 2026-10-13** for **WYNOS Android v1.0.0 Beta 1** on GitHub.
+The 2026-10-10 pause applied until this explicit instruction; this resumes Android code work only, not release.
+Use a separate branch and PR with QA. No merge, production web deployment, Play upload, or store release is approved by
+this instruction. Keep Flutter `app/` and WYNOS Web unchanged. See `.wyn/company/VERSION_CONTROL.md`.
 
 ## Founder decision (2026-09-27)
 
