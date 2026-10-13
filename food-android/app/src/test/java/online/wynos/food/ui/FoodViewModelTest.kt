@@ -14,6 +14,7 @@ import online.wynos.food.data.FoodGateway
 import online.wynos.food.data.FoodHomeBanner
 import online.wynos.food.data.FoodMenu
 import online.wynos.food.data.FoodOrderSummary
+import online.wynos.food.data.FoodOrderDetail
 import online.wynos.food.data.FoodServerQuote
 import online.wynos.food.data.FoodStore
 import org.junit.Assert.assertEquals
@@ -40,10 +41,13 @@ class FoodViewModelTest {
         val quoteDeferred = CompletableDeferred<FoodServerQuote>()
         var addressDeferred: CompletableDeferred<List<FoodCustomerAddress>>? = null
         var ordersDeferred: CompletableDeferred<List<FoodOrderSummary>>? = null
+        var selectedOrders: List<FoodOrderSummary> = emptyList()
+        var orderDetailDeferred: CompletableDeferred<FoodOrderDetail?>? = null
         override suspend fun catalog(): List<FoodStore> = emptyList()
         override suspend fun homeBanners(): List<FoodHomeBanner> = emptyList()
         override suspend fun accountEmail(): String? = "qa@example.com"
-        override suspend fun orderHistory(): List<FoodOrderSummary> = ordersDeferred?.await() ?: emptyList()
+        override suspend fun orderHistory(): List<FoodOrderSummary> = ordersDeferred?.await() ?: selectedOrders
+        override suspend fun orderDetail(orderId: String): FoodOrderDetail? = orderDetailDeferred?.await()
         override suspend fun addresses(): List<FoodCustomerAddress> = addressDeferred?.await() ?: emptyList()
         override suspend fun quote(cart: FoodCartDraft, address: FoodCustomerAddress?): FoodServerQuote =
             quoteDeferred.await()
@@ -139,4 +143,73 @@ class FoodViewModelTest {
             Dispatchers.resetMain()
         }
     }
+    private val existingOrder = FoodOrderSummary(
+        "00000000-0000-0000-0000-000000000001",
+        "WF-001", "preparing", "paid", "75", "2026-10-14T04:00:00Z",
+    )
+
+    private val existingDetail = FoodOrderDetail(
+        id = "00000000-0000-0000-0000-000000000001",
+        number = "WF-001",
+        status = "preparing",
+        paymentStatus = "paid",
+        recipientName = "QA",
+        recipientPhone = "0812345678",
+        shippingAddress = "Street",
+        note = null,
+        subtotal = "65",
+        deliveryFee = "10",
+        campaignDiscount = "0",
+        deliveryDiscount = "0",
+        total = "75",
+        createdAt = "2026-10-14T04:00:00Z",
+        items = emptyList(),
+        events = emptyList(),
+    )
+
+    @Test fun signOutClearsPrivateOrderDetailWhileRequestIsInFlight() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply {
+                selectedOrders = listOf(existingOrder)
+                orderDetailDeferred = CompletableDeferred()
+            }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.openOrderDetails(existingOrder.id)
+            runCurrent()
+            assertTrue(vm.uiState.value.orderDetailLoading)
+            vm.signOut()
+            runCurrent()
+            fake.orderDetailDeferred!!.complete(existingDetail)
+            runCurrent()
+            assertNull(vm.uiState.value.selectedOrderId)
+            assertNull(vm.uiState.value.orderDetail)
+            assertFalse(vm.uiState.value.orderDetailLoading)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun closeOrderDetailDiscardsLateResponse() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply {
+                selectedOrders = listOf(existingOrder)
+                orderDetailDeferred = CompletableDeferred()
+            }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.openOrderDetails(existingOrder.id)
+            runCurrent()
+            vm.closeOrderDetails()
+            fake.orderDetailDeferred!!.complete(existingDetail)
+            runCurrent()
+            assertNull(vm.uiState.value.selectedOrderId)
+            assertNull(vm.uiState.value.orderDetail)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
 }
