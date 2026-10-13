@@ -233,7 +233,7 @@ private fun FoodAddressEditor(
                 manager, provider, androidx.core.os.CancellationSignal(), ContextCompat.getMainExecutor(context),
                 androidx.core.util.Consumer<android.location.Location> { location ->
                 if (location != null) {
-                    draft = draft.copy(latitude = location.latitude, longitude = location.longitude)
+                    draft = draft.copy(latitude = location.latitude, longitude = location.longitude, placeId = "", placeName = "")
                     locationError = false
                 } else {
                     locationError = true
