@@ -1,0 +1,126 @@
+name: WYNOS Admin Consolidated Production Release
+
+# Manual batch release. Avoid repeated builds while Vercel's free daily
+# deployment quota is exhausted (api-deployments-free-per-day).
+# Requires a reviewed commit, an explicit human action and environment approval.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DEPLOY_ADMIN to stage and promote this pinned Admin build"
+        required: true
+        type: choice
+        options: ["CANCEL", "DEPLOY_ADMIN"]
+        default: "CANCEL"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wynos-admin-consolidated-production
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    if: >-
+      github.repository == 'warren-wyn-dev/wynteam' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.confirmation == 'DEPLOY_ADMIN'
+    environment: production
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.stage.outputs.url }}
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Checkout reviewed Admin commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Pinned reviewed main commit; update only after CI passes for newer changes.
+          ref: 1644b27cbedfc7024da37389dadfb1be29b522bb
+          persist-credentials: false
+      - name: Validate scoped project and credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$VERCEL_ORG_ID" = team_Kamt1PUT5XKn9MWrF404re1w
+          test "$VERCEL_PROJECT_ID" = prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+          for var in VERCEL_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            test -n "${!var:-}" || { echo "::error::Missing configured secret: $var"; exit 1; }
+          done
+          grep -Fq 'id: "food-banners"' admin/lib/admin-nav.ts
+          grep -Fq 'id: "food-featured"' admin/lib/admin-nav.ts
+          grep -Fq 'id: "food-reviews"' admin/lib/admin-nav.ts
+          test -f "admin/app/(admin)/food/banners/page.tsx"
+          test -f "admin/app/(admin)/food/featured/page.tsx"
+          test -f "admin/app/(admin)/food/reviews/page.tsx"
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - name: Install and check Admin app
+        working-directory: admin
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run lint
+          npx next typegen
+          npx tsc --noEmit
+      - name: Stage production build without domain
+        id: stage
+        run: |
+          set -euo pipefail
+          url="$(npx --yes vercel@63.1.2 deploy --prod --skip-domain --yes \
+            --scope warren14 \
+            --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY")"
+          DEPLOYMENT_URL="$url" node -e '
+            const v=process.env.DEPLOYMENT_URL.trim();
+            const u=new URL(v);
+            if (u.protocol!=="https:" || u.origin!==v || !u.hostname.endsWith(".vercel.app")) process.exit(1);
+          '
+          printf 'url=%s\n' "$url" >> "$GITHUB_OUTPUT"
+          echo "Staged WYNOS Admin: $url" >> "$GITHUB_STEP_SUMMARY"
+          npx --yes vercel@63.1.2 inspect "$url" --scope warren14
+
+  promote:
+    needs: stage
+    if: needs.stage.result == 'success'
+    environment: production
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      DEPLOYMENT_URL: ${{ needs.stage.outputs.url }}
+    steps:
+      - name: Verify exact project
+        run: |
+          set -euo pipefail
+          test "$VERCEL_ORG_ID" = team_Kamt1PUT5XKn9MWrF404re1w
+          test "$VERCEL_PROJECT_ID" = prj_Ca3SJBvzn0K4w8t0bwQn13EDbVh5
+          test -n "$VERCEL_TOKEN"
+          DEPLOYMENT_URL="$DEPLOYMENT_URL" node -e '
+            const v=process.env.DEPLOYMENT_URL.trim();
+            const u=new URL(v);
+            if (u.protocol!=="https:" || u.origin!==v || !u.hostname.endsWith(".vercel.app")) process.exit(1);
+          '
+      - name: Promote ready build
+        run: |
+          set -euo pipefail
+          npx --yes vercel@63.1.2 promote "$DEPLOYMENT_URL" --scope warren14 --yes
+      - name: Smoke-check existing login route
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 30 --retry 3 --retry-delay 4 -o /dev/null https://admin.wynos.online/login
+          echo 'Public Admin login endpoint responds. Private pages require separate authenticated QA.' >> "$GITHUB_STEP_SUMMARY"
