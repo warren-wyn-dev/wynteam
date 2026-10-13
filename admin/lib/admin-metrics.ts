@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 
+// Bound dashboard reads so one stalled RPC can reach the existing partial-error
+// state instead of leaving the whole metrics grid loading indefinitely.
+const DASHBOARD_READ_TIMEOUT_MS = 10_000;
+
 /**
  * Mirrors admin_dashboard_metrics()'s RETURNS TABLE column list exactly
  * (supabase/schema.sql, WYN-050 section). The RPC itself enforces the
@@ -42,7 +46,8 @@ export type AdminDashboardMetrics = {
 
 export async function fetchAdminDashboardMetrics(): Promise<AdminDashboardMetrics> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_dashboard_metrics").single();
+  const { data, error } = await supabase.rpc("admin_dashboard_metrics")
+    .abortSignal(AbortSignal.timeout(DASHBOARD_READ_TIMEOUT_MS)).single();
 
   if (error || !data) {
     throw error ?? new Error("admin_dashboard_metrics() returned no row");
@@ -84,7 +89,8 @@ export type AdminDashboardTrends = {
 
 export async function fetchAdminDashboardTrends(): Promise<AdminDashboardTrends> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_dashboard_trends").single();
+  const { data, error } = await supabase.rpc("admin_dashboard_trends")
+    .abortSignal(AbortSignal.timeout(DASHBOARD_READ_TIMEOUT_MS)).single();
 
   if (error || !data) {
     throw error ?? new Error("admin_dashboard_trends() returned no row");
@@ -100,7 +106,8 @@ export async function fetchAdminDashboardTrends(): Promise<AdminDashboardTrends>
  */
 export async function fetchAdminActivityTrend(days = 14): Promise<DauDay[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_activity_trend", { p_days: days });
+  const { data, error } = await supabase.rpc("admin_activity_trend", { p_days: days })
+    .abortSignal(AbortSignal.timeout(DASHBOARD_READ_TIMEOUT_MS));
   if (error) throw error;
   if (!Array.isArray(data)) throw new Error("admin_activity_trend() returned no rows");
   return (data as Array<{ day?: unknown; active_users?: unknown }>)
@@ -126,7 +133,8 @@ export type SignupCounts = {
 
 export async function fetchSignupCounts(): Promise<SignupCounts> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_signup_counts").single();
+  const { data, error } = await supabase.rpc("admin_signup_counts")
+    .abortSignal(AbortSignal.timeout(DASHBOARD_READ_TIMEOUT_MS)).single();
 
   if (error || !data) {
     throw error ?? new Error("admin_signup_counts() returned no row");
@@ -176,7 +184,7 @@ export async function fetchFeedAlgorithmDashboard(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_feed_algorithm_dashboard", {
     p_hours: hours,
-  });
+  }).abortSignal(AbortSignal.timeout(DASHBOARD_READ_TIMEOUT_MS));
   if (error || !data) throw error ?? new Error("Feed observability unavailable");
   return data as FeedAlgorithmDashboard;
 }

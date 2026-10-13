@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ChevronDown, XIcon } from "lucide-react";
+import { ChevronDown, Search, XIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -11,11 +11,13 @@ import {
   adminNavItemsForRole,
   findActiveAdminNavItem,
   isAdminNavItemAvailable,
+  searchAdminNavItems,
   type AdminNavItem,
 } from "@/lib/admin-nav";
 import type { AdminRole } from "@/lib/auth";
 import type { AdminSystemAccess } from "@/lib/admin-systems";
 import { useAdminNav } from "@/components/admin/nav-state";
+import { Input } from "@/components/ui/input";
 
 export const ADMIN_DRAWER_ID = "admin-nav-drawer";
 export const ADMIN_MENU_BUTTON_ID = "admin-nav-menu-button";
@@ -28,7 +30,7 @@ export const ADMIN_MENU_BUTTON_ID = "admin-nav-menu-button";
  */
 export function AdminSidebar({ role, access }: { role: AdminRole; access: AdminSystemAccess }) {
   const items = adminNavItemsForRole(role, access);
-  const { drawerOpen, setDrawerOpen } = useAdminNav();
+  const { drawerOpen, setDrawerOpen, query, setQuery } = useAdminNav();
 
   return (
     <>
@@ -43,6 +45,14 @@ export function AdminSidebar({ role, access }: { role: AdminRole; access: AdminS
           <DialogPrimitive.Content
             id={ADMIN_DRAWER_ID}
             aria-describedby={undefined}
+            // Radix handles Escape during document capture, before the
+            // search input's React handler. Clear search before dismissing.
+            onEscapeKeyDown={(event) => {
+              if (query) {
+                event.preventDefault();
+                setQuery("");
+              }
+            }}
             // The header's menu button opens the drawer from outside this
             // Dialog (no Dialog.Trigger), so hand focus back to it ourselves.
             onCloseAutoFocus={(event) => {
@@ -97,57 +107,129 @@ function AdminNavList({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const { collapsed, toggleGroup } = useAdminNav();
+  const { collapsed, toggleGroup, query, setQuery } = useAdminNav();
   const active = findActiveAdminNavItem(pathname, items);
-  const overview = items.find((item) => !item.group);
+  const filteredItems = searchAdminNavItems(items, query);
+  const searching = query.trim().length > 0;
+  const overview = filteredItems.find((item) => !item.group);
+  const resultsId = `${idPrefix}-nav-results`;
+  const statusId = `${idPrefix}-nav-search-status`;
+  const navigate = () => {
+    setQuery("");
+    onNavigate?.();
+  };
 
   return (
-    <nav aria-label="เมนูหลัก" className="flex-1 overflow-y-auto overscroll-contain border-t px-3 pb-8 pt-3">
-      {overview ? (
-        <div className="pb-3">
-          <NavEntry item={overview} active={active === overview} onNavigate={onNavigate} prominent />
-        </div>
-      ) : null}
-
-      {ADMIN_NAV_GROUPS.map((group) => {
-        const groupItems = items.filter((item) => item.group === group.id);
-        if (groupItems.length === 0) return null;
-        const expanded = !collapsed.has(group.id);
-        const holdsActive = active?.group === group.id;
-        const listId = `${idPrefix}-nav-${group.id}`;
-        const GroupIcon = group.icon;
-        return (
-          <section key={group.id} className="border-t py-3">
+    <nav aria-label="เมนูหลัก" className="flex min-h-0 flex-1 flex-col border-t">
+      <div role="search" aria-label="ค้นหาเมนู" className="shrink-0 border-b px-3 py-3">
+        <label htmlFor={`${idPrefix}-menu-search`} className="sr-only">ค้นหาเมนู</label>
+        <div className="relative">
+          <Search aria-hidden className="pointer-events-none absolute left-3 top-3.5 size-4 text-muted-foreground" />
+          <Input
+            id={`${idPrefix}-menu-search`}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && query) {
+                event.preventDefault();
+                event.stopPropagation();
+                setQuery("");
+              }
+            }}
+            placeholder="ค้นหาเมนูไทย / English"
+            autoComplete="off"
+            aria-controls={resultsId}
+            aria-describedby={statusId}
+            className="pl-9 pr-11 shadow-none [&::-webkit-search-cancel-button]:hidden"
+          />
+          {query ? (
             <button
               type="button"
-              aria-expanded={expanded}
-              aria-controls={listId}
-              onClick={() => toggleGroup(group.id)}
-              className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-semibold text-foreground/85 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="ล้างคำค้นหาเมนู"
+              onClick={() => {
+                setQuery("");
+                document.getElementById(`${idPrefix}-menu-search`)?.focus();
+              }}
+              className="absolute right-0 top-0 grid size-11 place-items-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <GroupIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="flex-1">{group.label}</span>
-              {holdsActive && !expanded ? (
-                <>
-                  <span aria-hidden className="size-1.5 rounded-full bg-foreground" />
-                  <span className="sr-only">(มีหน้าที่เปิดอยู่ในหมวดนี้)</span>
-                </>
-              ) : null}
-              <ChevronDown
-                aria-hidden
-                className={cn("size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none", !expanded && "-rotate-90")}
-              />
+              <XIcon aria-hidden className="size-4" />
             </button>
-            <ul id={listId} hidden={!expanded} className="mt-1 flex flex-col gap-0.5 pl-1.5">
-              {groupItems.map((item) => (
-                <li key={item.id}>
-                  <NavEntry item={item} active={active === item} onNavigate={onNavigate} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+          ) : null}
+        </div>
+        <p id={statusId} role="status" className="mt-2 text-xs text-muted-foreground">
+          {searching ? `พบ ${filteredItems.length} เมนู` : "เลือกหมวดด้านล่าง หรือค้นหาชื่อเมนู"}
+        </p>
+      </div>
+      <div id={resultsId} className="flex-1 overflow-y-auto overscroll-contain px-3 pb-8 pt-3">
+        {overview ? (
+          <div className="pb-3">
+            <NavEntry item={overview} active={active === overview} onNavigate={navigate} prominent />
+          </div>
+        ) : null}
+
+        {searching && filteredItems.length === 0 ? (
+          <div className="rounded-md border border-dashed px-3 py-6 text-center">
+            <p className="text-sm font-medium">ไม่พบเมนู</p>
+            <p className="mt-1 text-xs text-muted-foreground">ลองค้นหาชื่อเมนูหรือหมวดอื่น</p>
+          </div>
+        ) : null}
+
+        {ADMIN_NAV_GROUPS.map((group) => {
+          const groupItems = filteredItems.filter((item) => item.group === group.id);
+          if (groupItems.length === 0) return null;
+          const expanded = searching || !collapsed.has(group.id);
+          const holdsActive = active?.group === group.id;
+          const listId = `${idPrefix}-nav-${group.id}`;
+          const descriptionId = `${idPrefix}-nav-${group.id}-description`;
+          const activeHintId = `${idPrefix}-nav-${group.id}-active`;
+          const GroupIcon = group.icon;
+          return (
+            <section key={group.id} className="border-t py-3">
+              {searching ? (
+                <h2 className="flex items-center gap-2.5 px-2.5 pb-2 text-[13px] font-semibold">
+                  <GroupIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="flex-1">{group.label}</span>
+                  <span className="text-xs font-normal text-muted-foreground">{groupItems.length}</span>
+                </h2>
+              ) : (
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  aria-controls={listId}
+                  aria-label={group.label}
+                  aria-describedby={holdsActive && !expanded ? `${descriptionId} ${activeHintId}` : descriptionId}
+                  onClick={() => toggleGroup(group.id)}
+                  className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] font-semibold text-foreground/85 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <GroupIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="block">{group.label}</span>
+                    <span id={descriptionId} className="mt-0.5 block text-xs font-normal leading-relaxed text-muted-foreground">{group.description}</span>
+                  </span>
+                  {holdsActive && !expanded ? (
+                    <>
+                      <span aria-hidden className="size-1.5 rounded-full bg-foreground" />
+                      <span id={activeHintId} className="sr-only">(มีหน้าที่เปิดอยู่ในหมวดนี้)</span>
+                    </>
+                  ) : null}
+                  <ChevronDown
+                    aria-hidden
+                    className={cn("size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none", !expanded && "-rotate-90")}
+                  />
+                </button>
+              )}
+              <ul id={listId} hidden={!expanded} className="mt-1 flex flex-col gap-0.5 pl-1.5">
+                {groupItems.map((item) => (
+                  <li key={item.id}>
+                    <NavEntry item={item} active={active === item} onNavigate={navigate} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
     </nav>
   );
 }

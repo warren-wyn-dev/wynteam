@@ -1,7 +1,7 @@
 import { KeyRound } from "lucide-react";
 
 import { TeamPermissionsManager, type TeamMember } from "@/components/admin/team-permissions-manager";
-import { fetchAdminAccess, fetchAdminPermissions } from "@/lib/admin-permissions";
+import { fetchAdminPermissions } from "@/lib/admin-permissions";
 import { searchUsers } from "@/lib/admin-users";
 import { requireAdminRole } from "@/lib/auth";
 
@@ -15,8 +15,7 @@ export default async function TeamPermissionsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  await requireAdminRole();
-  const access = await fetchAdminAccess();
+  const { access } = await requireAdminRole();
 
   if (!access.available || !access.superAdmin) {
     return (

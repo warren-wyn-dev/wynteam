@@ -47,7 +47,7 @@ export const ADMIN_NAV_GROUPS = [
   { id: "food", label: "WYNOS Food", icon: UtensilsCrossed, description: "ดูแลฝั่งลูกค้า คำสั่งซื้อ และการชำระเงิน" },
   { id: "merchant", label: "WYNOS Merchant", icon: Store, description: "ดูแลร้านค้า เมนู คูปอง แคมเปญ และโฆษณาของร้านค้า" },
   { id: "maps", label: "WYNOS Maps", icon: MapIcon, description: "สถานที่และความถูกต้องของข้อมูลแผนที่" },
-  { id: "other", label: "ส่วนกลางและระบบ", icon: Settings, description: "ฟังก์ชันที่ครอบคลุมหลายบริการ: การตลาดระดับแพลตฟอร์ม สิทธิ์ Audit Log และการตั้งค่า" },
+  { id: "other", label: "ส่วนกลางและระบบ", icon: Settings, description: "การตลาดส่วนกลาง Audit Log และการตั้งค่า" },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; icon: LucideIcon; description: string }>;
 
 export type AdminNavGroupId = (typeof ADMIN_NAV_GROUPS)[number]["id"];
@@ -159,6 +159,60 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 
 export function isAdminNavItemAvailable(item: AdminNavItem): item is AdminNavItem & { href: string } {
   return typeof item.href === "string";
+}
+
+/** Thai aliases keep the existing labels and routes familiar to current staff. */
+const ADMIN_NAV_SEARCH_ALIASES: Record<string, string> = {
+  overview: "ภาพรวม สรุปทั้งหมด",
+  "account-dashboard": "ภาพรวมบัญชี",
+  users: "ผู้ใช้ บัญชีผู้ใช้ จัดการผู้ใช้",
+  roles: "สิทธิ์ สิทธิ์ทีมงาน ทีมงาน บทบาท",
+  "account-security": "ความปลอดภัยบัญชี",
+  "social-dashboard": "ภาพรวมโซเชียล",
+  moderation: "เนื้อหา ตรวจสอบโพสต์ กลั่นกรอง",
+  reports: "รายงาน ร้องเรียน",
+  announcements: "ประกาศ",
+  "food-dashboard": "ภาพรวมอาหาร",
+  "food-control": "ควบคุมอาหาร",
+  "food-banners": "banner รูปหน้าแรก",
+  "food-reviews": "review ความคิดเห็น",
+  "food-featured": "featured แนะนำร้าน",
+  "food-orders": "ออเดอร์ คำสั่งซื้อ",
+  "food-customers": "ลูกค้า",
+  "food-payments": "ชำระเงิน คืนเงิน",
+  "food-support": "ช่วยเหลือลูกค้า ติดต่อ support",
+  "merchant-dashboard": "ภาพรวมร้านค้า",
+  "merchant-control": "ควบคุมร้านค้า",
+  stores: "ร้านค้า จัดการร้าน",
+  "merchant-verification": "ยืนยันร้านค้า ตรวจเอกสาร",
+  "menu-management": "เมนูอาหาร รายการอาหาร",
+  coupons: "คูปอง ส่วนลด",
+  campaigns: "แคมเปญ โปรโมชั่น",
+  ads: "โฆษณา",
+  "promo-notifications": "แจ้งเตือนโปรโมชั่น",
+  "merchant-finance": "finance รายได้ GP commission settlement payout",
+  "merchant-delivery": "delivery จัดส่ง ระยะทาง",
+  "merchant-operations": "operations เวลาเปิดปิด เวลาทำการ เตรียมอาหาร",
+  "maps-dashboard": "ภาพรวมแผนที่",
+  places: "สถานที่ แผนที่",
+  "map-reports": "รายงานแผนที่",
+  "ai-secretary": "เลขา เลขานุการ ผู้ช่วย",
+  "platform-marketing": "การตลาดแพลตฟอร์ม",
+  "audit-log": "ประวัติ บันทึกการดำเนินการ ตรวจสอบย้อนหลัง",
+  "system-settings": "ตั้งค่าระบบ",
+};
+
+/** Filter only the caller's permitted items; searching never grants visibility. */
+export function searchAdminNavItems(items: AdminNavItem[], query: string): AdminNavItem[] {
+  const terms = query.normalize("NFKC").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return items;
+
+  return items.filter((item) => {
+    const group = ADMIN_NAV_GROUPS.find((entry) => entry.id === item.group);
+    const text = [item.label, group?.label, ADMIN_NAV_SEARCH_ALIASES[item.id]]
+      .filter(Boolean).join(" ").normalize("NFKC").toLowerCase();
+    return terms.every((term) => text.includes(term));
+  });
 }
 
 export function adminNavItemsForRole(role: AdminRole, access: AdminSystemAccess): AdminNavItem[] {

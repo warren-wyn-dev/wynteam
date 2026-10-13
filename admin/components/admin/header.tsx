@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/admin/logout-button";
+import type { SignOutResult } from "@/app/(admin)/actions";
 import { useAdminNav } from "@/components/admin/nav-state";
 import { ADMIN_DRAWER_ID, ADMIN_MENU_BUTTON_ID } from "@/components/admin/sidebar";
 import { ADMIN_NAV_GROUPS, findActiveAdminNavItem } from "@/lib/admin-nav";
@@ -22,7 +24,7 @@ export function AdminHeader({
 }: {
   email: string | null;
   role: AdminRole;
-  signOutAction: () => void;
+  signOutAction: (previousState: SignOutResult) => Promise<SignOutResult>;
 }) {
   const pathname = usePathname();
   const { drawerOpen, setDrawerOpen } = useAdminNav();
@@ -59,11 +61,7 @@ export function AdminHeader({
           {ROLE_LABEL[role]}
         </span>
         {email ? <span className="hidden max-w-56 truncate text-sm text-muted-foreground lg:inline">{email}</span> : null}
-        <form action={signOutAction}>
-          <Button type="submit" variant="outline" size="sm" aria-label="ออกจากระบบ">
-            ออกจากระบบ
-          </Button>
-        </form>
+        <LogoutButton signOutAction={signOutAction} />
       </div>
     </header>
   );

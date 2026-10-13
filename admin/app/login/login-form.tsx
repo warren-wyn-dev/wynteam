@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { signIn } from "./actions";
 
 export function LoginForm() {
+  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -33,6 +34,8 @@ export function LoginForm() {
           name="email"
           type="email"
           autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
           required
           disabled={isPending}
         />

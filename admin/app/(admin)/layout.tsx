@@ -1,7 +1,6 @@
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { AdminHeader } from "@/components/admin/header";
 import { AdminNavProvider } from "@/components/admin/nav-state";
-import { fetchAdminAccess } from "@/lib/admin-permissions";
 import { requireAdminRole } from "@/lib/auth";
 
 import { signOutAction } from "./actions";
@@ -14,8 +13,7 @@ import { signOutAction } from "./actions";
  * ไม่ใช่ทำซ้ำในทุกหน้าลูก").
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { email, role } = await requireAdminRole();
-  const access = await fetchAdminAccess();
+  const { email, role, access } = await requireAdminRole();
 
   return (
     <AdminNavProvider>
