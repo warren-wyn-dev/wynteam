@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 import { normalizedGpFeeSatang } from "../stripe-webhook/_refund.ts";
+import { REFUND_RECONCILE_MARKER, requiresRefundReconciliation } from "./_state.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -77,7 +78,7 @@ Deno.serve(async (req: Request) => {
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
   // An unknown Stripe outcome must be reconciled with the actual payment
   // before anyone sends another refund request for this order.
-  if (order.refund_status === "pending" && order.refund_note?.startsWith("[RECONCILE]")) {
+  if (requiresRefundReconciliation(order.refund_status, order.refund_note)) {
     return json({ error: "refund_reconciliation_required" }, 409);
   }
   // An automatic or merchant refund has reached Stripe and is awaiting a webhook.
@@ -185,7 +186,7 @@ Deno.serve(async (req: Request) => {
     });
     const { error: flagError } = await admin.from("food_orders").update({
       refund_status: "pending",
-      refund_note: "[RECONCILE] กำลังตรวจสอบผลการคืนเงินกับ Stripe กรุณาติดต่อผู้ดูแลก่อนลองใหม่",
+      refund_note: `${REFUND_RECONCILE_MARKER} กำลังตรวจสอบผลการคืนเงินกับ Stripe กรุณาติดต่อผู้ดูแลก่อนลองใหม่`,
       refund_updated_by: user.id,
     }).eq("id", order.id).eq("refund_status", order.refund_status).is("stripe_refund_id", null);
     if (flagError) console.error("merchant-stripe-refund pending marker failed", { order_id: order.id });
