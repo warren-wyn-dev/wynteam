@@ -167,4 +167,11 @@
     <string name="address_writes_staging_only">รุ่นทดสอบนี้ดูที่อยู่ได้ แต่ยังไม่เปิดการแก้ไขข้อมูลบนระบบจริง</string>
     <string name="address_delete_confirm_title">ลบที่อยู่จัดส่ง?</string>
     <string name="address_delete_confirm_body">ยืนยันการลบที่อยู่ %1$s</string>
+    <string name="checkout_review_action">ตรวจสอบคำสั่งซื้อ</string>
+    <string name="checkout_review_title">ตรวจสอบคำสั่งซื้อ</string>
+    <string name="checkout_review_address">ที่อยู่จัดส่ง</string>
+    <string name="checkout_review_items">รายการอาหาร</string>
+    <string name="checkout_review_not_final">ยอดนี้มาจากระบบ ค่าส่งและโปรโมชันอาจเปลี่ยนได้ก่อนยืนยันจริง</string>
+    <string name="checkout_review_payment_locked">สั่งอาหารและชำระเงิน (ยังไม่เปิดใช้)</string>
+    <string name="checkout_review_staging_notice">หน้านี้เป็นตัวอย่างการตรวจคำสั่งซื้อ ยังไม่มีการสร้างออเดอร์หรือชำระเงิน</string>
 </resources>
