@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/food-native-locale-screen-qa.yml"
+      - "food-android/**"
   workflow_dispatch:
 
 permissions:
