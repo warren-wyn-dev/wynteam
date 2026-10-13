@@ -66,64 +66,66 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var selectedStoreId by rememberSaveable { mutableStateOf<String?>(null) }
+    var homeCart by rememberSaveable { mutableStateOf(false) }
+    val guest = state.accountEmail == null
     val selectedStore = state.stores.firstOrNull { it.id == selectedStoreId }
-    BackHandler(enabled = selectedStore != null && tab == 0) { selectedStoreId = null }
+
+    BackHandler(enabled = selectedStore != null && tab == 0) {
+        selectedStoreId = null
+    }
 
     Scaffold(
+        containerColor = androidx.compose.ui.graphics.Color.White,
         topBar = {
-            TopAppBar(
-                title = { Text(selectedStore?.name ?: stringResource(R.string.brand_name), fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    if (selectedStore != null && tab == 0) {
-                        IconButton(onClick = { selectedStoreId = null }) {
-                            Icon(Icons.Outlined.ArrowBack, contentDescription = stringResource(R.string.back))
-                        }
+            if (selectedStore == null) {
+                if (tab == 0) {
+                    WebHomeHeader(
+                        guest = guest,
+                        cartCount = state.cart.itemCount,
+                        onAccount = { selectedStoreId = null; tab = 3 },
+                        onCart = { homeCart = true },
+                    )
+                } else {
+                    val title = when (tab) {
+                        1 -> stringResource(R.string.orders)
+                        2 -> stringResource(R.string.messages)
+                        else -> stringResource(R.string.account)
                     }
-                },
-            )
+                    WebPageHeader(title, onBack = { tab = 0; selectedStoreId = null })
+                }
+            }
         },
         bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = tab == 0,
-                    onClick = { tab = 0; selectedStoreId = null },
-                    icon = { Icon(Icons.Outlined.Home, contentDescription = null) },
-                    label = { Text(stringResource(R.string.home)) },
-                )
-                NavigationBarItem(
-                    selected = tab == 1,
-                    onClick = { tab = 1; selectedStoreId = null },
-                    icon = { Icon(Icons.Outlined.ReceiptLong, contentDescription = null) },
-                    label = { Text(stringResource(R.string.orders)) },
-                )
-                NavigationBarItem(
-                    selected = tab == 2,
-                    onClick = { tab = 2; selectedStoreId = null },
-                    icon = { Icon(Icons.Outlined.PersonOutline, contentDescription = null) },
-                    label = { Text(stringResource(R.string.account)) },
+            // Signed-out website is a guest storefront without a bottom bar.
+            if (!guest) {
+                WebBottomNavigation(
+                    tab = tab,
+                    onTab = { tab = it; selectedStoreId = null },
                 )
             }
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            ReadOnlyNotice()
-            when (tab) {
-                0 -> if (selectedStore != null) {
-                    StoreContent(
-                        store = selectedStore,
-                        cart = state.cart,
-                        cartError = state.cartError,
-                        onAdd = vm::addToCart,
-                        onClear = vm::clearCart,
-                    )
-                } else {
-                    HomeContent(
-                        state = state,
-                        onSelectStore = { selectedStoreId = it },
-                        onRetry = vm::refreshCatalog,
-                    )
-                }
-                1 -> OrdersContent(state, onRetry = vm::refreshOrders)
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            when {
+                tab == 0 && selectedStore != null -> WebStoreScreen(
+                    store = selectedStore,
+                    cart = state.cart,
+                    cartError = state.cartError,
+                    guest = guest,
+                    onBack = { selectedStoreId = null },
+                    onAccount = { selectedStoreId = null; tab = 3 },
+                    onAdd = vm::addToCart,
+                    onClear = vm::clearCart,
+                )
+                tab == 0 -> WebHomeScreen(
+                    state = state,
+                    guest = guest,
+                    onAccount = { tab = 3 },
+                    onStore = { selectedStoreId = it },
+                    onRetry = vm::refreshCatalog,
+                )
+                tab == 1 -> OrdersContent(state, onRetry = vm::refreshOrders)
+                tab == 2 -> Placeholder(R.string.messages_unavailable)
                 else -> AccountContent(
                     state = state,
                     onSignIn = vm::signIn,
@@ -132,6 +134,13 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                 )
             }
         }
+    }
+    if (homeCart) {
+        FoodCartPreview(
+            cart = state.cart,
+            onDismiss = { homeCart = false },
+            onClear = { vm.clearCart(); homeCart = false },
+        )
     }
 }
 

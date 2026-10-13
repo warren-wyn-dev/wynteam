@@ -7,17 +7,17 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Brand = Color(0xFFE63B52)
+private val Brand = Color(0xFFE40036)
 
 private val LightColors = lightColorScheme(
     primary = Brand,
     onPrimary = Color.White,
     background = Color.White,
-    onBackground = Color(0xFF202124),
+    onBackground = Color(0xFF16161A),
     surface = Color.White,
-    onSurface = Color(0xFF202124),
-    surfaceVariant = Color(0xFFF6F6F7),
-    outline = Color(0xFFDFE0E2),
+    onSurface = Color(0xFF16161A),
+    surfaceVariant = Color(0xFFF6F6F8),
+    outline = Color(0xFFEBEBEF),
 )
 
 private val DarkColors = darkColorScheme(
@@ -30,7 +30,7 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun WynosFoodTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(

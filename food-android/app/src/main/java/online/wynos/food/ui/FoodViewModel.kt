@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import online.wynos.food.data.FoodGateway
 import online.wynos.food.data.FoodStore
+import online.wynos.food.data.FoodHomeBanner
 import online.wynos.food.data.FoodCartDraft
 import online.wynos.food.data.FoodMenu
 import online.wynos.food.data.FoodOrderSummary
@@ -19,6 +20,7 @@ data class FoodUiState(
     val catalogLoading: Boolean = false,
     val catalogFailed: Boolean = false,
     val stores: List<FoodStore> = emptyList(),
+    val banners: List<FoodHomeBanner> = emptyList(),
     val cart: FoodCartDraft = FoodCartDraft(),
     val cartError: Boolean = false,
     val orders: List<FoodOrderSummary> = emptyList(),
@@ -49,6 +51,10 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             try {
                 val stores = gateway.catalog()
                 mutableState.update { it.copy(stores = stores, catalogLoading = false) }
+                val banners = try { gateway.homeBanners() } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (_: Exception) { emptyList() }
+                mutableState.update { it.copy(banners = banners) }
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
