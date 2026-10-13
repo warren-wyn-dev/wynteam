@@ -1,3 +1,10 @@
+export const AUTO_REFUND_MARKER = "[AUTO_PAID_AFTER_CANCEL]";
+
+/** Only a refund ID written by our own auto-refund path may resume GP booking. */
+export function mayResumeAutomaticGpRefund(refundId: string | null, note: string | null): boolean {
+  return Boolean(refundId && note === AUTO_REFUND_MARKER);
+}
+
 /**
  * Pure Stripe paid-after-cancel refund request assembly.
  * GP must be accounted for in satang; never silently drop an invalid fee.
