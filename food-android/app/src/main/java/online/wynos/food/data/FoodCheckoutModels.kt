@@ -36,6 +36,8 @@ data class FoodCustomerAddress(
     val floor: String = "",
     val room: String = "",
     val landmark: String = "",
+    val placeId: String = "",
+    val placeName: String = "",
 ) {
     val validPin: Boolean get() =
         latitude != null && longitude != null &&
@@ -64,6 +66,8 @@ object FoodAddressParser {
             buildingName = text("building_name").orEmpty(),
             floor = text("floor").orEmpty(), room = text("room").orEmpty(),
             landmark = text("landmark").orEmpty(),
+            placeId = text("place_id").orEmpty(),
+            placeName = text("place_name").orEmpty(),
         )
     }.sortedWith(compareByDescending<FoodCustomerAddress> { it.isDefault }.thenBy { it.label })
 }
