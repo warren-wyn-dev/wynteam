@@ -1,0 +1,118 @@
+name: WYNOS Food Guest Cart Final Visual QA
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/food-native-cart-final-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for verified native APK build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 32); do
+            count=$(gh api repos/warren-wyn-dev/wynteam/actions/runs/38447578476/artifacts \
+              --jq '[.artifacts[] | select(.name == "wynos-food-android-debug")] | length' || echo 0)
+            if [ "$count" -gt 0 ]; then exit 0; fi
+            echo "Waiting for Android build artifact ($i/32)"
+            sleep 15
+          done
+          echo "Native build did not upload its APK" >&2
+          exit 1
+      - name: Download verified APK from parity build
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 38442345092
+          name: wynos-food-android-debug
+          github-token: ${{ github.token }}
+          path: visual
+      - name: Browser screenshot after splash, Thai locale
+        run: |
+          npm install --no-save --prefix /tmp/wynos-playwright playwright-core@1.56.1
+          mkdir -p visual
+          NODE_PATH=/tmp/wynos-playwright/node_modules node <<'NODE'
+          const { chromium } = require('playwright-core');
+          (async () => {
+            const browser = await chromium.launch({
+              executablePath:'/usr/bin/google-chrome',
+              args:['--no-sandbox','--disable-dev-shm-usage'],
+              headless:true,
+            });
+            const context = await browser.newContext({
+              viewport:{width:390,height:844}, deviceScaleFactor:1,
+              isMobile:true, hasTouch:true, locale:'th-TH',
+            });
+            const page = await context.newPage();
+            await page.goto('https://food.wynos.online/',{waitUntil:'domcontentloaded',timeout:60000});
+            await page.waitForTimeout(8500);
+            await page.screenshot({path:'visual/web-home.png'});
+            let cards = page.locator('.fx-store-card');
+            if(await cards.count()) {
+              await cards.first().click();
+              await page.waitForTimeout(1800);
+              await page.screenshot({path:'visual/web-store.png'});
+              let items = page.locator('.fx-menu-row');
+              if(await items.count()) {
+                await items.first().click();
+                await page.waitForTimeout(650);
+                await page.screenshot({path:'visual/web-item.png'});
+              }
+            }
+            console.log('web captured');
+            await browser.close();
+          })().catch(e=>{ console.error(e);process.exit(1) });
+          NODE
+      - name: Enable KVM
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Native screenshot on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -dns-server 8.8.8.8,1.1.1.1
+          script: |
+            adb install -r visual/app-debug.apk
+            adb shell wm size 390x844
+            adb shell wm density 160
+            adb shell cmd locale set-app-locales online.wynos.food --user 0 --locales th-TH || true
+            echo "APP LOCALE:"
+            adb shell cmd locale get-app-locales online.wynos.food --user 0 || true
+            echo "NETWORK:"
+            adb shell dumpsys connectivity | grep -m 2 "VALIDATED" || true
+            adb shell ping -c 1 -W 4 kqokpocajhfbidcxpvhh.supabase.co || true
+            adb shell am force-stop online.wynos.food || true
+            adb shell am start -n online.wynos.food/.MainActivity
+            sleep 35
+            adb exec-out screencap -p > visual/android-home.png
+            adb shell input tap 90 425
+            sleep 6
+            adb exec-out screencap -p > visual/android-store.png
+            adb shell input tap 190 520
+            sleep 3
+            adb exec-out screencap -p > visual/android-item.png
+            adb logcat -d -v brief -s AndroidRuntime:E chromium:E System.err:E > visual/android-error-log.txt || true
+      - name: Upload comparison screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-food-390px-parity
+          path: |
+            visual/*.png
+            visual/android-error-log.txt
+          if-no-files-found: warn
+          retention-days: 3
