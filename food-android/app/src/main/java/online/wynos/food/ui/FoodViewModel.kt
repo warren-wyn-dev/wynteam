@@ -46,6 +46,27 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     private val mutableState = MutableStateFlow(FoodUiState(configured = gateway.configured))
     val uiState = mutableState.asStateFlow()
 
+    // A request must belong to the currently active account AND current input generation.
+    // A matching email is not sufficient: the user might sign out and sign back in.
+    private var accountGeneration = 0L
+    private var addressGeneration = 0L
+    private var orderGeneration = 0L
+    private var quoteGeneration = 0L
+
+    private fun invalidateQuote() {
+        quoteGeneration++
+        mutableState.update {
+            it.copy(quote = null, quoteLoading = false, quoteFailed = false)
+        }
+    }
+
+    private fun invalidateAccountRequests() {
+        accountGeneration++
+        addressGeneration++
+        orderGeneration++
+        invalidateQuote()
+    }
+
     init {
         if (gateway.configured) {
             refreshCatalog()
@@ -73,10 +94,12 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     }
 
     private fun restoreAccount() {
+        val generation = accountGeneration
+        mutableState.update { it.copy(accountLoading = true, accountFailed = false) }
         viewModelScope.launch {
-            mutableState.update { it.copy(accountLoading = true, accountFailed = false) }
             try {
                 val email = gateway.accountEmail()
+                if (generation != accountGeneration) return@launch
                 mutableState.update { it.copy(accountLoading = false, accountEmail = email) }
                 if (email != null) {
                     refreshOrders()
@@ -85,53 +108,73 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
-                mutableState.update { it.copy(accountLoading = false, accountFailed = true) }
+                if (generation == accountGeneration) {
+                    mutableState.update { it.copy(accountLoading = false, accountFailed = true) }
+                }
             }
         }
     }
 
     fun signIn(email: String, password: String) {
         if (!gateway.configured || email.isBlank() || password.isEmpty() || mutableState.value.accountBusy) return
+        invalidateAccountRequests()
+        val generation = accountGeneration
+        mutableState.update {
+            it.copy(accountBusy = true, accountFailed = false, resetEmailSent = false,
+                accountLoading = false, orders = emptyList(), addresses = emptyList(),
+                ordersLoading = false, addressesLoading = false, selectedAddressId = null)
+        }
         viewModelScope.launch {
-            mutableState.update { it.copy(accountBusy = true, accountFailed = false, resetEmailSent = false) }
             try {
-                val accountEmail = gateway.signIn(email.trim(), password)
-                mutableState.update { it.copy(accountBusy = false, accountEmail = accountEmail) }
+                val signedInEmail = gateway.signIn(email.trim(), password)
+                if (generation != accountGeneration) return@launch
+                mutableState.update { it.copy(accountBusy = false, accountEmail = signedInEmail) }
                 refreshCatalog()
-                refreshOrders()
-                refreshAddresses()
+                if (signedInEmail != null) {
+                    refreshOrders()
+                    refreshAddresses()
+                }
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
-                mutableState.update { it.copy(accountBusy = false, accountFailed = true) }
+                if (generation == accountGeneration) {
+                    mutableState.update { it.copy(accountBusy = false, accountFailed = true) }
+                }
             }
         }
     }
 
     fun signOut() {
         if (mutableState.value.accountBusy) return
+        invalidateAccountRequests()
+        val generation = accountGeneration
+        mutableState.update { it.copy(accountBusy = true, accountFailed = false) }
         viewModelScope.launch {
-            mutableState.update { it.copy(accountBusy = true, accountFailed = false) }
             try {
                 gateway.signOut()
+                if (generation != accountGeneration) return@launch
                 mutableState.update { it.copy(
-                    accountBusy = false, accountEmail = null, orders = emptyList(),
-                    cart = FoodCartDraft(), addresses = emptyList(), selectedAddressId = null,
+                    accountBusy = false, accountEmail = null, accountLoading = false,
+                    orders = emptyList(), ordersLoading = false, ordersFailed = false,
+                    cart = FoodCartDraft(), addresses = emptyList(), addressesLoading = false,
+                    addressesFailed = false, selectedAddressId = null,
                     quote = null, quoteLoading = false, quoteFailed = false,
                 ) }
                 refreshCatalog()
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
-                mutableState.update { it.copy(accountBusy = false, accountFailed = true) }
+                if (generation == accountGeneration) {
+                    mutableState.update { it.copy(accountBusy = false, accountFailed = true) }
+                }
             }
         }
     }
 
     fun requestPasswordReset(email: String) {
         if (!gateway.configured || email.isBlank() || mutableState.value.accountBusy) return
+        mutableState.update { it.copy(accountBusy = true, accountFailed = false, resetEmailSent = false) }
         viewModelScope.launch {
-            mutableState.update { it.copy(accountBusy = true, accountFailed = false, resetEmailSent = false) }
             try {
                 gateway.resetPassword(email.trim())
                 mutableState.update { it.copy(accountBusy = false, resetEmailSent = true) }
@@ -142,10 +185,12 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             }
         }
     }
+
     fun addToCart(store: FoodStore, menu: FoodMenu, selected: Map<String, Set<String>>, quantity: Int, note: String): Boolean {
         return try {
             val next = mutableState.value.cart.add(store, menu, selected, quantity, note)
-            mutableState.update { it.copy(cart = next, cartError = false, quote = null, quoteFailed = false) }
+            invalidateQuote()
+            mutableState.update { it.copy(cart = next, cartError = false) }
             true
         } catch (_: IllegalArgumentException) {
             mutableState.update { it.copy(cartError = true) }
@@ -156,57 +201,66 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     fun updateCartLine(identity: String, quantity: Int) {
         try {
             val next = mutableState.value.cart.withQuantity(identity, quantity)
-            mutableState.update { it.copy(cart = next, quote = null, quoteFailed = false) }
+            invalidateQuote()
+            mutableState.update { it.copy(cart = next, cartError = false) }
         } catch (_: IllegalArgumentException) {
             mutableState.update { it.copy(cartError = true) }
         }
     }
 
     fun clearCart() {
-        mutableState.update { it.copy(cart = FoodCartDraft(), cartError = false, quote = null, quoteFailed = false) }
+        invalidateQuote()
+        mutableState.update { it.copy(cart = FoodCartDraft(), cartError = false) }
     }
 
     fun refreshAddresses() {
         if (!gateway.configured || mutableState.value.accountEmail == null) return
+        val session = accountGeneration
+        val generation = ++addressGeneration
+        invalidateQuote() // Pricing must be rechecked if the stored pin or default has changed.
+        mutableState.update { it.copy(addressesLoading = true, addressesFailed = false) }
         viewModelScope.launch {
-            mutableState.update { it.copy(addressesLoading = true, addressesFailed = false) }
             try {
                 val addresses = gateway.addresses()
+                if (session != accountGeneration || generation != addressGeneration) return@launch
                 mutableState.update { state ->
+                    if (state.accountEmail == null) return@update state
                     val selected = state.selectedAddressId?.takeIf { id -> addresses.any { it.id == id } }
                         ?: addresses.find { it.isDefault }?.id ?: addresses.firstOrNull()?.id
-                    state.copy(
-                        addresses = addresses, addressesLoading = false,
-                        selectedAddressId = selected, quote = null, quoteFailed = false,
-                    )
+                    state.copy(addresses = addresses, addressesLoading = false, selectedAddressId = selected)
                 }
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
-                mutableState.update { it.copy(addressesLoading = false, addressesFailed = true) }
+                if (session == accountGeneration && generation == addressGeneration) {
+                    mutableState.update { it.copy(addressesLoading = false, addressesFailed = true) }
+                }
             }
         }
     }
 
     fun selectAddress(id: String?) {
-        mutableState.update { state ->
-            if (id != null && state.addresses.none { it.id == id }) state else state.copy(
-                selectedAddressId = id, quote = null, quoteFailed = false,
-            )
-        }
+        val current = mutableState.value
+        if (id != null && current.addresses.none { it.id == id }) return
+        if (current.selectedAddressId == id) return
+        invalidateQuote()
+        mutableState.update { it.copy(selectedAddressId = id) }
     }
 
     fun requestServerQuote() {
         val state = mutableState.value
         if (!gateway.configured || state.accountEmail == null ||
-            state.cart.lines.isEmpty() || state.quoteLoading) return
+            state.cart.lines.isEmpty() || state.quoteLoading || state.addressesLoading) return
         val draft = state.cart
         val addressId = state.selectedAddressId
         val address = state.addresses.firstOrNull { it.id == addressId }
+        val session = accountGeneration
+        val generation = ++quoteGeneration
+        mutableState.update { it.copy(quoteLoading = true, quoteFailed = false, quote = null) }
         viewModelScope.launch {
-            mutableState.update { it.copy(quoteLoading = true, quoteFailed = false, quote = null) }
             try {
                 val serverQuote = gateway.quote(draft, address)
+                if (generation != quoteGeneration || session != accountGeneration) return@launch
                 mutableState.update { current ->
                     if (current.cart != draft || current.selectedAddressId != addressId ||
                         current.accountEmail == null) current.copy(quoteLoading = false)
@@ -215,8 +269,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
-                mutableState.update { current ->
-                    current.copy(quoteLoading = false, quoteFailed = true)
+                if (generation == quoteGeneration && session == accountGeneration) {
+                    mutableState.update { it.copy(quoteLoading = false, quoteFailed = true) }
                 }
             }
         }
@@ -224,17 +278,24 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
 
     fun refreshOrders() {
         if (!gateway.configured || mutableState.value.accountEmail == null) return
+        val session = accountGeneration
+        val generation = ++orderGeneration
+        mutableState.update { it.copy(ordersLoading = true, ordersFailed = false) }
         viewModelScope.launch {
-            mutableState.update { it.copy(ordersLoading = true, ordersFailed = false) }
             try {
                 val orders = gateway.orderHistory()
-                mutableState.update { it.copy(orders = orders, ordersLoading = false) }
+                if (generation != orderGeneration || session != accountGeneration) return@launch
+                mutableState.update { state ->
+                    if (state.accountEmail == null) state
+                    else state.copy(orders = orders, ordersLoading = false)
+                }
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Exception) {
-                mutableState.update { it.copy(ordersLoading = false, ordersFailed = true) }
+                if (generation == orderGeneration && session == accountGeneration) {
+                    mutableState.update { it.copy(ordersLoading = false, ordersFailed = true) }
+                }
             }
         }
     }
-
 }
