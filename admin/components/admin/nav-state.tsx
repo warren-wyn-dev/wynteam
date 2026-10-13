@@ -12,6 +12,9 @@ type AdminNavState = {
   /** Sections the admin collapsed. Shared by the desktop sidebar and the drawer. */
   collapsed: ReadonlySet<AdminNavGroupId>;
   toggleGroup: (group: AdminNavGroupId) => void;
+  /** Shared menu search for the permanent sidebar and mobile drawer. */
+  query: string;
+  setQuery: (query: string) => void;
 };
 
 const AdminNavContext = createContext<AdminNavState | null>(null);
@@ -28,6 +31,7 @@ export function AdminNavProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<ReadonlySet<AdminNavGroupId>>(() => new Set());
+  const [query, setQuery] = useState("");
   const [seenPathname, setSeenPathname] = useState(pathname);
 
   // Every navigation (a menu tap, Back/Forward, a link inside a page) closes
@@ -36,6 +40,7 @@ export function AdminNavProvider({ children }: { children: React.ReactNode }) {
   if (pathname !== seenPathname) {
     setSeenPathname(pathname);
     setDrawerOpen(false);
+    setQuery("");
     const group = findActiveAdminNavItem(pathname)?.group;
     if (group && collapsed.has(group)) {
       const next = new Set(collapsed);
@@ -64,8 +69,8 @@ export function AdminNavProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ drawerOpen, setDrawerOpen, collapsed, toggleGroup }),
-    [drawerOpen, collapsed, toggleGroup],
+    () => ({ drawerOpen, setDrawerOpen, collapsed, toggleGroup, query, setQuery }),
+    [drawerOpen, collapsed, toggleGroup, query],
   );
 
   return <AdminNavContext.Provider value={value}>{children}</AdminNavContext.Provider>;

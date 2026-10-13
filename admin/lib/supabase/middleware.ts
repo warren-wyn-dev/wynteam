@@ -26,13 +26,16 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, responseHeaders) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
           supabaseResponse = NextResponse.next({ request });
           for (const { name, value, options } of cookiesToSet) {
             supabaseResponse.cookies.set(name, value, options);
+          }
+          for (const [name, value] of Object.entries(responseHeaders)) {
+            supabaseResponse.headers.set(name, value);
           }
         },
       },
@@ -49,7 +52,17 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    // Keep expired-session cookie removals and SSR cache protection on the
+    // redirect, otherwise the browser repeats the stale session next time.
+    for (const cookie of supabaseResponse.cookies.getAll()) {
+      redirectResponse.cookies.set(cookie);
+    }
+    for (const name of ["cache-control", "expires", "pragma"]) {
+      const value = supabaseResponse.headers.get(name);
+      if (value) redirectResponse.headers.set(name, value);
+    }
+    return redirectResponse;
   }
 
   return supabaseResponse;

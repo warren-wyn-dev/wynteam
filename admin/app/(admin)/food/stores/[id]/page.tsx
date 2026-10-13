@@ -23,7 +23,6 @@ import {
   resolveFinanceRange,
   type MerchantFinanceStore,
 } from "@/lib/admin-merchant-finance";
-import { fetchAdminAccess } from "@/lib/admin-permissions";
 import { formatGpRate } from "@/lib/admin-gp-format";
 import { hasSystemAccess } from "@/lib/admin-systems";
 import { adminCan, requireAdminRole, type AdminContext } from "@/lib/auth";
@@ -112,7 +111,7 @@ export default async function FoodStoreDetailPage({
       </nav>
 
       {tab === "overview" ? <OverviewTab store={store} /> : null}
-      {tab === "info" ? <InfoTab store={store} canEditFood={canEditFood} /> : null}
+      {tab === "info" ? <InfoTab store={store} canEditFood={canEditFood} canSeeMaps={hasSystemAccess(ctx.access, "maps") !== false} /> : null}
       {tab === "menus" ? <MenusTab /> : null}
       {tab === "operations" ? <OperationsTab store={store} canEditFood={canEditFood} /> : null}
       {tab === "promotions" ? <PromotionsTab /> : null}
@@ -157,9 +156,8 @@ function OverviewTab({ store }: { store: AdminFoodStoreDetail }) {
   );
 }
 
-async function InfoTab({ store, canEditFood }: { store: AdminFoodStoreDetail; canEditFood: boolean }) {
+async function InfoTab({ store, canEditFood, canSeeMaps }: { store: AdminFoodStoreDetail; canEditFood: boolean; canSeeMaps: boolean }) {
   // WYN-219: the store's map pin comes from a WYNOS Maps RPC (maps:view).
-  const canSeeMaps = hasSystemAccess(await fetchAdminAccess(), "maps") !== false;
   const mapPlace = canSeeMaps ? await fetchAdminWynosPlaceForStore(store.id) : null;
   const owner = store.team.find((member) => member.role === "owner" && member.active);
 
