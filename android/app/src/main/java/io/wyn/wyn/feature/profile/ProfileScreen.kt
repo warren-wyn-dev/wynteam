@@ -223,7 +223,7 @@ private fun Hero(summary: ProfileSummary, own: Boolean, onBack: (() -> Unit)?, o
                 DefaultCover()
             }
         }
-        Spacer(Modifier.statusBarsPadding().height(156.dp))
+        Spacer(Modifier.statusBarsPadding().height(148.dp))
         ProfileTopBar(onBack, onMore, own)
     }
 }
@@ -291,18 +291,18 @@ private fun Header(vm: ProfileViewModel, summary: ProfileSummary, nav: ProfileNa
             Box(
                 Modifier
                     .layout { measurable, constraints ->
-                        val lift = 34.dp.roundToPx()
+                        val lift = 30.dp.roundToPx()
                         val placeable = measurable.measure(constraints)
                         layout(placeable.width, placeable.height - lift) { placeable.place(0, -lift) }
                     }
-                    .size(96.dp).clip(CircleShape).background(c.bg).padding(3.dp),
+                    .size(88.dp).clip(CircleShape).background(c.bg).padding(3.dp),
             ) {
-                WynAvatar(profile.avatarUrl, 90, contentDescription = stringResource(R.string.profile_photo_of, profile.username))
+                WynAvatar(profile.avatarUrl, 82, contentDescription = stringResource(R.string.profile_photo_of, profile.username))
             }
-            Column(Modifier.weight(1f).padding(top = 15.dp)) {
+            Column(Modifier.weight(1f).padding(top = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        profile.label, color = c.text, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.ExtraBold,
+                        profile.label, color = c.text, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.ExtraBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                     )
                     if (profile.isVerified) VerifiedBadge(16, label = stringResource(R.string.verified))
@@ -319,9 +319,9 @@ private fun Header(vm: ProfileViewModel, summary: ProfileSummary, nav: ProfileNa
                 }
             }
         }
-        Column(Modifier.padding(top = 10.dp)) {
+        Column(Modifier.padding(top = 8.dp)) {
             profile.bio?.takeIf { it.isNotBlank() }?.let { bio ->
-                RichText(bio, compact = false, onTag = nav.onTag, style = TextStyle(fontSize = 16.sp, lineHeight = 22.sp))
+                RichText(bio, compact = false, onTag = nav.onTag, style = TextStyle(fontSize = 15.sp, lineHeight = 21.sp))
             }
             profile.website?.let(ExternalUrl::normalize)?.let { site ->
                 Row(
@@ -332,11 +332,11 @@ private fun Header(vm: ProfileViewModel, summary: ProfileSummary, nav: ProfileNa
                 ) {
                     Icon(WynIcons.Link, contentDescription = null, tint = WebsiteBlue, modifier = Modifier.size(19.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(ExternalUrl.label(site), color = WebsiteBlue, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(ExternalUrl.label(site), color = WebsiteBlue, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (!summary.blockedBy) {
-                Row(Modifier.padding(top = 11.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(Modifier.padding(top = 9.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Stat(summary.followingCount, stringResource(R.string.tab_following)) { nav.onFollows(FollowKind.Following) }
                     Stat(summary.followerCount, stringResource(R.string.profile_followers)) { nav.onFollows(FollowKind.Followers) }
                 }
@@ -386,7 +386,7 @@ private fun Stat(value: Int, label: String, onClick: () -> Unit) {
     val c = Wyn.colors
     Text(
         buildAnnotatedString {
-            withStyle(SpanStyle(color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)) { append(count(value)) }
+            withStyle(SpanStyle(color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)) { append(count(value)) }
             append(" ")
             withStyle(SpanStyle(color = StatGrey, fontSize = 14.sp)) { append(label) }
         },
@@ -481,7 +481,7 @@ private fun ProfileTabs(selected: ProfileTab, onSelect: (ProfileTab) -> Unit) {
     val c = Wyn.colors
     val dark = c.bg == DarkWynColors.bg
     Column(Modifier.fillMaxWidth().background(c.bg)) {
-        Row(Modifier.fillMaxWidth().height(50.dp)) {
+        Row(Modifier.fillMaxWidth().height(48.dp)) {
             listOf(ProfileTab.Posts to R.string.profile_tab_posts, ProfileTab.Reposts to R.string.profile_tab_reposts, ProfileTab.Likes to R.string.profile_tab_likes)
                 .forEach { (tab, label) ->
                     val active = tab == selected
@@ -490,10 +490,10 @@ private fun ProfileTabs(selected: ProfileTab, onSelect: (ProfileTab) -> Unit) {
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            stringResource(label), color = if (active) c.text else TabGrey, fontSize = 15.sp,
+                            stringResource(label), color = if (active) c.text else TabGrey, fontSize = 14.5.sp,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
                         )
-                        if (active) Box(Modifier.align(Alignment.BottomCenter).size(120.dp, 2.dp).background(c.text))
+                        if (active) Box(Modifier.align(Alignment.BottomCenter).size(104.dp, 2.dp).background(c.text))
                     }
                 }
         }

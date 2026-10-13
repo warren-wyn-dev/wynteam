@@ -143,7 +143,7 @@ private fun AuthorRow(row: FeedRow, viewer: ViewerState, userId: String, time: S
             modifier = Modifier.weight(1f).clickable(onClick = actions.onOpenAuthor),
         ) {
             Text(
-                row.authorLabel, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                row.authorLabel, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
             )
             if (row.authorIsVerified) {
@@ -187,17 +187,15 @@ private fun Caption(caption: String, actions: PostCallbacks) {
             RichText(split.prose, compact = true, onTag = actions.onTag, onBody = actions.onOpenPost, modifier = Modifier.padding(end = 10.dp))
         }
         if (split.truncated) {
-            val more = stringResource(R.string.see_more)
+            // Hashtags stay clickable; "see more" stays on one line on narrow screens.
+            if (split.tags.isNotEmpty()) {
+                RichText(split.tags, compact = true, onTag = actions.onTag, modifier = Modifier.padding(top = 2.dp))
+            }
             Text(
-                buildAnnotatedString {
-                    if (split.tags.isNotEmpty()) {
-                        append(richText(split.tags, actions.onTag))
-                        append(" ")
-                    }
-                    append("… $more")
-                },
-                style = CaptionStyle.copy(color = RepostLineGrey, fontSize = 15.sp),
-                modifier = Modifier.clickable(onClick = actions.onOpenPost),
+                "… ${stringResource(R.string.see_more)}",
+                style = CaptionStyle.copy(color = RepostLineGrey, fontSize = 14.sp),
+                maxLines = 1,
+                modifier = Modifier.clickable(onClick = actions.onOpenPost).padding(top = 1.dp),
             )
         } else if (split.tags.isNotEmpty()) {
             RichText(split.tags, compact = true, onTag = actions.onTag, modifier = Modifier.padding(top = 4.dp))
@@ -205,7 +203,7 @@ private fun Caption(caption: String, actions: PostCallbacks) {
     }
 }
 
-internal val CaptionStyle = TextStyle(fontSize = 16.sp, lineHeight = 21.sp)
+internal val CaptionStyle = TextStyle(fontSize = 15.sp, lineHeight = 20.sp)
 
 /** The web's RichPostText: URLs, #tags and @mentions in link blue; the rest is plain text. */
 @Composable

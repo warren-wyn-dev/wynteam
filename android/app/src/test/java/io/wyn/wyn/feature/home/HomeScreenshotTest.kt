@@ -4,6 +4,7 @@ import android.os.Looper
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.core.app.ApplicationProvider
@@ -66,6 +67,13 @@ class HomeScreenshotTest {
     @Test @Config(qualifiers = "th-w411dp-h914dp-xxhdpi")
     fun homeThaiLightPhoto() {
         render(ThemeChoice.Light, "home-photo-th-light", scrollTo = "4")
+    }
+
+    @Test @Config(qualifiers = "th-w393dp-h851dp-xxhdpi")
+    fun homeThaiPixel5CompactTabs() {
+        render(ThemeChoice.Light, "home-th-pixel5")
+        compose.onNodeWithText("กำลังติดตาม").assertIsDisplayed()
+        compose.onNodeWithText("คลับของฉัน").assertIsDisplayed()
     }
 
     @Test @Config(qualifiers = "en-w411dp-h914dp-night-xxhdpi")

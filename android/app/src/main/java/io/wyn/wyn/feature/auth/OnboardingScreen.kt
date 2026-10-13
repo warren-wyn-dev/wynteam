@@ -78,7 +78,7 @@ fun OnboardingScreen(vm: AccountFlowViewModel) {
         }
         Column(Modifier.weight(1f).padding(horizontal = 20.dp)) {
             Column(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.onboarding_title), color = c.text, fontSize = 32.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold)
+                Text(stringResource(R.string.onboarding_title), color = c.text, fontSize = 29.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold)
                 Gap(6)
                 Text(stringResource(R.string.onboarding_subtitle), color = c.textSecondary, fontSize = 13.sp, textAlign = TextAlign.Center)
             }

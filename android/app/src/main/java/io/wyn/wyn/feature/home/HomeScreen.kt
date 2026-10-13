@@ -243,7 +243,7 @@ private fun HomeHeader(notificationCount: Int, nav: HomeNavigation) {
                 colorFilter = if (dark) ColorFilter.colorMatrix(Invert) else null,
             )
             Spacer(Modifier.width(7.dp))
-            Text("WYNOS", color = c.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+            Text("WYNOS", color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
         }
         Row(Modifier.align(Alignment.CenterEnd)) {
             HeaderButton(WynIcons.Search, stringResource(R.string.search), nav.onSearch)
@@ -292,7 +292,7 @@ private fun HomeTabs(mode: FeedMode, onSelect: (FeedMode) -> Unit) {
     val c = Wyn.colors
     val labels = listOf(FeedMode.ForYou to R.string.tab_for_you, FeedMode.Following to R.string.tab_following, FeedMode.Clubs to R.string.tab_my_clubs)
     Column {
-        Row(Modifier.fillMaxWidth().height(37.dp)) {
+        Row(Modifier.fillMaxWidth().height(48.dp)) {
             labels.forEach { (key, label) ->
                 val active = key == mode
                 Column(
@@ -302,8 +302,9 @@ private fun HomeTabs(mode: FeedMode, onSelect: (FeedMode) -> Unit) {
                 ) {
                     Spacer(Modifier.height(1.dp))
                     Text(
-                        stringResource(label), color = if (active) c.text else TabGrey, fontSize = 18.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold, maxLines = 1,
+                        stringResource(label), color = if (active) c.text else TabGrey, fontSize = 14.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
+                        maxLines = 2, lineHeight = 16.sp, textAlign = TextAlign.Center,
                     )
                     Box(
                         Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(999.dp))
@@ -323,11 +324,11 @@ private fun QuickCompose(avatarUrl: String?, onCompose: () -> Unit) {
     Column {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().height(65.dp).clickable(onClickLabel = prompt, onClick = onCompose).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().height(58.dp).clickable(onClickLabel = prompt, onClick = onCompose).padding(horizontal = 16.dp),
         ) {
-            WynAvatar(avatarUrl, 38)
+            WynAvatar(avatarUrl, 36)
             Spacer(Modifier.width(12.dp))
-            Text(prompt, color = c.textSecondary, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Text(prompt, color = c.textSecondary, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
             Icon(WynIcons.Image, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(22.dp))
         }
         HorizontalDivider(color = c.border, thickness = 1.dp)
@@ -340,7 +341,7 @@ internal fun EmptyState(message: String, action: String?, onAction: () -> Unit) 
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(message, color = Wyn.colors.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+        Text(message, color = Wyn.colors.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center)
         if (action != null) {
             Spacer(Modifier.height(16.dp))
             WynPrimaryButton(action, onAction, modifier = Modifier.width(220.dp))
@@ -419,7 +420,7 @@ private fun SheetRow(icon: ImageVector, label: String, first: Boolean = false, o
         ) {
             Icon(icon, contentDescription = null, tint = c.text, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(14.dp))
-            Text(label, color = c.text, fontSize = 15.sp)
+            Text(label, color = c.text, fontSize = 14.5.sp)
         }
     }
 }
@@ -438,7 +439,7 @@ private fun RepostChoice(icon: ImageVector, label: String, enabled: Boolean, onC
     ) {
         Icon(icon, contentDescription = null, tint = c.text.copy(alpha = if (enabled) 1f else 0.55f), modifier = Modifier.size(28.dp))
         Spacer(Modifier.width(18.dp))
-        Text(label, color = c.text.copy(alpha = if (enabled) 1f else 0.55f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = c.text.copy(alpha = if (enabled) 1f else 0.55f), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -452,7 +453,7 @@ private fun ReportForm(vm: FeedViewModel<*>) {
         "other" to R.string.report_other,
     )
     Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 14.dp, top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.report_post), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        Text(stringResource(R.string.report_post), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         Column(Modifier.border(1.dp, c.border, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp))) {
             ReportCategories.forEachIndexed { index, key ->
                 if (index > 0) HorizontalDivider(color = c.border, thickness = 1.dp)

@@ -93,7 +93,7 @@ fun ChatInboxScreen(vm: ChatInboxViewModel, onlineIds: Set<String> = emptySet(),
             }
             Text(
                 stringResource(if (requests) R.string.chat_requests_title else R.string.chat_title),
-                color = c.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+                color = c.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
             )
             if (!requests) {
                 val search = stringResource(R.string.chat_search)
@@ -115,7 +115,7 @@ fun ChatInboxScreen(vm: ChatInboxViewModel, onlineIds: Set<String> = emptySet(),
                             leadingIcon = { Icon(WynIcons.MessagesSquare, contentDescription = null, tint = c.text, modifier = Modifier.size(18.dp)) },
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(stringResource(R.string.chat_requests_title), color = c.text, fontSize = 15.sp)
+                                    Text(stringResource(R.string.chat_requests_title), color = c.text, fontSize = 14.5.sp)
                                     if (vm.requests.isNotEmpty()) Text("  ${vm.requests.size}", color = c.text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 }
                             },
@@ -133,9 +133,9 @@ fun ChatInboxScreen(vm: ChatInboxViewModel, onlineIds: Set<String> = emptySet(),
                 Icon(WynIcons.Search, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
-                    if (vm.query.isEmpty()) Text(stringResource(R.string.chat_search), color = c.textSecondary, fontSize = 16.sp)
+                    if (vm.query.isEmpty()) Text(stringResource(R.string.chat_search), color = c.textSecondary, fontSize = 15.sp)
                     BasicTextField(
-                        vm.query, vm::updateQuery, singleLine = true, textStyle = TextStyle(color = c.text, fontSize = 16.sp),
+                        vm.query, vm::updateQuery, singleLine = true, textStyle = TextStyle(color = c.text, fontSize = 15.sp),
                         cursorBrush = SolidColor(c.text), modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -154,7 +154,7 @@ fun ChatInboxScreen(vm: ChatInboxViewModel, onlineIds: Set<String> = emptySet(),
                     vm.loading -> item(key = "loading") { FeedSkeleton() }
                     vm.allowed == false -> item(key = "locked") {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 64.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(stringResource(R.string.chat_locked_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.chat_locked_title), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             Text(stringResource(R.string.chat_locked_body), color = c.textSecondary, fontSize = 13.sp)
                         }
                     }
@@ -183,7 +183,7 @@ fun ChatInboxScreen(vm: ChatInboxViewModel, onlineIds: Set<String> = emptySet(),
         AlertDialog(
             onDismissRequest = vm::dismissDecline,
             containerColor = c.bg,
-            title = { Text(stringResource(R.string.chat_decline_confirm), color = c.text, fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+            title = { Text(stringResource(R.string.chat_decline_confirm), color = c.text, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             confirmButton = { TextButton(onClick = vm::decline) { Text(stringResource(R.string.remove), color = c.accent, fontWeight = FontWeight.Bold) } },
             dismissButton = { TextButton(onClick = vm::dismissDecline) { Text(stringResource(R.string.cancel), color = c.textSecondary) } },
         )
@@ -206,8 +206,8 @@ private fun InboxRow(row: Conversation, unread: Boolean, english: Boolean, onlin
             if (online) OnlineDot(13.dp, Modifier.align(Alignment.BottomEnd).offset(1.dp, 1.dp))
         }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(row.otherLabel, color = c.text, fontSize = 16.sp, fontWeight = if (unread) FontWeight.ExtraBold else FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(previewText(row), color = c.textSecondary, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(row.otherLabel, color = c.text, fontSize = 15.sp, fontWeight = if (unread) FontWeight.ExtraBold else FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(previewText(row), color = c.textSecondary, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(row.lastMessageAt?.let { FeedText.relativeTime(it, english) }.orEmpty(), color = c.textSecondary, fontSize = 14.sp)
@@ -229,7 +229,7 @@ private fun RequestRow(row: Conversation, onOpen: () -> Unit, onAccept: () -> Un
         ) {
             WynAvatar(row.otherAvatarUrl, 48, contentDescription = row.otherLabel)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(row.otherLabel, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(row.otherLabel, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(previewText(row), color = c.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

@@ -114,7 +114,7 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
-            Icon(if (active) selectedIcon else icon, contentDescription = null, tint = tint, modifier = Modifier.size(28.dp))
+            Icon(if (active) selectedIcon else icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
             if (badge > 0) Badge(if (badge > 9) "9+" else badge.toString(), Modifier.padding(start = 15.dp).align(Alignment.TopStart))
         }
         Spacer(Modifier.height(1.dp))
@@ -126,7 +126,7 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
 fun ComingSoon(message: Int) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(message), color = Wyn.colors.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+            Text(stringResource(message), color = Wyn.colors.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center)
         }
     }
 }
