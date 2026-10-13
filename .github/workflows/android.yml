@@ -54,3 +54,53 @@ jobs:
             android/app/build/reports/
             android/app/build/outputs/roborazzi/
           retention-days: 7
+
+  connected-qa:
+    name: Connected Android Beta 1 QA APK (manual only)
+    # Manual runs from the exact Beta 1 branch only. PR events can never
+    # access the android-qa environment or its configuration.
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/fix/android-beta1-play-api36-20261013' }}
+    needs: android
+    runs-on: ubuntu-latest
+    # Founder must configure this Environment with required reviewers and
+    # branch restrictions BEFORE manually running this job.
+    environment: android-qa
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Validate Android QA client configuration (never print values)
+        env:
+          WYNOS_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          WYNOS_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        shell: bash
+        run: |
+          if [[ "$WYNOS_SUPABASE_URL" != https://* || -z "$WYNOS_SUPABASE_PUBLISHABLE_KEY" ]]; then
+            echo "::error::Missing Supabase HTTPS URL or publishable client key in android-qa environment."
+            exit 1
+          fi
+          if [[ "$WYNOS_SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* && "$WYNOS_SUPABASE_PUBLISHABLE_KEY" != eyJ* ]]; then
+            echo "::error::Only a Supabase publishable/anon client key is permitted for Android QA."
+            exit 1
+          fi
+      - name: Build connected Beta 1 debug APK
+        env:
+          # Client-public settings only. Never use service_role or database credentials.
+          WYNOS_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          WYNOS_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Upload connected Beta 1 Android APK (QA only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-android-beta1-connected-qa-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 3
