@@ -85,4 +85,21 @@
     <string name="popular_menu">Recommended dishes</string>
     <string name="store_new">New restaurant</string>
     <string name="see_all">See all</string>
+    <string name="my_orders_title">My orders</string>
+    <string name="active_orders">In progress</string>
+    <string name="order_history_tab">History</string>
+    <string name="no_active_orders">No ongoing orders</string>
+    <string name="no_past_orders">No past orders yet</string>
+    <string name="browse_food_now">Browse restaurants</string>
+    <string name="no_messages">No messages yet</string>
+    <string name="messages_note">Conversations with restaurants and delivery partners will appear here</string>
+    <string name="food_login_heading">Sign in to WYNOS Food</string>
+    <string name="food_login_note">Use your existing WYNOS account</string>
+    <string name="wynos_food_profile">WYNOS Food profile</string>
+    <string name="delivery_addresses">Delivery addresses</string>
+    <string name="addresses_not_yet_available">Address management is coming to Android</string>
+    <string name="order_history_link">Order history</string>
+    <string name="readonly_order_notice">Read-only in Android Beta</string>
+    <string name="account_signup_pending">Android registration is still in development</string>
+    <string name="store_meta_guest">%1$d items · delivery from ฿%2$s</string>
 </resources>

@@ -85,4 +85,21 @@
     <string name="popular_menu">เมนูแนะนำ</string>
     <string name="store_new">ร้านใหม่</string>
     <string name="see_all">ดูทั้งหมด</string>
+    <string name="my_orders_title">ออเดอร์ของฉัน</string>
+    <string name="active_orders">กำลังดำเนินการ</string>
+    <string name="order_history_tab">ประวัติ</string>
+    <string name="no_active_orders">ยังไม่มีออเดอร์ที่กำลังดำเนินการ</string>
+    <string name="no_past_orders">ยังไม่มีประวัติการสั่ง</string>
+    <string name="browse_food_now">ดูร้านอาหารเลย</string>
+    <string name="no_messages">ยังไม่มีข้อความ</string>
+    <string name="messages_note">การสนทนากับร้านและผู้จัดส่งจะแสดงที่นี่</string>
+    <string name="food_login_heading">เข้าสู่ระบบ WYNOS Food</string>
+    <string name="food_login_note">ใช้บัญชี WYNOS ของคุณเพื่อเข้าใช้งาน</string>
+    <string name="wynos_food_profile">โปรไฟล์ WYNOS Food</string>
+    <string name="delivery_addresses">ที่อยู่จัดส่ง</string>
+    <string name="addresses_not_yet_available">การจัดการที่อยู่บน Android อยู่ระหว่างพัฒนา</string>
+    <string name="order_history_link">ประวัติการสั่งอาหาร</string>
+    <string name="readonly_order_notice">ดูได้อย่างเดียวใน Android Beta</string>
+    <string name="account_signup_pending">การสมัครสมาชิกบน Android อยู่ระหว่างพัฒนา</string>
+    <string name="store_meta_guest">%1$d เมนู · ค่าส่งเริ่มต้น ฿%2$s</string>
 </resources>

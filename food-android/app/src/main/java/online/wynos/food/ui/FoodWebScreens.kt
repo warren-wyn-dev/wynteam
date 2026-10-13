@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -131,7 +132,8 @@ fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart:
                 OutlinedButton(
                     onClick = onAccount,
                     shape = CircleShape,
-                    contentPadding = PaddingValues(horizontal = 15.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, WebRed),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.height(40.dp),
                 ) {
                     Text(stringResource(R.string.guest_sign_in), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
@@ -242,7 +244,7 @@ fun WebHomeScreen(
         if (guest) {
             item {
                 Column(
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 14.dp)
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 9.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(Brush.horizontalGradient(listOf(WebRedSoft, Color.White)))
                         .padding(18.dp),
@@ -334,7 +336,7 @@ fun WebHomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         row.forEach { store ->
-                            StoreCardWeb(store, Modifier.weight(1f), onClick = { onStore(store.id) })
+                            StoreCardWeb(store, Modifier.weight(1f), showRating = !guest, onClick = { onStore(store.id) })
                         }
                         if (row.size == 1) Spacer(Modifier.weight(1f))
                     }
@@ -343,7 +345,7 @@ fun WebHomeScreen(
                     item { SectionTitleWeb(stringResource(R.string.public_stores)) }
                     items(filtered.chunked(2), key = { row -> "all_" + row.first().id }) { row ->
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            row.forEach { store -> StoreCardWeb(store, Modifier.weight(1f), onClick = { onStore(store.id) }) }
+                            row.forEach { store -> StoreCardWeb(store, Modifier.weight(1f), showRating = true, onClick = { onStore(store.id) }) }
                             if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
@@ -417,7 +419,7 @@ private fun FilterChipWeb(title: String, selected: Boolean, onClick: () -> Unit)
 }
 
 @Composable
-private fun StoreCardWeb(store: FoodStore, modifier: Modifier, onClick: () -> Unit) {
+private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boolean, onClick: () -> Unit) {
     Column(
         modifier = modifier.clickable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(5.dp),
@@ -434,13 +436,16 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, onClick: () -> Un
             }
         }
         Text(store.name, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(13.dp))
-            Text(stringResource(R.string.store_new), color = WebInk, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        if (showRating) {
+            // The signed-in site shows a rating row; public guest cards don't.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(13.dp))
+                Text(stringResource(R.string.store_new), color = WebInk, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TagWeb(stringResource(R.string.store_menu_count, store.menu.size))
-            TagWeb(stringResource(R.string.store_delivery, store.deliveryFee ?: "—"))
+            TagWeb(stringResource(R.string.store_delivery, "฿" + (store.deliveryFee ?: "—")))
         }
     }
 }
@@ -448,9 +453,9 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, onClick: () -> Un
 @Composable
 private fun TagWeb(title: String) {
     Text(
-        title, color = WebSub, fontSize = 11.sp, maxLines = 1,
+        title, color = WebSub, fontSize = 11.5.sp, maxLines = 1,
         modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(WebChip)
-            .padding(horizontal = 6.dp, vertical = 3.dp),
+            .padding(horizontal = 7.dp, vertical = 2.dp),
     )
 }
 
@@ -479,7 +484,9 @@ fun WebStoreScreen(
         contentPadding = PaddingValues(bottom = 34.dp),
     ) {
         item {
-            Column {
+            // CSS uses margin-top:-20px to overlap the cover. Negative
+            // spacing overlaps in layout as well, avoiding a blank 20dp gap.
+            Column(verticalArrangement = Arrangement.spacedBy((-20).dp)) {
                 Box(Modifier.fillMaxWidth().height(230.dp)) {
                     WebImage(store.coverPath, "food-public", Modifier.fillMaxSize())
                     Box(Modifier.fillMaxWidth().height(80.dp).background(
@@ -509,16 +516,23 @@ fun WebStoreScreen(
                     }
                 }
                 Column(
-                    Modifier.fillMaxWidth().offset(y = (-20).dp).clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
                         .background(Color.White).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 3.dp),
-                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Text(store.name, fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = WebInk)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(14.dp))
-                        Text(" " + stringResource(R.string.store_new) + " · ", color = WebSub, fontSize = 13.sp)
-                        Text(stringResource(R.string.store_menu_count, store.menu.size), color = WebSub, fontSize = 13.sp)
-                        Text(" · ฿" + (store.deliveryFee ?: "—"), color = WebSub, fontSize = 13.sp)
+                        if (guest) {
+                            Text(
+                                stringResource(R.string.store_meta_guest, store.menu.size, store.deliveryFee ?: "—"),
+                                color = WebSub, fontSize = 13.5.sp, lineHeight = 18.sp,
+                            )
+                        } else {
+                            Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(14.dp))
+                            Text(" " + stringResource(R.string.store_new) + " · ", color = WebSub, fontSize = 13.sp)
+                            Text(stringResource(R.string.store_menu_count, store.menu.size), color = WebSub, fontSize = 13.sp)
+                            Text(" · ฿" + (store.deliveryFee ?: "—"), color = WebSub, fontSize = 13.sp)
+                        }
                     }
                     if (store.isOpen) {
                         Text(stringResource(R.string.store_open_now), color = WebGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -529,10 +543,19 @@ fun WebStoreScreen(
                         }
                     }
                     store.description?.let { Text(it, color = WebSub, fontSize = 13.sp) }
+                    if (guest && !store.address.isNullOrBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(Icons.Outlined.LocationOn, null, tint = WebSub, modifier = Modifier.size(14.dp))
+                            Text(store.address, color = WebSub, fontSize = 13.sp)
+                        }
+                    }
                 }
             }
         }
-        item {
+        if (!guest) item {
             Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 listOf(R.string.store_tab_menu, R.string.store_tab_reviews, R.string.store_tab_info).forEachIndexed { i, label ->
                     Column(
@@ -551,7 +574,7 @@ fun WebStoreScreen(
             HorizontalDivider(color = WebLine)
         }
         if (storeTab == 0) {
-            if (categories.size > 2) {
+            if (!guest && categories.size > 1) {
                 item {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -561,7 +584,7 @@ fun WebStoreScreen(
                     }
                 }
             }
-            if (category == "ทั้งหมด" && available.size >= 3) {
+            if (!guest && category == "ทั้งหมด" && available.size >= 3) {
                 item { SectionTitleWeb(stringResource(R.string.popular_menu)) }
                 item {
                     Row(
@@ -644,20 +667,14 @@ private fun RoundHeroButton(icon: androidx.compose.ui.graphics.vector.ImageVecto
 private fun WebMenuRow(menu: FoodMenu, enabled: Boolean, onClick: () -> Unit) {
     Column {
         Row(
-            Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            Modifier.fillMaxWidth().heightIn(min = 136.dp).clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(13.dp),
         ) {
             Box(Modifier.size(104.dp)) {
                 WebImage(menu.imagePath, "food-public", Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
-                if (enabled) {
-                    Box(
-                        Modifier.align(Alignment.BottomEnd).size(36.dp).shadow(4.dp, CircleShape)
-                            .background(WebRed, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Outlined.Add, null, tint = Color.White, modifier = Modifier.size(23.dp)) }
-                } else {
+                if (!enabled) {
                     Box(Modifier.align(Alignment.BottomCenter).clip(CircleShape).background(WebRedSoft).padding(5.dp)) {
                         Text(stringResource(R.string.menu_unavailable), color = WebRedDark, fontSize = 10.sp)
                     }
@@ -666,7 +683,16 @@ private fun WebMenuRow(menu: FoodMenu, enabled: Boolean, onClick: () -> Unit) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(menu.name, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2)
                 menu.description?.let { Text(it, color = WebSub, fontSize = 12.sp, maxLines = 2) }
-                Text("฿" + menu.price, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("฿" + menu.price, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            if (enabled) {
+                Box(
+                    Modifier.size(36.dp).align(Alignment.Bottom).shadow(4.dp, CircleShape)
+                        .background(WebRed, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.Add, null, tint = Color.White, modifier = Modifier.size(23.dp))
+                }
             }
         }
         HorizontalDivider(color = WebLine.copy(alpha = .65f), modifier = Modifier.padding(horizontal = 16.dp))
