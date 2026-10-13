@@ -82,7 +82,7 @@ fun WebTabHeader(title: String) {
 
 /** Backend order statuses are stable identifiers, not user-facing copy. */
 @Composable
-private fun foodOrderStatusLabel(status: String): String = when (status) {
+internal fun foodOrderStatusLabel(status: String): String = when (status) {
     "pending_acceptance" -> stringResource(R.string.food_status_pending_acceptance)
     "preparing" -> stringResource(R.string.food_status_preparing)
     "ready_for_delivery" -> stringResource(R.string.food_status_ready_for_delivery)
@@ -93,7 +93,7 @@ private fun foodOrderStatusLabel(status: String): String = when (status) {
 }
 
 @Composable
-fun WebOrdersPage(state: FoodUiState, onRetry: () -> Unit, onBrowse: () -> Unit) {
+fun WebOrdersPage(state: FoodUiState, onRetry: () -> Unit, onBrowse: () -> Unit, onOpenDetail: (String) -> Unit) {
     var selection by rememberSaveable { mutableIntStateOf(0) }
     val active = state.orders.filter { it.status !in setOf("delivered", "cancelled") }
     val history = state.orders.filter { it.status in setOf("delivered", "cancelled") }
@@ -157,7 +157,8 @@ fun WebOrdersPage(state: FoodUiState, onRetry: () -> Unit, onBrowse: () -> Unit)
             else -> {
                 items(current, key = { it.id }) { order ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                            .clickable { onOpenDetail(order.id) },
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         border = BorderStroke(1.dp, ThinLine),
@@ -183,7 +184,8 @@ fun WebOrdersPage(state: FoodUiState, onRetry: () -> Unit, onBrowse: () -> Unit)
                             }
                             Text(stringResource(R.string.baht_price, order.total), fontSize = 14.sp, color = PrimaryInk, fontWeight = FontWeight.Bold)
                             Text(order.createdAt.take(16), fontSize = 12.sp, color = SoftText)
-                            Text(stringResource(R.string.readonly_order_notice), fontSize = 12.sp, color = SoftText)
+                            Text(stringResource(R.string.food_order_detail_view), fontSize = 13.sp, color = BrandRed,
+                                fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
