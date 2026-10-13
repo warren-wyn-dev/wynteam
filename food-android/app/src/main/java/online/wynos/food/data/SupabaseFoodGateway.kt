@@ -27,6 +27,7 @@ interface FoodGateway {
     suspend fun homeBanners(): List<FoodHomeBanner>
     suspend fun accountEmail(): String?
     suspend fun orderHistory(): List<FoodOrderSummary>
+    suspend fun orderDetail(orderId: String): FoodOrderDetail? = null
     suspend fun addresses(): List<FoodCustomerAddress>
     suspend fun quote(cart: FoodCartDraft, address: FoodCustomerAddress?): FoodServerQuote
     suspend fun signIn(email: String, password: String): String?
@@ -113,6 +114,43 @@ class SupabaseFoodGateway : FoodGateway {
             limit(50)
         }.decodeList<JsonObject>()
         return rows.mapNotNull(FoodOrderSummary::fromJson).sortedByDescending { it.createdAt }
+    }
+
+    override suspend fun orderDetail(orderId: String): FoodOrderDetail? {
+        // A user may select only their own order; RLS also protects each related row.
+        require(orderId.matches(Regex("[0-9a-fA-F-]{36}"))) { "invalid_order_id" }
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        val owner = supabase.auth.currentUserOrNull()?.id ?: return null
+        val orders = supabase.from("food_orders").select(
+            Columns.list(
+                "id", "order_number", "status", "payment_status",
+                "recipient_name", "recipient_phone", "shipping_address", "customer_note",
+                "subtotal", "delivery_fee", "campaign_discount", "delivery_discount",
+                "total", "created_at",
+            )
+        ) {
+            filter {
+                eq("id", orderId)
+                eq("buyer_id", owner)
+            }
+            limit(1)
+        }.decodeList<JsonObject>()
+        val order = orders.firstOrNull() ?: return null
+        val items = supabase.from("food_order_items").select(
+            Columns.list("item_name", "unit_price", "quantity", "selected_options", "item_note")
+        ) {
+            filter { eq("order_id", orderId) }
+            limit(100)
+        }.decodeList<JsonObject>()
+        val events = supabase.from("food_order_events").select(
+            Columns.list("event_type", "to_status", "created_at")
+        ) {
+            filter { eq("order_id", orderId) }
+            limit(100)
+        }.decodeList<JsonObject>()
+        // No privileged key, writes, payment requests or client-authoritative statuses.
+        return FoodOrderDetailParser.fromRows(order, items, events)
     }
 
     override suspend fun addresses(): List<FoodCustomerAddress> {
