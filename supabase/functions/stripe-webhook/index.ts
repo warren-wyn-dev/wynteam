@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
+import { normalizedGpFeeSatang, paidAfterCancelRefundParams } from "./_refund.ts";
 
 type AdminClient = ReturnType<typeof createClient<any>>;
 
@@ -548,13 +549,17 @@ async function refundPaidAfterCancel(admin: AdminClient, secret: string, account
     .select("stripe_account_id,application_fee_satang")
     .eq("order_id", order.id).maybeSingle();
   if (paymentError || (payment && payment.stripe_account_id !== accountId)) return false;
-  const feeSatang = Math.max(0, Math.round(Number(payment?.application_fee_satang ?? 0)));
-  const params = new URLSearchParams();
-  params.set("payment_intent", order.stripe_payment_intent_id);
-  params.set("reason", "requested_by_customer");
-  if (feeSatang > 0) params.set("refund_application_fee", "true");
-  params.set("metadata[wynos_order_id]", order.id);
-  params.set("metadata[wynos_reason]", "paid_after_cancel");
+  let feeSatang: number;
+  let params: URLSearchParams;
+  try {
+    feeSatang = normalizedGpFeeSatang(payment?.application_fee_satang);
+    params = paidAfterCancelRefundParams(order.id, order.stripe_payment_intent_id, feeSatang);
+  } catch {
+    // Never refund only the buyer when GP data is invalid: the application
+    // fee may otherwise remain with the platform and finance will diverge.
+    console.error("stripe auto refund GP quote invalid", { order_id: order.id });
+    return false;
+  }
   try {
     // No idempotency key: Stripe stores a key's first result, 500 included,
     // which would block the retry. A charge is never refunded past its amount,
