@@ -133,6 +133,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     state = state,
                     onRetry = vm::refreshOrders,
                     onBrowse = { tab = 0 },
+                    onOpenDetail = vm::openOrderDetails,
                 )
                 tab == 2 -> WebMessagesPage()
                 else -> WebAccountPage(
@@ -148,6 +149,13 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                 )
             }
         }
+    }
+    if (state.accountEmail != null && state.selectedOrderId != null) {
+        FoodOrderDetailDialog(
+            state = state,
+            onClose = vm::closeOrderDetails,
+            onRefresh = vm::openOrderDetails,
+        )
     }
     if (homeCart) {
         FoodCartPreview(
