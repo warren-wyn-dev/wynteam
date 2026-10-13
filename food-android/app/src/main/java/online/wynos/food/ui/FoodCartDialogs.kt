@@ -230,18 +230,6 @@ fun FoodMenuOptionsDialog(
                     }
                     Spacer(Modifier.height(22.dp))
                 }
-                /* The required-options notice is part of the scroll area,
-                   like on the website, rather than covering the fixed footer. */
-                if (false && !valid) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
-                            .clip(RoundedCornerShape(13.dp)).background(Color(0xFFFFF6E5))
-                            .padding(horizontal = 14.dp, vertical = 13.dp),
-                    ) {
-                        Text(stringResource(R.string.select_required_hint),
-                            color = Color(0xFF9A5800), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
                 Row(
                     modifier = Modifier.fillMaxWidth().shadow(7.dp).background(Color.White)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
