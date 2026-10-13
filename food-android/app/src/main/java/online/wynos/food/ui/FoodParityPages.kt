@@ -220,6 +220,9 @@ fun WebAccountPage(
     onResetPassword: (String) -> Unit,
     onOrders: () -> Unit,
     onRefreshAddresses: () -> Unit,
+    onSaveAddress: (online.wynos.food.data.FoodAddressDraft) -> Unit,
+    onDeleteAddress: (String) -> Unit,
+    onClearAddressStatus: () -> Unit,
 ) {
     if (state.accountEmail == null) {
         WebLoginPage(state, onSignIn, onResetPassword)
@@ -248,29 +251,13 @@ fun WebAccountPage(
                 }
             }
             item {
-                Text(stringResource(R.string.delivery_addresses), modifier = Modifier.padding(start = 16.dp, top = 12.dp),
-                    fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PrimaryInk)
-                when {
-                    state.addressesLoading -> EmptyPanel(stringResource(R.string.loading_addresses))
-                    state.addressesFailed -> EmptyPanel(stringResource(R.string.addresses_load_error))
-                    state.addresses.isEmpty() -> EmptyPanel(stringResource(R.string.no_saved_addresses))
-                    else -> state.addresses.forEach { address ->
-                        Column(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
-                                .clip(RoundedCornerShape(16.dp)).background(ChipGrey).padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(address.label + if (address.isDefault) " ★" else "",
-                                fontSize = 15.sp, fontWeight = FontWeight.Bold, color = PrimaryInk)
-                            Text(address.recipientName, color = PrimaryInk, fontSize = 13.sp)
-                            Text(address.address, color = SoftText, fontSize = 13.sp)
-                        }
-                    }
-                }
-                TextButton(onClick = onRefreshAddresses,
-                    modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text(stringResource(R.string.refresh_addresses), color = BrandRed)
-                }
+                FoodAddressManagement(
+                    state = state,
+                    onRefresh = onRefreshAddresses,
+                    onSave = onSaveAddress,
+                    onDelete = onDeleteAddress,
+                    onClearStatus = onClearAddressStatus,
+                )
             }
             item {
                 HorizontalDivider(color = ThinLine, modifier = Modifier.padding(horizontal = 16.dp))
