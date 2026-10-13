@@ -230,7 +230,7 @@ private fun FoodAddressEditor(
         try {
             locationError = false
             LocationManagerCompat.getCurrentLocation(
-                manager, provider, null, ContextCompat.getMainExecutor(context),
+                manager, provider, androidx.core.os.CancellationSignal(), ContextCompat.getMainExecutor(context),
                 androidx.core.util.Consumer<android.location.Location> { location ->
                 if (location != null) {
                     draft = draft.copy(latitude = location.latitude, longitude = location.longitude)
