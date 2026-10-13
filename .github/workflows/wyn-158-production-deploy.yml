@@ -3,14 +3,11 @@ name: WYN-158 Production Deploy
 # WYNOS Food checkout full-screen deploy refresh.
 # WYNOS Food Google OAuth redirect allowlist rollout refresh.
 
+# Founder release freeze: keep current web Production unchanged while all Admin/Food/Merchant
+# work is implemented, integration-tested, and signed off. A coordinated final release
+# must be explicitly started via workflow_dispatch. Never auto-deploy on push.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - 'web/**'
-      - '.github/workflows/wyn-158-production-deploy.yml'
 
 permissions:
   contents: read
