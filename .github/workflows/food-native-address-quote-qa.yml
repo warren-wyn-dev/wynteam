@@ -33,7 +33,7 @@ jobs:
       - name: Download verified APK from parity build
         uses: actions/download-artifact@v4
         with:
-          run-id: 38442345092
+          run-id: 38451504584
           name: wynos-food-android-debug
           github-token: ${{ github.token }}
           path: visual
@@ -118,6 +118,7 @@ jobs:
             adb shell am start -n online.wynos.food/.MainActivity
             sleep 35
             adb exec-out screencap -p > visual/android-home.png
+            echo "Catalog-loaded state is required; raw screenshots are evidence, not proof of parity."
             adb shell input tap 90 425
             sleep 6
             adb exec-out screencap -p > visual/android-store.png
