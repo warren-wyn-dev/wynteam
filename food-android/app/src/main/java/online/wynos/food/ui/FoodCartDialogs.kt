@@ -114,7 +114,7 @@ fun FoodMenuOptionsDialog(
                                 shadowElevation = 3.dp,
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Outlined.ArrowBack, stringResource(R.string.back), tint = Ink)
+                                    Icon(Icons.Outlined.Close, stringResource(R.string.close), tint = Ink)
                                 }
                             }
                         }
@@ -146,6 +146,14 @@ fun FoodMenuOptionsDialog(
                                         else stringResource(R.string.option_up_to, group.maxSelect),
                                         fontSize = 12.sp, color = Sub)
                                 }
+                            }
+                            if (group.required) {
+                                Text(
+                                    if (group.maxSelect == 1) stringResource(R.string.option_required_single)
+                                    else stringResource(R.string.option_up_to, group.maxSelect),
+                                    fontSize = 12.sp, color = Sub,
+                                    modifier = Modifier.padding(top = 3.dp),
+                                )
                             }
                             group.choices.forEach { choice ->
                                 val chosen = choice.id in selection[group.id].orEmpty()
