@@ -130,4 +130,10 @@
     <string name="server_quote_total">Server-calculated total</string>
     <string name="server_quote_needs_pin">Select a pinned address to confirm delivery pricing.</string>
     <string name="server_quote_not_payment">Not an order or payment. Amounts may change before order confirmation.</string>
+    <string name="food_status_pending_acceptance">Waiting for restaurant</string>
+    <string name="food_status_preparing">Preparing food</string>
+    <string name="food_status_ready_for_delivery">Ready for delivery</string>
+    <string name="food_status_out_for_delivery">Out for delivery</string>
+    <string name="food_status_delivered">Delivered</string>
+    <string name="food_status_cancelled">Cancelled</string>
 </resources>

@@ -80,6 +80,18 @@ fun WebTabHeader(title: String) {
     }
 }
 
+/** Backend order statuses are stable identifiers, not user-facing copy. */
+@Composable
+private fun foodOrderStatusLabel(status: String): String = when (status) {
+    "pending_acceptance" -> stringResource(R.string.food_status_pending_acceptance)
+    "preparing" -> stringResource(R.string.food_status_preparing)
+    "ready_for_delivery" -> stringResource(R.string.food_status_ready_for_delivery)
+    "out_for_delivery" -> stringResource(R.string.food_status_out_for_delivery)
+    "delivered" -> stringResource(R.string.food_status_delivered)
+    "cancelled" -> stringResource(R.string.food_status_cancelled)
+    else -> status
+}
+
 @Composable
 fun WebOrdersPage(state: FoodUiState, onRetry: () -> Unit, onBrowse: () -> Unit) {
     var selection by rememberSaveable { mutableIntStateOf(0) }
@@ -161,7 +173,7 @@ fun WebOrdersPage(state: FoodUiState, onRetry: () -> Unit, onBrowse: () -> Unit)
                             ) {
                                 Text("#" + order.number, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = PrimaryInk)
                                 Text(
-                                    order.status,
+                                    foodOrderStatusLabel(order.status),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
                                     color = if (order.status == "delivered") Color(0xFF1F8A4C) else BrandRed,

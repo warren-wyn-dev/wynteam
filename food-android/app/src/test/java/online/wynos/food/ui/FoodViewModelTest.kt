@@ -1,0 +1,142 @@
+package online.wynos.food.ui
+
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
+import online.wynos.food.data.FoodCartDraft
+import online.wynos.food.data.FoodCustomerAddress
+import online.wynos.food.data.FoodGateway
+import online.wynos.food.data.FoodHomeBanner
+import online.wynos.food.data.FoodMenu
+import online.wynos.food.data.FoodOrderSummary
+import online.wynos.food.data.FoodServerQuote
+import online.wynos.food.data.FoodStore
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.math.BigDecimal
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class FoodViewModelTest {
+    private val menu = FoodMenu("menu-1", "Food", "Meals", null, "60", emptyList())
+    private val store = FoodStore("store-1", "Store", null, true, "10", listOf(menu))
+    private val quote = FoodServerQuote(
+        BigDecimal("60"), BigDecimal("10"), BigDecimal.ZERO, BigDecimal.ZERO,
+        BigDecimal("70"), null, false, null,
+    )
+    private val address = FoodCustomerAddress(
+        "address-1", "Home", "Test", "0812345678", "Street", null, true, 16.0, 103.0,
+    )
+
+    private class FakeGateway : FoodGateway {
+        override val configured = true
+        val quoteDeferred = CompletableDeferred<FoodServerQuote>()
+        var addressDeferred: CompletableDeferred<List<FoodCustomerAddress>>? = null
+        var ordersDeferred: CompletableDeferred<List<FoodOrderSummary>>? = null
+        override suspend fun catalog(): List<FoodStore> = emptyList()
+        override suspend fun homeBanners(): List<FoodHomeBanner> = emptyList()
+        override suspend fun accountEmail(): String? = "qa@example.com"
+        override suspend fun orderHistory(): List<FoodOrderSummary> = ordersDeferred?.await() ?: emptyList()
+        override suspend fun addresses(): List<FoodCustomerAddress> = addressDeferred?.await() ?: emptyList()
+        override suspend fun quote(cart: FoodCartDraft, address: FoodCustomerAddress?): FoodServerQuote =
+            quoteDeferred.await()
+        override suspend fun signIn(email: String, password: String): String? = email
+        override suspend fun signOut() {}
+        override suspend fun resetPassword(email: String) {}
+    }
+
+    @Test fun oldQuoteCannotReturnAfterCartChange() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway()
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            assertTrue(vm.addToCart(store, menu, emptyMap(), 1, ""))
+            vm.requestServerQuote()
+            runCurrent()
+            assertTrue(vm.uiState.value.quoteLoading)
+            val identity = vm.uiState.value.cart.lines.first().identity
+            vm.updateCartLine(identity, 2)
+            assertFalse(vm.uiState.value.quoteLoading)
+            fake.quoteDeferred.complete(quote)
+            runCurrent()
+            assertNull(vm.uiState.value.quote)
+            assertFalse(vm.uiState.value.quoteFailed)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun obsoleteQuoteFailureCannotBlockRetry() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway()
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.addToCart(store, menu, emptyMap(), 1, "")
+            vm.requestServerQuote()
+            runCurrent()
+            vm.clearCart()
+            fake.quoteDeferred.completeExceptionally(IllegalStateException("connection"))
+            runCurrent()
+            assertNull(vm.uiState.value.quote)
+            assertFalse(vm.uiState.value.quoteLoading)
+            assertFalse(vm.uiState.value.quoteFailed)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun signingOutDiscardsLateAddressAndOrderResponses() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply {
+                addressDeferred = CompletableDeferred()
+                ordersDeferred = CompletableDeferred()
+            }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            assertTrue(vm.uiState.value.addressesLoading)
+            assertTrue(vm.uiState.value.ordersLoading)
+            vm.signOut()
+            runCurrent()
+            fake.addressDeferred!!.complete(listOf(address))
+            fake.ordersDeferred!!.complete(emptyList())
+            runCurrent()
+            assertNull(vm.uiState.value.accountEmail)
+            assertTrue(vm.uiState.value.addresses.isEmpty())
+            assertNull(vm.uiState.value.selectedAddressId)
+            assertFalse(vm.uiState.value.addressesLoading)
+            assertFalse(vm.uiState.value.ordersLoading)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun addressRefreshInvalidatesPriceEvenIfSameAddressIsSelected() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway()
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.addToCart(store, menu, emptyMap(), 1, "")
+            vm.requestServerQuote()
+            runCurrent()
+            fake.quoteDeferred.complete(quote)
+            runCurrent()
+            assertEquals(quote, vm.uiState.value.quote)
+            vm.refreshAddresses()
+            assertNull(vm.uiState.value.quote)
+            assertFalse(vm.uiState.value.quoteLoading)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+}

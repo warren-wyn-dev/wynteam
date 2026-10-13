@@ -130,4 +130,10 @@
     <string name="server_quote_total">ยอดที่ระบบคำนวณ</string>
     <string name="server_quote_needs_pin">โปรดเลือกที่อยู่ที่ปักหมุด ก่อนยืนยันค่าจัดส่ง</string>
     <string name="server_quote_not_payment">ยังไม่ใช่การสั่งซื้อหรือชำระเงิน และยอดอาจเปลี่ยนได้จนกว่าจะยืนยันออเดอร์</string>
+    <string name="food_status_pending_acceptance">รอร้านรับออเดอร์</string>
+    <string name="food_status_preparing">กำลังเตรียมอาหาร</string>
+    <string name="food_status_ready_for_delivery">พร้อมจัดส่ง</string>
+    <string name="food_status_out_for_delivery">กำลังจัดส่ง</string>
+    <string name="food_status_delivered">จัดส่งสำเร็จ</string>
+    <string name="food_status_cancelled">ยกเลิกแล้ว</string>
 </resources>
