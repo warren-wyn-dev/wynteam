@@ -25,6 +25,7 @@ import {
   Bot,
   Settings,
   Wallet,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -116,6 +117,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 
   // WYNOS Food: the customer and order side.
   systemDashboard("food"),
+  { id: "food-control", href: "/food/control", label: "ศูนย์ควบคุม Food", icon: SlidersHorizontal, group: "food", requires: { systems: ["food"] } },
   { id: "food-orders", href: "/food/orders", label: "Orders", icon: ShoppingBag, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
   { id: "food-customers", label: "Customers", icon: Users, group: "food", requires: { systems: ["food"] } },
   { id: "food-payments", label: "Payments & Refunds", icon: CreditCard, group: "food", requires: { systems: ["food"] } },
@@ -125,6 +127,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // Ads and Promo Notifications moved here from WYNOS Food; they keep their
   // /food/* URLs and still require the `food` permission they always did.
   systemDashboard("merchant"),
+  { id: "merchant-control", href: "/merchant/control", label: "ศูนย์ควบคุม Merchant", icon: SlidersHorizontal, group: "merchant", requires: { systems: ["merchant"] } },
   { id: "stores", href: "/food", label: "Stores", icon: Store, group: "merchant", requires: { systems: ["food"] } },
   { id: "merchant-verification", href: "/merchants", label: "Merchant Verification", icon: BadgeCheck, group: "merchant", requires: { systems: ["merchant"] } },
   { id: "menu-management", label: "Menu Management", icon: BookOpen, group: "merchant", requires: { systems: ["merchant", "food"] } },
