@@ -73,6 +73,30 @@ class ProfileScreenshotTest {
     }
 
     @Test @Config(qualifiers = "th-w411dp-h914dp-xxhdpi")
+    fun ownProfileAccountChevronOpensWebEquivalentSwitcher() {
+        val vm = profile(HomeFixture.VIEWER)
+        val accounts = AccountSwitcher(
+            accounts = emptyList(), activeId = HomeFixture.VIEWER,
+            busy = false, message = null,
+            switchTo = {}, add = {}, remove = {}, clearMessage = {},
+        )
+        compose.setContent {
+            WynosTheme(ThemeChoice.Light) {
+                MainShell(
+                    home = {},
+                    profile = { ProfileScreen(vm, ProfileNavigation(), accounts) },
+                    onCompose = {},
+                    initialTab = io.wyn.wyn.feature.shell.MainTab.Profile,
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("สลับบัญชี").performClick()
+        compose.waitForIdle()
+        assertEquals(ProfileSheet.Accounts, vm.profileSheet)
+    }
+
+    @Test @Config(qualifiers = "th-w411dp-h914dp-xxhdpi")
     fun ownProfileSettingsActionMatchesWebTopBar() {
         val vm = profile(HomeFixture.VIEWER)
         var opened = 0
