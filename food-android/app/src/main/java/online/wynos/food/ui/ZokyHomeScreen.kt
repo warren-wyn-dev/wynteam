@@ -103,24 +103,24 @@ fun ZokyHomeScreen(
                         .shadow(2.dp, RoundedCornerShape(20.dp))
                         .clip(RoundedCornerShape(20.dp))
                         .background(Brush.horizontalGradient(listOf(Color(0xFFE70043), ZokyRed, ZokyPink)))
-                        .clickable(onClick = onDeals)
+                        .clickable { if (slide == 0) onDeals() else onFood() }
                         .padding(start = 17.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1.2f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("ดีลคุ้ม!", color = Color.White, fontWeight = FontWeight.ExtraBold,
+                        Text(listOf("ดีลคุ้ม!", "อร่อยง่าย", "ร้านอร่อย", "เลือกได้เลย")[slide], color = Color.White, fontWeight = FontWeight.ExtraBold,
                             fontSize = 31.sp, lineHeight = 33.sp, maxLines = 1)
-                        Text("ดีลแรงวันนี้", color = Color.White, fontWeight = FontWeight.Bold,
+                        Text(listOf("ดีลแรงวันนี้", "สั่งอาหารกับ Zoky", "ใกล้คุณทุกวัน", "เมนูโปรดของคุณ")[slide], color = Color.White, fontWeight = FontWeight.Bold,
                             fontSize = 23.sp, lineHeight = 26.sp, maxLines = 1)
                         Text("อร่อยง่าย ส่งไว ใกล้คุณ", color = Color.White,
                             fontSize = 11.sp, maxLines = 1)
                         Row(
                             Modifier.clip(CircleShape).background(Color.White)
-                                .clickable(onClick = onDeals)
+                                .clickable { if (slide == 0) onDeals() else onFood() }
                                 .padding(horizontal = 12.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("ดูดีลทั้งหมด", color = ZokyRed, fontSize = 12.sp,
+                            Text(if (slide == 0) "ดูดีลทั้งหมด" else "เลือกอาหาร", color = ZokyRed, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold)
                             Icon(Icons.Outlined.ArrowForwardIos, null, tint = ZokyRed,
                                 modifier = Modifier.padding(start = 6.dp).size(11.dp))
