@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.PersonOutline
@@ -35,6 +36,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -54,6 +56,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -269,8 +274,10 @@ fun WebAccountPage(
     onRefreshAddresses: () -> Unit,
     onSaveAddress: (online.wynos.food.data.FoodAddressDraft) -> Unit,
     onDeleteAddress: (String) -> Unit,
+    onSelectAddress: (String?) -> Unit,
     onClearAddressStatus: () -> Unit,
 ) {
+    val clipboard = LocalClipboardManager.current
     var deleteDialogOpen by remember { mutableStateOf(false) }
     if (state.accountEmail == null) {
         WebLoginPage(state, onSignIn, onResetPassword, onRegister)
@@ -283,17 +290,38 @@ fun WebAccountPage(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                        .clip(RoundedCornerShape(18.dp)).background(Color(0xFFF6F6F8)).padding(16.dp),
+                        .clip(RoundedCornerShape(18.dp)).background(Color(0xFFF6F6F8))
+                        .padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Surface(shape = CircleShape, color = ChipGrey, modifier = Modifier.size(48.dp)) {
+                    Surface(shape = CircleShape, color = ChipGrey, modifier = Modifier.size(46.dp)) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Outlined.PersonOutline, null, tint = SoftText, modifier = Modifier.size(26.dp))
+                            Icon(Icons.Outlined.PersonOutline, null, tint = SoftText, modifier = Modifier.size(25.dp))
                         }
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(state.accountEmail.orEmpty(), fontWeight = FontWeight.Bold, color = PrimaryInk, fontSize = 15.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                state.accountEmail.orEmpty(),
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryInk,
+                                fontSize = 14.sp,
+                            )
+                            IconButton(onClick = {
+                                clipboard.setText(AnnotatedString(state.accountEmail.orEmpty()))
+                            }) {
+                                Icon(
+                                    Icons.Outlined.ContentCopy,
+                                    contentDescription = stringResource(R.string.account_copy_email),
+                                    tint = SoftText,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
                         Text(stringResource(R.string.wynos_food_profile), color = SoftText, fontSize = 12.sp)
                     }
                 }
@@ -304,6 +332,7 @@ fun WebAccountPage(
                     onRefresh = onRefreshAddresses,
                     onSave = onSaveAddress,
                     onDelete = onDeleteAddress,
+                    onSelectAddress = onSelectAddress,
                     onClearStatus = onClearAddressStatus,
                 )
             }

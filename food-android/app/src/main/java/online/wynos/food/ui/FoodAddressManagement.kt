@@ -32,6 +32,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -49,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
@@ -74,6 +76,7 @@ fun FoodAddressManagement(
     onRefresh: () -> Unit,
     onSave: (FoodAddressDraft) -> Unit,
     onDelete: (String) -> Unit,
+    onSelectAddress: (String?) -> Unit,
     onClearStatus: () -> Unit,
 ) {
     var editing by remember { mutableStateOf<FoodCustomerAddress?>(null) }
@@ -117,31 +120,59 @@ fun FoodAddressManagement(
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text(address.label + if (address.isDefault) " ★" else "",
-                                color = AddressInk, fontWeight = FontWeight.Bold)
+                            Text(
+                                address.label + if (address.isDefault) " ★" else "",
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = AddressInk,
+                                fontWeight = FontWeight.Bold,
+                            )
                             if (state.addressWritesEnabled) {
-                                Row {
-                                    TextButton(onClick = {
-                                        onClearStatus()
-                                        editing = address
-                                        showEditor = true
-                                    }) {
-                                        Icon(Icons.Outlined.Edit, null, Modifier.size(17.dp))
-                                        Text(stringResource(R.string.address_edit))
-                                    }
-                                    TextButton(onClick = {
-                                        onClearStatus()
-                                        deleting = address
-                                    }) {
-                                        Icon(Icons.Outlined.DeleteOutline, null, Modifier.size(17.dp))
-                                        Text(stringResource(R.string.address_delete), color = AddressRed)
-                                    }
+                                IconButton(onClick = {
+                                    onClearStatus()
+                                    editing = address
+                                    showEditor = true
+                                }) {
+                                    Icon(
+                                        Icons.Outlined.Edit,
+                                        contentDescription = stringResource(R.string.address_edit),
+                                        modifier = Modifier.size(19.dp),
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    onClearStatus()
+                                    deleting = address
+                                }) {
+                                    Icon(
+                                        Icons.Outlined.DeleteOutline,
+                                        contentDescription = stringResource(R.string.address_delete),
+                                        tint = AddressRed,
+                                        modifier = Modifier.size(19.dp),
+                                    )
                                 }
                             }
                         }
-                        Text(address.recipientName + " · " + address.recipientPhone,
-                            fontSize = 13.sp, color = AddressInk)
+                        Text(
+                            address.recipientName + " · " + address.recipientPhone,
+                            fontSize = 13.sp,
+                            color = AddressInk,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                         Text(address.address, fontSize = 13.sp, color = AddressSub)
+                        if (address.id == state.selectedAddressId) {
+                            Text(
+                                stringResource(R.string.address_current_delivery),
+                                fontSize = 12.sp,
+                                color = AddressRed,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        } else {
+                            TextButton(onClick = { onSelectAddress(address.id) }) {
+                                Text(stringResource(R.string.address_choose_delivery), color = AddressRed)
+                            }
+                        }
                         if (!address.validPin) {
                             Text(stringResource(R.string.address_missing_pin),
                                 fontSize = 12.sp, color = AddressRed)
