@@ -254,4 +254,10 @@
     <string name="store_review_count">(%1$d รีวิว)</string>
     <string name="store_review_verified_order">สั่งจริงกับ WYNOS Food</string>
     <string name="store_review_merchant_reply">ร้านตอบกลับ</string>
+    <string name="promo_inbox_title">โปรโมชันและข่าวสาร</string>
+    <string name="promo_inbox_error">ยังโหลดข้อมูลโปรโมชันไม่ได้ โปรดลองอีกครั้ง</string>
+    <string name="promo_inbox_empty">ยังไม่มีข้อความโปรโมชัน</string>
+    <string name="promo_inbox_copy_code">คัดลอกโค้ด %1$s</string>
+    <string name="promo_inbox_copied">คัดลอกโค้ดแล้ว</string>
+    <string name="promo_inbox_code_disclaimer">โค้ดที่คัดลอกยังไม่ใช่ส่วนลดที่ใช้สำเร็จ ต้องตรวจสอบสิทธิ์และยอดส่วนลดในหน้าชำระเงินกับระบบก่อน</string>
 </resources>
