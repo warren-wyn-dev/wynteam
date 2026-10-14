@@ -120,7 +120,14 @@ private fun WebImage(
 }
 
 @Composable
-fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart: () -> Unit) {
+fun WebHomeHeader(
+    guest: Boolean,
+    cartCount: Int,
+    locationLabel: String?,
+    onAccount: () -> Unit,
+    onCart: () -> Unit,
+    onLocation: () -> Unit,
+) {
     Column(Modifier.fillMaxWidth().background(Color.White).padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -159,15 +166,25 @@ fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart:
         }
         if (!guest) {
             Row(
-                modifier = Modifier.padding(top = 3.dp, bottom = 2.dp).height(42.dp),
+                modifier = Modifier.fillMaxWidth()
+                    .padding(top = 3.dp, bottom = 2.dp)
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(onClick = onLocation),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(Icons.Outlined.LocationOn, null, tint = WebRed, modifier = Modifier.size(20.dp))
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.delivery_to), fontSize = 12.sp, color = WebSub)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.select_delivery), fontSize = 15.sp, color = WebInk, fontWeight = FontWeight.Bold)
+                        Text(
+                            locationLabel ?: stringResource(R.string.select_delivery),
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = WebInk, fontWeight = FontWeight.Bold,
+                        )
                         Icon(Icons.Outlined.KeyboardArrowDown, null, tint = WebSub, modifier = Modifier.size(18.dp))
                     }
                 }
