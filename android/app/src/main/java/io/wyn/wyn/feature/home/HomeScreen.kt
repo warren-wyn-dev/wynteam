@@ -338,24 +338,30 @@ private fun HeaderButton(icon: ImageVector, label: String, onClick: () -> Unit, 
     }
 }
 
+/** web/app/home.css canonical 38px tabs, 18px text (16px at <=359px), 120px active underline. */
 @Composable
 private fun HomeTabs(mode: FeedMode, onSelect: (FeedMode) -> Unit) {
     val c = Wyn.colors
+    val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp <= 359
     val labels = listOf(FeedMode.ForYou to R.string.tab_for_you, FeedMode.Following to R.string.tab_following, FeedMode.Clubs to R.string.tab_my_clubs)
     Column {
-        Row(Modifier.fillMaxWidth().height(48.dp)) {
+        Row(Modifier.fillMaxWidth().height(38.dp)) {
             labels.forEach { (key, label) ->
                 val active = key == mode
                 Column(
-                    Modifier.weight(1f).fillMaxSize().selectable(active, role = Role.Tab) { onSelect(key) }.padding(horizontal = 8.dp),
+                    Modifier.weight(1f).fillMaxSize().selectable(active, role = Role.Tab) { onSelect(key) }
+                        .padding(horizontal = if (narrow) 5.dp else 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Spacer(Modifier.height(1.dp))
                     Text(
-                        stringResource(label), color = if (active) c.text else TabGrey, fontSize = 14.sp,
+                        stringResource(label), color = if (active) c.text else TabGrey,
+                        fontSize = if (narrow) 16.sp else 18.sp,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
-                        maxLines = 2, lineHeight = 16.sp, textAlign = TextAlign.Center,
+                        maxLines = 1, lineHeight = if (narrow) 19.sp else 22.sp,
+                        textAlign = TextAlign.Center,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     Box(
                         Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(999.dp))
