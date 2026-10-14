@@ -134,7 +134,7 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
                         val raw = fields[field.key].orEmpty()
                         if (field.numeric) {
                             if (raw.isNotBlank()) payload.put(field.key, raw.toDouble())
-                        } else payload.put(field.key, raw.ifBlank { JSONObject.NULL })
+                        } else payload.put(field.key, if (raw.isBlank()) JSONObject.NULL else raw)
                     }
                     toggles.forEach { (key, value) -> payload.put(key, value) }
                     vm.saveStore(payload)
