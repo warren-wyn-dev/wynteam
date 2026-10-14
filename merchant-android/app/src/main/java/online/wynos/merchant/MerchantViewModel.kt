@@ -96,6 +96,7 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         val preferred = prefs.getString("selected_store", null)
         val selected = stores.find { it.optString("id") == preferred } ?: stores.firstOrNull()
         val storeId = selected?.optString("id").orEmpty()
+        val changingStore = storeId != state.store?.optString("id").orEmpty()
         val menu = if (selected != null) api.menu(storeId).asObjects() else emptyList()
         val orderRows = if (selected != null) api.orders(storeId).asObjects() else emptyList()
         val sales = if (selected != null) runCatching { api.sales(storeId) }.getOrNull() else null
@@ -103,12 +104,15 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             signedIn = true, stores = stores, store = selected,
             menu = menu, orders = orderRows.take(100), sales = sales,
             hasMoreOrders = orderRows.size > 100,
+            finance = if (changingStore) null else state.finance,
+            history = if (changingStore) emptyList() else state.history,
             selectedOrder = state.selectedOrder?.let { prior ->
                 orderRows.find { it.optString("id") == prior.optString("id") } },
         )
     }
 
     fun selectStore(storeId: String) {
+        if (state.busy) return
         prefs.edit().putString("selected_store", storeId).apply()
         refresh()
     }
