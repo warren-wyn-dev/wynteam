@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -859,6 +860,75 @@ private fun TagWeb(title: String) {
     )
 }
 
+@Composable
+fun WebFavoritesPage(
+    stores: List<FoodStore>,
+    favoriteIds: Set<String>,
+    onBack: () -> Unit,
+    onStore: (String) -> Unit,
+) {
+    val visible = stores.filter { it.id in favoriteIds }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(Color.White),
+        contentPadding = PaddingValues(bottom = 26.dp),
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Outlined.ArrowBack, stringResource(R.string.favorite_back), tint = WebInk)
+                }
+                Text(stringResource(R.string.favorite_stores),
+                    fontSize = 21.sp, fontWeight = FontWeight.Bold, color = WebInk)
+            }
+        }
+        if (visible.isEmpty()) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 36.dp),
+                    contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.favorite_empty),
+                        color = WebSub, fontSize = 14.sp)
+                }
+            }
+        } else {
+            items(visible, key = { it.id }) { store ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onStore(store.id) }
+                        .padding(horizontal = 16.dp, vertical = 11.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    WebImage(store.coverPath, "food-public",
+                        modifier = Modifier.size(92.dp).clip(RoundedCornerShape(13.dp)))
+                    Column(Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(store.name, fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp, color = WebInk,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            stringResource(R.string.store_meta_guest, store.menu.size, store.deliveryFee ?: "—"),
+                            color = WebSub, fontSize = 12.sp, maxLines = 2,
+                        )
+                    }
+                    Icon(Icons.Outlined.ChevronRight, null, tint = WebMuted,
+                        modifier = Modifier.size(20.dp))
+                }
+                HorizontalDivider(
+                    color = WebLine.copy(alpha = .60f),
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+        }
+        item {
+            Text(stringResource(R.string.favorite_local_only), color = WebSub, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp))
+        }
+    }
+}
+
 /** Avoid showing the merchant's location twice when copied into its description. */
 internal fun shouldShowStoreDescription(description: String?, address: String?): Boolean {
     val value = description?.trim().orEmpty()
@@ -878,6 +948,8 @@ fun WebStoreScreen(
     guest: Boolean,
     onBack: () -> Unit,
     onAccount: () -> Unit,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int, String) -> Boolean,
     onClear: () -> Unit,
     onQuote: () -> Unit,
@@ -928,7 +1000,18 @@ fun WebStoreScreen(
                                     fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp))
                             }
                         } else {
-                            RoundHeroButton(Icons.Outlined.ShoppingBag, onClick = { showCart = true })
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                RoundHeroButton(
+                                    icon = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                    onClick = onToggleFavorite,
+                                    contentDescription = stringResource(
+                                        if (isFavorite) R.string.favorite_toggle_remove
+                                        else R.string.favorite_toggle_add,
+                                    ),
+                                    tint = if (isFavorite) WebRed else WebInk,
+                                )
+                                RoundHeroButton(Icons.Outlined.ShoppingBag, onClick = { showCart = true })
+                            }
                         }
                     }
                     if (!store.isOpen) {
@@ -1095,9 +1178,20 @@ fun WebStoreScreen(
 }
 
 @Composable
-private fun RoundHeroButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Surface(shape = CircleShape, color = Color.White, modifier = Modifier.size(40.dp).clickable(onClick = onClick), shadowElevation = 3.dp) {
-        Box(contentAlignment = Alignment.Center) { Icon(icon, null, tint = WebInk, modifier = Modifier.size(21.dp)) }
+private fun RoundHeroButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    contentDescription: String? = null,
+    tint: Color = WebInk,
+) {
+    Surface(
+        shape = CircleShape, color = Color.White,
+        modifier = Modifier.size(48.dp).clickable(onClick = onClick),
+        shadowElevation = 2.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(21.dp))
+        }
     }
 }
 
