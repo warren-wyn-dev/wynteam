@@ -256,7 +256,7 @@ function FoodLoading() {
     <main className="wyn-food fx-app fx-loading" aria-busy="true" aria-label="กำลังโหลด WYNOS Food">
       <div className="fx-brand fx-loading-brand">
         <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
-        <span>WYNOS <b>Food</b></span>
+        <span className="fx-brand-stacked"><strong>WYNOS</strong><b>Food</b></span>
       </div>
       <div className="fx-skel fx-skel--line" style={{ width: 180 }} />
       <div className="fx-skel fx-skel--pill" />
