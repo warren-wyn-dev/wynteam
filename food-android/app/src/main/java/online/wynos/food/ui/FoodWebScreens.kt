@@ -265,6 +265,7 @@ fun WebHomeScreen(
     guest: Boolean,
     onAccount: () -> Unit,
     onStore: (String) -> Unit,
+    onDish: (String, String) -> Unit,
     onRetry: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -443,7 +444,7 @@ fun WebHomeScreen(
                 }
                 if (recommendedMode) {
                     item(key = "recommended-stores-carousel") {
-                        FoodFeaturedRestaurantHome(filtered.first(), onStore)
+                        FoodFeaturedRestaurantHome(filtered.first(), onStore, onDish)
                     }
                 } else {
                     items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
@@ -477,7 +478,11 @@ fun WebHomeScreen(
  * real Store where required add-ons and the cart guard still apply.
  */
 @Composable
-private fun FoodFeaturedRestaurantHome(store: FoodStore, onStore: (String) -> Unit) {
+private fun FoodFeaturedRestaurantHome(
+    store: FoodStore,
+    onStore: (String) -> Unit,
+    onDish: (String, String) -> Unit,
+) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         color = Color.White,
@@ -560,7 +565,7 @@ private fun FoodFeaturedRestaurantHome(store: FoodStore, onStore: (String) -> Un
                 items(dishes, key = { it.id }) { dish ->
                     Surface(
                         modifier = Modifier.width(cardWidth)
-                            .clickable { onStore(store.id) },
+                            .clickable { onDish(store.id, dish.id) },
                         color = Color.White,
                         shape = RoundedCornerShape(15.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, WebLine),
@@ -728,6 +733,7 @@ private fun TagWeb(title: String) {
 @Composable
 fun WebStoreScreen(
     store: FoodStore,
+    initialMenuId: String?,
     cart: FoodCartDraft,
     cartError: Boolean,
     state: FoodUiState,
@@ -743,7 +749,9 @@ fun WebStoreScreen(
     onPrepareStagingPayment: suspend (String) -> online.wynos.food.data.FoodMobilePaymentIntent,
     onPaymentSheetCompleted: () -> Unit,
 ) {
-    var selectedMenu by remember(store.id) { mutableStateOf<FoodMenu?>(null) }
+    var selectedMenu by remember(store.id, initialMenuId) {
+        mutableStateOf(store.menu.firstOrNull { it.id == initialMenuId })
+    }
     var showCart by remember(store.id) { mutableStateOf(false) }
     var storeTab by rememberSaveable(store.id) { mutableIntStateOf(0) }
     var category by rememberSaveable(store.id) { mutableStateOf("") }
