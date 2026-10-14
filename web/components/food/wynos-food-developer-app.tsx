@@ -648,7 +648,7 @@ function StoreDirectory({
   // menu photos/prices for feature cards without exposing merchant data.
   useEffect(() => {
     let live = true;
-    void client.rpc("food_public_catalog").then(({ data, error }) => {
+    void Promise.resolve(client.rpc("food_public_catalog")).then(({ data, error }) => {
       if (live && !error && Array.isArray(data)) {
         setPublishedMenus(data as typeof publishedMenus);
       }
