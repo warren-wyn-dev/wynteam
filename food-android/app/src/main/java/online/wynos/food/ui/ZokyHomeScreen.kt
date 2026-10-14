@@ -100,7 +100,7 @@ fun ZokyHomeScreen(
     onDeals: () -> Unit,
     onLocation: () -> Unit,
 ) {
-    val small = LocalConfiguration.current.screenWidthDp < 360
+    val small = LocalConfiguration.current.screenWidthDp < 380
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Color.White),
         horizontalAlignment = Alignment.CenterHorizontally,
