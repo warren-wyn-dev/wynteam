@@ -231,6 +231,7 @@ fun WebAccountPage(
     onSignIn: (String, String) -> Unit,
     onRegister: (String, String, String) -> Unit,
     onSignOut: () -> Unit,
+    onDeleteAccount: () -> Unit,
     onResetPassword: (String) -> Unit,
     onOrders: () -> Unit,
     onRefreshAddresses: () -> Unit,
@@ -238,6 +239,7 @@ fun WebAccountPage(
     onDeleteAddress: (String) -> Unit,
     onClearAddressStatus: () -> Unit,
 ) {
+    var deleteDialogOpen by remember { mutableStateOf(false) }
     if (state.accountEmail == null) {
         WebLoginPage(state, onSignIn, onResetPassword, onRegister)
     } else {
@@ -287,6 +289,10 @@ fun WebAccountPage(
                     Icon(Icons.Outlined.ChevronRight, null, tint = SoftText)
                 }
                 HorizontalDivider(color = ThinLine, modifier = Modifier.padding(horizontal = 16.dp))
+                TextButton(onClick = { deleteDialogOpen = true }, enabled = !state.accountBusy,
+                    modifier = Modifier.padding(start = 16.dp)) {
+                    Text(stringResource(R.string.account_delete_action), color = BrandRed)
+                }
                 TextButton(onClick = onSignOut, enabled = !state.accountBusy, modifier = Modifier.padding(start = 16.dp)) {
                     Text(stringResource(R.string.sign_out), color = BrandRed, fontWeight = FontWeight.SemiBold)
                 }
@@ -294,6 +300,15 @@ fun WebAccountPage(
                 if (state.accountFailed) Text(stringResource(R.string.account_action_failed), color = BrandRed, modifier = Modifier.padding(16.dp))
             }
         }
+    }
+    if (deleteDialogOpen && state.accountEmail != null) {
+        FoodAccountDeletionDialog(
+            enabled = state.accountDeletionEnabled,
+            busy = state.accountDeletionBusy,
+            failed = state.accountFailed,
+            onConfirm = onDeleteAccount,
+            onDismiss = { deleteDialogOpen = false },
+        )
     }
 }
 
