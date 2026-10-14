@@ -180,6 +180,7 @@ fun WebHomeHeader(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             locationLabel ?: stringResource(R.string.select_delivery),
+                            modifier = Modifier.weight(1f, fill = false),
                             fontSize = 15.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
