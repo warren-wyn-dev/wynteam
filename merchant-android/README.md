@@ -35,7 +35,7 @@ Source of truth: `merchant.wynos.online` in `web/app/merchant`, `web/components/
 
 ## Not implemented yet
 
-Delivery proof capture/upload/completion, payment-slip viewer/verification, order pagination and Realtime/Push; advanced menus/add-ons/reorder/media; full store settings/schedule/location/pickup/payment/publishing, receipt/address printing; finance periods/exports/refunds; advertising/top-ups, campaigns/promotions, feedback, help, notification preferences, and remaining controls. See [FEATURE_PARITY.md](FEATURE_PARITY.md).
+Payment-slip private preview and manual verification, delivery photo evidence/completion, menu options/stock/delete and expanded store settings now have **native code paths**, but remain **unverified end-to-end**. Still missing: order paging/Realtime/Push; native drag category sorting, media uploads for menus/store, full schedule/maps/pickup/publishing; receipt/address printing; finance periods/exports/refunds; advertising/top-ups, campaigns/promotions, feedback, help, notification preferences, and other controls. See [FEATURE_PARITY.md](FEATURE_PARITY.md).
 
 ## Internal APK artifact
 
