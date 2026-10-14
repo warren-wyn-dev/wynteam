@@ -144,9 +144,10 @@ fun WebHomeHeader(
                     contentDescription = null,
                     modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)),
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    Text("WYNOS", fontSize = 18.sp, lineHeight = 18.sp, color = WebInk, fontWeight = FontWeight.Bold)
-                    Text("Food", fontSize = 14.sp, lineHeight = 15.sp, color = WebRed, fontWeight = FontWeight.Bold)
+                // Single-line WYNOS Food branding.
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("WYNOS", fontSize = 18.sp, maxLines = 1, color = WebInk, fontWeight = FontWeight.Bold)
+                    Text("Food", fontSize = 18.sp, maxLines = 1, color = WebRed, fontWeight = FontWeight.Bold)
                 }
             }
             if (guest) {
@@ -155,7 +156,7 @@ fun WebHomeHeader(
                     shape = CircleShape,
                     border = androidx.compose.foundation.BorderStroke(1.dp, WebRed),
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier.height(40.dp),
+                    modifier = Modifier.height(40.dp).shadow(3.dp, CircleShape),
                 ) {
                     Text(stringResource(R.string.guest_sign_in), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
@@ -222,7 +223,13 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mod
                 ) {
                     Box(
                         modifier = Modifier.size(width = 48.dp, height = 28.dp)
-                            .clip(CircleShape).background(if (selected) WebRedSoft else Color.Transparent),
+                            .shadow(if (selected) 4.dp else 0.dp, CircleShape)
+                             .clip(CircleShape).background(
+                                 Brush.verticalGradient(
+                                     if (selected) listOf(Color(0xFFFFF8FA), Color(0xFFFFD5E1))
+                                     else listOf(Color.Transparent, Color.Transparent)
+                                 )
+                             ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(image, null, tint = if (selected) WebRed else WebMuted, modifier = Modifier.size(23.dp))
@@ -287,67 +294,10 @@ fun WebHomeScreen(
             contentPadding = PaddingValues(bottom = if (guest) 32.dp else 124.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-        if (guest) {
-            item {
-                Box(
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 9.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Brush.horizontalGradient(listOf(WebRedSoft, Color(0xFFFFDBE5)))),
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.food_rider_hero),
-                        contentDescription = null,
-                        modifier = Modifier.align(Alignment.BottomEnd)
-                            .width(165.dp).height(128.dp).graphicsLayer(alpha = 0.64f),
-                        contentScale = ContentScale.Fit,
-                    )
-                    // Keep all hero text legible over the illustration on 320-390dp phones.
-                    Box(
-                        modifier = Modifier.matchParentSize().background(
-                            Brush.horizontalGradient(
-                                0f to Color(0xFFFFF1F4),
-                                0.54f to Color(0xFFFFF1F4).copy(alpha = 0.94f),
-                                1f to Color.Transparent,
-                            )
-                        )
-                    )
-                    Column(
-                        Modifier.fillMaxWidth().padding(if (compactHome) 15.dp else 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                    Surface(color = Color.White, shape = CircleShape) {
-                        Row(
-                            Modifier.padding(horizontal = 10.dp, vertical = if (compactHome) 4.dp else 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Icon(Icons.Outlined.LocationOn, null, tint = WebRed, modifier = Modifier.size(14.dp))
-                            Text(stringResource(R.string.guest_location), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                        }
-                    }
-                    Text(
-                        stringResource(R.string.guest_hero_title),
-                        modifier = Modifier.fillMaxWidth(0.79f),
-                        fontSize = if (compactHome) 20.sp else 22.sp,
-                        lineHeight = if (compactHome) 26.sp else 29.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = WebInk,
-                    )
-                    Text(
-                        stringResource(R.string.guest_hero_note),
-                        modifier = Modifier.fillMaxWidth(0.65f),
-                        fontSize = if (compactHome) 13.sp else 14.sp,
-                        lineHeight = if (compactHome) 19.sp else 22.sp,
-                        color = WebSub,
-                    )
-                    }
-                }
-            }
-        }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-                    .shadow(3.dp, CircleShape)
+                    .shadow(5.dp, CircleShape)
                     .height(if (compactHome) 46.dp else 48.dp).clip(CircleShape)
                     .background(Color.White).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -375,6 +325,63 @@ fun WebHomeScreen(
                 }
             }
         }
+        if (guest) {
+            item {
+                Box(
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 9.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Brush.horizontalGradient(listOf(WebRedSoft, Color(0xFFFFDBE5)))),
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.food_rider_hero),
+                        contentDescription = null,
+                        modifier = Modifier.align(Alignment.BottomEnd)
+                            .width(155.dp).height(121.dp).graphicsLayer(alpha = 0.90f),
+                        contentScale = ContentScale.Fit,
+                    )
+                    // Keep all hero text legible over the illustration on 320-390dp phones.
+                    Box(
+                        modifier = Modifier.matchParentSize().background(
+                            Brush.horizontalGradient(
+                                0f to Color(0xFFFFF1F4),
+                                0.54f to Color(0xFFFFF1F4).copy(alpha = 0.94f),
+                                1f to Color.Transparent,
+                            )
+                        )
+                    )
+                    Column(
+                        Modifier.fillMaxWidth().padding(if (compactHome) 13.dp else 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                    Surface(color = Color.White, shape = CircleShape) {
+                        Row(
+                            Modifier.padding(horizontal = 10.dp, vertical = if (compactHome) 4.dp else 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(Icons.Outlined.LocationOn, null, tint = WebRed, modifier = Modifier.size(14.dp))
+                            Text(stringResource(R.string.guest_location), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        }
+                    }
+                    Text(
+                        stringResource(R.string.guest_hero_title),
+                        modifier = Modifier.fillMaxWidth(0.79f),
+                        fontSize = if (compactHome) 18.sp else 20.sp,
+                        lineHeight = if (compactHome) 23.sp else 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WebInk,
+                    )
+                    Text(
+                        stringResource(R.string.guest_hero_note),
+                        modifier = Modifier.fillMaxWidth(0.65f),
+                        fontSize = if (compactHome) 12.sp else 13.sp,
+                        lineHeight = if (compactHome) 17.sp else 19.sp,
+                        color = WebSub,
+                    )
+                    }
+                }
+            }
+        }
         if (!guest) {
             item {
                 Row(
@@ -397,6 +404,10 @@ fun WebHomeScreen(
         }
         if (query.isBlank() && state.banners.isNotEmpty()) {
             item { BannerStrip(state.banners, onStore) }
+        }
+        // Public coupon eligibility/collection is not yet available.
+        if (query.isBlank() && filter == "all" && !showAllStores) {
+            item(key = "coupon-section") { CouponPreviewUnavailable() }
         }
         when {
             !state.configured -> item { CenterStateText(R.string.configure_supabase) }
@@ -558,7 +569,8 @@ private fun FoodFeaturedRestaurantHome(
     val dishes = store.menu.take(6)
     if (dishes.isNotEmpty()) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val cardWidth = ((maxWidth - 52.dp) / 3).coerceAtLeast(106.dp)
+            // Show about 2.5 cards for readable Thai menu names.
+            val cardWidth = ((maxWidth - 54.dp) / 2.45f).coerceAtLeast(118.dp)
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
@@ -584,7 +596,8 @@ private fun FoodFeaturedRestaurantHome(
                             )
                             Text(
                                 dish.name, color = WebInk, fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                fontSize = 12.sp, lineHeight = 16.sp, minLines = 2,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis,
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -594,8 +607,9 @@ private fun FoodFeaturedRestaurantHome(
                                 Text("฿" + dish.price, color = WebInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 if (dish.isAvailable() && store.isOpen) {
                                     Box(
-                                        modifier = Modifier.size(28.dp).clip(CircleShape)
-                                            .background(WebRedSoft),
+                                        modifier = Modifier.size(34.dp)
+                                            .shadow(4.dp, CircleShape).clip(CircleShape)
+                                            .background(Brush.verticalGradient(listOf(Color(0xFFFFFAFC), Color(0xFFFFC4D4)))),
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Icon(
@@ -610,6 +624,39 @@ private fun FoodFeaturedRestaurantHome(
                     }
                 }
             }
+        }
+    }
+}
+
+
+/** Soft-3D coupon entry. No fabricated coupons or inert "collect" buttons. */
+@Composable
+private fun CouponPreviewUnavailable() {
+    val cardShape = RoundedCornerShape(18.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
+            .shadow(5.dp, cardShape)
+            .clip(cardShape).background(Color.White).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(
+                Modifier.size(36.dp).shadow(5.dp, RoundedCornerShape(11.dp))
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(Brush.verticalGradient(listOf(Color(0xFFFF5C83), WebRed, WebRedDark))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.ReceiptLong, null, tint = Color.White, modifier = Modifier.size(21.dp))
+            }
+            Text(stringResource(R.string.coupon_section_title), color = WebInk, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        }
+        Box(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
+                .background(Brush.horizontalGradient(listOf(Color(0xFFFFF1F5), Color(0xFFFFF8FA))))
+                .padding(13.dp),
+        ) {
+            Text(stringResource(R.string.coupon_live_empty), fontSize = 12.sp, color = WebSub)
         }
     }
 }
