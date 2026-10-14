@@ -222,4 +222,9 @@
     <string name="staging_payment_cancelled">ยกเลิกหน้าชำระเงินทดสอบแล้ว</string>
     <string name="staging_payment_failed">การชำระเงินทดสอบไม่สำเร็จ ตรวจสอบสถานะออเดอร์อีกครั้ง</string>
     <string name="staging_payment_unavailable">ไม่สามารถเปิดการชำระเงินทดสอบได้ ตรวจสอบ Staging และสถานะออเดอร์</string>
+    <string name="food_reviews_load_failed">โหลดรีวิวไม่สำเร็จ กรุณาลองใหม่</string>
+    <string name="food_reviews_empty">ยังไม่มีรีวิว รีวิวจะมาจากออเดอร์ที่จัดส่งสำเร็จเท่านั้น</string>
+    <string name="food_reviews_count">%1$d รีวิว</string>
+    <string name="food_reviews_verified">สั่งจริงกับ WYNOS Food</string>
+    <string name="food_reviews_merchant_reply">ร้านตอบกลับ</string>
 </resources>
