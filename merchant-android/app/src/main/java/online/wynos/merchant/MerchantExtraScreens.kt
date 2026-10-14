@@ -144,6 +144,8 @@ private fun StaffNative(s: MerchantState, vm: MerchantViewModel) {
 
 @Composable
 private fun AdsNative(s: MerchantState, vm: MerchantViewModel) {
+    var slipUri by remember { mutableStateOf<Uri?>(null) }
+    var amount by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         ToolTitle("โฆษณาร้านค้า", { vm.loadExtras(MerchantPage.ADS) }, s.busy)
         val ads = s.ads
@@ -167,7 +169,18 @@ private fun AdsNative(s: MerchantState, vm: MerchantViewModel) {
         DetailCard {
             Text("เติมเครดิต: " + ads.label("wynos_promptpay_id"))
             Text("ขั้นต่ำ " + price(ads.optDouble("min_topup")))
-            Text("การแนบสลิปเติมเงินยังต้องพัฒนาเพิ่มเติม")
+            if (ads.optBoolean("can_manage") && ads.optBoolean("ads_enabled") &&
+                ads.label("wynos_promptpay_id").isNotBlank()) {
+                OutlinedTextField(amount, { amount = it },
+                    modifier = Modifier.fillMaxWidth(), label = { Text("จำนวนเงิน (บาท)") })
+                MerchantImagePicker("สลิปเติมเครดิต", slipUri, null, !s.busy,
+                    onSelect = { slipUri = it })
+                Button(enabled = !s.busy && slipUri != null &&
+                    (amount.toDoubleOrNull()?.let { it >= ads.optDouble("min_topup") } == true),
+                    onClick = { vm.adTopup(amount.toDouble(), slipUri); amount = ""; slipUri = null }) {
+                    Text("ส่งสลิปให้ WYNOS ตรวจสอบ")
+                }
+            } else Text("ยังไม่เปิดรับเติมเครดิต")
         }
         ads.optJSONArray("topups")?.asObjects()?.forEach { topup ->
             DetailCard {
