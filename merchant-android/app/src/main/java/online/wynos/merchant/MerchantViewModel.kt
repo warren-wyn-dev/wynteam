@@ -207,7 +207,7 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
     }
     fun selectMenu(item: JSONObject?) { state = state.copy(selectedMenu = item) }
 
-    fun actionOrder(order: JSONObject) {
+    fun actionOrder(order: JSONObject, etaMinutes: Int? = null) {
         val next = when (order.optString("status")) {
             "pending_acceptance" -> if (order.optString("payment_status") == "paid") "preparing" else return
             "preparing" -> "ready_for_delivery"
@@ -215,7 +215,7 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             else -> return
         }
         execute("บันทึกสถานะออเดอร์แล้ว") {
-            api.transition(order.getString("id"), next)
+            api.transition(order.getString("id"), next, etaMinutes)
             loadSnapshot()
         }
     }
