@@ -50,11 +50,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-reports
+          # Robolectric captureRoboImage snapshots supplement CI report artifacts.
           path: |
             android/app/build/reports/
             android/app/build/outputs/roborazzi/
-            # Robolectric captureRoboImage writes to build/screenshots/;
-            # include those visual regression images in CI for Web/Android QA.
             android/app/build/screenshots/
             android/build/screenshots/
           retention-days: 7
