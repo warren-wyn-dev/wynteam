@@ -234,4 +234,5 @@
     <string name="staging_payment_unavailable">ไม่สามารถเปิดการชำระเงินทดสอบได้ ตรวจสอบ Staging และสถานะออเดอร์</string>
     <string name="coupon_section_title">รวมโค้ดลดเพิ่ม</string>
     <string name="coupon_live_empty">โค้ดส่วนลดที่ยืนยันแล้วจะปรากฏที่นี่เมื่อพร้อมใช้งาน</string>
+    <string name="sort_delivery_fee_lowest">ค่าส่งต่ำก่อน</string>
 </resources>
