@@ -133,7 +133,15 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
                     allFields.forEach { field ->
                         val raw = fields[field.key].orEmpty()
                         if (field.numeric) {
-                            if (raw.isNotBlank()) payload.put(field.key, raw.toDouble())
+                            if (raw.isNotBlank()) {
+                                val integerFields = setOf("prep_time_min_minutes", "prep_time_max_minutes",
+                                    "scheduled_min_notice_minutes", "scheduled_max_days")
+                                if (field.key in integerFields) {
+                                    val number = raw.toIntOrNull()
+                                    if (number == null) { validation = "กรุณากรอกจำนวนเต็มสำหรับ " + field.title; return@Button }
+                                    payload.put(field.key, number)
+                                } else payload.put(field.key, raw.toDouble())
+                            }
                         } else payload.put(field.key, if (raw.isBlank()) JSONObject.NULL else raw)
                     }
                     toggles.forEach { (key, value) -> payload.put(key, value) }
