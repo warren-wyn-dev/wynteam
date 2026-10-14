@@ -274,6 +274,7 @@ fun WebAccountPage(
     onRefreshAddresses: () -> Unit,
     onSaveAddress: (online.wynos.food.data.FoodAddressDraft) -> Unit,
     onDeleteAddress: (String) -> Unit,
+    onSelectAddress: (String?) -> Unit,
     onClearAddressStatus: () -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
@@ -331,6 +332,7 @@ fun WebAccountPage(
                     onRefresh = onRefreshAddresses,
                     onSave = onSaveAddress,
                     onDelete = onDeleteAddress,
+                    onSelectAddress = onSelectAddress,
                     onClearStatus = onClearAddressStatus,
                 )
             }
