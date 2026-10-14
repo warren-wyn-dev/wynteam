@@ -612,29 +612,7 @@ private fun FinanceScreen(s: MerchantState) {
 
 @Composable
 private fun StoreScreen(s: MerchantState, vm: MerchantViewModel) {
-    val store = s.store ?: return
-    var name by remember(store) { mutableStateOf(store.text("name")) }
-    var phone by remember(store) { mutableStateOf(store.text("phone")) }
-    var address by remember(store) { mutableStateOf(store.text("address")) }
-    var deliveryArea by remember(store) { mutableStateOf(store.text("delivery_area")) }
-    var open by remember(store) { mutableStateOf(store.optBoolean("is_open")) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        SectionHeading("ตั้งค่าร้าน")
-        OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("ชื่อร้าน") })
-        OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), label = { Text("เบอร์โทรศัพท์") })
-        OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), label = { Text("ที่อยู่ร้าน") })
-        OutlinedTextField(deliveryArea, { deliveryArea = it }, Modifier.fillMaxWidth(), label = { Text("พื้นที่จัดส่ง") })
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("เปิดรับออเดอร์", modifier = Modifier.weight(1f))
-            Switch(checked = open, onCheckedChange = { open = it })
-        }
-        Button(enabled = !s.busy && name.isNotBlank(), onClick = {
-            vm.saveStore(JSONObject().put("name", name).put("phone", phone)
-                .put("address", address).put("delivery_area", deliveryArea).put("is_open", open))
-        }, modifier = Modifier.fillMaxWidth()) { Text("บันทึกข้อมูลร้าน") }
-        Text("หมายเหตุ: แผนที่ ตารางเวลา รูปภาพ การตั้งค่าการชำระเงิน และการเผยแพร่ร้าน ยังต้องพัฒนาเพิ่มเติม",
-            Modifier.padding(top = 12.dp), color = Grey)
-    }
+    MerchantStoreSettings(s, vm)
 }
 
 @Composable
