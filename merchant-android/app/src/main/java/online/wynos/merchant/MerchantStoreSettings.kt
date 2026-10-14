@@ -83,6 +83,16 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
         Text("สถานะเผยแพร่: " +
             if (store.optBoolean("is_published")) "เผยแพร่แล้ว" else "ยังไม่เผยแพร่",
             color = Color.Gray)
+        Button(
+            enabled = !s.busy && (store.optBoolean("is_published") ||
+                s.readiness?.optBoolean("ready") == true) &&
+                (store.optString("admin_suspended_at") in setOf("", "null")),
+            onClick = { vm.togglePublished(!store.optBoolean("is_published")) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (store.optBoolean("is_published")) "ซ่อนร้านจาก WYNOS Food"
+                else "เผยแพร่ร้านบน WYNOS Food")
+        }
         if (store.optString("admin_suspended_at").isNotBlank() &&
             store.optString("admin_suspended_at") != "null") {
             Text("ร้านถูกระงับโดยผู้ดูแลระบบ", color = MaterialTheme.colorScheme.error)
@@ -124,6 +134,7 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
             }) { Text("ลบรูปปก") }
         }
         fieldGroup("ข้อมูลร้านและเวลาเตรียม", details)
+        MerchantScheduleEditor(store, s.busy, vm::saveStore)
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text("เปิดรับออเดอร์", Modifier.weight(1f))
             Switch(checked = toggles["is_open"] == true,
