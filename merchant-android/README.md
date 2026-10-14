@@ -37,6 +37,10 @@ Source of truth: `merchant.wynos.online` in `web/app/merchant`, `web/components/
 
 Delivery proof capture/upload/completion, payment-slip viewer/verification, order pagination and Realtime/Push; advanced menus/add-ons/reorder/media; full store settings/schedule/location/pickup/payment/publishing, receipt/address printing; finance periods/exports/refunds; advertising/top-ups, campaigns/promotions, feedback, help, notification preferences, and remaining controls. See [FEATURE_PARITY.md](FEATURE_PARITY.md).
 
+## Internal APK artifact
+
+Successful Android CI attaches a short-lived `wynos-merchant-android-dev-debug` artifact to its workflow run. This is a **development build only** and is compiled without Supabase configuration in public CI; it will show a setup warning until built locally with the publishable project URL and key. It is not suitable for live merchant usage or Google Play.
+
 ## QA / release gates
 
 - Run `node merchant-android/tools/verify-contracts.mjs` from repository root.
