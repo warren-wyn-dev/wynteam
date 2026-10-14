@@ -383,6 +383,14 @@ class MerchantApi(context: Context) {
         }
     }
 
+    fun renameMenuCategory(storeId: String, oldName: String, newName: String, items: List<JSONObject>) {
+        require(oldName.isNotBlank() && newName.isNotBlank())
+        items.filter { it.optString("category") == oldName }.forEach { item ->
+            raw("PATCH", "/rest/v1/food_menu_items?id=eq." + filter(item.getString("id")) +
+                "&store_id=eq." + filter(storeId), JSONObject().put("category", newName.trim()))
+        }
+    }
+
     fun saveCategoryOrder(storeId: String, names: List<String>) {
         val clean = names.map { it.trim() }.filter { it.isNotBlank() }.distinct()
         require(clean.isNotEmpty()) { "กรุณากำหนดหมวดหมู่อย่างน้อย 1 รายการ" }
