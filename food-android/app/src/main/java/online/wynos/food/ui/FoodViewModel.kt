@@ -50,10 +50,16 @@ data class FoodUiState(
     val accountEmail: String? = null,
     val accountFailed: Boolean = false,
     val resetEmailSent: Boolean = false,
+    val signupEnabled: Boolean = false,
+    val registrationEmailSent: Boolean = false,
 )
 
 class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : ViewModel() {
-    private val mutableState = MutableStateFlow(FoodUiState(configured = gateway.configured, addressWritesEnabled = gateway.addressWritesEnabled))
+    private val mutableState = MutableStateFlow(FoodUiState(
+        configured = gateway.configured,
+        addressWritesEnabled = gateway.addressWritesEnabled,
+        signupEnabled = gateway.signupEnabled,
+    ))
     val uiState = mutableState.asStateFlow()
 
     // A request must belong to the currently active account AND current input generation.
@@ -128,13 +134,45 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         }
     }
 
+    fun registerAccount(email: String, password: String, confirmation: String) {
+        val state = mutableState.value
+        if (!gateway.configured || !gateway.signupEnabled || state.accountBusy ||
+            state.accountEmail != null || !FoodSignupValidation.canSubmit(email, password, confirmation)) return
+        invalidateAccountRequests()
+        val generation = accountGeneration
+        mutableState.update {
+            it.copy(accountBusy = true, accountFailed = false, resetEmailSent = false,
+                registrationEmailSent = false, accountLoading = false)
+        }
+        viewModelScope.launch {
+            try {
+                val activeEmail = gateway.signUp(email.trim(), password)
+                if (generation != accountGeneration) return@launch
+                mutableState.update {
+                    it.copy(accountBusy = false, accountEmail = activeEmail,
+                        registrationEmailSent = activeEmail == null)
+                }
+                if (activeEmail != null) {
+                    refreshOrders()
+                    refreshAddresses()
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (generation == accountGeneration) {
+                    mutableState.update { it.copy(accountBusy = false, accountFailed = true) }
+                }
+            }
+        }
+    }
+
     fun signIn(email: String, password: String) {
         if (!gateway.configured || email.isBlank() || password.isEmpty() || mutableState.value.accountBusy) return
         invalidateAccountRequests()
         val generation = accountGeneration
         mutableState.update {
             it.copy(accountBusy = true, accountFailed = false, resetEmailSent = false,
-                accountLoading = false, orders = emptyList(), addresses = emptyList(),
+                registrationEmailSent = false, accountLoading = false, orders = emptyList(), addresses = emptyList(),
                 ordersLoading = false, addressesLoading = false, selectedAddressId = null,
                 selectedOrderId = null, orderDetail = null, orderDetailLoading = false, orderDetailFailed = false)
         }
@@ -169,6 +207,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                 if (generation != accountGeneration) return@launch
                 mutableState.update { it.copy(
                     accountBusy = false, accountEmail = null, accountLoading = false,
+                    registrationEmailSent = false, resetEmailSent = false,
                     orders = emptyList(), ordersLoading = false, ordersFailed = false,
                     selectedOrderId = null, orderDetail = null, orderDetailLoading = false, orderDetailFailed = false,
                     cart = FoodCartDraft(), addresses = emptyList(), addressesLoading = false,
