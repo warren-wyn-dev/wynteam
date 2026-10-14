@@ -1,6 +1,17 @@
 package online.wynos.merchant
 
 import android.os.Bundle
+import android.net.Uri
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
@@ -221,7 +232,7 @@ private fun HomeScreen(s: MerchantState, vm: MerchantViewModel) {
 private fun OrdersScreen(s: MerchantState, vm: MerchantViewModel) {
     val order = s.selectedOrder
     if (order != null) {
-        OrderDetail(order, vm, s.busy)
+        OrderDetail(order, vm, s)
         return
     }
     Column(Modifier.fillMaxSize().padding(12.dp)) {
@@ -251,12 +262,45 @@ private fun OrdersScreen(s: MerchantState, vm: MerchantViewModel) {
 }
 
 @Composable
-private fun OrderDetail(order: JSONObject, vm: MerchantViewModel, busy: Boolean) {
-    val next = if (order.text("status") == "pending_acceptance" && order.text("payment_status") != "paid") "" else orderNext(order.text("status"))
+private fun OrderDetail(order: JSONObject, vm: MerchantViewModel, state: MerchantState) {
+    val busy = state.busy
+    val status = order.text("status")
+    val payment = order.text("payment_status")
+    val next = if (status == "pending_acceptance" && payment != "paid") "" else orderNext(status)
+    val slipPath = order.text("payment_slip_path")
+    val bitmap = state.slipBitmap.takeIf {
+        state.slipPreviewOrderId == order.text("id") && state.slipPreviewPath == slipPath
+    }
+    var reviewed by remember(order.text("id"), slipPath) { mutableStateOf(false) }
+    var eta by remember(order.text("id")) { mutableIntStateOf(order.optInt("eta_minutes", 30).takeIf { it in listOf(15, 30, 45, 60) } ?: 30) }
+    var method by remember(order.text("id")) { mutableStateOf("direct") }
+    var locationNote by remember(order.text("id")) { mutableStateOf("") }
+    var deliveryUri by remember(order.text("id")) { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+    var deliveryPreview by remember(deliveryUri) { mutableStateOf<Bitmap?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
+        deliveryUri = it
+    }
+    LaunchedEffect(deliveryUri) {
+        val uri = deliveryUri
+        deliveryPreview = if (uri == null) null else withContext(Dispatchers.IO) {
+            runCatching {
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+                var sample = 1
+                while (options.outWidth / sample > 800 || options.outHeight / sample > 800) sample *= 2
+                context.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+                }
+            }.getOrNull()
+        }
+    }
+
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         TextButton(onClick = { vm.selectOrder(null) }) { Text("‹ กลับไปออเดอร์") }
         SectionHeading(order.orderTitle())
-        Text(orderStatus(order.text("status")), color = Red, fontWeight = FontWeight.Bold)
+        Text(orderStatus(status), color = Red, fontWeight = FontWeight.Bold)
+        if (order.text("scheduled_for").isNotBlank()) Text("ออเดอร์ล่วงหน้า: " + order.text("scheduled_for"), color = Grey)
         Spacer(Modifier.height(12.dp))
         Text("ลูกค้า: " + order.text("recipient_name"))
         Text("โทรศัพท์: " + order.text("recipient_phone"))
@@ -267,25 +311,95 @@ private fun OrderDetail(order: JSONObject, vm: MerchantViewModel, busy: Boolean)
         val lines = order.optJSONArray("food_order_items") ?: org.json.JSONArray()
         lines.asObjects().forEach { item ->
             Text(item.text("item_name") + " × " + item.optInt("quantity") +
-                " — " + money(item.amount("unit_price")))
+                " — " + money(item.amount("unit_price") * item.optInt("quantity")))
             item.optJSONArray("selected_options")?.asObjects()?.forEach { option ->
                 Text("  + " + option.text("choice_name"), color = Grey)
             }
+            if (item.text("item_note").isNotBlank()) Text("  " + item.text("item_note"), color = Grey)
         }
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
+        Text("ค่าอาหาร: " + money(order.amount("subtotal")))
+        Text("ค่าส่ง: " + money(order.amount("delivery_fee")))
         Text("ยอดชำระ: " + money(order.amount("total")), fontWeight = FontWeight.Bold)
-        Text("การชำระเงิน: " + order.text("payment_status"))
-        if (order.text("status") == "pending_acceptance" && order.text("payment_status") != "paid") {
-            Text("ต้องตรวจสอบการชำระเงินก่อนรับออเดอร์ หากเป็นสลิปที่ส่งมา โปรดใช้เว็บไซต์ตรวจสอบก่อน", color = Grey)
-        }
-        if (next.isNotBlank()) {
+        Text("การชำระเงิน: " + payment)
+
+        if (status == "pending_acceptance") {
+            Spacer(Modifier.height(16.dp))
+            if (payment == "submitted") {
+                Text("ตรวจสลิปและยืนยันว่าเงินเข้าจริงก่อนรับออเดอร์", fontWeight = FontWeight.Bold)
+                if (bitmap != null) {
+                    Image(bitmap = bitmap.asImageBitmap(), contentDescription = "สลิปชำระเงิน",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 390.dp).padding(vertical = 8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = reviewed, onCheckedChange = { reviewed = it })
+                        Text("ฉันได้ตรวจสอบสลิปและยอดเงินแล้ว")
+                    }
+                } else Text(if (busy) "กำลังโหลดสลิป..." else "ไม่สามารถโหลดสลิปได้ ห้ามยืนยันรับชำระเงิน", color = Grey)
+                Text("เวลาเตรียมอาหาร", fontWeight = FontWeight.Medium)
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf(15, 30, 45, 60).forEach { minute ->
+                        FilterChip(selected = eta == minute, onClick = { eta = minute },
+                            label = { Text("$minute นาที", style = MaterialTheme.typography.labelSmall) })
+                    }
+                }
+                Button(
+                    onClick = { vm.approveSlipAndAccept(order, reviewed, eta) },
+                    enabled = !busy && bitmap != null && reviewed,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("เงินเข้าแล้ว · รับออเดอร์") }
+                OutlinedButton(onClick = { vm.rejectSlip(order) }, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()) { Text("สลิปมีปัญหา") }
+            } else if (payment == "paid") {
+                Text("เวลาเตรียมอาหาร")
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf(15, 30, 45, 60).forEach { minute ->
+                        FilterChip(selected = eta == minute, onClick = { eta = minute },
+                            label = { Text("$minute นาที", style = MaterialTheme.typography.labelSmall) })
+                    }
+                }
+                Button(onClick = { vm.actionOrder(order, eta) }, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()) { Text("รับออเดอร์") }
+            } else {
+                Text(if (payment == "issue") "สลิปมีปัญหา · รอลูกค้าส่งใหม่" else "รอลูกค้าชำระเงิน", color = Grey)
+            }
+        } else if (next.isNotBlank()) {
             Spacer(Modifier.height(20.dp))
             Button(onClick = { vm.actionOrder(order) }, enabled = !busy,
                 modifier = Modifier.fillMaxWidth()) { Text(next) }
         }
-        if (order.text("status") == "out_for_delivery") {
-            Text("การยืนยันส่งสำเร็จต้องรองรับรูปหลักฐานการจัดส่งก่อน จึงยังปิดออเดอร์จาก Android ไม่ได้",
-                color = Grey, modifier = Modifier.padding(top = 12.dp))
+
+        if (status == "out_for_delivery") {
+            Spacer(Modifier.height(16.dp))
+            Text("ยืนยันการจัดส่ง", fontWeight = FontWeight.Bold)
+            Row {
+                FilterChip(selected = method == "direct", onClick = { method = "direct" },
+                    label = { Text("ส่งให้ลูกค้า") })
+                Spacer(Modifier.width(8.dp))
+                FilterChip(selected = method == "dropoff", onClick = { method = "dropoff" },
+                    label = { Text("วางสินค้าไว้") })
+            }
+            if (method == "dropoff") {
+                OutlinedTextField(value = locationNote, onValueChange = { locationNote = it },
+                    label = { Text("วางสินค้าไว้ที่ไหน?") }, modifier = Modifier.fillMaxWidth())
+            }
+            OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !busy) {
+                Text(if (deliveryUri == null) "เลือกรูปหลักฐานการจัดส่ง" else "เปลี่ยนรูปหลักฐาน")
+            }
+            if (deliveryPreview != null) {
+                Image(bitmap = deliveryPreview!!.asImageBitmap(), contentDescription = "ตัวอย่างรูปหลักฐาน",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp))
+                TextButton(onClick = { deliveryUri = null }) { Text("ลบรูปที่เลือก") }
+            }
+            Text("จำเป็นต้องแนบรูปจริง ภาพจะถูกแปลงเพื่อตัดข้อมูล GPS/EXIF ก่อนอัปโหลด",
+                color = Grey, style = MaterialTheme.typography.bodySmall)
+            Button(
+                onClick = { vm.completeOrder(order, method, locationNote, deliveryUri) },
+                enabled = !busy && deliveryUri != null && deliveryPreview != null &&
+                    (method != "dropoff" || locationNote.isNotBlank()),
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("ยืนยันส่งสำเร็จ") }
         }
     }
 }
