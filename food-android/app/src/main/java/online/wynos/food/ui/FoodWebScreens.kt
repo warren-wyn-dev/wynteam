@@ -358,7 +358,7 @@ fun WebHomeScreen(
                     FoodBrandHeroBanner(state.stores.firstOrNull(), onBrowse = {
                         scope.launch {
                             val last = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-                            listState.animateScrollToItem(minOf(4, last))
+                            listState.animateScrollToItem(minOf(3, last))
                         }
                     })
                 }
@@ -368,41 +368,8 @@ fun WebHomeScreen(
         if (query.isBlank() && filter == "all" && !showAllStores) {
             item(key = "coupon-section") { CouponPreviewUnavailable() }
         }
-        // Native quick filters run against published, backend-provided fields
-        // only. Guest users can discover stores before signing in.
-        item(key = "discovery-filters") {
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChipWeb(
-                    title = stringResource(R.string.filter_all),
-                    selected = filter == "all",
-                    onClick = { filter = "all" },
-                )
-                FilterChipWeb(
-                    title = stringResource(R.string.filter_open),
-                    selected = filter == "open",
-                    onClick = { filter = if (filter == "open") "all" else "open" },
-                )
-                if (canSortHomeByDeliveryFee(state.stores)) {
-                    FilterChipWeb(
-                        title = stringResource(R.string.sort_delivery_fee_lowest),
-                        selected = filter == "fee",
-                        onClick = { filter = if (filter == "fee") "all" else "fee" },
-                    )
-                }
-                publishedHomeCategories(state.stores).forEach { category ->
-                    val code = "category:$category"
-                    FilterChipWeb(
-                        title = category,
-                        selected = filter == code,
-                        onClick = { filter = if (filter == code) "all" else code },
-                    )
-                }
-            }
-        }
+        // The approved Home is content-first: no visible horizontal chip strip.
+        // Verified filters remain available in the dedicated search filter sheet.
         when {
             !state.configured -> item { CenterStateText(R.string.configure_supabase) }
             state.catalogLoading -> item {
@@ -531,17 +498,14 @@ private fun FoodFeaturedRestaurantHome(
     onStore: (String) -> Unit,
     onDish: (String, String) -> Unit,
 ) {
-    val shape = RoundedCornerShape(18.dp)
     val cuisines = store.menu.map { it.category.trim() }
         .filter { it.isNotBlank() }.distinct().take(2).joinToString(" · ")
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
-            .shadow(3.dp, shape),
-        shape = shape,
-        color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, WebLine),
+    // Open, frameless layout: no Surface, rounded restaurant card, border or drop shadow.
+    // Padding aligns restaurant photo and 1:1 menu thumbnails with other Home content.
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
                     .clickable { onStore(store.id) },
@@ -596,23 +560,18 @@ private fun FoodFeaturedRestaurantHome(
                                 .clickable { onDish(store.id, dish.id) },
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
+                            // Fixed 1:1 menu photos without add-to-cart overlays.
+                            // Tapping the photo or text still opens the existing real menu
+                            // detail flow (including mandatory add-ons).
                             Box(Modifier.size(92.dp).clip(RoundedCornerShape(10.dp))) {
-                                WebImage(dish.imagePath, "food-public", Modifier.fillMaxSize())
+                                WebImage(
+                                    dish.imagePath, "food-public", Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                )
                                 if (!dish.isAvailable() || !store.isOpen) {
-                                    Box(Modifier.fillMaxSize()
-                                        .background(Color.White.copy(alpha = 0.40f)))
-                                } else {
                                     Box(
-                                        Modifier.align(Alignment.BottomEnd).padding(4.dp).size(27.dp)
-                                            .shadow(3.dp, CircleShape).clip(CircleShape)
-                                            .background(Brush.verticalGradient(
-                                                listOf(Color(0xFFFFF8FB), Color(0xFFFFCAD9)))),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(Icons.Outlined.Add,
-                                            contentDescription = stringResource(R.string.featured_choose_menu),
-                                            tint = WebRed, modifier = Modifier.size(18.dp))
-                                    }
+                                        Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.40f)),
+                                    )
                                 }
                             }
                             Text(dish.name, color = WebInk, fontSize = 11.sp,
@@ -624,7 +583,12 @@ private fun FoodFeaturedRestaurantHome(
                     }
                 }
             }
-        }
+        // Gentle separator between restaurant sections instead of outer borders.
+        HorizontalDivider(
+            color = Color(0xFFF0F0F2),
+            thickness = 0.7.dp,
+            modifier = Modifier.padding(top = 10.dp),
+        )
     }
 }
 
