@@ -419,6 +419,11 @@ private fun OrderDetail(order: JSONObject, vm: MerchantViewModel, state: Merchan
 
 @Composable
 private fun MenuScreen(s: MerchantState, vm: MerchantViewModel) {
+    var managingCategories by remember { mutableStateOf(false) }
+    if (managingCategories) {
+        MerchantCategoryManager(s, vm, onClose = { managingCategories = false })
+        return
+    }
     val editing = s.selectedMenu
     if (editing != null) {
         MenuEditor(editing, busy = s.busy, save = vm::saveMenu,
@@ -433,6 +438,7 @@ private fun MenuScreen(s: MerchantState, vm: MerchantViewModel) {
             Spacer(Modifier.weight(1f))
             TextButton(onClick = { vm.selectMenu(JSONObject()) }) { Text("+ เพิ่มเมนู") }
         }
+        TextButton(onClick = { managingCategories = true }) { Text("จัดการหมวดหมู่") }
         Row {
             if (sorting) {
                 TextButton(onClick = { sorting = false; orderIds = s.menu.map { it.text("id") } }) {
