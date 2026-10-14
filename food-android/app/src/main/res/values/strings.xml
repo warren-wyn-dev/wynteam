@@ -189,6 +189,8 @@
     <string name="address_delete_confirm_title">ลบที่อยู่จัดส่ง?</string>
     <string name="address_delete_confirm_body">ยืนยันการลบที่อยู่ %1$s</string>
     <string name="checkout_review_action">ตรวจสอบคำสั่งซื้อ</string>
+    <string name="cart_checkout_requirement">เลือกที่อยู่จัดส่งและตรวจสอบราคาจากระบบก่อนดูรายละเอียดคำสั่งซื้อ</string>
+    <string name="checkout_locked_short">ยังไม่เปิดชำระเงิน</string>
     <string name="checkout_review_title">ตรวจสอบคำสั่งซื้อ</string>
     <string name="checkout_review_address">ที่อยู่จัดส่ง</string>
     <string name="checkout_review_items">รายการอาหาร</string>
