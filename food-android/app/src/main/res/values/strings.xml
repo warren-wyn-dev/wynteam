@@ -207,4 +207,12 @@
     <string name="food_payment_issue">การชำระเงินมีปัญหา</string>
     <string name="food_payment_refunded">คืนเงินแล้ว</string>
     <string name="food_event_created">สร้างคำสั่งซื้อ</string>
+    <string name="staging_order_customer_note">หมายเหตุถึงร้าน (ใช้เฉพาะ Staging)</string>
+    <string name="staging_order_create_action">สร้างออเดอร์ทดสอบใน Staging</string>
+    <string name="staging_order_notice">ใช้เฉพาะฐานข้อมูลทดสอบ ไม่มีการชำระเงินจริง ห้ามใช้กับลูกค้าจริง</string>
+    <string name="staging_order_in_progress">กำลังส่งออเดอร์ทดสอบ กรุณาอย่ากดซ้ำ</string>
+    <string name="staging_order_created">สร้างออเดอร์ทดสอบสำเร็จ: %1$s (ยังไม่ได้ชำระเงิน)</string>
+    <string name="staging_order_uncertain">สถานะการส่งไม่แน่นอน ออเดอร์อาจถูกสร้างแล้ว กรุณาตรวจสอบฐานข้อมูล/ประวัติ Staging ก่อน ห้ามกดส่งซ้ำ</string>
+    <string name="staging_order_confirm_title">ยืนยันสร้างออเดอร์ทดสอบ?</string>
+    <string name="staging_order_confirm_text">การดำเนินการนี้จะเขียนข้อมูลออเดอร์จริงลงใน Staging เท่านั้น ไม่มีการชำระเงิน และไม่สามารถส่งซ้ำได้ในเซสชันนี้ โปรดยืนยันว่าใช้บัญชีและร้านทดสอบ</string>
 </resources>

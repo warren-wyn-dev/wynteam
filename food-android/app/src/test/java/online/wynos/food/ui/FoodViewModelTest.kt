@@ -40,6 +40,17 @@ class FoodViewModelTest {
         override val configured = true
         var allowSignup = false
         override val signupEnabled: Boolean get() = allowSignup
+        var allowStagingOrders = false
+        override val stagingOrderCreationEnabled: Boolean get() = allowStagingOrders
+        var stagingOrderCalls = 0
+        val stagingOrderDeferred = CompletableDeferred<String>()
+        override suspend fun createOrderStaging(
+            cart: FoodCartDraft, address: FoodCustomerAddress, customerNote: String,
+        ): String {
+            stagingOrderCalls++
+            return stagingOrderDeferred.await()
+        }
+        var selectedAddresses: List<FoodCustomerAddress> = emptyList()
         var allowDeletion = false
         override val accountDeletionEnabled: Boolean get() = allowDeletion
         var deletionCalls = 0
@@ -63,7 +74,7 @@ class FoodViewModelTest {
         override suspend fun accountEmail(): String? = accountOnRestore
         override suspend fun orderHistory(): List<FoodOrderSummary> = ordersDeferred?.await() ?: selectedOrders
         override suspend fun orderDetail(orderId: String): FoodOrderDetail? = orderDetailDeferred?.await()
-        override suspend fun addresses(): List<FoodCustomerAddress> = addressDeferred?.await() ?: emptyList()
+        override suspend fun addresses(): List<FoodCustomerAddress> = addressDeferred?.await() ?: selectedAddresses
         override suspend fun quote(cart: FoodCartDraft, address: FoodCustomerAddress?): FoodServerQuote =
             quoteDeferred.await()
         override suspend fun signIn(email: String, password: String): String? = email
@@ -363,6 +374,86 @@ class FoodViewModelTest {
             runCurrent()
             assertNull(vm.uiState.value.selectedOrderId)
             assertNull(vm.uiState.value.orderDetail)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun stagingOrderSubmissionIsOneShotAndDoesNotChargeOrRetry() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply {
+                allowStagingOrders = true
+                selectedAddresses = listOf(address)
+                quoteDeferred.complete(quote)
+            }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            assertTrue(vm.addToCart(store, menu, emptyMap(), 1, "item note"))
+            vm.requestServerQuote()
+            runCurrent()
+            assertEquals(quote, vm.uiState.value.quote)
+            vm.submitStagingOrder("merchant note")
+            vm.submitStagingOrder("merchant note")
+            runCurrent()
+            assertEquals(1, fake.stagingOrderCalls)
+            assertTrue(vm.uiState.value.stagingOrderBusy)
+            fake.stagingOrderDeferred.complete("11111111-1111-4111-8111-111111111111")
+            runCurrent()
+            assertEquals("11111111-1111-4111-8111-111111111111",
+                vm.uiState.value.stagingOrderCreatedId)
+            assertFalse(vm.uiState.value.stagingOrderBusy)
+            vm.submitStagingOrder()
+            runCurrent()
+            assertEquals(1, fake.stagingOrderCalls)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun uncertainStagingOrderFailureNeverRetries() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply {
+                allowStagingOrders = true
+                selectedAddresses = listOf(address)
+                quoteDeferred.complete(quote)
+            }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.addToCart(store, menu, emptyMap(), 1, "")
+            vm.requestServerQuote()
+            runCurrent()
+            vm.submitStagingOrder()
+            runCurrent()
+            fake.stagingOrderDeferred.completeExceptionally(IllegalStateException("timeout after write"))
+            runCurrent()
+            assertTrue(vm.uiState.value.stagingOrderUncertain)
+            assertTrue(vm.uiState.value.stagingOrderFailed)
+            vm.submitStagingOrder()
+            runCurrent()
+            assertEquals(1, fake.stagingOrderCalls)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun stagingOrderDisabledByDefault() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply {
+                selectedAddresses = listOf(address)
+                quoteDeferred.complete(quote)
+            }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.addToCart(store, menu, emptyMap(), 1, "")
+            vm.requestServerQuote()
+            runCurrent()
+            vm.submitStagingOrder()
+            runCurrent()
+            assertEquals(0, fake.stagingOrderCalls)
+            assertFalse(vm.uiState.value.stagingOrderCreationEnabled)
         } finally {
             Dispatchers.resetMain()
         }

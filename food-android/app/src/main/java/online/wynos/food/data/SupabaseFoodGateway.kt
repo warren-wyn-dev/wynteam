@@ -20,6 +20,12 @@ interface FoodGateway {
     val addressWritesEnabled: Boolean get() = false
     val signupEnabled: Boolean get() = false
     val accountDeletionEnabled: Boolean get() = false
+    val stagingOrderCreationEnabled: Boolean get() = false
+    suspend fun createOrderStaging(
+        cart: FoodCartDraft,
+        address: FoodCustomerAddress,
+        customerNote: String = "",
+    ): String = throw IllegalStateException("staging_order_creation_disabled")
     suspend fun deleteMyAccount() {
         throw IllegalStateException("account_deletion_disabled")
     }
@@ -49,6 +55,28 @@ class SupabaseFoodGateway : FoodGateway {
         configured && BuildConfig.ACCOUNT_SIGNUP_ALLOWED
     override val accountDeletionEnabled: Boolean get() =
         configured && BuildConfig.ACCOUNT_DELETION_ALLOWED
+    override val stagingOrderCreationEnabled: Boolean get() =
+        configured && BuildConfig.STAGING_ORDER_CREATION_ALLOWED
+
+    override suspend fun createOrderStaging(
+        cart: FoodCartDraft,
+        address: FoodCustomerAddress,
+        customerNote: String,
+    ): String {
+        check(stagingOrderCreationEnabled) { "staging_order_creation_disabled" }
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        check(supabase.auth.currentUserOrNull() != null) { "sign_in_required" }
+        // This legacy RPC has no idempotency key. Only disposable staging orders.
+        // Never call a live payment edge function, or put secret keys in the APK.
+        val result = supabase.postgrest.rpc(
+            "food_create_order", FoodOrderSubmission.request(cart, address, customerNote),
+        ).decodeAs<JsonElement>()
+        val orderId = (result as? kotlinx.serialization.json.JsonPrimitive)?.content
+            ?: throw IllegalStateException("missing_created_order_id")
+        java.util.UUID.fromString(orderId)
+        return orderId
+    }
 
     private suspend fun requireWritableClient(): SupabaseClient {
         check(addressWritesEnabled) { "address_writes_disabled" }

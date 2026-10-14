@@ -51,11 +51,16 @@ android {
             buildConfigField("boolean", "ACCOUNT_DELETION_ALLOWED", (
                 verifiedStaging && foodConfig("WYNOS_FOOD_ACCOUNT_DELETION_STAGING") == "true"
             ).toString())
+            // Legacy order RPC is non-idempotent: staging debug only, NEVER release.
+            buildConfigField("boolean", "STAGING_ORDER_CREATION_ALLOWED", (
+                verifiedStaging && foodConfig("WYNOS_FOOD_ORDER_CREATION_STAGING") == "true"
+            ).toString())
         }
         release {
             buildConfigField("boolean", "ADDRESS_WRITES_ALLOWED", "false")
             buildConfigField("boolean", "ACCOUNT_SIGNUP_ALLOWED", "false")
             buildConfigField("boolean", "ACCOUNT_DELETION_ALLOWED", "false")
+            buildConfigField("boolean", "STAGING_ORDER_CREATION_ALLOWED", "false")
             isMinifyEnabled = false // Enable and verify R8 before production.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
