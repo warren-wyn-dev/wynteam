@@ -63,6 +63,7 @@ import io.wyn.wyn.core.design.DarkWynColors
 import io.wyn.wyn.core.design.Wyn
 import io.wyn.wyn.core.design.WynAvatar
 import io.wyn.wyn.core.design.WynIcons
+import io.wyn.wyn.core.design.VerifiedBadge
 import kotlinx.coroutines.launch
 
 // Web home.css / computed styles (411px viewport).
@@ -96,7 +97,11 @@ fun PostCard(row: FeedRow, viewer: ViewerState, images: List<String>, userId: St
     val english = rememberEnglish()
     val time = FeedText.relativeTime(row.createdAt, english)
     val timeAndPlace = row.location?.let { "$time · 📍 $it" } ?: time
-    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (row.redropId != null) 10.dp else 8.dp)) {
+    // web/app/home.css @media(max-width:359px): 12px outer padding, 34px avatar and 8px gap.
+    val narrow = LocalConfiguration.current.screenWidthDp <= 359
+    val outerPadding = if (narrow) 12.dp else 16.dp
+    val avatarSize = if (narrow) 34 else 40
+    Column(Modifier.fillMaxWidth().padding(start = outerPadding, end = outerPadding, top = if (row.redropId != null) 10.dp else 8.dp)) {
         if (row.redropId != null) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -115,11 +120,11 @@ fun PostCard(row: FeedRow, viewer: ViewerState, images: List<String>, userId: St
         }
         Row {
             WynAvatar(
-                row.authorAvatarUrl, 40,
+                row.authorAvatarUrl, avatarSize,
                 modifier = Modifier.padding(top = 1.dp).clickable(onClick = actions.onOpenAuthor),
                 contentDescription = row.authorLabel,
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(if (narrow) 8.dp else 10.dp))
             Column(Modifier.weight(1f)) {
                 AuthorRow(row, viewer, userId, timeAndPlace, actions)
                 row.caption?.takeIf { it.isNotBlank() }?.let { Caption(it, actions) }
@@ -143,13 +148,18 @@ private fun AuthorRow(row: FeedRow, viewer: ViewerState, userId: String, time: S
             modifier = Modifier.weight(1f).clickable(onClick = actions.onOpenAuthor),
         ) {
             Text(
-                row.authorLabel, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold,
+                row.authorLabel, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
             )
             if (row.authorIsVerified) {
-                Text(" ✓", color = LinkBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(4.dp))
+                VerifiedBadge(16, label = stringResource(R.string.verified))
             }
-            Text(" · $time", color = MetaGrey, fontSize = 14.sp, maxLines = 1)
+            Text(
+                " · $time", color = MetaGrey,
+                fontSize = if (LocalConfiguration.current.screenWidthDp <= 359) 13.5.sp else 14.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
         }
         if (row.authorId != userId && !following) {
             val dark = c.bg == DarkWynColors.bg
@@ -181,7 +191,7 @@ private fun AuthorRow(row: FeedRow, viewer: ViewerState, userId: String, time: S
 @Composable
 private fun Caption(caption: String, actions: PostCallbacks) {
     val split = remember(caption) { FeedText.splitCaption(caption) }
-    Column(Modifier.padding(top = 4.dp)) {
+    Column(Modifier.padding(top = 3.dp)) {
         if (split.prose.isNotEmpty()) {
             // The web caption stops 10px short of the post column (319 of 329px).
             RichText(split.prose, compact = true, onTag = actions.onTag, onBody = actions.onOpenPost, modifier = Modifier.padding(end = 10.dp))
@@ -203,7 +213,8 @@ private fun Caption(caption: String, actions: PostCallbacks) {
     }
 }
 
-internal val CaptionStyle = TextStyle(fontSize = 15.sp, lineHeight = 20.sp)
+// web/app/home.css: .wyn-post-caption-wrap { font-size:16px; line-height:1.31 }
+internal val CaptionStyle = TextStyle(fontSize = 16.sp, lineHeight = 21.sp)
 
 /** The web's RichPostText: URLs, #tags and @mentions in link blue; the rest is plain text. */
 @Composable
