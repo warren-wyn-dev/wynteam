@@ -79,6 +79,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     var homeCart by rememberSaveable { mutableStateOf(false) }
     var homeScrolled by rememberSaveable { mutableStateOf(false) }
     var favoritesOpen by rememberSaveable { mutableStateOf(false) }
+    var promotionsOpen by rememberSaveable { mutableStateOf(false) }
     var returnToFavorites by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val localFavorites = remember(context) { FoodLocalFavoriteStores(context) }
@@ -89,6 +90,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     LaunchedEffect(state.accountEmail) {
         if (state.accountEmail == null) {
             favoritesOpen = false
+            promotionsOpen = false
             returnToFavorites = false
         }
     }
@@ -117,10 +119,11 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
         }
     }
 
-    BackHandler(enabled = selectedStore != null || favoritesOpen || tab != 0) {
+    BackHandler(enabled = selectedStore != null || favoritesOpen || promotionsOpen || tab != 0) {
         when {
             selectedStore != null -> closeStore()
             favoritesOpen -> favoritesOpen = false
+            promotionsOpen -> promotionsOpen = false
             else -> tab = 0
         }
     }
@@ -145,6 +148,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         1 -> stringResource(R.string.my_orders_title)
                         2 -> stringResource(R.string.messages)
                         else -> if (favoritesOpen) stringResource(R.string.favorite_stores)
+                            else if (promotionsOpen) stringResource(R.string.promo_inbox_title)
                             else stringResource(R.string.account)
                     }
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -164,6 +168,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         selectedStoreId = null
                         initialHomeMenuId = null
                         favoritesOpen = false
+                        promotionsOpen = false
                         returnToFavorites = false
                     },
                 )
@@ -232,6 +237,11 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onDismissNotice = vm::dismissOrderStatusNotice,
                 )
                 tab == 2 -> WebMessagesPage()
+                tab == 3 && promotionsOpen && !guest -> WebPromotionInboxPage(
+                    state = state,
+                    onBack = { promotionsOpen = false },
+                    onRetry = vm::refreshPromotionInbox,
+                )
                 tab == 3 && favoritesOpen && !guest -> WebFavoritesPage(
                     stores = state.stores,
                     favoriteIds = favoriteIds,
@@ -252,7 +262,12 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onDeleteAccount = vm::deleteAccount,
                     onResetPassword = vm::requestPasswordReset,
                     onOrders = { tab = 1 },
-                    onFavorites = { favoritesOpen = true },
+                    onFavorites = { favoritesOpen = true; promotionsOpen = false },
+                    onPromotions = {
+                        promotionsOpen = true
+                        favoritesOpen = false
+                        vm.refreshPromotionInbox()
+                    },
                     onRefreshAddresses = vm::refreshAddresses,
                     onSaveAddress = vm::saveAddress,
                     onDeleteAddress = vm::deleteAddress,
