@@ -327,6 +327,7 @@ fun WebHomeScreen(
                     }
                     Text(
                         stringResource(R.string.guest_hero_title),
+                        modifier = Modifier.fillMaxWidth(0.79f),
                         fontSize = if (compactHome) 20.sp else 22.sp,
                         lineHeight = if (compactHome) 26.sp else 29.sp,
                         fontWeight = FontWeight.Bold,
@@ -334,6 +335,7 @@ fun WebHomeScreen(
                     )
                     Text(
                         stringResource(R.string.guest_hero_note),
+                        modifier = Modifier.fillMaxWidth(0.65f),
                         fontSize = if (compactHome) 13.sp else 14.sp,
                         lineHeight = if (compactHome) 19.sp else 22.sp,
                         color = WebSub,
