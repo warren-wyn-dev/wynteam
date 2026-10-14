@@ -7,6 +7,8 @@ import android.net.Uri
 import android.os.Looper
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.core.app.ApplicationProvider
@@ -68,6 +70,38 @@ class ProfileScreenshotTest {
         compose.onNodeWithText("@warren").assertExists()
         compose.onNodeWithText("1,024", substring = true).assertExists()
         shot("profile-own-th")
+    }
+
+    @Test @Config(qualifiers = "th-w411dp-h914dp-xxhdpi")
+    fun ownProfileSettingsActionMatchesWebTopBar() {
+        val vm = profile(HomeFixture.VIEWER)
+        var opened = 0
+        compose.setContent {
+            WynosTheme(ThemeChoice.Light) {
+                MainShell(
+                    home = {},
+                    profile = { ProfileScreen(vm, ProfileNavigation(onSettings = { opened++ })) },
+                    onCompose = {},
+                    initialTab = io.wyn.wyn.feature.shell.MainTab.Profile,
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("ตั้งค่า").performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test @Config(qualifiers = "th-w340dp-h760dp-xxhdpi")
+    fun narrowProfileMatchesWebResponsiveAvatarAndCover() {
+        val vm = profile(HomeFixture.VIEWER)
+        compose.setContent {
+            WynosTheme(ThemeChoice.Light) {
+                MainShell(home = {}, profile = { ProfileScreen(vm, ProfileNavigation()) }, onCompose = {}, initialTab = io.wyn.wyn.feature.shell.MainTab.Profile)
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("@warren").assertExists()
+        shot("profile-own-narrow-340-th")
     }
 
     @Test @Config(qualifiers = "th-w411dp-h914dp-xxhdpi")
