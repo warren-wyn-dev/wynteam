@@ -197,50 +197,47 @@ fun WebPageHeader(title: String, onBack: () -> Unit) {
 
 @Composable
 fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
-    val items = listOf(
+    // Fixed and compact native navigation; retains Messages and all four routes.
+    val tabs = listOf(
         Triple(0, R.string.home, Icons.Outlined.Home),
         Triple(1, R.string.orders, Icons.Outlined.ReceiptLong),
         Triple(2, R.string.messages, Icons.Outlined.ChatBubbleOutline),
         Triple(3, R.string.account, Icons.Outlined.PersonOutline),
     )
-    Box(
-        modifier.fillMaxWidth()
-            .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+    Column(
+        modifier.fillMaxWidth().shadow(3.dp, RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+            .background(Color.White).navigationBarsPadding(),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(30.dp))
-                .clip(RoundedCornerShape(30.dp)).background(Color.White)
-                .padding(horizontal = 6.dp, vertical = 4.dp).heightIn(min = 60.dp),
+            Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            items.forEach { (id, label, image) ->
-                val selected = tab == id
+            tabs.forEach { (index, label, icon) ->
+                val active = index == tab
                 Column(
-                    modifier = Modifier.weight(1f).heightIn(min = 62.dp)
-                        .clip(RoundedCornerShape(28.dp)).clickable { onTab(id) },
+                    Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(14.dp))
+                        .clickable { onTab(index) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Box(
-                        modifier = Modifier.size(width = 48.dp, height = 28.dp)
-                            .shadow(if (selected) 4.dp else 0.dp, CircleShape)
-                             .clip(CircleShape).background(
-                                 Brush.verticalGradient(
-                                     if (selected) listOf(Color(0xFFFFF8FA), Color(0xFFFFD5E1))
-                                     else listOf(Color.Transparent, Color.Transparent)
-                                 )
-                             ),
+                        Modifier.size(43.dp, 29.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.verticalGradient(
+                                    if (active) listOf(Color(0xFFFFF4F7), Color(0xFFFFD9E3))
+                                    else listOf(Color.Transparent, Color.Transparent),
+                                )
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(image, null, tint = if (selected) WebRed else WebMuted, modifier = Modifier.size(23.dp))
+                        Icon(icon, null, tint = if (active) WebRed else WebMuted, modifier = Modifier.size(22.dp))
                     }
                     Text(
-                        stringResource(label),
-                        color = if (selected) WebRed else WebMuted,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                        stringResource(label), color = if (active) WebRed else WebMuted,
+                        fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                     )
                 }
             }
@@ -287,13 +284,13 @@ fun WebHomeScreen(
         val compactHome = compactFoodHomeForWidth(maxWidth.value)
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(Color.White),
-            contentPadding = PaddingValues(bottom = if (guest) 32.dp else 124.dp),
+            contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-                    .shadow(5.dp, CircleShape)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    .shadow(2.dp, CircleShape)
                     .height(if (compactHome) 46.dp else 48.dp).clip(CircleShape)
                     .background(Color.White).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -321,65 +318,14 @@ fun WebHomeScreen(
                 }
             }
         }
-        if (guest) {
-            item {
-                Box(
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 9.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Brush.horizontalGradient(listOf(WebRedSoft, Color(0xFFFFDBE5)))),
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.food_rider_hero),
-                        contentDescription = null,
-                        modifier = Modifier.align(Alignment.BottomEnd)
-                            .width(155.dp).height(121.dp).graphicsLayer(alpha = 0.90f),
-                        contentScale = ContentScale.Fit,
-                    )
-                    // Keep all hero text legible over the illustration on 320-390dp phones.
-                    Box(
-                        modifier = Modifier.matchParentSize().background(
-                            Brush.horizontalGradient(
-                                0f to Color(0xFFFFF1F4),
-                                0.54f to Color(0xFFFFF1F4).copy(alpha = 0.94f),
-                                1f to Color.Transparent,
-                            )
-                        )
-                    )
-                    Column(
-                        Modifier.fillMaxWidth().padding(if (compactHome) 13.dp else 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                    Surface(color = Color.White, shape = CircleShape) {
-                        Row(
-                            Modifier.padding(horizontal = 10.dp, vertical = if (compactHome) 4.dp else 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Icon(Icons.Outlined.LocationOn, null, tint = WebRed, modifier = Modifier.size(14.dp))
-                            Text(stringResource(R.string.guest_location), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                        }
-                    }
-                    Text(
-                        stringResource(R.string.guest_hero_title),
-                        modifier = Modifier.fillMaxWidth(0.79f),
-                        fontSize = if (compactHome) 18.sp else 20.sp,
-                        lineHeight = if (compactHome) 23.sp else 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = WebInk,
-                    )
-                    Text(
-                        stringResource(R.string.guest_hero_note),
-                        modifier = Modifier.fillMaxWidth(0.65f),
-                        fontSize = if (compactHome) 12.sp else 13.sp,
-                        lineHeight = if (compactHome) 17.sp else 19.sp,
-                        color = WebSub,
-                    )
-                    }
-                }
+        // A genuine merchant/banner picture is preferred. The branded fallback
+        // carries no fictional discounts, ratings or delivery time promises.
+        if (query.isBlank()) {
+            if (state.banners.isNotEmpty()) {
+                item(key = "live-banner") { BannerStrip(state.banners, onStore) }
+            } else {
+                item(key = "brand-banner") { FoodBrandHeroBanner(state.stores.firstOrNull()) }
             }
-        }
-        if (query.isBlank() && state.banners.isNotEmpty()) {
-            item { BannerStrip(state.banners, onStore) }
         }
         // Public coupon eligibility/collection is not yet available.
         if (query.isBlank() && filter == "all" && !showAllStores) {
@@ -439,14 +385,14 @@ fun WebHomeScreen(
                 item(key = "store-section-header") {
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = if (guest) 10.dp else 21.dp, bottom = 6.dp),
+                            .padding(start = 16.dp, end = 16.dp, top = 15.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
                             stringResource(if (recommendedMode) R.string.recommended_stores else R.string.public_stores),
                             modifier = Modifier.weight(1f),
-                            fontSize = if (guest && compactHome) 17.sp else 18.sp,
+                            fontSize = if (compactHome) 18.sp else 19.sp,
                             fontWeight = FontWeight.Bold,
                             color = WebInk,
                             maxLines = 1,
@@ -467,8 +413,8 @@ fun WebHomeScreen(
                     }
                 }
                 if (recommendedMode) {
-                    item(key = "recommended-stores-carousel") {
-                        FoodFeaturedRestaurantHome(filtered.first(), onStore, onDish)
+                    items(filtered.take(2), key = { "featured-${it.id}" }) { store ->
+                        FoodFeaturedRestaurantHome(store, onStore, onDish)
                     }
                 } else {
                     items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
@@ -496,10 +442,9 @@ fun WebHomeScreen(
 }
 
 /**
- * Native restaurant feature based on the founder-approved WYNOS Food design.
- * Only fields returned by the published public catalog are shown. No made-up
- * reviews, promo codes or delivery times. Opening a dish navigates to its
- * real Store where required add-ons and the cart guard still apply.
+ * Rich, compact native restaurant card. Only public catalog fields are used:
+ * published photos, cuisine categories, current open flag, delivery fee and
+ * menu prices. No invented ratings, distances, ETAs or discount badges.
  */
 @Composable
 private fun FoodFeaturedRestaurantHome(
@@ -507,130 +452,95 @@ private fun FoodFeaturedRestaurantHome(
     onStore: (String) -> Unit,
     onDish: (String, String) -> Unit,
 ) {
+    val shape = RoundedCornerShape(18.dp)
+    val cuisines = store.menu.map { it.category.trim() }
+        .filter { it.isNotBlank() }.distinct().take(2).joinToString(" · ")
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+            .shadow(3.dp, shape),
+        shape = shape,
         color = Color.White,
-        shape = RoundedCornerShape(20.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, WebLine),
-        shadowElevation = 3.dp,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable { onStore(store.id) }.padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(Modifier.weight(0.95f).aspectRatio(1f).clip(RoundedCornerShape(14.dp))) {
-                WebImage(
-                    store.coverPath, "food-public", Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    imageAlignment = Alignment.BottomCenter,
-                )
-                if (!store.isOpen) {
-                    Text(
-                        stringResource(R.string.public_store_closed),
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        modifier = Modifier.align(Alignment.TopStart)
-                            .padding(6.dp).clip(CircleShape).background(WebRed)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
-            }
-            Column(
-                modifier = Modifier.weight(1.05f),
-                verticalArrangement = Arrangement.spacedBy(9.dp),
+        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
+                    .clickable { onStore(store.id) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    store.name, color = WebInk, fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp, lineHeight = 20.sp,
-                    maxLines = 3, overflow = TextOverflow.Ellipsis,
-                )
-                store.deliveryFee?.let { deliveryFee ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                            .background(WebChip).padding(horizontal = 9.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Icon(
-                            Icons.Outlined.DirectionsBike,
-                            contentDescription = null,
-                            tint = WebRed,
-                            modifier = Modifier.size(18.dp),
-                        )
+                Box(Modifier.size(116.dp).clip(RoundedCornerShape(13.dp))) {
+                    WebImage(store.coverPath, "food-public", Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop, imageAlignment = Alignment.BottomCenter)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(store.name, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                        lineHeight = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (cuisines.isNotBlank()) {
+                        Text(cuisines, color = WebSub, fontSize = 12.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        store.deliveryFee?.let { fee ->
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Icon(Icons.Outlined.DirectionsBike, null,
+                                    tint = WebRed, modifier = Modifier.size(16.dp))
+                                Text("฿$fee", color = WebInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                         Text(
-                            "฿" + deliveryFee, color = WebInk,
-                            fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                            stringResource(if (store.isOpen) R.string.filter_open else R.string.public_store_closed),
+                            color = if (store.isOpen) WebGreen else WebRed,
+                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clip(CircleShape)
+                                .background(if (store.isOpen) Color(0xFFE7F8ED) else WebRedSoft)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        stringResource(R.string.featured_view_store),
-                        color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
-                    )
-                    Icon(
-                        Icons.Outlined.ChevronRight, contentDescription = null,
-                        modifier = Modifier.size(18.dp), tint = WebRed,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.featured_view_store), color = WebRed,
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(Icons.Outlined.ChevronRight, null, tint = WebRed,
+                            modifier = Modifier.size(15.dp))
+                    }
                 }
             }
-        }
-    }
-    val dishes = store.menu.take(6)
-    if (dishes.isNotEmpty()) {
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            // Show about 2.5 cards for readable Thai menu names.
-            val cardWidth = ((maxWidth - 54.dp) / 2.45f).coerceAtLeast(118.dp)
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(dishes, key = { it.id }) { dish ->
-                    Surface(
-                        modifier = Modifier.width(cardWidth)
-                            .clickable { onDish(store.id, dish.id) },
-                        color = Color.White,
-                        shape = RoundedCornerShape(15.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, WebLine),
-                        shadowElevation = 2.dp,
-                    ) {
+            val dishes = store.menu.take(5)
+            if (dishes.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    items(dishes, key = { it.id }) { dish ->
                         Column(
-                            modifier = Modifier.fillMaxWidth().padding(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(5.dp),
+                            modifier = Modifier.width(92.dp)
+                                .clip(RoundedCornerShape(11.dp))
+                                .clickable { onDish(store.id, dish.id) },
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            WebImage(
-                                dish.imagePath, "food-public",
-                                modifier = Modifier.fillMaxWidth().aspectRatio(1f)
-                                    .clip(RoundedCornerShape(11.dp)),
-                            )
-                            Text(
-                                dish.name, color = WebInk, fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp, lineHeight = 16.sp, minLines = 2,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis,
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Text("฿" + dish.price, color = WebInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                if (dish.isAvailable() && store.isOpen) {
+                            Box(Modifier.size(92.dp).clip(RoundedCornerShape(10.dp))) {
+                                WebImage(dish.imagePath, "food-public", Modifier.fillMaxSize())
+                                if (!dish.isAvailable() || !store.isOpen) {
+                                    Box(Modifier.fillMaxSize()
+                                        .background(Color.White.copy(alpha = 0.40f)))
+                                } else {
                                     Box(
-                                        modifier = Modifier.size(34.dp)
-                                            .shadow(4.dp, CircleShape).clip(CircleShape)
-                                            .background(Brush.verticalGradient(listOf(Color(0xFFFFFAFC), Color(0xFFFFC4D4)))),
+                                        Modifier.align(Alignment.BottomEnd).padding(4.dp).size(27.dp)
+                                            .shadow(3.dp, CircleShape).clip(CircleShape)
+                                            .background(Brush.verticalGradient(
+                                                listOf(Color(0xFFFFF8FB), Color(0xFFFFCAD9)))),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        Icon(
-                                            Icons.Outlined.Add,
+                                        Icon(Icons.Outlined.Add,
                                             contentDescription = stringResource(R.string.featured_choose_menu),
-                                            modifier = Modifier.size(18.dp), tint = WebRed,
-                                        )
+                                            tint = WebRed, modifier = Modifier.size(18.dp))
                                     }
                                 }
                             }
+                            Text(dish.name, color = WebInk, fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium, maxLines = 2,
+                                lineHeight = 14.sp, overflow = TextOverflow.Ellipsis)
+                            Text("฿${dish.price}", color = WebInk, fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -640,34 +550,76 @@ private fun FoodFeaturedRestaurantHome(
 }
 
 
-/** Soft-3D coupon entry. No fabricated coupons or inert "collect" buttons. */
+/** Minimal honest coupon area until verified customer claim/eligibility API exists. */
 @Composable
 private fun CouponPreviewUnavailable() {
-    val cardShape = RoundedCornerShape(18.dp)
-    Column(
+    val shape = RoundedCornerShape(16.dp)
+    Row(
         modifier = Modifier.fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
-            .shadow(5.dp, cardShape)
-            .clip(cardShape).background(Color.White).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .shadow(2.dp, shape).clip(shape).background(Color.White)
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(
-                Modifier.size(36.dp).shadow(5.dp, RoundedCornerShape(11.dp))
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(Brush.verticalGradient(listOf(Color(0xFFFF5C83), WebRed, WebRedDark))),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Outlined.ReceiptLong, null, tint = Color.White, modifier = Modifier.size(21.dp))
-            }
-            Text(stringResource(R.string.coupon_section_title), color = WebInk, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        }
         Box(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
-                .background(Brush.horizontalGradient(listOf(Color(0xFFFFF1F5), Color(0xFFFFF8FA))))
-                .padding(13.dp),
+            modifier = Modifier.size(34.dp).shadow(3.dp, RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(10.dp))
+                .background(Brush.verticalGradient(
+                    listOf(Color(0xFFFF7196), WebRed, WebRedDark))),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(stringResource(R.string.coupon_live_empty), fontSize = 12.sp, color = WebSub)
+            Icon(Icons.Outlined.ReceiptLong, null, tint = Color.White,
+                modifier = Modifier.size(20.dp))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.coupon_section_title), color = WebInk,
+                fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(stringResource(R.string.coupon_live_empty), color = WebSub,
+                fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** A compact editorial banner using an actual published restaurant image. */
+@Composable
+private fun FoodBrandHeroBanner(store: FoodStore?) {
+    val cover = store?.menu?.firstOrNull { it.imagePath != null }?.imagePath ?: store?.coverPath
+    val shape = RoundedCornerShape(18.dp)
+    Box(
+        Modifier.fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+            .height(138.dp).shadow(3.dp, shape)
+            .clip(shape)
+            .background(Brush.horizontalGradient(
+                listOf(Color(0xFFFFDFE9), Color(0xFFFFAFC4), Color(0xFFED648C)))),
+    ) {
+        // Food imagery is drawn only when this restaurant image actually exists.
+        if (cover != null) {
+            WebImage(cover, "food-public", Modifier.align(Alignment.CenterEnd)
+                .width(190.dp).height(138.dp), contentScale = ContentScale.Crop)
+        } else {
+            Image(painter = painterResource(R.drawable.food_rider_hero), contentDescription = null,
+                modifier = Modifier.align(Alignment.BottomEnd).size(146.dp),
+                contentScale = ContentScale.Fit)
+        }
+        Box(Modifier.fillMaxSize().background(
+            Brush.horizontalGradient(
+                0f to Color(0xFFFFE8EF),
+                0.56f to Color(0xFFFFDDE8).copy(alpha = .98f),
+                0.80f to Color(0xFFFFDDE8).copy(alpha = .09f),
+                1f to Color.Transparent,
+            )))
+        Column(
+            Modifier.align(Alignment.CenterStart).fillMaxWidth(0.60f)
+                .padding(start = 17.dp, end = 5.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(stringResource(R.string.brand_hero_title), fontSize = 20.sp,
+                lineHeight = 25.sp, fontWeight = FontWeight.ExtraBold,
+                color = WebInk, maxLines = 2)
+            Text(stringResource(R.string.brand_hero_subtitle), fontSize = 12.sp,
+                lineHeight = 16.sp, color = WebInk, maxLines = 2)
         }
     }
 }
@@ -727,10 +679,10 @@ private fun FilterChipWeb(title: String, selected: Boolean, onClick: () -> Unit)
         shape = CircleShape,
         color = if (selected) WebRed else Color.White,
         border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDCDCE2)),
-        modifier = Modifier.height(40.dp).clickable(onClick = onClick),
+        modifier = Modifier.height(36.dp).clickable(onClick = onClick),
     ) {
-        Box(Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-            Text(title, fontSize = 14.sp, color = if (selected) Color.White else WebInk, fontWeight = FontWeight.SemiBold)
+        Box(Modifier.padding(horizontal = 13.dp), contentAlignment = Alignment.Center) {
+            Text(title, fontSize = 12.5.sp, color = if (selected) Color.White else WebInk, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -823,7 +775,7 @@ fun WebStoreScreen(
         .groupBy { it.category.ifBlank { fallbackMenuCategory } }
     LazyColumn(
         Modifier.fillMaxSize().background(Color.White),
-        contentPadding = PaddingValues(bottom = if (guest) 34.dp else 124.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
     ) {
         item {
             // CSS uses margin-top:-20px to overlap the cover. Negative

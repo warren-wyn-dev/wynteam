@@ -43,14 +43,19 @@ assert_native_window() {
     echo "WYNOS Food header not visible in Android accessibility window." >&2
     return 1
   fi
+  # The previous script pinned an obsolete hero sentence, causing false
+  # negatives after an approved Home redesign. Assert current localized search
+  # and real restaurant discovery content; do not bypass the content check.
   if [[ "$locale" == th-TH ]]; then
-    if ! grep -Fq 'เลือกอาหารที่อยากกินได้เลย' "$dump"; then
-      echo "Thai native guest-home content missing: ${width}px." >&2
+    if ! grep -Fq 'ค้นหาร้านหรือชื่ออาหาร' "$dump" || \
+       ! grep -Fq 'ร้านอาหารแนะนำ' "$dump"; then
+      echo "Thai native search/recommended content missing: ${width}px." >&2
       return 1
     fi
   else
-    if ! grep -Fq 'Find something delicious' "$dump"; then
-      echo "English native guest-home content missing: ${width}px." >&2
+    if ! grep -Fq 'Search restaurants or dishes' "$dump" || \
+       ! grep -Fq 'Recommended restaurants' "$dump"; then
+      echo "English native search/recommended content missing: ${width}px." >&2
       return 1
     fi
   fi

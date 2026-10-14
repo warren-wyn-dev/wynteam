@@ -235,4 +235,6 @@
     <string name="coupon_section_title">รวมโค้ดลดเพิ่ม</string>
     <string name="coupon_live_empty">โค้ดส่วนลดที่ยืนยันแล้วจะปรากฏที่นี่เมื่อพร้อมใช้งาน</string>
     <string name="sort_delivery_fee_lowest">ค่าส่งต่ำก่อน</string>
+    <string name="brand_hero_title">อร่อยง่าย\nทุกวัน</string>
+    <string name="brand_hero_subtitle">เลือกร้านและเมนูที่คุณชอบ</string>
 </resources>

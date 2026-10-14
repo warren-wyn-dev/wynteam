@@ -119,6 +119,16 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                 }
             }
         },
+        // Keep navigation within Scaffold so it cannot cover food cards or menu actions.
+        // The four original tabs remain available to signed-in customers.
+        bottomBar = {
+            if (!guest) {
+                WebBottomNavigation(
+                    tab = tab,
+                    onTab = { tab = it; selectedStoreId = null; initialHomeMenuId = null },
+                )
+            }
+        },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
@@ -172,15 +182,6 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onDeleteAddress = vm::deleteAddress,
                     onSelectAddress = vm::selectAddress,
                     onClearAddressStatus = vm::clearAddressMutationStatus,
-                )
-            }
-            // Match the website's floating navigation. The scroll containers
-            // reserve enough bottom space so important actions remain reachable.
-            if (!guest) {
-                WebBottomNavigation(
-                    tab = tab,
-                    onTab = { tab = it; selectedStoreId = null },
-                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
         }
