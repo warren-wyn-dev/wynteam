@@ -510,9 +510,16 @@ class MerchantApi(context: Context) {
 
     fun publishStore(storeId: String, publish: Boolean) {
         if (publish) {
-            val current = rpc("merchant_store_readiness",
-                JSONObject().put("p_store_id", filter(storeId))) as JSONObject
-            require(current.optBoolean("ready")) { "ร้านยังไม่ผ่านเกณฑ์ความพร้อมเผยแพร่" }
+            // One canonical readiness contract for the UI, client and DB publish trigger.
+            val current = readiness(storeId)
+            val missing = current.optJSONArray("missing")
+            require(current.optBoolean("ready")) {
+                val issues = (0 until (missing?.length() ?: 0)).joinToString(", ") {
+                    missing?.optString(it).orEmpty()
+                }
+                "ร้านยังไม่ผ่านเกณฑ์ความพร้อมเผยแพร่" +
+                    if (issues.isBlank()) "" else ": $issues"
+            }
         }
         updateStore(storeId, JSONObject().put("is_published", publish))
     }
