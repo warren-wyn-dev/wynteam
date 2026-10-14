@@ -48,6 +48,7 @@ interface FoodGateway {
     }
     suspend fun catalog(): List<FoodStore>
     suspend fun homeBanners(): List<FoodHomeBanner>
+    suspend fun storeReviews(storeId: String): FoodStoreReviewFeed = FoodStoreReviewFeed.EMPTY
     suspend fun accountEmail(): String?
     suspend fun orderHistory(): List<FoodOrderSummary>
     suspend fun orderDetail(orderId: String): FoodOrderDetail? = null
@@ -182,6 +183,22 @@ class SupabaseFoodGateway : FoodGateway {
         // Same public, admin-controlled homepage banners RPC used by web.
         val response = requireClient().postgrest.rpc("food_active_home_banners").decodeAs<JsonElement>()
         return FoodHomeBannerParser.parse(response)
+    }
+
+    override suspend fun storeReviews(storeId: String): FoodStoreReviewFeed {
+        require(runCatching { java.util.UUID.fromString(storeId) }.isSuccess) {
+            "invalid_store_id"
+        }
+        // Shared public web RPC returns buyer-masked reviewer labels and
+        // approved merchant replies only. No direct review-table reads.
+        val result = requireClient().postgrest.rpc(
+            "food_store_review_feed",
+            buildJsonObject {
+                put("p_store_id", storeId)
+                put("p_limit", 20)
+            },
+        ).decodeAs<JsonElement>()
+        return FoodStoreReviewsParser.parse(result)
     }
 
     override suspend fun accountEmail(): String? {
