@@ -30,7 +30,8 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Bell
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -345,7 +346,7 @@ fun WebPromotionInboxPage(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Outlined.ChevronRight,
+                    Icon(Icons.Outlined.ArrowBack,
                         contentDescription = stringResource(R.string.favorite_back),
                         tint = PrimaryInk)
                 }
@@ -511,7 +512,7 @@ fun WebAccountPage(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Icon(Icons.Outlined.Bell, null, tint = BrandRed)
+                    Icon(Icons.Outlined.Notifications, null, tint = BrandRed)
                     Text(stringResource(R.string.promo_inbox_title),
                         modifier = Modifier.weight(1f), color = PrimaryInk,
                         fontWeight = FontWeight.SemiBold)
