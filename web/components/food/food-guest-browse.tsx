@@ -336,7 +336,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
             <div className="fx-header-top">
               <div className="fx-brand">
                 <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
-                <span>WYNOS <b>Food</b></span>
+                <span className="fx-brand-stacked"><strong>WYNOS</strong><b>Food</b></span>
               </div>
               <Link href="/food/login" className="fx-btn fx-btn--outline fx-btn--sm">เข้าสู่ระบบ</Link>
             </div>
