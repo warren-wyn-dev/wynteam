@@ -1,6 +1,7 @@
 package io.wyn.wyn.feature.home
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -35,6 +37,11 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +50,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -91,15 +99,44 @@ data class HomeNavigation(
 /** web HomeScreen: header, For You / Following / My Clubs, quick compose and the feed. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 0, clubs: ClubFeedViewModel? = null) {
+fun HomeScreen(
+    vm: HomeViewModel,
+    nav: HomeNavigation,
+    notificationCount: Int = 0,
+    clubs: ClubFeedViewModel? = null,
+    onChromeVisible: (Boolean) -> Unit = {},
+) {
     val c = Wyn.colors
     val context = LocalContext.current
     fun share(row: FeedRow) = sharePost(context, vm, row)
+    // Web HomeHeader: hide header/tabs/dock on a deliberate down scroll,
+    // restore them after a short upward swipe or near the beginning of the feed.
+    val listState = rememberLazyListState()
+    val chromePolicy = remember(vm.mode) { HomeChromePolicy() }
+    var chromeVisible by remember(vm.mode) { mutableStateOf(true) }
+    val nearTopThreshold = with(LocalDensity.current) { 112.dp.roundToPx() }
+    LaunchedEffect(vm.mode) { onChromeVisible(true) }
+    LaunchedEffect(listState, vm.mode, nearTopThreshold) {
+        snapshotFlow {
+            Triple(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, listState.isScrollInProgress)
+        }.collect { (index, offset, scrolling) ->
+            val nextVisible = chromePolicy.update(index, offset, scrolling, nearTopThreshold)
+            if (nextVisible != chromeVisible) {
+                chromeVisible = nextVisible
+                onChromeVisible(nextVisible)
+            }
+        }
+    }
     // Entering "คลับของฉัน" always revalidates in the background (web home-screen).
     LaunchedEffect(vm.mode, clubs) { if (vm.mode == FeedMode.Clubs) clubs?.load() }
-    Column(Modifier.fillMaxSize().background(c.bg)) {
-        HomeHeader(notificationCount, nav)
-        HomeTabs(vm.mode, vm::select)
+    Box(Modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize().background(c.bg)) {
+        AnimatedVisibility(visible = chromeVisible) {
+            Column {
+                HomeHeader(notificationCount, nav)
+                HomeTabs(vm.mode, vm::select)
+            }
+        }
         val snapshot = vm.snapshot
         val clubMode = vm.mode == FeedMode.Clubs && clubs != null
         PullToRefreshBox(
@@ -107,7 +144,6 @@ fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 
             onRefresh = { if (clubMode) clubs!!.load(pull = true) else vm.refresh() },
             modifier = Modifier.weight(1f),
         ) {
-            val listState = rememberLazyListState()
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 if (vm.mode != FeedMode.Clubs) {
                     item(key = "compose") { QuickCompose(vm.identity?.avatarUrl, nav.onCompose) }
@@ -132,6 +168,20 @@ fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 
                 }
             }
         }
+      }
+      if (!chromeVisible) {
+          // The Web's 56px Home post FAB replaces the hidden five-tab dock.
+          val label = stringResource(R.string.nav_post)
+          Box(
+              Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp)
+                  .size(56.dp).clip(CircleShape).background(Color(0xFF111214))
+                  .clickable(role = Role.Button, onClickLabel = label, onClick = nav.onCompose)
+                  .semantics { contentDescription = label },
+              contentAlignment = Alignment.Center,
+          ) {
+              Icon(WynIcons.NavAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+          }
+      }
     }
     FeedOverlays(vm, nav, ::share, vm.identity?.avatarUrl, vm.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: vm.identity?.username)
     if (vm.mode == FeedMode.Clubs && clubs != null) {
