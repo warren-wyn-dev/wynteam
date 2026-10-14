@@ -171,6 +171,20 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
                 MerchantPage.ADS, MerchantPage.NOTIFICATIONS, MerchantPage.STAFF)) loadExtras(page)
     }
 
+    fun loadMoreOrders() {
+        val storeId = state.store?.optString("id") ?: return
+        if (!state.hasMoreOrders || state.busy) return
+        execute {
+            val rows = api.orders(storeId, state.orders.size).asObjects()
+            val known = state.orders.map { it.optString("id") }.toHashSet()
+            val fresh = rows.take(100).filter { known.add(it.optString("id")) }
+            state = state.copy(
+                orders = state.orders + fresh,
+                hasMoreOrders = rows.size > 100
+            )
+        }
+    }
+
     fun orderFilter(filter: String) {
         if (filter in setOf("new", "cooking", "delivery", "done"))
             state = state.copy(orderFilter = filter)
