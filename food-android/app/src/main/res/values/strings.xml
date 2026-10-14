@@ -100,6 +100,12 @@
     <string name="addresses_not_yet_available">การจัดการที่อยู่บน Android อยู่ระหว่างพัฒนา</string>
     <string name="order_history_link">ประวัติการสั่งอาหาร</string>
     <string name="readonly_order_notice">ดูได้อย่างเดียวใน Android Beta</string>
+    <string name="account_signup_action">สมัครบัญชี WYNOS</string>
+    <string name="account_signup_note">ใช้บัญชี WYNOS ร่วมกับทุกบริการ</string>
+    <string name="account_password_confirm">ยืนยันรหัสผ่าน</string>
+    <string name="account_signup_password_rule">รหัสผ่านอย่างน้อย 8 ตัวอักษร และต้องตรงกัน</string>
+    <string name="account_signup_email_sent">หากสมัครสำเร็จ โปรดตรวจอีเมลเพื่อยืนยันบัญชี ก่อนเข้าสู่ระบบ</string>
+    <string name="account_back_to_signin">มีบัญชีแล้ว? เข้าสู่ระบบ</string>
     <string name="account_signup_pending">การสมัครสมาชิกบน Android อยู่ระหว่างพัฒนา</string>
     <string name="store_meta_guest">%1$d เมนู · ค่าส่งเริ่มต้น ฿%2$s</string>
     <string name="required_option">ต้องเลือก</string>
