@@ -486,12 +486,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                 mutableState.update {
                     it.copy(stagingOrderBusy = false, stagingOrderCreatedId = id)
                 }
-                // The cart/quote may have changed while submitting. Never
-                // assume an old quote is still valid; leave it for manual review.
-                if (quoteRevision == quoteGeneration && mutableState.value.cart == draft) {
-                    invalidateQuote()
-                    mutableState.update { it.copy(cart = FoodCartDraft()) }
-                }
+                // Keep the review visible with its staging order ID. No retries.
+                // Cart editing invalidates the quote normally; this is not payment.
                 refreshOrders()
             } catch (cancel: CancellationException) {
                 throw cancel
