@@ -55,8 +55,8 @@
     <string name="guest_location">ให้บริการในพื้นที่มหาสารคาม</string>
     <string name="guest_hero_title">เลือกอาหารที่อยากกินได้เลย</string>
     <string name="guest_hero_note">ดูร้านและเมนูได้ทันที ไม่ต้องล็อกอินหรือเปิด GPS ตรวจสอบพื้นที่จัดส่งเมื่อสั่งซื้อจริง</string>
-    <string name="public_stores">ร้านอาหารที่เปิดเผยแพร่</string>
-    <string name="recommended_stores">ร้านแนะนำ</string>
+    <string name="public_stores">ร้านอาหารทั้งหมด</string>
+    <string name="recommended_stores">ร้านอาหารแนะนำ</string>
     <string name="store_menu_count">%1$d เมนู</string>
     <string name="store_delivery">ค่าส่ง %1$s</string>
     <string name="public_store_closed">ปิดอยู่</string>
