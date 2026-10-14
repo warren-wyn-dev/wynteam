@@ -855,7 +855,7 @@ function StoreDirectory({
               <FoodFeaturedHome
                 feature={featuredModel}
                 onStore={() => onPick(featuredStore, "home")}
-                onMenu={() => onPick(featuredStore, "home")}
+                onMenu={(itemId) => onFeaturedDish(featuredStore, itemId)}
               />
             </section>
           ) : null}
@@ -1197,6 +1197,7 @@ function HomePanel({
   menu,
   onItem,
   onPickStore,
+  onFeaturedDish,
   onShareStore,
   onBackStorefront,
   storefrontOpen,
@@ -1210,6 +1211,7 @@ function HomePanel({
   menu: FoodCustomerMenuItem[];
   onItem: (item: FoodCustomerMenuItem) => void;
   onPickStore: (store: FoodDirectoryStore, placement: "home" | "search") => void;
+  onFeaturedDish: (store: FoodDirectoryStore, itemId: string) => void;
   onShareStore: () => void;
   onBackStorefront: () => void;
   storefrontOpen: boolean;
@@ -3442,9 +3444,13 @@ function FoodCustomerInner({
   };
 
   // WYN-201: pull down to refresh the store, menu and orders.
-  const pickStore = (next: FoodDirectoryStore, placement: "home" | "search") => {
+  const pickStore = (next: FoodDirectoryStore, placement: "home" | "search", requestedItemId?: string) => {
     if (next.is_ad) void recordFoodAdClick(client, next.id, placement).catch(() => undefined);
     if (next.id === store?.id) {
+      if (requestedItemId) {
+        const item = menu.find((entry) => entry.id === requestedItemId);
+        if (item) setSelectedItem(item);
+      }
       setStorefrontOpen(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -3455,7 +3461,13 @@ function FoodCustomerInner({
     try { localStorage.setItem(storeKey, next.id); } catch { /* private mode */ }
     window.scrollTo({ top: 0, behavior: "smooth" });
     void load(true).then((nextSnapshot) => {
-      if (nextSnapshot?.store?.id === next.id) setStorefrontOpen(true);
+      if (nextSnapshot?.store?.id === next.id) {
+        setStorefrontOpen(true);
+        if (requestedItemId) {
+          const item = nextSnapshot.menu.find((entry) => entry.id === requestedItemId);
+          if (item) setSelectedItem(item);
+        }
+      }
     });
   };
   const shareStore = () => {
@@ -3535,6 +3547,7 @@ function FoodCustomerInner({
             menu={menu}
             onItem={setSelectedItem}
             onPickStore={pickStore}
+            onFeaturedDish={(target, itemId) => pickStore(target, "home", itemId)}
             onShareStore={shareStore}
             onBackStorefront={() => {
               setStorefrontOpen(false);
