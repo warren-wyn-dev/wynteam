@@ -1,6 +1,7 @@
 package online.wynos.merchant
 
 import androidx.compose.foundation.layout.*
+import android.net.Uri
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -64,6 +65,8 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
         ))
     }
     var validation by remember(store) { mutableStateOf("") }
+    var logoUri by remember(store) { mutableStateOf<Uri?>(null) }
+    var coverUri by remember(store) { mutableStateOf<Uri?>(null) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("ตั้งค่าร้านค้า", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
@@ -98,6 +101,27 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
                 )
             }
             Spacer(Modifier.height(12.dp))
+        }
+        Text("รูปภาพร้านค้า", style = MaterialTheme.typography.titleMedium)
+        MerchantImagePicker("โลโก้ร้าน", logoUri, store.optString("logo_path"), !s.busy,
+            onSelect = { logoUri = it })
+        Row {
+            Button(enabled = logoUri != null && !s.busy, onClick = {
+                vm.saveStoreImage("logo", logoUri); logoUri = null
+            }) { Text("บันทึกโลโก้") }
+            TextButton(enabled = !s.busy && store.optString("logo_path").isNotBlank(), onClick = {
+                vm.saveStoreImage("logo", null)
+            }) { Text("ลบโลโก้") }
+        }
+        MerchantImagePicker("รูปปกร้าน", coverUri, store.optString("cover_path"), !s.busy,
+            onSelect = { coverUri = it })
+        Row {
+            Button(enabled = coverUri != null && !s.busy, onClick = {
+                vm.saveStoreImage("cover", coverUri); coverUri = null
+            }) { Text("บันทึกรูปปก") }
+            TextButton(enabled = !s.busy && store.optString("cover_path").isNotBlank(), onClick = {
+                vm.saveStoreImage("cover", null)
+            }) { Text("ลบรูปปก") }
         }
         fieldGroup("ข้อมูลร้านและเวลาเตรียม", details)
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
