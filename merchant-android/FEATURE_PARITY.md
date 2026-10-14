@@ -9,7 +9,7 @@ Legend: **Partial** = a code path exists but production QA and/or feature subflo
 | Merchant login and active account gate | Partial | Password-recovery email request added to native UI; reset-link completion, sign-up, deep-link confirmation and full auth E2E still missing |
 | Store switcher, session persistence | Partial | Android resilience, credentials QA |
 | Home readiness, sales, shortcuts | Partial | Publish checklist, maps/warnings and all shortcuts |
-| New / preparing / delivery / finished (24h) | Partial | ETA and delivery photo flow coded; paging, Realtime, alerts and device QA still missing |
+| New / preparing / delivery / finished (24h) | Partial | ETA, delivery photo and paging coded; foreground lifecycle-aware 30-second read-only polling added, but true Realtime/FCM live delivery/device QA still missing |
 | Payment slip and verification | Partial | Signed private image preview + human confirmation and issue/paid RPC coded; needs authenticated device/RLS security QA |
 | Delivered confirmation with dropoff photo | Partial | Image picker, preview, EXIF-stripping JPEG upload and completion RPC coded; needs on-device/storage RLS testing and retries |
 | Order history, filters/search/paging | Partial | Search, date/status filters and 30-row paging coded; needs E2E validation |
