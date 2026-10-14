@@ -85,6 +85,7 @@ private val TabGrey = Color(0xFF757A84)
 /** Actions the Home screen hands to screens that arrive in later milestones. */
 data class HomeNavigation(
     val onCompose: () -> Unit = {},
+    val onComposePrompt: (String) -> Unit = {},
     val onOpenPost: (FeedRow) -> Unit = {},
     val onOpenProfile: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
@@ -146,7 +147,7 @@ fun HomeScreen(
         ) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 if (vm.mode != FeedMode.Clubs) {
-                    item(key = "compose") { QuickCompose(vm.identity?.avatarUrl, nav.onCompose) }
+                    item(key = "compose") { QuickCompose(vm.identity, nav.onCompose, nav.onComposePrompt) }
                 }
                 when {
                     vm.mode == FeedMode.Clubs -> if (clubs != null) clubRows(clubs, nav)
@@ -367,19 +368,89 @@ private fun HomeTabs(mode: FeedMode, onSelect: (FeedMode) -> Unit) {
     }
 }
 
+/**
+ * HomeQuickCompose from the Web: unpublished users see their first-post
+ * suggestions, returning users see the local-day rotating prompt.
+ * Prompt taps open the one existing Native composer, never a separate post path.
+ */
 @Composable
-private fun QuickCompose(avatarUrl: String?, onCompose: () -> Unit) {
+private fun QuickCompose(
+    identity: io.wyn.wyn.core.data.HomeIdentity?,
+    onCompose: () -> Unit,
+    onPrompt: (String) -> Unit,
+) {
     val c = Wyn.colors
-    val prompt = stringResource(R.string.quick_compose)
-    Column {
+    val english = rememberEnglish()
+    if (identity?.hasPublishedPost == false) {
+        Column(
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp)
+                .clip(RoundedCornerShape(20.dp)).border(1.dp, c.border, RoundedCornerShape(20.dp))
+                .background(c.bg).padding(14.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WynAvatar(identity.avatarUrl, 42)
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (english) "Create your first post ✨" else "เริ่มโพสต์แรกของคุณ ✨",
+                        color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        if (english) "Keep it simple—pick a prompt and start writing."
+                        else "ไม่ต้องคิดเยอะ เลือกหัวข้อหนึ่งแล้วเริ่มเขียนได้เลย",
+                        color = c.textSecondary, fontSize = 12.sp,
+                    )
+                }
+            }
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            ) {
+                items(PostingPrompts.first, key = { it.key }) { item ->
+                    Box(
+                        Modifier.clip(RoundedCornerShape(999.dp))
+                            .background(c.surface).border(1.dp, c.border, RoundedCornerShape(999.dp))
+                            .clickable(role = Role.Button) { onPrompt(item.key) }
+                            .padding(horizontal = 11.dp, vertical = 8.dp),
+                    ) {
+                        Text(item.localized(english), color = c.text, fontSize = 12.sp, maxLines = 1)
+                    }
+                }
+            }
+            Box(
+                Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 40.dp)
+                    .clip(RoundedCornerShape(999.dp)).background(c.text)
+                    .clickable(role = Role.Button, onClick = { onPrompt("first-intro") }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (english) "Create first post" else "สร้างโพสต์แรก",
+                    color = c.bg, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+    } else {
+        val prompt = PostingPrompts.forDay()
+        val actionLabel = if (english) "Create post" else "สร้างโพสต์"
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().height(58.dp).clickable(onClickLabel = prompt, onClick = onCompose).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp)
+                .clickable(role = Role.Button, onClickLabel = actionLabel) {
+                    // Older/uncertain profile state still opens a normal composer.
+                    if (identity?.hasPublishedPost == true) onPrompt(prompt.key) else onCompose()
+                }.padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            WynAvatar(avatarUrl, 36)
+            WynAvatar(identity?.avatarUrl, 38)
             Spacer(Modifier.width(12.dp))
-            Text(prompt, color = c.textSecondary, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
-            Icon(WynIcons.Image, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(22.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    if (english) "Today's prompt" else "หัวข้อวันนี้",
+                    color = c.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                )
+                Text(prompt.localized(english), color = c.text, fontSize = 15.sp, maxLines = 2)
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(WynIcons.Pencil, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(22.dp))
         }
         HorizontalDivider(color = c.border, thickness = 1.dp)
     }
