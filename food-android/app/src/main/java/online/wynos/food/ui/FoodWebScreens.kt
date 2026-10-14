@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -195,16 +196,21 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit) {
         Triple(2, R.string.messages, Icons.Outlined.ChatBubbleOutline),
         Triple(3, R.string.account, Icons.Outlined.PersonOutline),
     )
-    Box(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 12.dp, vertical = 8.dp)) {
+    Box(
+        Modifier.fillMaxWidth().background(Color.White)
+            .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 7.dp),
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().shadow(12.dp, RoundedCornerShape(30.dp))
+            modifier = Modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(30.dp))
                 .clip(RoundedCornerShape(30.dp)).background(Color.White)
-                .padding(horizontal = 6.dp, vertical = 4.dp).height(56.dp),
+                .padding(horizontal = 6.dp, vertical = 4.dp).heightIn(min = 62.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             items.forEach { (id, label, image) ->
                 val selected = tab == id
                 Column(
-                    modifier = Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(28.dp)).clickable { onTab(id) },
+                    modifier = Modifier.weight(1f).heightIn(min = 62.dp)
+                        .clip(RoundedCornerShape(28.dp)).clickable { onTab(id) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -213,12 +219,14 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit) {
                             .clip(CircleShape).background(if (selected) WebRedSoft else Color.Transparent),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(image, null, tint = if (selected) WebRed else WebMuted, modifier = Modifier.size(22.dp))
+                        Icon(image, null, tint = if (selected) WebRed else WebMuted, modifier = Modifier.size(23.dp))
                     }
                     Text(
                         stringResource(label),
                         color = if (selected) WebRed else WebMuted,
-                        fontSize = 10.5.sp,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     )
                 }
