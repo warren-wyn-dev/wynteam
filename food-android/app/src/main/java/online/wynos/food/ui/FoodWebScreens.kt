@@ -98,7 +98,12 @@ private val WebLine = Color(0xFFEBEBEF)
 private val WebGreen = Color(0xFF1F8A4C)
 
 @Composable
-private fun WebImage(path: String?, bucket: String, modifier: Modifier = Modifier) {
+private fun WebImage(
+    path: String?,
+    bucket: String,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+) {
     val url = FoodPublicMedia.url(bucket, path)
     Box(modifier.background(WebSurface), contentAlignment = Alignment.Center) {
         if (url == null) {
@@ -107,7 +112,7 @@ private fun WebImage(path: String?, bucket: String, modifier: Modifier = Modifie
             AsyncImage(
                 model = url,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = contentScale,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -237,11 +242,16 @@ fun WebHomeScreen(
             store.menu.any { it.name.contains(query.trim(), ignoreCase = true) }) &&
             (filter != "open" || store.isOpen)
     }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Color.White),
-        contentPadding = PaddingValues(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp),
-    ) {
+    // Use the actual composable width rather than assuming two columns on
+    // every screen. With only one published store, the old 2-column grid
+    // squeezed its photo into the left half and left the right half blank.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val homeGridColumns = if (maxWidth < 600.dp) 1 else 2
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().background(Color.White),
+            contentPadding = PaddingValues(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+        ) {
         if (guest) {
             item {
                 Column(
@@ -330,28 +340,34 @@ fun WebHomeScreen(
             }
             filtered.isEmpty() -> item { CenterStateText(R.string.no_stores) }
             else -> {
-                item { SectionTitleWeb(stringResource(if (guest) R.string.public_stores else R.string.recommended_stores), topSpacing = if (guest) 10 else 21) }
-                items(filtered.chunked(2), key = { row -> row.first().id }) { row ->
+                // This is one public catalog, not two independently curated
+                // collections. Previously every signed-in user saw every
+                // restaurant twice under "recommended" and "public".
+                item {
+                    SectionTitleWeb(
+                        stringResource(R.string.public_stores),
+                        topSpacing = if (guest) 10 else 21,
+                    )
+                }
+                items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         row.forEach { store ->
-                            StoreCardWeb(store, Modifier.weight(1f), showRating = !guest, onClick = { onStore(store.id) })
+                            StoreCardWeb(
+                                store, Modifier.weight(1f),
+                                showRating = !guest,
+                                onClick = { onStore(store.id) },
+                            )
                         }
-                        if (row.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                }
-                if (!guest) {
-                    item { SectionTitleWeb(stringResource(R.string.public_stores)) }
-                    items(filtered.chunked(2), key = { row -> "all_" + row.first().id }) { row ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            row.forEach { store -> StoreCardWeb(store, Modifier.weight(1f), showRating = true, onClick = { onStore(store.id) }) }
-                            if (row.size == 1) Spacer(Modifier.weight(1f))
+                        if (row.size < homeGridColumns) {
+                            Spacer(Modifier.weight(1f))
                         }
                     }
                 }
             }
+        }
         }
     }
 }
@@ -426,7 +442,12 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boole
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp))) {
-            WebImage(store.coverPath, "food-public", Modifier.fillMaxSize())
+            // Store artwork can include text near its edges. Contain it
+            // rather than trimming labels/watermarks with ContentScale.Crop.
+            WebImage(
+                store.coverPath, "food-public", Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+            )
             if (!store.isOpen) {
                 Box(
                     Modifier.align(Alignment.TopEnd).padding(8.dp).clip(CircleShape)
