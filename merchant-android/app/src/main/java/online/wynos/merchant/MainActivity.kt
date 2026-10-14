@@ -250,7 +250,7 @@ private fun OrdersScreen(s: MerchantState, vm: MerchantViewModel) {
             }
         }
         val orders = s.orders.filter { filterOrder(it, s.orderFilter) }
-        if (s.hasMoreOrders) Text("กำลังแสดงออเดอร์ล่าสุด 100 รายการ", color = Grey)
+        if (s.hasMoreOrders) Text("มีออเดอร์เก่ากว่านี้ กดโหลดเพิ่มด้านล่าง", color = Grey)
         if (orders.isEmpty()) Text("ยังไม่มีออเดอร์ในหมวดนี้", Modifier.padding(16.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(orders, key = { it.text("id") }) { item ->
@@ -261,6 +261,10 @@ private fun OrdersScreen(s: MerchantState, vm: MerchantViewModel) {
                         Text(money(item.amount("total")), color = Red)
                     }
                 }
+            }
+            if (s.hasMoreOrders) item {
+                OutlinedButton(onClick = vm::loadMoreOrders, enabled = !s.busy,
+                    modifier = Modifier.fillMaxWidth()) { Text("โหลดออเดอร์เก่ากว่านี้") }
             }
         }
     }
