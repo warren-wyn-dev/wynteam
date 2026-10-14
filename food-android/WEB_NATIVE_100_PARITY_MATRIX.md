@@ -26,7 +26,7 @@ Staging means disposable test backend only, never customer enabled.
 | Restaurant hours, ETA, location and menus | Partial | Real hours/range/stock/category metadata |
 | Popular menu, search and recent queries | Partial | Correct stock, recent search and category UX |
 | Favorite stores and share links | Missing | Native persisted favorites and Android deep links |
-| Store reviews, ratings and merchant replies | Missing (tab is placeholder) | RLS-backed review feed with ratings/replies |
+| Store reviews, ratings and merchant replies | Phase 1 added read-only web RPC feed; submission missing | Buyer-masked RLS feed, exact rating/replies and verified-only review write |
 | Menu addons/options, quantity and notes | Partial | Required options, stock limit and prices |
 | Guest basket + remembered authenticated cart | Partial (session memory) | Process-death persistence, safe guest transfer |
 | Cart totals/discounts/minimum and availability | Partial | Exact server quote, refusal rules |
@@ -72,7 +72,7 @@ signing/policies and explicit production approval.
 
 ## Workstreams and deliverable order
 
-1. Phase 1: web layout grids, address header, regression tests.
+1. Phase 1: web layout grids, address header, read-only review feed, regression tests.
 2. Discovery and store UI: promos, real featured/near/popular, ratings,
    favorites, shares, category/menu search and stock indicators.
 3. Basket/account: local per-account cart and guest transfer, saved address
