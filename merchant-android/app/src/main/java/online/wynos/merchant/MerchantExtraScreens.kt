@@ -1,5 +1,10 @@
 package online.wynos.merchant
 
+import android.Manifest
+import android.os.Build
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -248,14 +253,45 @@ private fun PlatformCampaignNative(s: MerchantState, vm: MerchantViewModel) {
 
 @Composable
 private fun NotificationsNative(s: MerchantState, vm: MerchantViewModel) {
+    val context = LocalContext.current
+    var permissionError by remember { mutableStateOf("") }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) vm.enablePush()
+        else permissionError = "ต้องอนุญาตการแจ้งเตือนในการตั้งค่า Android ก่อนใช้งาน Push"
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         ToolTitle("ศูนย์การแจ้งเตือน", { vm.loadExtras(MerchantPage.NOTIFICATIONS) }, s.busy)
+        DetailCard {
+            Text("แจ้งเตือนเมื่อปิดแอป (Android Push)", fontWeight = FontWeight.Bold)
+            Text(if (s.pushEnabled) "เปิดรับ Push บนอุปกรณ์นี้แล้ว"
+                else if (!MerchantPush.configured) "Firebase Android ยังไม่ได้ตั้งค่า จึงยังเปิด Push ไม่ได้"
+                else "ยังไม่ได้เปิดรับ Push บนอุปกรณ์นี้",
+                style = MaterialTheme.typography.bodySmall)
+            if (MerchantPush.configured) {
+                Button(onClick = {
+                    permissionError = ""
+                    if (s.pushEnabled) vm.disablePush()
+                    else if (Build.VERSION.SDK_INT >= 33 &&
+                        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                        PackageManager.PERMISSION_GRANTED) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else vm.enablePush()
+                }, enabled = !s.busy) {
+                    Text(if (s.pushEnabled) "ปิด Push บนอุปกรณ์นี้" else "เปิดแจ้งเตือน Android")
+                }
+            }
+            if (permissionError.isNotBlank()) Text(permissionError,
+                color = MaterialTheme.colorScheme.error)
+            Text("เมื่อเปิดใช้งาน จะผูกอุปกรณ์กับบัญชี WYNOS ปัจจุบันเท่านั้น",
+                style = MaterialTheme.typography.bodySmall)
+        }
         Row {
             OutlinedButton(onClick = vm::markAllNotificationsRead, enabled = !s.busy) { Text("อ่านทั้งหมด") }
             Spacer(Modifier.width(6.dp))
             TextButton(onClick = vm::sendTestNotification, enabled = !s.busy) { Text("ทดสอบแจ้งเตือน") }
         }
-        Text("รายการแจ้งเตือนในแอป · การส่ง Push ขณะปิดแอปยังต้องใช้ FCM",
+        Text("รายการแจ้งเตือนในแอป · Push ต้องเปิดสิทธิ์และตั้งค่า Firebase ก่อน",
             style = MaterialTheme.typography.bodySmall)
         if (s.notifications.isEmpty()) Text("ไม่มีการแจ้งเตือน")
         s.notifications.forEach { notice ->
