@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -142,7 +143,13 @@ fun ProfileScreen(vm: ProfileViewModel, nav: ProfileNavigation, accounts: Accoun
             else -> PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = vm::refreshAll, modifier = Modifier.fillMaxSize()) {
                 LazyColumn(Modifier.fillMaxSize()) {
                     item(key = "hero") {
-                        Hero(summary, vm.own, nav.onBack, onMore = { vm.openProfileSheet(ProfileSheet.Menu) })
+                        Hero(
+                            summary, vm.own, nav.onBack,
+                            onMore = {
+                                if (vm.own) nav.onSettings()
+                                else vm.openProfileSheet(ProfileSheet.Menu)
+                            },
+                        )
                     }
                     item(key = "header") { Header(vm, summary, nav, ::shareProfile) }
                     if (!vm.own && !summary.blockedBy && vm.suggestions.isNotEmpty()) {
@@ -197,7 +204,11 @@ private fun ProfileTopBar(onBack: (() -> Unit)?, onMore: (() -> Unit)?, own: Boo
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         if (onBack != null) TopButton(WynIcons.Back, stringResource(R.string.back), 25, onBack) else Spacer(Modifier.size(42.dp))
-        if (onMore != null) TopButton(WynIcons.More, stringResource(if (own) R.string.profile_my_options else R.string.profile_more), 26, onMore)
+        if (onMore != null) TopButton(
+            if (own) WynIcons.Settings else WynIcons.More,
+            stringResource(if (own) R.string.settings else R.string.profile_more),
+            if (own) 24 else 26, onMore,
+        )
     }
 }
 
@@ -214,7 +225,9 @@ private fun TopButton(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 @Composable
 private fun Hero(summary: ProfileSummary, own: Boolean, onBack: (() -> Unit)?, onMore: () -> Unit) {
     val cover = summary.profile.coverUrl?.let(ExternalUrl::normalize)
-    // The cover runs under the status bar; its 156dp start below it (none inside the tab shell).
+    // web/app/profile-web-beta1.css: clamp(150px, 38vw, 210px).
+    val coverHeight = (LocalConfiguration.current.screenWidthDp * 0.38f).coerceIn(150f, 210f).dp
+    // Keep Android's native status-bar insets while matching the Web cover proportions.
     Box(Modifier.fillMaxWidth().clipToBounds()) {
         Box(Modifier.matchParentSize()) {
             if (cover != null) {
@@ -223,7 +236,7 @@ private fun Hero(summary: ProfileSummary, own: Boolean, onBack: (() -> Unit)?, o
                 DefaultCover()
             }
         }
-        Spacer(Modifier.statusBarsPadding().height(148.dp))
+        Spacer(Modifier.statusBarsPadding().height(coverHeight))
         ProfileTopBar(onBack, onMore, own)
     }
 }
@@ -286,29 +299,32 @@ private fun Header(vm: ProfileViewModel, summary: ProfileSummary, nav: ProfileNa
     val c = Wyn.colors
     val context = LocalContext.current
     val profile = summary.profile
-    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 4.dp)) {
-        Row(Modifier.heightIn(min = 62.dp), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+    val narrow = LocalConfiguration.current.screenWidthDp <= 380
+    val avatarSize = if (narrow) 76 else 90
+    val lift = if (narrow) 29.dp else 34.dp
+    Column(Modifier.fillMaxWidth().padding(start = if (narrow) 12.dp else 16.dp, end = if (narrow) 12.dp else 16.dp, bottom = 4.dp)) {
+        Row(Modifier.heightIn(min = 62.dp), horizontalArrangement = Arrangement.spacedBy(if (narrow) 8.dp else 11.dp)) {
             Box(
                 Modifier
                     .layout { measurable, constraints ->
-                        val lift = 30.dp.roundToPx()
+                        val liftPx = lift.roundToPx()
                         val placeable = measurable.measure(constraints)
-                        layout(placeable.width, placeable.height - lift) { placeable.place(0, -lift) }
+                        layout(placeable.width, placeable.height - liftPx) { placeable.place(0, -liftPx) }
                     }
-                    .size(88.dp).clip(CircleShape).background(c.bg).padding(3.dp),
+                    .size((avatarSize + 6).dp).clip(CircleShape).background(c.bg).padding(3.dp),
             ) {
-                WynAvatar(profile.avatarUrl, 82, contentDescription = stringResource(R.string.profile_photo_of, profile.username))
+                WynAvatar(profile.avatarUrl, avatarSize, contentDescription = stringResource(R.string.profile_photo_of, profile.username))
             }
-            Column(Modifier.weight(1f).padding(top = 12.dp)) {
+            Column(Modifier.weight(1f).padding(top = 15.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        profile.label, color = c.text, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.ExtraBold,
+                        profile.label, color = c.text, fontSize = if (narrow) 15.sp else 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.ExtraBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                     )
                     if (profile.isVerified) VerifiedBadge(16, label = stringResource(R.string.verified))
                 }
                 Text(
-                    "@${profile.username}", color = HandleGrey, fontSize = 14.sp, lineHeight = 18.sp,
+                    "@${profile.username}", color = HandleGrey, fontSize = if (narrow) 12.5.sp else 14.sp, lineHeight = 18.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp),
                 )
             }
@@ -321,7 +337,7 @@ private fun Header(vm: ProfileViewModel, summary: ProfileSummary, nav: ProfileNa
         }
         Column(Modifier.padding(top = 8.dp)) {
             profile.bio?.takeIf { it.isNotBlank() }?.let { bio ->
-                RichText(bio, compact = false, onTag = nav.onTag, style = TextStyle(fontSize = 15.sp, lineHeight = 21.sp))
+                RichText(bio, compact = false, onTag = nav.onTag, style = TextStyle(fontSize = 16.sp, lineHeight = 22.4.sp))
             }
             profile.website?.let(ExternalUrl::normalize)?.let { site ->
                 Row(
@@ -332,7 +348,7 @@ private fun Header(vm: ProfileViewModel, summary: ProfileSummary, nav: ProfileNa
                 ) {
                     Icon(WynIcons.Link, contentDescription = null, tint = WebsiteBlue, modifier = Modifier.size(19.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(ExternalUrl.label(site), color = WebsiteBlue, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(ExternalUrl.label(site), color = WebsiteBlue, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (!summary.blockedBy) {
