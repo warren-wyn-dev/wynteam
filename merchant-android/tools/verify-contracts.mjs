@@ -73,7 +73,7 @@ assert.match(api, /KeyProperties\.KEY_ALGORITHM_AES/);
 // Native merchant features added after the first QA pass.
 assert.match(ui, /onReset = vm::requestPasswordReset/);
 assert.match(ui, /"ลืมรหัสผ่าน\?/);
-assert.match(api, /"\/auth\/v1\/recover"/);
+assert.match(api, /"\/auth\/v1\/recover\?redirect_to="/);
 assert.match(storeSettings, /MerchantLocationsEditor\(s, vm\)/);
 assert.match(locations, /fun MerchantLocationsEditor/);
 assert.match(api, /fun storePlaces\(storeId: String\)/);
