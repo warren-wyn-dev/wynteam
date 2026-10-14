@@ -456,11 +456,12 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun saveStoreImage(kind: String, uri: Uri?) {
-        if (kind !in setOf("logo", "cover")) return
+        if (kind !in setOf("logo", "cover", "payment")) return
         val id = state.store?.optString("id") ?: return
         execute("อัปเดตรูปร้านแล้ว") {
-            val path = if (uri == null) JSONObject.NULL else api.uploadStoreImage(id, uri)
-            api.updateStore(id, JSONObject().put(kind + "_path", path))
+            val path = if (uri == null) JSONObject.NULL else api.uploadStoreImage(id, kind, uri)
+            val field = if (kind == "payment") "payment_qr_path" else kind + "_path"
+            api.updateStore(id, JSONObject().put(field, path))
             loadSnapshot()
         }
     }
