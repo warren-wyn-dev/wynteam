@@ -28,7 +28,7 @@ Legend: **Partial** = a code path exists but production QA and/or feature subflo
 | Customer feedback | Missing | Data, moderation/view and actions |
 | Notifications / Push / sound / quiet hours | Missing | FCM registration, backend token mapping, settings and deep links |
 | Help and customer support | Missing | Native help UI/contact actions |
-| Receipt and shipping-label printing | Missing | Android Print Framework and device-printer QA |
+| Receipt and shipping-label printing | Partial | Native Android Print Framework generates receipt/address PDF; multi-page output, map QR and device-printer QA outstanding |
 | Merchant staff/permissions | Missing | Match any web-accessible permission tools |
 | Multilingual experience | Missing | Mirror currently supported web locales |
 
