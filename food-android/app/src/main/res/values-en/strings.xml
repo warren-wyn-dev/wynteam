@@ -240,4 +240,10 @@
     <string name="clear_search">Clear search</string>
     <string name="filters_title">Restaurant filters</string>
     <string name="browse_restaurants">Browse restaurants</string>
+    <string name="favorite_stores">Favorite restaurants</string>
+    <string name="favorite_empty">No favorite restaurants yet. Tap the heart on a restaurant to save it.</string>
+    <string name="favorite_local_only">Favorites are saved on this device for the signed-in account. They do not sync between devices.</string>
+    <string name="favorite_toggle_add">Save favorite restaurant</string>
+    <string name="favorite_toggle_remove">Remove favorite restaurant</string>
+    <string name="favorite_back">Back</string>
 </resources>
