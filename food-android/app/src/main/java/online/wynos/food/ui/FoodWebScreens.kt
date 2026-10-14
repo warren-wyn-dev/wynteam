@@ -512,12 +512,13 @@ fun WebStoreScreen(
     var selectedMenu by remember(store.id) { mutableStateOf<FoodMenu?>(null) }
     var showCart by remember(store.id) { mutableStateOf(false) }
     var storeTab by rememberSaveable(store.id) { mutableIntStateOf(0) }
-    var category by rememberSaveable(store.id) { mutableStateOf("ทั้งหมด") }
-    val categories = listOf("ทั้งหมด") + store.menu.map { it.category }.filter { it.isNotBlank() }.distinct()
+    var category by rememberSaveable(store.id) { mutableStateOf("") }
+    val categories = listOf("") + store.menu.map { it.category }.filter { it.isNotBlank() }.distinct()
     val available = store.menu.filter { it.isAvailable() }
+    val fallbackMenuCategory = stringResource(R.string.store_tab_menu)
     val groupedMenus = store.menu
-        .filter { category == "ทั้งหมด" || category == it.category }
-        .groupBy { if (it.category.isBlank()) "เมนูอาหาร" else it.category }
+        .filter { category.isEmpty() || category == it.category }
+        .groupBy { it.category.ifBlank { fallbackMenuCategory } }
     LazyColumn(
         Modifier.fillMaxSize().background(Color.White),
         contentPadding = PaddingValues(bottom = 34.dp),
@@ -526,8 +527,8 @@ fun WebStoreScreen(
             // CSS uses margin-top:-20px to overlap the cover. Negative
             // spacing overlaps in layout as well, avoiding a blank 20dp gap.
             Column(verticalArrangement = Arrangement.spacedBy((-20).dp)) {
-                Box(Modifier.fillMaxWidth().height(230.dp)) {
-                    WebImage(store.coverPath, "food-public", Modifier.fillMaxSize())
+                Box(Modifier.fillMaxWidth().height(194.dp)) {
+                    WebImage(store.coverPath, "food-public", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                     Box(Modifier.fillMaxWidth().height(80.dp).background(
                         Brush.verticalGradient(listOf(Color.Black.copy(alpha = .36f), Color.Transparent))
                     ))
@@ -556,7 +557,7 @@ fun WebStoreScreen(
                 }
                 Column(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-                        .background(Color.White).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 3.dp),
+                        .background(Color.White).padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 2.dp),
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Text(store.name, fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = WebInk)
@@ -601,7 +602,7 @@ fun WebStoreScreen(
                         Modifier.weight(1f).clickable { storeTab = i },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Box(Modifier.height(43.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.heightIn(min = 40.dp), contentAlignment = Alignment.Center) {
                             Text(stringResource(label), fontSize = 15.sp,
                                 fontWeight = if (storeTab == i) FontWeight.Bold else FontWeight.Medium,
                                 color = if (storeTab == i) WebRed else WebSub)
@@ -618,12 +619,12 @@ fun WebStoreScreen(
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         categories.forEach { name ->
-                            FilterChipWeb(name, selected = name == category, onClick = { category = name })
+                            FilterChipWeb(if (name.isEmpty()) stringResource(R.string.filter_all) else name, selected = name == category, onClick = { category = name })
                         }
                     }
                 }
             }
-            if (!guest && category == "ทั้งหมด" && available.size >= 3) {
+            if (!guest && category.isEmpty() && available.size >= 3) {
                 item { SectionTitleWeb(stringResource(R.string.popular_menu)) }
                 item {
                     Row(
@@ -717,12 +718,12 @@ private fun RoundHeroButton(icon: androidx.compose.ui.graphics.vector.ImageVecto
 private fun WebMenuRow(menu: FoodMenu, enabled: Boolean, onClick: () -> Unit) {
     Column {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 136.dp).clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+            Modifier.fillMaxWidth().heightIn(min = 112.dp).clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            Box(Modifier.size(104.dp)) {
+            Box(Modifier.size(88.dp)) {
                 WebImage(menu.imagePath, "food-public", Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
                 if (!enabled) {
                     Box(Modifier.align(Alignment.BottomCenter).clip(CircleShape).background(WebRedSoft).padding(5.dp)) {
