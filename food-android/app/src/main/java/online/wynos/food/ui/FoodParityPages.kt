@@ -229,6 +229,7 @@ fun WebMessagesPage() {
 fun WebAccountPage(
     state: FoodUiState,
     onSignIn: (String, String) -> Unit,
+    onRegister: (String, String, String) -> Unit,
     onSignOut: () -> Unit,
     onResetPassword: (String) -> Unit,
     onOrders: () -> Unit,
@@ -238,7 +239,7 @@ fun WebAccountPage(
     onClearAddressStatus: () -> Unit,
 ) {
     if (state.accountEmail == null) {
-        WebLoginPage(state, onSignIn, onResetPassword)
+        WebLoginPage(state, onSignIn, onResetPassword, onRegister)
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(Color.White),
@@ -301,9 +302,12 @@ private fun WebLoginPage(
     state: FoodUiState,
     onSignIn: (String, String) -> Unit,
     onResetPassword: (String) -> Unit,
+    onRegister: (String, String, String) -> Unit,
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
+    var confirmation by rememberSaveable { mutableStateOf("") }
+    var registering by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxSize().background(Color.White)
             .imePadding().verticalScroll(rememberScrollState())
@@ -326,8 +330,14 @@ private fun WebLoginPage(
                 Text("WYNOS Food", fontSize = 21.sp, color = PrimaryInk, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.food_login_heading), fontSize = 24.sp, color = PrimaryInk, fontWeight = FontWeight.Bold)
-            Text(stringResource(R.string.food_login_note), fontSize = 12.5.sp, color = SoftText)
+            Text(
+                stringResource(if (registering) R.string.account_signup_action else R.string.food_login_heading),
+                fontSize = 24.sp, color = PrimaryInk, fontWeight = FontWeight.Bold,
+            )
+            Text(
+                stringResource(if (registering) R.string.account_signup_note else R.string.food_login_note),
+                fontSize = 12.5.sp, color = SoftText,
+            )
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
                 value = email, onValueChange = { email = it },
@@ -343,29 +353,73 @@ private fun WebLoginPage(
                 singleLine = true, shape = RoundedCornerShape(13.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
-            TextButton(
-                enabled = email.isNotBlank() && !state.accountBusy,
-                onClick = { onResetPassword(email) },
-                modifier = Modifier.align(Alignment.End),
-            ) {
-                Text(stringResource(R.string.forgot_password), color = BrandRed, fontSize = 13.sp)
+            if (registering) {
+                OutlinedTextField(
+                    value = confirmation, onValueChange = { confirmation = it },
+                    label = { Text(stringResource(R.string.account_password_confirm)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    singleLine = true, shape = RoundedCornerShape(13.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    stringResource(R.string.account_signup_password_rule),
+                    fontSize = 12.sp, color = SoftText,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                TextButton(
+                    enabled = email.isNotBlank() && !state.accountBusy,
+                    onClick = { onResetPassword(email) },
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    Text(stringResource(R.string.forgot_password), color = BrandRed, fontSize = 13.sp)
+                }
             }
             Button(
-                onClick = { onSignIn(email, password) },
-                enabled = email.isNotBlank() && password.isNotBlank() && !state.accountBusy,
+                onClick = {
+                    if (registering) onRegister(email, password, confirmation)
+                    else onSignIn(email, password)
+                },
+                enabled = !state.accountBusy && !state.accountLoading &&
+                    if (registering) state.signupEnabled && !state.registrationEmailSent &&
+                        FoodSignupValidation.canSubmit(email, password, confirmation)
+                    else email.isNotBlank() && password.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = BrandRed),
             ) {
-                Text(stringResource(R.string.sign_in), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    stringResource(if (registering) R.string.account_signup_action else R.string.sign_in),
+                    fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                )
             }
             if (state.accountBusy || state.accountLoading) {
                 CircularProgressIndicator(color = BrandRed, modifier = Modifier.padding(9.dp))
             }
             if (state.accountFailed) Text(stringResource(R.string.account_action_failed), color = BrandRed, fontSize = 13.sp)
             if (state.resetEmailSent) Text(stringResource(R.string.reset_email_sent), color = Color(0xFF1F8A4C), fontSize = 13.sp)
+            if (registering && state.registrationEmailSent) {
+                Text(stringResource(R.string.account_signup_email_sent), color = Color(0xFF1F8A4C), fontSize = 13.sp)
+            }
             if (!state.configured) Text(stringResource(R.string.configure_supabase), color = BrandRed)
-            Text(stringResource(R.string.account_signup_pending), fontSize = 12.sp, color = SoftText)
+            if (state.signupEnabled) {
+                TextButton(
+                    enabled = !state.accountBusy,
+                    onClick = {
+                        registering = !registering
+                        password = ""
+                        confirmation = ""
+                    },
+                ) {
+                    Text(
+                        stringResource(if (registering) R.string.account_back_to_signin else R.string.account_signup_action),
+                        color = BrandRed, fontSize = 13.sp,
+                    )
+                }
+            } else {
+                Text(stringResource(R.string.account_signup_pending), fontSize = 12.sp, color = SoftText)
+            }
         }
     }
 }
