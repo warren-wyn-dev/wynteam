@@ -56,6 +56,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalConfiguration
+import java.time.ZoneId
+import online.wynos.food.data.formatFoodOrderDateTime
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -204,6 +207,8 @@ fun WebOrdersPage(
                     }
                 }
                 items(current, key = { it.id }) { order ->
+                    val storeName = state.stores.firstOrNull { it.id == order.storeId }?.name
+                    val locale = LocalConfiguration.current.locales[0]
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                             .clickable { onOpenDetail(order.id) },
@@ -213,16 +218,26 @@ fun WebOrdersPage(
                     ) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(7.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text("#" + order.number, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = PrimaryInk)
+                                Text(
+                                    "#" + order.number,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = PrimaryInk,
+                                )
                                 Text(
                                     foodOrderStatusLabel(order.status),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
                                     color = if (order.status == "delivered") Color(0xFF1F8A4C) else BrandRed,
@@ -230,10 +245,33 @@ fun WebOrdersPage(
                                         .padding(horizontal = 9.dp, vertical = 4.dp),
                                 )
                             }
-                            Text(stringResource(R.string.baht_price, order.total), fontSize = 14.sp, color = PrimaryInk, fontWeight = FontWeight.Bold)
-                            Text(order.createdAt.take(16), fontSize = 12.sp, color = SoftText)
-                            Text(stringResource(R.string.food_order_detail_view), fontSize = 13.sp, color = BrandRed,
-                                fontWeight = FontWeight.SemiBold)
+                            if (!storeName.isNullOrBlank()) {
+                                Text(
+                                    storeName,
+                                    color = PrimaryInk,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Text(
+                                stringResource(R.string.baht_price, order.total),
+                                fontSize = 15.sp,
+                                color = PrimaryInk,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                formatFoodOrderDateTime(order.createdAt, locale, ZoneId.systemDefault()),
+                                fontSize = 12.sp,
+                                color = SoftText,
+                            )
+                            Text(
+                                stringResource(R.string.food_order_detail_view),
+                                fontSize = 13.sp,
+                                color = BrandRed,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                         }
                     }
                 }
