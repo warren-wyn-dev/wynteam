@@ -51,9 +51,12 @@ android {
             buildConfigField("boolean", "ACCOUNT_DELETION_ALLOWED", (
                 verifiedStaging && foodConfig("WYNOS_FOOD_ACCOUNT_DELETION_STAGING") == "true"
             ).toString())
-            // Legacy order RPC is non-idempotent: staging debug only, NEVER release.
+            // Idempotent order RPC is staging debug only, NEVER release.
             buildConfigField("boolean", "STAGING_ORDER_CREATION_ALLOWED", (
                 verifiedStaging && foodConfig("WYNOS_FOOD_ORDER_CREATION_STAGING") == "true"
+            ).toString())
+            buildConfigField("boolean", "STAGING_MOBILE_PAYMENT_ALLOWED", (
+                verifiedStaging && foodConfig("WYNOS_FOOD_MOBILE_PAYMENT_STAGING") == "true"
             ).toString())
         }
         release {
@@ -61,6 +64,7 @@ android {
             buildConfigField("boolean", "ACCOUNT_SIGNUP_ALLOWED", "false")
             buildConfigField("boolean", "ACCOUNT_DELETION_ALLOWED", "false")
             buildConfigField("boolean", "STAGING_ORDER_CREATION_ALLOWED", "false")
+            buildConfigField("boolean", "STAGING_MOBILE_PAYMENT_ALLOWED", "false")
             isMinifyEnabled = false // Enable and verify R8 before production.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -92,6 +96,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // Stripe PaymentSheet 22.6.x is compatible with the project's Compose
+    // 1.8.x BOM. Feature itself is gated to isolated staging Debug only.
+    implementation("com.stripe:paymentsheet:22.6.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Match the existing WYNOS Android Supabase/Ktor release family.
