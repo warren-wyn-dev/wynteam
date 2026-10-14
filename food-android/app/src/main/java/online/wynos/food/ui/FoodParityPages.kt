@@ -305,8 +305,9 @@ private fun WebLoginPage(
     onRegister: (String, String, String) -> Unit,
 ) {
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var confirmation by rememberSaveable { mutableStateOf("") }
+    // Credentials must not be serialized into Android saved-instance state.
+    var password by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
     var registering by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxSize().background(Color.White)
