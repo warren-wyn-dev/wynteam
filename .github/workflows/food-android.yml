@@ -40,7 +40,14 @@ jobs:
         env:
           WYNOS_FOOD_SUPABASE_URL: https://kqokpocajhfbidcxpvhh.supabase.co
           WYNOS_FOOD_SUPABASE_PUBLISHABLE_KEY: sb_publishable_FzWdursjrE36_LvtJnayiA_-kWuw9Lt
-        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug bundleRelease
+      - name: Upload unsigned release bundle (verification only)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-food-android-unsigned-release-aab
+          path: food-android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 7
       - name: Upload unsigned debug APK for QA
         if: success()
         uses: actions/upload-artifact@v4

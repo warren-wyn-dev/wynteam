@@ -158,6 +158,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                 else -> WebAccountPage(
                     state = state,
                     onSignIn = vm::signIn,
+                    onRegister = vm::registerAccount,
                     onSignOut = vm::signOut,
                     onResetPassword = vm::requestPasswordReset,
                     onOrders = { tab = 1 },

@@ -39,14 +39,19 @@ android {
         debug {
             val projectRef = foodConfig("WYNOS_FOOD_STAGING_PROJECT_REF")
             val targetUrl = foodConfig("WYNOS_FOOD_SUPABASE_URL")
-            val stagingAddressWrites = foodConfig("WYNOS_FOOD_ADDRESS_WRITE_STAGING") == "true" &&
-                projectRef.matches(Regex("[a-z0-9]{20}")) &&
+            val verifiedStaging = projectRef.matches(Regex("[a-z0-9]{20}")) &&
                 projectRef != "kqokpocajhfbidcxpvhh" &&
                 targetUrl == "https://$projectRef.supabase.co"
+            val stagingAddressWrites = verifiedStaging &&
+                foodConfig("WYNOS_FOOD_ADDRESS_WRITE_STAGING") == "true"
+            val stagingSignup = verifiedStaging &&
+                foodConfig("WYNOS_FOOD_ACCOUNT_SIGNUP_STAGING") == "true"
             buildConfigField("boolean", "ADDRESS_WRITES_ALLOWED", stagingAddressWrites.toString())
+            buildConfigField("boolean", "ACCOUNT_SIGNUP_ALLOWED", stagingSignup.toString())
         }
         release {
             buildConfigField("boolean", "ADDRESS_WRITES_ALLOWED", "false")
+            buildConfigField("boolean", "ACCOUNT_SIGNUP_ALLOWED", "false")
             isMinifyEnabled = false // Enable and verify R8 before production.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

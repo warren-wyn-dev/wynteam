@@ -38,6 +38,15 @@ class FoodViewModelTest {
 
     private class FakeGateway : FoodGateway {
         override val configured = true
+        var allowSignup = false
+        override val signupEnabled: Boolean get() = allowSignup
+        var accountOnRestore: String? = "qa@example.com"
+        var signupResult: String? = null
+        var signupCalls = 0
+        override suspend fun signUp(email: String, password: String): String? {
+            signupCalls++
+            return signupResult
+        }
         val quoteDeferred = CompletableDeferred<FoodServerQuote>()
         var addressDeferred: CompletableDeferred<List<FoodCustomerAddress>>? = null
         var ordersDeferred: CompletableDeferred<List<FoodOrderSummary>>? = null
@@ -45,7 +54,7 @@ class FoodViewModelTest {
         var orderDetailDeferred: CompletableDeferred<FoodOrderDetail?>? = null
         override suspend fun catalog(): List<FoodStore> = emptyList()
         override suspend fun homeBanners(): List<FoodHomeBanner> = emptyList()
-        override suspend fun accountEmail(): String? = "qa@example.com"
+        override suspend fun accountEmail(): String? = accountOnRestore
         override suspend fun orderHistory(): List<FoodOrderSummary> = ordersDeferred?.await() ?: selectedOrders
         override suspend fun orderDetail(orderId: String): FoodOrderDetail? = orderDetailDeferred?.await()
         override suspend fun addresses(): List<FoodCustomerAddress> = addressDeferred?.await() ?: emptyList()
@@ -54,6 +63,56 @@ class FoodViewModelTest {
         override suspend fun signIn(email: String, password: String): String? = email
         override suspend fun signOut() {}
         override suspend fun resetPassword(email: String) {}
+    }
+
+    @Test fun registrationRemainsDisabledWithoutStagingFlag() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply { accountOnRestore = null }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.registerAccount("person@example.com", "long-password", "long-password")
+            runCurrent()
+            assertEquals(0, fake.signupCalls)
+            assertFalse(vm.uiState.value.signupEnabled)
+            assertFalse(vm.uiState.value.registrationEmailSent)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun nativeRegistrationWaitsForEmailConfirmationWhenNoSession() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply {
+                accountOnRestore = null
+                allowSignup = true
+            }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.registerAccount("person@example.com", "long-password", "long-password")
+            runCurrent()
+            assertEquals(1, fake.signupCalls)
+            assertTrue(vm.uiState.value.registrationEmailSent)
+            assertNull(vm.uiState.value.accountEmail)
+            assertFalse(vm.uiState.value.accountBusy)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun invalidRegistrationDoesNotCallBackend() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply { accountOnRestore = null; allowSignup = true }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.registerAccount("bad-email", "short", "different")
+            runCurrent()
+            assertEquals(0, fake.signupCalls)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     @Test fun oldQuoteCannotReturnAfterCartChange() = runTest {

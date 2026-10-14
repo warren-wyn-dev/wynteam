@@ -18,6 +18,9 @@ import kotlinx.serialization.json.put
 interface FoodGateway {
     val configured: Boolean
     val addressWritesEnabled: Boolean get() = false
+    val signupEnabled: Boolean get() = false
+    suspend fun signUp(email: String, password: String): String? =
+        throw IllegalStateException("signup_disabled")
     suspend fun saveAddress(draft: FoodAddressDraft): String =
         throw IllegalStateException("address_writes_disabled")
     suspend fun deleteAddress(id: String) {
@@ -38,6 +41,8 @@ interface FoodGateway {
 class SupabaseFoodGateway : FoodGateway {
     override val addressWritesEnabled: Boolean get() =
         configured && BuildConfig.ADDRESS_WRITES_ALLOWED
+    override val signupEnabled: Boolean get() =
+        configured && BuildConfig.ACCOUNT_SIGNUP_ALLOWED
 
     private suspend fun requireWritableClient(): SupabaseClient {
         check(addressWritesEnabled) { "address_writes_disabled" }
@@ -183,6 +188,20 @@ class SupabaseFoodGateway : FoodGateway {
             FoodQuoteRequest.fromCart(cart, address),
         ).decodeAs<JsonElement>()
         return FoodServerQuote.parse(response)
+    }
+
+    override suspend fun signUp(email: String, password: String): String? {
+        // This is intentionally unavailable in production-configured and release APKs.
+        // Use the existing WYNOS Auth identity, never a separate Food users table.
+        check(signupEnabled) { "signup_disabled" }
+        val auth = requireClient().auth
+        auth.signUpWith(Email) {
+            this.email = email
+            this.password = password
+        }
+        // Supabase may require email confirmation (null session) or sign in immediately
+        // depending on the explicitly configured staging auth policy.
+        return auth.currentUserOrNull()?.email
     }
 
     override suspend fun signIn(email: String, password: String): String? {
