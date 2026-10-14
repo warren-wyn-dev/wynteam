@@ -352,9 +352,16 @@ class MerchantApi(context: Context) {
     }
 
     fun updateStore(storeId: String, patch: JSONObject) {
-        val allow = setOf("name","description","phone","address","business_hours","delivery_area",
-            "delivery_fee","minimum_order","is_open","is_published","promptpay_name","promptpay_id",
-            "bank_name","bank_account_name","bank_account_number")
+        val allow = setOf("name","description","phone","address","business_hours","business_schedule",
+            "special_closed_dates","temporary_closed_until","temporary_closed_reason",
+            "prep_time_min_minutes","prep_time_max_minutes","menu_category_order",
+            "delivery_area","delivery_fee","minimum_order","latitude","longitude",
+            "pickup_latitude","pickup_longitude","pickup_note","delivery_radius_km",
+            "delivery_base_km","delivery_fee_per_km","promptpay_name","promptpay_id",
+            "bank_name","bank_account_name","bank_account_number","payment_qr_path",
+            "scheduled_orders_enabled","scheduled_min_notice_minutes","scheduled_max_days",
+            "tax_invoice_enabled","tax_legal_name","tax_id","tax_branch","tax_address",
+            "logo_path","cover_path","is_open","is_published")
         require(patch.keys().asSequence().all { it in allow }) { "ฟิลด์ข้อมูลร้านไม่ถูกต้อง" }
         raw("PATCH", "/rest/v1/food_stores?id=eq." + filter(storeId), patch)
     }
