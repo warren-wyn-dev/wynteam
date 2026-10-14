@@ -1,5 +1,6 @@
 package io.wyn.wyn.feature.shell
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,6 +61,7 @@ fun MainShell(
     /** The selected tab when the caller owns it (so another screen can switch tabs). */
     tab: MainTab? = null,
     onTab: (MainTab) -> Unit = {},
+    homeChromeVisible: Boolean = true,
 ) {
     var ownTab by rememberSaveable { mutableStateOf(initialTab) }
     val selected = tab ?: ownTab
@@ -78,7 +80,9 @@ fun MainShell(
                 MainTab.Post -> Unit // Opens the composer instead of switching tabs.
             }
         }
-        BottomNav(selected, chatUnread) { next -> if (next == MainTab.Post) onCompose() else select(next) }
+        AnimatedVisibility(visible = selected != MainTab.Home || homeChromeVisible) {
+            BottomNav(selected, chatUnread) { next -> if (next == MainTab.Post) onCompose() else select(next) }
+        }
     }
 }
 
