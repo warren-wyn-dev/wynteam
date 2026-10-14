@@ -35,6 +35,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build and test
         run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug bundleRelease
+      # Normal JVM tests do not record screenshots by default. Run Roborazzi
+      # separately to produce real Compose PNG captures for visual review.
+      - name: Record native UI screenshots (QA only)
+        run: ./gradlew --no-daemon :app:recordRoborazziDebug
       # CI provides an installable debug APK for device QA only (not a Play release).
       # No Supabase/Firebase credentials are injected into pull-request builds.
       - name: Upload Beta 1 debug APK (device QA only)
