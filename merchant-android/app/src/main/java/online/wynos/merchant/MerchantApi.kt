@@ -174,9 +174,21 @@ class MerchantApi(context: Context) {
     fun orders(storeId: String, offset: Int = 0): JSONArray =
         getArray("/rest/v1/food_orders?select=*,food_order_items(*),food_delivery_proofs(*)&store_id=eq." +
             filter(storeId) + "&order=created_at.desc&offset=" + offset.coerceAtLeast(0) + "&limit=101")
-    fun history(storeId: String): JSONArray =
-        getArray("/rest/v1/food_orders?select=*,food_order_items(*)&store_id=eq." +
-            filter(storeId) + "&status=in.(delivered,cancelled)&order=created_at.desc&limit=30")
+    fun history(storeId: String, status: String = "all", search: String = "",
+                days: Int? = null, offset: Int = 0): JSONArray {
+        require(status in setOf("all", "delivered", "cancelled")) { "สถานะประวัติไม่ถูกต้อง" }
+        require(days == null || days in setOf(7, 30)) { "ช่วงวันที่ไม่ถูกต้อง" }
+        val number = search.filter { it.isLetterOrDigit() }.take(40)
+        val statusFilter = if (status == "all") "status=in.(delivered,cancelled)" else "status=eq.$status"
+        val query = StringBuilder("/rest/v1/food_orders?select=*,food_order_items(*)&store_id=eq.")
+            .append(filter(storeId)).append("&").append(statusFilter)
+            .append("&order=created_at.desc&offset=").append(offset.coerceAtLeast(0)).append("&limit=31")
+        if (number.isNotEmpty()) query.append("&order_number=ilike.")
+            .append(Uri.encode("*" + number + "*"))
+        if (days != null) query.append("&created_at=gte.")
+            .append(Uri.encode(java.time.Instant.now().minus(java.time.Duration.ofDays(days.toLong())).toString()))
+        return getArray(query.toString())
+    }
 
     fun sales(storeId: String): JSONObject =
         rpc("merchant_sales_report", JSONObject().put("p_store_id", filter(storeId))) as JSONObject
