@@ -42,7 +42,8 @@ import io.wyn.wyn.feature.home.Badge
 
 enum class MainTab { Home, Clubs, Post, Chat, Profile }
 
-private val NavGrey = Color(0xFF9A9A9A)
+// web/app/bottom-nav.css: --wyn-nav-inactive: #8e8e93.
+private val NavGrey = Color(0xFF8E8E93)
 
 /**
  * The signed-in app: the web's five-tab bottom navigation.
@@ -86,7 +87,8 @@ private fun BottomNav(selected: MainTab, chatUnread: Int, onSelect: (MainTab) ->
     val c = Wyn.colors
     Column(Modifier.background(c.bg).navigationBarsPadding()) {
         HorizontalDivider(color = c.border, thickness = 1.dp)
-        Row(Modifier.fillMaxWidth().height(49.dp)) {
+        // Canonical web dock is 68px high, excluding platform safe-area insets.
+        Row(Modifier.fillMaxWidth().height(68.dp)) {
             NavItem(MainTab.Home, selected, R.string.nav_home, WynIcons.NavHome, WynIcons.NavHomeSelected, onSelect)
             NavItem(MainTab.Clubs, selected, R.string.nav_clubs, WynIcons.NavClub, WynIcons.NavClubSelected, onSelect)
             NavItem(MainTab.Post, selected, R.string.nav_post, WynIcons.NavAdd, WynIcons.NavAdd, onSelect)
@@ -110,15 +112,20 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
     val active = tab == selected
     val tint = if (active) c.text else NavGrey
     Column(
-        Modifier.weight(1f).fillMaxSize().selectable(active, role = Role.Tab) { onSelect(tab) }.padding(top = 3.dp),
+        Modifier.weight(1f).fillMaxSize().selectable(active, role = Role.Tab) { onSelect(tab) },
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         Box {
-            Icon(if (active) selectedIcon else icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
-            if (badge > 0) Badge(if (badge > 9) "9+" else badge.toString(), Modifier.padding(start = 15.dp).align(Alignment.TopStart))
+            Icon(if (active) selectedIcon else icon, contentDescription = null, tint = tint, modifier = Modifier.size(32.dp))
+            if (badge > 0) Badge(if (badge > 9) "9+" else badge.toString(), Modifier.padding(start = 24.dp).align(Alignment.TopStart))
         }
-        Spacer(Modifier.height(1.dp))
-        Text(stringResource(label), color = tint, fontSize = 10.sp, lineHeight = 11.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Medium)
+        Spacer(Modifier.height(5.dp))
+        Text(
+            stringResource(label), color = tint, fontSize = 11.sp, lineHeight = 15.sp,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1, textAlign = TextAlign.Center,
+        )
     }
 }
 
