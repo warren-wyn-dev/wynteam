@@ -950,6 +950,7 @@ fun WebStoreScreen(
     onAccount: () -> Unit,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
+    onRefreshReviews: (String) -> Unit,
     onAdd: (FoodStore, FoodMenu, Map<String, Set<String>>, Int, String) -> Boolean,
     onClear: () -> Unit,
     onQuote: () -> Unit,
@@ -1069,7 +1070,10 @@ fun WebStoreScreen(
             Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 listOf(R.string.store_tab_menu, R.string.store_tab_reviews, R.string.store_tab_info).forEachIndexed { i, label ->
                     Column(
-                        Modifier.weight(1f).clickable { storeTab = i },
+                        Modifier.weight(1f).clickable {
+                            storeTab = i
+                            if (i == 1) onRefreshReviews(store.id)
+                        },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(Modifier.heightIn(min = 46.dp), contentAlignment = Alignment.Center) {
@@ -1137,7 +1141,86 @@ fun WebStoreScreen(
             if (cartError) item { Text(stringResource(R.string.cart_validation_error), color = WebRed, modifier = Modifier.padding(16.dp)) }
             item { CenterStateText(R.string.checkout_unavailable) }
         } else if (storeTab == 1) {
-            item { CenterStateText(R.string.store_reviews_unavailable) }
+            item {
+                val loaded = state.reviewedStoreId == store.id
+                Column(
+                    Modifier.fillMaxWidth().background(Color.White)
+                        .padding(horizontal = 16.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(stringResource(R.string.store_review_title), color = WebInk,
+                        fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    when {
+                        !loaded || state.reviewFeedLoading ->
+                            Text(stringResource(R.string.store_review_loading), color = WebSub)
+                        state.reviewFeedFailed ->
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(stringResource(R.string.store_review_error), color = WebSub)
+                                OutlinedButton(onClick = { onRefreshReviews(store.id) }) {
+                                    Text(stringResource(R.string.store_review_retry))
+                                }
+                            }
+                        state.reviewFeed == null || state.reviewFeed.count == 0 ->
+                            Text(stringResource(R.string.store_review_empty), color = WebSub)
+                        else -> {
+                            val feed = state.reviewFeed
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623),
+                                    modifier = Modifier.size(21.dp))
+                                Text(String.format(java.util.Locale.US, "%.1f", feed.average),
+                                    fontWeight = FontWeight.Bold, fontSize = 20.sp, color = WebInk)
+                                Text(stringResource(R.string.store_review_count, feed.count),
+                                    color = WebSub, fontSize = 13.sp)
+                            }
+                            feed.reviews.forEach { review ->
+                                Column(
+                                    Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Text(review.reviewerLabel, modifier = Modifier.weight(1f),
+                                            color = WebInk, fontSize = 14.sp,
+                                            fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                        Icon(Icons.Outlined.Star, null,
+                                            tint = Color(0xFFF5A623), modifier = Modifier.size(15.dp))
+                                        Text(review.rating.toString(), color = WebInk,
+                                            fontWeight = FontWeight.Bold)
+                                    }
+                                    if (review.verifiedOrder) {
+                                        Text(stringResource(R.string.store_review_verified_order),
+                                            color = WebGreen, fontSize = 12.sp)
+                                    }
+                                    review.text?.let { Text(it, color = WebInk, fontSize = 14.sp) }
+                                    if (review.tags.isNotEmpty()) {
+                                        Text(review.tags.joinToString(" · "),
+                                            color = WebSub, fontSize = 12.sp)
+                                    }
+                                    review.merchantReply?.let {
+                                        Column(
+                                            Modifier.fillMaxWidth()
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(WebChip).padding(10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                                        ) {
+                                            Text(stringResource(R.string.store_review_merchant_reply),
+                                                fontSize = 12.sp, color = WebInk,
+                                                fontWeight = FontWeight.SemiBold)
+                                            Text(it, fontSize = 13.sp, color = WebSub)
+                                        }
+                                    }
+                                }
+                                HorizontalDivider(color = WebLine.copy(alpha = .55f))
+                            }
+                        }
+                    }
+                }
+            }
         } else {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
