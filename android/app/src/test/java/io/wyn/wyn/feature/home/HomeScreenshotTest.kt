@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.core.app.ApplicationProvider
@@ -74,6 +75,39 @@ class HomeScreenshotTest {
         render(ThemeChoice.Light, "home-th-pixel5")
         compose.onNodeWithText("กำลังติดตาม").assertIsDisplayed()
         compose.onNodeWithText("คลับของฉัน").assertIsDisplayed()
+    }
+
+    @Test @Config(qualifiers = "th-w340dp-h760dp-xxhdpi")
+    fun narrowWebParityRendersVerifiedRosetteAndReadableDock() {
+        val repo = FakeFeedRepository(ranked = listOf(HomeFixture.rows[2].copy(authorIsVerified = true)))
+        val vm = HomeViewModel(repo, HomeFixture.VIEWER)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+        compose.setContent {
+            WynosTheme(ThemeChoice.Light) {
+                MainShell(home = { HomeScreen(vm, HomeNavigation()) }, profile = {}, onCompose = {})
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("ยืนยันแล้ว").assertIsDisplayed()
+        compose.onNodeWithText("หน้าหลัก").assertIsDisplayed()
+        compose.onNodeWithText("คลับ").assertIsDisplayed()
+        compose.onNodeWithText("โปรไฟล์").assertIsDisplayed()
+        compose.onRoot().captureRoboImage("build/screenshots/home-web-parity-narrow-th.png")
+    }
+
+    @Test @Config(qualifiers = "th-w411dp-h914dp-xxhdpi")
+    fun regularWebParityRendersVerifiedRosette() {
+        val repo = FakeFeedRepository(ranked = listOf(HomeFixture.rows[2].copy(authorIsVerified = true)))
+        val vm = HomeViewModel(repo, HomeFixture.VIEWER)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+        compose.setContent {
+            WynosTheme(ThemeChoice.Light) {
+                MainShell(home = { HomeScreen(vm, HomeNavigation()) }, profile = {}, onCompose = {})
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("ยืนยันแล้ว").assertIsDisplayed()
+        compose.onRoot().captureRoboImage("build/screenshots/home-web-parity-verified-th.png")
     }
 
     @Test @Config(qualifiers = "en-w411dp-h914dp-night-xxhdpi")
