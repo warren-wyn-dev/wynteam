@@ -122,6 +122,16 @@ object MerchantPush {
     }
 }
 
+/** Initialize the Firebase default app for OS-created FCM services, even if the
+ * Android process was started to deliver a message instead of showing an Activity.
+ */
+class MerchantAndroidApplication : android.app.Application() {
+    override fun onCreate() {
+        super.onCreate()
+        if (MerchantPush.configured) runCatching { MerchantPush.initialize(this) }
+    }
+}
+
 /** Data-only FCM payloads are displayed without putting customer PII on the lockscreen. */
 class MerchantMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
