@@ -21,6 +21,14 @@ class FoodHomeVisualParityTest {
         }
     }
 
+    @Test fun recommendationStripOnlyAppearsForUnfilteredHome() {
+        assertEquals(true, shouldShowRecommendedHomeStrip("", "all", false))
+        assertEquals(true, shouldShowRecommendedHomeStrip("   ", "all", false))
+        assertEquals(false, shouldShowRecommendedHomeStrip("pad thai", "all", false))
+        assertEquals(false, shouldShowRecommendedHomeStrip("", "open", false))
+        assertEquals(false, shouldShowRecommendedHomeStrip("", "all", true))
+    }
+
     @Test fun wideStoreGridUsesThreeColumnsLikeWebsite() {
         listOf(680f, 720f, 800f).forEach { width ->
             assertEquals("Incorrect grid at ${width}dp", 3, homeGridColumnsForWidth(width))
