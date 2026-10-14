@@ -222,4 +222,14 @@
     <string name="staging_payment_cancelled">ยกเลิกหน้าชำระเงินทดสอบแล้ว</string>
     <string name="staging_payment_failed">การชำระเงินทดสอบไม่สำเร็จ ตรวจสอบสถานะออเดอร์อีกครั้ง</string>
     <string name="staging_payment_unavailable">ไม่สามารถเปิดการชำระเงินทดสอบได้ ตรวจสอบ Staging และสถานะออเดอร์</string>
+    <string name="delivery_location_title">เลือกที่อยู่จัดส่ง</string>
+    <string name="delivery_location_note">เลือกที่อยู่สำหรับดูร้านและคำนวณค่าส่งเมื่อสั่งอาหาร</string>
+    <string name="delivery_location_manage">จัดการที่อยู่จัดส่ง</string>
+    <string name="account_profile_delivery_note">ข้อมูลสำหรับการสั่งและจัดส่งอาหารเท่านั้น</string>
+    <string name="account_profile_set_up">ตั้งค่าโปรไฟล์ก่อนสั่งอาหาร</string>
+    <string name="account_profile_set_up_note">กรอกชื่อผู้รับ เบอร์โทร และที่อยู่จัดส่ง</string>
+    <string name="messages_food_is_separate">แชท WYNOS Food แยกจากแชท WYNOS</string>
+    <string name="checkout_disabled_short">ยังไม่เปิดรับคำสั่งซื้อจริงในรุ่นนี้</string>
+    <string name="address_primary_flag">ที่อยู่หลัก</string>
+    <string name="address_pin_ready">ปักหมุดแล้ว</string>
 </resources>

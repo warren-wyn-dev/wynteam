@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
@@ -117,8 +118,20 @@ fun FoodAddressManagement(
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text(address.label + if (address.isDefault) " ★" else "",
-                                color = AddressInk, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Outlined.LocationOn, null,
+                                tint = if (address.isDefault) AddressRed else AddressSub,
+                                modifier = Modifier.size(20.dp))
+                            Column(Modifier.weight(1f).padding(start = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                if (address.isDefault) {
+                                    Text(stringResource(R.string.address_primary_flag),
+                                        color = AddressRed, fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold)
+                                }
+                                Text(address.label, color = AddressInk,
+                                    fontWeight = FontWeight.Bold, maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis)
+                            }
                             if (state.addressWritesEnabled) {
                                 Row {
                                     TextButton(onClick = {
@@ -142,10 +155,14 @@ fun FoodAddressManagement(
                         Text(address.recipientName + " · " + address.recipientPhone,
                             fontSize = 13.sp, color = AddressInk)
                         Text(address.address, fontSize = 13.sp, color = AddressSub)
-                        if (!address.validPin) {
-                            Text(stringResource(R.string.address_missing_pin),
-                                fontSize = 12.sp, color = AddressRed)
-                        }
+                        Text(
+                            stringResource(
+                                if (address.validPin) R.string.address_pin_ready
+                                else R.string.address_missing_pin,
+                            ),
+                            fontSize = 12.sp,
+                            color = if (address.validPin) Color(0xFF1F8A4C) else AddressRed,
+                        )
                     }
                 }
             }

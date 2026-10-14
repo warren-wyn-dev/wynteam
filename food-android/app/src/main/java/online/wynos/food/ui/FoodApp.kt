@@ -63,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import online.wynos.food.R
 import online.wynos.food.data.FoodMenu
 import online.wynos.food.data.FoodCartDraft
+import online.wynos.food.data.FoodDeliverySelection
 import online.wynos.food.data.FoodStore
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,6 +73,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var selectedStoreId by rememberSaveable { mutableStateOf<String?>(null) }
     var homeCart by rememberSaveable { mutableStateOf(false) }
+    var showLocationChooser by rememberSaveable { mutableStateOf(false) }
     val guest = state.accountEmail == null
     val selectedStore = state.stores.firstOrNull { it.id == selectedStoreId }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -102,8 +104,10 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     WebHomeHeader(
                         guest = guest,
                         cartCount = state.cart.itemCount,
+                        locationLabel = FoodDeliverySelection.label(state.addresses, state.selectedAddressId),
                         onAccount = { selectedStoreId = null; tab = 3 },
                         onCart = { homeCart = true },
+                        onLocation = { showLocationChooser = true },
                     )
                 } else if (!guest) {
                     val title = when (tab) {
@@ -174,6 +178,14 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                 )
             }
         }
+    }
+    if (showLocationChooser && !guest) {
+        FoodDeliveryAddressSheet(
+            state = state,
+            onSelectAddress = vm::selectAddress,
+            onManageAddresses = { selectedStoreId = null; tab = 3 },
+            onDismiss = { showLocationChooser = false },
+        )
     }
     if (state.accountEmail != null && state.selectedOrderId != null) {
         FoodOrderDetailDialog(

@@ -54,6 +54,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.style.TextOverflow
+import online.wynos.food.data.FoodDeliverySelection
+import online.wynos.food.data.FoodDisplayFormat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -217,7 +221,15 @@ fun WebOrdersPage(
                             ) {
                                 Text("#" + order.number, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = PrimaryInk)
                                 Text(
-                                    foodOrderStatusLabel(order.status),
+                                    when {
+                                        order.status != "cancelled" && order.status != "delivered" &&
+                                            order.paymentStatus == "issue" -> stringResource(R.string.food_payment_issue)
+                                        order.status != "cancelled" && order.status != "delivered" &&
+                                            order.paymentStatus == "pending" -> stringResource(R.string.food_payment_pending)
+                                        order.status != "cancelled" && order.status != "delivered" &&
+                                            order.paymentStatus == "submitted" -> stringResource(R.string.food_payment_submitted)
+                                        else -> foodOrderStatusLabel(order.status)
+                                    },
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
                                     color = if (order.status == "delivered") Color(0xFF1F8A4C) else BrandRed,
@@ -226,7 +238,12 @@ fun WebOrdersPage(
                                 )
                             }
                             Text(stringResource(R.string.baht_price, order.total), fontSize = 14.sp, color = PrimaryInk, fontWeight = FontWeight.Bold)
-                            Text(order.createdAt.take(16), fontSize = 12.sp, color = SoftText)
+                            Text(
+                                FoodDisplayFormat.orderDate(
+                                    order.createdAt, LocalConfiguration.current.locales[0].language,
+                                ),
+                                fontSize = 12.sp, color = SoftText,
+                            )
                             Text(stringResource(R.string.food_order_detail_view), fontSize = 13.sp, color = BrandRed,
                                 fontWeight = FontWeight.SemiBold)
                         }
@@ -252,7 +269,10 @@ fun WebMessagesPage() {
         ) {
             Icon(Icons.Outlined.ChatBubbleOutline, null, tint = SoftText, modifier = Modifier.size(48.dp))
             Text(stringResource(R.string.no_messages), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = PrimaryInk)
-            Text(stringResource(R.string.messages_note), color = SoftText, fontSize = 14.sp)
+            Text(stringResource(R.string.messages_note), color = SoftText, fontSize = 14.sp,
+                lineHeight = 20.sp)
+            Text(stringResource(R.string.messages_food_is_separate), color = SoftText, fontSize = 13.sp,
+                lineHeight = 19.sp)
         }
     }
 }
@@ -281,6 +301,9 @@ fun WebAccountPage(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item {
+                // The web Food account card prioritizes the default delivery
+                // recipient and phone; the login email remains secondary.
+                val primary = FoodDeliverySelection.current(state.addresses, null)
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                         .clip(RoundedCornerShape(18.dp)).background(Color(0xFFF6F6F8)).padding(16.dp),
@@ -292,9 +315,29 @@ fun WebAccountPage(
                             Icon(Icons.Outlined.PersonOutline, null, tint = SoftText, modifier = Modifier.size(26.dp))
                         }
                     }
-                    Column(Modifier.weight(1f)) {
-                        Text(state.accountEmail.orEmpty(), fontWeight = FontWeight.Bold, color = PrimaryInk, fontSize = 15.sp)
-                        Text(stringResource(R.string.wynos_food_profile), color = SoftText, fontSize = 12.sp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            primary?.recipientName?.takeIf { it.isNotBlank() }
+                                ?: stringResource(R.string.account_profile_set_up),
+                            fontWeight = FontWeight.Bold, color = PrimaryInk, fontSize = 15.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            primary?.recipientPhone?.takeIf { it.isNotBlank() }
+                                ?: stringResource(R.string.account_profile_set_up_note),
+                            color = SoftText, fontSize = 12.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            state.accountEmail.orEmpty(),
+                            color = SoftText, fontSize = 12.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            stringResource(R.string.account_profile_delivery_note),
+                            color = SoftText, fontSize = 11.sp,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
