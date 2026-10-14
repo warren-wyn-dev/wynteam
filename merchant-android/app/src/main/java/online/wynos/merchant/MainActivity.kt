@@ -408,24 +408,68 @@ private fun OrderDetail(order: JSONObject, vm: MerchantViewModel, state: Merchan
 private fun MenuScreen(s: MerchantState, vm: MerchantViewModel) {
     val editing = s.selectedMenu
     if (editing != null) {
-        MenuEditor(editing, busy = s.busy, save = vm::saveMenu, dismiss = { vm.selectMenu(null) })
+        MenuEditor(editing, busy = s.busy, save = vm::saveMenu,
+            delete = vm::deleteMenu, dismiss = { vm.selectMenu(null) })
     }
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    var sorting by remember { mutableStateOf(false) }
+    var orderIds by remember(s.menu) { mutableStateOf(s.menu.map { it.text("id") }) }
+    val ordered = orderIds.mapNotNull { id -> s.menu.find { it.text("id") == id } }
+    Column(Modifier.fillMaxSize().padding(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             SectionHeading("จัดการเมนู")
             Spacer(Modifier.weight(1f))
             TextButton(onClick = { vm.selectMenu(JSONObject()) }) { Text("+ เพิ่มเมนู") }
         }
+        Row {
+            if (sorting) {
+                TextButton(onClick = { sorting = false; orderIds = s.menu.map { it.text("id") } }) {
+                    Text("ยกเลิก")
+                }
+                Button(onClick = { vm.reorderMenu(orderIds); sorting = false }, enabled = !s.busy) {
+                    Text("บันทึกลำดับ")
+                }
+            } else OutlinedButton(onClick = { sorting = true }) { Text("จัดเรียงเมนู") }
+        }
         LazyColumn {
-            items(s.menu, key = { it.text("id") }) { item ->
+            items(ordered, key = { it.text("id") }) { item ->
+                val soldUntil = item.text("sold_out_until")
+                val sold = runCatching {
+                    java.time.OffsetDateTime.parse(soldUntil).toInstant().isAfter(java.time.Instant.now())
+                }.getOrDefault(false)
                 ElevatedCard(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f).clickable { vm.selectMenu(item) }) {
-                            Text(item.text("name"), fontWeight = FontWeight.Bold)
-                            Text(item.text("category") + " · " + money(item.amount("price")), color = Grey)
+                    Column(Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f).clickable { if (!sorting) vm.selectMenu(item) }) {
+                                Text(item.text("name"), fontWeight = FontWeight.Bold)
+                                Text(item.text("category") + " · " + money(item.amount("price")), color = Grey)
+                            }
+                            if (!sorting) Switch(checked = item.optBoolean("is_available"),
+                                enabled = !s.busy, onCheckedChange = { vm.setAvailability(item, it) })
                         }
-                        Switch(checked = item.optBoolean("is_available"), enabled = !s.busy,
-                            onCheckedChange = { vm.setAvailability(item, it) })
+                        if (sorting) {
+                            val index = orderIds.indexOf(item.text("id"))
+                            Row {
+                                TextButton(onClick = {
+                                    if (index > 0 && ordered[index - 1].text("category") == item.text("category")) {
+                                        orderIds = orderIds.toMutableList().apply { add(index - 1, removeAt(index)) }
+                                    }
+                                }, enabled = index > 0 && ordered[index - 1].text("category") == item.text("category")) {
+                                    Text("↑ เลื่อนขึ้น")
+                                }
+                                TextButton(onClick = {
+                                    if (index < ordered.lastIndex && ordered[index + 1].text("category") == item.text("category")) {
+                                        orderIds = orderIds.toMutableList().apply { add(index + 1, removeAt(index)) }
+                                    }
+                                }, enabled = index < ordered.lastIndex &&
+                                        ordered[index + 1].text("category") == item.text("category")) {
+                                    Text("↓ เลื่อนลง")
+                                }
+                            }
+                        } else {
+                            TextButton(onClick = { vm.soldOutToday(item, !sold) }, enabled = !s.busy) {
+                                Text(if (sold) "ยกเลิกหมดวันนี้" else "หมดวันนี้")
+                            }
+                        }
                     }
                 }
             }
@@ -434,32 +478,72 @@ private fun MenuScreen(s: MerchantState, vm: MerchantViewModel) {
 }
 
 @Composable
-private fun MenuEditor(item: JSONObject, busy: Boolean, save: (JSONObject) -> Unit, dismiss: () -> Unit) {
+private fun MenuEditor(item: JSONObject, busy: Boolean, save: (JSONObject) -> Unit,
+                       delete: (JSONObject) -> Unit, dismiss: () -> Unit) {
     var name by remember(item) { mutableStateOf(item.text("name")) }
     var category by remember(item) { mutableStateOf(item.text("category").ifBlank { "อาหาร" }) }
     var description by remember(item) { mutableStateOf(item.text("description")) }
     var price by remember(item) { mutableStateOf(item.text("price")) }
-    AlertDialog(onDismissRequest = dismiss, title = { Text(if (item.text("id").isBlank()) "เพิ่มเมนู" else "แก้ไขเมนู") },
+    var stock by remember(item) {
+        mutableStateOf(item.opt("daily_stock_limit")?.toString()?.takeUnless { it == "null" } ?: "")
+    }
+    var available by remember(item) { mutableStateOf(item.optBoolean("is_available", true)) }
+    var options by remember(item) { mutableStateOf(parseMenuOptions(item.optJSONArray("options"))) }
+    var confirmDelete by remember(item) { mutableStateOf(false) }
+    AlertDialog(onDismissRequest = dismiss,
+        title = { Text(if (item.text("id").isBlank()) "เพิ่มเมนู" else "แก้ไขเมนู") },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(name, { name = it }, label = { Text("ชื่อเมนู") })
-                OutlinedTextField(category, { category = it }, label = { Text("หมวดหมู่") })
-                OutlinedTextField(description, { description = it }, label = { Text("รายละเอียด") })
-                OutlinedTextField(price, { price = it }, label = { Text("ราคา (บาท)") })
-                Text("ตัวเลือกเสริมและภาพจะยังคงเดิมเมื่อแก้ไข", color = Grey,
-                    style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
+                OutlinedTextField(name, { name = it }, label = { Text("ชื่อเมนู") },
+                    modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(category, { category = it }, label = { Text("หมวดหมู่") },
+                    modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(description, { description = it }, label = { Text("รายละเอียด") },
+                    modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(price, { price = it }, label = { Text("ราคา (บาท)") },
+                    modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(stock, { stock = it }, label = { Text("จำนวนขายต่อวัน (ว่าง = ไม่จำกัด)") },
+                    modifier = Modifier.fillMaxWidth())
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("เปิดขาย", Modifier.weight(1f))
+                    Switch(checked = available, onCheckedChange = { available = it })
+                }
+                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                MenuOptionsEditor(options, onChange = { options = it })
+                if (item.text("id").isNotBlank()) {
+                    TextButton(onClick = { confirmDelete = true }, enabled = !busy) {
+                        Text("ลบเมนู", color = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(enabled = !busy && name.isNotBlank() && price.toDoubleOrNull() != null,
+            TextButton(
+                enabled = !busy && name.isNotBlank() &&
+                    (price.toDoubleOrNull()?.let { it >= 0 } == true) &&
+                    (stock.isBlank() || (stock.toIntOrNull()?.let { it > 0 } == true)),
                 onClick = {
                     val draft = JSONObject(item.toString()).put("name", name).put("category", category)
                         .put("description", description).put("price", price.toDouble())
+                        .put("daily_stock_limit", if (stock.isBlank()) JSONObject.NULL else stock.toInt())
+                        .put("options", encodeMenuOptions(options))
+                        .put("is_available", available)
                     save(draft)
                 }) { Text("บันทึก") }
         },
         dismissButton = { TextButton(onClick = dismiss) { Text("ยกเลิก") } }
     )
+    if (confirmDelete) {
+        AlertDialog(onDismissRequest = { confirmDelete = false },
+            title = { Text("ลบเมนูนี้?") },
+            text = { Text("การลบรายการอาหารไม่สามารถย้อนกลับได้") },
+            confirmButton = {
+                Button(enabled = !busy, onClick = { confirmDelete = false; delete(item) }) { Text("ลบเมนู") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("ยกเลิก") }
+            })
+    }
 }
 
 @Composable
