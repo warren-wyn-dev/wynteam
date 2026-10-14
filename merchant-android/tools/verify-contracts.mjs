@@ -53,6 +53,11 @@ assert.match(model, /terminalWithin24h/);
 assert.match(model, /pendingPageLoad/);
 assert.match(model, /if \(state\.busy\) pendingPageLoad = page else loadPageData\(page\)/);
 assert.match(model, /fun loadMoreOrders\(\)/);
+assert.match(model, /fun pollOrders\(\)/);
+assert.match(model, /state\.store\?\.optString\("id"\) != storeId/);
+assert.match(ui, /lifecycleState\.isAtLeast\(Lifecycle\.State\.STARTED\)/);
+assert.match(ui, /vm\.pollOrders\(\)/);
+
 assert.match(ui, /vm::loadMoreOrders/);
 assert.match(api, /fun readiness\(storeId: String\): JSONObject =[\s\S]*?food_store_publish_readiness/);
 assert.match(api, /val current = readiness\(storeId\)/);
