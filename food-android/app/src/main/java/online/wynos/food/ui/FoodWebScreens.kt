@@ -191,7 +191,7 @@ fun WebPageHeader(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit) {
+fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
     val items = listOf(
         Triple(0, R.string.home, Icons.Outlined.Home),
         Triple(1, R.string.orders, Icons.Outlined.ReceiptLong),
@@ -199,13 +199,13 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit) {
         Triple(3, R.string.account, Icons.Outlined.PersonOutline),
     )
     Box(
-        Modifier.fillMaxWidth().background(Color.White)
-            .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 7.dp),
+        modifier.fillMaxWidth()
+            .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(30.dp))
                 .clip(RoundedCornerShape(30.dp)).background(Color.White)
-                .padding(horizontal = 6.dp, vertical = 4.dp).heightIn(min = 62.dp),
+                .padding(horizontal = 6.dp, vertical = 4.dp).heightIn(min = 60.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             items.forEach { (id, label, image) ->
