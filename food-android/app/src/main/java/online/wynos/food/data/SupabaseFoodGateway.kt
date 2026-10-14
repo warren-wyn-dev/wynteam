@@ -232,8 +232,17 @@ class SupabaseFoodGateway : FoodGateway {
         check(supabase.auth.currentUserOrNull() != null) { "sign_in_required" }
         // No arbitrary user ID: existing SECURITY DEFINER RPC uses auth.uid().
         supabase.postgrest.rpc("delete_my_account")
-        // Local auth/session cleanup, required after the user is deleted server-side.
-        supabase.auth.signOut()
+        // The deleted account may no longer be recognized by remote sign-out.
+        // Clear local session even when remote revocation fails (SDK 3.1.4).
+        try {
+            supabase.auth.signOut()
+        } catch (cancel: kotlinx.coroutines.CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            // Remote sign-out may return "user not found" after the RPC succeeds.
+        } finally {
+            supabase.auth.clearSession()
+        }
     }
 
     override suspend fun resetPassword(email: String) {
