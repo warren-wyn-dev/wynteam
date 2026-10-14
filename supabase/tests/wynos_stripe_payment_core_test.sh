@@ -207,6 +207,38 @@ expect_fail "wrong connected account is rejected"   "set role service_role; sele
 [ "$(val "select payment_status||'|'||refund_status||'|'||stripe_refund_id from public.food_orders where id='$ORDER'")" = "refunded|refunded|re_1" ] || fail "refund finalizes"
 pass "Stripe webhook finalizes full refund"
 
+# Native Stripe PaymentSheet produces a direct PaymentIntent, without a
+# Checkout Session. The signed webhook must still be the ONLY authority to
+# transition an order to paid; replay and account/amount checks still apply.
+MOBILE_PAID_ORDER=00000000-0000-0000-0000-000000000099
+run >/dev/null -c "insert into public.food_orders(
+  id,order_number,store_id,buyer_id,total,status,payment_status
+) values ('$MOBILE_PAID_ORDER','WF-MOBILE-01','$STORE','$BUYER',125.50,'pending_acceptance','pending')"
+MOBILE_EVENT="set role service_role; select public.food_apply_stripe_event(
+  'evt_mobile_pi_paid','payment_intent.succeeded','$MOBILE_PAID_ORDER',
+  'acct_test_wynos','pi_mobile_test_1',null,'pi_mobile_test_1',12550,
+  'thb','paid','card',null,null)"
+[ "$(val "$MOBILE_EVENT")" = "t" ] || fail "mobile PaymentIntent webhook applies"
+[ "$(val "$MOBILE_EVENT")" = "f" ] || fail "mobile PaymentIntent webhook replay isn't idempotent"
+[ "$(val "select payment_status||'|'||payment_provider||'|'||stripe_payment_intent_id
+  from public.food_orders where id='$MOBILE_PAID_ORDER'")" = "paid|stripe|pi_mobile_test_1" ] \
+  || fail "mobile order must be confirmed paid only by webhook"
+[ "$(val "select checkout_session_id is null
+  from public.food_stripe_payments where order_id='$MOBILE_PAID_ORDER'")" = "t" ] \
+  || fail "mobile direct PaymentIntent must not require a Checkout Session"
+pass "native direct PaymentIntent payment can be reconciled without Checkout Session"
+
+expect_fail "mobile payment intent amount mismatch rejected" \
+  "set role service_role; select public.food_apply_stripe_event(
+    'evt_mobile_bad_amount','payment_intent.succeeded','$MOBILE_PAID_ORDER',
+    'acct_test_wynos','pi_mobile_bad_amount',null,'pi_mobile_bad_amount',50,
+    'thb','paid','card',null,null)" "amount mismatch"
+expect_fail "mobile connected account mismatch rejected" \
+  "set role service_role; select public.food_apply_stripe_event(
+    'evt_mobile_bad_merchant','payment_intent.succeeded','$MOBILE_PAID_ORDER',
+    'acct_attacker','pi_mobile_bad_merchant',null,'pi_mobile_bad_merchant',12550,
+    'thb','paid','card',null,null)" "stripe account mismatch"
+
 [ "$(val "select has_function_privilege('authenticated','public.food_apply_stripe_event(text,text,uuid,text,text,text,text,bigint,text,text,text,text,text)','execute')")" = "f" ] || fail "authenticated can execute webhook mutation"
 [ "$(val "select has_function_privilege('service_role','public.food_apply_stripe_event(text,text,uuid,text,text,text,text,bigint,text,text,text,text,text)','execute')")" = "t" ] || fail "service role cannot execute webhook mutation"
 pass "webhook mutation is service-role only"

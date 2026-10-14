@@ -216,4 +216,10 @@
     <string name="staging_order_confirm_title">ยืนยันสร้างออเดอร์ทดสอบ?</string>
     <string name="staging_order_confirm_text">การดำเนินการนี้จะเขียนข้อมูลออเดอร์จริงลงใน Staging เท่านั้น ไม่มีการชำระเงิน และไม่สามารถส่งซ้ำได้ในเซสชันนี้ โปรดยืนยันว่าใช้บัญชีและร้านทดสอบ</string>
     <string name="staging_order_attempt_reference">รหัสคำขอทดสอบ (ใช้ตรวจสอบออเดอร์): %1$s</string>
+    <string name="staging_payment_action">ชำระเงินด้วยบัตรทดสอบ (Stripe Test)</string>
+    <string name="staging_payment_not_paid">เฉพาะ Staging เท่านั้น ยังไม่ชำระเงินจริง</string>
+    <string name="staging_payment_checking">ส่งข้อมูลผ่าน Stripe Test แล้ว กำลังรอ Backend ยืนยันผลชำระเงิน</string>
+    <string name="staging_payment_cancelled">ยกเลิกหน้าชำระเงินทดสอบแล้ว</string>
+    <string name="staging_payment_failed">การชำระเงินทดสอบไม่สำเร็จ ตรวจสอบสถานะออเดอร์อีกครั้ง</string>
+    <string name="staging_payment_unavailable">ไม่สามารถเปิดการชำระเงินทดสอบได้ ตรวจสอบ Staging และสถานะออเดอร์</string>
 </resources>

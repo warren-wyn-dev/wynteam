@@ -427,6 +427,12 @@ Deno.serve(async (req: Request) => {
     if (object.payment_status === "paid") state = "paid";
     const types = object.payment_method_types;
     if (Array.isArray(types) && typeof types[0] === "string") paymentMethod = types[0];
+  } else if (eventType === "payment_intent.succeeded") {
+    // Mobile Stripe PaymentSheet uses a direct PaymentIntent, without a
+    // Checkout Session. Never trust the Android callback as proof of payment:
+    // only a verified Stripe webhook may change the stored order to paid.
+    state = "paid";
+    paymentMethod = stringValue(object.payment_method);
   } else if (eventType === "checkout.session.async_payment_failed" || eventType === "payment_intent.payment_failed") {
     state = "failed";
     const lastError = object.last_payment_error as Record<string,unknown> | undefined;
