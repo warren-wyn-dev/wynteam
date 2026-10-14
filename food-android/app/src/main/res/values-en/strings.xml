@@ -62,6 +62,7 @@
     <string name="public_store_closed">Closed</string>
     <string name="delivery_to">Deliver to</string>
     <string name="select_delivery">Choose delivery address</string>
+    <string name="manage_delivery_addresses">Manage addresses</string>
     <string name="messages">Messages</string>
     <string name="messages_unavailable">Messaging is under development</string>
     <string name="store_tab_menu">Menu</string>
