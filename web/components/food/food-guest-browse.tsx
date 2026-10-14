@@ -165,13 +165,14 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
 
   const pickStore = (next: GuestStore) => {
     if (basket && basket.lines.length > 0 && basket.storeId !== next.id) {
-      if (!window.confirm("เปลี่ยนร้านอาหารและล้างตะกร้าเดิม?")) return;
+      if (!window.confirm("เปลี่ยนร้านอาหารและล้างตะกร้าเดิม?")) return false;
       setBasket(null);
       clearGuestFoodBasket();
     }
     setSelectedId(next.id);
     rememberSharedFoodStore(next.id);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    return true;
   };
 
   const showItem = (item: GuestMenuItem) => {
@@ -388,7 +389,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                 onMenu={(id) => {
                   const item = featured.menu.find((row) => row.id === id);
                   if (!item || !featured.is_open || !available(item)) return;
-                  pickStore(featured);
+                  if (!pickStore(featured)) return;
                   setSelectedItem(item);
                   setChosen({});
                   setNote("");
