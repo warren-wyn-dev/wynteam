@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -105,11 +106,11 @@ fun ZokyHomeScreen(
         item(key = "zoky-header") {
             Row(
                 Modifier.widthIn(max = 720.dp).fillMaxWidth()
-                    .padding(start = 19.dp, end = 15.dp, top = 12.dp, bottom = 12.dp),
+                    .padding(start = 19.dp, end = 15.dp, top = 4.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Zoky", fontSize = 36.sp, lineHeight = 43.sp,
+                    Text("Zoky", fontSize = 34.sp, lineHeight = 40.sp,
                         color = ZokyRed, fontWeight = FontWeight.ExtraBold)
                     Row(
                         Modifier.clip(RoundedCornerShape(9.dp)).clickable(onClick = onLocation)
@@ -197,38 +198,56 @@ fun ZokyHomeScreen(
             // a verified server promotion, never copied from the reference image.
             val offers = state.promotions
             val previews = if (offers.isEmpty()) listOf(
-                Triple("ดีลร้านดัง", "ตัวอย่างดีไซน์ · ยังไม่มีดีลจริง", "dealpizza_crop"),
-                Triple("เครื่องดื่มสุดฮิต", "ตัวอย่างดีไซน์ · รอโปรโมชันจริง", "dealdrinks_crop"),
+                Triple("ดีลร้านดัง", "เมนูยอดนิยม · ภาพตัวอย่าง", "dealpizza_crop"),
+                Triple("เครื่องดื่มสุดฮิต", "คุ้มกว่า · ภาพตัวอย่าง", "dealdrinks_crop"),
+                Triple("เมนูน่าลอง", "ภาพตัวอย่างดีล", "zoky_third_deal_preview"),
             ) else offers.take(8).mapIndexed { index, offer ->
                 Triple(offer.title, "ตรวจสอบเงื่อนไขก่อนใช้", if (index % 2 == 0) "dealpizza_crop" else "dealdrinks_crop")
             }
+            // On a phone, show two whole cards plus a third preview edge.
+            // Width follows the viewport instead of the older oversized 212dp.
+            val dealWidthDp = (LocalConfiguration.current.screenWidthDp * 0.41f)
+                .coerceIn(128f, 240f)
             LazyRow(
                 modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 3.dp),
             ) {
                 items(previews) { (title, subtitle, artwork) ->
                     Column(
-                        Modifier.width(212.dp)
-                            .shadow(2.dp, RoundedCornerShape(16.dp))
-                            .clip(RoundedCornerShape(16.dp))
+                        Modifier.width(dealWidthDp.dp)
+                            .shadow(2.dp, RoundedCornerShape(15.dp))
+                            .clip(RoundedCornerShape(15.dp))
                             .background(Color.White)
                             .clickable(onClick = onDeals),
                     ) {
                         ZokyArt(
                             artwork, title,
-                            modifier = Modifier.fillMaxWidth().height(130.dp),
+                            modifier = Modifier.fillMaxWidth()
+                                .height((dealWidthDp * 0.60f).dp),
                             scale = ContentScale.Crop,
                         )
-                        Column(
-                            Modifier.padding(horizontal = 11.dp, vertical = 10.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .padding(start = 10.dp, end = 8.dp, top = 9.dp, bottom = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(title, color = ZokyInk,
-                                fontWeight = FontWeight.Bold, fontSize = 14.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(subtitle, color = ZokySub, fontSize = 11.sp,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Column(Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(title, color = ZokyInk,
+                                    fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(subtitle, color = ZokySub, fontSize = 10.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Box(
+                                Modifier.padding(start = 3.dp).size(28.dp)
+                                    .clip(CircleShape).background(ZokyBlush),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Icons.Outlined.ChevronRight, null,
+                                    tint = ZokyInk, modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
                 }
