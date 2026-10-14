@@ -485,6 +485,8 @@ fun WebStoreScreen(
     onSelectAddress: (String?) -> Unit,
     onChangeQuantity: (String, Int) -> Unit,
     onCreateOrder: (String) -> Unit,
+    onPrepareStagingPayment: suspend (String) -> online.wynos.food.data.FoodMobilePaymentIntent,
+    onPaymentSheetCompleted: () -> Unit,
 ) {
     var selectedMenu by remember(store.id) { mutableStateOf<FoodMenu?>(null) }
     var showCart by remember(store.id) { mutableStateOf(false) }
@@ -678,6 +680,8 @@ fun WebStoreScreen(
         onSelectAddress = onSelectAddress,
         onChangeQuantity = onChangeQuantity,
         onCreateOrder = onCreateOrder,
+        onPrepareStagingPayment = onPrepareStagingPayment,
+        onPaymentSheetCompleted = onPaymentSheetCompleted,
     )
 }
 
