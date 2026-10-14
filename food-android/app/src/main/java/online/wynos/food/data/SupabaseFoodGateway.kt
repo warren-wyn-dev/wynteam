@@ -48,6 +48,8 @@ interface FoodGateway {
     }
     suspend fun catalog(): List<FoodStore>
     suspend fun homeBanners(): List<FoodHomeBanner>
+    suspend fun storeReviewFeed(storeId: String): FoodStoreReviewFeed =
+        throw UnsupportedOperationException("review_feed_not_configured")
     suspend fun accountEmail(): String?
     suspend fun orderHistory(): List<FoodOrderSummary>
     suspend fun orderDetail(orderId: String): FoodOrderDetail? = null
@@ -182,6 +184,22 @@ class SupabaseFoodGateway : FoodGateway {
         // Same public, admin-controlled homepage banners RPC used by web.
         val response = requireClient().postgrest.rpc("food_active_home_banners").decodeAs<JsonElement>()
         return FoodHomeBannerParser.parse(response)
+    }
+
+    override suspend fun storeReviewFeed(storeId: String): FoodStoreReviewFeed {
+        require(runCatching { java.util.UUID.fromString(storeId) }.isSuccess) {
+            "invalid_store_id"
+        }
+        // Read-only server RPC with its own access policy; no direct anonymous
+        // table read and no review submission. No fabricated reviews on error.
+        val response = requireClient().postgrest.rpc(
+            "food_store_review_feed",
+            buildJsonObject {
+                put("p_store_id", storeId)
+                put("p_limit", 20)
+            },
+        ).decodeAs<JsonElement>()
+        return FoodStoreReviewFeedParser.parse(response)
     }
 
     override suspend fun accountEmail(): String? {
