@@ -80,7 +80,9 @@ fun FoodHomeDelivery(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = when {
-                        address != null -> address.label.ifBlank { address.address }
+                        address != null -> address.placeName.ifBlank {
+                            address.label.ifBlank { address.address }
+                        }
                         state.addressesLoading -> stringResource(R.string.loading_addresses)
                         state.addressesFailed -> stringResource(R.string.addresses_load_error)
                         else -> stringResource(R.string.select_delivery)
@@ -97,15 +99,6 @@ fun FoodHomeDelivery(
                     contentDescription = null,
                     tint = DeliverySecondary,
                     modifier = Modifier.size(18.dp),
-                )
-            }
-            if (address != null && address.address.isNotBlank()) {
-                Text(
-                    text = address.address,
-                    color = DeliverySecondary,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
