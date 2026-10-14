@@ -106,6 +106,17 @@
     <string name="account_signup_password_rule">Use 8 or more characters; passwords must match</string>
     <string name="account_signup_email_sent">If registration succeeded, check your email to confirm your account before signing in.</string>
     <string name="account_back_to_signin">Already have an account? Sign in</string>
+    <string name="account_delete_action">Delete WYNOS account</string>
+    <string name="account_delete_title">Permanently delete WYNOS account</string>
+    <string name="account_delete_shared_warning">This permanently deletes your shared WYNOS account across services, not just WYNOS Food.</string>
+    <string name="account_delete_cannot_undo">Associated account data is deleted according to the data retention policy. This cannot be undone.</string>
+    <string name="account_delete_staging_only">Deletion is disabled in this preview build. It is testable only with approved staging accounts.</string>
+    <string name="account_delete_phrase">DELETE WYNOS</string>
+    <string name="account_delete_type_instruction">Type “%1$s” to confirm</string>
+    <string name="account_delete_confirmation_label">Confirmation phrase</string>
+    <string name="account_delete_failed">Unable to complete account deletion. Please check your account and try again.</string>
+    <string name="account_delete_final_title">Delete your WYNOS account?</string>
+    <string name="account_delete_final_warning">Your shared WYNOS account will be permanently deleted and cannot be recovered.</string>
     <string name="account_signup_pending">Android registration is still in development</string>
     <string name="store_meta_guest">%1$d items · delivery from ฿%2$s</string>
     <string name="required_option">Required</string>
