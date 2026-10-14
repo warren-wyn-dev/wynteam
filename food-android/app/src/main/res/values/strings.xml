@@ -246,4 +246,12 @@
     <string name="favorite_toggle_add">บันทึกร้านโปรด</string>
     <string name="favorite_toggle_remove">นำร้านออกจากรายการโปรด</string>
     <string name="favorite_back">ย้อนกลับ</string>
+    <string name="store_review_title">รีวิวจากลูกค้า</string>
+    <string name="store_review_loading">กำลังโหลดรีวิว...</string>
+    <string name="store_review_error">ยังโหลดรีวิวไม่ได้ โปรดลองอีกครั้ง</string>
+    <string name="store_review_retry">ลองอีกครั้ง</string>
+    <string name="store_review_empty">ยังไม่มีรีวิวจากออเดอร์ที่ส่งสำเร็จ</string>
+    <string name="store_review_count">(%1$d รีวิว)</string>
+    <string name="store_review_verified_order">สั่งจริงกับ WYNOS Food</string>
+    <string name="store_review_merchant_reply">ร้านตอบกลับ</string>
 </resources>

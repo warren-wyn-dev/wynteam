@@ -12,6 +12,7 @@ import online.wynos.food.data.FoodOrderDetail
 import online.wynos.food.data.FoodCustomerAddress
 import online.wynos.food.data.FoodAddressDraft
 import online.wynos.food.data.FoodServerQuote
+import online.wynos.food.data.FoodStoreReviewFeed
 import online.wynos.food.data.SupabaseFoodGateway
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +49,10 @@ data class FoodUiState(
     val quote: FoodServerQuote? = null,
     val quoteLoading: Boolean = false,
     val quoteFailed: Boolean = false,
+    val reviewedStoreId: String? = null,
+    val reviewFeed: FoodStoreReviewFeed? = null,
+    val reviewFeedLoading: Boolean = false,
+    val reviewFeedFailed: Boolean = false,
     val accountLoading: Boolean = false,
     val accountBusy: Boolean = false,
     val accountEmail: String? = null,
@@ -84,6 +89,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     private var orderGeneration = 0L
     private var orderDetailGeneration = 0L
     private var quoteGeneration = 0L
+    private var reviewGeneration = 0L
     // The staging RPC has a buyer-scoped durable idempotency key. Still restrict
     // the preview to one attempt/session until full order/payment E2E is verified.
     private var stagingOrderAttemptConsumed = false
@@ -100,8 +106,11 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         addressGeneration++
         orderGeneration++
         orderDetailGeneration++
+        reviewGeneration++
         mutableState.update { it.copy(selectedOrderId = null, orderDetail = null,
-            orderDetailLoading = false, orderDetailFailed = false, orderStatusNotice = null) }
+            orderDetailLoading = false, orderDetailFailed = false, orderStatusNotice = null,
+            reviewedStoreId = null, reviewFeed = null,
+            reviewFeedLoading = false, reviewFeedFailed = false) }
         invalidateQuote()
         stagingOrderAttemptConsumed = false
         mutableState.update {
@@ -526,6 +535,37 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             mutableState.value.stagingOrderCreatedId == orderId
         ) { "account_changed" }
         return credentials
+    }
+
+    fun refreshStoreReviews(storeId: String) {
+        if (!gateway.configured || runCatching { java.util.UUID.fromString(storeId) }.isFailure) return
+        val generation = ++reviewGeneration
+        val account = accountGeneration
+        mutableState.update {
+            it.copy(reviewedStoreId = storeId, reviewFeed = null,
+                reviewFeedLoading = true, reviewFeedFailed = false)
+        }
+        viewModelScope.launch {
+            try {
+                val feed = gateway.storeReviewFeed(storeId)
+                if (generation != reviewGeneration || account != accountGeneration) return@launch
+                mutableState.update {
+                    if (it.reviewedStoreId != storeId) it
+                    else it.copy(reviewFeed = feed, reviewFeedLoading = false,
+                        reviewFeedFailed = false)
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (generation == reviewGeneration && account == accountGeneration) {
+                    mutableState.update {
+                        if (it.reviewedStoreId != storeId) it
+                        else it.copy(reviewFeed = null, reviewFeedLoading = false,
+                            reviewFeedFailed = true)
+                    }
+                }
+            }
+        }
     }
 
     fun openOrderDetails(orderId: String) {
