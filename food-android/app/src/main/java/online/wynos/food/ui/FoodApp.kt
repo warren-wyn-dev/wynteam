@@ -74,6 +74,9 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     var homeCart by rememberSaveable { mutableStateOf(false) }
     val guest = state.accountEmail == null
     val selectedStore = state.stores.firstOrNull { it.id == selectedStoreId }
+    // Website FoodHeader uses the default saved address, falling back to the
+    // first address, and displays place_name before a user label.
+    val homeLocationLabel = online.wynos.food.data.FoodHomeDeliveryLabel.fromAddresses(state.addresses)
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Refresh order status only while the user is viewing their orders in the foreground.
@@ -102,8 +105,10 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     WebHomeHeader(
                         guest = guest,
                         cartCount = state.cart.itemCount,
+                        homeLocationLabel = homeLocationLabel,
                         onAccount = { selectedStoreId = null; tab = 3 },
                         onCart = { homeCart = true },
+                        onLocation = { selectedStoreId = null; tab = 3 },
                     )
                 } else if (!guest) {
                     val title = when (tab) {
@@ -141,6 +146,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onSelectAddress = vm::selectAddress,
                     onChangeQuantity = vm::updateCartLine,
                     onCreateOrder = vm::submitStagingOrder,
+                    onLoadReviews = vm::refreshStoreReviews,
                     onPrepareStagingPayment = vm::prepareStagingMobilePayment,
                     onPaymentSheetCompleted = vm::refreshOrders,
                 )
