@@ -242,6 +242,10 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mod
 /** Matches the website's 2-column mobile grid and 3-column wide-screen grid. */
 internal fun homeGridColumnsForWidth(widthDp: Float): Int = if (widthDp >= 680f) 3 else 2
 
+// Keep visual hierarchy on narrower Android viewports without disabling
+// Android's user-selected accessibility font scaling.
+internal fun compactFoodHomeForWidth(widthDp: Float): Boolean = widthDp < 400f
+
 @Composable
 fun WebHomeScreen(
     state: FoodUiState,
@@ -262,6 +266,7 @@ fun WebHomeScreen(
     // squeezed its photo into the left half and left the right half blank.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val homeGridColumns = homeGridColumnsForWidth(maxWidth.value)
+        val compactHome = compactFoodHomeForWidth(maxWidth.value)
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(Color.White),
             contentPadding = PaddingValues(bottom = if (guest) 32.dp else 124.dp),
@@ -273,12 +278,12 @@ fun WebHomeScreen(
                     Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 9.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(Brush.horizontalGradient(listOf(WebRedSoft, Color.White)))
-                        .padding(18.dp),
+                        .padding(if (compactHome) 15.dp else 18.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Surface(color = Color.White, shape = CircleShape) {
                         Row(
-                            Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            Modifier.padding(horizontal = 10.dp, vertical = if (compactHome) 4.dp else 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
@@ -286,15 +291,27 @@ fun WebHomeScreen(
                             Text(stringResource(R.string.guest_location), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                         }
                     }
-                    Text(stringResource(R.string.guest_hero_title), fontSize = 22.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold, color = WebInk)
-                    Text(stringResource(R.string.guest_hero_note), fontSize = 14.sp, lineHeight = 22.sp, color = WebSub)
+                    Text(
+                        stringResource(R.string.guest_hero_title),
+                        fontSize = if (compactHome) 20.sp else 22.sp,
+                        lineHeight = if (compactHome) 26.sp else 29.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WebInk,
+                    )
+                    Text(
+                        stringResource(R.string.guest_hero_note),
+                        fontSize = if (compactHome) 13.sp else 14.sp,
+                        lineHeight = if (compactHome) 19.sp else 22.sp,
+                        color = WebSub,
+                    )
                 }
             }
         }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-                    .height(48.dp).clip(CircleShape).background(WebChip).padding(horizontal = 16.dp),
+                    .height(if (compactHome) 46.dp else 48.dp).clip(CircleShape)
+                    .background(WebChip).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -303,11 +320,14 @@ fun WebHomeScreen(
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(color = WebInk, fontSize = 16.sp),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = WebInk, fontSize = if (compactHome) 15.sp else 16.sp),
                     modifier = Modifier.weight(1f),
                     decorationBox = { inner ->
                         Box {
-                            if (query.isEmpty()) Text(stringResource(R.string.search_food_hint), color = WebMuted, fontSize = 16.sp)
+                            if (query.isEmpty()) Text(
+                                stringResource(R.string.search_food_hint), color = WebMuted,
+                                fontSize = if (compactHome) 15.sp else 16.sp,
+                            )
                             inner()
                         }
                     },
@@ -362,6 +382,7 @@ fun WebHomeScreen(
                     SectionTitleWeb(
                         stringResource(R.string.public_stores),
                         topSpacing = if (guest) 10 else 21,
+                        compact = guest && compactHome,
                     )
                 }
                 items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
@@ -419,12 +440,12 @@ private fun BannerStrip(banners: List<FoodHomeBanner>, onStore: (String) -> Unit
 }
 
 @Composable
-private fun SectionTitleWeb(title: String, topSpacing: Int = 21) {
+private fun SectionTitleWeb(title: String, topSpacing: Int = 21, compact: Boolean = false) {
     Text(
         title,
         color = WebInk,
         fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
+        fontSize = if (compact) 17.sp else 18.sp,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = topSpacing.dp, bottom = 5.dp),
     )
 }
