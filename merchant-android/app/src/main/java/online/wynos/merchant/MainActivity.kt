@@ -15,6 +15,8 @@ import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -444,7 +446,37 @@ private fun MenuScreen(s: MerchantState, vm: MerchantViewModel) {
                 val sold = runCatching {
                     java.time.OffsetDateTime.parse(soldUntil).toInstant().isAfter(java.time.Instant.now())
                 }.getOrDefault(false)
-                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                val moveItem: (Int) -> Unit = { delta ->
+                    val oldIndex = orderIds.indexOf(item.text("id"))
+                    val target = oldIndex + delta
+                    val targets = orderIds.mapNotNull { id -> s.menu.find { it.text("id") == id } }
+                    if (oldIndex >= 0 && target in targets.indices &&
+                        targets[oldIndex].text("category") == targets[target].text("category")) {
+                        orderIds = orderIds.toMutableList().apply { add(target, removeAt(oldIndex)) }
+                    }
+                }
+                val latestMove by rememberUpdatedState(moveItem)
+                val drag = if (sorting) Modifier.pointerInput(item.text("id")) {
+                    var deltaY = 0f
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { deltaY = 0f },
+                        onDragEnd = { deltaY = 0f },
+                        onDragCancel = { deltaY = 0f },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            deltaY += amount.y
+                            val threshold = 52.dp.toPx()
+                            if (deltaY > threshold) {
+                                latestMove(1)
+                                deltaY = 0f
+                            } else if (deltaY < -threshold) {
+                                latestMove(-1)
+                                deltaY = 0f
+                            }
+                        }
+                    )
+                } else Modifier
+                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).then(drag)) {
                     Column(Modifier.padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f).clickable { if (!sorting) vm.selectMenu(item) }) {
