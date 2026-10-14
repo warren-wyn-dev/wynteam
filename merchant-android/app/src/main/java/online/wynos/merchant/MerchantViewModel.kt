@@ -46,6 +46,7 @@ data class MerchantState(
     val staff: List<JSONObject> = emptyList(),
     val reviews: JSONObject? = null,
     val promotions: JSONObject? = null,
+    val platformCampaigns: JSONObject? = null,
     val ads: JSONObject? = null,
     val stripeStatus: JSONObject? = null,
     val notifications: List<JSONObject> = emptyList(),
@@ -128,6 +129,7 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             staff = if (changingStore) emptyList() else state.staff,
             reviews = if (changingStore) null else state.reviews,
             promotions = if (changingStore) null else state.promotions,
+            platformCampaigns = if (changingStore) null else state.platformCampaigns,
             ads = if (changingStore) null else state.ads,
             stripeStatus = if (changingStore) null else state.stripeStatus,
             notifications = if (changingStore) emptyList() else state.notifications,
@@ -319,8 +321,8 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         execute {
             when (page) {
                 MerchantPage.FEEDBACK -> state = state.copy(reviews = api.storeReviews(storeId))
-                MerchantPage.PROMOTIONS, MerchantPage.CAMPAIGNS ->
-                    state = state.copy(promotions = api.campaigns(storeId))
+                MerchantPage.PROMOTIONS -> state = state.copy(promotions = api.campaigns(storeId))
+                MerchantPage.CAMPAIGNS -> state = state.copy(platformCampaigns = api.platformCampaigns(storeId))
                 MerchantPage.ADS -> state = state.copy(ads = api.advertising(storeId))
                 MerchantPage.STAFF -> state = state.copy(staff = api.staff(storeId).asObjects())
                 MerchantPage.NOTIFICATIONS -> if (accountId.isNotBlank() && accountId != "null")
@@ -375,6 +377,14 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         execute("ลบโปรโมชันแล้ว") {
             api.deleteCampaign(id, promotion.getString("id"))
             state = state.copy(promotions = api.campaigns(id))
+        }
+    }
+
+    fun joinPlatformCampaign(campaign: JSONObject, join: Boolean) {
+        val id = state.store?.optString("id") ?: return
+        execute(if (join) "เข้าร่วมแคมเปญแล้ว" else "ออกจากแคมเปญแล้ว") {
+            api.platformCampaignJoin(id, campaign.getString("id"), join)
+            state = state.copy(platformCampaigns = api.platformCampaigns(id))
         }
     }
 
