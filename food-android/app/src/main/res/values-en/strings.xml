@@ -232,4 +232,6 @@
     <string name="staging_payment_cancelled">Test payment sheet closed.</string>
     <string name="staging_payment_failed">Test payment failed. Check the order status before retrying.</string>
     <string name="staging_payment_unavailable">Test payment unavailable. Check staging and order state.</string>
+    <string name="coupon_section_title">More discount codes</string>
+    <string name="coupon_live_empty">Verified collectable offers will appear here when available.</string>
 </resources>
