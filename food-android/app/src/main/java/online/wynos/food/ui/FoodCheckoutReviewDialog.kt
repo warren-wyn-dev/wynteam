@@ -12,13 +12,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -39,8 +46,9 @@ private val CheckoutRed = Color(0xFFE40036)
 
 /**
  * Native checkout review, using ONLY server quoted amounts.
- * Intentionally not a real checkout: order creation and Stripe remain disabled
- * until a mobile-authenticated staging payment contract passes E2E verification.
+ * Production order creation and Stripe remain disabled until a mobile-authenticated
+ * idempotent payment contract passes staging E2E. A disposable staging debug build
+ * may submit ONE legacy RPC order without charging a card.
  */
 @Composable
 fun FoodCheckoutReviewDialog(
@@ -48,7 +56,14 @@ fun FoodCheckoutReviewDialog(
     address: FoodCustomerAddress,
     quote: FoodServerQuote,
     onDismiss: () -> Unit,
+    stagingOrderEnabled: Boolean = false,
+    stagingOrderBusy: Boolean = false,
+    stagingOrderUncertain: Boolean = false,
+    stagingOrderCreatedId: String? = null,
+    onCreateOrder: (String) -> Unit = {},
 ) {
+    var showStagingConfirm by remember { mutableStateOf(false) }
+    var customerNote by rememberSaveable { mutableStateOf("") }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -112,17 +127,68 @@ fun FoodCheckoutReviewDialog(
                 HorizontalDivider()
                 Column(Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (stagingOrderEnabled) {
+                        OutlinedTextField(
+                            value = customerNote,
+                            onValueChange = { customerNote = it.take(800) },
+                            label = { Text(stringResource(R.string.staging_order_customer_note)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            maxLines = 2,
+                            enabled = !stagingOrderBusy && stagingOrderCreatedId == null,
+                        )
+                    }
                     Button(
-                        onClick = {}, enabled = false,
+                        onClick = { showStagingConfirm = true },
+                        enabled = stagingOrderEnabled && !stagingOrderBusy &&
+                            !stagingOrderUncertain && stagingOrderCreatedId == null,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = CheckoutRed),
-                    ) { Text(stringResource(R.string.checkout_review_payment_locked)) }
-                    Text(stringResource(R.string.checkout_review_staging_notice),
-                        color = CheckoutSub, fontSize = 12.sp)
+                    ) {
+                        Text(stringResource(
+                            if (stagingOrderEnabled) R.string.staging_order_create_action
+                            else R.string.checkout_review_payment_locked
+                        ))
+                    }
+                    when {
+                        stagingOrderBusy ->
+                            Text(stringResource(R.string.staging_order_in_progress),
+                                color = CheckoutSub, fontSize = 12.sp)
+                        stagingOrderCreatedId != null ->
+                            Text(stringResource(R.string.staging_order_created, stagingOrderCreatedId),
+                                color = CheckoutInk, fontSize = 12.sp)
+                        stagingOrderUncertain ->
+                            Text(stringResource(R.string.staging_order_uncertain),
+                                color = CheckoutRed, fontSize = 12.sp)
+                        else ->
+                            Text(stringResource(
+                                if (stagingOrderEnabled) R.string.staging_order_notice
+                                else R.string.checkout_review_staging_notice
+                            ), color = CheckoutSub, fontSize = 12.sp)
+                    }
                 }
             }
         }
+    }
+    if (showStagingConfirm && stagingOrderEnabled && !stagingOrderBusy &&
+        !stagingOrderUncertain && stagingOrderCreatedId == null
+    ) {
+        AlertDialog(
+            onDismissRequest = { showStagingConfirm = false },
+            title = { Text(stringResource(R.string.staging_order_confirm_title)) },
+            text = { Text(stringResource(R.string.staging_order_confirm_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showStagingConfirm = false
+                    onCreateOrder(customerNote)
+                }) { Text(stringResource(R.string.staging_order_create_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStagingConfirm = false }) {
+                    Text(stringResource(R.string.address_cancel))
+                }
+            },
+        )
     }
 }
 
