@@ -217,6 +217,9 @@ class MerchantApi(context: Context) {
             .put("price", draft.getDouble("price"))
             .put("options", draft.optJSONArray("options") ?: JSONArray())
             .put("is_available", draft.optBoolean("is_available", true))
+            .put("daily_stock_limit", draft.opt("daily_stock_limit") ?: JSONObject.NULL)
+            .put("sold_out_until", draft.opt("sold_out_until") ?: JSONObject.NULL)
+            .put("image_path", draft.opt("image_path") ?: JSONObject.NULL)
         if (id != null) raw("PATCH", "/rest/v1/food_menu_items?id=eq." + filter(id) +
             "&store_id=eq." + filter(storeId), payload)
         else raw("POST", "/rest/v1/food_menu_items", payload)
@@ -316,6 +319,36 @@ class MerchantApi(context: Context) {
         rpc("food_set_payment_status", JSONObject().put("p_order_id", filter(orderId))
             .put("p_status", status)
             .put("p_note", note ?: JSONObject.NULL))
+    }
+
+    fun deleteMenu(storeId: String, itemId: String) {
+        raw("DELETE", "/rest/v1/food_menu_items?id=eq." + filter(itemId) +
+            "&store_id=eq." + filter(storeId))
+    }
+
+    fun soldOutToday(storeId: String, itemId: String, soldOut: Boolean) {
+        val tomorrow = LocalDate.now(java.time.ZoneId.of("Asia/Bangkok"))
+            .plusDays(1).atStartOfDay(java.time.ZoneId.of("Asia/Bangkok"))
+            .toOffsetDateTime().toString()
+        raw("PATCH", "/rest/v1/food_menu_items?id=eq." + filter(itemId) +
+            "&store_id=eq." + filter(storeId),
+            JSONObject().put("sold_out_until", if (soldOut) tomorrow else JSONObject.NULL))
+    }
+
+    /** Mirrors web sort update; updates are store-scoped, protected by database RLS. */
+    fun reorderMenu(storeId: String, orderedIds: List<String>) {
+        require(orderedIds.size == orderedIds.toSet().size) { "รายการเมนูซ้ำกัน" }
+        orderedIds.forEachIndexed { index, id ->
+            raw("PATCH", "/rest/v1/food_menu_items?id=eq." + filter(id) +
+                "&store_id=eq." + filter(storeId), JSONObject().put("sort_order", index))
+        }
+    }
+
+    fun saveCategoryOrder(storeId: String, names: List<String>) {
+        val clean = names.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        require(clean.isNotEmpty()) { "กรุณากำหนดหมวดหมู่อย่างน้อย 1 รายการ" }
+        raw("PATCH", "/rest/v1/food_stores?id=eq." + filter(storeId),
+            JSONObject().put("menu_category_order", JSONArray(clean)))
     }
 
     fun updateStore(storeId: String, patch: JSONObject) {
