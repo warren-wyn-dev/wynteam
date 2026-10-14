@@ -7,6 +7,7 @@ create or replace function public.food_record_stripe_fee_refund_event(
   p_livemode boolean, p_refunded_at timestamptz
 ) returns jsonb language plpgsql volatile security definer set search_path='' as $$
 declare
+  v_order_id uuid;
   v_payment public.food_stripe_payments%rowtype;
 begin
   if p_event_id is null or char_length(p_event_id) not between 3 and 255
@@ -19,10 +20,19 @@ begin
     or p_refunded_at is null or not isfinite(p_refunded_at) then
     raise exception 'Invalid application fee event' using errcode='22023';
   end if;
-  -- Keep the account/environment pinned to the actual payment, including when
-  -- a store later reconnects a different account. Never resolve order metadata.
+  -- Match food_apply_stripe_event's order-before-payment lock order. The event
+  -- receipt's order FK also takes a parent lock, so locking the payment first
+  -- can deadlock a concurrent customer-refund webhook at its payment upsert.
+  select order_id into v_order_id from public.food_stripe_payments
+    where payment_intent_id=p_payment_intent_id;
+  if not found then return jsonb_build_object('recorded',false,'reason','unmapped'); end if;
+  perform 1 from public.food_orders where id=v_order_id for update;
+  if not found then return jsonb_build_object('recorded',false,'reason','unmapped'); end if;
+  -- Re-read the original mapping after waiting for the parent. Keep the
+  -- account/environment pinned to the actual payment even after reconnection;
+  -- never resolve order metadata or trust the earlier nonlocking lookup.
   select * into v_payment from public.food_stripe_payments
-    where payment_intent_id=p_payment_intent_id for update;
+    where order_id=v_order_id and payment_intent_id=p_payment_intent_id for update;
   if not found then return jsonb_build_object('recorded',false,'reason','unmapped'); end if;
   if v_payment.stripe_account_id is distinct from p_stripe_account_id
     or v_payment.livemode is distinct from p_livemode
