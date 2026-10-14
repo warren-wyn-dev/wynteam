@@ -289,6 +289,25 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun saveCategoryChanges(rows: List<CategoryDraft>) {
+        val id = state.store?.optString("id") ?: return
+        val clean = rows.map { it.name.trim() }
+        if (clean.isEmpty() || clean.any { it.isBlank() } ||
+            clean.map { it.lowercase() }.toSet().size != clean.size) {
+            state = state.copy(error = "กรุณาตรวจชื่อหมวดหมู่ ไม่ให้ว่างหรือซ้ำกัน")
+            return
+        }
+        execute("บันทึกหมวดหมู่แล้ว") {
+            for (row in rows) {
+                if (row.original != null && row.original != row.name.trim()) {
+                    api.renameMenuCategory(id, row.original, row.name, state.menu)
+                }
+            }
+            api.saveCategoryOrder(id, clean)
+            loadSnapshot()
+        }
+    }
+
     fun saveCategoryOrder(categories: List<String>) {
         val storeId = state.store?.optString("id") ?: return
         execute("บันทึกลำดับหมวดหมู่แล้ว") {
