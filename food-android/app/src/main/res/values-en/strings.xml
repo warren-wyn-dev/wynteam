@@ -216,4 +216,10 @@
     <string name="staging_order_confirm_title">Create a test order?</string>
     <string name="staging_order_confirm_text">This writes an actual order to the disposable staging backend only. It does not collect payment. Only one attempt is allowed per session. Confirm you are using a test account and store.</string>
     <string name="staging_order_attempt_reference">Test attempt reference (for reconciliation): %1$s</string>
+    <string name="staging_payment_action">Pay with a Stripe test card</string>
+    <string name="staging_payment_not_paid">Staging only. No live payment.</string>
+    <string name="staging_payment_checking">Stripe test flow completed. Awaiting backend webhook confirmation.</string>
+    <string name="staging_payment_cancelled">Test payment sheet closed.</string>
+    <string name="staging_payment_failed">Test payment failed. Check the order status before retrying.</string>
+    <string name="staging_payment_unavailable">Test payment unavailable. Check staging and order state.</string>
 </resources>
