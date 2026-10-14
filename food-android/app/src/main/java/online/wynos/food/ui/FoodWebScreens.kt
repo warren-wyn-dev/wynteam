@@ -859,6 +859,15 @@ private fun TagWeb(title: String) {
     )
 }
 
+/** Avoid showing the merchant's location twice when copied into its description. */
+internal fun shouldShowStoreDescription(description: String?, address: String?): Boolean {
+    val value = description?.trim().orEmpty()
+    if (value.isBlank()) return false
+    val normalized = value.filterNot(Char::isWhitespace).lowercase()
+    val normalizedAddress = address?.filterNot(Char::isWhitespace)?.lowercase().orEmpty()
+    return normalized != normalizedAddress
+}
+
 @Composable
 fun WebStoreScreen(
     store: FoodStore,
@@ -895,11 +904,13 @@ fun WebStoreScreen(
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
         item {
-            // CSS uses margin-top:-20px to overlap the cover. Negative
-            // spacing overlaps in layout as well, avoiding a blank 20dp gap.
-            Column(verticalArrangement = Arrangement.spacedBy((-20).dp)) {
-                Box(Modifier.fillMaxWidth().height(230.dp)) {
-                    WebImage(store.coverPath, "food-public", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            // Constrain the cover to a responsive 16:9 crop (max 200dp).
+            // Avoid the oversized Fit image and the unused gray side margins.
+            Column(verticalArrangement = Arrangement.spacedBy((-16).dp)) {
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val coverHeight = (maxWidth.value * 9f / 16f).coerceAtMost(200f).dp
+                    Box(Modifier.fillMaxWidth().height(coverHeight)) {
+                    WebImage(store.coverPath, "food-public", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     Box(Modifier.fillMaxWidth().height(80.dp).background(
                         Brush.verticalGradient(listOf(Color.Black.copy(alpha = .36f), Color.Transparent))
                     ))
@@ -925,42 +936,47 @@ fun WebStoreScreen(
                             Text(stringResource(R.string.public_store_closed), color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
+                    }
                 }
                 Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-                        .background(Color.White).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 3.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                        .background(Color.White).padding(start = 16.dp, end = 16.dp, top = 15.dp, bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(store.name, fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = WebInk)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (guest) {
-                            Text(
-                                stringResource(R.string.store_meta_guest, store.menu.size, store.deliveryFee ?: "—"),
-                                color = WebSub, fontSize = 13.5.sp, lineHeight = 18.sp,
-                            )
-                        } else {
-                            Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623), modifier = Modifier.size(14.dp))
-                            Text(" " + stringResource(R.string.store_new) + " · ", color = WebSub, fontSize = 13.sp)
-                            Text(stringResource(R.string.store_menu_count, store.menu.size), color = WebSub, fontSize = 13.sp)
-                            Text(" · ฿" + (store.deliveryFee ?: "—"), color = WebSub, fontSize = 13.sp)
-                        }
-                    }
+                    Text(store.name, fontSize = 21.sp, lineHeight = 25.sp,
+                        fontWeight = FontWeight.Bold, color = WebInk, maxLines = 2,
+                        overflow = TextOverflow.Ellipsis)
+                    // Real catalog metadata on both guest and authenticated screens;
+                    // never insert an unverified "new" rating or discount claim.
+                    Text(
+                        stringResource(R.string.store_meta_guest, store.menu.size, store.deliveryFee ?: "—"),
+                        color = WebSub, fontSize = 13.sp, lineHeight = 18.sp,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
                     if (store.isOpen) {
-                        Text(stringResource(R.string.store_open_now), color = WebGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Box(Modifier.clip(CircleShape).background(Color(0xFFE8F8EF))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)) {
+                            Text(stringResource(R.string.store_open_now), color = WebGreen,
+                                fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
                     } else {
                         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(WebRedSoft).padding(12.dp)) {
                             Text(stringResource(R.string.store_closed_now), color = WebRedDark, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             Text(stringResource(R.string.store_closed_note), color = WebSub, fontSize = 13.sp)
                         }
                     }
-                    store.description?.let { Text(it, color = WebSub, fontSize = 13.sp) }
+                    if (shouldShowStoreDescription(store.description, store.address)) {
+                        Text(store.description!!.trim(), color = WebSub, fontSize = 13.sp,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
                     if (guest && !store.address.isNullOrBlank()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Icon(Icons.Outlined.LocationOn, null, tint = WebSub, modifier = Modifier.size(14.dp))
-                            Text(store.address, color = WebSub, fontSize = 13.sp)
+                            Text(store.address, color = WebSub, fontSize = 12.sp,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -996,7 +1012,7 @@ fun WebStoreScreen(
                 }
             }
             if (!guest && category.isEmpty() && available.size >= 3) {
-                item { SectionTitleWeb(stringResource(R.string.popular_menu)) }
+                item { SectionTitleWeb(stringResource(R.string.popular_menu), topSpacing = 12) }
                 item {
                     Row(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
@@ -1016,7 +1032,7 @@ fun WebStoreScreen(
                 item { CenterStateText(R.string.no_menu) }
             }
             groupedMenus.forEach { (name, menus) ->
-                item { SectionTitleWeb(name) }
+                item { SectionTitleWeb(name, topSpacing = 12) }
                 items(menus, key = { it.id }) { menu ->
                     WebMenuRow(
                         menu = menu,
@@ -1087,36 +1103,43 @@ private fun RoundHeroButton(icon: androidx.compose.ui.graphics.vector.ImageVecto
 
 @Composable
 private fun WebMenuRow(menu: FoodMenu, enabled: Boolean, onClick: () -> Unit) {
-    Column {
+    Column(Modifier.fillMaxWidth().background(Color.White)) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 136.dp).clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(13.dp),
+            Modifier.fillMaxWidth().heightIn(min = 112.dp)
+                .clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Box(Modifier.size(104.dp)) {
-                WebImage(menu.imagePath, "food-public", Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
+            // One consistent 1:1 photograph, matching the native Home.
+            Box(Modifier.size(96.dp).clip(RoundedCornerShape(12.dp))) {
+                WebImage(menu.imagePath, "food-public", Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop)
                 if (!enabled) {
-                    Box(Modifier.align(Alignment.BottomCenter).clip(CircleShape).background(WebRedSoft).padding(5.dp)) {
+                    Box(Modifier.align(Alignment.BottomCenter).clip(CircleShape)
+                        .background(WebRedSoft).padding(5.dp)) {
                         Text(stringResource(R.string.menu_unavailable), color = WebRedDark, fontSize = 10.sp)
                     }
                 }
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(menu.name, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2)
-                menu.description?.let { Text(it, color = WebSub, fontSize = 12.sp, maxLines = 2) }
-                Text("฿" + menu.price, color = WebInk, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(menu.name, color = WebInk, fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                menu.description?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, color = WebSub, fontSize = 12.sp,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                Text("฿" + menu.price, color = WebInk,
+                    fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
             if (enabled) {
-                Box(
-                    Modifier.size(36.dp).align(Alignment.Bottom).shadow(4.dp, CircleShape)
-                        .background(WebRed, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Outlined.Add, null, tint = Color.White, modifier = Modifier.size(23.dp))
-                }
+                // The row opens the existing option-detail flow. No
+                // misleading quick-order "+" surface is shown on this page.
+                Icon(Icons.Outlined.ChevronRight, null, tint = WebMuted,
+                    modifier = Modifier.size(20.dp))
             }
         }
-        HorizontalDivider(color = WebLine.copy(alpha = .65f), modifier = Modifier.padding(horizontal = 16.dp))
+        HorizontalDivider(color = WebLine.copy(alpha = .45f),
+            modifier = Modifier.padding(horizontal = 16.dp))
     }
 }

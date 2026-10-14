@@ -130,4 +130,56 @@ if ! grep -Fq 'WYNOS' visual/android-home-short-after-scroll-390-th-TH.xml; then
   exit 1
 fi
 
+# Store-page smoke check against a REAL published restaurant. Do not rely on
+# a hard-coded store name, rating, fabricated ETA or mockup discount.
+adb shell wm size 390x844
+adb shell wm density 160
+adb shell cmd locale set-app-locales online.wynos.food --user 0 --locales th-TH || true
+adb shell am force-stop online.wynos.food || true
+adb shell am start -W -n online.wynos.food/.MainActivity
+sleep 18
+adb shell uiautomator dump /sdcard/wynos-food-store-entry.xml >/dev/null
+adb exec-out cat /sdcard/wynos-food-store-entry.xml > visual/android-store-entry.xml
+store_coordinates="$(python3 - <<'PY'
+import re
+import xml.etree.ElementTree as ET
+root = ET.parse('visual/android-store-entry.xml').getroot()
+for node in root.iter('node'):
+    if 'ดูร้านค้า' not in (node.get('text', '') + ' ' + node.get('content-desc', '')):
+        continue
+    matches = re.findall(r'\[(\d+),(\d+)\]', node.get('bounds', ''))
+    if len(matches) == 2:
+        (x1, y1), (x2, y2) = [tuple(map(int, x)) for x in matches]
+        if x2 > x1 and y2 > y1:
+            print((x1 + x2) // 2, (y1 + y2) // 2)
+            break
+PY
+)"
+if [[ -z "$store_coordinates" ]]; then
+  echo "A real published Home restaurant link was not accessible to store-page QA." >&2
+  exit 1
+fi
+adb shell input tap $store_coordinates
+sleep 4
+adb exec-out screencap -p > visual/android-store-390-th-TH.png
+adb shell uiautomator dump /sdcard/wynos-food-store-window.xml >/dev/null
+adb exec-out cat /sdcard/wynos-food-store-window.xml > visual/android-store-window.xml
+if ! grep -Fq 'ค่าส่งเริ่มต้น' visual/android-store-window.xml; then
+  echo "Native merchant page did not show its real menu/delivery metadata." >&2
+  exit 1
+fi
+if grep -Fq 'ค้นหาร้านหรือชื่ออาหาร' visual/android-store-window.xml; then
+  echo "Tap did not navigate away from Home to a store." >&2
+  exit 1
+fi
+adb shell input swipe 185 720 185 290 380
+sleep 3
+adb exec-out screencap -p > visual/android-store-scrolled-390-th-TH.png
+adb shell uiautomator dump /sdcard/wynos-food-store-scrolled.xml >/dev/null
+adb exec-out cat /sdcard/wynos-food-store-scrolled.xml > visual/android-store-scrolled.xml
+if grep -Eiq 'isn.t responding|not responding|wait for app' visual/android-store-scrolled.xml; then
+  echo "Dialog/ANR blocked real store menu during scroll." >&2
+  exit 1
+fi
+
 adb logcat -d -v brief -s AndroidRuntime:E System.err:E > visual/android-errors.txt || true
