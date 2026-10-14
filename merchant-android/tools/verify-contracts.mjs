@@ -16,7 +16,15 @@ for (const rpc of ["food_has_merchant_access", "merchant_sales_report",
     "merchant web RPC is missing: " + rpc);
 }
 assert.match(model, /payment_status"\) == "paid"/);
-assert.match(ui, /order\.text\("payment_status"\) != "paid"/);
+assert.match(ui, /payment != "paid"/);
+assert.match(ui, /approveSlipAndAccept\(order, reviewed, eta\)/);
+assert.match(ui, /completeOrder\(order, method, locationNote, deliveryUri\)/);
+assert.match(api, /food_complete_delivery/);
+assert.match(api, /storage\/v1\/object\/sign\/food-private/);
+assert.match(api, /"delivery\/\$id\/"/);
+assert.match(api, /Bitmap\.CompressFormat\.JPEG/);
+assert.match(ui, /MenuOptionsEditor\(options/);
+assert.match(api, /sold_out_until/);
 assert.match(model, /86_400_000/);
 assert.match(ui, /"cooking" -> order\.text\("status"\) in listOf\("preparing", "ready_for_delivery"\)/);
 assert.match(ui, /"delivery" -> order\.text\("status"\) == "out_for_delivery"/);
