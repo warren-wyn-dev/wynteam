@@ -120,7 +120,14 @@ private fun WebImage(
 }
 
 @Composable
-fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart: () -> Unit) {
+fun WebHomeHeader(
+    guest: Boolean,
+    cartCount: Int,
+    homeLocationLabel: String?,
+    onAccount: () -> Unit,
+    onCart: () -> Unit,
+    onLocation: () -> Unit,
+) {
     Column(Modifier.fillMaxWidth().background(Color.White).padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -159,7 +166,8 @@ fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart:
         }
         if (!guest) {
             Row(
-                modifier = Modifier.padding(top = 3.dp, bottom = 2.dp).height(42.dp),
+                modifier = Modifier.padding(top = 3.dp, bottom = 2.dp).height(42.dp)
+                    .clickable(onClick = onLocation),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -167,7 +175,11 @@ fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart:
                 Column {
                     Text(stringResource(R.string.delivery_to), fontSize = 12.sp, color = WebSub)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.select_delivery), fontSize = 15.sp, color = WebInk, fontWeight = FontWeight.Bold)
+                        Text(
+                            homeLocationLabel?.takeIf(String::isNotBlank) ?: stringResource(R.string.select_delivery),
+                            fontSize = 15.sp, color = WebInk, fontWeight = FontWeight.Bold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
                         Icon(Icons.Outlined.KeyboardArrowDown, null, tint = WebSub, modifier = Modifier.size(18.dp))
                     }
                 }
@@ -242,11 +254,13 @@ fun WebHomeScreen(
             store.menu.any { it.name.contains(query.trim(), ignoreCase = true) }) &&
             (filter != "open" || store.isOpen)
     }
-    // Use the actual composable width rather than assuming two columns on
-    // every screen. With only one published store, the old 2-column grid
-    // squeezed its photo into the left half and left the right half blank.
+    // Strictly follow web/app/food/food-app.css grid breakpoints.
+    // Android remains Compose Native; the storefront uses the same spacing
+    // and card columns as the mobile website.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val homeGridColumns = if (maxWidth < 600.dp) 1 else 2
+        // Source of truth: web/app/food/food-app.css .fx-store-grid
+        // is 2 columns on phones, 3 columns at 680px and above.
+        val homeGridColumns = if (maxWidth >= 680.dp) 3 else 2
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(Color.White),
             contentPadding = PaddingValues(bottom = 32.dp),
@@ -442,12 +456,9 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boole
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp))) {
-            // Store artwork can include text near its edges. Contain it
-            // rather than trimming labels/watermarks with ContentScale.Crop.
-            WebImage(
-                store.coverPath, "food-public", Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
-            )
+            // Match website .fx-store-card-photo img { object-fit: cover }.
+            // Merchants should keep meaning-bearing text inside the safe area.
+            WebImage(store.coverPath, "food-public", Modifier.fillMaxSize())
             if (!store.isOpen) {
                 Box(
                     Modifier.align(Alignment.TopEnd).padding(8.dp).clip(CircleShape)
