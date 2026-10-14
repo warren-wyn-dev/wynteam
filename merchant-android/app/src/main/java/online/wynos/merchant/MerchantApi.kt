@@ -94,8 +94,14 @@ class MerchantApi(context: Context) {
         val requestBody = (body?.toString() ?: "{}").toRequestBody(jsonType)
         when (method) {
             "POST" -> builder.post(requestBody)
-            "PATCH" -> builder.patch(requestBody)
-            "DELETE" -> builder.delete()
+            "PATCH" -> {
+                builder.header("Prefer", "return=representation")
+                builder.patch(requestBody)
+            }
+            "DELETE" -> {
+                builder.header("Prefer", "return=representation")
+                builder.delete()
+            }
             else -> builder.get()
         }
         http.newCall(builder.build()).execute().use { response ->
@@ -111,7 +117,16 @@ class MerchantApi(context: Context) {
                     ?: "HTTP " + response.code
                 throw IOException(message)
             }
-            return if (value.isBlank()) JSONObject() else JSONTokener(value).nextValue() ?: JSONObject()
+            val result = if (value.isBlank()) JSONObject() else JSONTokener(value).nextValue() ?: JSONObject()
+            // PostgREST returns HTTP 204 even when an UPDATE/DELETE touched zero rows.
+            // Require row confirmation for single-row writes so RLS denials/stale IDs never report success.
+            val bulkMarkRead = path.startsWith(
+                "/rest/v1/merchant_notifications?merchant_account_id=eq.")
+            if ((method == "PATCH" || method == "DELETE") && !bulkMarkRead &&
+                result is JSONArray && result.length() == 0) {
+                throw IOException("ไม่พบรายการที่แก้ไข หรือไม่มีสิทธิ์ดำเนินการ")
+            }
+            return result
         }
     }
 
