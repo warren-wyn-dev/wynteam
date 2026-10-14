@@ -45,6 +45,7 @@ data class MerchantState(
     val selectedMenu: JSONObject? = null,
     val readiness: JSONObject? = null,
     val audit: List<JSONObject> = emptyList(),
+    val places: List<JSONObject>? = null,
     val staff: List<JSONObject> = emptyList(),
     val reviews: JSONObject? = null,
     val promotions: JSONObject? = null,
@@ -108,6 +109,11 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun requestPasswordReset(email: String) = execute(
+        "หากอีเมลนี้มีบัญชี WYNOS ระบบจะส่งลิงก์ตั้งรหัสผ่านใหม่ให้") {
+        api.requestPasswordReset(email)
+    }
+
     fun signIn(email: String, password: String) = execute {
         api.signIn(email, password)
         loadSnapshot()
@@ -149,6 +155,7 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             financeTo = if (changingStore) "" else state.financeTo,
             readiness = if (changingStore) null else state.readiness,
             audit = if (changingStore) emptyList() else state.audit,
+            places = if (changingStore) null else state.places,
             staff = if (changingStore) emptyList() else state.staff,
             reviews = if (changingStore) null else state.reviews,
             promotions = if (changingStore) null else state.promotions,
@@ -385,11 +392,38 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         execute {
             val readiness = runCatching { api.readiness(storeId) }.getOrNull()
             val audit = runCatching { api.audit(storeId).asObjects() }.getOrDefault(emptyList())
-            state = state.copy(readiness = readiness, audit = audit)
+            // The optional food_store_places table may not yet be deployed.
+            val places = runCatching { api.storePlaces(storeId).asObjects() }.getOrNull()
+            state = state.copy(readiness = readiness, audit = audit, places = places)
         }
     }
 
     /** Backend-backed native merchant tools; Supabase RLS and RPC roles still enforce permissions. */
+    fun saveCoordinates(draft: JSONObject) {
+        val id = state.store?.optString("id") ?: return
+        execute("อัปเดตพิกัดร้านและจุดรับอาหารแล้ว") {
+            api.updateStoreCoordinates(id, draft)
+            loadSnapshot()
+            state = state.copy(readiness = runCatching { api.readiness(id) }.getOrNull())
+        }
+    }
+
+    fun savePlace(draft: JSONObject) {
+        val id = state.store?.optString("id") ?: return
+        execute("บันทึกสถานที่จัดส่งแล้ว") {
+            api.saveStorePlace(id, draft)
+            state = state.copy(places = api.storePlaces(id).asObjects())
+        }
+    }
+
+    fun deletePlace(placeId: String) {
+        val id = state.store?.optString("id") ?: return
+        execute("ลบสถานที่แล้ว") {
+            api.deleteStorePlace(id, placeId)
+            state = state.copy(places = api.storePlaces(id).asObjects())
+        }
+    }
+
     fun loadExtras(page: MerchantPage = state.page) {
         val store = state.store ?: return
         val storeId = store.optString("id")
