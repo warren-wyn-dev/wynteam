@@ -105,9 +105,9 @@ import online.wynos.food.data.FoodPublicMedia
 import online.wynos.food.data.FoodStore
 
 // Tokens based on web/app/food/food-app.css (fx-app, Oct 2026).
-private val WebRed = Color(0xFFE40036)
-private val WebRedDark = Color(0xFFC8002E)
-private val WebRedSoft = Color(0xFFFCEDF0)
+private val WebRed = Color(0xFFD91F4E)
+private val WebRedDark = Color(0xFFBE153F)
+private val WebRedSoft = Color(0xFFFFF0F4)
 private val WebInk = Color(0xFF16161A)
 private val WebSub = Color(0xFF6B6B76)
 private val WebMuted = Color(0xFF8A8A94)
@@ -165,16 +165,10 @@ fun WebHomeHeader(
         ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Image(
-                    painter = painterResource(R.drawable.food_logo),
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)),
-                )
+                Icon(Icons.Outlined.Restaurant, null, tint = WebRed,
+                    modifier = Modifier.size(28.dp))
                 Text(
-                    text = buildAnnotatedString {
-                        append("WYNOS ")
-                        withStyle(SpanStyle(color = WebRed)) { append("Food") }
-                    },
+                    text = "Zoky · สั่งอาหาร",
                     modifier = Modifier.weight(1f),
                     fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = WebInk, fontWeight = FontWeight.Bold,
