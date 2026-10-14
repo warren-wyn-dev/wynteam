@@ -1,6 +1,6 @@
 "use client";
 
-import { Bike, ChevronRight, Clock3, Star, Ticket, UtensilsCrossed } from "lucide-react";
+import { Bike, ChevronRight, Star, Ticket, UtensilsCrossed } from "lucide-react";
 
 /** Public catalog and published merchant campaign data only. Never fabricate review scores,
  * delivery estimates, coupons, menu photos, or opening hours to match a visual mockup. */
