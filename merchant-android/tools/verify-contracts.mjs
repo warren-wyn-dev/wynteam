@@ -4,6 +4,7 @@ const src = (path) => readFileSync(new URL("../../" + path, import.meta.url), "u
 const api = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantApi.kt");
 const ui = src("merchant-android/app/src/main/java/online/wynos/merchant/MainActivity.kt");
 const model = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantViewModel.kt");
+const printer = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantPrinter.kt");
 const web = src("web/lib/food-merchant.ts");
 const merchantWeb = src("web/components/merchant/wynos-merchant-app.tsx");
 assert.match(ui, /setContent\s*\{/);
@@ -31,6 +32,18 @@ assert.match(api, /merchant_request_ad_topup/);
 assert.match(api, /Bitmap\.CompressFormat\.JPEG/);
 assert.match(ui, /MenuOptionsEditor\(options/);
 assert.match(api, /sold_out_until/);
+// Never retain customer/order media across tenant switching or failed authorization.
+assert.match(model, /fun selectStore\(storeId: String\)/);
+assert.match(model, /state\.stores\.any \{ it\.optString\("id"\) == storeId \}/);
+assert.match(model, /if \(state\.store\?\.optString\("id"\) == storeId\) return/);
+assert.match(model, /state = MerchantState\(\s*configured = api\.configured,\s*signedIn = true/);
+assert.match(model, /fun refresh\(\) = execute \{/);
+assert.match(model, /state = MerchantState\(configured = api\.configured\)/);
+// Receipt/label PDFs must paginate instead of silently cutting off long orders.
+assert.match(printer, /PAGE_COUNT_UNKNOWN/);
+assert.match(printer, /private fun drawPaginated/);
+assert.match(printer, /if \(y \+ lineHeight > bottom\) newPage\(\)/);
+assert.match(printer, /document\.finishPage\(page\)/);
 assert.match(model, /terminalWithin24h/);
 assert.match(model, /pendingPageLoad/);
 assert.match(model, /if \(state\.busy\) pendingPageLoad = page else loadPageData\(page\)/);
