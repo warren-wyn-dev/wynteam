@@ -290,8 +290,11 @@ class MerchantApi(context: Context) {
     fun uploadDeliveryImage(orderId: String, uri: Uri): String =
         uploadImage("food-private", "delivery/" + filter(orderId), uri)
 
-    fun uploadStoreImage(storeId: String, uri: Uri): String =
-        uploadImage("food-public", "stores/" + filter(storeId) + "/profile", uri)
+    fun uploadStoreImage(storeId: String, kind: String, uri: Uri): String {
+        require(kind in setOf("logo", "cover", "payment")) { "ชนิดรูปภาพไม่ถูกต้อง" }
+        val folder = if (kind == "logo") "profile" else kind
+        return uploadImage("food-public", "stores/" + filter(storeId) + "/" + folder, uri)
+    }
 
     fun uploadMenuImage(storeId: String, uri: Uri): String =
         uploadImage("food-public", "stores/" + filter(storeId) + "/menu", uri)
