@@ -95,7 +95,7 @@ adb shell wm density 160
 adb shell cmd locale set-app-locales "$PACKAGE" --user 0 --locales th-TH || true
 launch_zoky
 dump_window visual/zoky-food-entry.xml
-tap_accessible visual/zoky-food-entry.xml 'สั่งอาหาร ร้านอร่อยใกล้คุณ'
+tap_accessible visual/zoky-food-entry.xml 'เลือกอาหาร'
 sleep 7
 dump_window visual/zoky-food-catalog.xml
 adb exec-out screencap -p > visual/zoky-food-catalog-390-th-TH.png
