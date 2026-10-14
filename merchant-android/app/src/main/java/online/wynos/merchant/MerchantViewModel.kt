@@ -127,6 +127,11 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun signIn(email: String, password: String) = execute {
+        // After a failed previous-session verification, an old JWT may remain
+        // in encrypted storage. Detach its FCM token BEFORE changing identity.
+        if (api.hasSession && MerchantPush.isEnabled(getApplication())) {
+            MerchantPush.disable(getApplication(), api)
+        }
         api.signIn(email, password)
         loadSnapshot()
     }
