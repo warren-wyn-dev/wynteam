@@ -80,6 +80,7 @@ import io.wyn.wyn.feature.quote.QuoteSheets
 import kotlinx.coroutines.delay
 
 private val HeaderGrey = Color(0xFF737780)
+private val HeaderGreyDark = Color(0xFFA3A6AD)
 private val TabGrey = Color(0xFF757A84)
 
 /** Actions the Home screen hands to screens that arrive in later milestones. */
@@ -294,7 +295,7 @@ private fun HomeHeader(notificationCount: Int, nav: HomeNavigation) {
                 colorFilter = if (dark) ColorFilter.colorMatrix(Invert) else null,
             )
             Spacer(Modifier.width(7.dp))
-            Text("WYNOS", color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+            Text("WYNOS", color = c.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
         }
         Row(Modifier.align(Alignment.CenterEnd)) {
             HeaderButton(WynIcons.Search, stringResource(R.string.search), nav.onSearch)
@@ -334,7 +335,11 @@ private fun HeaderButton(icon: ImageVector, label: String, onClick: () -> Unit, 
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = HeaderGrey, modifier = Modifier.size(23.dp))
+        Icon(
+            icon, contentDescription = null,
+            tint = if (Wyn.colors.bg == DarkWynColors.bg) HeaderGreyDark else HeaderGrey,
+            modifier = Modifier.size(23.dp),
+        )
     }
 }
 
