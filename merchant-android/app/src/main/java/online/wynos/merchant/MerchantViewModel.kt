@@ -119,8 +119,16 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refresh() = execute {
-        api.verifyMerchantAccess()
-        loadSnapshot()
+        try {
+            api.verifyMerchantAccess()
+            loadSnapshot()
+        } catch (failure: Exception) {
+            // Fail closed: customer/order/payment data must not remain visible when
+            // permissions cannot be verified (revoked account, expired auth or network).
+            state = MerchantState(configured = api.configured)
+            pendingPageLoad = null
+            throw failure
+        }
     }
 
     private fun loadSnapshot() {
@@ -159,7 +167,21 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun selectStore(storeId: String) {
-        if (state.busy) return
+        if (state.busy || !state.signedIn) return
+        if (state.store?.optString("id") == storeId) return
+        require(state.stores.any { it.optString("id") == storeId }) {
+            "ไม่พบร้านที่บัญชีนี้มีสิทธิ์เข้าถึง"
+        }
+        // Clear old tenant data *before* network I/O, including selected menu,
+        // sensitive slip image, finance, notifications, and back-stack detail.
+        // Never allow an old-store selected menu to be saved under a new store ID.
+        pendingPageLoad = null
+        state = MerchantState(
+            configured = api.configured,
+            signedIn = true,
+            stores = state.stores,
+            page = MerchantPage.HOME
+        )
         prefs.edit().putString("selected_store", storeId).apply()
         refresh()
     }
