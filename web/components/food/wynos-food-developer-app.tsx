@@ -694,6 +694,13 @@ function StoreDirectory({
   const promoStores = directory.filter((store) => Boolean(store.promo_name));
   const featuredStores=featuredPlacements.map(p=>filtered.find(store=>store.id===p.store_id)).filter((store):store is FoodDirectoryStore=>Boolean(store));
   const featuredStore = featuredStores[0] ?? filtered[0] ?? null;
+  // A restaurant must not be presented twice as two separate Home cards.
+  const nearbyDiscovery = filter === "all" && featuredStore
+    ? nearbyStores.filter(store => store.id !== featuredStore.id) : nearbyStores;
+  const nearbyShown = new Set(nearbyDiscovery.slice(0, 4).map(store => store.id));
+  const popularDiscovery = filter === "all" && featuredStore
+    ? popularStores.filter(store => store.id !== featuredStore.id && !nearbyShown.has(store.id))
+    : popularStores;
   const publishedStore = publishedMenus.find(row => row.id === featuredStore?.id);
   const featuredDishes: FoodHomeFeatureDish[] = (publishedStore?.menu ?? []).map(item => ({
     id: item.id,
@@ -871,17 +878,17 @@ function StoreDirectory({
             </section>
           ) : null}
 
-          <section className="fx-home-section">
-            <FoodHomeSectionHeader title="ร้านใกล้คุณ" onAll={nearbyStores.length > 4 ? () => setBrowse("nearby") : undefined} />
-            {nearbyStores.length ? <div className="fx-store-grid">{nearbyStores.slice(0, 4).map((store) => card(store))}</div> : (
-              <p className="fx-empty-line">ไม่มีร้านที่ตรงกับตัวกรองนี้</p>
-            )}
-          </section>
+          {nearbyDiscovery.length > 0 ? (
+            <section className="fx-home-section">
+              <FoodHomeSectionHeader title="ร้านใกล้คุณ" onAll={nearbyStores.length > 4 ? () => setBrowse("nearby") : undefined} />
+              <div className="fx-store-grid">{nearbyDiscovery.slice(0, 4).map((store) => card(store))}</div>
+            </section>
+          ) : null}
 
-          {filter === "all" && popularStores.length > 1 ? (
+          {filter === "all" && popularDiscovery.length > 0 ? (
             <section className="fx-home-section">
               <FoodHomeSectionHeader title="ร้านยอดนิยม" onAll={popularStores.length > 4 ? () => setBrowse("popular") : undefined} />
-              <div className="fx-store-grid">{popularStores.slice(0, 4).map((store) => card(store))}</div>
+              <div className="fx-store-grid">{popularDiscovery.slice(0, 4).map((store) => card(store))}</div>
             </section>
           ) : null}
         </>
