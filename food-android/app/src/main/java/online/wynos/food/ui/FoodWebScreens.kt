@@ -98,7 +98,12 @@ private val WebLine = Color(0xFFEBEBEF)
 private val WebGreen = Color(0xFF1F8A4C)
 
 @Composable
-private fun WebImage(path: String?, bucket: String, modifier: Modifier = Modifier) {
+private fun WebImage(
+    path: String?,
+    bucket: String,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+) {
     val url = FoodPublicMedia.url(bucket, path)
     Box(modifier.background(WebSurface), contentAlignment = Alignment.Center) {
         if (url == null) {
@@ -107,7 +112,7 @@ private fun WebImage(path: String?, bucket: String, modifier: Modifier = Modifie
             AsyncImage(
                 model = url,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = contentScale,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -437,7 +442,12 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boole
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp))) {
-            WebImage(store.coverPath, "food-public", Modifier.fillMaxSize())
+            // Store artwork can include text near its edges. Contain it
+            // rather than trimming labels/watermarks with ContentScale.Crop.
+            WebImage(
+                store.coverPath, "food-public", Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+            )
             if (!store.isOpen) {
                 Box(
                     Modifier.align(Alignment.TopEnd).padding(8.dp).clip(CircleShape)
