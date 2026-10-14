@@ -1,14 +1,17 @@
 package io.wyn.wyn.feature.home
 
 import io.wyn.wyn.R
+import io.wyn.wyn.core.data.EngagementSync
 import io.wyn.wyn.testing.FakeFeedRepository
 import io.wyn.wyn.testing.HomeFixture
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -129,6 +132,43 @@ class HomeViewModelTest {
         vm.submitReport(); advanceUntilIdle()
         assertEquals(listOf("report:drop-3:other:โพสต์ซ้ำ"), repo.writes)
         assertNull(vm.sheet)
+    }
+
+    @Test fun stalePageCannotOverwriteFreshFeedAfterPullToRefresh() = runTest(dispatcher) {
+        val delayedPage = CompletableDeferred<Unit>()
+        var initialReads = 0
+        val vm = FeedViewModel(
+            repo = repo,
+            userId = HomeFixture.VIEWER,
+            sync = EngagementSync(),
+            quotes = null,
+            initial = FeedMode.ForYou,
+            source = "race-test",
+            fetchRows = { _, page ->
+                if (page > 0) {
+                    delayedPage.await()
+                    listOf(HomeFixture.rows[1])
+                } else {
+                    if (initialReads++ == 0) listOf(HomeFixture.rows[0])
+                    else listOf(HomeFixture.rows[3])
+                }
+            },
+            pageSize = { 1 },
+        )
+        advanceUntilIdle()
+        assertEquals("drop-1", vm.snapshot!!.rows.single().id)
+
+        vm.loadMore()
+        runCurrent() // The old next-page request is waiting for the network.
+        vm.refresh()
+        runCurrent() // A fresh first page is now visible.
+        assertEquals("drop-4", vm.snapshot!!.rows.single().id)
+
+        delayedPage.complete(Unit)
+        advanceUntilIdle()
+        assertEquals("drop-4", vm.snapshot!!.rows.single().id)
+        assertEquals(0, vm.snapshot!!.page)
+        assertFalse(vm.loadingMore)
     }
 
     @Test fun likesStayInStepAcrossTabs() = runTest(dispatcher) {

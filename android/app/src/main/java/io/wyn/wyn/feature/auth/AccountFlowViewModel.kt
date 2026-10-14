@@ -665,21 +665,59 @@ class AccountFlowViewModel(
         }
     }
 
-    /** Signs out of this account on this phone; another saved account takes over if there is one. */
+    /**
+     * Sign-out must not only change the UI: a network failure can leave a
+     * live Supabase session on this device. Never show Welcome or switch to
+     * someone else's saved account until the local session is really gone.
+     */
     fun signOut() {
         if (homeBusy) return
         homeBusy = true
+        homeMessage = null
         viewModelScope.launch {
             try {
                 val activeId = repo.currentUserId()
-                // Best effort, as on the web: the token goes while this account can still remove it.
-                runCatching { detachPush() }
-                runCatching { repo.signOut() }
+                // Do not leave this device registered for the old account's private pushes.
+                if (!detachPush()) {
+                    homeMessage = UiText(R.string.push_detach_failed)
+                    return@launch
+                }
+                val signedOut = try {
+                    repo.signOut()
+                    repo.currentUserId() == null
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    false
+                }
+                // Offline/global sign-out can fail. Detach the local session so
+                // closing and reopening the app cannot silently restore it.
+                val sessionCleared = if (signedOut) true else try {
+                    repo.detachSession()
+                    repo.currentUserId() == null
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    false
+                }
+                if (!sessionCleared) {
+                    homeMessage = UiText(R.string.err_connection)
+                    return@launch
+                }
                 save(accounts.all().filterNot { it.userId == activeId })
                 activeUserId = null
+                returnToUserId = null
+                keepPushFrom = null
                 for (next in accounts.all()) {
                     val saved = next.session ?: continue
-                    if (repo.attachSession(SavedSession(saved))) {
+                    val attached = try {
+                        repo.attachSession(SavedSession(saved))
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        false
+                    }
+                    if (attached) {
                         registerActive(next.userId)
                         stack = listOf(Route.Home)
                         return@launch

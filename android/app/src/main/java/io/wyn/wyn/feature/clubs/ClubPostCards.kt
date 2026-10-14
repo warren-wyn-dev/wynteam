@@ -98,7 +98,7 @@ fun ClubPostCard(post: ClubPost, actions: ClubPostActions) {
                 }
                 post.content?.takeIf { it.isNotEmpty() }?.let { content ->
                     Text(
-                        content, style = TextStyle(color = c.text, fontSize = 15.sp, lineHeight = 21.75.sp),
+                        content, style = TextStyle(color = c.text, fontSize = 14.5.sp, lineHeight = 21.75.sp),
                         modifier = Modifier.padding(vertical = 8.dp).clickable(onClick = actions.onOpen),
                     )
                 }
@@ -141,7 +141,7 @@ fun ClubFeedCard(post: ClubPost, actions: ClubPostActions) {
             post.content?.takeIf { it.isNotBlank() }?.let { content ->
                 RichText(
                     content, compact = true, onTag = {}, onBody = actions.onOpen,
-                    style = TextStyle(fontSize = 15.sp, lineHeight = 22.5.sp), modifier = Modifier.padding(top = 6.dp),
+                    style = TextStyle(fontSize = 14.5.sp, lineHeight = 22.5.sp), modifier = Modifier.padding(top = 6.dp),
                 )
             }
             if (post.imageUrls.isNotEmpty()) Box(Modifier.padding(top = 8.dp)) { ClubMedia(post.imageUrls, actions.onOpen, feed = true) }

@@ -139,7 +139,7 @@ fun DraftsScreen(vm: DraftsViewModel, onBack: () -> Unit, onOpen: (String) -> Un
                 Modifier.size(48.dp, 56.dp).clickable(role = Role.Button, onClick = onBack).semantics { contentDescription = back },
                 contentAlignment = Alignment.Center,
             ) { Icon(WynIcons.Back, contentDescription = null, tint = c.text, modifier = Modifier.size(22.dp)) }
-            Text(stringResource(R.string.drafts_page_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+            Text(stringResource(R.string.drafts_page_title), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         }
         HorizontalDivider(color = c.border, thickness = 1.dp)
         when {
@@ -167,7 +167,7 @@ fun DraftsScreen(vm: DraftsViewModel, onBack: () -> Unit, onOpen: (String) -> Un
                             }
                             Spacer(Modifier.width(12.dp))
                             Column {
-                                Text(text, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(text, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Text(DraftText.age(draft.updatedAt, english), color = c.textMuted, fontSize = 13.sp)
                             }
                         }
@@ -198,9 +198,9 @@ fun DraftsScreen(vm: DraftsViewModel, onBack: () -> Unit, onOpen: (String) -> Un
 private fun Message(text: String, action: String?, onAction: () -> Unit) {
     val c = Wyn.colors
     Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text, color = c.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+        Text(text, color = c.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center)
         if (action != null) {
-            Text(action, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp).clickable(onClick = onAction).padding(8.dp))
+            Text(action, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp).clickable(onClick = onAction).padding(8.dp))
         }
     }
 }

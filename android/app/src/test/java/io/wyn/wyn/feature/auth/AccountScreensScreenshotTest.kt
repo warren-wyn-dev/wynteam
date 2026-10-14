@@ -156,8 +156,8 @@ class AccountScreensScreenshotTest {
         compose.onNodeWithText("สำหรับคุณ").assertExists()
         compose.onNodeWithText("โปรไฟล์").performClick()
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("ตัวเลือกของฉัน").performClick()
-        compose.onNodeWithText("สลับบัญชี").performClick()
+        // Own Profile follows the Web: Settings in the cover, account chevron beside the name.
+        compose.onNodeWithContentDescription("สลับบัญชี").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("มาลี").assertExists()
         shot("accounts-th-light")

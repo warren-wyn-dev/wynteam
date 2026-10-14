@@ -112,7 +112,7 @@ fun LoginScreen(vm: AccountFlowViewModel, onBack: () -> Unit) {
             Column(Modifier.fillMaxWidth().padding(bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 LogoMark(64)
                 Gap(14)
-                Text(stringResource(R.string.login_title), color = Wyn.colors.text, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                Text(stringResource(R.string.login_title), color = Wyn.colors.text, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold)
             }
             WynTextField(
                 stringResource(R.string.field_email), vm.loginEmail, vm::updateLoginEmail, "you@example.com",
@@ -252,9 +252,9 @@ fun CheckEmailScreen(email: String, onBack: () -> Unit, onLogin: () -> Unit) {
     AuthPage {
         BackTopbar(onBack)
         Column(Modifier.padding(horizontal = 20.dp, vertical = 32.dp).semantics { liveRegion = LiveRegionMode.Polite }) {
-            Text(stringResource(R.string.check_email_title), color = Wyn.colors.text, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.check_email_title), color = Wyn.colors.text, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
             Gap(12)
-            Text(stringResource(R.string.check_email_body, email), color = Wyn.colors.textSecondary, fontSize = 15.sp, lineHeight = 25.sp)
+            Text(stringResource(R.string.check_email_body, email), color = Wyn.colors.textSecondary, fontSize = 14.5.sp, lineHeight = 23.sp)
             Gap(20)
             WynPrimaryButton(stringResource(R.string.go_to_login), onLogin)
         }
@@ -290,7 +290,7 @@ fun SessionCheckFailedScreen(onRetry: () -> Unit) {
             Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("WYNOS", color = Wyn.colors.text, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+            Text("WYNOS", color = Wyn.colors.text, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             Gap(10)
             Text(stringResource(R.string.err_session_check), color = Wyn.colors.textSecondary, fontSize = 14.sp, textAlign = TextAlign.Center)
             Gap(20)

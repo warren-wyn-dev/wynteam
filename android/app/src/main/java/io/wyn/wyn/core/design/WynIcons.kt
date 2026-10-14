@@ -33,6 +33,7 @@ object WynIcons {
     val Back = stroke(2f, "m15 18-6-6 6-6")
     val Poll = stroke(2f, "M3 3v16a2 2 0 0 0 2 2h16", "M18 17V9", "M13 17V5", "M8 17v-3")
     val ChevronRight = stroke(2f, "m9 18 6-6-6-6")
+    val ChevronDown = stroke(2.4f, "m6 9 6 6 6-6")
     val MoreVertical = stroke(2f, circle(12f, 12f, 1f), circle(12f, 5f, 1f), circle(12f, 19f, 1f))
     val Trash = stroke(2f, "M10 11v6", "M14 11v6", "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6", "M3 6h18", "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2")
     val Send = stroke(

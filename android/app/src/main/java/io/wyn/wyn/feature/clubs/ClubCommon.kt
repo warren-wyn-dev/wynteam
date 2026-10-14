@@ -94,7 +94,7 @@ fun ClubTopBar(title: String, onBack: (() -> Unit)?) {
             )
         }
         Text(
-            title, color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+            title, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1,
             modifier = Modifier.align(Alignment.Center).padding(horizontal = 56.dp),
         )
     }
@@ -127,7 +127,7 @@ fun ClubLoading() {
 @Composable
 fun ClubEmpty(message: String) {
     Text(
-        message, color = Wyn.colors.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center,
+        message, color = Wyn.colors.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
     )
 }
@@ -160,7 +160,7 @@ fun SheetRow(icon: ImageVector, label: String, first: Boolean = false, danger: B
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(14.dp))
-        Text(label, color = tint, fontSize = 15.sp)
+        Text(label, color = tint, fontSize = 14.5.sp)
     }
 }
 
@@ -174,7 +174,7 @@ fun ClubReportSheet(report: ClubReport) {
             Modifier.verticalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp, bottom = 14.dp, top = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(target.label.text().orEmpty(), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Text(target.label.text().orEmpty(), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             Column(Modifier.border(1.dp, c.border, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp))) {
                 ReportCategories.forEachIndexed { index, key ->
                     if (index > 0) HorizontalDivider(color = c.border, thickness = 1.dp)
@@ -205,7 +205,7 @@ fun ClubConfirmDialog(title: String, confirm: String, onConfirm: () -> Unit, onC
     AlertDialog(
         onDismissRequest = onCancel,
         containerColor = c.bg,
-        title = { Text(title, color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold) },
+        title = { Text(title, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirm, color = DangerRed, fontWeight = FontWeight.Bold) } },
         dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel), color = c.textSecondary) } },
     )

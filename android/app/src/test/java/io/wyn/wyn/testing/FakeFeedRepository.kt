@@ -13,6 +13,7 @@ class FakeFeedRepository(
     var following: List<FeedRow> = emptyList(),
     var viewer: ViewerState = HomeFixture.viewer,
     var images: Map<String, List<String>> = HomeFixture.images,
+    var homeIdentity: HomeIdentity = HomeIdentity("fixture", "Fixture", null, hasPublishedPost = true),
 ) : FeedRepository {
     val writes = mutableListOf<String>()
     var failWrites = false
@@ -23,7 +24,7 @@ class FakeFeedRepository(
     override suspend fun fetchFollowing(userId: String): List<FeedRow> { reads++; if (failReads) error("offline"); return following }
     override suspend fun fetchImages(rows: List<FeedRow>) = images.filterKeys { id -> rows.any { it.id == id } }
     override suspend fun loadViewer(userId: String, rows: List<FeedRow>) = viewer
-    override suspend fun fetchIdentity(userId: String) = HomeIdentity("fixture", "Fixture", null)
+    override suspend fun fetchIdentity(userId: String) = homeIdentity
 
     private fun write(entry: String) { if (failWrites) error("write failed"); writes += entry }
     override suspend fun setLiked(userId: String, dropId: String, liked: Boolean) = write("like:$dropId:$liked")
