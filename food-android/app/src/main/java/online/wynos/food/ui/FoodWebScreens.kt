@@ -306,24 +306,27 @@ fun WebHomeScreen(
     // every screen. With only one published store, the old 2-column grid
     // squeezed its photo into the left half and left the right half blank.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val homeGridColumns = homeGridColumnsForWidth(maxWidth.value)
-        val compactHome = compactFoodHomeForWidth(maxWidth.value)
+        val geometry = foodAdaptiveLayout(maxWidth.value)
+        val homeGridColumns = homeGridColumnsForWidth(geometry.maxContentWidthDp)
+        val compactHome = compactFoodHomeForWidth(geometry.maxContentWidthDp)
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().background(Color.White),
+            modifier = Modifier.widthIn(max = geometry.maxContentWidthDp.dp)
+                .fillMaxWidth().fillMaxHeight().align(Alignment.TopCenter)
+                .background(Color.White),
             contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
         item(key = "search-with-filter-button") {
             Row(
                 modifier = Modifier.fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 3.dp, bottom = 5.dp),
+                    .padding(start = geometry.horizontalPaddingDp.dp, end = geometry.horizontalPaddingDp.dp, top = 3.dp, bottom = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Row(
-                    modifier = Modifier.weight(1f).height(48.dp)
-                        .shadow(2.dp, CircleShape)
+                    modifier = Modifier.weight(1f).height(48.dp).padding(vertical = 2.dp)
+                        .shadow(1.dp, CircleShape)
                         .clip(CircleShape).background(Color.White)
                         .padding(horizontal = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -350,16 +353,21 @@ fun WebHomeScreen(
                             modifier = Modifier.size(24.dp).clickable { query = "" })
                     }
                 }
+                // 44dp visual icon control / 48dp accessible tap area.
                 Box(
-                    modifier = Modifier.size(46.dp)
-                        .shadow(2.dp, RoundedCornerShape(15.dp))
-                        .clip(RoundedCornerShape(15.dp)).background(Color.White)
-                        .clickable { filtersOpen = true },
+                    modifier = Modifier.size(48.dp).clickable { filtersOpen = true },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Tune, stringResource(R.string.filters_title),
-                        tint = if (filter == "all") WebInk else WebRed,
-                        modifier = Modifier.size(23.dp))
+                    Box(
+                        Modifier.size(geometry.filterVisualSizeDp.dp)
+                            .shadow(1.dp, RoundedCornerShape(14.dp))
+                            .clip(RoundedCornerShape(14.dp)).background(Color.White),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Outlined.Tune, stringResource(R.string.filters_title),
+                            tint = if (filter == "all") WebInk else WebRed,
+                            modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         }
@@ -367,10 +375,10 @@ fun WebHomeScreen(
         // carries no fictional discounts, ratings or delivery time promises.
         if (query.isBlank()) {
             if (state.banners.isNotEmpty()) {
-                item(key = "live-banner") { BannerStrip(state.banners, onStore) }
+                item(key = "live-banner") { BannerStrip(state.banners, onStore, geometry.heroHeightDp, geometry.horizontalPaddingDp) }
             } else {
                 item(key = "brand-banner") {
-                    FoodBrandHeroBanner(state.stores.firstOrNull(), onBrowse = {
+                    FoodBrandHeroBanner(state.stores.firstOrNull(), geometry.heroHeightDp, geometry.horizontalPaddingDp, onBrowse = {
                         scope.launch {
                             val last = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                             listState.animateScrollToItem(minOf(3, last))
@@ -381,7 +389,7 @@ fun WebHomeScreen(
         }
         // Public coupon eligibility/collection is not yet available.
         if (query.isBlank() && filter == "all" && !showAllStores) {
-            item(key = "coupon-section") { CouponPreviewUnavailable() }
+            item(key = "coupon-section") { CouponPreviewUnavailable(geometry.horizontalPaddingDp) }
         }
         // The approved Home is content-first: no visible horizontal chip strip.
         // Verified filters remain available in the dedicated search filter sheet.
@@ -404,7 +412,7 @@ fun WebHomeScreen(
                 item(key = "store-section-header") {
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 15.dp, bottom = 8.dp),
+                            .padding(start = geometry.horizontalPaddingDp.dp, end = geometry.horizontalPaddingDp.dp, top = 15.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -433,12 +441,14 @@ fun WebHomeScreen(
                 }
                 if (recommendedMode) {
                     items(filtered.take(2), key = { "featured-${it.id}" }) { store ->
-                        FoodFeaturedRestaurantHome(store, onStore, onDish)
+                        FoodFeaturedRestaurantHome(store, onStore, onDish,
+                            geometry.storeCoverSizeDp, geometry.menuImageSizeDp,
+                            geometry.horizontalPaddingDp, geometry.featuredGapDp)
                     }
                 } else {
                     items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            Modifier.fillMaxWidth().padding(horizontal = geometry.horizontalPaddingDp.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             row.forEach { store ->
