@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -105,9 +106,9 @@ import online.wynos.food.data.FoodPublicMedia
 import online.wynos.food.data.FoodStore
 
 // Tokens based on web/app/food/food-app.css (fx-app, Oct 2026).
-private val WebRed = Color(0xFFE40036)
-private val WebRedDark = Color(0xFFC8002E)
-private val WebRedSoft = Color(0xFFFCEDF0)
+private val WebRed = Color(0xFFD91F4E)
+private val WebRedDark = Color(0xFFBE153F)
+private val WebRedSoft = Color(0xFFFFF0F4)
 private val WebInk = Color(0xFF16161A)
 private val WebSub = Color(0xFF6B6B76)
 private val WebMuted = Color(0xFF8A8A94)
@@ -165,16 +166,10 @@ fun WebHomeHeader(
         ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Image(
-                    painter = painterResource(R.drawable.food_logo),
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)),
-                )
+                Icon(Icons.Outlined.Restaurant, null, tint = WebRed,
+                    modifier = Modifier.size(28.dp))
                 Text(
-                    text = buildAnnotatedString {
-                        append("WYNOS ")
-                        withStyle(SpanStyle(color = WebRed)) { append("Food") }
-                    },
+                    text = "Zoky · สั่งอาหาร",
                     modifier = Modifier.weight(1f),
                     fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = WebInk, fontWeight = FontWeight.Bold,
@@ -230,7 +225,7 @@ fun WebPageHeader(title: String, onBack: () -> Unit) {
 fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
     // Fixed and compact native navigation; retains Messages and all four routes.
     val tabs = listOf(
-        Triple(0, R.string.home, Icons.Outlined.Home),
+        Triple(0, R.string.home, Icons.Filled.Home),
         Triple(1, R.string.orders, Icons.Outlined.ReceiptLong),
         Triple(2, R.string.messages, Icons.Outlined.ChatBubbleOutline),
         Triple(3, R.string.account, Icons.Outlined.PersonOutline),
@@ -254,18 +249,8 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mod
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Box(
-                        Modifier.size(43.dp, 29.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.verticalGradient(
-                                    if (active) listOf(Color(0xFFFFF4F7), Color(0xFFFFD9E3))
-                                    else listOf(Color.Transparent, Color.Transparent),
-                                )
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(icon, null, tint = if (active) WebRed else WebMuted, modifier = Modifier.size(22.dp))
+                    Box(Modifier.size(43.dp, 29.dp), contentAlignment = Alignment.Center) {
+                        Icon(icon, null, tint = if (active) WebRed else WebMuted, modifier = Modifier.size(23.dp))
                     }
                     Text(
                         stringResource(label), color = if (active) WebRed else WebMuted,

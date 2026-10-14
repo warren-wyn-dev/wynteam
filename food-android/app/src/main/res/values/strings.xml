@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">WYNOS Food (Beta)</string>
-    <string name="brand_name">WYNOS Food</string>
+    <string name="app_name">Zoky : สั่งอาหาร</string>
+    <string name="brand_name">Zoky</string>
     <string name="home">หน้าหลัก</string>
     <string name="orders">ออเดอร์</string>
     <string name="account">บัญชี</string>
     <string name="back">ย้อนกลับ</string>
     <string name="browse_heading">วันนี้อยากกินอะไร?</string>
-    <string name="browse_intro">ดูร้านอาหารและเมนูจาก WYNOS Food</string>
+    <string name="browse_intro">ดูร้านอาหารและเมนูจาก Zoky</string>
     <string name="stores_heading">ร้านอาหาร</string>
     <string name="menu_heading">เมนูอาหาร</string>
     <string name="readonly_notice">Android Beta — ดูร้านและเมนูจริงได้ แต่ยังสั่งอาหารไม่ได้</string>
@@ -101,9 +101,9 @@
     <string name="messages_note">การสนทนากับร้านและผู้จัดส่งจะแสดงที่นี่</string>
     <string name="messages_pending_title">ระบบข้อความยังไม่เปิดใช้งาน</string>
     <string name="messages_pending_note">กำลังพัฒนาการสนทนากับร้านอาหารและผู้จัดส่ง เมื่อระบบเชื่อมต่อและผ่านการทดสอบแล้ว ข้อความจริงจะปรากฏที่นี่</string>
-    <string name="food_login_heading">เข้าสู่ระบบ WYNOS Food</string>
+    <string name="food_login_heading">เข้าสู่ระบบ Zoky</string>
     <string name="food_login_note">ใช้บัญชี WYNOS ของคุณเพื่อเข้าใช้งาน</string>
-    <string name="wynos_food_profile">โปรไฟล์ WYNOS Food</string>
+    <string name="wynos_food_profile">โปรไฟล์ Zoky</string>
     <string name="delivery_addresses">ที่อยู่จัดส่ง</string>
     <string name="addresses_not_yet_available">การจัดการที่อยู่บน Android อยู่ระหว่างพัฒนา</string>
     <string name="order_history_link">ประวัติการสั่งอาหาร</string>
@@ -116,7 +116,7 @@
     <string name="account_back_to_signin">มีบัญชีแล้ว? เข้าสู่ระบบ</string>
     <string name="account_delete_action">ลบบัญชี WYNOS</string>
     <string name="account_delete_title">ลบบัญชี WYNOS แบบถาวร</string>
-    <string name="account_delete_shared_warning">การดำเนินการนี้จะลบบัญชี WYNOS ที่ใช้ร่วมกันในทุกบริการ ไม่ใช่เฉพาะ WYNOS Food</string>
+    <string name="account_delete_shared_warning">การดำเนินการนี้จะลบบัญชี WYNOS ที่ใช้ร่วมกันในทุกบริการ ไม่ใช่เฉพาะ Zoky</string>
     <string name="account_delete_cannot_undo">ข้อมูลที่เกี่ยวข้องกับบัญชีจะถูกลบอย่างถาวรตามนโยบายการเก็บรักษาข้อมูล และไม่สามารถย้อนกลับได้</string>
     <string name="account_delete_staging_only">การลบบัญชีในรุ่นทดสอบนี้ยังปิดอยู่ จะทดสอบได้เฉพาะบัญชีใน Staging ที่ได้รับอนุญาต</string>
     <string name="account_delete_phrase">ลบบัญชี</string>
@@ -143,7 +143,7 @@
     <string name="sign_in_to_quote">เข้าสู่ระบบ WYNOS เพื่อคำนวณราคาจาก Server</string>
     <string name="loading_addresses">กำลังโหลดที่อยู่จัดส่ง…</string>
     <string name="addresses_load_error">โหลดที่อยู่ไม่สำเร็จ กรุณาลองใหม่</string>
-    <string name="no_saved_addresses">ยังไม่มีที่อยู่ที่บันทึกไว้ เพิ่มที่อยู่บนเว็บไซต์ WYNOS Food ก่อน</string>
+    <string name="no_saved_addresses">ยังไม่มีที่อยู่ที่บันทึกไว้ เพิ่มที่อยู่บนเว็บไซต์ Zoky ก่อน</string>
     <string name="refresh_addresses">รีเฟรชที่อยู่จัดส่ง</string>
     <string name="server_quote_button">ตรวจสอบราคาและค่าจัดส่ง</string>
     <string name="server_quote_loading">กำลังตรวจราคากับระบบ…</string>
@@ -252,7 +252,7 @@
     <string name="store_review_retry">ลองอีกครั้ง</string>
     <string name="store_review_empty">ยังไม่มีรีวิวจากออเดอร์ที่ส่งสำเร็จ</string>
     <string name="store_review_count">(%1$d รีวิว)</string>
-    <string name="store_review_verified_order">สั่งจริงกับ WYNOS Food</string>
+    <string name="store_review_verified_order">สั่งจริงกับ Zoky</string>
     <string name="store_review_merchant_reply">ร้านตอบกลับ</string>
     <string name="promo_inbox_title">โปรโมชันและข่าวสาร</string>
     <string name="promo_inbox_unread">ยังไม่อ่าน</string>

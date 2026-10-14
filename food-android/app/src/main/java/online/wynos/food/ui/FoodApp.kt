@@ -74,6 +74,7 @@ import online.wynos.food.data.FoodStore
 fun FoodApp(vm: FoodViewModel = viewModel()) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var foodServiceOpen by rememberSaveable { mutableStateOf(false) }
     var selectedStoreId by rememberSaveable { mutableStateOf<String?>(null) }
     var initialHomeMenuId by rememberSaveable { mutableStateOf<String?>(null) }
     var homeCart by rememberSaveable { mutableStateOf(false) }
@@ -119,11 +120,12 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
         }
     }
 
-    BackHandler(enabled = selectedStore != null || favoritesOpen || promotionsOpen || tab != 0) {
+    BackHandler(enabled = selectedStore != null || favoritesOpen || promotionsOpen || foodServiceOpen || tab != 0) {
         when {
             selectedStore != null -> closeStore()
             favoritesOpen -> favoritesOpen = false
             promotionsOpen -> promotionsOpen = false
+            foodServiceOpen -> foodServiceOpen = false
             else -> tab = 0
         }
     }
@@ -132,7 +134,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
         containerColor = androidx.compose.ui.graphics.Color.White,
         topBar = {
             if (selectedStore == null) {
-                if (tab == 0) {
+                if (tab == 0 && foodServiceOpen) {
                     WebHomeHeader(
                         state = state,
                         guest = guest,
@@ -143,7 +145,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         onRefreshAddresses = vm::refreshAddresses,
                         scrolled = homeScrolled,
                     )
-                } else if (!guest) {
+                } else if (tab != 0) {
                     val title = when (tab) {
                         1 -> stringResource(R.string.my_orders_title)
                         2 -> stringResource(R.string.messages)
@@ -160,11 +162,12 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
         // Keep navigation within Scaffold so it cannot cover food cards or menu actions.
         // The four original tabs remain available to signed-in customers.
         bottomBar = {
-            if (!guest) {
+            if (selectedStore == null) {
                 WebBottomNavigation(
                     tab = tab,
                     onTab = {
                         tab = it
+                        foodServiceOpen = false
                         selectedStoreId = null
                         initialHomeMenuId = null
                         favoritesOpen = false
@@ -212,6 +215,23 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onPrepareStagingPayment = vm::prepareStagingMobilePayment,
                     onPaymentSheetCompleted = vm::refreshOrders,
                 )
+                tab == 0 && !foodServiceOpen -> ZokyHomeScreen(
+                    state = state,
+                    onFood = { foodServiceOpen = true },
+                    onFavorites = {
+                        tab = 3
+                        favoritesOpen = !guest
+                        promotionsOpen = false
+                    },
+                    onDeals = {
+                        tab = 2
+                        vm.refreshPromotionInbox()
+                    },
+                    onLocation = {
+                        tab = 3
+                        favoritesOpen = false
+                    },
+                )
                 tab == 0 -> WebHomeScreen(
                     state = state,
                     guest = guest,
@@ -236,7 +256,11 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onOpenDetail = vm::openOrderDetails,
                     onDismissNotice = vm::dismissOrderStatusNotice,
                 )
-                tab == 2 -> WebMessagesPage()
+                tab == 2 -> ZokyMessageCenter(
+                    state = state,
+                    onOrders = { tab = 1 },
+                    onRefresh = vm::refreshPromotionInbox,
+                )
                 tab == 3 && promotionsOpen && !guest -> WebPromotionInboxPage(
                     state = state,
                     onBack = { promotionsOpen = false },
@@ -250,6 +274,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         favoritesOpen = false
                         returnToFavorites = true
                         tab = 0
+                        foodServiceOpen = true
                         selectedStoreId = id
                         initialHomeMenuId = null
                     },

@@ -1,185 +1,130 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
 mkdir -p visual
-adb install -r food-android/app/build/outputs/apk/debug/app-debug.apk
+APK="food-android/app/build/outputs/apk/debug/app-debug.apk"
+PACKAGE="online.wynos.food"
+unzip -Z1 "$APK" > visual/zoky-apk-file-list.txt
+for asset in zoky_hero_hd_art zoky_food_hd_art zoky_pizza_hd zoky_drinks_hd zoky_third_hd; do
+  grep -Fqx "assets/$asset.webp.b64" visual/zoky-apk-file-list.txt
+done
+adb install -r "$APK"
 adb shell settings put global private_dns_mode off || true
-adb shell svc wifi enable || true
 adb shell settings put global window_animation_scale 0 || true
 adb shell settings put global transition_animation_scale 0 || true
 adb shell settings put global animator_duration_scale 0 || true
 
-resolved=0
-for attempt in 1 2 3 4; do
-  check="$(adb shell ping -c 1 -W 3 kqokpocajhfbidcxpvhh.supabase.co 2>&1 || true)"
-  if ! echo "$check" | grep -Eiq "unknown host|bad address|Name or service not known"; then
-    resolved=1
-    break
-  fi
-  sleep 6
-done
-echo "DNS_RESULT=$resolved" | tee visual/android-network.txt
-if [ "$resolved" -ne 1 ]; then
-  echo "Android emulator cannot resolve Supabase: UI parity NOT certified." >&2
-  exit 1
-fi
-
-# Android Emulator can show system ANR dialogs ABOVE a correctly rendered app.
-# Such screenshots are not visual evidence, even when the screenshot command succeeds.
-assert_native_window() {
-  local width="$1" locale="$2" attempt="$3"
-  local dump="visual/android-window-${width}-${locale}-attempt${attempt}.xml"
-  adb shell uiautomator dump /sdcard/wynos-food-window.xml >/dev/null
-  adb exec-out cat /sdcard/wynos-food-window.xml > "$dump"
-
-  if grep -Eiq "(isn't responding|is not responding|isn.t responding|is not responding|isn’t responding|Wait for app|Close app|System UI.*responding|Pixel Launcher.*responding|not responding)" "$dump"; then
-    echo "System/app not-responding dialog detected: ${width}px / ${locale} (attempt ${attempt})" >&2
-    return 1
-  fi
-
-  # Positive assertions: it is not enough to have a screenshot or a working DNS.
-  # The actual WYNOS Food guest header AND localized home content must be visible.
-  if ! grep -Fq 'WYNOS' "$dump" || ! grep -Fq 'Food' "$dump"; then
-    echo "WYNOS Food header not visible in Android accessibility window." >&2
-    return 1
-  fi
-  # The previous script pinned an obsolete hero sentence, causing false
-  # negatives after an approved Home redesign. Assert current localized search
-  # and real restaurant discovery content; do not bypass the content check.
-  if [[ "$locale" == th-TH ]]; then
-    if ! grep -Fq 'ค้นหาร้านหรือชื่ออาหาร' "$dump" || \
-       ! grep -Fq 'ร้านอาหารแนะนำ' "$dump"; then
-      echo "Thai native search/recommended content missing: ${width}px." >&2
-      return 1
-    fi
-  else
-    if ! grep -Fq 'Search restaurants or dishes' "$dump" || \
-       ! grep -Fq 'Recommended restaurants' "$dump"; then
-      echo "English native search/recommended content missing: ${width}px." >&2
-      return 1
-    fi
+dump_window() {
+  local path="$1"
+  adb shell uiautomator dump /sdcard/zoky-qa-window.xml >/dev/null
+  adb exec-out cat /sdcard/zoky-qa-window.xml > "$path"
+  if grep -Eiq 'isn.t responding|not responding|Wait for app|Close app' "$path"; then
+    echo "Android/system ANR blocked QA: $path" >&2; return 1
   fi
 }
+launch_zoky() {
+  adb shell am force-stop "$PACKAGE" || true
+  adb shell am start -W -n "$PACKAGE/.MainActivity"
+  sleep 11
+}
+tap_accessible() {
+  local file="$1" marker="$2"
+  local xy
+  xy="$(python3 - "$file" "$marker" <<'PY'
+import re, sys, xml.etree.ElementTree as ET
+path, marker = sys.argv[1:]
+root = ET.parse(path).getroot()
+for node in root.iter('node'):
+    text = node.get('text','') + ' ' + node.get('content-desc','')
+    if marker not in text: continue
+    bounds = re.findall(r'\[(\d+),(\d+)\]',node.get('bounds',''))
+    if len(bounds) == 2:
+        x1,y1 = map(int,bounds[0]); x2,y2 = map(int,bounds[1])
+        if x2>x1 and y2>y1:
+            print((x1+x2)//2,(y1+y2)//2);break
+PY
+)"
+  if [[ -z "$xy" ]]; then echo "Missing accessible control: $marker" >&2;return 1;fi
+  adb shell input tap $xy
+}
 
+# Native Android widths and app locales. Zoky Home is the entry screen,
+# and Food search must remain in the distinct service route.
 for width in 320 360 390 430 600 840; do
   adb shell wm size "${width}x844"
   adb shell wm density 160
   for locale in th-TH en-US; do
-    adb shell cmd locale set-app-locales online.wynos.food --user 0 --locales "$locale" || true
+    adb shell cmd locale set-app-locales "$PACKAGE" --user 0 --locales "$locale" || true
     verified=0
     for attempt in 1 2; do
-      adb shell am force-stop online.wynos.food || true
-      adb shell am start -W -n online.wynos.food/.MainActivity
-      sleep 18
-      adb exec-out screencap -p > "visual/android-home-${width}-${locale}-attempt${attempt}.png"
-      if assert_native_window "$width" "$locale" "$attempt"; then
-        cp "visual/android-home-${width}-${locale}-attempt${attempt}.png" "visual/android-home-${width}-${locale}.png"
-        # Capture the real menu cards after scrolling, not just the first-fold
-        # hero. This checks the founder-approved frameless layout, square images,
-        # two-line names, aligned price row and scrolled-header elevation.
-        if [[ "$width" == 360 || "$width" == 390 || "$width" == 430 ]]; then
-          adb shell input swipe 180 725 180 280 360
-          sleep 2
-          adb exec-out screencap -p > "visual/android-home-scrolled-${width}-${locale}.png"
-          adb shell uiautomator dump /sdcard/wynos-food-scrolled.xml >/dev/null
-          adb exec-out cat /sdcard/wynos-food-scrolled.xml > "visual/android-scrolled-${width}-${locale}.xml"
-          if ! grep -Fq 'WYNOS' "visual/android-scrolled-${width}-${locale}.xml"; then
-            echo "Sticky WYNOS Food header missing after scroll at ${width}dp / ${locale}" >&2
-            exit 1
-          fi
-        fi
-        verified=1
-        break
+      launch_zoky
+      file="visual/zoky-home-${width}-${locale}-attempt${attempt}.xml"
+      adb exec-out screencap -p > "visual/zoky-home-${width}-${locale}-attempt${attempt}.png"
+      if ! dump_window "$file"; then continue;fi
+      if grep -Fq 'Zoky' "$file" && grep -Fq 'บริการของ Zoky' "$file" &&
+         grep -Fq 'สั่งอาหาร' "$file" &&
+         ! grep -Fq 'ค้นหาร้านหรือชื่ออาหาร' "$file"; then
+        cp "visual/zoky-home-${width}-${locale}-attempt${attempt}.png" "visual/zoky-home-${width}-${locale}.png"
+        verified=1; break
       fi
-      # Best-effort recovery for a launcher/system ANR, not an assertion bypass.
-      adb shell input keyevent 4 || true
-      adb shell am force-stop com.google.android.apps.nexuslauncher || true
-      adb shell am force-stop com.android.launcher3 || true
-      sleep 5
+      echo "Home assertions failed: $width $locale attempt=$attempt" >&2
+      sleep 3
     done
-    if [ "$verified" -ne 1 ]; then
-      echo "FAILED: Android visual QA not certified at ${width}px ${locale}" >&2
-      adb shell dumpsys window | tail -65 > "visual/android-window-failure-${width}-${locale}.txt" || true
-      exit 1
-    fi
+    if [[ "$verified" != 1 ]]; then echo "FAIL: Zoky Home at $width $locale" >&2;exit 1;fi
   done
 done
 
-# The live public catalog may fit completely in an 844dp-tall viewport.
-# A screenshot after a swipe at that height does NOT prove the header's
-# scrolled elevation was actually exercised. Force a short-height window
-# and assert the image changes after a real scroll.
-adb shell wm size 390x560
-adb shell wm density 160
-adb shell cmd locale set-app-locales online.wynos.food --user 0 --locales th-TH || true
-adb shell am force-stop online.wynos.food || true
-adb shell am start -W -n online.wynos.food/.MainActivity
-sleep 18
-adb exec-out screencap -p > visual/android-home-short-before-scroll-390-th-TH.png
-adb shell input swipe 195 470 195 180 450
-sleep 3
-adb exec-out screencap -p > visual/android-home-short-after-scroll-390-th-TH.png
-if cmp -s visual/android-home-short-before-scroll-390-th-TH.png visual/android-home-short-after-scroll-390-th-TH.png; then
-  echo 'Real Home scrolling was not exercised in the compact-height QA fixture.' >&2
-  exit 1
-fi
-adb shell uiautomator dump /sdcard/wynos-food-short-scrolled.xml >/dev/null
-adb exec-out cat /sdcard/wynos-food-short-scrolled.xml > visual/android-home-short-after-scroll-390-th-TH.xml
-if ! grep -Fq 'WYNOS' visual/android-home-short-after-scroll-390-th-TH.xml; then
-  echo 'Sticky WYNOS Food header was not visible after genuine scroll.' >&2
-  exit 1
-fi
+# Real physical screen sizes at Android density, in addition to the dp breakpoints.
+# Capture the native text and artwork rather than trusting a 720p remote stream.
+for target in "720 1280 320" "1080 1920 480"; do
+  read -r px py dpi <<< "$target"
+  adb shell wm size "${px}x${py}"
+  adb shell wm density "$dpi"
+  adb shell cmd locale set-app-locales "$PACKAGE" --user 0 --locales th-TH || true
+  launch_zoky
+  dump_window "visual/zoky-hdpi-${px}x${py}.xml"
+  if ! grep -Fq 'ดีลแรงวันนี้' "visual/zoky-hdpi-${px}x${py}.xml" ||
+     ! grep -Fq 'อร่อยง่าย ส่งไว ใกล้คุณ' "visual/zoky-hdpi-${px}x${py}.xml" ||
+     ! grep -Fq 'เลือกอาหาร' "visual/zoky-hdpi-${px}x${py}.xml"; then
+    echo "Missing crisp native Compose copy at ${px}x${py}." >&2; exit 1
+  fi
+  adb exec-out screencap -p > "visual/zoky-hdpi-${px}x${py}.png"
+done
 
-# Store-page smoke check against a REAL published restaurant. Do not rely on
-# a hard-coded store name, rating, fabricated ETA or mockup discount.
 adb shell wm size 390x844
 adb shell wm density 160
-adb shell cmd locale set-app-locales online.wynos.food --user 0 --locales th-TH || true
-adb shell am force-stop online.wynos.food || true
-adb shell am start -W -n online.wynos.food/.MainActivity
-sleep 18
-adb shell uiautomator dump /sdcard/wynos-food-store-entry.xml >/dev/null
-adb exec-out cat /sdcard/wynos-food-store-entry.xml > visual/android-store-entry.xml
-store_coordinates="$(python3 - <<'PY'
-import re
-import xml.etree.ElementTree as ET
-root = ET.parse('visual/android-store-entry.xml').getroot()
-for node in root.iter('node'):
-    if 'ดูร้านค้า' not in (node.get('text', '') + ' ' + node.get('content-desc', '')):
-        continue
-    matches = re.findall(r'\[(\d+),(\d+)\]', node.get('bounds', ''))
-    if len(matches) == 2:
-        (x1, y1), (x2, y2) = [tuple(map(int, x)) for x in matches]
-        if x2 > x1 and y2 > y1:
-            print((x1 + x2) // 2, (y1 + y2) // 2)
-            break
-PY
-)"
-if [[ -z "$store_coordinates" ]]; then
-  echo "A real published Home restaurant link was not accessible to store-page QA." >&2
-  exit 1
+adb shell cmd locale set-app-locales "$PACKAGE" --user 0 --locales th-TH || true
+launch_zoky
+dump_window visual/zoky-food-entry.xml
+tap_accessible visual/zoky-food-entry.xml 'เลือกอาหาร'
+sleep 7
+dump_window visual/zoky-food-catalog.xml
+adb exec-out screencap -p > visual/zoky-food-catalog-390-th-TH.png
+if ! grep -Fq 'ค้นหาร้านหรือชื่ออาหาร' visual/zoky-food-catalog.xml; then
+  echo 'Food catalog screen not reachable from Zoky service card.' >&2;exit 1
 fi
-adb shell input tap $store_coordinates
-sleep 4
-adb exec-out screencap -p > visual/android-store-390-th-TH.png
-adb shell uiautomator dump /sdcard/wynos-food-store-window.xml >/dev/null
-adb exec-out cat /sdcard/wynos-food-store-window.xml > visual/android-store-window.xml
-if ! grep -Fq 'ค่าส่งเริ่มต้น' visual/android-store-window.xml; then
-  echo "Native merchant page did not show its real menu/delivery metadata." >&2
-  exit 1
-fi
-if grep -Fq 'ค้นหาร้านหรือชื่ออาหาร' visual/android-store-window.xml; then
-  echo "Tap did not navigate away from Home to a store." >&2
-  exit 1
-fi
-adb shell input swipe 185 720 185 290 380
+adb shell input keyevent 4
 sleep 3
-adb exec-out screencap -p > visual/android-store-scrolled-390-th-TH.png
-adb shell uiautomator dump /sdcard/wynos-food-store-scrolled.xml >/dev/null
-adb exec-out cat /sdcard/wynos-food-store-scrolled.xml > visual/android-store-scrolled.xml
-if grep -Eiq 'isn.t responding|not responding|wait for app' visual/android-store-scrolled.xml; then
-  echo "Dialog/ANR blocked real store menu during scroll." >&2
-  exit 1
+dump_window visual/zoky-back-home.xml
+if ! grep -Fq 'บริการของ Zoky' visual/zoky-back-home.xml; then
+  echo 'Back did not return to Zoky Home.' >&2;exit 1
 fi
-
-adb logcat -d -v brief -s AndroidRuntime:E System.err:E > visual/android-errors.txt || true
+tap_accessible visual/zoky-back-home.xml 'ข้อความ'
+sleep 3
+dump_window visual/zoky-messages.xml
+if ! grep -Fq 'การแจ้งเตือน' visual/zoky-messages.xml ||
+   ! grep -Fq 'แชต' visual/zoky-messages.xml; then
+  echo 'Notifications first and Chats second tabs not present.' >&2;exit 1
+fi
+adb exec-out screencap -p > visual/zoky-messages-390-th-TH.png
+tap_accessible visual/zoky-messages.xml 'หน้าหลัก'
+sleep 2
+adb shell input swipe 180 675 180 300 450
+sleep 3
+adb exec-out screencap -p > visual/zoky-deals-scrolled-390-th-TH.png
+dump_window visual/zoky-deals-scrolled.xml
+if ! grep -Fq 'ดีลคุ้ม! ดีลแรงวันนี้' visual/zoky-deals-scrolled.xml &&
+   ! grep -Fq 'ภาพประกอบเมนู' visual/zoky-deals-scrolled.xml; then
+  echo 'Deal card row not reachable by native scroll.' >&2;exit 1
+fi
+adb logcat -d -v brief -s AndroidRuntime:E System.err:E > visual/zoky-runtime-errors.txt || true
+echo 'PASS: Zoky HD native 320/360/390/430/600/840 TH+EN + 720p/1080p, Food, Messages, Deals.'

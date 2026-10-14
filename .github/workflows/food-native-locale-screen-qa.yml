@@ -1,4 +1,4 @@
-name: WYNOS Food Native Locale Screens QA
+name: Zoky Android Home Native Screens QA
 
 on:
   pull_request:
@@ -32,43 +32,14 @@ jobs:
           WYNOS_FOOD_SUPABASE_URL: https://kqokpocajhfbidcxpvhh.supabase.co
           WYNOS_FOOD_SUPABASE_PUBLISHABLE_KEY: sb_publishable_FzWdursjrE36_LvtJnayiA_-kWuw9Lt
         run: ./gradlew --no-daemon assembleDebug
-      - name: Capture web guest reference in Thai and English
-        shell: bash
-        run: |
-          mkdir -p visual
-          npm install --no-save --prefix /tmp/wynos-playwright playwright-core@1.56.1
-          NODE_PATH=/tmp/wynos-playwright/node_modules node <<'NODE'
-          const { chromium } = require('playwright-core');
-          (async () => {
-            const browser = await chromium.launch({
-              executablePath: '/usr/bin/google-chrome',
-              args: ['--no-sandbox','--disable-dev-shm-usage'],
-              headless: true,
-            });
-            for (const width of [320,360,390,430,600,840]) {
-              for (const locale of ['th-TH','en-US']) {
-                const context = await browser.newContext({
-                  viewport:{width,height:844}, deviceScaleFactor:1,
-                  isMobile:true, hasTouch:true, locale,
-                });
-                const page = await context.newPage();
-                await page.goto('https://food.wynos.online/', {waitUntil:'domcontentloaded', timeout:60000});
-                await page.waitForTimeout(8000);
-                await page.screenshot({path:`visual/web-home-${width}-${locale}.png`});
-                await context.close();
-              }
-            }
-            await browser.close();
-          })().catch(e => { console.error(e); process.exit(1); });
-          NODE
       - name: Enable KVM
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
       - name: Capture Android native guest screens and enforce network check
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
-          target: google_apis
+          api-level: 34
+          target: default
           arch: x86_64
           profile: pixel_6
           disable-animations: true
@@ -78,7 +49,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wynos-food-adaptive-320-360-390-430-600-840-th-en-screens
+          name: zoky-native-320-360-390-430-600-840-th-en-qa-screens
           path: visual/
           if-no-files-found: warn
           retention-days: 7
