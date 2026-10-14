@@ -531,7 +531,7 @@ fun WebStoreScreen(
         .groupBy { it.category.ifBlank { fallbackMenuCategory } }
     LazyColumn(
         Modifier.fillMaxSize().background(Color.White),
-        contentPadding = PaddingValues(bottom = 34.dp),
+        contentPadding = PaddingValues(bottom = if (guest) 34.dp else 124.dp),
     ) {
         item {
             // CSS uses margin-top:-20px to overlap the cover. Negative
