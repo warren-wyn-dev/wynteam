@@ -189,6 +189,8 @@
     <string name="address_delete_confirm_title">Delete this delivery address?</string>
     <string name="address_delete_confirm_body">Delete %1$s?</string>
     <string name="checkout_review_action">Review order</string>
+    <string name="cart_checkout_requirement">Choose a delivery address and check the server price before reviewing your order.</string>
+    <string name="checkout_locked_short">Payment unavailable</string>
     <string name="checkout_review_title">Review your order</string>
     <string name="checkout_review_address">Delivery address</string>
     <string name="checkout_review_items">Your items</string>

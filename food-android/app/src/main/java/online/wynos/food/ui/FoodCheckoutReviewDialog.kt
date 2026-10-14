@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -131,8 +135,11 @@ fun FoodCheckoutReviewDialog(
                     Text(stringResource(R.string.checkout_review_not_final), color = CheckoutSub, fontSize = 12.sp)
                 }
                 HorizontalDivider()
-                Column(Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    Modifier.fillMaxWidth().navigationBarsPadding().imePadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     if (stagingOrderEnabled) {
                         OutlinedTextField(
                             value = customerNote,
@@ -147,14 +154,18 @@ fun FoodCheckoutReviewDialog(
                         onClick = { showStagingConfirm = true },
                         enabled = stagingOrderEnabled && !stagingOrderBusy &&
                             !stagingOrderUncertain && stagingOrderCreatedId == null,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = CheckoutRed),
                     ) {
-                        Text(stringResource(
-                            if (stagingOrderEnabled) R.string.staging_order_create_action
-                            else R.string.checkout_review_payment_locked
-                        ))
+                        Text(
+                            stringResource(
+                                if (stagingOrderEnabled) R.string.staging_order_create_action
+                                else R.string.checkout_locked_short
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     if (stagingMobilePaymentEnabled && stagingOrderEnabled &&
                         stagingOrderCreatedId != null && !stagingOrderBusy && !stagingOrderUncertain

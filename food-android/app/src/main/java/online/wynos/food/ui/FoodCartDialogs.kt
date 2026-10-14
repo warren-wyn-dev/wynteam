@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -54,6 +56,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -426,17 +429,34 @@ fun FoodCartPreview(
                         }
                     }
                 }
-                Box(Modifier.fillMaxWidth().shadow(8.dp).padding(16.dp)) {
+                Column(
+                    Modifier.fillMaxWidth().shadow(8.dp)
+                        .navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     Button(
                         onClick = { showReview = true },
                         enabled = reviewEligible,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(containerColor = Red),
                     ) {
-                        Text(stringResource(
-                            if (reviewEligible) R.string.checkout_review_action else R.string.checkout_unavailable
-                        ))
+                        Text(
+                            stringResource(
+                                if (cart.lines.isEmpty()) R.string.cart_empty
+                                else R.string.checkout_review_action
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (!reviewEligible && cart.lines.isNotEmpty()) {
+                        Text(
+                            stringResource(R.string.cart_checkout_requirement),
+                            color = Sub,
+                            fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
             }
