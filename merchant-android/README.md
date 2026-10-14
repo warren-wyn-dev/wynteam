@@ -21,21 +21,23 @@ Source of truth: `merchant.wynos.online` in `web/app/merchant`, `web/components/
 4. The current repository includes `gradle-wrapper.properties` but **does not yet include the generated wrapper JAR/scripts**. Generate the wrapper with Gradle 8.13 on your development machine (or use Android Studio) before expecting `./gradlew` to work.
 5. Build a debug app. Verify against a **test merchant account/test store first**, because order and menu actions call the actual backend.
 
-## Implemented in this foundation
+## Current native feature coverage (all require real-device/backend QA)
 
-- Native sign-in, encrypted session storage using Android Keystore and refresh-token renewal.
-- Active `merchant_users` identity check and `food_has_merchant_access` backend authorization.
-- Store list/switcher from RLS-protected `food_stores`.
-- Merchant home: server-calculated sales metrics, pending orders and menu count.
-- Orders: correct four tab names/filters; 24-hour terminal orders; detail and order-item list; payment-gated accept action and prepare/dispatch transitions.
-- Menu list, availability switch, basic add/edit with existing option JSON preserved.
-- Sales reports from `merchant_sales_report`, finance month summary from `merchant_finance_summary`, read-only recent order history.
-- Basic restaurant profile/phone/address/delivery-area/open-state editor.
-- No schema migrations and no edits to deployed web routes.
+- Native sign-in, encrypted session storage using Android Keystore, refresh-token renewal and active merchant identity/access checks.
+- Store switching, home metrics, four order status tabs, human-reviewed private payment slips, delivery photo upload and completion RPC.
+- Order history search/date/status filters, paging, receipt and address-label Android Print Framework.
+- Menu CRUD, availability/sold-out, daily stock, image upload and preview, option groups/add-ons and full-row touch reorder.
+- Category add/rename/reorder, touch drag and save/cancel.
+- Detailed store profile, brand logo/cover, payment QR, bank details, tax/scheduled orders, 7-day schedule, temporary closures, special closed dates, readiness/controlled publishing.
+- Feedback and merchant replies, staff and permissions, store-created promotions, WYNOS campaign participation, advertising account and private slip top-up, in-app notification center and help.
+- Sales report, finance date ranges, payout balances from Stripe status RPC, CSV export.
+- Shared Supabase Auth / RLS / RPC contracts; no schema migrations and no changes to deployed web routes.
 
-## Not implemented yet
+## Not yet at 100% feature parity
 
-Payment-slip private preview and manual verification, delivery photo evidence/completion, menu options/stock/delete and expanded store settings now have **native code paths**, but remain **unverified end-to-end**. Still missing: order paging/Realtime/Push; native drag category sorting, media uploads for menus/store, full schedule/maps/pickup/publishing; receipt/address printing; finance periods/exports/refunds; advertising/top-ups, campaigns/promotions, feedback, help, notification preferences, and other controls. See [FEATURE_PARITY.md](FEATURE_PARITY.md).
+Still outstanding: true Android background Push/FCM registration and delivery, Realtime event subscription and sound/quiet hours, full Google Play/signed release workflow, native maps/location picker and saved store places, Stripe Connect onboarding/account management and refund workflow, granular financial reporting and chart parity, full order paging, premium UX polish, device printing QA and responsive network/offline retries.
+
+**All current code paths are development implementations until tested with authorized test merchant accounts and actual Android devices.** Compiling a debug APK is not proof that transactions, storage RLS or server-side privileges work correctly. See [FEATURE_PARITY.md](FEATURE_PARITY.md).
 
 ## Internal APK artifact
 
