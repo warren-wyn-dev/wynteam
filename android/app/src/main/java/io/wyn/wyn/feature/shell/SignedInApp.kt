@@ -129,6 +129,7 @@ import io.wyn.wyn.feature.compose.PhotoReader
 import io.wyn.wyn.feature.home.HomeNavigation
 import io.wyn.wyn.feature.home.HomeScreen
 import io.wyn.wyn.feature.home.HomeViewModel
+import io.wyn.wyn.feature.home.PostingPrompts
 import io.wyn.wyn.feature.post.PostDetailScreen
 import io.wyn.wyn.feature.post.PostDetailViewModel
 import io.wyn.wyn.feature.profile.AccountSwitcher
@@ -287,6 +288,7 @@ fun SignedInApp(
     fun replaceTop(screen: Screen) { saved = (stack.dropLast(1) + screen).joinToString("\n") { it.encode() } }
     // null: closed; "" : new post; otherwise the draft being continued.
     var composer by rememberSaveable(userId) { mutableStateOf<String?>(null) }
+    var composerPromptKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
     var composerSession by rememberSaveable(userId) { mutableIntStateOf(0) }
     var editSession by rememberSaveable(userId) { mutableIntStateOf(0) }
     var clubSession by rememberSaveable(userId) { mutableIntStateOf(0) }
@@ -299,8 +301,9 @@ fun SignedInApp(
         runCatching { repos.settings.theme(userId) }.onSuccess { saved -> if (saved != appearance.theme) appearance.applyTheme(saved) }
         runCatching { repos.settings.language(userId) }.onSuccess { saved -> if (appearance.applyLanguage(saved)) activity?.recreate() }
     }
-    fun openComposer(draftId: String?) {
+    fun openComposer(draftId: String?, promptKey: String? = null) {
         composerSession += 1
+        composerPromptKey = if (draftId == null) promptKey else null
         composer = draftId.orEmpty()
     }
     fun openProfile(id: String) = push(Screen.Profile(id))
@@ -376,6 +379,7 @@ fun SignedInApp(
     var drawerOpen by rememberSaveable(userId) { mutableStateOf(false) }
     val feedNav = HomeNavigation(
         onCompose = { openComposer(null) },
+        onComposePrompt = { key -> openComposer(null, key) },
         onNotifications = { push(Screen.Notifications) },
         onOpenPost = { push(Screen.Post(it.id)) },
         onOpenProfile = ::openProfile,
@@ -658,14 +662,20 @@ fun SignedInApp(
     if (stack.isEmpty() && composer == null) PushPromptHost(repos.push, userId)
 
     composer?.let { draftId ->
+        val english = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+        val promptText = if (draftId.isEmpty()) PostingPrompts.byKey(composerPromptKey)?.localized(english) else null
         val compose: ComposerViewModel = viewModel(
             key = "composer:$userId:$composerSession",
-            factory = viewModelFactory { initializer { ComposerViewModel(repos.composer, repos.feed, userId, draftId.ifEmpty { null }) } },
+            factory = viewModelFactory {
+                initializer {
+                    ComposerViewModel(repos.composer, repos.feed, userId, draftId.ifEmpty { null }, promptText = promptText)
+                }
+            },
         )
         LaunchedEffect(compose.exit) {
             when (compose.exit) {
                 null -> Unit
-                ComposerExit.Published -> { composer = null; home.refresh(); me.refresh() }
+                ComposerExit.Published -> { composer = null; home.refresh(); home.reloadIdentity(); me.refresh() }
                 ComposerExit.Drafts -> { composer = null; composerSession += 1; push(Screen.Drafts) }
                 ComposerExit.Closed -> composer = null
             }
