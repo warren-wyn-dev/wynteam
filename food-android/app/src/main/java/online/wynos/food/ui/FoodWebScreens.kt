@@ -106,6 +106,7 @@ private fun WebImage(
     bucket: String,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    imageAlignment: Alignment = Alignment.Center,
 ) {
     val url = FoodPublicMedia.url(bucket, path)
     Box(modifier.background(WebSurface), contentAlignment = Alignment.Center) {
@@ -116,6 +117,7 @@ private fun WebImage(
                 model = url,
                 contentDescription = null,
                 contentScale = contentScale,
+                alignment = imageAlignment,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -456,11 +458,13 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boole
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp))) {
-            // Store artwork can include text near its edges. Contain it
-            // rather than trimming labels/watermarks with ContentScale.Crop.
+            // Match the website's full-width 4:3 card. Cropping from the
+            // TOP preserves text/labels placed along the bottom of store art.
+            // Store detail uses Fit so the full original remains accessible.
             WebImage(
                 store.coverPath, "food-public", Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Crop,
+                imageAlignment = Alignment.BottomCenter,
             )
             if (!store.isOpen) {
                 Box(
