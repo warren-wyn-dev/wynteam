@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DirectionsBike
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Home
@@ -322,8 +323,9 @@ fun WebHomeScreen(
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+                    .shadow(3.dp, CircleShape)
                     .height(if (compactHome) 46.dp else 48.dp).clip(CircleShape)
-                    .background(WebChip).padding(horizontal = 16.dp),
+                    .background(Color.White).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -420,7 +422,7 @@ fun WebHomeScreen(
                 }
                 if (recommendedMode) {
                     item(key = "recommended-stores-carousel") {
-                        RecommendedStoresStrip(filtered, onStore)
+                        FoodFeaturedRestaurantHome(filtered.first(), onStore)
                     }
                 } else {
                     items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
@@ -448,33 +450,136 @@ fun WebHomeScreen(
 }
 
 /**
- * Web-style restaurant recommendations: horizontal, two-card phone peek,
- * real public catalog details only. No invented ratings, delivery ETAs,
- * featured ranking or discounts.
+ * Native restaurant feature based on the founder-approved WYNOS Food design.
+ * Only fields returned by the published public catalog are shown. No made-up
+ * reviews, promo codes or delivery times. Opening a dish navigates to its
+ * real Store where required add-ons and the cart guard still apply.
  */
 @Composable
-private fun RecommendedStoresStrip(stores: List<FoodStore>, onStore: (String) -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val cardWidth = ((maxWidth - 44.dp) / 2).coerceIn(154.dp, 210.dp)
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+private fun FoodFeaturedRestaurantHome(store: FoodStore, onStore: (String) -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        color = Color.White,
+        shape = RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, WebLine),
+        shadowElevation = 3.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable { onStore(store.id) }.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(stores, key = { it.id }) { store ->
-                Surface(
-                    modifier = Modifier.width(cardWidth),
-                    color = Color.White,
-                    shape = RoundedCornerShape(17.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, WebLine),
-                    shadowElevation = 2.dp,
-                ) {
-                    StoreCardWeb(
-                        store = store,
-                        modifier = Modifier.fillMaxWidth().padding(8.dp),
-                        showRating = false,
-                        onClick = { onStore(store.id) },
+            Box(Modifier.weight(0.95f).aspectRatio(1f).clip(RoundedCornerShape(14.dp))) {
+                WebImage(
+                    store.coverPath, "food-public", Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    imageAlignment = Alignment.BottomCenter,
+                )
+                if (!store.isOpen) {
+                    Text(
+                        stringResource(R.string.public_store_closed),
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        modifier = Modifier.align(Alignment.TopStart)
+                            .padding(6.dp).clip(CircleShape).background(WebRed)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                     )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1.05f),
+                verticalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                Text(
+                    store.name, color = WebInk, fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp, lineHeight = 20.sp,
+                    maxLines = 3, overflow = TextOverflow.Ellipsis,
+                )
+                store.deliveryFee?.let { deliveryFee ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                            .background(WebChip).padding(horizontal = 9.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.DirectionsBike,
+                            contentDescription = null,
+                            tint = WebRed,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            "฿" + deliveryFee, color = WebInk,
+                            fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.featured_view_store),
+                        color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                    )
+                    Icon(
+                        Icons.Outlined.ChevronRight, contentDescription = null,
+                        modifier = Modifier.size(18.dp), tint = WebRed,
+                    )
+                }
+            }
+        }
+    }
+    val dishes = store.menu.take(6)
+    if (dishes.isNotEmpty()) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val cardWidth = ((maxWidth - 52.dp) / 3).coerceAtLeast(106.dp)
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                items(dishes, key = { it.id }) { dish ->
+                    Surface(
+                        modifier = Modifier.width(cardWidth)
+                            .clickable { onStore(store.id) },
+                        color = Color.White,
+                        shape = RoundedCornerShape(15.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, WebLine),
+                        shadowElevation = 2.dp,
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                            WebImage(
+                                dish.imagePath, "food-public",
+                                modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+                                    .clip(RoundedCornerShape(11.dp)),
+                            )
+                            Text(
+                                dish.name, color = WebInk, fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text("฿" + dish.price, color = WebInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                if (dish.isAvailable() && store.isOpen) {
+                                    Box(
+                                        modifier = Modifier.size(28.dp).clip(CircleShape)
+                                            .background(WebRedSoft),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Add,
+                                            contentDescription = stringResource(R.string.featured_choose_menu),
+                                            modifier = Modifier.size(18.dp), tint = WebRed,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
