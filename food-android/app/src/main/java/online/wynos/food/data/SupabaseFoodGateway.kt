@@ -19,6 +19,10 @@ interface FoodGateway {
     val configured: Boolean
     val addressWritesEnabled: Boolean get() = false
     val signupEnabled: Boolean get() = false
+    val accountDeletionEnabled: Boolean get() = false
+    suspend fun deleteMyAccount() {
+        throw IllegalStateException("account_deletion_disabled")
+    }
     suspend fun signUp(email: String, password: String): String? =
         throw IllegalStateException("signup_disabled")
     suspend fun saveAddress(draft: FoodAddressDraft): String =
@@ -43,6 +47,8 @@ class SupabaseFoodGateway : FoodGateway {
         configured && BuildConfig.ADDRESS_WRITES_ALLOWED
     override val signupEnabled: Boolean get() =
         configured && BuildConfig.ACCOUNT_SIGNUP_ALLOWED
+    override val accountDeletionEnabled: Boolean get() =
+        configured && BuildConfig.ACCOUNT_DELETION_ALLOWED
 
     private suspend fun requireWritableClient(): SupabaseClient {
         check(addressWritesEnabled) { "address_writes_disabled" }
@@ -215,6 +221,19 @@ class SupabaseFoodGateway : FoodGateway {
 
     override suspend fun signOut() {
         requireClient().auth.signOut()
+    }
+
+    override suspend fun deleteMyAccount() {
+        // An irreversible shared WYNOS Account action, never Food-only deletion.
+        // Staging debug opt-in is enforced in BuildConfig; it is off in every release.
+        check(accountDeletionEnabled) { "account_deletion_disabled" }
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        check(supabase.auth.currentUserOrNull() != null) { "sign_in_required" }
+        // No arbitrary user ID: existing SECURITY DEFINER RPC uses auth.uid().
+        supabase.postgrest.rpc("delete_my_account")
+        // Local auth/session cleanup, required after the user is deleted server-side.
+        supabase.auth.signOut()
     }
 
     override suspend fun resetPassword(email: String) {
