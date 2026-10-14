@@ -147,6 +147,14 @@ class MerchantApi(context: Context) {
 
     private fun clearLocalSession() { session = null; vault.clear() }
 
+    /** GoTrue sends a recovery link to the account email; no password is exposed to the app. */
+    fun requestPasswordReset(email: String) {
+        val address = email.trim()
+        require(address.contains("@") && address.length <= 254) { "กรุณาระบุอีเมลให้ถูกต้อง" }
+        raw("POST", "/auth/v1/recover", JSONObject().put("email", address),
+            bearer = null, retry = false)
+    }
+
     fun signIn(email: String, password: String) {
         val credentials = raw("POST", "/auth/v1/token?grant_type=password",
             JSONObject().put("email", email.trim()).put("password", password),
@@ -183,6 +191,36 @@ class MerchantApi(context: Context) {
     }
 
     fun stores(): JSONArray = getArray("/rest/v1/food_stores?select=*&order=created_at.asc")
+    fun storePlaces(storeId: String): JSONArray =
+        getArray("/rest/v1/food_store_places?select=id,store_id,name,detail,latitude,longitude,is_active" +
+            "&store_id=eq." + filter(storeId) + "&order=name.asc")
+
+    fun saveStorePlace(storeId: String, draft: JSONObject) {
+        val name = draft.optString("name").trim()
+        require(name.isNotBlank() && name.length <= 120) { "ชื่อสถานที่ต้องมี 1–120 ตัวอักษร" }
+        val latitude = draft.optDouble("latitude", Double.NaN)
+        val longitude = draft.optDouble("longitude", Double.NaN)
+        require(latitude.isFinite() && latitude in -90.0..90.0 &&
+            longitude.isFinite() && longitude in -180.0..180.0) {
+            "พิกัดสถานที่ไม่ถูกต้อง"
+        }
+        val payload = JSONObject()
+            .put("store_id", filter(storeId)).put("name", name)
+            .put("detail", draft.optString("detail").trim().take(200).ifBlank { JSONObject.NULL })
+            .put("latitude", latitude).put("longitude", longitude)
+            .put("is_active", draft.optBoolean("is_active", true))
+        val id = draft.optString("id").takeIf { it.isNotBlank() && it != "null" }
+        if (id != null) raw("PATCH",
+            "/rest/v1/food_store_places?id=eq." + filter(id) + "&store_id=eq." + filter(storeId),
+            payload)
+        else raw("POST", "/rest/v1/food_store_places", payload)
+    }
+
+    fun deleteStorePlace(storeId: String, placeId: String) {
+        raw("DELETE", "/rest/v1/food_store_places?id=eq." + filter(placeId) +
+            "&store_id=eq." + filter(storeId))
+    }
+
     fun menu(storeId: String): JSONArray =
         getArray("/rest/v1/food_menu_items?select=*&store_id=eq." + filter(storeId) +
             "&order=sort_order.asc,created_at.asc")
@@ -537,6 +575,28 @@ class MerchantApi(context: Context) {
             }
         }
         updateStore(storeId, JSONObject().put("is_published", publish))
+    }
+
+    fun updateStoreCoordinates(storeId: String, draft: JSONObject) {
+        val keys = listOf("latitude", "longitude", "pickup_latitude", "pickup_longitude")
+        for (key in keys) {
+            val value = draft.opt(key)
+            require(value == JSONObject.NULL || (value is Number &&
+                value.toDouble().isFinite() && value.toDouble() in
+                (if (key.endsWith("latitude")) -90.0..90.0 else -180.0..180.0))) {
+                "พิกัด $key ไม่ถูกต้อง"
+            }
+        }
+        require(keys.all { draft.has(it) }) { "กรุณาระบุพิกัดให้ครบทั้ง 4 ช่อง" }
+        require((draft.isNull("latitude") && draft.isNull("longitude")) ||
+            (!draft.isNull("latitude") && !draft.isNull("longitude"))) {
+            "กรุณาระบุละติจูดและลองจิจูดร้านให้ครบคู่"
+        }
+        require((draft.isNull("pickup_latitude") && draft.isNull("pickup_longitude")) ||
+            (!draft.isNull("pickup_latitude") && !draft.isNull("pickup_longitude"))) {
+            "กรุณาระบุพิกัดจุดรับอาหารให้ครบคู่"
+        }
+        updateStore(storeId, draft)
     }
 
     fun updateStore(storeId: String, patch: JSONObject) {
