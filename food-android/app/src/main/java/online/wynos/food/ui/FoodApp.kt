@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -115,7 +117,9 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         2 -> stringResource(R.string.messages)
                         else -> stringResource(R.string.account)
                     }
-                    WebTabHeader(title)
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Box(Modifier.widthIn(max = 720.dp).fillMaxWidth()) { WebTabHeader(title) }
+                    }
                 }
             }
         },
@@ -130,7 +134,14 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
             }
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
+            // A centered, bounded native app shell for multi-window, foldable
+            // and tablets. Form/order/account pages stop at 720dp; Home/store
+            // have room up to 960dp. No WebView or stretched tablet UI.
+            Box(
+                Modifier.widthIn(max = if (tab == 0) 960.dp else 720.dp)
+                    .fillMaxWidth().fillMaxHeight(),
+            ) {
             when {
                 tab == 0 && selectedStore != null -> WebStoreScreen(
                     store = selectedStore,
@@ -183,6 +194,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onSelectAddress = vm::selectAddress,
                     onClearAddressStatus = vm::clearAddressMutationStatus,
                 )
+            }
             }
         }
     }
