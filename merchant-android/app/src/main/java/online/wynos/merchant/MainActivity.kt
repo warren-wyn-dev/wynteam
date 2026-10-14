@@ -89,7 +89,8 @@ private fun MerchantApp(vm: MerchantViewModel) {
         return
     }
     if (!s.signedIn) {
-        LoginScreen(busy = s.busy, error = s.error, onSignIn = vm::signIn)
+        LoginScreen(busy = s.busy, error = s.error, notice = s.notice,
+            onSignIn = vm::signIn, onReset = vm::requestPasswordReset)
         return
     }
     Scaffold(
@@ -150,7 +151,8 @@ private fun MerchantApp(vm: MerchantViewModel) {
 }
 
 @Composable
-private fun LoginScreen(busy: Boolean, error: String, onSignIn: (String, String) -> Unit) {
+private fun LoginScreen(busy: Boolean, error: String, notice: String,
+    onSignIn: (String, String) -> Unit, onReset: (String) -> Unit) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
