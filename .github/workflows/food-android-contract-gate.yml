@@ -1,0 +1,27 @@
+name: WYNOS Food Android Staging Contract Gate
+
+on:
+  pull_request:
+    paths:
+      - "food-android/phase1/**"
+      - "food-android/scripts/check-staging-contract.py"
+      - ".github/workflows/food-android-contract-gate.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contract-gate:
+    runs-on: ubuntu-latest
+    name: Offline contract regression tests (no backend connection)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run safe metadata gate tests
+        run: python3 -m unittest discover -s food-android/phase1 -p 'test_*.py' -v
+      - name: Ensure known incomplete sandbox never passes
+        run: |
+          if python3 food-android/scripts/check-staging-contract.py --scope full --snapshot food-android/phase1/sandbox_metadata_2026-10-15.json; then
+            echo "Unexpected: incomplete sandbox metadata marked ready" >&2
+            exit 1
+          fi
