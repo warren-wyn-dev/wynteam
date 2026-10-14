@@ -307,8 +307,10 @@ fun WebHomeScreen(
     // squeezed its photo into the left half and left the right half blank.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val geometry = foodAdaptiveLayout(maxWidth.value)
-        val homeGridColumns = homeGridColumnsForWidth(geometry.maxContentWidthDp)
-        val compactHome = compactFoodHomeForWidth(geometry.maxContentWidthDp)
+        // A medium window can still be narrower than its allowed max width.
+        val measuredContentWidthDp = minOf(maxWidth.value, geometry.maxContentWidthDp)
+        val homeGridColumns = homeGridColumnsForWidth(measuredContentWidthDp)
+        val compactHome = compactFoodHomeForWidth(measuredContentWidthDp)
         LazyColumn(
             state = listState,
             modifier = Modifier.widthIn(max = geometry.maxContentWidthDp.dp)
