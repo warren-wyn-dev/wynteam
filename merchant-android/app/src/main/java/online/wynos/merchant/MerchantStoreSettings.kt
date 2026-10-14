@@ -67,6 +67,7 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
     var validation by remember(store) { mutableStateOf("") }
     var logoUri by remember(store) { mutableStateOf<Uri?>(null) }
     var coverUri by remember(store) { mutableStateOf<Uri?>(null) }
+    var qrUri by remember(store) { mutableStateOf<Uri?>(null) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("ตั้งค่าร้านค้า", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
@@ -142,6 +143,16 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
         }
         fieldGroup("พื้นที่จัดส่งและค่าส่ง", delivery)
         fieldGroup("ช่องทางชำระเงิน", payments)
+        MerchantImagePicker("QR รับชำระเงิน", qrUri, store.optString("payment_qr_path"),
+            !s.busy, onSelect = { qrUri = it })
+        Row {
+            Button(onClick = { vm.saveStoreImage("payment", qrUri); qrUri = null },
+                enabled = qrUri != null && !s.busy) { Text("บันทึก QR") }
+            TextButton(onClick = { vm.saveStoreImage("payment", null) },
+                enabled = !s.busy && store.optString("payment_qr_path").isNotBlank()) {
+                Text("ลบ QR")
+            }
+        }
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text("เปิดรับออเดอร์ล่วงหน้า", Modifier.weight(1f))
             Switch(checked = toggles["scheduled_orders_enabled"] == true,
