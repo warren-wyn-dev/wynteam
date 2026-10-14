@@ -71,6 +71,60 @@ class FoodViewModelTest {
         override suspend fun resetPassword(email: String) {}
     }
 
+    @Test fun showsNoticeOnlyWhenAnExistingOrderStatusChanges() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val pending = FoodOrderSummary(
+                "order-1", "FOOD-1", "pending_acceptance", "pending", "90", "2026-10-14T01:00:00Z"
+            )
+            val fake = FakeGateway().apply { selectedOrders = listOf(pending) }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            assertNull(vm.uiState.value.orderStatusNotice)
+            fake.selectedOrders = listOf(pending.copy(status = "preparing"))
+            vm.refreshOrders()
+            runCurrent()
+            assertEquals("preparing", vm.uiState.value.orderStatusNotice?.status)
+            assertEquals("FOOD-1", vm.uiState.value.orderStatusNotice?.number)
+            vm.dismissOrderStatusNotice()
+            assertNull(vm.uiState.value.orderStatusNotice)
+            vm.refreshOrders()
+            runCurrent()
+            assertNull(vm.uiState.value.orderStatusNotice)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun newOrderOrSignOutDoesNotLeakStatusNotice() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val one = FoodOrderSummary(
+                "order-1", "FOOD-1", "pending_acceptance", "pending", "90", "2026-10-14T01:00:00Z"
+            )
+            val two = FoodOrderSummary(
+                "order-2", "FOOD-2", "preparing", "pending", "80", "2026-10-14T02:00:00Z"
+            )
+            val fake = FakeGateway().apply { selectedOrders = listOf(one) }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            fake.selectedOrders = listOf(one, two)
+            vm.refreshOrders()
+            runCurrent()
+            assertNull(vm.uiState.value.orderStatusNotice)
+            fake.selectedOrders = listOf(one.copy(status = "delivered"), two)
+            vm.refreshOrders()
+            runCurrent()
+            assertEquals("delivered", vm.uiState.value.orderStatusNotice?.status)
+            vm.signOut()
+            runCurrent()
+            assertNull(vm.uiState.value.orderStatusNotice)
+            assertNull(vm.uiState.value.accountEmail)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test fun accountDeletionCannotCallRpcWithoutStagingOptIn() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {

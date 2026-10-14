@@ -191,6 +191,7 @@
     <string name="checkout_review_not_final">ยอดนี้มาจากระบบ ค่าส่งและโปรโมชันอาจเปลี่ยนได้ก่อนยืนยันจริง</string>
     <string name="checkout_review_payment_locked">สั่งอาหารและชำระเงิน (ยังไม่เปิดใช้)</string>
     <string name="checkout_review_staging_notice">หน้านี้เป็นตัวอย่างการตรวจคำสั่งซื้อ ยังไม่มีการสร้างออเดอร์หรือชำระเงิน</string>
+    <string name="food_order_status_changed_notice">ออเดอร์ #%1$s อัปเดตสถานะเป็น %2$s</string>
     <string name="food_order_detail_title">รายละเอียดออเดอร์</string>
     <string name="food_order_detail_error">ไม่สามารถโหลดรายละเอียดออเดอร์ได้ โปรดลองใหม่</string>
     <string name="food_order_detail_delivery">ข้อมูลจัดส่ง</string>
