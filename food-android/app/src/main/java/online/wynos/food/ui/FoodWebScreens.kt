@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -143,7 +145,13 @@ fun WebHomeHeader(
     onSelectAddress: (String?) -> Unit,
     onRefreshAddresses: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().background(Color.White).padding(start = 16.dp, end = 14.dp, top = 6.dp, bottom = 4.dp)) {
+    BoxWithConstraints(Modifier.fillMaxWidth().background(Color.White)) {
+        val geometry = foodAdaptiveLayout(maxWidth.value)
+        Column(
+            Modifier.widthIn(max = geometry.headerMaxWidthDp.dp).fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .padding(horizontal = geometry.horizontalPaddingDp.dp, vertical = 6.dp),
+        ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Image(
@@ -151,11 +159,15 @@ fun WebHomeHeader(
                     contentDescription = null,
                     modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)),
                 )
-                // Single-line WYNOS Food branding.
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("WYNOS", fontSize = 18.sp, maxLines = 1, color = WebInk, fontWeight = FontWeight.Bold)
-                    Text("Food", fontSize = 18.sp, maxLines = 1, color = WebRed, fontWeight = FontWeight.Bold)
-                }
+                Text(
+                    text = buildAnnotatedString {
+                        append("WYNOS ")
+                        withStyle(SpanStyle(color = WebRed)) { append("Food") }
+                    },
+                    modifier = Modifier.weight(1f),
+                    fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = WebInk, fontWeight = FontWeight.Bold,
+                )
             }
             if (guest) {
                 OutlinedButton(
@@ -188,6 +200,7 @@ fun WebHomeHeader(
                 onManageAddresses = onAccount,
             )
         }
+        }
     }
 }
 
@@ -217,7 +230,9 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mod
             .background(Color.White).navigationBarsPadding(),
     ) {
         Row(
-            Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 12.dp, vertical = 4.dp),
+            Modifier.widthIn(max = 720.dp).fillMaxWidth()
+                .align(Alignment.CenterHorizontally)
+                .height(66.dp).padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             tabs.forEach { (index, label, icon) ->
