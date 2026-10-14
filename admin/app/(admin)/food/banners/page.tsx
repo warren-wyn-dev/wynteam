@@ -1,9 +1,13 @@
+import { Suspense } from "react";
+
 import { FoodBannerManager } from "@/components/admin/food-banner-manager";
+import { FoodHomeAnalytics } from "@/components/admin/food-home-analytics";
 import { NoAccess } from "@/components/admin/no-access";
 import { adminCan, requireAdminRole } from "@/lib/auth";
 import { fetchAdminFoodBanners, fetchAdminBannerStores } from "@/lib/admin-food-banners";
+import { foodHomeAnalyticsDays } from "@/lib/admin-food-home-analytics";
 
-export default async function FoodBannersPage(){
+export default async function FoodBannersPage({ searchParams }: { searchParams: Promise<{ analyticsDays?: string | string[] }> }){
   const ctx=await requireAdminRole();
   if(!adminCan(ctx,"food")) return <NoAccess what="จัดการแบนเนอร์ WYNOS Food"/>;
   let banners,stores;
@@ -29,5 +33,8 @@ export default async function FoodBannersPage(){
       </p>
     </header>
     <FoodBannerManager initial={banners} stores={stores} canEdit={adminCan(ctx,"food","edit")}/>
+    <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">กำลังโหลดสถิติ...</p>}>
+      <FoodHomeAnalytics kind="banner" days={foodHomeAnalyticsDays((await searchParams).analyticsDays)} />
+    </Suspense>
   </div>;
 }

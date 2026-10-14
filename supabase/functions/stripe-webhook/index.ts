@@ -62,6 +62,10 @@ async function vaultWebhookSecret(admin: AdminClient, name: "stripe_webhook_secr
 }
 function stringValue(value: unknown) { return typeof value === "string" ? value : null; }
 function numberValue(value: unknown) { return typeof value === "number" && Number.isFinite(value) ? value : null; }
+function stripeObjectId(value: unknown) {
+  return stringValue(value) ?? (value && typeof value === "object" ? stringValue((value as Record<string,unknown>).id) : null);
+}
+function safeStripeAmount(value: unknown): value is number { return typeof value === "number" && Number.isSafeInteger(value) && value >= 0; }
 function stripeLivemode(secret: string) {
   if (/^(?:sk|rk)_live_/.test(secret)) return true;
   if (/^(?:sk|rk)_test_/.test(secret)) return false;
@@ -350,6 +354,53 @@ Deno.serve(async (req: Request) => {
   const data = event.data as Record<string,unknown> | undefined;
   const object = data?.object as Record<string,unknown> | undefined;
   if (!object) return json({ error: "invalid_event" }, 400);
+
+  // Application fees belong to the platform. The fee's original connected
+  // account and charge identify the payment; customer/order metadata cannot.
+  // A customer refund's status alone does not prove that its fee was returned.
+  if (eventType === "application_fee.refunded") {
+    if (!stripeSecret) return json({ error: "fee_sync_unavailable" }, 503);
+    const feeId = stringValue(object.id);
+    const accountId = stripeObjectId(object.account);
+    const chargeId = stripeObjectId(object.charge);
+    const created = numberValue(event.created);
+    if (object.object !== "application_fee" || !feeId || !accountId || !chargeId
+      || !safeStripeAmount(object.amount) || object.amount === 0
+      || !safeStripeAmount(object.amount_refunded) || object.amount_refunded > object.amount
+      || object.currency !== "thb" || created === null || !Number.isSafeInteger(created) || created <= 0
+      || !Number.isFinite(new Date(created * 1000).getTime())
+      || typeof object.livemode !== "boolean" || typeof event.livemode !== "boolean") {
+      return json({ error: "invalid_fee_event" }, 400);
+    }
+    if (object.livemode !== stripeLiveMode || event.livemode !== stripeLiveMode
+      || (stripeAccountId !== null && stripeAccountId !== accountId)) {
+      return json({ received: true, ignored: true });
+    }
+    try {
+      const charge = await stripeJson(`https://api.stripe.com/v1/charges/${encodeURIComponent(chargeId)}`, {
+        headers: stripeV1Headers(stripeSecret, accountId),
+      });
+      const paymentIntentId = stripeObjectId(charge.payment_intent);
+      if (charge.id !== chargeId || stripeObjectId(charge.application_fee) !== feeId || !paymentIntentId
+        || charge.livemode !== stripeLiveMode || charge.currency !== "thb") throw new Error("fee_charge_mismatch");
+      // Receipt and fee write commit together; a crash must remain retryable.
+      const { data: result, error: feeError } = await admin.rpc("food_record_stripe_fee_refund_event", {
+        p_event_id: eventId, p_stripe_account_id: accountId, p_payment_intent_id: paymentIntentId,
+        p_fee_id: feeId, p_fee_amount_satang: object.amount, p_refunded_satang: object.amount_refunded,
+        p_currency: object.currency, p_livemode: object.livemode,
+        p_refunded_at: new Date(created * 1000).toISOString(),
+      });
+      if (feeError || !result || typeof result.recorded !== "boolean" || result.reason === "unmapped") {
+        // The payment row may arrive after this event. No receipt was claimed,
+        // so a provider retry must be allowed to recover the missing mapping.
+        throw new Error("fee_record_failed");
+      }
+      return json({ received: true, recorded: result.recorded, reason: result.reason });
+    } catch {
+      console.error("stripe application fee event failed", { eventId, eventType });
+      return json({ error: "event_processing_failed" }, 500);
+    }
+  }
 
   if (eventType === "account.updated") {
     const accountId = stringValue(object.id) ?? stripeAccountId;

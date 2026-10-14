@@ -103,9 +103,22 @@ test("legacy moderator visibility and available route matching remain intact", (
   assert.equal(findActiveAdminNavItem("/food-other", ADMIN_NAV_ITEMS), undefined);
 });
 
+test("implemented Food pages respect read and customer-history edit permissions", () => {
+  const food = adminNavItemsForRole("staff", {
+    available: true, superAdmin: false, permissions: { food: "view" },
+  });
+  assert.equal(food.find(item => item.id === "food-payments").href, "/food/payments");
+  assert.equal(food.find(item => item.id === "food-support").href, "/food/support");
+  assert.equal(food.some(item => item.id === "food-customers"), false);
+  const editor = adminNavItemsForRole("staff", {
+    available: true, superAdmin: false, permissions: { food: "edit" },
+  });
+  assert.equal(editor.find(item => item.id === "food-customers").href, "/food/customers");
+});
+
 test("planned pages remain searchable but cannot become functional links", () => {
-  const [payments] = searchAdminNavItems(superAdmin, "คืนเงิน");
-  assert.equal(payments.id, "food-payments");
-  assert.equal(isAdminNavItemAvailable(payments), false);
-  assert.equal(payments.href, undefined);
+  const [secretary] = searchAdminNavItems(superAdmin, "เลขา");
+  assert.equal(secretary.id, "ai-secretary");
+  assert.equal(isAdminNavItemAvailable(secretary), false);
+  assert.equal(secretary.href, undefined);
 });

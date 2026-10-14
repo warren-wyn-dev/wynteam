@@ -1,192 +1,235 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { AdminMerchantMenuItem } from "@/lib/admin-merchant-menu";
+import type { AdminMerchantMenuCatalog, AdminMerchantMenuItem } from "@/lib/admin-merchant-menu";
+import { menuForm, menuFormError, menuValues, menuErrorMessage } from "@/lib/admin-merchant-menu-form";
+import { MerchantMenuOptions } from "@/components/admin/merchant-menu-options";
+import { MerchantMenuCategories, type MenuCategoryChange } from "@/components/admin/merchant-menu-categories";
 
-type EditForm = {
-  name: string; category: string; description: string; price: string;
-  is_available: boolean; daily_stock_limit: string;
-};
-function toForm(x: AdminMerchantMenuItem): EditForm {
-  return {
-    name: x.name, category: x.category, description: x.description ?? "",
-    price: String(x.price), is_available: x.is_available,
-    daily_stock_limit: x.daily_stock_limit === null ? "" : String(x.daily_stock_limit),
-  };
-}
-function oldValues(x: AdminMerchantMenuItem) {
-  return {
-    name: x.name, category: x.category, description: x.description,
-    price: Number(x.price), is_available: x.is_available, daily_stock_limit: x.daily_stock_limit,
-  };
-}
+const buttonClass = "min-h-11 rounded-lg border px-4 text-sm font-medium disabled:opacity-40";
+const inputClass = "mt-1 min-h-11 w-full rounded-lg border bg-background px-3 text-sm disabled:opacity-60";
 
-export function AdminMerchantMenuEditor({
-  original,
-  canEdit,
-}: {original: AdminMerchantMenuItem[]; canEdit: boolean}) {
+export function AdminMerchantMenuEditor({ original, canEdit }: {
+  original: AdminMerchantMenuCatalog; canEdit: boolean;
+}) {
   const router = useRouter();
-  const [items, setItems] = useState(original);
-  const [storeId, setStoreId] = useState<string>("");
-  const [itemId, setItemId] = useState(original[0]?.id ?? "");
-  const selected = items.find(x => x.id === itemId) ?? null;
-  const [form, setForm] = useState<EditForm>(original[0] ? toForm(original[0]) : {
-    name: "", category: "", description: "", price: "", is_available: true, daily_stock_limit: "",
-  });
+  const [catalog, setCatalog] = useState(original);
+  const [storeId, setStoreId] = useState(original.stores[0]?.id ?? "");
+  const first = original.items.find(item => item.store_id === original.stores[0]?.id && !item.archived_at);
+  const [itemId, setItemId] = useState(first?.id ?? "");
+  const [creating, setCreating] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [form, setForm] = useState(() => menuForm(first));
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState("");
+  const [needsReload, setNeedsReload] = useState(false);
   const [pending, startTransition] = useTransition();
-  const stores = useMemo(() => [...new Map(items.map(x => [x.store_id, {id:x.store_id,name:x.store_name}])).values()], [items]);
-  const filtered = storeId ? items.filter(x => x.store_id === storeId) : items;
-  const proposed = {
-    name: form.name.trim(),
-    category: form.category.trim(),
-    description: form.description.trim() || null,
-    price: form.price.trim() === "" ? NaN : Number(form.price),
-    is_available: form.is_available,
-    daily_stock_limit: form.daily_stock_limit.trim() === "" ? null : Number(form.daily_stock_limit),
-  };
-  const originalValues = selected ? oldValues(selected) : null;
-  const changed = selected ? JSON.stringify(proposed) !== JSON.stringify(originalValues) : false;
-  const invalid = !proposed.name || proposed.name.length>160
-    || !proposed.category || proposed.category.length>60
-    || (proposed.description?.length ?? 0)>1000
-    || !Number.isFinite(proposed.price) || proposed.price<0 || proposed.price>100000
-    || (proposed.daily_stock_limit !== null && (!Number.isInteger(proposed.daily_stock_limit)
-      || proposed.daily_stock_limit < 1 || proposed.daily_stock_limit > 9999));
-  function chooseItem(id: string) {
-    setItemId(id);
-    const item=items.find(x=>x.id===id);
-    if(item)setForm(toForm(item));
-    setError(null);setSuccess("");setReason("");
+  const selected = catalog.items.find(item => item.id === itemId && item.store_id === storeId) ?? null;
+  const store = catalog.stores.find(item => item.id === storeId);
+  const storeItems = catalog.items.filter(item => item.store_id === storeId);
+  const visible = storeItems.filter(item => showArchived || !item.archived_at);
+  const formError = menuFormError(form);
+  const values = formError ? null : menuValues(form, selected);
+  const changed = creating || (selected && JSON.stringify(form) !== JSON.stringify(menuForm(selected)));
+  const reasonValid = reason.trim().length >= 5 && reason.trim().length <= 300;
+  const editingDisabled = !canEdit || pending || needsReload || Boolean(selected?.archived_at);
+  const imagePaths = [...new Set([
+    ...catalog.images.filter(image => image.store_id === storeId).map(image => image.path),
+    ...storeItems.flatMap(item => item.image_path ? [item.image_path] : []),
+    ...(form.image_path ? [form.image_path] : []),
+  ])];
+  const imageUrl = form.image_path ? createClient().storage.from("food-public").getPublicUrl(form.image_path).data.publicUrl : null;
+
+  function reset(item?: AdminMerchantMenuItem, create = false) {
+    setItemId(item?.id ?? ""); setCreating(create); setForm(menuForm(item));
+    setError(null); setSuccess(""); setReason("");
+  }
+  function discardAllowed() {
+    return !changed || window.confirm("มีข้อมูลที่ยังไม่บันทึก ต้องการละทิ้งการแก้ไขหรือไม่?");
   }
   function chooseStore(id: string) {
-    setStoreId(id);
-    const target = items.find(x=> !id || x.store_id===id);
-    chooseItem(target?.id??"");
+    if (!discardAllowed()) return;
+    setStoreId(id); reset(catalog.items.find(item => item.store_id === id && (showArchived || !item.archived_at)));
   }
-  async function reload() {
-    const {data,error:err}=await createClient().rpc("admin_merchant_menu_items",{p_store_id:null});
-    if(err)throw err;
-    const rows=Array.isArray(data)?data as AdminMerchantMenuItem[]:[];
-    setItems(rows);
-    const item=rows.find(x=>x.id===itemId);
-    if(item)setForm(toForm(item));
+  async function reload(preferredId = itemId) {
+    const { data, error: readError } = await createClient().rpc("admin_merchant_menu_catalog", { p_store_id: null })
+      .abortSignal(AbortSignal.timeout(15_000));
+    if (readError) throw readError;
+    if (!data || !Array.isArray(data.stores) || !Array.isArray(data.items) || !Array.isArray(data.images)) throw new Error("invalid_menu_catalog");
+    const next = data as AdminMerchantMenuCatalog;
+    setCatalog(next);
+    const item = next.items.find(item => item.id === preferredId && item.store_id === storeId)
+      ?? next.items.find(item => item.store_id === storeId && (showArchived || !item.archived_at));
+    if (item?.archived_at) setShowArchived(true);
+    setNeedsReload(false);
+    reset(item);
     router.refresh();
   }
-  function save() {
-    setError(null);setSuccess("");
-    if(!canEdit || !selected || invalid || !changed || reason.trim().length<5) {
-      setError("กรอกข้อมูลที่ต้องการเปลี่ยนให้ถูกต้อง และระบุเหตุผลอย่างน้อย 5 ตัวอักษร");
-      return;
-    }
-    if(!window.confirm(`ยืนยันแก้เมนู “${selected.name}” ในร้าน “${selected.store_name}”? การเปลี่ยนแปลงอาจส่งผลต่อการสั่งซื้อใหม่ทันที`))return;
+  function mutate(message: string, operation: () => Promise<{ data: unknown; error: unknown }>, preferredId?: string) {
+    if (!canEdit || pending || needsReload || !window.confirm(message)) return;
+    setError(null); setSuccess("");
     startTransition(async () => {
-      try{
-        const {error:writeError}=await createClient().rpc("admin_update_merchant_menu_item",{
-          p_item_id:selected.id,
-          p_expected:oldValues(selected),
-          p_name:proposed.name,
-          p_category:proposed.category,
-          p_description:proposed.description,
-          p_price:proposed.price,
-          p_is_available:proposed.is_available,
-          p_daily_stock_limit:proposed.daily_stock_limit,
-          p_reason:reason.trim(),
-        });
-        if(writeError)throw writeError;
-        await reload();setReason("");setSuccess("บันทึกเมนูลงระบบจริงและโหลดข้อมูลล่าสุดแล้ว");
-      }catch(err) {
-        const msg=err instanceof Error?err.message:String(err);
-        setError(msg.includes("item changed")?"เมนูถูกแก้ไขโดยผู้อื่น กรุณาโหลดข้อมูลล่าสุด":msg.includes("Not authorized")?
-          "ไม่มีสิทธิ์แก้ไข Merchant":"บันทึกไม่สำเร็จ: "+msg);
+      let saved = false;
+      try {
+        const result = await operation();
+        if (result.error) throw result.error;
+        saved = true;
+        setNeedsReload(true);
+        const resultId = result.data && typeof result.data === "object" && "id" in result.data ? String(result.data.id) : undefined;
+        await reload(preferredId ?? resultId ?? itemId);
+        setSuccess("บันทึกเรียบร้อย และโหลดข้อมูลล่าสุดแล้ว");
+      } catch (writeError) {
+        const code = writeError && typeof writeError === "object" && "code" in writeError ? String(writeError.code) : "";
+        const uncertainCreate = creating && !saved && code !== "P0001" && !/^22|^23|^42/.test(code);
+        if (uncertainCreate) setNeedsReload(true);
+        setError(saved ? "บันทึกสำเร็จ แต่โหลดข้อมูลล่าสุดไม่สำเร็จ กรุณากดโหลดข้อมูลล่าสุดก่อนทำรายการต่อ"
+          : uncertainCreate ? "ยังยืนยันผลการเพิ่มเมนูไม่ได้ กรุณาโหลดข้อมูลล่าสุดและตรวจรายการก่อนเพิ่มอีกครั้ง" : menuErrorMessage(writeError));
       }
     });
   }
-  return (
-    <section className="space-y-5 rounded-2xl border bg-background p-4 sm:p-6">
+  function save() {
+    if (!store || !canEdit || !values || !reasonValid || !changed || selected?.archived_at) return;
+    const proposed = values;
+    mutate(`ยืนยัน${creating ? "เพิ่ม" : "แก้ไข"}เมนู “${proposed.name}” ของร้าน “${store.name}” ราคา ${proposed.price} บาท? ข้อมูลนี้มีผลกับการสั่งซื้อใหม่`, async () =>
+      await createClient().rpc("admin_save_merchant_menu_item", {
+        p_item_id: creating ? null : selected?.id,
+        p_store_id: storeId, p_expected_updated_at: creating ? null : selected?.updated_at,
+        p_values: proposed, p_reason: reason.trim(),
+      }).abortSignal(AbortSignal.timeout(20_000)));
+  }
+  function archive() {
+    if (!selected || !reasonValid) return;
+    const item = selected;
+    mutate(item.archived_at
+      ? `ยืนยันกู้คืนเมนู “${item.name}”? เมนูจะยังปิดขายจนกว่าจะเปิดขายอีกครั้ง`
+      : `ยืนยันเก็บเมนู “${item.name}”? ลูกค้าจะสั่งเมนูนี้ไม่ได้ และประวัติออเดอร์ยังอยู่`, async () =>
+      await createClient().rpc("admin_set_merchant_menu_item_archived", {
+        p_item_id: item.id, p_expected_updated_at: item.updated_at,
+        p_archived: !item.archived_at, p_reason: reason.trim(),
+      }).abortSignal(AbortSignal.timeout(20_000)), item.id);
+  }
+  function saveCategories(change: MenuCategoryChange) {
+    if (!store || !discardAllowed()) return;
+    mutate(`ยืนยันแก้หมวดหมู่ของร้าน “${store.name}”? เมนูในหมวดที่เปลี่ยนชื่อจะย้ายชื่อหมวดพร้อมกัน`, async () =>
+      await createClient().rpc("admin_save_merchant_menu_categories", {
+        p_store_id: storeId, p_expected_updated_at: store.updated_at,
+        p_expected_items: Object.fromEntries(storeItems.map(item => [item.id, item.updated_at])),
+        p_category_order: change.order, p_renames: change.renames, p_reason: change.reason,
+      }).abortSignal(AbortSignal.timeout(20_000)));
+  }
+
+  return <section className="space-y-5 rounded-2xl border bg-background p-4 sm:p-6" aria-busy={pending}>
+    <div className="flex flex-wrap items-end gap-3">
+      <label className="min-w-48 flex-1 text-sm font-medium">เลือกร้าน
+        <select className={inputClass} disabled={pending} value={storeId} onChange={event => chooseStore(event.target.value)}>
+          {!catalog.stores.length ? <option value="">ยังไม่มีร้าน</option> : null}
+          {catalog.stores.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </label>
+      {canEdit ? <button type="button" className={buttonClass} disabled={pending || needsReload || !store}
+        onClick={() => { if (discardAllowed()) reset(undefined, true); }}>เพิ่มเมนูใหม่</button> : null}
+      <button type="button" className={buttonClass} disabled={pending} onClick={() => {
+        if (!discardAllowed()) return;
+        startTransition(async () => { try { setError(null); await reload(); } catch (readError) { setError(menuErrorMessage(readError)); } });
+      }}>โหลดข้อมูลล่าสุด</button>
+    </div>
+    {store ? <MerchantMenuCategories key={`${store.id}:${store.updated_at}`} store={store} items={storeItems}
+      canEdit={canEdit && !needsReload} pending={pending} onSave={saveCategories} /> : null}
+    <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
+      <label className="text-sm font-medium">เลือกเมนู
+        <select className={inputClass} disabled={pending} value={creating ? "" : itemId} onChange={event => {
+          if (discardAllowed()) reset(visible.find(item => item.id === event.target.value));
+        }}>
+          <option value="">{creating ? "กำลังเพิ่มเมนูใหม่" : "เลือกเมนู"}</option>
+          {visible.map(item => <option key={item.id} value={item.id}>{item.name} — {item.category}{item.archived_at ? " (เก็บแล้ว)" : item.is_available ? "" : " (ปิดขาย)"}</option>)}
+        </select>
+      </label>
+      <label className="flex min-h-11 items-center gap-2 text-sm">
+        <input type="checkbox" checked={showArchived} disabled={pending} onChange={event => {
+          if (!event.target.checked && selected?.archived_at && !discardAllowed()) return;
+          setShowArchived(event.target.checked);
+          if (!event.target.checked && selected?.archived_at) reset(storeItems.find(item => !item.archived_at));
+        }} />แสดงเมนูที่เก็บแล้ว
+      </label>
+    </div>
+    {creating || selected ? <>
       <div>
-        <h2 className="text-lg font-semibold">จัดการเมนูอาหารทุกร้าน</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          แก้ชื่อ ราคา หมวดหมู่ รายละเอียด จำนวนจำกัดต่อวัน และสถานะเปิดขายจาก WYNOS Admin
-          โดยไม่แก้รูปภาพหรือตัวเลือกเสริมของเมนูในส่วนนี้
-        </p>
+        <h2 className="text-lg font-semibold">{creating ? "เพิ่มเมนูใหม่" : selected?.name}</h2>
+        {selected?.archived_at ? <p className="mt-1 text-sm text-muted-foreground">เมนูนี้เก็บไว้แล้ว กู้คืนก่อนแก้ไข เมนูที่กู้คืนจะยังปิดขาย</p> : null}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-sm font-medium">
-          เลือกร้าน
-          <select value={storeId} onChange={e=>chooseStore(e.target.value)} className="mt-1 block h-11 w-full rounded-lg border bg-background px-3 text-sm">
-            <option value="">ทุกร้าน</option>
-            {stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </label>
-        <label className="block text-sm font-medium">
-          เลือกเมนู
-          <select value={filtered.some(x=>x.id===itemId)?itemId:""} onChange={e=>chooseItem(e.target.value)}
-            className="mt-1 block h-11 w-full rounded-lg border bg-background px-3 text-sm">
-            {filtered.length===0?<option value="">ไม่พบเมนู</option>:null}
-            {filtered.map(item=><option key={item.id} value={item.id}>{item.name} — {item.store_name}</option>)}
-          </select>
-        </label>
-      </div>
-      {selected ? (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="ชื่อเมนู" value={form.name} onChange={v=>setForm(x=>({...x,name:v}))} maxLength={160} disabled={!canEdit||pending}/>
-            <Field label="หมวดหมู่" value={form.category} onChange={v=>setForm(x=>({...x,category:v}))} maxLength={60} disabled={!canEdit||pending}/>
-            <Field label="ราคา (บาท)" value={form.price} onChange={v=>setForm(x=>({...x,price:v}))} type="number" disabled={!canEdit||pending}/>
-            <Field label="สต็อกสูงสุดต่อวัน (เว้นว่าง = ไม่จำกัด)" value={form.daily_stock_limit} onChange={v=>setForm(x=>({...x,daily_stock_limit:v}))} type="number" disabled={!canEdit||pending}/>
-          </div>
-          <label className="block text-sm font-medium">
-            รายละเอียดอาหาร
-            <textarea maxLength={1000} rows={3} value={form.description} disabled={!canEdit||pending}
-              onChange={e=>setForm(x=>({...x,description:e.target.value}))}
-              className="mt-1 block w-full rounded-lg border bg-background p-3 text-sm disabled:opacity-60"/>
+      <fieldset disabled={editingDisabled} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="ชื่อเมนู" value={form.name} onChange={value => setForm({ ...form, name: value })} maxLength={160} />
+          <label className="text-sm font-medium">หมวดหมู่
+            <input className={inputClass} value={form.category} maxLength={60} list="merchant-menu-categories"
+              onChange={event => setForm({ ...form, category: event.target.value })} />
+            <datalist id="merchant-menu-categories">{[...new Set([...(store?.menu_category_order ?? []), ...storeItems.map(item => item.category)])]
+              .map(name => <option key={name} value={name} />)}</datalist>
           </label>
-          <label className="flex items-center gap-3 text-sm font-medium">
-            <input type="checkbox" checked={form.is_available} disabled={!canEdit||pending}
-              onChange={e=>setForm(x=>({...x,is_available:e.target.checked}))}
-              className="size-4 rounded border"/>
-            เปิดขายเมนูนี้
+          <Field label="ราคา (บาท)" value={form.price} onChange={value => setForm({ ...form, price: value })} type="number" min={0} max={100000} step="0.01" />
+          <Field label="สต็อกสูงสุดต่อวัน (เว้นว่าง = ไม่จำกัด)" value={form.daily_stock_limit} onChange={value => setForm({ ...form, daily_stock_limit: value })} type="number" min={1} max={9999} step="1" />
+        </div>
+        <label className="block text-sm font-medium">รายละเอียดอาหาร
+          <textarea className="mt-1 w-full rounded-lg border bg-background p-3 text-sm" value={form.description} rows={3} maxLength={1000}
+            onChange={event => setForm({ ...form, description: event.target.value })} />
+        </label>
+        <div className="grid items-center gap-4 sm:grid-cols-2">
+          <label className="flex min-h-11 items-center gap-2 text-sm font-medium"><input type="checkbox" checked={form.is_available}
+            onChange={event => setForm({ ...form, is_available: event.target.checked })} />เปิดขายเมนูนี้</label>
+          <Field label="หยุดขายจนถึง (เวลาไทย เว้นว่าง = ไม่หยุด)" type="datetime-local" value={form.sold_out_until}
+            onChange={value => setForm({ ...form, sold_out_until: value })} />
+        </div>
+        <fieldset className="space-y-3 rounded-xl border p-4">
+          <legend className="px-1 text-sm font-semibold">รูปเมนู</legend>
+          <p className="text-xs text-muted-foreground">เลือกรูปที่ร้านเคยอัปโหลดไว้ หรือเอารูปออกจากเมนู การเอารูปออกยังเก็บไฟล์เดิมไว้</p>
+          <label className="block text-sm">เลือกรูปของร้านนี้
+            <select className={inputClass} value={form.image_path} onChange={event => setForm({ ...form, image_path: event.target.value })}>
+              <option value="">ไม่มีรูป</option>
+              {imagePaths.map((path, index) => <option key={path} value={path}>รูปที่ {index + 1}{path === selected?.image_path ? " (รูปปัจจุบัน)" : ""}</option>)}
+            </select>
           </label>
-          {selected.sold_out_until ? <p className="text-xs text-muted-foreground">มีเวลาหยุดขายชั่วคราวแยกอยู่: {new Intl.DateTimeFormat("th-TH",{timeZone:"Asia/Bangkok",dateStyle:"medium",timeStyle:"short"}).format(new Date(selected.sold_out_until))} การเปิดขายอาจยังถูกจำกัดตามเวลานี้</p>:null}
-          {canEdit ? <>
-            <label className="block text-sm font-medium">
-              เหตุผลการแก้ไข (บังคับ)
-              <textarea rows={2} maxLength={300} value={reason} disabled={pending}
-                onChange={e=>setReason(e.target.value)} placeholder="เช่น แก้ราคาตามเอกสารที่ร้านแจ้ง"
-                className="mt-1 block w-full rounded-lg border bg-background p-3 text-sm"/>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={save} disabled={pending||invalid||!changed||reason.trim().length<5}
-                className="min-h-11 rounded-lg bg-foreground px-5 text-sm font-semibold text-background disabled:opacity-40">
-                {pending?"กำลังบันทึก…":"ยืนยันบันทึกเมนูจริง"}
-              </button>
-              <button type="button" disabled={pending} onClick={()=>startTransition(async()=>{try {setError(null);await reload();setSuccess("");}catch(err){setError("โหลดใหม่ไม่สำเร็จ: "+String(err));}})}
-                className="min-h-11 rounded-lg border px-5 text-sm font-medium">โหลดข้อมูลล่าสุด</button>
-            </div>
-          </>:<p className="text-xs text-muted-foreground">ดูข้อมูลได้เท่านั้น ต้องมี merchant:edit เพื่อบันทึก</p>}
-          {error?<p role="alert" className="text-sm text-red-600">{error}</p>:null}
-          {success?<p role="status" className="text-sm font-medium">{success}</p>:null}
-        </>
-      ):<p className="text-sm text-muted-foreground">ยังไม่มีเมนูให้แสดง</p>}
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        การเปลี่ยนราคาหรือเปิด/ปิดเมนูมีผลกับคำสั่งซื้อใหม่ ไม่แก้ยอดออเดอร์เดิม
-        ผู้ใช้ต้องมีสิทธิ์ merchant:edit และการเปลี่ยนแปลงบันทึกใน Audit Log พร้อมค่าก่อน–หลัง
-      </p>
-    </section>
-  );
+          {imageUrl ? <div className="flex flex-wrap items-end gap-3">
+            <Image unoptimized src={imageUrl} width={240} height={180} className="aspect-[4/3] max-w-full rounded-xl border object-cover" alt={`ตัวอย่างรูปเมนู ${form.name}`} />
+            <button type="button" className={buttonClass} onClick={() => setForm({ ...form, image_path: "" })}>เอารูปออก</button>
+          </div> : <p className="text-sm text-muted-foreground">ยังไม่มีรูปเมนู</p>}
+        </fieldset>
+        <MerchantMenuOptions value={form.options} onChange={options => setForm({ ...form, options })} disabled={editingDisabled} />
+      </fieldset>
+      {canEdit ? <>
+        <label className="block text-sm font-medium">เหตุผลการเปลี่ยนแปลง (5–300 ตัวอักษร)
+          <textarea className="mt-1 w-full rounded-lg border bg-background p-3 text-sm" rows={2} maxLength={300} disabled={pending}
+            value={reason} onChange={event => setReason(event.target.value)} />
+        </label>
+        {formError && changed && !selected?.archived_at ? <p role="alert" className="text-sm text-red-600">{formError}</p> : null}
+        <div className="flex flex-wrap gap-2">
+          {!selected?.archived_at ? <button type="button" onClick={save}
+            className="min-h-11 rounded-lg bg-foreground px-5 text-sm font-semibold text-background disabled:opacity-40"
+            disabled={pending || needsReload || Boolean(formError) || !changed || !reasonValid}>{pending ? "กำลังบันทึก…" : creating ? "ยืนยันเพิ่มเมนู" : "ยืนยันบันทึกเมนู"}</button> : null}
+          {!creating && selected ? <button type="button" className={buttonClass} onClick={archive}
+            disabled={pending || needsReload || !reasonValid || Boolean(changed)}>{selected.archived_at ? "กู้คืนเมนู (ยังปิดขาย)" : "เก็บเมนู"}</button> : null}
+          {changed && !creating ? <button type="button" className={buttonClass} disabled={pending} onClick={() => {
+            if (discardAllowed()) reset(selected ?? undefined);
+          }}>ยกเลิกการแก้ไข</button> : null}
+        </div>
+      </> : <p className="text-sm text-muted-foreground">ดูข้อมูลได้เท่านั้น ต้องมีสิทธิ์ merchant:edit เพื่อบันทึก</p>}
+    </> : <p className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">ยังไม่มีเมนูในรายการนี้{canEdit ? " เริ่มได้ที่ “เพิ่มเมนูใหม่”" : ""}</p>}
+    {pending ? <p role="status" className="text-sm">กำลังดำเนินการ กรุณารอสักครู่…</p> : null}
+    {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
+    {success ? <p role="status" className="text-sm">{success}</p> : null}
+    <p className="text-xs leading-relaxed text-muted-foreground">ราคา ตัวเลือก และสต็อกมีผลกับการสั่งซื้อใหม่ ออเดอร์เดิมเก็บชื่อ ราคา และตัวเลือก ณ เวลาสั่งซื้อ ทุกการเปลี่ยนแปลงบันทึกเหตุผลและประวัติก่อน–หลัง</p>
+  </section>;
 }
-function Field({label,value,onChange,maxLength,type="text",disabled}:{
-  label:string;value:string;onChange:(v:string)=>void;maxLength?:number;type?:"text"|"number";disabled:boolean;
+
+function Field({ label, value, onChange, type = "text", maxLength, min, max, step }: {
+  label: string; value: string; onChange: (value: string) => void;
+  type?: "text" | "number" | "datetime-local"; maxLength?: number; min?: number; max?: number; step?: string;
 }) {
-  return <label className="block text-sm font-medium">
-    {label}
-    <input type={type} value={value} onChange={e=>onChange(e.target.value)}
-      min={type==="number"?0:undefined} step={type==="number"?"0.01":undefined} maxLength={maxLength} disabled={disabled}
-      className="mt-1 block h-11 w-full rounded-lg border bg-background px-3 text-sm disabled:opacity-60"/>
+  return <label className="block text-sm font-medium">{label}
+    <input className={inputClass} type={type} value={value} maxLength={maxLength} min={min} max={max} step={step}
+      onChange={event => onChange(event.target.value)} />
   </label>;
 }

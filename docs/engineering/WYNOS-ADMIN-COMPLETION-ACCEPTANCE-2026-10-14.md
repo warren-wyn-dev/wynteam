@@ -1,0 +1,101 @@
+# WYNOS Admin — completion acceptance evidence register
+
+Date: 2026-10-14. Scope: the coordinated Admin/Food/Merchant acceptance work in epic [#1126](https://github.com/warren-wyn-dev/wynteam/issues/1126). This register records evidence; it does not change the production freeze, approve deployments/migrations, close issues, or grant permissions.
+
+The controlling acceptance specification remains [WYNOS-ADMIN-COMPLETE-BEFORE-DEPLOY.md](WYNOS-ADMIN-COMPLETE-BEFORE-DEPLOY.md). A page, menu link, passing build, isolated SQL fixture, staging acceptance and production release are different states. No unfinished area becomes complete by adding a placeholder page.
+
+## Current evidence and scope
+
+PR [#1165](https://github.com/warren-wyn-dev/wynteam/pull/1165), head `4f5082e0bf89151c42a19390277963d679ba8c4f`, implements the previously reviewed usability/reliability fixes. It is open. All five jobs in [CI run 38437677185](https://github.com/warren-wyn-dev/wynteam/actions/runs/38437677185) succeeded. Its `UNSTABLE` merge state includes six failed Vercel status contexts: one explicitly reports a deployment rate limit; the other five report generic deployment failure. These are separate from successful GitHub CI. Branch-protection inspection returned HTTP 403, so the required-check configuration is not established by this review. No merge, rerun, status override or deployment was performed.
+
+The prior patch has 27 synthetic Node regressions and 14 synthetic Chromium browser scenarios; these are evidence for that patch only. New completion work needs its own pinned evidence. Capability issues #1142–#1151 and final gate #1152 remain open at this review. Existing production endpoint reachability proves anonymous routing only.
+
+## Implemented source increment on `feat/admin-completion`
+
+This increment builds on PR #1165; it is not merged, deployed or accepted as the full epic. Six additive migrations and corresponding data-preserving rollbacks are supplied. No issue is closed to satisfy the release guard.
+
+- **Account Security:** authenticated caller assurance/factor counts and effective permissions only. Factor identifiers, enrollment secrets, phone numbers and other accounts are not returned. Unknown reads stay unknown; this does not enable or enforce MFA/SSO.
+- **Food payments/customers:** paginated, date-bounded, read-only recorded payment anomalies (`food:view`) and pseudonymous customer order histories (`food:edit`). They do not initiate administrator money movements or independently reconcile Stripe. Provider receipt, partial refund and dispute gaps remain explicit.
+- **Customer support:** order-linked intake/evidence references, own cases/replies, redaction of common contact patterns, agent queues/claim/replies, optimistic versions, a single human appeal, and preserved status history. Account deletion anonymizes actor references. No uploaded evidence, compensation payment, fraud punishment, email, Push or quiet-hours workflow is added.
+- **Banner/featured analytics:** existing public placement selection, in-memory receipt keys, qualified visibility/click attribution, retry dedupe, aggregate-only Admin ranges, bounded optional ingestion and data pruning. No account/IP/location is collected; counts can be lost during contention/outages and are never billing or unique-person metrics. Expiry is checked on use; physical cleanup runs in bounded batches during ingestion, not an independent retention scheduler.
+- **Merchant menu:** create/edit/archive/restore; category add/rename/remove-unused/reorder; per-item option groups/choices; availability, daily limits and pause times; audit/stale protection. Archive denies checkout, hides authenticated catalogue entries and preserves old order snapshots. Restored items stay unavailable. Existing same-store image selection/preview/removal preserves objects; **new image upload is still missing**.
+- **Maps reports:** real public-place intake, owner status, redacted Maps view/edit queue, versioned human state transitions and retained history. Reports do not edit or hide places. See [Maps evidence](WYNOS-MAPS-REPORTS-2026-10-14.md).
+- **Refund reliability:** request tracking compares the original refund state, preserving later webhook outcomes. A confirmed gateway operation is not reported as failed because local tracking failed. Only a signed, account/PaymentIntent/environment-bound `application_fee.refunded` event reverses a full GP fee; receipt and projection commit atomically. Missing mappings return a retryable response. Partial fee returns are retained for review and require a separate dated reconciliation ledger.
+
+New consumer Support and Maps Reports are developer-only in both UI and customer RPCs under [.wyn/company/WORKFLOW.md:33](../../.wyn/company/WORKFLOW.md#staged-rollout-เป็นค่าเริ่มต้นสำหรับฟีเจอร์ใหม่-เพิ่ม-2026-09-06). Ordinary users retain the prior experience. Public rollout remains a separate Founder decision. Existing public catalogue analytics and refund fixes preserve their existing visibility.
+
+### Local validation of this increment
+
+- Admin: **58 Node tests pass**, TypeScript and optimized production build pass; ESLint has zero errors and one existing unused-variable warning.
+- Consumer: **18 Food/Admin tests**, **54 Maps tests** (including seven new report tests), and **26 existing Stripe/checkout tests** pass; the full **46-test i18n/release regression** also passes with 78 new English UI translations and user-authored text excluded from UI translation; TypeScript and optimized production build pass. Full consumer ESLint has zero errors and 17 existing warnings.
+- New isolated PostgreSQL fixtures: payment/customer **45 assertions**, Support **50** plus independent real-role/concurrency/deletion **20**, Maps **55**, full fee receipt **40**; menu and analytics fixtures pass actual-role, concurrency, checkout/stock, replay, rerun and preservation/rollback scenarios. Representative fixture schemas and helper functions are synthetic; deployed Supabase policies, full production schema and platform advisors are not established by these tests.
+- Root review reproduced and resolved an introduced menu parent/child lock inversion with two real sessions. INSERT serializes additions against the parent; existing UPDATE/DELETE paths avoid taking the parent lock from an already locked child. Category changes verify the complete item-version snapshot. The fixture also checks competing final-stock-unit orders and unchanged order snapshots.
+- **42 Chromium scenarios pass**: 14 session/navigation regressions, 11 Admin monitoring/support/security/analytics cases, eight Merchant/Maps Admin cases, two consumer Maps flows, five customer Support component cases and two English/rollout cases. Thai mobile views fit 320/375/390px; English controls translate while the public place name remains unchanged. Browser verification uses actual local Next builds with a synthetic HTTP Supabase service, plus a temporary customer component harness. It proves UI behavior against those contracts, not authenticated staging or the real providers. Temporary QA routes are removed before production builds and are not committed.
+
+### Coordinated deployment dependencies
+
+Apply/rehearse all reviewed forward migrations before serving the matching consumer build: authenticated Food now filters `food_menu_items.archived_at`, which must already exist. The fee webhook and its service-only RPC must be rolled out together; subscribe the **platform** endpoint to `application_fee.refunded` and verify signature, delivery/replay, original account mapping, full fee projection and failure recovery in Stripe sandbox before any nonzero GP is enabled. A rollback preserves archived rows/constraints, order snapshots, report/support history and confirmed fee receipts; coordinate its matching application rollback as documented in each SQL file.
+
+AI Secretary has no configured provider/model or approved spend limit in this workspace. Platform Marketing, System Settings, the remaining issue acceptance items below, representative-volume performance proof and authenticated staging/release remain incomplete. No percentage completion is inferred from the number of routes/tests.
+
+## Capability acceptance matrix
+
+Every row requires implementation, server/DB authorization and tenant tests, applicable failure/concurrency/audit tests, migration rerun/rollback verification, consumer/Admin browser verification, authenticated nonproduction business-flow QA and peer/UAT acceptance. Release additionally needs the coordinated gates below. Initial status deliberately preserves missing evidence.
+
+| Issue | Capability | Existing evidence / current work | Still required before acceptance |
+| --- | --- | --- | --- |
+| [#1142](https://github.com/warren-wyn-dev/wynteam/issues/1142) | Food home, search, featured stores, banners and attribution | Existing banner/featured and new attribution SQL fixtures pass locally; source increment described above. | Synthetic impression/click deduplication and abuse/permission tests; real rendering, scheduling and destination behavior; guest/auth search and filter coverage; attributable analytics and applicable mobile/language states. |
+| [#1143](https://github.com/warren-wyn-dev/wynteam/issues/1143) | Customer payments, refunds, disputes, slips and reconciliation | Existing order detail/evidence and read-only finance foundations. New scoped customer/payment read views and full-fee event projection are implemented locally. | PII-denial tests and meaningful customer cases; Stripe sandbox signatures/replays/idempotency/capture/refund bounds; connected-account and bank reconciliation; dual approval before any new administrator money movement. A read-only view does not complete refunds/disputes. |
+| [#1144](https://github.com/warren-wyn-dev/wynteam/issues/1144) | Promotions, customer delivery pricing and order fees | Actual campaign rules are recorded in the controlling specification. | Shared server checkout/Admin policy and immutable snapshots; exact subtotal boundaries, merchant/platform funding, discount stacking, stale inputs, scheduling and budget tests; complete consumer checkout proof. |
+| [#1145](https://github.com/warren-wyn-dev/wynteam/issues/1145) | Support, reviews, reports, fraud and notifications | Existing review-moderation SQL fixture passes locally. New customer/support case flow is implemented and developer-gated locally. | Customer/order ownership, PII/role isolation, replies/appeals/status/version/audit tests and customer/Admin browser proof; incident/fraud handling and notification opt-out/quiet-hours/retry evidence. No email notifications. |
+| [#1146](https://github.com/warren-wyn-dev/wynteam/issues/1146) | Merchant owners, staff, branches and documents | Existing merchant/store/team foundations. | A/B store and staff role isolation, ownership changes and branch lifecycle; document validation, access, expiry/review history, uploads and rejection/retry cases. |
+| [#1147](https://github.com/warren-wyn-dev/wynteam/issues/1147) | Merchant menu CRUD, images, categories, add-ons and stock | Existing menu-update SQL fixture passes locally. Safe CRUD/category/add-on work is implemented locally; new media upload is missing. | Actual read/write grants, view-only/outsider denials, category/option ownership, stock concurrency, archived-item order snapshots, media validation/preview/progress/remove failure, consumer checkout parity, rerun/rollback and browser cases. |
+| [#1148](https://github.com/warren-wyn-dev/wynteam/issues/1148) | Merchant orders, availability, delivery zones and Rider readiness | Existing delivery-settings and store-operational SQL fixtures pass locally. | Order transitions, acceptance/preparation/pickup/handover/cancellation and stale updates; working hours/holidays; accurate applicable distance/quotes and boundaries; emergency pause/recovery and self-delivery behavior. Do not activate Rider or invent rider compensation. |
+| [#1149](https://github.com/warren-wyn-dev/wynteam/issues/1149) | Merchant GP, coupons, ads, settlements and reconciliation | Existing merchant-finance overview SQL fixture passes locally. GP business decisions are already recorded below. | Consistent money/discount/GP ledgers, Stripe test fees/refunds and durable reconciliation; coupon/ad/settlement role and replay checks; store-specific reporting with correct date boundaries and audit evidence. |
+| [#1150](https://github.com/warren-wyn-dev/wynteam/issues/1150) | Shared security, permissions, audit, export and emergencies | Existing per-system view/edit access; prior patch preserves authorization architecture. | Agreed feature/SSO/MFA matrix, superadmin restrictions, audit immutability, export/redaction/retention controls; emergency scope/approval/recovery and actual DB/RLS/direct-API evidence. Changes to security architecture/policy remain controlled decisions. |
+| [#1151](https://github.com/warren-wyn-dev/wynteam/issues/1151) | AI Secretary and shared Maps integration | Existing Maps management and new developer-gated report flow; AI Secretary remains unimplemented. | Scoped data/API integration, cross-tenant denials, read-only AI tool allowlist, analysis evidence, and explicit human approval for any privileged or financial mutation. An informational page alone does not satisfy this row. |
+
+## Isolated local PostgreSQL evidence
+
+Runtime: PostgreSQL **17.11**, disposable Docker container `wynos-admin-qa-pg17`, `--network none`, no published TCP port, tmpfs database data, and read-only `supabase/` source mount. No production credentials, customer records, environment files, live database or sanitized production clone was used. Each maintained fixture creates/drops its own database and synthetic roles/data.
+
+Invocation from repository root:
+
+```bash
+PSQL=/workspace/scratch/admin-db/psql bash supabase/tests/<test>.sh
+```
+
+The task-local wrapper invokes `psql` over the container's Unix socket. Infrastructure instructions/logs are under `/workspace/scratch/admin-db/`; the wrapper and container are not repository/product dependencies.
+
+| Existing maintained fixture | Local result |
+| --- | --- |
+| `admin_merchant_menu_live_test.sh` | PASS: update/read permissions, validation, stale writes and audit; migration rerun. |
+| `admin_food_banners_v1_test.sh` | PASS: schedules, media references, permissions, versions, audit and migration rerun. |
+| `admin_merchant_delivery_live_test.sh` | PASS: permission, validation, stale-write protection, audit and settings update. |
+| `admin_merchant_store_operations_test.sh` | PASS: operational permission, validation, stale-write protection and audit. |
+| `admin_food_featured_stores_v1_test.sh` | PASS: permission, schedule, stale edits, history and migration rerun. |
+| `admin_food_review_moderation_test.sh` | PASS: permission, hide/restore, stale-write protection, audit and migration rerun. |
+| `admin_merchant_finance_overview_test.sh` | PASS: overview permission/data/date-boundary fixture. |
+
+These fixtures run real PostgreSQL SQL/RPC definitions against representative synthetic schemas. Their authorization helpers are fixtures; they do not validate the deployed permission foundation or every Supabase RLS policy. New migrations require independent actual-role/grant, tenant, concurrency, archive/snapshot, rerun and rollback cases as applicable. None of the new workstreams is marked accepted here before that evidence exists.
+
+## External setup and decisions still required
+
+- **Safe authenticated staging:** an isolated nonproduction Supabase setup with synthetic superadmin, each system view/edit role, outsider, merchant/store A/B and customer A/B accounts. [WEB_STAGING.md](WEB_STAGING.md) states that the existing preview uses production Supabase; it must not be used for rehearsing new writes, migrations or financial operations. Its old auto-production-on-merge wording predates the current freeze. Preview also lacks Push configuration, so it cannot prove notification delivery.
+- **Stripe sandbox:** test connected accounts, webhook signing/event fixtures and replay/refund/reconciliation proof, plus platform fee-event subscription setup when applicable. Do not use live financial actions to substitute for sandbox acceptance.
+- **Push:** approved nonproduction browser/device configuration and opt-in/opt-out/retry/quiet-hour test evidence; no email transport is in scope.
+- **Inputs not yet evidenced:** agreed feature-level authorization/SSO/MFA scope, financial dual-approval policy, retention/export rules and any promotion/fee/budget choices not already specified. Ask only for still-missing decisions; do not re-open approved values or invent defaults that change actual charges/access.
+- **GP decisions already answered:** [DECISIONS.md](../../.wyn/company/DECISIONS.md), 2026-10-11: default 0% until superadmin sets an effective rate; food subtotal after merchant-funded discount is the base; Stripe application fee per order; superadmin alone edits GP; Campaigns stays under Merchant. Half-up satang rounding, captured-amount cap, fee-refund behavior and durable reconciliation need confirmation/test evidence **before the first GP greater than zero**; they are not permission to activate GP in this work.
+- **Performance acceptance:** agreed user-facing latency/error/capacity targets and representative-volume measurements, including constrained/mobile network behavior and error recovery. Bounded Dashboard requests and a green build do not establish “very fast” or “maximum stability.”
+
+## Final release gates remain separate
+
+1. Pin the final reviewed source SHA and evidence manifest for both Admin and consumer Web/Food/Merchant; review required checks and remaining findings.
+2. Verify additive migrations and executable rollback against representative nonproduction data; rehearse preservation/recovery, then obtain separate approval for production migrations.
+3. Complete authenticated staging acceptance, relevant Chromium/WebKit/mobile checks, UAT, security advisor review and measured performance evidence.
+4. Confirm Vercel free quota and protected production reviewers. Do not create projects/teams, upgrade spending, or override failed statuses to bypass a quota.
+5. Prepare both scoped READY builds at the same approved SHA without assigning domains, verify login/session/data/source versions and record cutover/rollback/monitoring owners.
+6. Obtain explicit coordinated production approval; execute the controlled migration/promotion window only after the freeze gates are satisfied.
+7. Verify domain aliases and source versions, safe canary flows and monitoring, then record deployed acceptance for every released capability.
+
+The consolidated Admin workflow currently pins an older SHA and requires capability issues closed before its build step, while the controlling specification includes production proof in “complete.” Resolve acceptance-versus-released tracking explicitly during release planning; do not close incomplete issues merely to pass the guard. This register does not modify that workflow or any release guard.

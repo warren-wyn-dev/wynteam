@@ -1,10 +1,14 @@
+import { Suspense } from "react";
+
 import { FoodFeaturedManager } from "@/components/admin/food-featured-manager";
+import { FoodHomeAnalytics } from "@/components/admin/food-home-analytics";
 import { NoAccess } from "@/components/admin/no-access";
 import { adminCan, requireAdminRole } from "@/lib/auth";
 import { getFoodFeaturedAdminData } from "@/lib/admin-food-featured";
 import type { AdminFeaturedStore, AdminStoreOption } from "@/lib/admin-food-featured";
+import { foodHomeAnalyticsDays } from "@/lib/admin-food-home-analytics";
 
-export default async function FoodFeaturedPage() {
+export default async function FoodFeaturedPage({ searchParams }: { searchParams: Promise<{ analyticsDays?: string | string[] }> }) {
   const ctx = await requireAdminRole();
   if (!adminCan(ctx, "food")) return <NoAccess what="จัดลำดับร้านแนะนำ Food" />;
 
@@ -42,6 +46,9 @@ export default async function FoodFeaturedPage() {
         </p>
       </header>
       <FoodFeaturedManager initial={rows} stores={stores} canEdit={adminCan(ctx, "food", "edit")} />
+      <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">กำลังโหลดสถิติ...</p>}>
+        <FoodHomeAnalytics kind="featured" days={foodHomeAnalyticsDays((await searchParams).analyticsDays)} />
+      </Suspense>
     </div>
   );
 }

@@ -100,6 +100,7 @@ Deno.serve(async (req: Request) => {
   params.set("metadata[wynos_order_id]", order.id);
   if (note) params.set("metadata[wynos_note]", note);
 
+  let acceptedRefund: Record<string, unknown> | null = null;
   try {
     const response = await fetch("https://api.stripe.com/v1/refunds", {
       method: "POST",
@@ -117,47 +118,38 @@ Deno.serve(async (req: Request) => {
       });
       throw new Error("gateway_refund_failed");
     }
-    await admin.from("food_orders").update({
+    acceptedRefund = payload;
+    const { error: orderRecordError } = await admin.from("food_orders").update({
       refund_status: "pending",
       refund_note: note || "Stripe refund requested",
       refund_requested_at: new Date().toISOString(),
       refund_updated_by: user.id,
       stripe_refund_id: payload.id,
-    }).eq("id", order.id);
-    // GP v1: finance reports reverse GP only for a fee WYNOS actually returned.
-    // Stripe has already refunded, so a failed write must not undo that answer;
-    // retry, then log loudly with the ids needed to reconcile by hand.
-    let gpRecordPending = false;
-    if (feeSatang > 0) {
-      const refundedAt = new Date().toISOString();
-      let recordError: unknown = null;
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const { error: updateError } = await admin.from("food_stripe_payments").update({
-          application_fee_refunded_satang: feeSatang,
-          application_fee_refunded_at: refundedAt,
-        }).eq("order_id", order.id).eq("application_fee_refunded_satang", 0);
-        recordError = updateError;
-        if (!updateError) break;
-      }
-      if (recordError) {
-        gpRecordPending = true;
-        console.error("merchant-stripe-refund gp fee refund not recorded", {
-          order_id: order.id,
-          stripe_refund_id: payload.id,
-          fee_satang: feeSatang,
-        });
-      }
-    }
-    return json({ status: payload.status ?? "pending", refundId: payload.id, gpRecordPending });
+    }).eq("id", order.id).eq("payment_status", "paid").eq("refund_status", order.refund_status);
+    // A webhook may complete the refund before this request returns. Never
+    // replace its terminal state with our older gateway-request snapshot.
+    // An accepted gateway operation also must not be reported as failed just
+    // because the local tracking write failed (retrying could move more money).
+    const orderRecordPending = Boolean(orderRecordError);
+    // The signed application_fee.refunded event records a confirmed full fee
+    // return. A refund API response is not authoritative fee-ledger evidence.
+    const gpRecordPending = feeSatang > 0;
+    return json({ status: payload.status ?? "pending", refundId: payload.id, gpRecordPending, orderRecordPending });
   } catch (error) {
     console.error("merchant-stripe-refund failed", {
       code: error instanceof Error ? error.message.slice(0, 80) : "unknown",
     });
+    if (acceptedRefund) {
+      // The gateway already accepted the idempotent request. An unexpected
+      // tracking exception must not turn it into a new refund attempt.
+      return json({ status: acceptedRefund.status ?? "pending", refundId: acceptedRefund.id,
+        gpRecordPending: feeSatang > 0, orderRecordPending: true });
+    }
     await admin.from("food_orders").update({
       refund_status: "failed",
       refund_note: note || "การคืนเงินไม่สำเร็จ",
       refund_updated_by: user.id,
-    }).eq("id", order.id);
+    }).eq("id", order.id).eq("payment_status", "paid").eq("refund_status", order.refund_status);
     return json({
       error: "refund_failed",
       message: "คืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
