@@ -372,6 +372,7 @@ fun SignedInApp(
         onAppLinkHandled()
     }
     var shellTab by rememberSaveable(userId) { mutableStateOf(MainTab.Home) }
+    var homeChromeVisible by rememberSaveable(userId) { mutableStateOf(true) }
     var drawerOpen by rememberSaveable(userId) { mutableStateOf(false) }
     val feedNav = HomeNavigation(
         onCompose = { openComposer(null) },
@@ -403,7 +404,13 @@ fun SignedInApp(
     MainShell(
         tab = shellTab,
         onTab = { shellTab = it },
-        home = { HomeScreen(home, feedNav, notificationCount = badge.count, clubs = clubFeed) },
+        homeChromeVisible = homeChromeVisible,
+        home = {
+            HomeScreen(
+                home, feedNav, notificationCount = badge.count, clubs = clubFeed,
+                onChromeVisible = { homeChromeVisible = it },
+            )
+        },
         profile = { ProfileScreen(me, profileNav(userId, back = null), switcher) },
         onCompose = { openComposer(null) },
         chatUnread = inbox.unreadCount,
