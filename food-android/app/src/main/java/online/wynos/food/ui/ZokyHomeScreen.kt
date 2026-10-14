@@ -197,8 +197,8 @@ fun ZokyHomeScreen(
             // a verified server promotion, never copied from the reference image.
             val offers = state.promotions
             val previews = if (offers.isEmpty()) listOf(
-                Triple("ภาพประกอบเมนู", "ยังไม่มีดีลที่เปิดใช้งาน", "dealpizza_crop"),
-                Triple("ภาพประกอบเครื่องดื่ม", "รอโปรโมชันที่ยืนยันจากระบบ", "dealdrinks_crop"),
+                Triple("ดีลร้านดัง", "ตัวอย่างดีไซน์ · ยังไม่มีดีลจริง", "dealpizza_crop"),
+                Triple("เครื่องดื่มสุดฮิต", "ตัวอย่างดีไซน์ · รอโปรโมชันจริง", "dealdrinks_crop"),
             ) else offers.take(8).mapIndexed { index, offer ->
                 Triple(offer.title, "ตรวจสอบเงื่อนไขก่อนใช้", if (index % 2 == 0) "dealpizza_crop" else "dealdrinks_crop")
             }
