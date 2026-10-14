@@ -263,7 +263,10 @@ fun WebHomeScreen(
     // every screen. With only one published store, the old 2-column grid
     // squeezed its photo into the left half and left the right half blank.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val homeGridColumns = if (maxWidth < 600.dp) 1 else 2
+        // One restaurant fills the row instead of leaving an empty half.
+        // With several restaurants, use the web's two-column cards where
+        // Android has enough width to keep labels legible.
+        val homeGridColumns = if (maxWidth >= 380.dp && filtered.size > 1) 2 else 1
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(Color.White),
             contentPadding = PaddingValues(bottom = 32.dp),
