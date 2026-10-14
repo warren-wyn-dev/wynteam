@@ -10,6 +10,7 @@ Canonical reference: the current **Social** Web implementation in `web/`, especi
 - Native Home post at <=359dp viewport follows the Web 12px outer padding, 34px avatar, 8px gutter and compact time label.
 - Native bottom navigation follows the Web 68px visual dock, 32px icon, 5px icon-to-label spacing, 11px text and #8e8e93 inactive tint; preserve Android's platform navigation-bar inset.
 - Robolectric screenshot checks added for Thai verified Home at 411dp and for a 340dp narrow viewport with readable tab labels and dock.
+- Native Home scrolling now uses a tested direction/hysteresis policy (Web down 32px/up 14px; near-top 112px), hides top header/tabs and bottom dock and reveals a 56dp floating composer shortcut. **Behavior and animation still need physical-device QA**, especially fling, font scaling and Android system insets.
 
 Those changes **are code-level parity improvements**, not proof of pixel-perfect parity on physical hardware or of connected backend feature correctness. Verify the latest CI head, not old successful runs.
 
@@ -33,7 +34,7 @@ Those changes **are code-level parity improvements**, not proof of pixel-perfect
 | Search and Clubs | Search results, discovery, membership, posting and permissions | Native code exists; live RLS/role QA pending |
 | Chat | Inbox, requests, message sending/read receipts, image attachments, account switch isolation | Native code exists; two-account/reconnect QA pending |
 | Notifications | In-app, badge, deep links, FCM delivery and preference controls | FCM Android credentials/on-device QA still required |
-| Navigation | Native Back, edge-to-edge, bottom nav, Home scroll immersive chrome | Home scroll-to-hide/chrome/FAB behavior **not yet verified/matched** |
+| Navigation | Native Back, edge-to-edge, bottom nav, Home scroll immersive chrome | Native Home scroll-hide and FAB now implemented, **physical-device animation/gesture QA still pending** |
 | Data rights | Shared RLS, deleted content visibility, privacy/account deletion and user-generated-content obligations | End-to-end security, deletion and Play review incomplete |
 
 ## Do not release until
