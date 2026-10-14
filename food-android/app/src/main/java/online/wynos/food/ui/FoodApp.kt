@@ -194,6 +194,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         tab = 3
                     },
                     isFavorite = !guest && selectedStore.id in favoriteIds,
+                    onRefreshReviews = vm::refreshStoreReviews,
                     onToggleFavorite = {
                         if (!guest) favoriteIds = localFavorites.toggle(state.accountEmail, selectedStore.id)
                     },
