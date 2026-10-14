@@ -10,6 +10,7 @@ import online.wynos.food.data.FoodMenu
 import online.wynos.food.data.FoodOrderSummary
 import online.wynos.food.data.FoodOrderDetail
 import online.wynos.food.data.FoodCustomerAddress
+import online.wynos.food.data.FoodStoreReviewFeed
 import online.wynos.food.data.FoodAddressDraft
 import online.wynos.food.data.FoodServerQuote
 import online.wynos.food.data.SupabaseFoodGateway
@@ -27,6 +28,10 @@ data class FoodUiState(
     val catalogFailed: Boolean = false,
     val stores: List<FoodStore> = emptyList(),
     val banners: List<FoodHomeBanner> = emptyList(),
+    val reviewFeedStoreId: String? = null,
+    val storeReviewFeed: FoodStoreReviewFeed = FoodStoreReviewFeed.EMPTY,
+    val storeReviewsLoading: Boolean = false,
+    val storeReviewsFailed: Boolean = false,
     val cart: FoodCartDraft = FoodCartDraft(),
     val cartError: Boolean = false,
     val orders: List<FoodOrderSummary> = emptyList(),
@@ -84,6 +89,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     private var orderGeneration = 0L
     private var orderDetailGeneration = 0L
     private var quoteGeneration = 0L
+    private var storeReviewGeneration = 0L
     // The staging RPC has a buyer-scoped durable idempotency key. Still restrict
     // the preview to one attempt/session until full order/payment E2E is verified.
     private var stagingOrderAttemptConsumed = false
@@ -133,6 +139,34 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                 throw cancel
             } catch (_: Exception) {
                 mutableState.update { it.copy(catalogLoading = false, catalogFailed = true) }
+            }
+        }
+    }
+
+    fun refreshStoreReviews(storeId: String) {
+        if (!gateway.configured || storeId.isBlank()) return
+        val generation = ++storeReviewGeneration
+        mutableState.update {
+            it.copy(
+                reviewFeedStoreId = storeId, storeReviewFeed = FoodStoreReviewFeed.EMPTY,
+                storeReviewsLoading = true, storeReviewsFailed = false,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                val feed = gateway.storeReviews(storeId)
+                if (generation != storeReviewGeneration) return@launch
+                mutableState.update {
+                    it.copy(storeReviewFeed = feed, storeReviewsLoading = false)
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (generation == storeReviewGeneration) {
+                    mutableState.update {
+                        it.copy(storeReviewsLoading = false, storeReviewsFailed = true)
+                    }
+                }
             }
         }
     }
