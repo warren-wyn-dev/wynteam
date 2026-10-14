@@ -46,6 +46,8 @@ class ComposerViewModel(
     feed: FeedRepository,
     val userId: String,
     draftId: String? = null,
+    /** Suggested prompt is display-only, just like the Web; never silently prefill the caption. */
+    val promptText: String? = null,
     private val newOperationId: () -> String = { UUID.randomUUID().toString() },
 ) : ViewModel() {
     var identity by mutableStateOf<HomeIdentity?>(null); private set
