@@ -4,6 +4,10 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "ดูร้านค้า": "View restaurant",
+  "รายการอาหารของร้านที่แนะนำ": "Dishes from this restaurant",
+  "ร้านอาหารแนะนำ": "Recommended restaurants",
+  "ร้านอาหารทั้งหมด": "All restaurants",
   "โหลดร้านอาหารไม่สำเร็จ กรุณาลองอีกครั้ง": "Unable to load restaurants. Please try again.",
   "เปลี่ยนร้านอาหารและล้างตะกร้าเดิม?": "Switch restaurants and clear your current basket?",
   "ร้านปิดอยู่": "Currently closed",
@@ -3029,6 +3033,9 @@ Object.assign(EN_EXACT, {
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["ดูร้าน {0}", "View {0}"],
+  ["ดูเมนู {0}{1}", "View dish {0}{1}"],
+  ["ราคา {0}", "Price {0}"],
   ["เพิ่มลงตะกร้า · {0}", "Add to cart · {0}"],
   ["{0} ข้อความใหม่", "{0} new messages"],
   ["{0} ออเดอร์ที่กำลังดำเนินการ", "{0} active orders"],
