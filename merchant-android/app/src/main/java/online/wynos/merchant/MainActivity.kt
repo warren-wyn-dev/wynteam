@@ -521,7 +521,7 @@ private fun MenuScreen(s: MerchantState, vm: MerchantViewModel) {
 }
 
 @Composable
-private fun MenuEditor(item: JSONObject, busy: Boolean, save: (JSONObject) -> Unit,
+private fun MenuEditor(item: JSONObject, busy: Boolean, save: (JSONObject, Uri?) -> Unit,
                        delete: (JSONObject) -> Unit, dismiss: () -> Unit) {
     var name by remember(item) { mutableStateOf(item.text("name")) }
     var category by remember(item) { mutableStateOf(item.text("category").ifBlank { "อาหาร" }) }
@@ -532,6 +532,8 @@ private fun MenuEditor(item: JSONObject, busy: Boolean, save: (JSONObject) -> Un
     }
     var available by remember(item) { mutableStateOf(item.optBoolean("is_available", true)) }
     var options by remember(item) { mutableStateOf(parseMenuOptions(item.optJSONArray("options"))) }
+    var imageUri by remember(item) { mutableStateOf<Uri?>(null) }
+    var clearImage by remember(item) { mutableStateOf(false) }
     var confirmDelete by remember(item) { mutableStateOf(false) }
     AlertDialog(onDismissRequest = dismiss,
         title = { Text(if (item.text("id").isBlank()) "เพิ่มเมนู" else "แก้ไขเมนู") },
@@ -550,6 +552,14 @@ private fun MenuEditor(item: JSONObject, busy: Boolean, save: (JSONObject) -> Un
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("เปิดขาย", Modifier.weight(1f))
                     Switch(checked = available, onCheckedChange = { available = it })
+                }
+                MerchantImagePicker("รูปเมนูอาหาร", imageUri,
+                    if (clearImage) null else item.text("image_path"), !busy,
+                    onSelect = { imageUri = it; if (it != null) clearImage = false })
+                if (item.text("image_path").isNotBlank() && !clearImage) {
+                    TextButton(enabled = !busy, onClick = {
+                        imageUri = null; clearImage = true
+                    }) { Text("ลบรูปเดิม") }
                 }
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 MenuOptionsEditor(options, onChange = { options = it })
@@ -571,7 +581,8 @@ private fun MenuEditor(item: JSONObject, busy: Boolean, save: (JSONObject) -> Un
                         .put("daily_stock_limit", if (stock.isBlank()) JSONObject.NULL else stock.toInt())
                         .put("options", encodeMenuOptions(options))
                         .put("is_available", available)
-                    save(draft)
+                    if (clearImage) draft.put("image_path", JSONObject.NULL)
+                    save(draft, imageUri)
                 }) { Text("บันทึก") }
         },
         dismissButton = { TextButton(onClick = dismiss) { Text("ยกเลิก") } }
