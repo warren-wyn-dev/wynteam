@@ -13,6 +13,7 @@ import online.wynos.food.data.FoodCustomerAddress
 import online.wynos.food.data.FoodAddressDraft
 import online.wynos.food.data.FoodServerQuote
 import online.wynos.food.data.FoodStoreReviewFeed
+import online.wynos.food.data.FoodPromotionNotice
 import online.wynos.food.data.SupabaseFoodGateway
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,6 +54,9 @@ data class FoodUiState(
     val reviewFeed: FoodStoreReviewFeed? = null,
     val reviewFeedLoading: Boolean = false,
     val reviewFeedFailed: Boolean = false,
+    val promotions: List<FoodPromotionNotice> = emptyList(),
+    val promotionsLoading: Boolean = false,
+    val promotionsFailed: Boolean = false,
     val accountLoading: Boolean = false,
     val accountBusy: Boolean = false,
     val accountEmail: String? = null,
@@ -90,6 +94,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     private var orderDetailGeneration = 0L
     private var quoteGeneration = 0L
     private var reviewGeneration = 0L
+    private var promotionsGeneration = 0L
     // The staging RPC has a buyer-scoped durable idempotency key. Still restrict
     // the preview to one attempt/session until full order/payment E2E is verified.
     private var stagingOrderAttemptConsumed = false
@@ -107,10 +112,12 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         orderGeneration++
         orderDetailGeneration++
         reviewGeneration++
+        promotionsGeneration++
         mutableState.update { it.copy(selectedOrderId = null, orderDetail = null,
             orderDetailLoading = false, orderDetailFailed = false, orderStatusNotice = null,
             reviewedStoreId = null, reviewFeed = null,
-            reviewFeedLoading = false, reviewFeedFailed = false) }
+            reviewFeedLoading = false, reviewFeedFailed = false,
+            promotions = emptyList(), promotionsLoading = false, promotionsFailed = false) }
         invalidateQuote()
         stagingOrderAttemptConsumed = false
         mutableState.update {
@@ -535,6 +542,33 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             mutableState.value.stagingOrderCreatedId == orderId
         ) { "account_changed" }
         return credentials
+    }
+
+    fun refreshPromotionInbox() {
+        val current = mutableState.value
+        if (!gateway.configured || current.accountEmail.isNullOrBlank()) return
+        val generation = ++promotionsGeneration
+        val session = accountGeneration
+        mutableState.update { it.copy(promotionsLoading = true, promotionsFailed = false) }
+        viewModelScope.launch {
+            try {
+                val rows = gateway.promotionInbox()
+                if (generation != promotionsGeneration || session != accountGeneration) return@launch
+                mutableState.update {
+                    if (it.accountEmail.isNullOrBlank()) it
+                    else it.copy(promotions = rows, promotionsLoading = false,
+                        promotionsFailed = false)
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (generation == promotionsGeneration && session == accountGeneration) {
+                    mutableState.update {
+                        it.copy(promotionsLoading = false, promotionsFailed = true)
+                    }
+                }
+            }
+        }
     }
 
     fun refreshStoreReviews(storeId: String) {

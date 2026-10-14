@@ -30,6 +30,8 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -319,6 +321,100 @@ fun WebMessagesPage() {
     }
 }
 
+/**
+ * Buyer-scoped read-only promotion center matching the Web's notification feed.
+ * Coupon codes can be copied but are NEVER considered eligible/applied until
+ * a server-authoritative checkout quote validates them.
+ */
+@Composable
+fun WebPromotionInboxPage(
+    state: FoodUiState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    var copiedNoticeId by remember { mutableStateOf<String?>(null) }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(Color.White),
+        contentPadding = PaddingValues(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Outlined.ArrowBack,
+                        contentDescription = stringResource(R.string.favorite_back),
+                        tint = PrimaryInk)
+                }
+                Text(stringResource(R.string.promo_inbox_title), fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold, color = PrimaryInk)
+            }
+        }
+        when {
+            state.promotionsLoading -> item {
+                CircularProgressIndicator(color = BrandRed,
+                    modifier = Modifier.padding(24.dp))
+            }
+            state.promotionsFailed -> item {
+                Column(Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.promo_inbox_error), color = SoftText)
+                    OutlinedButton(onClick = onRetry) {
+                        Text(stringResource(R.string.store_review_retry))
+                    }
+                }
+            }
+            state.promotions.isEmpty() -> item {
+                Text(stringResource(R.string.promo_inbox_empty), color = SoftText,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 26.dp))
+            }
+            else -> items(state.promotions, key = { it.id }) { notice ->
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFF9F9FB)).padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    Text(notice.title, fontWeight = FontWeight.Bold,
+                        color = PrimaryInk, fontSize = 15.sp)
+                    if (notice.body.isNotBlank()) {
+                        Text(notice.body, color = PrimaryInk, fontSize = 13.sp)
+                    }
+                    if (notice.createdAt.isNotBlank()) {
+                        Text(notice.createdAt.take(10), color = SoftText, fontSize = 11.sp)
+                    }
+                    notice.couponCode?.let { code ->
+                        OutlinedButton(onClick = {
+                            clipboard.setText(AnnotatedString(code))
+                            copiedNoticeId = notice.id
+                        }) {
+                            Icon(Icons.Outlined.ContentCopy, null, tint = BrandRed,
+                                modifier = Modifier.size(17.dp))
+                            Spacer(Modifier.size(5.dp))
+                            Text(
+                                if (copiedNoticeId == notice.id)
+                                    stringResource(R.string.promo_inbox_copied)
+                                else stringResource(R.string.promo_inbox_copy_code, code),
+                                color = BrandRed,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Text(stringResource(R.string.promo_inbox_code_disclaimer),
+                color = SoftText, fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp))
+        }
+    }
+}
+
 @Composable
 fun WebAccountPage(
     state: FoodUiState,
@@ -329,6 +425,7 @@ fun WebAccountPage(
     onResetPassword: (String) -> Unit,
     onOrders: () -> Unit,
     onFavorites: () -> Unit,
+    onPromotions: () -> Unit,
     onRefreshAddresses: () -> Unit,
     onSaveAddress: (online.wynos.food.data.FoodAddressDraft) -> Unit,
     onDeleteAddress: (String) -> Unit,
@@ -404,6 +501,19 @@ fun WebAccountPage(
                 ) {
                     Icon(Icons.Outlined.FavoriteBorder, null, tint = BrandRed)
                     Text(stringResource(R.string.favorite_stores),
+                        modifier = Modifier.weight(1f), color = PrimaryInk,
+                        fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Outlined.ChevronRight, null, tint = SoftText)
+                }
+                HorizontalDivider(color = ThinLine, modifier = Modifier.padding(horizontal = 16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onPromotions)
+                        .padding(horizontal = 16.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(Icons.Outlined.Notifications, null, tint = BrandRed)
+                    Text(stringResource(R.string.promo_inbox_title),
                         modifier = Modifier.weight(1f), color = PrimaryInk,
                         fontWeight = FontWeight.SemiBold)
                     Icon(Icons.Outlined.ChevronRight, null, tint = SoftText)
