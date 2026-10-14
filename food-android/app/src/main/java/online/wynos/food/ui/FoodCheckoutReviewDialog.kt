@@ -60,6 +60,7 @@ fun FoodCheckoutReviewDialog(
     stagingOrderBusy: Boolean = false,
     stagingOrderUncertain: Boolean = false,
     stagingOrderCreatedId: String? = null,
+    stagingOrderAttemptId: String? = null,
     onCreateOrder: (String) -> Unit = {},
 ) {
     var showStagingConfirm by remember { mutableStateOf(false) }
@@ -157,9 +158,14 @@ fun FoodCheckoutReviewDialog(
                         stagingOrderCreatedId != null ->
                             Text(stringResource(R.string.staging_order_created, stagingOrderCreatedId),
                                 color = CheckoutInk, fontSize = 12.sp)
-                        stagingOrderUncertain ->
+                        stagingOrderUncertain -> {
                             Text(stringResource(R.string.staging_order_uncertain),
                                 color = CheckoutRed, fontSize = 12.sp)
+                            stagingOrderAttemptId?.let { attempt ->
+                                Text(stringResource(R.string.staging_order_attempt_reference, attempt),
+                                    color = CheckoutInk, fontSize = 12.sp)
+                            }
+                        }
                         else ->
                             Text(stringResource(
                                 if (stagingOrderEnabled) R.string.staging_order_notice
