@@ -50,6 +50,8 @@ interface FoodGateway {
     suspend fun homeBanners(): List<FoodHomeBanner>
     suspend fun storeReviewFeed(storeId: String): FoodStoreReviewFeed =
         throw UnsupportedOperationException("review_feed_not_configured")
+    suspend fun promotionInbox(): List<FoodPromotionNotice> =
+        throw UnsupportedOperationException("promotion_inbox_not_configured")
     suspend fun accountEmail(): String?
     suspend fun orderHistory(): List<FoodOrderSummary>
     suspend fun orderDetail(orderId: String): FoodOrderDetail? = null
@@ -200,6 +202,23 @@ class SupabaseFoodGateway : FoodGateway {
             },
         ).decodeAs<JsonElement>()
         return FoodStoreReviewFeedParser.parse(response)
+    }
+
+    override suspend fun promotionInbox(): List<FoodPromotionNotice> {
+        val supabase = requireClient()
+        val auth = supabase.auth
+        auth.awaitInitialization()
+        val owner = auth.currentUserOrNull()?.id ?: throw IllegalStateException("sign_in_required")
+        // Same read as the Web promotion center: limit to the logged-in buyer,
+        // with server-side RLS as the mandatory second layer of protection.
+        val rows = supabase.from("food_notifications").select(
+            Columns.list("id", "title", "body", "coupon_code", "created_at", "read_at")
+        ) {
+            filter { eq("recipient_id", owner) }
+            order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+            limit(30)
+        }.decodeAs<JsonElement>()
+        return FoodPromotionInboxParser.parse(rows)
     }
 
     override suspend fun accountEmail(): String? {
