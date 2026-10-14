@@ -47,11 +47,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -76,7 +78,29 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     var initialHomeMenuId by rememberSaveable { mutableStateOf<String?>(null) }
     var homeCart by rememberSaveable { mutableStateOf(false) }
     var homeScrolled by rememberSaveable { mutableStateOf(false) }
+    var favoritesOpen by rememberSaveable { mutableStateOf(false) }
+    var returnToFavorites by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val localFavorites = remember(context) { FoodLocalFavoriteStores(context) }
+    var favoriteIds by remember(localFavorites, state.accountEmail) {
+        mutableStateOf(localFavorites.get(state.accountEmail))
+    }
     val guest = state.accountEmail == null
+    LaunchedEffect(state.accountEmail) {
+        if (state.accountEmail == null) {
+            favoritesOpen = false
+            returnToFavorites = false
+        }
+    }
+    fun closeStore() {
+        selectedStoreId = null
+        initialHomeMenuId = null
+        if (returnToFavorites && !guest) {
+            tab = 3
+            favoritesOpen = true
+        }
+        returnToFavorites = false
+    }
     val selectedStore = state.stores.firstOrNull { it.id == selectedStoreId }
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -93,9 +117,12 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
         }
     }
 
-    BackHandler(enabled = selectedStore != null || tab != 0) {
-        if (selectedStore != null) { selectedStoreId = null; initialHomeMenuId = null }
-        else tab = 0
+    BackHandler(enabled = selectedStore != null || favoritesOpen || tab != 0) {
+        when {
+            selectedStore != null -> closeStore()
+            favoritesOpen -> favoritesOpen = false
+            else -> tab = 0
+        }
     }
 
     Scaffold(
@@ -117,7 +144,8 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     val title = when (tab) {
                         1 -> stringResource(R.string.my_orders_title)
                         2 -> stringResource(R.string.messages)
-                        else -> stringResource(R.string.account)
+                        else -> if (favoritesOpen) stringResource(R.string.favorite_stores)
+                            else stringResource(R.string.account)
                     }
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Box(Modifier.widthIn(max = 720.dp).fillMaxWidth()) { WebTabHeader(title) }
@@ -131,7 +159,13 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
             if (!guest) {
                 WebBottomNavigation(
                     tab = tab,
-                    onTab = { tab = it; selectedStoreId = null; initialHomeMenuId = null },
+                    onTab = {
+                        tab = it
+                        selectedStoreId = null
+                        initialHomeMenuId = null
+                        favoritesOpen = false
+                        returnToFavorites = false
+                    },
                 )
             }
         },
@@ -152,8 +186,17 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     cartError = state.cartError,
                     state = state,
                     guest = guest,
-                    onBack = { selectedStoreId = null; initialHomeMenuId = null },
-                    onAccount = { selectedStoreId = null; tab = 3 },
+                    onBack = { closeStore() },
+                    onAccount = {
+                        selectedStoreId = null
+                        initialHomeMenuId = null
+                        returnToFavorites = false
+                        tab = 3
+                    },
+                    isFavorite = !guest && selectedStore.id in favoriteIds,
+                    onToggleFavorite = {
+                        if (!guest) favoriteIds = localFavorites.toggle(state.accountEmail, selectedStore.id)
+                    },
                     onAdd = vm::addToCart,
                     onClear = vm::clearCart,
                     onQuote = vm::requestServerQuote,
@@ -167,8 +210,13 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     state = state,
                     guest = guest,
                     onAccount = { tab = 3 },
-                    onStore = { initialHomeMenuId = null; selectedStoreId = it },
+                    onStore = {
+                        returnToFavorites = false
+                        initialHomeMenuId = null
+                        selectedStoreId = it
+                    },
                     onDish = { storeId, menuId ->
+                        returnToFavorites = false
                         initialHomeMenuId = menuId
                         selectedStoreId = storeId
                     },
@@ -183,6 +231,18 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onDismissNotice = vm::dismissOrderStatusNotice,
                 )
                 tab == 2 -> WebMessagesPage()
+                tab == 3 && favoritesOpen && !guest -> WebFavoritesPage(
+                    stores = state.stores,
+                    favoriteIds = favoriteIds,
+                    onBack = { favoritesOpen = false },
+                    onStore = { id ->
+                        favoritesOpen = false
+                        returnToFavorites = true
+                        tab = 0
+                        selectedStoreId = id
+                        initialHomeMenuId = null
+                    },
+                )
                 else -> WebAccountPage(
                     state = state,
                     onSignIn = vm::signIn,
@@ -191,6 +251,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onDeleteAccount = vm::deleteAccount,
                     onResetPassword = vm::requestPasswordReset,
                     onOrders = { tab = 1 },
+                    onFavorites = { favoritesOpen = true },
                     onRefreshAddresses = vm::refreshAddresses,
                     onSaveAddress = vm::saveAddress,
                     onDeleteAddress = vm::deleteAddress,
