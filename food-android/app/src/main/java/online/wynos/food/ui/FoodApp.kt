@@ -71,6 +71,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var selectedStoreId by rememberSaveable { mutableStateOf<String?>(null) }
+    var initialHomeMenuId by rememberSaveable { mutableStateOf<String?>(null) }
     var homeCart by rememberSaveable { mutableStateOf(false) }
     val guest = state.accountEmail == null
     val selectedStore = state.stores.firstOrNull { it.id == selectedStoreId }
@@ -90,7 +91,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     }
 
     BackHandler(enabled = selectedStore != null || tab != 0) {
-        if (selectedStore != null) selectedStoreId = null
+        if (selectedStore != null) { selectedStoreId = null; initialHomeMenuId = null }
         else tab = 0
     }
 
@@ -103,7 +104,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         state = state,
                         guest = guest,
                         cartCount = state.cart.itemCount,
-                        onAccount = { selectedStoreId = null; tab = 3 },
+                        onAccount = { selectedStoreId = null; initialHomeMenuId = null; tab = 3 },
                         onCart = { homeCart = true },
                         onSelectAddress = vm::selectAddress,
                         onRefreshAddresses = vm::refreshAddresses,
@@ -123,11 +124,12 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
             when {
                 tab == 0 && selectedStore != null -> WebStoreScreen(
                     store = selectedStore,
+                    initialMenuId = initialHomeMenuId,
                     cart = state.cart,
                     cartError = state.cartError,
                     state = state,
                     guest = guest,
-                    onBack = { selectedStoreId = null },
+                    onBack = { selectedStoreId = null; initialHomeMenuId = null },
                     onAccount = { selectedStoreId = null; tab = 3 },
                     onAdd = vm::addToCart,
                     onClear = vm::clearCart,
@@ -142,7 +144,11 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     state = state,
                     guest = guest,
                     onAccount = { tab = 3 },
-                    onStore = { selectedStoreId = it },
+                    onStore = { initialHomeMenuId = null; selectedStoreId = it },
+                    onDish = { storeId, menuId ->
+                        initialHomeMenuId = menuId
+                        selectedStoreId = storeId
+                    },
                     onRetry = vm::refreshCatalog,
                 )
                 tab == 1 -> WebOrdersPage(
