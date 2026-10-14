@@ -191,6 +191,7 @@
     <string name="checkout_review_not_final">Server quote only. Promotions and delivery fees may change before final confirmation.</string>
     <string name="checkout_review_payment_locked">Place order and pay (not available)</string>
     <string name="checkout_review_staging_notice">This is a preview only. No order or payment is created.</string>
+    <string name="food_order_status_changed_notice">Order #%1$s updated to %2$s</string>
     <string name="food_order_detail_title">Order details</string>
     <string name="food_order_detail_error">Unable to load order details. Please try again.</string>
     <string name="food_order_detail_delivery">Delivery details</string>
