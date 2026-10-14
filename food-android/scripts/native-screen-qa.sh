@@ -4,7 +4,7 @@ mkdir -p visual
 APK="food-android/app/build/outputs/apk/debug/app-debug.apk"
 PACKAGE="online.wynos.food"
 unzip -Z1 "$APK" > visual/zoky-apk-file-list.txt
-for asset in zoky_hero zoky_service dealpizza_crop dealdrinks_crop; do
+for asset in zoky_hero_hd_art zoky_food_hd_art zoky_pizza_hd zoky_drinks_hd zoky_third_hd; do
   grep -Fqx "assets/$asset.webp.b64" visual/zoky-apk-file-list.txt
 done
 adb install -r "$APK"
@@ -73,6 +73,23 @@ for width in 320 360 390 430 600 840; do
   done
 done
 
+# Real physical screen sizes at Android density, in addition to the dp breakpoints.
+# Capture the native text and artwork rather than trusting a 720p remote stream.
+for target in "720 1280 320" "1080 1920 480"; do
+  read -r px py dpi <<< "$target"
+  adb shell wm size "${px}x${py}"
+  adb shell wm density "$dpi"
+  adb shell cmd locale set-app-locales "$PACKAGE" --user 0 --locales th-TH || true
+  launch_zoky
+  dump_window "visual/zoky-hdpi-${px}x${py}.xml"
+  if ! grep -Fq 'ดีลแรงวันนี้' "visual/zoky-hdpi-${px}x${py}.xml" ||
+     ! grep -Fq 'อร่อยง่าย ส่งไว ใกล้คุณ' "visual/zoky-hdpi-${px}x${py}.xml" ||
+     ! grep -Fq 'เลือกอาหาร' "visual/zoky-hdpi-${px}x${py}.xml"; then
+    echo "Missing crisp native Compose copy at ${px}x${py}." >&2; exit 1
+  fi
+  adb exec-out screencap -p > "visual/zoky-hdpi-${px}x${py}.png"
+done
+
 adb shell wm size 390x844
 adb shell wm density 160
 adb shell cmd locale set-app-locales "$PACKAGE" --user 0 --locales th-TH || true
@@ -110,4 +127,4 @@ if ! grep -Fq 'ดีลคุ้ม! ดีลแรงวันนี้' visu
   echo 'Deal card row not reachable by native scroll.' >&2;exit 1
 fi
 adb logcat -d -v brief -s AndroidRuntime:E System.err:E > visual/zoky-runtime-errors.txt || true
-echo 'PASS: Zoky Home native 320/360/390/430/600/840 TH+EN, Food, Messages, Deals.'
+echo 'PASS: Zoky HD native 320/360/390/430/600/840 TH+EN + 720p/1080p, Food, Messages, Deals.'
