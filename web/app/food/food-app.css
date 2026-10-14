@@ -1297,3 +1297,11 @@ button.fx-home-banner:focus-visible { outline: 3px solid #147efb; outline-offset
 @media (max-width: 430px) {
   .fx-guest-hero::after { width: 46%; opacity: .55; }
 }
+
+/* Brand hierarchy requested for WYNOS Food: black WYNOS above red Food. */
+.fx-header .fx-brand .fx-brand-stacked {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0;
+  line-height: 1.01; letter-spacing: -.3px;
+}
+.fx-header .fx-brand .fx-brand-stacked strong { color: var(--fx-ink); font-weight: 800; }
+.fx-header .fx-brand .fx-brand-stacked b { color: var(--fx-red); font-size: .86em; font-weight: 750; }
