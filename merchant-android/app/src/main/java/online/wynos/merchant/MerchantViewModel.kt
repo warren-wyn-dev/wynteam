@@ -129,7 +129,7 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
 
     fun actionOrder(order: JSONObject) {
         val next = when (order.optString("status")) {
-            "pending_acceptance" -> "preparing"
+            "pending_acceptance" -> if (order.optString("payment_status") == "paid") "preparing" else return
             "preparing" -> "ready_for_delivery"
             "ready_for_delivery" -> "out_for_delivery"
             else -> return
