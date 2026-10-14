@@ -97,6 +97,8 @@
     <string name="browse_food_now">ดูร้านอาหารเลย</string>
     <string name="no_messages">ยังไม่มีข้อความ</string>
     <string name="messages_note">การสนทนากับร้านและผู้จัดส่งจะแสดงที่นี่</string>
+    <string name="messages_pending_title">ระบบข้อความยังไม่เปิดใช้งาน</string>
+    <string name="messages_pending_note">กำลังพัฒนาการสนทนากับร้านอาหารและผู้จัดส่ง เมื่อระบบเชื่อมต่อและผ่านการทดสอบแล้ว ข้อความจริงจะปรากฏที่นี่</string>
     <string name="food_login_heading">เข้าสู่ระบบ WYNOS Food</string>
     <string name="food_login_note">ใช้บัญชี WYNOS ของคุณเพื่อเข้าใช้งาน</string>
     <string name="wynos_food_profile">โปรไฟล์ WYNOS Food</string>

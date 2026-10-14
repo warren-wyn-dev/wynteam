@@ -97,6 +97,8 @@
     <string name="browse_food_now">Browse restaurants</string>
     <string name="no_messages">No messages yet</string>
     <string name="messages_note">Conversations with restaurants and delivery partners will appear here</string>
+    <string name="messages_pending_title">Messages are not available yet</string>
+    <string name="messages_pending_note">Chats with restaurants and delivery partners are still in development. Real conversations will appear here once the service is ready.</string>
     <string name="food_login_heading">Sign in to WYNOS Food</string>
     <string name="food_login_note">Use your existing WYNOS account</string>
     <string name="wynos_food_profile">WYNOS Food profile</string>

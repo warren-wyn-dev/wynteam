@@ -287,15 +287,33 @@ fun WebOrdersPage(
 
 @Composable
 fun WebMessagesPage() {
-    Box(Modifier.fillMaxSize().background(Color.White), contentAlignment = Alignment.Center) {
+    // Chat infrastructure is not connected. Do not imply that a live inbox
+    // exists and do not display placeholder conversations as real data.
+    Box(
+        Modifier.fillMaxSize().background(Color.White).padding(horizontal = 18.dp),
+        contentAlignment = Alignment.Center,
+    ) {
         Column(
-            Modifier.padding(24.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+                .background(Color(0xFFF6F6F8))
+                .padding(horizontal = 22.dp, vertical = 30.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(Icons.Outlined.ChatBubbleOutline, null, tint = SoftText, modifier = Modifier.size(48.dp))
-            Text(stringResource(R.string.no_messages), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = PrimaryInk)
-            Text(stringResource(R.string.messages_note), color = SoftText, fontSize = 14.sp)
+            Icon(Icons.Outlined.ChatBubbleOutline, null, tint = SoftText, modifier = Modifier.size(42.dp))
+            Text(
+                stringResource(R.string.messages_pending_title),
+                fontWeight = FontWeight.Bold,
+                fontSize = 19.sp,
+                color = PrimaryInk,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+            Text(
+                stringResource(R.string.messages_pending_note),
+                color = SoftText,
+                fontSize = 14.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
         }
     }
 }
