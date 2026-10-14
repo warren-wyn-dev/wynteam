@@ -85,7 +85,8 @@ class MerchantApi(context: Context) {
 
     private fun raw(
         method: String, path: String, body: JSONObject? = null,
-        bearer: String? = session?.optString("access_token"), retry: Boolean = true
+        bearer: String? = session?.optString("access_token"), retry: Boolean = true,
+        prefer: String? = null
     ): Any {
         check(configured) { "กรุณาตั้งค่า Supabase URL และ Publishable Key สำหรับ Android" }
         val builder = Request.Builder().url(base + path)
@@ -93,7 +94,10 @@ class MerchantApi(context: Context) {
         if (!bearer.isNullOrBlank()) builder.header("Authorization", "Bearer $bearer")
         val requestBody = (body?.toString() ?: "{}").toRequestBody(jsonType)
         when (method) {
-            "POST" -> builder.post(requestBody)
+            "POST" -> {
+                if (prefer != null) builder.header("Prefer", prefer)
+                builder.post(requestBody)
+            }
             "PATCH" -> {
                 builder.header("Prefer", "return=representation")
                 builder.patch(requestBody)
@@ -107,7 +111,7 @@ class MerchantApi(context: Context) {
         http.newCall(builder.build()).execute().use { response ->
             if (response.code == 401 && retry && hasSession) {
                 refresh()
-                return raw(method, path, body, session?.optString("access_token"), false)
+                return raw(method, path, body, session?.optString("access_token"), false, prefer)
             }
             val value = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
@@ -122,7 +126,9 @@ class MerchantApi(context: Context) {
             // Require row confirmation for single-row writes so RLS denials/stale IDs never report success.
             val bulkMarkRead = path.startsWith(
                 "/rest/v1/merchant_notifications?merchant_account_id=eq.")
-            if ((method == "PATCH" || method == "DELETE") && !bulkMarkRead &&
+            val pushTokenRevocation = path.startsWith("/rest/v1/push_tokens?token=eq.")
+            if ((method == "PATCH" || method == "DELETE") &&
+                !bulkMarkRead && !pushTokenRevocation &&
                 result is JSONArray && result.length() == 0) {
                 throw IOException("ไม่พบรายการที่แก้ไข หรือไม่มีสิทธิ์ดำเนินการ")
             }
@@ -148,6 +154,28 @@ class MerchantApi(context: Context) {
     private fun clearLocalSession() { session = null; vault.clear() }
 
     /** GoTrue sends a recovery link to the account email; no password is exposed to the app. */
+    /** Register only the current authorized merchant's own token, never another account. */
+    fun registerPushToken(token: String) {
+        require(token.isNotBlank() && token.length <= 4096) { "FCM token ไม่ถูกต้อง" }
+        verifyMerchantAccess()
+        val userId = (raw("GET", "/auth/v1/user") as JSONObject).getString("id")
+        raw("POST", "/rest/v1/push_tokens?on_conflict=token",
+            JSONObject().put("user_id", filter(userId))
+                .put("token", token).put("platform", "android")
+                .put("app", "merchant")
+                .put("updated_at", java.time.Instant.now().toString()),
+            prefer = "resolution=merge-duplicates,return=minimal")
+    }
+
+    /** Remove the old token with the old JWT BEFORE clearing the session. */
+    fun unregisterPushToken(token: String) {
+        if (token.isBlank()) return
+        require(token.length <= 4096) { "FCM token ไม่ถูกต้อง" }
+        val userId = (raw("GET", "/auth/v1/user") as JSONObject).getString("id")
+        raw("DELETE", "/rest/v1/push_tokens?token=eq." + Uri.encode(token) +
+            "&user_id=eq." + filter(userId) + "&app=eq.merchant")
+    }
+
     fun requestPasswordReset(email: String) {
         val address = email.trim()
         require(address.contains("@") && address.length <= 254) { "กรุณาระบุอีเมลให้ถูกต้อง" }
