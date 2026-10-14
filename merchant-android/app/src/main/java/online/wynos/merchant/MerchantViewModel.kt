@@ -53,6 +53,7 @@ data class MerchantState(
     val ads: JSONObject? = null,
     val stripeStatus: JSONObject? = null,
     val notifications: List<JSONObject> = emptyList(),
+    val pushEnabled: Boolean = false,
     val slipBitmap: Bitmap? = null,
     val slipPreviewOrderId: String? = null,
     val slipPreviewPath: String? = null,
@@ -83,7 +84,8 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
     private val api = MerchantApi(application)
     private val prefs = application.getSharedPreferences("merchant_preferences", 0)
     private var pendingPageLoad: MerchantPage? = null
-    var state by mutableStateOf(MerchantState(configured = api.configured))
+    var state by mutableStateOf(MerchantState(configured = api.configured,
+        pushEnabled = MerchantPush.isEnabled(application)))
         private set
 
     init {
@@ -109,6 +111,16 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun enablePush() = execute("เปิดแจ้งเตือน WYNOS Merchant บนอุปกรณ์แล้ว") {
+        MerchantPush.enable(getApplication(), api)
+        state = state.copy(pushEnabled = true)
+    }
+
+    fun disablePush() = execute("ปิดการแจ้งเตือนบนอุปกรณ์นี้แล้ว") {
+        MerchantPush.disable(getApplication(), api)
+        state = state.copy(pushEnabled = false)
+    }
+
     fun requestPasswordReset(email: String) = execute(
         "หากอีเมลนี้มีบัญชี WYNOS ระบบจะส่งลิงก์ตั้งรหัสผ่านใหม่ให้") {
         api.requestPasswordReset(email)
@@ -120,6 +132,10 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun signOut() = execute {
+        // The previous user must be detached from this FCM token first.
+        // If network revocation fails, stop logout instead of leaking
+        // merchant notifications to the next user on a shared device.
+        MerchantPush.disable(getApplication(), api)
         api.signOut()
         state = MerchantState(configured = api.configured)
     }
@@ -147,7 +163,8 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         val orderRows = if (selected != null) api.orders(storeId).asObjects() else emptyList()
         val sales = if (selected != null) runCatching { api.sales(storeId) }.getOrNull() else null
         state = state.copy(
-            signedIn = true, stores = stores, store = selected,
+            signedIn = true, pushEnabled = MerchantPush.isEnabled(getApplication()),
+            stores = stores, store = selected,
             menu = menu, orders = orderRows.take(100), sales = sales,
             hasMoreOrders = orderRows.size > 100,
             finance = if (changingStore) null else state.finance,
