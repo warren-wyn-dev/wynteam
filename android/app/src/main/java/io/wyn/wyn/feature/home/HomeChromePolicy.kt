@@ -18,8 +18,8 @@ internal class HomeChromePolicy {
     fun update(firstIndex: Int, firstOffsetPx: Int, isScrolling: Boolean, topThresholdPx: Int): Boolean {
         val delta = when {
             firstIndex == previousIndex -> firstOffsetPx - previousOffset
-            firstIndex > previousIndex -> (firstIndex - previousIndex) * 48 + firstOffsetPx - previousOffset
-            else -> -(previousIndex - firstIndex) * 48 + firstOffsetPx - previousOffset
+            firstIndex > previousIndex -> (firstIndex - previousIndex) * 48 + abs(firstOffsetPx - previousOffset)
+            else -> -((previousIndex - firstIndex) * 48 + abs(firstOffsetPx - previousOffset))
         }
         previousIndex = firstIndex
         previousOffset = firstOffsetPx
