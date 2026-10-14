@@ -62,6 +62,7 @@
     <string name="public_store_closed">ปิดอยู่</string>
     <string name="delivery_to">ส่งถึง</string>
     <string name="select_delivery">เลือกที่อยู่จัดส่ง</string>
+    <string name="manage_delivery_addresses">จัดการที่อยู่จัดส่ง</string>
     <string name="messages">ข้อความ</string>
     <string name="messages_unavailable">ระบบข้อความอยู่ระหว่างพัฒนา</string>
     <string name="store_tab_menu">เมนู</string>
