@@ -1,6 +1,12 @@
 package online.wynos.merchant
 
 import android.content.Context
+import android.net.Uri
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import java.io.ByteArrayOutputStream
+import java.net.URI
+import java.util.UUID
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -66,6 +72,7 @@ internal class MerchantSessionStore(context: Context) {
 
 /** Same auth/RLS/RPC contracts as the existing merchant web; public key only. */
 class MerchantApi(context: Context) {
+    private val appContext = context.applicationContext
     private val http = OkHttpClient.Builder().build()
     private val vault = MerchantSessionStore(context.applicationContext)
     private var session: JSONObject? = vault.load()
@@ -213,6 +220,102 @@ class MerchantApi(context: Context) {
         if (id != null) raw("PATCH", "/rest/v1/food_menu_items?id=eq." + filter(id) +
             "&store_id=eq." + filter(storeId), payload)
         else raw("POST", "/rest/v1/food_menu_items", payload)
+    }
+
+    /** Signed private slip retrieval. URL origin is pinned to configured Supabase. */
+    fun loadPrivateImage(path: String): ByteArray {
+        val encoded = objectPath(path)
+        val signing = raw(
+            "POST",
+            "/storage/v1/object/sign/food-private/$encoded",
+            JSONObject().put("expiresIn", 300),
+        ) as JSONObject
+        val signed = signing.optString("signedURL")
+        if (!signed.startsWith("/object/sign/food-private/")) throw IOException("ลิงก์สลิปไม่ถูกต้อง")
+        val url = base + "/storage/v1" + signed
+        val parsed = URI(url)
+        if (parsed.scheme != "https" || parsed.host != URI(base).host ||
+            parsed.rawPath?.startsWith("/storage/v1/object/sign/food-private/") != true) {
+            throw IOException("โดเมนรูปภาพไม่ถูกต้อง")
+        }
+        // OkHttp redirects could escape this origin; disable them for signed private media.
+        val safeHttp = http.newBuilder().followRedirects(false).build()
+        safeHttp.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("โหลดสลิปไม่สำเร็จ (HTTP " + response.code + ")")
+            val body = response.body ?: throw IOException("สลิปว่างเปล่า")
+            val bytes = body.byteStream().use { it.readNBytes(8 * 1024 * 1024 + 1) }
+            if (bytes.isEmpty() || bytes.size > 8 * 1024 * 1024) throw IOException("สลิปมีขนาดไม่ถูกต้อง")
+            return bytes
+        }
+    }
+
+    private fun objectPath(path: String): String {
+        require(path.isNotBlank() && path.length < 800 && !path.startsWith("/") &&
+            path.split("/").all { it.isNotBlank() && it != "." && it != ".." }) {
+            "ตำแหน่งไฟล์ไม่ถูกต้อง"
+        }
+        return path.split("/").joinToString("/") { Uri.encode(it) }
+    }
+
+    /**
+     * Native image picker input, re-encoded to JPEG to remove EXIF GPS/location metadata.
+     * Uses the SAME private storage bucket/path policy as the merchant web.
+     */
+    fun uploadDeliveryImage(orderId: String, uri: Uri): String {
+        val id = filter(orderId)
+        val resolver = appContext.contentResolver
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            ?: throw IOException("อ่านรูปไม่สำเร็จ")
+        if (options.outWidth <= 0 || options.outHeight <= 0) throw IOException("ไฟล์นี้ไม่ใช่รูปภาพ")
+        var sample = 1
+        while (options.outWidth / sample > 1600 || options.outHeight / sample > 1600) sample *= 2
+        val decoded = resolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = sample })
+        } ?: throw IOException("อ่านรูปไม่สำเร็จ")
+        val output = ByteArrayOutputStream()
+        try {
+            val max = maxOf(decoded.width, decoded.height)
+            val scaled = if (max > 1600) {
+                Bitmap.createScaledBitmap(decoded,
+                    (decoded.width * 1600L / max).toInt().coerceAtLeast(1),
+                    (decoded.height * 1600L / max).toInt().coerceAtLeast(1), true)
+            } else decoded
+            try {
+                if (!scaled.compress(Bitmap.CompressFormat.JPEG, 84, output)) throw IOException("แปลงรูปไม่สำเร็จ")
+            } finally {
+                if (scaled !== decoded) scaled.recycle()
+            }
+        } finally { decoded.recycle() }
+        val bytes = output.toByteArray()
+        if (bytes.isEmpty() || bytes.size > 8 * 1024 * 1024) throw IOException("รูปใหญ่เกิน 8 MB")
+        val path = "delivery/$id/" + UUID.randomUUID().toString() + ".jpg"
+        val request = Request.Builder().url("$base/storage/v1/object/food-private/$path")
+            .header("apikey", key)
+            .header("Authorization", "Bearer " + (session?.optString("access_token") ?: ""))
+            .header("cache-control", "max-age=300")
+            .post(bytes.toRequestBody("image/jpeg".toMediaType())).build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("อัปโหลดรูปไม่สำเร็จ (HTTP " + response.code + ")")
+        }
+        return path
+    }
+
+    fun completeDelivery(orderId: String, method: String, locationNote: String, imagePath: String) {
+        require(method == "direct" || method == "dropoff") { "ประเภทการจัดส่งไม่ถูกต้อง" }
+        require(imagePath.startsWith("delivery/" + filter(orderId) + "/")) { "รูปไม่ตรงกับออเดอร์" }
+        if (method == "dropoff") require(locationNote.isNotBlank()) { "กรุณาระบุจุดวางสินค้า" }
+        rpc("food_complete_delivery", JSONObject().put("p_order_id", orderId)
+            .put("p_method", method)
+            .put("p_location_note", if (method == "dropoff") locationNote.trim() else JSONObject.NULL)
+            .put("p_image_path", imagePath))
+    }
+
+    fun setPaymentStatusWithNote(orderId: String, status: String, note: String? = null) {
+        require(status in setOf("paid", "issue")) { "สถานะการเงินไม่รองรับ" }
+        rpc("food_set_payment_status", JSONObject().put("p_order_id", filter(orderId))
+            .put("p_status", status)
+            .put("p_note", note ?: JSONObject.NULL))
     }
 
     fun updateStore(storeId: String, patch: JSONObject) {
