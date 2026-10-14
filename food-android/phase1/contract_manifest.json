@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "protectedProductionRef": "kqokpocajhfbidcxpvhh",
+  "rpcs": [
+    {
+      "name": "food_public_catalog",
+      "scope": "foundation",
+      "parameters": []
+    },
+    {
+      "name": "food_active_home_banners",
+      "scope": "foundation",
+      "parameters": []
+    },
+    {
+      "name": "food_store_directory",
+      "scope": "foundation",
+      "parameters": [
+        "p_query"
+      ]
+    },
+    {
+      "name": "food_store_review_feed",
+      "scope": "foundation",
+      "parameters": [
+        "p_store_id",
+        "p_limit"
+      ]
+    },
+    {
+      "name": "food_quote_order",
+      "scope": "foundation",
+      "parameters": [
+        "p_store_id",
+        "p_items"
+      ]
+    },
+    {
+      "name": "food_delivery_availability",
+      "scope": "foundation",
+      "parameters": [
+        "p_store_id",
+        "p_latitude",
+        "p_longitude"
+      ]
+    },
+    {
+      "name": "food_quote_order_v2",
+      "scope": "full",
+      "parameters": [
+        "p_store_id",
+        "p_items",
+        "p_coupon_code"
+      ]
+    },
+    {
+      "name": "food_upsert_customer_address_v3",
+      "scope": "full",
+      "parameters": [
+        "p_address_id",
+        "p_recipient_name"
+      ]
+    },
+    {
+      "name": "food_delete_customer_address",
+      "scope": "full",
+      "parameters": [
+        "p_address_id"
+      ]
+    },
+    {
+      "name": "food_create_order_v2",
+      "scope": "full",
+      "parameters": [
+        "p_store_id",
+        "p_items",
+        "p_coupon_code"
+      ]
+    },
+    {
+      "name": "food_create_order_idempotent",
+      "scope": "full",
+      "parameters": []
+    },
+    {
+      "name": "food_cancel_order",
+      "scope": "full",
+      "parameters": [
+        "p_order_id"
+      ]
+    },
+    {
+      "name": "food_submit_payment",
+      "scope": "full",
+      "parameters": [
+        "p_order_id",
+        "p_slip_path"
+      ]
+    },
+    {
+      "name": "food_submit_store_review",
+      "scope": "full",
+      "parameters": [
+        "p_order_id",
+        "p_rating"
+      ]
+    },
+    {
+      "name": "food_service_area_check",
+      "scope": "full",
+      "parameters": [
+        "p_latitude",
+        "p_longitude"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "name": "food_stores",
+      "scope": "foundation"
+    },
+    {
+      "name": "food_menu_items",
+      "scope": "foundation"
+    },
+    {
+      "name": "food_orders",
+      "scope": "foundation"
+    },
+    {
+      "name": "food_order_items",
+      "scope": "foundation"
+    },
+    {
+      "name": "food_order_events",
+      "scope": "foundation"
+    },
+    {
+      "name": "food_customer_addresses",
+      "scope": "foundation"
+    },
+    {
+      "name": "food_store_reviews",
+      "scope": "foundation"
+    },
+    {
+      "name": "food_notifications",
+      "scope": "full"
+    },
+    {
+      "name": "food_marketing_preferences",
+      "scope": "full"
+    }
+  ],
+  "edgeFunctions": [
+    {
+      "name": "food-mobile-payment-intent",
+      "scope": "full"
+    }
+  ]
+}
