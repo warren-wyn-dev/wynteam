@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+data class FoodOrderStatusNotice(val orderId: String, val number: String, val status: String)
+
 data class FoodUiState(
     val configured: Boolean = false,
     val catalogLoading: Boolean = false,
@@ -30,6 +32,7 @@ data class FoodUiState(
     val orders: List<FoodOrderSummary> = emptyList(),
     val ordersLoading: Boolean = false,
     val ordersFailed: Boolean = false,
+    val orderStatusNotice: FoodOrderStatusNotice? = null,
     val selectedOrderId: String? = null,
     val orderDetail: FoodOrderDetail? = null,
     val orderDetailLoading: Boolean = false,
@@ -85,7 +88,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         addressGeneration++
         orderGeneration++
         orderDetailGeneration++
-        mutableState.update { it.copy(selectedOrderId = null, orderDetail = null, orderDetailLoading = false, orderDetailFailed = false) }
+        mutableState.update { it.copy(selectedOrderId = null, orderDetail = null,
+            orderDetailLoading = false, orderDetailFailed = false, orderStatusNotice = null) }
         invalidateQuote()
     }
 
@@ -217,6 +221,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                     it.copy(accountBusy = false, accountDeletionBusy = false,
                         accountEmail = null, accountFailed = false,
                         orders = emptyList(), ordersLoading = false, ordersFailed = false,
+                        orderStatusNotice = null,
                         selectedOrderId = null, orderDetail = null,
                         orderDetailLoading = false, orderDetailFailed = false,
                         addresses = emptyList(), addressesLoading = false,
@@ -476,6 +481,10 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         }
     }
 
+    fun dismissOrderStatusNotice() {
+        mutableState.update { it.copy(orderStatusNotice = null) }
+    }
+
     fun refreshOrders() {
         if (!gateway.configured || mutableState.value.accountEmail == null ||
             mutableState.value.ordersLoading) return
@@ -488,7 +497,23 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                 if (generation != orderGeneration || session != accountGeneration) return@launch
                 mutableState.update { state ->
                     if (state.accountEmail == null) state
-                    else state.copy(orders = orders, ordersLoading = false)
+                    else {
+                        // Foreground Orders polling only: notify about a genuine change
+                        // to an already visible order, not initial history load.
+                        val oldStatuses = state.orders.associate { it.id to it.status }
+                        val changed = orders.firstOrNull { updated ->
+                            val previous = oldStatuses[updated.id]
+                            previous != null && previous != updated.status &&
+                                updated.status != "unknown"
+                        }
+                        state.copy(
+                            orders = orders,
+                            ordersLoading = false,
+                            orderStatusNotice = changed?.let {
+                                FoodOrderStatusNotice(it.id, it.number, it.status)
+                            } ?: state.orderStatusNotice,
+                        )
+                    }
                 }
             } catch (cancel: CancellationException) {
                 throw cancel
