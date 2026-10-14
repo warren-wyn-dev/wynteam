@@ -230,4 +230,6 @@
     <string name="account_profile_set_up_note">กรอกชื่อผู้รับ เบอร์โทร และที่อยู่จัดส่ง</string>
     <string name="messages_food_is_separate">แชท WYNOS Food แยกจากแชท WYNOS</string>
     <string name="checkout_disabled_short">ยังไม่เปิดรับคำสั่งซื้อจริงในรุ่นนี้</string>
+    <string name="address_primary_flag">ที่อยู่หลัก</string>
+    <string name="address_pin_ready">ปักหมุดแล้ว</string>
 </resources>
