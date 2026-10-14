@@ -278,6 +278,7 @@ fun FoodCartPreview(
     onQuote: () -> Unit = {},
     onSelectAddress: (String?) -> Unit = {},
     onChangeQuantity: (String, Int) -> Unit = { _, _ -> },
+    onCreateOrder: (String) -> Unit = {},
 ) {
     var showReview by remember { mutableStateOf(false) }
     val chosenAddress = state?.addresses?.firstOrNull { it.id == state.selectedAddressId }
@@ -442,6 +443,11 @@ fun FoodCartPreview(
             cart = cart,
             address = chosenAddress,
             quote = state.quote,
+            stagingOrderEnabled = state.stagingOrderCreationEnabled,
+            stagingOrderBusy = state.stagingOrderBusy,
+            stagingOrderUncertain = state.stagingOrderUncertain,
+            stagingOrderCreatedId = state.stagingOrderCreatedId,
+            onCreateOrder = onCreateOrder,
             onDismiss = { showReview = false },
         )
     }
