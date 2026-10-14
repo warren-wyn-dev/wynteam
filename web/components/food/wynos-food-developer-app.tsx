@@ -701,7 +701,7 @@ function StoreDirectory({
     price: item.price,
     imageUrl: foodPublicUrl(client, item.image_path),
     available: featuredStore?.is_open === true && Number(item.daily_stock_limit ?? 1) > 0
-      && (!item.sold_out_until || Date.parse(item.sold_out_until) <= Date.now()),
+      && !item.sold_out_until,
   }));
   const featuredPromo = featuredStore?.promo_name
     ? { label: foodPromoLabel(featuredStore) ?? featuredStore.promo_name,
