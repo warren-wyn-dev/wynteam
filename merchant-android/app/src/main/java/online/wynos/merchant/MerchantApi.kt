@@ -443,6 +443,14 @@ class MerchantApi(context: Context) {
             .put("p_store_id", filter(storeId)).put("p_campaign_id", filter(campaignId)))
     }
 
+    fun platformCampaigns(storeId: String): JSONObject =
+        rpc("merchant_platform_campaigns", JSONObject().put("p_store_id", filter(storeId))) as JSONObject
+
+    fun platformCampaignJoin(storeId: String, campaignId: String, join: Boolean) {
+        rpc(if (join) "merchant_join_platform_campaign" else "merchant_leave_platform_campaign",
+            JSONObject().put("p_store_id", filter(storeId)).put("p_campaign_id", filter(campaignId)))
+    }
+
     fun advertising(storeId: String): JSONObject =
         rpc("merchant_ad_account", JSONObject().put("p_store_id", filter(storeId))) as JSONObject
 
