@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">WYNOS Food (Beta)</string>
-    <string name="brand_name">WYNOS Food</string>
+    <string name="app_name">Zoky : สั่งอาหาร</string>
+    <string name="brand_name">Zoky</string>
     <string name="home">Home</string>
     <string name="orders">Orders</string>
     <string name="account">Account</string>
     <string name="back">Back</string>
     <string name="browse_heading">What are you craving?</string>
-    <string name="browse_intro">Explore restaurants and menus from WYNOS Food</string>
+    <string name="browse_intro">Explore restaurants and menus from Zoky</string>
     <string name="stores_heading">Restaurants</string>
     <string name="menu_heading">Menu</string>
     <string name="readonly_notice">Android Beta — browse real menus; ordering is not yet available</string>
@@ -101,9 +101,9 @@
     <string name="messages_note">Conversations with restaurants and delivery partners will appear here</string>
     <string name="messages_pending_title">Messages are not available yet</string>
     <string name="messages_pending_note">Chats with restaurants and delivery partners are still in development. Real conversations will appear here once the service is ready.</string>
-    <string name="food_login_heading">Sign in to WYNOS Food</string>
+    <string name="food_login_heading">Sign in to Zoky</string>
     <string name="food_login_note">Use your existing WYNOS account</string>
-    <string name="wynos_food_profile">WYNOS Food profile</string>
+    <string name="wynos_food_profile">Zoky profile</string>
     <string name="delivery_addresses">Delivery addresses</string>
     <string name="addresses_not_yet_available">Address management is coming to Android</string>
     <string name="order_history_link">Order history</string>
@@ -116,7 +116,7 @@
     <string name="account_back_to_signin">Already have an account? Sign in</string>
     <string name="account_delete_action">Delete WYNOS account</string>
     <string name="account_delete_title">Permanently delete WYNOS account</string>
-    <string name="account_delete_shared_warning">This permanently deletes your shared WYNOS account across services, not just WYNOS Food.</string>
+    <string name="account_delete_shared_warning">This permanently deletes your shared WYNOS account across services, not just Zoky.</string>
     <string name="account_delete_cannot_undo">Associated account data is deleted according to the data retention policy. This cannot be undone.</string>
     <string name="account_delete_staging_only">Deletion is disabled in this preview build. It is testable only with approved staging accounts.</string>
     <string name="account_delete_phrase">DELETE WYNOS</string>
@@ -143,7 +143,7 @@
     <string name="sign_in_to_quote">Sign in to WYNOS to get a server price quote</string>
     <string name="loading_addresses">Loading saved addresses…</string>
     <string name="addresses_load_error">Could not load saved addresses. Please try again.</string>
-    <string name="no_saved_addresses">No saved addresses. Add an address on the WYNOS Food website first.</string>
+    <string name="no_saved_addresses">No saved addresses. Add an address on the Zoky website first.</string>
     <string name="refresh_addresses">Refresh delivery addresses</string>
     <string name="server_quote_button">Check server price and delivery</string>
     <string name="server_quote_loading">Checking the server price…</string>
@@ -252,7 +252,7 @@
     <string name="store_review_retry">Try again</string>
     <string name="store_review_empty">No reviews from completed orders yet</string>
     <string name="store_review_count">(%1$d reviews)</string>
-    <string name="store_review_verified_order">Verified WYNOS Food order</string>
+    <string name="store_review_verified_order">Verified Zoky order</string>
     <string name="store_review_merchant_reply">Restaurant reply</string>
     <string name="promo_inbox_title">Promotions and news</string>
     <string name="promo_inbox_unread">Unread</string>
