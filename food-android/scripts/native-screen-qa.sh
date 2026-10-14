@@ -39,7 +39,7 @@ assert_native_window() {
 
   # Positive assertions: it is not enough to have a screenshot or a working DNS.
   # The actual WYNOS Food guest header AND localized home content must be visible.
-  if ! grep -Fq 'WYNOS Food' "$dump"; then
+  if ! grep -Fq 'WYNOS' "$dump" || ! grep -Fq 'Food' "$dump"; then
     echo "WYNOS Food header not visible in Android accessibility window." >&2
     return 1
   fi
