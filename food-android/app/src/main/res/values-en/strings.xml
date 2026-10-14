@@ -100,6 +100,12 @@
     <string name="addresses_not_yet_available">Address management is coming to Android</string>
     <string name="order_history_link">Order history</string>
     <string name="readonly_order_notice">Read-only in Android Beta</string>
+    <string name="account_signup_action">Create WYNOS account</string>
+    <string name="account_signup_note">One WYNOS account across services</string>
+    <string name="account_password_confirm">Confirm password</string>
+    <string name="account_signup_password_rule">Use 8 or more characters; passwords must match</string>
+    <string name="account_signup_email_sent">If registration succeeded, check your email to confirm your account before signing in.</string>
+    <string name="account_back_to_signin">Already have an account? Sign in</string>
     <string name="account_signup_pending">Android registration is still in development</string>
     <string name="store_meta_guest">%1$d items · delivery from ฿%2$s</string>
     <string name="required_option">Required</string>
