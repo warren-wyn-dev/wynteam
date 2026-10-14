@@ -14,7 +14,7 @@ Legend: **Partial** = a code path exists but production QA and/or feature subflo
 | Delivered confirmation with dropoff photo | Partial | Image picker, preview, EXIF-stripping JPEG upload and completion RPC coded; needs on-device/storage RLS testing and retries |
 | Order history, filters/search/paging | Partial | Search, date/status filters and 30-row paging coded; needs E2E validation |
 | Menu create/edit/availability | Partial | Options editor, stock, sold-out, delete coded; image uploads, category tools and edge-case QA remain |
-| Menu drag reorder, category tools | Partial | Button-based item reorder/save/cancel coded; direct touch drag and category management UI missing |
+| Menu drag reorder, category tools | Partial | Long-press touch drag on full row plus button fallback/save/cancel coded; category drag/rename and real-device QA remain |
 | Sales reports | Partial | Best sellers and full reporting UI |
 | Merchant finance | Partial | Date ranges, graphs, Stripe status, exports, refund handling |
 | Store brand media | Missing | Image picker, preview, compression, upload |
