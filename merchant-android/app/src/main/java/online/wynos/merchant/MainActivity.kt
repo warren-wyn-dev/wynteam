@@ -619,7 +619,25 @@ private fun StoreScreen(s: MerchantState, vm: MerchantViewModel) {
 private fun HistoryScreen(s: MerchantState, vm: MerchantViewModel) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         SectionHeading("ประวัติออเดอร์")
-        TextButton(onClick = vm::loadHistory, enabled = !s.busy) { Text("รีเฟรช") }
+        OutlinedTextField(value = s.historySearch, onValueChange = vm::setHistorySearch,
+            label = { Text("ค้นหาเลขออเดอร์") },
+            modifier = Modifier.fillMaxWidth(), singleLine = true)
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            listOf("all" to "ทั้งหมด", "delivered" to "ส่งสำเร็จ",
+                "cancelled" to "ยกเลิก").forEach { (key, label) ->
+                FilterChip(selected = s.historyStatus == key,
+                    onClick = { vm.setHistoryStatus(key) }, label = { Text(label) })
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            listOf(null to "ทั้งหมด", 7 to "7 วัน", 30 to "30 วัน").forEach { (key, label) ->
+                FilterChip(selected = s.historyDays == key,
+                    onClick = { vm.setHistoryDays(key) }, label = { Text(label) })
+            }
+        }
+        OutlinedButton(onClick = { vm.loadHistory() }, enabled = !s.busy,
+            modifier = Modifier.fillMaxWidth()) { Text("ค้นหา / รีเฟรช") }
+        if (s.history.isEmpty()) Text("ไม่พบประวัติออเดอร์", color = Grey)
         LazyColumn {
             items(s.history, key = { it.text("id") }) { item ->
                 ElevatedCard(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -627,7 +645,15 @@ private fun HistoryScreen(s: MerchantState, vm: MerchantViewModel) {
                         Text(item.orderTitle(), fontWeight = FontWeight.Bold)
                         Text(orderStatus(item.text("status")))
                         Text(money(item.amount("total")), color = Red)
+                        Text(item.text("created_at"), color = Grey,
+                            style = MaterialTheme.typography.bodySmall)
                     }
+                }
+            }
+            if (s.historyHasMore) item {
+                Button(onClick = { vm.loadHistory(true) },
+                    enabled = !s.busy, modifier = Modifier.fillMaxWidth()) {
+                    Text("โหลดออเดอร์เก่ากว่านี้")
                 }
             }
         }
