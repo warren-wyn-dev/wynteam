@@ -66,6 +66,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -143,10 +144,10 @@ fun WebHomeHeader(
                     contentDescription = null,
                     modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)),
                 )
-                Text(buildAnnotatedString {
-                    withStyle(SpanStyle(color = WebInk, fontWeight = FontWeight.Bold)) { append("WYNOS ") }
-                    withStyle(SpanStyle(color = WebRed, fontWeight = FontWeight.Bold)) { append("Food") }
-                }, fontSize = 20.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Text("WYNOS", fontSize = 18.sp, lineHeight = 18.sp, color = WebInk, fontWeight = FontWeight.Bold)
+                    Text("Food", fontSize = 14.sp, lineHeight = 15.sp, color = WebRed, fontWeight = FontWeight.Bold)
+                }
             }
             if (guest) {
                 OutlinedButton(
@@ -287,13 +288,22 @@ fun WebHomeScreen(
         ) {
         if (guest) {
             item {
-                Column(
+                Box(
                     Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 9.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(Brush.horizontalGradient(listOf(WebRedSoft, Color.White)))
-                        .padding(if (compactHome) 15.dp else 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                        .background(Brush.horizontalGradient(listOf(WebRedSoft, Color(0xFFFFDBE5)))),
                 ) {
+                    Image(
+                        painter = painterResource(R.drawable.food_rider_hero),
+                        contentDescription = null,
+                        modifier = Modifier.align(Alignment.BottomEnd)
+                            .width(165.dp).height(128.dp).graphicsLayer(alpha = 0.64f),
+                        contentScale = ContentScale.Fit,
+                    )
+                    Column(
+                        Modifier.fillMaxWidth().padding(if (compactHome) 15.dp else 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                     Surface(color = Color.White, shape = CircleShape) {
                         Row(
                             Modifier.padding(horizontal = 10.dp, vertical = if (compactHome) 4.dp else 6.dp),
@@ -317,6 +327,7 @@ fun WebHomeScreen(
                         lineHeight = if (compactHome) 19.sp else 22.sp,
                         color = WebSub,
                     )
+                    }
                 }
             }
         }
