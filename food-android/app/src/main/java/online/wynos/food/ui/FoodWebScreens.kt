@@ -356,7 +356,10 @@ fun WebHomeScreen(
             } else {
                 item(key = "brand-banner") {
                     FoodBrandHeroBanner(state.stores.firstOrNull(), onBrowse = {
-                        scope.launch { listState.animateScrollToItem(4) }
+                        scope.launch {
+                            val last = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                            listState.animateScrollToItem(minOf(4, last))
+                        }
                     })
                 }
             }
@@ -613,7 +616,7 @@ private fun FoodFeaturedRestaurantHome(
                                 }
                             }
                             Text(dish.name, color = WebInk, fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium, maxLines = 2,
+                                fontWeight = FontWeight.Medium, minLines = 2, maxLines = 2,
                                 lineHeight = 14.sp, overflow = TextOverflow.Ellipsis)
                             Text("฿${dish.price}", color = WebInk, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold)
@@ -633,8 +636,9 @@ private fun CouponPreviewUnavailable() {
     Row(
         modifier = Modifier.fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .shadow(2.dp, shape).clip(shape).background(Color.White)
-            .padding(horizontal = 12.dp, vertical = 11.dp),
+            .shadow(2.dp, shape).clip(shape)
+            .background(Brush.horizontalGradient(listOf(Color.White, Color(0xFFFFF3F6))))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -767,15 +771,22 @@ private fun CenterStateText(message: Int) {
 
 @Composable
 private fun FilterChipWeb(title: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        shape = CircleShape,
-        color = if (selected) WebRed else Color.White,
-        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDCDCE2)),
-        modifier = Modifier.height(36.dp).clickable(onClick = onClick),
+    Box(
+        modifier = Modifier.height(36.dp).shadow(if (selected) 3.dp else 1.dp, CircleShape)
+            .clip(CircleShape)
+            .background(
+                Brush.verticalGradient(
+                    if (selected) listOf(Color(0xFFFF235B), WebRed, WebRedDark)
+                    else listOf(Color.White, Color(0xFFFDFBFC))
+                )
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 13.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.padding(horizontal = 13.dp), contentAlignment = Alignment.Center) {
-            Text(title, fontSize = 12.5.sp, color = if (selected) Color.White else WebInk, fontWeight = FontWeight.SemiBold)
-        }
+        Text(title, fontSize = 12.5.sp,
+            color = if (selected) Color.White else WebInk,
+            fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 
