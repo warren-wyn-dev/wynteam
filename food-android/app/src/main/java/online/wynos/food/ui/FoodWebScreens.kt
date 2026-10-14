@@ -358,7 +358,7 @@ fun WebHomeScreen(
                     FoodBrandHeroBanner(state.stores.firstOrNull(), onBrowse = {
                         scope.launch {
                             val last = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-                            listState.animateScrollToItem(minOf(4, last))
+                            listState.animateScrollToItem(minOf(3, last))
                         }
                     })
                 }
