@@ -305,6 +305,14 @@ private fun OrderDetail(order: JSONObject, vm: MerchantViewModel, state: Merchan
         Text("ลูกค้า: " + order.text("recipient_name"))
         Text("โทรศัพท์: " + order.text("recipient_phone"))
         Text("จัดส่ง: " + order.text("shipping_address"))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = {
+                state.store?.let { MerchantPrinter.print(context, it, order, false) }
+            }) { Text("พิมพ์ใบเสร็จ") }
+            OutlinedButton(onClick = {
+                state.store?.let { MerchantPrinter.print(context, it, order, true) }
+            }) { Text("พิมพ์ใบจ่าหน้า") }
+        }
         if (order.text("customer_note").isNotBlank()) Text("หมายเหตุ: " + order.text("customer_note"))
         Spacer(Modifier.height(12.dp))
         Text("รายการอาหาร", fontWeight = FontWeight.Bold)
