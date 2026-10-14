@@ -123,7 +123,7 @@ fun MerchantScheduleEditor(store: JSONObject, busy: Boolean, save: (JSONObject) 
                     .put("business_schedule", JSONObject().put("weekly", weekly))
                     .put("special_closed_dates", JSONArray(closedDates))
                     .put("temporary_closed_until", until?.toString() ?: JSONObject.NULL)
-                    .put("temporary_closed_reason", reason.ifBlank { JSONObject.NULL }))
+                    .put("temporary_closed_reason", if (reason.isBlank()) JSONObject.NULL else reason))
                 error = ""
             }
         }) { Text("บันทึกตารางเวลาและวันหยุด") }
