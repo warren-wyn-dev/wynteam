@@ -522,6 +522,18 @@ private fun FoodFeaturedRestaurantHome(
                                 if (!dish.isAvailable() || !store.isOpen) {
                                     Box(Modifier.fillMaxSize()
                                         .background(Color.White.copy(alpha = 0.40f)))
+                                } else {
+                                    Box(
+                                        Modifier.align(Alignment.BottomEnd).padding(4.dp).size(27.dp)
+                                            .shadow(3.dp, CircleShape).clip(CircleShape)
+                                            .background(Brush.verticalGradient(
+                                                listOf(Color(0xFFFFF8FB), Color(0xFFFFCAD9)))),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(Icons.Outlined.Add,
+                                            contentDescription = stringResource(R.string.featured_choose_menu),
+                                            tint = WebRed, modifier = Modifier.size(18.dp))
+                                    }
                                 }
                             }
                             Text(dish.name, color = WebInk, fontSize = 11.sp,
@@ -585,7 +597,7 @@ private fun FoodBrandHeroBanner(store: FoodStore?) {
         // Food imagery is drawn only when this restaurant image actually exists.
         if (cover != null) {
             WebImage(cover, "food-public", Modifier.align(Alignment.CenterEnd)
-                .fillMaxWidth(0.58f).fillMaxSize(), contentScale = ContentScale.Crop)
+                .width(190.dp).height(138.dp), contentScale = ContentScale.Crop)
         } else {
             Image(painter = painterResource(R.drawable.food_rider_hero), contentDescription = null,
                 modifier = Modifier.align(Alignment.BottomEnd).size(146.dp),
