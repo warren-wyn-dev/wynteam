@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -224,7 +225,7 @@ fun WebPageHeader(title: String, onBack: () -> Unit) {
 fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
     // Fixed and compact native navigation; retains Messages and all four routes.
     val tabs = listOf(
-        Triple(0, R.string.home, Icons.Outlined.Home),
+        Triple(0, R.string.home, Icons.Filled.Home),
         Triple(1, R.string.orders, Icons.Outlined.ReceiptLong),
         Triple(2, R.string.messages, Icons.Outlined.ChatBubbleOutline),
         Triple(3, R.string.account, Icons.Outlined.PersonOutline),
@@ -248,18 +249,8 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mod
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Box(
-                        Modifier.size(43.dp, 29.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.verticalGradient(
-                                    if (active) listOf(Color(0xFFFFF4F7), Color(0xFFFFD9E3))
-                                    else listOf(Color.Transparent, Color.Transparent),
-                                )
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(icon, null, tint = if (active) WebRed else WebMuted, modifier = Modifier.size(22.dp))
+                    Box(Modifier.size(43.dp, 29.dp), contentAlignment = Alignment.Center) {
+                        Icon(icon, null, tint = if (active) WebRed else WebMuted, modifier = Modifier.size(23.dp))
                     }
                     Text(
                         stringResource(label), color = if (active) WebRed else WebMuted,
