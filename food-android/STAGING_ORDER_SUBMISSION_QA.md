@@ -14,13 +14,39 @@ p_latitude double precision default null, p_longitude double precision default n
 
 - Server calculates authoritative prices, option surcharges, delivery fees and
   promotions. Android sends **no** final prices.
-- The current RPC creates an order immediately with
+- The **legacy** RPC creates an order immediately with
   `status=pending_acceptance` and `payment_status=pending`.
 - **No server-side idempotency key** is accepted by this RPC. A network timeout
   may mean the order was created despite a failed client response.
 - Server rate limiting is useful but **not** a duplicate-payment solution.
 - Therefore production/release APKs must always set
   `STAGING_ORDER_CREATION_ALLOWED=false`.
+
+## NEW — buyer-scoped idempotent RPC proposed in next Draft PR
+
+A dedicated local migration (NOT deployed) now adds
+`public.food_create_order_idempotent(p_attempt_id, ...)` and private
+`internal.food_mobile_order_attempts`. Within one Postgres transaction it
+serializes each authenticated buyer/attempt ID, invokes the existing
+server-authoritative `food_create_order`, and stores the returned order ID.
+An identical replay returns the same order ID; a changed cart/address with
+the same attempt ID fails closed. Anonymous callers and direct reads of
+the attempt ledger are denied. The test suite verifies those properties on
+a throwaway PostgreSQL database.
+
+The Native staging-only gateway now calls this RPC, NOT the legacy
+non-idempotent RPC. A unique attempt UUID is generated before network I/O,
+retained in the ViewModel, and shown if the result is uncertain. No automatic
+resubmission or payment is enabled; a full mobile payment order-intent
+contract must still be designed, tested and deployed separately. Process
+death / reinstall persistence of attempt references and cross-device
+reconciliation remain release blockers. Do not turn this on in any
+production or release APK.
+
+**Important:** The existing Stripe Sandbox lacks the full Food staging
+schema and does not yet have this migration. The test flag cannot
+successfully submit orders until an isolated disposable full-parity Food
+staging database is prepared and this migration is applied there.
 
 ## Staging-only debug opt in
 

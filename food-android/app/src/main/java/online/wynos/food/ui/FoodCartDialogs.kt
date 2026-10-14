@@ -447,6 +447,7 @@ fun FoodCartPreview(
             stagingOrderBusy = state.stagingOrderBusy,
             stagingOrderUncertain = state.stagingOrderUncertain,
             stagingOrderCreatedId = state.stagingOrderCreatedId,
+            stagingOrderAttemptId = state.stagingOrderAttemptId,
             onCreateOrder = onCreateOrder,
             onDismiss = { showReview = false },
         )

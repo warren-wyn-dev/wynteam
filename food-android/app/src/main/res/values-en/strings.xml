@@ -215,4 +215,5 @@
     <string name="staging_order_uncertain">The submission result is uncertain: an order may already exist. Reconcile against staging order history before taking any further action. Do not retry.</string>
     <string name="staging_order_confirm_title">Create a test order?</string>
     <string name="staging_order_confirm_text">This writes an actual order to the disposable staging backend only. It does not collect payment. Only one attempt is allowed per session. Confirm you are using a test account and store.</string>
+    <string name="staging_order_attempt_reference">Test attempt reference (for reconciliation): %1$s</string>
 </resources>

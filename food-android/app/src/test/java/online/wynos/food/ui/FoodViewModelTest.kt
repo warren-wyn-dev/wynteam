@@ -43,11 +43,14 @@ class FoodViewModelTest {
         var allowStagingOrders = false
         override val stagingOrderCreationEnabled: Boolean get() = allowStagingOrders
         var stagingOrderCalls = 0
+        var lastStagingAttemptId: String? = null
         val stagingOrderDeferred = CompletableDeferred<String>()
         override suspend fun createOrderStaging(
-            cart: FoodCartDraft, address: FoodCustomerAddress, customerNote: String,
+            cart: FoodCartDraft, address: FoodCustomerAddress,
+            customerNote: String, attemptId: String,
         ): String {
             stagingOrderCalls++
+            lastStagingAttemptId = attemptId
             return stagingOrderDeferred.await()
         }
         var selectedAddresses: List<FoodCustomerAddress> = emptyList()
@@ -397,6 +400,8 @@ class FoodViewModelTest {
             vm.submitStagingOrder("merchant note")
             runCurrent()
             assertEquals(1, fake.stagingOrderCalls)
+            assertEquals(fake.lastStagingAttemptId, vm.uiState.value.stagingOrderAttemptId)
+            assertTrue(java.util.UUID.fromString(fake.lastStagingAttemptId) != null)
             assertTrue(vm.uiState.value.stagingOrderBusy)
             fake.stagingOrderDeferred.complete("11111111-1111-4111-8111-111111111111")
             runCurrent()
@@ -429,6 +434,7 @@ class FoodViewModelTest {
             fake.stagingOrderDeferred.completeExceptionally(IllegalStateException("timeout after write"))
             runCurrent()
             assertTrue(vm.uiState.value.stagingOrderUncertain)
+            assertEquals(fake.lastStagingAttemptId, vm.uiState.value.stagingOrderAttemptId)
             assertTrue(vm.uiState.value.stagingOrderFailed)
             vm.submitStagingOrder()
             runCurrent()

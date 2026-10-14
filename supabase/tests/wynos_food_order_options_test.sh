@@ -189,4 +189,63 @@ for f in "food_quote_order(uuid,jsonb,double precision,double precision)" \
 done
 pass "privileges: internal resolver, RPCs for signed-in users only"
 
+# --- Native buyer-scoped order idempotency (no actual payments) -------------
+# The migration is staged in Git; this PostgreSQL test applies it only to
+# an isolated throwaway database. It is NOT a Production migration apply.
+run >/dev/null <<SQL
+create table auth.users (id uuid primary key);
+insert into auth.users(id) values ('$BUYER'),('$BUYER2'),('$DEV');
+delete from public.food_order_items;
+delete from public.food_order_events;
+delete from public.food_orders;
+SQL
+run >/dev/null < "$ROOT/supabase/migrations/20261014120000_food_mobile_order_attempt_idempotency.sql"
+run >/dev/null < "$ROOT/supabase/migrations/20261014120000_food_mobile_order_attempt_idempotency.sql"
+pass "mobile order idempotency migration applies twice without changes"
+
+MOBILE_ATTEMPT=11111111-1111-4111-8111-111111111111
+mobile_order() { # buyer attempt json-items
+  run -At -c "set role authenticated; set test.uid='$1';
+    select public.food_create_order_idempotent('$2','$STORE','QA','0800000000','Street',
+      null,'$3'::jsonb,null,null)" | tail -1
+}
+FIRST_MOBILE=$(mobile_order "$BUYER" "$MOBILE_ATTEMPT" "$LINE_WATER")
+[ -n "$FIRST_MOBILE" ] || fail "first mobile order created"
+REPLAY_MOBILE=$(mobile_order "$BUYER" "$MOBILE_ATTEMPT" "$LINE_WATER")
+[ "$FIRST_MOBILE" = "$REPLAY_MOBILE" ] || fail "same buyer+attempt must return same order ID"
+[ "$(val "select count(*) from public.food_orders where buyer_id='$BUYER'")" = "1" ] \
+  || fail "replay created a duplicate order"
+[ "$(val "select count(*) from internal.food_mobile_order_attempts where buyer_id='$BUYER'")" = "1" ] \
+  || fail "buyer attempt should only be stored once"
+pass "repeating same attempt ID is idempotent for same buyer"
+
+ALTERED_MOBILE='[{"menu_item_id":"'$WATER'","quantity":2}]'
+expect_error "same attempt ID with different cart fails closed" "$BUYER" \
+  "select public.food_create_order_idempotent('$MOBILE_ATTEMPT','$STORE','QA',
+      '0800000000','Street',null,'$ALTERED_MOBILE'::jsonb,null,null)" \
+  "mobile order attempt payload changed"
+[ "$(val "select count(*) from public.food_orders where buyer_id='$BUYER'")" = "1" ] \
+  || fail "changed attempt created a second order"
+
+OTHER_MOBILE=$(mobile_order "$BUYER2" "$MOBILE_ATTEMPT" "$LINE_WATER")
+[ "$FIRST_MOBILE" != "$OTHER_MOBILE" ] || fail "another buyer must never receive someone else's order"
+[ "$(val "select count(*) from public.food_orders")" = "2" ] \
+  || fail "expected exactly one order per buyer"
+pass "same attempt UUID is safely scoped by authenticated buyer"
+
+[ "$(val "select has_function_privilege('anon',
+  'public.food_create_order_idempotent(uuid,uuid,text,text,text,text,jsonb,double precision,double precision)',
+  'execute')")" = "f" ] || fail "anonymous access must be revoked"
+[ "$(val "select has_function_privilege('authenticated',
+  'public.food_create_order_idempotent(uuid,uuid,text,text,text,text,jsonb,double precision,double precision)',
+  'execute')")" = "t" ] || fail "authenticated RPC must be executable"
+[ "$(val "select has_table_privilege('authenticated','internal.food_mobile_order_attempts','select')")" = "f" ] \
+  || fail "attempt ledger must be private"
+pass "mobile order ledger is private and order RPC is authenticated"
+
+expect_error "anonymous cannot create a mobile order" "" \
+  "set role anon; select public.food_create_order_idempotent(
+     '$MOBILE_ATTEMPT','$STORE','Anon','0800000000','Street',null,'$LINE_WATER'::jsonb,null,null)" \
+  "permission denied for function food_create_order_idempotent"
+
 echo "All WYN-218 food order options tests passed."

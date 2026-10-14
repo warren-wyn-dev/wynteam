@@ -62,6 +62,7 @@ data class FoodUiState(
     val stagingOrderFailed: Boolean = false,
     val stagingOrderUncertain: Boolean = false,
     val stagingOrderCreatedId: String? = null,
+    val stagingOrderAttemptId: String? = null,
 )
 
 class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : ViewModel() {
@@ -81,8 +82,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     private var orderGeneration = 0L
     private var orderDetailGeneration = 0L
     private var quoteGeneration = 0L
-    // This legacy RPC lacks a server idempotency key. At most ONE staging
-    // submission attempt per signed-in session, including ambiguous failures.
+    // The staging RPC has a buyer-scoped durable idempotency key. Still restrict
+    // the preview to one attempt/session until full order/payment E2E is verified.
     private var stagingOrderAttemptConsumed = false
 
     private fun invalidateQuote() {
@@ -103,7 +104,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         stagingOrderAttemptConsumed = false
         mutableState.update {
             it.copy(stagingOrderBusy = false, stagingOrderFailed = false,
-                stagingOrderUncertain = false, stagingOrderCreatedId = null)
+                stagingOrderUncertain = false, stagingOrderCreatedId = null,
+                stagingOrderAttemptId = null)
         }
     }
 
@@ -459,8 +461,9 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     /**
      * Debug/staging disposable orders only. Never production checkout.
      *
-     * No automatic retry on timeout: the legacy food_create_order RPC is not
-     * idempotent, and a failed response may still mean an order was created.
+     * No automatic retry on timeout: a network failure may happen after
+     * creation. Store the attempt ID for reconciliation, never create a new
+     * attempt for the same uncertain result.
      */
     fun submitStagingOrder(customerNote: String = "") {
         val state = mutableState.value
@@ -473,15 +476,16 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             )) return
         val draft = state.cart
         val session = accountGeneration
-        val quoteRevision = quoteGeneration
+        val attemptId = java.util.UUID.randomUUID().toString()
         stagingOrderAttemptConsumed = true // BEFORE launching the network request
         mutableState.update {
             it.copy(stagingOrderBusy = true, stagingOrderFailed = false,
-                stagingOrderUncertain = false, stagingOrderCreatedId = null)
+                stagingOrderUncertain = false, stagingOrderCreatedId = null,
+                stagingOrderAttemptId = attemptId)
         }
         viewModelScope.launch {
             try {
-                val id = gateway.createOrderStaging(draft, address, customerNote.trim())
+                val id = gateway.createOrderStaging(draft, address, customerNote.trim(), attemptId)
                 if (session != accountGeneration) return@launch
                 mutableState.update {
                     it.copy(stagingOrderBusy = false, stagingOrderCreatedId = id)

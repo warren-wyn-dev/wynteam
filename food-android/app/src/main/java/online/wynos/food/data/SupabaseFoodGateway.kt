@@ -25,6 +25,7 @@ interface FoodGateway {
         cart: FoodCartDraft,
         address: FoodCustomerAddress,
         customerNote: String = "",
+        attemptId: String,
     ): String = throw IllegalStateException("staging_order_creation_disabled")
     suspend fun deleteMyAccount() {
         throw IllegalStateException("account_deletion_disabled")
@@ -62,15 +63,18 @@ class SupabaseFoodGateway : FoodGateway {
         cart: FoodCartDraft,
         address: FoodCustomerAddress,
         customerNote: String,
+        attemptId: String,
     ): String {
         check(stagingOrderCreationEnabled) { "staging_order_creation_disabled" }
         val supabase = requireClient()
         supabase.auth.awaitInitialization()
         check(supabase.auth.currentUserOrNull() != null) { "sign_in_required" }
-        // This legacy RPC has no idempotency key. Only disposable staging orders.
-        // Never call a live payment edge function, or put secret keys in the APK.
+        // Private buyer-scoped attempt table + atomic order RPC must be deployed
+        // on the disposable staging project before enabling this debug-only flow.
+        // No card charge and no privileged/mobile secret keys.
         val result = supabase.postgrest.rpc(
-            "food_create_order", FoodOrderSubmission.request(cart, address, customerNote),
+            "food_create_order_idempotent",
+            FoodOrderSubmission.idempotentRequest(cart, address, customerNote, attemptId),
         ).decodeAs<JsonElement>()
         val orderId = (result as? kotlinx.serialization.json.JsonPrimitive)?.content
             ?: throw IllegalStateException("missing_created_order_id")

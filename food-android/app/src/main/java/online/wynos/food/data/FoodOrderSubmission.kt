@@ -16,6 +16,25 @@ import java.util.UUID
  * atomically bind a client attempt ID to one order and reconcile payment/webhook state.
  */
 object FoodOrderSubmission {
+    /**
+     * Request for the buyer-scoped idempotent RPC. The client must generate
+     * and retain the same attempt ID when reconciling a network timeout.
+     * Still NOT a payment contract.
+     */
+    fun idempotentRequest(
+        cart: FoodCartDraft,
+        address: FoodCustomerAddress,
+        customerNote: String = "",
+        attemptId: String,
+    ): JsonObject {
+        val canonicalId = UUID.fromString(attemptId).toString()
+        val payload = request(cart, address, customerNote)
+        return buildJsonObject {
+            payload.forEach { (key, value) -> put(key, value) }
+            put("p_attempt_id", canonicalId)
+        }
+    }
+
     fun request(cart: FoodCartDraft, address: FoodCustomerAddress, customerNote: String = ""): JsonObject {
         require(address.validPin) { "valid_delivery_pin_required" }
         require(address.recipientName.trim().length in 1..120) { "invalid_recipient_name" }

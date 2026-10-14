@@ -215,4 +215,5 @@
     <string name="staging_order_uncertain">สถานะการส่งไม่แน่นอน ออเดอร์อาจถูกสร้างแล้ว กรุณาตรวจสอบฐานข้อมูล/ประวัติ Staging ก่อน ห้ามกดส่งซ้ำ</string>
     <string name="staging_order_confirm_title">ยืนยันสร้างออเดอร์ทดสอบ?</string>
     <string name="staging_order_confirm_text">การดำเนินการนี้จะเขียนข้อมูลออเดอร์จริงลงใน Staging เท่านั้น ไม่มีการชำระเงิน และไม่สามารถส่งซ้ำได้ในเซสชันนี้ โปรดยืนยันว่าใช้บัญชีและร้านทดสอบ</string>
+    <string name="staging_order_attempt_reference">รหัสคำขอทดสอบ (ใช้ตรวจสอบออเดอร์): %1$s</string>
 </resources>
