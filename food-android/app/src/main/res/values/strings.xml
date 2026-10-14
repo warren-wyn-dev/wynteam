@@ -106,6 +106,17 @@
     <string name="account_signup_password_rule">รหัสผ่านอย่างน้อย 8 ตัวอักษร และต้องตรงกัน</string>
     <string name="account_signup_email_sent">หากสมัครสำเร็จ โปรดตรวจอีเมลเพื่อยืนยันบัญชี ก่อนเข้าสู่ระบบ</string>
     <string name="account_back_to_signin">มีบัญชีแล้ว? เข้าสู่ระบบ</string>
+    <string name="account_delete_action">ลบบัญชี WYNOS</string>
+    <string name="account_delete_title">ลบบัญชี WYNOS แบบถาวร</string>
+    <string name="account_delete_shared_warning">การดำเนินการนี้จะลบบัญชี WYNOS ที่ใช้ร่วมกันในทุกบริการ ไม่ใช่เฉพาะ WYNOS Food</string>
+    <string name="account_delete_cannot_undo">ข้อมูลที่เกี่ยวข้องกับบัญชีจะถูกลบอย่างถาวรตามนโยบายการเก็บรักษาข้อมูล และไม่สามารถย้อนกลับได้</string>
+    <string name="account_delete_staging_only">การลบบัญชีในรุ่นทดสอบนี้ยังปิดอยู่ จะทดสอบได้เฉพาะบัญชีใน Staging ที่ได้รับอนุญาต</string>
+    <string name="account_delete_phrase">ลบบัญชี</string>
+    <string name="account_delete_type_instruction">พิมพ์ “%1$s” เพื่อยืนยัน</string>
+    <string name="account_delete_confirmation_label">ข้อความยืนยัน</string>
+    <string name="account_delete_failed">ไม่สามารถดำเนินการได้ โปรดตรวจสอบบัญชีและลองอีกครั้ง</string>
+    <string name="account_delete_final_title">ยืนยันลบบัญชี WYNOS หรือไม่?</string>
+    <string name="account_delete_final_warning">หลังยืนยัน ข้อมูลบัญชี WYNOS จะถูกลบและไม่สามารถกู้คืนได้</string>
     <string name="account_signup_pending">การสมัครสมาชิกบน Android อยู่ระหว่างพัฒนา</string>
     <string name="store_meta_guest">%1$d เมนู · ค่าส่งเริ่มต้น ฿%2$s</string>
     <string name="required_option">ต้องเลือก</string>
