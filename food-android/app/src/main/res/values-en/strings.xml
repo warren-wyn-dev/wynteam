@@ -207,4 +207,12 @@
     <string name="food_payment_issue">Payment issue</string>
     <string name="food_payment_refunded">Refunded</string>
     <string name="food_event_created">Order created</string>
+    <string name="staging_order_customer_note">Note to merchant (staging only)</string>
+    <string name="staging_order_create_action">Create staging test order</string>
+    <string name="staging_order_notice">Disposable staging environment only. No card charged. Never use with real customers.</string>
+    <string name="staging_order_in_progress">Submitting test order. Do not retry.</string>
+    <string name="staging_order_created">Test order created: %1$s (not paid)</string>
+    <string name="staging_order_uncertain">The submission result is uncertain: an order may already exist. Reconcile against staging order history before taking any further action. Do not retry.</string>
+    <string name="staging_order_confirm_title">Create a test order?</string>
+    <string name="staging_order_confirm_text">This writes an actual order to the disposable staging backend only. It does not collect payment. Only one attempt is allowed per session. Confirm you are using a test account and store.</string>
 </resources>
