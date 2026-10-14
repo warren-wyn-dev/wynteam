@@ -179,8 +179,11 @@ class MerchantApi(context: Context) {
     fun requestPasswordReset(email: String) {
         val address = email.trim()
         require(address.contains("@") && address.length <= 254) { "กรุณาระบุอีเมลให้ถูกต้อง" }
-        raw("POST", "/auth/v1/recover", JSONObject().put("email", address),
-            bearer = null, retry = false)
+        // Match web/lib/merchant-account.ts: the email link completes its
+        // verified recovery flow in the existing Merchant password-reset page.
+        val redirect = "https://merchant.wynos.online/merchant/reset-password"
+        raw("POST", "/auth/v1/recover?redirect_to=" + Uri.encode(redirect),
+            JSONObject().put("email", address), bearer = null, retry = false)
     }
 
     fun signIn(email: String, password: String) {
