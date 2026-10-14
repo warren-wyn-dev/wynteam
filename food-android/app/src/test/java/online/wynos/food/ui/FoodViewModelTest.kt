@@ -12,6 +12,7 @@ import online.wynos.food.data.FoodCartDraft
 import online.wynos.food.data.FoodCustomerAddress
 import online.wynos.food.data.FoodGateway
 import online.wynos.food.data.FoodHomeBanner
+import online.wynos.food.data.FoodPromotionNotice
 import online.wynos.food.data.FoodMenu
 import online.wynos.food.data.FoodOrderSummary
 import online.wynos.food.data.FoodOrderDetail
@@ -61,6 +62,13 @@ class FoodViewModelTest {
             deletionCalls++
         }
         var accountOnRestore: String? = "qa@example.com"
+        var inboxCalls = 0
+        var inboxDeferred: CompletableDeferred<List<FoodPromotionNotice>>? = null
+        var inboxRows: List<FoodPromotionNotice> = emptyList()
+        override suspend fun promotionInbox(): List<FoodPromotionNotice> {
+            inboxCalls++
+            return inboxDeferred?.await() ?: inboxRows
+        }
         var signupResult: String? = null
         var signupCalls = 0
         override suspend fun signUp(email: String, password: String): String? {
@@ -465,4 +473,47 @@ class FoodViewModelTest {
         }
     }
 
+    @Test fun promotionInboxCannotLoadForGuestAndLateResponseNeverLeaksAcrossAccounts() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val guestGateway = FakeGateway().apply { accountOnRestore = null }
+            val guestVm = FoodViewModel(guestGateway)
+            runCurrent()
+            guestVm.refreshPromotionInbox()
+            runCurrent()
+            assertEquals(0, guestGateway.inboxCalls)
+
+            val deferred = CompletableDeferred<List<FoodPromotionNotice>>()
+            val fake = FakeGateway().apply { inboxDeferred = deferred }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.refreshPromotionInbox()
+            runCurrent()
+            assertTrue(vm.uiState.value.promotionsLoading)
+            assertEquals(1, fake.inboxCalls)
+            vm.signOut()
+            runCurrent()
+            deferred.complete(listOf(FoodPromotionNotice(
+                "buyer-a-notice", "Private", "Buyer A", "SECRET", "", null,
+            )))
+            runCurrent()
+            assertNull(vm.uiState.value.accountEmail)
+            assertFalse(vm.uiState.value.promotionsLoading)
+            assertTrue(vm.uiState.value.promotions.isEmpty())
+
+            fake.inboxDeferred = null
+            fake.inboxRows = listOf(FoodPromotionNotice(
+                "buyer-b-notice", "Other user", "Buyer B", null, "", "2026-10-15T00:00:00Z",
+            ))
+            vm.signIn("buyer-b@example.com", "test-password")
+            runCurrent()
+            vm.refreshPromotionInbox()
+            runCurrent()
+            assertEquals("buyer-b@example.com", vm.uiState.value.accountEmail)
+            assertEquals(listOf("buyer-b-notice"), vm.uiState.value.promotions.map { it.id })
+            assertFalse(vm.uiState.value.promotions.single().isUnread)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
 }

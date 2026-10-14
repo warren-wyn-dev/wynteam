@@ -380,8 +380,17 @@ fun WebPromotionInboxPage(
                         .background(Color(0xFFF9F9FB)).padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
-                    Text(notice.title, fontWeight = FontWeight.Bold,
-                        color = PrimaryInk, fontSize = 15.sp)
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(notice.title, modifier = Modifier.weight(1f),
+                            fontWeight = FontWeight.Bold, color = PrimaryInk, fontSize = 15.sp)
+                        if (notice.isUnread) {
+                            Text(stringResource(R.string.promo_inbox_unread),
+                                color = BrandRed, fontSize = 11.sp)
+                        }
+                    }
                     if (notice.body.isNotBlank()) {
                         Text(notice.body, color = PrimaryInk, fontSize = 13.sp)
                     }
@@ -516,6 +525,13 @@ fun WebAccountPage(
                     Text(stringResource(R.string.promo_inbox_title),
                         modifier = Modifier.weight(1f), color = PrimaryInk,
                         fontWeight = FontWeight.SemiBold)
+                    if (!state.promotionsLoading && !state.promotionsFailed) {
+                        val unread = state.promotions.count { it.isUnread }
+                        if (unread > 0) {
+                            Text(stringResource(R.string.promo_inbox_unread_count, unread),
+                                color = BrandRed, fontSize = 12.sp)
+                        }
+                    }
                     Icon(Icons.Outlined.ChevronRight, null, tint = SoftText)
                 }
                 HorizontalDivider(color = ThinLine, modifier = Modifier.padding(horizontal = 16.dp))

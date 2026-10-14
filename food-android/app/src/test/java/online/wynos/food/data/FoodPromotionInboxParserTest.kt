@@ -1,6 +1,8 @@
 package online.wynos.food.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -18,6 +20,8 @@ class FoodPromotionInboxParserTest {
         assertEquals("WELCOME40", rows[0].couponCode)
         assertEquals("โปรโมชัน WYNOS Food", rows[0].title)
         assertNull(rows[0].readAt)
+        assertTrue(rows[0].isUnread)
+        assertFalse(rows[1].isUnread)
         assertNull(rows[1].couponCode)
         assertEquals("2026-10-14T00:00:00Z", rows[1].readAt)
     }

@@ -19,7 +19,10 @@ data class FoodPromotionNotice(
     val couponCode: String?,
     val createdAt: String,
     val readAt: String?,
-)
+) {
+    /** Server read marker only; copying a coupon never marks it read. */
+    val isUnread: Boolean get() = readAt == null
+}
 object FoodPromotionInboxParser {
     fun parse(raw: String): List<FoodPromotionNotice> = parse(Json.parseToJsonElement(raw))
 
