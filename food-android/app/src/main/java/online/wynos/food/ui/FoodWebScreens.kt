@@ -54,6 +54,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -494,6 +495,99 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boole
 }
 
 @Composable
+private fun FoodStoreReviewPanel(
+    state: FoodUiState,
+    storeId: String,
+    onRetry: () -> Unit,
+) {
+    val isCurrent = state.reviewFeedStoreId == storeId
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        when {
+            !isCurrent || state.storeReviewsLoading -> {
+                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.CircularProgressIndicator(color = WebRed)
+                }
+            }
+            state.storeReviewsFailed -> {
+                Text(stringResource(R.string.food_reviews_load_failed), color = WebSub)
+                OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+            }
+            state.storeReviewFeed.count <= 0 -> {
+                Text(stringResource(R.string.food_reviews_empty), color = WebSub)
+            }
+            else -> {
+                val feed = state.storeReviewFeed
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Outlined.Star, null, tint = Color(0xFFF5A623))
+                    Text(
+                        "%.1f".format(java.util.Locale.US, feed.average),
+                        color = WebInk, fontWeight = FontWeight.Bold, fontSize = 22.sp,
+                    )
+                    Text(
+                        stringResource(R.string.food_reviews_count, feed.count),
+                        color = WebSub, fontSize = 13.sp,
+                    )
+                }
+                feed.reviews.forEach { review ->
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(WebSurface).padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                review.reviewerLabel,
+                                modifier = Modifier.weight(1f),
+                                color = WebInk, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                "★".repeat(review.rating) + "☆".repeat(5 - review.rating),
+                                color = Color(0xFFF5A623), fontSize = 13.sp,
+                            )
+                        }
+                        if (review.verifiedOrder) {
+                            Text(stringResource(R.string.food_reviews_verified), color = WebGreen, fontSize = 12.sp)
+                        }
+                        review.text?.let { Text(it, color = WebInk, fontSize = 14.sp) }
+                        if (review.tags.isNotEmpty()) {
+                            Text(review.tags.joinToString(" · "), color = WebSub, fontSize = 12.sp)
+                        }
+                        if (review.createdAt.isNotBlank()) {
+                            Text(review.createdAt.take(10), color = WebMuted, fontSize = 11.sp)
+                        }
+                        review.merchantReply?.let { reply ->
+                            Column(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                                    .background(Color.White).padding(10.dp),
+                            ) {
+                                Text(
+                                    stringResource(R.string.food_reviews_merchant_reply),
+                                    color = WebInk, fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+                                )
+                                Text(reply, color = WebSub, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun TagWeb(title: String) {
     Text(
         title, color = WebSub, fontSize = 11.5.sp, maxLines = 1,
@@ -517,12 +611,18 @@ fun WebStoreScreen(
     onSelectAddress: (String?) -> Unit,
     onChangeQuantity: (String, Int) -> Unit,
     onCreateOrder: (String) -> Unit,
+    onLoadReviews: (String) -> Unit,
     onPrepareStagingPayment: suspend (String) -> online.wynos.food.data.FoodMobilePaymentIntent,
     onPaymentSheetCompleted: () -> Unit,
 ) {
     var selectedMenu by remember(store.id) { mutableStateOf<FoodMenu?>(null) }
     var showCart by remember(store.id) { mutableStateOf(false) }
     var storeTab by rememberSaveable(store.id) { mutableIntStateOf(0) }
+    // Website fetches public.food_store_review_feed when Reviews is selected.
+    // This is a read-only authenticated storefront operation (not a review write).
+    LaunchedEffect(store.id, storeTab) {
+        if (storeTab == 1) onLoadReviews(store.id)
+    }
     var category by rememberSaveable(store.id) { mutableStateOf("ทั้งหมด") }
     val categories = listOf("ทั้งหมด") + store.menu.map { it.category }.filter { it.isNotBlank() }.distinct()
     val available = store.menu.filter { it.isAvailable() }
@@ -677,7 +777,13 @@ fun WebStoreScreen(
             if (cartError) item { Text(stringResource(R.string.cart_validation_error), color = WebRed, modifier = Modifier.padding(16.dp)) }
             item { CenterStateText(R.string.checkout_unavailable) }
         } else if (storeTab == 1) {
-            item { CenterStateText(R.string.store_reviews_unavailable) }
+            item {
+                FoodStoreReviewPanel(
+                    state = state,
+                    storeId = store.id,
+                    onRetry = { onLoadReviews(store.id) },
+                )
+            }
         } else {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
