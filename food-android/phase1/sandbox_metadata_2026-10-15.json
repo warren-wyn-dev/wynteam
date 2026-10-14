@@ -1,0 +1,48 @@
+{
+  "project_ref": "pcatuxtenluqzjzzwsvl",
+  "checked_at": "2026-10-15",
+  "environment": "WYNOS Stripe Sandbox; metadata only; NOT compatible Food+Merchant staging",
+  "functions": [
+    {
+      "name": "food_create_order",
+      "arguments": "p_store_id uuid, p_recipient_name text, p_recipient_phone text, p_shipping_address text, p_customer_note text, p_items jsonb"
+    },
+    {
+      "name": "food_submit_payment",
+      "arguments": "p_order_id uuid, p_slip_path text"
+    }
+  ],
+  "tables": [
+    {
+      "name": "food_stores",
+      "rls_enabled": true
+    },
+    {
+      "name": "food_menu_items",
+      "rls_enabled": true
+    },
+    {
+      "name": "food_orders",
+      "rls_enabled": true
+    },
+    {
+      "name": "food_order_items",
+      "rls_enabled": true
+    },
+    {
+      "name": "food_order_events",
+      "rls_enabled": true
+    }
+  ],
+  "edge_functions": [
+    "food-stripe-checkout",
+    "food-stripe-cancel",
+    "merchant-stripe-connect",
+    "merchant-stripe-refund",
+    "stripe-webhook",
+    "qa-stripe-checkout-e2e",
+    "food-unpaid-timeout",
+    "qa-stripe-checkout-readonly",
+    "qa-promptpay-rotate-once"
+  ]
+}
