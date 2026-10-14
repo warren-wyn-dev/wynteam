@@ -57,6 +57,11 @@ data class FoodUiState(
     val accountDeletionBusy: Boolean = false,
     val signupEnabled: Boolean = false,
     val registrationEmailSent: Boolean = false,
+    val stagingOrderCreationEnabled: Boolean = false,
+    val stagingOrderBusy: Boolean = false,
+    val stagingOrderFailed: Boolean = false,
+    val stagingOrderUncertain: Boolean = false,
+    val stagingOrderCreatedId: String? = null,
 )
 
 class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : ViewModel() {
@@ -65,6 +70,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         addressWritesEnabled = gateway.addressWritesEnabled,
         signupEnabled = gateway.signupEnabled,
         accountDeletionEnabled = gateway.accountDeletionEnabled,
+        stagingOrderCreationEnabled = gateway.stagingOrderCreationEnabled,
     ))
     val uiState = mutableState.asStateFlow()
 
@@ -75,6 +81,9 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     private var orderGeneration = 0L
     private var orderDetailGeneration = 0L
     private var quoteGeneration = 0L
+    // This legacy RPC lacks a server idempotency key. At most ONE staging
+    // submission attempt per signed-in session, including ambiguous failures.
+    private var stagingOrderAttemptConsumed = false
 
     private fun invalidateQuote() {
         quoteGeneration++
@@ -91,6 +100,11 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         mutableState.update { it.copy(selectedOrderId = null, orderDetail = null,
             orderDetailLoading = false, orderDetailFailed = false, orderStatusNotice = null) }
         invalidateQuote()
+        stagingOrderAttemptConsumed = false
+        mutableState.update {
+            it.copy(stagingOrderBusy = false, stagingOrderFailed = false,
+                stagingOrderUncertain = false, stagingOrderCreatedId = null)
+        }
     }
 
     init {
@@ -206,7 +220,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     fun deleteAccount() {
         val state = mutableState.value
         if (!gateway.accountDeletionEnabled || state.accountEmail == null ||
-            state.accountBusy || state.accountDeletionBusy) return
+            state.accountBusy || state.accountDeletionBusy || state.stagingOrderBusy) return
         invalidateAccountRequests()
         val generation = accountGeneration
         mutableState.update {
@@ -246,7 +260,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     }
 
     fun signOut() {
-        if (mutableState.value.accountBusy) return
+        if (mutableState.value.accountBusy || mutableState.value.stagingOrderBusy) return
         invalidateAccountRequests()
         val generation = accountGeneration
         mutableState.update { it.copy(accountBusy = true, accountFailed = false) }
@@ -437,6 +451,56 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             } catch (_: Exception) {
                 if (generation == quoteGeneration && session == accountGeneration) {
                     mutableState.update { it.copy(quoteLoading = false, quoteFailed = true) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Debug/staging disposable orders only. Never production checkout.
+     *
+     * No automatic retry on timeout: the legacy food_create_order RPC is not
+     * idempotent, and a failed response may still mean an order was created.
+     */
+    fun submitStagingOrder(customerNote: String = "") {
+        val state = mutableState.value
+        if (!gateway.stagingOrderCreationEnabled || !state.stagingOrderCreationEnabled ||
+            stagingOrderAttemptConsumed || state.accountEmail == null || state.accountBusy ||
+            state.stagingOrderBusy || state.addressBusy || customerNote.length > 800) return
+        val address = state.addresses.firstOrNull { it.id == state.selectedAddressId } ?: return
+        if (!online.wynos.food.data.FoodCheckoutReviewGuard.canReview(
+                state.cart, state.quote, address, state.quoteLoading, state.addressesLoading,
+            )) return
+        val draft = state.cart
+        val session = accountGeneration
+        val quoteRevision = quoteGeneration
+        stagingOrderAttemptConsumed = true // BEFORE launching the network request
+        mutableState.update {
+            it.copy(stagingOrderBusy = true, stagingOrderFailed = false,
+                stagingOrderUncertain = false, stagingOrderCreatedId = null)
+        }
+        viewModelScope.launch {
+            try {
+                val id = gateway.createOrderStaging(draft, address, customerNote.trim())
+                if (session != accountGeneration) return@launch
+                mutableState.update {
+                    it.copy(stagingOrderBusy = false, stagingOrderCreatedId = id)
+                }
+                // The cart/quote may have changed while submitting. Never
+                // assume an old quote is still valid; leave it for manual review.
+                if (quoteRevision == quoteGeneration && mutableState.value.cart == draft) {
+                    invalidateQuote()
+                    mutableState.update { it.copy(cart = FoodCartDraft()) }
+                }
+                refreshOrders()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (session == accountGeneration) {
+                    mutableState.update {
+                        it.copy(stagingOrderBusy = false, stagingOrderFailed = true,
+                            stagingOrderUncertain = true)
+                    }
                 }
             }
         }
