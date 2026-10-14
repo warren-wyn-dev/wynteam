@@ -508,8 +508,11 @@ private fun SuggestionCard(person: Person, busy: Boolean, vm: ProfileViewModel, 
 private fun ProfileTabs(selected: ProfileTab, onSelect: (ProfileTab) -> Unit) {
     val c = Wyn.colors
     val dark = c.bg == DarkWynColors.bg
+    val viewportWidth = LocalConfiguration.current.screenWidthDp
+    val narrow = viewportWidth <= 359
+    val indicatorWidth = if (narrow) (viewportWidth / 3f - 28f).coerceAtLeast(48f).dp else 120.dp
     Column(Modifier.fillMaxWidth().background(c.bg)) {
-        Row(Modifier.fillMaxWidth().height(48.dp)) {
+        Row(Modifier.fillMaxWidth().height(50.dp)) {
             listOf(ProfileTab.Posts to R.string.profile_tab_posts, ProfileTab.Reposts to R.string.profile_tab_reposts, ProfileTab.Likes to R.string.profile_tab_likes)
                 .forEach { (tab, label) ->
                     val active = tab == selected
@@ -518,10 +521,10 @@ private fun ProfileTabs(selected: ProfileTab, onSelect: (ProfileTab) -> Unit) {
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            stringResource(label), color = if (active) c.text else TabGrey, fontSize = 14.5.sp,
+                            stringResource(label), color = if (active) c.text else TabGrey, fontSize = if (narrow) 14.sp else 15.sp,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
                         )
-                        if (active) Box(Modifier.align(Alignment.BottomCenter).size(104.dp, 2.dp).background(c.text))
+                        if (active) Box(Modifier.align(Alignment.BottomCenter).size(indicatorWidth, 2.dp).background(c.text))
                     }
                 }
         }
