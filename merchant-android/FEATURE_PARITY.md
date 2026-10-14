@@ -1,6 +1,6 @@
 # Merchant Web → Native Android feature parity checklist
 
-Canonical source: \`web/components/merchant/wynos-merchant-app.tsx\` and imported panels/libs (checked 2026-10-14). This checklist is a release gate, not a claim of completion.
+Canonical source: `web/components/merchant/wynos-merchant-app.tsx` and imported panels/libs (checked 2026-10-14). This checklist is a release gate, not a claim of completion.
 
 Legend: **Partial** = some working code on this branch; **Missing** = not native yet.
 
