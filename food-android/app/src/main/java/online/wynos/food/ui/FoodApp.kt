@@ -76,9 +76,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     val selectedStore = state.stores.firstOrNull { it.id == selectedStoreId }
     // Website FoodHeader uses the default saved address, falling back to the
     // first address, and displays place_name before a user label.
-    val defaultAddress = state.addresses.find { it.isDefault } ?: state.addresses.firstOrNull()
-    val homeLocationLabel = defaultAddress?.placeName?.takeIf { it.isNotBlank() }
-        ?: defaultAddress?.label?.takeIf { it.isNotBlank() }
+    val homeLocationLabel = online.wynos.food.data.FoodHomeDeliveryLabel.fromAddresses(state.addresses)
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Refresh order status only while the user is viewing their orders in the foreground.
