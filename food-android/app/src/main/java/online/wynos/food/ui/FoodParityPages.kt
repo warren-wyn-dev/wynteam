@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -327,6 +328,7 @@ fun WebAccountPage(
     onDeleteAccount: () -> Unit,
     onResetPassword: (String) -> Unit,
     onOrders: () -> Unit,
+    onFavorites: () -> Unit,
     onRefreshAddresses: () -> Unit,
     onSaveAddress: (online.wynos.food.data.FoodAddressDraft) -> Unit,
     onDeleteAddress: (String) -> Unit,
@@ -393,6 +395,19 @@ fun WebAccountPage(
                 )
             }
             item {
+                HorizontalDivider(color = ThinLine, modifier = Modifier.padding(horizontal = 16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onFavorites)
+                        .padding(horizontal = 16.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(Icons.Outlined.FavoriteBorder, null, tint = BrandRed)
+                    Text(stringResource(R.string.favorite_stores),
+                        modifier = Modifier.weight(1f), color = PrimaryInk,
+                        fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Outlined.ChevronRight, null, tint = SoftText)
+                }
                 HorizontalDivider(color = ThinLine, modifier = Modifier.padding(horizontal = 16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable(onClick = onOrders)
