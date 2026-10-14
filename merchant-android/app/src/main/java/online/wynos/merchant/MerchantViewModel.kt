@@ -74,6 +74,7 @@ fun isRecentCompleted(order: JSONObject, now: Long = System.currentTimeMillis())
 class MerchantViewModel(application: Application) : AndroidViewModel(application) {
     private val api = MerchantApi(application)
     private val prefs = application.getSharedPreferences("merchant_preferences", 0)
+    private var pendingPageLoad: MerchantPage? = null
     var state by mutableStateOf(MerchantState(configured = api.configured))
         private set
 
@@ -93,6 +94,9 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
                 state = state.copy(error = error.message ?: "ดำเนินการไม่สำเร็จ")
             } finally {
                 state = state.copy(busy = false)
+                val pending = pendingPageLoad
+                pendingPageLoad = null
+                if (pending != null && state.signedIn && state.page == pending) loadPageData(pending)
             }
         }
     }
@@ -155,6 +159,11 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
 
     fun openPage(page: MerchantPage) {
         state = state.copy(page = page, error = "", selectedMenu = null)
+        // Opening a page during refresh previously discarded its data fetch silently.
+        if (state.busy) pendingPageLoad = page else loadPageData(page)
+    }
+
+    private fun loadPageData(page: MerchantPage) {
         if (page == MerchantPage.HISTORY) loadHistory()
         if (page == MerchantPage.FINANCE) loadFinance()
         if (page == MerchantPage.STORE) loadStoreDetails()
