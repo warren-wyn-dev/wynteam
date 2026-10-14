@@ -50,7 +50,10 @@ object MerchantPush {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(NotificationChannel(
             CHANNEL, "ออเดอร์ WYNOS Merchant", NotificationManager.IMPORTANCE_HIGH
-        ).apply { description = "แจ้งเตือนออเดอร์และกิจกรรมร้านค้า" })
+        ).apply {
+            description = "แจ้งเตือนออเดอร์และกิจกรรมร้านค้า"
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+        })
     }
 
     /** Must be called on an IO thread after the explicit OS permission flow. */
@@ -61,12 +64,20 @@ object MerchantPush {
         }
         initialize(context)
         FirebaseMessaging.getInstance().isAutoInitEnabled = true
-        val token = Tasks.await(FirebaseMessaging.getInstance().token)
-        require(!token.isNullOrBlank()) { "ไม่สามารถขอ FCM token ได้" }
-        // Never persist consent before the RLS-protected backend accepted the token.
-        api.registerPushToken(token)
-        preferences(context).edit().putBoolean("wanted", true)
-            .putString("token", token).apply()
+        try {
+            val token = Tasks.await(FirebaseMessaging.getInstance().token)
+            require(!token.isNullOrBlank()) { "ไม่สามารถขอ FCM token ได้" }
+            // Never persist consent before the RLS-protected backend accepted the token.
+            api.registerPushToken(token)
+            preferences(context).edit().putBoolean("wanted", true)
+                .putString("token", token).apply()
+        } catch (failure: Exception) {
+            // Failed RLS/account registration must not leave background FCM
+            // enabled for a device that the current user did not activate.
+            FirebaseMessaging.getInstance().isAutoInitEnabled = false
+            runCatching { Tasks.await(FirebaseMessaging.getInstance().deleteToken()) }
+            throw failure
+        }
     }
 
     /** Revocation precedes logout; failures prevent a privacy-leaking account switch. */
