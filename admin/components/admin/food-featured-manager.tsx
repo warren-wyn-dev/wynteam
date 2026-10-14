@@ -15,29 +15,34 @@ export function FoodFeaturedManager({
  const router=useRouter();
  const [rows,setRows]=useState(initial);
  const [storeId,setStoreId]=useState(stores[0]?.id??"");
- const [priority,setPriority]=useState("10");
- const [active,setActive]=useState(false);
- const [startsAt,setStartsAt]=useState(defaultStart);
- const [endsAt,setEndsAt]=useState("");
+ const first=initial.find(r=>r.store_id===stores[0]?.id);
+ const [priority,setPriority]=useState(String(first?.priority??10));
+ const [active,setActive]=useState(first?.active??false);
+ const [startsAt,setStartsAt]=useState(()=>first?datetimeLocal(first.starts_at):defaultStart());
+ const [endsAt,setEndsAt]=useState(()=>first?.ends_at?datetimeLocal(first.ends_at):"");
  const [reason,setReason]=useState("");
  const [pending,startTransition]=useTransition();
  const [error,setError]=useState<string|null>(null);
  const [success,setSuccess]=useState<string|null>(null);
+ const [needsReload,setNeedsReload]=useState(false);
  const row=rows.find(r=>r.store_id===storeId)??null;
- function select(id:string,source=rows){
-  setStoreId(id);
+ function applySelection(id:string,source:AdminFeaturedStore[]){
   const p=source.find(r=>r.store_id===id);
+  const nextStart=p?datetimeLocal(p.starts_at):defaultStart();
+  const nextEnd=p?.ends_at?datetimeLocal(p.ends_at):"";
+  setStoreId(id);
   setPriority(String(p?.priority??10));setActive(p?.active??false);
-  setStartsAt(p?datetimeLocal(p.starts_at):defaultStart());
-  setEndsAt(p?.ends_at?datetimeLocal(p.ends_at):"");
+  setStartsAt(nextStart);setEndsAt(nextEnd);
   setReason("");setError(null);setSuccess(null);
  }
+ function select(id:string){if(!pending&&!needsReload)applySelection(id,rows);}
  async function reload(){
-  const {data,error:e}=await createClient().rpc("admin_food_featured_stores");
+  const {data,error:e}=await createClient().rpc("admin_food_featured_stores")
+   .abortSignal(AbortSignal.timeout(10_000));
   if(e)throw e;
   if(!Array.isArray(data))throw Error("Invalid response");
   const next=data as AdminFeaturedStore[];
-  setRows(next);select(storeId,next);router.refresh();
+  applySelection(storeId,next);setRows(next);setNeedsReload(false);router.refresh();
  }
  const startTime=Date.parse(startsAt),endTime=endsAt?Date.parse(endsAt):null,order=Number(priority);
  const valid=!!storeId && Number.isInteger(order)&&order>=1&&order<=100
@@ -45,20 +50,27 @@ export function FoodFeaturedManager({
   && reason.trim().length>=5 && reason.trim().length<=300;
  function save(){
   setError(null);setSuccess(null);
-  if(!canEdit||!valid||pending)return;
+  if(!canEdit||!valid||pending||needsReload)return;
   if(!window.confirm(`ยืนยันตั้งค่าร้านแนะนำ? หากเปิดใช้งานและอยู่ในช่วงเวลาที่กำหนด ร้านอาจปรากฏบนหน้าแรก Food ทันที`))return;
   startTransition(async()=>{
+   let saved=false;
    try{
     const {error:e}=await createClient().rpc("admin_save_food_featured_store",{
      p_store_id:storeId,p_expected_version:row?.version??null,p_priority:order,p_active:active,
      p_starts_at:new Date(startsAt).toISOString(),
      p_ends_at:endsAt?new Date(endsAt).toISOString():null,p_reason:reason.trim(),
-    });
+    }).abortSignal(AbortSignal.timeout(20_000));
     if(e)throw e;
+    saved=true;setNeedsReload(true);
     await reload();setSuccess("บันทึกค่าร้านแนะนำจริงและโหลดข้อมูลใหม่เรียบร้อย");
    }catch(e){
-    const message=e instanceof Error?e.message:String(e);
-    setError(message.includes("placement changed")?"ข้อมูลถูกแก้จากที่แสดง กรุณาโหลดข้อมูลใหม่":message.includes("Not authorized")?
+    const message=e&&typeof e==="object"&&"message" in e?String(e.message):String(e);
+    const code=e&&typeof e==="object"&&"code" in e?String(e.code):"";
+    const uncertain=!saved&&code!=="P0001"&&!/^22|^23|^42/.test(code);
+    if(uncertain)setNeedsReload(true);
+    setError(saved?"บันทึกสำเร็จ แต่โหลดข้อมูลล่าสุดไม่สำเร็จ กรุณาโหลดข้อมูลล่าสุดก่อนทำรายการต่อ":uncertain?
+      "ยังยืนยันผลการบันทึกไม่ได้ กรุณาโหลดข้อมูลล่าสุดและตรวจรายการก่อนบันทึกอีกครั้ง":
+      message.includes("placement changed")?"ข้อมูลถูกแก้จากที่แสดง กรุณาโหลดข้อมูลใหม่":message.includes("Not authorized")?
       "บัญชีนี้ไม่มีสิทธิ์ food:edit":"บันทึกไม่สำเร็จ: "+message);
    }
   });
@@ -67,7 +79,7 @@ export function FoodFeaturedManager({
   <div className="grid gap-4 sm:grid-cols-2">
    <label className="block text-sm font-medium">
     เลือกร้าน
-    <select value={storeId} onChange={e=>select(e.target.value)}
+    <select value={storeId} disabled={pending||needsReload} onChange={e=>select(e.target.value)}
       className="mt-2 h-11 w-full rounded-lg border bg-background px-3 text-sm">
      {stores.length===0?<option value="">ไม่พบร้าน</option>:null}
      {stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
@@ -106,12 +118,12 @@ export function FoodFeaturedManager({
     className="mt-2 block w-full rounded-lg border bg-background p-3 text-sm"/>
   </label>
   <div className="flex flex-wrap gap-2">
-   <button type="button" disabled={!valid||pending} onClick={save}
+   <button type="button" disabled={!valid||pending||needsReload} onClick={save}
     className="min-h-11 rounded-lg bg-foreground px-5 text-sm font-semibold text-background disabled:opacity-40">
     {pending?"กำลังบันทึก…":"ตรวจและยืนยันบันทึกจริง"}
    </button>
    <button type="button" disabled={pending} onClick={()=>startTransition(async()=>{
-      try{await reload();setSuccess("โหลดข้อมูลล่าสุดแล้ว");}catch(e){setError("โหลดข้อมูลไม่ได้: "+String(e));}
+      try{setError(null);setSuccess(null);await reload();setSuccess("โหลดข้อมูลล่าสุดแล้ว");}catch(e){setError("โหลดข้อมูลไม่ได้ ข้อมูลที่แก้ไขยังอยู่: "+String(e));}
      })} className="min-h-11 rounded-lg border px-5 text-sm font-medium">
     โหลดข้อมูลล่าสุด
    </button>
@@ -121,7 +133,7 @@ export function FoodFeaturedManager({
   <div className="space-y-2 border-t pt-5">
    <h2 className="text-sm font-semibold">รายการร้านที่ตั้งค่าแล้ว</h2>
    {rows.length===0?<p className="text-sm text-muted-foreground">ยังไม่มีร้านแนะนำ (ไม่เปลี่ยนลำดับหน้า Food ปัจจุบัน)</p>:
-    <div className="space-y-2">{rows.map(r=><button type="button" key={r.store_id} onClick={()=>select(r.store_id)}
+    <div className="space-y-2">{rows.map(r=><button type="button" key={r.store_id} disabled={pending||needsReload} onClick={()=>select(r.store_id)}
      className="flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm hover:bg-accent">
      <span>{r.store_name}</span>
      <span className="text-xs text-muted-foreground">{r.active?"เปิด":"ปิด"} · อันดับ {r.priority}</span>

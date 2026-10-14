@@ -2,7 +2,11 @@ import Link from "next/link";
 
 import { fetchFoodHomeAnalytics, type FoodHomeAnalyticsDays, type FoodHomeAnalyticsKind } from "@/lib/admin-food-home-analytics";
 
-export async function FoodHomeAnalytics({ kind, days }: { kind: FoodHomeAnalyticsKind; days: FoodHomeAnalyticsDays }) {
+export async function FoodHomeAnalytics({ kind, days, queryParams = {} }: {
+  kind: FoodHomeAnalyticsKind;
+  days: FoodHomeAnalyticsDays;
+  queryParams?: Record<string, string>;
+}) {
   let data;
   try {
     data = await fetchFoodHomeAnalytics(kind, days);
@@ -16,7 +20,7 @@ export async function FoodHomeAnalytics({ kind, days }: { kind: FoodHomeAnalytic
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="font-semibold">สถิติการแสดงผล</h2>
       <nav aria-label="ช่วงเวลาสถิติ" className="flex gap-1">
-        {([7, 30, 90] as const).map((range) => <Link key={range} href={`?analyticsDays=${range}`} scroll={false}
+        {([7, 30, 90] as const).map((range) => <Link key={range} href={`?${new URLSearchParams({ ...queryParams, analyticsDays: String(range) })}`} scroll={false}
           aria-current={range === days ? "page" : undefined}
           className={`rounded-md border px-3 py-2 text-sm ${range === days ? "bg-muted font-semibold" : "text-muted-foreground hover:bg-muted/50"}`}>
           {range} วัน

@@ -122,3 +122,18 @@ test("planned pages remain searchable but cannot become functional links", () =>
   assert.equal(isAdminNavItemAvailable(secretary), false);
   assert.equal(secretary.href, undefined);
 });
+
+test("Food marketing workspace follows its actual Food permission boundary", () => {
+  const food = adminNavItemsForRole("staff", {
+    available: true, superAdmin: false, permissions: { food: "view" },
+  });
+  const marketing = food.find(item => item.id === "platform-marketing");
+  assert.equal(marketing.href, "/platform/marketing");
+  assert.equal(findActiveAdminNavItem("/platform/marketing", ADMIN_NAV_ITEMS).id, "platform-marketing");
+  for (const permissions of [{ social: "edit" }, { merchant: "edit" }, {}]) {
+    const staff = adminNavItemsForRole("staff", {
+      available: true, superAdmin: false, permissions,
+    });
+    assert.equal(staff.some(item => item.id === "platform-marketing"), false);
+  }
+});

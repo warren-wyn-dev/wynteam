@@ -18,13 +18,17 @@ export type BannerStore = {id: string; name: string};
 
 export async function fetchAdminFoodBanners(): Promise<AdminFoodBanner[]> {
   const client = await createClient();
-  const {data,error} = await client.rpc("admin_food_home_banners");
+  const {data,error} = await client.rpc("admin_food_home_banners")
+    .abortSignal(AbortSignal.timeout(10_000));
   if(error) throw error;
-  return Array.isArray(data) ? data as AdminFoodBanner[] : [];
+  if(!Array.isArray(data)) throw new Error("Invalid banner response");
+  return data as AdminFoodBanner[];
 }
 export async function fetchAdminBannerStores(): Promise<BannerStore[]> {
   const client = await createClient();
-  const {data,error} = await client.rpc("admin_food_stores",{p_query:null});
+  const {data,error} = await client.rpc("admin_food_stores",{p_query:null})
+    .abortSignal(AbortSignal.timeout(10_000));
   if(error) throw error;
-  return Array.isArray(data) ? data.map((x: {id: string; name: string})=>({id:x.id,name:x.name})) : [];
+  if(!Array.isArray(data)) throw new Error("Invalid store response");
+  return data.map((x: {id: string; name: string})=>({id:x.id,name:x.name}));
 }

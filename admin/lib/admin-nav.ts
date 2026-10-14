@@ -152,7 +152,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: "map-reports", href: "/maps/reports", label: "Map Reports", icon: MapPinOff, group: "maps", requires: { systems: ["maps"] } },
 
   { id: "ai-secretary", label: "AI Secretary", icon: Bot, group: "other", requires: "any" },
-  { id: "platform-marketing", label: "Platform Marketing", icon: Megaphone, group: "other", requires: "any" },
+  { id: "platform-marketing", href: "/platform/marketing", label: "Platform Marketing", icon: Megaphone, group: "other", requires: { systems: ["food"] } },
   { id: "audit-log", href: "/audit-log", label: "Audit Logs", icon: ScrollText, group: "other", superAdminOnly: true },
   { id: "system-settings", label: "System Settings", icon: Settings, group: "other", superAdminOnly: true },
 ];
@@ -197,7 +197,7 @@ const ADMIN_NAV_SEARCH_ALIASES: Record<string, string> = {
   places: "สถานที่ แผนที่",
   "map-reports": "รายงานแผนที่",
   "ai-secretary": "เลขา เลขานุการ ผู้ช่วย",
-  "platform-marketing": "การตลาดแพลตฟอร์ม",
+  "platform-marketing": "การตลาดแพลตฟอร์ม โปรโมตหน้าแรก แบนเนอร์ banner featured",
   "audit-log": "ประวัติ บันทึกการดำเนินการ ตรวจสอบย้อนหลัง",
   "system-settings": "ตั้งค่าระบบ",
 };
