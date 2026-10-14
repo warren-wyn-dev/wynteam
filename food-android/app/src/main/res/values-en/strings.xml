@@ -234,4 +234,5 @@
     <string name="staging_payment_unavailable">Test payment unavailable. Check staging and order state.</string>
     <string name="coupon_section_title">More discount codes</string>
     <string name="coupon_live_empty">Verified collectable offers will appear here when available.</string>
+    <string name="sort_delivery_fee_lowest">Lowest delivery fee</string>
 </resources>

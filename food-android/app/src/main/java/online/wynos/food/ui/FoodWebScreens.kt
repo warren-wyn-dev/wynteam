@@ -278,11 +278,7 @@ fun WebHomeScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
     var showAllStores by rememberSaveable { mutableStateOf(false) }
-    val filtered = state.stores.distinctBy { it.id }.filter { store ->
-        (query.isBlank() || store.name.contains(query.trim(), ignoreCase = true) ||
-            store.menu.any { it.name.contains(query.trim(), ignoreCase = true) }) &&
-            (filter != "open" || store.isOpen)
-    }
+    val filtered = visibleHomeStores(state.stores, query, filter)
     // Use the actual composable width rather than assuming two columns on
     // every screen. With only one published store, the old 2-column grid
     // squeezed its photo into the left half and left the right half blank.
@@ -382,32 +378,47 @@ fun WebHomeScreen(
                 }
             }
         }
-        if (!guest) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                         .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    listOf(
-                        "all" to R.string.filter_all,
-                        "open" to R.string.filter_open,
-                    ).forEach { (code, label) ->
-                        FilterChipWeb(
-                            title = stringResource(label),
-                            selected = filter == code,
-                            onClick = { filter = code },
-                        )
-                    }
-                }
-            }
-        }
         if (query.isBlank() && state.banners.isNotEmpty()) {
             item { BannerStrip(state.banners, onStore) }
         }
         // Public coupon eligibility/collection is not yet available.
         if (query.isBlank() && filter == "all" && !showAllStores) {
             item(key = "coupon-section") { CouponPreviewUnavailable() }
+        }
+        // Native quick filters run against published, backend-provided fields
+        // only. Guest users can discover stores before signing in.
+        item(key = "discovery-filters") {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChipWeb(
+                    title = stringResource(R.string.filter_all),
+                    selected = filter == "all",
+                    onClick = { filter = "all" },
+                )
+                FilterChipWeb(
+                    title = stringResource(R.string.filter_open),
+                    selected = filter == "open",
+                    onClick = { filter = if (filter == "open") "all" else "open" },
+                )
+                if (canSortHomeByDeliveryFee(state.stores)) {
+                    FilterChipWeb(
+                        title = stringResource(R.string.sort_delivery_fee_lowest),
+                        selected = filter == "fee",
+                        onClick = { filter = if (filter == "fee") "all" else "fee" },
+                    )
+                }
+                publishedHomeCategories(state.stores).forEach { category ->
+                    val code = "category:$category"
+                    FilterChipWeb(
+                        title = category,
+                        selected = filter == code,
+                        onClick = { filter = if (filter == code) "all" else code },
+                    )
+                }
+            }
         }
         when {
             !state.configured -> item { CenterStateText(R.string.configure_supabase) }
