@@ -45,7 +45,7 @@ jobs:
               args: ['--no-sandbox','--disable-dev-shm-usage'],
               headless: true,
             });
-            for (const width of [360,390,430]) {
+            for (const width of [320,360,390,430,600,840]) {
               for (const locale of ['th-TH','en-US']) {
                 const context = await browser.newContext({
                   viewport:{width,height:844}, deviceScaleFactor:1,
@@ -78,7 +78,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wynos-food-360-390-430-th-en-native-screens
+          name: wynos-food-adaptive-320-360-390-430-600-840-th-en-screens
           path: visual/
           if-no-files-found: warn
           retention-days: 7

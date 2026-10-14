@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -143,7 +145,13 @@ fun WebHomeHeader(
     onSelectAddress: (String?) -> Unit,
     onRefreshAddresses: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().background(Color.White).padding(start = 16.dp, end = 14.dp, top = 6.dp, bottom = 4.dp)) {
+    BoxWithConstraints(Modifier.fillMaxWidth().background(Color.White)) {
+        val geometry = foodAdaptiveLayout(maxWidth.value)
+        Column(
+            Modifier.widthIn(max = geometry.headerMaxWidthDp.dp).fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .padding(horizontal = geometry.horizontalPaddingDp.dp, vertical = 6.dp),
+        ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Image(
@@ -151,11 +159,15 @@ fun WebHomeHeader(
                     contentDescription = null,
                     modifier = Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)),
                 )
-                // Single-line WYNOS Food branding.
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("WYNOS", fontSize = 18.sp, maxLines = 1, color = WebInk, fontWeight = FontWeight.Bold)
-                    Text("Food", fontSize = 18.sp, maxLines = 1, color = WebRed, fontWeight = FontWeight.Bold)
-                }
+                Text(
+                    text = buildAnnotatedString {
+                        append("WYNOS ")
+                        withStyle(SpanStyle(color = WebRed)) { append("Food") }
+                    },
+                    modifier = Modifier.weight(1f),
+                    fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = WebInk, fontWeight = FontWeight.Bold,
+                )
             }
             if (guest) {
                 OutlinedButton(
@@ -188,6 +200,7 @@ fun WebHomeHeader(
                 onManageAddresses = onAccount,
             )
         }
+        }
     }
 }
 
@@ -217,7 +230,9 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mod
             .background(Color.White).navigationBarsPadding(),
     ) {
         Row(
-            Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 12.dp, vertical = 4.dp),
+            Modifier.widthIn(max = 720.dp).fillMaxWidth()
+                .align(Alignment.CenterHorizontally)
+                .height(66.dp).padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             tabs.forEach { (index, label, icon) ->
@@ -291,24 +306,29 @@ fun WebHomeScreen(
     // every screen. With only one published store, the old 2-column grid
     // squeezed its photo into the left half and left the right half blank.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val homeGridColumns = homeGridColumnsForWidth(maxWidth.value)
-        val compactHome = compactFoodHomeForWidth(maxWidth.value)
+        val geometry = foodAdaptiveLayout(maxWidth.value)
+        // A medium window can still be narrower than its allowed max width.
+        val measuredContentWidthDp = minOf(maxWidth.value, geometry.maxContentWidthDp)
+        val homeGridColumns = homeGridColumnsForWidth(measuredContentWidthDp)
+        val compactHome = compactFoodHomeForWidth(measuredContentWidthDp)
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().background(Color.White),
+            modifier = Modifier.widthIn(max = geometry.maxContentWidthDp.dp)
+                .fillMaxWidth().fillMaxHeight().align(Alignment.TopCenter)
+                .background(Color.White),
             contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
         item(key = "search-with-filter-button") {
             Row(
                 modifier = Modifier.fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 3.dp, bottom = 5.dp),
+                    .padding(start = geometry.horizontalPaddingDp.dp, end = geometry.horizontalPaddingDp.dp, top = 3.dp, bottom = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Row(
-                    modifier = Modifier.weight(1f).height(48.dp)
-                        .shadow(2.dp, CircleShape)
+                    modifier = Modifier.weight(1f).height(48.dp).padding(vertical = 2.dp)
+                        .shadow(1.dp, CircleShape)
                         .clip(CircleShape).background(Color.White)
                         .padding(horizontal = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -335,16 +355,21 @@ fun WebHomeScreen(
                             modifier = Modifier.size(24.dp).clickable { query = "" })
                     }
                 }
+                // 44dp visual icon control / 48dp accessible tap area.
                 Box(
-                    modifier = Modifier.size(46.dp)
-                        .shadow(2.dp, RoundedCornerShape(15.dp))
-                        .clip(RoundedCornerShape(15.dp)).background(Color.White)
-                        .clickable { filtersOpen = true },
+                    modifier = Modifier.size(48.dp).clickable { filtersOpen = true },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Tune, stringResource(R.string.filters_title),
-                        tint = if (filter == "all") WebInk else WebRed,
-                        modifier = Modifier.size(23.dp))
+                    Box(
+                        Modifier.size(geometry.filterVisualSizeDp.dp)
+                            .shadow(1.dp, RoundedCornerShape(14.dp))
+                            .clip(RoundedCornerShape(14.dp)).background(Color.White),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Outlined.Tune, stringResource(R.string.filters_title),
+                            tint = if (filter == "all") WebInk else WebRed,
+                            modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         }
@@ -352,10 +377,10 @@ fun WebHomeScreen(
         // carries no fictional discounts, ratings or delivery time promises.
         if (query.isBlank()) {
             if (state.banners.isNotEmpty()) {
-                item(key = "live-banner") { BannerStrip(state.banners, onStore) }
+                item(key = "live-banner") { BannerStrip(state.banners, onStore, geometry.heroHeightDp, geometry.horizontalPaddingDp) }
             } else {
                 item(key = "brand-banner") {
-                    FoodBrandHeroBanner(state.stores.firstOrNull(), onBrowse = {
+                    FoodBrandHeroBanner(state.stores.firstOrNull(), geometry.heroHeightDp, geometry.horizontalPaddingDp, onBrowse = {
                         scope.launch {
                             val last = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                             listState.animateScrollToItem(minOf(3, last))
@@ -366,7 +391,7 @@ fun WebHomeScreen(
         }
         // Public coupon eligibility/collection is not yet available.
         if (query.isBlank() && filter == "all" && !showAllStores) {
-            item(key = "coupon-section") { CouponPreviewUnavailable() }
+            item(key = "coupon-section") { CouponPreviewUnavailable(geometry.horizontalPaddingDp) }
         }
         // The approved Home is content-first: no visible horizontal chip strip.
         // Verified filters remain available in the dedicated search filter sheet.
@@ -389,7 +414,7 @@ fun WebHomeScreen(
                 item(key = "store-section-header") {
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 15.dp, bottom = 8.dp),
+                            .padding(start = geometry.horizontalPaddingDp.dp, end = geometry.horizontalPaddingDp.dp, top = 15.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -418,12 +443,14 @@ fun WebHomeScreen(
                 }
                 if (recommendedMode) {
                     items(filtered.take(2), key = { "featured-${it.id}" }) { store ->
-                        FoodFeaturedRestaurantHome(store, onStore, onDish)
+                        FoodFeaturedRestaurantHome(store, onStore, onDish,
+                            geometry.storeCoverSizeDp, geometry.menuImageSizeDp,
+                            geometry.horizontalPaddingDp, geometry.featuredGapDp)
                     }
                 } else {
                     items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            Modifier.fillMaxWidth().padding(horizontal = geometry.horizontalPaddingDp.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             row.forEach { store ->
@@ -497,13 +524,17 @@ private fun FoodFeaturedRestaurantHome(
     store: FoodStore,
     onStore: (String) -> Unit,
     onDish: (String, String) -> Unit,
+    coverDp: Float,
+    menuDp: Float,
+    edgeDp: Float,
+    menuGapDp: Float,
 ) {
     val cuisines = store.menu.map { it.category.trim() }
         .filter { it.isNotBlank() }.distinct().take(2).joinToString(" · ")
     // Open, frameless layout: no Surface, rounded restaurant card, border or drop shadow.
     // Padding aligns restaurant photo and 1:1 menu thumbnails with other Home content.
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = edgeDp.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
             Row(
@@ -512,7 +543,7 @@ private fun FoodFeaturedRestaurantHome(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Box(Modifier.size(116.dp).clip(RoundedCornerShape(13.dp))) {
+                Box(Modifier.size(coverDp.dp).clip(RoundedCornerShape(13.dp))) {
                     WebImage(store.coverPath, "food-public", Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop, imageAlignment = Alignment.BottomCenter)
                 }
@@ -552,10 +583,10 @@ private fun FoodFeaturedRestaurantHome(
             }
             val dishes = store.menu.take(5)
             if (dishes.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(menuGapDp.dp)) {
                     items(dishes, key = { it.id }) { dish ->
                         Column(
-                            modifier = Modifier.width(92.dp)
+                            modifier = Modifier.width(menuDp.dp)
                                 .clip(RoundedCornerShape(11.dp))
                                 .clickable { onDish(store.id, dish.id) },
                             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -563,7 +594,7 @@ private fun FoodFeaturedRestaurantHome(
                             // Fixed 1:1 menu photos without add-to-cart overlays.
                             // Tapping the photo or text still opens the existing real menu
                             // detail flow (including mandatory add-ons).
-                            Box(Modifier.size(92.dp).clip(RoundedCornerShape(10.dp))) {
+                            Box(Modifier.size(menuDp.dp).clip(RoundedCornerShape(10.dp))) {
                                 WebImage(
                                     dish.imagePath, "food-public", Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop,
@@ -595,11 +626,11 @@ private fun FoodFeaturedRestaurantHome(
 
 /** Minimal honest coupon area until verified customer claim/eligibility API exists. */
 @Composable
-private fun CouponPreviewUnavailable() {
+private fun CouponPreviewUnavailable(edgeDp: Float) {
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier.fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = edgeDp.dp, vertical = 6.dp)
             .shadow(2.dp, shape).clip(shape)
             .background(Brush.horizontalGradient(listOf(Color.White, Color(0xFFFFF3F6))))
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -627,13 +658,13 @@ private fun CouponPreviewUnavailable() {
 
 /** A compact editorial banner using an actual published restaurant image. */
 @Composable
-private fun FoodBrandHeroBanner(store: FoodStore?, onBrowse: () -> Unit) {
+private fun FoodBrandHeroBanner(store: FoodStore?, heightDp: Float, edgeDp: Float, onBrowse: () -> Unit) {
     val cover = store?.menu?.firstOrNull { it.imagePath != null }?.imagePath ?: store?.coverPath
     val shape = RoundedCornerShape(18.dp)
     Box(
         Modifier.fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-            .height(157.dp).shadow(3.dp, shape)
+            .padding(start = edgeDp.dp, end = edgeDp.dp, top = 8.dp, bottom = 8.dp)
+            .height(heightDp.dp).shadow(3.dp, shape)
             .clip(shape)
             .background(Brush.horizontalGradient(
                 listOf(Color(0xFFFFDFE9), Color(0xFFFFAFC4), Color(0xFFED648C)))),
@@ -641,10 +672,10 @@ private fun FoodBrandHeroBanner(store: FoodStore?, onBrowse: () -> Unit) {
         // Food imagery is drawn only when this restaurant image actually exists.
         if (cover != null) {
             WebImage(cover, "food-public", Modifier.align(Alignment.CenterEnd)
-                .width(196.dp).height(157.dp), contentScale = ContentScale.Crop)
+                .fillMaxWidth(0.56f).fillMaxHeight(), contentScale = ContentScale.Crop)
         } else {
             Image(painter = painterResource(R.drawable.food_rider_hero), contentDescription = null,
-                modifier = Modifier.align(Alignment.BottomEnd).size(155.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).size((heightDp * .95f).dp),
                 contentScale = ContentScale.Fit)
         }
         Box(Modifier.fillMaxSize().background(
@@ -685,16 +716,16 @@ private fun FoodBrandHeroBanner(store: FoodStore?, onBrowse: () -> Unit) {
 }
 
 @Composable
-private fun BannerStrip(banners: List<FoodHomeBanner>, onStore: (String) -> Unit) {
+private fun BannerStrip(banners: List<FoodHomeBanner>, onStore: (String) -> Unit, heightDp: Float, edgeDp: Float) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val width = (maxWidth * .9f).coerceAtMost(460.dp)
+        val width = (maxWidth - (2 * edgeDp).dp).coerceAtMost(700.dp)
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+            contentPadding = PaddingValues(horizontal = edgeDp.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(banners, key = { it.id }) { banner ->
                 Box(
-                    Modifier.width(width).aspectRatio(2.4f).clip(RoundedCornerShape(16.dp))
+                    Modifier.width(width).height(heightDp.dp).clip(RoundedCornerShape(16.dp))
                         .clickable(enabled = banner.destinationStoreId != null) {
                             banner.destinationStoreId?.let(onStore)
                         },
