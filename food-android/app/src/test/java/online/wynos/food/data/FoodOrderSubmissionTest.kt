@@ -48,6 +48,27 @@ class FoodOrderSubmissionTest {
         assertFalse(item.containsKey("basePrice"))
     }
 
+    @Test fun idempotentOrderAttemptIsExplicitAndDoesNotCarryClientPrices() {
+        val attemptId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+        val req = FoodOrderSubmission.idempotentRequest(
+            cart, address, "store note", attemptId,
+        )
+        assertEquals(attemptId, req["p_attempt_id"]!!.jsonPrimitive.content)
+        assertFalse(req.containsKey("total"))
+        assertFalse(req.containsKey("amount"))
+        assertFalse(req.containsKey("client_secret"))
+        val item = req["p_items"]!!.jsonArray[0].jsonObject
+        assertFalse(item.containsKey("unit_price"))
+        assertEquals("no ice", item["note"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun idempotentOrderAttemptMustHaveAUuid() {
+        try {
+            FoodOrderSubmission.idempotentRequest(cart, address, attemptId = "invalid")
+            throw AssertionError("expected invalid attempt ID")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun rejectsMissingDeliveryPin() {
         try {
             FoodOrderSubmission.request(cart, address.copy(latitude = null))
