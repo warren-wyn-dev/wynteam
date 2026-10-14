@@ -222,4 +222,12 @@
     <string name="staging_payment_cancelled">Test payment sheet closed.</string>
     <string name="staging_payment_failed">Test payment failed. Check the order status before retrying.</string>
     <string name="staging_payment_unavailable">Test payment unavailable. Check staging and order state.</string>
+    <string name="delivery_location_title">Choose delivery address</string>
+    <string name="delivery_location_note">Select an address for restaurants and delivery pricing at checkout</string>
+    <string name="delivery_location_manage">Manage delivery addresses</string>
+    <string name="account_profile_delivery_note">Only used for food orders and deliveries</string>
+    <string name="account_profile_set_up">Set up your food profile</string>
+    <string name="account_profile_set_up_note">Add a recipient, phone number and delivery address</string>
+    <string name="messages_food_is_separate">WYNOS Food chats are separate from WYNOS chats</string>
+    <string name="checkout_disabled_short">Live orders are not available in this preview</string>
 </resources>
