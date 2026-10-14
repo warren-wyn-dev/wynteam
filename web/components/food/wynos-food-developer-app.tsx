@@ -588,6 +588,7 @@ function StoreDirectory({
   orders,
   addresses,
   onPick,
+  onFeaturedDish,
   onLocation,
 }: {
   client: SupabaseClient;
@@ -595,6 +596,7 @@ function StoreDirectory({
   orders: FoodCustomerOrder[];
   addresses: FoodCustomerAddress[];
   onPick: (store: FoodDirectoryStore, placement: "home" | "search") => void;
+  onFeaturedDish: (store: FoodDirectoryStore, itemId: string) => void;
   onLocation: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -1271,6 +1273,7 @@ function HomePanel({
           orders={orders}
           addresses={addresses}
           onPick={onPickStore}
+          onFeaturedDish={onFeaturedDish}
           onLocation={onLocation}
         />
         <a className="fx-social-promo" href="https://wynos.online/" aria-label="เปิด WYNOS Social">
