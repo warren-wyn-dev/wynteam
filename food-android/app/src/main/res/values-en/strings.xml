@@ -254,4 +254,10 @@
     <string name="store_review_count">(%1$d reviews)</string>
     <string name="store_review_verified_order">Verified WYNOS Food order</string>
     <string name="store_review_merchant_reply">Restaurant reply</string>
+    <string name="promo_inbox_title">Promotions and news</string>
+    <string name="promo_inbox_error">Promotions could not be loaded. Try again.</string>
+    <string name="promo_inbox_empty">No promotion messages yet</string>
+    <string name="promo_inbox_copy_code">Copy code %1$s</string>
+    <string name="promo_inbox_copied">Code copied</string>
+    <string name="promo_inbox_code_disclaimer">A copied code is not an applied discount. Eligibility and the final total must be verified by the checkout server.</string>
 </resources>
