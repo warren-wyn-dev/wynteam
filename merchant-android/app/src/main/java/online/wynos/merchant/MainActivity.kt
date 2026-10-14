@@ -31,6 +31,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.json.JSONObject
 import java.text.NumberFormat
@@ -92,6 +95,18 @@ private fun MerchantApp(vm: MerchantViewModel) {
         LoginScreen(busy = s.busy, error = s.error, notice = s.notice,
             onSignIn = vm::signIn, onReset = vm::requestPasswordReset)
         return
+    }
+    // Refresh current-store orders only while the Activity is foregrounded.
+    // Cancellation on STOP prevents background battery drain and duplicate writes.
+    val owner = LocalLifecycleOwner.current
+    val lifecycleState by owner.lifecycle.currentStateFlow.collectAsState()
+    LaunchedEffect(s.store?.optString("id"), lifecycleState) {
+        if (lifecycleState.isAtLeast(Lifecycle.State.STARTED)) {
+            while (true) {
+                delay(30_000)
+                vm.pollOrders()
+            }
+        }
     }
     Scaffold(
         topBar = {
