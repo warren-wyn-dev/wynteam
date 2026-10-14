@@ -160,6 +160,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onSignIn = vm::signIn,
                     onRegister = vm::registerAccount,
                     onSignOut = vm::signOut,
+                    onDeleteAccount = vm::deleteAccount,
                     onResetPassword = vm::requestPasswordReset,
                     onOrders = { tab = 1 },
                     onRefreshAddresses = vm::refreshAddresses,

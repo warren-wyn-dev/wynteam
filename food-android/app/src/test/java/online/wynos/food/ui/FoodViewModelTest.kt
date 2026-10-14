@@ -40,6 +40,12 @@ class FoodViewModelTest {
         override val configured = true
         var allowSignup = false
         override val signupEnabled: Boolean get() = allowSignup
+        var allowDeletion = false
+        override val accountDeletionEnabled: Boolean get() = allowDeletion
+        var deletionCalls = 0
+        override suspend fun deleteMyAccount() {
+            deletionCalls++
+        }
         var accountOnRestore: String? = "qa@example.com"
         var signupResult: String? = null
         var signupCalls = 0
@@ -63,6 +69,43 @@ class FoodViewModelTest {
         override suspend fun signIn(email: String, password: String): String? = email
         override suspend fun signOut() {}
         override suspend fun resetPassword(email: String) {}
+    }
+
+    @Test fun accountDeletionCannotCallRpcWithoutStagingOptIn() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway()
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            vm.deleteAccount()
+            runCurrent()
+            assertEquals(0, fake.deletionCalls)
+            assertEquals("qa@example.com", vm.uiState.value.accountEmail)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun stagingAccountDeletionClearsPrivateState() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val fake = FakeGateway().apply { allowDeletion = true }
+            val vm = FoodViewModel(fake)
+            runCurrent()
+            assertTrue(vm.addToCart(store, menu, emptyMap(), 1, "private note"))
+            vm.deleteAccount()
+            runCurrent()
+            assertEquals(1, fake.deletionCalls)
+            assertNull(vm.uiState.value.accountEmail)
+            assertTrue(vm.uiState.value.cart.lines.isEmpty())
+            assertTrue(vm.uiState.value.orders.isEmpty())
+            assertTrue(vm.uiState.value.addresses.isEmpty())
+            assertNull(vm.uiState.value.selectedAddressId)
+            assertNull(vm.uiState.value.quote)
+            assertFalse(vm.uiState.value.accountDeletionBusy)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     @Test fun registrationRemainsDisabledWithoutStagingFlag() = runTest {
