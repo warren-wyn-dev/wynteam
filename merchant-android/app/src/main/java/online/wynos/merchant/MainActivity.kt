@@ -42,14 +42,14 @@ private fun orderStatus(status: String): String = when (status) {
 }
 private fun orderNext(status: String): String = when (status) {
     "pending_acceptance" -> "รับออเดอร์"
-    "preparing" -> "เตรียมอาหารเสร็จ"
+    "preparing" -> "อาหารพร้อมแล้ว"
     "ready_for_delivery" -> "เริ่มจัดส่ง"
     else -> ""
 }
 private fun filterOrder(order: JSONObject, tab: String): Boolean = when (tab) {
     "new" -> order.text("status") == "pending_acceptance"
-    "cooking" -> order.text("status") == "preparing"
-    "delivery" -> order.text("status") in listOf("ready_for_delivery", "out_for_delivery")
+    "cooking" -> order.text("status") in listOf("preparing", "ready_for_delivery")
+    "delivery" -> order.text("status") == "out_for_delivery"
     "done" -> isRecentCompleted(order)
     else -> false
 }
@@ -252,7 +252,7 @@ private fun OrdersScreen(s: MerchantState, vm: MerchantViewModel) {
 
 @Composable
 private fun OrderDetail(order: JSONObject, vm: MerchantViewModel, busy: Boolean) {
-    val next = orderNext(order.text("status"))
+    val next = if (order.text("status") == "pending_acceptance" && order.text("payment_status") != "paid") "" else orderNext(order.text("status"))
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         TextButton(onClick = { vm.selectOrder(null) }) { Text("‹ กลับไปออเดอร์") }
         SectionHeading(order.orderTitle())
@@ -275,6 +275,9 @@ private fun OrderDetail(order: JSONObject, vm: MerchantViewModel, busy: Boolean)
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
         Text("ยอดชำระ: " + money(order.amount("total")), fontWeight = FontWeight.Bold)
         Text("การชำระเงิน: " + order.text("payment_status"))
+        if (order.text("status") == "pending_acceptance" && order.text("payment_status") != "paid") {
+            Text("ต้องตรวจสอบการชำระเงินก่อนรับออเดอร์ หากเป็นสลิปที่ส่งมา โปรดใช้เว็บไซต์ตรวจสอบก่อน", color = Grey)
+        }
         if (next.isNotBlank()) {
             Spacer(Modifier.height(20.dp))
             Button(onClick = { vm.actionOrder(order) }, enabled = !busy,
