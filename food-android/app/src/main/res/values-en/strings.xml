@@ -57,6 +57,8 @@
     <string name="guest_hero_note">Browse restaurants and menus without signing in or enabling GPS. Delivery availability is checked at checkout.</string>
     <string name="public_stores">All restaurants</string>
     <string name="recommended_stores">Recommended restaurants</string>
+    <string name="featured_view_store">View restaurant</string>
+    <string name="featured_choose_menu">Choose menu item</string>
     <string name="store_menu_count">%1$d menu items</string>
     <string name="store_delivery">Delivery fee %1$s</string>
     <string name="public_store_closed">Closed</string>
