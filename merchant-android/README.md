@@ -17,7 +17,7 @@ Source of truth: `merchant.wynos.online` in `web/app/merchant`, `web/components/
    ```
 
    Use the same Supabase project configured for the merchant web. **Never** use a service-role or secret key in an Android APK.
-3. Open and sync the Gradle project; Gradle plugin 8.13.2, Kotlin 2.2.21, Compose BOM 2026.09.00, Gradle 8.13.
+3. Open and sync the Gradle project; Gradle plugin 8.13.2, Kotlin 2.2.21, Compose BOM 2025.10.00, Gradle 8.13.
 4. The current repository includes `gradle-wrapper.properties` but **does not yet include the generated wrapper JAR/scripts**. Generate the wrapper with Gradle 8.13 on your development machine (or use Android Studio) before expecting `./gradlew` to work.
 5. Build a debug app. Verify against a **test merchant account/test store first**, because order and menu actions call the actual backend.
 
