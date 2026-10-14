@@ -37,6 +37,8 @@ data class MerchantState(
     val hasMoreOrders: Boolean = false,
     val selectedOrder: JSONObject? = null,
     val selectedMenu: JSONObject? = null,
+    val readiness: JSONObject? = null,
+    val audit: List<JSONObject> = emptyList(),
     val slipBitmap: Bitmap? = null,
     val slipPreviewOrderId: String? = null,
     val slipPreviewPath: String? = null,
@@ -111,6 +113,8 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             menu = menu, orders = orderRows.take(100), sales = sales,
             hasMoreOrders = orderRows.size > 100,
             finance = if (changingStore) null else state.finance,
+            readiness = if (changingStore) null else state.readiness,
+            audit = if (changingStore) emptyList() else state.audit,
             history = if (changingStore) emptyList() else state.history,
             slipBitmap = if (changingStore) null else state.slipBitmap,
             slipPreviewOrderId = if (changingStore) null else state.slipPreviewOrderId,
@@ -130,6 +134,7 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         state = state.copy(page = page, error = "", selectedMenu = null)
         if (page == MerchantPage.HISTORY) loadHistory()
         if (page == MerchantPage.FINANCE) loadFinance()
+        if (page == MerchantPage.STORE) loadStoreDetails()
     }
 
     fun orderFilter(filter: String) {
@@ -275,6 +280,15 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         execute("บันทึกข้อมูลร้านแล้ว") {
             api.updateStore(storeId, patch)
             loadSnapshot()
+        }
+    }
+
+    fun loadStoreDetails() {
+        val storeId = state.store?.optString("id") ?: return
+        execute {
+            val readiness = runCatching { api.readiness(storeId) }.getOrNull()
+            val audit = runCatching { api.audit(storeId).asObjects() }.getOrDefault(emptyList())
+            state = state.copy(readiness = readiness, audit = audit)
         }
     }
 
