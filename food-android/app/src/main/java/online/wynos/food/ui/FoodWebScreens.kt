@@ -120,7 +120,15 @@ private fun WebImage(
 }
 
 @Composable
-fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart: () -> Unit) {
+fun WebHomeHeader(
+    state: FoodUiState,
+    guest: Boolean,
+    cartCount: Int,
+    onAccount: () -> Unit,
+    onCart: () -> Unit,
+    onSelectAddress: (String?) -> Unit,
+    onRefreshAddresses: () -> Unit,
+) {
     Column(Modifier.fillMaxWidth().background(Color.White).padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -158,20 +166,12 @@ fun WebHomeHeader(guest: Boolean, cartCount: Int, onAccount: () -> Unit, onCart:
             }
         }
         if (!guest) {
-            Row(
-                modifier = Modifier.padding(top = 3.dp, bottom = 2.dp).height(42.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(Icons.Outlined.LocationOn, null, tint = WebRed, modifier = Modifier.size(20.dp))
-                Column {
-                    Text(stringResource(R.string.delivery_to), fontSize = 12.sp, color = WebSub)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.select_delivery), fontSize = 15.sp, color = WebInk, fontWeight = FontWeight.Bold)
-                        Icon(Icons.Outlined.KeyboardArrowDown, null, tint = WebSub, modifier = Modifier.size(18.dp))
-                    }
-                }
-            }
+            FoodHomeDelivery(
+                state = state,
+                onSelectAddress = onSelectAddress,
+                onRefreshAddresses = onRefreshAddresses,
+                onManageAddresses = onAccount,
+            )
         }
     }
 }

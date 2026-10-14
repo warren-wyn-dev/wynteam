@@ -100,10 +100,13 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
             if (selectedStore == null) {
                 if (tab == 0) {
                     WebHomeHeader(
+                        state = state,
                         guest = guest,
                         cartCount = state.cart.itemCount,
                         onAccount = { selectedStoreId = null; tab = 3 },
                         onCart = { homeCart = true },
+                        onSelectAddress = vm::selectAddress,
+                        onRefreshAddresses = vm::refreshAddresses,
                     )
                 } else if (!guest) {
                     val title = when (tab) {
