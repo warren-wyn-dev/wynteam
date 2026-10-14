@@ -61,6 +61,11 @@ fun FoodCheckoutReviewDialog(
     stagingOrderUncertain: Boolean = false,
     stagingOrderCreatedId: String? = null,
     stagingOrderAttemptId: String? = null,
+    stagingMobilePaymentEnabled: Boolean = false,
+    onPrepareStagingPayment: suspend (String) -> online.wynos.food.data.FoodMobilePaymentIntent = {
+        throw IllegalStateException("staging_mobile_payment_disabled")
+    },
+    onPaymentSheetCompleted: () -> Unit = {},
     onCreateOrder: (String) -> Unit = {},
 ) {
     var showStagingConfirm by remember { mutableStateOf(false) }
@@ -150,6 +155,15 @@ fun FoodCheckoutReviewDialog(
                             if (stagingOrderEnabled) R.string.staging_order_create_action
                             else R.string.checkout_review_payment_locked
                         ))
+                    }
+                    if (stagingMobilePaymentEnabled && stagingOrderEnabled &&
+                        stagingOrderCreatedId != null && !stagingOrderBusy && !stagingOrderUncertain
+                    ) {
+                        FoodStagingPaymentSheet(
+                            orderId = stagingOrderCreatedId,
+                            onPrepare = onPrepareStagingPayment,
+                            onPaymentSheetCompleted = onPaymentSheetCompleted,
+                        )
                     }
                     when {
                         stagingOrderBusy ->
