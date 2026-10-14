@@ -65,6 +65,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -92,6 +95,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import online.wynos.food.R
 import online.wynos.food.data.FoodCartDraft
 import online.wynos.food.data.FoodHomeBanner
@@ -144,8 +148,14 @@ fun WebHomeHeader(
     onCart: () -> Unit,
     onSelectAddress: (String?) -> Unit,
     onRefreshAddresses: () -> Unit,
+    scrolled: Boolean = false,
 ) {
-    BoxWithConstraints(Modifier.fillMaxWidth().background(Color.White)) {
+    // Only elevate the sticky header when content is actually moving behind it.
+    BoxWithConstraints(
+        Modifier.fillMaxWidth()
+            .shadow(if (scrolled) 2.dp else 0.dp)
+            .background(Color.White),
+    ) {
         val geometry = foodAdaptiveLayout(maxWidth.value)
         Column(
             Modifier.widthIn(max = geometry.headerMaxWidthDp.dp).fillMaxWidth()
@@ -294,6 +304,7 @@ fun WebHomeScreen(
     onStore: (String) -> Unit,
     onDish: (String, String) -> Unit,
     onRetry: () -> Unit,
+    onScrolledChange: (Boolean) -> Unit = {},
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
@@ -301,6 +312,12 @@ fun WebHomeScreen(
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val latestOnScrolledChange by rememberUpdatedState(onScrolledChange)
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+        }.distinctUntilChanged().collect { latestOnScrolledChange(it) }
+    }
     val filtered = visibleHomeStores(state.stores, query, filter)
     // Use the actual composable width rather than assuming two columns on
     // every screen. With only one published store, the old 2-column grid
@@ -414,7 +431,7 @@ fun WebHomeScreen(
                 item(key = "store-section-header") {
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .padding(start = geometry.horizontalPaddingDp.dp, end = geometry.horizontalPaddingDp.dp, top = 15.dp, bottom = 8.dp),
+                            .padding(start = geometry.horizontalPaddingDp.dp, end = geometry.horizontalPaddingDp.dp, top = 7.dp, bottom = 3.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -534,8 +551,8 @@ private fun FoodFeaturedRestaurantHome(
     // Open, frameless layout: no Surface, rounded restaurant card, border or drop shadow.
     // Padding aligns restaurant photo and 1:1 menu thumbnails with other Home content.
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = edgeDp.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = edgeDp.dp, vertical = 5.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
             Row(
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
@@ -605,9 +622,11 @@ private fun FoodFeaturedRestaurantHome(
                                     )
                                 }
                             }
-                            Text(dish.name, color = WebInk, fontSize = 11.sp,
+                            // Equal two-line name slot keeps every price on the same baseline,
+                            // without forcing fixed heights that break large-text settings.
+                            Text(dish.name, color = WebInk, fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium, minLines = 2, maxLines = 2,
-                                lineHeight = 14.sp, overflow = TextOverflow.Ellipsis)
+                                lineHeight = 16.sp, overflow = TextOverflow.Ellipsis)
                             Text("฿${dish.price}", color = WebInk, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold)
                         }
@@ -618,7 +637,7 @@ private fun FoodFeaturedRestaurantHome(
         HorizontalDivider(
             color = Color(0xFFF0F0F2),
             thickness = 0.7.dp,
-            modifier = Modifier.padding(top = 10.dp),
+            modifier = Modifier.padding(top = 6.dp),
         )
     }
 }
@@ -630,15 +649,15 @@ private fun CouponPreviewUnavailable(edgeDp: Float) {
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier.fillMaxWidth()
-            .padding(horizontal = edgeDp.dp, vertical = 6.dp)
-            .shadow(2.dp, shape).clip(shape)
+            .padding(horizontal = edgeDp.dp, vertical = 3.dp)
+            .shadow(1.dp, shape).clip(shape)
             .background(Brush.horizontalGradient(listOf(Color.White, Color(0xFFFFF3F6))))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(
-            modifier = Modifier.size(34.dp).shadow(3.dp, RoundedCornerShape(10.dp))
+            modifier = Modifier.size(30.dp).shadow(2.dp, RoundedCornerShape(9.dp))
                 .clip(RoundedCornerShape(10.dp))
                 .background(Brush.verticalGradient(
                     listOf(Color(0xFFFF7196), WebRed, WebRedDark))),
@@ -651,7 +670,7 @@ private fun CouponPreviewUnavailable(edgeDp: Float) {
             Text(stringResource(R.string.coupon_section_title), color = WebInk,
                 fontWeight = FontWeight.Bold, fontSize = 15.sp)
             Text(stringResource(R.string.coupon_live_empty), color = WebSub,
-                fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -663,8 +682,8 @@ private fun FoodBrandHeroBanner(store: FoodStore?, heightDp: Float, edgeDp: Floa
     val shape = RoundedCornerShape(18.dp)
     Box(
         Modifier.fillMaxWidth()
-            .padding(start = edgeDp.dp, end = edgeDp.dp, top = 8.dp, bottom = 8.dp)
-            .height(heightDp.dp).shadow(3.dp, shape)
+            .padding(start = edgeDp.dp, end = edgeDp.dp, top = 6.dp, bottom = 6.dp)
+            .height(heightDp.dp).shadow(2.dp, shape)
             .clip(shape)
             .background(Brush.horizontalGradient(
                 listOf(Color(0xFFFFDFE9), Color(0xFFFFAFC4), Color(0xFFED648C)))),
