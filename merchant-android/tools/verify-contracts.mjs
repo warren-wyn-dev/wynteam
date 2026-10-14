@@ -1,0 +1,103 @@
+import { readFileSync } from "node:fs";
+import { strict as assert } from "node:assert";
+const src = (path) => readFileSync(new URL("../../" + path, import.meta.url), "utf8");
+const api = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantApi.kt");
+const ui = src("merchant-android/app/src/main/java/online/wynos/merchant/MainActivity.kt");
+const model = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantViewModel.kt");
+const printer = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantPrinter.kt");
+const locations = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantLocations.kt");
+const storeSettings = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantStoreSettings.kt");
+const push = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantPush.kt");
+const androidManifest = src("merchant-android/app/src/main/AndroidManifest.xml");
+const gradle = src("merchant-android/app/build.gradle.kts");
+const web = src("web/lib/food-merchant.ts");
+const merchantWeb = src("web/components/merchant/wynos-merchant-app.tsx");
+assert.match(ui, /setContent\s*\{/);
+assert.doesNotMatch(api + ui + model, /\bWebView\b|\bTrustedWebActivity\b/);
+assert.match(api, /merchant_users\?select=user_id,active,identity_mode/);
+for (const rpc of ["food_has_merchant_access", "merchant_sales_report",
+  "merchant_finance_summary", "food_transition_order", "food_set_payment_status"]) {
+  assert.ok(api.includes(rpc), "missing native RPC: " + rpc);
+  assert.ok(web.includes(rpc) || merchantWeb.includes(rpc) || rpc === "merchant_finance_summary",
+    "merchant web RPC is missing: " + rpc);
+}
+assert.match(model, /payment_status"\) == "paid"/);
+assert.match(ui, /payment != "paid"/);
+assert.match(ui, /approveSlipAndAccept\(order, reviewed, eta\)/);
+assert.match(ui, /completeOrder\(order, method, locationNote, deliveryUri\)/);
+assert.match(api, /food_complete_delivery/);
+assert.match(api, /storage\/v1\/object\/sign\/food-private/);
+assert.match(api, /"delivery\/" \+ filter\(orderId\)/);
+assert.match(api, /merchant_platform_campaigns/);
+assert.match(api, /merchant_food_campaigns/);
+assert.match(api, /merchant_staff_members/);
+assert.match(api, /merchant_store_reviews/);
+assert.match(api, /merchant_ad_account/);
+assert.match(api, /merchant_request_ad_topup/);
+assert.match(api, /Bitmap\.CompressFormat\.JPEG/);
+assert.match(ui, /MenuOptionsEditor\(options/);
+assert.match(api, /sold_out_until/);
+// Never retain customer/order media across tenant switching or failed authorization.
+assert.match(model, /fun selectStore\(storeId: String\)/);
+assert.match(model, /state\.stores\.any \{ it\.optString\("id"\) == storeId \}/);
+assert.match(model, /if \(state\.store\?\.optString\("id"\) == storeId\) return/);
+assert.match(model, /state = MerchantState\(\s*configured = api\.configured,\s*signedIn = true/);
+assert.match(model, /fun refresh\(\) = execute \{/);
+assert.match(model, /state = MerchantState\(configured = api\.configured\)/);
+// Receipt/label PDFs must paginate instead of silently cutting off long orders.
+assert.match(printer, /PAGE_COUNT_UNKNOWN/);
+assert.match(printer, /private fun drawPaginated/);
+assert.match(printer, /if \(y \+ lineHeight > bottom\) newPage\(\)/);
+assert.match(printer, /document\.finishPage\(page\)/);
+assert.match(model, /terminalWithin24h/);
+assert.match(model, /pendingPageLoad/);
+assert.match(model, /if \(state\.busy\) pendingPageLoad = page else loadPageData\(page\)/);
+assert.match(model, /fun loadMoreOrders\(\)/);
+assert.match(model, /fun pollOrders\(\)/);
+assert.match(model, /state\.store\?\.optString\("id"\) != storeId/);
+assert.match(ui, /lifecycleState\.isAtLeast\(Lifecycle\.State\.STARTED\)/);
+assert.match(ui, /vm\.pollOrders\(\)/);
+
+assert.match(ui, /vm::loadMoreOrders/);
+assert.match(api, /fun readiness\(storeId: String\): JSONObject =[\s\S]*?food_store_publish_readiness/);
+assert.match(api, /val current = readiness\(storeId\)/);
+assert.doesNotMatch(api, /"merchant_store_readiness"/);
+assert.match(api, /"Prefer", "return=representation"/);
+assert.match(api, /result is JSONArray && result\.length\(\) == 0/);
+assert.match(api, /fun uploadStoreImage\(storeId: String, kind: String, uri: Uri\)/);
+assert.match(api, /fun uploadMenuImage/);
+assert.match(api, /fun uploadAdTopup/);
+assert.match(ui, /MerchantCategoryManager/);
+assert.match(ui, /MerchantExtraScreen/);
+assert.match(model, /86_400_000/);
+assert.match(ui, /"cooking" -> order\.text\("status"\) in listOf\("preparing", "ready_for_delivery"\)/);
+assert.match(ui, /"delivery" -> order\.text\("status"\) == "out_for_delivery"/);
+assert.doesNotMatch(api, /service_role|sb_secret_/);
+assert.match(api, /KeyProperties\.KEY_ALGORITHM_AES/);
+
+// Native merchant features added after the first QA pass.
+assert.match(ui, /onReset = vm::requestPasswordReset/);
+assert.match(ui, /"ลืมรหัสผ่าน\?/);
+assert.match(api, /"\/auth\/v1\/recover\?redirect_to="/);
+assert.match(storeSettings, /MerchantLocationsEditor\(s, vm\)/);
+assert.match(locations, /fun MerchantLocationsEditor/);
+assert.match(api, /fun storePlaces\(storeId: String\)/);
+assert.match(api, /food_store_places\?select=/);
+assert.match(api, /fun updateStoreCoordinates/);
+assert.match(api, /fun saveStorePlace/);
+assert.match(api, /fun deleteStorePlace/);
+assert.match(gradle, /firebase-messaging:24\.1\.2/);
+assert.match(androidManifest, /android\.permission\.POST_NOTIFICATIONS/);
+assert.match(androidManifest, /MerchantMessagingService/);
+assert.match(push, /class MerchantMessagingService : FirebaseMessagingService/);
+assert.match(push, /fun enable\(context: Context, api: MerchantApi\)/);
+assert.match(push, /api\.registerPushToken\(token\)/);
+assert.match(push, /api\.unregisterPushToken\(token\)/);
+assert.match(api, /push_tokens\?on_conflict=token/);
+assert.match(api, /"platform", "android"/);
+assert.match(api, /"app", "merchant"/);
+assert.match(model, /MerchantPush\.disable\(getApplication\(\), api\)/);
+assert.match(model, /fun enablePush\(\)/);
+assert.match(model, /fun disablePush\(\)/);
+assert.match(push, /lockscreenVisibility = Notification\.VISIBILITY_PRIVATE/);
+console.log("Native foundation static contract checks passed (not an Android build).");

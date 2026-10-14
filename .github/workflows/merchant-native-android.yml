@@ -1,0 +1,45 @@
+name: Merchant Native Android (non-production)
+
+on:
+  pull_request:
+    paths:
+      - "merchant-android/**"
+      - ".github/workflows/merchant-native-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-native-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify backend contracts (static)
+        run: node merchant-android/tools/verify-contracts.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK 36 (hosted runner)
+        run: |
+          SDKMANAGER="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -type f -name sdkmanager | head -n1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: Compile debug Android app (no deployment)
+        working-directory: merchant-android
+        run: gradle :app:assembleDebug :app:testDebugUnitTest --stacktrace
+      - name: Archive unsigned development APK (not for release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-merchant-android-dev-debug
+          path: merchant-android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
