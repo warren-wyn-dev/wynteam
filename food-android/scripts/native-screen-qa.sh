@@ -61,7 +61,7 @@ assert_native_window() {
   fi
 }
 
-for width in 360 390 430; do
+for width in 320 360 390 430 600 840; do
   adb shell wm size "${width}x844"
   adb shell wm density 160
   for locale in th-TH en-US; do
