@@ -382,9 +382,9 @@ private fun WebLoginPage(
                     else onSignIn(email, password)
                 },
                 enabled = !state.accountBusy && !state.accountLoading &&
-                    if (registering) state.signupEnabled && !state.registrationEmailSent &&
+                    (if (registering) state.signupEnabled && !state.registrationEmailSent &&
                         FoodSignupValidation.canSubmit(email, password, confirmation)
-                    else email.isNotBlank() && password.isNotBlank(),
+                    else email.isNotBlank() && password.isNotBlank()),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = BrandRed),
