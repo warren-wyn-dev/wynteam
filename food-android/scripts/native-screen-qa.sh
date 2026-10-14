@@ -85,7 +85,7 @@ for width in 320 360 390 430 600 840; do
           adb exec-out cat /sdcard/wynos-food-scrolled.xml > "visual/android-scrolled-${width}-${locale}.xml"
           if ! grep -Fq 'WYNOS' "visual/android-scrolled-${width}-${locale}.xml"; then
             echo "Sticky WYNOS Food header missing after scroll at ${width}dp / ${locale}" >&2
-            return 1
+            exit 1
           fi
         fi
         verified=1
