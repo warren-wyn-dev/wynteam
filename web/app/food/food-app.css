@@ -1270,3 +1270,30 @@ button.fx-home-banner:focus-visible { outline: 3px solid #147efb; outline-offset
   .fx-featured-photo { aspect-ratio: 4 / 3; }
   .fx-featured-dishes { grid-auto-columns: minmax(148px, 185px); }
 }
+
+
+/* Original WYNOS illustration, layered behind accessible, selectable text. */
+.fx-guest-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 145px;
+  background: linear-gradient(112deg, #fcedf0 0%, #fff4f6 57%, #ffe0e9 100%);
+}
+.fx-guest-hero::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+  right: -12px;
+  bottom: -7px;
+  width: 50%;
+  height: 94%;
+  background: url("/food/hero-rider.svg") right bottom / contain no-repeat;
+  opacity: .77;
+}
+.fx-guest-hero > * { position: relative; }
+.fx-guest-hero h1, .fx-guest-hero p { text-shadow: 0 1px 6px rgb(255 255 255 / 95%); }
+@media (max-width: 430px) {
+  .fx-guest-hero::after { width: 46%; opacity: .55; }
+}
