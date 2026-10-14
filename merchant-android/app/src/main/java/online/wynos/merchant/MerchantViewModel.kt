@@ -17,7 +17,7 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.time.ZoneId
 
-enum class MerchantPage { HOME, ORDERS, MENU, MORE, REPORTS, FINANCE, STORE, HISTORY }
+enum class MerchantPage { HOME, ORDERS, MENU, MORE, REPORTS, FINANCE, STORE, HISTORY, FEEDBACK, PROMOTIONS, CAMPAIGNS, ADS, NOTIFICATIONS, STAFF, HELP }
 
 data class MerchantState(
     val configured: Boolean = true,
@@ -43,6 +43,12 @@ data class MerchantState(
     val selectedMenu: JSONObject? = null,
     val readiness: JSONObject? = null,
     val audit: List<JSONObject> = emptyList(),
+    val staff: List<JSONObject> = emptyList(),
+    val reviews: JSONObject? = null,
+    val promotions: JSONObject? = null,
+    val ads: JSONObject? = null,
+    val stripeStatus: JSONObject? = null,
+    val notifications: List<JSONObject> = emptyList(),
     val slipBitmap: Bitmap? = null,
     val slipPreviewOrderId: String? = null,
     val slipPreviewPath: String? = null,
@@ -119,6 +125,12 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             finance = if (changingStore) null else state.finance,
             readiness = if (changingStore) null else state.readiness,
             audit = if (changingStore) emptyList() else state.audit,
+            staff = if (changingStore) emptyList() else state.staff,
+            reviews = if (changingStore) null else state.reviews,
+            promotions = if (changingStore) null else state.promotions,
+            ads = if (changingStore) null else state.ads,
+            stripeStatus = if (changingStore) null else state.stripeStatus,
+            notifications = if (changingStore) emptyList() else state.notifications,
             history = if (changingStore) emptyList() else state.history,
             historyHasMore = if (changingStore) false else state.historyHasMore,
             slipBitmap = if (changingStore) null else state.slipBitmap,
@@ -140,6 +152,8 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         if (page == MerchantPage.HISTORY) loadHistory()
         if (page == MerchantPage.FINANCE) loadFinance()
         if (page == MerchantPage.STORE) loadStoreDetails()
+        if (page in setOf(MerchantPage.FEEDBACK, MerchantPage.PROMOTIONS, MerchantPage.CAMPAIGNS,
+                MerchantPage.ADS, MerchantPage.NOTIFICATIONS, MerchantPage.STAFF)) loadExtras(page)
     }
 
     fun orderFilter(filter: String) {
@@ -295,6 +309,116 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             val audit = runCatching { api.audit(storeId).asObjects() }.getOrDefault(emptyList())
             state = state.copy(readiness = readiness, audit = audit)
         }
+    }
+
+    /** Backend-backed native merchant tools; Supabase RLS and RPC roles still enforce permissions. */
+    fun loadExtras(page: MerchantPage = state.page) {
+        val store = state.store ?: return
+        val storeId = store.optString("id")
+        val accountId = store.optString("merchant_account_id")
+        execute {
+            when (page) {
+                MerchantPage.FEEDBACK -> state = state.copy(reviews = api.storeReviews(storeId))
+                MerchantPage.PROMOTIONS, MerchantPage.CAMPAIGNS ->
+                    state = state.copy(promotions = api.campaigns(storeId))
+                MerchantPage.ADS -> state = state.copy(ads = api.advertising(storeId))
+                MerchantPage.STAFF -> state = state.copy(staff = api.staff(storeId).asObjects())
+                MerchantPage.NOTIFICATIONS -> if (accountId.isNotBlank() && accountId != "null")
+                    state = state.copy(notifications = api.notifications(accountId).asObjects())
+                else -> Unit
+            }
+        }
+    }
+
+    fun addStaff(username: String, role: String) {
+        val id = state.store?.optString("id") ?: return
+        execute("เพิ่มพนักงานแล้ว") {
+            api.addStaff(id, username, role)
+            state = state.copy(staff = api.staff(id).asObjects())
+        }
+    }
+
+    fun updateStaff(member: JSONObject, role: String, active: Boolean) {
+        val id = state.store?.optString("id") ?: return
+        execute("อัปเดตพนักงานแล้ว") {
+            api.updateStaff(id, member.getString("user_id"), role, active)
+            state = state.copy(staff = api.staff(id).asObjects())
+        }
+    }
+
+    fun replyReview(review: JSONObject, reply: String) {
+        val id = state.store?.optString("id") ?: return
+        execute("ตอบกลับรีวิวแล้ว") {
+            api.replyReview(review.getString("id"), reply)
+            state = state.copy(reviews = api.storeReviews(id))
+        }
+    }
+
+    fun savePromotion(draft: JSONObject) {
+        val id = state.store?.optString("id") ?: return
+        execute("บันทึกโปรโมชันแล้ว") {
+            api.upsertCampaign(id, draft)
+            state = state.copy(promotions = api.campaigns(id))
+        }
+    }
+
+    fun promotionActive(promotion: JSONObject, active: Boolean) {
+        val id = state.store?.optString("id") ?: return
+        execute("เปลี่ยนสถานะโปรโมชันแล้ว") {
+            api.campaignActive(id, promotion.getString("id"), active)
+            state = state.copy(promotions = api.campaigns(id))
+        }
+    }
+
+    fun deletePromotion(promotion: JSONObject) {
+        val id = state.store?.optString("id") ?: return
+        execute("ลบโปรโมชันแล้ว") {
+            api.deleteCampaign(id, promotion.getString("id"))
+            state = state.copy(promotions = api.campaigns(id))
+        }
+    }
+
+    fun adActive(active: Boolean) {
+        val id = state.store?.optString("id") ?: return
+        execute("บันทึกสถานะโฆษณาแล้ว") {
+            api.adActive(id, active)
+            state = state.copy(ads = api.advertising(id))
+        }
+    }
+
+    fun markNotificationRead(notificationId: String) {
+        val account = state.store?.optString("merchant_account_id")?.takeIf { it != "null" } ?: return
+        execute {
+            api.markNotificationRead(notificationId)
+            state = state.copy(notifications = api.notifications(account).asObjects())
+        }
+    }
+
+    fun markAllNotificationsRead() {
+        val account = state.store?.optString("merchant_account_id")?.takeIf { it != "null" } ?: return
+        execute("อ่านทั้งหมดแล้ว") {
+            api.markAllNotificationsRead(account)
+            state = state.copy(notifications = api.notifications(account).asObjects())
+        }
+    }
+
+    fun sendTestNotification() {
+        val id = state.store?.optString("id") ?: return
+        execute("ส่งการแจ้งเตือนทดสอบแล้ว") { api.sendTestNotification(id) }
+    }
+
+    fun togglePublished(published: Boolean) {
+        val id = state.store?.optString("id") ?: return
+        execute("อัปเดตการเผยแพร่ร้านแล้ว") {
+            api.publishStore(id, published)
+            loadSnapshot()
+            state = state.copy(readiness = api.readiness(id), audit = api.audit(id).asObjects())
+        }
+    }
+
+    fun loadStripeStatus() {
+        val id = state.store?.optString("id") ?: return
+        execute { state = state.copy(stripeStatus = api.stripeStatus(id)) }
     }
 
     fun setHistoryStatus(value: String) {
