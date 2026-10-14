@@ -34,6 +34,10 @@ data class MerchantState(
     val sales: JSONObject? = null,
     val finance: JSONObject? = null,
     val history: List<JSONObject> = emptyList(),
+    val historyStatus: String = "all",
+    val historySearch: String = "",
+    val historyDays: Int? = null,
+    val historyHasMore: Boolean = false,
     val hasMoreOrders: Boolean = false,
     val selectedOrder: JSONObject? = null,
     val selectedMenu: JSONObject? = null,
@@ -116,6 +120,7 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             readiness = if (changingStore) null else state.readiness,
             audit = if (changingStore) emptyList() else state.audit,
             history = if (changingStore) emptyList() else state.history,
+            historyHasMore = if (changingStore) false else state.historyHasMore,
             slipBitmap = if (changingStore) null else state.slipBitmap,
             slipPreviewOrderId = if (changingStore) null else state.slipPreviewOrderId,
             slipPreviewPath = if (changingStore) null else state.slipPreviewPath,
@@ -292,10 +297,30 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun loadHistory() {
+    fun setHistoryStatus(value: String) {
+        if (value !in setOf("all", "delivered", "cancelled")) return
+        state = state.copy(historyStatus = value)
+        loadHistory()
+    }
+
+    fun setHistoryDays(value: Int?) {
+        if (value != null && value !in setOf(7, 30)) return
+        state = state.copy(historyDays = value)
+        loadHistory()
+    }
+
+    fun setHistorySearch(value: String) { state = state.copy(historySearch = value.take(40)) }
+
+    fun loadHistory(more: Boolean = false) {
         val storeId = state.store?.optString("id") ?: return
         execute {
-            state = state.copy(history = api.history(storeId).asObjects())
+            val offset = if (more) state.history.size else 0
+            val rows = api.history(storeId, state.historyStatus,
+                state.historySearch, state.historyDays, offset).asObjects()
+            state = state.copy(
+                history = (if (more) state.history else emptyList()) + rows.take(30),
+                historyHasMore = rows.size > 30
+            )
         }
     }
 
