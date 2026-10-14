@@ -287,8 +287,24 @@ class MerchantApi(context: Context) {
      * Native image picker input, re-encoded to JPEG to remove EXIF GPS/location metadata.
      * Uses the SAME private storage bucket/path policy as the merchant web.
      */
-    fun uploadDeliveryImage(orderId: String, uri: Uri): String {
-        val id = filter(orderId)
+    fun uploadDeliveryImage(orderId: String, uri: Uri): String =
+        uploadImage("food-private", "delivery/" + filter(orderId), uri)
+
+    fun uploadStoreImage(storeId: String, uri: Uri): String =
+        uploadImage("food-public", "stores/" + filter(storeId) + "/profile", uri)
+
+    fun uploadMenuImage(storeId: String, uri: Uri): String =
+        uploadImage("food-public", "stores/" + filter(storeId) + "/menu", uri)
+
+    fun uploadAdTopup(storeId: String, amount: Double, uri: Uri) {
+        require(amount.isFinite() && amount > 0) { "ยอดเติมเครดิตไม่ถูกต้อง" }
+        val path = uploadImage("food-private", "ads/" + filter(storeId), uri)
+        rpc("merchant_request_ad_topup", JSONObject()
+            .put("p_store_id", filter(storeId)).put("p_amount", amount).put("p_slip_path", path))
+    }
+
+    private fun uploadImage(bucket: String, prefix: String, uri: Uri): String {
+        require(bucket == "food-private" || bucket == "food-public")
         val resolver = appContext.contentResolver
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
@@ -315,8 +331,8 @@ class MerchantApi(context: Context) {
         } finally { decoded.recycle() }
         val bytes = output.toByteArray()
         if (bytes.isEmpty() || bytes.size > 8 * 1024 * 1024) throw IOException("รูปใหญ่เกิน 8 MB")
-        val path = "delivery/$id/" + UUID.randomUUID().toString() + ".jpg"
-        val request = Request.Builder().url("$base/storage/v1/object/food-private/$path")
+        val path = prefix + "/" + UUID.randomUUID().toString() + ".jpg"
+        val request = Request.Builder().url("$base/storage/v1/object/$bucket/$path")
             .header("apikey", key)
             .header("Authorization", "Bearer " + (session?.optString("access_token") ?: ""))
             .header("cache-control", "max-age=300")
