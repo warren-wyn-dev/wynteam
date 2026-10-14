@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.Icon
@@ -37,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -47,11 +50,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Artwork is from the owner's approved mockup and embedded for offline QA.
- * Assets contain the mockup's Thai copy; screen readers receive descriptions.
- * Do not use illustrative mock offer amounts as server-confirmed discounts.
+/**
+ * Zoky Home visual reference: founder-approved pink mockup.
+ * Food illustrations are decorative high-density crops of the source mockup.
+ * The marketing headline, CTA, service copy and deal-card labels are native Compose
+ * text, never baked into bitmaps. No fabricated discount percentages.
+ *
+ * Image resampling improves display sampling but cannot recover source detail.
+ * Keep Home separate from the Food merchant/catalog search destination.
  */
 private val ZokyRed = Color(0xFFD91F4E)
+private val ZokyDeepRed = Color(0xFFE70847)
 private val ZokyInk = Color(0xFF24212B)
 private val ZokySub = Color(0xFF66636C)
 private val ZokyBlush = Color(0xFFFFF0F4)
@@ -59,11 +68,12 @@ private val ZokyBlush = Color(0xFFFFF0F4)
 @Composable
 private fun ZokyArt(
     name: String,
-    description: String,
+    description: String?,
     modifier: Modifier = Modifier,
-    scale: ContentScale = ContentScale.FillBounds,
+    scale: ContentScale = ContentScale.Crop,
 ) {
     val context = LocalContext.current
+    // Offline bundling avoids unstable image fetches and Redfinger network latency.
     val image = remember(context, name) {
         runCatching {
             val encoded = context.assets.open("$name.webp.b64")
@@ -73,23 +83,15 @@ private fun ZokyArt(
         }.getOrNull()
     }
     if (image != null) {
-        Image(
-            bitmap = image,
-            contentDescription = description,
-            modifier = modifier,
-            contentScale = scale,
-        )
+        Image(bitmap = image, contentDescription = description,
+            modifier = modifier, contentScale = scale)
     } else {
         Box(modifier.background(ZokyBlush), contentAlignment = Alignment.Center) {
-            Text(description, fontSize = 14.sp, color = ZokyInk)
+            if (description != null) Text(description, fontSize = 13.sp, color = ZokyInk)
         }
     }
 }
 
-/**
- * Dedicated native Zoky service hub, not the Food restaurant catalog.
- * UI reference: user's approved pink mockup. No search field or emoji artwork.
- */
 @Composable
 fun ZokyHomeScreen(
     state: FoodUiState,
@@ -98,6 +100,7 @@ fun ZokyHomeScreen(
     onDeals: () -> Unit,
     onLocation: () -> Unit,
 ) {
+    val small = LocalConfiguration.current.screenWidthDp < 360
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Color.White),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -136,41 +139,119 @@ fun ZokyHomeScreen(
             }
         }
         item(key = "zoky-approved-hero") {
-            ZokyArt(
-                "zoky_hero",
-                "ดีลคุ้ม ดีลแรงวันนี้ อร่อยง่าย ส่งไว ใกล้คุณ ดูดีลทั้งหมด",
+            Box(
                 modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth()
                     .padding(horizontal = 14.dp)
                     .aspectRatio(514f / 220f)
                     .clip(RoundedCornerShape(18.dp))
+                    .background(Brush.horizontalGradient(listOf(
+                        Color(0xFFE60945), Color(0xFFF42465), Color(0xFFFF9CBD))))
                     .clickable(onClick = onDeals),
-            )
+            ) {
+                ZokyArt(
+                    "zoky_hero_hd_art", null,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                        .fillMaxWidth(.66f).fillMaxHeight(),
+                    scale = ContentScale.FillBounds,
+                )
+                // Gentle fade protects the native white headline from illustration contrast.
+                Box(Modifier.align(Alignment.CenterStart).fillMaxWidth(.50f).fillMaxHeight()
+                    .background(Brush.horizontalGradient(listOf(
+                        Color(0xFFE60945).copy(alpha = .78f), Color.Transparent))))
+                Column(
+                    Modifier.align(Alignment.CenterStart)
+                        .fillMaxWidth(.65f)
+                        .padding(start = if (small) 12.dp else 17.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (small) 1.dp else 2.dp),
+                ) {
+                    Text("ดีลคุ้ม!", color = Color.White, fontWeight = FontWeight.ExtraBold,
+                        fontSize = if (small) 26.sp else 30.sp,
+                        lineHeight = if (small) 29.sp else 33.sp, maxLines = 1)
+                    Text("ดีลแรงวันนี้", color = Color(0xFFFFF0CF),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = if (small) 21.sp else 25.sp,
+                        lineHeight = if (small) 25.sp else 29.sp, maxLines = 1)
+                    Text("อร่อยง่าย ส่งไว ใกล้คุณ", color = Color.White,
+                        fontSize = if (small) 10.sp else 12.sp,
+                        maxLines = 1,
+                        modifier = Modifier.padding(top = 1.dp))
+                    Row(
+                        Modifier.padding(top = if (small) 2.dp else 5.dp)
+                            .clip(CircleShape).background(Color.White)
+                            .clickable(onClick = onDeals)
+                            .padding(horizontal = if (small) 10.dp else 13.dp,
+                                vertical = if (small) 6.dp else 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("ดูดีลทั้งหมด", color = ZokyRed,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = if (small) 11.sp else 12.sp)
+                        Icon(Icons.Outlined.ChevronRight, null, tint = ZokyRed,
+                            modifier = Modifier.padding(start = 5.dp).size(15.dp))
+                    }
+                }
+            }
         }
         item(key = "zoky-hero-indicator") {
-            // One verified local banner: never show non-functional carousel pages.
-            Box(
-                Modifier.padding(top = 8.dp, bottom = 10.dp)
-                    .size(width = 18.dp, height = 6.dp).clip(CircleShape)
-                    .background(ZokyRed),
-            )
+            // A single live banner: no fake carousel pagination controls.
+            Box(Modifier.padding(top = 8.dp, bottom = 10.dp)
+                .size(width = 18.dp, height = 6.dp).clip(CircleShape)
+                .background(ZokyRed))
         }
         item(key = "zoky-services-heading") {
             Text("บริการของ Zoky",
                 modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth()
                     .padding(start = 17.dp, end = 17.dp, top = 3.dp, bottom = 7.dp),
-                fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
-                color = ZokyInk)
+                fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = ZokyInk)
         }
         item(key = "zoky-approved-food-card") {
-            ZokyArt(
-                "zoky_service",
-                "สั่งอาหาร ร้านอร่อยใกล้คุณ เลือกเมนูโปรดได้ง่าย เลือกอาหาร",
+            Box(
                 modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth()
                     .padding(horizontal = 14.dp)
                     .aspectRatio(520f / 195f)
                     .clip(RoundedCornerShape(19.dp))
+                    .background(Brush.horizontalGradient(listOf(
+                        Color(0xFFFFF1F4), Color(0xFFFFE3ED))))
                     .clickable(onClick = onFood),
-            )
+            ) {
+                ZokyArt(
+                    "zoky_food_hd_art", null,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                        .fillMaxWidth(.59f).fillMaxHeight(),
+                    scale = ContentScale.FillBounds,
+                )
+                Column(
+                    Modifier.align(Alignment.CenterStart)
+                        .fillMaxWidth(.56f)
+                        .padding(start = if (small) 12.dp else 17.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Text("สั่งอาหาร", color = ZokyInk, fontWeight = FontWeight.ExtraBold,
+                        fontSize = if (small) 24.sp else 28.sp,
+                        lineHeight = if (small) 29.sp else 33.sp,
+                        maxLines = 1)
+                    Text("ร้านอร่อยใกล้คุณ\nเลือกเมนูโปรดได้ง่าย",
+                        color = ZokySub,
+                        fontSize = if (small) 11.sp else 12.sp,
+                        lineHeight = if (small) 15.sp else 17.sp,
+                        maxLines = 2,
+                    )
+                    Row(
+                        Modifier.padding(top = 3.dp).clip(CircleShape)
+                            .background(ZokyDeepRed)
+                            .clickable(onClick = onFood)
+                            .padding(horizontal = if (small) 12.dp else 15.dp,
+                                vertical = if (small) 6.dp else 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("เลือกอาหาร", color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = if (small) 12.sp else 14.sp)
+                        Icon(Icons.Outlined.ChevronRight, null, tint = Color.White,
+                            modifier = Modifier.padding(start = 6.dp).size(16.dp))
+                    }
+                }
+            }
         }
         item(key = "zoky-deals-heading") {
             Row(
@@ -179,11 +260,9 @@ fun ZokyHomeScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("ดีลคุ้ม! ดีลแรงวันนี้", modifier = Modifier.weight(1f),
-                    fontSize = 20.sp, color = ZokyInk,
-                    fontWeight = FontWeight.ExtraBold)
+                    fontSize = 20.sp, color = ZokyInk, fontWeight = FontWeight.ExtraBold)
                 Row(
-                    Modifier.clip(RoundedCornerShape(9.dp))
-                        .clickable(onClick = onDeals)
+                    Modifier.clip(RoundedCornerShape(9.dp)).clickable(onClick = onDeals)
                         .padding(vertical = 7.dp, horizontal = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -194,19 +273,22 @@ fun ZokyHomeScreen(
             }
         }
         item(key = "zoky-deal-cards") {
-            // These are visual previews. A public discount must be provided by
-            // a verified server promotion, never copied from the reference image.
+            // Illustrative deal cards are NOT server-confirmed discounts. When
+            // live offers exist, titles derive from buyer-scoped Backend data.
             val offers = state.promotions
             val previews = if (offers.isEmpty()) listOf(
-                Triple("ดีลร้านดัง", "เมนูยอดนิยม · ภาพตัวอย่าง", "dealpizza_crop"),
-                Triple("เครื่องดื่มสุดฮิต", "คุ้มกว่า · ภาพตัวอย่าง", "dealdrinks_crop"),
-                Triple("เมนูน่าลอง", "ภาพตัวอย่างดีล", "zoky_third_deal_preview"),
+                Triple("ดีลร้านดัง", "ภาพประกอบ · ยังไม่มีดีลจริง", "zoky_pizza_hd"),
+                Triple("เครื่องดื่มสุดฮิต", "ภาพประกอบ · รอโปรโมชัน", "zoky_drinks_hd"),
+                Triple("เมนูน่าลอง", "ภาพประกอบ · รอโปรโมชัน", "zoky_third_hd"),
             ) else offers.take(8).mapIndexed { index, offer ->
-                Triple(offer.title, "ตรวจสอบเงื่อนไขก่อนใช้", if (index % 2 == 0) "dealpizza_crop" else "dealdrinks_crop")
+                val picture = when (index % 3) {
+                    0 -> "zoky_pizza_hd"
+                    1 -> "zoky_drinks_hd"
+                    else -> "zoky_third_hd"
+                }
+                Triple(offer.title, "ตรวจสอบเงื่อนไขก่อนใช้", picture)
             }
-            // On a phone, show two whole cards plus a third preview edge.
-            // Width follows the viewport instead of the older oversized 212dp.
-            val dealWidthDp = (LocalConfiguration.current.screenWidthDp * 0.41f)
+            val dealWidthDp = (LocalConfiguration.current.screenWidthDp * .41f)
                 .coerceIn(128f, 240f)
             LazyRow(
                 modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(),
@@ -221,17 +303,13 @@ fun ZokyHomeScreen(
                             .background(Color.White)
                             .clickable(onClick = onDeals),
                     ) {
-                        ZokyArt(
-                            artwork, title,
+                        ZokyArt(artwork, title,
                             modifier = Modifier.fillMaxWidth()
-                                .height((dealWidthDp * 0.60f).dp),
-                            scale = ContentScale.Crop,
-                        )
-                        Row(
-                            Modifier.fillMaxWidth()
+                                .height((dealWidthDp * .60f).dp),
+                            scale = ContentScale.Crop)
+                        Row(Modifier.fillMaxWidth()
                                 .padding(start = 10.dp, end = 8.dp, top = 9.dp, bottom = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
+                            verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(title, color = ZokyInk,
@@ -240,11 +318,9 @@ fun ZokyHomeScreen(
                                 Text(subtitle, color = ZokySub, fontSize = 10.sp,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            Box(
-                                Modifier.padding(start = 3.dp).size(28.dp)
-                                    .clip(CircleShape).background(ZokyBlush),
-                                contentAlignment = Alignment.Center,
-                            ) {
+                            Box(Modifier.padding(start = 3.dp).size(28.dp)
+                                .clip(CircleShape).background(ZokyBlush),
+                                contentAlignment = Alignment.Center) {
                                 Icon(Icons.Outlined.ChevronRight, null,
                                     tint = ZokyInk, modifier = Modifier.size(18.dp))
                             }
