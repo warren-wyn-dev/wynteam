@@ -15,23 +15,23 @@ import android.print.PrintManager
 import android.print.pdf.PrintedPdfDocument
 import org.json.JSONObject
 import java.io.FileOutputStream
-import java.io.IOException
+import java.util.Locale
 
-/**
- * Native Android Print Framework: no WebView or printer vendor SDK required.
- * Layout is adapted to printer-selected page dimensions; shops can save as PDF.
- */
+/** Native printing; no WebView and no silent truncation on long orders. */
 object MerchantPrinter {
+    private data class PrintLine(val value: String, val heading: Boolean = false)
+
     fun print(context: Context, store: JSONObject, order: JSONObject, addressOnly: Boolean) {
-        val title = if (addressOnly) "WYNOS-Address-" else "WYNOS-Receipt-"
-        val filename = title + order.optString("order_number", "order") + ".pdf"
+        val label = if (addressOnly) "Address" else "Receipt"
+        val filename = "WYNOS-" + label + "-" + order.optString("order_number", "order") + ".pdf"
         val service = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
+        val content = buildContent(store, order, addressOnly)
+
         service.print(filename, object : PrintDocumentAdapter() {
-            private var attributes: PrintAttributes = PrintAttributes.Builder()
+            private var attributes = PrintAttributes.Builder()
                 .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
                 .setResolution(PrintAttributes.Resolution("pdf", "PDF", 300, 300))
-                .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
-                .build()
+                .setMinMargins(PrintAttributes.Margins.NO_MARGINS).build()
 
             override fun onLayout(oldAttributes: PrintAttributes?, newAttributes: PrintAttributes,
                                   cancellationSignal: CancellationSignal,
@@ -41,66 +41,106 @@ object MerchantPrinter {
                     callback.onLayoutCancelled()
                     return
                 }
-                val info = PrintDocumentInfo.Builder(filename)
-                    .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
-                    .setPageCount(1).build()
-                callback.onLayoutFinished(info, true)
+                // Layout depends on the physical printer's selected paper size/font fallback.
+                callback.onLayoutFinished(
+                    PrintDocumentInfo.Builder(filename)
+                        .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                        .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN)
+                        .build(),
+                    true
+                )
             }
 
             override fun onWrite(pages: Array<out PageRange>?, destination: ParcelFileDescriptor,
                                  cancellationSignal: CancellationSignal,
                                  callback: WriteResultCallback) {
-                if (cancellationSignal.isCanceled) {
-                    callback.onWriteCancelled()
-                    return
-                }
                 val document = PrintedPdfDocument(context, attributes)
                 try {
-                    val page = document.startPage(0)
-                    drawPage(page.canvas, page.info.pageWidth.toFloat(),
-                        page.info.pageHeight.toFloat(), store, order, addressOnly)
-                    document.finishPage(page)
-                    FileOutputStream(destination.fileDescriptor).use { document.writeTo(it) }
+                    if (cancellationSignal.isCanceled) {
+                        callback.onWriteCancelled()
+                        return
+                    }
+                    drawPaginated(document, content, cancellationSignal)
+                    if (cancellationSignal.isCanceled) {
+                        callback.onWriteCancelled()
+                        return
+                    }
+                    FileOutputStream(destination.fileDescriptor).use { stream ->
+                        document.writeTo(stream)
+                    }
                     callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
                 } catch (error: Exception) {
-                    callback.onWriteFailed(error.message ?: "ไม่สามารถพิมพ์ได้")
+                    if (cancellationSignal.isCanceled) callback.onWriteCancelled()
+                    else callback.onWriteFailed(error.message ?: "ไม่สามารถพิมพ์ได้")
                 } finally {
                     document.close()
                 }
             }
-        }, PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-            .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME).build())
+        }, PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+            .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
+            .build())
     }
 
-    private fun drawPage(canvas: Canvas, width: Float, height: Float,
-                         store: JSONObject, order: JSONObject, addressOnly: Boolean) {
-        val pen = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private fun drawPaginated(document: PrintedPdfDocument, content: List<PrintLine>,
+                              cancellationSignal: CancellationSignal) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.BLACK
-            textSize = 12f
             typeface = Typeface.create("sans-serif", Typeface.NORMAL)
         }
-        val margin = 30f
+        val margin = 34f
+        var pageNumber = 0
+        var page = document.startPage(pageNumber)
         var y = margin + 15f
-        val maxWidth = width - margin * 2
-        fun line(raw: String, heading: Boolean = false) {
-            pen.typeface = Typeface.create("sans-serif",
-                if (heading) Typeface.BOLD else Typeface.NORMAL)
-            pen.textSize = if (heading) 16f else 12f
-            for (part in raw.split("\n")) {
-                if (part.isBlank()) { y += 10f; continue }
-                var remaining = part
-                while (remaining.isNotEmpty() && y < height - margin) {
-                    val count = pen.breakText(remaining, true, maxWidth, null).coerceAtLeast(1)
-                    canvas.drawText(remaining.take(count), margin, y, pen)
-                    remaining = remaining.drop(count)
-                    y += if (heading) 23f else 18f
+        var maxWidth = (page.info.pageWidth - 2 * margin).coerceAtLeast(100f)
+        var bottom = page.info.pageHeight - margin
+
+        fun newPage() {
+            document.finishPage(page)
+            pageNumber++
+            page = document.startPage(pageNumber)
+            y = margin + 15f
+            maxWidth = (page.info.pageWidth - 2 * margin).coerceAtLeast(100f)
+            bottom = page.info.pageHeight - margin
+        }
+
+        for (line in content) {
+            if (cancellationSignal.isCanceled) break
+            paint.typeface = Typeface.create("sans-serif",
+                if (line.heading) Typeface.BOLD else Typeface.NORMAL)
+            paint.textSize = if (line.heading) 16f else 12f
+            val lineHeight = if (line.heading) 23f else 18f
+            for (paragraph in line.value.split("\n")) {
+                if (cancellationSignal.isCanceled) break
+                var remainder = paragraph
+                if (remainder.isEmpty()) {
+                    if (y + lineHeight > bottom) newPage()
+                    y += lineHeight
+                }
+                while (remainder.isNotEmpty()) {
+                    if (cancellationSignal.isCanceled) break
+                    if (y + lineHeight > bottom) newPage()
+                    val consumed = paint.breakText(remainder, true, maxWidth, null)
+                        .coerceAtLeast(1)
+                    page.canvas.drawText(remainder.substring(0, consumed), margin, y, paint)
+                    remainder = remainder.substring(consumed)
+                    y += lineHeight
                 }
             }
         }
+        document.finishPage(page)
+    }
+
+    private fun buildContent(store: JSONObject, order: JSONObject, addressOnly: Boolean): List<PrintLine> {
+        val text = mutableListOf<PrintLine>()
+        fun line(value: String, heading: Boolean = false) {
+            text.add(PrintLine(value, heading))
+        }
+
         val number = order.optString("order_number")
         if (addressOnly) {
             line("WYNOS Merchant · ใบจ่าหน้า", true)
-            line("ออเดอร์ #$number")
+            line("ออเดอร์ #" + number)
             line("ผู้รับ", true)
             line(order.optString("recipient_name"))
             line("โทร " + order.optString("recipient_phone"))
@@ -112,22 +152,21 @@ object MerchantPrinter {
             if (!store.isNull("phone")) line(store.optString("phone"))
         } else {
             line(store.optString("name"), true)
-            line(if (store.optBoolean("tax_invoice_enabled"))
-                "ใบเสร็จรับเงิน / ข้อมูลภาษี" else "ใบออเดอร์ / ใบเสร็จอย่างย่อ")
+            // This is a merchant order record, not a certified electronic tax invoice.
+            line("ใบออเดอร์ / เอกสารสรุปคำสั่งซื้อ")
             if (!order.isNull("receipt_legal_name")) line(order.optString("receipt_legal_name"))
             if (!order.isNull("receipt_tax_id")) line("เลขผู้เสียภาษี: " + order.optString("receipt_tax_id"))
             if (!order.isNull("receipt_tax_branch")) line("สาขา " + order.optString("receipt_tax_branch"))
             if (!order.isNull("receipt_tax_address")) line(order.optString("receipt_tax_address"))
-            line("ออเดอร์ #$number")
+            line("ออเดอร์ #" + number)
             line("เวลา: " + order.optString("created_at"))
-            val items = order.optJSONArray("food_order_items")
             line("รายการอาหาร", true)
+            val items = order.optJSONArray("food_order_items")
             for (index in 0 until (items?.length() ?: 0)) {
                 val item = items?.optJSONObject(index) ?: continue
                 val quantity = item.optInt("quantity", 1)
-                line("$quantity × " + item.optString("item_name") + "  " +
-                    String.format(java.util.Locale.US, "%.2f บาท",
-                        item.optDouble("unit_price", 0.0) * quantity))
+                line(quantity.toString() + " × " + item.optString("item_name") + "  " +
+                    String.format(Locale.US, "%.2f บาท", item.optDouble("unit_price", 0.0) * quantity))
                 val options = item.optJSONArray("selected_options")
                 for (choice in 0 until (options?.length() ?: 0)) {
                     line("  + " + options?.optJSONObject(choice)?.optString("choice_name"))
@@ -142,7 +181,8 @@ object MerchantPrinter {
             line("ผู้รับ: " + order.optString("recipient_name"))
             line("โทร: " + order.optString("recipient_phone"))
             line("ที่อยู่: " + order.optString("shipping_address"))
-            line("โปรดตรวจสอบข้อมูลภาษีก่อนใช้เป็นเอกสารทางบัญชี")
+            line("ตรวจสอบความถูกต้องของข้อมูลภาษีก่อนนำไปใช้ทางบัญชี")
         }
+        return text
     }
 }
