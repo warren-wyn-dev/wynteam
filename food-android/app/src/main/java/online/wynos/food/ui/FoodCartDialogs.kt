@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -426,17 +427,32 @@ fun FoodCartPreview(
                         }
                     }
                 }
-                Box(Modifier.fillMaxWidth().shadow(8.dp).padding(16.dp)) {
+                // Keep the website's fixed checkout action, but respect
+                // Android navigation insets and large localized text.
+                Box(
+                    Modifier.fillMaxWidth().shadow(4.dp)
+                        .background(Color.White)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
                     Button(
                         onClick = { showReview = true },
                         enabled = reviewEligible,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                         shape = CircleShape,
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 18.dp, vertical = 12.dp,
+                        ),
                         colors = ButtonDefaults.buttonColors(containerColor = Red),
                     ) {
-                        Text(stringResource(
-                            if (reviewEligible) R.string.checkout_review_action else R.string.checkout_unavailable
-                        ))
+                        Text(
+                            stringResource(
+                                if (reviewEligible) R.string.checkout_review_action
+                                else R.string.checkout_disabled_short,
+                            ),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 20.sp, fontSize = 14.sp, maxLines = 2,
+                        )
                     }
                 }
             }
