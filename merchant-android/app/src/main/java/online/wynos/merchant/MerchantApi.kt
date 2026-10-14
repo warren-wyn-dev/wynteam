@@ -246,7 +246,18 @@ class MerchantApi(context: Context) {
         safeHttp.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
             if (!response.isSuccessful) throw IOException("โหลดสลิปไม่สำเร็จ (HTTP " + response.code + ")")
             val body = response.body ?: throw IOException("สลิปว่างเปล่า")
-            val bytes = body.byteStream().use { it.readNBytes(8 * 1024 * 1024 + 1) }
+            val bytes = body.byteStream().use { stream ->
+                val limit = 8 * 1024 * 1024
+                val output = ByteArrayOutputStream()
+                val chunk = ByteArray(8192)
+                while (true) {
+                    val read = stream.read(chunk)
+                    if (read < 0) break
+                    if (output.size() + read > limit) throw IOException("รูปมีขนาดเกิน 8 MB")
+                    output.write(chunk, 0, read)
+                }
+                output.toByteArray()
+            }
             if (bytes.isEmpty() || bytes.size > 8 * 1024 * 1024) throw IOException("สลิปมีขนาดไม่ถูกต้อง")
             return bytes
         }
