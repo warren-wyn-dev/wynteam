@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 260" role="img" aria-label="WYNOS Food rider illustration">
+<defs><linearGradient id="road" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffd5e0"/><stop offset="1" stop-color="#ffb7ca"/></linearGradient><linearGradient id="scooter" x1="0" y1="0" x2="1" y2=".9"><stop stop-color="#ff3369"/><stop offset="1" stop-color="#d70038"/></linearGradient><linearGradient id="helmet" x1="0" x2="1" y1=".1" y2=".9"><stop stop-color="#ff4b76"/><stop offset="1" stop-color="#d60038"/></linearGradient></defs>
+<path d="M0 238L360 165V260H0Z" fill="url(#road)" opacity=".52"/>
+<path d="M5 236l340-66" stroke="#fff" stroke-width="4" opacity=".75"/>
+<g fill="#f9a7c1" opacity=".42"><rect x="9" y="75" width="35" height="118" rx="4"/><rect x="51" y="91" width="36" height="104" rx="3"/><rect x="95" y="52" width="33" height="144" rx="3"/><rect x="137" y="97" width="29" height="97" rx="3"/><rect x="311" y="55" width="31" height="137" rx="3"/></g>
+<g fill="#fff" opacity=".44"><rect x="19" y="88" width="7" height="9" rx="1"/><rect x="32" y="88" width="7" height="9" rx="1"/><rect x="61" y="107" width="7" height="9" rx="1"/><rect x="105" y="68" width="7" height="9" rx="1"/><rect x="118" y="68" width="7" height="9" rx="1"/></g>
+<path d="M312 45c0-15 23-15 23 0 0 10-12 24-12 24s-11-15-11-24z" fill="#ee0c49"/><circle cx="323" cy="45" r="4.5" fill="#fff"/>
+<ellipse cx="218" cy="235" rx="120" ry="10" fill="#aa557b" opacity=".13"/>
+<circle cx="155" cy="214" r="30" fill="#24232a"/><circle cx="155" cy="214" r="17" fill="#f4f4f7"/><circle cx="155" cy="214" r="7" fill="#8f8f9c"/>
+<circle cx="290" cy="214" r="30" fill="#24232a"/><circle cx="290" cy="214" r="17" fill="#f4f4f7"/><circle cx="290" cy="214" r="7" fill="#8f8f9c"/>
+<path d="M139 186c0-36 15-64 48-65h67l30 21 8 45-16 16h-91l-11-13-24 6z" fill="url(#scooter)" stroke="#af0031" stroke-width="3"/>
+<path d="M177 159h41c15 0 25 12 25 25v6h-49c-9 0-14-6-17-13z" fill="#ff8eab" opacity=".68"/>
+<path d="M268 140l-20-57 10-4 23 63M246 84l39-7" fill="none" stroke="#342830" stroke-width="6" stroke-linecap="round"/>
+<ellipse cx="280" cy="84" rx="9" ry="6" fill="#373036"/>
+<path d="M166 155l35-12 35 12-5 15h-54z" fill="#222026"/>
+<path d="M189 149l20-35 34-1 11 44-36 13z" fill="#e3003b"/>
+<path d="M226 141l24 21 9 42h-23l-14-36" fill="#24202a"/>
+<path d="M211 152l-20 25 10 29h19l-5-31 27-15z" fill="#25202a"/>
+<rect x="202" y="203" width="27" height="12" rx="6" fill="#fff"/>
+<rect x="237" y="203" width="29" height="12" rx="6" fill="#fff"/>
+<path d="M228 103l-2 26-20 14-15-12 20-28z" fill="#ffd2b1"/>
+<path d="M205 104l-1-31c2-26 23-41 46-36 22 4 34 23 30 47l-7 28-22 14z" fill="url(#helmet)" stroke="#be0035" stroke-width="3"/>
+<path d="M224 83c-5 22-4 31 13 38 20 8 35-6 36-24l-2-19z" fill="#ffe0be"/>
+<path d="M222 81c11-18 38-22 53-10" stroke="#9f0034" stroke-width="7" fill="none" stroke-linecap="round"/>
+<circle cx="267" cy="97" r="3.5" fill="#30252d"/><circle cx="251" cy="98" r="3.2" fill="#30252d"/>
+<path d="M251 111q8 9 17 1" fill="none" stroke="#d46370" stroke-width="2.3" stroke-linecap="round"/>
+<circle cx="245" cy="111" r="5" fill="#ff9fa7" opacity=".66"/><circle cx="275" cy="109" r="5" fill="#ff9fa7" opacity=".5"/>
+<path d="M247 128l23 17-13 12-28-21" stroke="#e3003b" stroke-width="15" fill="none" stroke-linecap="round"/>
+<path d="M254 148l18-12" stroke="#ffddb9" stroke-width="10" stroke-linecap="round"/>
+<rect x="174" y="113" width="44" height="55" rx="6" fill="#ed0343" stroke="#ad002e" stroke-width="3"/>
+<text x="196" y="140" font-size="28" font-weight="900" text-anchor="middle" font-family="sans-serif" fill="#fff">W</text><text x="196" y="151" font-size="10" font-weight="700" text-anchor="middle" font-family="sans-serif" fill="#fff">Food</text>
+<text x="253" y="57" font-size="21" font-weight="900" text-anchor="middle" font-family="sans-serif" fill="#fff">W</text>
+<ellipse cx="204" cy="182" rx="12" ry="6" fill="#fffbeb" opacity=".8"/>
+</svg>

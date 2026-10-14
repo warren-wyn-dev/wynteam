@@ -55,6 +55,7 @@ import { fetchFoodFeaturedStores, type FoodFeaturedPlacement } from "@/lib/food-
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
+import { FoodFeaturedHome, type FoodHomeFeature, type FoodHomeFeatureDish } from "@/components/food/food-featured-home";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import {
   clearRequestedOrder,
@@ -255,7 +256,7 @@ function FoodLoading() {
     <main className="wyn-food fx-app fx-loading" aria-busy="true" aria-label="กำลังโหลด WYNOS Food">
       <div className="fx-brand fx-loading-brand">
         <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
-        <span>WYNOS <b>Food</b></span>
+        <span className="fx-brand-stacked"><strong>WYNOS</strong><b>Food</b></span>
       </div>
       <div className="fx-skel fx-skel--line" style={{ width: 180 }} />
       <div className="fx-skel fx-skel--pill" />
@@ -587,6 +588,7 @@ function StoreDirectory({
   orders,
   addresses,
   onPick,
+  onFeaturedDish,
   onLocation,
 }: {
   client: SupabaseClient;
@@ -594,6 +596,7 @@ function StoreDirectory({
   orders: FoodCustomerOrder[];
   addresses: FoodCustomerAddress[];
   onPick: (store: FoodDirectoryStore, placement: "home" | "search") => void;
+  onFeaturedDish: (store: FoodDirectoryStore, itemId: string) => void;
   onLocation: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -601,6 +604,10 @@ function StoreDirectory({
   const [stores, setStores] = useState<FoodDirectoryStore[] | null>(null);
   const [homeBanners, setHomeBanners] = useState<FoodHomeBanner[]>([]);
   const [featuredPlacements,setFeaturedPlacements]=useState<FoodFeaturedPlacement[]>([]);
+  const [publishedMenus, setPublishedMenus] = useState<Array<{
+    id: string;
+    menu: Array<{ id: string; name: string; price: number | string; image_path: string | null; sold_out_until?: string | null; daily_stock_limit?: number | null }>;
+  }>>([]);
   const [browse, setBrowse] = useState<"promos" | "recent" | "nearby" | "popular" | null>(null);
   const promoKey = `wynos-food-collected-promos-v1:${userId}`;
   const [collectedPromos, setCollectedPromos] = useState<string[]>(() => {
@@ -639,6 +646,18 @@ function StoreDirectory({
     return ()=>{live=false;};
   },[client]);
 
+  // Same anonymous, published-only RPC used by guest browse. This supplies
+  // menu photos/prices for feature cards without exposing merchant data.
+  useEffect(() => {
+    let live = true;
+    void Promise.resolve(client.rpc("food_public_catalog")).then(({ data, error }) => {
+      if (live && !error && Array.isArray(data)) {
+        setPublishedMenus(data as typeof publishedMenus);
+      }
+    }).catch(() => { /* Optional feature: directory stays available. */ });
+    return () => { live = false; };
+  }, [client]);
+
   const recentStores = Array.from(new Set(
     [...orders]
       .filter((order) => order.status !== "cancelled")
@@ -676,6 +695,40 @@ function StoreDirectory({
   });
   const promoStores = directory.filter((store) => Boolean(store.promo_name));
   const featuredStores=featuredPlacements.map(p=>filtered.find(store=>store.id===p.store_id)).filter((store):store is FoodDirectoryStore=>Boolean(store));
+  const featuredStore = featuredStores[0] ?? filtered[0] ?? null;
+  // A restaurant must not be presented twice as two separate Home cards.
+  const nearbyDiscovery = filter === "all" && featuredStore
+    ? nearbyStores.filter(store => store.id !== featuredStore.id) : nearbyStores;
+  const nearbyShown = new Set(nearbyDiscovery.slice(0, 4).map(store => store.id));
+  const popularDiscovery = filter === "all" && featuredStore
+    ? popularStores.filter(store => store.id !== featuredStore.id && !nearbyShown.has(store.id))
+    : popularStores;
+  const publishedStore = publishedMenus.find(row => row.id === featuredStore?.id);
+  const featuredDishes: FoodHomeFeatureDish[] = (publishedStore?.menu ?? []).map(item => ({
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    imageUrl: foodPublicUrl(client, item.image_path),
+    available: featuredStore?.is_open === true && Number(item.daily_stock_limit ?? 1) > 0
+      && !item.sold_out_until,
+  }));
+  const featuredPromo = featuredStore?.promo_name
+    ? { label: foodPromoLabel(featuredStore) ?? featuredStore.promo_name,
+        condition: Number(featuredStore.promo_min_subtotal ?? 0) > 0
+          ? `เมื่อสั่งครบ ${foodMoney(featuredStore.promo_min_subtotal ?? 0)}` : null }
+    : null;
+  const featuredModel: FoodHomeFeature | null = featuredStore ? {
+    name: featuredStore.name,
+    coverUrl: foodPublicUrl(client, featuredStore.cover_path),
+    deliveryFee: featuredStore.delivery_fee,
+    isOpen: featuredStore.is_open,
+    rating: Number(featuredStore.rating_average ?? 0),
+    ratingCount: Number(featuredStore.rating_count ?? 0),
+    categories: featuredStore.categories ?? [],
+    isAd: featuredStore.is_ad,
+    promotion: featuredPromo,
+    menu: featuredDishes,
+  } : null;
 
   const toggleCollected = (store: FoodDirectoryStore) => {
     const id = store.id;
@@ -798,10 +851,14 @@ function StoreDirectory({
             ))}
           </div>
 
-          {filter === "all" && featuredStores.length > 0 ? (
-            <section className="fx-home-section" aria-label="ร้านแนะนำ">
-              <FoodHomeSectionHeader title="ร้านแนะนำ" />
-              <div className="fx-store-grid">{featuredStores.map(store=>card(store))}</div>
+          {filter === "all" && featuredStore && featuredModel ? (
+            <section className="fx-home-section" aria-label="ร้านอาหารแนะนำ">
+              <FoodHomeSectionHeader title="ร้านอาหารแนะนำ" onAll={() => setBrowse("nearby")} />
+              <FoodFeaturedHome
+                feature={featuredModel}
+                onStore={() => onPick(featuredStore, "home")}
+                onMenu={(itemId) => onFeaturedDish(featuredStore, itemId)}
+              />
             </section>
           ) : null}
 
@@ -823,17 +880,17 @@ function StoreDirectory({
             </section>
           ) : null}
 
-          <section className="fx-home-section">
-            <FoodHomeSectionHeader title="ร้านใกล้คุณ" onAll={nearbyStores.length > 4 ? () => setBrowse("nearby") : undefined} />
-            {nearbyStores.length ? <div className="fx-store-grid">{nearbyStores.slice(0, 4).map((store) => card(store))}</div> : (
-              <p className="fx-empty-line">ไม่มีร้านที่ตรงกับตัวกรองนี้</p>
-            )}
-          </section>
+          {nearbyDiscovery.length > 0 ? (
+            <section className="fx-home-section">
+              <FoodHomeSectionHeader title="ร้านใกล้คุณ" onAll={nearbyStores.length > 4 ? () => setBrowse("nearby") : undefined} />
+              <div className="fx-store-grid">{nearbyDiscovery.slice(0, 4).map((store) => card(store))}</div>
+            </section>
+          ) : null}
 
-          {filter === "all" && popularStores.length > 1 ? (
+          {filter === "all" && popularDiscovery.length > 0 ? (
             <section className="fx-home-section">
               <FoodHomeSectionHeader title="ร้านยอดนิยม" onAll={popularStores.length > 4 ? () => setBrowse("popular") : undefined} />
-              <div className="fx-store-grid">{popularStores.slice(0, 4).map((store) => card(store))}</div>
+              <div className="fx-store-grid">{popularDiscovery.slice(0, 4).map((store) => card(store))}</div>
             </section>
           ) : null}
         </>
@@ -1142,6 +1199,7 @@ function HomePanel({
   menu,
   onItem,
   onPickStore,
+  onFeaturedDish,
   onShareStore,
   onBackStorefront,
   storefrontOpen,
@@ -1155,6 +1213,7 @@ function HomePanel({
   menu: FoodCustomerMenuItem[];
   onItem: (item: FoodCustomerMenuItem) => void;
   onPickStore: (store: FoodDirectoryStore, placement: "home" | "search") => void;
+  onFeaturedDish: (store: FoodDirectoryStore, itemId: string) => void;
   onShareStore: () => void;
   onBackStorefront: () => void;
   storefrontOpen: boolean;
@@ -1214,6 +1273,7 @@ function HomePanel({
           orders={orders}
           addresses={addresses}
           onPick={onPickStore}
+          onFeaturedDish={onFeaturedDish}
           onLocation={onLocation}
         />
         <a className="fx-social-promo" href="https://wynos.online/" aria-label="เปิด WYNOS Social">
@@ -3387,9 +3447,13 @@ function FoodCustomerInner({
   };
 
   // WYN-201: pull down to refresh the store, menu and orders.
-  const pickStore = (next: FoodDirectoryStore, placement: "home" | "search") => {
+  const pickStore = (next: FoodDirectoryStore, placement: "home" | "search", requestedItemId?: string) => {
     if (next.is_ad) void recordFoodAdClick(client, next.id, placement).catch(() => undefined);
     if (next.id === store?.id) {
+      if (requestedItemId) {
+        const item = menu.find((entry) => entry.id === requestedItemId);
+        if (item) setSelectedItem(item);
+      }
       setStorefrontOpen(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -3400,7 +3464,13 @@ function FoodCustomerInner({
     try { localStorage.setItem(storeKey, next.id); } catch { /* private mode */ }
     window.scrollTo({ top: 0, behavior: "smooth" });
     void load(true).then((nextSnapshot) => {
-      if (nextSnapshot?.store?.id === next.id) setStorefrontOpen(true);
+      if (nextSnapshot?.store?.id === next.id) {
+        setStorefrontOpen(true);
+        if (requestedItemId) {
+          const item = nextSnapshot.menu.find((entry) => entry.id === requestedItemId);
+          if (item) setSelectedItem(item);
+        }
+      }
     });
   };
   const shareStore = () => {
@@ -3480,6 +3550,7 @@ function FoodCustomerInner({
             menu={menu}
             onItem={setSelectedItem}
             onPickStore={pickStore}
+            onFeaturedDish={(target, itemId) => pickStore(target, "home", itemId)}
             onShareStore={shareStore}
             onBackStorefront={() => {
               setStorefrontOpen(false);
