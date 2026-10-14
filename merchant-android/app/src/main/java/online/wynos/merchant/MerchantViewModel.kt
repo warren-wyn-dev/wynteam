@@ -33,6 +33,8 @@ data class MerchantState(
     val menu: List<JSONObject> = emptyList(),
     val sales: JSONObject? = null,
     val finance: JSONObject? = null,
+    val financeFrom: String = "",
+    val financeTo: String = "",
     val history: List<JSONObject> = emptyList(),
     val historyStatus: String = "all",
     val historySearch: String = "",
@@ -124,6 +126,8 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             menu = menu, orders = orderRows.take(100), sales = sales,
             hasMoreOrders = orderRows.size > 100,
             finance = if (changingStore) null else state.finance,
+            financeFrom = if (changingStore) "" else state.financeFrom,
+            financeTo = if (changingStore) "" else state.financeTo,
             readiness = if (changingStore) null else state.readiness,
             audit = if (changingStore) emptyList() else state.audit,
             staff = if (changingStore) emptyList() else state.staff,
@@ -500,11 +504,28 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setFinanceRange(from: String, to: String) {
+        val start = runCatching { LocalDate.parse(from) }.getOrNull()
+        val end = runCatching { LocalDate.parse(to) }.getOrNull()
+        if (start == null || end == null || end.isBefore(start) ||
+            java.time.temporal.ChronoUnit.DAYS.between(start, end) > 365) {
+            state = state.copy(error = "กรุณาเลือกช่วงวันที่ถูกต้อง ไม่เกิน 366 วัน")
+            return
+        }
+        state = state.copy(financeFrom = from, financeTo = to)
+        loadFinance()
+    }
+
     fun loadFinance() {
         val storeId = state.store?.optString("id") ?: return
         execute {
             val today = LocalDate.now(ZoneId.of("Asia/Bangkok"))
-            state = state.copy(finance = api.finance(storeId, today.withDayOfMonth(1), today))
+            val from = runCatching { LocalDate.parse(state.financeFrom) }.getOrNull() ?: today
+            val to = runCatching { LocalDate.parse(state.financeTo) }.getOrNull() ?: today
+            val summary = api.finance(storeId, from, to)
+            val stripe = runCatching { api.stripeStatus(storeId) }.getOrNull()
+            state = state.copy(finance = summary, financeFrom = from.toString(),
+                financeTo = to.toString(), stripeStatus = stripe)
         }
     }
 
