@@ -153,6 +153,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onRetry = vm::refreshOrders,
                     onBrowse = { tab = 0 },
                     onOpenDetail = vm::openOrderDetails,
+                    onDismissNotice = vm::dismissOrderStatusNotice,
                 )
                 tab == 2 -> WebMessagesPage()
                 else -> WebAccountPage(
