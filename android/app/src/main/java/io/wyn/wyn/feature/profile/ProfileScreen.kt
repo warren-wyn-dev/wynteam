@@ -151,7 +151,7 @@ fun ProfileScreen(vm: ProfileViewModel, nav: ProfileNavigation, accounts: Accoun
                             },
                         )
                     }
-                    item(key = "header") { Header(vm, summary, nav, ::shareProfile) }
+                    item(key = "header") { Header(vm, summary, nav, ::shareProfile, accounts != null) }
                     if (!vm.own && !summary.blockedBy && vm.suggestions.isNotEmpty()) {
                         item(key = "suggestions") { Suggestions(vm, nav.feed.onOpenProfile) }
                     }
@@ -295,7 +295,7 @@ private fun DefaultCover() {
 // ---- Header ------------------------------------------------------------------------
 
 @Composable
-private fun Header(vm: ProfileViewModel, summary: ProfileSummary, nav: ProfileNavigation, onShare: () -> Unit) {
+private fun Header(vm: ProfileViewModel, summary: ProfileSummary, nav: ProfileNavigation, onShare: () -> Unit, hasAccountSwitcher: Boolean) {
     val c = Wyn.colors
     val context = LocalContext.current
     val profile = summary.profile
@@ -322,6 +322,18 @@ private fun Header(vm: ProfileViewModel, summary: ProfileSummary, nav: ProfileNa
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                     )
                     if (profile.isVerified) VerifiedBadge(16, label = stringResource(R.string.verified))
+                    if (vm.own && hasAccountSwitcher) {
+                        val accountLabel = stringResource(R.string.accounts_switch_title)
+                        Box(
+                            Modifier.size(26.dp).clip(CircleShape)
+                                .clickable(role = Role.Button, onClickLabel = accountLabel) {
+                                    vm.openProfileSheet(ProfileSheet.Accounts)
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(WynIcons.ChevronDown, contentDescription = accountLabel, tint = c.text, modifier = Modifier.size(18.dp))
+                        }
+                    }
                 }
                 Text(
                     "@${profile.username}", color = HandleGrey, fontSize = if (narrow) 12.5.sp else 14.sp, lineHeight = 18.sp,
