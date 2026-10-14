@@ -58,6 +58,7 @@ data class FoodUiState(
     val signupEnabled: Boolean = false,
     val registrationEmailSent: Boolean = false,
     val stagingOrderCreationEnabled: Boolean = false,
+    val stagingMobilePaymentEnabled: Boolean = false,
     val stagingOrderBusy: Boolean = false,
     val stagingOrderFailed: Boolean = false,
     val stagingOrderUncertain: Boolean = false,
@@ -72,6 +73,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         signupEnabled = gateway.signupEnabled,
         accountDeletionEnabled = gateway.accountDeletionEnabled,
         stagingOrderCreationEnabled = gateway.stagingOrderCreationEnabled,
+        stagingMobilePaymentEnabled = gateway.stagingMobilePaymentEnabled,
     ))
     val uiState = mutableState.asStateFlow()
 
@@ -504,6 +506,26 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                 }
             }
         }
+    }
+
+    /**
+     * Acquires a test-mode Stripe client secret only for the freshly created
+     * staging order. The secret is never stored in ViewModel StateFlow.
+     * A successful PaymentSheet callback is NOT payment confirmation.
+     */
+    suspend fun prepareStagingMobilePayment(orderId: String): online.wynos.food.data.FoodMobilePaymentIntent {
+        val state = mutableState.value
+        check(gateway.stagingMobilePaymentEnabled && state.stagingMobilePaymentEnabled &&
+            state.accountEmail != null && !state.accountBusy &&
+            state.stagingOrderCreatedId == orderId && !state.stagingOrderBusy &&
+            !state.stagingOrderUncertain
+        ) { "staging_mobile_payment_disabled" }
+        val generation = accountGeneration
+        val credentials = gateway.createStagingPaymentIntent(orderId)
+        check(generation == accountGeneration && mutableState.value.accountEmail != null &&
+            mutableState.value.stagingOrderCreatedId == orderId
+        ) { "account_changed" }
+        return credentials
     }
 
     fun openOrderDetails(orderId: String) {
