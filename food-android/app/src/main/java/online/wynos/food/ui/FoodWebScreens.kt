@@ -246,6 +246,17 @@ internal fun homeGridColumnsForWidth(widthDp: Float): Int = if (widthDp >= 680f)
 // Android's user-selected accessibility font scaling.
 internal fun compactFoodHomeForWidth(widthDp: Float): Boolean = widthDp < 400f
 
+/**
+ * The first Home section displays published, real catalog stores—not
+ * synthetic recommendations. Searching, filtering or tapping See all
+ * exposes the ordinary grid instead of a potentially misleading carousel.
+ */
+internal fun shouldShowRecommendedHomeStrip(
+    query: String,
+    filter: String,
+    showAll: Boolean,
+): Boolean = query.isBlank() && filter == "all" && !showAll
+
 @Composable
 fun WebHomeScreen(
     state: FoodUiState,
@@ -256,6 +267,7 @@ fun WebHomeScreen(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
+    var showAllStores by rememberSaveable { mutableStateOf(false) }
     val filtered = state.stores.distinctBy { it.id }.filter { store ->
         (query.isBlank() || store.name.contains(query.trim(), ignoreCase = true) ||
             store.menu.any { it.name.contains(query.trim(), ignoreCase = true) }) &&
@@ -375,35 +387,96 @@ fun WebHomeScreen(
             }
             filtered.isEmpty() -> item { CenterStateText(R.string.no_stores) }
             else -> {
-                // This is one public catalog, not two independently curated
-                // collections. Previously every signed-in user saw every
-                // restaurant twice under "recommended" and "public".
-                item {
-                    SectionTitleWeb(
-                        stringResource(R.string.public_stores),
-                        topSpacing = if (guest) 10 else 21,
-                        compact = guest && compactHome,
-                    )
-                }
-                items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
+                val recommendedMode = shouldShowRecommendedHomeStrip(query, filter, showAllStores)
+                item(key = "store-section-header") {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, top = if (guest) 10.dp else 21.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        row.forEach { store ->
-                            StoreCardWeb(
-                                store, Modifier.weight(1f),
-                                showRating = !guest,
-                                onClick = { onStore(store.id) },
+                        Text(
+                            stringResource(if (recommendedMode) R.string.recommended_stores else R.string.public_stores),
+                            modifier = Modifier.weight(1f),
+                            fontSize = if (guest && compactHome) 17.sp else 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = WebInk,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        // "See all" always does something: open the full native grid.
+                        // "Back" restores the horizontal recommendation section.
+                        if (query.isBlank() && filter == "all") {
+                            Text(
+                                stringResource(if (recommendedMode) R.string.see_all else R.string.back),
+                                fontSize = 13.sp,
+                                color = WebRed,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.clickable { showAllStores = !showAllStores }
+                                    .padding(vertical = 10.dp, horizontal = 2.dp),
                             )
                         }
-                        if (row.size < homeGridColumns) {
-                            Spacer(Modifier.weight(1f))
+                    }
+                }
+                if (recommendedMode) {
+                    item(key = "recommended-stores-carousel") {
+                        RecommendedStoresStrip(filtered, onStore)
+                    }
+                } else {
+                    items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            row.forEach { store ->
+                                StoreCardWeb(
+                                    store, Modifier.weight(1f),
+                                    showRating = false,
+                                    onClick = { onStore(store.id) },
+                                )
+                            }
+                            if (row.size < homeGridColumns) {
+                                Spacer(Modifier.weight(1f))
+                            }
                         }
                     }
                 }
             }
         }
+        }
+    }
+}
+
+/**
+ * Web-style restaurant recommendations: horizontal, two-card phone peek,
+ * real public catalog details only. No invented ratings, delivery ETAs,
+ * featured ranking or discounts.
+ */
+@Composable
+private fun RecommendedStoresStrip(stores: List<FoodStore>, onStore: (String) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val cardWidth = ((maxWidth - 44.dp) / 2).coerceIn(154.dp, 210.dp)
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(stores, key = { it.id }) { store ->
+                Surface(
+                    modifier = Modifier.width(cardWidth),
+                    color = Color.White,
+                    shape = RoundedCornerShape(17.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, WebLine),
+                    shadowElevation = 2.dp,
+                ) {
+                    StoreCardWeb(
+                        store = store,
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        showRating = false,
+                        onClick = { onStore(store.id) },
+                    )
+                }
+            }
         }
     }
 }
@@ -505,14 +578,14 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boole
             }
         }
         val menuCountTag = stringResource(R.string.store_menu_count, store.menu.size)
-        val deliveryTag = stringResource(R.string.store_delivery, "฿" + (store.deliveryFee ?: "—"))
-        // Same flex-wrap behaviour as .fx-store-card-tags in the web CSS.
+        val deliveryTag = store.deliveryFee?.let { stringResource(R.string.store_delivery, "฿$it") }
+        // Only show verified public-catalog values; never invent a fee or ETA.
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             TagWeb(menuCountTag)
-            TagWeb(deliveryTag)
+            if (deliveryTag != null) TagWeb(deliveryTag)
         }
     }
 }
