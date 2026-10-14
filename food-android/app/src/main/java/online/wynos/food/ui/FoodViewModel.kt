@@ -50,6 +50,8 @@ data class FoodUiState(
     val accountEmail: String? = null,
     val accountFailed: Boolean = false,
     val resetEmailSent: Boolean = false,
+    val accountDeletionEnabled: Boolean = false,
+    val accountDeletionBusy: Boolean = false,
     val signupEnabled: Boolean = false,
     val registrationEmailSent: Boolean = false,
 )
@@ -59,6 +61,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         configured = gateway.configured,
         addressWritesEnabled = gateway.addressWritesEnabled,
         signupEnabled = gateway.signupEnabled,
+        accountDeletionEnabled = gateway.accountDeletionEnabled,
     ))
     val uiState = mutableState.asStateFlow()
 
@@ -191,6 +194,47 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
             } catch (_: Exception) {
                 if (generation == accountGeneration) {
                     mutableState.update { it.copy(accountBusy = false, accountFailed = true) }
+                }
+            }
+        }
+    }
+
+    fun deleteAccount() {
+        val state = mutableState.value
+        if (!gateway.accountDeletionEnabled || state.accountEmail == null ||
+            state.accountBusy || state.accountDeletionBusy) return
+        invalidateAccountRequests()
+        val generation = accountGeneration
+        mutableState.update {
+            it.copy(accountBusy = true, accountDeletionBusy = true, accountFailed = false)
+        }
+        viewModelScope.launch {
+            try {
+                gateway.deleteMyAccount()
+                if (generation != accountGeneration) return@launch
+                // Never retain private order/address/cart contents after deletion.
+                mutableState.update {
+                    it.copy(accountBusy = false, accountDeletionBusy = false,
+                        accountEmail = null, accountFailed = false,
+                        orders = emptyList(), ordersLoading = false, ordersFailed = false,
+                        selectedOrderId = null, orderDetail = null,
+                        orderDetailLoading = false, orderDetailFailed = false,
+                        addresses = emptyList(), addressesLoading = false,
+                        addressesFailed = false, selectedAddressId = null,
+                        addressBusy = false, addressMutationError = false,
+                        addressMutationSuccess = false, cart = FoodCartDraft(),
+                        quote = null, quoteLoading = false, quoteFailed = false,
+                        resetEmailSent = false, registrationEmailSent = false)
+                }
+                refreshCatalog()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (generation == accountGeneration) {
+                    mutableState.update {
+                        it.copy(accountBusy = false, accountDeletionBusy = false,
+                            accountFailed = true)
+                    }
                 }
             }
         }
