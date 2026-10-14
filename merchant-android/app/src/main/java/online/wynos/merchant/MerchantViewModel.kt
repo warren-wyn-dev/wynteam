@@ -84,6 +84,7 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
     private val api = MerchantApi(application)
     private val prefs = application.getSharedPreferences("merchant_preferences", 0)
     private var pendingPageLoad: MerchantPage? = null
+    private var orderPollRunning = false
     var state by mutableStateOf(MerchantState(configured = api.configured,
         pushEnabled = MerchantPush.isEnabled(application)))
         private set
@@ -227,6 +228,45 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         if (page == MerchantPage.STORE) loadStoreDetails()
         if (page in setOf(MerchantPage.FEEDBACK, MerchantPage.PROMOTIONS, MerchantPage.CAMPAIGNS,
                 MerchantPage.ADS, MerchantPage.NOTIFICATIONS, MerchantPage.STAFF)) loadExtras(page)
+    }
+
+    /** Foreground fallback while Realtime/FCM delivery is not yet verified.
+     * Read-only; never repeats payment or order-transition RPCs.
+     */
+    fun pollOrders() {
+        val storeId = state.store?.optString("id") ?: return
+        if (!state.signedIn || state.busy || orderPollRunning) return
+        orderPollRunning = true
+        viewModelScope.launch {
+            try {
+                val rows = withContext(Dispatchers.IO) { api.orders(storeId).asObjects() }
+                // A late reply from store A must never be applied to store B.
+                if (!state.signedIn || state.store?.optString("id") != storeId) return@launch
+                val latest = rows.take(100)
+                val previous = state.orders
+                val seen = latest.map { it.optString("id") }.toHashSet()
+                val merged = latest + previous.filter { seen.add(it.optString("id")) }
+                val previousIds = previous.map { it.optString("id") }.toSet()
+                val newPending = if (previous.isEmpty()) 0 else latest.count {
+                    it.optString("status") == "pending_acceptance" &&
+                        it.optString("id") !in previousIds
+                }
+                val selectedId = state.selectedOrder?.optString("id")
+                state = state.copy(
+                    orders = merged,
+                    hasMoreOrders = rows.size > 100 || state.hasMoreOrders,
+                    selectedOrder = if (selectedId != null)
+                        merged.firstOrNull { it.optString("id") == selectedId } else null,
+                    notice = if (newPending > 0) "มีออเดอร์ใหม่ $newPending รายการ"
+                        else state.notice
+                )
+            } catch (_: Exception) {
+                // Network failure is not a reason to replay financial writes.
+                // Preserve on-screen state; the next foreground poll may recover.
+            } finally {
+                orderPollRunning = false
+            }
+        }
     }
 
     fun loadMoreOrders() {
