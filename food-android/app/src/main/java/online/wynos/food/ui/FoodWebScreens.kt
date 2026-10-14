@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,6 +48,8 @@ import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -54,6 +57,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,6 +67,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -83,6 +89,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 import online.wynos.food.R
 import online.wynos.food.data.FoodCartDraft
 import online.wynos.food.data.FoodHomeBanner
@@ -136,7 +143,7 @@ fun WebHomeHeader(
     onSelectAddress: (String?) -> Unit,
     onRefreshAddresses: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().background(Color.White).padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)) {
+    Column(Modifier.fillMaxWidth().background(Color.White).padding(start = 16.dp, end = 14.dp, top = 6.dp, bottom = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Image(
@@ -156,9 +163,9 @@ fun WebHomeHeader(
                     shape = CircleShape,
                     border = androidx.compose.foundation.BorderStroke(1.dp, WebRed),
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier.height(40.dp).shadow(3.dp, CircleShape),
+                    modifier = Modifier.height(36.dp),
                 ) {
-                    Text(stringResource(R.string.guest_sign_in), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(stringResource(R.string.guest_sign_in), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
             } else {
                 IconButton(onClick = onCart, modifier = Modifier.size(42.dp)) {
@@ -263,6 +270,7 @@ internal fun shouldShowRecommendedHomeStrip(
     showAll: Boolean,
 ): Boolean = query.isBlank() && filter == "all" && !showAll
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WebHomeScreen(
     state: FoodUiState,
@@ -275,6 +283,9 @@ fun WebHomeScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
     var showAllStores by rememberSaveable { mutableStateOf(false) }
+    var filtersOpen by rememberSaveable { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val filtered = visibleHomeStores(state.stores, query, filter)
     // Use the actual composable width rather than assuming two columns on
     // every screen. With only one published store, the old 2-column grid
@@ -283,38 +294,57 @@ fun WebHomeScreen(
         val homeGridColumns = homeGridColumnsForWidth(maxWidth.value)
         val compactHome = compactFoodHomeForWidth(maxWidth.value)
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize().background(Color.White),
             contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-        item {
+        item(key = "search-with-filter-button") {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                    .shadow(2.dp, CircleShape)
-                    .height(if (compactHome) 46.dp else 48.dp).clip(CircleShape)
-                    .background(Color.White).padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 3.dp, bottom = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(Icons.Outlined.Search, null, tint = WebMuted, modifier = Modifier.size(20.dp))
-                BasicTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(color = WebInk, fontSize = if (compactHome) 15.sp else 16.sp),
-                    modifier = Modifier.weight(1f),
-                    decorationBox = { inner ->
-                        Box {
-                            if (query.isEmpty()) Text(
-                                stringResource(R.string.search_food_hint), color = WebMuted,
-                                fontSize = if (compactHome) 15.sp else 16.sp,
-                            )
-                            inner()
-                        }
-                    },
-                )
-                if (query.isNotEmpty()) {
-                    Icon(Icons.Outlined.Close, null, tint = WebMuted, modifier = Modifier.size(19.dp).clickable { query = "" })
+                Row(
+                    modifier = Modifier.weight(1f).height(48.dp)
+                        .shadow(2.dp, CircleShape)
+                        .clip(CircleShape).background(Color.White)
+                        .padding(horizontal = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Outlined.Search, null, tint = WebMuted, modifier = Modifier.size(20.dp))
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(color = WebInk, fontSize = 14.sp),
+                        modifier = Modifier.weight(1f),
+                        decorationBox = { inner ->
+                            Box {
+                                if (query.isEmpty()) Text(
+                                    stringResource(R.string.search_food_hint), color = WebMuted, fontSize = 14.sp,
+                                )
+                                inner()
+                            }
+                        },
+                    )
+                    if (query.isNotEmpty()) {
+                        Icon(Icons.Outlined.Close, stringResource(R.string.clear_search), tint = WebMuted,
+                            modifier = Modifier.size(24.dp).clickable { query = "" })
+                    }
+                }
+                Box(
+                    modifier = Modifier.size(46.dp)
+                        .shadow(2.dp, RoundedCornerShape(15.dp))
+                        .clip(RoundedCornerShape(15.dp)).background(Color.White)
+                        .clickable { filtersOpen = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.Tune, stringResource(R.string.filters_title),
+                        tint = if (filter == "all") WebInk else WebRed,
+                        modifier = Modifier.size(23.dp))
                 }
             }
         }
@@ -324,7 +354,14 @@ fun WebHomeScreen(
             if (state.banners.isNotEmpty()) {
                 item(key = "live-banner") { BannerStrip(state.banners, onStore) }
             } else {
-                item(key = "brand-banner") { FoodBrandHeroBanner(state.stores.firstOrNull()) }
+                item(key = "brand-banner") {
+                    FoodBrandHeroBanner(state.stores.firstOrNull(), onBrowse = {
+                        scope.launch {
+                            val last = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                            listState.animateScrollToItem(minOf(4, last))
+                        }
+                    })
+                }
             }
         }
         // Public coupon eligibility/collection is not yet available.
@@ -438,6 +475,48 @@ fun WebHomeScreen(
             }
         }
         }
+        if (filtersOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { filtersOpen = false },
+                containerColor = Color.White,
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(stringResource(R.string.filters_title), fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp, color = WebInk)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilterChipWeb(stringResource(R.string.filter_all), filter == "all") {
+                            filter = "all"; filtersOpen = false
+                        }
+                        FilterChipWeb(stringResource(R.string.filter_open), filter == "open") {
+                            filter = "open"; filtersOpen = false
+                        }
+                        if (canSortHomeByDeliveryFee(state.stores)) {
+                            FilterChipWeb(stringResource(R.string.sort_delivery_fee_lowest), filter == "fee") {
+                                filter = "fee"; filtersOpen = false
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        publishedHomeCategories(state.stores).forEach { category ->
+                            val code = "category:$category"
+                            FilterChipWeb(category, filter == code) {
+                                filter = code; filtersOpen = false
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
+        }
     }
 }
 
@@ -537,7 +616,7 @@ private fun FoodFeaturedRestaurantHome(
                                 }
                             }
                             Text(dish.name, color = WebInk, fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium, maxLines = 2,
+                                fontWeight = FontWeight.Medium, minLines = 2, maxLines = 2,
                                 lineHeight = 14.sp, overflow = TextOverflow.Ellipsis)
                             Text("฿${dish.price}", color = WebInk, fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold)
@@ -557,8 +636,9 @@ private fun CouponPreviewUnavailable() {
     Row(
         modifier = Modifier.fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .shadow(2.dp, shape).clip(shape).background(Color.White)
-            .padding(horizontal = 12.dp, vertical = 11.dp),
+            .shadow(2.dp, shape).clip(shape)
+            .background(Brush.horizontalGradient(listOf(Color.White, Color(0xFFFFF3F6))))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -583,13 +663,13 @@ private fun CouponPreviewUnavailable() {
 
 /** A compact editorial banner using an actual published restaurant image. */
 @Composable
-private fun FoodBrandHeroBanner(store: FoodStore?) {
+private fun FoodBrandHeroBanner(store: FoodStore?, onBrowse: () -> Unit) {
     val cover = store?.menu?.firstOrNull { it.imagePath != null }?.imagePath ?: store?.coverPath
     val shape = RoundedCornerShape(18.dp)
     Box(
         Modifier.fillMaxWidth()
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-            .height(138.dp).shadow(3.dp, shape)
+            .height(157.dp).shadow(3.dp, shape)
             .clip(shape)
             .background(Brush.horizontalGradient(
                 listOf(Color(0xFFFFDFE9), Color(0xFFFFAFC4), Color(0xFFED648C)))),
@@ -597,10 +677,10 @@ private fun FoodBrandHeroBanner(store: FoodStore?) {
         // Food imagery is drawn only when this restaurant image actually exists.
         if (cover != null) {
             WebImage(cover, "food-public", Modifier.align(Alignment.CenterEnd)
-                .width(190.dp).height(138.dp), contentScale = ContentScale.Crop)
+                .width(196.dp).height(157.dp), contentScale = ContentScale.Crop)
         } else {
             Image(painter = painterResource(R.drawable.food_rider_hero), contentDescription = null,
-                modifier = Modifier.align(Alignment.BottomEnd).size(146.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).size(155.dp),
                 contentScale = ContentScale.Fit)
         }
         Box(Modifier.fillMaxSize().background(
@@ -620,6 +700,22 @@ private fun FoodBrandHeroBanner(store: FoodStore?) {
                 color = WebInk, maxLines = 2)
             Text(stringResource(R.string.brand_hero_subtitle), fontSize = 12.sp,
                 lineHeight = 16.sp, color = WebInk, maxLines = 2)
+            Box(
+                Modifier.padding(top = 3.dp).height(31.dp)
+                    .shadow(3.dp, CircleShape).clip(CircleShape)
+                    .background(Brush.verticalGradient(listOf(Color(0xFFFF3370), WebRed, WebRedDark)))
+                    .clickable(onClick = onBrowse)
+                    .padding(horizontal = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(stringResource(R.string.browse_restaurants), color = Color.White,
+                        fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Icon(Icons.Outlined.ArrowForward, null, tint = Color.White,
+                        modifier = Modifier.size(14.dp))
+                }
+            }
         }
     }
 }
@@ -675,15 +771,22 @@ private fun CenterStateText(message: Int) {
 
 @Composable
 private fun FilterChipWeb(title: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        shape = CircleShape,
-        color = if (selected) WebRed else Color.White,
-        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDCDCE2)),
-        modifier = Modifier.height(36.dp).clickable(onClick = onClick),
+    Box(
+        modifier = Modifier.height(36.dp).shadow(if (selected) 3.dp else 1.dp, CircleShape)
+            .clip(CircleShape)
+            .background(
+                Brush.verticalGradient(
+                    if (selected) listOf(Color(0xFFFF235B), WebRed, WebRedDark)
+                    else listOf(Color.White, Color(0xFFFDFBFC))
+                )
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 13.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.padding(horizontal = 13.dp), contentAlignment = Alignment.Center) {
-            Text(title, fontSize = 12.5.sp, color = if (selected) Color.White else WebInk, fontWeight = FontWeight.SemiBold)
-        }
+        Text(title, fontSize = 12.5.sp,
+            color = if (selected) Color.White else WebInk,
+            fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 

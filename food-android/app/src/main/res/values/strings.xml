@@ -237,4 +237,7 @@
     <string name="sort_delivery_fee_lowest">ค่าส่งต่ำก่อน</string>
     <string name="brand_hero_title">อร่อยง่าย\nทุกวัน</string>
     <string name="brand_hero_subtitle">เลือกร้านและเมนูที่คุณชอบ</string>
+    <string name="clear_search">ล้างคำค้นหา</string>
+    <string name="filters_title">ตัวกรองร้านอาหาร</string>
+    <string name="browse_restaurants">ดูร้านอาหาร</string>
 </resources>
