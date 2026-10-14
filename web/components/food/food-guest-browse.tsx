@@ -11,6 +11,7 @@ import { foodCartLineKey, foodCartLineOptionsValid, foodCartLineUnitPrice, foodM
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { fetchFoodHomeBanners, foodHomeBannerImage, type FoodHomeBanner } from "@/lib/food-home-banners";
 import { fetchFoodFeaturedStores, type FoodFeaturedPlacement } from "@/lib/food-featured-stores";
+import { FoodFeaturedHome, type FoodHomeFeature } from "@/components/food/food-featured-home";
 import { rememberSharedFoodStore, sharedFoodStoreId } from "@/lib/food-share";
 
 export const GUEST_BASKET_KEY = "wynos-food-guest-basket-v1";
@@ -96,6 +97,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
   const [featuredPlacements,setFeaturedPlacements]=useState<FoodFeaturedPlacement[]>([]);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [showAllStores, setShowAllStores] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return sharedFoodStoreId(window.location.search);
@@ -135,7 +137,24 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
     || entry.menu.some((item) => item.name.toLocaleLowerCase("th").includes(query.toLocaleLowerCase("th").trim()))
   )), [stores, query]);
 
-  const recommended=featuredPlacements.map(p=>filtered.find(s=>s.id===p.store_id)).filter((s):s is GuestStore=>Boolean(s));
+  // Curated public placements when available, otherwise an unranked published
+  // catalog restaurant. Never duplicate one store in two Home sections.
+  const recommended = featuredPlacements.map(p => filtered.find(s => s.id === p.store_id))
+    .filter((s): s is GuestStore => Boolean(s));
+  const featured = recommended[0] ?? filtered[0] ?? null;
+  const featuredModel: FoodHomeFeature | null = featured ? {
+    name: featured.name,
+    coverUrl: foodPublicUrl(client, featured.cover_path),
+    deliveryFee: featured.delivery_fee,
+    isOpen: featured.is_open,
+    menu: featured.menu.map(item => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      imageUrl: foodPublicUrl(client, item.image_path),
+      available: available(item) && featured.is_open,
+    })),
+  } : null;
 
   const basketStore = stores?.find((entry) => entry.id === basket?.storeId);
   const subtotal = basket?.lines.reduce((sum, line) => {
@@ -357,63 +376,68 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
             </div>
           ) : null}
 
-          {!query.trim() && recommended.length > 0 ? (
-            <section className="fx-section fx-guest-stores" aria-label="ร้านแนะนำ">
-              <div className="fx-section-head"><h2>ร้านแนะนำ</h2></div>
+          {!query.trim() && !showAllStores && featured && featuredModel ? (
+            <section className="fx-section fx-guest-stores">
+              <div className="fx-section-head">
+                <h2>ร้านอาหารแนะนำ</h2>
+                <button type="button" onClick={() => setShowAllStores(true)}>ดูทั้งหมด</button>
+              </div>
+              <FoodFeaturedHome
+                feature={featuredModel}
+                onStore={() => pickStore(featured)}
+                onMenu={(id) => {
+                  const item = featured.menu.find((row) => row.id === id);
+                  if (!item || !available(item)) return;
+                  pickStore(featured);
+                  setSelectedItem(item);
+                  setChosen({});
+                  setNote("");
+                  setQty(1);
+                }}
+              />
+            </section>
+          ) : null}
+
+          {query.trim() || showAllStores || (!featured && stores !== null) ? (
+            <section className="fx-section fx-guest-stores">
+              <div className="fx-section-head">
+                <h2>{query.trim() ? "ผลการค้นหา" : "ร้านอาหารทั้งหมด"}</h2>
+                {showAllStores && !query.trim() ? (
+                  <button type="button" onClick={() => setShowAllStores(false)}>กลับ</button>
+                ) : null}
+              </div>
+              {stores === null ? <p className="fx-empty-line" role="status">กำลังโหลดร้านอาหาร…</p> : null}
+              {error ? <div className="fx-note fx-note--danger" role="alert">{error}</div> : null}
+              {stores && !error && !filtered.length ? (
+                <div className="fx-state" role="status">
+                  <span className="fx-state-icon"><Search size={40} strokeWidth={1.6} /></span>
+                  <h2>ยังไม่พบร้านอาหารที่ตรงกับการค้นหา</h2>
+                  <div className="fx-state-copy"><p>ลองค้นด้วยชื่อร้าน ชื่อเมนู หรือคำที่สั้นลง</p></div>
+                </div>
+              ) : null}
               <div className="fx-store-grid">
-                {recommended.map((entry)=>{
-                  const cover=foodPublicUrl(client,entry.cover_path);
-                  return <button type="button" key={entry.id} className={`fx-store-card${entry.is_open?"":" is-closed"}`} onClick={()=>pickStore(entry)}>
-                    <span className="fx-store-card-photo">
-                      {cover?(
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cover} alt="" loading="lazy" decoding="async"/>
-                      ):<Store size={30} strokeWidth={1.4}/>}
-                    </span>
-                    <span className="fx-store-card-name">{entry.name}</span>
-                    <span className="fx-store-card-tags">
-                      <span>{entry.menu.length} เมนู</span>
-                      <span>ค่าส่ง {foodMoney(entry.delivery_fee)}</span>
-                    </span>
-                  </button>;
+                {filtered.map((entry) => {
+                  const cover = foodPublicUrl(client, entry.cover_path);
+                  return (
+                    <button type="button" className={`fx-store-card${entry.is_open ? "" : " is-closed"}`} key={entry.id} onClick={() => pickStore(entry)}>
+                      <span className="fx-store-card-photo">
+                        {cover ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={cover} alt="" loading="lazy" decoding="async" />
+                        ) : <Store size={30} strokeWidth={1.4} />}
+                        {!entry.is_open ? <b className="fx-closed-label"><Clock3 size={12} strokeWidth={2.4} />ปิดอยู่</b> : null}
+                      </span>
+                      <span className="fx-store-card-name">{entry.name}</span>
+                      <span className="fx-store-card-tags">
+                        <span>{entry.menu.length} เมนู</span>
+                        <span>ค่าส่ง {foodMoney(entry.delivery_fee)}</span>
+                      </span>
+                    </button>
+                  );
                 })}
               </div>
             </section>
-          ):null}
-
-          <section className="fx-section fx-guest-stores">
-            <div className="fx-section-head"><h2>ร้านอาหารที่เปิดเผยแพร่</h2></div>
-            {stores === null ? <p className="fx-empty-line" role="status">กำลังโหลดร้านอาหาร…</p> : null}
-            {error ? <div className="fx-note fx-note--danger" role="alert">{error}</div> : null}
-            {stores && !error && !filtered.length ? (
-              <div className="fx-state" role="status">
-                <span className="fx-state-icon"><Search size={40} strokeWidth={1.6} /></span>
-                <h2>ยังไม่พบร้านอาหารที่ตรงกับการค้นหา</h2>
-                <div className="fx-state-copy"><p>ลองค้นด้วยชื่อร้าน ชื่อเมนู หรือคำที่สั้นลง</p></div>
-              </div>
-            ) : null}
-            <div className="fx-store-grid">
-              {filtered.map((entry) => {
-                const cover = foodPublicUrl(client, entry.cover_path);
-                return (
-                  <button type="button" className={`fx-store-card${entry.is_open ? "" : " is-closed"}`} key={entry.id} onClick={() => pickStore(entry)}>
-                    <span className="fx-store-card-photo">
-                      {cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cover} alt="" loading="lazy" decoding="async" />
-                      ) : <Store size={30} strokeWidth={1.4} />}
-                      {!entry.is_open ? <b className="fx-closed-label"><Clock3 size={12} strokeWidth={2.4} />ปิดอยู่</b> : null}
-                    </span>
-                    <span className="fx-store-card-name">{entry.name}</span>
-                    <span className="fx-store-card-tags">
-                      <span>{entry.menu.length} เมนู</span>
-                      <span>ค่าส่ง {foodMoney(entry.delivery_fee)}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          ) : null}
         </>
       )}
 
