@@ -1,0 +1,36 @@
+name: Merchant Native Android (non-production)
+
+on:
+  pull_request:
+    paths:
+      - "merchant-android/**"
+      - ".github/workflows/merchant-native-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-native-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify backend contracts (static)
+        run: node merchant-android/tools/verify-contracts.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: Compile debug Android app (no deployment)
+        working-directory: merchant-android
+        run: gradle :app:assembleDebug :app:testDebugUnitTest --stacktrace
