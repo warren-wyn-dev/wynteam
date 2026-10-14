@@ -139,6 +139,16 @@ fun ComposerScreen(vm: ComposerViewModel) {
                             vm.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: vm.identity?.username ?: "WYNOS",
                             color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold,
                         )
+                        if (!vm.promptText.isNullOrBlank()) {
+                            val english = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+                            Column(
+                                Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
+                                    .clip(RoundedCornerShape(12.dp)).background(c.surface).padding(12.dp),
+                            ) {
+                                Text(if (english) "Conversation prompt" else "หัวข้อชวนคุย", color = c.textSecondary, fontSize = 12.sp)
+                                Text(vm.promptText.orEmpty(), color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                         CaptionField(vm)
                         vm.uploadProgress?.let { (done, total) -> UploadProgress(done, total) }
                         if (vm.mode == ComposeMode.Image) Photos(vm) else PollEditor(vm)
