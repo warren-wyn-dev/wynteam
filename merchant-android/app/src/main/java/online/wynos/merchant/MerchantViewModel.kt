@@ -60,15 +60,22 @@ data class MerchantState(
 fun JSONArray.asObjects(): List<JSONObject> =
     (0 until length()).mapNotNull { optJSONObject(it) }
 
+/** Visible in the completed tab for exactly 24h, never delete records. */
+fun terminalWithin24h(status: String, terminalMillis: Long?, now: Long): Boolean {
+    if (status !in setOf("delivered", "cancelled") || terminalMillis == null) return false
+    val age = now - terminalMillis
+    return age >= 0 && age < 86_400_000
+}
+
 fun isRecentCompleted(order: JSONObject, now: Long = System.currentTimeMillis()): Boolean {
-    val timestamp = when (order.optString("status")) {
+    val status = order.optString("status")
+    val timestamp = when (status) {
         "delivered" -> order.optString("delivered_at")
         "cancelled" -> order.optString("cancelled_at")
         else -> return false
     }
-    val instant = runCatching { java.time.Instant.parse(timestamp) }.getOrNull() ?: return false
-    val age = now - instant.toEpochMilli()
-    return age >= 0 && age < 86_400_000
+    val instant = runCatching { java.time.Instant.parse(timestamp) }.getOrNull()
+    return terminalWithin24h(status, instant?.toEpochMilli(), now)
 }
 
 class MerchantViewModel(application: Application) : AndroidViewModel(application) {
