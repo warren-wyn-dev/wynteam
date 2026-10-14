@@ -246,4 +246,12 @@
     <string name="favorite_toggle_add">Save favorite restaurant</string>
     <string name="favorite_toggle_remove">Remove favorite restaurant</string>
     <string name="favorite_back">Back</string>
+    <string name="store_review_title">Customer reviews</string>
+    <string name="store_review_loading">Loading reviews...</string>
+    <string name="store_review_error">Reviews could not be loaded. Please try again.</string>
+    <string name="store_review_retry">Try again</string>
+    <string name="store_review_empty">No reviews from completed orders yet</string>
+    <string name="store_review_count">(%1$d reviews)</string>
+    <string name="store_review_verified_order">Verified WYNOS Food order</string>
+    <string name="store_review_merchant_reply">Restaurant reply</string>
 </resources>
