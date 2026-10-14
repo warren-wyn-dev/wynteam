@@ -374,6 +374,114 @@ class MerchantApi(context: Context) {
             JSONObject().put("menu_category_order", JSONArray(clean)))
     }
 
+    /** These APIs mirror web/lib/merchant-core.ts, merchant-campaigns.ts and merchant-ads.ts. */
+    fun staff(storeId: String): JSONArray =
+        rpc("merchant_staff_members", JSONObject().put("p_store_id", filter(storeId))) as JSONArray
+
+    fun addStaff(storeId: String, username: String, role: String) {
+        require(role in setOf("admin", "manager", "orders", "support", "delivery"))
+        val clean = username.trim().removePrefix("@")
+        require(clean.matches(Regex("[A-Za-z0-9_.]{1,40}"))) { "กรุณาระบุ @username ที่ถูกต้อง" }
+        rpc("merchant_add_staff_by_username", JSONObject()
+            .put("p_store_id", filter(storeId)).put("p_username", clean).put("p_role", role))
+    }
+
+    fun updateStaff(storeId: String, userId: String, role: String, active: Boolean) {
+        require(role in setOf("admin", "manager", "orders", "support", "delivery"))
+        rpc("merchant_update_staff_member", JSONObject().put("p_store_id", filter(storeId))
+            .put("p_user_id", filter(userId)).put("p_role", role).put("p_active", active))
+    }
+
+    fun storeReviews(storeId: String): JSONObject =
+        rpc("merchant_store_reviews", JSONObject().put("p_store_id", filter(storeId))
+            .put("p_limit", 50)) as JSONObject
+
+    fun replyReview(reviewId: String, reply: String) {
+        require(reply.isNotBlank() && reply.length <= 1000) { "ข้อความตอบกลับไม่ถูกต้อง" }
+        rpc("food_reply_store_review", JSONObject()
+            .put("p_review_id", filter(reviewId)).put("p_reply", reply.trim()))
+    }
+
+    fun campaigns(storeId: String): JSONObject =
+        rpc("merchant_food_campaigns", JSONObject().put("p_store_id", filter(storeId))) as JSONObject
+
+    fun upsertCampaign(storeId: String, draft: JSONObject) {
+        val kind = draft.optString("campaign_type")
+        val scope = draft.optString("scope")
+        require(kind in setOf("percentage", "fixed", "free_delivery")) { "ประเภทส่วนลดไม่ถูกต้อง" }
+        require(scope in setOf("store", "items")) { "ขอบเขตส่วนลดไม่ถูกต้อง" }
+        val name = draft.optString("name").trim()
+        require(name.isNotEmpty() && name.length <= 80) { "กรุณากรอกชื่อโปรโมชัน" }
+        val amount = draft.optDouble("discount_value")
+        require(amount >= 0.0 && (kind != "percentage" || amount <= 100.0)) { "ส่วนลดไม่ถูกต้อง" }
+        rpc("merchant_upsert_food_campaign", JSONObject()
+            .put("p_store_id", filter(storeId))
+            .put("p_name", name)
+            .put("p_campaign_type", kind)
+            .put("p_scope", if (kind == "free_delivery") "store" else scope)
+            .put("p_discount_value", if (kind == "free_delivery") 0 else amount)
+            .put("p_min_subtotal", draft.optDouble("min_subtotal", 0.0))
+            .put("p_max_discount", draft.opt("max_discount") ?: JSONObject.NULL)
+            .put("p_starts_at", draft.optString("starts_at").ifBlank {
+                java.time.Instant.now().toString()
+            })
+            .put("p_ends_at", draft.opt("ends_at") ?: JSONObject.NULL)
+            .put("p_usage_limit", draft.opt("usage_limit") ?: JSONObject.NULL)
+            .put("p_item_ids", if (kind == "free_delivery" || scope == "store") JSONArray()
+                else draft.optJSONArray("item_ids") ?: JSONArray())
+            .put("p_campaign_id", draft.opt("id") ?: JSONObject.NULL))
+    }
+
+    fun campaignActive(storeId: String, campaignId: String, active: Boolean) {
+        rpc("merchant_set_food_campaign_active", JSONObject()
+            .put("p_store_id", filter(storeId))
+            .put("p_campaign_id", filter(campaignId)).put("p_active", active))
+    }
+
+    fun deleteCampaign(storeId: String, campaignId: String) {
+        rpc("merchant_delete_food_campaign", JSONObject()
+            .put("p_store_id", filter(storeId)).put("p_campaign_id", filter(campaignId)))
+    }
+
+    fun advertising(storeId: String): JSONObject =
+        rpc("merchant_ad_account", JSONObject().put("p_store_id", filter(storeId))) as JSONObject
+
+    fun adActive(storeId: String, active: Boolean) {
+        rpc("merchant_set_ad_active", JSONObject().put("p_store_id", filter(storeId))
+            .put("p_active", active))
+    }
+
+    fun stripeStatus(storeId: String): JSONObject =
+        rpc("merchant_stripe_status", JSONObject().put("p_store_id", filter(storeId))) as JSONObject
+
+    fun notifications(merchantAccountId: String): JSONArray =
+        getArray("/rest/v1/merchant_notifications?select=*&merchant_account_id=eq." +
+            filter(merchantAccountId) + "&order=created_at.desc&limit=50")
+
+    fun markNotificationRead(notificationId: String) {
+        raw("PATCH", "/rest/v1/merchant_notifications?id=eq." + filter(notificationId),
+            JSONObject().put("read_at", java.time.Instant.now().toString()))
+    }
+
+    fun markAllNotificationsRead(merchantAccountId: String) {
+        raw("PATCH", "/rest/v1/merchant_notifications?merchant_account_id=eq." +
+            filter(merchantAccountId) + "&read_at=is.null",
+            JSONObject().put("read_at", java.time.Instant.now().toString()))
+    }
+
+    fun sendTestNotification(storeId: String) {
+        rpc("merchant_send_test_notification", JSONObject().put("p_store_id", filter(storeId)))
+    }
+
+    fun publishStore(storeId: String, publish: Boolean) {
+        if (publish) {
+            val current = rpc("merchant_store_readiness",
+                JSONObject().put("p_store_id", filter(storeId))) as JSONObject
+            require(current.optBoolean("ready")) { "ร้านยังไม่ผ่านเกณฑ์ความพร้อมเผยแพร่" }
+        }
+        updateStore(storeId, JSONObject().put("is_published", publish))
+    }
+
     fun updateStore(storeId: String, patch: JSONObject) {
         val allow = setOf("name","description","phone","address","business_hours","business_schedule",
             "special_closed_dates","temporary_closed_until","temporary_closed_reason",
