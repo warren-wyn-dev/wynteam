@@ -197,7 +197,7 @@ class SupabaseFoodGateway : FoodGateway {
         val owner = auth.currentUserOrNull()?.id ?: return emptyList()
         // Defense in depth: filter by buyer_id, with server RLS still mandatory.
         val rows = supabase.from("food_orders").select(
-            Columns.list("id", "order_number", "status", "payment_status", "total", "created_at")
+            Columns.list("id", "order_number", "store_id", "status", "payment_status", "total", "created_at")
         ) {
             filter { eq("buyer_id", owner) }
             limit(50)
