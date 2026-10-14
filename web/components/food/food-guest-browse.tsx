@@ -387,7 +387,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                 onStore={() => pickStore(featured)}
                 onMenu={(id) => {
                   const item = featured.menu.find((row) => row.id === id);
-                  if (!item || !available(item)) return;
+                  if (!item || !featured.is_open || !available(item)) return;
                   pickStore(featured);
                   setSelectedItem(item);
                   setChosen({});
