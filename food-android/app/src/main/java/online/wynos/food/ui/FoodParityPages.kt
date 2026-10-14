@@ -93,7 +93,13 @@ internal fun foodOrderStatusLabel(status: String): String = when (status) {
 }
 
 @Composable
-fun WebOrdersPage(state: FoodUiState, onRetry: () -> Unit, onBrowse: () -> Unit, onOpenDetail: (String) -> Unit) {
+fun WebOrdersPage(
+    state: FoodUiState,
+    onRetry: () -> Unit,
+    onBrowse: () -> Unit,
+    onOpenDetail: (String) -> Unit,
+    onDismissNotice: () -> Unit,
+) {
     var selection by rememberSaveable { mutableIntStateOf(0) }
     val active = state.orders.filter { it.status !in setOf("delivered", "cancelled") }
     val history = state.orders.filter { it.status in setOf("delivered", "cancelled") }
@@ -127,6 +133,32 @@ fun WebOrdersPage(state: FoodUiState, onRetry: () -> Unit, onBrowse: () -> Unit,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                             )
+                        }
+                    }
+                }
+            }
+        }
+        if (state.accountEmail != null) {
+            state.orderStatusNotice?.let { notice ->
+                item(key = "order-status-notice") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(SoftRed).padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            stringResource(
+                                R.string.food_order_status_changed_notice,
+                                notice.number,
+                                foodOrderStatusLabel(notice.status),
+                            ),
+                            color = BrandRed, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = onDismissNotice) {
+                            Text(stringResource(R.string.close), color = BrandRed)
                         }
                     }
                 }
