@@ -279,6 +279,10 @@ fun FoodCartPreview(
     onSelectAddress: (String?) -> Unit = {},
     onChangeQuantity: (String, Int) -> Unit = { _, _ -> },
     onCreateOrder: (String) -> Unit = {},
+    onPrepareStagingPayment: suspend (String) -> online.wynos.food.data.FoodMobilePaymentIntent = {
+        throw IllegalStateException("staging_mobile_payment_disabled")
+    },
+    onPaymentSheetCompleted: () -> Unit = {},
 ) {
     var showReview by remember { mutableStateOf(false) }
     val chosenAddress = state?.addresses?.firstOrNull { it.id == state.selectedAddressId }
@@ -448,7 +452,10 @@ fun FoodCartPreview(
             stagingOrderUncertain = state.stagingOrderUncertain,
             stagingOrderCreatedId = state.stagingOrderCreatedId,
             stagingOrderAttemptId = state.stagingOrderAttemptId,
+            stagingMobilePaymentEnabled = state.stagingMobilePaymentEnabled,
             onCreateOrder = onCreateOrder,
+            onPrepareStagingPayment = onPrepareStagingPayment,
+            onPaymentSheetCompleted = onPaymentSheetCompleted,
             onDismiss = { showReview = false },
         )
     }
