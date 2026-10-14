@@ -173,6 +173,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onRefreshAddresses = vm::refreshAddresses,
                     onSaveAddress = vm::saveAddress,
                     onDeleteAddress = vm::deleteAddress,
+                    onSelectAddress = vm::selectAddress,
                     onClearAddressStatus = vm::clearAddressMutationStatus,
                 )
             }
