@@ -23,6 +23,6 @@ class PostingPromptsTest {
     @Test fun unknownKeyDoesNotCreateAnAccidentalDraft() {
         assertNull(PostingPrompts.byKey("unknown"))
         assertEquals(PostingPrompts.first[0], PostingPrompts.byKey("first-intro"))
-        assertEquals("Introduce yourself to everyone", PostingPrompts.first[0].localized(true))
+        assertEquals("Introduce yourself in a few words", PostingPrompts.first[0].localized(true))
     }
 }
