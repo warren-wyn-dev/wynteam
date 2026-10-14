@@ -235,6 +235,6 @@
     <string name="coupon_section_title">More discount codes</string>
     <string name="coupon_live_empty">Verified collectable offers will appear here when available.</string>
     <string name="sort_delivery_fee_lowest">Lowest delivery fee</string>
-    <string name="brand_hero_title">Craving something tasty?</string>
-    <string name="brand_hero_subtitle">Explore restaurants and dishes on WYNOS Food</string>
+    <string name="brand_hero_title">Tasty choices\nevery day</string>
+    <string name="brand_hero_subtitle">Find restaurants and dishes you love</string>
 </resources>
