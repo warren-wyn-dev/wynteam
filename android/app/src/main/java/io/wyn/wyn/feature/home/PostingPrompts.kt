@@ -10,19 +10,19 @@ internal data class PostingPrompt(val key: String, val thai: String, val english
 
 internal object PostingPrompts {
     val first = listOf(
-        PostingPrompt("first-intro", "แนะนำตัวสั้น ๆ ให้ทุกคนรู้จักคุณ", "Introduce yourself to everyone"),
+        PostingPrompt("first-intro", "แนะนำตัวสั้น ๆ ให้ทุกคนรู้จักคุณ", "Introduce yourself in a few words"),
         PostingPrompt("first-today", "เล่าเรื่องหนึ่งอย่างเกี่ยวกับวันนี้", "Share one thing about your day"),
-        PostingPrompt("first-question", "ถามคำถามที่คุณอยากฟังความคิดเห็นจากคนอื่น", "Ask a question and hear what others think"),
+        PostingPrompt("first-question", "ถามคำถามที่คุณอยากฟังความคิดเห็นจากคนอื่น", "Ask something you'd like others' opinions on"),
     )
 
     val daily = listOf(
         PostingPrompt("daily-now", "วันนี้มีอะไรเกิดขึ้นกับคุณบ้าง?", "What happened in your day today?"),
         PostingPrompt("daily-listening", "ช่วงนี้คุณกำลังฟังเพลงอะไรอยู่?", "What have you been listening to lately?"),
-        PostingPrompt("daily-smallwin", "วันนี้มีเรื่องเล็ก ๆ อะไรที่ทำให้คุณรู้สึกดี?", "What's a small thing that made you happy today?"),
-        PostingPrompt("daily-question", "มีคำถามอะไรที่อยากถามคนบน WYNOS ไหม?", "Anything you want to ask people on WYNOS?"),
-        PostingPrompt("daily-photo", "วันนี้มีรูปไหนที่อยากแชร์?", "Any photo you'd like to share today?"),
+        PostingPrompt("daily-smallwin", "วันนี้มีเรื่องเล็ก ๆ อะไรที่ทำให้คุณรู้สึกดี?", "What's one small thing that made you feel good today?"),
+        PostingPrompt("daily-question", "มีคำถามอะไรที่อยากถามคนบน WYNOS ไหม?", "Is there anything you'd like to ask people on WYNOS?"),
+        PostingPrompt("daily-photo", "วันนี้มีรูปไหนที่อยากแชร์?", "Is there a photo from today you'd like to share?"),
         PostingPrompt("daily-interest", "ช่วงนี้คุณกำลังสนใจเรื่องอะไรเป็นพิเศษ?", "What are you especially interested in lately?"),
-        PostingPrompt("daily-weekend", "ถ้ามีเวลาว่างตอนนี้ คุณอยากทำอะไร?", "What would you do if you had some free time?"),
+        PostingPrompt("daily-weekend", "ถ้ามีเวลาว่างตอนนี้ คุณอยากทำอะไร?", "If you had free time right now, what would you do?"),
     )
 
     /** Web uses Math.abs(localDayNumber(date)) % DAILY_PROMPTS.length. */
