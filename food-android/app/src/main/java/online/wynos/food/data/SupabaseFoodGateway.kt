@@ -12,6 +12,12 @@ import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.serialization.json.JsonObject
 import online.wynos.food.BuildConfig
 import kotlinx.serialization.json.JsonElement
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /** A minimal auth + anonymous catalog surface; deliberately NO order/payment writes. */
@@ -21,6 +27,9 @@ interface FoodGateway {
     val signupEnabled: Boolean get() = false
     val accountDeletionEnabled: Boolean get() = false
     val stagingOrderCreationEnabled: Boolean get() = false
+    val stagingMobilePaymentEnabled: Boolean get() = false
+    suspend fun createStagingPaymentIntent(orderId: String): FoodMobilePaymentIntent =
+        throw IllegalStateException("staging_mobile_payment_disabled")
     suspend fun createOrderStaging(
         cart: FoodCartDraft,
         address: FoodCustomerAddress,
@@ -58,6 +67,43 @@ class SupabaseFoodGateway : FoodGateway {
         configured && BuildConfig.ACCOUNT_DELETION_ALLOWED
     override val stagingOrderCreationEnabled: Boolean get() =
         configured && BuildConfig.STAGING_ORDER_CREATION_ALLOWED
+    override val stagingMobilePaymentEnabled: Boolean get() =
+        configured && BuildConfig.STAGING_MOBILE_PAYMENT_ALLOWED
+
+    override suspend fun createStagingPaymentIntent(orderId: String): FoodMobilePaymentIntent {
+        check(stagingMobilePaymentEnabled) { "staging_mobile_payment_disabled" }
+        java.util.UUID.fromString(orderId)
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        val token = supabase.auth.currentSessionOrNull()?.accessToken
+            ?: throw IllegalStateException("sign_in_required")
+        // Direct HTTPS to a function belonging to the same configured Supabase
+        // staging project; no spoofed browser Origin or Stripe secret on Android.
+        return withContext(Dispatchers.IO) {
+            val connection = URL(
+                "${BuildConfig.SUPABASE_URL}/functions/v1/food-mobile-payment-intent"
+            ).openConnection() as HttpURLConnection
+            try {
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 12_000
+                connection.readTimeout = 20_000
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                connection.setRequestProperty("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.doOutput = true
+                val body = buildJsonObject { put("orderId", orderId) }.toString()
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                if (connection.responseCode != 200) {
+                    // Do not echo raw server errors or payment secrets into logs.
+                    throw IllegalStateException("staging_mobile_payment_unavailable")
+                }
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                FoodMobilePaymentIntentParser.parse(response, orderId)
+            } finally {
+                connection.disconnect()
+            }
+        }
+    }
 
     override suspend fun createOrderStaging(
         cart: FoodCartDraft,
