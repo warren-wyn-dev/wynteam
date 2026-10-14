@@ -237,6 +237,39 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun deleteMenu(item: JSONObject) {
+        val storeId = state.store?.optString("id") ?: return
+        execute("ลบเมนูแล้ว") {
+            api.deleteMenu(storeId, item.getString("id"))
+            loadSnapshot()
+            state = state.copy(selectedMenu = null)
+        }
+    }
+
+    fun soldOutToday(item: JSONObject, soldOut: Boolean) {
+        val storeId = state.store?.optString("id") ?: return
+        execute(if (soldOut) "ทำเครื่องหมายหมดวันนี้แล้ว" else "เปิดขายวันนี้แล้ว") {
+            api.soldOutToday(storeId, item.getString("id"), soldOut)
+            loadSnapshot()
+        }
+    }
+
+    fun reorderMenu(ids: List<String>) {
+        val storeId = state.store?.optString("id") ?: return
+        execute("บันทึกลำดับเมนูแล้ว") {
+            api.reorderMenu(storeId, ids)
+            loadSnapshot()
+        }
+    }
+
+    fun saveCategoryOrder(categories: List<String>) {
+        val storeId = state.store?.optString("id") ?: return
+        execute("บันทึกลำดับหมวดหมู่แล้ว") {
+            api.saveCategoryOrder(storeId, categories)
+            loadSnapshot()
+        }
+    }
+
     fun saveStore(patch: JSONObject) {
         val storeId = state.store?.optString("id") ?: return
         execute("บันทึกข้อมูลร้านแล้ว") {
