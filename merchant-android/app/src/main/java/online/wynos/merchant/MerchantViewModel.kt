@@ -254,9 +254,10 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun saveMenu(item: JSONObject) {
+    fun saveMenu(item: JSONObject, imageUri: Uri? = null) {
         val storeId = state.store?.optString("id") ?: return
         execute("บันทึกเมนูแล้ว") {
+            if (imageUri != null) item.put("image_path", api.uploadMenuImage(storeId, imageUri))
             api.saveMenu(storeId, item)
             loadSnapshot()
             state = state.copy(selectedMenu = null)
@@ -429,6 +430,28 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
     fun loadStripeStatus() {
         val id = state.store?.optString("id") ?: return
         execute { state = state.copy(stripeStatus = api.stripeStatus(id)) }
+    }
+
+    fun saveStoreImage(kind: String, uri: Uri?) {
+        if (kind !in setOf("logo", "cover")) return
+        val id = state.store?.optString("id") ?: return
+        execute("อัปเดตรูปร้านแล้ว") {
+            val path = if (uri == null) JSONObject.NULL else api.uploadStoreImage(id, uri)
+            api.updateStore(id, JSONObject().put(kind + "_path", path))
+            loadSnapshot()
+        }
+    }
+
+    fun adTopup(amount: Double, uri: Uri?) {
+        val id = state.store?.optString("id") ?: return
+        if (uri == null || !amount.isFinite() || amount < (state.ads?.optDouble("min_topup") ?: Double.MAX_VALUE)) {
+            state = state.copy(error = "กรุณาแนบสลิปและเติมเครดิตให้ถึงขั้นต่ำ")
+            return
+        }
+        execute("ส่งสลิปเติมเครดิตแล้ว กรุณารอ WYNOS ตรวจสอบ") {
+            api.uploadAdTopup(id, amount, uri)
+            state = state.copy(ads = api.advertising(id))
+        }
     }
 
     fun setHistoryStatus(value: String) {
