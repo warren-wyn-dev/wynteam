@@ -222,4 +222,9 @@
     <string name="staging_payment_cancelled">Test payment sheet closed.</string>
     <string name="staging_payment_failed">Test payment failed. Check the order status before retrying.</string>
     <string name="staging_payment_unavailable">Test payment unavailable. Check staging and order state.</string>
+    <string name="food_reviews_load_failed">Could not load reviews. Try again.</string>
+    <string name="food_reviews_empty">No reviews yet. Only completed orders are eligible.</string>
+    <string name="food_reviews_count">%1$d reviews</string>
+    <string name="food_reviews_verified">Verified WYNOS Food order</string>
+    <string name="food_reviews_merchant_reply">Restaurant response</string>
 </resources>
