@@ -3,8 +3,9 @@ set -euo pipefail
 mkdir -p visual
 APK="food-android/app/build/outputs/apk/debug/app-debug.apk"
 PACKAGE="online.wynos.food"
+unzip -Z1 "$APK" > visual/zoky-apk-file-list.txt
 for asset in zoky_hero zoky_service dealpizza_crop dealdrinks_crop; do
-  unzip -l "$APK" | grep -q "assets/$asset.webp.b64"
+  grep -Fqx "assets/$asset.webp.b64" visual/zoky-apk-file-list.txt
 done
 adb install -r "$APK"
 adb shell settings put global private_dns_mode off || true
