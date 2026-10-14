@@ -141,6 +141,9 @@ private fun MerchantApp(vm: MerchantViewModel) {
                 MerchantPage.FINANCE -> FinanceScreen(s)
                 MerchantPage.STORE -> StoreScreen(s, vm)
                 MerchantPage.HISTORY -> HistoryScreen(s, vm)
+                MerchantPage.FEEDBACK, MerchantPage.PROMOTIONS, MerchantPage.CAMPAIGNS,
+                MerchantPage.ADS, MerchantPage.NOTIFICATIONS, MerchantPage.STAFF,
+                MerchantPage.HELP -> MerchantExtraScreen(s.page, s, vm)
             }
         }
     }
@@ -591,22 +594,24 @@ private fun MoreScreen(vm: MerchantViewModel) {
     val pages = listOf(
         MerchantPage.REPORTS to "รายงานยอดขาย",
         MerchantPage.HISTORY to "ประวัติออเดอร์",
+        MerchantPage.FEEDBACK to "ฟีดแบ็ก",
         MerchantPage.FINANCE to "การเงินร้านค้า",
-        MerchantPage.STORE to "ตั้งค่าร้าน"
+        MerchantPage.PROMOTIONS to "โปรโมชั่นของร้าน",
+        MerchantPage.CAMPAIGNS to "แคมเปญ WYNOS",
+        MerchantPage.ADS to "โฆษณา",
+        MerchantPage.STORE to "ตั้งค่าร้าน",
+        MerchantPage.STAFF to "จัดการทีมงาน",
+        MerchantPage.NOTIFICATIONS to "การแจ้งเตือน",
+        MerchantPage.HELP to "ช่วยเหลือ"
     )
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         SectionHeading("เพิ่มเติม")
         pages.forEach { (page, label) ->
-            OutlinedButton(onClick = { vm.openPage(page) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
+            OutlinedButton(onClick = { vm.openPage(page) }, modifier = Modifier.fillMaxWidth()) {
+                Text(label)
+            }
         }
         Spacer(Modifier.height(16.dp))
-        Text("ฟีเจอร์เว็บไซต์ที่กำลังพัฒนาเป็น Native Android", color = Grey)
-        listOf("ฟีดแบ็ก", "โปรโมชันร้าน", "แคมเปญ WYNOS", "โฆษณา",
-            "ศูนย์การแจ้งเตือน", "จัดการตัวเลือกเสริม/หมวดหมู่", "พิมพ์ใบเสร็จและที่อยู่",
-            "แผนที่/พื้นที่จัดส่ง", "ช่วยเหลือ").forEach { label ->
-            Text("• " + label, Modifier.padding(vertical = 7.dp), color = Grey)
-        }
-        Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick = vm::signOut) { Text("ออกจากระบบ") }
     }
 }
