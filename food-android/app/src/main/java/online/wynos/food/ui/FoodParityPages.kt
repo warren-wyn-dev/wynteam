@@ -115,7 +115,7 @@ fun WebOrdersPage(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Color.White),
-        contentPadding = PaddingValues(bottom = 22.dp),
+        contentPadding = PaddingValues(bottom = 124.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
@@ -340,7 +340,7 @@ fun WebAccountPage(
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(Color.White),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 124.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item {

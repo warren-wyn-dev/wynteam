@@ -7,6 +7,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -104,6 +106,7 @@ private fun WebImage(
     bucket: String,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    imageAlignment: Alignment = Alignment.Center,
 ) {
     val url = FoodPublicMedia.url(bucket, path)
     Box(modifier.background(WebSurface), contentAlignment = Alignment.Center) {
@@ -114,6 +117,7 @@ private fun WebImage(
                 model = url,
                 contentDescription = null,
                 contentScale = contentScale,
+                alignment = imageAlignment,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -189,7 +193,7 @@ fun WebPageHeader(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit) {
+fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
     val items = listOf(
         Triple(0, R.string.home, Icons.Outlined.Home),
         Triple(1, R.string.orders, Icons.Outlined.ReceiptLong),
@@ -197,13 +201,13 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit) {
         Triple(3, R.string.account, Icons.Outlined.PersonOutline),
     )
     Box(
-        Modifier.fillMaxWidth().background(Color.White)
-            .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 7.dp),
+        modifier.fillMaxWidth()
+            .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(30.dp))
                 .clip(RoundedCornerShape(30.dp)).background(Color.White)
-                .padding(horizontal = 6.dp, vertical = 4.dp).heightIn(min = 62.dp),
+                .padding(horizontal = 6.dp, vertical = 4.dp).heightIn(min = 60.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             items.forEach { (id, label, image) ->
@@ -235,6 +239,13 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit) {
     }
 }
 
+/** Matches the website's 2-column mobile grid and 3-column wide-screen grid. */
+internal fun homeGridColumnsForWidth(widthDp: Float): Int = if (widthDp >= 680f) 3 else 2
+
+// Keep visual hierarchy on narrower Android viewports without disabling
+// Android's user-selected accessibility font scaling.
+internal fun compactFoodHomeForWidth(widthDp: Float): Boolean = widthDp < 400f
+
 @Composable
 fun WebHomeScreen(
     state: FoodUiState,
@@ -245,7 +256,7 @@ fun WebHomeScreen(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("all") }
-    val filtered = state.stores.filter { store ->
+    val filtered = state.stores.distinctBy { it.id }.filter { store ->
         (query.isBlank() || store.name.contains(query.trim(), ignoreCase = true) ||
             store.menu.any { it.name.contains(query.trim(), ignoreCase = true) }) &&
             (filter != "open" || store.isOpen)
@@ -254,10 +265,11 @@ fun WebHomeScreen(
     // every screen. With only one published store, the old 2-column grid
     // squeezed its photo into the left half and left the right half blank.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val homeGridColumns = if (maxWidth < 600.dp) 1 else 2
+        val homeGridColumns = homeGridColumnsForWidth(maxWidth.value)
+        val compactHome = compactFoodHomeForWidth(maxWidth.value)
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(Color.White),
-            contentPadding = PaddingValues(bottom = 32.dp),
+            contentPadding = PaddingValues(bottom = if (guest) 32.dp else 124.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
         if (guest) {
@@ -266,12 +278,12 @@ fun WebHomeScreen(
                     Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 9.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(Brush.horizontalGradient(listOf(WebRedSoft, Color.White)))
-                        .padding(15.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                        .padding(if (compactHome) 15.dp else 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Surface(color = Color.White, shape = CircleShape) {
                         Row(
-                            Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            Modifier.padding(horizontal = 10.dp, vertical = if (compactHome) 4.dp else 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
@@ -279,15 +291,27 @@ fun WebHomeScreen(
                             Text(stringResource(R.string.guest_location), color = WebRed, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                         }
                     }
-                    Text(stringResource(R.string.guest_hero_title), fontSize = 20.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = WebInk)
-                    Text(stringResource(R.string.guest_hero_note), fontSize = 13.sp, lineHeight = 18.sp, color = WebSub)
+                    Text(
+                        stringResource(R.string.guest_hero_title),
+                        fontSize = if (compactHome) 20.sp else 22.sp,
+                        lineHeight = if (compactHome) 26.sp else 29.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WebInk,
+                    )
+                    Text(
+                        stringResource(R.string.guest_hero_note),
+                        fontSize = if (compactHome) 13.sp else 14.sp,
+                        lineHeight = if (compactHome) 19.sp else 22.sp,
+                        color = WebSub,
+                    )
                 }
             }
         }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-                    .height(44.dp).clip(CircleShape).background(WebChip).padding(horizontal = 16.dp),
+                    .height(if (compactHome) 46.dp else 48.dp).clip(CircleShape)
+                    .background(WebChip).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -296,11 +320,14 @@ fun WebHomeScreen(
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(color = WebInk, fontSize = 16.sp),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = WebInk, fontSize = if (compactHome) 15.sp else 16.sp),
                     modifier = Modifier.weight(1f),
                     decorationBox = { inner ->
                         Box {
-                            if (query.isEmpty()) Text(stringResource(R.string.search_food_hint), color = WebMuted, fontSize = 16.sp)
+                            if (query.isEmpty()) Text(
+                                stringResource(R.string.search_food_hint), color = WebMuted,
+                                fontSize = if (compactHome) 15.sp else 16.sp,
+                            )
                             inner()
                         }
                     },
@@ -314,7 +341,7 @@ fun WebHomeScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                         .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     listOf(
@@ -355,6 +382,7 @@ fun WebHomeScreen(
                     SectionTitleWeb(
                         stringResource(R.string.public_stores),
                         topSpacing = if (guest) 10 else 21,
+                        compact = guest && compactHome,
                     )
                 }
                 items(filtered.chunked(homeGridColumns), key = { row -> row.first().id }) { row ->
@@ -412,12 +440,12 @@ private fun BannerStrip(banners: List<FoodHomeBanner>, onStore: (String) -> Unit
 }
 
 @Composable
-private fun SectionTitleWeb(title: String, topSpacing: Int = 21) {
+private fun SectionTitleWeb(title: String, topSpacing: Int = 21, compact: Boolean = false) {
     Text(
         title,
         color = WebInk,
         fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
+        fontSize = if (compact) 17.sp else 18.sp,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = topSpacing.dp, bottom = 5.dp),
     )
 }
@@ -443,6 +471,7 @@ private fun FilterChipWeb(title: String, selected: Boolean, onClick: () -> Unit)
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boolean, onClick: () -> Unit) {
     Column(
@@ -450,11 +479,13 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boole
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp))) {
-            // Store artwork can include text near its edges. Contain it
-            // rather than trimming labels/watermarks with ContentScale.Crop.
+            // Match the website's full-width 4:3 card. Cropping from the
+            // TOP preserves text/labels placed along the bottom of store art.
+            // Store detail uses Fit so the full original remains accessible.
             WebImage(
                 store.coverPath, "food-public", Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Crop,
+                imageAlignment = Alignment.BottomCenter,
             )
             if (!store.isOpen) {
                 Box(
@@ -475,17 +506,13 @@ private fun StoreCardWeb(store: FoodStore, modifier: Modifier, showRating: Boole
         }
         val menuCountTag = stringResource(R.string.store_menu_count, store.menu.size)
         val deliveryTag = stringResource(R.string.store_delivery, "฿" + (store.deliveryFee ?: "—"))
-        // The website wraps these English badges into two lines at mobile widths.
-        if (LocalConfiguration.current.locales[0].language == "en") {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                TagWeb(menuCountTag)
-                TagWeb(deliveryTag)
-            }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TagWeb(menuCountTag)
-                TagWeb(deliveryTag)
-            }
+        // Same flex-wrap behaviour as .fx-store-card-tags in the web CSS.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            TagWeb(menuCountTag)
+            TagWeb(deliveryTag)
         }
     }
 }
@@ -529,13 +556,13 @@ fun WebStoreScreen(
         .groupBy { it.category.ifBlank { fallbackMenuCategory } }
     LazyColumn(
         Modifier.fillMaxSize().background(Color.White),
-        contentPadding = PaddingValues(bottom = 34.dp),
+        contentPadding = PaddingValues(bottom = if (guest) 34.dp else 124.dp),
     ) {
         item {
             // CSS uses margin-top:-20px to overlap the cover. Negative
             // spacing overlaps in layout as well, avoiding a blank 20dp gap.
             Column(verticalArrangement = Arrangement.spacedBy((-20).dp)) {
-                Box(Modifier.fillMaxWidth().height(194.dp)) {
+                Box(Modifier.fillMaxWidth().height(230.dp)) {
                     WebImage(store.coverPath, "food-public", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                     Box(Modifier.fillMaxWidth().height(80.dp).background(
                         Brush.verticalGradient(listOf(Color.Black.copy(alpha = .36f), Color.Transparent))
@@ -565,7 +592,7 @@ fun WebStoreScreen(
                 }
                 Column(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-                        .background(Color.White).padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 2.dp),
+                        .background(Color.White).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 3.dp),
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Text(store.name, fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = WebInk)
@@ -610,7 +637,7 @@ fun WebStoreScreen(
                         Modifier.weight(1f).clickable { storeTab = i },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Box(Modifier.heightIn(min = 40.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.heightIn(min = 46.dp), contentAlignment = Alignment.Center) {
                             Text(stringResource(label), fontSize = 15.sp,
                                 fontWeight = if (storeTab == i) FontWeight.Bold else FontWeight.Medium,
                                 color = if (storeTab == i) WebRed else WebSub)
@@ -726,12 +753,12 @@ private fun RoundHeroButton(icon: androidx.compose.ui.graphics.vector.ImageVecto
 private fun WebMenuRow(menu: FoodMenu, enabled: Boolean, onClick: () -> Unit) {
     Column {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 112.dp).clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().heightIn(min = 136.dp).clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            Box(Modifier.size(88.dp)) {
+            Box(Modifier.size(104.dp)) {
                 WebImage(menu.imagePath, "food-public", Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
                 if (!enabled) {
                     Box(Modifier.align(Alignment.BottomCenter).clip(CircleShape).background(WebRedSoft).padding(5.dp)) {
