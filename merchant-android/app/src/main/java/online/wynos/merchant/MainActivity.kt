@@ -173,6 +173,10 @@ private fun LoginScreen(busy: Boolean, error: String, notice: String,
         Button(onClick = { onSignIn(email, password) },
             enabled = !busy && email.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth()) { Text(if (busy) "กำลังเข้าสู่ระบบ..." else "เข้าสู่ระบบ") }
+        TextButton(onClick = { onReset(email) }, enabled = !busy && email.contains("@"),
+            modifier = Modifier.fillMaxWidth()) { Text("ลืมรหัสผ่าน? ส่งลิงก์ตั้งรหัสผ่านใหม่") }
+        if (notice.isNotEmpty()) Text(notice, color = Grey,
+            modifier = Modifier.padding(top = 8.dp))
     }
 }
 
