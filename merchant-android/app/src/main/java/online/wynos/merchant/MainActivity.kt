@@ -138,7 +138,7 @@ private fun MerchantApp(vm: MerchantViewModel) {
                 MerchantPage.MENU -> MenuScreen(s, vm)
                 MerchantPage.MORE -> MoreScreen(vm)
                 MerchantPage.REPORTS -> SalesScreen(s, vm)
-                MerchantPage.FINANCE -> FinanceScreen(s)
+                MerchantPage.FINANCE -> FinanceScreen(s, vm)
                 MerchantPage.STORE -> StoreScreen(s, vm)
                 MerchantPage.HISTORY -> HistoryScreen(s, vm)
                 MerchantPage.FEEDBACK, MerchantPage.PROMOTIONS, MerchantPage.CAMPAIGNS,
@@ -651,23 +651,80 @@ private fun SalesScreen(s: MerchantState, vm: MerchantViewModel) {
 }
 
 @Composable
-private fun FinanceScreen(s: MerchantState) {
+private fun FinanceScreen(s: MerchantState, vm: MerchantViewModel) {
+    val context = LocalContext.current
+    val fields = listOf(
+        "ยอดขายสุทธิ" to "sales_net", "ค่าอาหาร" to "food", "ค่าส่ง" to "delivery",
+        "ส่วนลดโปรโมชั่น" to "discounts", "คืนเงินลูกค้า" to "refunds",
+        "ค่าโฆษณา" to "ad_spend", "GP WYNOS" to "gp",
+        "WYNOS ร่วมจ่ายส่วนลด" to "platform_funded", "รายได้ร้าน" to "income")
+    val csvPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        val info = s.finance
+        if (uri != null && info != null) {
+            val csv = buildString {
+                append("\uFEFFรายการ,จำนวนเงิน (บาท)\n")
+                append("ช่วงเริ่มต้น,").append(s.financeFrom).append("\n")
+                append("สิ้นสุด,").append(s.financeTo).append("\n")
+                fields.forEach { (title, key) ->
+                    append("\"").append(title).append("\",")
+                    append(info.optDouble(key, 0.0)).append("\n")
+                }
+            }
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(csv.toByteArray(Charsets.UTF_8))
+                }
+            }
+        }
+    }
+    var customStart by remember(s.financeFrom) { mutableStateOf(s.financeFrom) }
+    var customEnd by remember(s.financeTo) { mutableStateOf(s.financeTo) }
+    val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bangkok"))
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         SectionHeading("การเงินร้านค้า")
-        Text("ข้อมูลเดือนปัจจุบัน — คำนวณโดย Backend", color = Grey)
+        Text("ยอดเงินและค่าธรรมเนียมคำนวณจาก Backend · เวลาไทย", color = Grey)
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("วันนี้" to (today to today),
+                "เมื่อวาน" to (today.minusDays(1) to today.minusDays(1)),
+                "สัปดาห์" to (today.minusDays((today.dayOfWeek.value - 1).toLong()) to today),
+                "เดือน" to (today.withDayOfMonth(1) to today)).forEach { (label, range) ->
+                FilterChip(selected = s.financeFrom == range.first.toString() &&
+                    s.financeTo == range.second.toString(),
+                    onClick = { vm.setFinanceRange(range.first.toString(), range.second.toString()) },
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall) })
+            }
+        }
+        OutlinedTextField(customStart, { customStart = it },
+            label = { Text("เริ่มต้น YYYY-MM-DD") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(customEnd, { customEnd = it },
+            label = { Text("สิ้นสุด YYYY-MM-DD") }, modifier = Modifier.fillMaxWidth())
+        Button(onClick = { vm.setFinanceRange(customStart, customEnd) },
+            enabled = !s.busy, modifier = Modifier.fillMaxWidth()) { Text("ดูช่วงวันที่เลือก") }
+        Text("ช่วง " + s.financeFrom + " ถึง " + s.financeTo)
         val data = s.finance
         if (data == null) Text("ยังไม่สามารถโหลดข้อมูลการเงินได้ หรือบัญชีไม่มีสิทธิ์ดู")
         else {
-            listOf(
-                "ยอดขายสุทธิ" to "sales_net",
-                "ค่าอาหาร" to "food",
-                "ค่าส่ง" to "delivery",
-                "ส่วนลดโปรโมชั่น" to "discounts",
-                "เงินคืนลูกค้า" to "refunds",
-                "ค่าโฆษณา" to "ad_spend",
-                "GP WYNOS" to "gp",
-                "รายได้ร้าน" to "income"
-            ).forEach { (label, field) -> SummaryCard(label, money(data.amount(field))) }
+            SummaryCard("ยอดขายสุทธิ", money(data.amount("sales_net")))
+            SummaryCard("รายได้ร้าน", money(data.amount("income")))
+            fields.filterNot { it.second in listOf("sales_net", "income") }.forEach { (label, key) ->
+                SummaryCard(label, money(data.amount(key)))
+            }
+            if (data.optInt("pending_slip_count") > 0) {
+                Text("รอตรวจสลิป " + data.optInt("pending_slip_count") + " ออเดอร์", color = Red)
+                TextButton(onClick = { vm.openPage(MerchantPage.ORDERS) }) { Text("ไปหน้าออเดอร์") }
+            }
+            OutlinedButton(
+                onClick = { csvPicker.launch("wynos-finance-" + s.financeFrom + "_" + s.financeTo + ".csv") },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("ดาวน์โหลด CSV") }
+        }
+        val stripe = s.stripeStatus
+        if (stripe != null && stripe.optBoolean("connected")) {
+            SectionHeading("Stripe")
+            SummaryCard("ยอดรอดำเนินการ", money(stripe.optDouble("balance_pending_satang") / 100.0))
+            SummaryCard("พร้อมโอน", money(stripe.optDouble("balance_available_satang") / 100.0))
+            SummaryCard("โอนเข้าบัญชีวันนี้", money(stripe.optDouble("payouts_paid_today_satang") / 100.0))
+            Text("สถานะการรับเงิน: " + stripe.optString("status"))
         }
     }
 }
