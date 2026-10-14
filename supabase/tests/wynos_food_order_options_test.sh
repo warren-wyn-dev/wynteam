@@ -219,9 +219,10 @@ REPLAY_MOBILE=$(mobile_order "$BUYER" "$MOBILE_ATTEMPT" "$LINE_WATER")
   || fail "buyer attempt should only be stored once"
 pass "repeating same attempt ID is idempotent for same buyer"
 
+ALTERED_MOBILE='[{"menu_item_id":"'$WATER'","quantity":2}]'
 expect_error "same attempt ID with different cart fails closed" "$BUYER" \
   "select public.food_create_order_idempotent('$MOBILE_ATTEMPT','$STORE','QA',
-      '0800000000','Street',null,'[{\"menu_item_id\":\"'$WATER'\",\"quantity\":2}]'::jsonb,null,null)" \
+      '0800000000','Street',null,'$ALTERED_MOBILE'::jsonb,null,null)" \
   "mobile order attempt payload changed"
 [ "$(val "select count(*) from public.food_orders where buyer_id='$BUYER'")" = "1" ] \
   || fail "changed attempt created a second order"
