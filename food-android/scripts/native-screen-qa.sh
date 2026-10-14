@@ -74,6 +74,20 @@ for width in 320 360 390 430 600 840; do
       adb exec-out screencap -p > "visual/android-home-${width}-${locale}-attempt${attempt}.png"
       if assert_native_window "$width" "$locale" "$attempt"; then
         cp "visual/android-home-${width}-${locale}-attempt${attempt}.png" "visual/android-home-${width}-${locale}.png"
+        # Capture the real menu cards after scrolling, not just the first-fold
+        # hero. This checks the founder-approved frameless layout, square images,
+        # two-line names, aligned price row and scrolled-header elevation.
+        if [[ "$width" == 360 || "$width" == 390 || "$width" == 430 ]]; then
+          adb shell input swipe 180 725 180 280 360
+          sleep 2
+          adb exec-out screencap -p > "visual/android-home-scrolled-${width}-${locale}.png"
+          adb shell uiautomator dump /sdcard/wynos-food-scrolled.xml >/dev/null
+          adb exec-out cat /sdcard/wynos-food-scrolled.xml > "visual/android-scrolled-${width}-${locale}.xml"
+          if ! grep -Fq 'WYNOS' "visual/android-scrolled-${width}-${locale}.xml"; then
+            echo "Sticky WYNOS Food header missing after scroll at ${width}dp / ${locale}" >&2
+            exit 1
+          fi
+        fi
         verified=1
         break
       fi
@@ -90,4 +104,30 @@ for width in 320 360 390 430 600 840; do
     fi
   done
 done
+
+# The live public catalog may fit completely in an 844dp-tall viewport.
+# A screenshot after a swipe at that height does NOT prove the header's
+# scrolled elevation was actually exercised. Force a short-height window
+# and assert the image changes after a real scroll.
+adb shell wm size 390x560
+adb shell wm density 160
+adb shell cmd locale set-app-locales online.wynos.food --user 0 --locales th-TH || true
+adb shell am force-stop online.wynos.food || true
+adb shell am start -W -n online.wynos.food/.MainActivity
+sleep 18
+adb exec-out screencap -p > visual/android-home-short-before-scroll-390-th-TH.png
+adb shell input swipe 195 470 195 180 450
+sleep 3
+adb exec-out screencap -p > visual/android-home-short-after-scroll-390-th-TH.png
+if cmp -s visual/android-home-short-before-scroll-390-th-TH.png visual/android-home-short-after-scroll-390-th-TH.png; then
+  echo 'Real Home scrolling was not exercised in the compact-height QA fixture.' >&2
+  exit 1
+fi
+adb shell uiautomator dump /sdcard/wynos-food-short-scrolled.xml >/dev/null
+adb exec-out cat /sdcard/wynos-food-short-scrolled.xml > visual/android-home-short-after-scroll-390-th-TH.xml
+if ! grep -Fq 'WYNOS' visual/android-home-short-after-scroll-390-th-TH.xml; then
+  echo 'Sticky WYNOS Food header was not visible after genuine scroll.' >&2
+  exit 1
+fi
+
 adb logcat -d -v brief -s AndroidRuntime:E System.err:E > visual/android-errors.txt || true

@@ -75,6 +75,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     var selectedStoreId by rememberSaveable { mutableStateOf<String?>(null) }
     var initialHomeMenuId by rememberSaveable { mutableStateOf<String?>(null) }
     var homeCart by rememberSaveable { mutableStateOf(false) }
+    var homeScrolled by rememberSaveable { mutableStateOf(false) }
     val guest = state.accountEmail == null
     val selectedStore = state.stores.firstOrNull { it.id == selectedStoreId }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -110,6 +111,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         onCart = { homeCart = true },
                         onSelectAddress = vm::selectAddress,
                         onRefreshAddresses = vm::refreshAddresses,
+                        scrolled = homeScrolled,
                     )
                 } else if (!guest) {
                     val title = when (tab) {
@@ -171,6 +173,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         selectedStoreId = storeId
                     },
                     onRetry = vm::refreshCatalog,
+                    onScrolledChange = { homeScrolled = it },
                 )
                 tab == 1 -> WebOrdersPage(
                     state = state,
