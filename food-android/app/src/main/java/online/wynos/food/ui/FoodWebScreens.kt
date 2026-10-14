@@ -471,6 +471,7 @@ fun WebHomeScreen(
                 }
             }
         }
+        }
         if (filtersOpen) {
             ModalBottomSheet(
                 onDismissRequest = { filtersOpen = false },
@@ -658,13 +659,13 @@ private fun CouponPreviewUnavailable() {
 
 /** A compact editorial banner using an actual published restaurant image. */
 @Composable
-private fun FoodBrandHeroBanner(store: FoodStore?) {
+private fun FoodBrandHeroBanner(store: FoodStore?, onBrowse: () -> Unit) {
     val cover = store?.menu?.firstOrNull { it.imagePath != null }?.imagePath ?: store?.coverPath
     val shape = RoundedCornerShape(18.dp)
     Box(
         Modifier.fillMaxWidth()
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-            .height(138.dp).shadow(3.dp, shape)
+            .height(157.dp).shadow(3.dp, shape)
             .clip(shape)
             .background(Brush.horizontalGradient(
                 listOf(Color(0xFFFFDFE9), Color(0xFFFFAFC4), Color(0xFFED648C)))),
@@ -672,10 +673,10 @@ private fun FoodBrandHeroBanner(store: FoodStore?) {
         // Food imagery is drawn only when this restaurant image actually exists.
         if (cover != null) {
             WebImage(cover, "food-public", Modifier.align(Alignment.CenterEnd)
-                .width(190.dp).height(138.dp), contentScale = ContentScale.Crop)
+                .width(196.dp).height(157.dp), contentScale = ContentScale.Crop)
         } else {
             Image(painter = painterResource(R.drawable.food_rider_hero), contentDescription = null,
-                modifier = Modifier.align(Alignment.BottomEnd).size(146.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).size(155.dp),
                 contentScale = ContentScale.Fit)
         }
         Box(Modifier.fillMaxSize().background(
@@ -695,6 +696,22 @@ private fun FoodBrandHeroBanner(store: FoodStore?) {
                 color = WebInk, maxLines = 2)
             Text(stringResource(R.string.brand_hero_subtitle), fontSize = 12.sp,
                 lineHeight = 16.sp, color = WebInk, maxLines = 2)
+            Box(
+                Modifier.padding(top = 3.dp).height(31.dp)
+                    .shadow(3.dp, CircleShape).clip(CircleShape)
+                    .background(Brush.verticalGradient(listOf(Color(0xFFFF3370), WebRed, WebRedDark)))
+                    .clickable(onClick = onBrowse)
+                    .padding(horizontal = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(stringResource(R.string.browse_restaurants), color = Color.White,
+                        fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Icon(Icons.Outlined.ArrowForward, null, tint = Color.White,
+                        modifier = Modifier.size(14.dp))
+                }
+            }
         }
     }
 }
