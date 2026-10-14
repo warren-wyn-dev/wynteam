@@ -5,6 +5,11 @@ const api = src("merchant-android/app/src/main/java/online/wynos/merchant/Mercha
 const ui = src("merchant-android/app/src/main/java/online/wynos/merchant/MainActivity.kt");
 const model = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantViewModel.kt");
 const printer = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantPrinter.kt");
+const locations = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantLocations.kt");
+const storeSettings = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantStoreSettings.kt");
+const push = src("merchant-android/app/src/main/java/online/wynos/merchant/MerchantPush.kt");
+const androidManifest = src("merchant-android/app/src/main/AndroidManifest.xml");
+const gradle = src("merchant-android/app/build.gradle.kts");
 const web = src("web/lib/food-merchant.ts");
 const merchantWeb = src("web/components/merchant/wynos-merchant-app.tsx");
 assert.match(ui, /setContent\s*\{/);
@@ -64,4 +69,30 @@ assert.match(ui, /"cooking" -> order\.text\("status"\) in listOf\("preparing", "
 assert.match(ui, /"delivery" -> order\.text\("status"\) == "out_for_delivery"/);
 assert.doesNotMatch(api, /service_role|sb_secret_/);
 assert.match(api, /KeyProperties\.KEY_ALGORITHM_AES/);
+
+// Native merchant features added after the first QA pass.
+assert.match(ui, /onReset = vm::requestPasswordReset/);
+assert.match(ui, /"ลืมรหัสผ่าน\?/);
+assert.match(api, /"\/auth\/v1\/recover"/);
+assert.match(storeSettings, /MerchantLocationsEditor\(s, vm\)/);
+assert.match(locations, /fun MerchantLocationsEditor/);
+assert.match(api, /fun storePlaces\(storeId: String\)/);
+assert.match(api, /food_store_places\?select=/);
+assert.match(api, /fun updateStoreCoordinates/);
+assert.match(api, /fun saveStorePlace/);
+assert.match(api, /fun deleteStorePlace/);
+assert.match(gradle, /firebase-messaging:24\.1\.2/);
+assert.match(androidManifest, /android\.permission\.POST_NOTIFICATIONS/);
+assert.match(androidManifest, /MerchantMessagingService/);
+assert.match(push, /class MerchantMessagingService : FirebaseMessagingService/);
+assert.match(push, /fun enable\(context: Context, api: MerchantApi\)/);
+assert.match(push, /api\.registerPushToken\(token\)/);
+assert.match(push, /api\.unregisterPushToken\(token\)/);
+assert.match(api, /push_tokens\?on_conflict=token/);
+assert.match(api, /"platform", "android"/);
+assert.match(api, /"app", "merchant"/);
+assert.match(model, /MerchantPush\.disable\(getApplication\(\), api\)/);
+assert.match(model, /fun enablePush\(\)/);
+assert.match(model, /fun disablePush\(\)/);
+assert.match(push, /lockscreenVisibility = Notification\.VISIBILITY_PRIVATE/);
 console.log("Native foundation static contract checks passed (not an Android build).");
