@@ -206,7 +206,7 @@ class MerchantApi(context: Context) {
         }
         val payload = JSONObject()
             .put("store_id", filter(storeId)).put("name", name)
-            .put("detail", draft.optString("detail").trim().take(200).ifBlank { JSONObject.NULL })
+            .put("detail", draft.optString("detail").trim().take(200).let { if (it.isBlank()) JSONObject.NULL else it })
             .put("latitude", latitude).put("longitude", longitude)
             .put("is_active", draft.optBoolean("is_active", true))
         val id = draft.optString("id").takeIf { it.isNotBlank() && it != "null" }
