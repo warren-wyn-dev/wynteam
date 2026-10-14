@@ -1,6 +1,9 @@
 package online.wynos.merchant
 
 import android.app.Application
+import android.net.Uri
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -34,6 +37,9 @@ data class MerchantState(
     val hasMoreOrders: Boolean = false,
     val selectedOrder: JSONObject? = null,
     val selectedMenu: JSONObject? = null,
+    val slipBitmap: Bitmap? = null,
+    val slipPreviewOrderId: String? = null,
+    val slipPreviewPath: String? = null,
 )
 
 fun JSONArray.asObjects(): List<JSONObject> =
@@ -106,6 +112,9 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             hasMoreOrders = orderRows.size > 100,
             finance = if (changingStore) null else state.finance,
             history = if (changingStore) emptyList() else state.history,
+            slipBitmap = if (changingStore) null else state.slipBitmap,
+            slipPreviewOrderId = if (changingStore) null else state.slipPreviewOrderId,
+            slipPreviewPath = if (changingStore) null else state.slipPreviewPath,
             selectedOrder = state.selectedOrder?.let { prior ->
                 orderRows.find { it.optString("id") == prior.optString("id") } },
         )
@@ -128,7 +137,74 @@ class MerchantViewModel(application: Application) : AndroidViewModel(application
             state = state.copy(orderFilter = filter)
     }
 
-    fun selectOrder(order: JSONObject?) { state = state.copy(selectedOrder = order) }
+    fun selectOrder(order: JSONObject?) {
+        state = state.copy(
+            selectedOrder = order, slipBitmap = null,
+            slipPreviewOrderId = null, slipPreviewPath = null
+        )
+        if (order?.optString("payment_status") == "submitted" &&
+            order.optString("payment_slip_path").isNotBlank()) previewSlip(order)
+    }
+
+    private fun previewSlip(order: JSONObject) {
+        val id = order.optString("id")
+        val path = order.optString("payment_slip_path")
+        execute {
+            val bytes = api.loadPrivateImage(path)
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+            var sample = 1
+            while (options.outHeight / sample > 1700 || options.outWidth / sample > 1700) sample *= 2
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size,
+                BitmapFactory.Options().apply { inSampleSize = sample })
+                ?: throw IllegalArgumentException("ไม่สามารถแสดงรูปสลิปได้")
+            if (state.selectedOrder?.optString("id") == id &&
+                state.selectedOrder?.optString("payment_slip_path") == path) {
+                state = state.copy(slipBitmap = bitmap, slipPreviewOrderId = id, slipPreviewPath = path)
+            }
+        }
+    }
+
+    /** Explicitly reviewed payment-slip image required for the submitted flow. */
+    fun approveSlipAndAccept(order: JSONObject, reviewed: Boolean, etaMinutes: Int) {
+        val orderId = order.optString("id")
+        val path = order.optString("payment_slip_path")
+        if (!reviewed || state.slipBitmap == null || state.slipPreviewOrderId != orderId ||
+            state.slipPreviewPath != path || state.selectedOrder?.optString("id") != orderId ||
+            order.optString("status") != "pending_acceptance" ||
+            order.optString("payment_status") != "submitted") {
+            state = state.copy(error = "กรุณาเปิดดูสลิปและตรวจเงินเข้าก่อนยืนยัน")
+            return
+        }
+        execute("ยืนยันเงินและรับออเดอร์แล้ว") {
+            try {
+                api.setPaymentStatusWithNote(orderId, "paid")
+                api.transition(orderId, "preparing", etaMinutes)
+            } finally { loadSnapshot() }
+        }
+    }
+
+    fun rejectSlip(order: JSONObject) {
+        if (order.optString("payment_status") != "submitted") return
+        execute("แจ้งว่าสลิปมีปัญหาแล้ว") {
+            try {
+                api.setPaymentStatusWithNote(order.getString("id"), "issue", "กรุณาตรวจสอบหรือส่งสลิปใหม่")
+            } finally { loadSnapshot() }
+        }
+    }
+
+    fun completeOrder(order: JSONObject, method: String, locationNote: String, photo: Uri?) {
+        if (order.optString("status") != "out_for_delivery" || photo == null) {
+            state = state.copy(error = "กรุณาแนบรูปยืนยันการจัดส่ง")
+            return
+        }
+        execute("ยืนยันส่งสำเร็จแล้ว") {
+            try {
+                val path = api.uploadDeliveryImage(order.getString("id"), photo)
+                api.completeDelivery(order.getString("id"), method, locationNote, path)
+            } finally { loadSnapshot() }
+        }
+    }
     fun selectMenu(item: JSONObject?) { state = state.copy(selectedMenu = item) }
 
     fun actionOrder(order: JSONObject) {
