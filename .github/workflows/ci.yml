@@ -159,14 +159,17 @@ jobs:
           cat > "$ci_bin/psql" <<'EOF'
           #!/usr/bin/env bash
           set +e
-          capture="${RUNNER_TEMP}/wynos-psql-capture-$$.out"
-          /usr/bin/psql "$@" >"$capture" 2>&1
+          capture="${RUNNER_TEMP}/wynos-psql-capture-$$"
+          /usr/bin/psql "$@" >"$capture.out" 2>"$capture.err"
           status=$?
-          cat "$capture"
+          # Callers that assert real-role denials inspect stderr. Preserve both
+          # streams while keeping the original diagnostic for legacy retries.
+          cat "$capture.out"
+          cat "$capture.err" >&2
           if [ "$status" -ne 0 ]; then
-            cp "$capture" "${RUNNER_TEMP}/wynos-last-psql-failure.out"
+            cat "$capture.out" "$capture.err" >"${RUNNER_TEMP}/wynos-last-psql-failure.out"
           fi
-          rm -f "$capture"
+          rm -f "$capture.out" "$capture.err"
           exit "$status"
           EOF
 
