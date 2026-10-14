@@ -300,6 +300,16 @@ fun WebHomeScreen(
                             .width(165.dp).height(128.dp).graphicsLayer(alpha = 0.64f),
                         contentScale = ContentScale.Fit,
                     )
+                    // Keep all hero text legible over the illustration on 320-390dp phones.
+                    Box(
+                        modifier = Modifier.matchParentSize().background(
+                            Brush.horizontalGradient(
+                                0f to Color(0xFFFFF1F4),
+                                0.54f to Color(0xFFFFF1F4).copy(alpha = 0.94f),
+                                1f to Color.Transparent,
+                            )
+                        )
+                    )
                     Column(
                         Modifier.fillMaxWidth().padding(if (compactHome) 15.dp else 18.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
