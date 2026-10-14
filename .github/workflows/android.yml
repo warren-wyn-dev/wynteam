@@ -53,6 +53,10 @@ jobs:
           path: |
             android/app/build/reports/
             android/app/build/outputs/roborazzi/
+            # Robolectric captureRoboImage writes to build/screenshots/;
+            # include those visual regression images in CI for Web/Android QA.
+            android/app/build/screenshots/
+            android/build/screenshots/
           retention-days: 7
 
   connected-qa:
