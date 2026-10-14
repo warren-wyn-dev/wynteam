@@ -136,6 +136,9 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
         }
         fieldGroup("ข้อมูลร้านและเวลาเตรียม", details)
         MerchantScheduleEditor(store, s.busy, vm::saveStore)
+        HorizontalDivider(Modifier.padding(vertical = 14.dp))
+        MerchantLocationsEditor(s, vm)
+        HorizontalDivider(Modifier.padding(vertical = 14.dp))
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text("เปิดรับออเดอร์", Modifier.weight(1f))
             Switch(checked = toggles["is_open"] == true,
@@ -204,7 +207,7 @@ fun MerchantStoreSettings(s: MerchantState, vm: MerchantViewModel) {
                 style = MaterialTheme.typography.bodySmall)
         }
         if (s.audit.isEmpty()) Text("ยังไม่มีรายการประวัติ")
-        Text("ยังต้องเพิ่มตัวเลือกปฏิทิน เวลาเปิดรายวัน การปักหมุดแผนที่ รูปภาพและช่องทาง Stripe",
+        Text("แผนที่ในแอปและการตั้งค่าบัญชี Stripe Connect ยังคงเป็นงานที่ต้องพัฒนาต่อ",
             color = Color.Gray, style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 12.dp))
     }
