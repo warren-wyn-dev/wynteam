@@ -146,6 +146,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onSelectAddress = vm::selectAddress,
                     onChangeQuantity = vm::updateCartLine,
                     onCreateOrder = vm::submitStagingOrder,
+                    onLoadReviews = vm::refreshStoreReviews,
                     onPrepareStagingPayment = vm::prepareStagingMobilePayment,
                     onPaymentSheetCompleted = vm::refreshOrders,
                 )
