@@ -4,6 +4,15 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "กรุณาเข้าสู่ระบบ Merchant ใหม่": "Please sign in to Merchant again.",
+  "ระบบแชต Staging ยังไม่พร้อมหรือไม่มีสิทธิ์ในออเดอร์นี้": "Staging chat is unavailable or you are not authorized for this order.",
+  "ส่งไม่สำเร็จ โปรดตรวจสอบสิทธิ์และระบบ Staging": "Unable to send. Check your permissions and staging configuration.",
+  "แชตลูกค้าสำหรับ Staging": "Customer chat for staging",
+  "แชตลูกค้า (ทดสอบ)": "Customer chat (test)",
+  "เฉพาะออเดอร์นี้ · ข้อความตัวอักษรเท่านั้น · ยังไม่เปิดใน Production": "This order only · Text messages only · Not available in production",
+  "ลูกค้า": "Customer",
+  "ส่งข้อความถึงลูกค้า": "Message the customer",
+  "พิมพ์ข้อความเกี่ยวกับออเดอร์นี้": "Type a message about this order",
   "โหลดร้านอาหารไม่สำเร็จ กรุณาลองอีกครั้ง": "Unable to load restaurants. Please try again.",
   "เปลี่ยนร้านอาหารและล้างตะกร้าเดิม?": "Switch restaurants and clear your current basket?",
   "ร้านปิดอยู่": "Currently closed",
