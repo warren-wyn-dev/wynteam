@@ -2,8 +2,6 @@ package online.wynos.food.push
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -44,16 +42,8 @@ class ZokyFirebaseMessagingService : FirebaseMessagingService() {
 
         // Device-only test notifications: never show unverified order/payment
         // statements or personal data from a push payload.
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "zoky_device_preview"
-        if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(
-                NotificationChannel(channelId, "Zoky · ทดสอบการแจ้งเตือน",
-                    NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "FCM device preview only; no account-linked push service"
-                }
-            )
-        }
+        ZokyFcmPreviewNotificationChannel.ensure(this)
+        val channelId = ZokyFcmPreviewNotificationChannel.ID
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("zoky_open_messages", true)
