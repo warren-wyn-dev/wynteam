@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.content.ActivityNotFoundException
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -203,6 +206,26 @@ fun ZokyFcmDevicePreviewCard() {
                 "สถานะหมวดแจ้งเตือน Android: ${notificationStatus}",
                 color = Color(0xFF66636C), fontSize = 11.sp,
             )
+            OutlinedButton(onClick = {
+                val channelSettings = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    putExtra(Settings.EXTRA_CHANNEL_ID, ZokyFcmPreviewNotificationChannel.ID)
+                }
+                try {
+                    context.startActivity(channelSettings)
+                } catch (_: ActivityNotFoundException) {
+                    // Redfinger builds may omit per-channel settings screens.
+                    try {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            }
+                        )
+                    } catch (_: ActivityNotFoundException) {
+                        status = "เปิดตั้งค่า Android ไม่สำเร็จ ให้เปิด Settings → Apps → Zoky → Notifications"
+                    }
+                }
+            }) { Text("เปิดตั้งค่าการแจ้งเตือน Android") }
             OutlinedButton(
                 onClick = {
                     fcmCallbacks = ZokyFcmPreviewReceipts.count(context)
