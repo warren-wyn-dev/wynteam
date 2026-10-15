@@ -71,7 +71,7 @@ import online.wynos.food.data.FoodStore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FoodApp(vm: FoodViewModel = viewModel()) {
+fun FoodApp(notificationNavigationSequence: Int = 0, vm: FoodViewModel = viewModel()) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var foodServiceOpen by rememberSaveable { mutableStateOf(false) }
@@ -89,6 +89,17 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     val localFavorites = remember(context) { FoodLocalFavoriteStores(context) }
     var favoriteIds by remember(localFavorites, state.accountEmail) {
         mutableStateOf(localFavorites.get(state.accountEmail))
+    }
+    LaunchedEffect(notificationNavigationSequence) {
+        if (notificationNavigationSequence > 0) {
+            selectedStoreId = null
+            foodServiceOpen = false
+            homeDealsOpen = false
+            homeAddressPickerOpen = false
+            favoritesOpen = false
+            promotionsOpen = false
+            tab = 2
+        }
     }
     val guest = state.accountEmail == null
     LaunchedEffect(state.accountEmail) {
@@ -299,6 +310,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                 )
                 tab == 2 -> ZokyMessageCenter(
                     state = state,
+                    notificationNavigationSequence = notificationNavigationSequence,
                     onOrders = { tab = 1 },
                     onRefresh = {
                         vm.refreshPromotionInbox()

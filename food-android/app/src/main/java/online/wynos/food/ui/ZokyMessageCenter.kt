@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import online.wynos.food.push.ZokyFcmDevicePreviewCard
 
 private val ZokyMessageRed = Color(0xFFD91F4E)
 private val ZokyMessageInk = Color(0xFF24212B)
@@ -52,6 +53,7 @@ private val ZokyMessageSub = Color(0xFF66636C)
 @Composable
 fun ZokyMessageCenter(
     state: FoodUiState,
+    notificationNavigationSequence: Int = 0,
     onOrders: () -> Unit,
     onRefresh: () -> Unit,
     onMarkRead: (String) -> Unit,
@@ -61,6 +63,11 @@ fun ZokyMessageCenter(
     onSendChat: (String) -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(notificationNavigationSequence) {
+        // A tap on any DEBUG Firebase QA notification targets Notifications,
+        // even if the user was previously reading the Chats tab.
+        if (notificationNavigationSequence > 0) selected = 0
+    }
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp)
@@ -85,6 +92,9 @@ fun ZokyMessageCenter(
                 Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(9.dp),
             ) {
+                item(key = "zoky-fcm-device-preview") {
+                    ZokyFcmDevicePreviewCard()
+                }
                 if (state.orderStatusNotice != null) {
                     item(key = "order-notice") {
                         Row(
