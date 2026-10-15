@@ -58,6 +58,10 @@ android {
             buildConfigField("boolean", "STAGING_MOBILE_PAYMENT_ALLOWED", (
                 verifiedStaging && foodConfig("WYNOS_FOOD_MOBILE_PAYMENT_STAGING") == "true"
             ).toString())
+            // Strict staging-only chat; requires the reviewed buyer/merchant RLS schema.
+            buildConfigField("boolean", "CHAT_STAGING_ALLOWED", (
+                verifiedStaging && foodConfig("WYNOS_FOOD_CHAT_STAGING") == "true"
+            ).toString())
         }
         release {
             buildConfigField("boolean", "ADDRESS_WRITES_ALLOWED", "false")
@@ -65,6 +69,7 @@ android {
             buildConfigField("boolean", "ACCOUNT_DELETION_ALLOWED", "false")
             buildConfigField("boolean", "STAGING_ORDER_CREATION_ALLOWED", "false")
             buildConfigField("boolean", "STAGING_MOBILE_PAYMENT_ALLOWED", "false")
+            buildConfigField("boolean", "CHAT_STAGING_ALLOWED", "false")
             isMinifyEnabled = false // Enable and verify R8 before production.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
