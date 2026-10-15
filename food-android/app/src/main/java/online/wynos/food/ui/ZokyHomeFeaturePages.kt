@@ -138,8 +138,9 @@ fun ZokyHomeDealsPage(
     onBrowseFood: () -> Unit,
     onSignIn: () -> Unit,
     onMarkRead: (String) -> Unit,
+    initialPromotionId: String? = null,
 ) {
-    var selectedId by remember { mutableStateOf<String?>(null) }
+    var selectedId by remember(initialPromotionId) { mutableStateOf(initialPromotionId) }
     val selected = state.promotions.firstOrNull { it.id == selectedId }
     Column(Modifier.background(Color.White)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
