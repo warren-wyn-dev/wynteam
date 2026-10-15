@@ -40,6 +40,28 @@ returns a token but Firebase Console test messages never appear:
 Never paste FCM device tokens, service account credentials or customer information into
 public chats, issue comments, CI logs or APK build arguments.
 
+## Firebase Console test without guessing from notification sounds
+
+The DEBUG preview now has an on-device, opt-in **FCM callback counter**.
+It stores only a local integer; it never stores payloads, account data or FCM tokens.
+This is independent of the Android local-notification test.
+
+1. Leave Zoky's Firebase Device Preview enabled. Do **not** disable it (that attempts to delete the token).
+2. Tap **เริ่มนับ FCM ใหม่** and verify the counter displays zero.
+3. Leave Zoky open in the foreground at **ข้อความ → การแจ้งเตือน**.
+4. From Firebase Console on another device, target this install's latest FCM registration token with **Send test message → Test**. Never Publish.
+5. Return to Zoky and tap **ตรวจผลการรับ FCM**:
+   - Count becomes 1 or more: `onMessageReceived` was called, confirming device-level Firebase delivery in the test.
+     If no system notification appears, inspect the Android notification channel or delivery display.
+   - Count remains 0: no foreground callback was recorded. Verify the target token/project,
+     whether Zoky actually remained foreground, Google Play services and device network.
+6. Note: For a **background notification message**, Firebase can display it through Android
+   directly without calling `onMessageReceived`. A zero callback count **cannot** rule out
+   that type of background delivery.
+
+Never share FCM tokens, test messages with customer data, or Firebase credentials in tickets,
+logs, public chats or screenshots. This diagnostic is DEBUG-only and does not transmit results.
+
 ## Release / security gates not yet completed
 - Design the recipient-scoped device-token table and token registration/deletion authenticated by WYNOS Account; use server RLS and authorization. No customer token stored in the draft app backend.
 - Implement the server-only Firebase Admin/FCM HTTP v1 dispatcher with Google IAM credentials stored **only on a trusted server**, never in the Android APK.
