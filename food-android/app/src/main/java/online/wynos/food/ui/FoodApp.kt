@@ -293,13 +293,14 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                 tab == 1 -> WebOrdersPage(
                     state = state,
                     onRetry = vm::refreshOrders,
-                    onBrowse = { tab = 0 },
+                    onBrowse = { tab = 0; foodServiceOpen = true },
                     onOpenDetail = vm::openOrderDetails,
                     onDismissNotice = vm::dismissOrderStatusNotice,
                 )
                 tab == 2 -> ZokyMessageCenter(
                     state = state,
                     onOrders = { tab = 1 },
+                    onOpenOrder = vm::openOrderDetails,
                     onRefresh = {
                         vm.refreshPromotionInbox()
                         vm.refreshOrders()
