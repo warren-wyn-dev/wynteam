@@ -99,6 +99,7 @@ fun ZokyHomeScreen(
     onFavorites: () -> Unit,
     onDeals: () -> Unit,
     onLocation: () -> Unit,
+    onBannerStore: (String) -> Unit,
 ) {
     val small = LocalConfiguration.current.screenWidthDp < 380
     LazyColumn(
@@ -123,8 +124,12 @@ fun ZokyHomeScreen(
                         Icon(Icons.Outlined.LocationOn, null, tint = ZokyRed,
                             modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("เลือกที่อยู่จัดส่ง", color = ZokySub,
-                            fontSize = 13.sp, maxLines = 1)
+                        val selectedAddress = state.addresses.firstOrNull {
+                            it.id == state.selectedAddressId
+                        }
+                        Text(selectedAddress?.label ?: "เลือกที่อยู่จัดส่ง",
+                            color = ZokySub, fontSize = 13.sp, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis)
                         Icon(Icons.Outlined.ChevronRight, null, tint = ZokySub,
                             modifier = Modifier.padding(start = 4.dp).size(15.dp))
                     }
@@ -138,6 +143,14 @@ fun ZokyHomeScreen(
                 }
             }
         }
+        if (state.banners.isNotEmpty()) {
+            item(key = "zoky-admin-campaigns") {
+                ZokyAdminCampaignCarousel(
+                    banners = state.banners,
+                    onStore = onBannerStore,
+                )
+            }
+        } else {
         item(key = "zoky-approved-hero") {
             Box(
                 modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth()
@@ -197,6 +210,7 @@ fun ZokyHomeScreen(
             Box(Modifier.padding(top = 8.dp, bottom = 10.dp)
                 .size(width = 18.dp, height = 6.dp).clip(CircleShape)
                 .background(ZokyRed))
+        }
         }
         item(key = "zoky-services-heading") {
             Text("บริการของ Zoky",
