@@ -103,3 +103,25 @@ test("debug FCM notification taps route to the real Notifications subtab", () =>
   assert.match(messages, /LaunchedEffect\(notificationNavigationSequence\)/);
   assert.match(messages, /if \(notificationNavigationSequence > 0\) selected = 0/);
 });
+
+test("debug background FCM uses a pre-created explicitly opted-in channel; release unchanged", () => {
+  const debugManifest = read("../../food-android/app/src/debug/AndroidManifest.xml");
+  const mainManifest = read("../../food-android/app/src/main/AndroidManifest.xml");
+  const channel = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFcmPreviewNotificationChannel.kt");
+  const screen = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFcmDevicePreviewCard.kt");
+  const receiver = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFirebaseMessagingService.kt");
+  assert.match(debugManifest, /com\.google\.firebase\.messaging\.default_notification_channel_id/);
+  assert.match(debugManifest, /android:value="zoky_device_preview"/);
+  assert.doesNotMatch(mainManifest, /com\.google\.firebase\.messaging\.default_notification_channel_id/);
+  assert.match(channel, /const val ID = "zoky_device_preview"/);
+  assert.match(channel, /BuildConfig\.FCM_DEVICE_PREVIEW_ALLOWED/);
+  assert.match(channel, /ZokyPushConsent\.enabled\(context\)/);
+  assert.match(channel, /createNotificationChannel\(/);
+  assert.match(channel, /IMPORTANCE_DEFAULT/);
+  assert.match(channel, /areNotificationsEnabled\(\)/);
+  assert.match(channel, /IMPORTANCE_NONE/);
+  assert.match(screen, /ZokyPushConsent\.setEnabled\(context, true\)[\s\S]*?ZokyFcmPreviewNotificationChannel\.ensure\(context\)/);
+  assert.match(screen, /notificationStatus = ZokyFcmPreviewNotificationChannel\.status\(context\)/);
+  assert.match(receiver, /ZokyFcmPreviewNotificationChannel\.ensure\(this\)/);
+  assert.doesNotMatch(channel, /firebase_admin_sdk|service_role|sb_secret_|FCM_SERVER_KEY|token|log\./i);
+});
