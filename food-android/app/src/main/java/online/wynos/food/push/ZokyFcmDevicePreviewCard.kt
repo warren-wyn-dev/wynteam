@@ -47,6 +47,7 @@ fun ZokyFcmDevicePreviewCard() {
     var token by remember { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }
     var fcmCallbacks by remember { mutableStateOf(ZokyFcmPreviewReceipts.count(context)) }
+    var displayStatus by remember { mutableStateOf(ZokyFcmPreviewReceipts.displayStatus(context)) }
     var notificationStatus by remember { mutableStateOf(ZokyFcmPreviewNotificationChannel.status(context)) }
     var status by remember { mutableStateOf(
         if (enabled) "เปิดรับข้อความทดสอบจาก Firebase บนอุปกรณ์นี้แล้ว"
@@ -58,6 +59,7 @@ fun ZokyFcmDevicePreviewCard() {
         if (enabled) {
             ZokyFcmPreviewNotificationChannel.ensure(context)
             notificationStatus = ZokyFcmPreviewNotificationChannel.status(context)
+            displayStatus = ZokyFcmPreviewReceipts.displayStatus(context)
         }
     }
 
@@ -71,9 +73,15 @@ fun ZokyFcmDevicePreviewCard() {
             working = false
             val value = if (task.isSuccessful) task.result else null
             if (!value.isNullOrBlank()) {
+                val newlyOptedIn = !ZokyPushConsent.enabled(context)
                 enabled = true
                 token = value
+                if (newlyOptedIn) ZokyFcmPreviewReceipts.clear(context)
                 ZokyPushConsent.setEnabled(context, true)
+                if (newlyOptedIn) {
+                    fcmCallbacks = 0
+                    displayStatus = ZokyFcmPreviewReceipts.displayStatus(context)
+                }
                 // The Firebase SDK must find the channel before a notification
                 // message arrives while the app is backgrounded.
                 ZokyFcmPreviewNotificationChannel.ensure(context)
@@ -186,12 +194,17 @@ fun ZokyFcmDevicePreviewCard() {
                 color = Color(0xFF24212B), fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
             )
             Text(
+                "การแสดงแจ้งเตือนจาก FCM ขณะเปิดแอป: ${displayStatus}",
+                color = Color(0xFF66636C), fontSize = 11.sp,
+            )
+            Text(
                 "สถานะหมวดแจ้งเตือน Android: ${notificationStatus}",
                 color = Color(0xFF66636C), fontSize = 11.sp,
             )
             OutlinedButton(
                 onClick = {
                     fcmCallbacks = ZokyFcmPreviewReceipts.count(context)
+                    displayStatus = ZokyFcmPreviewReceipts.displayStatus(context)
                     notificationStatus = ZokyFcmPreviewNotificationChannel.status(context)
                 },
             ) { Text("ตรวจผลการรับ FCM") }
@@ -199,6 +212,7 @@ fun ZokyFcmDevicePreviewCard() {
                 onClick = {
                     ZokyFcmPreviewReceipts.clear(context)
                     fcmCallbacks = 0
+                    displayStatus = ZokyFcmPreviewReceipts.displayStatus(context)
                     status = "ล้างตัวนับแล้ว เปิด Zoky ค้างไว้แล้วส่ง Firebase Test อีกครั้ง"
                 },
             ) { Text("เริ่มนับ FCM ใหม่") }
