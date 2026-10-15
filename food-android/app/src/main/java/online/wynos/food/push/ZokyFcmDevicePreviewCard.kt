@@ -127,6 +127,15 @@ fun ZokyFcmDevicePreviewCard() {
                         }
                     },
                 ) { Text("ปิดการทดสอบ") }
+                // Separately test Android notification display without Firebase.
+                // This local-only action does not contact a server or send a push.
+                OutlinedButton(
+                    onClick = { status = ZokyLocalNotificationQa.post(context) },
+                ) { Text("ทดสอบแจ้งเตือนในเครื่อง") }
+                Text(
+                    "หากแจ้งเตือนในเครื่องขึ้น แต่ Firebase ไม่ขึ้น ให้ตรวจการส่ง FCM และเครือข่าย Redfinger ต่อ",
+                    color = Color(0xFF66636C), fontSize = 11.sp,
+                )
                 if (token == null) {
                     // Local Compose state is lost after process recreation; allow the
                     // tester to recover a token without toggling consent off and on.
