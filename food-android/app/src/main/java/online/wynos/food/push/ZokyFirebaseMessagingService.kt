@@ -32,6 +32,10 @@ class ZokyFirebaseMessagingService : FirebaseMessagingService() {
     @SuppressLint("MissingPermission")
     override fun onMessageReceived(message: RemoteMessage) {
         if (!BuildConfig.FCM_DEVICE_PREVIEW_ALLOWED || !ZokyPushConsent.enabled(this)) return
+        // Proof of receipt from FCM, recorded locally without message content or token.
+        // This callback is used by foreground notification messages; background
+        // console notifications can be posted directly by the Firebase SDK.
+        ZokyFcmPreviewReceipts.record(this)
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(
                 this, Manifest.permission.POST_NOTIFICATIONS
