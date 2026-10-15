@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Required for authenticated HTTPS reads and WYNOS Account. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android 13+: requested only after an explicit user tap in Messages. -->
@@ -18,6 +19,11 @@
         <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
         <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_zoky_notification" />
+        <!-- Prevent a second FCM intent-service candidate from the SDK manifest.
+             In DEBUG, route MESSAGING_EVENT exclusively to Zoky's opt-in receiver.
+             In release, the opt-in receiver is disabled: fail closed. -->
+        <service android:name="com.google.firebase.messaging.FirebaseMessagingService"
+            tools:node="remove" />
         <service android:name=".push.ZokyFirebaseMessagingService"
             android:enabled="${zokyFcmPreviewServiceEnabled}"
             android:exported="false">
