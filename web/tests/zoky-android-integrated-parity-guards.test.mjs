@@ -42,3 +42,15 @@ test("integrated debug FCM notifications remain private and opt-in only", () => 
   assert.match(routing, /return debugPreviewAllowed && optedIn &&/);
   assert.doesNotMatch(receiver + routing, /service_role|sb_secret_|FCM_SERVER_KEY/i);
 });
+
+test("Zoky Android launcher installs the custom magenta WebP icon rather than the Android default", () => {
+  const manifest = read("app/src/main/AndroidManifest.xml");
+  const iconBytes = readFileSync(
+    new URL("../../food-android/app/src/main/res/drawable-nodpi/zoky_launcher.webp", import.meta.url),
+  );
+  assert.match(manifest, /android:icon="@drawable\/zoky_launcher"/);
+  assert.match(manifest, /android:roundIcon="@drawable\/zoky_launcher"/);
+  assert.equal(iconBytes.toString("ascii", 0, 4), "RIFF");
+  assert.equal(iconBytes.toString("ascii", 8, 12), "WEBP");
+  assert.ok(iconBytes.length > 3_000, "icon must contain non-trivial artwork");
+});
