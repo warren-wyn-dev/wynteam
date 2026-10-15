@@ -24,10 +24,16 @@ test("FCM device preview has consent and cannot run in release or before opt-in"
   assert.match(manifest, /POST_NOTIFICATIONS/);
   assert.match(manifest, /firebase_messaging_auto_init_enabled" android:value="false"/);
   assert.match(manifest, /firebase_analytics_collection_enabled" android:value="false"/);
+  assert.match(manifest, /android:enabled="\$\{zokyFcmPreviewServiceEnabled\}"/);
+  assert.match(gradle, /manifestPlaceholders\["zokyFcmPreviewServiceEnabled"\] = "true"/);
+  assert.match(gradle, /manifestPlaceholders\["zokyFcmPreviewServiceEnabled"\] = "false"/);
   assert.match(receiver, /BuildConfig\.FCM_DEVICE_PREVIEW_ALLOWED \|\| !ZokyPushConsent\.enabled\(this\)/);
   assert.match(screen, /RequestPermission\(\)/);
   assert.match(screen, /FirebaseMessaging\.getInstance\(\)/);
   assert.match(receiver, /Deliberately do not log\/store\/upload/);
+  assert.match(screen, /รับ Token ทดสอบ/);
+  assert.match(screen, /result\.isSuccessful/);
+  assert.match(screen, /ยังลบ Token ไม่สำเร็จ/);
 });
 
 test("No server keys or live push claims in device preview", () => {
