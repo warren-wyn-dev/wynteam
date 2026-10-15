@@ -95,7 +95,8 @@ test("debug FCM notification taps route to the real Notifications subtab", () =>
   assert.match(route, /zoky_open_messages/);
   assert.match(route, /is Boolean -> explicitTarget/);
   assert.match(route, /is String -> explicitTarget\.equals\("true", ignoreCase = true\)/);
-  assert.match(route, /debugPreviewAllowed && optedIn && hasFcmMessageId/);
+  assert.match(route, /return debugPreviewAllowed && optedIn &&/);
+  assert.match(route, /explicitlyRequested \\|\\| hasFcmMessageId/);
   assert.match(activity, /handleNotificationNavigation\(intent\)/);
   assert.match(activity, /override fun onNewIntent\(intent: Intent\)/);
   assert.match(activity, /ZokyNotificationTapRouting\.shouldOpenMessages/);
