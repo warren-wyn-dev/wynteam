@@ -571,6 +571,27 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         }
     }
 
+    /** Explicit, authenticated read acknowledgment; never changes an offer's eligibility. */
+    fun markPromotionRead(id: String) {
+        val current = mutableState.value
+        if (current.accountEmail == null ||
+            current.promotions.none { it.id == id && it.isUnread }) return
+        val session = accountGeneration
+        viewModelScope.launch {
+            try {
+                gateway.markPromotionRead(id)
+                if (session == accountGeneration) refreshPromotionInbox()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                // Keep unread in the UI if the server did not acknowledge the update.
+                if (session == accountGeneration) {
+                    mutableState.update { it.copy(promotionsFailed = true) }
+                }
+            }
+        }
+    }
+
     fun refreshStoreReviews(storeId: String) {
         if (!gateway.configured || runCatching { java.util.UUID.fromString(storeId) }.isFailure) return
         val generation = ++reviewGeneration
