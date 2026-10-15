@@ -2,6 +2,7 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
+    id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -62,6 +63,8 @@ android {
             buildConfigField("boolean", "CHAT_STAGING_ALLOWED", (
                 verifiedStaging && foodConfig("WYNOS_FOOD_CHAT_STAGING") == "true"
             ).toString())
+            // Explicit user-initiated, device-local Firebase test only. No production delivery.
+            buildConfigField("boolean", "FCM_DEVICE_PREVIEW_ALLOWED", "true")
         }
         release {
             buildConfigField("boolean", "ADDRESS_WRITES_ALLOWED", "false")
@@ -70,6 +73,7 @@ android {
             buildConfigField("boolean", "STAGING_ORDER_CREATION_ALLOWED", "false")
             buildConfigField("boolean", "STAGING_MOBILE_PAYMENT_ALLOWED", "false")
             buildConfigField("boolean", "CHAT_STAGING_ALLOWED", "false")
+            buildConfigField("boolean", "FCM_DEVICE_PREVIEW_ALLOWED", "false")
             isMinifyEnabled = false // Enable and verify R8 before production.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -104,6 +108,9 @@ dependencies {
     // Stripe PaymentSheet 22.6.x is compatible with the project's Compose
     // 1.8.x BOM. Feature itself is gated to isolated staging Debug only.
     implementation("com.stripe:paymentsheet:22.6.1")
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("androidx.core:core:1.16.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Match the existing WYNOS Android Supabase/Ktor release family.
