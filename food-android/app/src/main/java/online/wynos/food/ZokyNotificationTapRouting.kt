@@ -25,7 +25,10 @@ internal object ZokyNotificationTapRouting {
             is String -> explicitTarget.equals("true", ignoreCase = true)
             else -> false
         }
-        return explicitlyRequested ||
-            (debugPreviewAllowed && optedIn && hasFcmMessageId)
+        // FCM device preview is strictly developer opt-in and DEBUG only,
+        // including app-created PendingIntents. Never route arbitrary
+        // notification extras in a release build or after opt-out.
+        return debugPreviewAllowed && optedIn &&
+            (explicitlyRequested || hasFcmMessageId)
     }
 }
