@@ -310,6 +310,7 @@ fun FoodApp(notificationNavigationSequence: Int = 0, vm: FoodViewModel = viewMod
                 )
                 tab == 2 -> ZokyMessageCenter(
                     state = state,
+                    notificationNavigationSequence = notificationNavigationSequence,
                     onOrders = { tab = 1 },
                     onRefresh = {
                         vm.refreshPromotionInbox()
