@@ -58,6 +58,10 @@ android {
             buildConfigField("boolean", "STAGING_MOBILE_PAYMENT_ALLOWED", (
                 verifiedStaging && foodConfig("WYNOS_FOOD_MOBILE_PAYMENT_STAGING") == "true"
             ).toString())
+            // Buyer cancellation is a real order mutation: isolated staging ONLY.
+            buildConfigField("boolean", "STAGING_ORDER_CANCEL_ALLOWED", (
+                verifiedStaging && foodConfig("WYNOS_FOOD_ORDER_CANCEL_STAGING") == "true"
+            ).toString())
             // Strict staging-only chat; requires the reviewed buyer/merchant RLS schema.
             buildConfigField("boolean", "CHAT_STAGING_ALLOWED", (
                 verifiedStaging && foodConfig("WYNOS_FOOD_CHAT_STAGING") == "true"
@@ -69,6 +73,7 @@ android {
             buildConfigField("boolean", "ACCOUNT_DELETION_ALLOWED", "false")
             buildConfigField("boolean", "STAGING_ORDER_CREATION_ALLOWED", "false")
             buildConfigField("boolean", "STAGING_MOBILE_PAYMENT_ALLOWED", "false")
+            buildConfigField("boolean", "STAGING_ORDER_CANCEL_ALLOWED", "false")
             buildConfigField("boolean", "CHAT_STAGING_ALLOWED", "false")
             isMinifyEnabled = false // Enable and verify R8 before production.
             proguardFiles(
