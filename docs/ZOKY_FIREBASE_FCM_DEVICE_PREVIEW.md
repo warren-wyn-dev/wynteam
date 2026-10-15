@@ -120,6 +120,39 @@ A background notification can still be absent due to FCM targeting,
 device policies, runtime notification permission, or other delivery conditions.
 Do not Publish a campaign for device QA; never screenshot or share FCM tokens.
 
+
+## Follow-up hardening — QA only
+
+After receipt was confirmed on Redfinger but a background Firebase Console test did
+not appear in the Android shade, this draft was hardened in several ways:
+
+- Ensure the opted-in channel after app/process recreation, not just when the token
+  is first fetched. Keep Firebase's default channel override **DEBUG-only**.
+- Record the last notification posting outcome from `onMessageReceived` as a
+  device-local enum (permission denied, app disabled, channel disabled, request
+  posted, or posting failed). No token, message body, sender ID or order data is
+  recorded. **Posted is not displayed/delivered acknowledgment**.
+- Show that outcome separately from the FCM callback count and the Android
+  channel state. Background Console notification messages normally bypass this
+  callback; a zero foreground count or empty foreground post-status is not
+  proof that background delivery failed.
+- Provide a direct button to the Android notification-channel settings,
+  falling back to app notification settings when a device does not support
+  the channel settings screen.
+- Guard **all** test-notification deep-link routing on both DEBUG and
+  the user's current opt-in, including foreground PendingIntent extras.
+  Ordinary launcher actions still open Home.
+- Label the console workflow as **Send test message → Test only**.
+  Never click Review/Publish for a single-device test.
+
+This is a code/CI mitigation and better diagnostics, **not confirmation of a
+new successful Redfinger background delivery**. An Android emulator cannot
+validate Firebase Console-to-Redfinger delivery, token freshness, Play services
+connectivity or a user-modified OS alert presentation.
+
+Unrelated features, live order Push, real notification payloads, release
+routing, database schema and production deployments are outside this QA fix.
+
 ## Release / security gates not yet completed
 - Design the recipient-scoped device-token table and token registration/deletion authenticated by WYNOS Account; use server RLS and authorization. No customer token stored in the draft app backend.
 - Implement the server-only Firebase Admin/FCM HTTP v1 dispatcher with Google IAM credentials stored **only on a trusted server**, never in the Android APK.
