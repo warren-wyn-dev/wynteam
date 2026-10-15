@@ -85,3 +85,21 @@ test("FCM manifest resolves MESSAGING_EVENT to one app receiver only", () => {
   assert.match(gradle, /manifestPlaceholders\["zokyFcmPreviewServiceEnabled"\] = "true"/);
   assert.match(gradle, /manifestPlaceholders\["zokyFcmPreviewServiceEnabled"\] = "false"/);
 });
+
+test("debug FCM notification taps route to the real Notifications subtab", () => {
+  const activity = read("../../food-android/app/src/main/java/online/wynos/food/MainActivity.kt");
+  const route = read("../../food-android/app/src/main/java/online/wynos/food/ZokyNotificationTapRouting.kt");
+  const app = read("../../food-android/app/src/main/java/online/wynos/food/ui/FoodApp.kt");
+  const messages = read("../../food-android/app/src/main/java/online/wynos/food/ui/ZokyMessageCenter.kt");
+  assert.match(route, /google\.message_id/);
+  assert.match(route, /zoky_open_messages/);
+  assert.match(route, /is Boolean -> explicitTarget/);
+  assert.match(route, /is String -> explicitTarget\.equals\("true", ignoreCase = true\)/);
+  assert.match(route, /debugPreviewAllowed && optedIn && hasFcmMessageId/);
+  assert.match(activity, /handleNotificationNavigation\(intent\)/);
+  assert.match(activity, /override fun onNewIntent\(intent: Intent\)/);
+  assert.match(activity, /ZokyNotificationTapRouting\.shouldOpenMessages/);
+  assert.match(app, /notificationNavigationSequence = notificationNavigationSequence/);
+  assert.match(messages, /LaunchedEffect\(notificationNavigationSequence\)/);
+  assert.match(messages, /if \(notificationNavigationSequence > 0\) selected = 0/);
+});
