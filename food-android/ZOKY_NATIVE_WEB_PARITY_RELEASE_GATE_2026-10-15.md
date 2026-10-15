@@ -17,7 +17,7 @@ checkout/payment/customer↔merchant E2E verification.
 | Delivery addresses | Read/select and staging-gated management, structured forms | Map pin/geocoding/service-area QA, editing on physical Android |
 | Cart/add-ons | Native option dialogs, single-store cart, quantity and draft notes | Stock race, option constraints, persistence, coupons and fees matching Web |
 | Quote | Buyer-auth server `food_quote_order` RPC read; server-calculated totals | Same addresses and coupon fixtures, fail-closed stale quotes |
-| Submit order | Staging-only idempotent RPC; **ordinary APK checkout disabled** | Matching Food+Merchant staging order API, order acceptance/cancel/refund E2E |
+| Submit / cancel order | Staging-only idempotent create RPC and buyer-owned `food_cancel_order` cancel RPC with explicit debug flag; **ordinary APK creation/cancellation disabled** | Matching Food+Merchant staging API, accepted/rejected/cancelled order, payment and refund E2E |
 | Payments | Isolated Stripe test PaymentSheet gated; **no live payment** | Web payment methods, manual slip preview/replace, webhooks, reconciliation, expiry, refunds and duplicate-charge QA |
 | Offers/coupons | Real buyer-scoped marketing inbox, read receipts, code copy. Home offers detail | Server coupon collect/apply/eligibility flow and verified marketing settings |
 | Order detail/status | Buyer-scoped history/detail + read-only status; direct navigation from Messages | Staging test creation/cancellation/refunds/timeline, notifications/deep links |
