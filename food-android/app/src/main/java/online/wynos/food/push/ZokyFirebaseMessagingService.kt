@@ -38,12 +38,35 @@ class ZokyFirebaseMessagingService : FirebaseMessagingService() {
             ContextCompat.checkSelfPermission(
                 this, Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
-        ) return
+        ) {
+            ZokyFcmPreviewReceipts.recordDisplay(
+                this, ZokyFcmPreviewReceipts.DisplayResult.PERMISSION_DENIED
+            )
+            return
+        }
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            ZokyFcmPreviewReceipts.recordDisplay(
+                this, ZokyFcmPreviewReceipts.DisplayResult.APP_NOTIFICATIONS_DISABLED
+            )
+            return
+        }
 
         // Device-only test notifications: never show unverified order/payment
         // statements or personal data from a push payload.
         ZokyFcmPreviewNotificationChannel.ensure(this)
         val channelId = ZokyFcmPreviewNotificationChannel.ID
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE)
+                as android.app.NotificationManager
+            if (manager.getNotificationChannel(channelId)?.importance ==
+                android.app.NotificationManager.IMPORTANCE_NONE
+            ) {
+                ZokyFcmPreviewReceipts.recordDisplay(
+                    this, ZokyFcmPreviewReceipts.DisplayResult.CHANNEL_DISABLED
+                )
+                return
+            }
+        }
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("zoky_open_messages", true)
@@ -63,8 +86,22 @@ class ZokyFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setContentIntent(pending)
             .build()
-        NotificationManagerCompat.from(this)
-            .notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), notification)
+        try {
+            NotificationManagerCompat.from(this)
+                .notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), notification)
+            // Posting returns no Android-display acknowledgment.
+            ZokyFcmPreviewReceipts.recordDisplay(
+                this, ZokyFcmPreviewReceipts.DisplayResult.POST_REQUESTED
+            )
+        } catch (_: SecurityException) {
+            ZokyFcmPreviewReceipts.recordDisplay(
+                this, ZokyFcmPreviewReceipts.DisplayResult.POST_FAILED
+            )
+        } catch (_: RuntimeException) {
+            ZokyFcmPreviewReceipts.recordDisplay(
+                this, ZokyFcmPreviewReceipts.DisplayResult.POST_FAILED
+            )
+        }
     }
 }
 
