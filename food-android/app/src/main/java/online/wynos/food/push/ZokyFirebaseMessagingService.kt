@@ -16,6 +16,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import online.wynos.food.BuildConfig
 import online.wynos.food.MainActivity
+import online.wynos.food.R
 
 /**
  * FCM device-only QA receiver. Does not send tokens, accounts or message contents to
@@ -58,7 +59,7 @@ class ZokyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_zoky_notification)
             .setContentTitle("Zoky")
             .setContentText("ได้รับข้อความทดสอบจาก Firebase")
             .setStyle(NotificationCompat.BigTextStyle().bigText(
