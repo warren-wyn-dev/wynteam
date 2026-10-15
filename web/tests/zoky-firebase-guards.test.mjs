@@ -56,3 +56,20 @@ test("debug notification diagnostic stays local-only and permission gated", () =
   assert.match(screen, /ทดสอบแจ้งเตือนในเครื่อง/);
   assert.doesNotMatch(local, /firebase\.messaging|service_role|sb_secret_|FCM_SERVER_KEY|firebase_admin_sdk/i);
 });
+
+test("debug FCM receipt counter records only callback counts and never message payloads", () => {
+  const receiver = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFirebaseMessagingService.kt");
+  const diagnostic = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFcmPreviewReceipts.kt");
+  const screen = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFcmDevicePreviewCard.kt");
+
+  assert.match(receiver, /ZokyFcmPreviewReceipts\.record\(this\)/);
+  assert.match(receiver, /BuildConfig\.FCM_DEVICE_PREVIEW_ALLOWED \|\| !ZokyPushConsent\.enabled\(this\)/);
+  assert.match(diagnostic, /BuildConfig\.FCM_DEVICE_PREVIEW_ALLOWED/);
+  assert.match(diagnostic, /ZokyPushConsent\.enabled\(context\)/);
+  assert.match(diagnostic, /putInt\(KEY_COUNT/);
+  assert.doesNotMatch(diagnostic, /getToken|message\.data|message\.notification|service_role|sb_secret_|firebase_admin_sdk/i);
+  assert.match(screen, /ZokyFcmPreviewReceipts\.count\(context\)/);
+  assert.match(screen, /ZokyFcmPreviewReceipts\.clear\(context\)/);
+  assert.match(screen, /ตรวจผลการรับ FCM/);
+  assert.match(screen, /เริ่มนับ FCM ใหม่/);
+});
