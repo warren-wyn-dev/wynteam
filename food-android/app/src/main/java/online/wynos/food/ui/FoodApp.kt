@@ -122,6 +122,15 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
         }
     }
 
+    // Re-sync buyer-scoped updates when Messages becomes visible, rather than
+    // relying on the Orders tab to populate the consolidated inbox.
+    LaunchedEffect(tab, state.accountEmail) {
+        if (tab == 2 && state.accountEmail != null) {
+            vm.refreshOrders()
+            vm.refreshPromotionInbox()
+        }
+    }
+
     BackHandler(enabled = selectedStore != null || homeAddressPickerOpen || homeDealsOpen || favoritesOpen || promotionsOpen || foodServiceOpen || tab != 0) {
         when {
             selectedStore != null -> closeStore()
