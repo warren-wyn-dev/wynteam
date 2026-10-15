@@ -40,6 +40,7 @@ import {
   X,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ZokyMerchantOrderChat } from "@/components/merchant/zoky-merchant-order-chat";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -2185,6 +2186,9 @@ function OrderSheet({
           ) : null}
         </div>
       </section>
+
+      {/* Hidden in Production; activated only with a reviewed Staging chat schema. */}
+      <ZokyMerchantOrderChat client={client} orderId={order.id} />
 
       <RefundControls
         client={client}

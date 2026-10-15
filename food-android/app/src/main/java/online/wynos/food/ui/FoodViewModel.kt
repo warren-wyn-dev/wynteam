@@ -14,6 +14,7 @@ import online.wynos.food.data.FoodAddressDraft
 import online.wynos.food.data.FoodServerQuote
 import online.wynos.food.data.FoodStoreReviewFeed
 import online.wynos.food.data.FoodPromotionNotice
+import online.wynos.food.data.FoodOrderChatMessage
 import online.wynos.food.data.SupabaseFoodGateway
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,6 +58,13 @@ data class FoodUiState(
     val promotions: List<FoodPromotionNotice> = emptyList(),
     val promotionsLoading: Boolean = false,
     val promotionsFailed: Boolean = false,
+    val chatEnabled: Boolean = false,
+    val chatOrderId: String? = null,
+    val chatMessages: List<FoodOrderChatMessage> = emptyList(),
+    val chatLoading: Boolean = false,
+    val chatFailed: Boolean = false,
+    val chatSending: Boolean = false,
+    val chatSendFailed: Boolean = false,
     val accountLoading: Boolean = false,
     val accountBusy: Boolean = false,
     val accountEmail: String? = null,
@@ -83,6 +91,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         accountDeletionEnabled = gateway.accountDeletionEnabled,
         stagingOrderCreationEnabled = gateway.stagingOrderCreationEnabled,
         stagingMobilePaymentEnabled = gateway.stagingMobilePaymentEnabled,
+        chatEnabled = gateway.chatEnabled,
     ))
     val uiState = mutableState.asStateFlow()
 
@@ -95,6 +104,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     private var quoteGeneration = 0L
     private var reviewGeneration = 0L
     private var promotionsGeneration = 0L
+    private var chatGeneration = 0L
     // The staging RPC has a buyer-scoped durable idempotency key. Still restrict
     // the preview to one attempt/session until full order/payment E2E is verified.
     private var stagingOrderAttemptConsumed = false
@@ -113,11 +123,14 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         orderDetailGeneration++
         reviewGeneration++
         promotionsGeneration++
+        chatGeneration++
         mutableState.update { it.copy(selectedOrderId = null, orderDetail = null,
             orderDetailLoading = false, orderDetailFailed = false, orderStatusNotice = null,
             reviewedStoreId = null, reviewFeed = null,
             reviewFeedLoading = false, reviewFeedFailed = false,
-            promotions = emptyList(), promotionsLoading = false, promotionsFailed = false) }
+            promotions = emptyList(), promotionsLoading = false, promotionsFailed = false,
+            chatOrderId = null, chatMessages = emptyList(), chatLoading = false,
+            chatFailed = false, chatSending = false, chatSendFailed = false) }
         invalidateQuote()
         stagingOrderAttemptConsumed = false
         mutableState.update {
@@ -587,6 +600,84 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                 // Keep unread in the UI if the server did not acknowledge the update.
                 if (session == accountGeneration) {
                     mutableState.update { it.copy(promotionsFailed = true) }
+                }
+            }
+        }
+    }
+
+    /** This is available only in a disposable staging debug build with RLS installed. */
+    fun openOrderChat(orderId: String) {
+        val current = mutableState.value
+        if (!gateway.chatEnabled || current.accountEmail == null ||
+            current.orders.none { it.id == orderId }) return
+        chatGeneration++
+        mutableState.update {
+            it.copy(chatOrderId = orderId, chatMessages = emptyList(),
+                chatLoading = false, chatFailed = false,
+                chatSending = false, chatSendFailed = false)
+        }
+        refreshOrderChat()
+    }
+
+    fun closeOrderChat() {
+        chatGeneration++
+        mutableState.update {
+            it.copy(chatOrderId = null, chatMessages = emptyList(),
+                chatLoading = false, chatFailed = false, chatSending = false,
+                chatSendFailed = false)
+        }
+    }
+
+    fun refreshOrderChat() {
+        val current = mutableState.value
+        val orderId = current.chatOrderId ?: return
+        if (!gateway.chatEnabled || current.accountEmail == null ||
+            current.chatLoading || current.chatSending ||
+            current.orders.none { it.id == orderId }) return
+        val account = accountGeneration
+        val generation = ++chatGeneration
+        mutableState.update { it.copy(chatLoading = true, chatFailed = false) }
+        viewModelScope.launch {
+            try {
+                val rows = gateway.orderChatMessages(orderId)
+                if (account != accountGeneration || generation != chatGeneration) return@launch
+                mutableState.update {
+                    if (it.chatOrderId != orderId || it.accountEmail == null) it
+                    else it.copy(chatMessages = rows, chatLoading = false)
+                }
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (account == accountGeneration && generation == chatGeneration) {
+                    mutableState.update { it.copy(chatLoading = false, chatFailed = true) }
+                }
+            }
+        }
+    }
+
+    fun sendOrderChat(body: String) {
+        val current = mutableState.value
+        val orderId = current.chatOrderId ?: return
+        val message = body.trim()
+        if (!gateway.chatEnabled || current.accountEmail == null ||
+            current.chatSending || current.chatLoading ||
+            current.orders.none { it.id == orderId } ||
+            message.isBlank() || message.length > 1200) return
+        val account = accountGeneration
+        val generation = chatGeneration
+        val clientId = java.util.UUID.randomUUID().toString()
+        mutableState.update { it.copy(chatSending = true, chatSendFailed = false) }
+        viewModelScope.launch {
+            try {
+                gateway.sendOrderChatMessage(orderId, message, clientId)
+                if (account != accountGeneration || generation != chatGeneration) return@launch
+                mutableState.update { it.copy(chatSending = false, chatSendFailed = false) }
+                refreshOrderChat()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (account == accountGeneration && generation == chatGeneration) {
+                    mutableState.update { it.copy(chatSending = false, chatSendFailed = true) }
                 }
             }
         }

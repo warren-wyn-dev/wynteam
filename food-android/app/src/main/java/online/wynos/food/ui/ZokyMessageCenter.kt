@@ -20,9 +20,15 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Redeem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -49,6 +55,10 @@ fun ZokyMessageCenter(
     onOrders: () -> Unit,
     onRefresh: () -> Unit,
     onMarkRead: (String) -> Unit,
+    onOpenChat: (String) -> Unit,
+    onCloseChat: () -> Unit,
+    onRefreshChat: () -> Unit,
+    onSendChat: (String) -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().background(Color.White)) {
@@ -169,19 +179,107 @@ fun ZokyMessageCenter(
                 }
             }
         } else {
-            Column(
-                Modifier.fillMaxSize().padding(25.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Icon(Icons.Outlined.ChatBubbleOutline, null, tint = ZokyMessageRed,
-                    modifier = Modifier.size(43.dp))
-                Spacer(Modifier.size(13.dp))
-                Text("แชตกับร้านอาหาร", fontWeight = FontWeight.Bold,
-                    color = ZokyMessageInk, fontSize = 19.sp)
-                Spacer(Modifier.size(6.dp))
-                Text("กำลังเชื่อมต่อระบบแชตจริง\nยังไม่เปิดรับส่งข้อความใน APK ทดสอบ",
-                    color = ZokyMessageSub, fontSize = 13.sp, textAlign = TextAlign.Center)
+            if (!state.chatEnabled) {
+                Column(
+                    Modifier.fillMaxSize().padding(25.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(Icons.Outlined.ChatBubbleOutline, null, tint = ZokyMessageRed,
+                        modifier = Modifier.size(43.dp))
+                    Spacer(Modifier.size(13.dp))
+                    Text("แชตกับร้านอาหาร", fontWeight = FontWeight.Bold,
+                        color = ZokyMessageInk, fontSize = 19.sp)
+                    Spacer(Modifier.size(6.dp))
+                    Text("ระบบแชตยังไม่เปิดใช้งานใน APK นี้\\nต้องผ่านการทดสอบ Staging และสิทธิ์ของร้านก่อน",
+                        color = ZokyMessageSub, fontSize = 13.sp, textAlign = TextAlign.Center)
+                }
+            } else if (state.accountEmail == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("เข้าสู่ระบบเพื่อแชตเกี่ยวกับออเดอร์ของคุณ",
+                        color = ZokyMessageSub, textAlign = TextAlign.Center)
+                }
+            } else if (state.chatOrderId == null) {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding =
+                    androidx.compose.foundation.layout.PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    item {
+                        Text("เลือกออเดอร์เพื่อแชตกับร้าน", color = ZokyMessageInk,
+                            fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    }
+                    if (state.orders.isEmpty()) {
+                        item { Text("ยังไม่มีออเดอร์ที่สามารถเริ่มแชตได้", color = ZokyMessageSub) }
+                    }
+                    items(state.orders, key = { it.id }) { order ->
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFFFF0F4))
+                                .clickable { onOpenChat(order.id) }
+                                .padding(15.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("ออเดอร์ #${order.number}",
+                                color = ZokyMessageInk, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f))
+                            Text("แชต  ›", color = ZokyMessageRed, fontSize = 13.sp)
+                        }
+                    }
+                }
+            } else {
+                var draft by remember(state.chatOrderId) { mutableStateOf("") }
+                var submitted by remember(state.chatOrderId) { mutableStateOf("") }
+                LaunchedEffect(state.chatSending, state.chatSendFailed) {
+                    if (submitted.isNotEmpty() && !state.chatSending) {
+                        if (state.chatSendFailed) draft = submitted
+                        submitted = ""
+                    }
+                }
+                Column(Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = onCloseChat) { Text("‹ ออเดอร์ทั้งหมด") }
+                        Text("แชตออเดอร์", color = ZokyMessageInk,
+                            fontWeight = FontWeight.Bold)
+                    }
+                    if (state.chatFailed) {
+                        Text("โหลดแชตไม่สำเร็จ", color = ZokyMessageRed)
+                    }
+                    OutlinedButton(onClick = onRefreshChat) { Text("รีเฟรชข้อความ") }
+                    LazyColumn(Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(state.chatMessages, key = { it.id }) { msg ->
+                            Box(Modifier.fillMaxWidth(),
+                                contentAlignment = if (msg.isMine) Alignment.CenterEnd
+                                                   else Alignment.CenterStart) {
+                                Text(msg.body,
+                                    modifier = Modifier.clip(RoundedCornerShape(15.dp))
+                                        .background(if (msg.isMine) Color(0xFFFFE1EA)
+                                                    else Color(0xFFF3F3F5))
+                                        .padding(12.dp),
+                                    fontSize = 14.sp, color = ZokyMessageInk)
+                            }
+                        }
+                    }
+                    if (state.chatSendFailed) {
+                        Text("ส่งไม่สำเร็จ ข้อความของคุณยังไม่ได้ถูกยืนยัน",
+                            color = ZokyMessageRed, fontSize = 12.sp)
+                    }
+                    OutlinedTextField(
+                        value = draft, onValueChange = { if (it.length <= 1200) draft = it },
+                        placeholder = { Text("พิมพ์ข้อความถึงร้านอาหาร…") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 4,
+                    )
+                    Button(
+                        onClick = {
+                            submitted = draft.trim()
+                            onSendChat(submitted)
+                            draft = ""
+                        },
+                        enabled = draft.isNotBlank() && !state.chatSending,
+                    ) { Text(if (state.chatSending) "กำลังส่ง…" else "ส่งข้อความ") }
+                    Spacer(Modifier.size(6.dp))
+                }
             }
         }
     }

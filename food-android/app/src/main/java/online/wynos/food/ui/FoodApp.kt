@@ -305,6 +305,10 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         vm.refreshOrders()
                     },
                     onMarkRead = vm::markPromotionRead,
+                    onOpenChat = vm::openOrderChat,
+                    onCloseChat = vm::closeOrderChat,
+                    onRefreshChat = vm::refreshOrderChat,
+                    onSendChat = vm::sendOrderChat,
                 )
                 tab == 3 && promotionsOpen && !guest -> WebPromotionInboxPage(
                     state = state,
