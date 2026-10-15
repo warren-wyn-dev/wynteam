@@ -48,6 +48,7 @@ fun ZokyMessageCenter(
     state: FoodUiState,
     onOrders: () -> Unit,
     onRefresh: () -> Unit,
+    onMarkRead: (String) -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().background(Color.White)) {
@@ -96,7 +97,9 @@ fun ZokyMessageCenter(
                 if (state.promotions.isNotEmpty()) {
                     items(state.promotions, key = { it.id }) { notice ->
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 13.dp),
+                            Modifier.fillMaxWidth()
+                                .clickable { onMarkRead(notice.id) }
+                                .padding(horizontal = 18.dp, vertical = 13.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
