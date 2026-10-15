@@ -92,6 +92,34 @@ Never Publish a Firebase Console campaign. Use only the user's device token and
 **Send test message**. Do not share registration tokens or insert live order payloads.
 Real production order deep-link routing remains out of scope and is disabled.
 
+
+## Background Firebase Console notification channel (DEBUG-only fix)
+
+Firebase Console notification payloads are posted to Android's system tray
+by the Firebase SDK when the app is in the **background**. They typically do
+not invoke the app's `onMessageReceived` callback or increment the on-device
+foreground callback counter.
+
+The debug build now declares
+`com.google.firebase.messaging.default_notification_channel_id=zoky_device_preview`
+in `src/debug/AndroidManifest.xml`. When the tester explicitly opts in, the
+app creates this exact channel **before** it can receive a background test.
+The app also shows the local Android notification permission/channel state
+without uploading identifiers. The release manifest has no channel override,
+the receiver remains disabled, and Firebase token auto-init defaults off.
+
+After a verified debug build, check the local channel status in
+**ข้อความ → การแจ้งเตือน** before a background test. For a single-device
+manual verification, keep Zoky in the background, use Firebase Console
+**Send test message** to this install's latest FCM token, then tap the
+system-tray notification to verify Messages → Notifications routing.
+
+This change makes SDK channel routing explicit; it does **not** prove
+delivery on a particular Redfinger device or establish production push readiness.
+A background notification can still be absent due to FCM targeting,
+device policies, runtime notification permission, or other delivery conditions.
+Do not Publish a campaign for device QA; never screenshot or share FCM tokens.
+
 ## Release / security gates not yet completed
 - Design the recipient-scoped device-token table and token registration/deletion authenticated by WYNOS Account; use server RLS and authorization. No customer token stored in the draft app backend.
 - Implement the server-only Firebase Admin/FCM HTTP v1 dispatcher with Google IAM credentials stored **only on a trusted server**, never in the Android APK.
