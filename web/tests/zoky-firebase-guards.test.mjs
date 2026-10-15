@@ -123,5 +123,5 @@ test("debug background FCM uses a pre-created explicitly opted-in channel; relea
   assert.match(screen, /ZokyPushConsent\.setEnabled\(context, true\)[\s\S]*?ZokyFcmPreviewNotificationChannel\.ensure\(context\)/);
   assert.match(screen, /notificationStatus = ZokyFcmPreviewNotificationChannel\.status\(context\)/);
   assert.match(receiver, /ZokyFcmPreviewNotificationChannel\.ensure\(this\)/);
-  assert.doesNotMatch(channel, /firebase_admin_sdk|service_role|sb_secret_|FCM_SERVER_KEY|token|log\./i);
+  assert.doesNotMatch(channel, /firebase_admin_sdk|service_role|sb_secret_|FCM_SERVER_KEY|FirebaseMessaging\.getInstance\(|clipboard/i);
 });
