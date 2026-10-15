@@ -45,6 +45,7 @@ fun ZokyFcmDevicePreviewCard() {
     var enabled by remember { mutableStateOf(ZokyPushConsent.enabled(context)) }
     var token by remember { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }
+    var fcmCallbacks by remember { mutableStateOf(ZokyFcmPreviewReceipts.count(context)) }
     var status by remember { mutableStateOf(
         if (enabled) "เปิดรับข้อความทดสอบจาก Firebase บนอุปกรณ์นี้แล้ว"
         else "ยังไม่ได้เปิดการทดสอบ Firebase บนอุปกรณ์"
@@ -163,6 +164,25 @@ fun ZokyFcmDevicePreviewCard() {
             ) { Text("ทดสอบแจ้งเตือนในเครื่อง") }
             Text(
                 "การทดสอบนี้ไม่ผ่าน Firebase หากขึ้นใน Android แต่ Push ไม่ขึ้น ให้ตรวจเครือข่ายและ FCM ต่อ",
+                color = Color(0xFF66636C), fontSize = 11.sp,
+            )
+            Text(
+                "FCM ที่ Zoky รับขณะเปิดแอป: ${fcmCallbacks} ข้อความ",
+                color = Color(0xFF24212B), fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+            )
+            OutlinedButton(
+                onClick = { fcmCallbacks = ZokyFcmPreviewReceipts.count(context) },
+            ) { Text("ตรวจผลการรับ FCM") }
+            OutlinedButton(
+                onClick = {
+                    ZokyFcmPreviewReceipts.clear(context)
+                    fcmCallbacks = 0
+                    status = "ล้างตัวนับแล้ว เปิด Zoky ค้างไว้แล้วส่ง Firebase Test อีกครั้ง"
+                },
+            ) { Text("เริ่มนับ FCM ใหม่") }
+            Text(
+                "ต้องเปิด Zoky ค้างไว้ขณะส่ง Firebase Test แล้วกดตรวจผล หลังส่งเสร็จ " +
+                    "การแจ้งเตือน Firebase Console ที่เข้าเมื่อแอปอยู่เบื้องหลังอาจไม่ถูกนับ",
                 color = Color(0xFF66636C), fontSize = 11.sp,
             )
         }
