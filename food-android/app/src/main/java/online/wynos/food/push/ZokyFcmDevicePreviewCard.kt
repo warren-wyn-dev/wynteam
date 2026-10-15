@@ -115,12 +115,34 @@ fun ZokyFcmDevicePreviewCard() {
                         token = null
                         val messaging = FirebaseMessaging.getInstance()
                         messaging.isAutoInitEnabled = false
-                        messaging.deleteToken().addOnCompleteListener {
+                        messaging.deleteToken().addOnCompleteListener { result ->
                             working = false
-                            status = "ปิดรับข้อความทดสอบแล้ว"
+                            status = if (result.isSuccessful) {
+                                "ปิดรับข้อความทดสอบและลบ Token บนอุปกรณ์แล้ว"
+                            } else {
+                                // App-side preview is off, but SDK delivery may still persist
+                                // until the token deletion is confirmed. Do not claim success.
+                                "ปิดการแสดงข้อความทดสอบในแอปแล้ว แต่ยังลบ Token ไม่สำเร็จ โปรดเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่"
+                            }
                         }
                     },
                 ) { Text("ปิดการทดสอบ") }
+                if (token == null) {
+                    // Local Compose state is lost after process recreation; allow the
+                    // tester to recover a token without toggling consent off and on.
+                    OutlinedButton(
+                        enabled = !working,
+                        onClick = {
+                            if (Build.VERSION.SDK_INT >= 33 &&
+                                ContextCompat.checkSelfPermission(
+                                    context, Manifest.permission.POST_NOTIFICATIONS
+                                ) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else activate()
+                        },
+                    ) { Text("รับ Token ทดสอบ") }
+                }
                 if (token != null) {
                     OutlinedButton(onClick = {
                         // Manual test only; never send tokens to the app backend,
