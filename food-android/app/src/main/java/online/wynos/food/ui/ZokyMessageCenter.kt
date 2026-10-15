@@ -53,6 +53,7 @@ private val ZokyMessageSub = Color(0xFF66636C)
 @Composable
 fun ZokyMessageCenter(
     state: FoodUiState,
+    notificationNavigationSequence: Int = 0,
     onOrders: () -> Unit,
     onRefresh: () -> Unit,
     onMarkRead: (String) -> Unit,
@@ -62,6 +63,11 @@ fun ZokyMessageCenter(
     onSendChat: (String) -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(notificationNavigationSequence) {
+        // A tap on any DEBUG Firebase QA notification targets Notifications,
+        // even if the user was previously reading the Chats tab.
+        if (notificationNavigationSequence > 0) selected = 0
+    }
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp)
