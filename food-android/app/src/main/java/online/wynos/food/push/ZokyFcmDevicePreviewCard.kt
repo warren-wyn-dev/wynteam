@@ -20,6 +20,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +52,14 @@ fun ZokyFcmDevicePreviewCard() {
         if (enabled) "เปิดรับข้อความทดสอบจาก Firebase บนอุปกรณ์นี้แล้ว"
         else "ยังไม่ได้เปิดการทดสอบ Firebase บนอุปกรณ์"
     ) }
+    LaunchedEffect(enabled) {
+        // Keep the device-only channel present after Activity/process recreation.
+        // This performs no token request and no network operation.
+        if (enabled) {
+            ZokyFcmPreviewNotificationChannel.ensure(context)
+            notificationStatus = ZokyFcmPreviewNotificationChannel.status(context)
+        }
+    }
 
     // A token is acquired only after the user taps, and remains local to the device.
     val activate: () -> Unit = {
