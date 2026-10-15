@@ -613,7 +613,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         chatGeneration++
         mutableState.update {
             it.copy(chatOrderId = orderId, chatMessages = emptyList(),
-                chatLoading = false, chatFailed = false, chatSendFailed = false)
+                chatLoading = false, chatFailed = false,
+                chatSending = false, chatSendFailed = false)
         }
         refreshOrderChat()
     }
@@ -630,7 +631,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     fun refreshOrderChat() {
         val current = mutableState.value
         val orderId = current.chatOrderId ?: return
-        if (!gateway.chatEnabled || current.accountEmail == null || current.chatLoading ||
+        if (!gateway.chatEnabled || current.accountEmail == null ||
+            current.chatLoading || current.chatSending ||
             current.orders.none { it.id == orderId }) return
         val account = accountGeneration
         val generation = ++chatGeneration
@@ -657,7 +659,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         val current = mutableState.value
         val orderId = current.chatOrderId ?: return
         val message = body.trim()
-        if (!gateway.chatEnabled || current.accountEmail == null || current.chatSending ||
+        if (!gateway.chatEnabled || current.accountEmail == null ||
+            current.chatSending || current.chatLoading ||
             current.orders.none { it.id == orderId } ||
             message.isBlank() || message.length > 1200) return
         val account = accountGeneration
