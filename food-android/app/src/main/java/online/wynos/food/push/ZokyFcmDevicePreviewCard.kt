@@ -112,6 +112,8 @@ fun ZokyFcmDevicePreviewCard() {
         Text(status, color = Color(0xFF66636C), fontSize = 12.sp)
         Text("ใช้สำหรับตรวจสอบ Firebase Cloud Messaging เท่านั้น ยังไม่มีระบบ Push ของออเดอร์จริง",
             color = Color(0xFF66636C), fontSize = 11.sp)
+        Text("Firebase Console: ใช้เฉพาะ Send test message → Test สำหรับเครื่องนี้ ห้ามกด Review หรือ Publish",
+            color = Color(0xFFD91F4E), fontWeight = FontWeight.Medium, fontSize = 11.sp)
 
         if (!enabled) {
             Button(
