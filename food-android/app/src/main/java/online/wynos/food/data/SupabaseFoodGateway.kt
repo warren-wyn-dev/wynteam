@@ -52,6 +52,9 @@ interface FoodGateway {
         throw UnsupportedOperationException("review_feed_not_configured")
     suspend fun promotionInbox(): List<FoodPromotionNotice> =
         throw UnsupportedOperationException("promotion_inbox_not_configured")
+    suspend fun markPromotionRead(id: String) {
+        throw UnsupportedOperationException("promotion_read_not_configured")
+    }
     suspend fun accountEmail(): String?
     suspend fun orderHistory(): List<FoodOrderSummary>
     suspend fun orderDetail(orderId: String): FoodOrderDetail? = null
@@ -219,6 +222,26 @@ class SupabaseFoodGateway : FoodGateway {
             limit(30)
         }.decodeAs<JsonElement>()
         return FoodPromotionInboxParser.parse(rows)
+    }
+
+    override suspend fun markPromotionRead(id: String) {
+        require(runCatching { java.util.UUID.fromString(id) }.isSuccess) {
+            "invalid_notification_id"
+        }
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        val owner = supabase.auth.currentUserOrNull()?.id
+            ?: throw IllegalStateException("sign_in_required")
+        // A user's own read marker only. Table RLS must independently enforce
+        // recipient_id = auth.uid(), even if the client filter were removed.
+        supabase.from("food_notifications").update({
+            set("read_at", java.time.Instant.now().toString())
+        }) {
+            filter {
+                eq("id", id)
+                eq("recipient_id", owner)
+            }
+        }
     }
 
     override suspend fun accountEmail(): String? {
