@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Redeem
@@ -30,6 +31,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.res.stringResource
+import online.wynos.food.R
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -53,6 +58,7 @@ private val ZokyMessageSub = Color(0xFF66636C)
 fun ZokyMessageCenter(
     state: FoodUiState,
     onOrders: () -> Unit,
+    onOpenOrder: (String) -> Unit,
     onRefresh: () -> Unit,
     onMarkRead: (String) -> Unit,
     onOpenChat: (String) -> Unit,
@@ -61,6 +67,8 @@ fun ZokyMessageCenter(
     onSendChat: (String) -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
+    var copiedNoticeId by rememberSaveable { mutableStateOf<String?>(null) }
+    val clipboard = LocalClipboardManager.current
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp)
@@ -88,7 +96,13 @@ fun ZokyMessageCenter(
                 if (state.orderStatusNotice != null) {
                     item(key = "order-notice") {
                         Row(
-                            Modifier.fillMaxWidth().clickable(onClick = onOrders)
+                            Modifier.fillMaxWidth()
+                                .clickable {
+                                    val notice = state.orderStatusNotice
+                                    if (notice != null && state.orders.any { it.id == notice.orderId }) {
+                                        onOpenOrder(notice.orderId)
+                                    } else onOrders()
+                                }
                                 .padding(horizontal = 18.dp, vertical = 15.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -108,7 +122,7 @@ fun ZokyMessageCenter(
                 if (state.orders.isNotEmpty()) {
                     items(state.orders.take(8), key = { "order-status-" + it.id }) { order ->
                         Row(
-                            Modifier.fillMaxWidth().clickable(onClick = onOrders)
+                            Modifier.fillMaxWidth().clickable { onOpenOrder(order.id) }
                                 .padding(horizontal = 18.dp, vertical = 13.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -144,6 +158,22 @@ fun ZokyMessageCenter(
                                 if (notice.couponCode != null) {
                                     Text("รหัส: ${notice.couponCode} (ต้องตรวจสิทธิ์ก่อนใช้)",
                                         color = ZokyMessageRed, fontSize = 12.sp)
+                                    OutlinedButton(onClick = {
+                                        clipboard.setText(AnnotatedString(notice.couponCode))
+                                        copiedNoticeId = notice.id
+                                        onMarkRead(notice.id)
+                                    }) {
+                                        Icon(Icons.Outlined.ContentCopy, null, tint = ZokyMessageRed,
+                                            modifier = Modifier.size(17.dp))
+                                        Spacer(Modifier.size(5.dp))
+                                        Text(
+                                            if (copiedNoticeId == notice.id)
+                                                stringResource(R.string.promo_inbox_copied)
+                                            else stringResource(
+                                                R.string.promo_inbox_copy_code, notice.couponCode),
+                                            color = ZokyMessageRed,
+                                        )
+                                    }
                                 }
                             }
                         }
