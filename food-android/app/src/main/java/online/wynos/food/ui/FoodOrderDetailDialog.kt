@@ -13,7 +13,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -22,6 +25,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -74,8 +81,10 @@ fun FoodOrderDetailDialog(
     state: FoodUiState,
     onClose: () -> Unit,
     onRefresh: (String) -> Unit,
+    onCancelStaging: (String) -> Unit,
 ) {
     val orderId = state.selectedOrderId ?: return
+    var showCancellationConfirmation by remember(orderId) { mutableStateOf(false) }
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -192,10 +201,48 @@ fun FoodOrderDetailDialog(
                             onClick = { onRefresh(orderId) },
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                         ) { Text(stringResource(R.string.refresh_orders)) }
+                        // No production cancellation button. Only a verified isolated
+                        // staging APK may exercise the same buyer-cancel RPC as Web.
+                        if (state.stagingOrderCancelEnabled &&
+                            detail.status == "pending_acceptance" &&
+                            detail.paymentStatus in setOf("pending", "issue")) {
+                            if (state.stagingOrderCancelFailed) {
+                                Text("ยกเลิกไม่สำเร็จ โปรดตรวจสอบสถานะกับร้าน",
+                                    color = DetailRed,
+                                    modifier = Modifier.padding(horizontal = 16.dp))
+                            }
+                            Button(
+                                onClick = { showCancellationConfirmation = true },
+                                enabled = !state.stagingOrderCancelBusy,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = DetailRed),
+                            ) {
+                                Text(if (state.stagingOrderCancelBusy)
+                                    "กำลังยกเลิก…" else "ยกเลิกออเดอร์ (Staging)")
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+    if (showCancellationConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showCancellationConfirmation = false },
+            title = { Text("ยืนยันยกเลิกออเดอร์ทดสอบ?") },
+            text = { Text("คำสั่งนี้เปลี่ยนสถานะออเดอร์จริงใน Staging เท่านั้น และอาจย้อนกลับไม่ได้") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCancellationConfirmation = false
+                    onCancelStaging(orderId)
+                }) { Text("ยืนยันยกเลิก", color = DetailRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancellationConfirmation = false }) {
+                    Text("กลับไป")
+                }
+            },
+        )
     }
 }
 

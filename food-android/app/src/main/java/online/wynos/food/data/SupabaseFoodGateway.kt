@@ -28,6 +28,10 @@ interface FoodGateway {
     val accountDeletionEnabled: Boolean get() = false
     val stagingOrderCreationEnabled: Boolean get() = false
     val stagingMobilePaymentEnabled: Boolean get() = false
+    val stagingOrderCancelEnabled: Boolean get() = false
+    suspend fun cancelOrderStaging(orderId: String) {
+        throw IllegalStateException("staging_order_cancel_disabled")
+    }
     suspend fun createStagingPaymentIntent(orderId: String): FoodMobilePaymentIntent =
         throw IllegalStateException("staging_mobile_payment_disabled")
     suspend fun createOrderStaging(
@@ -85,6 +89,25 @@ class SupabaseFoodGateway : FoodGateway {
         configured && BuildConfig.STAGING_ORDER_CREATION_ALLOWED
     override val stagingMobilePaymentEnabled: Boolean get() =
         configured && BuildConfig.STAGING_MOBILE_PAYMENT_ALLOWED
+    override val stagingOrderCancelEnabled: Boolean get() =
+        configured && BuildConfig.STAGING_ORDER_CANCEL_ALLOWED
+
+    override suspend fun cancelOrderStaging(orderId: String) {
+        check(stagingOrderCancelEnabled) { "staging_order_cancel_disabled" }
+        // Never send an arbitrary order id; the Postgres RPC also checks buyer_id
+        // and only allows pending_acceptance with payment pending/issue.
+        java.util.UUID.fromString(orderId)
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        check(supabase.auth.currentUserOrNull() != null) { "sign_in_required" }
+        supabase.postgrest.rpc(
+            "food_cancel_order",
+            buildJsonObject {
+                put("p_order_id", orderId)
+                put("p_reason", "ลูกค้ายกเลิกผ่าน Zoky Android Staging")
+            },
+        )
+    }
 
     override suspend fun createStagingPaymentIntent(orderId: String): FoodMobilePaymentIntent {
         check(stagingMobilePaymentEnabled) { "staging_mobile_payment_disabled" }

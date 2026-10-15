@@ -76,6 +76,9 @@ data class FoodUiState(
     val registrationEmailSent: Boolean = false,
     val stagingOrderCreationEnabled: Boolean = false,
     val stagingMobilePaymentEnabled: Boolean = false,
+    val stagingOrderCancelEnabled: Boolean = false,
+    val stagingOrderCancelBusy: Boolean = false,
+    val stagingOrderCancelFailed: Boolean = false,
     val stagingOrderBusy: Boolean = false,
     val stagingOrderFailed: Boolean = false,
     val stagingOrderUncertain: Boolean = false,
@@ -91,6 +94,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
         accountDeletionEnabled = gateway.accountDeletionEnabled,
         stagingOrderCreationEnabled = gateway.stagingOrderCreationEnabled,
         stagingMobilePaymentEnabled = gateway.stagingMobilePaymentEnabled,
+        stagingOrderCancelEnabled = gateway.stagingOrderCancelEnabled,
         chatEnabled = gateway.chatEnabled,
     ))
     val uiState = mutableState.asStateFlow()
@@ -268,6 +272,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                     it.copy(accountBusy = false, accountDeletionBusy = false,
                         accountEmail = null, accountFailed = false,
                         orders = emptyList(), ordersLoading = false, ordersFailed = false,
+                    stagingOrderCancelBusy = false, stagingOrderCancelFailed = false,
                         orderStatusNotice = null,
                         selectedOrderId = null, orderDetail = null,
                         orderDetailLoading = false, orderDetailFailed = false,
@@ -293,7 +298,8 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
     }
 
     fun signOut() {
-        if (mutableState.value.accountBusy || mutableState.value.stagingOrderBusy) return
+        if (mutableState.value.accountBusy || mutableState.value.stagingOrderBusy ||
+            mutableState.value.stagingOrderCancelBusy) return
         invalidateAccountRequests()
         val generation = accountGeneration
         mutableState.update { it.copy(accountBusy = true, accountFailed = false) }
@@ -305,6 +311,7 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
                     accountBusy = false, accountEmail = null, accountLoading = false,
                     registrationEmailSent = false, resetEmailSent = false,
                     orders = emptyList(), ordersLoading = false, ordersFailed = false,
+                    stagingOrderCancelBusy = false, stagingOrderCancelFailed = false,
                     selectedOrderId = null, orderDetail = null, orderDetailLoading = false, orderDetailFailed = false,
                     cart = FoodCartDraft(), addresses = emptyList(), addressesLoading = false,
                     addressesFailed = false, selectedAddressId = null,
@@ -755,6 +762,42 @@ class FoodViewModel(private val gateway: FoodGateway = SupabaseFoodGateway()) : 
 
     fun dismissOrderStatusNotice() {
         mutableState.update { it.copy(orderStatusNotice = null) }
+    }
+
+    /**
+     * Staging-only buyer cancellation; Web RPC also verifies buyer ownership,
+     * payment status and order phase. Never trust stale device state alone.
+     */
+    fun cancelStagingOrder(orderId: String) {
+        val current = mutableState.value
+        val summary = current.orders.firstOrNull { it.id == orderId }
+        if (!gateway.stagingOrderCancelEnabled || !current.stagingOrderCancelEnabled ||
+            current.accountEmail == null || current.stagingOrderCancelBusy ||
+            summary?.status != "pending_acceptance" ||
+            summary.paymentStatus !in setOf("pending", "issue")) return
+        val generation = accountGeneration
+        mutableState.update {
+            it.copy(stagingOrderCancelBusy = true, stagingOrderCancelFailed = false)
+        }
+        viewModelScope.launch {
+            try {
+                gateway.cancelOrderStaging(orderId)
+                if (generation != accountGeneration) return@launch
+                mutableState.update {
+                    it.copy(stagingOrderCancelBusy = false, stagingOrderCancelFailed = false)
+                }
+                refreshOrders()
+                if (mutableState.value.selectedOrderId == orderId) openOrderDetails(orderId)
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                if (generation == accountGeneration) {
+                    mutableState.update {
+                        it.copy(stagingOrderCancelBusy = false, stagingOrderCancelFailed = true)
+                    }
+                }
+            }
+        }
     }
 
     fun refreshOrders() {
