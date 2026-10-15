@@ -371,6 +371,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
             state = state,
             onClose = vm::closeOrderDetails,
             onRefresh = vm::openOrderDetails,
+            onCancelStaging = vm::cancelStagingOrder,
         )
     }
     if (homeCart) {
