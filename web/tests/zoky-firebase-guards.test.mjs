@@ -145,3 +145,14 @@ test("device-only FCM diagnostics distinguish callback, Android post and backgro
   assert.match(screen, /การแสดงแจ้งเตือนจาก FCM ขณะเปิดแอป/);
   assert.doesNotMatch(records, /message\.data|message\.notification|getToken|FCM_SERVER_KEY|sb_secret_/i);
 });
+
+test("FCM QA can open Android channel settings without touching production push", () => {
+  const screen = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFcmDevicePreviewCard.kt");
+  assert.match(screen, /Settings\.ACTION_CHANNEL_NOTIFICATION_SETTINGS/);
+  assert.match(screen, /Settings\.EXTRA_APP_PACKAGE/);
+  assert.match(screen, /Settings\.EXTRA_CHANNEL_ID/);
+  assert.match(screen, /Settings\.ACTION_APP_NOTIFICATION_SETTINGS/);
+  assert.match(screen, /เปิดตั้งค่าการแจ้งเตือน Android/);
+  assert.match(screen, /Send test message/);
+  assert.match(screen, /ห้ามกด Review หรือ Publish/);
+});
