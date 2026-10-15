@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- DEBUG / opted-in FCM device QA only. In background, the Firebase SDK
+             posts notification messages directly using this channel. The channel
+             is created after explicit opt-in, before any console test is sent.
+             Release builds have no default channel override or enabled receiver. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="zoky_device_preview" />
+    </application>
+</manifest>
