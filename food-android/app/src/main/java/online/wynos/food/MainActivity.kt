@@ -23,9 +23,9 @@ class MainActivity : ComponentActivity() {
     private var notificationNavigationSequence by mutableIntStateOf(0)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (intent?.getBooleanExtra("zoky_open_messages", false) == true) {
-            notificationNavigationSequence++
-        }
+        // A background Firebase Console notification opens the launcher Activity
+        // rather than the app-owned foreground PendingIntent.
+        handleNotificationNavigation(intent)
         // Android 15+ enforces edge-to-edge. Consume safe drawing insets once
         // so the header and sign-in button never overlap system status icons.
         enableEdgeToEdge()
@@ -45,7 +45,24 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.getBooleanExtra("zoky_open_messages", false)) {
+        handleNotificationNavigation(intent)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun handleNotificationNavigation(incoming: Intent?) {
+        if (incoming == null) return
+        // FCM custom data extras are String values, while app-created
+        // PendingIntents carry a Boolean. Do not cast one to the other.
+        val explicitTarget = incoming.extras?.get(
+            ZokyNotificationTapRouting.OPEN_MESSAGES_EXTRA
+        )
+        if (ZokyNotificationTapRouting.shouldOpenMessages(
+                explicitTarget = explicitTarget,
+                hasFcmMessageId = incoming.hasExtra(ZokyNotificationTapRouting.FCM_MESSAGE_ID_EXTRA),
+                debugPreviewAllowed = BuildConfig.FCM_DEVICE_PREVIEW_ALLOWED,
+                optedIn = online.wynos.food.push.ZokyPushConsent.enabled(this),
+            )
+        ) {
             notificationNavigationSequence++
         }
     }
