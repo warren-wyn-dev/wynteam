@@ -76,6 +76,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var foodServiceOpen by rememberSaveable { mutableStateOf(false) }
     var homeDealsOpen by rememberSaveable { mutableStateOf(false) }
+    var selectedDealId by rememberSaveable { mutableStateOf<String?>(null) }
     var homeAddressPickerOpen by rememberSaveable { mutableStateOf(false) }
     var selectedStoreId by rememberSaveable { mutableStateOf<String?>(null) }
     var initialHomeMenuId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -135,7 +136,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
         when {
             selectedStore != null -> closeStore()
             homeAddressPickerOpen -> homeAddressPickerOpen = false
-            homeDealsOpen -> homeDealsOpen = false
+            homeDealsOpen -> { homeDealsOpen = false; selectedDealId = null }
             favoritesOpen -> favoritesOpen = false
             promotionsOpen -> promotionsOpen = false
             foodServiceOpen -> foodServiceOpen = false
@@ -184,6 +185,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         tab = it
                         foodServiceOpen = false
                         homeDealsOpen = false
+                        selectedDealId = null
                         homeAddressPickerOpen = false
                         selectedStoreId = null
                         initialHomeMenuId = null
@@ -234,11 +236,12 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                 )
                 tab == 0 && homeDealsOpen -> ZokyHomeDealsPage(
                     state = state,
-                    onBack = { homeDealsOpen = false },
+                    onBack = { homeDealsOpen = false; selectedDealId = null },
                     onRefresh = vm::refreshPromotionInbox,
                     onBrowseFood = { homeDealsOpen = false; foodServiceOpen = true },
                     onSignIn = { homeDealsOpen = false; tab = 3 },
                     onMarkRead = vm::markPromotionRead,
+                    initialPromotionId = selectedDealId,
                 )
                 tab == 0 && !foodServiceOpen -> ZokyHomeScreen(
                     state = state,
@@ -249,6 +252,12 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         promotionsOpen = false
                     },
                     onDeals = {
+                        selectedDealId = null
+                        homeDealsOpen = true
+                        vm.refreshPromotionInbox()
+                    },
+                    onDeal = { id ->
+                        selectedDealId = id
                         homeDealsOpen = true
                         vm.refreshPromotionInbox()
                     },
