@@ -98,7 +98,9 @@ fun ZokyHomeScreen(
     onFood: () -> Unit,
     onFavorites: () -> Unit,
     onDeals: () -> Unit,
+    onDeal: (String) -> Unit,
     onLocation: () -> Unit,
+    onBannerStore: (String) -> Unit,
 ) {
     val small = LocalConfiguration.current.screenWidthDp < 380
     LazyColumn(
@@ -123,8 +125,12 @@ fun ZokyHomeScreen(
                         Icon(Icons.Outlined.LocationOn, null, tint = ZokyRed,
                             modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("เลือกที่อยู่จัดส่ง", color = ZokySub,
-                            fontSize = 13.sp, maxLines = 1)
+                        val selectedAddress = state.addresses.firstOrNull {
+                            it.id == state.selectedAddressId
+                        }
+                        Text(selectedAddress?.label ?: "เลือกที่อยู่จัดส่ง",
+                            color = ZokySub, fontSize = 13.sp, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis)
                         Icon(Icons.Outlined.ChevronRight, null, tint = ZokySub,
                             modifier = Modifier.padding(start = 4.dp).size(15.dp))
                     }
@@ -138,6 +144,14 @@ fun ZokyHomeScreen(
                 }
             }
         }
+        if (state.banners.isNotEmpty()) {
+            item(key = "zoky-admin-campaigns") {
+                ZokyAdminCampaignCarousel(
+                    banners = state.banners,
+                    onStore = onBannerStore,
+                )
+            }
+        } else {
         item(key = "zoky-approved-hero") {
             Box(
                 modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth()
@@ -197,6 +211,7 @@ fun ZokyHomeScreen(
             Box(Modifier.padding(top = 8.dp, bottom = 10.dp)
                 .size(width = 18.dp, height = 6.dp).clip(CircleShape)
                 .background(ZokyRed))
+        }
         }
         item(key = "zoky-services-heading") {
             Text("บริการของ Zoky",
@@ -277,16 +292,16 @@ fun ZokyHomeScreen(
             // live offers exist, titles derive from buyer-scoped Backend data.
             val offers = state.promotions
             val previews = if (offers.isEmpty()) listOf(
-                Triple("ดีลร้านดัง", "ภาพประกอบ · ยังไม่มีดีลจริง", "zoky_pizza_hd"),
-                Triple("เครื่องดื่มสุดฮิต", "ภาพประกอบ · รอโปรโมชัน", "zoky_drinks_hd"),
-                Triple("เมนูน่าลอง", "ภาพประกอบ · รอโปรโมชัน", "zoky_third_hd"),
+                Triple("ดีลร้านดัง", "ภาพประกอบ · ยังไม่มีดีลจริง", "zoky_pizza_hd") to null,
+                Triple("เครื่องดื่มสุดฮิต", "ภาพประกอบ · รอโปรโมชัน", "zoky_drinks_hd") to null,
+                Triple("เมนูน่าลอง", "ภาพประกอบ · รอโปรโมชัน", "zoky_third_hd") to null,
             ) else offers.take(8).mapIndexed { index, offer ->
                 val picture = when (index % 3) {
                     0 -> "zoky_pizza_hd"
                     1 -> "zoky_drinks_hd"
                     else -> "zoky_third_hd"
                 }
-                Triple(offer.title, "ตรวจสอบเงื่อนไขก่อนใช้", picture)
+                Triple(offer.title, "ตรวจสอบเงื่อนไขก่อนใช้", picture) to offer.id
             }
             val dealWidthDp = (LocalConfiguration.current.screenWidthDp * .41f)
                 .coerceIn(128f, 240f)
@@ -295,13 +310,14 @@ fun ZokyHomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 3.dp),
             ) {
-                items(previews) { (title, subtitle, artwork) ->
+                items(previews) { (preview, dealId) ->
+                    val (title, subtitle, artwork) = preview
                     Column(
                         Modifier.width(dealWidthDp.dp)
                             .shadow(2.dp, RoundedCornerShape(15.dp))
                             .clip(RoundedCornerShape(15.dp))
                             .background(Color.White)
-                            .clickable(onClick = onDeals),
+                            .clickable { if (dealId != null) onDeal(dealId) else onDeals() },
                     ) {
                         ZokyArt(artwork, title,
                             modifier = Modifier.fillMaxWidth()

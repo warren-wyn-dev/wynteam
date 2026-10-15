@@ -222,7 +222,7 @@ fun WebPageHeader(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier, unreadCount: Int = 0) {
     // Fixed and compact native navigation; retains Messages and all four routes.
     val tabs = listOf(
         Triple(0, R.string.home, Icons.Filled.Home),
@@ -250,7 +250,21 @@ fun WebBottomNavigation(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Mod
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Box(Modifier.size(43.dp, 29.dp), contentAlignment = Alignment.Center) {
-                        Icon(icon, null, tint = if (active) WebRed else WebMuted, modifier = Modifier.size(23.dp))
+                        Icon(icon, null, tint = if (active) WebRed else WebMuted,
+                            modifier = Modifier.size(23.dp))
+                        if (index == 2 && unreadCount > 0) {
+                            Box(
+                                Modifier.align(Alignment.TopEnd)
+                                    .offset(x = 1.dp, y = (-3).dp)
+                                    .size(if (unreadCount < 10) 17.dp else 22.dp)
+                                    .background(WebRed, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(if (unreadCount > 99) "99+" else unreadCount.toString(),
+                                    color = Color.White, fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp, maxLines = 1)
+                            }
+                        }
                     }
                     Text(
                         stringResource(label), color = if (active) WebRed else WebMuted,

@@ -94,6 +94,25 @@ adb shell wm size 390x844
 adb shell wm density 160
 adb shell cmd locale set-app-locales "$PACKAGE" --user 0 --locales th-TH || true
 launch_zoky
+dump_window visual/zoky-address-entry.xml
+tap_accessible visual/zoky-address-entry.xml 'เลือกที่อยู่จัดส่ง'
+sleep 2
+dump_window visual/zoky-address-picker.xml
+if ! grep -Fq 'เลือกที่อยู่จัดส่ง' visual/zoky-address-picker.xml ||
+   ! grep -Fq 'เข้าสู่ระบบ' visual/zoky-address-picker.xml; then
+  echo 'Home did not open its direct guest address picker.' >&2; exit 1
+fi
+
+launch_zoky
+dump_window visual/zoky-deals-entry.xml
+tap_accessible visual/zoky-deals-entry.xml 'ดูดีลทั้งหมด'
+sleep 2
+dump_window visual/zoky-deals-page.xml
+if ! grep -Fq 'ดีลและโปรโมชัน' visual/zoky-deals-page.xml; then
+  echo 'Home deal CTA did not navigate to native deals page.' >&2; exit 1
+fi
+
+launch_zoky
 dump_window visual/zoky-food-entry.xml
 tap_accessible visual/zoky-food-entry.xml 'เลือกอาหาร'
 sleep 7

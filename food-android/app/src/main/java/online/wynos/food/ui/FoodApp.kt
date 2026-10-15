@@ -75,6 +75,9 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var foodServiceOpen by rememberSaveable { mutableStateOf(false) }
+    var homeDealsOpen by rememberSaveable { mutableStateOf(false) }
+    var selectedDealId by rememberSaveable { mutableStateOf<String?>(null) }
+    var homeAddressPickerOpen by rememberSaveable { mutableStateOf(false) }
     var selectedStoreId by rememberSaveable { mutableStateOf<String?>(null) }
     var initialHomeMenuId by rememberSaveable { mutableStateOf<String?>(null) }
     var homeCart by rememberSaveable { mutableStateOf(false) }
@@ -120,9 +123,20 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
         }
     }
 
-    BackHandler(enabled = selectedStore != null || favoritesOpen || promotionsOpen || foodServiceOpen || tab != 0) {
+    // Re-sync buyer-scoped updates when Messages becomes visible, rather than
+    // relying on the Orders tab to populate the consolidated inbox.
+    LaunchedEffect(tab, state.accountEmail) {
+        if (tab == 2 && state.accountEmail != null) {
+            vm.refreshOrders()
+            vm.refreshPromotionInbox()
+        }
+    }
+
+    BackHandler(enabled = selectedStore != null || homeAddressPickerOpen || homeDealsOpen || favoritesOpen || promotionsOpen || foodServiceOpen || tab != 0) {
         when {
             selectedStore != null -> closeStore()
+            homeAddressPickerOpen -> homeAddressPickerOpen = false
+            homeDealsOpen -> { homeDealsOpen = false; selectedDealId = null }
             favoritesOpen -> favoritesOpen = false
             promotionsOpen -> promotionsOpen = false
             foodServiceOpen -> foodServiceOpen = false
@@ -134,7 +148,7 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
         containerColor = androidx.compose.ui.graphics.Color.White,
         topBar = {
             if (selectedStore == null) {
-                if (tab == 0 && foodServiceOpen) {
+                if (tab == 0 && foodServiceOpen && !homeDealsOpen) {
                     WebHomeHeader(
                         state = state,
                         guest = guest,
@@ -165,9 +179,14 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
             if (selectedStore == null) {
                 WebBottomNavigation(
                     tab = tab,
+                    unreadCount = if (guest) 0 else state.promotions.count { it.isUnread } +
+                        (if (state.orderStatusNotice != null) 1 else 0),
                     onTab = {
                         tab = it
                         foodServiceOpen = false
+                        homeDealsOpen = false
+                        selectedDealId = null
+                        homeAddressPickerOpen = false
                         selectedStoreId = null
                         initialHomeMenuId = null
                         favoritesOpen = false
@@ -215,6 +234,15 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                     onPrepareStagingPayment = vm::prepareStagingMobilePayment,
                     onPaymentSheetCompleted = vm::refreshOrders,
                 )
+                tab == 0 && homeDealsOpen -> ZokyHomeDealsPage(
+                    state = state,
+                    onBack = { homeDealsOpen = false; selectedDealId = null },
+                    onRefresh = vm::refreshPromotionInbox,
+                    onBrowseFood = { homeDealsOpen = false; foodServiceOpen = true },
+                    onSignIn = { homeDealsOpen = false; tab = 3 },
+                    onMarkRead = vm::markPromotionRead,
+                    initialPromotionId = selectedDealId,
+                )
                 tab == 0 && !foodServiceOpen -> ZokyHomeScreen(
                     state = state,
                     onFood = { foodServiceOpen = true },
@@ -224,12 +252,25 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                         promotionsOpen = false
                     },
                     onDeals = {
-                        tab = 2
+                        selectedDealId = null
+                        homeDealsOpen = true
+                        vm.refreshPromotionInbox()
+                    },
+                    onDeal = { id ->
+                        selectedDealId = id
+                        homeDealsOpen = true
                         vm.refreshPromotionInbox()
                     },
                     onLocation = {
-                        tab = 3
-                        favoritesOpen = false
+                        homeAddressPickerOpen = true
+                        vm.refreshAddresses()
+                    },
+                    onBannerStore = { storeId ->
+                        if (state.stores.any { it.id == storeId }) {
+                            homeDealsOpen = false
+                            foodServiceOpen = true
+                            selectedStoreId = storeId
+                        }
                     },
                 )
                 tab == 0 -> WebHomeScreen(
@@ -259,7 +300,11 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
                 tab == 2 -> ZokyMessageCenter(
                     state = state,
                     onOrders = { tab = 1 },
-                    onRefresh = vm::refreshPromotionInbox,
+                    onRefresh = {
+                        vm.refreshPromotionInbox()
+                        vm.refreshOrders()
+                    },
+                    onMarkRead = vm::markPromotionRead,
                 )
                 tab == 3 && promotionsOpen && !guest -> WebPromotionInboxPage(
                     state = state,
@@ -302,6 +347,19 @@ fun FoodApp(vm: FoodViewModel = viewModel()) {
             }
             }
         }
+    }
+    if (homeAddressPickerOpen) {
+        ZokyHomeAddressPicker(
+            state = state,
+            onDismiss = { homeAddressPickerOpen = false },
+            onSelect = { id ->
+                vm.selectAddress(id)
+                homeAddressPickerOpen = false
+            },
+            onRefresh = vm::refreshAddresses,
+            onManage = { homeAddressPickerOpen = false; tab = 3 },
+            onSignIn = { homeAddressPickerOpen = false; tab = 3 },
+        )
     }
     if (state.accountEmail != null && state.selectedOrderId != null) {
         FoodOrderDetailDialog(

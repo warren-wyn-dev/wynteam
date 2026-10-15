@@ -48,6 +48,7 @@ fun ZokyMessageCenter(
     state: FoodUiState,
     onOrders: () -> Unit,
     onRefresh: () -> Unit,
+    onMarkRead: (String) -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().background(Color.White)) {
@@ -93,10 +94,32 @@ fun ZokyMessageCenter(
                         }
                     }
                 }
+                // Server-read buyer orders are status summaries, not synthetic push events.
+                if (state.orders.isNotEmpty()) {
+                    items(state.orders.take(8), key = { "order-status-" + it.id }) { order ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable(onClick = onOrders)
+                                .padding(horizontal = 18.dp, vertical = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(Icons.Outlined.ReceiptLong, null, tint = ZokyMessageRed,
+                                modifier = Modifier.size(28.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("ออเดอร์ #${order.number}", color = ZokyMessageInk,
+                                    fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("สถานะ: ${order.status} · ชำระเงิน: ${order.paymentStatus}",
+                                    color = ZokyMessageSub, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
                 if (state.promotions.isNotEmpty()) {
                     items(state.promotions, key = { it.id }) { notice ->
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 13.dp),
+                            Modifier.fillMaxWidth()
+                                .clickable { onMarkRead(notice.id) }
+                                .padding(horizontal = 18.dp, vertical = 13.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
@@ -116,7 +139,7 @@ fun ZokyMessageCenter(
                         }
                     }
                 }
-                if (state.promotions.isEmpty() && state.orderStatusNotice == null) {
+                if (state.promotions.isEmpty() && state.orders.isEmpty() && state.orderStatusNotice == null) {
                     item(key = "empty-notices") {
                         Column(
                             Modifier.fillMaxWidth().padding(28.dp),
