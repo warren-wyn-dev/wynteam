@@ -62,6 +62,36 @@ This is independent of the Android local-notification test.
 Never share FCM tokens, test messages with customer data, or Firebase credentials in tickets,
 logs, public chats or screenshots. This diagnostic is DEBUG-only and does not transmit results.
 
+
+## QA notification tap destination (DEBUG only)
+
+Expected behavior: a tapped Zoky DEBUG FCM notification opens **ข้อความ → การแจ้งเตือน**, not Home.
+The DEBUG app handles both:
+
+- Foreground notifications posted by `ZokyFirebaseMessagingService` with the Boolean
+  `zoky_open_messages=true` extra in its local PendingIntent.
+- Background notification messages automatically posted by Firebase on Android. The
+  launcher Activity recognizes Firebase `google.message_id` only when DEBUG device
+  preview is allowed **and opted in**. To make the destination explicit during
+  Firebase Console QA, include this entry in **Additional options → Custom data**:
+  **Key:** `zoky_open_messages`, **Value:** `true`. Firebase delivers custom data
+  as String extras to the launcher when a background notification is tapped.
+
+Verification scenarios (manual Redfinger):
+
+1. Regular Home launcher tap still opens Home.
+2. Zoky in foreground → Firebase Console **Send test message**, tap Android notification
+   → Messages, Notifications segment.
+3. Zoky backgrounded → Firebase Console test with explicit Custom data above,
+   tap Android notification → Messages, Notifications segment.
+4. From a prior Chats selection, a tapped QA notification returns to Notifications.
+5. If an Android task/process was killed, inspect behavior separately; Android/Firebase
+   may not always preserve tap extras across task reconstruction.
+
+Never Publish a Firebase Console campaign. Use only the user's device token and
+**Send test message**. Do not share registration tokens or insert live order payloads.
+Real production order deep-link routing remains out of scope and is disabled.
+
 ## Release / security gates not yet completed
 - Design the recipient-scoped device-token table and token registration/deletion authenticated by WYNOS Account; use server RLS and authorization. No customer token stored in the draft app backend.
 - Implement the server-only Firebase Admin/FCM HTTP v1 dispatcher with Google IAM credentials stored **only on a trusted server**, never in the Android APK.
