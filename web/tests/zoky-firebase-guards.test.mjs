@@ -126,3 +126,22 @@ test("debug background FCM uses a pre-created explicitly opted-in channel; relea
   assert.match(receiver, /ZokyFcmPreviewNotificationChannel\.ensure\(this\)/);
   assert.doesNotMatch(channel, /firebase_admin_sdk|service_role|sb_secret_|FCM_SERVER_KEY|FirebaseMessaging\.getInstance\(|clipboard/i);
 });
+
+test("device-only FCM diagnostics distinguish callback, Android post and background SDK delivery", () => {
+  const receiver = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFirebaseMessagingService.kt");
+  const records = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFcmPreviewReceipts.kt");
+  const screen = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFcmDevicePreviewCard.kt");
+  assert.match(receiver, /ZokyFcmPreviewReceipts\.record\(this\)/);
+  assert.match(receiver, /DisplayResult\.PERMISSION_DENIED/);
+  assert.match(receiver, /DisplayResult\.APP_NOTIFICATIONS_DISABLED/);
+  assert.match(receiver, /DisplayResult\.CHANNEL_DISABLED/);
+  assert.match(receiver, /DisplayResult\.POST_REQUESTED/);
+  assert.match(receiver, /DisplayResult\.POST_FAILED/);
+  assert.match(records, /private const val KEY_DISPLAY = "last_notification_post"/);
+  assert.match(records, /putString\(KEY_DISPLAY, result\.name\)/);
+  assert.match(records, /remove\(KEY_COUNT\)\.remove\(KEY_DISPLAY\)/);
+  assert.match(screen, /ZokyFcmPreviewReceipts\.displayStatus\(context\)/);
+  assert.match(screen, /LaunchedEffect\(enabled\)/);
+  assert.match(screen, /การแสดงแจ้งเตือนจาก FCM ขณะเปิดแอป/);
+  assert.doesNotMatch(records, /message\.data|message\.notification|getToken|FCM_SERVER_KEY|sb_secret_/i);
+});
