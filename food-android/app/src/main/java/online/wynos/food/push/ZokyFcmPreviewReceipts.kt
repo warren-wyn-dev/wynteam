@@ -14,6 +14,46 @@ import online.wynos.food.BuildConfig
 internal object ZokyFcmPreviewReceipts {
     private const val PREFS = "zoky_fcm_preview_receipts"
     private const val KEY_COUNT = "callback_count"
+    private const val KEY_DISPLAY = "last_notification_post"
+
+    enum class DisplayResult {
+        PERMISSION_DENIED,
+        APP_NOTIFICATIONS_DISABLED,
+        CHANNEL_DISABLED,
+        POST_REQUESTED,
+        POST_FAILED,
+    }
+
+    /**
+     * A result of Android's local notification posting call, not proof that
+     * the system displayed it, and not a record of background SDK delivery.
+     */
+    fun displayStatus(context: Context): String {
+        if (!BuildConfig.FCM_DEVICE_PREVIEW_ALLOWED || !ZokyPushConsent.enabled(context)) {
+            return "ไม่ได้เปิดการทดสอบ"
+        }
+        val name = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_DISPLAY, null)
+        return when (name) {
+            DisplayResult.PERMISSION_DENIED.name ->
+                "Android ยังไม่อนุญาตให้แสดงแจ้งเตือน"
+            DisplayResult.APP_NOTIFICATIONS_DISABLED.name ->
+                "Android ปิดการแจ้งเตือนของ Zoky"
+            DisplayResult.CHANNEL_DISABLED.name ->
+                "Android ปิดหมวดแจ้งเตือนทดสอบ"
+            DisplayResult.POST_REQUESTED.name ->
+                "สั่งให้ Android แสดงแล้ว (ยังไม่ยืนยันว่าปรากฏ)"
+            DisplayResult.POST_FAILED.name ->
+                "Android ปฏิเสธคำสั่งแสดงแจ้งเตือน"
+            else -> "ยังไม่มีผลการแสดงแจ้งเตือนจากตัวรับ FCM"
+        }
+    }
+
+    fun recordDisplay(context: Context, result: DisplayResult) {
+        if (!BuildConfig.FCM_DEVICE_PREVIEW_ALLOWED || !ZokyPushConsent.enabled(context)) return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_DISPLAY, result.name).apply()
+    }
 
     fun count(context: Context): Int =
         if (BuildConfig.FCM_DEVICE_PREVIEW_ALLOWED)
@@ -32,6 +72,6 @@ internal object ZokyFcmPreviewReceipts {
     fun clear(context: Context) {
         if (!BuildConfig.FCM_DEVICE_PREVIEW_ALLOWED) return
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().remove(KEY_COUNT).apply()
+            .edit().remove(KEY_COUNT).remove(KEY_DISPLAY).apply()
     }
 }
