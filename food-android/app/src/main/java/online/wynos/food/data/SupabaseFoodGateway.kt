@@ -55,6 +55,12 @@ interface FoodGateway {
     suspend fun markPromotionRead(id: String) {
         throw UnsupportedOperationException("promotion_read_not_configured")
     }
+    val chatEnabled: Boolean get() = false
+    suspend fun orderChatMessages(orderId: String): List<FoodOrderChatMessage> =
+        throw UnsupportedOperationException("order_chat_not_configured")
+    suspend fun sendOrderChatMessage(orderId: String, body: String, clientId: String) {
+        throw UnsupportedOperationException("order_chat_not_configured")
+    }
     suspend fun accountEmail(): String?
     suspend fun orderHistory(): List<FoodOrderSummary>
     suspend fun orderDetail(orderId: String): FoodOrderDetail? = null
@@ -66,6 +72,9 @@ interface FoodGateway {
 }
 
 class SupabaseFoodGateway : FoodGateway {
+    override val chatEnabled: Boolean get() =
+        configured && BuildConfig.CHAT_STAGING_ALLOWED
+
     override val addressWritesEnabled: Boolean get() =
         configured && BuildConfig.ADDRESS_WRITES_ALLOWED
     override val signupEnabled: Boolean get() =
@@ -242,6 +251,50 @@ class SupabaseFoodGateway : FoodGateway {
                 eq("recipient_id", owner)
             }
         }
+    }
+
+    override suspend fun orderChatMessages(orderId: String): List<FoodOrderChatMessage> {
+        check(chatEnabled) { "order_chat_staging_disabled" }
+        java.util.UUID.fromString(orderId)
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        val owner = supabase.auth.currentUserOrNull()?.id
+            ?: throw IllegalStateException("sign_in_required")
+        val rows = supabase.from("food_order_chat_messages").select(
+            Columns.list("id", "body", "sender_id", "created_at")
+        ) {
+            filter { eq("order_id", orderId) }
+            order("created_at", io.github.jan.supabase.postgrest.query.Order.ASCENDING)
+            limit(100)
+        }.decodeList<JsonObject>()
+        return rows.mapNotNull { row ->
+            val id = (row["id"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+            val body = (row["body"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+            val sender = (row["sender_id"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+            val timestamp = (row["created_at"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+            if (id.isNullOrBlank() || body.isNullOrBlank() || sender.isNullOrBlank()) null
+            else FoodOrderChatMessage(id, body, timestamp.orEmpty(), sender == owner)
+        }
+    }
+
+    override suspend fun sendOrderChatMessage(orderId: String, body: String, clientId: String) {
+        check(chatEnabled) { "order_chat_staging_disabled" }
+        java.util.UUID.fromString(orderId)
+        java.util.UUID.fromString(clientId)
+        val message = body.trim()
+        require(message.isNotEmpty() && message.length <= 1200) { "invalid_chat_text" }
+        val supabase = requireClient()
+        supabase.auth.awaitInitialization()
+        val owner = supabase.auth.currentUserOrNull()?.id
+            ?: throw IllegalStateException("sign_in_required")
+        // RLS checks order ownership/merchant role, sender and tenant. Never
+        // trust this client-side gating as the only access control.
+        supabase.from("food_order_chat_messages").insert(buildJsonObject {
+            put("order_id", orderId)
+            put("sender_id", owner)
+            put("client_id", clientId)
+            put("body", message)
+        })
     }
 
     override suspend fun accountEmail(): String? {
