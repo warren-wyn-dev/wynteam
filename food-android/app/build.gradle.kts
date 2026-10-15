@@ -2,6 +2,7 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
+    id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -37,6 +38,8 @@ android {
         // Address mutations are disabled in ordinary APKs and ALL release builds.
         // Explicit staging-only opt-in must name the exact connected staging project.
         debug {
+            // Only the debug APK dispatches device-preview FCM.
+            manifestPlaceholders["zokyFcmPreviewServiceEnabled"] = "true"
             val projectRef = foodConfig("WYNOS_FOOD_STAGING_PROJECT_REF")
             val targetUrl = foodConfig("WYNOS_FOOD_SUPABASE_URL")
             val verifiedStaging = projectRef.matches(Regex("[a-z0-9]{20}")) &&
@@ -63,11 +66,14 @@ android {
                 verifiedStaging && foodConfig("WYNOS_FOOD_ORDER_CANCEL_STAGING") == "true"
             ).toString())
             // Strict staging-only chat; requires the reviewed buyer/merchant RLS schema.
+            buildConfigField("boolean", "FCM_DEVICE_PREVIEW_ALLOWED", "true")
             buildConfigField("boolean", "CHAT_STAGING_ALLOWED", (
                 verifiedStaging && foodConfig("WYNOS_FOOD_CHAT_STAGING") == "true"
             ).toString())
         }
         release {
+            // Release never receives device-QA FCM.
+            manifestPlaceholders["zokyFcmPreviewServiceEnabled"] = "false"
             buildConfigField("boolean", "ADDRESS_WRITES_ALLOWED", "false")
             buildConfigField("boolean", "ACCOUNT_SIGNUP_ALLOWED", "false")
             buildConfigField("boolean", "ACCOUNT_DELETION_ALLOWED", "false")
@@ -75,6 +81,7 @@ android {
             buildConfigField("boolean", "STAGING_MOBILE_PAYMENT_ALLOWED", "false")
             buildConfigField("boolean", "STAGING_ORDER_CANCEL_ALLOWED", "false")
             buildConfigField("boolean", "CHAT_STAGING_ALLOWED", "false")
+            buildConfigField("boolean", "FCM_DEVICE_PREVIEW_ALLOWED", "false")
             isMinifyEnabled = false // Enable and verify R8 before production.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -109,6 +116,8 @@ dependencies {
     // Stripe PaymentSheet 22.6.x is compatible with the project's Compose
     // 1.8.x BOM. Feature itself is gated to isolated staging Debug only.
     implementation("com.stripe:paymentsheet:22.6.1")
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-messaging")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Match the existing WYNOS Android Supabase/Ktor release family.

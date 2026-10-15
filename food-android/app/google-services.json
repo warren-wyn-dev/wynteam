@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "8582518297",
+    "project_id": "zoky-e84e7",
+    "storage_bucket": "zoky-e84e7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:8582518297:android:a19a3d1547bd66cdda3c88",
+        "android_client_info": {
+          "package_name": "online.wynos.food"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4Ep33bnfYeVkjns9rAuhEJ3x0_iQt0sU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

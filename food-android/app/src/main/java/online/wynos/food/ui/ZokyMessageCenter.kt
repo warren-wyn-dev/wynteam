@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.res.stringResource
 import online.wynos.food.R
+import online.wynos.food.push.ZokyFcmDevicePreviewCard
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -57,6 +58,7 @@ private val ZokyMessageSub = Color(0xFF66636C)
 @Composable
 fun ZokyMessageCenter(
     state: FoodUiState,
+    notificationNavigationSequence: Int = 0,
     onOrders: () -> Unit,
     onOpenOrder: (String) -> Unit,
     onRefresh: () -> Unit,
@@ -69,6 +71,11 @@ fun ZokyMessageCenter(
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var copiedNoticeId by rememberSaveable { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
+    LaunchedEffect(notificationNavigationSequence) {
+        // A DEBUG Firebase notification tap always selects Notifications,
+        // including after the user was reading Chats.
+        if (notificationNavigationSequence > 0) selected = 0
+    }
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp)
@@ -93,6 +100,9 @@ fun ZokyMessageCenter(
                 Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(9.dp),
             ) {
+                item(key = "zoky-fcm-device-preview") {
+                    ZokyFcmDevicePreviewCard()
+                }
                 if (state.orderStatusNotice != null) {
                     item(key = "order-notice") {
                         Row(
