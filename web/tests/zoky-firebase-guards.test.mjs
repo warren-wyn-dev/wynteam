@@ -42,3 +42,17 @@ test("No server keys or live push claims in device preview", () => {
   assert.doesNotMatch(receiver + screen, /service_role|sb_secret_|FCM_SERVER_KEY|firebase_admin_sdk/i);
   assert.match(screen, /ยังไม่มีระบบ Push ของออเดอร์จริง/);
 });
+
+test("debug notification diagnostic stays local-only and permission gated", () => {
+  const local = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyLocalNotificationQa.kt");
+  const screen = read("../../food-android/app/src/main/java/online/wynos/food/push/ZokyFcmDevicePreviewCard.kt");
+  assert.match(local, /BuildConfig\.FCM_DEVICE_PREVIEW_ALLOWED/);
+  assert.match(local, /ZokyPushConsent\.enabled\(context\)/);
+  assert.match(local, /POST_NOTIFICATIONS/);
+  assert.match(local, /areNotificationsEnabled\(\)/);
+  assert.match(local, /IMPORTANCE_NONE/);
+  assert.match(local, /notify\(77001, notification\)/);
+  assert.match(screen, /ZokyLocalNotificationQa\.post\(context\)/);
+  assert.match(screen, /ทดสอบแจ้งเตือนในเครื่อง/);
+  assert.doesNotMatch(local, /firebase\.messaging|service_role|sb_secret_|FCM_SERVER_KEY|firebase_admin_sdk/i);
+});
