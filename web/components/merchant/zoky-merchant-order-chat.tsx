@@ -15,6 +15,14 @@ type ChatRow = {
  */
 function chatPreviewEnabled(): boolean {
   if (process.env.NEXT_PUBLIC_ZOKY_CHAT_STAGING !== "true") return false;
+  // A preview deployment may still point at the PRODUCTION database.
+  // Requiring a dedicated project reference and matching Supabase URL
+  // prevents accidentally turning a preview flag into Production writes.
+  const stagingRef = process.env.NEXT_PUBLIC_ZOKY_CHAT_STAGING_PROJECT_REF?.trim();
+  if (!stagingRef || !/^[a-z0-9]{20}$/.test(stagingRef)) return false;
+  if (stagingRef === "kqokpocajhfbidcxpvhh" || stagingRef === "pcatuxtenluqzjzzwsvl") return false;
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() !==
+      `https://${stagingRef}.supabase.co`) return false;
   if (typeof window === "undefined") return false;
   const host = window.location.hostname.toLowerCase();
   if (host === "merchant.wynos.online" || host === "wynos.online") return false;
