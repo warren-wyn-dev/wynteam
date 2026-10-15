@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ChatRow = {
@@ -21,6 +21,9 @@ function chatPreviewEnabled(): boolean {
   return host === "localhost" || host.endsWith(".vercel.app") || host.includes("staging");
 }
 
+const noopSubscribe = () => () => {};
+const disabledOnServer = () => false;
+
 export function ZokyMerchantOrderChat({
   client,
   orderId,
@@ -28,14 +31,12 @@ export function ZokyMerchantOrderChat({
   client: SupabaseClient;
   orderId: string;
 }) {
-  const [enabled, setEnabled] = useState(false);
+  const enabled = useSyncExternalStore(noopSubscribe, chatPreviewEnabled, disabledOnServer);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [rows, setRows] = useState<ChatRow[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => { setEnabled(chatPreviewEnabled()); }, []);
 
   const refresh = useCallback(async () => {
     if (!chatPreviewEnabled()) return;
@@ -62,9 +63,9 @@ export function ZokyMerchantOrderChat({
   useEffect(() => {
     if (!enabled) return;
     let live = true;
-    void refresh();
+    const initial = window.setTimeout(() => { if (live) void refresh(); }, 0);
     const timer = window.setInterval(() => { if (live) void refresh(); }, 15000);
-    return () => { live = false; window.clearInterval(timer); };
+    return () => { live = false; window.clearTimeout(initial); window.clearInterval(timer); };
   }, [enabled, refresh]);
 
   if (!enabled) return null;
