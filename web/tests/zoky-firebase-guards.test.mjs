@@ -73,3 +73,15 @@ test("debug FCM receipt counter records only callback counts and never message p
   assert.match(screen, /ตรวจผลการรับ FCM/);
   assert.match(screen, /เริ่มนับ FCM ใหม่/);
 });
+
+test("FCM manifest resolves MESSAGING_EVENT to one app receiver only", () => {
+  const manifest = read("../../food-android/app/src/main/AndroidManifest.xml");
+  assert.match(manifest, /xmlns:tools="http:\/\/schemas\.android\.com\/tools"/);
+  assert.match(manifest, /<service android:name="com\.google\.firebase\.messaging\.FirebaseMessagingService"\s+tools:node="remove"\s*\/>/);
+  assert.match(manifest, /<service android:name="\.push\.ZokyFirebaseMessagingService"/);
+  assert.match(manifest, /com\.google\.firebase\.MESSAGING_EVENT/);
+  // DEBUG resolves to Zoky opt-in; release remains disabled without the SDK fallback.
+  const gradle = read("../../food-android/app/build.gradle.kts");
+  assert.match(gradle, /manifestPlaceholders\["zokyFcmPreviewServiceEnabled"\] = "true"/);
+  assert.match(gradle, /manifestPlaceholders\["zokyFcmPreviewServiceEnabled"\] = "false"/);
+});
