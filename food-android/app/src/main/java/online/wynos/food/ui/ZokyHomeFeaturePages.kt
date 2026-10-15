@@ -46,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -141,6 +143,8 @@ fun ZokyHomeDealsPage(
     initialPromotionId: String? = null,
 ) {
     var selectedId by remember(initialPromotionId) { mutableStateOf(initialPromotionId) }
+    var copiedCode by remember { mutableStateOf<String?>(null) }
+    val clipboard = LocalClipboardManager.current
     val selected = state.promotions.firstOrNull { it.id == selectedId }
     Column(Modifier.background(Color.White)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
@@ -225,7 +229,15 @@ fun ZokyHomeDealsPage(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(selected.body)
-                    selected.couponCode?.let { Text("โค้ด: $it", color = FeatureRed) }
+                    selected.couponCode?.let { code ->
+                        OutlinedButton(onClick = {
+                            clipboard.setText(AnnotatedString(code))
+                            copiedCode = code
+                        }) {
+                            Text(if (copiedCode == code) "คัดลอกแล้ว" else "คัดลอกโค้ด: $code",
+                                color = FeatureRed)
+                        }
+                    }
                     Text("โปรโมชันนี้ไม่รับรองสิทธิ์ส่วนลดจนกว่าจะตรวจสอบกับระบบ",
                         fontSize = 12.sp, color = FeatureMuted)
                 }
