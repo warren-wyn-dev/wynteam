@@ -38,6 +38,8 @@ android {
         // Address mutations are disabled in ordinary APKs and ALL release builds.
         // Explicit staging-only opt-in must name the exact connected staging project.
         debug {
+            // Explicitly enable the device-preview FCM service only in debug manifests.
+            manifestPlaceholders["zokyFcmPreviewServiceEnabled"] = "true"
             val projectRef = foodConfig("WYNOS_FOOD_STAGING_PROJECT_REF")
             val targetUrl = foodConfig("WYNOS_FOOD_SUPABASE_URL")
             val verifiedStaging = projectRef.matches(Regex("[a-z0-9]{20}")) &&
@@ -67,6 +69,8 @@ android {
             buildConfigField("boolean", "FCM_DEVICE_PREVIEW_ALLOWED", "true")
         }
         release {
+            // Fail closed at Android service dispatch, not only inside onMessageReceived.
+            manifestPlaceholders["zokyFcmPreviewServiceEnabled"] = "false"
             buildConfigField("boolean", "ADDRESS_WRITES_ALLOWED", "false")
             buildConfigField("boolean", "ACCOUNT_SIGNUP_ALLOWED", "false")
             buildConfigField("boolean", "ACCOUNT_DELETION_ALLOWED", "false")
