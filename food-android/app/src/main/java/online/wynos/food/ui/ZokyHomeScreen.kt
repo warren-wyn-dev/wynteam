@@ -98,6 +98,7 @@ fun ZokyHomeScreen(
     onFood: () -> Unit,
     onFavorites: () -> Unit,
     onDeals: () -> Unit,
+    onDeal: (String) -> Unit,
     onLocation: () -> Unit,
     onBannerStore: (String) -> Unit,
 ) {
@@ -291,16 +292,16 @@ fun ZokyHomeScreen(
             // live offers exist, titles derive from buyer-scoped Backend data.
             val offers = state.promotions
             val previews = if (offers.isEmpty()) listOf(
-                Triple("ดีลร้านดัง", "ภาพประกอบ · ยังไม่มีดีลจริง", "zoky_pizza_hd"),
-                Triple("เครื่องดื่มสุดฮิต", "ภาพประกอบ · รอโปรโมชัน", "zoky_drinks_hd"),
-                Triple("เมนูน่าลอง", "ภาพประกอบ · รอโปรโมชัน", "zoky_third_hd"),
+                Triple("ดีลร้านดัง", "ภาพประกอบ · ยังไม่มีดีลจริง", "zoky_pizza_hd") to null,
+                Triple("เครื่องดื่มสุดฮิต", "ภาพประกอบ · รอโปรโมชัน", "zoky_drinks_hd") to null,
+                Triple("เมนูน่าลอง", "ภาพประกอบ · รอโปรโมชัน", "zoky_third_hd") to null,
             ) else offers.take(8).mapIndexed { index, offer ->
                 val picture = when (index % 3) {
                     0 -> "zoky_pizza_hd"
                     1 -> "zoky_drinks_hd"
                     else -> "zoky_third_hd"
                 }
-                Triple(offer.title, "ตรวจสอบเงื่อนไขก่อนใช้", picture)
+                Triple(offer.title, "ตรวจสอบเงื่อนไขก่อนใช้", picture) to offer.id
             }
             val dealWidthDp = (LocalConfiguration.current.screenWidthDp * .41f)
                 .coerceIn(128f, 240f)
@@ -309,13 +310,14 @@ fun ZokyHomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 3.dp),
             ) {
-                items(previews) { (title, subtitle, artwork) ->
+                items(previews) { (preview, dealId) ->
+                    val (title, subtitle, artwork) = preview
                     Column(
                         Modifier.width(dealWidthDp.dp)
                             .shadow(2.dp, RoundedCornerShape(15.dp))
                             .clip(RoundedCornerShape(15.dp))
                             .background(Color.White)
-                            .clickable(onClick = onDeals),
+                            .clickable { if (dealId != null) onDeal(dealId) else onDeals() },
                     ) {
                         ZokyArt(artwork, title,
                             modifier = Modifier.fillMaxWidth()
