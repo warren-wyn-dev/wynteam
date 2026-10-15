@@ -20,6 +20,26 @@ The uploaded `google-services.json` matches package `online.wynos.food`, Firebas
 4. In Firebase Console → Messaging, compose a test notification and use the **Send test message** flow with that Android token (console UI may change). Start app in foreground to verify the custom native Zoky test notification; background notification handling may be performed automatically by Firebase SDK and may display the Console-supplied content instead.
 5. Use **ปิดการทดสอบ** after QA. Repeat with permission denied, offline, Google Play services unavailable, app foreground/background, token invalidation and reinstall.
 
+## Redfinger troubleshooting — debug-only local notification
+
+When the phone has Google Play services, Android notifications are allowed, and FCM
+returns a token but Firebase Console test messages never appear:
+
+1. Install a debug APK built from the latest PR #1221 commit.
+2. In **ข้อความ → การแจ้งเตือน**, enable the device preview.
+3. Tap **ทดสอบแจ้งเตือนในเครื่อง**, then pull down the **Android notification shade**.
+   This creates a generic notification directly on-device with no Firebase or backend traffic.
+4. **Local notification appears:** Android app posting/permission/channel likely works.
+   Next verify the same project's fresh FCM token, console test-send target, Play
+   services connectivity, Wi-Fi restrictions, and foreground/background delivery.
+5. **Local notification does not appear:** check system permission, the notification
+   channel, Android app settings and device notification suppression before blaming FCM.
+6. This button does **not** prove that FCM delivery works. It is excluded from
+   Release by the existing `FCM_DEVICE_PREVIEW_ALLOWED` build flag and opt-in checks.
+
+Never paste FCM device tokens, service account credentials or customer information into
+public chats, issue comments, CI logs or APK build arguments.
+
 ## Release / security gates not yet completed
 - Design the recipient-scoped device-token table and token registration/deletion authenticated by WYNOS Account; use server RLS and authorization. No customer token stored in the draft app backend.
 - Implement the server-only Firebase Admin/FCM HTTP v1 dispatcher with Google IAM credentials stored **only on a trusted server**, never in the Android APK.
