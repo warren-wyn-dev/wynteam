@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import online.wynos.food.push.ZokyFcmDevicePreviewCard
 
 private val ZokyMessageRed = Color(0xFFD91F4E)
 private val ZokyMessageInk = Color(0xFF24212B)
@@ -85,6 +86,9 @@ fun ZokyMessageCenter(
                 Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(9.dp),
             ) {
+                item(key = "zoky-fcm-device-preview") {
+                    ZokyFcmDevicePreviewCard()
+                }
                 if (state.orderStatusNotice != null) {
                     item(key = "order-notice") {
                         Row(
