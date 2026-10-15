@@ -110,7 +110,6 @@ dependencies {
     implementation("com.stripe:paymentsheet:22.6.1")
     implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
     implementation("com.google.firebase:firebase-messaging")
-    implementation("androidx.core:core:1.16.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Match the existing WYNOS Android Supabase/Ktor release family.
