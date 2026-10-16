@@ -126,7 +126,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: "food-featured", href: "/food/featured", label: "ร้านแนะนำ Food", icon: Store, group: "food", requires: { systems: ["food"] } },
   { id: "food-orders", href: "/food/orders", label: "Orders", icon: ShoppingBag, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
   { id: "food-customers", label: "Customers", icon: Users, group: "food", requires: { systems: ["food"] } },
-  { id: "food-payments", label: "Payments & Refunds", icon: CreditCard, group: "food", requires: { systems: ["food"] } },
+  { id: "food-payments", href: "/food/payments", label: "Payments & Refunds", icon: CreditCard, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
   { id: "food-support", label: "Customer Support", icon: Headset, group: "food", requires: { systems: ["food"] } },
 
   // WYNOS Merchant: stores and their marketing. Stores, Coupons, Campaigns,
