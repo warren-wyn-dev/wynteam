@@ -7,6 +7,8 @@ Current status: source added for review; no Expo Go physical-device execution ha
 ### Phase 1 — selected compact header (priority)
 
 - [ ] Compare the Home header against the approved compact B mockup on a physical iPhone; adjust after screenshot review rather than claim pixel perfection.
+- [ ] Recheck after the 2026-10-16 device screenshot: previously the gradient ended in a solid hot-pink band and the wordmark was too close to the white sheet.
+- [ ] Preview Home shows only the branded Phase 1 header and blank white canvas; old hero, Ride and other unapproved home sections are hidden.
 - [ ] Status bar is light over the pink-to-magenta header, including Dynamic Island/safe-area handling.
 - [ ] White founder-supplied Zoky wordmark silhouette is visible at left; do not embed its original pink square/background.
 - [ ] White circular outlined pink heart sits at right, has a 48pt touch target, and opens a clearly labeled favorites placeholder.
