@@ -11,6 +11,10 @@ import { HomeDiscovery, BrowseDiscovery } from "./src/DiscoveryScreens";
 import { HomeHeader } from "./src/HomeHeader";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
+// Design review mode: show only the approved Home Header (Phase 1).
+// Legacy prototype content remains in source but is hidden until its UI phase is approved.
+const HOME_PHASE_ONE_REVIEW = true;
+
 function Button({ label, onPress, soft = false, disabled = false }: {
   label: string; onPress: () => void; soft?: boolean; disabled?: boolean;
 }) {
@@ -220,13 +224,17 @@ function MainApp() {
         keyboardShouldPersistTaps="handled"
       >
         {tab === "home" && page === "hub" && (
-          <HomeDiscovery
-            stores={demoStores}
-            categories={categories}
-            onBrowse={browse}
-            onStore={showStore}
-            onCategory={(value) => { setCategory(value); browse(); }}
-          />
+          HOME_PHASE_ONE_REVIEW ? (
+            <View style={styles.phaseOneBlankCanvas} accessible={false} />
+          ) : (
+            <HomeDiscovery
+              stores={demoStores}
+              categories={categories}
+              onBrowse={browse}
+              onStore={showStore}
+              onCategory={(value) => { setCategory(value); browse(); }}
+            />
+          )
         )}
         {tab === "home" && page === "favorites" && (
           <View style={styles.card}>
@@ -356,7 +364,8 @@ export default function App() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.white },
-  brandedScroller: { marginTop: -16, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: theme.white },
+  brandedScroller: { marginTop: -10, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: theme.white },
+  phaseOneBlankCanvas: { minHeight: 700, backgroundColor: theme.white },
   header: { backgroundColor: theme.white, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12,
     borderBottomColor: theme.border, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   logo: { color: theme.pink, fontSize: 32, fontWeight: "900", letterSpacing: -1 },
