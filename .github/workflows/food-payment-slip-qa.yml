@@ -1,0 +1,36 @@
+name: Food Payment Slip QA
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261008234500_food_verify_uploaded_payment_slip.sql'
+      - 'supabase/tests/wynos_stripe_payment_core_test.sh'
+      - 'supabase/tests/wynos_food_slip_object_test.sh'
+      - '.github/workflows/food-payment-slip-qa.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  payment-slip:
+    name: PostgreSQL private slip verification (disposable)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate uploaded slip, payment and Stripe guards
+        run: bash supabase/tests/wynos_food_slip_object_test.sh
