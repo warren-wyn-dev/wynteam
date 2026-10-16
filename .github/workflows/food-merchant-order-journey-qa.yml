@@ -1,0 +1,39 @@
+name: Food Merchant Order Journey QA
+on:
+  pull_request:
+    paths:
+      - 'supabase/tests/wynos_food_merchant_order_journey_test.sh'
+      - 'supabase/migrations_wynos_stripe_payment_core_v1.sql'
+      - 'supabase/migrations_wynos_merchant_core_completion_v1.sql'
+      - 'supabase/migrations_wynos_food_delivery_photo_required_v1.sql'
+      - 'supabase/migrations_wynos_food_customer_access_gate_v2.sql'
+      - '.github/workflows/food-merchant-order-journey-qa.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  order-journey:
+    name: PostgreSQL full order lifecycle (disposable)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute Food → Merchant lifecycle regression
+        run: bash supabase/tests/wynos_food_merchant_order_journey_test.sh
