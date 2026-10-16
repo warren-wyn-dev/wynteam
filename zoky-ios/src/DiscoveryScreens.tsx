@@ -64,7 +64,7 @@ export function DiscoveryStoreCard({ store, onPress }: { store: Store; onPress: 
     >
       <View style={styles.storeArtwork}>
         <Text style={styles.storeEmoji}>{store.emoji}</Text>
-        <Text style={styles.artworkFoot}>ZOKY FOOD</Text>
+        <Text style={styles.artworkFoot}>FOOD</Text>
       </View>
       <View style={styles.flex}>
         <Text numberOfLines={1} style={styles.storeName}>{store.name}</Text>
@@ -128,7 +128,7 @@ export function HomeDiscovery({ stores, categories, onBrowse, onStore, onCategor
       </View>
 
       <View style={styles.hero}>
-        <View style={styles.heroTag}><Text style={styles.heroTagText}>✦  ZOKY FOOD</Text></View>
+        <View style={styles.heroTag}><Text style={styles.heroTagText}>✦  FOOD DELIVERY</Text></View>
         <View style={styles.heroRow}>
           <View style={styles.flex}>
             <Text style={styles.heroTitle}>อยากกินอะไร{"\n"}วันนี้?</Text>
@@ -158,7 +158,7 @@ export function HomeDiscovery({ stores, categories, onBrowse, onStore, onCategor
         <Text style={styles.searchArrow}>›</Text>
       </Pressable>
 
-      <SectionHeader title="บริการของ Zoky" subtitle="ครบในที่เดียว เริ่มจากบริการอาหาร" />
+      <SectionHeader title="บริการของเรา" subtitle="ครบในที่เดียว เริ่มจากบริการอาหาร" />
       <View style={styles.servicesRow}>
         <Pressable
           onPress={onBrowse}
@@ -205,7 +205,7 @@ export function HomeDiscovery({ stores, categories, onBrowse, onStore, onCategor
       {stores.slice(0, 3).map((store) => (
         <DiscoveryStoreCard key={store.id} store={store} onPress={() => onStore(store)} />
       ))}
-      <Text style={styles.disclaimer}>นี่เป็นต้นแบบแอป Zoky iOS ไม่มีการสั่งซื้อหรือชำระเงินจริง</Text>
+      <Text style={styles.disclaimer}>นี่เป็นต้นแบบแอป iOS ไม่มีการสั่งซื้อหรือชำระเงินจริง</Text>
     </View>
   );
 }
@@ -220,7 +220,7 @@ export function BrowseDiscovery({
       </Pressable>
       <Eyebrow>DISCOVER FOOD</Eyebrow>
       <Text style={styles.browseTitle}>ค้นหาของอร่อย</Text>
-      <Text style={styles.browseDescription}>ร้านและเมนูตัวอย่างสำหรับทดลอง Zoky iOS</Text>
+      <Text style={styles.browseDescription}>ร้านและเมนูตัวอย่างสำหรับทดลองบน iPhone</Text>
       <View style={styles.searchContainer}>
         <Text style={styles.searchIcon}>⌕</Text>
         <TextInput
