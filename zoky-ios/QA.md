@@ -1,11 +1,27 @@
-# Zoky iOS Design Preview 2 — QA checklist
+# Zoky iOS Home Header Phase 1 — QA checklist
 
 Current status: source added for review; no Expo Go physical-device execution has been claimed.
 
 ## Functional smoke checks (iPhone, Expo Go)
 
+### Phase 1 — selected compact header (priority)
+
+- [ ] Compare the Home header against the approved compact B mockup on a physical iPhone; adjust after screenshot review rather than claim pixel perfection.
+- [ ] Status bar is light over the pink-to-magenta header, including Dynamic Island/safe-area handling.
+- [ ] White founder-supplied Zoky wordmark silhouette is visible at left; do not embed its original pink square/background.
+- [ ] White circular outlined pink heart sits at right, has a 48pt touch target, and opens a clearly labeled favorites placeholder.
+- [ ] The Home header contains NO location, notification bell, cart, welcome copy or extra buttons.
+- [ ] The white content beneath the header has softly rounded top corners; gradient has subtle layered waves.
+- [ ] Header is compact (approximately 15–20% shorter than the previously approved tall concept).
+- [ ] Returning from favorites restores Home; switch tabs and navigate to Food/store/cart without losing state.
+- [ ] Verify on small and large iPhone sizes, large fonts and VoiceOver, with touch targets reachable.
+- [ ] Favoriting actual stores is NOT implemented in Phase 1; do not claim that user favorites persist.
+
+### Existing preview smoke checks
+
+
 - [ ] Launch Zoky with Expo SDK 57 and see the refreshed hot-pink home without a crash.
-- [ ] Confirm the word "Zoky" is not printed within the app's header, Food hero, store cards, Browse copy, or Account screen (internal project metadata remains unchanged).
+- [ ] The real Zoky wordmark silhouette appears on the Home header only, with no duplicate text or location row.
 - [ ] Home CTA and search shortcut both open the Browse screen.
 - [ ] Home category tap opens Browse with the selected category.
 - [ ] Browse shows correct filtered result count and resettable empty state.
