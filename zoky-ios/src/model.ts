@@ -52,4 +52,4 @@ export type CartLine = {
 };
 
 export type Tab = "home" | "orders" | "messages" | "account";
-export type HomePage = "hub" | "browse" | "store" | "cart";
+export type HomePage = "hub" | "browse" | "store" | "cart" | "favorites";
