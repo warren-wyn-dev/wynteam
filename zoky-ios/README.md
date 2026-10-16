@@ -25,6 +25,14 @@ The first Expo Go screenshot did NOT match the agreed mockup: gradient was cut o
 
 This revision still requires Expo Go screenshot QA and TypeScript check in the user Codespace before being called visually approved.
 
+## Phase 1 background and logo — original imagery only
+
+Header uses **two extracted raster assets** rather than an SVG gradient recreation:
+- `assets/zoky-wordmark-original-1066.png` — high-resolution original source lettering and smile with transparency (no recreated font, glyph paths, new tint, or AI imagery).
+- `assets/zoky-header-from-original-jpg.jpg` — photographic crop (420/320px test asset) from a clean pink glossy upper strip in the founder-supplied square logo image; no new painted curves or drawn gradient.
+
+The pink bitmap is scaled to the responsive wide Header, so this preserves the photograph's colours and highlights **but cannot be pixel-identical to the original square icon**. The 1066px logo is preserved. Phase 1 remains a static design preview. Device QA is required before approval.
+
 ## Phase 1 lossless logo asset (October 16, 2026)
 
 The Home header now imports `assets/zoky-wordmark-original-1066.png`. This is a **pixel-preserving crop** of the user-supplied 1256×1256 transparent PNG: 1066×590, preserving full RGBA edge detail and the original white-to-pink lettering without recoloring, scaling, posterization, or re-drawing the wordmark. `Image` uses `resizeMode="contain"` and no tint. The older 150px, 320px and 420px assets remain as historical previews but **are not used on Home**.
