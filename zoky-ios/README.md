@@ -25,6 +25,12 @@ The first Expo Go screenshot did NOT match the agreed mockup: gradient was cut o
 
 This revision still requires Expo Go screenshot QA and TypeScript check in the user Codespace before being called visually approved.
 
+## Phase 1 lossless logo asset (October 16, 2026)
+
+The Home header now imports `assets/zoky-wordmark-original-1066.png`. This is a **pixel-preserving crop** of the user-supplied 1256×1256 transparent PNG: 1066×590, preserving full RGBA edge detail and the original white-to-pink lettering without recoloring, scaling, posterization, or re-drawing the wordmark. `Image` uses `resizeMode="contain"` and no tint. The older 150px, 320px and 420px assets remain as historical previews but **are not used on Home**.
+
+This update applies only to the isolated Zoky iOS branch and is not deployed. Visual approval is still contingent on Expo Go on-device screenshot review. Run `cd /workspaces/wynteam/zoky-ios && git pull --ff-only && npm run check` then reload the running Expo session; do not merge or deploy.
+
 ## Home UX Phase 1 — Approved compact header
 
 Approved visual direction: compact B header, 15–20% shorter than the prior tall mockup.
