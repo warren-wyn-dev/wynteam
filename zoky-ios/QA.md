@@ -7,6 +7,8 @@ Current status: Phase 1 Header source updated and static GitHub checks completed
 ### Phase 1 — selected compact header (priority)
 
 - [ ] Compare the Home header against the approved compact B mockup on a physical iPhone; adjust after screenshot review rather than claim pixel perfection.
+- [ ] Compare the header colour and glossy berry shading against the user's original pink-background Zoky logo image; gradient stops are sampled from the JPG but the wide-header lighting is an adaptation, not the original square background pasted behind the logo.
+- [ ] Ensure the 1066x590 untinted transparent PNG has no visible rectangular seam against the image-derived magenta backdrop. Confirm on both light and dark system appearance.
 - [ ] Recheck after the 2026-10-16 device screenshot: previously the gradient ended in a solid hot-pink band and the wordmark was too close to the white sheet.
 - [ ] Preview Home shows only the branded Phase 1 header and blank white canvas; old hero, Ride and other unapproved home sections are hidden.
 - [ ] Status bar is light over the pink-to-magenta header, including Dynamic Island/safe-area handling.
