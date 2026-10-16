@@ -1,12 +1,14 @@
 # Zoky iOS Home Header Phase 1 — QA checklist
 
-Current status: Phase 1 Header source updated and static GitHub checks completed; latest PNG revision still awaits physical-device Expo Go screenshot review.
+Current status: Phase 1 Header now uses pixel-derived source photos (wordmark PNG + top-gloss photographic JPG strip) and awaits Expo Go visual approval. Changes are development-only in the isolated iOS branch; no main merge or deployment.
 
 ## Functional smoke checks (iPhone, Expo Go)
 
 ### Phase 1 — selected compact header (priority)
 
 - [ ] Compare the Home header against the approved compact B mockup on a physical iPhone; adjust after screenshot review rather than claim pixel perfection.
+- [ ] Confirm no hand-drawn gradient artwork is rendered: header background must be `assets/zoky-header-from-original-jpg.jpg`, cropped from the owner's pink JPG; the wordmark must use the original high-resolution cropped PNG `assets/zoky-wordmark-original-1066.png`.
+- [ ] Check the source photo strip scaling and the letter contrast against the approved icon; the original artwork was square and the Header is wide, so their geometry cannot be exactly identical.
 - [ ] Compare the header colour and glossy berry shading against the user's original pink-background Zoky logo image; gradient stops are sampled from the JPG but the wide-header lighting is an adaptation, not the original square background pasted behind the logo.
 - [ ] Ensure the 1066x590 untinted transparent PNG has no visible rectangular seam against the image-derived magenta backdrop. Confirm on both light and dark system appearance.
 - [ ] Recheck after the 2026-10-16 device screenshot: previously the gradient ended in a solid hot-pink band and the wordmark was too close to the white sheet.
