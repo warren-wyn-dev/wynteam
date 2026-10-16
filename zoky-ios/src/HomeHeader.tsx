@@ -8,8 +8,8 @@ import Svg, { Path } from "react-native-svg";
  * The image is a lossless high-resolution crop of the founder's supplied logo.
  * Original-background pixels: assets/zoky-header-from-original-jpg.jpg
  * The background is directly cropped from the founder's 1256px source photo,
- * resized as a photographic strip; no AI artwork, SVG gradient, letters or
- * manually traced paths are used to reproduce the wordmark or its backdrop.
+ * fitted inside the compact banner while preserving its aspect ratio. The
+ * wordmark and backdrop are source-derived, not generated or redrawn.
  * Since square icon art must be adapted to a wide responsive header,
  * this preserves source artwork but does NOT promise pixel-perfect equivalence.
  */
@@ -58,7 +58,7 @@ export function HomeHeader({
     >
       <Image
         source={require("../assets/zoky-header-from-original-jpg.jpg")}
-        resizeMode="stretch"
+        resizeMode="cover"
         style={[styles.backgroundLayer, { width: screenWidth, height: headerHeight }]}
         pointerEvents="none"
         accessible={false}
