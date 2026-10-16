@@ -21,13 +21,26 @@ const routes = [
   "/clubs/new",
 ];
 
-test("consumer routes render without fatal errors or horizontal overflow", async ({ page }, testInfo) => {
+test("consumer routes render without fatal errors or horizontal overflow", async ({ page, browserName }, testInfo) => {
   let currentRoute = "<before-first-navigation>";
   const pageErrors: Array<{ route: string; pageUrl: string; message: string }> = [];
   const requestFailures: Array<{ route: string; pageUrl: string; resourceType: string; requestUrl: string; errorText: string }> = [];
   const badResponses: Array<{ route: string; pageUrl: string; resourceType: string; responseUrl: string; status: number }> = [];
 
-  page.on("pageerror", (error) => { pageErrors.push({ route: currentRoute, pageUrl: page.url(), message: error.message }); });
+  page.on("pageerror", (error) => {
+    const pageUrl = page.url();
+    const isLocalWebKitServiceWorkerAccessCheck =
+      browserName === "webkit" &&
+      pageUrl.startsWith("http://127.0.0.1:3000/") &&
+      /\/127\.0\.0\.1:3000\/sw\.js due to access control checks\.$/.test(error.message);
+
+    // WebKit emits this local-only Service Worker access-control diagnostic as a
+    // pageerror under Playwright. Production/hosted errors remain fatal, and all
+    // other local page errors still fail this gate.
+    if (!isLocalWebKitServiceWorkerAccessCheck) {
+      pageErrors.push({ route: currentRoute, pageUrl, message: error.message });
+    }
+  });
   page.on("requestfailed", (request) => { requestFailures.push({ route: currentRoute, pageUrl: page.url(), resourceType: request.resourceType(), requestUrl: request.url(), errorText: request.failure()?.errorText ?? "unknown request failure" }); });
   page.on("response", (response) => { if (response.status() >= 400) badResponses.push({ route: currentRoute, pageUrl: page.url(), resourceType: response.request().resourceType(), responseUrl: response.url(), status: response.status() }); });
 
