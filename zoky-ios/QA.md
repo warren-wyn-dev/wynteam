@@ -1,10 +1,15 @@
-# Zoky iOS Preview 1 — QA checklist
+# Zoky iOS Design Preview 2 — QA checklist
 
 Current status: source added for review; no Expo Go physical-device execution has been claimed.
 
 ## Functional smoke checks (iPhone, Expo Go)
 
-- [ ] Launch Zoky with Expo SDK 57 and see pink home with no crash.
+- [ ] Launch Zoky with Expo SDK 57 and see the refreshed hot-pink home without a crash.
+- [ ] Home CTA and search shortcut both open the Browse screen.
+- [ ] Home category tap opens Browse with the selected category.
+- [ ] Browse shows correct filtered result count and resettable empty state.
+- [ ] Store cards communicate closed/demo state and never imply a real merchant.
+- [ ] Ride is labeled Coming Soon and has no active booking action.
 - [ ] Tap Food -> search store/menu -> filter menu category -> open store.
 - [ ] Closed store cannot add items to cart.
 - [ ] Open sample noodle item, verify vertical spicy level is mandatory.
