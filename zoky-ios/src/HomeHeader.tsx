@@ -74,7 +74,7 @@ export function HomeHeader({
         height="100%"
         viewBox="0 0 390 164"
         preserveAspectRatio="none"
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       >
         <Defs>
           <LinearGradient id="zokyHeaderBg" x1="0%" y1="20%" x2="100%" y2="80%">
