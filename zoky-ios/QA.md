@@ -1,6 +1,6 @@
 # Zoky iOS Home Header Phase 1 — QA checklist
 
-Current status: source added for review; no Expo Go physical-device execution has been claimed.
+Current status: Phase 1 Header source updated and static GitHub checks completed; latest PNG revision still awaits physical-device Expo Go screenshot review.
 
 ## Functional smoke checks (iPhone, Expo Go)
 
@@ -10,8 +10,9 @@ Current status: source added for review; no Expo Go physical-device execution ha
 - [ ] Recheck after the 2026-10-16 device screenshot: previously the gradient ended in a solid hot-pink band and the wordmark was too close to the white sheet.
 - [ ] Preview Home shows only the branded Phase 1 header and blank white canvas; old hero, Ride and other unapproved home sections are hidden.
 - [ ] Status bar is light over the pink-to-magenta header, including Dynamic Island/safe-area handling.
-- [ ] White founder-supplied Zoky wordmark silhouette is visible at left; do not embed its original pink square/background.
-- [ ] Compare the auto-traced six-contour wordmark against the user's original square-logo photo: check the pointed map-pin `o`, open counter inside `o`, curvature/weight of `Z`, `k`, `y`, and the smile; the pink icon tile must be excluded.
+- [ ] Header renders `assets/zoky-wordmark-320.png` from the user's transparent logo PNG, not `zoky-wordmark-source.png` (150px) or any manually-traced SVG.
+- [ ] Check the actual brand geometry: map-pin `o`, central hole, Z/k/y letterforms and smile. Confirm crisp edges on a Retina iPhone and no pink/black rectangular image background.
+- [ ] The 320x177 PNG is an optimized screenshot-preview asset based on a user-provided 1256x1256 transparent source, not an original vector master; report visible banding or jaggies honestly and replace with a larger lossless asset if needed.
 - [ ] White circular outlined pink heart sits at right, has a 48pt touch target, and opens a clearly labeled favorites placeholder.
 - [ ] The Home header contains NO location, notification bell, cart, welcome copy or extra buttons.
 - [ ] The white content beneath the header has softly rounded top corners; gradient has subtle layered waves.
@@ -20,8 +21,7 @@ Current status: source added for review; no Expo Go physical-device execution ha
 - [ ] Verify on small and large iPhone sizes, large fonts and VoiceOver, with touch targets reachable.
 - [ ] Favoriting actual stores is NOT implemented in Phase 1; do not claim that user favorites persist.
 
-### Existing preview smoke checks
-
+### Other preview smoke checks (deferred until later phases; not a Phase 1 approval gate)
 
 - [ ] Launch Zoky with Expo SDK 57 and see the refreshed hot-pink home without a crash.
 - [ ] The real Zoky wordmark silhouette appears on the Home header only, with no duplicate text or location row.
