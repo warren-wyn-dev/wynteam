@@ -29,8 +29,8 @@ const WORDMARK_PATH =
 function Logo() {
   return (
     <Svg
-      width={108}
-      height={59}
+      width={104}
+      height={56}
       viewBox="0 0 1049 575"
       accessible
       accessibilityLabel="โลโก้ Zoky"
@@ -66,12 +66,12 @@ export function HomeHeader({
   const { width: windowWidth } = useWindowDimensions();
   const [bounds, setBounds] = useState({
     width: windowWidth,
-    height: Math.max(topInset, 0) + 84
+    height: Math.max(topInset, 0) + 68
   });
 
   return (
     <View
-      style={[styles.container, { paddingTop: Math.max(topInset, 0) + 4 }]}
+      style={[styles.container, { paddingTop: Math.max(topInset, 0) + 2 }]}
       accessibilityLabel="ส่วนหัวหน้าหลัก"
       onLayout={({ nativeEvent }) => {
         const measured = nativeEvent.layout;
@@ -91,31 +91,28 @@ export function HomeHeader({
         style={styles.backgroundLayer}
       >
         <Defs>
-          <LinearGradient id="zokyHeaderBg" x1="0%" y1="40%" x2="100%" y2="52%">
+          <LinearGradient id="zokyHeaderBg" x1="0%" y1="30%" x2="100%" y2="45%">
             <Stop offset="0%" stopColor="#F70365" />
-            <Stop offset="42%" stopColor="#FE4D95" />
-            <Stop offset="76%" stopColor="#FF83B8" />
-            <Stop offset="100%" stopColor="#FFBADB" />
-          </LinearGradient>
-          <LinearGradient id="zokySheen" x1="0%" y1="0%" x2="100%" y2="90%">
-            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.20} />
-            <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+            <Stop offset="43%" stopColor="#FC297F" />
+            <Stop offset="75%" stopColor="#FF6CAB" />
+            <Stop offset="100%" stopColor="#FFAFD4" />
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width="390" height="164" fill="url(#zokyHeaderBg)" />
         <Path
-          d="M0 0H390V19C345 3 308 12 272 51C213 115 150 123 0 118Z"
-          fill="url(#zokySheen)"
+          d="M0 0H300C282 42 268 91 219 113C160 141 92 149 0 145Z"
+          fill="#F50060"
+          fillOpacity={0.14}
         />
         <Path
-          d="M0 164C65 159 116 151 162 134C212 115 258 80 300 65C338 51 360 52 390 57V164Z"
-          fill="#FFCAE2"
+          d="M0 162C69 162 120 156 167 144C219 130 257 110 296 91C335 73 362 70 390 71V164H0Z"
+          fill="#FFC1DA"
           fillOpacity={0.22}
         />
         <Path
-          d="M133 164C187 145 237 125 285 106C332 87 357 81 390 84V164Z"
-          fill="#FFE5F0"
-          fillOpacity={0.23}
+          d="M236 164C286 134 337 107 390 110V164Z"
+          fill="#FFE2ED"
+          fillOpacity={0.25}
         />
       </Svg>
       <View style={styles.row}>
@@ -141,7 +138,7 @@ export function HomeHeader({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 22,
-    paddingBottom: 16,
+    paddingBottom: 10,
     overflow: "hidden",
     backgroundColor: "#FE0D68"
   },
@@ -151,7 +148,7 @@ const styles = StyleSheet.create({
     left: 0
   },
   row: {
-    minHeight: 64,
+    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between"
