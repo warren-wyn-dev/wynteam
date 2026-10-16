@@ -17,6 +17,14 @@ The current website's public catalog and signed-in order API are documented in:
 
 This iteration adds a native design component in `src/DiscoveryScreens.tsx` for Zoky Food Home and Browse screens. The hot-pink accent is `#F70365`. Home includes a clearly preview-only delivery area, a prominent food call-to-action, a functional search shortcut, Food and disabled Ride service cards, tappable food categories, an informational brand message, and sample storefront recommendations. Browse supports Thai search, category filtering, a result count, and a clear reset empty state. All promo content is informational, not a live coupon or entitlement.
 
+## Design-review revision after first real iPhone screenshot
+
+The first Expo Go screenshot did NOT match the agreed mockup: gradient was cut off, the logo sat too close to the white content edge, and the old prototype Home UI (including Ride) was still visible. The new fix uses measured numeric SVG dimensions instead of percentage sizing, a softer continuous gradient, a smaller wordmark and adjusted white overlap.
+
+**For Phase 1 design review only**, `HOME_PHASE_ONE_REVIEW = true` in `App.tsx` temporarily renders only this Header and a blank white canvas on Home. The old HomeDiscovery implementation is still in the repository but not displayed on Home while its later UX/UI phases are undecided. Other tabs and preview screens remain in source.
+
+This revision still requires Expo Go screenshot QA and TypeScript check in the user Codespace before being called visually approved.
+
 ## Home UX Phase 1 — Approved compact header
 
 Approved visual direction: compact B header, 15–20% shorter than the prior tall mockup.
