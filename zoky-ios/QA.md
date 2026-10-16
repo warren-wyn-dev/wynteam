@@ -10,9 +10,9 @@ Current status: Phase 1 Header source updated and static GitHub checks completed
 - [ ] Recheck after the 2026-10-16 device screenshot: previously the gradient ended in a solid hot-pink band and the wordmark was too close to the white sheet.
 - [ ] Preview Home shows only the branded Phase 1 header and blank white canvas; old hero, Ride and other unapproved home sections are hidden.
 - [ ] Status bar is light over the pink-to-magenta header, including Dynamic Island/safe-area handling.
-- [ ] Header renders `assets/zoky-wordmark-320.png` from the user's transparent logo PNG, not `zoky-wordmark-source.png` (150px) or any manually-traced SVG.
+- [ ] Header renders `assets/zoky-wordmark-original-1066.png` cropped losslessly from the founder's 1256×1256 transparent PNG, not the older 150/320/420px preview or any manually-traced SVG.
 - [ ] Check the actual brand geometry: map-pin `o`, central hole, Z/k/y letterforms and smile. Confirm crisp edges on a Retina iPhone and no pink/black rectangular image background.
-- [ ] The 320x177 PNG is an optimized screenshot-preview asset based on a user-provided 1256x1256 transparent source, not an original vector master; report visible banding or jaggies honestly and replace with a larger lossless asset if needed.
+- [ ] Verify high-density detail on iPhone: original transparent PNG is cropped to 1066×590 without resizing, quantization or tintColor; compare on the real device for sharpness, halo edges and original white-to-pink shading. No pixel-perfect claim before review.
 - [ ] White circular outlined pink heart sits at right, has a 48pt touch target, and opens a clearly labeled favorites placeholder.
 - [ ] The Home header contains NO location, notification bell, cart, welcome copy or extra buttons.
 - [ ] The white content beneath the header has softly rounded top corners; gradient has subtle layered waves.
