@@ -1,4 +1,4 @@
-# Zoky iOS Preview 1 — Native React Native + Expo
+# Zoky iOS Design Preview 2 — Native React Native + Expo
 
 **State:** development-only source in a dedicated branch. No production use, deployment, order creation, authentication, payment, or live customer data.
 
@@ -13,10 +13,14 @@ The current website's public catalog and signed-in order API are documented in:
 
 **No production URL, anonymous key or API credential is bundled.** Synthetic fixture storefronts and prices are clearly labeled. No network calls or data mutations are implemented.
 
+## Premium native discovery UI — Preview 2
+
+This iteration adds a native design component in `src/DiscoveryScreens.tsx` for Zoky Food Home and Browse screens. The hot-pink accent is `#F70365`. Home includes a clearly preview-only delivery area, a prominent food call-to-action, a functional search shortcut, Food and disabled Ride service cards, tappable food categories, an informational brand message, and sample storefront recommendations. Browse supports Thai search, category filtering, a result count, and a clear reset empty state. All promo content is informational, not a live coupon or entitlement.
+
 ## Screens available now
 
-- Zoky Home: brand theme, Food entry and non-operational Ride preview.
-- Food browse: restaurant search, menu-category filter, restaurant cards.
+- Zoky Home: premium pink hero, tappable search, categories, recommended synthetic stores, Food entry and non-operational Ride preview.
+- Food browse: restaurant/menu search, category filter, result count, improved store cards, resettable empty state.
 - Store details: menu list, radio/checkbox-like configurable options including vertical spicy-level choices.
 - Single-store cart: add, quantity changes, remove, clear; preview-only subtotal and illustrative delivery fee.
 - Orders / Messages / Account: informational placeholders, not fake functional integrations.
@@ -44,7 +48,7 @@ Version policy: SDK 57 (React Native 0.86, React 19.2.3) was selected because th
 npm run check
 ~~~
 
-This code has not yet been confirmed running on a physical iPhone. Manual acceptance tests are in QA.md.
+This code has not yet been confirmed running on a physical iPhone. UI checks are limited to a source review until `npm install`, `npm run check`, and Expo Go smoke testing are executed. Manual acceptance tests are in QA.md.
 
 ## Integration gates
 
