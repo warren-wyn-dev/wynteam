@@ -10,9 +10,10 @@ import Svg, {
 
 /**
  * Zoky iOS Home — Phase 1 only.
- * Use the transparent PNG extracted from the founder-supplied JPG logo.
- * Do not recreate the wordmark using fonts or approximate SVG paths.
- * This is a preview-quality extraction, not the original master artwork.
+ * Phase 1 brand wordmark is sourced from the founder's supplied transparent
+ * PNG (rather than a traced imitation). The 320x177 Retina-ready export
+ * preserves the original shape and white-to-pink tone while reducing blur
+ * from the old 150x83 low-resolution placeholder. No tintColor is applied.
  * Colors are sampled from the original pink logo JPG (1254 x 1254 px).
  * Exact sampled pixels used: #F20361, #FD1E77, #FC559A, #FD92C0;
  * original photo is a curved glossy square, so the compact header uses
@@ -21,7 +22,7 @@ import Svg, {
 function Logo() {
   return (
     <Image
-      source={require("../assets/zoky-wordmark-source.png")}
+      source={require("../assets/zoky-wordmark-320.png")}
       style={styles.logo}
       resizeMode="contain"
       accessible
