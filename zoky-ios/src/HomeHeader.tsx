@@ -1,5 +1,5 @@
 import React from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 /**
@@ -47,25 +47,24 @@ export function HomeHeader({
   topInset: number;
   onOpenFavorites: () => void;
 }) {
-  // Give the header a definite box before sizing its decorative background.
-  // Percentage image dimensions on an auto-sized parent previously caused
-  // the photograph to expand over the entire Expo Go screen.
+  const { width: screenWidth } = useWindowDimensions();
   const safeTop = Math.max(topInset, 0);
   const headerHeight = safeTop + 75;
 
   return (
     <View
-      style={[styles.container, { height: headerHeight, paddingTop: safeTop + 2 }]}
+      style={[styles.container, { height: headerHeight }]}
       accessibilityLabel="ส่วนหัวหน้าหลัก"
     >
       <Image
         source={require("../assets/zoky-header-from-original-jpg.jpg")}
         resizeMode="stretch"
-        style={StyleSheet.absoluteFillObject}
+        style={[styles.backgroundLayer, { width: screenWidth, height: headerHeight }]}
+        pointerEvents="none"
         accessible={false}
         importantForAccessibility="no"
       />
-      <View style={styles.row}>
+      <View style={[styles.row, { top: safeTop + 2 }]}>
         <Logo />
         <Pressable
           accessibilityRole="button"
@@ -90,13 +89,21 @@ const styles = StyleSheet.create({
     width: "100%",
     flexGrow: 0,
     flexShrink: 0,
-    paddingHorizontal: 22,
-    paddingBottom: 10,
     overflow: "hidden",
     backgroundColor: "#F60361"
   },
+  backgroundLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    zIndex: 0
+  },
   row: {
-    minHeight: 56,
+    position: "absolute",
+    left: 22,
+    right: 22,
+    height: 61,
+    zIndex: 2,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between"
