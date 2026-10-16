@@ -17,6 +17,21 @@ The current website's public catalog and signed-in order API are documented in:
 
 This iteration adds a native design component in `src/DiscoveryScreens.tsx` for Zoky Food Home and Browse screens. The hot-pink accent is `#F70365`. Home includes a clearly preview-only delivery area, a prominent food call-to-action, a functional search shortcut, Food and disabled Ride service cards, tappable food categories, an informational brand message, and sample storefront recommendations. Browse supports Thai search, category filtering, a result count, and a clear reset empty state. All promo content is informational, not a live coupon or entitlement.
 
+## Home UX Phase 1 — Approved compact header
+
+Approved visual direction: compact B header, 15–20% shorter than the prior tall mockup.
+
+- **Background:** hot-pink to pastel-magenta gradient with subtle flowing wave overlays, not a generic gray toolbar.
+- **Left:** white vector wordmark traced from the founder-provided pink Zoky app-icon photo (no pink tile).
+- **Right:** 48pt white circular favorite button with outlined pink heart.
+- **Removed from Home header:** location picker, notification bell, cart icon, extra welcome text.
+- **Layout:** safe-area-aware full-bleed backdrop; white content rounds over the gradient.
+- **Favorite action:** navigates to a placeholder-only Favorites screen. There is no persisted favorites data or customer read/write integration.
+- **Scope:** affects the Home hub and Favorites header only. Food browse, store, cart and non-Home bottom tabs retain their existing preview functionality.
+- **Native dependencies:** SVG and safe-area packages included in Expo SDK 57 Expo Go, with compatible versions pinned in \`package.json\`.
+
+This matches the chosen **design direction**, not a verified pixel-identical implementation: the gradient and white wordmark are recreated from the supplied visual. Confirm on the user's device in Expo Go and compare screenshots before promising exact fidelity. Do not merge or deploy without further founder approval.
+
 ## Screens available now
 
 - Zoky Home: premium pink hero, tappable search, categories, recommended synthetic stores, Food entry and non-operational Ride preview.
