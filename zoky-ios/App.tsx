@@ -195,7 +195,7 @@ export default function App() {
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
         <View>
-          <Text style={styles.logo}>Zoky<Text style={styles.logoDot}>●</Text></Text>
+          <Text style={styles.logo}>หน้าหลัก</Text>
           <Text style={styles.subtle}>iOS Design Preview 2 · ไม่มีธุรกรรมจริง</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel={"ตะกร้า " + cartCount + " รายการ"} onPress={() => { setTab("home"); setPage("cart"); }} style={styles.cartPill}>
@@ -306,7 +306,7 @@ export default function App() {
           <View style={styles.card}><Heading title="ข้อความ" hint="รอบนี้ยังไม่เปิดแชตหรือแจ้งเตือน" /><Text style={styles.empty}>ไม่มีข้อความใน Preview</Text></View>
         )}
         {tab === "account" && (
-          <View style={styles.card}><Heading title="บัญชี Zoky" hint="ยังไม่เชื่อมบัญชีจริง" /><Text style={styles.empty}>การเข้าสู่ระบบจะพัฒนาในขั้นถัดไป หลังผ่านการทดสอบความปลอดภัย</Text></View>
+          <View style={styles.card}><Heading title="บัญชีของฉัน" hint="ยังไม่เชื่อมบัญชีจริง" /><Text style={styles.empty}>การเข้าสู่ระบบจะพัฒนาในขั้นถัดไป หลังผ่านการทดสอบความปลอดภัย</Text></View>
         )}
       </ScrollView>
       <View style={styles.tabs}>
@@ -332,7 +332,6 @@ const styles = StyleSheet.create({
   header: { backgroundColor: theme.white, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12,
     borderBottomColor: theme.border, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   logo: { color: theme.pink, fontSize: 32, fontWeight: "900", letterSpacing: -1 },
-  logoDot: { color: theme.pinkDark, fontSize: 10 },
   subtle: { color: theme.muted, fontSize: 13, lineHeight: 19 },
   meta: { color: theme.pinkDark, fontSize: 12, fontWeight: "600", marginTop: 7 },
   scroller: { flex: 1, backgroundColor: theme.pinkSoft },
