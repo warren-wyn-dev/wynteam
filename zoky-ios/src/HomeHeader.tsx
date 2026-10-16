@@ -1,5 +1,5 @@
-import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import React, { useState } from "react";
+import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import Svg, {
   Defs,
   LinearGradient,
@@ -29,8 +29,8 @@ const WORDMARK_PATH =
 function Logo() {
   return (
     <Svg
-      width={118}
-      height={65}
+      width={108}
+      height={59}
       viewBox="0 0 1049 575"
       accessible
       accessibilityLabel="โลโก้ Zoky"
@@ -63,44 +63,59 @@ export function HomeHeader({
   topInset: number;
   onOpenFavorites: () => void;
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const [bounds, setBounds] = useState({
+    width: windowWidth,
+    height: Math.max(topInset, 0) + 84
+  });
+
   return (
     <View
-      style={[styles.container, { paddingTop: Math.max(topInset, 0) + 3 }]}
+      style={[styles.container, { paddingTop: Math.max(topInset, 0) + 4 }]}
       accessibilityLabel="ส่วนหัวหน้าหลัก"
+      onLayout={({ nativeEvent }) => {
+        const measured = nativeEvent.layout;
+        const width = Math.round(measured.width);
+        const height = Math.round(measured.height);
+        if (width !== bounds.width || height !== bounds.height) {
+          setBounds({ width, height });
+        }
+      }}
     >
       <Svg
         pointerEvents="none"
-        width="100%"
-        height="100%"
+        width={bounds.width}
+        height={bounds.height}
         viewBox="0 0 390 164"
         preserveAspectRatio="none"
-        style={StyleSheet.absoluteFill}
+        style={styles.backgroundLayer}
       >
         <Defs>
-          <LinearGradient id="zokyHeaderBg" x1="0%" y1="20%" x2="100%" y2="80%">
-            <Stop offset="0%" stopColor="#FE0D68" />
-            <Stop offset="48%" stopColor="#FF3A8A" />
-            <Stop offset="100%" stopColor="#FFA6CD" />
+          <LinearGradient id="zokyHeaderBg" x1="0%" y1="40%" x2="100%" y2="52%">
+            <Stop offset="0%" stopColor="#F70365" />
+            <Stop offset="42%" stopColor="#FE4D95" />
+            <Stop offset="76%" stopColor="#FF83B8" />
+            <Stop offset="100%" stopColor="#FFBADB" />
           </LinearGradient>
-          <LinearGradient id="zokySheen" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#FF8BBF" stopOpacity={0.24} />
-            <Stop offset="100%" stopColor="#FFC8E1" stopOpacity={0} />
+          <LinearGradient id="zokySheen" x1="0%" y1="0%" x2="100%" y2="90%">
+            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.20} />
+            <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width="390" height="164" fill="url(#zokyHeaderBg)" />
         <Path
-          d="M0 0H390V17C334 5 304 27 275 57C231 102 171 122 0 119Z"
+          d="M0 0H390V19C345 3 308 12 272 51C213 115 150 123 0 118Z"
           fill="url(#zokySheen)"
         />
         <Path
-          d="M0 158C66 157 101 150 139 138C212 114 259 77 309 65C342 57 366 58 390 60V164H0Z"
-          fill="#FFDAEB"
-          fillOpacity={0.16}
+          d="M0 164C65 159 116 151 162 134C212 115 258 80 300 65C338 51 360 52 390 57V164Z"
+          fill="#FFCAE2"
+          fillOpacity={0.22}
         />
         <Path
-          d="M115 164C175 147 206 138 250 119C312 92 342 82 390 86V164Z"
-          fill="#FFE3EF"
-          fillOpacity={0.17}
+          d="M133 164C187 145 237 125 285 106C332 87 357 81 390 84V164Z"
+          fill="#FFE5F0"
+          fillOpacity={0.23}
         />
       </Svg>
       <View style={styles.row}>
@@ -126,9 +141,14 @@ export function HomeHeader({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 22,
-    paddingBottom: 10,
+    paddingBottom: 16,
     overflow: "hidden",
     backgroundColor: "#FE0D68"
+  },
+  backgroundLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0
   },
   row: {
     minHeight: 64,
@@ -140,9 +160,9 @@ const styles = StyleSheet.create({
     flexShrink: 0
   },
   favoriteButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
