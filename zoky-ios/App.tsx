@@ -7,6 +7,7 @@ import { addLine, itemOptionError, lineKey, subtotal, unitPrice } from "./src/ca
 import { demoStores } from "./src/fixtures";
 import type { CartLine, HomePage, MenuItem, SelectedOption, Store, Tab } from "./src/model";
 import { baht, theme } from "./src/theme";
+import { HomeDiscovery, BrowseDiscovery } from "./src/DiscoveryScreens";
 
 function Button({ label, onPress, soft = false, disabled = false }: {
   label: string; onPress: () => void; soft?: boolean; disabled?: boolean;
@@ -218,7 +219,7 @@ export default function App() {
       <View style={styles.header}>
         <View>
           <Text style={styles.logo}>Zoky<Text style={styles.logoDot}>●</Text></Text>
-          <Text style={styles.subtle}>iOS Preview · ไม่มีธุรกรรมจริง</Text>
+          <Text style={styles.subtle}>iOS Design Preview 2 · ไม่มีธุรกรรมจริง</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel={"ตะกร้า " + cartCount + " รายการ"} onPress={() => { setTab("home"); setPage("cart"); }} style={styles.cartPill}>
           <Text style={styles.cartPillText}>🛒  {cartCount}</Text>
@@ -231,58 +232,25 @@ export default function App() {
         keyboardShouldPersistTaps="handled"
       >
         {tab === "home" && page === "hub" && (
-          <>
-            <View style={styles.hero}>
-              <Text style={styles.heroEyebrow}>ยินดีต้อนรับสู่ Zoky</Text>
-              <Text style={styles.heroTitle}>อร่อยง่าย สดใสทุกวัน</Text>
-              <Text style={styles.heroCopy}>สำรวจเมนูและร้านอาหารในแอปทดลอง</Text>
-              <Button label="ดูร้านอาหาร →" onPress={browse} soft />
-            </View>
-            <Heading title="บริการของ Zoky" hint="เริ่มทดลองระบบอาหารก่อน" />
-            <Pressable onPress={browse} accessibilityRole="button" accessibilityLabel="เปิดบริการสั่งอาหาร" style={styles.serviceCard}>
-              <View style={styles.illustration}><Text style={styles.bigEmoji}>🍱</Text></View>
-              <View style={styles.flex}>
-                <Text style={styles.cardTitle}>สั่งอาหาร</Text>
-                <Text style={styles.subtle}>ค้นหาร้าน เมนู และสร้างตะกร้าทดลอง</Text>
-              </View>
-              <Text style={styles.arrow}>›</Text>
-            </Pressable>
-            <View style={styles.serviceCard}>
-              <View style={styles.illustration}><Text style={styles.bigEmoji}>🚗</Text></View>
-              <View style={styles.flex}>
-                <Text style={styles.cardTitle}>เรียกรถ</Text>
-                <Text style={styles.subtle}>Coming Soon — ยังไม่เปิดให้บริการ</Text>
-              </View>
-            </View>
-            <Heading title="ร้านตัวอย่าง" hint="ไม่ใช่ร้านค้าจริง" />
-            {demoStores.slice(0, 2).map((entry) => (
-              <StoreCard key={entry.id} store={entry} onPress={() => showStore(entry)} />
-            ))}
-          </>
+          <HomeDiscovery
+            stores={demoStores}
+            categories={categories}
+            onBrowse={browse}
+            onStore={showStore}
+            onCategory={(value) => { setCategory(value); browse(); }}
+          />
         )}
         {tab === "home" && page === "browse" && (
-          <>
-            <Heading title="ค้นหาร้านอาหาร" hint="ข้อมูลจำลอง · ยังไม่เชื่อมระบบร้านจริง" />
-            <TextInput
-              style={styles.search}
-              accessibilityLabel="ค้นหาร้านหรือเมนู"
-              placeholder="ค้นหาร้านอาหารหรือชื่อเมนู"
-              placeholderTextColor={theme.muted}
-              value={search}
-              onChangeText={setSearch}
-            />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
-              {categories.map((name) => (
-                <Pressable key={name} accessibilityRole="button" onPress={() => setCategory(name)} style={[styles.chip, name === category && styles.chipActive]}>
-                  <Text style={[styles.chipText, name === category && styles.chipTextActive]}>{name}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            {filtered.length ? filtered.map((entry) =>
-              <StoreCard key={entry.id} store={entry} onPress={() => showStore(entry)} />
-            ) : <Text style={styles.empty}>ไม่พบร้านอาหารที่ตรงกับการค้นหา</Text>}
-            <Button label="← กลับหน้าแรก" onPress={() => setPage("hub")} soft />
-          </>
+          <BrowseDiscovery
+            stores={filtered}
+            categories={categories}
+            query={search}
+            onQuery={setSearch}
+            category={category}
+            onCategory={setCategory}
+            onStore={showStore}
+            onBack={() => setPage("hub")}
+          />
         )}
         {tab === "home" && page === "store" && store && (
           <>
