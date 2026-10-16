@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
   Alert, Modal, Pressable, SafeAreaView, ScrollView, StatusBar,
-  StyleSheet, Text, TextInput, View
+  StyleSheet, Text, View
 } from "react-native";
 import { addLine, itemOptionError, lineKey, subtotal, unitPrice } from "./src/cart";
 import { demoStores } from "./src/fixtures";
@@ -31,29 +31,6 @@ function Heading({ title, hint }: { title: string; hint?: string }) {
       <Text style={styles.h2}>{title}</Text>
       {hint ? <Text style={styles.subtle}>{hint}</Text> : null}
     </View>
-  );
-}
-
-function StoreCard({ store, onPress }: { store: Store; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={"ดูร้าน " + store.name}
-      onPress={onPress}
-      style={styles.card}
-    >
-      <View style={styles.cardRow}>
-        <View style={styles.illustration}><Text style={styles.bigEmoji}>{store.emoji}</Text></View>
-        <View style={styles.flex}>
-          <Text style={styles.cardTitle}>{store.name}</Text>
-          <Text style={styles.subtle}>{store.description}</Text>
-          <Text style={styles.meta}>
-            {store.open ? "เปิด (ข้อมูลจำลอง)" : "ปิด (ข้อมูลจำลอง)"} · ค่าส่งตัวอย่าง {baht(store.deliveryFee)}
-          </Text>
-        </View>
-        <Text style={styles.arrow}>›</Text>
-      </View>
-    </Pressable>
   );
 }
 
