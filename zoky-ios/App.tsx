@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
-  Alert, Modal, Pressable, SafeAreaView, ScrollView, StatusBar,
+  Alert, Modal, Pressable, ScrollView, StatusBar,
   StyleSheet, Text, View
 } from "react-native";
 import { addLine, itemOptionError, lineKey, subtotal, unitPrice } from "./src/cart";
@@ -8,6 +8,8 @@ import { demoStores } from "./src/fixtures";
 import type { CartLine, HomePage, MenuItem, SelectedOption, Store, Tab } from "./src/model";
 import { baht, theme } from "./src/theme";
 import { HomeDiscovery, BrowseDiscovery } from "./src/DiscoveryScreens";
+import { HomeHeader } from "./src/HomeHeader";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
 function Button({ label, onPress, soft = false, disabled = false }: {
   label: string; onPress: () => void; soft?: boolean; disabled?: boolean;
@@ -128,7 +130,8 @@ function OptionModal({ item, onClose, onAdd }: {
   );
 }
 
-export default function App() {
+function MainApp() {
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("home");
   const [page, setPage] = useState<HomePage>("hub");
   const [storeId, setStoreId] = useState<string | null>(null);
@@ -136,6 +139,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("ทั้งหมด");
   const [cart, setCart] = useState<CartLine[]>([]);
+  const brandedHeader = tab === "home" && (page === "hub" || page === "favorites");
 
   const store = demoStores.find((candidate) => candidate.id === storeId) ?? null;
   const cartStore = demoStores.find((candidate) => candidate.id === cart[0]?.storeId) ?? null;
@@ -191,20 +195,27 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.logo}>หน้าหลัก</Text>
-          <Text style={styles.subtle}>iOS Design Preview 2 · ไม่มีธุรกรรมจริง</Text>
+    <View style={styles.root}>
+      <StatusBar barStyle={brandedHeader ? "light-content" : "dark-content"} />
+      {brandedHeader ? (
+        <HomeHeader
+          topInset={insets.top}
+          onOpenFavorites={() => { setTab("home"); setPage("favorites"); setMenuItem(null); }}
+        />
+      ) : (
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <View>
+            <Text style={styles.logo}>หน้าหลัก</Text>
+            <Text style={styles.subtle}>iOS Design Preview 2 · ไม่มีธุรกรรมจริง</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={"ตะกร้า " + cartCount + " รายการ"} onPress={() => { setTab("home"); setPage("cart"); }} style={styles.cartPill}>
+            <Text style={styles.cartPillText}>🛒  {cartCount}</Text>
+          </Pressable>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={"ตะกร้า " + cartCount + " รายการ"} onPress={() => { setTab("home"); setPage("cart"); }} style={styles.cartPill}>
-          <Text style={styles.cartPillText}>🛒  {cartCount}</Text>
-        </Pressable>
-      </View>
+      )}
       <ScrollView
         key={tab + ":" + page + ":" + (storeId ?? "")}
-        style={styles.scroller}
+        style={[styles.scroller, brandedHeader && styles.brandedScroller]}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
@@ -216,6 +227,14 @@ export default function App() {
             onStore={showStore}
             onCategory={(value) => { setCategory(value); browse(); }}
           />
+        )}
+        {tab === "home" && page === "favorites" && (
+          <View style={styles.card}>
+            <Heading title="รายการโปรด" hint="รายการร้านอาหารที่คุณบันทึกไว้" />
+            <Text style={styles.empty}>♡ ยังไม่มีรายการโปรดในตัวอย่างนี้</Text>
+            <Text style={styles.subtle}>ระบบบันทึกร้านโปรดจริงจะเชื่อมข้อมูลบัญชีภายหลัง</Text>
+            <Button label="กลับหน้าหลัก" onPress={() => setPage("hub")} soft />
+          </View>
         )}
         {tab === "home" && page === "browse" && (
           <BrowseDiscovery
@@ -309,7 +328,7 @@ export default function App() {
           <View style={styles.card}><Heading title="บัญชีของฉัน" hint="ยังไม่เชื่อมบัญชีจริง" /><Text style={styles.empty}>การเข้าสู่ระบบจะพัฒนาในขั้นถัดไป หลังผ่านการทดสอบความปลอดภัย</Text></View>
         )}
       </ScrollView>
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { paddingBottom: Math.max(insets.bottom, 6) }]}>
         {([
           ["home", "⌂", "หน้าหลัก"],
           ["orders", "▤", "ออเดอร์"],
@@ -323,12 +342,21 @@ export default function App() {
         ))}
       </View>
       <OptionModal key={menuItem?.id ?? "closed"} item={menuItem} onClose={() => setMenuItem(null)} onAdd={addToCart} />
-    </SafeAreaView>
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <MainApp />
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.white },
+  brandedScroller: { marginTop: -16, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: theme.white },
   header: { backgroundColor: theme.white, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12,
     borderBottomColor: theme.border, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   logo: { color: theme.pink, fontSize: 32, fontWeight: "900", letterSpacing: -1 },
