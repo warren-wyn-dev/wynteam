@@ -11,6 +11,7 @@ Current status: source added for review; no Expo Go physical-device execution ha
 - [ ] Preview Home shows only the branded Phase 1 header and blank white canvas; old hero, Ride and other unapproved home sections are hidden.
 - [ ] Status bar is light over the pink-to-magenta header, including Dynamic Island/safe-area handling.
 - [ ] White founder-supplied Zoky wordmark silhouette is visible at left; do not embed its original pink square/background.
+- [ ] Compare the auto-traced six-contour wordmark against the user's original square-logo photo: check the pointed map-pin `o`, open counter inside `o`, curvature/weight of `Z`, `k`, `y`, and the smile; the pink icon tile must be excluded.
 - [ ] White circular outlined pink heart sits at right, has a 48pt touch target, and opens a clearly labeled favorites placeholder.
 - [ ] The Home header contains NO location, notification bell, cart, welcome copy or extra buttons.
 - [ ] The white content beneath the header has softly rounded top corners; gradient has subtle layered waves.
