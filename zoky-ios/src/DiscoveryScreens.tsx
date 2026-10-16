@@ -118,15 +118,6 @@ function CategoryStrip({ categories, selected, onCategory }: {
 export function HomeDiscovery({ stores, categories, onBrowse, onStore, onCategory }: HomeProps) {
   return (
     <View>
-      <View style={styles.deliveryHint}>
-        <Text style={styles.deliveryIcon}>⌖</Text>
-        <View style={styles.flex}>
-          <Text style={styles.deliveryLabel}>พื้นที่จัดส่ง</Text>
-          <Text style={styles.deliveryValue}>ยังไม่ได้ตั้งที่อยู่ · โหมดทดลอง</Text>
-        </View>
-        <View style={styles.previewPill}><Text style={styles.previewPillText}>PREVIEW</Text></View>
-      </View>
-
       <View style={styles.hero}>
         <View style={styles.heroTag}><Text style={styles.heroTagText}>✦  FOOD DELIVERY</Text></View>
         <View style={styles.heroRow}>
