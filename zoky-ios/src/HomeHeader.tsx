@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, useWindowDimensions, View } from "react-n
 import Svg, {
   Defs,
   LinearGradient,
+  RadialGradient,
   Path,
   Rect,
   Stop
@@ -14,10 +15,12 @@ import Svg, {
  * 1256x1256 transparent PNG without resampling or palette/color reduction.
  * The lossless 1066x590 PNG retains original letterforms, white-pink shading,
  * alpha edge and smile. It is not an AI redraw. No tintColor is applied.
- * Colors are sampled from the original pink logo JPG (1254 x 1254 px).
- * Exact sampled pixels used: #F20361, #FD1E77, #FC559A, #FD92C0;
- * original photo is a curved glossy square, so the compact header uses
- * matching colour stops rather than pretending the rectangular crop is identical.
+ * Header palette follows sampled background pixels from the founder-supplied
+ * 1254px pink JPG: #FE529A, #FC2C80, #FB1470, #F60361 and #D10248;
+ * glossy berry shadows borrow #A40229 and #B6113C from the same icon.
+ * The square source art has curved specular highlights, so this wide header
+ * approximates its lighting; it is not claimed to be pixel-identical.
+ * The high-resolution 1066x590 wordmark PNG is preserved without tinting.
  */
 function Logo() {
   return (
@@ -37,7 +40,7 @@ function HeartIcon() {
       <Path
         d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"
         fill="none"
-        stroke="#F20361"
+        stroke="#F60361"
         strokeWidth={1.9}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -81,35 +84,41 @@ export function HomeHeader({
         style={styles.backgroundLayer}
       >
         <Defs>
-          {/* Brand stops sampled from user's original pink-background JPG, not approximated colours. */}
-          <LinearGradient id="zokyHeaderBg" x1="0%" y1="22%" x2="100%" y2="65%">
-            <Stop offset="0%" stopColor="#F20361" />
-            <Stop offset="28%" stopColor="#FD1E77" />
-            <Stop offset="64%" stopColor="#FC559A" />
-            <Stop offset="100%" stopColor="#FD92C0" />
+          {/* Match the actual glossy-pink square supplied for Zoky:
+              bright upper highlight, saturated magenta body, deep berry shading. */}
+          <LinearGradient id="zokyHeaderBg" x1="0%" y1="0%" x2="100%" y2="90%">
+            <Stop offset="0%" stopColor="#FE529A" />
+            <Stop offset="28%" stopColor="#FC2C80" />
+            <Stop offset="57%" stopColor="#FB1470" />
+            <Stop offset="82%" stopColor="#F60361" />
+            <Stop offset="100%" stopColor="#D10248" />
           </LinearGradient>
+          <RadialGradient id="zokyBerryDepth" cx="37%" cy="96%" r="76%">
+            <Stop offset="0%" stopColor="#A40229" stopOpacity={0.47} />
+            <Stop offset="44%" stopColor="#B6113C" stopOpacity={0.22} />
+            <Stop offset="100%" stopColor="#B6113C" stopOpacity={0} />
+          </RadialGradient>
           <LinearGradient id="zokyGloss" x1="0%" y1="0%" x2="0%" y2="100%">
-            <Stop offset="0%" stopColor="#FFF1F9" stopOpacity={0.22} />
-            <Stop offset="42%" stopColor="#FFC4DD" stopOpacity={0.06} />
-            <Stop offset="100%" stopColor="#FD1E77" stopOpacity={0} />
+            <Stop offset="0%" stopColor="#FFF5FA" stopOpacity={0.30} />
+            <Stop offset="55%" stopColor="#FFCDDF" stopOpacity={0.10} />
+            <Stop offset="100%" stopColor="#FFF5FA" stopOpacity={0} />
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width="390" height="164" fill="url(#zokyHeaderBg)" />
-        <Rect x="0" y="0" width="390" height="164" fill="url(#zokyGloss)" />
+        <Rect x="0" y="0" width="390" height="164" fill="url(#zokyBerryDepth)" />
         <Path
-          d="M0 0H300C282 42 268 91 219 113C160 141 92 149 0 145Z"
-          fill="#BA023E"
-          fillOpacity={0.11}
+          d="M0 0H390V19C323 23 294 47 240 68C166 98 86 91 0 65Z"
+          fill="url(#zokyGloss)"
         />
         <Path
-          d="M0 162C69 162 120 156 167 144C219 130 257 110 296 91C335 73 362 70 390 71V164H0Z"
-          fill="#FDA9CD"
-          fillOpacity={0.22}
+          d="M0 164C73 154 129 149 181 129C229 111 273 83 316 72C346 65 366 64 390 64V164Z"
+          fill="#FF6DA9"
+          fillOpacity={0.17}
         />
         <Path
-          d="M236 164C286 134 337 107 390 110V164Z"
-          fill="#FFC4DD"
-          fillOpacity={0.24}
+          d="M208 164C277 134 335 118 390 114V164Z"
+          fill="#FFA9D2"
+          fillOpacity={0.16}
         />
       </Svg>
       <View style={styles.row}>
@@ -137,7 +146,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 10,
     overflow: "hidden",
-    backgroundColor: "#F20361"
+    backgroundColor: "#F60361"
   },
   backgroundLayer: {
     position: "absolute",
