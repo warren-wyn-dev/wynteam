@@ -47,15 +47,21 @@ export function HomeHeader({
   topInset: number;
   onOpenFavorites: () => void;
 }) {
+  // Give the header a definite box before sizing its decorative background.
+  // Percentage image dimensions on an auto-sized parent previously caused
+  // the photograph to expand over the entire Expo Go screen.
+  const safeTop = Math.max(topInset, 0);
+  const headerHeight = safeTop + 75;
+
   return (
     <View
-      style={[styles.container, { paddingTop: Math.max(topInset, 0) + 2 }]}
+      style={[styles.container, { height: headerHeight, paddingTop: safeTop + 2 }]}
       accessibilityLabel="ส่วนหัวหน้าหลัก"
     >
       <Image
         source={require("../assets/zoky-header-from-original-jpg.jpg")}
         resizeMode="stretch"
-        style={styles.backgroundLayer}
+        style={StyleSheet.absoluteFillObject}
         accessible={false}
         importantForAccessibility="no"
       />
@@ -81,15 +87,13 @@ export function HomeHeader({
 
 const styles = StyleSheet.create({
   container: {
+    width: "100%",
+    flexGrow: 0,
+    flexShrink: 0,
     paddingHorizontal: 22,
     paddingBottom: 10,
     overflow: "hidden",
     backgroundColor: "#F60361"
-  },
-  backgroundLayer: {
-    ...StyleSheet.absoluteFillObject,
-    width: "100%",
-    height: "100%"
   },
   row: {
     minHeight: 56,
