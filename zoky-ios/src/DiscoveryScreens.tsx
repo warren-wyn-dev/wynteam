@@ -148,7 +148,7 @@ export function HomeDiscovery({ stores, categories, onBrowse, onStore, onCategor
       </View>
 
       <Pressable
-        accessibilityRole="search"
+        accessibilityRole="button"
         accessibilityLabel="แตะเพื่อค้นหาร้านอาหารและเมนู"
         onPress={onBrowse}
         style={styles.searchShortcut}
