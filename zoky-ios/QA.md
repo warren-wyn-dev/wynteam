@@ -5,6 +5,7 @@ Current status: source added for review; no Expo Go physical-device execution ha
 ## Functional smoke checks (iPhone, Expo Go)
 
 - [ ] Launch Zoky with Expo SDK 57 and see the refreshed hot-pink home without a crash.
+- [ ] Confirm the word "Zoky" is not printed within the app's header, Food hero, store cards, Browse copy, or Account screen (internal project metadata remains unchanged).
 - [ ] Home CTA and search shortcut both open the Browse screen.
 - [ ] Home category tap opens Browse with the selected category.
 - [ ] Browse shows correct filtered result count and resettable empty state.
