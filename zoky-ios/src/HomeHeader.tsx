@@ -29,8 +29,8 @@ const WORDMARK_PATH =
 function Logo() {
   return (
     <Svg
-      width={144}
-      height={79}
+      width={118}
+      height={65}
       viewBox="0 0 1049 575"
       accessible
       accessibilityLabel="โลโก้ Zoky"
@@ -126,12 +126,12 @@ export function HomeHeader({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 22,
-    paddingBottom: 19,
+    paddingBottom: 10,
     overflow: "hidden",
     backgroundColor: "#FE0D68"
   },
   row: {
-    minHeight: 76,
+    minHeight: 64,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between"
