@@ -1,0 +1,45 @@
+name: Admin Production Route Smoke
+
+# Regression check: Vercel deployments can report READY when a Next.js app
+# was built from the repository root instead of the admin/ directory.
+on:
+  pull_request:
+    paths: ['admin/**', '.github/workflows/admin-route-smoke.yml']
+  push:
+    branches: [main]
+    paths: ['admin/**', '.github/workflows/admin-route-smoke.yml']
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check-admin-routes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check live Admin login and campaigns routes
+        env:
+          BASE_URL: https://admin-lilac-seven-85.vercel.app
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+          failures=0
+          for path in /login /food/campaigns /; do
+            headers=$(mktemp)
+            body=$(mktemp)
+            bypass=()
+            if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+              bypass=(-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET")
+            fi
+            code=$(curl -sS --max-time 30 --retry 2 -D "$headers" -o "$body" -w '%{http_code}' "${bypass[@]}" "$BASE_URL$path")
+            echo "Admin $path: HTTP $code"
+            grep -iE '^(location|x-vercel-error|x-matched-path|x-vercel-id):' "$headers" || true
+            if [ "$code" = 404 ] || [ "$code" -ge 500 ] || [ "$code" = 000 ]; then
+              echo "::error::Admin $path HTTP $code — production routing is broken"
+              failures=$((failures + 1))
+            elif [ "$code" = 401 ] || [ "$code" = 403 ]; then
+              echo "::warning::Admin $path returned $code (Vercel protection may require an authenticated browser)"
+            fi
+            rm -f "$headers" "$body"
+          done
+          exit "$failures"
