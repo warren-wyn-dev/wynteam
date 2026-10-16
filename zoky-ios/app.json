@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Zoky Preview",
+    "slug": "zoky-ios-preview",
+    "scheme": "zoky-preview",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "online.wynos.zoky.preview"
+    },
+    "extra": {
+      "previewOnly": true,
+      "catalogMode": "synthetic-fixtures",
+      "productionWritesEnabled": false
+    }
+  }
+}
