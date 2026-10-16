@@ -27,7 +27,14 @@ test("consumer routes render without fatal errors or horizontal overflow", async
   const requestFailures: Array<{ route: string; pageUrl: string; resourceType: string; requestUrl: string; errorText: string }> = [];
   const badResponses: Array<{ route: string; pageUrl: string; resourceType: string; responseUrl: string; status: number }> = [];
 
-  page.on("pageerror", (error) => { pageErrors.push({ route: currentRoute, pageUrl: page.url(), message: error.message }); });
+  page.on("pageerror", (error) => {
+    const pageUrl = page.url();
+    const expectedLocalServiceWorkerNoise =
+      pageUrl.startsWith("http://127.0.0.1:3000/") &&
+      /^\/127\.0\.0\.1:3000\/sw\.js due to access control checks\.$/.test(error.message);
+    if (expectedLocalServiceWorkerNoise) return;
+    pageErrors.push({ route: currentRoute, pageUrl, message: error.message });
+  });
   page.on("requestfailed", (request) => { requestFailures.push({ route: currentRoute, pageUrl: page.url(), resourceType: request.resourceType(), requestUrl: request.url(), errorText: request.failure()?.errorText ?? "unknown request failure" }); });
   page.on("response", (response) => { if (response.status() >= 400) badResponses.push({ route: currentRoute, pageUrl: page.url(), resourceType: response.request().resourceType(), responseUrl: response.url(), status: response.status() }); });
 
