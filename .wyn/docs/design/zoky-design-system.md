@@ -487,13 +487,14 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 ### 9.4 Store card (`fx-store-card`)
 
-- รูป 4:3 radius `lg` placeholder `neutral.50` + ไอคอน `Store`
+- รูป **1:1** radius `lg` placeholder `neutral.50` + ไอคอน `Store` (Founder decision 2026-10-17 "รูปอาหารทุกจุดเป็น 1:1" — เดิม 4:3, แก้ตาม ZOKY-125)
 - Overlay บนรูป (`labelSm` 11/700 pill):
-  - โฆษณา: ink 72% + ขาว มุมบนซ้าย
+  - ร้านตัวอย่าง: badge `ZokyDemoBadge` "ตัวอย่าง" มุมบนซ้าย บรรทัดเดียว ไม่ถูกตัด (ZOKY-123) — ชื่อร้านไม่ต่อท้าย "(ร้านตัวอย่าง)"
+  - โฆษณา: ink 72% + ขาว มุมบนซ้าย (ใต้ badge ตัวอย่างถ้ามี)
   - ร้านปิด: ink 80% + ขาว + `Clock3` มุมบนขวา (ไม่ใช้ชมพู)
   - โปรโมชัน: `brand.pinkDeep` + ขาว ชิดซ้ายล่าง (มุมขวามน)
   - ETA: ขาว + ink มุมขวาล่าง
-- ชื่อ 15/700 สูงสุด 2 บรรทัด, meta 13 `text.secondary` + ดาว `rating` + ตัวเลข bold ink, tags
+- ชื่อ 15/700 สูงสุด 2 บรรทัด, meta 13 `text.secondary` + ดาว `rating` + ตัวเลข bold ink (แสดงคะแนน/ดาวเฉพาะเมื่อมีรีวิวจริง — `ZokyStoreSummary.rating`, ZOKY-121), tags
 - Pressed: รูป scale 1.03
 - Screen reader อ่านรวมเป็นก้อนเดียว เช่น "ร้าน{ชื่อ}, คะแนน 4.8, ส่งประมาณ 25 นาที, ร้านปิดอยู่, โปรโมชัน ลด 20%"
 
@@ -582,7 +583,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 - **Empty** (`fx-state`): วงกลม 108 Blush + ไอคอน `brand.pink` 44 (3.36 ผ่านเกณฑ์ไอคอน) + หัวข้อ `titleMd` + ข้อความ 14.5 `text.secondary` (max 320) + ปุ่ม primary ≥200 กว้าง
 - **Error**: โครงเหมือน empty แต่วงกลมเป็น errorContainer + ไอคอน `error` + ปุ่ม "ลองอีกครั้ง" (primary) ห้ามใช้วงชมพู
-- **Loading**: skeleton ที่รูปทรงตรงกับเนื้อหา (`fx-skel`: line 16, pill 48, banner 140 r20, chip 78×38, card 4:3 r16) gradient `#F1F1F4`→`#F8F8FA` shimmer 1200ms บน mobile ใช้ skeleton เหมือนกัน spinner ใช้เฉพาะ inline (ปุ่ม, pull-to-refresh) ซึ่งเป็นแบบ native
+- **Loading**: skeleton ที่รูปทรงตรงกับเนื้อหา (`fx-skel`: line 16, pill 48, banner 140 r20, chip 78×38, card 4:3 r16; store card ในแอปเป็นรูป 1:1 ตาม 9.4) gradient `#F1F1F4`→`#F8F8FA` shimmer 1200ms บน mobile ใช้ skeleton เหมือนกัน spinner ใช้เฉพาะ inline (ปุ่ม, pull-to-refresh) ซึ่งเป็นแบบ native
 - **Offline**: แถบ ink + ขาว + ไอคอน `WifiOff` ใต้ status bar
 - **Toast**: พื้น ink, ขาว 14/500, radius `lg`, elevation `5`, มีปุ่มปิด 36 (hit 44/48) ตำแหน่งดูข้อ 11 `aria-live="polite"` / `SemanticsService.announce`
 - **Notes** (`fx-note`): success/warning/error/info ใช้ container + on-color ของ semantic + ไอคอน (`fx-note--danger` เดิมย้ายจากแดงแบรนด์ไปเป็น error)

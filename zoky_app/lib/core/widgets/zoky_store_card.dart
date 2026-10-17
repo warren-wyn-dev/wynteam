@@ -11,8 +11,9 @@ import '../l10n/zoky_strings.dart';
 
 /// Store card (design 9.4, web `StoreCard` / `fx-store-card`).
 ///
-/// 4:3 photo with overlays (ad, closed, promo, ETA), name (max 2 lines),
-/// rating/distance meta and tags. Read by screen readers as one node.
+/// 1:1 photo (Founder decision 2026-10-17: every food photo is square,
+/// ZOKY-125) with overlays (demo badge, ad, closed, promo, ETA), name (max
+/// 2 lines), rating/distance meta and tags. Read by screen readers as one node.
 class ZokyStoreCard extends StatelessWidget {
   const ZokyStoreCard({super.key, required this.store, required this.onTap});
 
@@ -134,7 +135,7 @@ class _Photo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: 4 / 3,
+      aspectRatio: 1,
       child: ClipRRect(
         borderRadius: ZokyRadius.lg,
         child: LayoutBuilder(

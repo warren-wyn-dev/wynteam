@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-125 (Store grid card photo is 4:3, Founder decision says food photos are 1:1)
 
-Status: bugs
+Status: fixed — awaiting QA re-test
 Severity: **MEDIUM** (Founder decision deviation; needs PM/Design to confirm scope before fixing)
 Owner: AI Debug Engineer (after PM/Design confirmation)
 Found by: AI QA & Security — Home slice QA round, 2026-10-17, branch `docs/zoky-foundation` @ 895367c
@@ -14,14 +14,22 @@ Expected: 1:1, unless PM/Design rule that the grid card (design 9.4) is not a "f
 
 Actual: 4:3.
 
-Root Cause: grid card predates the 1:1 decision (design 9.4 still says 4:3).
+Root Cause (confirmed by Debug, 2026-10-17):
+`ZokyStoreCard._Photo` is `AspectRatio(aspectRatio: 4 / 3)` (and `ZokyStoreCardSkeleton` matches it) — the card predates the Founder decision "[2026-10-17] ZOKY — รูปอาหารทุกจุดเป็น 1:1", and design §9.4 still said 4:3. Confirmed by the new ratio test (6/6 fail on the old code: width:height = 4:3). Scope confirmed by the CTO task assignment: the decision covers ALL food photos (store and menu), so grid/search/all-stores cards are in scope; no exception recorded.
 
-Fix (direction): change the ratio to 1 and update design 9.4, or document the exception. Check overlay positions (ad/closed/promo/ETA) after the change.
+Fix:
+`_Photo` and `ZokyStoreCardSkeleton` use `aspectRatio: 1`; doc comments updated. `ZokyStoreGrid` rows already size to the tallest card (no fixed cell height), so the taller photo cannot overflow. Overlays are positioned from the photo corners, so ad/closed/promo/ETA and the ZOKY-123 demo badge keep their places. Design system §9.4 updated (1:1 + demo badge + rating-with-reviews rule) and the §skeleton note.
 
-Files Changed: (for Debug) `zoky_store_card.dart`, `.wyn/docs/design/zoky-design-system.md` §9.4.
+Files Changed:
+- `zoky_app/lib/core/widgets/zoky_store_card.dart`
+- `zoky_app/lib/core/widgets/zoky_skeleton.dart`
+- `.wyn/docs/design/zoky-design-system.md` (§9.4 + loading-skeleton note)
+- `zoky_app/test/store_card_photo_ratio_test.dart` (new: 320@1.0, 320@1.3, 390@2.0 (1 column), 430@1.0, 932@1.0 (3 columns) — every card photo square, no FlutterError; skeleton square)
 
-Tests: add an aspect-ratio assertion to the grid card tests.
+Tests: new tests pass; `store_card_demo_badge_test.dart` (320–430 × 1.0/1.3/2.0, no exception, badge/overlay no overlap), `widgets_layout_test.dart` (worst-case busy store with every overlay), shell/hero suites pass.
 
-Regression Risk: Low; grid rows get taller.
+Regression Risk: Low. Grid rows are taller (photo height +33%), so fewer cards per screen; at text ≥ 1.5 (1 column) the photo is a full-width square. Network photos use `BoxFit.cover`, so a 4:3 upload is cropped to the centre square (intended by the decision).
+
+Debug Engineer: change limited to the ratio constant + docs; the overlay layout was re-checked by the existing busy-store layout test.
 
 Handoff to QA: verify grid at 320–430 × 1.0/1.3 with overlays, and the demo label (see ZOKY-123).

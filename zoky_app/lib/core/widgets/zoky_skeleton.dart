@@ -73,7 +73,7 @@ class _ZokySkeletonState extends State<ZokySkeleton>
   }
 }
 
-/// Skeleton matching [ZokyStoreCard]'s shape (4:3 photo + two lines).
+/// Skeleton matching [ZokyStoreCard]'s shape (1:1 photo + two lines).
 class ZokyStoreCardSkeleton extends StatelessWidget {
   const ZokyStoreCardSkeleton({super.key});
 
@@ -84,7 +84,7 @@ class ZokyStoreCardSkeleton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const AspectRatio(
-          aspectRatio: 4 / 3,
+          aspectRatio: 1,
           child: ZokySkeleton(borderRadius: ZokyRadius.lg),
         ),
         const SizedBox(height: ZokySpacing.s4),
