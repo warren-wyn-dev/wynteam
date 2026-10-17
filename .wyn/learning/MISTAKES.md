@@ -307,3 +307,13 @@
   ทุกจุดแล้วแก้ในรอบเดียว (`test/store_rating_rule_test.dart`, `test/store_card_demo_badge_test.dart`,
   `test/store_card_photo_ratio_test.dart`); (3) sheet ทุกอันใช้ `showZokySheet` + เนื้อหาเลื่อนได้
   (`test/home_favorites_sheet_test.dart`) — รายละเอียดที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน
+
+### [2026-10-17] ZOKY-127: ป้ายบนรูปการ์ด grid ถูก ellipsis ("โฆษ…", "ปิ…", "ลด 2…", "20–…")
+
+- เกิดอะไรขึ้น: `_Overlay` ทุกตัวถูกจำกัดที่ `photoWidth / 2 - 6` และตัดบรรทัดเดียวพร้อม ellipsis โดยไม่ดูว่ามุมตรงข้าม
+  ว่างหรือไม่ ETA ("xx–yy นาที") ไม่เคยพอดีที่ 375pt; ปัญหามีอยู่ตั้งแต่ก่อน ZOKY-123/125 และหลุด QA รอบแรก
+- ผลกระทบ: ป้ายเปิดเผยโฆษณาและราคาโปรอ่านไม่ออก ร้านปิดไม่มีสัญญาณที่มองเห็น — ต้องแก้ก่อนเปิดโฆษณา/โปรจริง (ZOKY-105/106)
+- จับได้อย่างไร: AI Debug Engineer สังเกตตอนแก้ ZOKY-123; AI QA & Security วัด `didExceedMaxLines` ด้วยฟอนต์จริงทั้ง matrix
+- วิธีป้องกันในอนาคต: ป้ายบังคับ/ป้ายสถานะห้ามใช้ `ellipsis`; ข้อมูลยาวไว้ใน meta row; regression ที่
+  `zoky_app/test/store_card_overlay_labels_test.dart` และ `ZOKY-127:` ใน `test/qa/home_slice_retest_qa_test.dart`
+  (รายละเอียดที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน)
