@@ -2269,3 +2269,63 @@ reconciliation ที่ทนทานสำหรับการคืน GP �
 ถ้ายังล้มเหลวจะ log `order_id`/`stripe_refund_id` ให้แก้มือ (ระหว่าง GP = 0% ไม่มี fee จึงไม่เกิดกรณีนี้)
 reconciliation นี้ต้องอ่านจาก Stripe (`application_fee.refunded` / `ApplicationFee.amount_refunded`) เพื่อรองรับ
 การคืน fee ผ่าน Stripe Dashboard และการคืนบางส่วนด้วย — ต้องเพิ่ม event subscription ระดับ platform ใน Stripe (Founder)
+
+## [2026-10-17] Founder: เริ่ม ZOKY ใหม่จากศูนย์ — rebrand WYNOS Food ฝั่งลูกค้าเป็น ZOKY บนเว็บ + iOS + Android
+
+บันทึกตามกติกา Founder Feedback ใน `.wyn/company/RULES.md` จากการคุยกับ Founder โดยตรง (2026-10-17)
+
+**สิ่งที่ Founder ยืนยันแล้ว**
+
+1. **ZOKY ใหม่ไม่ใช่ Marketplace เดิม** (ZOKY-001..005 / SELLER-001..005 ที่ลบออกไปแล้ว) — "เริ่มนับ 0 ใหม่" ใช้เลข task `ZOKY-1xx` เพื่อไม่ชนของเก่า
+2. **ZOKY = WYNOS Food ฝั่งลูกค้า (food.wynos.online) เปลี่ยนเป็น ZOKY ทั้งหมด** — "จะเป็น Zoky ทั้งหมดเลย" รวมทั้ง**ชื่อและโดเมน** → `zoky.online` (Founder เช็กแล้วว่าว่าง ยังไม่ยืนยันว่าจดแล้ว)
+3. **ฟีเจอร์ต้องเท่าเว็บเดิม** และ**ต้องใช้ได้ทั้งเว็บ iOS และ Android**
+4. **เทคโนโลยี**: เว็บใช้ Next.js เดิม (rebrand) / iOS + Android ใช้ **Flutter** codebase เดียว — Founder เปลี่ยนจาก Swift เป็น Flutter หลังทราบว่า Swift ได้แค่ iOS ถือเป็นการระบุเจาะจงเรื่องแอป Flutter ตามข้อ 2 ของ decision 2026-09-19 — การพัก `app/` (WYNOS App) ยังคงเดิม ZOKY เป็นแอปใหม่แยกโฟลเดอร์
+5. **UX**: แบรนด์เดียวกันทั้งสองแพลตฟอร์ม แต่ส่วนพื้นฐานของระบบ (dialog, action/bottom sheet, date picker, switch, ไอคอน share/back) ปรับตาม iOS/Android
+6. **โลโก้**: ใช้โลโก้ต้นฉบับ (แบบ A) 100% — `design-reference/zoky/zoky-logo-source.jpg` (Founder ดูทางเลือกสว่างขึ้นและโทนแดง+ชมพูแล้ว เลือกต้นฉบับ)
+7. **สีแบรนด์**: ดึงจากโลโก้ — ZOKY Pink `#F21967` (หลัก), `#F4368D`, `#F880BE`, `#D61256`, `#AF1341`, `#991636`, Cloud White `#F8FAFE`, Blush `#F1E4F5`
+8. Founder มีแค่ iPad (ไม่มี Mac) → แนวทาง build iOS ผ่าน cloud macOS CI
+
+**ยังรอ Founder อนุมัติ** (ดู `.wyn/docs/product/zoky-decision-proposal.md` และ `.wyn/company/APPROVALS.md`): ค่าใช้จ่าย Codemagic / Apple Developer / Google Play, bundle ID, การแก้ backend ที่ผูกโดเมนเดิม (Stripe Origin allowlist, push routing), Sign in with Apple และการลบบัญชีในแอป, ลำดับ cutover โดเมนและ redirect, การทำ TestFlight/internal testing ระหว่าง production freeze
+
+**ขอบเขต**: เป็นการตัดสินใจทิศทางผลิตภัณฑ์ ยังไม่ใช่การอนุมัติแก้ application source, backend, โดเมน production หรือ deploy — ทุกอย่างต้องผ่าน gate เดิม
+
+### [2026-10-17] ZOKY Design System — คำตอบ Founder ต่อคำถามเปิด
+
+1. **สีปุ่ม**: ใช้ Pink Deep `#D61256` สำหรับปุ่มและพื้นที่มีตัวหนังสือขาว (ผ่าน WCAG AA) — โลโก้/ไอคอน/ไฮไลต์ยังใช้ ZOKY Pink `#F21967`
+2. **ไฟล์โลโก้ฉบับจริง (vector)**: ให้ทีม AI วาดเองจากโลโก้ต้นฉบับ แบบ A — หน้าตาต้องเหมือนเดิม
+3. **เว็บเดิม**: ไม่แก้เรื่อง pinch-zoom และขนาดปุ่มเล็กตอน rebrand เป็น ZOKY — คงพฤติกรรมเดิม
+
+### [2026-10-17] ZOKY โลโก้ — Founder เลือกแบบ "ไม่มีเงา คงความมันวาว"
+
+Founder เห็นว่าโลโก้ต้นฉบับดูมืด จึงให้เอาเงาใต้ตัวอักษรออกเพื่อให้สดใส — เลือกแบบ 2: ตัวอักษร/สัดส่วนเหมือนต้นฉบับ, ไม่มี drop shadow, พื้นชมพูสว่างขึ้น (`#FF5AA8` → `#F7287A` → `#F21967`), คงแสงมันวาวด้านบนและขอบตัวอักษรนูนเบา ๆ — ไฟล์: `design-reference/zoky/zoky-logo.svg`, `zoky-app-icon.svg`, `zoky-app-icon-1024.png`
+
+### [2026-10-17] ZOKY — Founder ยืนยัน Flutter แม้พบงาน Expo/Kotlin เดิม
+
+พบงาน ZOKY จาก session อื่นที่ยังไม่ merge: `feat/zoky-ios-expo-food-preview-20261016` (`zoky-ios/`, React Native + Expo) และ `feat/zoky-android-*` (`food-android/`, Kotlin + Compose) — Founder เลือก **"ใช้ Flutter ตามที่ตกลงวันนี้"** (`zoky_app/`) — branch เดิมเก็บไว้เป็นตัวอ้างอิง (ห้ามลบ) เช่น โลโก้ PNG โปร่งใสต้นฉบับ `zoky-ios/assets/zoky-wordmark-original-1066.png` และพฤติกรรม/ข้อจำกัดที่บันทึกไว้ใน `food-android/`
+หน้า Home ออกแบบตามภาพอ้างอิง 5 เฟสที่ Founder ส่ง (Header+Logo / การ์ดสั่งอาหาร / ดีลเด็ดวันนี้ / ร้านอาหารแนะนำ / Bottom Nav: หน้าหลัก·ออเดอร์·ข้อความ·บัญชี) ทำทีละเฟส รอ Founder อนุมัติแต่ละเฟส
+
+### [2026-10-17] ZOKY Home Phase 1 — Founder อนุมัติ
+
+Founder อนุมัติ Home Phase 1 (Header + โลโก้) หลังดูบน iPad preview — header gradient ตรงกับพื้นหลังโลโก้ (`#F93384` → `#F72C7E` → `#EE226E`), wordmark PNG ต้นฉบับ, ปุ่มหัวใจ placeholder "เร็ว ๆ นี้", แผ่นขาวขอบโค้ง, คลื่นแสงนุ่ม และขนาดโลโก้คงตามที่ทำ — เริ่ม Phase 2 (การ์ดสั่งอาหาร)
+
+### [2026-10-17] ZOKY Home — Founder: Phase 1 และ 2 ต้องไปทิศทางเดียวกัน + ไอคอนสไตล์ 3D
+
+Founder ดู Phase 2 แล้วให้ความเห็น: "เฟส1 เฟส2 ทุกอย่างต้องไปในทิศทางเดียวกัน" และ "ไอคอนชอบฟีล 3D" — อนุญาตให้ทีมเสนอการออกแบบได้
+ทิศทางที่ทีมเสนอ: **ZOKY Glossy 3D** — ทุกพื้นผิวสีแบรนด์ใช้ gradient เดียวกับพื้นหลังโลโก้ (`#F93384` → `#F72C7E` → `#EE226E`) + แถบแสงมันวาวด้านบนแบบโลโก้ + เงาชมพูนุ่ม; ไอคอนเป็นแบบ 3D มันวาว (ไล่สี, จุดสะท้อนแสง, เงาใต้) — รอ Founder ดูตัวอย่างและอนุมัติ
+
+### [2026-10-17] ZOKY Home Phase 3 + Glossy 3D — Founder อนุมัติ
+
+Founder ตอบ "อนุญาต" ต่อ Phase 3 (ดีลเด็ดวันนี้): อนุมัติ Phase 3, แนวทาง **ZOKY Glossy 3D** เป็นแนวทางหลักของทั้งแอป (design system ข้อ 7.1 → APPROVED, รวมปุ่มหัวใจ 3D ใน Phase 1), และข้อความตัวอย่าง "ข้อมูลตัวอย่าง ยังไม่ใช่โปรโมชันจริง" / ชื่อดีลและร้านตัวอย่าง
+ยังเปิดอยู่: แหล่งข้อมูลจริงของดีลเด็ด (โปรร้าน / แคมเปญแพลตฟอร์ม / แบนเนอร์), ปุ่มในหน้ารายละเอียดดีล — เริ่ม Phase 4 (ร้านอาหารแนะนำ)
+
+### [2026-10-17] ZOKY — รูปอาหารทุกจุดเป็น 1:1
+
+Founder เสนอและเลือกทางเลือก ก: รูปเมนูอาหาร **และ** รูปร้านในการ์ดร้านแนะนำ (Phase 4) ใช้สัดส่วน 1:1 ให้ตรงกับเว็บ (`.wf-menu-image`, `.wf-home-store-photo`) ร้านอัปโหลดรูปแบบเดียวใช้ได้ทุกที่ — รูปที่ไม่ใช่อาหาร (เช่น แบนเนอร์) ยังเป็นแนวนอนได้
+
+### [2026-10-17] ZOKY — เอาปุ่มหัวใจออกจากรูปร้านในการ์ดร้านแนะนำ
+
+Founder: "เอาหัวใจอยู่รูปอาหารออก" — การ์ดร้านแนะนำ (Phase 4) ไม่มีปุ่มหัวใจบนรูปแล้ว ร้านโปรดเข้าได้จากปุ่มหัวใจบน header (Phase 1) เท่านั้น
+
+### [2026-10-17] ZOKY Home Phase 4 — Founder อนุมัติ
+
+Founder: "โอเค ไปต่อ" — อนุมัติ Phase 4 (ร้านอาหารแนะนำ: รูป 1:1, ไม่มีหัวใจบนรูป, คะแนน/เวลาแสดงเฉพาะเมื่อมีข้อมูล) — คำถามเปิด (fallback เมื่อไม่มีร้าน featured, ไม่ใช้ค่าเดา ETA 15/30 ของเว็บ) ยังไม่ได้ตอบ ใช้ค่าปัจจุบันไปก่อน: ซ่อน section ตามเว็บ / ไม่แสดงเวลาเมื่อไม่มีข้อมูล — เริ่ม Phase 5 (Bottom Navigation)

@@ -672,3 +672,13 @@
 - Duration update (PR #1109): the Founder's iPhone recording showed a white loading skeleton after the ~1.2 s splash. I proposed keeping the splash until the screen's data is ready (at least 1 s, at most ~4 s), plus iOS launch images and a pink status bar during the splash. The Founder replied "แก้ไข ทั้งหมดให้ด้วยนะ" (2026-10-11), approving all three. This replaces the fixed ~1.2 s above. Rollback: revert PR #1109.
 - Rollback: revert the PR.
 - สถานะ: **ตัดสินใจแล้ว**. วันที่ 2026-10-11
+
+### APPROVAL_REQUIRED — [2026-10-17] ZOKY: WYNOS Food (ฝั่งลูกค้า) → ZOKY บน Web + iOS + Android
+- Proposed change: (D1) เปลี่ยนแบรนด์ WYNOS Food ฝั่งลูกค้าเป็น ZOKY — ผลิตภัณฑ์ใหม่ ไม่ใช่ ZOKY Marketplace เดิม, task ใช้เลข ZOKY-1xx; (D2) โดเมน `zoky.online` + redirect จาก `food.wynos.online` คง path+query; (D3) แอป Flutter ใหม่หนึ่งแอป (โฟลเดอร์แยก) สำหรับ iOS + Android ฟีเจอร์เท่าเว็บ 96 รายการ — ข้อยกเว้นของ decision 2026-09-19 เฉพาะแอปนี้; (D4) Codemagic สำหรับ iOS build + Apple Developer Program + Google Play Console (ค่าใช้จ่ายใหม่); (D5) App identity เสนอ `online.zoky.app`
+- Reason: ทิศทางจาก Founder ในแชท 2026-10-17 (ส่งต่อผ่าน agent ที่มอบหมายงาน) — ต้องได้รับอนุมัติอย่างเป็นทางการเพราะเป็น production infrastructure, ค่าใช้จ่าย และสถาปัตยกรรมหลัก
+- Benefits: แบรนด์และโดเมนของบริการสั่งอาหารเอง; แอปใน App Store/Play; ลิงก์และ QR เดิมยังใช้ได้
+- Risks: Stripe edge functions ตรวจ origin `food.wynos.online` (แอป/โดเมนใหม่จ่ายบัตรไม่ได้จนกว่าจะแก้), push โปรโมชันส่งเฉพาะ web token, App Store อาจบังคับ Sign in with Apple/ลบบัญชีในแอป, ผู้ใช้เว็บต้องล็อกอินใหม่หลังย้ายโดเมน, ชื่อยังไม่ตรวจ trademark, โดเมนยังไม่ซื้อ, ติด production freeze
+- Files affected: เอกสาร — `.wyn/tasks/backlog/ZOKY-100-zoky-customer-app.md`, `.wyn/docs/product/zoky-feature-parity.md`, `.wyn/docs/product/zoky-roadmap.md`, `.wyn/docs/product/zoky-decision-proposal.md`; เมื่อ implement — `web/app/food/**`, `web/components/food/**`, `web/lib/food-*.ts`, `web/proxy.ts`, `web/public/sw.js`, `supabase/functions/food-stripe-checkout`, `food-stripe-cancel`, `send-food-promotion`, `send-push-notification`, `wynos-maps-geocode`, โฟลเดอร์แอปใหม่, CI config ใหม่
+- Recommendation: อนุมัติ D1–D5 ทีละข้อตาม `.wyn/docs/product/zoky-decision-proposal.md` หลังตรวจชื่อ (ZOKY-101) และตอบ Open Questions Q1–Q16 ใน PRD; production cutover และ backend changes แต่ละข้อขออนุมัติแยกอีกครั้ง
+- สถานะ: รออนุมัติ (PENDING FOUNDER APPROVAL)
+- วันที่ตัดสินใจ:

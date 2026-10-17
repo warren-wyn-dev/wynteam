@@ -1,0 +1,53 @@
+name: zoky_app
+description: "ZOKY customer food ordering app (iOS + Android; web build is an internal iPad preview only)."
+publish_to: 'none'
+
+# Bundle ID / application ID are placeholders pending Founder approval
+# (ZOKY-100 Q6) -- see README.md and
+# .wyn/docs/engineering/zoky-app-architecture.md section 16.
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Thai Material/Cupertino localizations (date picker, dialogs, tooltips).
+  # Part of the Flutter SDK, not a third-party package.
+  flutter_localizations:
+    sdk: flutter
+  # Font for CupertinoIcons, used by the iOS side of the platform-adaptive
+  # icons (back/share/more) in lib/core/adaptive/zoky_icons.dart.
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # In-app logo (rounded mark, 512px PNG with transparent corners) rendered
+    # from design-reference/zoky/zoky-app-icon-1024.png masked to the
+    # rounded-rect geometry of design-reference/zoky/zoky-logo.svg (no SVG
+    # dependency needed). Not a store icon.
+    - assets/images/zoky_logo.png
+    # Wordmark-only (white "Zoky" + pin + smile on transparent), 1066x590
+    # RGBA. Byte-for-byte copy of git blob
+    # e77d5c5:zoky-ios/assets/zoky-wordmark-original-1066.png, a pixel
+    # preserving crop of the Founder's transparent PNG. sha256
+    # f0f39cbbaecb9bf97b82953b62b5d59c6031dabdc7a699f007bf380dbefabf08.
+    # Never redraw/tint it; use on pink backgrounds only (design 2.1).
+    - assets/images/zoky_wordmark.png
+    # SIL OFL 1.1 notice for the bundled Anuphan font (registered with
+    # LicenseRegistry in main.dart).
+    - assets/fonts/anuphan/OFL.txt
+  fonts:
+    # Anuphan by Cadson Demak, unmodified variable font (wght 100-700) from
+    # github.com/google/fonts ofl/anuphan. Weights are applied through
+    # FontVariation('wght') in lib/core/design/zoky_typography.dart.
+    - family: Anuphan
+      fonts:
+        - asset: assets/fonts/anuphan/Anuphan-VariableFont_wght.ttf
