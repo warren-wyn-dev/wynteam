@@ -101,8 +101,8 @@ void main() {
     expect(widths.length, 1);
   });
 
-  testWidgets('selected item is soft 3D (D2) + bold pink, the rest gray '
-      'outline', (tester) async {
+  testWidgets('selected item is pink 3D filled (rounded set) + bold pink, '
+      'the rest gray outline', (tester) async {
     await pumpZokyApp(tester);
     void expectSelected(String selected) {
       for (final label in _labels) {
@@ -110,7 +110,20 @@ void main() {
         final style = tester
             .widget<AnimatedDefaultTextStyle>(_labelStyle(label))
             .style;
-        expect(icon.style, ZokyNavIconStyle.appleSoft3d, reason: label);
+        expect(icon.style, ZokyNavIconStyle.rounded, reason: label);
+        expect(
+          icon.selectedGlyph,
+          ZokyNavSelectedGlyph.filled3d,
+          reason: label,
+        );
+        expect(
+          find.descendant(
+            of: _item(label),
+            matching: find.byKey(ZokyNavIcon.roundedKey(icon.glyph)),
+          ),
+          findsOneWidget,
+          reason: label,
+        );
         expect(icon.tiled, isFalse, reason: label);
         if (label == selected) {
           expect(icon.selected, isTrue, reason: label);

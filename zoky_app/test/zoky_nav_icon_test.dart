@@ -301,12 +301,12 @@ void main() {
     expect(find.byType(Zoky3DIcon), findsOneWidget);
   });
 
-  testWidgets('bottom nav ships D2 (appleSoft3d) by default; classic stays '
-      'available', (tester) async {
+  testWidgets('bottom nav ships the rounded set by default; alternates, '
+      'tiles and classic stay available', (tester) async {
     Widget nav(ZokyNavIconStyle? style) => ZokyBottomNav(
       currentIndex: 0,
       onSelected: (_) {},
-      iconStyle: style ?? ZokyNavIconStyle.appleSoft3d,
+      iconStyle: style ?? ZokyNavIconStyle.rounded,
       items: const [
         ZokyNavItem(label: ZokyStrings.navHome, glyph: Zoky3DGlyph.home),
         ZokyNavItem(
@@ -319,32 +319,34 @@ void main() {
           glyph: Zoky3DGlyph.chat,
           tiled: true,
         ),
+        ZokyNavItem(label: ZokyStrings.navAccount, glyph: Zoky3DGlyph.person),
       ],
     );
-    expect(
-      ZokyBottomNav(
-        items: const [],
-        currentIndex: 0,
-        onSelected: (_) {},
-      ).iconStyle,
-      ZokyNavIconStyle.appleSoft3d,
+    final defaults = ZokyBottomNav(
+      items: const [],
+      currentIndex: 0,
+      onSelected: (_) {},
     );
-    expect(
-      const ZokyNavIcon(Zoky3DGlyph.home, selected: false).style,
-      ZokyNavIconStyle.appleSoft3d,
-    );
+    expect(defaults.iconStyle, ZokyNavIconStyle.rounded);
+    expect(defaults.selectedGlyph, ZokyNavSelectedGlyph.filled3d);
+    const icon = ZokyNavIcon(Zoky3DGlyph.home, selected: false);
+    expect(icon.style, ZokyNavIconStyle.rounded);
+    expect(icon.selectedGlyph, ZokyNavSelectedGlyph.filled3d);
     await pumpZokyWidget(
       tester,
       Align(alignment: Alignment.bottomCenter, child: nav(null)),
     );
     expect(find.byType(Zoky3DIcon), findsNothing);
-    expect(find.byKey(ZokyNavIcon.houseKey), findsOneWidget);
-    // Per-item tile flag reaches the icon.
+    expect(find.byKey(ZokyNavIcon.roundedKey(Zoky3DGlyph.home)), findsOne);
+    expect(find.byKey(ZokyNavIcon.roundedKey(Zoky3DGlyph.person)), findsOne);
+    // A per-item pair or tile falls back to the D2 rendering.
+    expect(
+      find.byKey(ZokyNavIcon.roundedKey(Zoky3DGlyph.receipt)),
+      findsNothing,
+    );
     expect(find.byKey(ZokyNavIcon.tileKey), findsOneWidget);
     final used = tester.widgetList<Icon>(find.byType(Icon)).map((i) => i.icon);
-    // Per-item alternate replaces the default pair.
     expect(used, contains(CupertinoIcons.bag));
-    expect(used, isNot(contains(CupertinoIcons.doc_text)));
 
     await pumpZokyWidget(
       tester,
@@ -354,8 +356,86 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byType(Zoky3DIcon), findsNWidgets(3));
+    expect(find.byType(Zoky3DIcon), findsNWidgets(4));
     expect(find.byKey(ZokyNavIcon.tileKey), findsNothing);
+  });
+
+  group('rounded set (Founder reference 2026-10-17)', () {
+    test('every nav glyph has a rounded version; others do not', () {
+      for (final g in _navGlyphs) {
+        expect(ZokyNavIcon.hasRounded(g), isTrue, reason: '$g');
+      }
+      expect(ZokyNavIcon.hasRounded(Zoky3DGlyph.heart), isFalse);
+    });
+
+    for (final treatment in ZokyNavSelectedGlyph.values) {
+      testWidgets('$treatment: every glyph, both states, 26 and 64, '
+          'custom-painted (no font glyph, no classic icon)', (tester) async {
+        await pumpZokyWidget(
+          tester,
+          Wrap(
+            children: [
+              for (final glyph in _navGlyphs)
+                for (final selected in [false, true])
+                  for (final size in [26.0, 64.0])
+                    ZokyNavIcon(
+                      glyph,
+                      selected: selected,
+                      size: size,
+                      selectedGlyph: treatment,
+                    ),
+            ],
+          ),
+        );
+        expect(tester.takeException(), isNull);
+        for (final g in _navGlyphs) {
+          expect(find.byKey(ZokyNavIcon.roundedKey(g)), findsNWidgets(4));
+        }
+        expect(find.byType(Icon), findsNothing);
+        expect(find.byType(Zoky3DIcon), findsNothing);
+        // Filled 3D: gradient body + shade + highlight masks per selected
+        // icon (4 glyphs x 2 sizes); the pink outline is flat.
+        expect(
+          find.byType(ShaderMask),
+          findsNWidgets(treatment == ZokyNavSelectedGlyph.filled3d ? 24 : 0),
+        );
+        final icons = tester.widgetList<ZokyNavIcon>(find.byType(ZokyNavIcon));
+        for (final (i, icon) in icons.indexed) {
+          expect(
+            tester.getSize(find.byWidget(icon)),
+            Size.square(i.isEven ? 26 : 64),
+          );
+        }
+      });
+    }
+
+    testWidgets('non-nav glyphs fall back to the classic 3D icon', (
+      tester,
+    ) async {
+      await pumpZokyWidget(
+        tester,
+        const ZokyNavIcon(Zoky3DGlyph.heart, selected: true),
+      );
+      expect(find.byType(Zoky3DIcon), findsOneWidget);
+    });
+
+    testWidgets('a rounded glyph is one CustomPaint at the icon size', (
+      tester,
+    ) async {
+      await pumpZokyWidget(
+        tester,
+        const RepaintBoundary(
+          child: ZokyNavIcon(Zoky3DGlyph.home, selected: false, size: 64),
+        ),
+      );
+      final key = find.byKey(ZokyNavIcon.roundedKey(Zoky3DGlyph.home));
+      expect(key, findsOneWidget);
+      final paint = tester.widget<CustomPaint>(
+        find.descendant(of: key, matching: find.byType(CustomPaint)),
+      );
+      expect(paint.painter, isNotNull);
+      expect(paint.size, const Size.square(64));
+    });
   });
 
   group('count badge', () {

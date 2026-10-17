@@ -64,13 +64,19 @@ class ZokyBottomNav extends StatelessWidget {
     required this.items,
     required this.currentIndex,
     required this.onSelected,
-    this.iconStyle = ZokyNavIconStyle.appleSoft3d,
+    this.iconStyle = ZokyNavIconStyle.rounded,
+    this.selectedGlyph = ZokyNavSelectedGlyph.filled3d,
   });
 
   final List<ZokyNavItem> items;
 
-  /// Tab icon treatment; [ZokyNavIconStyle.appleSoft3d] ("D2") is shipped.
+  /// Tab icon treatment; [ZokyNavIconStyle.rounded] (Founder reference set
+  /// 2026-10-17) is shipped.
   final ZokyNavIconStyle iconStyle;
+
+  /// Selected glyph of the [ZokyNavIconStyle.rounded] set: pink 3D filled
+  /// (shipped) or pink outline.
+  final ZokyNavSelectedGlyph selectedGlyph;
   final int currentIndex;
   final ValueChanged<int> onSelected;
 
@@ -211,6 +217,7 @@ class ZokyBottomNav extends StatelessWidget {
                                     item: items[i],
                                     selected: i == currentIndex,
                                     iconStyle: iconStyle,
+                                    selectedGlyph: selectedGlyph,
                                     duration: reduceMotion
                                         ? Duration.zero
                                         : ZokyMotion.base,
@@ -243,6 +250,7 @@ class _NavButton extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.iconStyle,
+    required this.selectedGlyph,
     required this.duration,
     required this.onTap,
   });
@@ -250,6 +258,7 @@ class _NavButton extends StatelessWidget {
   final ZokyNavItem item;
   final bool selected;
   final ZokyNavIconStyle iconStyle;
+  final ZokyNavSelectedGlyph selectedGlyph;
   final Duration duration;
   final VoidCallback onTap;
 
@@ -320,6 +329,7 @@ class _NavButton extends StatelessWidget {
                       key: ValueKey(selected),
                       selected: selected,
                       style: iconStyle,
+                      selectedGlyph: selectedGlyph,
                       size: ZokyBottomNav.iconSize,
                       appleIcons: item.appleIcons,
                       tiled: item.tiled,

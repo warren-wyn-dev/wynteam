@@ -527,7 +527,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 - เงา: กว้างนุ่ม `#3B1A29` @14% blur 36 y 10 (neutral อมชมพูจาง) + `#16161A` @6% blur 4 y 1; hairline 0.5px ink @8% รอบ capsule
 - 4 แท็บเท่านั้น ลำดับ: หน้าหลัก / ออเดอร์ / ข้อความ / บัญชี (ห้ามเพิ่มบริการอื่น) ช่องกว้างเท่ากัน padding ในซ้าย/ขวา 6
 - ไม่ active: line icon 26pt `neutral.600` #6B6B76 + label 13/500 `text.secondary` บนขาว
-- Active: capsule highlight สี Blush `#FFEDF4` เต็มช่อง ห่างขอบบน/ล่างของ bar 6 + ไอคอน **ชมพู 3D นุ่มแบบ D2** (ดูหัวข้อ "ไอคอนแท็บ" ด้านล่าง; เดิม `Zoky3DIcon` glossy) + label 13/700 `action.primary` #D61256
+- Active: capsule highlight สี Blush `#FFEDF4` เต็มช่อง ห่างขอบบน/ล่างของ bar 6 + ไอคอน **ตัวเต็มชมพู 3D นุ่ม (แสงแบบ D2) ทรงเดียวกับ outline** (ดูหัวข้อ "ไอคอนแท็บ" ด้านล่าง) + label 13/700 `action.primary` #D61256
 - Contrast: label เทา/ขาว 5.26:1, label ชมพู/highlight 4.58:1 (วัดจาก pixel จริง 430×932@3x ตรงกัน 4.58:1), ตัวไอคอน 3D stop ล่าง `#E5135D`/highlight 4.07:1 (stop บน 2.35:1 เป็นไฮไลต์ — selected มี label ตัวหนาสีชมพูกำกับเสมอ), จุดแจ้งเตือน/ขาว 6.54:1
 - Motion: highlight เลื่อน (AnimatedAlign) 220ms `standard` ระหว่างแท็บ; ไอคอนสลับ line → 3D แบบ fade + scale 0.85→1 และสี/น้ำหนัก label 200ms (`base`); ทั้งหมดเป็นทันทีเมื่อ reduced motion; haptic `HapticFeedback.selectionClick` เมื่อเปลี่ยนแท็บ (ไม่สั่นเมื่อกดแท็บเดิม); ไม่มี hover disc
 - กดหน้าหลักซ้ำขณะอยู่หน้าหลัก = เลื่อนกลับบนสุด (แบบ iOS); แท็บอื่นเก็บ state (IndexedStack); Android back จากแท็บอื่นกลับหน้าหลักก่อน
@@ -537,14 +537,17 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 - พื้นที่กดเต็มช่อง (≥ 69 × 64 ที่กว้าง 320) แต่ละช่องเป็น `Semantics(button, selected, onTap)` label ภาษาไทยตรงตัว
 - เนื้อหาเว้นด้านล่าง `ZokyBottomNav.reservedHeight` = 64 + bottom offset + 8 ทุกหน้าจอ → แถวสุดท้ายของหน้าหลักอยู่เหนือ capsule เสมอเมื่อเลื่อนสุด (ทดสอบ 430×932/34, 390×844/34, 375×667/0, 320×568/0)
 - **ไม่ใช้** `CupertinoTabBar` หรือ Material `NavigationBar` เพราะ nav เป็นส่วนหนึ่งของแบรนด์ (แต่ใส่ semantics ให้ครบแบบ tab bar)
-- **ไอคอนแท็บ — D2 `ZokyNavIconStyle.appleSoft3d` APPROVED by Founder 2026-10-17** (ค่าเริ่มต้นของ `ZokyBottomNav`/`ZokyNavIcon` และส่งชัดใน `zoky_shell.dart`; `classic3d` = `Zoky3DIcon` เดิม และ `apple` = D1 แบบเรียบ ยังเลือกได้ผ่าน API) โค้ด: `zoky_app/lib/core/widgets/zoky_nav_icon.dart`
-  - ไม่ active: outline เทา `neutral.600` #6B6B76; active: ตัวเต็มชมพู 3D นุ่ม = gradient แนวตั้ง `brandLight` #F4368D → `brandDeep` #D61256 (ทุก stop ≥ 3.24:1 บน highlight), shade ล่างขวา, specular ซ้ายบน, เงาเล็ก `#C2185B` @32% y 6% blur 10% ของขนาดไอคอน
-  - ชุดหลัก: หน้าหลัก = **บ้านวาดเอง** ห้าเหลี่ยมสมมาตร (หลังคาแหลม ผนังตรง พื้นเรียบ ไม่มีปล่องไฟ/ประตู มุมมนทุกมุม) ตาม reference ที่ Founder ส่ง 2026-10-17 "ไม่ใช่สีดำ" (`ZokyNavIcon.houseKey`) / ออเดอร์ = CupertinoIcons `doc_text` / ข้อความ = **bubble วาดเอง M1** / บัญชี = CupertinoIcons `person` (CupertinoIcons = MIT, ไม่ใช้ asset ของ Apple)
-  - เส้น outline ของ glyph ที่วาดเอง = 6.8% ของขนาด (~1.8pt ที่ 26pt) ให้หนาเท่า outline ของ CupertinoIcons ในชุด (reference บ้านเส้นหนากว่านี้ — เลือกความสม่ำเสมอของชุดก่อน)
-- **ไอคอนข้อความ — PROPOSED รอ Founder ยืนยันการตีความ "มุมเหลี่ยม"** (reference: app icon แบบแชท ทรง squircle มี bubble วงรีขาวหางซ้ายล่าง) ทั้งหมดวาดเอง ไม่ trace artwork ของ Apple
-  - **M1 Bubble (ใช้อยู่ใน shell/preview ตอนนี้)**: bubble วงรีกว้าง ~1.33:1 ขอบซ้ายไหลต่อเป็นหางโค้งเล็กชี้ซ้ายล่าง (เส้นเดียวต่อเนื่อง) ไม่ active = outline เทาเส้นเท่าชุด, active = ชมพู 3D แบบ D2 (`ZokyNavIcon.bubbleKey`)
-  - **M2 Tile** (`ZokyNavItem.tiled` / `ZokyNavIcon.tiled`, เฉพาะสไตล์ Apple): squircle มุมต่อเนื่อง (`RSuperellipse`) กว้าง 92% radius 25% ของไอคอน; active = tile ชมพู gradient เดียวกัน + เงาเล็ก + เงาวาวครึ่งบน และ bubble ขาวทึบ; ไม่ active = tile outline เทา + bubble outline เทา ข้อเสีย: ข้อความจะเป็นไอคอนเดียวที่เป็น tile
-  - **All-tiles**: `tiled: true` ทั้ง 4 แท็บ (บ้าน/เอกสาร/bubble/คน สีขาวใน tile ชมพูเมื่อ active) เพื่อให้ชุดสม่ำเสมอถ้า Founder ต้องการทรง tile
+- **ไอคอนแท็บ — ชุดตาม reference ที่ Founder ส่ง 2026-10-17 "เอาแบบนี้" (APPROVED shapes)** `ZokyNavIconStyle.rounded` = ค่าเริ่มต้นของ `ZokyBottomNav`/`ZokyNavIcon` และส่งชัดใน `zoky_shell.dart` แทนชุด D2/M1/M2/tile เดิม โค้ด: `zoky_app/lib/core/widgets/zoky_nav_icon.dart` (`_RoundedGlyph`) — วาดเองทั้งหมดด้วย CustomPainter บน grid 24 หน่วย (วัดสัดส่วนจาก reference ไม่ได้ trace artwork)
+  - หน้าหลัก = บ้าน outline มน สมมาตร ยอดหลังคามนนุ่ม ชายคายื่นสั้น ผนังตรง มุมพื้นมน + **ช่องประตูโค้งมนตรงกลางด้านล่าง** (เส้นเดียวต่อเนื่อง ไม่มีปล่องไฟ)
+  - ออเดอร์ = clipboard: กระดานสี่เหลี่ยมมุมมน ขอบบนหยุดที่ตัวหนีบมนตรงกลางด้านบน + เส้นสั้นชิดซ้าย 3 เส้น (สั้น/ยาว/กลาง)
+  - ข้อความ = bubble วงรีเกือบกลม (~1.09:1) หางสั้นมนชี้ซ้ายล่าง + **จุด 3 จุด** ตรงกลาง
+  - บัญชี = หัววงกลม + ตัวเป็นสี่เหลี่ยมมุมมน (มุมบนมนกว้าง มุมล่างมนเล็ก ก้นแบน) ไม่ใช่เส้นโค้ง
+  - เส้น: หนาเท่ากันทุกไอคอน 6.8% ของขนาด (1.77pt ที่ 26pt = 1.62 บน grid 24) round cap/join — วัดจาก reference ได้เส้น ~4.8px ต่อไอคอนสูง ~63px (7.6% ของความสูงไอคอน) ไอคอนสูง ~21 หน่วยจาก 24 จึงได้ ~1.6 ไม่ใช่ 1.9–2.1 (ถ้า Founder อยากหนาขึ้น ปรับ `ZokyNavIcon.strokeFraction` ค่าเดียว)
+  - ไม่ active: outline เทา `neutral.600` #6B6B76 (5.26:1 บนขาว)
+  - Active (`ZokyNavSelectedGlyph.filled3d`, shipped): ทรงเดียวกันแบบตัวเต็ม gradient แนวตั้ง `brandLight` #F4368D → `brandDeep` #D61256 + shade ล่างขวา + specular ซ้ายบน + เงาเล็ก `#C2185B` @32% (แสงแบบ D2); บ้านเจาะช่องประตู, clipboard เส้นขาว + ตัวหนีบแยกจากกระดานด้วยช่องว่าง (มีช่องขาวเล็กในตัวหนีบ), bubble จุดขาว 3 จุด, คนตัวเต็ม
+  - ทางเลือก (`ZokyNavSelectedGlyph.outlinePink`): outline เส้นเดิมสี `action.primary` #D61256 (4.58:1 บน highlight) — สลับได้บรรทัดเดียวที่ `selectedGlyph:` ใน `zoky_shell.dart`
+  - glyph อื่นที่ไม่มีเวอร์ชัน rounded, item ที่ส่ง `appleIcons` หรือ `tiled` จะใช้การวาดแบบ D2 (`appleSoft3d`) เดิม; `classic3d` / `apple` / `appleSoft3d` / M1 / M2 tile ยังเรียกได้ผ่าน API เพื่อ review แต่ไม่ใช้ใน shell แล้ว
+  - ต่างจาก reference: reference ไม่มีแท็บที่เลือก (ใช้ treatment ที่อนุมัติแล้วของเรา); เส้นแรกใน clipboard ของ reference จางมาก (น่าจะเป็น artifact) เราวาดเป็นเส้นทึบ; label 13pt ของเรา (เพื่อวรรณยุกต์ไทย) ทำให้ไอคอนดูเล็กกว่า reference เทียบกับ label เล็กน้อย
 - ตัวเลือกที่รอ Founder: ไอคอนออเดอร์แบบเอกสาร + นาฬิกาเล็ก (ตาม reference) แทน receipt เดิม; สีจุดแจ้งเตือนสว่างขึ้น (reference ใช้แดงสด) ซึ่งต้องเพิ่ม token ใหม่
 
 ### 9.9 Order status tracker (`fx-track`)

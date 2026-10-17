@@ -75,9 +75,12 @@ class _ZokyShellState extends State<ZokyShell> {
               child: ZokyBottomNav(
                 currentIndex: _tab.index,
                 onSelected: (index) => _onNavTap(ZokyTab.values[index]),
-                // "D2" (Founder 2026-10-17): custom symmetric house /
-                // doc_text / custom wide bubble (M1) / person.
-                iconStyle: ZokyNavIconStyle.appleSoft3d,
+                // Founder reference set (2026-10-17): rounded house with
+                // door / clipboard / bubble with dots / person, gray
+                // outline; selected = pink 3D filled. Switch the selected
+                // glyph to ZokyNavSelectedGlyph.outlinePink if asked.
+                iconStyle: ZokyNavIconStyle.rounded,
+                selectedGlyph: ZokyNavSelectedGlyph.filled3d,
                 // Exactly these four, in this order (Founder, Phase 5).
                 items: const [
                   ZokyNavItem(
