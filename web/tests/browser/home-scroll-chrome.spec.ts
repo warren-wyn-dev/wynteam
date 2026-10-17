@@ -12,13 +12,25 @@ for (const width of [320, 390, 432]) {
     const nav = page.locator(".route-bottom-nav");
     const tabs = page.locator(".wyn-home-tabs");
     const fab = page.getByRole("button", { name: "สร้างโพสต์" });
+    // SSR visibility and network idle do not prove that React has attached
+    // HomeHeader's scroll effect. Exercise real state before scripted scrolls.
+    const followingTab = tabs.getByRole("tab", { name: "กำลังติดตาม", exact: true });
+    const forYouTab = tabs.getByRole("tab", { name: "สำหรับคุณ", exact: true });
+    await followingTab.click();
+    await expect(followingTab).toHaveAttribute("aria-selected", "true");
+    await forYouTab.click();
+    await expect(forYouTab).toHaveAttribute("aria-selected", "true");
+
     await expect(root).not.toHaveClass(/wyn-home-scroll-hidden/);
     await expect(nav).toBeVisible();
     await expect(tabs).toBeVisible();
     await expect(fab).toBeHidden();
 
     // A short scroll should not steal navigation from readers.
-    await page.evaluate(() => window.scrollTo(0, 60));
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      window.addEventListener("scroll", () => resolve(), { once: true });
+      window.scrollTo(0, 60);
+    }));
     await expect(root).not.toHaveClass(/wyn-home-scroll-hidden/);
 
     await page.evaluate(() => window.scrollTo(0, 300));
@@ -36,7 +48,10 @@ for (const width of [320, 390, 432]) {
     expect(hiddenHome!.y + hiddenHome!.height).toBeLessThanOrEqual(1);
 
     // A small accidental reverse delta must not flicker the bars.
-    await page.evaluate(() => window.scrollBy(0, -8));
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      window.addEventListener("scroll", () => resolve(), { once: true });
+      window.scrollBy(0, -8);
+    }));
     await expect(root).toHaveClass(/wyn-home-scroll-hidden/);
 
     await page.evaluate(() => window.scrollBy(0, -42));
