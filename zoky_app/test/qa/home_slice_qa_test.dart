@@ -518,7 +518,6 @@ void main() {
         expect(rgb, isNot([0xF9, 0x33, 0x84]));
         img.dispose();
       },
-      skip: true, // Bug repro: .wyn/tasks/bugs/ZOKY-120-*.md
     );
 
     testWidgets(

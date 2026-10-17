@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-120 (Home: pink overscroll backdrop shows through content after scrolling)
 
-Status: bugs
+Status: fixed — awaiting QA re-test
 Severity: **HIGH** (Founder-approved Home design breaks in a default state; text becomes illegible)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Home slice QA round (Phases 1–5), 2026-10-17, branch `docs/zoky-foundation` @ 895367c
@@ -19,16 +19,23 @@ Expected: After the header scrolls away, content keeps its white background; pin
 
 Actual: A fixed pink band (44–107pt tall depending on the top inset) stays under the status bar behind scrolled content.
 
-Root Cause (preliminary — confirm independently):
-The backdrop `Positioned(top: 0, height: paddingTop + s24)` is a sibling *under* the `CustomScrollView` in a `Stack`, not part of the scrolled content, and the slivers after the header are transparent.
+Root Cause (confirmed by Debug, 2026-10-17):
+Reproduced with the un-skipped QA test (pixel (4,30) = `#F93384` at 320×568 top 20, scrolled to the end) and in the web preview at 430×932 (top 59): at text 1.0/1.3 pink bars beside the hero card, at text 2.0 the "ดีลเด็ดวันนี้" heading and the demo note sit on pink under the status bar. Cause as reported: the backdrop `Positioned(top: 0, height: paddingTop + s24)` is a fixed sibling under the `CustomScrollView` in the `Stack`; it does not move with the scroll, and the slivers after the header are transparent, so once the header has scrolled more than `paddingTop + 24` the band is exposed.
 
-Fix (direction, not implemented):
-Show the pink only when the scroll offset is negative (e.g. size it from a `ScrollController`/`NotificationListener` with `max(0, -pixels)`, or put it inside the first sliver as an overflow above it), or give the content below the header an opaque `ZokyColors.surface` background (including the hero gutters). Do not change the approved header/hero visuals.
+Fix:
+`HomeScreen._phase1()` now listens to the feed's own vertical scroll (`NotificationListener<Notification>`, depth 0 only — `ScrollNotification` plus `ScrollMetricsNotification` for layout-driven offset changes such as rotation/restored offsets) and sizes the backdrop as `max(0, (paddingTop + 24) - pixels)` via a `ValueNotifier` + `ValueListenableBuilder`. At offset 0 the backdrop is exactly the old size (hidden under the header) → Phase 1 header pixel-identical at rest; while overscrolling (negative pixels) it grows with the bounce so iOS still shows pink; scrolling down it shrinks in step with the header and is gone before any content reaches the top. No header/hero/section widget changed.
 
-Files Changed: (for Debug) `zoky_app/lib/features/home/home_screen.dart`; un-skip the repro in `zoky_app/test/qa/home_slice_qa_test.dart`.
+Files Changed:
+- `zoky_app/lib/features/home/home_screen.dart`
+- `zoky_app/test/qa/home_slice_qa_test.dart` (removed `skip:` of the ZOKY-120 repro; assertion unchanged)
+- `zoky_app/test/home_overscroll_backdrop_test.dart` (new regression tests: iOS overscroll still pink at the top; no pink under the status bar when scrolled at 430×932@2.0 top 59, 375×667@1.3 top 20, 932×430@1.0; scrolled then the top inset grows)
 
-Tests: repro test `ZOKY-120: ...` in `zoky_app/test/qa/home_slice_qa_test.dart` (currently `skip: true`).
+Tests: QA repro passes; new regression tests fail on the old code (4 of 5; the overscroll test passes on both by design) and pass with the fix; home/shell/nav suites pass.
 
-Regression Risk: Low–medium — touches the Home scroll stack; re-check the iOS bounce color, the light status-bar region, the re-tap scroll-to-top and the "nav covers no card" matrix.
+Regression Risk: Low. A per-frame rebuild of one `Positioned`/`ColoredBox` while scrolling (negligible). Nested horizontal rows are ignored (depth > 0). Re-tap scroll-to-top and the nav matrix still pass.
+
+Debug Engineer:
+- Reproduced in test and in the web preview (before/after screenshots: `scratchpad/fixes/zoky120-*.png` in the session scratchpad).
+- Not verified on a real iOS device (no device in sandbox); the bounce colour is covered by a widget test with `TargetPlatform.iOS` drag.
 
 Handoff to QA: re-run the device matrix (320/360/375/390/414/430 × 568–932, landscape, text 1.0–2.0), sample pixels under the status bar after scrolling, and verify the top bounce still shows pink on iOS.

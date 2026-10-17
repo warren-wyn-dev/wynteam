@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/adaptive/zoky_icons.dart';
@@ -200,6 +202,41 @@ class HomeScreenState extends State<HomeScreen> {
   static const double _heroOverlap =
       ZokyHomeHeader.sheetRadius - ZokySpacing.s6;
 
+  /// Height of the pink overscroll backdrop at scroll offset 0; always
+  /// smaller than the header, which hides it at rest.
+  static double _backdropHeight(BuildContext context) =>
+      MediaQuery.paddingOf(context).top + ZokySpacing.s24;
+
+  /// Vertical offset of the home feed (negative while overscrolling).
+  final ValueNotifier<double> _scrollPixels = ValueNotifier<double>(0);
+
+  bool _onScroll(Notification notification) {
+    final ScrollMetrics metrics;
+    final int depth;
+    if (notification is ScrollNotification) {
+      metrics = notification.metrics;
+      depth = notification.depth;
+    } else if (notification is ScrollMetricsNotification) {
+      // Offset changes from layout (rotation, restored offset) send no
+      // ScrollNotification.
+      metrics = notification.metrics;
+      depth = notification.depth;
+    } else {
+      return false;
+    }
+    // Only the feed itself, not the horizontal deal/store rows inside it.
+    if (depth == 0 && metrics.axis == Axis.vertical) {
+      _scrollPixels.value = metrics.pixels;
+    }
+    return false;
+  }
+
+  @override
+  void dispose() {
+    _scrollPixels.dispose();
+    super.dispose();
+  }
+
   /// Phased review layout: header, hero card, then a plain white canvas.
   Widget _phase1() {
     final bottomInset = ZokyBottomNav.reservedHeight(context);
@@ -208,67 +245,76 @@ class HomeScreenState extends State<HomeScreen> {
       child: Stack(
         children: [
           // Pink behind the top edge so an iOS overscroll bounce reveals
-          // the header color instead of a white gap. Always covered by the
-          // header otherwise.
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: MediaQuery.paddingOf(context).top + ZokySpacing.s24,
-            child: const ColoredBox(color: ZokyColors.headerTop),
+          // the header color instead of a white gap (ZOKY-120). It shrinks
+          // by the scroll offset, so it stays inside the area the header
+          // still covers and is gone once the header scrolls away; the
+          // content below the header never sits on pink. At rest (offset
+          // 0) it is the original size, hidden under the header.
+          ValueListenableBuilder<double>(
+            valueListenable: _scrollPixels,
+            builder: (context, pixels, _) => Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: math.max(0, _backdropHeight(context) - pixels),
+              child: const ColoredBox(color: ZokyColors.headerTop),
+            ),
           ),
-          CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                // One box so the card's lifted top edge stays inside this
-                // sliver's hit-test area (the card is painted last, so it
-                // wins taps over the sheet it overlaps).
-                child: Column(
-                  key: _scrollAnchor,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ZokyHomeHeader(onFavorites: _openFavorites),
-                    Transform.translate(
-                      offset: const Offset(0, -_heroOverlap),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: ZokySpacing.gutter,
+          NotificationListener<Notification>(
+            onNotification: _onScroll,
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  // One box so the card's lifted top edge stays inside this
+                  // sliver's hit-test area (the card is painted last, so it
+                  // wins taps over the sheet it overlaps).
+                  child: Column(
+                    key: _scrollAnchor,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ZokyHomeHeader(onFavorites: _openFavorites),
+                      Transform.translate(
+                        offset: const Offset(0, -_heroOverlap),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: ZokySpacing.gutter,
+                          ),
+                          child: ZokyFoodHeroCard(onSearch: _openSearch),
                         ),
-                        child: ZokyFoodHeroCard(onSearch: _openSearch),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              // Phase 3. The hero's translate already leaves [_heroOverlap]
-              // of layout space under the card and the 44pt "ดูทั้งหมด"
-              // target pads the heading, so no extra gap is added here.
-              SliverToBoxAdapter(
-                child: ZokyTodayDealsSection(
-                  repository: widget.promotionRepository,
-                  onOpenDeal: _openDeal,
-                  onSeeAll: _openAllDeals,
+                // Phase 3. The hero's translate already leaves [_heroOverlap]
+                // of layout space under the card and the 44pt "ดูทั้งหมด"
+                // target pads the heading, so no extra gap is added here.
+                SliverToBoxAdapter(
+                  child: ZokyTodayDealsSection(
+                    repository: widget.promotionRepository,
+                    onOpenDeal: _openDeal,
+                    onSeeAll: _openAllDeals,
+                  ),
                 ),
-              ),
-              // Phase 4, directly under Phase 3's row (same rhythm).
-              SliverToBoxAdapter(
-                child: ZokyRecommendedStoresSection(
-                  repository: widget.repository,
-                  onOpenStore: _openStore,
-                  onSeeAll: _openAllStores,
+                // Phase 4, directly under Phase 3's row (same rhythm).
+                SliverToBoxAdapter(
+                  child: ZokyRecommendedStoresSection(
+                    repository: widget.repository,
+                    onOpenStore: _openStore,
+                    onSeeAll: _openAllStores,
+                  ),
                 ),
-              ),
-              // Room for the bottom nav: scrolled to the end, the
-              // last row sits fully above it (Founder rule: the nav never
-              // covers content).
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: ColoredBox(
-                  color: ZokyColors.surface,
-                  child: SizedBox(height: bottomInset),
+                // Room for the bottom nav: scrolled to the end, the
+                // last row sits fully above it (Founder rule: the nav never
+                // covers content).
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: ColoredBox(
+                    color: ZokyColors.surface,
+                    child: SizedBox(height: bottomInset),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
