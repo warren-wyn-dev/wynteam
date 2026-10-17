@@ -40,7 +40,10 @@ class ZokyRecommendedStoreCard extends StatelessWidget {
   static const BorderRadius photoRadius = BorderRadius.all(
     Radius.circular(ZokyRadius.lgValue - photoInset),
   );
-  static const double photoAspectRatio = 1.85;
+
+  /// Food photos are 1:1 everywhere (Founder, 2026-10-17): the same square
+  /// upload the web uses for store and menu photos fits without cropping.
+  static const double photoAspectRatio = 1;
 
   /// Heart: ~32pt visible circle, 44pt tap target, 6pt from the photo's
   /// top-right corner.
