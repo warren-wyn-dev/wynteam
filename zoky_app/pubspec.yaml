@@ -34,6 +34,13 @@ flutter:
     # rounded-rect geometry of design-reference/zoky/zoky-logo.svg (no SVG
     # dependency needed). Not a store icon.
     - assets/images/zoky_logo.png
+    # Wordmark-only (white "Zoky" + pin + smile on transparent), 1066x590
+    # RGBA. Byte-for-byte copy of git blob
+    # e77d5c5:zoky-ios/assets/zoky-wordmark-original-1066.png, a pixel
+    # preserving crop of the Founder's transparent PNG. sha256
+    # f0f39cbbaecb9bf97b82953b62b5d59c6031dabdc7a699f007bf380dbefabf08.
+    # Never redraw/tint it; use on pink backgrounds only (design 2.1).
+    - assets/images/zoky_wordmark.png
     # SIL OFL 1.1 notice for the bundled Anuphan font (registered with
     # LicenseRegistry in main.dart).
     - assets/fonts/anuphan/OFL.txt
