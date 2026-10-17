@@ -12,6 +12,9 @@ enum Zoky3DGlyph {
 
   /// White arrow on a glossy pink sphere (end of a call-to-action).
   arrowRight,
+
+  /// Rounded 5-point star (review rating), usually [Zoky3DPalette.gold].
+  star,
 }
 
 /// Lighting palette of a 3D icon: vertical body gradient (top -> bottom),
@@ -36,6 +39,14 @@ class Zoky3DPalette {
     bottom: Color(0xFFE5135D),
     shade: Color(0xFF9E0E3E),
     shadow: Color(0xFFC2185B),
+  );
+
+  /// Rating gold (around [ZokyColors.rating] #F5A623), same lighting.
+  static const Zoky3DPalette gold = Zoky3DPalette(
+    top: Color(0xFFFFD45C),
+    bottom: Color(0xFFF59E0B),
+    shade: Color(0xFFB45309),
+    shadow: Color(0xFFC2700A),
   );
 
   /// White glyph (e.g. the arrow drawn on the pink sphere).
@@ -116,6 +127,39 @@ class Zoky3DIconPainter extends CustomPainter {
       ..close();
   }
 
+  /// 5-point star with softly rounded tips, centered a little high so the
+  /// drop shadow fits below.
+  static Path starPath(double s) {
+    const n = 5;
+    const outer = 0.46;
+    const inner = 0.21;
+    const cx = 0.5;
+    const cy = 0.50;
+    final pts = <Offset>[];
+    for (var i = 0; i < n * 2; i++) {
+      final r = i.isEven ? outer : inner;
+      final a = -math.pi / 2 + i * math.pi / n;
+      pts.add(Offset((cx + r * math.cos(a)) * s, (cy + r * math.sin(a)) * s));
+    }
+    // Round each corner: line to a point just before it, curve through it.
+    final path = Path();
+    for (var i = 0; i < pts.length; i++) {
+      final p = pts[i];
+      final prev = pts[(i - 1 + pts.length) % pts.length];
+      final next = pts[(i + 1) % pts.length];
+      final k = i.isEven ? 0.16 : 0.10;
+      final a = Offset.lerp(p, prev, k)!;
+      final b = Offset.lerp(p, next, k)!;
+      if (i == 0) {
+        path.moveTo(a.dx, a.dy);
+      } else {
+        path.lineTo(a.dx, a.dy);
+      }
+      path.quadraticBezierTo(p.dx, p.dy, b.dx, b.dy);
+    }
+    return path..close();
+  }
+
   static Path spherePath(double s) =>
       Path()..addOval(Rect.fromLTWH(0.06 * s, 0.04 * s, 0.88 * s, 0.88 * s));
 
@@ -157,6 +201,18 @@ class Zoky3DIconPainter extends CustomPainter {
             height: 0.20 * s,
           ),
           highlightAngle: 0.5,
+        );
+      case Zoky3DGlyph.star:
+        _paintBody(
+          canvas,
+          starPath(s),
+          s,
+          palette,
+          highlight: Rect.fromCenter(
+            center: Offset(0.40 * s, 0.36 * s),
+            width: 0.20 * s,
+            height: 0.12 * s,
+          ),
         );
       case Zoky3DGlyph.arrowRight:
         _paintBody(

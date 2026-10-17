@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/adaptive/zoky_icons.dart';
-import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
 import '../../../core/l10n/zoky_strings.dart';
@@ -9,6 +7,7 @@ import '../../../core/widgets/zoky_skeleton.dart';
 import '../../deals/data/promotion_repository.dart';
 import '../../deals/domain/deal_models.dart';
 import '../../deals/widgets/zoky_deal_card.dart';
+import 'zoky_home_section_header.dart';
 
 /// Home Phase 3 (Founder mockup "เฟส 3 ดีลเด็ดวันนี้"): section heading,
 /// "ดูทั้งหมด >" and a horizontally scrolling row of [ZokyDealCard]s; the
@@ -69,7 +68,11 @@ class _ZokyTodayDealsSectionState extends State<ZokyTodayDealsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _header(),
+        ZokyHomeSectionHeader(
+          title: ZokyStrings.dealsTitle,
+          seeAllLabel: ZokyStrings.seeAllDeals,
+          onSeeAll: widget.onSeeAll,
+        ),
         if (showDemoNote)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: ZokySpacing.gutter),
@@ -116,63 +119,6 @@ class _ZokyTodayDealsSectionState extends State<ZokyTodayDealsSection> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _header() {
-    final linkStyle = ZokyTextStyles.labelMd.copyWith(
-      color: ZokyColors.brandDeep,
-      fontWeight: FontWeight.w700,
-    );
-    return Padding(
-      padding: const EdgeInsets.only(
-        left: ZokySpacing.gutter,
-        right: ZokySpacing.s4,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(
-                ZokyStrings.dealsTitle,
-                style: ZokyTextStyles.titleSm.copyWith(fontSize: 20),
-              ),
-            ),
-          ),
-          Semantics(
-            button: true,
-            label: ZokyStrings.seeAllDeals,
-            excludeSemantics: true,
-            child: InkWell(
-              onTap: widget.onSeeAll,
-              borderRadius: ZokyRadius.full,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minHeight: ZokySizes.tapTargetIos,
-                  minWidth: ZokySizes.tapTargetIos,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: ZokySpacing.s4,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(ZokyStrings.seeAll, style: linkStyle),
-                      const Icon(
-                        ZokyIcons.chevronRight,
-                        size: 18,
-                        color: ZokyColors.brandDeep,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

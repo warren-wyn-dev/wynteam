@@ -27,6 +27,12 @@ Finder _homeCards() => find.descendant(
 
 Finder _seeAll() => find.bySemanticsLabel(ZokyStrings.seeAllDeals);
 
+/// "ดูทั้งหมด" text of this section (Phase 4 has one too).
+Finder _seeAllText() => find.descendant(
+  of: find.byType(ZokyTodayDealsSection),
+  matching: find.text(ZokyStrings.seeAll),
+);
+
 double _contrast(Color a, Color b) {
   final la = a.computeLuminance();
   final lb = b.computeLuminance();
@@ -53,7 +59,7 @@ void main() {
     await pumpZokyApp(tester);
     expect(find.byType(ZokyTodayDealsSection), findsOneWidget);
     expect(find.text(ZokyStrings.dealsTitle), findsOneWidget);
-    expect(find.text(ZokyStrings.seeAll), findsOneWidget);
+    expect(_seeAllText(), findsOneWidget);
     expect(find.text(ZokyStrings.dealsDemoNote), findsOneWidget);
     expect(_homeCards(), findsNWidgets(_deals.length));
     for (final deal in _deals) {
@@ -324,13 +330,13 @@ void main() {
             expect(r.right, lessThanOrEqualTo(card.right));
           }
         }
-        final seeAll = tester.getRect(find.text(ZokyStrings.seeAll));
+        final seeAll = tester.getRect(_seeAllText());
         expect(seeAll.right, lessThanOrEqualTo(width));
         expect(
           tester
               .getSize(
                 find.ancestor(
-                  of: find.text(ZokyStrings.seeAll),
+                  of: _seeAllText(),
                   matching: find.byType(InkWell),
                 ),
               )
@@ -348,7 +354,7 @@ void main() {
           const Offset(0, -300),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text(ZokyStrings.seeAll));
+        await tester.tap(_seeAllText());
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         await tester.tap(

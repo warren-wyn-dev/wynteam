@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/l10n/zoky_strings.dart';
-import '../../../core/widgets/zoky_3d_icon.dart';
+import '../../../core/widgets/zoky_glossy_heart_button.dart';
 import '../../../core/widgets/zoky_glossy_surface.dart';
 import '../../../core/widgets/zoky_wordmark.dart';
 
@@ -92,7 +92,12 @@ class ZokyHomeHeader extends StatelessWidget {
                     children: [
                       ZokyWordmark(width: logoWidth),
                       const Spacer(),
-                      _FavoritesButton(onPressed: onFavorites),
+                      ZokyGlossyHeartButton(
+                        label: ZokyStrings.favoriteStores,
+                        onPressed: onFavorites,
+                        diameter: heartDiameter,
+                        tapTarget: tapTarget,
+                      ),
                     ],
                   ),
                 ),
@@ -112,56 +117,6 @@ class ZokyHomeHeader extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FavoritesButton extends StatelessWidget {
-  const _FavoritesButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: ZokyStrings.favoriteStores,
-      excludeSemantics: true,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: const CircleBorder(),
-          child: SizedBox.square(
-            dimension: ZokyHomeHeader.tapTarget,
-            child: Center(
-              child: Ink(
-                width: ZokyHomeHeader.heartDiameter,
-                height: ZokyHomeHeader.heartDiameter,
-                decoration: const BoxDecoration(
-                  gradient: ZokyGloss.white,
-                  shape: BoxShape.circle,
-                  boxShadow: ZokyGloss.controlShadow,
-                ),
-                child: const CustomPaint(
-                  painter: ZokyGlossPainter(
-                    gradient: null,
-                    borderRadius: BorderRadius.all(
-                      Radius.circular(ZokyHomeHeader.heartDiameter / 2),
-                    ),
-                    glossHeight: ZokyHomeHeader.heartDiameter * 0.5,
-                    glossOpacity: 0.9,
-                    glossInset: 3,
-                    rimTop: ZokyGloss.controlRimTop,
-                    rimBottom: ZokyGloss.controlRimBottom,
-                  ),
-                  child: Center(child: Zoky3DIcon(Zoky3DGlyph.heart, size: 26)),
-                ),
-              ),
-            ),
           ),
         ),
       ),
