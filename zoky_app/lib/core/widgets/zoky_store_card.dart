@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../features/catalog/domain/catalog_models.dart';
 import '../../features/deals/widgets/zoky_deal_card.dart' show ZokyDemoBadge;
+import '../../features/home/widgets/zoky_recommended_store_card.dart'
+    show ZokyRecommendedStoreCard;
 import '../adaptive/zoky_icons.dart';
 import '../design/zoky_colors.dart';
 import '../design/zoky_tokens.dart';
@@ -12,8 +14,11 @@ import '../l10n/zoky_strings.dart';
 /// Store card (design 9.4, web `StoreCard` / `fx-store-card`).
 ///
 /// 1:1 photo (Founder decision 2026-10-17: every food photo is square,
-/// ZOKY-125) with overlays (demo badge, ad, closed, promo, ETA), name (max
-/// 2 lines), rating/distance meta and tags. Read by screen readers as one node.
+/// ZOKY-125) with short badges (demo, ad, closed, promo), name (max 2
+/// lines), "rating | time | distance" meta (as on the Home recommended card)
+/// and tags. Badge labels wrap instead of being ellipsized (ZOKY-127): the ad
+/// disclosure, promo value and closed state must always be readable. Read by
+/// screen readers as one node.
 class ZokyStoreCard extends StatelessWidget {
   const ZokyStoreCard({super.key, required this.store, required this.onTap});
 
@@ -43,6 +48,33 @@ class ZokyStoreCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rating = store.rating;
+    final eta = ZokyRecommendedStoreCard.etaLabel(store);
+    final strong = ZokyTextStyles.weight(
+      ZokyTextStyles.bodySm.copyWith(color: ZokyColors.textPrimary),
+      FontWeight.w700,
+    );
+    // ETA lives here, not on the photo, so it is never cut (ZOKY-127).
+    // Groups wrap on narrow cards (and the rating group wraps inside). Each
+    // group has a leading thin rule that is clipped away at the start of a
+    // line, so rules only show between groups on one line (never dangling).
+    final meta = <List<Widget>>[
+      if (rating != null)
+        [
+          const Icon(ZokyIcons.star, size: 14, color: ZokyColors.rating),
+          Text(rating.toStringAsFixed(1), style: strong),
+          Text('(${store.ratingCount})', style: ZokyTextStyles.bodySm),
+        ]
+      else if (store.isNew)
+        [Text(ZokyStrings.newStore, style: strong)],
+      if (eta != null) [Text(eta, style: ZokyTextStyles.bodySm)],
+      if (store.distanceKm != null)
+        [
+          Text(
+            '${store.distanceKm!.toStringAsFixed(1)} กม.',
+            style: ZokyTextStyles.bodySm,
+          ),
+        ],
+    ];
     final categories = store.categories.isEmpty
         ? const ['อาหาร']
         : store.categories.take(2);
@@ -72,43 +104,29 @@ class ZokyStoreCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: ZokySpacing.s1),
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: ZokySpacing.s2,
-              children: [
-                if (rating != null) ...[
-                  const Icon(
-                    ZokyIcons.star,
-                    size: 14,
-                    color: ZokyColors.rating,
+            if (meta.isNotEmpty)
+              ClipRect(
+                clipper: const _ClipLeftEdge(),
+                child: Transform.translate(
+                  offset: const Offset(-_MetaItem.lead, 0),
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    runSpacing: ZokySpacing.s1,
+                    children: [
+                      for (final group in meta)
+                        _MetaItem(
+                          child: group.length == 1
+                              ? group.single
+                              : Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: ZokySpacing.s2,
+                                  children: group,
+                                ),
+                        ),
+                    ],
                   ),
-                  Text(
-                    rating.toStringAsFixed(1),
-                    style: ZokyTextStyles.weight(
-                      ZokyTextStyles.bodySm.copyWith(
-                        color: ZokyColors.textPrimary,
-                      ),
-                      FontWeight.w700,
-                    ),
-                  ),
-                  Text('(${store.ratingCount})', style: ZokyTextStyles.bodySm),
-                ] else if (store.isNew)
-                  Text(
-                    ZokyStrings.newStore,
-                    style: ZokyTextStyles.weight(
-                      ZokyTextStyles.bodySm.copyWith(
-                        color: ZokyColors.textPrimary,
-                      ),
-                      FontWeight.w700,
-                    ),
-                  ),
-                if (store.distanceKm != null)
-                  Text(
-                    '· ${store.distanceKm!.toStringAsFixed(1)} กม.',
-                    style: ZokyTextStyles.bodySm,
-                  ),
-              ],
-            ),
+                ),
+              ),
             const SizedBox(height: ZokySpacing.s2),
             Wrap(
               spacing: ZokySpacing.s2,
@@ -134,105 +152,86 @@ class _Photo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasTop = store.isDemo || store.isAd || !store.isOpen;
     return AspectRatio(
       aspectRatio: 1,
       child: ClipRRect(
         borderRadius: ZokyRadius.lg,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // Each overlay may use at most half the photo width so they
-            // never collide (design: overlays clamp to 1.3x text scale).
-            final half = constraints.maxWidth / 2 - ZokySpacing.s6;
-            return MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 1.3,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _cover(),
-                  if (store.isDemo || store.isAd)
-                    Positioned(
-                      left: ZokySpacing.s4,
-                      top: ZokySpacing.s4,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (store.isDemo)
-                            // One line, never cut: scales down to fit
-                            // (half width only next to the closed overlay).
-                            ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth:
-                                    (store.isOpen
-                                            ? constraints.maxWidth -
-                                                  2 * ZokySpacing.s4
-                                            : half)
-                                        .clamp(0, double.infinity),
-                              ),
-                              child: const FittedBox(
+        // Overlays clamp to 1.3x text scale (design).
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _cover(),
+              if (hasTop)
+                Positioned(
+                  left: ZokySpacing.s4,
+                  top: ZokySpacing.s4,
+                  right: ZokySpacing.s4,
+                  // Demo/ad on the left, closed on the right when both fit;
+                  // otherwise closed moves below, so nothing overlaps and
+                  // every badge may use the whole photo width (ZOKY-127).
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: ZokySpacing.s2,
+                    runSpacing: ZokySpacing.s2,
+                    children: [
+                      if (store.isDemo || store.isAd)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (store.isDemo)
+                              // One line, never cut: scales down to fit.
+                              const FittedBox(
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.topLeft,
                                 child: ZokyDemoBadge(),
                               ),
-                            ),
-                          if (store.isDemo && store.isAd)
-                            const SizedBox(height: ZokySpacing.s2),
-                          if (store.isAd)
-                            _Overlay(
-                              maxWidth: half,
-                              label: ZokyStrings.adLabel,
-                              background: ZokyColors.neutral900.withValues(
-                                alpha: 0.72,
+                            if (store.isDemo && store.isAd)
+                              const SizedBox(height: ZokySpacing.s2),
+                            if (store.isAd)
+                              _Overlay(
+                                label: ZokyStrings.adLabel,
+                                background: ZokyColors.neutral900.withValues(
+                                  alpha: 0.72,
+                                ),
+                                foreground: ZokyColors.neutral0,
                               ),
-                              foreground: ZokyColors.neutral0,
-                            ),
-                        ],
-                      ),
-                    ),
-                  if (!store.isOpen)
-                    Positioned(
-                      right: ZokySpacing.s4,
-                      top: ZokySpacing.s4,
-                      child: _Overlay(
-                        maxWidth: half,
-                        icon: ZokyIcons.clock,
-                        label: ZokyStrings.closedLabel,
-                        background: ZokyColors.neutral900.withValues(
-                          alpha: 0.8,
+                          ],
                         ),
-                        foreground: ZokyColors.neutral0,
-                      ),
-                    ),
-                  if (store.hasPromo)
-                    Positioned(
-                      left: 0,
-                      bottom: ZokySpacing.s4,
-                      child: _Overlay(
-                        maxWidth: half,
-                        label: store.promoLabel!,
-                        background: ZokyColors.brandDeep,
-                        foreground: ZokyColors.onAction,
-                        borderRadius: const BorderRadius.horizontal(
-                          right: Radius.circular(ZokyRadius.fullValue),
+                      if (!store.isOpen)
+                        _Overlay(
+                          icon: ZokyIcons.clock,
+                          label: ZokyStrings.closedLabel,
+                          background: ZokyColors.neutral900.withValues(
+                            alpha: 0.8,
+                          ),
+                          foreground: ZokyColors.neutral0,
                         ),
+                    ],
+                  ),
+                ),
+              if (store.hasPromo)
+                Positioned(
+                  left: 0,
+                  right: ZokySpacing.s4,
+                  bottom: ZokySpacing.s4,
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: _Overlay(
+                      label: store.promoLabel!,
+                      background: ZokyColors.brandDeep,
+                      foreground: ZokyColors.onAction,
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(ZokyRadius.fullValue),
                       ),
                     ),
-                  if (store.hasEta)
-                    Positioned(
-                      right: ZokySpacing.s4,
-                      bottom: ZokySpacing.s4,
-                      child: _Overlay(
-                        maxWidth: half,
-                        label:
-                            '${store.etaMinMinutes}–${store.etaMaxMinutes} ${ZokyStrings.minutes}',
-                        background: ZokyColors.surface,
-                        foreground: ZokyColors.textPrimary,
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -256,7 +255,6 @@ class _Photo extends StatelessWidget {
 
 class _Overlay extends StatelessWidget {
   const _Overlay({
-    required this.maxWidth,
     required this.label,
     required this.background,
     required this.foreground,
@@ -264,7 +262,6 @@ class _Overlay extends StatelessWidget {
     this.borderRadius = ZokyRadius.full,
   });
 
-  final double maxWidth;
   final String label;
   final Color background;
   final Color foreground;
@@ -273,39 +270,77 @@ class _Overlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth.clamp(0, double.infinity)),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: borderRadius,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 12, color: foreground),
-                const SizedBox(width: 3),
-              ],
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: ZokyTextStyles.weight(
-                    ZokyTextStyles.caption.copyWith(color: foreground),
-                    FontWeight.w700,
-                  ),
+    // Width comes from the parent (up to the whole photo row); the label
+    // wraps rather than being ellipsized (ZOKY-127).
+    return DecoratedBox(
+      decoration: BoxDecoration(color: background, borderRadius: borderRadius),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 12, color: foreground),
+              const SizedBox(width: 3),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                style: ZokyTextStyles.weight(
+                  ZokyTextStyles.caption.copyWith(color: foreground),
+                  FontWeight.w700,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+/// Meta group with its leading thin rule (as on the Home card). [child]
+/// still wraps inside the card width.
+class _MetaItem extends StatelessWidget {
+  const _MetaItem({required this.child});
+
+  final Widget child;
+
+  /// Gap, rule, gap: hidden at the start of each line.
+  static const double lead = 2 * ZokySpacing.s3 + 1;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(
+          width: lead,
+          child: Center(
+            child: SizedBox(
+              width: 1,
+              height: 14,
+              child: ColoredBox(color: ZokyColors.borderDefault),
+            ),
+          ),
+        ),
+        Flexible(child: child),
+      ],
+    );
+  }
+}
+
+/// Clips only what lies left of the box (the hidden line-start rules), so
+/// Thai marks above/below a line are never cut.
+class _ClipLeftEdge extends CustomClipper<Rect> {
+  const _ClipLeftEdge();
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, -size.height, size.width * 2, size.height * 2);
+
+  @override
+  bool shouldReclip(_ClipLeftEdge oldClipper) => false;
 }
 
 class _Tag extends StatelessWidget {

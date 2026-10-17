@@ -844,7 +844,6 @@ void main() {
         };
         expect(ad, isEmpty, reason: '$ad');
       },
-      skip: true, // Bug repro: .wyn/tasks/bugs/ZOKY-127-*.md
     );
 
     for (final (w, sc) in [(375.0, 1.0), (360.0, 1.3), (320.0, 1.3)]) {
@@ -855,7 +854,6 @@ void main() {
           final t = await overlayTruncations(tester, w, sc);
           expect(t, isEmpty, reason: '$t');
         },
-        skip: true, // Bug repro: .wyn/tasks/bugs/ZOKY-127-*.md
       );
     }
   });
