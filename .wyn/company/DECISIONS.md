@@ -2269,3 +2269,22 @@ reconciliation ที่ทนทานสำหรับการคืน GP �
 ถ้ายังล้มเหลวจะ log `order_id`/`stripe_refund_id` ให้แก้มือ (ระหว่าง GP = 0% ไม่มี fee จึงไม่เกิดกรณีนี้)
 reconciliation นี้ต้องอ่านจาก Stripe (`application_fee.refunded` / `ApplicationFee.amount_refunded`) เพื่อรองรับ
 การคืน fee ผ่าน Stripe Dashboard และการคืนบางส่วนด้วย — ต้องเพิ่ม event subscription ระดับ platform ใน Stripe (Founder)
+
+## [2026-10-17] Founder: เริ่ม ZOKY ใหม่จากศูนย์ — rebrand WYNOS Food ฝั่งลูกค้าเป็น ZOKY บนเว็บ + iOS + Android
+
+บันทึกตามกติกา Founder Feedback ใน `.wyn/company/RULES.md` จากการคุยกับ Founder โดยตรง (2026-10-17)
+
+**สิ่งที่ Founder ยืนยันแล้ว**
+
+1. **ZOKY ใหม่ไม่ใช่ Marketplace เดิม** (ZOKY-001..005 / SELLER-001..005 ที่ลบออกไปแล้ว) — "เริ่มนับ 0 ใหม่" ใช้เลข task `ZOKY-1xx` เพื่อไม่ชนของเก่า
+2. **ZOKY = WYNOS Food ฝั่งลูกค้า (food.wynos.online) เปลี่ยนเป็น ZOKY ทั้งหมด** — "จะเป็น Zoky ทั้งหมดเลย" รวมทั้ง**ชื่อและโดเมน** → `zoky.online` (Founder เช็กแล้วว่าว่าง ยังไม่ยืนยันว่าจดแล้ว)
+3. **ฟีเจอร์ต้องเท่าเว็บเดิม** และ**ต้องใช้ได้ทั้งเว็บ iOS และ Android**
+4. **เทคโนโลยี**: เว็บใช้ Next.js เดิม (rebrand) / iOS + Android ใช้ **Flutter** codebase เดียว — Founder เปลี่ยนจาก Swift เป็น Flutter หลังทราบว่า Swift ได้แค่ iOS ถือเป็นการระบุเจาะจงเรื่องแอป Flutter ตามข้อ 2 ของ decision 2026-09-19 — การพัก `app/` (WYNOS App) ยังคงเดิม ZOKY เป็นแอปใหม่แยกโฟลเดอร์
+5. **UX**: แบรนด์เดียวกันทั้งสองแพลตฟอร์ม แต่ส่วนพื้นฐานของระบบ (dialog, action/bottom sheet, date picker, switch, ไอคอน share/back) ปรับตาม iOS/Android
+6. **โลโก้**: ใช้โลโก้ต้นฉบับ (แบบ A) 100% — `design-reference/zoky/zoky-logo-source.jpg` (Founder ดูทางเลือกสว่างขึ้นและโทนแดง+ชมพูแล้ว เลือกต้นฉบับ)
+7. **สีแบรนด์**: ดึงจากโลโก้ — ZOKY Pink `#F21967` (หลัก), `#F4368D`, `#F880BE`, `#D61256`, `#AF1341`, `#991636`, Cloud White `#F8FAFE`, Blush `#F1E4F5`
+8. Founder มีแค่ iPad (ไม่มี Mac) → แนวทาง build iOS ผ่าน cloud macOS CI
+
+**ยังรอ Founder อนุมัติ** (ดู `.wyn/docs/product/zoky-decision-proposal.md` และ `.wyn/company/APPROVALS.md`): ค่าใช้จ่าย Codemagic / Apple Developer / Google Play, bundle ID, การแก้ backend ที่ผูกโดเมนเดิม (Stripe Origin allowlist, push routing), Sign in with Apple และการลบบัญชีในแอป, ลำดับ cutover โดเมนและ redirect, การทำ TestFlight/internal testing ระหว่าง production freeze
+
+**ขอบเขต**: เป็นการตัดสินใจทิศทางผลิตภัณฑ์ ยังไม่ใช่การอนุมัติแก้ application source, backend, โดเมน production หรือ deploy — ทุกอย่างต้องผ่าน gate เดิม
