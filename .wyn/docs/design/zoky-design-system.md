@@ -521,21 +521,23 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 ### 9.8 Bottom navigation (`fx-nav`), shared ทุก platform
 
-> Home เฟส 5 (2026-10-17) **PROPOSED — รอ Founder review** แทนแบบ pill ลอยเดิม โค้ด: `zoky_app/lib/core/widgets/zoky_bottom_nav.dart`
+> Home เฟส 5b (2026-10-17) **PROPOSED — ตาม reference ที่ Founder ส่งมา 2026-10-17, รอ Founder review** แทนแบบแถบเต็มความกว้างของเฟส 5 (commit e1f44ac) โค้ด: `zoky_app/lib/core/widgets/zoky_bottom_nav.dart`
 
-- **แถบเต็มความกว้าง** ติดขอบล่าง (ตาม mockup ที่เป็นแถบขาวเต็มกว้าง 4 ช่องเท่ากัน และเป็นแบบ tab bar ของ iOS) แถวไอคอนสูง 56 + safe-area inset ด้านล่าง (34 บน iPhone 15 Pro Max, 0 บน iPhone SE) พื้นขาวเต็มถึงขอบจอใต้ home indicator; บนจอกว้าง item อยู่กลางกว้างสูงสุด 560
-- พื้น "white control": gradient `#FFFFFF` → `#FFF7FA`, เส้น hairline บน 0.5px `#F9C0DE` @50%, เงาชมพูขึ้นด้านบน `#EE226E` @8% blur 16 y −2 ไม่มี blur/โปร่งใส (ไม่ให้เนื้อหาโผล่ผ่าน)
-- 4 แท็บเท่านั้น ลำดับ: หน้าหลัก / ออเดอร์ / ข้อความ / บัญชี (ห้ามเพิ่มบริการอื่น)
-- ไม่ active: line icon 26pt เส้น ~1.95px ปลายมน สี `neutral.600` #6B6B76 + label 12/500 `text.secondary`
-- Active: ไอคอนเดียวกันแบบ **3D glossy** (`Zoky3DIcon` palette pink, แสงชุดเดียวกับข้อ 7.1) + label 12/700 `action.primary` #D61256 ไม่มี pill พื้นหลัง
-- Contrast (ค่าแย่สุด = stop ล่าง `#FFF7FA`): label เทา 5.00:1, label ชมพู 4.89:1, line icon 5.00:1, ตัวไอคอน 3D stop ล่าง `#E5135D` 4.35:1 (stop บนสว่าง `#FF6BAA` 2.51:1 เป็นไฮไลต์ — สถานะ selected มี label ตัวหนาสีชมพูกำกับเสมอ). วัดจาก pixel จริง 430×932@3x: label เทา 5.16:1, label ชมพู 5.05:1, icon เทา 5.26:1, icon 3D จุดเข้มสุด 5.64:1
-- Motion: สลับ line → 3D แบบ fade + scale 0.85→1 และสี/น้ำหนัก label 200ms (`base`) ปิดเมื่อ reduced motion; haptic `HapticFeedback.selectionClick` เมื่อเปลี่ยนแท็บ (ไม่สั่นเมื่อกดแท็บเดิม)
+- **Capsule ลอย** สีขาว `#FFFFFF` สูง 64 radius = สูง/2 (stadium) ห่างขอบซ้าย/ขวา 16 (+ side safe area) ยกจากขอบล่างเท่ากับ bottom safe inset (34 บน iPhone 15 Pro Max) ขั้นต่ำ 12 เมื่อ inset = 0 (iPhone SE); บนจอกว้างกว้างสูงสุด 560 อยู่กลาง เนื้อหาเลื่อนผ่านด้านข้าง/ใต้ capsule ได้ (แบบ reference) และพื้นที่ margin ไม่รับ tap แทนเนื้อหา
+- เงา: กว้างนุ่ม `#3B1A29` @14% blur 36 y 10 (neutral อมชมพูจาง) + `#16161A` @6% blur 4 y 1; hairline 0.5px ink @8% รอบ capsule
+- 4 แท็บเท่านั้น ลำดับ: หน้าหลัก / ออเดอร์ / ข้อความ / บัญชี (ห้ามเพิ่มบริการอื่น) ช่องกว้างเท่ากัน padding ในซ้าย/ขวา 6
+- ไม่ active: line icon 26pt `neutral.600` #6B6B76 + label 13/500 `text.secondary` บนขาว
+- Active: capsule highlight สี Blush `#FFEDF4` เต็มช่อง ห่างขอบบน/ล่างของ bar 6 + ไอคอน **3D glossy** (`Zoky3DIcon` palette pink) + label 13/700 `action.primary` #D61256
+- Contrast: label เทา/ขาว 5.26:1, label ชมพู/highlight 4.58:1 (วัดจาก pixel จริง 430×932@3x ตรงกัน 4.58:1), ตัวไอคอน 3D stop ล่าง `#E5135D`/highlight 4.07:1 (stop บน 2.35:1 เป็นไฮไลต์ — selected มี label ตัวหนาสีชมพูกำกับเสมอ), จุดแจ้งเตือน/ขาว 6.54:1
+- Motion: highlight เลื่อน (AnimatedAlign) 220ms `standard` ระหว่างแท็บ; ไอคอนสลับ line → 3D แบบ fade + scale 0.85→1 และสี/น้ำหนัก label 200ms (`base`); ทั้งหมดเป็นทันทีเมื่อ reduced motion; haptic `HapticFeedback.selectionClick` เมื่อเปลี่ยนแท็บ (ไม่สั่นเมื่อกดแท็บเดิม); ไม่มี hover disc
 - กดหน้าหลักซ้ำขณะอยู่หน้าหลัก = เลื่อนกลับบนสุด (แบบ iOS); แท็บอื่นเก็บ state (IndexedStack); Android back จากแท็บอื่นกลับหน้าหลักก่อน
 - Label clamp text scale สูงสุด 1.2 (ทดสอบ 320–430 × 1.0/1.3 ไม่ล้น/ไม่ตัด)
-- Badge (แท็บออเดอร์): `brand.pinkDeep` + ขาว 11/700 ขอบขาว 2px "9+" label "{n} ออเดอร์ที่กำลังดำเนินการ"
-- พื้นที่กดเต็มช่อง (กว้าง ≥ 80 × สูง 56) แต่ละช่องเป็น `Semantics(button, selected, onTap)` label ภาษาไทยตรงตัว
-- เนื้อหาเว้นด้านล่าง `ZokyBottomNav.reservedHeight` = 56 + inset + 8 ทุกหน้าจอ → แถวสุดท้ายของหน้าหลักอยู่เหนือ nav เสมอเมื่อเลื่อนสุด
+- จุดแจ้งเตือน (`ZokyNavItem.showDot`): วงกลม 8 สี semantic `error` #B3261E (ไม่ใช่ชมพูแบรนด์) + ขอบขาว 2 (รวม 12) ศูนย์กลางที่มุมขวาบนของไอคอน; semantics อ่านต่อท้าย label เช่น "ข้อความ, มีข้อความใหม่" (`ZokyStrings.navMessagesUnread`) — **ยังไม่แสดงในแอป/preview** เพราะยังไม่มีข้อมูล unread จริง
+- Badge ตัวเลข (`badgeCount`, ของเดิม): `brand.pinkDeep` + ขาว 11/700 ขอบขาว 2px "9+" label "{n} ออเดอร์ที่กำลังดำเนินการ" (ยังไม่ใช้ใน shell)
+- พื้นที่กดเต็มช่อง (≥ 69 × 64 ที่กว้าง 320) แต่ละช่องเป็น `Semantics(button, selected, onTap)` label ภาษาไทยตรงตัว
+- เนื้อหาเว้นด้านล่าง `ZokyBottomNav.reservedHeight` = 64 + bottom offset + 8 ทุกหน้าจอ → แถวสุดท้ายของหน้าหลักอยู่เหนือ capsule เสมอเมื่อเลื่อนสุด (ทดสอบ 430×932/34, 390×844/34, 375×667/0, 320×568/0)
 - **ไม่ใช้** `CupertinoTabBar` หรือ Material `NavigationBar` เพราะ nav เป็นส่วนหนึ่งของแบรนด์ (แต่ใส่ semantics ให้ครบแบบ tab bar)
+- ตัวเลือกที่รอ Founder: ไอคอนออเดอร์แบบเอกสาร + นาฬิกาเล็ก (ตาม reference) แทน receipt เดิม; สีจุดแจ้งเตือนสว่างขึ้น (reference ใช้แดงสด) ซึ่งต้องเพิ่ม token ใหม่
 
 ### 9.9 Order status tracker (`fx-track`)
 
