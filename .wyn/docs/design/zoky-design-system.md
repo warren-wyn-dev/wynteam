@@ -389,7 +389,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 | White control | gradient `#FFFFFF` → `#FFF1F6` + rim ขาวบน / `#F9C0DE` 40% ล่าง ใช้กับปุ่มหัวใจ, pill, ปุ่มค้นหา |
 | Frosted disc | ขาว 34% → 14% + gloss 30% + rim ขาว 45%→12% (วงกลมหลังภาพประกอบ) |
 
-ใช้แล้วกับ: Header เฟส 1 (gloss 7% เพื่อให้ไอคอน status bar ขาวยัง ≥ 3:1, ไม่มี rim/shadow, layout/โค้ง/sheet เดิม), การ์ดเฟส 2 (full recipe). เฟสถัดไปที่มีพื้นชมพูให้ใช้ `ZokyGlossySurface` ตัวเดียวกัน
+ใช้แล้วกับ: Header เฟส 1 (gloss 7% เพื่อให้ไอคอน status bar ขาวยัง ≥ 3:1, ไม่มี rim/shadow, layout/โค้ง/sheet เดิม), การ์ดเฟส 2 (full recipe), การ์ดดีลเฟส 3 (gloss + rim บนพื้น tint อ่อน ดูด้านล่าง). เฟสถัดไปที่มีพื้นชมพูให้ใช้ `ZokyGlossySurface` ตัวเดียวกัน
 
 **3D icon lighting** (`zoky_app/lib/core/widgets/zoky_3d_icon.dart` → `Zoky3DIcon`, CustomPainter ล้วน ไม่มีรูป/emoji/package)
 
@@ -412,6 +412,14 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 - ห้ามแก้ contrast ด้วยการทำการ์ดให้เข้มขึ้น (ทำให้ไม่เข้ากับ header) — ให้เปลี่ยนขนาด/น้ำหนักตัวอักษร หรือย้ายข้อความไปบน white control แทน
 
 **ภาพประกอบ**: `ZokyBentoIllustration` วาดด้วยโค้ดแบบ 3/4 (ฝากล่องดำเงา, ด้านหน้า/ด้านข้างแดงเคลือบ, ขาเล็ก, ข้าว/แซลมอน/ทามาโกะ/ผัก) แสงเดียวกับไอคอน แยกเป็น widget เดี่ยวเพื่อแทนด้วยรูปจริงภายหลัง
+
+**การ์ดดีลเฟส 3 (พื้นอ่อน)** (`zoky_app/lib/features/deals/widgets/zoky_deal_card.dart` → `ZokyDealCard`, PROPOSED)
+
+- พื้น tint แนวตั้ง: ชมพู `#FFF1F6` → `#FFDCEA`, พีช `#FFF7EF` → `#FFE4D1` (สลับกันตามลำดับ) — พีชเป็นสีใหม่ ยังไม่อยู่ใน tokens.json
+- `ZokyGlossPainter` แบบไม่มี base: gloss ขาว 55% สูง 44px + rim ขาว 90% → 25%, เงา `#EE226E` @16% blur 16 y 6, radius `xl` (20)
+- หัวข้อโปร 20/800 `brandDeep` = large text (ต้อง ≥ 3:1): token 4.09:1 (ชมพู) / 4.28:1 (พีช) บน stop ล่าง, วัดจาก pixel จริง 430×932@3x 4.40:1 / 4.52:1; คำอธิบายสี ink ≥ 14:1; ป้าย "ตัวอย่าง" เป็น white control (4.76:1)
+- ลูกศรท้ายการ์ด `Zoky3DIcon(arrowRight, 24)`, ภาพอาหาร `ZokyDealIllustration` (ชานมไข่มุก ไก่ทอด เบอร์เกอร์ ราเมง) แสงเดียวกับไอคอน 3D
+- ข้อมูลตัวอย่างต้องมีป้าย "ตัวอย่าง" ทุกการ์ด + หมายเหตุใต้หัวข้อ section และ sheet บอก "ตัวอย่าง — ยังไม่ใช่โปรโมชันจริง" (Founder rule: ห้ามสร้างโปรจริง/อ้างส่วนลดจริง)
 
 ---
 
