@@ -102,10 +102,18 @@ void main() {
     await tester.tap(_button());
     await tester.pumpAndSettle();
     expect(find.byType(StoreSearchScreen), findsOneWidget);
-    expect(
-      find.byType(ZokyStoreCard),
-      findsNWidgets(DemoStoreRepository.stores.length),
-    );
+    // Lazy grid: scroll through it so every store card is built once.
+    final seen = <String>{};
+    for (var i = 0; i < 4; i++) {
+      for (final e in find.byType(ZokyStoreCard).evaluate()) {
+        seen.add((e.widget as ZokyStoreCard).store.id);
+      }
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
+    expect(seen, {for (final s in DemoStoreRepository.stores) s.id});
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 2000));
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'ส้มตำ');
     await tester.pumpAndSettle();

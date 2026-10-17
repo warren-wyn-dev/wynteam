@@ -25,9 +25,11 @@ class ZokyStoreCard extends StatelessWidget {
           ? ZokyStrings.newStore
           : 'คะแนน ${store.ratingAverage.toStringAsFixed(1)}',
     );
-    parts.add(
-      'ส่งประมาณ ${store.etaMinMinutes} ถึง ${store.etaMaxMinutes} ${ZokyStrings.minutes}',
-    );
+    if (store.hasEta) {
+      parts.add(
+        'ส่งประมาณ ${store.etaMinMinutes} ถึง ${store.etaMaxMinutes} ${ZokyStrings.minutes}',
+      );
+    }
     if (!store.isOpen) parts.add('ร้านปิดอยู่');
     if (store.hasPromo) parts.add('โปรโมชัน ${store.promoLabel}');
     if (store.isAd) parts.add(ZokyStrings.adLabel);
@@ -168,17 +170,18 @@ class _Photo extends StatelessWidget {
                         ),
                       ),
                     ),
-                  Positioned(
-                    right: ZokySpacing.s4,
-                    bottom: ZokySpacing.s4,
-                    child: _Overlay(
-                      maxWidth: half,
-                      label:
-                          '${store.etaMinMinutes}–${store.etaMaxMinutes} ${ZokyStrings.minutes}',
-                      background: ZokyColors.surface,
-                      foreground: ZokyColors.textPrimary,
+                  if (store.hasEta)
+                    Positioned(
+                      right: ZokySpacing.s4,
+                      bottom: ZokySpacing.s4,
+                      child: _Overlay(
+                        maxWidth: half,
+                        label:
+                            '${store.etaMinMinutes}–${store.etaMaxMinutes} ${ZokyStrings.minutes}',
+                        background: ZokyColors.surface,
+                        foreground: ZokyColors.textPrimary,
+                      ),
                     ),
-                  ),
                 ],
               ),
             );

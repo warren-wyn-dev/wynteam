@@ -151,10 +151,11 @@ class _StoreScreenState extends State<StoreScreen> {
                     : '★ ${store.ratingAverage.toStringAsFixed(1)}',
                 style: ZokyTextStyles.bodySm,
               ),
-              Text(
-                '${store.etaMinMinutes}–${store.etaMaxMinutes} ${ZokyStrings.minutes}',
-                style: ZokyTextStyles.bodySm,
-              ),
+              if (store.hasEta)
+                Text(
+                  '${store.etaMinMinutes}–${store.etaMaxMinutes} ${ZokyStrings.minutes}',
+                  style: ZokyTextStyles.bodySm,
+                ),
               Text(
                 '${ZokyStrings.deliveryFee} ${formatBaht(store.deliveryFee)}',
                 style: ZokyTextStyles.bodySm,

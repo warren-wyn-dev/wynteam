@@ -1,9 +1,13 @@
+import '../../deals/domain/deal_models.dart';
 import '../domain/catalog_models.dart';
 import 'store_repository.dart';
 
 /// Synthetic Thai sample catalog for demo mode (iPad web preview, widget
 /// tests). Every store, menu and price here is made up -- no real store or
 /// customer data. Never used when real Supabase config is supplied.
+///
+/// Every store is flagged [ZokyStoreSummary.isDemo] and its name carries
+/// "(ร้านตัวอย่าง)"; ratings and delivery times are sample values too.
 class DemoStoreRepository implements StoreRepository {
   DemoStoreRepository({this.latency = Duration.zero});
 
@@ -14,6 +18,7 @@ class DemoStoreRepository implements StoreRepository {
     ZokyStoreSummary(
       id: 'demo-store-1',
       name: 'ข้าวมันไก่ป้าแดง (ร้านตัวอย่าง)',
+      isDemo: true,
       isOpen: true,
       deliveryFee: 15,
       etaMinMinutes: 20,
@@ -28,6 +33,8 @@ class DemoStoreRepository implements StoreRepository {
     ZokyStoreSummary(
       id: 'demo-store-2',
       name: 'ส้มตำแซ่บนัว (ร้านตัวอย่าง)',
+      coverArt: ZokyDealArt.somTam,
+      isDemo: true,
       isOpen: true,
       deliveryFee: 0,
       etaMinMinutes: 25,
@@ -41,6 +48,7 @@ class DemoStoreRepository implements StoreRepository {
     ZokyStoreSummary(
       id: 'demo-store-3',
       name: 'ก๋วยเตี๋ยวเรือหน้ามอ (ร้านตัวอย่าง)',
+      isDemo: true,
       isOpen: false,
       deliveryFee: 20,
       etaMinMinutes: 30,
@@ -53,6 +61,8 @@ class DemoStoreRepository implements StoreRepository {
     ZokyStoreSummary(
       id: 'demo-store-4',
       name: 'ชานมไข่มุกหวานใจ (ร้านตัวอย่าง)',
+      coverArt: ZokyDealArt.bubbleTea,
+      isDemo: true,
       isOpen: true,
       deliveryFee: 10,
       etaMinMinutes: 15,
@@ -64,6 +74,7 @@ class DemoStoreRepository implements StoreRepository {
     ZokyStoreSummary(
       id: 'demo-store-5',
       name: 'ข้าวผัดกะเพราเจ้าเก่า (ร้านตัวอย่าง)',
+      isDemo: true,
       isOpen: true,
       deliveryFee: 12,
       etaMinMinutes: 20,
@@ -77,6 +88,7 @@ class DemoStoreRepository implements StoreRepository {
     ZokyStoreSummary(
       id: 'demo-store-6',
       name: 'หมูกระทะยกถาด (ร้านตัวอย่าง)',
+      isDemo: true,
       isOpen: true,
       deliveryFee: 25,
       etaMinMinutes: 35,
@@ -88,6 +100,59 @@ class DemoStoreRepository implements StoreRepository {
       categories: ['ปิ้งย่าง'],
       minimumOrder: 199,
     ),
+    // Stores of the Phase 3 sample deals, featured on Home Phase 4.
+    ZokyStoreSummary(
+      id: 'demo-store-7',
+      name: 'ราเมงซอยเจ็ด (ร้านตัวอย่าง)',
+      coverArt: ZokyDealArt.noodleBowl,
+      isDemo: true,
+      isOpen: true,
+      deliveryFee: 15,
+      etaMinMinutes: 30,
+      etaMaxMinutes: 45,
+      ratingAverage: 4.8,
+      ratingCount: 512,
+      distanceKm: 2.1,
+      categories: ['ราเมง', 'ญี่ปุ่น'],
+    ),
+    ZokyStoreSummary(
+      id: 'demo-store-8',
+      name: 'เบอร์เกอร์บ้านสวน (ร้านตัวอย่าง)',
+      coverArt: ZokyDealArt.burger,
+      isDemo: true,
+      isOpen: true,
+      deliveryFee: 20,
+      etaMinMinutes: 25,
+      etaMaxMinutes: 40,
+      ratingAverage: 4.6,
+      ratingCount: 274,
+      distanceKm: 2.9,
+      categories: ['เบอร์เกอร์', 'ฟาสต์ฟู้ด'],
+    ),
+    // No prep time set: no delivery estimate is shown.
+    ZokyStoreSummary(
+      id: 'demo-store-9',
+      name: 'ไก่ทอดกรอบนอก (ร้านตัวอย่าง)',
+      coverArt: ZokyDealArt.friedChicken,
+      isDemo: true,
+      isOpen: true,
+      deliveryFee: 15,
+      ratingAverage: 4.4,
+      ratingCount: 61,
+      distanceKm: 1.6,
+      categories: ['ไก่ทอด'],
+    ),
+  ];
+
+  /// Sample featured placements in priority order (web:
+  /// food_active_featured_stores). Includes a store without reviews
+  /// (demo-store-4) and one without a delivery estimate (demo-store-9).
+  static const List<String> featuredStoreIds = [
+    'demo-store-7',
+    'demo-store-8',
+    'demo-store-2',
+    'demo-store-4',
+    'demo-store-9',
   ];
 
   static const Map<String, List<ZokyMenuItem>> menus = {
@@ -163,6 +228,15 @@ class DemoStoreRepository implements StoreRepository {
               store.categories.any((c) => c.toLowerCase().contains(needle)),
         )
         .toList();
+  }
+
+  @override
+  Future<List<ZokyStoreSummary>> fetchRecommended() async {
+    await Future<void>.delayed(latency);
+    return [
+      for (final id in featuredStoreIds)
+        ...stores.where((store) => store.id == id),
+    ];
   }
 
   @override

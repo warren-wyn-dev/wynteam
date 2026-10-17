@@ -153,6 +153,8 @@ class ZokyDealArtPainter extends CustomPainter {
         _burger(canvas);
       case ZokyDealArt.noodleBowl:
         _noodleBowl(canvas);
+      case ZokyDealArt.somTam:
+        _somTam(canvas);
     }
     canvas.restore();
   }
@@ -678,6 +680,202 @@ class ZokyDealArtPainter extends CustomPainter {
     ]) {
       canvas.drawCircle(p, 1.6, green);
     }
+  }
+
+  // Som tam: a mound of shredded green papaya on a white plate, with
+  // cherry tomato halves, long beans, chili, peanuts and a lime wedge.
+  void _somTam(Canvas canvas) {
+    _groundShadow(canvas, const Offset(51, 87), 88, 12);
+    // Plate (same as the fried chicken plate).
+    const plate = Rect.fromLTRB(6, 60, 96, 90);
+    canvas.drawOval(
+      plate,
+      _linear(plate, const [Color(0xFFFFFFFF), Color(0xFFE9DCE2)]),
+    );
+    canvas.drawOval(
+      const Rect.fromLTRB(18, 64, 84, 86),
+      _linear(const Rect.fromLTRB(18, 64, 84, 86), const [
+        Color(0xFFEDE1E6),
+        Color(0xFFFFFFFF),
+      ]),
+    );
+
+    // Papaya mound: lit pale green top-left, deeper green bottom-right.
+    final mound = Path()
+      ..moveTo(17, 74)
+      ..cubicTo(15, 52, 32, 36, 52, 37)
+      ..cubicTo(72, 38, 87, 52, 85, 74)
+      ..quadraticBezierTo(51, 83, 17, 74)
+      ..close();
+    final moundRect = mound.getBounds();
+    canvas.drawPath(
+      mound.shift(const Offset(1.5, 2.5)),
+      _blur(const Color(0x4D3E6A12), 2),
+    );
+    canvas.drawPath(
+      mound,
+      _radial(
+        moundRect,
+        const [Color(0xFFF2F8C8), Color(0xFFC9E27C), Color(0xFF8DB848)],
+        stops: const [0, 0.55, 1],
+      ),
+    );
+    canvas.save();
+    canvas.clipPath(mound);
+    // Shreds: short light/dark strokes with a deterministic scatter.
+    final rnd = math.Random(21);
+    for (var i = 0; i < 70; i++) {
+      final x = 18 + rnd.nextDouble() * 66;
+      final y = 38 + rnd.nextDouble() * 40;
+      final a = -0.9 + rnd.nextDouble() * 1.8;
+      final len = 5 + rnd.nextDouble() * 6;
+      final light = rnd.nextBool();
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(x + math.cos(a) * len, y + math.sin(a) * len),
+        Paint()
+          ..strokeWidth = 1.1
+          ..strokeCap = StrokeCap.round
+          ..color = light ? const Color(0xB3FFFFF0) : const Color(0x596E9A2A),
+      );
+    }
+    canvas.drawCircle(
+      const Offset(78, 76),
+      26,
+      _blur(const Color(0x40466E12), 7),
+    );
+    canvas.restore();
+    _specular(canvas, const Offset(36, 46), 16, 6, alpha: 0.55);
+
+    // Long beans: short green cylinders.
+    void bean(Offset a, Offset b) {
+      canvas.drawLine(
+        a + const Offset(0.6, 1.2),
+        b + const Offset(0.6, 1.2),
+        Paint()
+          ..strokeWidth = 4.6
+          ..strokeCap = StrokeCap.round
+          ..color = const Color(0x592A5410),
+      );
+      canvas.drawLine(
+        a,
+        b,
+        Paint()
+          ..strokeWidth = 4.2
+          ..strokeCap = StrokeCap.round
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF7BCB4A), Color(0xFF2F7D22)],
+          ).createShader(Rect.fromPoints(a, b).inflate(3)),
+      );
+      canvas.drawLine(
+        a + const Offset(0.5, -1),
+        Offset.lerp(a, b, 0.6)! + const Offset(0.5, -1),
+        Paint()
+          ..strokeWidth = 0.9
+          ..strokeCap = StrokeCap.round
+          ..color = const Color(0x99FFFFFF),
+      );
+    }
+
+    bean(const Offset(24, 60), const Offset(38, 66));
+    bean(const Offset(66, 49), const Offset(79, 58));
+
+    // Cherry tomato halves: red skin, lighter cut face with seeds.
+    void tomato(Offset c, double r, double angle) {
+      canvas.save();
+      canvas.translate(c.dx, c.dy);
+      canvas.rotate(angle);
+      final skin = Rect.fromCenter(
+        center: Offset.zero,
+        width: r * 2,
+        height: r * 1.7,
+      );
+      canvas.drawOval(
+        skin.shift(const Offset(0.8, 1.6)),
+        _blur(const Color(0x667A0A0A), 1.2),
+      );
+      canvas.drawOval(
+        skin,
+        _linear(skin, const [Color(0xFFFF5A4E), Color(0xFFB8141E)]),
+      );
+      final face = skin.deflate(r * 0.28).shift(Offset(0, -r * 0.1));
+      canvas.drawOval(
+        face,
+        _linear(face, const [Color(0xFFFFB0A0), Color(0xFFF0574A)]),
+      );
+      for (final s in [
+        Offset(-r * 0.3, -r * 0.1),
+        Offset(r * 0.3, -r * 0.1),
+        Offset(0, r * 0.2),
+      ]) {
+        canvas.drawOval(
+          Rect.fromCenter(center: s, width: r * 0.28, height: r * 0.18),
+          Paint()..color = const Color(0xFFFFE9A8),
+        );
+      }
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(-r * 0.45, -r * 0.5),
+          width: r * 0.5,
+          height: r * 0.22,
+        ),
+        Paint()..color = const Color(0xCCFFFFFF),
+      );
+      canvas.restore();
+    }
+
+    tomato(const Offset(44, 52), 6.5, -0.3);
+    tomato(const Offset(64, 64), 6, 0.25);
+    tomato(const Offset(30, 70), 5.2, 0.1);
+
+    // Chili slices and peanuts.
+    for (final p in const [Offset(56, 46), Offset(48, 69), Offset(72, 72)]) {
+      canvas.drawCircle(
+        p,
+        2.4,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = const Color(0xFFD42A2A),
+      );
+    }
+    for (final p in const [
+      Offset(52, 58),
+      Offset(39, 58),
+      Offset(58, 72),
+      Offset(70, 56),
+      Offset(36, 46),
+    ]) {
+      final r = Rect.fromCenter(center: p, width: 4.4, height: 3.2);
+      canvas.drawOval(
+        r,
+        _linear(r, const [Color(0xFFF6D29A), Color(0xFFC08A48)]),
+      );
+    }
+
+    // Lime wedge on the plate rim, front right.
+    final lime = Path()
+      ..moveTo(76, 78)
+      ..quadraticBezierTo(86, 86, 95, 76)
+      ..close();
+    canvas.drawPath(
+      lime.shift(const Offset(0.6, 1.4)),
+      _blur(const Color(0x592A5410), 1.2),
+    );
+    canvas.drawPath(
+      lime,
+      _linear(lime.getBounds(), const [Color(0xFFE9F7A8), Color(0xFF9BCB3A)]),
+    );
+    canvas.drawLine(
+      const Offset(76, 78),
+      const Offset(95, 76),
+      Paint()
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFF4E9A2A),
+    );
   }
 
   @override

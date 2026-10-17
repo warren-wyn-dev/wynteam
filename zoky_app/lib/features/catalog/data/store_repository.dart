@@ -12,6 +12,13 @@ abstract interface class StoreRepository {
   /// Web: fetchFoodStoreDirectory(client, query) -> food_store_directory.
   Future<List<ZokyStoreSummary>> fetchDirectory({String query = ''});
 
+  /// Home "ร้านอาหารแนะนำ". Web: `food_active_featured_stores` (store_id +
+  /// priority, admin-managed featured placements) mapped onto the
+  /// directory in the order the RPC returns them; placements whose store is
+  /// not in the directory (unpublished, hidden) are dropped. Empty when
+  /// nothing is featured -- the web then hides its "ร้านแนะนำ" section.
+  Future<List<ZokyStoreSummary>> fetchRecommended();
+
   /// Web: food_menu_items for one published store (+ stock remaining).
   Future<List<ZokyMenuItem>> fetchMenu(String storeId);
 }

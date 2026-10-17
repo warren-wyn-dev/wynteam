@@ -8,7 +8,8 @@ enum ZokyDealType { percentage, fixed, freeDelivery, other }
 
 /// Which code-drawn illustration a deal shows while there is no photo
 /// (the repo has no food images). Replaced by [ZokyDeal.imagePath] later.
-enum ZokyDealArt { bubbleTea, friedChicken, burger, noodleBowl }
+/// Also used as a store's placeholder cover (ZokyStoreSummary.coverArt).
+enum ZokyDealArt { bubbleTea, friedChicken, burger, noodleBowl, somTam }
 
 /// A deal on the Home "ดีลเด็ดวันนี้" row.
 ///
