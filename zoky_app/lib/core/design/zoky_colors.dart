@@ -18,12 +18,13 @@ abstract final class ZokyColors {
   static const Color blush = Color(0xFFF1E4F5);
   static const Color brandLine = Color(0xFFF9C0DE);
 
-  // Header gradient stops, from the "bg" gradient of the Founder-approved
-  // logo (design-reference/zoky/zoky-logo.svg): top -> 35% -> bottom.
+  // Header gradient stops, measured from the rendered background of the
+  // Founder-approved logo (design-reference/zoky/zoky-logo.svg, gloss and
+  // edge shading included) so the header reads as the same pink as the logo.
   // Background only: never put body text on these (see D1 above).
-  static const Color headerTop = Color(0xFFFF5AA8);
-  static const Color headerMid = Color(0xFFF7287A);
-  static const Color headerBottom = brand;
+  static const Color headerTop = Color(0xFFF93384);
+  static const Color headerMid = Color(0xFFF72C7E);
+  static const Color headerBottom = Color(0xFFEE226E);
 
   // Neutral scale.
   static const Color neutral0 = Color(0xFFFFFFFF);
