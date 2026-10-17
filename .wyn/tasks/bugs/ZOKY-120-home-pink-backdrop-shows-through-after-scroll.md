@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-120 (Home: pink overscroll backdrop shows through content after scrolling)
 
-Status: fixed — awaiting QA re-test
+Status: verified — QA re-test PASS (2026-10-17)
 Severity: **HIGH** (Founder-approved Home design breaks in a default state; text becomes illegible)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Home slice QA round (Phases 1–5), 2026-10-17, branch `docs/zoky-foundation` @ 895367c
@@ -41,3 +41,14 @@ Debug Engineer:
 - Not verified on a real iOS device (no device in sandbox); the bounce colour is covered by a widget test with `TargetPlatform.iOS` drag.
 
 Handoff to QA: re-run the device matrix (320/360/375/390/414/430 × 568–932, landscape, text 1.0–2.0), sample pixels under the status bar after scrolling, and verify the top bounce still shows pink on iOS.
+
+QA Re-test (AI QA & Security, 2026-10-17): **Verified**
+- Environment: branch `docs/zoky-foundation` @ 41ddc95, Flutter widget tests (devicePixelRatio 1, FakeViewPadding, real Anuphan font where noted), suite `zoky_app/test/qa/home_slice_retest_qa_test.dart`.
+- Device matrix: 320×568, 360×640, 375×667, 390×844, 414×896, 430×932 × top inset 0/20/59 × bottom 0/34 × text 1.0/1.3/1.6/2.0 (144 configs) + landscape 568×320, 667×375, 844×390, 932×430 × text 1.0–2.0 + 932×430 top 20/bottom 21 → 161 configs, each at ~40 scroll offsets (0, 0.5, 1 … top+47.5/48/48.5 … max−1, max). Per state: (a) geometry — the backdrop's bottom edge never goes below the header's bottom edge; (b) pixels — rows 0…top+68 at x = 1/6/11 and w−12/w−7/w−2 contain no `#F93384` below the header. 0 violations.
+- Gesture-driven: iOS + Android × (390×844 top 47 @1.0, 320×568 top 20 @2.0, 430×932 top 59 @1.3): 7px drag steps down 280px and back, fling + 30 ballistic frames — 0 violations.
+- iOS bounce: 320/375/390/430 portrait + 932 landscape × text 1.0/2.0 — 200px pull: every sampled gap pixel (5 columns, every 3 rows) is exactly `#F93384`; header top = gap; bounce-back frames clean; backdrop back to top+48 at rest. Fling from mid-feed into the top bounce: gap pink.
+- Phase 1 at rest unchanged: PNG of the full Home at rest rendered on a63d90e (before the fix) and 41ddc95 — iOS + Android × 8 sizes (6 portrait + 932×430, 667×375) × insets (0/0, 20/0, 59/34) × text 1.0/1.3/2.0 = **144/144 byte-identical**.
+- Status bar: at every offset, icons are light exactly while the pink header covers the status bar, dark otherwise (390/320/430 portrait).
+- Also checked: scroll → switch tab → back (offset kept, no pink) → rotate to landscape and back (no pink); re-tap Home → top, backdrop back to its size.
+- Sensitivity check: the same suite run on a63d90e fails 185/189 of these tests (passes only the bounce-after-fling and status-bar-style tests, as expected).
+- Not checked: real iOS device / real browser (none in the sandbox).

@@ -27,3 +27,5 @@ Tests: `ZOKY-124:` test in `zoky_app/test/qa/home_slice_qa_test.dart` (skipped).
 Regression Risk: Low in portrait (insets are 0).
 
 Handoff to QA: re-check landscape with insets 0/47/59 on both sides and portrait regression.
+
+QA Re-test (AI QA & Security, 2026-10-17, @ 41ddc95): **Still open — awaiting Founder decision** (portrait lock vs. landscape support). Repro un-skipped temporarily: still fails (logo.left ≈ 20 < 59). Not changed by the ZOKY-120..125 fixes.

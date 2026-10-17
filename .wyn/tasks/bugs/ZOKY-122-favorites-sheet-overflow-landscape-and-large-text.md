@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-122 ("ร้านโปรด" sheet overflows in landscape and at large text)
 
-Status: fixed — awaiting QA re-test
+Status: verified — QA re-test PASS (2026-10-17)
 Severity: **MEDIUM** (overflow at text ≥ 1.6 on small phones = accessibility; also in landscape at 1.0)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Home slice QA round, 2026-10-17, branch `docs/zoky-foundation` @ 895367c
@@ -46,3 +46,7 @@ Regression Risk: Low. Android sheet now shows a drag handle (as the deal sheet).
 Debug Engineer: reproduced with QA tests; minimal change reusing the existing adaptive helper.
 
 Handoff to QA: re-run the table above on iOS and Android platform themes.
+
+QA Re-test (AI QA & Security, 2026-10-17): **Verified**
+- Environment: branch `docs/zoky-foundation` @ 41ddc95, Flutter widget tests (devicePixelRatio 1, FakeViewPadding, real Anuphan font where noted), suite `zoky_app/test/qa/home_slice_retest_qa_test.dart`.
+- iOS + Android × 320×568, 360×640, 375×667, 390×844, 414×896, 430×932 (top 59/bottom 34) and 568×320, 667×375, 844×390, 932×430 (bottom 21) × text 1.0/1.3/1.6/2.0 = 80 cases: no FlutterError (overflow), title "ร้านโปรด" never under the status bar (top ≥ inset), message "เร็ว ๆ นี้" reachable and fully on screen above the bottom inset, Cupertino popup on iOS / `ModalBottomSheetRoute` on Android, sheet dismisses (barrier tap or back). 80/80 pass.

@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-121 (Rating shown without reviews on StoreScreen and the store grid card)
 
-Status: fixed — awaiting QA re-test
+Status: verified — QA re-test PASS (2026-10-17)
 Severity: **MEDIUM** (Founder rule "show rating only with real reviews"; not triggered by current demo data)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Home slice QA round, 2026-10-17, branch `docs/zoky-foundation` @ 895367c
@@ -42,3 +42,9 @@ Regression Risk: Low. Demo stores all have `ratingCount > 0`, so the demo UI is 
 Debug Engineer: reproduced with the QA tests; fix limited to the three call sites; no copy changes.
 
 Handoff to QA: re-run the repro tests plus the search/see-all/store flows with rated, unrated and avg-without-count stores.
+
+QA Re-test (AI QA & Security, 2026-10-17): **Verified**
+- Environment: branch `docs/zoky-foundation` @ 41ddc95, Flutter widget tests (devicePixelRatio 1, FakeViewPadding, real Anuphan font where noted), suite `zoky_app/test/qa/home_slice_retest_qa_test.dart`.
+- `ZokyStoreCard`, `StoreScreen` and `ZokyRecommendedStoreCard` with (avg, count) = (4.5, 12), (4.56, 3), (0, 0), (4.5, 0), (0, 7), (−1, 5), (NaN, 5), (4.5, −3): score + star + "(count)" + "คะแนน x" announced only for the two rated cases (4.56 → "4.6"); no score, no rating-coloured star, no "NaN" otherwise; "ร้านใหม่" only when avg ≤ 0 (unchanged PM copy); semantics label contains the store name in every case (not vacuous). 24/24 pass.
+- Demo flow: the same rated store shows "4.8" on the Home card, the grid card and "★ 4.8" on StoreScreen.
+- Observation (LOW, data boundary, logged in ZOKY-126 item 8): avg 0 + count 7 shows "ร้านใหม่" for a store that has reviews, and an average > 5 would be shown as-is; impossible with the server aggregate but should be validated in the ZOKY-106 mapping.

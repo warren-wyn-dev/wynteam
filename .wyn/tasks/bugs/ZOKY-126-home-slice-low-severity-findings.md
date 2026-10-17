@@ -15,6 +15,8 @@ Bug / Reproduction / Fix direction (one per item):
 6. **Android release manifest has no `INTERNET` permission** (only debug/profile). Fine for demo mode, but real cover photos (`Image.network`) and Supabase (ZOKY-105) will fail only in release builds. Add it when the backend lands.
 7. **Docs drift / dead code:** design system §9.8 still marks the floating capsule nav "PROPOSED — รอ Founder review" although DECISIONS.md records Phase 5 approval; `HomeScreen` keeps the whole legacy body (`kShowLegacyHomeBody = false`, search field, filters, grid) as dead code in production builds.
 
+8. **Rating values not validated at the data boundary** (added in the re-test round, 2026-10-17): `ZokyStoreSummary.isNew` uses only `ratingAverage <= 0`, so (avg 0, count 7) shows "ร้านใหม่" for a store with reviews; an average > 5 or a negative count is not rejected. Not reachable with the server aggregate (`food_store_directory`) or demo data. Fix with the ZOKY-106 mapping: clamp/validate `rating_average` 0–5 and `rating_count` ≥ 0, and decide (PM) whether "ร้านใหม่" means "no reviews" (`ratingCount == 0`).
+
 Expected / Actual: see each item.
 
 Root Cause: see each item (all from reading the code plus the QA tests listed below).

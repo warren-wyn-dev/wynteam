@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-125 (Store grid card photo is 4:3, Founder decision says food photos are 1:1)
 
-Status: fixed — awaiting QA re-test
+Status: verified — QA re-test PASS (2026-10-17)
 Severity: **MEDIUM** (Founder decision deviation; needs PM/Design to confirm scope before fixing)
 Owner: AI Debug Engineer (after PM/Design confirmation)
 Found by: AI QA & Security — Home slice QA round, 2026-10-17, branch `docs/zoky-foundation` @ 895367c
@@ -33,3 +33,8 @@ Regression Risk: Low. Grid rows are taller (photo height +33%), so fewer cards p
 Debug Engineer: change limited to the ratio constant + docs; the overlay layout was re-checked by the existing busy-store layout test.
 
 Handoff to QA: verify grid at 320–430 × 1.0/1.3 with overlays, and the demo label (see ZOKY-123).
+
+QA Re-test (AI QA & Security, 2026-10-17): **Verified**
+- Environment: branch `docs/zoky-foundation` @ 41ddc95, Flutter widget tests (devicePixelRatio 1, FakeViewPadding, real Anuphan font where noted), suite `zoky_app/test/qa/home_slice_retest_qa_test.dart`, real Anuphan font.
+- Same 126-case grid matrix as ZOKY-123: every card photo is square (|w−h| ≤ 0.5pt) in 2 columns (320–430 × 1.0–1.45), 3 columns (932) and 1 column (≥ 1.5); overlays stay inside the photo and do not overlap; no overflow.
+- Overlay truncation inside the photo is tracked separately in ZOKY-127 (pre-existing; the 1:1 change did not alter photo width).
