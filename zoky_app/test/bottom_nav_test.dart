@@ -6,6 +6,7 @@ import 'package:zoky_app/core/design/zoky_colors.dart';
 import 'package:zoky_app/core/l10n/zoky_strings.dart';
 import 'package:zoky_app/core/widgets/zoky_3d_icon.dart';
 import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
+import 'package:zoky_app/core/widgets/zoky_nav_icon.dart';
 import 'package:zoky_app/features/home/widgets/zoky_home_header.dart';
 import 'package:zoky_app/features/home/widgets/zoky_recommended_store_card.dart';
 import 'package:zoky_app/features/home/widgets/zoky_recommended_stores_section.dart';
@@ -35,9 +36,11 @@ Finder _labelStyle(String label) => find
     )
     .first;
 
-Zoky3DIcon _icon(WidgetTester tester, String label) =>
-    tester.widget<Zoky3DIcon>(
-      find.descendant(of: _item(label), matching: find.byType(Zoky3DIcon)).last,
+ZokyNavIcon _icon(WidgetTester tester, String label) =>
+    tester.widget<ZokyNavIcon>(
+      find
+          .descendant(of: _item(label), matching: find.byType(ZokyNavIcon))
+          .last,
     );
 
 Rect _capsule(WidgetTester tester) =>
@@ -98,9 +101,8 @@ void main() {
     expect(widths.length, 1);
   });
 
-  testWidgets('selected item is glossy 3D + bold pink, the rest gray line', (
-    tester,
-  ) async {
+  testWidgets('selected item is soft 3D (D2) + bold pink, the rest gray '
+      'outline', (tester) async {
     await pumpZokyApp(tester);
     void expectSelected(String selected) {
       for (final label in _labels) {
@@ -108,13 +110,14 @@ void main() {
         final style = tester
             .widget<AnimatedDefaultTextStyle>(_labelStyle(label))
             .style;
+        expect(icon.style, ZokyNavIconStyle.appleSoft3d, reason: label);
+        expect(icon.tiled, isFalse, reason: label);
         if (label == selected) {
-          expect(icon.style, Zoky3DIconStyle.glossy, reason: label);
-          expect(icon.palette, Zoky3DPalette.pink);
+          expect(icon.selected, isTrue, reason: label);
           expect(style.color, ZokyColors.actionPrimary);
           expect(style.fontWeight, FontWeight.w700);
         } else {
-          expect(icon.style, Zoky3DIconStyle.line, reason: label);
+          expect(icon.selected, isFalse, reason: label);
           expect(icon.lineColor, ZokyColors.neutral600);
           expect(style.color, ZokyColors.textSecondary);
           expect(style.fontWeight, FontWeight.w500);
@@ -483,7 +486,7 @@ void main() {
     final icon = tester.getRect(
       find.descendant(
         of: _item(ZokyStrings.navMessages),
-        matching: find.byType(Zoky3DIcon),
+        matching: find.byType(ZokyNavIcon),
       ),
     );
     final r = tester.getRect(dot());

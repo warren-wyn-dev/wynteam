@@ -4,6 +4,7 @@ import '../../app/app_dependencies.dart';
 import '../../core/widgets/zoky_3d_icon.dart';
 import '../../core/l10n/zoky_strings.dart';
 import '../../core/widgets/zoky_bottom_nav.dart';
+import '../../core/widgets/zoky_nav_icon.dart';
 import '../account/account_screen.dart';
 import '../home/home_screen.dart';
 import '../messages/messages_screen.dart';
@@ -74,6 +75,9 @@ class _ZokyShellState extends State<ZokyShell> {
               child: ZokyBottomNav(
                 currentIndex: _tab.index,
                 onSelected: (index) => _onNavTap(ZokyTab.values[index]),
+                // "D2" (Founder 2026-10-17): custom symmetric house /
+                // doc_text / custom wide bubble (M1) / person.
+                iconStyle: ZokyNavIconStyle.appleSoft3d,
                 // Exactly these four, in this order (Founder, Phase 5).
                 items: const [
                   ZokyNavItem(

@@ -230,8 +230,8 @@ void main() {
                 ZokyNavItem(
                   label: ZokyStrings.navOrders,
                   glyph: Zoky3DGlyph.receipt,
-                  badgeCount: 12,
-                  badgeSemanticLabel: '12 ออเดอร์ที่กำลังดำเนินการ',
+                  badgeCount: 128,
+                  badgeSemanticLabel: '128 ออเดอร์ที่กำลังดำเนินการ',
                 ),
                 ZokyNavItem(
                   label: ZokyStrings.navMessages,
@@ -245,7 +245,7 @@ void main() {
             ),
           ),
         );
-        expect(find.text('9+'), findsOneWidget);
+        expect(find.text('99+'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
 

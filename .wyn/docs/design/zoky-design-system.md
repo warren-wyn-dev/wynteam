@@ -368,7 +368,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 - ชุดไอคอน: **Lucide** (เว็บใช้ `lucide-react` อยู่แล้ว ฝั่ง Flutter ใช้ Lucide port หรือ export SVG ชุดเดียวกัน ให้ Architect เป็นคนเลือก dependency)
 - Stroke ปกติ 1.9, active 2.3 (ตามเว็บ) ขนาด 16 / 20 (มาตรฐาน) / 24, illustration ของ empty state 44–46 stroke 1.25–1.6
-- Nav: วาดเองใน `Zoky3DIcon` (`home`, `receipt`, `chat`, `person`) ทรงตาม Lucide `House` / `ReceiptText` / `MessageCircle` / `UserRound` ดูข้อ 9.8
+- Nav (ก่อน D2, ยังอยู่เป็น `ZokyNavIconStyle.classic3d`): วาดเองใน `Zoky3DIcon` (`home`, `receipt`, `chat`, `person`) ทรงตาม Lucide `House` / `ReceiptText` / `MessageCircle` / `UserRound` ดูข้อ 9.8
 - ไอคอนที่ต่างตาม platform: กลับ, แชร์, more (ข้อ 11)
 - สี: ปกติ `text.primary`, รอง `neutral.600`/`neutral.400`, เน้น `brand.pink`, สถานะใช้ semantic
 - ไอคอนตกแต่งต้อง `aria-hidden` / `ExcludeSemantics` ไอคอนที่เป็นปุ่มต้องมี label
@@ -527,16 +527,24 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 - เงา: กว้างนุ่ม `#3B1A29` @14% blur 36 y 10 (neutral อมชมพูจาง) + `#16161A` @6% blur 4 y 1; hairline 0.5px ink @8% รอบ capsule
 - 4 แท็บเท่านั้น ลำดับ: หน้าหลัก / ออเดอร์ / ข้อความ / บัญชี (ห้ามเพิ่มบริการอื่น) ช่องกว้างเท่ากัน padding ในซ้าย/ขวา 6
 - ไม่ active: line icon 26pt `neutral.600` #6B6B76 + label 13/500 `text.secondary` บนขาว
-- Active: capsule highlight สี Blush `#FFEDF4` เต็มช่อง ห่างขอบบน/ล่างของ bar 6 + ไอคอน **3D glossy** (`Zoky3DIcon` palette pink) + label 13/700 `action.primary` #D61256
+- Active: capsule highlight สี Blush `#FFEDF4` เต็มช่อง ห่างขอบบน/ล่างของ bar 6 + ไอคอน **ชมพู 3D นุ่มแบบ D2** (ดูหัวข้อ "ไอคอนแท็บ" ด้านล่าง; เดิม `Zoky3DIcon` glossy) + label 13/700 `action.primary` #D61256
 - Contrast: label เทา/ขาว 5.26:1, label ชมพู/highlight 4.58:1 (วัดจาก pixel จริง 430×932@3x ตรงกัน 4.58:1), ตัวไอคอน 3D stop ล่าง `#E5135D`/highlight 4.07:1 (stop บน 2.35:1 เป็นไฮไลต์ — selected มี label ตัวหนาสีชมพูกำกับเสมอ), จุดแจ้งเตือน/ขาว 6.54:1
 - Motion: highlight เลื่อน (AnimatedAlign) 220ms `standard` ระหว่างแท็บ; ไอคอนสลับ line → 3D แบบ fade + scale 0.85→1 และสี/น้ำหนัก label 200ms (`base`); ทั้งหมดเป็นทันทีเมื่อ reduced motion; haptic `HapticFeedback.selectionClick` เมื่อเปลี่ยนแท็บ (ไม่สั่นเมื่อกดแท็บเดิม); ไม่มี hover disc
 - กดหน้าหลักซ้ำขณะอยู่หน้าหลัก = เลื่อนกลับบนสุด (แบบ iOS); แท็บอื่นเก็บ state (IndexedStack); Android back จากแท็บอื่นกลับหน้าหลักก่อน
 - Label clamp text scale สูงสุด 1.2 (ทดสอบ 320–430 × 1.0/1.3 ไม่ล้น/ไม่ตัด)
 - จุดแจ้งเตือน (`ZokyNavItem.showDot`): วงกลม 8 สี semantic `error` #B3261E (ไม่ใช่ชมพูแบรนด์) + ขอบขาว 2 (รวม 12) ศูนย์กลางที่มุมขวาบนของไอคอน; semantics อ่านต่อท้าย label เช่น "ข้อความ, มีข้อความใหม่" (`ZokyStrings.navMessagesUnread`) — **ยังไม่แสดงในแอป/preview** เพราะยังไม่มีข้อมูล unread จริง
-- Badge ตัวเลข (`badgeCount`, ของเดิม): `brand.pinkDeep` + ขาว 11/700 ขอบขาว 2px "9+" label "{n} ออเดอร์ที่กำลังดำเนินการ" (ยังไม่ใช้ใน shell)
+- Badge ตัวเลข (`badgeCount`): **PROPOSED 2026-10-17** สี semantic `error` #B3261E (เดียวกับจุดแจ้งเตือน ไม่ใช่ชมพูแบรนด์) + ตัวเลขขาว 11/700 (6.54:1) ขอบขาว 2px, เกิน 99 แสดง "99+" (เดิม `brand.pinkDeep` และ "9+"), ยึดซ้ายที่มุมขวาบนของไอคอน (left = 26 − 8, top −5) ให้เลขยาวขยายออกทางขวา; label "{n} ออเดอร์ที่กำลังดำเนินการ" — ยังไม่ใช้ใน shell/preview (render ตัวอย่าง "3" / "99+" เป็น demo เท่านั้น)
 - พื้นที่กดเต็มช่อง (≥ 69 × 64 ที่กว้าง 320) แต่ละช่องเป็น `Semantics(button, selected, onTap)` label ภาษาไทยตรงตัว
 - เนื้อหาเว้นด้านล่าง `ZokyBottomNav.reservedHeight` = 64 + bottom offset + 8 ทุกหน้าจอ → แถวสุดท้ายของหน้าหลักอยู่เหนือ capsule เสมอเมื่อเลื่อนสุด (ทดสอบ 430×932/34, 390×844/34, 375×667/0, 320×568/0)
 - **ไม่ใช้** `CupertinoTabBar` หรือ Material `NavigationBar` เพราะ nav เป็นส่วนหนึ่งของแบรนด์ (แต่ใส่ semantics ให้ครบแบบ tab bar)
+- **ไอคอนแท็บ — D2 `ZokyNavIconStyle.appleSoft3d` APPROVED by Founder 2026-10-17** (ค่าเริ่มต้นของ `ZokyBottomNav`/`ZokyNavIcon` และส่งชัดใน `zoky_shell.dart`; `classic3d` = `Zoky3DIcon` เดิม และ `apple` = D1 แบบเรียบ ยังเลือกได้ผ่าน API) โค้ด: `zoky_app/lib/core/widgets/zoky_nav_icon.dart`
+  - ไม่ active: outline เทา `neutral.600` #6B6B76; active: ตัวเต็มชมพู 3D นุ่ม = gradient แนวตั้ง `brandLight` #F4368D → `brandDeep` #D61256 (ทุก stop ≥ 3.24:1 บน highlight), shade ล่างขวา, specular ซ้ายบน, เงาเล็ก `#C2185B` @32% y 6% blur 10% ของขนาดไอคอน
+  - ชุดหลัก: หน้าหลัก = **บ้านวาดเอง** ห้าเหลี่ยมสมมาตร (หลังคาแหลม ผนังตรง พื้นเรียบ ไม่มีปล่องไฟ/ประตู มุมมนทุกมุม) ตาม reference ที่ Founder ส่ง 2026-10-17 "ไม่ใช่สีดำ" (`ZokyNavIcon.houseKey`) / ออเดอร์ = CupertinoIcons `doc_text` / ข้อความ = **bubble วาดเอง M1** / บัญชี = CupertinoIcons `person` (CupertinoIcons = MIT, ไม่ใช้ asset ของ Apple)
+  - เส้น outline ของ glyph ที่วาดเอง = 6.8% ของขนาด (~1.8pt ที่ 26pt) ให้หนาเท่า outline ของ CupertinoIcons ในชุด (reference บ้านเส้นหนากว่านี้ — เลือกความสม่ำเสมอของชุดก่อน)
+- **ไอคอนข้อความ — PROPOSED รอ Founder ยืนยันการตีความ "มุมเหลี่ยม"** (reference: app icon แบบแชท ทรง squircle มี bubble วงรีขาวหางซ้ายล่าง) ทั้งหมดวาดเอง ไม่ trace artwork ของ Apple
+  - **M1 Bubble (ใช้อยู่ใน shell/preview ตอนนี้)**: bubble วงรีกว้าง ~1.33:1 ขอบซ้ายไหลต่อเป็นหางโค้งเล็กชี้ซ้ายล่าง (เส้นเดียวต่อเนื่อง) ไม่ active = outline เทาเส้นเท่าชุด, active = ชมพู 3D แบบ D2 (`ZokyNavIcon.bubbleKey`)
+  - **M2 Tile** (`ZokyNavItem.tiled` / `ZokyNavIcon.tiled`, เฉพาะสไตล์ Apple): squircle มุมต่อเนื่อง (`RSuperellipse`) กว้าง 92% radius 25% ของไอคอน; active = tile ชมพู gradient เดียวกัน + เงาเล็ก + เงาวาวครึ่งบน และ bubble ขาวทึบ; ไม่ active = tile outline เทา + bubble outline เทา ข้อเสีย: ข้อความจะเป็นไอคอนเดียวที่เป็น tile
+  - **All-tiles**: `tiled: true` ทั้ง 4 แท็บ (บ้าน/เอกสาร/bubble/คน สีขาวใน tile ชมพูเมื่อ active) เพื่อให้ชุดสม่ำเสมอถ้า Founder ต้องการทรง tile
 - ตัวเลือกที่รอ Founder: ไอคอนออเดอร์แบบเอกสาร + นาฬิกาเล็ก (ตาม reference) แทน receipt เดิม; สีจุดแจ้งเตือนสว่างขึ้น (reference ใช้แดงสด) ซึ่งต้องเพิ่ม token ใหม่
 
 ### 9.9 Order status tracker (`fx-track`)

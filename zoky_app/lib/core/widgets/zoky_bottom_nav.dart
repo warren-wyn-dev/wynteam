@@ -18,6 +18,7 @@ class ZokyNavItem {
     this.showDot = false,
     this.badgeSemanticLabel,
     this.appleIcons,
+    this.tiled = false,
   });
 
   final String label;
@@ -26,7 +27,7 @@ class ZokyNavItem {
   /// icon (same path) when selected.
   final Zoky3DGlyph glyph;
 
-  /// Count badge ("9+" above nine). Takes precedence over [showDot].
+  /// Count badge ("99+" above 99). Takes precedence over [showDot].
   final int badgeCount;
 
   /// Small notification dot at the icon's top-right (e.g. unread messages).
@@ -39,6 +40,10 @@ class ZokyNavItem {
   /// CupertinoIcons pair used by the Apple [ZokyNavIconStyle]s instead of
   /// the glyph's default (e.g. [ZokyAppleNavIcons.ordersBag]).
   final ZokyAppleNavIcons? appleIcons;
+
+  /// Draws the icon inside a squircle tile ([ZokyNavIcon.tiled], PROPOSED
+  /// messages variant M2).
+  final bool tiled;
 }
 
 /// Floating capsule tab bar (design 9.8, Home Phase 5 per the Founder's
@@ -59,12 +64,12 @@ class ZokyBottomNav extends StatelessWidget {
     required this.items,
     required this.currentIndex,
     required this.onSelected,
-    this.iconStyle = ZokyNavIconStyle.classic3d,
+    this.iconStyle = ZokyNavIconStyle.appleSoft3d,
   });
 
   final List<ZokyNavItem> items;
 
-  /// Tab icon treatment; [ZokyNavIconStyle.classic3d] is the shipped one.
+  /// Tab icon treatment; [ZokyNavIconStyle.appleSoft3d] ("D2") is shipped.
   final ZokyNavIconStyle iconStyle;
   final int currentIndex;
   final ValueChanged<int> onSelected;
@@ -98,8 +103,11 @@ class ZokyBottomNav extends StatelessWidget {
   /// Selected item's soft capsule (blush tint).
   static const Color selectedFill = Color(0xFFFFEDF4);
 
-  /// Notification dot: the semantic red, never brand pink.
+  /// Notification dot and count badge: the semantic red, never brand pink.
   static const Color dotColor = ZokyColors.error;
+
+  /// Largest count shown in full; above it the badge reads "99+".
+  static const int maxBadgeCount = 99;
 
   /// Faint edge so the white capsule reads on white content.
   static const Color hairline = Color(0x1416161A); // ink 8%
@@ -259,7 +267,9 @@ class _NavButton extends StatelessWidget {
             FontWeight.w500,
           );
     final count = item.badgeCount > 0
-        ? (item.badgeCount > 9 ? '9+' : '${item.badgeCount}')
+        ? (item.badgeCount > ZokyBottomNav.maxBadgeCount
+              ? '${ZokyBottomNav.maxBadgeCount}+'
+              : '${item.badgeCount}')
         : null;
     final hasBadge = count != null || item.showDot;
 
@@ -312,12 +322,18 @@ class _NavButton extends StatelessWidget {
                       style: iconStyle,
                       size: ZokyBottomNav.iconSize,
                       appleIcons: item.appleIcons,
+                      tiled: item.tiled,
                       lineColor: ZokyColors.neutral600,
                     ),
                   ),
                 ),
                 if (count != null)
-                  Positioned(right: -10, top: -5, child: _Badge(text: count))
+                  // Left-anchored so wider counts grow away from the icon.
+                  Positioned(
+                    left: ZokyBottomNav.iconSize - 8,
+                    top: -5,
+                    child: _Badge(text: count),
+                  )
                 else if (item.showDot)
                   const Positioned(right: -6, top: -6, child: _Dot()),
               ],
@@ -374,7 +390,7 @@ class _Badge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 5),
       constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
       decoration: BoxDecoration(
-        color: ZokyColors.brandDeep,
+        color: ZokyBottomNav.dotColor,
         borderRadius: ZokyRadius.full,
         border: Border.all(color: ZokyColors.neutral0, width: 2),
       ),
