@@ -4,6 +4,9 @@ import 'package:zoky_app/core/l10n/zoky_strings.dart';
 import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
 import 'package:zoky_app/core/widgets/zoky_cart_bar.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
+import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
+import 'package:zoky_app/features/home/home_screen.dart';
+import 'package:zoky_app/features/home/widgets/zoky_home_header.dart';
 import 'package:zoky_app/features/store/store_screen.dart';
 
 import 'support/pump_zoky.dart';
@@ -33,8 +36,24 @@ void main() {
     ]);
   });
 
-  testWidgets('home loads demo stores without a backend', (tester) async {
+  testWidgets('home shows the Phase 1 review header, not the legacy body', (
+    tester,
+  ) async {
     await pumpZokyApp(tester);
+    expect(kShowLegacyHomeBody, isFalse);
+    expect(find.byType(ZokyHomeHeader), findsOneWidget);
+    expect(find.text(ZokyStrings.nearbyStores), findsNothing);
+    expect(find.byType(ZokyStoreCard), findsNothing);
+  });
+
+  testWidgets('legacy home body still loads demo stores without a backend', (
+    tester,
+  ) async {
+    await pumpZokyWidget(
+      tester,
+      HomeScreen(repository: DemoStoreRepository(), showLegacyBody: true),
+    );
+    await tester.pumpAndSettle();
     expect(find.text(ZokyStrings.nearbyStores), findsOneWidget);
     expect(find.byType(ZokyStoreCard), findsWidgets);
   });
@@ -59,7 +78,7 @@ void main() {
 
     await tester.tap(_navItem(ZokyStrings.navHome));
     await tester.pumpAndSettle();
-    expect(find.text(ZokyStrings.nearbyStores), findsOneWidget);
+    expect(find.byType(ZokyHomeHeader), findsOneWidget);
   });
 
   testWidgets('selected tab is exposed to screen readers', (tester) async {
@@ -90,7 +109,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text(ZokyStrings.profileSetupPrompt), findsNothing);
-    expect(find.text(ZokyStrings.nearbyStores), findsOneWidget);
+    expect(find.byType(ZokyHomeHeader), findsOneWidget);
   });
 
   testWidgets('"สั่งอาหารเลย" on empty orders goes back to หน้าหลัก', (
@@ -101,14 +120,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text(ZokyStrings.orderNow));
     await tester.pumpAndSettle();
-    expect(find.text(ZokyStrings.nearbyStores), findsOneWidget);
+    expect(find.text(ZokyStrings.noOrdersTitle), findsNothing);
+    expect(find.byType(ZokyHomeHeader), findsOneWidget);
   });
 
   testWidgets('store card opens the store; adding an item shows the cart bar', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    await pumpZokyApp(tester);
+    await pumpZokyWidget(
+      tester,
+      HomeScreen(repository: DemoStoreRepository(), showLegacyBody: true),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(ZokyStoreCard).first);
     await tester.pumpAndSettle();
     expect(find.byType(StoreScreen), findsOneWidget);
@@ -124,7 +148,7 @@ void main() {
       findsOneWidget,
     );
 
-    // Back to the shell.
+    // Back to the home screen.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(StoreScreen), findsNothing);

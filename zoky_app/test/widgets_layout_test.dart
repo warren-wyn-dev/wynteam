@@ -12,7 +12,9 @@ import 'package:zoky_app/core/widgets/zoky_page_header.dart';
 import 'package:zoky_app/core/widgets/zoky_skeleton.dart';
 import 'package:zoky_app/core/widgets/zoky_state_view.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
+import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
 import 'package:zoky_app/features/catalog/domain/catalog_models.dart';
+import 'package:zoky_app/features/home/home_screen.dart';
 
 import 'support/pump_zoky.dart';
 
@@ -315,6 +317,15 @@ void main() {
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
         }
+        // The legacy home body (behind kShowLegacyHomeBody) and a store page.
+        await pumpZokyWidget(
+          tester,
+          HomeScreen(repository: DemoStoreRepository(), showLegacyBody: true),
+          width: width,
+          textScale: 1.3,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
         await tester.tap(find.byType(ZokyStoreCard).first);
         await tester.pumpAndSettle();
         await tester.tap(
@@ -345,7 +356,13 @@ void main() {
     });
 
     testWidgets('home store grid becomes one column', (tester) async {
-      await pumpZokyApp(tester, width: 360, textScale: 1.5);
+      await pumpZokyWidget(
+        tester,
+        HomeScreen(repository: DemoStoreRepository(), showLegacyBody: true),
+        width: 360,
+        textScale: 1.5,
+      );
+      await tester.pumpAndSettle();
       final cards = find.byType(ZokyStoreCard);
       expect(cards, findsWidgets);
       final first = tester.getRect(cards.at(0));
