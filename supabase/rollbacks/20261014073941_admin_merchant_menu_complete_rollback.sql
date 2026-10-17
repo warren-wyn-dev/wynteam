@@ -1,5 +1,6 @@
 -- Revert the complete admin menu RPCs. Preserve archived_at, its safety
--- constraint, archived rows, media objects, audit, and all order snapshots.
+-- constraint, restore-unavailable guard, archived rows, media objects, audit,
+-- and all order snapshots. Keep the guard for direct Merchant table updates.
 -- Restored legacy edit RPC still refuses archived items. Run only with an
 -- explicitly approved rollback; this file is tested on synthetic fixtures only.
 begin;

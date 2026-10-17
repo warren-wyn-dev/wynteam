@@ -36,6 +36,24 @@ do $$ begin
   end if;
 end $$;
 
+-- Retain this lifecycle invariant with archived rows on rollback. Merchant
+-- owners keep their existing table permissions, but restoring a menu cannot
+-- also publish it in the same update; availability needs a later explicit edit.
+create or replace function internal.food_menu_restore_unavailable()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new.is_available then
+    raise exception 'Restored menu must remain unavailable until a separate availability update'
+      using errcode = '23514';
+  end if;
+  return new;
+end $$;
+revoke all on function internal.food_menu_restore_unavailable() from public, anon, authenticated;
+drop trigger if exists food_menu_restore_unavailable on public.food_menu_items;
+create trigger food_menu_restore_unavailable before update on public.food_menu_items
+for each row when (old.archived_at is not null and new.archived_at is null)
+execute function internal.food_menu_restore_unavailable();
+
 -- Existing touch triggers use now(), which is constant within a transaction.
 -- Run last so a version never repeats, including writes from older clients.
 create or replace function internal.admin_menu_monotonic_version()

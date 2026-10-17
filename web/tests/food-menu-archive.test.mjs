@@ -34,3 +34,34 @@ test("authenticated catalogue hides archived menus while retaining temporarily u
   assert.equal(menuRequest.searchParams.get("archived_at"), "is.null");
   assert.deepEqual(Array.from(snapshot.menu, item => item.id), ["active", "temporarily-closed"]);
 });
+
+test("merchant catalogue hides archived items from active controls and retains unavailable items", async () => {
+  const output = ts.transpileModule(readFileSync(new URL("../lib/food-merchant.ts", import.meta.url), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const api = {};
+  vm.runInNewContext(output, { exports: api, require: () => ({}) });
+  let menuRequest;
+  const client = createClient("https://synthetic.supabase.invalid", "synthetic-publishable-key", {
+    auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: async url => {
+      const request = new URL(url);
+      if (request.pathname.endsWith("food_has_merchant_access")) return Response.json(true);
+      if (request.pathname.endsWith("/food_stores")) return Response.json([{ id: "fixture-store", name: "Synthetic store" }]);
+      if (request.pathname.endsWith("/food_menu_items")) {
+        menuRequest = request;
+        return Response.json([
+          { id: "active", is_available: true, archived_at: null },
+          { id: "temporarily-closed", is_available: false, archived_at: null },
+          ...(request.searchParams.get("archived_at") === "is.null" ? [] : [{ id: "archived", is_available: false, archived_at: "2026-10-14T00:00:00Z" }]),
+        ]);
+      }
+      return Response.json([]);
+    } },
+  });
+  const snapshot = await api.fetchMerchantSnapshot(client, "fixture-store");
+  assert.equal(menuRequest.searchParams.get("store_id"), "eq.fixture-store");
+  assert.equal(menuRequest.searchParams.get("archived_at"), "is.null");
+  assert.equal(menuRequest.searchParams.get("is_available"), null);
+  assert.deepEqual(Array.from(snapshot.menu, item => item.id), ["active", "temporarily-closed"]);
+  assert.deepEqual(Array.from(snapshot.orders), []);
+});

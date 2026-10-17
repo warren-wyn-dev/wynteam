@@ -585,6 +585,68 @@ if ! wait "$CATEGORY_INSERT_PID"; then cat "$TMP_DIR/category-insert-error"; exi
 }
 run >/dev/null -c 'revoke select, update, insert on public.food_menu_items from authenticated'
 
+# Exercise the actual Merchant SELECT/UPDATE policies with synthetic ownership
+# helpers. Restoring an archive must remain a separate step from opening sales;
+# owners retain the same per-store lifecycle permissions as before.
+run >/dev/null <<'SQL'
+alter table public.food_stores add column is_published boolean not null default false;
+create function public.merchant_has_store_role(p_store_id uuid,p_roles text[]) returns boolean
+language sql stable security definer set search_path='' as $$
+  select auth.uid()='00000000-0000-0000-0000-0000000000a4'::uuid
+    and p_store_id='00000000-0000-0000-0000-0000000000b1'::uuid and 'owner'=any(p_roles)
+$$;
+create function public.food_has_merchant_access(p_store_id uuid) returns boolean
+language sql stable as $$ select public.merchant_has_store_role(p_store_id,array['owner']) $$;
+create function public.is_developer_account() returns boolean language sql stable as $$ select false $$;
+create function public.food_public_access_enabled() returns boolean language sql stable as $$ select false $$;
+create function public.food_is_permanent_account() returns boolean language sql stable as $$ select false $$;
+alter table public.food_menu_items enable row level security;
+grant select on public.food_stores to authenticated;
+grant select,update on public.food_menu_items to authenticated;
+insert into public.food_menu_items(id,store_id,name,category,price,archived_at,is_available)
+values('00000000-0000-0000-0000-0000000000c5','00000000-0000-0000-0000-0000000000b1',
+  'Merchant archive lifecycle','Main',40,clock_timestamp(),false);
+SQL
+extract_policy() {
+  awk -v marker="$2" '
+    index($0, marker) == 1 { copying = 1 }
+    copying { print }
+    copying && /;$/ { found = 1; exit }
+    END { if (!found) exit 1 }
+  ' "$ROOT/supabase/$1" | run >/dev/null
+}
+extract_policy migrations_wynos_food_customer_access_gate_v2.sql 'create policy "Food menu visible by rollout gate"'
+extract_policy migrations_wynos_merchant_core_completion_v1.sql 'create policy "Food menu updated by merchant"'
+run >/dev/null <<'SQL'
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a4',false);
+select test.expect_error($q$update public.food_menu_items set archived_at=null,is_available=true
+  where id='00000000-0000-0000-0000-0000000000c5'$q$,'Restored menu','merchant cannot restore and publish in one update');
+select test.assert((select archived_at is not null and not is_available from public.food_menu_items
+  where id='00000000-0000-0000-0000-0000000000c5'),'rejected restore preserves original archive');
+with changed as (update public.food_menu_items set archived_at=null,is_available=true
+  where id='00000000-0000-0000-0000-0000000000c3' returning id)
+select test.assert((select count(*)=0 from changed),'owner cannot restore another store menu');
+update public.food_menu_items set archived_at=null where id='00000000-0000-0000-0000-0000000000c5';
+select test.assert((select archived_at is null and not is_available from public.food_menu_items
+  where id='00000000-0000-0000-0000-0000000000c5'),'owner can restore unavailable menu');
+update public.food_menu_items set is_available=true where id='00000000-0000-0000-0000-0000000000c5';
+select test.assert((select is_available from public.food_menu_items
+  where id='00000000-0000-0000-0000-0000000000c5'),'owner can explicitly publish after restore');
+reset role;
+update public.food_menu_items set archived_at=clock_timestamp(),is_available=false
+where id='00000000-0000-0000-0000-0000000000c5';
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a2',false);
+select test.assert((public.admin_set_merchant_menu_item_archived(
+  '00000000-0000-0000-0000-0000000000c5',
+  (test.item('00000000-0000-0000-0000-0000000000c5')->>'updated_at')::timestamptz,
+  false,'fixture separate admin restore')->>'is_available')='false','admin restore still remains unavailable');
+reset role;
+update public.food_menu_items set archived_at=clock_timestamp(),is_available=false
+where id='00000000-0000-0000-0000-0000000000c5';
+SQL
+
 # Reapplying and rolling back executable definitions must preserve persisted data.
 run >/dev/null < "$ROOT/supabase/migrations/$MIGRATION.sql"
 run >/dev/null < "$ROOT/supabase/rollbacks/${MIGRATION}_rollback.sql"
@@ -619,6 +681,19 @@ begin
 end;
 $$;
 reset role;
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a4',false);
+select test.expect_error($q$update public.food_menu_items set archived_at=null,is_available=true
+  where id='00000000-0000-0000-0000-0000000000c5'$q$,'Restored menu','rollback retains direct restore safety guard');
+update public.food_menu_items set archived_at=null where id='00000000-0000-0000-0000-0000000000c5';
+select test.assert((select archived_at is null and not is_available from public.food_menu_items
+  where id='00000000-0000-0000-0000-0000000000c5'),'rollback retains permitted unavailable restore');
+update public.food_menu_items set is_available=true where id='00000000-0000-0000-0000-0000000000c5';
+select test.assert((select is_available from public.food_menu_items
+  where id='00000000-0000-0000-0000-0000000000c5'),'rollback retains separate explicit publication');
+reset role;
+revoke select,update on public.food_menu_items from authenticated;
+revoke select on public.food_stores from authenticated;
 insert into public.audit_log(actor_id, event_type, detail) values
   ('00000000-0000-0000-0000-0000000000a2', 'merchant_store_updated', '{"reason":"fixture rollback legacy event"}');
 SQL
