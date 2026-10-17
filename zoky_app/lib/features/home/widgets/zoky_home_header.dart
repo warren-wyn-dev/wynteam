@@ -3,17 +3,19 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/adaptive/zoky_icons.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/l10n/zoky_strings.dart';
+import '../../../core/widgets/zoky_3d_icon.dart';
+import '../../../core/widgets/zoky_glossy_surface.dart';
 import '../../../core/widgets/zoky_wordmark.dart';
 
-/// Home Phase 1 header (Founder mockup "เฟส 1 Header + Logo"): brand pink
-/// gradient running under the status bar, the original wordmark on the
-/// left, a white circular "ร้านโปรด" heart button on the right, soft lighter
-/// pink waves, and a white sheet with large rounded top corners that joins
-/// the content below.
+/// Home Phase 1 header (Founder mockup "เฟส 1 Header + Logo"): the shared
+/// "ZOKY Glossy 3D" brand surface ([ZokyGlossySurface], same gradient and
+/// gloss as the hero card) running under the status bar, the original
+/// wordmark on the left, a white glossy "ร้านโปรด" button with a 3D heart
+/// on the right, soft lighter pink waves, and a white sheet with large
+/// rounded top corners that joins the content below.
 ///
 /// Status bar icons are light over the pink on iOS and Android (the region
 /// only covers this header, so once it scrolls away the shell's dark style
@@ -47,6 +49,14 @@ class ZokyHomeHeader extends StatelessWidget {
   /// Minimum height of the logo row, so small phones keep a ~90pt header.
   static const double minRowHeight = 74;
 
+  /// Gloss band from the top of the screen to just below the status bar:
+  /// the same sheen recipe as the hero card, but held to [glossOpacity] so
+  /// white status bar glyphs keep >= 3:1 over the swoosh (measured 3.0+:1
+  /// at 375 and 430pt; the card can use the full 35% because its band
+  /// only sits behind the white pill).
+  static double glossHeight(double topInset) => topInset + 28;
+  static const double glossOpacity = 0.07;
+
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
@@ -57,45 +67,52 @@ class ZokyHomeHeader extends StatelessWidget {
     );
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: systemOverlayStyle,
-      child: CustomPaint(
-        painter: const _HeaderBackgroundPainter(),
-        child: Stack(
-          // Let the white sheet overlap 1px past the bottom (no hairline seam).
-          clipBehavior: Clip.none,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                ZokySpacing.s10,
-                topInset + ZokySpacing.s3,
-                ZokySpacing.s10 - (tapTarget - heartDiameter) / 2,
-                ZokySpacing.s5 + sheetRadius,
-              ),
-              child: SizedBox(
-                height: rowHeight,
-                child: Row(
-                  children: [
-                    ZokyWordmark(width: logoWidth),
-                    const Spacer(),
-                    _FavoritesButton(onPressed: onFavorites),
-                  ],
+      child: ZokyGlossySurface(
+        glossHeight: glossHeight(topInset),
+        glossOpacity: glossOpacity,
+        glossInset: 0,
+        rim: false,
+        shadow: false,
+        child: CustomPaint(
+          painter: const _HeaderWavesPainter(),
+          child: Stack(
+            // Let the white sheet overlap 1px past the bottom (no hairline seam).
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  ZokySpacing.s10,
+                  topInset + ZokySpacing.s3,
+                  ZokySpacing.s10 - (tapTarget - heartDiameter) / 2,
+                  ZokySpacing.s5 + sheetRadius,
                 ),
-              ),
-            ),
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: -1,
-              height: sheetRadius + 1,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: ZokyColors.surface,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(sheetRadius),
+                child: SizedBox(
+                  height: rowHeight,
+                  child: Row(
+                    children: [
+                      ZokyWordmark(width: logoWidth),
+                      const Spacer(),
+                      _FavoritesButton(onPressed: onFavorites),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ],
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: -1,
+                height: sheetRadius + 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: ZokyColors.surface,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(sheetRadius),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -125,20 +142,23 @@ class _FavoritesButton extends StatelessWidget {
                 width: ZokyHomeHeader.heartDiameter,
                 height: ZokyHomeHeader.heartDiameter,
                 decoration: const BoxDecoration(
-                  color: ZokyColors.surface,
+                  gradient: ZokyGloss.white,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x2E991636), // wine 18%
-                      offset: Offset(0, 4),
-                      blurRadius: 12,
-                    ),
-                  ],
+                  boxShadow: ZokyGloss.controlShadow,
                 ),
-                child: const Icon(
-                  ZokyIcons.favorite,
-                  size: ZokySizes.iconLg,
-                  color: ZokyColors.brand,
+                child: const CustomPaint(
+                  painter: ZokyGlossPainter(
+                    gradient: null,
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(ZokyHomeHeader.heartDiameter / 2),
+                    ),
+                    glossHeight: ZokyHomeHeader.heartDiameter * 0.5,
+                    glossOpacity: 0.9,
+                    glossInset: 3,
+                    rimTop: ZokyGloss.controlRimTop,
+                    rimBottom: ZokyGloss.controlRimBottom,
+                  ),
+                  child: Center(child: Zoky3DIcon(Zoky3DGlyph.heart, size: 26)),
                 ),
               ),
             ),
@@ -149,28 +169,12 @@ class _FavoritesButton extends StatelessWidget {
   }
 }
 
-/// Logo "bg" gradient plus two soft, lighter pink waves (decorative only).
-class _HeaderBackgroundPainter extends CustomPainter {
-  const _HeaderBackgroundPainter();
+/// Two soft, lighter pink waves over the glossy surface (decorative only).
+class _HeaderWavesPainter extends CustomPainter {
+  const _HeaderWavesPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            ZokyColors.headerTop,
-            ZokyColors.headerMid,
-            ZokyColors.headerBottom,
-          ],
-          stops: [0, 0.35, 1],
-        ).createShader(rect),
-    );
-
     final w = size.width;
     final h = size.height;
 
@@ -199,5 +203,5 @@ class _HeaderBackgroundPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_HeaderBackgroundPainter oldDelegate) => false;
+  bool shouldRepaint(_HeaderWavesPainter oldDelegate) => false;
 }

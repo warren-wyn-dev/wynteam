@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_app/core/l10n/zoky_strings.dart';
+import 'package:zoky_app/core/widgets/zoky_3d_icon.dart';
 import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
+import 'package:zoky_app/core/widgets/zoky_glossy_surface.dart';
 import 'package:zoky_app/core/widgets/zoky_wordmark.dart';
 import 'package:zoky_app/features/home/widgets/zoky_home_header.dart';
 
@@ -63,11 +65,38 @@ void main() {
     final target = tester.getSize(_heart());
     expect(target.width, greaterThanOrEqualTo(44));
     expect(target.height, greaterThanOrEqualTo(44));
+    // The 3D heart is decorative: the button keeps the only label.
+    final icon = find.descendant(
+      of: find.byType(ZokyHomeHeader),
+      matching: find.byType(Zoky3DIcon),
+    );
+    expect(icon, findsOneWidget);
+    expect(tester.widget<Zoky3DIcon>(icon).glyph, Zoky3DGlyph.heart);
+    expect(tester.widget<Zoky3DIcon>(icon).semanticLabel, isNull);
+    expect(find.bySemanticsLabel(ZokyStrings.favoriteStores), findsOneWidget);
 
     await tester.tap(_heart());
     await tester.pumpAndSettle();
     expect(find.text(ZokyStrings.comingSoon), findsOneWidget);
     semantics.dispose();
+  });
+
+  testWidgets('header and hero share one glossy brand surface', (tester) async {
+    await pumpZokyApp(tester);
+    final surfaces = tester
+        .widgetList<ZokyGlossySurface>(find.byType(ZokyGlossySurface))
+        .toList();
+    expect(surfaces, hasLength(2));
+    for (final surface in surfaces) {
+      expect(surface.gradient, same(ZokyGloss.brand));
+    }
+    expect(
+      find.descendant(
+        of: find.byType(ZokyHomeHeader),
+        matching: find.byType(ZokyGlossySurface),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('status bar is light over the pink header, dark elsewhere', (

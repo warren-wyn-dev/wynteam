@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zoky_app/core/design/zoky_colors.dart';
 import 'package:zoky_app/core/l10n/zoky_strings.dart';
+import 'package:zoky_app/core/widgets/zoky_3d_icon.dart';
+import 'package:zoky_app/core/widgets/zoky_glossy_surface.dart';
 import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
@@ -33,7 +36,7 @@ void main() {
     for (final text in [
       ZokyStrings.heroFoodDelivery,
       ZokyStrings.heroTitleLines,
-      ZokyStrings.heroSubtitle,
+      ...ZokyFoodHeroCard.subtitlePhrases,
       ZokyStrings.heroSearchButton,
     ]) {
       expect(
@@ -41,7 +44,27 @@ void main() {
         findsOneWidget,
       );
     }
+    expect(ZokyFoodHeroCard.subtitlePhrases.join(), ZokyStrings.heroSubtitle);
+    expect(find.bySemanticsLabel(ZokyStrings.heroSubtitle), findsOneWidget);
     expect(find.byType(ZokyBentoIllustration), findsOneWidget);
+    // One brand surface: the card uses the header's glossy recipe.
+    expect(
+      find.descendant(of: hero, matching: find.byType(ZokyGlossySurface)),
+      findsOneWidget,
+    );
+    expect(ZokyFoodHeroCard.background, same(ZokyGloss.brand));
+    // 3D sparkle in the pill and 3D arrow in the button, both decorative.
+    for (final glyph in [Zoky3DGlyph.sparkle, Zoky3DGlyph.arrowRight]) {
+      expect(
+        find.descendant(
+          of: hero,
+          matching: find.byWidgetPredicate(
+            (w) => w is Zoky3DIcon && w.glyph == glyph,
+          ),
+        ),
+        findsOneWidget,
+      );
+    }
     // Hero sits directly under the header (it overlaps only the header's
     // white sheet, never the pink logo row).
     final header = tester.getRect(find.byType(ZokyHomeHeader));
@@ -112,17 +135,30 @@ void main() {
 
   test('text colors meet WCAG contrast on their backgrounds', () {
     const white = Color(0xFFFFFFFF);
-    // Deep end of the card gradient (pill/subtitle area) and button text.
-    expect(_contrast(white, const Color(0xFFD61256)), greaterThan(5.1));
-    // Gradient blend at the brightest point reached behind small text in
-    // the screenshots (#E4165E): still >= 4.5.
+    // White text only sits on the brand gradient as WCAG large text: the
+    // lightest stop still gives >= 3:1.
+    for (final stop in ZokyGloss.brand.colors) {
+      expect(_contrast(white, stop), greaterThanOrEqualTo(3.5));
+    }
+    // Subtitle qualifies as large text: bold and >= 18.66px (14pt).
+    final subtitle = ZokyFoodHeroCard.subtitleStyle;
+    expect(subtitle.fontSize, greaterThanOrEqualTo(18.66));
+    expect(subtitle.fontWeight!.value, greaterThanOrEqualTo(700));
+    // Small text (pill, button) is brandDeep on the white glossy control:
+    // >= 4.5:1 even on its pinkest bottom stop.
+    for (final bg in ZokyGloss.white.colors) {
+      expect(_contrast(ZokyColors.brandDeep, bg), greaterThanOrEqualTo(4.5));
+    }
+  });
+
+  testWidgets('gloss band ends above the white title', (tester) async {
+    await pumpZokyApp(tester);
+    final card = tester.getRect(find.byType(ZokyFoodHeroCard));
+    final title = tester.getRect(find.text(ZokyStrings.heroTitleLines));
     expect(
-      _contrast(white, const Color(0xFFE4165E)),
-      greaterThanOrEqualTo(4.5),
+      title.top - card.top,
+      greaterThanOrEqualTo(ZokyFoodHeroCard.glossHeight),
     );
-    // Vivid end: only the large bold title may sit here (>= 3:1).
-    expect(_contrast(white, const Color(0xFFF21967)), greaterThanOrEqualTo(3));
-    expect(ZokyFoodHeroCard.background.stops, [0, 0.2, 1]);
   });
 
   for (final width in [320.0, 375.0, 390.0, 430.0]) {
@@ -149,6 +185,11 @@ void main() {
         );
         final title = tester.getRect(find.text(ZokyStrings.heroTitleLines));
         expect(title.right, lessThan(art.left));
+        final subtitle = tester.getRect(
+          find.bySemanticsLabel(ZokyStrings.heroSubtitle),
+        );
+        expect(subtitle.right, lessThan(art.left));
+        expect(subtitle.bottom, lessThan(button.top));
 
         // Bottom nav is untouched by the hero.
         expect(find.byType(ZokyBottomNav), findsOneWidget);
