@@ -2298,3 +2298,8 @@ reconciliation นี้ต้องอ่านจาก Stripe (`application_f
 ### [2026-10-17] ZOKY โลโก้ — Founder เลือกแบบ "ไม่มีเงา คงความมันวาว"
 
 Founder เห็นว่าโลโก้ต้นฉบับดูมืด จึงให้เอาเงาใต้ตัวอักษรออกเพื่อให้สดใส — เลือกแบบ 2: ตัวอักษร/สัดส่วนเหมือนต้นฉบับ, ไม่มี drop shadow, พื้นชมพูสว่างขึ้น (`#FF5AA8` → `#F7287A` → `#F21967`), คงแสงมันวาวด้านบนและขอบตัวอักษรนูนเบา ๆ — ไฟล์: `design-reference/zoky/zoky-logo.svg`, `zoky-app-icon.svg`, `zoky-app-icon-1024.png`
+
+### [2026-10-17] ZOKY — Founder ยืนยัน Flutter แม้พบงาน Expo/Kotlin เดิม
+
+พบงาน ZOKY จาก session อื่นที่ยังไม่ merge: `feat/zoky-ios-expo-food-preview-20261016` (`zoky-ios/`, React Native + Expo) และ `feat/zoky-android-*` (`food-android/`, Kotlin + Compose) — Founder เลือก **"ใช้ Flutter ตามที่ตกลงวันนี้"** (`zoky_app/`) — branch เดิมเก็บไว้เป็นตัวอ้างอิง (ห้ามลบ) เช่น โลโก้ PNG โปร่งใสต้นฉบับ `zoky-ios/assets/zoky-wordmark-original-1066.png` และพฤติกรรม/ข้อจำกัดที่บันทึกไว้ใน `food-android/`
+หน้า Home ออกแบบตามภาพอ้างอิง 5 เฟสที่ Founder ส่ง (Header+Logo / การ์ดสั่งอาหาร / ดีลเด็ดวันนี้ / ร้านอาหารแนะนำ / Bottom Nav: หน้าหลัก·ออเดอร์·ข้อความ·บัญชี) ทำทีละเฟส รอ Founder อนุมัติแต่ละเฟส
