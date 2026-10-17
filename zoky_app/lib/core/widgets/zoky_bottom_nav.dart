@@ -7,6 +7,7 @@ import '../design/zoky_colors.dart';
 import '../design/zoky_tokens.dart';
 import '../design/zoky_typography.dart';
 import 'zoky_3d_icon.dart';
+import 'zoky_nav_icon.dart';
 
 /// One destination of [ZokyBottomNav].
 class ZokyNavItem {
@@ -16,6 +17,7 @@ class ZokyNavItem {
     this.badgeCount = 0,
     this.showDot = false,
     this.badgeSemanticLabel,
+    this.appleIcons,
   });
 
   final String label;
@@ -33,6 +35,10 @@ class ZokyNavItem {
   /// Read after the label when a badge or dot shows, e.g.
   /// "{n} ออเดอร์ที่กำลังดำเนินการ" or [ZokyStrings.navMessagesUnread].
   final String? badgeSemanticLabel;
+
+  /// CupertinoIcons pair used by the Apple [ZokyNavIconStyle]s instead of
+  /// the glyph's default (e.g. [ZokyAppleNavIcons.ordersBag]).
+  final ZokyAppleNavIcons? appleIcons;
 }
 
 /// Floating capsule tab bar (design 9.8, Home Phase 5 per the Founder's
@@ -53,9 +59,13 @@ class ZokyBottomNav extends StatelessWidget {
     required this.items,
     required this.currentIndex,
     required this.onSelected,
+    this.iconStyle = ZokyNavIconStyle.classic3d,
   });
 
   final List<ZokyNavItem> items;
+
+  /// Tab icon treatment; [ZokyNavIconStyle.classic3d] is the shipped one.
+  final ZokyNavIconStyle iconStyle;
   final int currentIndex;
   final ValueChanged<int> onSelected;
 
@@ -192,6 +202,7 @@ class ZokyBottomNav extends StatelessWidget {
                                   child: _NavButton(
                                     item: items[i],
                                     selected: i == currentIndex,
+                                    iconStyle: iconStyle,
                                     duration: reduceMotion
                                         ? Duration.zero
                                         : ZokyMotion.base,
@@ -223,12 +234,14 @@ class _NavButton extends StatelessWidget {
   const _NavButton({
     required this.item,
     required this.selected,
+    required this.iconStyle,
     required this.duration,
     required this.onTap,
   });
 
   final ZokyNavItem item;
   final bool selected;
+  final ZokyNavIconStyle iconStyle;
   final Duration duration;
   final VoidCallback onTap;
 
@@ -292,13 +305,13 @@ class _NavButton extends StatelessWidget {
                         child: child,
                       ),
                     ),
-                    child: Zoky3DIcon(
+                    child: ZokyNavIcon(
                       item.glyph,
                       key: ValueKey(selected),
+                      selected: selected,
+                      style: iconStyle,
                       size: ZokyBottomNav.iconSize,
-                      style: selected
-                          ? Zoky3DIconStyle.glossy
-                          : Zoky3DIconStyle.line,
+                      appleIcons: item.appleIcons,
                       lineColor: ZokyColors.neutral600,
                     ),
                   ),
