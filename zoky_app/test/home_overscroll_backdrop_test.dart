@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_app/app/app_config.dart';
 import 'package:zoky_app/app/zoky_app.dart';
@@ -117,5 +118,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(pos.pixels, greaterThan(100));
     expect(await _pixel(tester, 4, 30), isNot(_pink));
+  });
+
+  testWidgets('status bar icons: light over the header at rest, dark over '
+      'white content once scrolled (no pink band to rely on)', (tester) async {
+    await _pump(tester, width: 430, height: 932, top: 59, textScale: 2);
+    SystemUiOverlayStyle? styleAtStatusBar() {
+      final layer = tester.binding.renderViews.first.debugLayer!;
+      return layer.find<SystemUiOverlayStyle>(const Offset(215, 30));
+    }
+
+    expect(styleAtStatusBar()?.statusBarBrightness, Brightness.dark);
+    final pos = _position(tester);
+    pos.jumpTo(pos.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(styleAtStatusBar()?.statusBarBrightness, Brightness.light);
+    expect(styleAtStatusBar()?.statusBarIconBrightness, Brightness.dark);
   });
 }

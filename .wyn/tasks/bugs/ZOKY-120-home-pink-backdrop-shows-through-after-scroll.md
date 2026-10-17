@@ -36,6 +36,8 @@ Regression Risk: Low. A per-frame rebuild of one `Positioned`/`ColoredBox` while
 
 Debug Engineer:
 - Reproduced in test and in the web preview (before/after screenshots: `scratchpad/fixes/zoky120-*.png` in the session scratchpad).
+- Status bar after the fix: once the header leaves the status bar, the app-level default region gives dark icons (verified by test `status bar icons: light over the header at rest, dark over white content once scrolled`). The web preview's simulated status bar (`tool/web_preview_main.dart`) always draws white text, so in preview screenshots the clock is white-on-white after scrolling — preview artifact only, not changed (preview tool out of scope).
+- At-rest preview screenshots before/after are byte-identical at 430×932 text 1.0/1.3/2.0 (Phase 1 look unchanged).
 - Not verified on a real iOS device (no device in sandbox); the bounce colour is covered by a widget test with `TargetPlatform.iOS` drag.
 
 Handoff to QA: re-run the device matrix (320/360/375/390/414/430 × 568–932, landscape, text 1.0–2.0), sample pixels under the status bar after scrolling, and verify the top bounce still shows pink on iOS.
