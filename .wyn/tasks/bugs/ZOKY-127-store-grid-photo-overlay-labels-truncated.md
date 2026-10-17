@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-127 (Store grid: photo overlay labels truncated — "โฆษณา" ad disclosure, promo, closed, ETA)
 
-Status: fixed — awaiting QA re-test (2026-10-17)
+Status: **Verified** — QA re-test PASS (2026-10-17, @ 8740a16)
 Severity: **MEDIUM** (the "โฆษณา" paid-placement disclosure and the "ลด 20%" promo value become unreadable; ETA is cut at default text size on 375pt phones; design §10.2 says no truncation on the main flow). Not HIGH today because only demo data is affected (no real ads/promos yet) and the screen reader still reads the full text. **Must be fixed before real ads/promotions from the backend (ZOKY-105/106) go live.** Founder/PM may raise it if the ad disclosure counts as a legal requirement.
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Home slice re-test round, 2026-10-17, branch `docs/zoky-foundation` @ 41ddc95 (first raised as a note by AI Debug Engineer while fixing ZOKY-123). Pre-existing: same output at a63d90e (before the ZOKY-123/125 fixes); missed in the first QA round.
@@ -53,3 +53,14 @@ Tests (2026-10-17): `flutter analyze` → No issues found. `flutter test` → 79
 Regression Risk: Low–Medium. Visual change on the grid card: ETA is text in the meta row instead of a white pill on the photo, distance separator changed from "·" to the thin rule, and closed stores at narrow widths show "ปิดอยู่" under the demo badge instead of top-right. Cards can be one meta line taller on narrow phones. Long promos from the backend (ZOKY-105/106) now wrap to 2+ lines on the photo instead of being cut; extremely long promo text could cover more of the photo (still inside it). Design/PM may want a max promo length in the backend contract.
 
 Handoff to QA: re-run the ZOKY-127 repros, the grid matrix (search / ดูทั้งหมด / legacy × 320–430, 932 × 1.0–2.0) and `test/store_card_overlay_labels_test.dart`; visually check the meta row "★ | นาที | กม." at 320 × 1.3 and 430 × 1.0, closed + demo + ad stacking, VoiceOver/TalkBack label unchanged.
+
+QA Re-test (AI QA & Security, 2026-10-17, branch `docs/zoky-foundation` @ 8740a16): **Verified**
+
+- Note: after the fix the badge `Text` has no `maxLines`, so `didExceedMaxLines` (used by the original repros and the Debug matrix) is always false. QA added an independent check in `zoky_app/test/qa/zoky127_retest_qa_test.dart`: every photo badge laid out on ONE line (no "โฆษ/ณา" split), inside the photo with inset, no overlap, present; meta row items whole and on one line, not cut by the left-edge clip, no visible separator without content on both sides of the same line; screen reader label equal to the pre-fix formula. Mutation check: against the pre-fix card (a9a3b67) the new test fails ("โฆษณา" ellipsized/split, "ปิดอยู่" split, ETA on photo); against HEAD it passes.
+- App grids: search / "ดูทั้งหมด" / legacy × 320, 360, 375, 390, 414, 430, 932 (landscape) × text 1.0, 1.15, 1.3, 1.45, 1.6, 2.0, Anuphan, all 9 demo stores → 126/126 pass.
+- Synthetic worst cases (card 120/138/160/180/220pt × text 1.0–2.0): stacked ตัวอย่าง + โฆษณา + ปิดอยู่ (+ promo "ลด ฿30"), ad + closed + promo, closed only, ร้านใหม่, no rating and not new, ETA only / min == max ("30 นาที"), km only, empty meta (no row shown), half ETA (hidden), 999999999 reviews, 1234.5 กม. → 25/25 pass (meta text may wrap inside a group on card widths/scales that no real grid produces, e.g. "20–30 / นาที" at 138pt × 2.0; never ellipsized or cut).
+- Original repros: 4 `ZOKY-127:` tests pass; re-test grid matrix prints no `QA-TRUNCATED` line.
+- Visual (test-rendered PNG, Anuphan): 320 × 1.3 meta rows stack as "★ 4.8 (1250)" / "20–30 นาที" / "1.2 กม." with no separator; 430 × 1.0 "★ 4.8 (1250) | 20–30 นาที" then "1.2 กม." with no leading rule; "ปิดอยู่" under "ตัวอย่าง" at 138pt, top-right at 430. Thai marks (ร้านใหม่, ปิดอยู่, กม.) not clipped.
+- Screen reader: one node per card, label unchanged for all demo + synthetic stores.
+- `flutter analyze` → No issues found. `flutter test` → 942 passed, 4 skipped (ZOKY-124 repro + 3 screenshot helpers that run only with `QA_SHOT_DIR`), 0 failed.
+- Informational (no new bug filed): meta row reserves the 13pt rule slot at the right edge too, so it wraps ~13pt earlier than necessary (cosmetic); semantic ETA for min == max reads "30 ถึง 30 นาที" while the card shows "30 นาที" (pre-existing, same as before); backend promo length still unbounded (Debug risk note) — needs a max length in the ZOKY-105/106 contract.
