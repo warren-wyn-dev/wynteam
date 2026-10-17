@@ -8,6 +8,7 @@ import type { AdminMerchantMenuCatalog, AdminMerchantMenuItem } from "@/lib/admi
 import { menuForm, menuFormError, menuValues, menuErrorMessage } from "@/lib/admin-merchant-menu-form";
 import { MerchantMenuOptions } from "@/components/admin/merchant-menu-options";
 import { MerchantMenuCategories, type MenuCategoryChange } from "@/components/admin/merchant-menu-categories";
+import { MerchantMenuImageUpload } from "@/components/admin/merchant-menu-image-upload";
 
 const buttonClass = "min-h-11 rounded-lg border px-4 text-sm font-medium disabled:opacity-40";
 const inputClass = "mt-1 min-h-11 w-full rounded-lg border bg-background px-3 text-sm disabled:opacity-60";
@@ -27,7 +28,10 @@ export function AdminMerchantMenuEditor({ original, canEdit }: {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState("");
   const [needsReload, setNeedsReload] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [draftRevision, setDraftRevision] = useState(0);
   const [pending, startTransition] = useTransition();
+  const busy = pending || uploading;
   const selected = catalog.items.find(item => item.id === itemId && item.store_id === storeId) ?? null;
   const store = catalog.stores.find(item => item.id === storeId);
   const storeItems = catalog.items.filter(item => item.store_id === storeId);
@@ -36,7 +40,8 @@ export function AdminMerchantMenuEditor({ original, canEdit }: {
   const values = formError ? null : menuValues(form, selected);
   const changed = creating || (selected && JSON.stringify(form) !== JSON.stringify(menuForm(selected)));
   const reasonValid = reason.trim().length >= 5 && reason.trim().length <= 300;
-  const editingDisabled = !canEdit || pending || needsReload || Boolean(selected?.archived_at);
+  const imageUploadDisabled = !canEdit || pending || needsReload || Boolean(selected?.archived_at);
+  const editingDisabled = imageUploadDisabled || uploading;
   const imagePaths = [...new Set([
     ...catalog.images.filter(image => image.store_id === storeId).map(image => image.path),
     ...storeItems.flatMap(item => item.image_path ? [item.image_path] : []),
@@ -45,11 +50,12 @@ export function AdminMerchantMenuEditor({ original, canEdit }: {
   const imageUrl = form.image_path ? createClient().storage.from("food-public").getPublicUrl(form.image_path).data.publicUrl : null;
 
   function reset(item?: AdminMerchantMenuItem, create = false) {
+    setDraftRevision(value => value + 1);
     setItemId(item?.id ?? ""); setCreating(create); setForm(menuForm(item));
     setError(null); setSuccess(""); setReason("");
   }
   function discardAllowed() {
-    return !changed || window.confirm("มีข้อมูลที่ยังไม่บันทึก ต้องการละทิ้งการแก้ไขหรือไม่?");
+    return !busy && (!changed || window.confirm("มีข้อมูลที่ยังไม่บันทึก ต้องการละทิ้งการแก้ไขหรือไม่?"));
   }
   function chooseStore(id: string) {
     if (!discardAllowed()) return;
@@ -70,7 +76,7 @@ export function AdminMerchantMenuEditor({ original, canEdit }: {
     router.refresh();
   }
   function mutate(message: string, operation: () => Promise<{ data: unknown; error: unknown }>, preferredId?: string) {
-    if (!canEdit || pending || needsReload || !window.confirm(message)) return;
+    if (!canEdit || busy || needsReload || !window.confirm(message)) return;
     setError(null); setSuccess("");
     startTransition(async () => {
       let saved = false;
@@ -92,7 +98,7 @@ export function AdminMerchantMenuEditor({ original, canEdit }: {
     });
   }
   function save() {
-    if (!store || !canEdit || !values || !reasonValid || !changed || selected?.archived_at) return;
+    if (!store || !canEdit || busy || !values || !reasonValid || !changed || selected?.archived_at) return;
     const proposed = values;
     mutate(`ยืนยัน${creating ? "เพิ่ม" : "แก้ไข"}เมนู “${proposed.name}” ของร้าน “${store.name}” ราคา ${proposed.price} บาท? ข้อมูลนี้มีผลกับการสั่งซื้อใหม่`, async () =>
       await createClient().rpc("admin_save_merchant_menu_item", {
@@ -122,26 +128,26 @@ export function AdminMerchantMenuEditor({ original, canEdit }: {
       }).abortSignal(AbortSignal.timeout(20_000)));
   }
 
-  return <section className="space-y-5 rounded-2xl border bg-background p-4 sm:p-6" aria-busy={pending}>
+  return <section className="space-y-5 rounded-2xl border bg-background p-4 sm:p-6" aria-busy={busy}>
     <div className="flex flex-wrap items-end gap-3">
       <label className="min-w-48 flex-1 text-sm font-medium">เลือกร้าน
-        <select className={inputClass} disabled={pending} value={storeId} onChange={event => chooseStore(event.target.value)}>
+        <select className={inputClass} disabled={busy} value={storeId} onChange={event => chooseStore(event.target.value)}>
           {!catalog.stores.length ? <option value="">ยังไม่มีร้าน</option> : null}
           {catalog.stores.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </label>
-      {canEdit ? <button type="button" className={buttonClass} disabled={pending || needsReload || !store}
+      {canEdit ? <button type="button" className={buttonClass} disabled={busy || needsReload || !store}
         onClick={() => { if (discardAllowed()) reset(undefined, true); }}>เพิ่มเมนูใหม่</button> : null}
-      <button type="button" className={buttonClass} disabled={pending} onClick={() => {
+      <button type="button" className={buttonClass} disabled={busy} onClick={() => {
         if (!discardAllowed()) return;
         startTransition(async () => { try { setError(null); await reload(); } catch (readError) { setError(menuErrorMessage(readError)); } });
       }}>โหลดข้อมูลล่าสุด</button>
     </div>
     {store ? <MerchantMenuCategories key={`${store.id}:${store.updated_at}`} store={store} items={storeItems}
-      canEdit={canEdit && !needsReload} pending={pending} onSave={saveCategories} /> : null}
+      canEdit={canEdit && !needsReload} pending={busy} onSave={saveCategories} /> : null}
     <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
       <label className="text-sm font-medium">เลือกเมนู
-        <select className={inputClass} disabled={pending} value={creating ? "" : itemId} onChange={event => {
+        <select className={inputClass} disabled={busy} value={creating ? "" : itemId} onChange={event => {
           if (discardAllowed()) reset(visible.find(item => item.id === event.target.value));
         }}>
           <option value="">{creating ? "กำลังเพิ่มเมนูใหม่" : "เลือกเมนู"}</option>
@@ -149,7 +155,7 @@ export function AdminMerchantMenuEditor({ original, canEdit }: {
         </select>
       </label>
       <label className="flex min-h-11 items-center gap-2 text-sm">
-        <input type="checkbox" checked={showArchived} disabled={pending} onChange={event => {
+        <input type="checkbox" checked={showArchived} disabled={busy} onChange={event => {
           if (!event.target.checked && selected?.archived_at && !discardAllowed()) return;
           setShowArchived(event.target.checked);
           if (!event.target.checked && selected?.archived_at) reset(storeItems.find(item => !item.archived_at));
@@ -183,35 +189,40 @@ export function AdminMerchantMenuEditor({ original, canEdit }: {
           <Field label="หยุดขายจนถึง (เวลาไทย เว้นว่าง = ไม่หยุด)" type="datetime-local" value={form.sold_out_until}
             onChange={value => setForm({ ...form, sold_out_until: value })} />
         </div>
-        <fieldset className="space-y-3 rounded-xl border p-4">
+      </fieldset>
+        <fieldset disabled={imageUploadDisabled} className="space-y-3 rounded-xl border p-4">
           <legend className="px-1 text-sm font-semibold">รูปเมนู</legend>
           <p className="text-xs text-muted-foreground">เลือกรูปที่ร้านเคยอัปโหลดไว้ หรือเอารูปออกจากเมนู การเอารูปออกยังเก็บไฟล์เดิมไว้</p>
           <label className="block text-sm">เลือกรูปของร้านนี้
-            <select className={inputClass} value={form.image_path} onChange={event => setForm({ ...form, image_path: event.target.value })}>
+            <select className={inputClass} disabled={uploading} value={form.image_path} onChange={event => setForm({ ...form, image_path: event.target.value })}>
               <option value="">ไม่มีรูป</option>
               {imagePaths.map((path, index) => <option key={path} value={path}>รูปที่ {index + 1}{path === selected?.image_path ? " (รูปปัจจุบัน)" : ""}</option>)}
             </select>
           </label>
           {imageUrl ? <div className="flex flex-wrap items-end gap-3">
             <Image unoptimized src={imageUrl} width={240} height={180} className="aspect-[4/3] max-w-full rounded-xl border object-cover" alt={`ตัวอย่างรูปเมนู ${form.name}`} />
-            <button type="button" className={buttonClass} onClick={() => setForm({ ...form, image_path: "" })}>เอารูปออก</button>
+            <button type="button" disabled={uploading} className={buttonClass} onClick={() => setForm({ ...form, image_path: "" })}>เอารูปออก</button>
           </div> : <p className="text-sm text-muted-foreground">ยังไม่มีรูปเมนู</p>}
+          {canEdit && !selected?.archived_at ? <MerchantMenuImageUpload key={`${storeId}:${creating ? "new" : itemId}:${draftRevision}`}
+            storeId={storeId} disabled={imageUploadDisabled} onBusyChange={setUploading}
+            onUploaded={path => setForm(current => ({ ...current, image_path: path }))} /> : null}
         </fieldset>
+      <fieldset disabled={editingDisabled}>
         <MerchantMenuOptions value={form.options} onChange={options => setForm({ ...form, options })} disabled={editingDisabled} />
       </fieldset>
       {canEdit ? <>
         <label className="block text-sm font-medium">เหตุผลการเปลี่ยนแปลง (5–300 ตัวอักษร)
-          <textarea className="mt-1 w-full rounded-lg border bg-background p-3 text-sm" rows={2} maxLength={300} disabled={pending}
+          <textarea className="mt-1 w-full rounded-lg border bg-background p-3 text-sm" rows={2} maxLength={300} disabled={busy}
             value={reason} onChange={event => setReason(event.target.value)} />
         </label>
         {formError && changed && !selected?.archived_at ? <p role="alert" className="text-sm text-red-600">{formError}</p> : null}
         <div className="flex flex-wrap gap-2">
           {!selected?.archived_at ? <button type="button" onClick={save}
             className="min-h-11 rounded-lg bg-foreground px-5 text-sm font-semibold text-background disabled:opacity-40"
-            disabled={pending || needsReload || Boolean(formError) || !changed || !reasonValid}>{pending ? "กำลังบันทึก…" : creating ? "ยืนยันเพิ่มเมนู" : "ยืนยันบันทึกเมนู"}</button> : null}
+            disabled={busy || needsReload || Boolean(formError) || !changed || !reasonValid}>{pending ? "กำลังบันทึก…" : creating ? "ยืนยันเพิ่มเมนู" : "ยืนยันบันทึกเมนู"}</button> : null}
           {!creating && selected ? <button type="button" className={buttonClass} onClick={archive}
-            disabled={pending || needsReload || !reasonValid || Boolean(changed)}>{selected.archived_at ? "กู้คืนเมนู (ยังปิดขาย)" : "เก็บเมนู"}</button> : null}
-          {changed && !creating ? <button type="button" className={buttonClass} disabled={pending} onClick={() => {
+            disabled={busy || needsReload || !reasonValid || Boolean(changed)}>{selected.archived_at ? "กู้คืนเมนู (ยังปิดขาย)" : "เก็บเมนู"}</button> : null}
+          {changed && !creating ? <button type="button" className={buttonClass} disabled={busy} onClick={() => {
             if (discardAllowed()) reset(selected ?? undefined);
           }}>ยกเลิกการแก้ไข</button> : null}
         </div>

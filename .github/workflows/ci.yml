@@ -102,6 +102,8 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Prepare pinned Admin menu image decoder
+        run: python3 tools/prepare_admin_menu_image_vendor.py
       - run: deno check supabase/functions/*/index.ts
       - run: deno test --allow-read supabase/functions/
 

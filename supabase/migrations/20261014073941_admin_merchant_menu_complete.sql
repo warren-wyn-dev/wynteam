@@ -103,13 +103,15 @@ revoke all on function internal.admin_menu_row(public.food_menu_items,text) from
 
 create or replace function internal.admin_menu_image_valid(p_store_id uuid,p_path text)
 returns boolean language sql stable set search_path = '' as $$
-  select p_path ~ ('^stores/' || p_store_id::text || '/menu/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$')
+  select (p_path ~ ('^stores/' || p_store_id::text || '/menu/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$')
+      or p_path ~ ('^admin-menu/' || p_store_id::text || '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$'))
     and exists (
       select 1 from storage.objects o
       where o.bucket_id='food-public' and o.name=p_path
         and jsonb_typeof(o.metadata->'size')='number'
         and case when o.metadata->>'size' ~ '^[0-9]{1,8}$'
-          then (o.metadata->>'size')::bigint between 1 and 8388608 else false end
+          then (o.metadata->>'size')::bigint between 1 and
+            case when p_path like 'admin-menu/%' then 4194304 else 8388608 end else false end
         and o.metadata->>'mimetype'=case
           when p_path ~ '\.(jpg|jpeg)$' then 'image/jpeg'
           when p_path ~ '\.png$' then 'image/png'
@@ -117,6 +119,90 @@ returns boolean language sql stable set search_path = '' as $$
     );
 $$;
 revoke all on function internal.admin_menu_image_valid(uuid,text) from public, anon, authenticated;
+
+-- Keep this reserved namespace immutable to every ordinary Storage caller,
+-- even if an older or additional permissive policy still allows broad writes.
+-- Service-role publishing uses its existing RLS bypass after trusted processing.
+-- These restrictive guards are retained with objects/references on rollback.
+drop policy if exists "Food admin menu trusted insert guard" on storage.objects;
+create policy "Food admin menu trusted insert guard" on storage.objects
+as restrictive for insert to public
+with check (bucket_id is distinct from 'food-public' or split_part(name,'/',1) is distinct from 'admin-menu');
+drop policy if exists "Food admin menu trusted update guard" on storage.objects;
+create policy "Food admin menu trusted update guard" on storage.objects
+as restrictive for update to public
+using (bucket_id is distinct from 'food-public' or split_part(name,'/',1) is distinct from 'admin-menu')
+with check (bucket_id is distinct from 'food-public' or split_part(name,'/',1) is distinct from 'admin-menu');
+drop policy if exists "Food admin menu trusted delete guard" on storage.objects;
+create policy "Food admin menu trusted delete guard" on storage.objects
+as restrictive for delete to public
+using (bucket_id is distinct from 'food-public' or split_part(name,'/',1) is distinct from 'admin-menu');
+
+-- Storage's existing store-owned write policies intentionally reject the
+-- admin-menu namespace. Only the trusted image-processing Edge Function writes
+-- immutable objects there. Merchant owners keep their menu permissions, but
+-- cannot attach another store's trusted image through a direct table write.
+-- Unchanged references remain usable even if a historical object is missing.
+-- Retain this guard and its validator with persisted image references on rollback.
+create or replace function internal.food_menu_image_reference_guard()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op='UPDATE' and new.image_path is not distinct from old.image_path
+    and new.store_id is not distinct from old.store_id then return new; end if;
+  if new.image_path is null then return new; end if;
+  -- getPublicUrl() builds a URL: dot segments or URL-shaped input can otherwise
+  -- resolve outside the literal path checked below. Existing legacy references
+  -- are exempt above; changed references must be safe relative object names.
+  if new.image_path ~ '[[:cntrl:]]' or new.image_path like '/%'
+    or position(chr(92) in new.image_path)>0
+    or new.image_path ~ '^[A-Za-z][A-Za-z0-9+.-]*:'
+    or new.image_path ~ '(^|/)\.{1,2}(/|$)' then
+    raise exception 'Invalid menu image path' using errcode='23514';
+  end if;
+  if new.image_path ~ '(^|/)admin-menu(/|$)'
+    and not coalesce(internal.admin_menu_image_valid(new.store_id,new.image_path),false) then
+    raise exception 'Invalid menu image' using errcode='23514';
+  end if;
+  return new;
+end $$;
+revoke all on function internal.food_menu_image_reference_guard() from public, anon, authenticated;
+drop trigger if exists food_menu_image_reference_guard on public.food_menu_items;
+create trigger food_menu_image_reference_guard before insert or update of image_path,store_id on public.food_menu_items
+for each row execute function internal.food_menu_image_reference_guard();
+
+-- One bounded budget row per existing actor, shared across all stores. No
+-- Storage privileges or membership changes are granted by this authorization.
+create table if not exists internal.admin_menu_upload_budgets (
+  actor_id uuid primary key references public.profiles(id) on delete cascade,
+  window_started_at timestamptz not null,
+  attempts smallint not null check (attempts between 1 and 10)
+);
+alter table internal.admin_menu_upload_budgets enable row level security;
+revoke all on table internal.admin_menu_upload_budgets from public, anon, authenticated;
+
+create or replace function public.admin_authorize_merchant_menu_upload(p_store_id uuid)
+returns boolean language plpgsql volatile security definer set search_path = '' as $$
+declare v_actor uuid:=(select auth.uid()); v_now timestamptz:=clock_timestamp(); v_attempts smallint;
+begin
+  if v_actor is null or not internal.has_admin_permission('merchant','edit') then raise exception 'Not authorized'; end if;
+  if p_store_id is null or not exists(select 1 from public.food_stores where id=p_store_id) then raise exception 'Store not found'; end if;
+  -- ON CONFLICT locks the actor row and tests the latest committed counter,
+  -- including overlapping uploads to different stores. Rejected calls do not
+  -- increase the counter, and expired windows reset without accumulating rows.
+  insert into internal.admin_menu_upload_budgets as b(actor_id,window_started_at,attempts)
+  values(v_actor,v_now,1)
+  on conflict(actor_id) do update set
+    window_started_at=case when b.window_started_at<=excluded.window_started_at-interval '10 minutes'
+      then excluded.window_started_at else b.window_started_at end,
+    attempts=case when b.window_started_at<=excluded.window_started_at-interval '10 minutes'
+      then 1 else b.attempts+1 end
+  where b.window_started_at<=excluded.window_started_at-interval '10 minutes' or b.attempts<10
+  returning attempts into v_attempts;
+  if not found then raise exception 'Menu image upload limit reached'; end if;
+  return true;
+end $$;
+revoke all on function public.admin_authorize_merchant_menu_upload(uuid) from public, anon;
+grant execute on function public.admin_authorize_merchant_menu_upload(uuid) to authenticated;
 
 create or replace function internal.admin_menu_options(p_options jsonb)
 returns jsonb language plpgsql immutable set search_path = '' as $$
@@ -173,7 +259,8 @@ begin
   where p_store_id is null or m.store_id=p_store_id;
   select coalesce(jsonb_agg(jsonb_build_object('store_id',i.store_id,'path',i.name) order by i.name),'[]') into v_images
   from (select s.id store_id,o.name from public.food_stores s join storage.objects o
-    on o.bucket_id='food-public' and o.name like 'stores/'||s.id::text||'/menu/%'
+    on o.bucket_id='food-public' and (o.name like 'stores/'||s.id::text||'/menu/%'
+      or o.name like 'admin-menu/'||s.id::text||'/%')
     where (p_store_id is null or s.id=p_store_id) and internal.admin_menu_image_valid(s.id,o.name)
     order by o.name limit 500) i;
   return jsonb_build_object('stores',v_stores,'items',v_items,'images',v_images);

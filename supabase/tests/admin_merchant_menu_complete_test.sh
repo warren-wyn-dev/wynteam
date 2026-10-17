@@ -21,6 +21,9 @@ create schema auth;
 create schema internal;
 create schema storage;
 create schema test;
+create table public.profiles(id uuid primary key);
+insert into public.profiles(id) select ('00000000-0000-0000-0000-0000000000a'||i)::uuid
+  from generate_series(1,7) i;
 create function auth.uid() returns uuid language sql stable as $$
   select case when current_setting('role', true) = 'authenticated'
     then nullif(current_setting('test.uid', true), '')::uuid else null end
@@ -81,7 +84,9 @@ $$;
 create table storage.objects(bucket_id text not null, name text not null, metadata jsonb);
 insert into public.admin_permissions values
   ('00000000-0000-0000-0000-0000000000a1', 'view'),
-  ('00000000-0000-0000-0000-0000000000a2', 'edit');
+  ('00000000-0000-0000-0000-0000000000a2', 'edit'),
+  ('00000000-0000-0000-0000-0000000000a6', 'edit'),
+  ('00000000-0000-0000-0000-0000000000a7', 'edit');
 insert into public.food_stores(id, name, menu_category_order) values
   ('00000000-0000-0000-0000-0000000000b1', 'Test Shop', '["Main","Soups"]'),
   ('00000000-0000-0000-0000-0000000000b2', 'Empty Shop', '[]'),
@@ -617,6 +622,7 @@ extract_policy() {
 }
 extract_policy migrations_wynos_food_customer_access_gate_v2.sql 'create policy "Food menu visible by rollout gate"'
 extract_policy migrations_wynos_merchant_core_completion_v1.sql 'create policy "Food menu updated by merchant"'
+extract_policy migrations_wynos_merchant_core_completion_v1.sql 'create policy "Food menu inserted by merchant"'
 run >/dev/null <<'SQL'
 set role authenticated;
 select set_config('test.uid','00000000-0000-0000-0000-0000000000a4',false);
@@ -647,12 +653,282 @@ update public.food_menu_items set archived_at=clock_timestamp(),is_available=fal
 where id='00000000-0000-0000-0000-0000000000c5';
 SQL
 
+# Trusted upload references must also be safe through the real Merchant table
+# policies, not only the Admin save RPC. Storage policy definitions and the
+# latest store-write helper are loaded verbatim; fixture ownership stays synthetic.
+run >/dev/null <<'SQL'
+alter table public.food_stores add column merchant_account_id uuid;
+update public.food_stores set merchant_account_id=id;
+create table public.merchant_memberships(merchant_account_id uuid,user_id uuid,role text,active boolean);
+insert into public.merchant_memberships values
+  ('00000000-0000-0000-0000-0000000000b1','00000000-0000-0000-0000-0000000000a4','owner',true);
+create table public.food_staff(store_id uuid,user_id uuid,role text,active boolean);
+create function storage.foldername(name text) returns text[] language sql immutable as $$
+  select (string_to_array(name,'/'))[1:array_length(string_to_array(name,'/'),1)-1]
+$$;
+alter table storage.objects enable row level security;
+grant usage on schema storage to authenticated;
+grant select,insert,update,delete on storage.objects to authenticated;
+grant insert on public.food_menu_items to authenticated;
+insert into storage.objects values
+  ('food-public','admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp','{"mimetype":"image/webp","size":4194304}'),
+  ('food-public','admin-menu/00000000-0000-0000-0000-0000000000b3/10000000-0000-0000-0000-000000000101.webp','{"mimetype":"image/webp","size":2048}'),
+  ('food-public','admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000102.webp','{"mimetype":"image/png","size":2048}'),
+  ('food-public','admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000103.webp','{"mimetype":"image/webp","size":4194305}'),
+  ('food-public','admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000104.webp','{"mimetype":"image/webp","size":0}'),
+  ('food-public','admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000105.webp','{"mimetype":"image/webp","size":"2048"}'),
+  ('food-public','admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000106.webp','{"mimetype":"image/webp","size":1.5}'),
+  ('food-public','admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000107.jpg','{"mimetype":"image/jpeg","size":2048}');
+SQL
+extract_function migrations_wynos_food_storage_store_isolation_v1.sql 'create or replace function public.food_path_uuid('
+extract_function migrations_wynos_merchant_access_hardening_v1.sql 'create or replace function public.food_store_media_writable('
+extract_policy migrations_wynos_food_merchant_v1.sql 'create policy "Food public media readable"'
+extract_policy migrations_wynos_food_storage_store_isolation_v1.sql 'create policy "Food public media merchant upload"'
+extract_policy migrations_wynos_food_storage_store_isolation_v1.sql 'create policy "Food public media merchant update"'
+extract_policy migrations_wynos_food_storage_store_isolation_v1.sql 'create policy "Food public media merchant delete"'
+run >/dev/null <<'SQL'
+revoke all on function public.food_path_uuid(text) from public,anon;
+revoke all on function public.food_store_media_writable(text) from public,anon;
+grant execute on function public.food_path_uuid(text),public.food_store_media_writable(text) to authenticated;
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a1',false);
+select test.assert(jsonb_array_length(public.admin_merchant_menu_catalog('00000000-0000-0000-0000-0000000000b1')->'images')=2,
+  'catalog includes only valid legacy and trusted images of this store');
+select test.expect_error('select public.admin_authorize_merchant_menu_upload(''00000000-0000-0000-0000-0000000000b1'')','Not authorized','view-only upload denied');
+select set_config('test.uid','',false);
+select test.expect_error('select public.admin_authorize_merchant_menu_upload(''00000000-0000-0000-0000-0000000000b1'')','Not authorized','signed-out upload denied');
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a4',false);
+select test.expect_error('select public.admin_authorize_merchant_menu_upload(''00000000-0000-0000-0000-0000000000b1'')','Not authorized','owner without Admin permission cannot use Admin upload');
+select test.assert(public.food_store_media_writable('stores/00000000-0000-0000-0000-0000000000b1/menu/old.png'),
+  'existing helper still permits owner store media');
+select test.assert(not public.food_store_media_writable('admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp'),
+  'existing helper denies owner writes to trusted prefix');
+select test.expect_error($q$insert into storage.objects values('food-public',
+  'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000199.webp',
+  '{"mimetype":"image/webp","size":1024}')$q$,'row-level security','owner cannot upload bytes to trusted prefix');
+with changed as (update storage.objects set metadata='{"mimetype":"image/webp","size":1}'
+  where name='admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp' returning name)
+select test.assert((select count(*)=0 from changed),'owner cannot overwrite trusted object');
+with removed as (delete from storage.objects
+  where name='admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp' returning name)
+select test.assert((select count(*)=0 from removed),'owner cannot delete trusted object');
+insert into storage.objects values('food-public','stores/00000000-0000-0000-0000-0000000000b1/menu/owner-still-uploads.png',
+  '{"mimetype":"image/png","size":1024}');
+select test.expect_error($q$update storage.objects set name=
+  'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000199.webp'
+  where name='stores/00000000-0000-0000-0000-0000000000b1/menu/owner-still-uploads.png'$q$,
+  'row-level security','owner cannot rename legacy object into trusted prefix');
+update public.food_menu_items set image_path='admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp'
+  where id='00000000-0000-0000-0000-0000000000c1';
+select test.assert((select image_path like 'admin-menu/%' from public.food_menu_items
+  where id='00000000-0000-0000-0000-0000000000c1'),'owner may attach existing same-store trusted image');
+do $$
+declare v_path text;
+begin
+  foreach v_path in array array[
+    'admin-menu/00000000-0000-0000-0000-0000000000b3/10000000-0000-0000-0000-000000000101.webp',
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000199.webp',
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000102.webp',
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000103.webp',
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000104.webp',
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000105.webp',
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000106.webp',
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000107.jpg',
+    'admin-menu/not-a-store/not-a-file.webp',
+    'stores/00000000-0000-0000-0000-0000000000b1/menu/../../../admin-menu/00000000-0000-0000-0000-0000000000b3/10000000-0000-0000-0000-000000000101.webp',
+    '/admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp',
+    'https://example.invalid/photo.png', 'javascript:alert(1)', 'legacy/./photo.png', 'legacy/../photo.png',
+    'legacy/'||chr(92)||'photo.png', 'legacy/'||chr(10)||'photo.png',
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp/extra'
+  ] loop
+    perform test.expect_error(format('update public.food_menu_items set image_path=%L where id=%L',
+      v_path,'00000000-0000-0000-0000-0000000000c1'),'Invalid menu image','direct owner image update denied: '||v_path);
+    perform test.expect_error(format('insert into public.food_menu_items(store_id,name,category,price,image_path) values(%L,''Unsafe image'',''Main'',1,%L)',
+      '00000000-0000-0000-0000-0000000000b1',v_path),'Invalid menu image','direct owner image insert denied: '||v_path);
+  end loop;
+end $$;
+insert into public.food_menu_items(id,store_id,name,category,price,image_path) values(
+  '00000000-0000-0000-0000-0000000000c6','00000000-0000-0000-0000-0000000000b1','Trusted image insert','Main',1,
+  'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp');
+select test.assert(exists(select 1 from public.food_menu_items where id='00000000-0000-0000-0000-0000000000c6'),
+  'owner inserts own menu with trusted image');
+update public.food_menu_items set image_path='legacy/menu-photo.png' where id='00000000-0000-0000-0000-0000000000c6';
+select test.assert((select image_path='legacy/menu-photo.png' from public.food_menu_items where id='00000000-0000-0000-0000-0000000000c6'),
+  'ordinary safe legacy owner paths keep existing semantics');
+with changed as(update public.food_menu_items set image_path=null where id='00000000-0000-0000-0000-0000000000c3' returning id)
+select test.assert((select count(*)=0 from changed),'owner cannot change another store image');
+reset role;
+delete from storage.objects where name='admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp';
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a4',false);
+update public.food_menu_items set image_path=image_path,name='Historical reference retained' where id='00000000-0000-0000-0000-0000000000c1';
+select test.assert((select name='Historical reference retained' and image_path like 'admin-menu/%' from public.food_menu_items
+  where id='00000000-0000-0000-0000-0000000000c1'),'unchanged missing historical trusted reference does not block edits');
+reset role;
+insert into storage.objects values('food-public','admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp',
+  '{"mimetype":"image/webp","size":4194304}');
+set role anon;
+select test.expect_error('select public.admin_authorize_merchant_menu_upload(null)','permission denied','anon upload RPC revoked');
+reset role;
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a2',false);
+do $$
+declare v_item jsonb; v_values jsonb; v_saved jsonb;
+begin
+  v_item:=test.item('00000000-0000-0000-0000-0000000000c6');
+  v_values:=(v_item-array['id','store_id','store_name','sort_order','created_at','updated_at','archived_at'])
+    ||jsonb_build_object('image_path','admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp');
+  v_saved:=public.admin_save_merchant_menu_item((v_item->>'id')::uuid,(v_item->>'store_id')::uuid,
+    (v_item->>'updated_at')::timestamptz,v_values,'fixture Admin trusted image save');
+  perform test.assert(v_saved->>'image_path'=v_values->>'image_path','Admin save accepts existing same-store trusted image');
+  perform test.expect_error(format('select public.admin_save_merchant_menu_item(%L,%L,%L,%L::jsonb,%L)',
+    v_saved->>'id',v_saved->>'store_id',v_saved->>'updated_at',
+    (v_values||jsonb_build_object('image_path','admin-menu/00000000-0000-0000-0000-0000000000b3/10000000-0000-0000-0000-000000000101.webp'))::text,
+    'fixture Admin foreign trusted image'),'Invalid menu image','Admin save rejects foreign trusted image');
+end $$;
+select test.expect_error('select public.admin_authorize_merchant_menu_upload(null)','Store not found','missing store upload rejected');
+select test.expect_error('select public.admin_authorize_merchant_menu_upload(''00000000-0000-0000-0000-000000000099'')','Store not found','unknown store upload rejected');
+select test.expect_error('select * from internal.admin_menu_upload_budgets','permission denied','upload budget is not readable');
+select test.expect_error('update internal.admin_menu_upload_budgets set attempts=1','permission denied','upload budget is not writable');
+select test.assert(not public.food_store_media_writable('admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp'),
+  'Admin permission does not grant trusted-prefix Storage writes');
+reset role;
+-- A historical/additional permissive OR must not let any ordinary caller forge
+-- a supposedly trusted image. Temporary broad access exists only in this fixture.
+create table public.developer_accounts(user_id uuid primary key);
+insert into public.developer_accounts values('00000000-0000-0000-0000-0000000000a3');
+grant usage on schema storage to anon;
+grant select,insert,update,delete on storage.objects to anon;
+create policy "test broad historical storage writes" on storage.objects
+for all to public using(true) with check(true);
+create function test.trusted_storage_guards(p_label text) returns void language plpgsql as $$
+declare v_count bigint;
+begin
+  perform test.expect_error($q$insert into storage.objects values('food-public',
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000199.webp',
+    '{"mimetype":"image/webp","size":1024}')$q$,'row-level security',p_label||' broad policy cannot forge trusted image');
+  with changed as(update storage.objects set metadata='{"mimetype":"image/webp","size":1}'
+    where name='admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp' returning name)
+  select count(*) into v_count from changed;
+  perform test.assert(v_count=0,p_label||' broad policy cannot overwrite trusted image');
+  with removed as(delete from storage.objects
+    where name='admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp' returning name)
+  select count(*) into v_count from removed;
+  perform test.assert(v_count=0,p_label||' broad policy cannot delete trusted image');
+  perform test.expect_error($q$update storage.objects set name=
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000199.webp'
+    where name='stores/00000000-0000-0000-0000-0000000000b1/menu/owner-still-uploads.png'$q$,
+    'row-level security',p_label||' broad policy cannot rename legacy image into trusted prefix');
+  with changed as(update storage.objects set name='stores/00000000-0000-0000-0000-0000000000b1/menu/stolen.webp'
+    where name='admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp' returning name)
+  select count(*) into v_count from changed;
+  perform test.assert(v_count=0,p_label||' broad policy cannot rename trusted image out of prefix');
+  perform test.assert(exists(select 1 from storage.objects where name=
+    'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp'),
+    p_label||' trusted public read remains available');
+  insert into storage.objects values('fixture-other-bucket','admin-menu/'||p_label||'.webp','{}');
+  delete from storage.objects where bucket_id='fixture-other-bucket' and name='admin-menu/'||p_label||'.webp';
+end $$;
+grant execute on function test.trusted_storage_guards(text) to authenticated,anon;
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a4',false);
+select test.trusted_storage_guards('owner');
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a3',false);
+select test.trusted_storage_guards('developer');
+reset role;
+set role anon;
+select test.trusted_storage_guards('anon');
+reset role;
+drop policy "test broad historical storage writes" on storage.objects;
+revoke select,insert,update,delete on storage.objects from anon;
+select test.assert((select count(*)=3 from pg_policy where polrelid='storage.objects'::regclass
+  and not polpermissive and polname like 'Food admin menu trusted % guard'),'three reserved-prefix policies are restrictive');
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a2',false);
+do $$
+begin
+  for i in 1..10 loop
+    perform test.assert(public.admin_authorize_merchant_menu_upload(case when i%2=0
+      then '00000000-0000-0000-0000-0000000000b1'::uuid else '00000000-0000-0000-0000-0000000000b3'::uuid end),
+      'allowed upload returns only true');
+  end loop;
+  perform test.expect_error('select public.admin_authorize_merchant_menu_upload(''00000000-0000-0000-0000-0000000000b2'')',
+    'Menu image upload limit reached','store rotation cannot bypass actor upload limit');
+end $$;
+reset role;
+select test.assert((select attempts=10 from internal.admin_menu_upload_budgets
+  where actor_id='00000000-0000-0000-0000-0000000000a2'),'rejected upload leaves bounded counter at ten');
+update internal.admin_menu_upload_budgets set window_started_at=clock_timestamp()-interval '11 minutes'
+  where actor_id='00000000-0000-0000-0000-0000000000a2';
+set role authenticated;
+select test.assert(public.admin_authorize_merchant_menu_upload('00000000-0000-0000-0000-0000000000b1'),'expired window permits next upload');
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a6',false);
+do $$ begin for i in 1..9 loop perform public.admin_authorize_merchant_menu_upload('00000000-0000-0000-0000-0000000000b1'); end loop; end $$;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a7',false);
+select public.admin_authorize_merchant_menu_upload('00000000-0000-0000-0000-0000000000b1');
+reset role;
+select test.assert((select attempts=1 from internal.admin_menu_upload_budgets
+  where actor_id='00000000-0000-0000-0000-0000000000a2'),'new window reuses actor row and resets count');
+delete from public.profiles where id='00000000-0000-0000-0000-0000000000a7';
+select test.assert(not exists(select 1 from internal.admin_menu_upload_budgets
+  where actor_id='00000000-0000-0000-0000-0000000000a7'),'actor deletion cascades only ephemeral budget');
+select test.assert((select relrowsecurity from pg_class where oid='internal.admin_menu_upload_budgets'::regclass),
+  'private upload budgets enable RLS');
+create function test.race_upload(p_store_id uuid) returns text language plpgsql as $$
+begin
+  perform public.admin_authorize_merchant_menu_upload(p_store_id);
+  perform pg_sleep(0.25);
+  return 'allowed';
+exception when others then
+  if sqlerrm='Menu image upload limit reached' then return 'limited'; end if;
+  raise;
+end $$;
+grant execute on function test.race_upload(uuid) to authenticated;
+SQL
+race_upload() {
+  run -At -c "set role authenticated; select set_config('test.uid','00000000-0000-0000-0000-0000000000a6',false);" \
+    -c "select test.race_upload('$1')" | tail -n1
+}
+race_upload '00000000-0000-0000-0000-0000000000b1' > "$TMP_DIR/upload-a" &
+UPLOAD_A_PID=$!
+race_upload '00000000-0000-0000-0000-0000000000b3' > "$TMP_DIR/upload-b" &
+UPLOAD_B_PID=$!
+wait "$UPLOAD_A_PID"
+wait "$UPLOAD_B_PID"
+[[ "$(sort "$TMP_DIR/upload-a" "$TMP_DIR/upload-b")" == $'allowed\nlimited' ]] || {
+  echo 'FAIL overlapping different-store uploads did not share one remaining slot'; exit 1;
+}
+run >/dev/null <<'SQL'
+select test.assert((select attempts=10 from internal.admin_menu_upload_budgets
+  where actor_id='00000000-0000-0000-0000-0000000000a6'),'overlapping uploads preserve actor quota');
+select test.assert((select count(*)=2 from internal.admin_menu_upload_budgets),'bounded one-row-per-actor storage');
+update public.admin_permissions set level='view' where user_id='00000000-0000-0000-0000-0000000000a6';
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a6',false);
+select test.expect_error('select public.admin_authorize_merchant_menu_upload(''00000000-0000-0000-0000-0000000000b1'')',
+  'Not authorized','permission revocation is checked before existing budget');
+reset role;
+update public.admin_permissions set level='edit' where user_id='00000000-0000-0000-0000-0000000000a6';
+SQL
+
 # Reapplying and rolling back executable definitions must preserve persisted data.
 run >/dev/null < "$ROOT/supabase/migrations/$MIGRATION.sql"
+run >/dev/null <<'SQL'
+select test.assert((select attempts=10 from internal.admin_menu_upload_budgets
+  where actor_id='00000000-0000-0000-0000-0000000000a6'),'migration rerun preserves upload budgets');
+SQL
 run >/dev/null < "$ROOT/supabase/rollbacks/${MIGRATION}_rollback.sql"
 run >/dev/null <<'SQL'
 select test.assert(to_regprocedure('public.admin_merchant_menu_catalog(uuid)') is null, 'rollback drops new catalog RPC');
 select test.assert(to_regprocedure('public.admin_save_merchant_menu_item(uuid,uuid,timestamp with time zone,jsonb,text)') is null, 'rollback drops save RPC');
+select test.assert(to_regprocedure('public.admin_authorize_merchant_menu_upload(uuid)') is null,'rollback drops upload authorization RPC');
+select test.assert(to_regclass('internal.admin_menu_upload_budgets') is null,'rollback drops only ephemeral upload budgets');
+select test.assert(to_regprocedure('internal.admin_menu_image_valid(uuid,text)') is not null,'rollback retains guard validator dependency');
+select test.assert((select count(*)=3 from pg_policy where polrelid='storage.objects'::regclass
+  and not polpermissive and polname like 'Food admin menu trusted % guard'),'rollback retains restrictive trusted-prefix policies');
+select test.assert(exists(select 1 from storage.objects where name=
+  'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp'),
+  'rollback preserves trusted media object');
 select test.assert(exists(select 1 from public.food_menu_items where store_id = '00000000-0000-0000-0000-0000000000b2'
   and archived_at is not null and not is_available), 'rollback preserves archive and unavailable state');
 select test.assert((select snapshot->>'name' = 'Rice' and (snapshot->>'price')::numeric = 55
@@ -681,8 +957,23 @@ begin
 end;
 $$;
 reset role;
+create policy "test broad historical storage writes" on storage.objects
+for all to public using(true) with check(true);
 set role authenticated;
 select set_config('test.uid','00000000-0000-0000-0000-0000000000a4',false);
+select test.trusted_storage_guards('rollback-owner');
+reset role;
+drop policy "test broad historical storage writes" on storage.objects;
+set role authenticated;
+select set_config('test.uid','00000000-0000-0000-0000-0000000000a4',false);
+select test.expect_error($q$update public.food_menu_items set image_path=
+  'admin-menu/00000000-0000-0000-0000-0000000000b3/10000000-0000-0000-0000-000000000101.webp'
+  where id='00000000-0000-0000-0000-0000000000c1'$q$,'Invalid menu image','rollback retains foreign trusted image guard');
+update public.food_menu_items set name='Image still retained after rollback',image_path=image_path
+  where id='00000000-0000-0000-0000-0000000000c1';
+select test.assert((select image_path=
+  'admin-menu/00000000-0000-0000-0000-0000000000b1/10000000-0000-0000-0000-000000000101.webp'
+  from public.food_menu_items where id='00000000-0000-0000-0000-0000000000c1'),'rollback preserves existing trusted image reference');
 select test.expect_error($q$update public.food_menu_items set archived_at=null,is_available=true
   where id='00000000-0000-0000-0000-0000000000c5'$q$,'Restored menu','rollback retains direct restore safety guard');
 update public.food_menu_items set archived_at=null where id='00000000-0000-0000-0000-0000000000c5';
@@ -697,4 +988,4 @@ revoke select on public.food_stores from authenticated;
 insert into public.audit_log(actor_id, event_type, detail) values
   ('00000000-0000-0000-0000-0000000000a2', 'merchant_store_updated', '{"reason":"fixture rollback legacy event"}');
 SQL
-echo "PASS Admin Merchant menu complete: actual roles, CRUD, options, media, categories, concurrent conflicts, snapshots, audit checks, rerun and rollback"
+echo "PASS Admin Merchant menu complete: actual roles, CRUD, options, trusted media, Storage isolation, concurrent upload quota, categories, snapshots, audit, rerun and rollback"

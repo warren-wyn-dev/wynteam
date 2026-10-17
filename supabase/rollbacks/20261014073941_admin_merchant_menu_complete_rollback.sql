@@ -1,9 +1,14 @@
 -- Revert the complete admin menu RPCs. Preserve archived_at, its safety
 -- constraint, restore-unavailable guard, archived rows, media objects, audit,
--- and all order snapshots. Keep the guard for direct Merchant table updates.
+-- and all order snapshots. Keep the guards for direct Merchant table updates,
+-- including the image validator used by the retained trusted-image guard.
+-- Retain the three restrictive Storage write policies for the reserved
+-- food-public/admin-menu namespace, regardless of older permissive policies.
 -- Restored legacy edit RPC still refuses archived items. Run only with an
 -- explicitly approved rollback; this file is tested on synthetic fixtures only.
 begin;
+drop function if exists public.admin_authorize_merchant_menu_upload(uuid);
+drop table if exists internal.admin_menu_upload_budgets;
 drop function if exists public.admin_save_merchant_menu_categories(uuid,timestamptz,jsonb,jsonb,jsonb,text);
 drop function if exists public.admin_set_merchant_menu_item_archived(uuid,timestamptz,boolean,text);
 drop function if exists public.admin_save_merchant_menu_item(uuid,uuid,timestamptz,jsonb,text);
@@ -135,7 +140,8 @@ grant execute on function public.admin_update_merchant_menu_item(uuid,jsonb,text
 
 drop function if exists public.admin_merchant_menu_catalog(uuid);
 drop function if exists internal.admin_menu_row(public.food_menu_items,text);
-drop function if exists internal.admin_menu_image_valid(uuid,text);
+-- Keep internal.admin_menu_image_valid and food_menu_image_reference_guard:
+-- existing trusted objects must remain store-bound after an application rollback.
 drop function if exists internal.admin_menu_options(jsonb);
 drop trigger if exists admin_menu_touch_store on public.food_menu_items;
 drop function if exists internal.admin_menu_touch_store();
