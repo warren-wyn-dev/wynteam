@@ -374,7 +374,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 - ไอคอนตกแต่งต้อง `aria-hidden` / `ExcludeSemantics` ไอคอนที่เป็นปุ่มต้องมี label
 
 
-### 7.1 "ZOKY Glossy 3D" — brand surface + 3D icons (PROPOSED, รอ Founder อนุมัติ)
+### 7.1 "ZOKY Glossy 3D" — brand surface + 3D icons (APPROVED by Founder 2026-10-17)
 
 > ที่มา: Founder feedback 2026-10-17 "เฟส1 เฟส2 ทุกอย่างต้องไปในทิศทางเดียวกัน … ไอคอนชอบฟีล 3D" — ยังเป็นข้อเสนอ ไม่ใช่ decision
 
@@ -413,7 +413,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 **ภาพประกอบ**: `ZokyBentoIllustration` วาดด้วยโค้ดแบบ 3/4 (ฝากล่องดำเงา, ด้านหน้า/ด้านข้างแดงเคลือบ, ขาเล็ก, ข้าว/แซลมอน/ทามาโกะ/ผัก) แสงเดียวกับไอคอน แยกเป็น widget เดี่ยวเพื่อแทนด้วยรูปจริงภายหลัง
 
-**การ์ดดีลเฟส 3 (พื้นอ่อน)** (`zoky_app/lib/features/deals/widgets/zoky_deal_card.dart` → `ZokyDealCard`, PROPOSED)
+**การ์ดดีลเฟส 3 (พื้นอ่อน)** (`zoky_app/lib/features/deals/widgets/zoky_deal_card.dart` → `ZokyDealCard`, APPROVED 2026-10-17)
 
 - พื้น tint แนวตั้ง: ชมพู `#FFF1F6` → `#FFDCEA`, พีช `#FFF7EF` → `#FFE4D1` (สลับกันตามลำดับ) — พีชเป็นสีใหม่ ยังไม่อยู่ใน tokens.json
 - `ZokyGlossPainter` แบบไม่มี base: gloss ขาว 55% สูง 44px + rim ขาว 90% → 25%, เงา `#EE226E` @16% blur 16 y 6, radius `xl` (20)
