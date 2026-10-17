@@ -11,6 +11,7 @@ import '../../core/widgets/zoky_logo.dart';
 import '../../core/widgets/zoky_skeleton.dart';
 import '../../core/widgets/zoky_state_view.dart';
 import '../../core/widgets/zoky_store_card.dart';
+import '../../core/widgets/zoky_store_grid.dart';
 import '../catalog/data/store_repository.dart';
 import '../catalog/domain/catalog_models.dart';
 import '../store/store_screen.dart';
@@ -232,38 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
-  /// 2 columns, 3 at >=680px, 1 at text scale >=1.5 (design 6.4 / 10.2).
-  Widget _grid(List<Widget> children) {
-    final width = MediaQuery.sizeOf(context).width;
-    final scale = MediaQuery.textScalerOf(context).scale(1);
-    final columns = scale >= 1.5 ? 1 : (width >= 680 ? 3 : 2);
-    final gap = width <= 359 ? ZokySpacing.s4 : ZokySpacing.s6;
-    final rows = <Widget>[];
-    for (var i = 0; i < children.length; i += columns) {
-      rows.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: ZokySpacing.s8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var c = 0; c < columns; c++) ...[
-                if (c > 0) SizedBox(width: gap),
-                Expanded(
-                  child: i + c < children.length
-                      ? children[i + c]
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: ZokySpacing.gutter),
-      sliver: SliverList.list(children: rows),
-    );
-  }
+  Widget _grid(List<Widget> children) => ZokyStoreGrid(children: children);
 
   Widget _header() {
     return Padding(
