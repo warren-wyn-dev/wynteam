@@ -14,21 +14,27 @@ import '../../core/widgets/zoky_store_card.dart';
 import '../../core/widgets/zoky_store_grid.dart';
 import '../catalog/data/store_repository.dart';
 import '../catalog/domain/catalog_models.dart';
+import '../deals/data/promotion_repository.dart';
+import '../deals/deal_sheet.dart';
+import '../deals/deals_screen.dart';
+import '../deals/domain/deal_models.dart';
 import '../search/store_search_screen.dart';
 import '../store/store_screen.dart';
 import 'widgets/zoky_food_hero_card.dart';
 import 'widgets/zoky_home_header.dart';
+import 'widgets/zoky_today_deals_section.dart';
 
 /// Client-side store filters (parity C04, same rules as the web).
 enum StoreFilter { all, freeDelivery, promo, near, rating }
 
 /// Home redesign review switch (Founder mockup, built phase by phase).
 ///
-/// While false, หน้าหลัก shows the new [ZokyHomeHeader] (Phase 1) and the
-/// [ZokyFoodHeroCard] (Phase 2) above a plain white canvas so the Founder
-/// can review each phase on its own; the earlier demo body (search, filter
-/// chips, store grid) is kept intact behind this flag and comes back when
-/// it is true. Phases 3-4 fill the rest of the canvas.
+/// While false, หน้าหลัก shows the new [ZokyHomeHeader] (Phase 1), the
+/// [ZokyFoodHeroCard] (Phase 2) and [ZokyTodayDealsSection] (Phase 3) above
+/// a plain white canvas so the Founder can review each phase on its own;
+/// the earlier demo body (search, filter chips, store grid) is kept intact
+/// behind this flag and comes back when it is true. Phase 4 fills the rest
+/// of the canvas.
 const bool kShowLegacyHomeBody = false;
 
 /// หน้าหลัก placeholder: header, search, filter chips and the store grid.
@@ -38,10 +44,12 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.repository,
+    required this.promotionRepository,
     this.showLegacyBody = kShowLegacyHomeBody,
   });
 
   final StoreRepository repository;
+  final PromotionRepository promotionRepository;
 
   /// See [kShowLegacyHomeBody]; tests pass true to cover the old body.
   final bool showLegacyBody;
@@ -138,6 +146,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openDeal(ZokyDeal deal) => showZokyDealSheet(context, deal);
+
+  void _openAllDeals() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DealsScreen(repository: widget.promotionRepository),
+      ),
+    );
+  }
+
   /// How far the hero card rises into the header's white sheet, leaving a
   /// small white gap under the pink like the mockup.
   static const double _heroOverlap =
@@ -182,6 +200,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+              // Phase 3. The hero's translate already leaves [_heroOverlap]
+              // of layout space under the card and the 44pt "ดูทั้งหมด"
+              // target pads the heading, so no extra gap is added here.
+              SliverToBoxAdapter(
+                child: ZokyTodayDealsSection(
+                  repository: widget.promotionRepository,
+                  onOpenDeal: _openDeal,
+                  onSeeAll: _openAllDeals,
+                ),
+              ),
+              // Phase 4 area: still empty.
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: ColoredBox(

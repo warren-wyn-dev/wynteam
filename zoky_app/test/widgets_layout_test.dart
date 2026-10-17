@@ -13,6 +13,7 @@ import 'package:zoky_app/core/widgets/zoky_skeleton.dart';
 import 'package:zoky_app/core/widgets/zoky_state_view.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
+import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
 import 'package:zoky_app/features/catalog/domain/catalog_models.dart';
 import 'package:zoky_app/features/home/home_screen.dart';
 
@@ -320,7 +321,11 @@ void main() {
         // The legacy home body (behind kShowLegacyHomeBody) and a store page.
         await pumpZokyWidget(
           tester,
-          HomeScreen(repository: DemoStoreRepository(), showLegacyBody: true),
+          HomeScreen(
+            repository: DemoStoreRepository(),
+            promotionRepository: const DemoPromotionRepository(),
+            showLegacyBody: true,
+          ),
           width: width,
           textScale: 1.3,
         );
@@ -358,7 +363,11 @@ void main() {
     testWidgets('home store grid becomes one column', (tester) async {
       await pumpZokyWidget(
         tester,
-        HomeScreen(repository: DemoStoreRepository(), showLegacyBody: true),
+        HomeScreen(
+          repository: DemoStoreRepository(),
+          promotionRepository: const DemoPromotionRepository(),
+          showLegacyBody: true,
+        ),
         width: 360,
         textScale: 1.5,
       );

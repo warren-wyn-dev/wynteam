@@ -5,6 +5,7 @@ import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
 import 'package:zoky_app/core/widgets/zoky_cart_bar.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
+import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
 import 'package:zoky_app/features/home/home_screen.dart';
 import 'package:zoky_app/features/home/widgets/zoky_home_header.dart';
 import 'package:zoky_app/features/store/store_screen.dart';
@@ -51,7 +52,11 @@ void main() {
   ) async {
     await pumpZokyWidget(
       tester,
-      HomeScreen(repository: DemoStoreRepository(), showLegacyBody: true),
+      HomeScreen(
+        repository: DemoStoreRepository(),
+        promotionRepository: const DemoPromotionRepository(),
+        showLegacyBody: true,
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.text(ZokyStrings.nearbyStores), findsOneWidget);
@@ -130,7 +135,11 @@ void main() {
     final semantics = tester.ensureSemantics();
     await pumpZokyWidget(
       tester,
-      HomeScreen(repository: DemoStoreRepository(), showLegacyBody: true),
+      HomeScreen(
+        repository: DemoStoreRepository(),
+        promotionRepository: const DemoPromotionRepository(),
+        showLegacyBody: true,
+      ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byType(ZokyStoreCard).first);

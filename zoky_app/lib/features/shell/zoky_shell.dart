@@ -47,7 +47,10 @@ class _ZokyShellState extends State<ZokyShell> {
             IndexedStack(
               index: _tab.index,
               children: [
-                HomeScreen(repository: deps.storeRepository),
+                HomeScreen(
+                  repository: deps.storeRepository,
+                  promotionRepository: deps.promotionRepository,
+                ),
                 OrdersScreen(onBrowse: () => _select(ZokyTab.home)),
                 const MessagesScreen(),
                 AccountScreen(onOrderHistory: () => _select(ZokyTab.orders)),
