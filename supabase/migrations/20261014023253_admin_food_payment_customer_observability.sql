@@ -138,7 +138,10 @@ create or replace function public.admin_food_customer_history(
   p_buyer_id uuid default null, p_query text default null,
   p_limit integer default 25, p_offset integer default 0
 )
-returns jsonb language plpgsql stable security definer set search_path = '' as $$
+returns jsonb language plpgsql stable security definer
+-- Compilation dominated measured short global searches. Keep this local to
+-- the read function; PostgreSQL restores the caller's JIT setting on return.
+set search_path = '' set jit = off as $$
 declare
   v_query text := nullif(btrim(p_query), '');
   v_result jsonb;
