@@ -151,6 +151,15 @@ fun FoodOrderDetailDialog(
                                 Text(paymentLabel(detail.paymentStatus),
                                     color = if (detail.paymentStatus == "paid") Color(0xFF187B43) else DetailRed)
                             }
+                            // This is only a local image preview. No backend upload or
+                            // payment-state change is available from this component.
+                            if (shouldShowStagingSlipPreview(
+                                    state.stagingMobilePaymentEnabled,
+                                    detail.status,
+                                    detail.paymentStatus,
+                                )) {
+                                InfoSection { FoodStagingSlipPicker(orderId) }
+                            }
                             InfoSection {
                                 Text(stringResource(R.string.food_order_detail_items),
                                     color = DetailInk, fontWeight = FontWeight.Bold)
