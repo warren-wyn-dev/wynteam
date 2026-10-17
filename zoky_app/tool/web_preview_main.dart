@@ -14,7 +14,7 @@ import 'package:zoky_app/features/shell/zoky_shell.dart';
 
 void main() {
   final uri = Uri.base;
-  final top = double.tryParse(uri.queryParameters['top'] ?? '') ?? 47;
+  final top = double.tryParse(uri.queryParameters['top'] ?? '') ?? 59; // iPhone 15 Pro Max status bar + Dynamic Island
   final bottom = double.tryParse(uri.queryParameters['bottom'] ?? '') ?? 34;
   final android = uri.queryParameters['platform'] == 'android';
   runApp(
@@ -48,7 +48,7 @@ void main() {
                   height: top,
                   child: IgnorePointer(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 40),
                       child: Row(
                         children: [
                           Text(
