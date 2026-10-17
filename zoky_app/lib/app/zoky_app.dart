@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import '../core/design/zoky_theme.dart';
 import '../core/l10n/zoky_strings.dart';
 import '../features/catalog/data/store_repository.dart';
+import '../features/deals/data/promotion_repository.dart';
 import '../features/shell/zoky_shell.dart';
 import 'app_config.dart';
 import 'app_dependencies.dart';
@@ -15,16 +16,19 @@ class ZokyApp extends StatelessWidget {
     super.key,
     required this.config,
     required this.storeRepository,
+    required this.promotionRepository,
   });
 
   final AppConfig config;
   final StoreRepository storeRepository;
+  final PromotionRepository promotionRepository;
 
   @override
   Widget build(BuildContext context) {
     return AppDependencies(
       config: config,
       storeRepository: storeRepository,
+      promotionRepository: promotionRepository,
       child: MaterialApp(
         title: ZokyStrings.appName,
         debugShowCheckedModeBanner: false,

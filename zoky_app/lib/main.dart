@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'app/app_config.dart';
 import 'app/zoky_app.dart';
 import 'features/catalog/data/demo_store_repository.dart';
+import 'features/deals/data/demo_promotion_repository.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +35,9 @@ void main() {
       config: config,
       storeRepository: DemoStoreRepository(
         latency: const Duration(milliseconds: 600),
+      ),
+      promotionRepository: const DemoPromotionRepository(
+        latency: Duration(milliseconds: 600),
       ),
     ),
   );

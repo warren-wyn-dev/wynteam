@@ -5,6 +5,7 @@ import 'package:zoky_app/app/app_config.dart';
 import 'package:zoky_app/app/zoky_app.dart';
 import 'package:zoky_app/core/design/zoky_theme.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
+import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
 
 /// Sets a logical phone viewport (devicePixelRatio 1) and system text scale
 /// for the current test; both are reset automatically.
@@ -55,7 +56,11 @@ Future<void> pumpZokyApp(
 }) async {
   setPhoneViewport(tester, width: width, height: height, textScale: textScale);
   await tester.pumpWidget(
-    ZokyApp(config: AppConfig.demo, storeRepository: DemoStoreRepository()),
+    ZokyApp(
+      config: AppConfig.demo,
+      storeRepository: DemoStoreRepository(),
+      promotionRepository: const DemoPromotionRepository(),
+    ),
   );
   // First frame shows skeletons; the zero-latency demo load completes on
   // the next pumps, after which nothing animates and settle returns.

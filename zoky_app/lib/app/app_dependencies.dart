@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../features/catalog/data/store_repository.dart';
+import '../features/deals/data/promotion_repository.dart';
 import 'app_config.dart';
 
 /// Hands app-wide dependencies (config, repositories) down the tree without
@@ -11,11 +12,13 @@ class AppDependencies extends InheritedWidget {
     super.key,
     required this.config,
     required this.storeRepository,
+    required this.promotionRepository,
     required super.child,
   });
 
   final AppConfig config;
   final StoreRepository storeRepository;
+  final PromotionRepository promotionRepository;
 
   static AppDependencies of(BuildContext context) {
     final result = context
@@ -27,5 +30,6 @@ class AppDependencies extends InheritedWidget {
   @override
   bool updateShouldNotify(AppDependencies oldWidget) =>
       config != oldWidget.config ||
-      storeRepository != oldWidget.storeRepository;
+      storeRepository != oldWidget.storeRepository ||
+      promotionRepository != oldWidget.promotionRepository;
 }

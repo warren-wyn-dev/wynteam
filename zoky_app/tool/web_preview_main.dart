@@ -10,6 +10,7 @@ import 'package:zoky_app/app/app_config.dart';
 import 'package:zoky_app/app/app_dependencies.dart';
 import 'package:zoky_app/core/design/zoky_theme.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
+import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
 import 'package:zoky_app/features/shell/zoky_shell.dart';
 
 void main() {
@@ -21,6 +22,7 @@ void main() {
     AppDependencies(
       config: AppConfig.demo,
       storeRepository: DemoStoreRepository(),
+      promotionRepository: const DemoPromotionRepository(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: buildZokyTheme().copyWith(
