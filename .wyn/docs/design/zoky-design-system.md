@@ -368,7 +368,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 - ชุดไอคอน: **Lucide** (เว็บใช้ `lucide-react` อยู่แล้ว ฝั่ง Flutter ใช้ Lucide port หรือ export SVG ชุดเดียวกัน ให้ Architect เป็นคนเลือก dependency)
 - Stroke ปกติ 1.9, active 2.3 (ตามเว็บ) ขนาด 16 / 20 (มาตรฐาน) / 24, illustration ของ empty state 44–46 stroke 1.25–1.6
-- Nav: `House` (active ทึบ), `ReceiptText`, `MessageCircle`, `UserRound`
+- Nav: วาดเองใน `Zoky3DIcon` (`home`, `receipt`, `chat`, `person`) ทรงตาม Lucide `House` / `ReceiptText` / `MessageCircle` / `UserRound` ดูข้อ 9.8
 - ไอคอนที่ต่างตาม platform: กลับ, แชร์, more (ข้อ 11)
 - สี: ปกติ `text.primary`, รอง `neutral.600`/`neutral.400`, เน้น `brand.pink`, สถานะใช้ semantic
 - ไอคอนตกแต่งต้อง `aria-hidden` / `ExcludeSemantics` ไอคอนที่เป็นปุ่มต้องมี label
@@ -402,6 +402,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 7. Glyph ตอนนี้: `heart` (ปุ่มร้านโปรด), `sparkle` (ดาว 4 แฉกใน pill), `arrowRight` (ลูกแก้วชมพู + ลูกศรขาวนูน ท้ายปุ่มค้นหา)
 8. Semantics: ค่าเริ่มต้นเป็น decorative (`ExcludeSemantics`) — label อยู่ที่ปุ่มแม่ (เช่น "ร้านโปรด"); ถ้าไอคอนยืนเดี่ยวให้ส่ง `semanticLabel`
 9. ไอคอน 3D ใช้เป็น *brand accent* เท่านั้น ไอคอนระบบ/nav ยังเป็น line icon ตามข้อ 7 (ไม่ทำทั้งแอปเป็น 3D)
+10. **(PROPOSED เฟส 5)** ข้อยกเว้นเดียวของข้อ 9: แท็บ nav ที่ *ถูกเลือก* แสดงเป็น 3D, แท็บอื่นเป็น line icon สีเทา — glyph `home`, `receipt`, `chat`, `person` มี 2 style (`Zoky3DIconStyle.line` / `.glossy`) จาก path เดียวกัน; แบบ glossy ขยาย 1.1× รอบจุดกลางเพื่อชดเชยเส้น stroke ที่ล้นออกนอก path ให้ขนาดตาเท่ากัน
 
 **Contrast บนพื้นชมพู** (WCAG 2.x)
 
@@ -520,12 +521,20 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 ### 9.8 Bottom navigation (`fx-nav`), shared ทุก platform
 
-- Pill ลอย สูง 60 กว้าง min(100%−24, 560) พื้นขาว 94% + blur 18 + ขอบ ink 6% + elevation `4` ระยะจากล่าง = max(8, safe-area − 12)
-- 4 แท็บ: หน้าหลัก / ออเดอร์ / ข้อความ / บัญชี (ตามเว็บ ห้ามเพิ่มหรือลด)
-- ไม่ active: ไอคอน `neutral.600` stroke 1.9, label `caption` สี `text.secondary` (เดิมใช้ muted ซึ่งไม่ผ่าน contrast)
-- Active: pill 48×28 พื้น Blush, ไอคอน `action.primary` stroke 2.3 (House ทึบ), label 11/700 `action.primary` (5.15)
+> Home เฟส 5 (2026-10-17) **PROPOSED — รอ Founder review** แทนแบบ pill ลอยเดิม โค้ด: `zoky_app/lib/core/widgets/zoky_bottom_nav.dart`
+
+- **แถบเต็มความกว้าง** ติดขอบล่าง (ตาม mockup ที่เป็นแถบขาวเต็มกว้าง 4 ช่องเท่ากัน และเป็นแบบ tab bar ของ iOS) แถวไอคอนสูง 56 + safe-area inset ด้านล่าง (34 บน iPhone 15 Pro Max, 0 บน iPhone SE) พื้นขาวเต็มถึงขอบจอใต้ home indicator; บนจอกว้าง item อยู่กลางกว้างสูงสุด 560
+- พื้น "white control": gradient `#FFFFFF` → `#FFF7FA`, เส้น hairline บน 0.5px `#F9C0DE` @50%, เงาชมพูขึ้นด้านบน `#EE226E` @8% blur 16 y −2 ไม่มี blur/โปร่งใส (ไม่ให้เนื้อหาโผล่ผ่าน)
+- 4 แท็บเท่านั้น ลำดับ: หน้าหลัก / ออเดอร์ / ข้อความ / บัญชี (ห้ามเพิ่มบริการอื่น)
+- ไม่ active: line icon 26pt เส้น ~1.95px ปลายมน สี `neutral.600` #6B6B76 + label 12/500 `text.secondary`
+- Active: ไอคอนเดียวกันแบบ **3D glossy** (`Zoky3DIcon` palette pink, แสงชุดเดียวกับข้อ 7.1) + label 12/700 `action.primary` #D61256 ไม่มี pill พื้นหลัง
+- Contrast (ค่าแย่สุด = stop ล่าง `#FFF7FA`): label เทา 5.00:1, label ชมพู 4.89:1, line icon 5.00:1, ตัวไอคอน 3D stop ล่าง `#E5135D` 4.35:1 (stop บนสว่าง `#FF6BAA` 2.51:1 เป็นไฮไลต์ — สถานะ selected มี label ตัวหนาสีชมพูกำกับเสมอ). วัดจาก pixel จริง 430×932@3x: label เทา 5.16:1, label ชมพู 5.05:1, icon เทา 5.26:1, icon 3D จุดเข้มสุด 5.64:1
+- Motion: สลับ line → 3D แบบ fade + scale 0.85→1 และสี/น้ำหนัก label 200ms (`base`) ปิดเมื่อ reduced motion; haptic `HapticFeedback.selectionClick` เมื่อเปลี่ยนแท็บ (ไม่สั่นเมื่อกดแท็บเดิม)
+- กดหน้าหลักซ้ำขณะอยู่หน้าหลัก = เลื่อนกลับบนสุด (แบบ iOS); แท็บอื่นเก็บ state (IndexedStack); Android back จากแท็บอื่นกลับหน้าหลักก่อน
+- Label clamp text scale สูงสุด 1.2 (ทดสอบ 320–430 × 1.0/1.3 ไม่ล้น/ไม่ตัด)
 - Badge (แท็บออเดอร์): `brand.pinkDeep` + ขาว 11/700 ขอบขาว 2px "9+" label "{n} ออเดอร์ที่กำลังดำเนินการ"
-- พื้นที่กดเต็มช่อง (≥60 สูง) `aria-current="page"` / `Semantics(selected: true)`
+- พื้นที่กดเต็มช่อง (กว้าง ≥ 80 × สูง 56) แต่ละช่องเป็น `Semantics(button, selected, onTap)` label ภาษาไทยตรงตัว
+- เนื้อหาเว้นด้านล่าง `ZokyBottomNav.reservedHeight` = 56 + inset + 8 ทุกหน้าจอ → แถวสุดท้ายของหน้าหลักอยู่เหนือ nav เสมอเมื่อเลื่อนสุด
 - **ไม่ใช้** `CupertinoTabBar` หรือ Material `NavigationBar` เพราะ nav เป็นส่วนหนึ่งของแบรนด์ (แต่ใส่ semantics ให้ครบแบบ tab bar)
 
 ### 9.9 Order status tracker (`fx-track`)
