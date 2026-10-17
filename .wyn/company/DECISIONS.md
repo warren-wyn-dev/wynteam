@@ -2303,3 +2303,7 @@ Founder เห็นว่าโลโก้ต้นฉบับดูมืด
 
 พบงาน ZOKY จาก session อื่นที่ยังไม่ merge: `feat/zoky-ios-expo-food-preview-20261016` (`zoky-ios/`, React Native + Expo) และ `feat/zoky-android-*` (`food-android/`, Kotlin + Compose) — Founder เลือก **"ใช้ Flutter ตามที่ตกลงวันนี้"** (`zoky_app/`) — branch เดิมเก็บไว้เป็นตัวอ้างอิง (ห้ามลบ) เช่น โลโก้ PNG โปร่งใสต้นฉบับ `zoky-ios/assets/zoky-wordmark-original-1066.png` และพฤติกรรม/ข้อจำกัดที่บันทึกไว้ใน `food-android/`
 หน้า Home ออกแบบตามภาพอ้างอิง 5 เฟสที่ Founder ส่ง (Header+Logo / การ์ดสั่งอาหาร / ดีลเด็ดวันนี้ / ร้านอาหารแนะนำ / Bottom Nav: หน้าหลัก·ออเดอร์·ข้อความ·บัญชี) ทำทีละเฟส รอ Founder อนุมัติแต่ละเฟส
+
+### [2026-10-17] ZOKY Home Phase 1 — Founder อนุมัติ
+
+Founder อนุมัติ Home Phase 1 (Header + โลโก้) หลังดูบน iPad preview — header gradient ตรงกับพื้นหลังโลโก้ (`#F93384` → `#F72C7E` → `#EE226E`), wordmark PNG ต้นฉบับ, ปุ่มหัวใจ placeholder "เร็ว ๆ นี้", แผ่นขาวขอบโค้ง, คลื่นแสงนุ่ม และขนาดโลโก้คงตามที่ทำ — เริ่ม Phase 2 (การ์ดสั่งอาหาร)
