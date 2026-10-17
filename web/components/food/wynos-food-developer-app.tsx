@@ -51,6 +51,8 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodGuestBrowse, readGuestFoodBasket, clearGuestFoodBasket } from "@/components/food/food-guest-browse";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fetchFoodHomeBanners, foodHomeBannerImage, type FoodHomeBanner } from "@/lib/food-home-banners";
+import { useFoodHomeAnalytics } from "@/hooks/use-food-home-analytics";
+import { FoodSupportEntry } from "@/components/food/food-support-panel";
 import { fetchFoodFeaturedStores, type FoodFeaturedPlacement } from "@/lib/food-featured-stores";
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
@@ -495,11 +497,13 @@ function FoodDirectoryStoreCard({
   store,
   distance,
   onPick,
+  analyticsFeatured = false,
 }: {
   client: SupabaseClient;
   store: FoodDirectoryStore;
   distance: number | null;
   onPick: () => void;
+  analyticsFeatured?: boolean;
 }) {
   const cover = foodPublicUrl(client, store.cover_path);
   const rating = Number(store.rating_average ?? 0);
@@ -509,7 +513,7 @@ function FoodDirectoryStoreCard({
   const promo = foodPromoLabel(store);
   const distanceLabel = foodDistanceLabel(distance);
   return (
-    <button className={`fx-store-card${store.is_open ? "" : " is-closed"}`} type="button" onClick={onPick}>
+    <button data-food-home-kind={analyticsFeatured ? "featured" : undefined} data-food-home-id={analyticsFeatured ? store.id : undefined} className={`fx-store-card${store.is_open ? "" : " is-closed"}`} type="button" onClick={onPick}>
       <span className="fx-store-card-photo">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -596,6 +600,7 @@ function StoreDirectory({
   onPick: (store: FoodDirectoryStore, placement: "home" | "search") => void;
   onLocation: () => void;
 }) {
+  const { analyticsRef, onAnalyticsClickCapture } = useFoodHomeAnalytics(client);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FoodDirectoryFilter>("all");
   const [stores, setStores] = useState<FoodDirectoryStore[] | null>(null);
@@ -705,20 +710,21 @@ function StoreDirectory({
     );
   };
 
-  const card = (store: FoodDirectoryStore, placement: "home" | "search" = "home") => (
+  const card = (store: FoodDirectoryStore, placement: "home" | "search" = "home", analyticsFeatured = false) => (
     <FoodDirectoryStoreCard
       key={store.id}
       client={client}
       store={store}
       distance={distanceFor(store)}
       onPick={() => onPick(store, placement)}
+      analyticsFeatured={analyticsFeatured}
     />
   );
 
   const searching = Boolean(query.trim());
 
   return (
-    <section className="fx-directory">
+    <section ref={analyticsRef} onClickCapture={onAnalyticsClickCapture} className="fx-directory">
       <label className="fx-search">
         <Search size={20} strokeWidth={2} />
         <input
@@ -748,11 +754,11 @@ function StoreDirectory({
               </>
             );
             return destination ? (
-              <button key={banner.id} type="button" className="fx-home-banner" onClick={() => onPick(destination, "home")} aria-label={banner.title}>
+              <button key={banner.id} data-food-home-kind="banner" data-food-home-id={banner.id} type="button" className="fx-home-banner" onClick={() => onPick(destination, "home")} aria-label={banner.title}>
                 {media}
               </button>
             ) : (
-              <div key={banner.id} className="fx-home-banner" role="group" aria-label={banner.title}>
+              <div key={banner.id} data-food-home-kind="banner" data-food-home-id={banner.id} className="fx-home-banner" role="group" aria-label={banner.title}>
                 {media}
               </div>
             );
@@ -801,7 +807,7 @@ function StoreDirectory({
           {filter === "all" && featuredStores.length > 0 ? (
             <section className="fx-home-section" aria-label="ร้านแนะนำ">
               <FoodHomeSectionHeader title="ร้านแนะนำ" />
-              <div className="fx-store-grid">{featuredStores.map(store=>card(store))}</div>
+              <div className="fx-store-grid">{featuredStores.map(store=>card(store, "home", true))}</div>
             </section>
           ) : null}
 
@@ -3491,7 +3497,10 @@ function FoodCustomerInner({
             onLocation={() => setTab("account")}
           />
         ) : null}
-        {tab === "orders" ? <OrdersPanel orders={orders} reviewedOrderIds={reviewedOrderIds} hasMore={snapshot.has_more_orders} loadingMore={loadingMoreOrders} onLoadMore={() => void loadMoreOrders()} onOrder={setSelectedOrder} onReorder={reorder} onBrowse={openDirectory} /> : null}
+        {tab === "orders" ? <>
+          <OrdersPanel orders={orders} reviewedOrderIds={reviewedOrderIds} hasMore={snapshot.has_more_orders} loadingMore={loadingMoreOrders} onLoadMore={() => void loadMoreOrders()} onOrder={setSelectedOrder} onReorder={reorder} onBrowse={openDirectory} />
+          <FoodSupportEntry key={userId} client={client} userId={userId} orders={orders} />
+        </> : null}
         {tab === "messages" ? <MessagesPanel /> : null}
         {tab === "cart" ? <CartPanel client={client} store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} onBack={openStoreOrDirectory} onBrowse={cart.length ? openStoreOrDirectory : openDirectory} /> : null}
         {tab === "account" ? (

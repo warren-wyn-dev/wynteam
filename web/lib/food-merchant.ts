@@ -464,6 +464,7 @@ export async function fetchMerchantSnapshot(
       .from("food_menu_items")
       .select("*")
       .eq("store_id", store.id)
+      .is("archived_at", null)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true }),
     fetchMerchantOrdersPage(client, store.id),

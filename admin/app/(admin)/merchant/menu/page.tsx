@@ -1,13 +1,13 @@
 import { AdminMerchantMenuEditor } from "@/components/admin/merchant-menu-editor";
 import { NoAccess } from "@/components/admin/no-access";
 import { adminCan, requireAdminRole } from "@/lib/auth";
-import { fetchAdminMerchantMenu } from "@/lib/admin-merchant-menu";
+import { fetchAdminMerchantMenuCatalog } from "@/lib/admin-merchant-menu";
 
 export default async function MerchantMenuPage(){
   const ctx=await requireAdminRole();
   if(!adminCan(ctx,"merchant"))return <NoAccess what="ดูเมนู WYNOS Merchant"/>;
   let rows;
-  try { rows=await fetchAdminMerchantMenu(); }
+  try { rows=await fetchAdminMerchantMenuCatalog(); }
   catch(err){
     const code=(err as {code?:string}|null)?.code;
     return <div className="p-6 space-y-4">

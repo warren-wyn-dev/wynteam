@@ -7,13 +7,14 @@ export type AdminStoreOption = {id:string;name:string};
 export async function getFoodFeaturedAdminData():Promise<{rows:AdminFeaturedStore[];stores:AdminStoreOption[]}> {
  const c=await createClient();
  const [placements,stores]=await Promise.all([
-   c.rpc("admin_food_featured_stores"),
-   c.rpc("admin_food_stores",{p_query:null})
+   c.rpc("admin_food_featured_stores").abortSignal(AbortSignal.timeout(10_000)),
+   c.rpc("admin_food_stores",{p_query:null}).abortSignal(AbortSignal.timeout(10_000))
  ]);
  if(placements.error)throw placements.error;
  if(stores.error)throw stores.error;
+ if(!Array.isArray(placements.data)||!Array.isArray(stores.data))throw new Error("Invalid featured store response");
  return {
-   rows:Array.isArray(placements.data)?placements.data as AdminFeaturedStore[]:[],
-   stores:Array.isArray(stores.data)?stores.data.map((r:{id:string;name:string})=>({id:r.id,name:r.name})):[],
+   rows:placements.data as AdminFeaturedStore[],
+   stores:stores.data.map((r:{id:string;name:string})=>({id:r.id,name:r.name})),
  };
 }

@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useFoodHomeAnalytics } from "@/hooks/use-food-home-analytics";
 
 import { foodCartLineKey, foodCartLineOptionsValid, foodCartLineUnitPrice, foodMoney, foodPublicUrl, type FoodCartLine, type FoodMenuOptionGroup } from "@/lib/food-customer";
 import { markFoodSplashReady } from "@/lib/food-splash";
@@ -90,6 +91,7 @@ function available(item: GuestMenuItem) {
  * Never use an anonymous session to call private order, quote, or payment endpoints.
  */
 export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
+  const { analyticsRef, onAnalyticsClickCapture } = useFoodHomeAnalytics(client);
   const router = useRouter();
   const [stores, setStores] = useState<GuestStore[] | null>(null);
   const [homeBanners,setHomeBanners]=useState<FoodHomeBanner[]>([]);
@@ -237,7 +239,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
   const storeCover = store ? foodPublicUrl(client, store.cover_path) : null;
 
   return (
-    <main className={`wyn-food fx-app fx-guest${cartCount > 0 && !showBasket ? " has-cart-bar" : ""}`}>
+    <main ref={analyticsRef} onClickCapture={onAnalyticsClickCapture} className={`wyn-food fx-app fx-guest${cartCount > 0 && !showBasket ? " has-cart-bar" : ""}`}>
       {store ? (
         <>
           <section className={`fx-store-hero${store.is_open ? "" : " is-closed"}`}>
@@ -349,9 +351,9 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                   </span>
                 </>;
                 return target ? (
-                  <button key={banner.id} type="button" className="fx-home-banner" onClick={()=>pickStore(target)} aria-label={banner.title}>{media}</button>
+                  <button key={banner.id} data-food-home-kind="banner" data-food-home-id={banner.id} type="button" className="fx-home-banner" onClick={()=>pickStore(target)} aria-label={banner.title}>{media}</button>
                 ) : (
-                  <div key={banner.id} className="fx-home-banner" role="group" aria-label={banner.title}>{media}</div>
+                  <div key={banner.id} data-food-home-kind="banner" data-food-home-id={banner.id} className="fx-home-banner" role="group" aria-label={banner.title}>{media}</div>
                 );
               })}
             </div>
@@ -363,7 +365,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
               <div className="fx-store-grid">
                 {recommended.map((entry)=>{
                   const cover=foodPublicUrl(client,entry.cover_path);
-                  return <button type="button" key={entry.id} className={`fx-store-card${entry.is_open?"":" is-closed"}`} onClick={()=>pickStore(entry)}>
+                  return <button type="button" key={entry.id} data-food-home-kind="featured" data-food-home-id={entry.id} className={`fx-store-card${entry.is_open?"":" is-closed"}`} onClick={()=>pickStore(entry)}>
                     <span className="fx-store-card-photo">
                       {cover?(
                         // eslint-disable-next-line @next/next/no-img-element

@@ -111,7 +111,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // Moderators (Social only) still open user pages to apply sanctions.
   { id: "users", href: "/users", label: "User Management", icon: Users, group: "account", requires: { systems: ["account", "social"] } },
   { id: "roles", href: "/team", label: "Roles & Permissions", icon: ShieldCheck, group: "account", superAdminOnly: true },
-  { id: "account-security", label: "Account Security", icon: Lock, group: "account", requires: { systems: ["account"] } },
+  { id: "account-security", href: "/account/security", label: "Account Security", icon: Lock, group: "account", requires: { systems: ["account"] } },
 
   systemDashboard("social"),
   { id: "moderation", href: "/moderation", label: "Content Moderation", icon: ShieldAlert, group: "social", requires: { systems: ["social"] } },
@@ -125,9 +125,9 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: "food-reviews", href: "/food/reviews", label: "ตรวจสอบรีวิว Food", icon: MessageCircle, group: "food", requires: { systems: ["food"] } },
   { id: "food-featured", href: "/food/featured", label: "ร้านแนะนำ Food", icon: Store, group: "food", requires: { systems: ["food"] } },
   { id: "food-orders", href: "/food/orders", label: "Orders", icon: ShoppingBag, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
-  { id: "food-customers", label: "Customers", icon: Users, group: "food", requires: { systems: ["food"] } },
-  { id: "food-payments", label: "Payments & Refunds", icon: CreditCard, group: "food", requires: { systems: ["food"] } },
-  { id: "food-support", label: "Customer Support", icon: Headset, group: "food", requires: { systems: ["food"] } },
+  { id: "food-customers", href: "/food/customers", label: "Customers", icon: Users, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
+  { id: "food-payments", href: "/food/payments", label: "Payments & Refunds", icon: CreditCard, group: "food", requires: { systems: ["food"] } },
+  { id: "food-support", href: "/food/support", label: "Customer Support", icon: Headset, group: "food", requires: { systems: ["food"] } },
 
   // WYNOS Merchant: stores and their marketing. Stores, Coupons, Campaigns,
   // Ads and Promo Notifications moved here from WYNOS Food; they keep their
@@ -149,10 +149,10 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 
   systemDashboard("maps"),
   { id: "places", href: "/maps/places", label: "Place Management", icon: MapPinned, group: "maps", requires: { systems: ["maps"] } },
-  { id: "map-reports", label: "Map Reports", icon: MapPinOff, group: "maps", requires: { systems: ["maps"] } },
+  { id: "map-reports", href: "/maps/reports", label: "Map Reports", icon: MapPinOff, group: "maps", requires: { systems: ["maps"] } },
 
   { id: "ai-secretary", label: "AI Secretary", icon: Bot, group: "other", requires: "any" },
-  { id: "platform-marketing", label: "Platform Marketing", icon: Megaphone, group: "other", requires: "any" },
+  { id: "platform-marketing", href: "/platform/marketing", label: "Platform Marketing", icon: Megaphone, group: "other", requires: { systems: ["food"] } },
   { id: "audit-log", href: "/audit-log", label: "Audit Logs", icon: ScrollText, group: "other", superAdminOnly: true },
   { id: "system-settings", label: "System Settings", icon: Settings, group: "other", superAdminOnly: true },
 ];
@@ -197,7 +197,7 @@ const ADMIN_NAV_SEARCH_ALIASES: Record<string, string> = {
   places: "สถานที่ แผนที่",
   "map-reports": "รายงานแผนที่",
   "ai-secretary": "เลขา เลขานุการ ผู้ช่วย",
-  "platform-marketing": "การตลาดแพลตฟอร์ม",
+  "platform-marketing": "การตลาดแพลตฟอร์ม โปรโมตหน้าแรก แบนเนอร์ banner featured",
   "audit-log": "ประวัติ บันทึกการดำเนินการ ตรวจสอบย้อนหลัง",
   "system-settings": "ตั้งค่าระบบ",
 };

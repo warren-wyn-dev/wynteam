@@ -52,8 +52,9 @@ export function FoodBannerManager({
   const [error,setError]=useState<string|null>(null);
   const [success,setSuccess]=useState<string|null>(null);
   const [uploading,setUploading]=useState(false);
+  const [needsReload,setNeedsReload]=useState(false);
+  const [reloadId,setReloadId]=useState<string|null>(null);
   const [pending,startTransition]=useTransition();
-  const original=draft.id?banners.find(b=>b.id===draft.id):null;
   const validImage=/^banners\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|webp)$/.test(draft.imagePath);
   const start=Date.parse(draft.startsAt);
   const end=draft.endsAt?Date.parse(draft.endsAt):null;
@@ -67,10 +68,11 @@ export function FoodBannerManager({
   );
   const [history,setHistory]=useState<Array<{reason:string;created_at:string;actor_id:string}>>([]);
   function choose(b:AdminFoodBanner|null){
+    if(pending||uploading||needsReload)return;
     setDraft(b?fromRow(b):emptyDraft());setReason("");setError(null);setSuccess(null);setHistory([]);
   }
   async function upload(file:File|null) {
-    if(!canEdit || !file) return;
+    if(!canEdit||!file||pending||uploading||needsReload)return;
     setError(null);setSuccess(null);
     if(!["image/png","image/jpeg","image/webp"].includes(file.type) || file.size>5*1024*1024 || file.size===0){
       setError("รองรับเฉพาะ PNG/JPEG/WebP ขนาดไม่เกิน 5 MB");return;
@@ -89,22 +91,26 @@ export function FoodBannerManager({
       setError("อัปโหลดภาพไม่สำเร็จ: "+(err instanceof Error?err.message:String(err)));
     }finally{setUploading(false);}
   }
-  async function loadLatest(nextId?:string|null){
-    const {data,error}=await createClient().rpc("admin_food_home_banners");
+  async function loadLatest(nextId=reloadId??draft.id){
+    const {data,error}=await createClient().rpc("admin_food_home_banners")
+      .abortSignal(AbortSignal.timeout(10_000));
     if(error)throw error;
-    const rows=(Array.isArray(data)?data:[]) as AdminFoodBanner[];
+    if(!Array.isArray(data))throw new Error("Invalid banner response");
+    const rows=data as AdminFoodBanner[];
+    const found=nextId?rows.find(x=>x.id===nextId):null;
+    if(nextId&&!found)throw new Error("Saved banner is missing from the latest response");
+    const nextDraft=found?fromRow(found):emptyDraft();
     setBanners(rows);
-    if(nextId){
-      const found=rows.find(x=>x.id===nextId);
-      if(found)setDraft(fromRow(found));
-    }
+    setDraft(nextDraft);setReason("");setHistory([]);
+    setNeedsReload(false);setReloadId(null);
     router.refresh();
   }
   function save(){
     setError(null);setSuccess(null);
-    if(!canEdit||!valid||uploading||pending)return;
+    if(!canEdit||!valid||uploading||pending||needsReload)return;
     if(!window.confirm(`ยืนยันบันทึกแบนเนอร์ "${draft.title}"? หากเปิดใช้งานและอยู่ในช่วงเวลา ภาพจะแสดงต่อผู้ใช้ Food ทันที`))return;
     startTransition(async()=>{
+      let saved=false;
       try{
         const {data,error}=await createClient().rpc("admin_save_food_home_banner",{
           p_id:draft.id,
@@ -118,32 +124,47 @@ export function FoodBannerManager({
           p_ends_at:draft.endsAt?new Date(draft.endsAt).toISOString():null,
           p_is_active:draft.isActive,
           p_reason:reason.trim(),
-        });
+        }).abortSignal(AbortSignal.timeout(20_000));
         if(error)throw error;
-        setReason("");
-        await loadLatest((data as AdminFoodBanner)?.id);
+        saved=true;
+        setNeedsReload(true);
+        const nextId=(data as AdminFoodBanner|null)?.id;
+        if(typeof nextId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(nextId)){
+          throw new Error("Invalid saved banner identity");
+        }
+        setReloadId(nextId);
+        await loadLatest(nextId);
         setSuccess("บันทึกแบนเนอร์และโหลดข้อมูลล่าสุดเรียบร้อย");
       }catch(err){
-        const message=err instanceof Error?err.message:String(err);
-        setError(message.includes("Banner changed")?"ข้อมูลถูกแก้ไขจากที่แสดง กรุณาโหลดข้อมูลล่าสุด":message.includes("Not authorized")?
+        const message=err&&typeof err==="object"&&"message" in err?String(err.message):String(err);
+        const code=err&&typeof err==="object"&&"code" in err?String(err.code):"";
+        const uncertain=!saved&&code!=="P0001"&&!/^22|^23|^42/.test(code);
+        if(uncertain)setNeedsReload(true);
+        setError(saved?"บันทึกสำเร็จ แต่โหลดข้อมูลล่าสุดไม่สำเร็จ กรุณาโหลดข้อมูลล่าสุดก่อนทำรายการต่อ":uncertain?
+          "ยังยืนยันผลการบันทึกไม่ได้ กรุณาโหลดข้อมูลล่าสุดและตรวจรายการก่อนบันทึกอีกครั้ง":
+          message.includes("Banner changed")?"ข้อมูลถูกแก้ไขจากที่แสดง กรุณาโหลดข้อมูลล่าสุด":message.includes("Not authorized")?
           "บัญชีนี้ไม่มีสิทธิ์ food:edit":"บันทึกไม่สำเร็จ: "+message);
       }
     });
   }
   function readHistory(){
-    if(!draft.id)return;
+    if(!draft.id||pending||uploading)return;
     startTransition(async()=>{
       setError(null);
-      const {data,error}=await createClient().rpc("admin_food_banner_history",{p_banner_id:draft.id});
-      if(error){setError("ดึงประวัติไม่สำเร็จ: "+error.message);return;}
-      setHistory(Array.isArray(data)?data:[]);
+      try{
+        const {data,error}=await createClient().rpc("admin_food_banner_history",{p_banner_id:draft.id})
+          .abortSignal(AbortSignal.timeout(10_000));
+        if(error)throw error;
+        if(!Array.isArray(data))throw new Error("Invalid banner history response");
+        setHistory(data);
+      }catch(err){setError("ดึงประวัติไม่สำเร็จ: "+String(err));}
     });
   }
   return <section className="space-y-5">
     <div className="rounded-xl border bg-background p-4 space-y-3">
       <label className="block text-sm font-medium">
         เลือกแบนเนอร์
-        <select value={draft.id??"new"} onChange={e=>choose(banners.find(b=>b.id===e.target.value)??null)}
+        <select value={draft.id??"new"} disabled={pending||uploading||needsReload} onChange={e=>choose(banners.find(b=>b.id===e.target.value)??null)}
           className="mt-2 h-11 w-full rounded-lg border bg-background px-3 text-sm">
           <option value="new">+ สร้างแบนเนอร์ใหม่</option>
           {banners.map(b=><option value={b.id} key={b.id}>
@@ -173,7 +194,7 @@ export function FoodBannerManager({
       </label>
       <label className="block text-sm font-medium">
         อัปโหลดภาพแบนเนอร์ (ไม่เกิน 5 MB)
-        <input type="file" accept="image/png,image/jpeg,image/webp" disabled={!canEdit||uploading||pending}
+        <input type="file" accept="image/png,image/jpeg,image/webp" disabled={!canEdit||uploading||pending||needsReload}
           onChange={e=>{void upload(e.target.files?.[0]??null);e.target.value="";}}
           className="mt-2 block w-full rounded-lg border p-3 text-sm"/>
       </label>
@@ -218,16 +239,16 @@ export function FoodBannerManager({
           placeholder="เช่น เพิ่มแบนเนอร์โปรโมชันประจำเดือน"/>
       </label>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={save} disabled={!valid||pending||uploading}
+        <button type="button" onClick={save} disabled={!valid||pending||uploading||needsReload}
           className="min-h-11 rounded-lg bg-foreground px-5 text-sm font-semibold text-background disabled:opacity-40">
           {pending?"กำลังบันทึก…":"ตรวจและยืนยันบันทึกจริง"}
         </button>
         <button type="button" disabled={pending||uploading} onClick={()=>startTransition(async()=>{
-          try{setError(null);await loadLatest(draft.id);setSuccess("โหลดข้อมูลล่าสุดแล้ว");}catch(err){setError(String(err));}
+          try{setError(null);setSuccess(null);await loadLatest();setSuccess("โหลดข้อมูลล่าสุดแล้ว");}catch(err){setError("โหลดข้อมูลล่าสุดไม่สำเร็จ ข้อมูลที่แก้ไขยังอยู่: "+String(err));}
         })} className="min-h-11 rounded-lg border px-5 text-sm font-medium">
           โหลดข้อมูลล่าสุด
         </button>
-        {draft.id?<button type="button" disabled={pending} onClick={readHistory} className="min-h-11 rounded-lg border px-5 text-sm font-medium">
+        {draft.id?<button type="button" disabled={pending||uploading} onClick={readHistory} className="min-h-11 rounded-lg border px-5 text-sm font-medium">
           ประวัติการแก้ไข
         </button>:null}
       </div></>:<p className="text-sm text-muted-foreground">คุณมีสิทธิ์ดูเท่านั้น การแก้ไขต้องใช้ food:edit</p>}

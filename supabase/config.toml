@@ -18,6 +18,14 @@ verify_jwt = true
 [functions.merchant-stripe-refund]
 verify_jwt = true
 
+[functions.admin-merchant-menu-image]
+# Existing user JWT plus live Auth and merchant:edit RPC checks. Only the
+# trusted Edge publisher writes immutable, normalized menu images.
+verify_jwt = true
+# Run tools/prepare_admin_menu_image_vendor.py before local checks/bundling.
+# Include only the selected WASM and its license notices, never the npm package.
+static_files = ["./functions/admin-merchant-menu-image/_vendor/magick.wasm", "./functions/admin-merchant-menu-image/_vendor/LICENSE", "./functions/admin-merchant-menu-image/_vendor/NOTICE"]
+
 [functions.send-food-promotion]
 # Vault-key-authenticated scheduler call (not a browser/JWT request).
 # The handler verifies a dedicated long random key using a service-role-only RPC.

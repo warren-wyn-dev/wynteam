@@ -70,6 +70,28 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test
 
+  web-food-admin:
+    name: Consumer Admin integration (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npx next typegen
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:food-admin
+      - run: npm run test:maps
+      - run: npm run test:stripe
+      - run: npm run test:i18n
+
   edge-functions:
     name: Supabase Edge Functions (Deno)
     runs-on: ubuntu-latest
@@ -80,6 +102,8 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Prepare pinned Admin menu image decoder
+        run: python3 tools/prepare_admin_menu_image_vendor.py
       - run: deno check supabase/functions/*/index.ts
       - run: deno test --allow-read supabase/functions/
 
@@ -137,14 +161,17 @@ jobs:
           cat > "$ci_bin/psql" <<'EOF'
           #!/usr/bin/env bash
           set +e
-          capture="${RUNNER_TEMP}/wynos-psql-capture-$$.out"
-          /usr/bin/psql "$@" >"$capture" 2>&1
+          capture="${RUNNER_TEMP}/wynos-psql-capture-$$"
+          /usr/bin/psql "$@" >"$capture.out" 2>"$capture.err"
           status=$?
-          cat "$capture"
+          # Callers that assert real-role denials inspect stderr. Preserve both
+          # streams while keeping the original diagnostic for legacy retries.
+          cat "$capture.out"
+          cat "$capture.err" >&2
           if [ "$status" -ne 0 ]; then
-            cp "$capture" "${RUNNER_TEMP}/wynos-last-psql-failure.out"
+            cat "$capture.out" "$capture.err" >"${RUNNER_TEMP}/wynos-last-psql-failure.out"
           fi
-          rm -f "$capture"
+          rm -f "$capture.out" "$capture.err"
           exit "$status"
           EOF
 
