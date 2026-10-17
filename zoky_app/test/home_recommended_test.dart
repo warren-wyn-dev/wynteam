@@ -5,7 +5,6 @@ import 'package:zoky_app/core/l10n/zoky_strings.dart';
 import 'package:zoky_app/core/widgets/zoky_3d_icon.dart';
 import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
 import 'package:zoky_app/core/widgets/zoky_glossy_heart_button.dart';
-import 'package:zoky_app/core/widgets/zoky_state_view.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
 import 'package:zoky_app/features/catalog/data/store_repository.dart';
 import 'package:zoky_app/features/catalog/domain/catalog_models.dart';
@@ -78,7 +77,6 @@ Future<void> _pumpSection(WidgetTester tester, StoreRepository repo) =>
         key: UniqueKey(),
         repository: repo,
         onOpenStore: (_) {},
-        onFavorite: (_) {},
         onSeeAll: () {},
       ),
     );
@@ -227,7 +225,7 @@ void main() {
     }
   });
 
-  testWidgets('card and heart semantics; heart target >= 44', (tester) async {
+  testWidgets('card semantics; no heart on the cover photo', (tester) async {
     final semantics = tester.ensureSemantics();
     await pumpZokyApp(tester);
     expect(
@@ -255,50 +253,16 @@ void main() {
       );
       expect(card, findsOneWidget);
       expect(tester.getSemantics(card), isSemantics(isButton: true));
-      final heart = find.bySemanticsLabel(
-        ZokyRecommendedStoreCard.favoriteLabel(store),
-      );
-      expect(heart, findsOneWidget);
-      expect(tester.getSemantics(heart), isSemantics(isButton: true));
     }
+    // Founder 2026-10-17: favorites live on the header heart only.
     expect(
-      ZokyRecommendedStoreCard.favoriteLabel(_featured.first),
-      'บันทึกร้านโปรด: ราเมงซอยเจ็ด',
+      find.descendant(
+        of: find.byType(ZokyRecommendedStoresSection),
+        matching: find.byType(ZokyGlossyHeartButton),
+      ),
+      findsNothing,
     );
-    final hearts = find.descendant(
-      of: find.byType(ZokyRecommendedStoresSection),
-      matching: find.byType(ZokyGlossyHeartButton),
-    );
-    expect(hearts, findsNWidgets(_featured.length));
-    final first = tester.getRect(
-      find.descendant(of: hearts.first, matching: find.byType(InkWell)),
-    );
-    expect(first.width, greaterThanOrEqualTo(44));
-    expect(first.height, greaterThanOrEqualTo(44));
-    // Fully inside its card (no target sticking out of the row).
-    final card = tester.getRect(_cards().first);
-    expect(card.contains(first.topLeft), isTrue);
-    expect(first.right, lessThanOrEqualTo(card.right));
     semantics.dispose();
-  });
-
-  testWidgets('heart opens the "ร้านโปรด · เร็ว ๆ นี้" sheet, not the store', (
-    tester,
-  ) async {
-    await pumpZokyApp(tester, width: 430, height: 932);
-    await _scrollHomeToEnd(tester);
-    await tester.tap(
-      find
-          .descendant(
-            of: _cards().first,
-            matching: find.byType(ZokyGlossyHeartButton),
-          )
-          .first,
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(StoreScreen), findsNothing);
-    expect(find.byType(ZokyStateView), findsOneWidget);
-    expect(find.text(ZokyStrings.comingSoon), findsOneWidget);
   });
 
   testWidgets('tapping a card opens that store; back returns home', (
@@ -308,7 +272,6 @@ void main() {
     await _scrollHomeToEnd(tester);
     final store = _featured[1];
     await _revealCard(tester, store);
-    // Tap the name, away from the heart.
     await tester.tap(
       find.descendant(
         of: _card(store),
@@ -422,12 +385,7 @@ void main() {
     await pumpZokyWidget(
       tester,
       Center(
-        child: ZokyRecommendedStoreCard(
-          store: store,
-          width: 170,
-          onTap: () {},
-          onFavorite: () {},
-        ),
+        child: ZokyRecommendedStoreCard(store: store, width: 170, onTap: () {}),
       ),
     );
     expect(find.text(ZokyStrings.demoBadge), findsNothing);

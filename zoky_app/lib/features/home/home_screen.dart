@@ -146,11 +146,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Phase 4 card heart. There is no favorites storage yet, so instead of
-  /// pretending to save it opens the same "ร้านโปรด · เร็ว ๆ นี้" sheet as
-  /// the header heart (Phase 1).
-  void _favoriteStore(ZokyStoreSummary store) => _openFavorites();
-
   /// Phase 4 "ดูทั้งหมด": the existing store listing (directory), without
   /// popping the keyboard.
   void _openAllStores() {
@@ -234,7 +229,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ZokyRecommendedStoresSection(
                   repository: widget.repository,
                   onOpenStore: _openStore,
-                  onFavorite: _favoriteStore,
                   onSeeAll: _openAllStores,
                 ),
               ),

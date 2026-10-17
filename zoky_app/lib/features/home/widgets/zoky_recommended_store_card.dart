@@ -5,33 +5,30 @@ import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
 import '../../../core/l10n/zoky_strings.dart';
 import '../../../core/widgets/zoky_3d_icon.dart';
-import '../../../core/widgets/zoky_glossy_heart_button.dart';
 import '../../catalog/domain/catalog_models.dart';
 import '../../deals/widgets/zoky_deal_card.dart';
 import 'zoky_store_cover.dart';
 
 /// Store card of the Home "ร้านอาหารแนะนำ" row (Founder mockup Phase 4):
-/// white card, cover photo with rounded corners on top, a white glossy
-/// heart button on the photo's top-right, the store name, then
-/// "★ 4.8 | 30–45 นาที".
+/// white card, 1:1 cover photo with rounded corners on top, the store
+/// name, then "★ 4.8 | 30–45 นาที". No heart on the photo (Founder,
+/// 2026-10-17): favorites stay on the header heart.
 ///
 /// Rating and delivery time are drawn only when the model has them
 /// ([ZokyStoreSummary.rating], [ZokyStoreSummary.hasEta]); a sample store
 /// carries the "ตัวอย่าง" badge. The card is one button for assistive tech
-/// ([semanticLabel]); the heart is a separate button beside it.
+/// ([semanticLabel]).
 class ZokyRecommendedStoreCard extends StatelessWidget {
   const ZokyRecommendedStoreCard({
     super.key,
     required this.store,
     required this.width,
     required this.onTap,
-    required this.onFavorite,
   });
 
   final ZokyStoreSummary store;
   final double width;
   final VoidCallback onTap;
-  final VoidCallback onFavorite;
 
   static const BorderRadius radius = ZokyRadius.lg;
 
@@ -45,11 +42,8 @@ class ZokyRecommendedStoreCard extends StatelessWidget {
   /// upload the web uses for store and menu photos fits without cropping.
   static const double photoAspectRatio = 1;
 
-  /// Heart: ~32pt visible circle, 44pt tap target, 6pt from the photo's
-  /// top-right corner.
-  static const double heartDiameter = 32;
-  static const double heartTapTarget = ZokySizes.tapTargetIos;
-  static const double _heartGap = ZokySpacing.s3;
+  /// Inset of the demo badge from the photo's top-left corner.
+  static const double _badgeGap = ZokySpacing.s3;
 
   /// Same soft pink shadow as the Phase 3 deal cards.
   static const List<BoxShadow> shadow = ZokyDealCard.shadow;
@@ -92,69 +86,42 @@ class ZokyRecommendedStoreCard extends StatelessWidget {
     return parts.join(' ');
   }
 
-  /// Label of the heart button.
-  static String favoriteLabel(ZokyStoreSummary store) =>
-      '${ZokyStrings.saveFavoritePrefix}: ${store.nameWithoutDemoSuffix}';
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
-      child: Stack(
-        fit: StackFit.passthrough,
-        children: [
-          Semantics(
-            button: true,
-            label: semanticLabel(store),
-            excludeSemantics: true,
-            // Shadow outside the Material so the ink clip does not cut it.
-            child: DecoratedBox(
+      child: Semantics(
+        button: true,
+        label: semanticLabel(store),
+        excludeSemantics: true,
+        // Shadow outside the Material so the ink clip does not cut it.
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            borderRadius: radius,
+            boxShadow: shadow,
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: Ink(
               decoration: const BoxDecoration(
                 borderRadius: radius,
-                boxShadow: shadow,
+                color: ZokyColors.surface,
               ),
-              child: Material(
-                type: MaterialType.transparency,
-                child: Ink(
-                  decoration: const BoxDecoration(
-                    borderRadius: radius,
-                    color: ZokyColors.surface,
-                  ),
-                  child: InkWell(
-                    onTap: onTap,
-                    borderRadius: radius,
-                    child: Padding(
-                      padding: const EdgeInsets.all(photoInset),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [_photo(), _details()],
-                      ),
-                    ),
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: radius,
+                child: Padding(
+                  padding: const EdgeInsets.all(photoInset),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [_photo(), _details()],
                   ),
                 ),
               ),
             ),
           ),
-          Positioned(
-            top: photoInset + _heartGap - (heartTapTarget - heartDiameter) / 2,
-            right:
-                photoInset + _heartGap - (heartTapTarget - heartDiameter) / 2,
-            child: ZokyGlossyHeartButton(
-              label: favoriteLabel(store),
-              onPressed: onFavorite,
-              diameter: heartDiameter,
-              tapTarget: heartTapTarget,
-              shadow: const [
-                BoxShadow(
-                  color: Color(0x33EE226E),
-                  offset: Offset(0, 3),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -168,10 +135,10 @@ class ZokyRecommendedStoreCard extends StatelessWidget {
           ZokyStoreCover(store: store, borderRadius: photoRadius),
           if (store.isDemo)
             Positioned(
-              left: _heartGap,
-              top: _heartGap,
-              // Badge stays one line; it may not reach under the heart.
-              right: heartDiameter + 2 * _heartGap,
+              left: _badgeGap,
+              top: _badgeGap,
+              // Badge stays one line within the photo.
+              right: _badgeGap,
               child: MediaQuery.withClampedTextScaling(
                 maxScaleFactor: 1.3,
                 child: const Align(

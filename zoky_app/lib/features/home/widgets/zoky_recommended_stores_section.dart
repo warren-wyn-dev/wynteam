@@ -21,13 +21,11 @@ class ZokyRecommendedStoresSection extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onOpenStore,
-    required this.onFavorite,
     required this.onSeeAll,
   });
 
   final StoreRepository repository;
   final ValueChanged<ZokyStoreSummary> onOpenStore;
-  final ValueChanged<ZokyStoreSummary> onFavorite;
   final VoidCallback onSeeAll;
 
   /// Key of the horizontal scroll view (tests).
@@ -110,7 +108,6 @@ class _ZokyRecommendedStoresSectionState
                       store: store,
                       width: cardWidth,
                       onTap: () => widget.onOpenStore(store),
-                      onFavorite: () => widget.onFavorite(store),
                     ),
                   ],
               ],
