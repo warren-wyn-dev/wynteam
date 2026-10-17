@@ -373,6 +373,46 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 - สี: ปกติ `text.primary`, รอง `neutral.600`/`neutral.400`, เน้น `brand.pink`, สถานะใช้ semantic
 - ไอคอนตกแต่งต้อง `aria-hidden` / `ExcludeSemantics` ไอคอนที่เป็นปุ่มต้องมี label
 
+
+### 7.1 "ZOKY Glossy 3D" — brand surface + 3D icons (PROPOSED, รอ Founder อนุมัติ)
+
+> ที่มา: Founder feedback 2026-10-17 "เฟส1 เฟส2 ทุกอย่างต้องไปในทิศทางเดียวกัน … ไอคอนชอบฟีล 3D" — ยังเป็นข้อเสนอ ไม่ใช่ decision
+
+**Surface recipe** (โค้ดเดียว: `zoky_app/lib/core/widgets/zoky_glossy_surface.dart` → `ZokyGloss`, `ZokyGlossPainter`, `ZokyGlossySurface`)
+
+| ชั้น | ค่า |
+|---|---|
+| Base | gradient แนวตั้ง `headerTop #F93384` → `headerMid #F72C7E` (35%) → `headerBottom #EE226E` (เท่ากับ header/โลโก้ ห้ามใช้ gradient เข้มกว่านี้แยกต่อการ์ด) |
+| Gloss band | ขาว 35% → 0% จากขอบบนลงมา `glossHeight` (px คงที่) inset 4px ขอบล่างโค้งขึ้นไปทางขวาแบบไฮไลต์บนโลโก้ |
+| Inner rim | เส้น 1px ด้านใน ขาว 25% (บน) → 8% (ล่าง) เฉพาะการ์ด |
+| Shadow | `#EE226E` @25% blur 24 y 10 (การ์ด) / @22% blur 12 y 4 (ปุ่มขาว) |
+| White control | gradient `#FFFFFF` → `#FFF1F6` + rim ขาวบน / `#F9C0DE` 40% ล่าง ใช้กับปุ่มหัวใจ, pill, ปุ่มค้นหา |
+| Frosted disc | ขาว 34% → 14% + gloss 30% + rim ขาว 45%→12% (วงกลมหลังภาพประกอบ) |
+
+ใช้แล้วกับ: Header เฟส 1 (gloss 7% เพื่อให้ไอคอน status bar ขาวยัง ≥ 3:1, ไม่มี rim/shadow, layout/โค้ง/sheet เดิม), การ์ดเฟส 2 (full recipe). เฟสถัดไปที่มีพื้นชมพูให้ใช้ `ZokyGlossySurface` ตัวเดียวกัน
+
+**3D icon lighting** (`zoky_app/lib/core/widgets/zoky_3d_icon.dart` → `Zoky3DIcon`, CustomPainter ล้วน ไม่มีรูป/emoji/package)
+
+1. แสงมาจากซ้ายบนเสมอ
+2. ตัวไอคอน gradient แนวตั้ง (pink `#FF6BAA` → `#E5135D`)
+3. ไฮไลต์ specular รูปวงรีซ้ายบน (halo เบลอ + จุดแกนสว่าง)
+4. เงาด้านใน (inner shade) ขวาล่าง `#9E0E3E` 38% เบลอ + ขอบแสงบาง ๆ ซ้ายบน
+5. drop shadow เล็กนุ่ม เลื่อนลงล่าง (`#C2185B` 30%)
+6. blur ทุกค่าสเกลตามขนาด (ขั้นต่ำ 0.4px) ให้คมที่ 16–48px
+7. Glyph ตอนนี้: `heart` (ปุ่มร้านโปรด), `sparkle` (ดาว 4 แฉกใน pill), `arrowRight` (ลูกแก้วชมพู + ลูกศรขาวนูน ท้ายปุ่มค้นหา)
+8. Semantics: ค่าเริ่มต้นเป็น decorative (`ExcludeSemantics`) — label อยู่ที่ปุ่มแม่ (เช่น "ร้านโปรด"); ถ้าไอคอนยืนเดี่ยวให้ส่ง `semanticLabel`
+9. ไอคอน 3D ใช้เป็น *brand accent* เท่านั้น ไอคอนระบบ/nav ยังเป็น line icon ตามข้อ 7 (ไม่ทำทั้งแอปเป็น 3D)
+
+**Contrast บนพื้นชมพู** (WCAG 2.x)
+
+- ขาวบน `#F93384`/`#F72C7E`/`#EE226E` = 3.60/3.74/4.13:1 → **ขาวบนชมพูได้เฉพาะ large text** (≥ 24px หรือ ≥ 18.66px bold) เช่น title 28/700 และ subtitle 19/700
+- gloss band ต้องจบก่อนถึงข้อความขาว (การ์ด: `glossHeight` = padding + 34 อยู่หลัง pill สีขาวเท่านั้น)
+- ข้อความเล็กต้องอยู่บน white control สี `brandDeep #D61256`: 5.15:1 บนขาว, 4.70:1 บน `#FFF1F6`
+- ค่าวัดจาก pixel จริง (preview 430×932 และ 375×667 @3x): title 3.68:1, subtitle 3.79–3.82:1, pill text 4.76:1, ปุ่มค้นหา 4.76–4.79:1, status bar glyph ≥ 3.09:1
+- ห้ามแก้ contrast ด้วยการทำการ์ดให้เข้มขึ้น (ทำให้ไม่เข้ากับ header) — ให้เปลี่ยนขนาด/น้ำหนักตัวอักษร หรือย้ายข้อความไปบน white control แทน
+
+**ภาพประกอบ**: `ZokyBentoIllustration` วาดด้วยโค้ดแบบ 3/4 (ฝากล่องดำเงา, ด้านหน้า/ด้านข้างแดงเคลือบ, ขาเล็ก, ข้าว/แซลมอน/ทามาโกะ/ผัก) แสงเดียวกับไอคอน แยกเป็น widget เดี่ยวเพื่อแทนด้วยรูปจริงภายหลัง
+
 ---
 
 ## 8. Motion
