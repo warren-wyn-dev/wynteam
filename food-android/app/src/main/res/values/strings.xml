@@ -262,4 +262,11 @@
     <string name="promo_inbox_copy_code">คัดลอกโค้ด %1$s</string>
     <string name="promo_inbox_copied">คัดลอกโค้ดแล้ว</string>
     <string name="promo_inbox_code_disclaimer">โค้ดที่คัดลอกยังไม่ใช่ส่วนลดที่ใช้สำเร็จ ต้องตรวจสอบสิทธิ์และยอดส่วนลดในหน้าชำระเงินกับระบบก่อน</string>
+    <string name="slip_preview_title">ทดลองเลือกสลิป (Staging)</string>
+    <string name="slip_preview_no_upload">เลือกภาพเพื่อดูตัวอย่างบนเครื่องเท่านั้น ยังไม่อัปโหลดหรือส่งหลักฐานการชำระเงินให้ร้าน</string>
+    <string name="slip_preview_selected_local">เลือกภาพแล้ว แต่ยังไม่ได้ส่งสลิป</string>
+    <string name="slip_preview_choose">เลือกรูปสลิป</string>
+    <string name="slip_preview_replace">เปลี่ยนรูป</string>
+    <string name="slip_preview_remove">ลบรูป</string>
+    <string name="slip_preview_image_description">ตัวอย่างรูปสลิปที่เลือก</string>
 </resources>
