@@ -340,11 +340,11 @@ void main() {
         '(bottom inset $inset)', (tester) async {
       await pumpZokyApp(tester, width: w, height: h, bottomInset: inset);
       await _scrollHomeToEnd(tester);
-      final nav = tester.getRect(find.byType(ZokyBottomNav));
+      final nav = tester.getRect(find.byKey(ZokyBottomNav.capsuleKey));
       final navTop =
           h - ZokyBottomNav.reservedHeight(tester.element(_row())) + 8;
-      // Phase 5 bar: 56pt of items on top of the safe-area inset.
-      expect(nav.top, h - ZokyBottomNav.contentHeight - inset);
+      // Phase 5 floating capsule: 64pt, lifted by the inset (min 12).
+      expect(nav.top, h - ZokyBottomNav.height - (inset > 0 ? inset : 12));
       expect(navTop, nav.top);
       for (var i = 0; i < 2; i++) {
         final card = tester.getRect(_cards().at(i));
@@ -453,7 +453,7 @@ void main() {
           ),
         );
         expect(seeAll.right, lessThanOrEqualTo(width));
-        final nav = tester.getRect(find.byType(ZokyBottomNav));
+        final nav = tester.getRect(find.byKey(ZokyBottomNav.capsuleKey));
         expect(tester.getRect(_cards().first).bottom, lessThan(nav.top));
       });
     }

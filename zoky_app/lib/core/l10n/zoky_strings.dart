@@ -11,6 +11,8 @@ abstract final class ZokyStrings {
   static const String navOrders = 'ออเดอร์';
   static const String navMessages = 'ข้อความ';
   static const String navAccount = 'บัญชี';
+  // Semantics for the nav's notification dot on ข้อความ.
+  static const String navMessagesUnread = 'มีข้อความใหม่';
 
   // Common.
   static const String cancel = 'ยกเลิก';

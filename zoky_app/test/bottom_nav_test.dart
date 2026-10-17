@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show HitTestResult;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_app/core/design/zoky_colors.dart';
@@ -34,9 +35,13 @@ Finder _labelStyle(String label) => find
     )
     .first;
 
-Zoky3DIcon _icon(WidgetTester tester, String label) => tester.widget<Zoky3DIcon>(
-  find.descendant(of: _item(label), matching: find.byType(Zoky3DIcon)).last,
-);
+Zoky3DIcon _icon(WidgetTester tester, String label) =>
+    tester.widget<Zoky3DIcon>(
+      find.descendant(of: _item(label), matching: find.byType(Zoky3DIcon)).last,
+    );
+
+Rect _capsule(WidgetTester tester) =>
+    tester.getRect(find.byKey(ZokyBottomNav.capsuleKey));
 
 Finder _homeCards() => find.descendant(
   of: find.byType(ZokyRecommendedStoresSection),
@@ -64,9 +69,9 @@ void main() {
   // 1em square), so the overflow / clipping checks below are meaningful.
   setUpAll(() async {
     final loader = FontLoader('Anuphan')
-      ..addFont(rootBundle.load(
-        'assets/fonts/anuphan/Anuphan-VariableFont_wght.ttf',
-      ));
+      ..addFont(
+        rootBundle.load('assets/fonts/anuphan/Anuphan-VariableFont_wght.ttf'),
+      );
     await loader.load();
   });
 
@@ -131,12 +136,14 @@ void main() {
   ) async {
     await pumpZokyApp(tester);
     expect(
-      tester.widget<AnimatedSwitcher>(
-        find.descendant(
-          of: _item(ZokyStrings.navHome),
-          matching: find.byType(AnimatedSwitcher),
-        ),
-      ).duration,
+      tester
+          .widget<AnimatedSwitcher>(
+            find.descendant(
+              of: _item(ZokyStrings.navHome),
+              matching: find.byType(AnimatedSwitcher),
+            ),
+          )
+          .duration,
       const Duration(milliseconds: 200),
     );
 
@@ -145,12 +152,14 @@ void main() {
     addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     await tester.pump();
     expect(
-      tester.widget<AnimatedSwitcher>(
-        find.descendant(
-          of: _item(ZokyStrings.navHome),
-          matching: find.byType(AnimatedSwitcher),
-        ),
-      ).duration,
+      tester
+          .widget<AnimatedSwitcher>(
+            find.descendant(
+              of: _item(ZokyStrings.navHome),
+              matching: find.byType(AnimatedSwitcher),
+            ),
+          )
+          .duration,
       Duration.zero,
     );
   });
@@ -196,7 +205,9 @@ void main() {
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
       (call) async {
-        if (call.method == 'HapticFeedback.vibrate') haptics.add(call.arguments);
+        if (call.method == 'HapticFeedback.vibrate') {
+          haptics.add(call.arguments);
+        }
         return null;
       },
     );
@@ -247,21 +258,28 @@ void main() {
     (375.0, 667.0, 0.0),
     (320.0, 568.0, 0.0),
   ]) {
-    testWidgets('bar sits on the bottom safe area and covers no Home row at '
-        '${w}x$h (inset $inset)', (tester) async {
+    testWidgets('capsule floats inset from the sides and above the bottom '
+        'and covers no Home row at ${w}x$h (inset $inset)', (tester) async {
       await pumpZokyApp(tester, width: w, height: h, bottomInset: inset);
-      final nav = tester.getRect(find.byType(ZokyBottomNav));
+      final nav = _capsule(tester);
       final context = tester.element(find.byType(ZokyBottomNav));
-      // Full width, flush with the bottom edge, items above the inset.
-      expect(nav.left, 0);
-      expect(nav.width, w);
-      expect(nav.bottom, h);
-      expect(nav.height, ZokyBottomNav.contentHeight + inset);
-      expect(ZokyBottomNav.barHeight(context), nav.height);
+      // 16pt from each side, lifted by the inset (min 12 without one).
+      final offset = inset > 0 ? inset : ZokyBottomNav.minBottomOffset;
+      expect(nav.left, ZokyBottomNav.sideMargin);
+      expect(nav.right, w - ZokyBottomNav.sideMargin);
+      expect(nav.bottom, h - offset);
+      expect(nav.height, ZokyBottomNav.height);
+      expect(ZokyBottomNav.bottomOffset(context), offset);
+      expect(
+        ZokyBottomNav.reservedHeight(context),
+        ZokyBottomNav.height + offset + 8,
+      );
       for (final label in _labels) {
         final item = tester.getRect(_item(label));
-        expect(item.bottom, lessThanOrEqualTo(h - inset), reason: label);
+        expect(item.bottom, lessThanOrEqualTo(nav.bottom), reason: label);
         expect(item.top, greaterThanOrEqualTo(nav.top), reason: label);
+        expect(item.left, greaterThanOrEqualTo(nav.left), reason: label);
+        expect(item.right, lessThanOrEqualTo(nav.right), reason: label);
       }
 
       await _scrollHomeToEnd(tester);
@@ -274,9 +292,10 @@ void main() {
       }
       // Every Text on Home that is on screen is above the bar.
       final home = find.byType(CustomScrollView).first;
-      for (final e in find
-          .descendant(of: home, matching: find.byType(Text))
-          .evaluate()) {
+      for (final e
+          in find
+              .descendant(of: home, matching: find.byType(Text))
+              .evaluate()) {
         final r = tester.getRect(find.byWidget(e.widget).first);
         if (r.top >= h || r.bottom <= 0 || r.left >= w) continue;
         expect(r.bottom, lessThanOrEqualTo(nav.top + 0.5), reason: '$r');
@@ -328,18 +347,188 @@ void main() {
     }
   }
 
-  test('nav colors meet WCAG on the bar (worst case: its bottom stop)', () {
-    const bg = ZokyBottomNav.surfaceBottom;
-    // Unselected labels (text) >= 4.5, line icons (graphics) >= 3.
+  test('nav colors meet WCAG on the capsule and the selected highlight', () {
+    const bg = ZokyBottomNav.surface;
+    const selected = ZokyBottomNav.selectedFill;
+    // Unselected labels (text) >= 4.5, line icons (graphics) >= 3 on white.
     expect(_contrast(ZokyColors.textSecondary, bg), greaterThanOrEqualTo(4.5));
     expect(_contrast(ZokyColors.neutral600, bg), greaterThanOrEqualTo(3));
-    // Selected label.
-    expect(_contrast(ZokyColors.actionPrimary, bg), greaterThanOrEqualTo(4.5));
-    // Selected 3D icon: its body gradient ends >= 3:1 (the bold pink
-    // label carries the state in text as well).
+    // Selected label on the blush highlight.
     expect(
-      _contrast(Zoky3DPalette.pink.bottom, bg),
+      _contrast(ZokyColors.actionPrimary, selected),
+      greaterThanOrEqualTo(4.5),
+    );
+    // Selected 3D icon: its body gradient ends >= 3:1 on the highlight (the
+    // bold pink label carries the state in text as well).
+    expect(
+      _contrast(Zoky3DPalette.pink.bottom, selected),
       greaterThanOrEqualTo(3),
     );
+    // Notification dot (graphic) vs the white capsule and its white ring.
+    expect(_contrast(ZokyBottomNav.dotColor, bg), greaterThanOrEqualTo(3));
+  });
+
+  Finder highlight() => find.descendant(
+    of: find.byType(AnimatedAlign),
+    matching: find.byType(DecoratedBox),
+  );
+
+  testWidgets('blush highlight sits under the selected item and slides', (
+    tester,
+  ) async {
+    await pumpZokyApp(tester, width: 430, height: 932, bottomInset: 34);
+    final nav = _capsule(tester);
+    for (final label in [..._labels.skip(1), ZokyStrings.navHome]) {
+      await tester.tap(_inNav(find.text(label)));
+      await tester.pumpAndSettle();
+      final h = tester.getRect(highlight());
+      final item = tester.getRect(_item(label));
+      // Fills the item slot, 6pt inside the capsule top and bottom.
+      expect(h.left, moreOrLessEquals(item.left, epsilon: 0.01), reason: label);
+      expect(h.right, moreOrLessEquals(item.right, epsilon: 0.01));
+      expect(h.top, nav.top + ZokyBottomNav.innerPadding);
+      expect(h.bottom, nav.bottom - ZokyBottomNav.innerPadding);
+      final decoration =
+          tester.widget<DecoratedBox>(highlight()).decoration
+              as ShapeDecoration;
+      expect(decoration.color, ZokyBottomNav.selectedFill);
+      expect(decoration.shape, isA<StadiumBorder>());
+    }
+    // Mid-slide the highlight sits between the two slots.
+    final from = tester.getRect(_item(ZokyStrings.navHome));
+    final to = tester.getRect(_item(ZokyStrings.navAccount));
+    await tester.tap(_inNav(find.text(ZokyStrings.navAccount)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 110));
+    final mid = tester.getRect(highlight()).left;
+    expect(mid, greaterThan(from.left));
+    expect(mid, lessThan(to.left));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<AnimatedAlign>(find.byType(AnimatedAlign)).duration,
+      ZokyBottomNav.highlightDuration,
+    );
+
+    // Reduced motion: no slide.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pump();
+    expect(
+      tester.widget<AnimatedAlign>(find.byType(AnimatedAlign)).duration,
+      Duration.zero,
+    );
+  });
+
+  testWidgets('content outside the capsule stays tappable', (tester) async {
+    await pumpZokyApp(tester, width: 430, height: 932, bottomInset: 34);
+    final nav = _capsule(tester);
+    // The nav widget spans the full width; its side margins must not
+    // swallow taps meant for the content behind.
+    final result = HitTestResult();
+    WidgetsBinding.instance.hitTestInView(
+      result,
+      Offset(4, nav.center.dy),
+      tester.view.viewId,
+    );
+    final navElement = tester.element(find.byType(ZokyBottomNav));
+    final navBox = navElement.renderObject;
+    expect(result.path.any((e) => identical(e.target, navBox)), isFalse);
+    // Control: a tap on the capsule does hit the nav.
+    final inside = HitTestResult();
+    WidgetsBinding.instance.hitTestInView(
+      inside,
+      nav.center,
+      tester.view.viewId,
+    );
+    expect(inside.path.any((e) => identical(e.target, navBox)), isTrue);
+  });
+
+  Widget dotHarness({int current = 0}) => Align(
+    alignment: Alignment.bottomCenter,
+    child: ZokyBottomNav(
+      currentIndex: current,
+      onSelected: (_) {},
+      items: const [
+        ZokyNavItem(label: ZokyStrings.navHome, glyph: Zoky3DGlyph.home),
+        ZokyNavItem(label: ZokyStrings.navOrders, glyph: Zoky3DGlyph.receipt),
+        ZokyNavItem(
+          label: ZokyStrings.navMessages,
+          glyph: Zoky3DGlyph.chat,
+          showDot: true,
+          badgeSemanticLabel: ZokyStrings.navMessagesUnread,
+        ),
+        ZokyNavItem(label: ZokyStrings.navAccount, glyph: Zoky3DGlyph.person),
+      ],
+    ),
+  );
+
+  Finder dot() => find.byWidgetPredicate((w) {
+    if (w is! Container) return false;
+    final d = w.decoration;
+    return d is BoxDecoration &&
+        d.shape == BoxShape.circle &&
+        d.color == ZokyBottomNav.dotColor;
+  });
+
+  testWidgets('notification dot: red, ringed, at the icon top-right, read '
+      'out in semantics', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pumpZokyWidget(tester, dotHarness());
+    expect(dot(), findsOneWidget);
+    final d = tester.widget<Container>(dot()).decoration! as BoxDecoration;
+    expect(d.color, ZokyColors.error);
+    expect(d.color, isNot(ZokyColors.brand));
+    expect(d.border, Border.all(color: ZokyColors.neutral0, width: 2));
+    final icon = tester.getRect(
+      find.descendant(
+        of: _item(ZokyStrings.navMessages),
+        matching: find.byType(Zoky3DIcon),
+      ),
+    );
+    final r = tester.getRect(dot());
+    expect(r.size, const Size(12, 12));
+    expect(r.center.dx, greaterThan(icon.center.dx));
+    expect(r.center.dy, lessThan(icon.center.dy));
+    // Centered on the corner, mostly outside the glyph.
+    expect(r.center.dx, moreOrLessEquals(icon.right, epsilon: 1));
+    expect(r.center.dy, moreOrLessEquals(icon.top, epsilon: 1));
+    // Only on ข้อความ, and only there is it announced.
+    expect(
+      find.descendant(of: _item(ZokyStrings.navMessages), matching: dot()),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSemantics(_item(ZokyStrings.navMessages)),
+      isSemantics(
+        label: '${ZokyStrings.navMessages}, ${ZokyStrings.navMessagesUnread}',
+        isButton: true,
+        hasTapAction: true,
+        hasSelectedState: true,
+        isSelected: false,
+      ),
+    );
+    expect(
+      tester.getSemantics(_item(ZokyStrings.navHome)),
+      isSemantics(
+        label: ZokyStrings.navHome,
+        isButton: true,
+        hasTapAction: true,
+        hasSelectedState: true,
+        isSelected: true,
+      ),
+    );
+    // Still shown when its tab is selected.
+    await pumpZokyWidget(tester, dotHarness(current: 2));
+    expect(dot(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    handle.dispose();
+  });
+
+  testWidgets('the shipped app shows no notification dot (no unread data)', (
+    tester,
+  ) async {
+    await pumpZokyApp(tester);
+    expect(dot(), findsNothing);
   });
 }
