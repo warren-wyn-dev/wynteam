@@ -432,7 +432,6 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.textContaining('4.5'), findsNothing);
       },
-      skip: true, // Bug repro: .wyn/tasks/bugs/ZOKY-121-*.md
     );
 
     testWidgets(
@@ -456,7 +455,6 @@ void main() {
         );
         expect(find.text('4.5'), findsNothing);
       },
-      skip: true, // Bug repro: .wyn/tasks/bugs/ZOKY-121-*.md
     );
 
     testWidgets(

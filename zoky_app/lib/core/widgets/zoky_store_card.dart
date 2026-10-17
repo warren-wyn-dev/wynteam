@@ -20,11 +20,13 @@ class ZokyStoreCard extends StatelessWidget {
 
   String _semanticLabel() {
     final parts = <String>['ร้าน${store.name}'];
-    parts.add(
-      store.isNew
-          ? ZokyStrings.newStore
-          : 'คะแนน ${store.ratingAverage.toStringAsFixed(1)}',
-    );
+    // Same rule as the Home card: a score only with real reviews (ZOKY-121).
+    final rating = store.rating;
+    if (rating != null) {
+      parts.add('คะแนน ${rating.toStringAsFixed(1)}');
+    } else if (store.isNew) {
+      parts.add(ZokyStrings.newStore);
+    }
     if (store.hasEta) {
       parts.add(
         'ส่งประมาณ ${store.etaMinMinutes} ถึง ${store.etaMaxMinutes} ${ZokyStrings.minutes}',
@@ -38,6 +40,7 @@ class ZokyStoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rating = store.rating;
     final categories = store.categories.isEmpty
         ? const ['อาหาร']
         : store.categories.take(2);
@@ -68,20 +71,32 @@ class ZokyStoreCard extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: ZokySpacing.s2,
               children: [
-                const Icon(ZokyIcons.star, size: 14, color: ZokyColors.rating),
-                Text(
-                  store.isNew
-                      ? ZokyStrings.newStore
-                      : store.ratingAverage.toStringAsFixed(1),
-                  style: ZokyTextStyles.weight(
-                    ZokyTextStyles.bodySm.copyWith(
-                      color: ZokyColors.textPrimary,
-                    ),
-                    FontWeight.w700,
+                if (rating != null) ...[
+                  const Icon(
+                    ZokyIcons.star,
+                    size: 14,
+                    color: ZokyColors.rating,
                   ),
-                ),
-                if (!store.isNew && store.ratingCount > 0)
+                  Text(
+                    rating.toStringAsFixed(1),
+                    style: ZokyTextStyles.weight(
+                      ZokyTextStyles.bodySm.copyWith(
+                        color: ZokyColors.textPrimary,
+                      ),
+                      FontWeight.w700,
+                    ),
+                  ),
                   Text('(${store.ratingCount})', style: ZokyTextStyles.bodySm),
+                ] else if (store.isNew)
+                  Text(
+                    ZokyStrings.newStore,
+                    style: ZokyTextStyles.weight(
+                      ZokyTextStyles.bodySm.copyWith(
+                        color: ZokyColors.textPrimary,
+                      ),
+                      FontWeight.w700,
+                    ),
+                  ),
                 if (store.distanceKm != null)
                   Text(
                     '· ${store.distanceKm!.toStringAsFixed(1)} กม.',

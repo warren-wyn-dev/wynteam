@@ -145,12 +145,15 @@ class _StoreScreenState extends State<StoreScreen> {
                     color: ZokyColors.textSecondary,
                   ),
                 ),
-              Text(
-                store.isNew
-                    ? ZokyStrings.newStore
-                    : '★ ${store.ratingAverage.toStringAsFixed(1)}',
-                style: ZokyTextStyles.bodySm,
-              ),
+              // Same rule as the Home card: a score only with real reviews
+              // (ZOKY-121); "ร้านใหม่" copy unchanged.
+              if (store.rating != null)
+                Text(
+                  '★ ${store.rating!.toStringAsFixed(1)}',
+                  style: ZokyTextStyles.bodySm,
+                )
+              else if (store.isNew)
+                Text(ZokyStrings.newStore, style: ZokyTextStyles.bodySm),
               if (store.hasEta)
                 Text(
                   '${store.etaMinMinutes}–${store.etaMaxMinutes} ${ZokyStrings.minutes}',

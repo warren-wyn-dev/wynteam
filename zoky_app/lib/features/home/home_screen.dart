@@ -124,7 +124,7 @@ class HomeScreenState extends State<HomeScreen> {
             .where((s) => s.distanceKm != null && s.distanceKm! <= 3)
             .toList(),
       StoreFilter.rating =>
-        stores.where((s) => s.ratingAverage >= 4.5).toList(),
+        stores.where((s) => (s.rating ?? 0) >= 4.5).toList(),
     };
     // Open stores first, then by distance (parity C08).
     final sorted = [...filtered]
