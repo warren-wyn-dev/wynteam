@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/adaptive/adaptive.dart';
 import '../../core/adaptive/zoky_icons.dart';
 import '../../core/design/zoky_colors.dart';
 import '../../core/design/zoky_tokens.dart';
@@ -158,12 +159,14 @@ class HomeScreenState extends State<HomeScreen> {
   /// Web parity: the header heart opens the "ร้านโปรด" sheet. The app has
   /// no favorites storage yet, so for the Phase 1 review the sheet only
   /// says "เร็ว ๆ นี้" (it must not pretend to list saved stores).
+  ///
+  /// Adaptive sheet like the deal sheet (iOS/Android style, safe area,
+  /// height up to the screen); the content scrolls when it does not fit,
+  /// e.g. in landscape or at 200% text (ZOKY-122).
   void _openFavorites() {
-    showModalBottomSheet<void>(
+    showZokySheet<void>(
       context: context,
-      useSafeArea: true,
-      builder: (_) => const SafeArea(
-        top: false,
+      builder: (_) => const SingleChildScrollView(
         child: ZokyStateView.empty(
           icon: ZokyIcons.favorite,
           title: ZokyStrings.favoriteStores,

@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-122 ("ร้านโปรด" sheet overflows in landscape and at large text)
 
-Status: bugs
+Status: fixed — awaiting QA re-test
 Severity: **MEDIUM** (overflow at text ≥ 1.6 on small phones = accessibility; also in landscape at 1.0)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Home slice QA round, 2026-10-17, branch `docs/zoky-foundation` @ 895367c
@@ -28,14 +28,21 @@ Expected: The placeholder sheet fits or scrolls at every supported size and text
 
 Actual: Bottom overflow; in release the message is clipped.
 
-Root Cause (preliminary): fixed-height state view inside a height-capped, non-scrollable sheet.
+Root Cause (confirmed by Debug, 2026-10-17):
+Reproduced with the four un-skipped `ZOKY-122:` tests ("A RenderFlex overflowed ... on the bottom"). `_openFavorites()` used a plain `showModalBottomSheet` (not scroll-controlled → height capped at 9/16 of the screen) whose child `ZokyStateView.empty` is a fixed-height, non-scrollable Column (108pt circle + 2×32pt padding + title + message); when it is taller than the cap the Column overflows. It also bypassed the adaptive sheet, so iOS got a Material sheet.
 
-Fix (direction): wrap the content in a `SingleChildScrollView` (or use `showZokySheet`, which already handles height/safe area and platform style). Do not change the copy.
+Fix:
+`_openFavorites()` now uses `showZokySheet` (same as the deal sheet: Cupertino popup with grabber on iOS, M3 scroll-controlled sheet with drag handle on Android, bottom safe area) and wraps the unchanged `ZokyStateView.empty` in a `SingleChildScrollView`, so the content fits or scrolls. Copy unchanged.
 
-Files Changed: (for Debug) `home_screen.dart`; un-skip the repro tests.
+Files Changed:
+- `zoky_app/lib/features/home/home_screen.dart`
+- `zoky_app/test/qa/home_slice_qa_test.dart` (removed the `skip:` of the four repros; assertions unchanged)
+- `zoky_app/test/home_favorites_sheet_test.dart` (new: iOS + Android × 320×568@2.0, 667×375@2.0, 932×430@1.6 — no FlutterError, Cupertino route on iOS / Material on Android, message reachable on screen; all 6 fail on the old code)
 
-Tests: `ZOKY-122:` tests in `zoky_app/test/qa/home_slice_qa_test.dart` (skipped); passing baseline `header heart opens the "ร้านโปรด" placeholder only (390x844, text 2.0)`.
+Tests: QA repros + baseline `header heart ... (390x844, text 2.0)` pass; new tests pass.
 
-Regression Risk: Low.
+Regression Risk: Low. Android sheet now shows a drag handle (as the deal sheet). On iOS the Cupertino popup does not reserve the top status-bar inset; content only reaches it if taller than the screen, then it scrolls (same as the existing deal sheet).
+
+Debug Engineer: reproduced with QA tests; minimal change reusing the existing adaptive helper.
 
 Handoff to QA: re-run the table above on iOS and Android platform themes.

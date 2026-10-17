@@ -221,7 +221,6 @@ void main() {
         (tester) async {
           await openFavorites(tester, w, h, scale);
         },
-        skip: true, // Bug repro: .wyn/tasks/bugs/ZOKY-122-*.md
       );
     }
 
