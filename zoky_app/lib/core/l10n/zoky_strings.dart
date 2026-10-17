@@ -28,6 +28,18 @@ abstract final class ZokyStrings {
   // Placeholder until the favorite stores sheet ships (Home Phase 1 review).
   static const String comingSoon = 'เร็ว ๆ นี้';
   static const String searchHint = 'ค้นหาร้านหรือเมนูอาหาร';
+  // Home Phase 2 hero card (copy from the Founder Home mockup, Phase 2).
+  static const String heroFoodDelivery = 'FOOD DELIVERY';
+  static const String heroTitle = 'อยากกินอะไรวันนี้?';
+  // Same title with the mockup's line break (visual only; screen readers
+  // get [heroTitle]).
+  static const String heroTitleLines = 'อยากกินอะไร\nวันนี้?';
+  static const String heroSubtitle = 'ของอร่อยใกล้คุณ เริ่มที่นี่';
+  static const String heroSearchButton = 'ค้นหาของอร่อย';
+  // Store search screen opened from the hero button. Empty-result copy is
+  // a placeholder pending Founder review (not in the mockup or the web).
+  static const String searchNoResultsTitle = 'ไม่พบร้านที่ค้นหา';
+  static const String searchNoResultsBody = 'ลองค้นหาด้วยคำอื่น';
   static const String nearbyStores = 'ร้านใกล้คุณ';
   static const String filterAll = 'ทั้งหมด';
   static const String filterFreeDelivery = 'ส่งฟรี';
