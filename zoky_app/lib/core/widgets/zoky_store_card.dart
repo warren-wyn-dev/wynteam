@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/catalog/domain/catalog_models.dart';
+import '../../features/deals/widgets/zoky_deal_card.dart' show ZokyDemoBadge;
 import '../adaptive/zoky_icons.dart';
 import '../design/zoky_colors.dart';
 import '../design/zoky_tokens.dart';
@@ -58,7 +59,10 @@ class ZokyStoreCard extends StatelessWidget {
             _Photo(store: store),
             const SizedBox(height: ZokySpacing.s4),
             Text(
-              store.name,
+              // Sample stores carry the separate "ตัวอย่าง" badge on the
+              // photo instead of the name suffix, which could be ellipsized
+              // away (ZOKY-123, same as the Home recommended card).
+              store.isDemo ? store.nameWithoutDemoSuffix : store.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: ZokyTextStyles.weight(
@@ -144,17 +148,44 @@ class _Photo extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   _cover(),
-                  if (store.isAd)
+                  if (store.isDemo || store.isAd)
                     Positioned(
                       left: ZokySpacing.s4,
                       top: ZokySpacing.s4,
-                      child: _Overlay(
-                        maxWidth: half,
-                        label: ZokyStrings.adLabel,
-                        background: ZokyColors.neutral900.withValues(
-                          alpha: 0.72,
-                        ),
-                        foreground: ZokyColors.neutral0,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (store.isDemo)
+                            // One line, never cut: scales down to fit
+                            // (half width only next to the closed overlay).
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    (store.isOpen
+                                            ? constraints.maxWidth -
+                                                  2 * ZokySpacing.s4
+                                            : half)
+                                        .clamp(0, double.infinity),
+                              ),
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.topLeft,
+                                child: ZokyDemoBadge(),
+                              ),
+                            ),
+                          if (store.isDemo && store.isAd)
+                            const SizedBox(height: ZokySpacing.s2),
+                          if (store.isAd)
+                            _Overlay(
+                              maxWidth: half,
+                              label: ZokyStrings.adLabel,
+                              background: ZokyColors.neutral900.withValues(
+                                alpha: 0.72,
+                              ),
+                              foreground: ZokyColors.neutral0,
+                            ),
+                        ],
                       ),
                     ),
                   if (!store.isOpen)

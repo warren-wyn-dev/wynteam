@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-123 ("(ร้านตัวอย่าง)" demo label cut off on store grid cards)
 
-Status: bugs
+Status: fixed — awaiting QA re-test
 Severity: **MEDIUM** (Founder rule: every demo store must carry the sample label in every state)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Home slice QA round, 2026-10-17, branch `docs/zoky-foundation` @ 895367c
@@ -18,14 +18,21 @@ Expected: The sample marking is always visible, whatever the name length (e.g. t
 
 Actual: Label truncated away on narrow screens with enlarged text.
 
-Root Cause (preliminary): the demo label lives inside the truncatable name text instead of a separate, non-truncatable element.
+Root Cause (confirmed by Debug, 2026-10-17):
+Reproduced with the un-skipped `ZOKY-123:` test (Anuphan loaded, 320pt × 1.3): the three listed names exceed `maxLines: 2` and the " (ร้านตัวอย่าง)" suffix is the ellipsized part. `ZokyStoreCard` had no demo marking other than the suffix inside the truncatable name `Text`.
 
-Fix (direction): reuse `ZokyDemoBadge` on the grid photo (as Phase 4 did), or render the suffix as its own widget. Do not invent new copy.
+Fix:
+Same approach as the Home recommended card: for `store.isDemo` the grid card shows `nameWithoutDemoSuffix` and puts the existing `ZokyDemoBadge` ("ตัวอย่าง", no new copy) at the top-left of the photo, one line, scaled down (`FittedBox`) only if needed so it is never cut. Width limit: full photo width minus gaps, or half the photo when the top-right "ปิดอยู่" overlay is present. When the store is also an ad, the "โฆษณา" overlay stacks under the badge in the same top-left column (no overlap). The screen-reader label still reads the full name including "(ร้านตัวอย่าง)" (unchanged).
 
-Files Changed: (for Debug) `zoky_app/lib/core/widgets/zoky_store_card.dart`; un-skip the repro.
+Files Changed:
+- `zoky_app/lib/core/widgets/zoky_store_card.dart`
+- `zoky_app/test/qa/home_slice_qa_test.dart` (removed `skip:`; assertion unchanged — it now passes because no ellipsizable suffix text exists on the grid card)
+- `zoky_app/test/store_card_demo_badge_test.dart` (new, real font: 320/360/390/430 × 1.0/1.3/2.0 — every demo card has exactly one badge inside the card, badge text not clipped, no overlap with "ปิดอยู่"/"โฆษณา", no suffix in the visible name; non-demo store has no badge)
 
-Tests: `ZOKY-123:` test in `zoky_app/test/qa/home_slice_qa_test.dart` (skipped). Note: tests must load the Anuphan font — with the default test font every name looks truncated.
+Tests: QA repro + new tests + `widgets_layout_test.dart`, `shell_navigation_test.dart`, `home_hero_card_test.dart` pass.
 
-Regression Risk: Low.
+Regression Risk: Low. Visible name on the grid no longer contains "(ร้านตัวอย่าง)" (the badge replaces it, as on Home). StoreScreen title/body still show the full name with the suffix.
+
+Debug Engineer: reproduced with the QA test; reused `ZokyDemoBadge`; combined with ZOKY-125 (1:1 photo) the top-left column has more room.
 
 Handoff to QA: re-run at 320/360/375/390/414/430 × 1.0/1.3/1.6/2.0 with the real font.

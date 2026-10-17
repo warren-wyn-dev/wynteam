@@ -488,7 +488,6 @@ void main() {
         }
         expect(cut, isEmpty);
       },
-      skip: true, // Bug repro: .wyn/tasks/bugs/ZOKY-123-*.md
     );
 
     testWidgets(
