@@ -344,3 +344,22 @@
   ถ้าเจอ assertion ที่อ้างอิงค่าเดิม ให้อัปเดตพร้อมกันในรอบเดียวกัน และต้องรัน `web/tests/browser/` (regression
   suite ที่มีอยู่แล้ว) จริงก่อนส่ง QA เสมอ ไม่ใช่แค่ `npm run check` — สอดคล้องกับ pattern เดียวกับ WYN-176
   batch 6 (test coverage gap ที่หลุดเพราะไม่ cross-check ชุด assertion เดิม/ใหม่ให้ครบก่อน commit)
+
+### [2026-10-17] ZOKY-120..125 — "ฉากหลังที่ไม่เลื่อนตาม" ต้องผูกกับ scroll offset และกฎข้อมูลเดียวกันต้องใช้ getter เดียวทุกหน้าจอ
+- บริบท (ZOKY-120): Home วาง `ColoredBox` สีชมพูแบบ fixed ไว้ใต้ `CustomScrollView` เพื่อให้ iOS overscroll bounce
+  เห็นสีชมพู โดยคอมเมนต์อ้างว่า "header บังไว้เสมอ" — จริง ๆ header เลื่อนแต่ฉากหลังไม่เลื่อน พอเลื่อนเกินความสูงของ
+  ฉากหลัง เนื้อหาที่โปร่งใส (หัวข้อ section, ข้อความ "ข้อมูลตัวอย่าง") จึงไปอยู่บนสีชมพู contrast เหลือ ~1.4:1
+- บทเรียน: ฉากหลังที่มีไว้เติมช่อง overscroll ต้องคำนวณจาก scroll offset (`max(0, base - pixels)`) ไม่ใช่ขนาดคงที่ —
+  ที่ offset 0 ได้ขนาดเดิม (ภาพที่ Founder อนุมัติไม่เปลี่ยน, ยืนยันด้วย screenshot ก่อน/หลังแบบ byte-identical)
+  ฟังทั้ง `ScrollNotification` และ `ScrollMetricsNotification` (depth 0) เพื่อรองรับ offset ที่เปลี่ยนจาก layout เช่น
+  หมุนจอ และอย่า clamp ค่า offset ด้วยค่าที่ขึ้นกับ MediaQuery ณ ตอนเลื่อน (ค่าเก่าจะค้างเมื่อ inset เปลี่ยน)
+  และเมื่อเอาพื้นหลังที่ "บังเอิญ" ช่วย contrast ออก ให้ตรวจสิ่งที่พึ่งพามันอยู่ด้วย (ที่นี่คือสี status bar — ยืนยันด้วย
+  test ว่า region default ของแอปให้ไอคอนสีเข้มเมื่อ header พ้นไป)
+- บริบท (ZOKY-121/123/125): Home card ใช้กฎใหม่ (`ZokyStoreSummary.rating`, badge "ตัวอย่าง", รูป 1:1) แต่การ์ด grid /
+  StoreScreen ที่ห่างไปแค่หนึ่ง tap ยังใช้ logic เดิม (`isNew`/`ratingAverage`, suffix ในชื่อที่ถูก ellipsis, 4:3)
+- บทเรียน: เมื่อเพิ่ม getter/กฎใหม่ตาม Founder decision ให้ `grep` หาทุก call site ของ field ดิบ (`ratingAverage`,
+  `isNew`, `aspectRatio: 4 / 3`, `demoNameSuffix`) แล้วแก้พร้อมกัน ป้ายบังคับ (demo label, การเปิดเผยโฆษณา) ต้องเป็น
+  widget แยกที่ตัดไม่ได้ ไม่ใช่ส่วนหนึ่งของข้อความที่ `maxLines`/`ellipsis` ตัดได้
+- การนำไปใช้ในอนาคต: test ที่ตรวจ "ข้อความต้องไม่ถูกตัด" ต้องโหลดฟอนต์จริง (Anuphan ผ่าน `FontLoader`) และ test ที่
+  ตรวจ repro แบบ "หาไม่เจอ" (`findsNothing`) ควรมี test ยืนยันเชิงบวกคู่กัน (badge มีครบทุกการ์ด / rated store ยังแสดง
+  คะแนน) เพื่อไม่ให้ผ่านแบบว่างเปล่า

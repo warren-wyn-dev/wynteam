@@ -291,3 +291,19 @@
   มีประโยชน์สำหรับยืนยัน live rendering/cascade แต่ไม่ทดแทน regression suite เดิมที่มี literal-string assertion
   ผูกกับค่า CSS อยู่แล้ว ควร `grep -rn "<ค่าเดิมที่กำลังจะแก้>" web/tests/browser/` ก่อนแก้ CSS ทุกครั้งเพื่อหา
   assertion ที่ต้องอัปเดตพร้อมกัน (รายละเอียดเต็มที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน)
+
+### [2026-10-17] ZOKY-120: ฉากหลังสีชมพูแบบ fixed ใต้ scroll view โผล่หลังเนื้อหาเมื่อเลื่อน + กฎเรตติ้ง/ป้ายตัวอย่าง/รูป 1:1 ไม่ถูกนำไปใช้กับการ์ด grid (ZOKY-121/123/125)
+
+- เกิดอะไรขึ้น: `HomeScreen._phase1()` ใส่ `Positioned` สีชมพูสูง `paddingTop + 24` ไว้ใต้ `CustomScrollView` เพื่อ
+  overscroll bounce โดยเชื่อว่า header บังไว้เสมอ แต่ฉากหลังไม่เลื่อนตาม header เมื่อเลื่อนลงเนื้อหาจึงอยู่บนแถบชมพู
+  นอกจากนี้ตอนทำ Phase 4 เพิ่ม `rating` getter, `ZokyDemoBadge` และรูป 1:1 ให้การ์ด Home แต่ไม่ได้แก้
+  `ZokyStoreCard`/`StoreScreen` ที่อยู่ถัดไปหนึ่ง tap และแผ่น "ร้านโปรด" ใช้ `showModalBottomSheet` ตรง ๆ ที่สูงจำกัด
+  ไม่เลื่อนได้ (ZOKY-122)
+- ผลกระทบ: ข้อความตัวอย่างตามกฎ Founder อ่านไม่ออก (HIGH), ร้านเดียวกันดูมีคะแนนบางหน้าแต่ไม่มีอีกหน้า, ป้าย
+  "(ร้านตัวอย่าง)" หายบนจอแคบ, รูปร้าน crop ต่างกันระหว่างหน้า, sheet ล้นในแนวนอน/ตัวอักษรใหญ่ — ต้องเปิดรอบ QA/Debug เพิ่ม
+- จับได้อย่างไร: AI QA & Security รัน device matrix × text scale พร้อม sample pixel ใต้ status bar และ FlutterError capture
+- วิธีป้องกันในอนาคต: (1) อะไรก็ตามที่วางใต้ scroll view เพื่อ overscroll ต้องผูกขนาดกับ scroll offset และมี test
+  sample pixel หลังเลื่อน (`test/home_overscroll_backdrop_test.dart`); (2) เพิ่มกฎใหม่ให้ข้อมูลร้าน → grep หา field ดิบ
+  ทุกจุดแล้วแก้ในรอบเดียว (`test/store_rating_rule_test.dart`, `test/store_card_demo_badge_test.dart`,
+  `test/store_card_photo_ratio_test.dart`); (3) sheet ทุกอันใช้ `showZokySheet` + เนื้อหาเลื่อนได้
+  (`test/home_favorites_sheet_test.dart`) — รายละเอียดที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน
