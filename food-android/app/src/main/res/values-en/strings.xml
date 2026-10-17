@@ -262,4 +262,11 @@
     <string name="promo_inbox_copy_code">Copy code %1$s</string>
     <string name="promo_inbox_copied">Code copied</string>
     <string name="promo_inbox_code_disclaimer">A copied code is not an applied discount. Eligibility and the final total must be verified by the checkout server.</string>
+    <string name="slip_preview_title">Slip selection preview (Staging)</string>
+    <string name="slip_preview_no_upload">Preview an image on this device only. This does not upload or submit payment proof to the merchant.</string>
+    <string name="slip_preview_selected_local">Image selected, but not submitted</string>
+    <string name="slip_preview_choose">Choose slip image</string>
+    <string name="slip_preview_replace">Replace image</string>
+    <string name="slip_preview_remove">Remove image</string>
+    <string name="slip_preview_image_description">Preview of selected payment slip</string>
 </resources>
