@@ -23,6 +23,10 @@ abstract final class ZokyStrings {
 
   // Home.
   static const String deliverTo = 'ส่งถึง';
+  // Header heart button + sheet title (web: aria-label / Sheet "ร้านโปรด").
+  static const String favoriteStores = 'ร้านโปรด';
+  // Placeholder until the favorite stores sheet ships (Home Phase 1 review).
+  static const String comingSoon = 'เร็ว ๆ นี้';
   static const String searchHint = 'ค้นหาร้านหรือเมนูอาหาร';
   static const String nearbyStores = 'ร้านใกล้คุณ';
   static const String filterAll = 'ทั้งหมด';

@@ -18,6 +18,13 @@ abstract final class ZokyColors {
   static const Color blush = Color(0xFFF1E4F5);
   static const Color brandLine = Color(0xFFF9C0DE);
 
+  // Header gradient stops, from the "bg" gradient of the Founder-approved
+  // logo (design-reference/zoky/zoky-logo.svg): top -> 35% -> bottom.
+  // Background only: never put body text on these (see D1 above).
+  static const Color headerTop = Color(0xFFFF5AA8);
+  static const Color headerMid = Color(0xFFF7287A);
+  static const Color headerBottom = brand;
+
   // Neutral scale.
   static const Color neutral0 = Color(0xFFFFFFFF);
   static const Color neutral25 = Color(0xFFF8FAFE); // Cloud White

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/design/zoky_theme.dart';
@@ -36,6 +37,17 @@ class ZokyApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
         ],
+        // Default status bar: dark content for the white screens. The pink
+        // Home header overrides it with its own light region while it is on
+        // screen (statusBarBrightness is the iOS field).
+        builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+          child: child!,
+        ),
         home: const ZokyShell(),
       ),
     );

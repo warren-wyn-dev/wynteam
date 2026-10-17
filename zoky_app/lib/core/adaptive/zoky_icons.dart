@@ -30,6 +30,7 @@ abstract final class ZokyIcons {
   static const IconData location = Icons.location_on_outlined; // MapPin
   static const IconData chevronRight = Icons.chevron_right_rounded;
   static const IconData cart = Icons.shopping_bag_outlined;
+  static const IconData favorite = Icons.favorite_border_rounded; // Heart
 
   // Adaptive (design 11.2): back, share, more.
   static IconData back(BuildContext context) =>

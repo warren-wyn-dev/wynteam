@@ -14,17 +14,33 @@ import '../../core/widgets/zoky_store_card.dart';
 import '../catalog/data/store_repository.dart';
 import '../catalog/domain/catalog_models.dart';
 import '../store/store_screen.dart';
+import 'widgets/zoky_home_header.dart';
 
 /// Client-side store filters (parity C04, same rules as the web).
 enum StoreFilter { all, freeDelivery, promo, near, rating }
+
+/// Home redesign review switch (Founder mockup, Phase 1 = header + logo).
+///
+/// While false, หน้าหลัก shows only the new [ZokyHomeHeader] above a plain
+/// white canvas so the Founder can review Phase 1 on its own; the earlier
+/// demo body (search, filter chips, store grid) is kept intact behind this
+/// flag and comes back when it is true. Phases 2-4 replace the canvas.
+const bool kShowLegacyHomeBody = false;
 
 /// หน้าหลัก placeholder: header, search, filter chips and the store grid.
 /// Banners, featured stores, deals, re-order and popular sections arrive in
 /// ZOKY-106 (parity C01-C16).
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.repository});
+  const HomeScreen({
+    super.key,
+    required this.repository,
+    this.showLegacyBody = kShowLegacyHomeBody,
+  });
 
   final StoreRepository repository;
+
+  /// See [kShowLegacyHomeBody]; tests pass true to cover the old body.
+  final bool showLegacyBody;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -39,7 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    // The Phase 1 review canvas shows no stores, so it fetches nothing.
+    if (widget.showLegacyBody) _load();
   }
 
   Future<void> _load() async {
@@ -90,8 +107,63 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Web parity: the header heart opens the "ร้านโปรด" sheet. The app has
+  /// no favorites storage yet, so for the Phase 1 review the sheet only
+  /// says "เร็ว ๆ นี้" (it must not pretend to list saved stores).
+  void _openFavorites() {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      builder: (_) => const SafeArea(
+        top: false,
+        child: ZokyStateView.empty(
+          icon: ZokyIcons.favorite,
+          title: ZokyStrings.favoriteStores,
+          messages: [ZokyStrings.comingSoon],
+        ),
+      ),
+    );
+  }
+
+  /// Phase 1 review layout: new header, then a plain white canvas.
+  Widget _phase1() {
+    final bottomInset = ZokyBottomNav.reservedHeight(context);
+    return ColoredBox(
+      color: ZokyColors.surface,
+      child: Stack(
+        children: [
+          // Pink behind the top edge so an iOS overscroll bounce reveals
+          // the header color instead of a white gap. Always covered by the
+          // header otherwise.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.paddingOf(context).top + ZokySpacing.s24,
+            child: const ColoredBox(color: ZokyColors.headerTop),
+          ),
+          CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: ZokyHomeHeader(onFavorites: _openFavorites),
+              ),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: ColoredBox(
+                  color: ZokyColors.surface,
+                  child: SizedBox(height: bottomInset),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!widget.showLegacyBody) return _phase1();
     final bottomInset = ZokyBottomNav.reservedHeight(context);
     return SafeArea(
       bottom: false,
