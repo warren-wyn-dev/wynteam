@@ -51,6 +51,12 @@ abstract final class ZokyStrings {
   static const String demoBadge = 'ตัวอย่าง';
   static const String demoDealPrefix = 'ตัวอย่างดีล';
   static const String demoDealDisclaimer = 'ตัวอย่าง — ยังไม่ใช่โปรโมชันจริง';
+  // Home Phase 4 "ร้านอาหารแนะนำ" (title from the Founder mockup).
+  static const String recommendedTitle = 'ร้านอาหารแนะนำ';
+  static const String seeAllRecommended = 'ดูทั้งหมด ร้านอาหารแนะนำ';
+  static const String allStoresTitle = 'ร้านอาหารทั้งหมด';
+  static const String demoStorePrefix = 'ร้านตัวอย่าง';
+  static const String saveFavoritePrefix = 'บันทึกร้านโปรด';
   static const String filterAll = 'ทั้งหมด';
   static const String filterFreeDelivery = 'ส่งฟรี';
   static const String filterPromo = 'มีโปรฯ';

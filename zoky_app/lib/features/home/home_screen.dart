@@ -22,6 +22,7 @@ import '../search/store_search_screen.dart';
 import '../store/store_screen.dart';
 import 'widgets/zoky_food_hero_card.dart';
 import 'widgets/zoky_home_header.dart';
+import 'widgets/zoky_recommended_stores_section.dart';
 import 'widgets/zoky_today_deals_section.dart';
 
 /// Client-side store filters (parity C04, same rules as the web).
@@ -30,11 +31,10 @@ enum StoreFilter { all, freeDelivery, promo, near, rating }
 /// Home redesign review switch (Founder mockup, built phase by phase).
 ///
 /// While false, หน้าหลัก shows the new [ZokyHomeHeader] (Phase 1), the
-/// [ZokyFoodHeroCard] (Phase 2) and [ZokyTodayDealsSection] (Phase 3) above
-/// a plain white canvas so the Founder can review each phase on its own;
-/// the earlier demo body (search, filter chips, store grid) is kept intact
-/// behind this flag and comes back when it is true. Phase 4 fills the rest
-/// of the canvas.
+/// [ZokyFoodHeroCard] (Phase 2), [ZokyTodayDealsSection] (Phase 3) and
+/// [ZokyRecommendedStoresSection] (Phase 4) so the Founder can review each
+/// phase; the earlier demo body (search, filter chips, store grid) is kept
+/// intact behind this flag and comes back when it is true.
 const bool kShowLegacyHomeBody = false;
 
 /// หน้าหลัก placeholder: header, search, filter chips and the store grid.
@@ -146,6 +146,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Phase 4 card heart. There is no favorites storage yet, so instead of
+  /// pretending to save it opens the same "ร้านโปรด · เร็ว ๆ นี้" sheet as
+  /// the header heart (Phase 1).
+  void _favoriteStore(ZokyStoreSummary store) => _openFavorites();
+
+  /// Phase 4 "ดูทั้งหมด": the existing store listing (directory), without
+  /// popping the keyboard.
+  void _openAllStores() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => StoreSearchScreen(
+          repository: widget.repository,
+          title: ZokyStrings.allStoresTitle,
+          autofocus: false,
+        ),
+      ),
+    );
+  }
+
   void _openDeal(ZokyDeal deal) => showZokyDealSheet(context, deal);
 
   void _openAllDeals() {
@@ -210,7 +229,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   onSeeAll: _openAllDeals,
                 ),
               ),
-              // Phase 4 area: still empty.
+              // Phase 4, directly under Phase 3's row (same rhythm).
+              SliverToBoxAdapter(
+                child: ZokyRecommendedStoresSection(
+                  repository: widget.repository,
+                  onOpenStore: _openStore,
+                  onFavorite: _favoriteStore,
+                  onSeeAll: _openAllStores,
+                ),
+              ),
+              // Room for the floating bottom nav: scrolled to the end, the
+              // last row sits fully above it (Founder rule: the nav never
+              // covers content).
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: ColoredBox(

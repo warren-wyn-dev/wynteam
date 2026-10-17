@@ -21,9 +21,19 @@ import '../store/store_screen.dart';
 ///
 /// Placeholder until the full search experience (ZOKY-106) is specified.
 class StoreSearchScreen extends StatefulWidget {
-  const StoreSearchScreen({super.key, required this.repository});
+  const StoreSearchScreen({
+    super.key,
+    required this.repository,
+    this.title = ZokyStrings.heroSearchButton,
+    this.autofocus = true,
+  });
 
   final StoreRepository repository;
+
+  /// Page title: "ค้นหาของอร่อย" from the hero search, "ร้านอาหารทั้งหมด"
+  /// from Home "ดูทั้งหมด" (browse first, so no keyboard).
+  final String title;
+  final bool autofocus;
 
   @override
   State<StoreSearchScreen> createState() => _StoreSearchScreenState();
@@ -87,7 +97,7 @@ class _StoreSearchScreenState extends State<StoreSearchScreen> {
         // Pushed-page title: centered on iOS, start-aligned on Android
         // (design 11.2).
         centerTitle: isCupertino(context),
-        title: const Text(ZokyStrings.heroSearchButton),
+        title: Text(widget.title),
       ),
       body: CustomScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -113,7 +123,7 @@ class _StoreSearchScreenState extends State<StoreSearchScreen> {
         ZokySpacing.s8,
       ),
       child: TextField(
-        autofocus: true,
+        autofocus: widget.autofocus,
         textInputAction: TextInputAction.search,
         onChanged: _search,
         onSubmitted: _search,
