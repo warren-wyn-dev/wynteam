@@ -2288,3 +2288,9 @@ reconciliation นี้ต้องอ่านจาก Stripe (`application_f
 **ยังรอ Founder อนุมัติ** (ดู `.wyn/docs/product/zoky-decision-proposal.md` และ `.wyn/company/APPROVALS.md`): ค่าใช้จ่าย Codemagic / Apple Developer / Google Play, bundle ID, การแก้ backend ที่ผูกโดเมนเดิม (Stripe Origin allowlist, push routing), Sign in with Apple และการลบบัญชีในแอป, ลำดับ cutover โดเมนและ redirect, การทำ TestFlight/internal testing ระหว่าง production freeze
 
 **ขอบเขต**: เป็นการตัดสินใจทิศทางผลิตภัณฑ์ ยังไม่ใช่การอนุมัติแก้ application source, backend, โดเมน production หรือ deploy — ทุกอย่างต้องผ่าน gate เดิม
+
+### [2026-10-17] ZOKY Design System — คำตอบ Founder ต่อคำถามเปิด
+
+1. **สีปุ่ม**: ใช้ Pink Deep `#D61256` สำหรับปุ่มและพื้นที่มีตัวหนังสือขาว (ผ่าน WCAG AA) — โลโก้/ไอคอน/ไฮไลต์ยังใช้ ZOKY Pink `#F21967`
+2. **ไฟล์โลโก้ฉบับจริง (vector)**: ให้ทีม AI วาดเองจากโลโก้ต้นฉบับ แบบ A — หน้าตาต้องเหมือนเดิม
+3. **เว็บเดิม**: ไม่แก้เรื่อง pinch-zoom และขนาดปุ่มเล็กตอน rebrand เป็น ZOKY — คงพฤติกรรมเดิม
