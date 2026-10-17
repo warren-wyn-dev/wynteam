@@ -14,18 +14,21 @@ import '../../core/widgets/zoky_store_card.dart';
 import '../../core/widgets/zoky_store_grid.dart';
 import '../catalog/data/store_repository.dart';
 import '../catalog/domain/catalog_models.dart';
+import '../search/store_search_screen.dart';
 import '../store/store_screen.dart';
+import 'widgets/zoky_food_hero_card.dart';
 import 'widgets/zoky_home_header.dart';
 
 /// Client-side store filters (parity C04, same rules as the web).
 enum StoreFilter { all, freeDelivery, promo, near, rating }
 
-/// Home redesign review switch (Founder mockup, Phase 1 = header + logo).
+/// Home redesign review switch (Founder mockup, built phase by phase).
 ///
-/// While false, หน้าหลัก shows only the new [ZokyHomeHeader] above a plain
-/// white canvas so the Founder can review Phase 1 on its own; the earlier
-/// demo body (search, filter chips, store grid) is kept intact behind this
-/// flag and comes back when it is true. Phases 2-4 replace the canvas.
+/// While false, หน้าหลัก shows the new [ZokyHomeHeader] (Phase 1) and the
+/// [ZokyFoodHeroCard] (Phase 2) above a plain white canvas so the Founder
+/// can review each phase on its own; the earlier demo body (search, filter
+/// chips, store grid) is kept intact behind this flag and comes back when
+/// it is true. Phases 3-4 fill the rest of the canvas.
 const bool kShowLegacyHomeBody = false;
 
 /// หน้าหลัก placeholder: header, search, filter chips and the store grid.
@@ -56,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // The Phase 1 review canvas shows no stores, so it fetches nothing.
+    // The phased review canvas shows no stores, so it fetches nothing.
     if (widget.showLegacyBody) _load();
   }
 
@@ -108,6 +111,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Hero button: store search/browse, which continues into [StoreScreen].
+  void _openSearch() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => StoreSearchScreen(repository: widget.repository),
+      ),
+    );
+  }
+
   /// Web parity: the header heart opens the "ร้านโปรด" sheet. The app has
   /// no favorites storage yet, so for the Phase 1 review the sheet only
   /// says "เร็ว ๆ นี้" (it must not pretend to list saved stores).
@@ -126,7 +138,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Phase 1 review layout: new header, then a plain white canvas.
+  /// How far the hero card rises into the header's white sheet, leaving a
+  /// small white gap under the pink like the mockup.
+  static const double _heroOverlap =
+      ZokyHomeHeader.sheetRadius - ZokySpacing.s6;
+
+  /// Phased review layout: header, hero card, then a plain white canvas.
   Widget _phase1() {
     final bottomInset = ZokyBottomNav.reservedHeight(context);
     return ColoredBox(
@@ -146,7 +163,24 @@ class _HomeScreenState extends State<HomeScreen> {
           CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
-                child: ZokyHomeHeader(onFavorites: _openFavorites),
+                // One box so the card's lifted top edge stays inside this
+                // sliver's hit-test area (the card is painted last, so it
+                // wins taps over the sheet it overlaps).
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ZokyHomeHeader(onFavorites: _openFavorites),
+                    Transform.translate(
+                      offset: const Offset(0, -_heroOverlap),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: ZokySpacing.gutter,
+                        ),
+                        child: ZokyFoodHeroCard(onSearch: _openSearch),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               SliverFillRemaining(
                 hasScrollBody: false,
