@@ -116,7 +116,7 @@ zoky_app/
 | B03–B07 | Supabase Auth (password, Google OAuth PKCE, signUp, reset, signOut) | Auth | `AuthRepository` | 105 |
 | C02/C08/C09/C11 | `food_store_directory(p_query)` | RPC | `StoreRepository.fetchDirectory` | 106 |
 | C03 | `food_active_home_banners` + bucket `food-banners` (public) | RPC + Storage | `HomeContentRepository` | 106 |
-| C05 | `food_active_featured_stores` | RPC | `HomeContentRepository` | 106 |
+| C05 | `food_active_featured_stores` (+ `food_store_directory` เพื่อเอาข้อมูลร้าน) | RPC | `StoreRepository.fetchRecommended` (Home เฟส 4 — ย้ายจาก `HomeContentRepository` ที่เสนอเดิม เพราะผลลัพธ์เป็นรายการร้าน; demo มีแล้ว) | 106 |
 | C12 | `food_ad_click(p_store_id, p_placement)` | RPC | `StoreRepository.recordAdClick` | 106 |
 | C14 | table `food_notifications` (select/update `read_at` ของตัวเอง) | Table | `PromotionRepository` | 111 |
 | C15 | table `food_marketing_preferences` (upsert) | Table | `PromotionRepository` | 111 |
@@ -146,6 +146,7 @@ zoky_app/
 ### 6.3 Model mapping
 
 - ตัวเลขเงินจาก PostgREST อาจเป็น `number | string` (เช่น `delivery_fee: number | string`) — parser ฝั่ง Dart ต้องรับทั้งสองแบบ (`num.tryParse`) และใช้ค่าเป็น "แสดงผล" เท่านั้น ยอดที่ยืนยันมาจาก quote
+- **คะแนน/เวลาส่ง (Home เฟส 4, Founder rule: แสดงเฉพาะเมื่อมีข้อมูลจริง)**: `rating_average`/`rating_count` ของ `food_store_directory` (aggregate จากรีวิว เท่ากับ `average`/`count` ของ `food_store_review_feed`) → `ZokyStoreSummary.rating` เป็น null เมื่อ `rating_count = 0`; ETA = `foodEstimateDeliveryRange` (prep_time_min/max + เดินทางจาก `distance_km` ของ `food_delivery_availability` ~22 กม./ชม. + 5 นาที) แต่ **ไม่ใช้ fallback 15/30 ของเว็บ** — ถ้าร้านไม่ได้ตั้ง prep time ให้ `etaMinMinutes/etaMaxMinutes` เป็น null และไม่แสดงเวลา
 - ตรรกะ client ที่ต้อง port ให้ผลเหมือนเว็บ (R8): `food-store-availability.ts` (เวลา Asia/Bangkok), `foodCartLineKey`, haversine/ETA, `foodPromoLabel` — ทำเป็น pure Dart + test เทียบ fixture เดียวกับเว็บ
 
 ---
