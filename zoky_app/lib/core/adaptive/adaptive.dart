@@ -149,6 +149,55 @@ Future<T?> showZokyActionSheet<T>({
   );
 }
 
+/// Content bottom sheet: a white rounded popup with a grabber over a
+/// Cupertino modal popup on iOS, M3 modal bottom sheet with a drag handle on
+/// Android. Both are dismissible by tapping the scrim or dragging down
+/// (Android) and respect the bottom safe area.
+Future<T?> showZokySheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+}) {
+  if (isCupertino(context)) {
+    return showCupertinoModalPopup<T>(
+      context: context,
+      builder: (sheetContext) => Material(
+        color: ZokyColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  width: 36,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: ZokyColors.neutral200,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              Flexible(child: builder(sheetContext)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  return showModalBottomSheet<T>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) =>
+        SafeArea(top: false, child: builder(sheetContext)),
+  );
+}
+
 /// Date picker: CupertinoDatePicker wheel in a bottom popup with a "เสร็จ"
 /// button on iOS, Material calendar dialog on Android.
 Future<DateTime?> showZokyDatePicker({

@@ -41,6 +41,16 @@ abstract final class ZokyStrings {
   static const String searchNoResultsTitle = 'ไม่พบร้านที่ค้นหา';
   static const String searchNoResultsBody = 'ลองค้นหาด้วยคำอื่น';
   static const String nearbyStores = 'ร้านใกล้คุณ';
+  // Home Phase 3 "ดีลเด็ดวันนี้" (title and "ดูทั้งหมด" from the Founder
+  // mockup). There is no backend yet, so every deal is sample data and the
+  // UI must say so (Founder rule: no real promotions or discounts).
+  static const String dealsTitle = 'ดีลเด็ดวันนี้';
+  static const String seeAll = 'ดูทั้งหมด';
+  static const String seeAllDeals = 'ดูทั้งหมด ดีลเด็ดวันนี้';
+  static const String dealsDemoNote = 'ข้อมูลตัวอย่าง ยังไม่ใช่โปรโมชันจริง';
+  static const String demoBadge = 'ตัวอย่าง';
+  static const String demoDealPrefix = 'ตัวอย่างดีล';
+  static const String demoDealDisclaimer = 'ตัวอย่าง — ยังไม่ใช่โปรโมชันจริง';
   static const String filterAll = 'ทั้งหมด';
   static const String filterFreeDelivery = 'ส่งฟรี';
   static const String filterPromo = 'มีโปรฯ';
