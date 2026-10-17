@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_dependencies.dart';
-import '../../core/adaptive/zoky_icons.dart';
+import '../../core/widgets/zoky_3d_icon.dart';
 import '../../core/l10n/zoky_strings.dart';
 import '../../core/widgets/zoky_bottom_nav.dart';
 import '../account/account_screen.dart';
@@ -14,7 +14,7 @@ import '../orders/orders_screen.dart';
 enum ZokyTab { home, orders, messages, account }
 
 /// App shell: IndexedStack keeps each tab's state (parity A05) with the
-/// shared floating bottom nav on top.
+/// shared bottom tab bar on top.
 ///
 /// Android/system back from any other tab returns to หน้าหลัก first; back on
 /// หน้าหลัก leaves the app (A05).
@@ -27,10 +27,20 @@ class ZokyShell extends StatefulWidget {
 
 class _ZokyShellState extends State<ZokyShell> {
   ZokyTab _tab = ZokyTab.home;
+  final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
   void _select(ZokyTab tab) {
     if (tab == _tab) return;
     setState(() => _tab = tab);
+  }
+
+  /// Nav tap: re-tapping the selected หน้าหลัก scrolls it to the top.
+  void _onNavTap(ZokyTab tab) {
+    if (tab == _tab && tab == ZokyTab.home) {
+      _homeKey.currentState?.scrollToTop();
+      return;
+    }
+    _select(tab);
   }
 
   @override
@@ -48,6 +58,7 @@ class _ZokyShellState extends State<ZokyShell> {
               index: _tab.index,
               children: [
                 HomeScreen(
+                  key: _homeKey,
                   repository: deps.storeRepository,
                   promotionRepository: deps.promotionRepository,
                 ),
@@ -62,27 +73,24 @@ class _ZokyShellState extends State<ZokyShell> {
               bottom: 0,
               child: ZokyBottomNav(
                 currentIndex: _tab.index,
-                onSelected: (index) => _select(ZokyTab.values[index]),
+                onSelected: (index) => _onNavTap(ZokyTab.values[index]),
+                // Exactly these four, in this order (Founder, Phase 5).
                 items: const [
                   ZokyNavItem(
                     label: ZokyStrings.navHome,
-                    icon: ZokyIcons.home,
-                    activeIcon: ZokyIcons.homeActive,
+                    glyph: Zoky3DGlyph.home,
                   ),
                   ZokyNavItem(
                     label: ZokyStrings.navOrders,
-                    icon: ZokyIcons.orders,
-                    activeIcon: ZokyIcons.orders,
+                    glyph: Zoky3DGlyph.receipt,
                   ),
                   ZokyNavItem(
                     label: ZokyStrings.navMessages,
-                    icon: ZokyIcons.messages,
-                    activeIcon: ZokyIcons.messages,
+                    glyph: Zoky3DGlyph.chat,
                   ),
                   ZokyNavItem(
                     label: ZokyStrings.navAccount,
-                    icon: ZokyIcons.account,
-                    activeIcon: ZokyIcons.account,
+                    glyph: Zoky3DGlyph.person,
                   ),
                 ],
               ),

@@ -330,15 +330,22 @@ void main() {
     expect(heights.length, 1);
   });
 
-  for (final (w, h) in [(430.0, 932.0), (375.0, 667.0)]) {
-    testWidgets('scrolled to the end, the nav covers no card at ${w}x$h', (
-      tester,
-    ) async {
-      await pumpZokyApp(tester, width: w, height: h);
+  for (final (w, h, inset) in [
+    (430.0, 932.0, 34.0),
+    (390.0, 844.0, 34.0),
+    (375.0, 667.0, 0.0),
+    (320.0, 568.0, 0.0),
+  ]) {
+    testWidgets('scrolled to the end, the nav covers no card at ${w}x$h '
+        '(bottom inset $inset)', (tester) async {
+      await pumpZokyApp(tester, width: w, height: h, bottomInset: inset);
       await _scrollHomeToEnd(tester);
       final nav = tester.getRect(find.byType(ZokyBottomNav));
       final navTop =
           h - ZokyBottomNav.reservedHeight(tester.element(_row())) + 8;
+      // Phase 5 bar: 56pt of items on top of the safe-area inset.
+      expect(nav.top, h - ZokyBottomNav.contentHeight - inset);
+      expect(navTop, nav.top);
       for (var i = 0; i < 2; i++) {
         final card = tester.getRect(_cards().at(i));
         expect(card.bottom, lessThan(nav.top));

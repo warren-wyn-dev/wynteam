@@ -1,34 +1,39 @@
-import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../design/zoky_colors.dart';
 import '../design/zoky_tokens.dart';
 import '../design/zoky_typography.dart';
+import 'zoky_3d_icon.dart';
 
 /// One destination of [ZokyBottomNav].
 class ZokyNavItem {
   const ZokyNavItem({
     required this.label,
-    required this.icon,
-    required this.activeIcon,
+    required this.glyph,
     this.badgeCount = 0,
     this.badgeSemanticLabel,
   });
 
   final String label;
-  final IconData icon;
-  final IconData activeIcon;
+
+  /// Drawn as a gray line icon when unselected and as the glossy 3D pink
+  /// icon (same path) when selected.
+  final Zoky3DGlyph glyph;
   final int badgeCount;
 
   /// e.g. "{n} ออเดอร์ที่กำลังดำเนินการ" for the orders tab.
   final String? badgeSemanticLabel;
 }
 
-/// Floating pill bottom navigation (design 9.8, web `fx-nav`). Shared on
-/// every platform: deliberately not CupertinoTabBar / NavigationBar because
-/// the nav is part of the brand. Labels clamp at 1.3x text scale.
+/// Full-width bottom tab bar (design 9.8, Home Phase 5). Shared on every
+/// platform: deliberately not CupertinoTabBar / NavigationBar because the
+/// nav is part of the brand.
+///
+/// White "glossy control" surface (white -> faint pink, pink hairline on
+/// top, soft pink shadow upward). It extends under the home indicator and
+/// pads its items by the bottom safe-area inset. Unselected: gray line
+/// icon + gray label; selected: glossy 3D pink icon + bold pink label.
 class ZokyBottomNav extends StatelessWidget {
   const ZokyBottomNav({
     super.key,
@@ -41,59 +46,84 @@ class ZokyBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onSelected;
 
-  /// Distance from the bottom edge: max(8, safe-area - 12) (design 9.8).
-  static double bottomOffset(BuildContext context) {
-    final safe = MediaQuery.paddingOf(context).bottom;
-    return math.max(8, safe - 12);
-  }
+  /// Height of the item row, above the bottom safe-area inset.
+  static const double contentHeight = 56;
 
-  /// Space screens must leave free at the bottom so content can scroll
-  /// clear of the floating nav.
+  /// Icon size of every item (line and 3D share it).
+  static const double iconSize = 26;
+
+  /// Labels stop growing at this text scale so the bar never overflows.
+  static const double maxLabelScale = 1.2;
+
+  /// Bottom of the bar's surface gradient (labels' worst-case background).
+  static const Color surfaceBottom = Color(0xFFFFF7FA);
+
+  /// Pink-tinted hairline along the top edge.
+  static const Color hairline = Color(0x80F9C0DE);
+
+  /// Total painted height: items + bottom safe-area inset.
+  static double barHeight(BuildContext context) =>
+      contentHeight + MediaQuery.paddingOf(context).bottom;
+
+  /// Space screens must leave free at the bottom so the last content row
+  /// scrolls fully clear of the nav (bar height + an 8pt gap).
   static double reservedHeight(BuildContext context) =>
-      ZokySizes.bottomNav + bottomOffset(context) + ZokySpacing.s4;
+      barHeight(context) + ZokySpacing.s4;
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final navWidth = math.min(width - 24, ZokySizes.navMaxWidth);
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomOffset(context)),
-      child: Center(
-        heightFactor: 1,
-        child: SizedBox(
-          width: navWidth,
-          height: ZokySizes.bottomNav,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              borderRadius: ZokyRadius.full,
-              boxShadow: ZokyShadows.e4,
+    final inset = MediaQuery.paddingOf(context).bottom;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [ZokyColors.surface, surfaceBottom],
+          ),
+          border: Border(top: BorderSide(color: hairline, width: 0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x14EE226E), // #EE226E @ 8%
+              offset: Offset(0, -2),
+              blurRadius: 16,
             ),
-            child: ClipRRect(
-              borderRadius: ZokyRadius.full,
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: ZokyColors.surface.withValues(alpha: 0.94),
-                    borderRadius: ZokyRadius.full,
-                    border: Border.all(
-                      color: ZokyColors.neutral900.withValues(alpha: 0.06),
-                    ),
-                  ),
-                  child: MediaQuery.withClampedTextScaling(
-                    maxScaleFactor: 1.3,
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < items.length; i++)
-                          Expanded(
-                            child: _NavButton(
-                              item: items[i],
-                              selected: i == currentIndex,
-                              onTap: () => onSelected(i),
-                            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: inset),
+          child: Center(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: ZokySizes.navMaxWidth,
+              ),
+              child: SizedBox(
+                height: contentHeight,
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: maxLabelScale,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < items.length; i++)
+                        Expanded(
+                          child: _NavButton(
+                            item: items[i],
+                            selected: i == currentIndex,
+                            duration: reduceMotion
+                                ? Duration.zero
+                                : ZokyMotion.base,
+                            onTap: () {
+                              if (i != currentIndex) {
+                                HapticFeedback.selectionClick();
+                              }
+                              onSelected(i);
+                            },
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -109,22 +139,28 @@ class _NavButton extends StatelessWidget {
   const _NavButton({
     required this.item,
     required this.selected,
+    required this.duration,
     required this.onTap,
   });
 
   final ZokyNavItem item;
   final bool selected;
+  final Duration duration;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? ZokyColors.actionPrimary : ZokyColors.neutral600;
+    // 12pt (one step above caption) so the Thai tone marks stay legible.
+    final base = ZokyTextStyles.caption.copyWith(fontSize: 12);
     final labelStyle = selected
         ? ZokyTextStyles.weight(
-            ZokyTextStyles.caption.copyWith(color: ZokyColors.actionPrimary),
+            base.copyWith(color: ZokyColors.actionPrimary),
             FontWeight.w700,
           )
-        : ZokyTextStyles.caption.copyWith(color: ZokyColors.textSecondary);
+        : ZokyTextStyles.weight(
+            base.copyWith(color: ZokyColors.textSecondary),
+            FontWeight.w500,
+          );
     final badge = item.badgeCount > 0
         ? (item.badgeCount > 9 ? '9+' : '${item.badgeCount}')
         : null;
@@ -136,76 +172,102 @@ class _NavButton extends StatelessWidget {
         item.label,
         if (badge != null) item.badgeSemanticLabel ?? badge,
       ].join(', '),
+      // The tap action must live on this node: excludeSemantics drops the
+      // InkResponse's own action.
+      onTap: onTap,
       excludeSemantics: true,
-      child: InkWell(
+      child: InkResponse(
         onTap: onTap,
-        customBorder: const StadiumBorder(),
+        containedInkWell: true,
+        highlightShape: BoxShape.rectangle,
+        splashColor: ZokyColors.blush.withValues(alpha: 0.6),
+        highlightColor: Colors.transparent,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Stack(
               clipBehavior: Clip.none,
               children: [
-                AnimatedContainer(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : ZokyMotion.base,
-                  width: 48,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: selected ? ZokyColors.blush : Colors.transparent,
-                    borderRadius: ZokyRadius.full,
-                  ),
-                  child: Icon(
-                    selected ? item.activeIcon : item.icon,
-                    size: ZokySizes.iconMd,
-                    color: color,
+                SizedBox.square(
+                  dimension: ZokyBottomNav.iconSize,
+                  child: AnimatedSwitcher(
+                    duration: duration,
+                    switchInCurve: ZokyMotion.standard,
+                    switchOutCurve: ZokyMotion.exit,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(
+                          begin: 0.85,
+                          end: 1,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: Zoky3DIcon(
+                      item.glyph,
+                      key: ValueKey(selected),
+                      size: ZokyBottomNav.iconSize,
+                      style: selected
+                          ? Zoky3DIconStyle.glossy
+                          : Zoky3DIconStyle.line,
+                      lineColor: ZokyColors.neutral600,
+                    ),
                   ),
                 ),
                 if (badge != null)
                   Positioned(
-                    right: 2,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      decoration: BoxDecoration(
-                        color: ZokyColors.brandDeep,
-                        borderRadius: ZokyRadius.full,
-                        border: Border.all(
-                          color: ZokyColors.neutral0,
-                          width: 2,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        badge,
-                        style: ZokyTextStyles.weight(
-                          ZokyTextStyles.caption.copyWith(
-                            color: ZokyColors.neutral0,
-                            height: 1,
-                          ),
-                          FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                    right: -10,
+                    top: -5,
+                    child: _Badge(text: badge),
                   ),
               ],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: AnimatedDefaultTextStyle(
+                duration: duration,
+                curve: ZokyMotion.standard,
                 style: labelStyle,
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+      decoration: BoxDecoration(
+        color: ZokyColors.brandDeep,
+        borderRadius: ZokyRadius.full,
+        border: Border.all(color: ZokyColors.neutral0, width: 2),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        style: ZokyTextStyles.weight(
+          ZokyTextStyles.caption.copyWith(
+            color: ZokyColors.neutral0,
+            height: 1,
+          ),
+          FontWeight.w700,
         ),
       ),
     );

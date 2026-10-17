@@ -55,10 +55,35 @@ class HomeScreen extends StatefulWidget {
   final bool showLegacyBody;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+/// Public so the shell can call [scrollToTop] when the selected หน้าหลัก
+/// tab is tapped again (iOS convention).
+class HomeScreenState extends State<HomeScreen> {
+  /// Any widget inside the scroll view, to reach its [Scrollable] without
+  /// replacing the inherited (iOS status-bar tap) scroll controller.
+  final GlobalKey _scrollAnchor = GlobalKey();
+
+  /// Scrolls the home feed back to the top (instantly with reduced motion).
+  void scrollToTop() {
+    final anchor = _scrollAnchor.currentContext;
+    if (anchor == null) return;
+    final position = Scrollable.maybeOf(anchor)?.position;
+    if (position == null || position.pixels == position.minScrollExtent) {
+      return;
+    }
+    if (MediaQuery.disableAnimationsOf(context)) {
+      position.jumpTo(position.minScrollExtent);
+    } else {
+      position.animateTo(
+        position.minScrollExtent,
+        duration: const Duration(milliseconds: 360),
+        curve: ZokyMotion.standard,
+      );
+    }
+  }
+
   List<ZokyStoreSummary>? _stores;
   Object? _error;
   StoreFilter _filter = StoreFilter.all;
@@ -199,6 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 // sliver's hit-test area (the card is painted last, so it
                 // wins taps over the sheet it overlaps).
                 child: Column(
+                  key: _scrollAnchor,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     ZokyHomeHeader(onFavorites: _openFavorites),
@@ -232,7 +258,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onSeeAll: _openAllStores,
                 ),
               ),
-              // Room for the floating bottom nav: scrolled to the end, the
+              // Room for the bottom nav: scrolled to the end, the
               // last row sits fully above it (Founder rule: the nav never
               // covers content).
               SliverFillRemaining(
@@ -257,7 +283,9 @@ class _HomeScreenState extends State<HomeScreen> {
       bottom: false,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: _header()),
+          SliverToBoxAdapter(
+            child: KeyedSubtree(key: _scrollAnchor, child: _header()),
+          ),
           SliverToBoxAdapter(child: _search()),
           SliverToBoxAdapter(child: _filters()),
           SliverPadding(
