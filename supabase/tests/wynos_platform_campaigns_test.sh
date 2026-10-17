@@ -151,16 +151,9 @@ expect_internal_fail() {
 # on this throwaway PostgreSQL DB, not on Production.
 run >/dev/null <<SQL
 alter table public.food_orders add column if not exists buyer_id uuid;
-alter table public.food_platform_campaigns add column if not exists coupon_required boolean not null default false;
-create table public.food_coupon_codes (
-  id uuid primary key, platform_campaign_id uuid, code text,
-  is_active boolean not null default true, starts_at timestamptz default now(),
-  ends_at timestamptz, max_total_uses integer, max_uses_per_user integer
-);
-create table public.food_coupon_redemptions(order_id uuid, coupon_id uuid, user_id uuid);
-create function internal.food_coupon_usage_active(p_order_id uuid)
-returns boolean language sql stable as \$\$ select false \$\$;
+alter table public.food_orders add column if not exists payment_due_at timestamptz;
 SQL
+run < "$ROOT/supabase/migrations/20261008161000_food_admin_coupons.sql" >/dev/null
 run < "$ROOT/supabase/migrations/20261009120000_food_first_order_merchant_funded.sql" >/dev/null
 expect_db "select count(*) from public.food_platform_campaigns where first_order_only" "0" "first-order offer starts disabled and is not created by migration"
 expect_fail "$MOD" "select public.admin_food_first_order_set_active(true)" "moderators cannot enable the offer" "Only admins"
@@ -205,3 +198,8 @@ expect_eq "$BUYER" "select public.food_first_order_offer('$STORE')->>'eligible'"
 expect_eq "$ADMIN" "select public.admin_food_first_order_set_active(false)='$FIRST_ID'" "t" "Admin can deactivate"
 expect_db "select is_active::text from public.food_campaigns where id='$FIRST_STORE_ID'" "false" "deactivation disables joined store campaign"
 echo "PASS: First-order fixed offer integration, merchant cost, cancellation and server redemption enforcement"
+
+# Extend this existing campaign/funding fixture through the real customer
+# quote/create RPCs, including final coupon wrappers and parallel placement.
+PSQL="$PSQL" python3 "$ROOT/supabase/tests/food_first_order_checkout_test.py" \
+  "$DB" "$STORE" "$OWNER" "$ADMIN" "$FIRST_ID"
