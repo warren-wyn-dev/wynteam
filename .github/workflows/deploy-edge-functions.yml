@@ -37,6 +37,13 @@ on:
           - merchant-stripe-connect
           - merchant-stripe-refund
           - stripe-webhook
+          # ZOKY-135 (Founder approval 2026-10-18). WARNING: supabase/config.toml
+          # has no [functions.wynos-maps-geocode] entry, so a CLI deploy uses
+          # verify_jwt = true. Before dispatching, the Founder must confirm the
+          # live "Verify JWT" setting in the Supabase dashboard; if it is off,
+          # add the matching config.toml entry first or guest geocoding breaks
+          # (zoky-web-release-plan.md section 4).
+          - wynos-maps-geocode
 
 jobs:
   deploy:
