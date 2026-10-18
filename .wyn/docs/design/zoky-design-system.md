@@ -1,6 +1,8 @@
-# ZOKY Design System v0.1 (PROPOSED)
+# ZOKY Design System v0.1 (PROPOSED — บางส่วน APPROVED)
 
-> โดย AI Design | 2026-10-17 | สถานะ: **PROPOSED, รอ Founder review**
+> โดย AI Design | 2026-10-17 | สถานะ: **PROPOSED, รอ Founder review** ยกเว้นส่วนที่ Founder อนุมัติแล้ว (sync ตาม `.wyn/company/DECISIONS.md` 2026-10-17 และ CTO review C1 2026-10-18):
+> - **APPROVED 2026-10-17**: ข้อ 7.1 "ZOKY Glossy 3D" (รวมข้อ 10 nav selected 3D), การ์ดดีลเฟส 3, การ์ดร้านแนะนำเฟส 4 (รูป 1:1, ไม่มีหัวใจบนรูป), ข้อ 9.8 capsule nav + ชุดไอคอน rounded + selected ไอคอนทึบชมพู 3D (Home Phase 1–5 อนุมัติครบ)
+> - ทางเลือกไอคอน nav อื่น (`classic3d` / `apple` / `appleSoft3d` "D2" / M1 / M2 tiles / `outlinePink`): **superseded 2026-10-17** ลบออกจากโค้ดแล้ว (CTO C2, ย้อนดูได้จาก git history)
 > ขอบเขต: ZOKY คือการ rebrand แอปสั่งอาหารฝั่งลูกค้าของ WYNOS Food (`food.wynos.online` ย้ายไป `zoky.online`) ครอบคลุม Web (Next.js เดิม) + iOS + Android (Flutter แอปใหม่หนึ่งตัว) feature parity เต็มกับเว็บ
 > Tokens แบบ machine-readable: `design-reference/zoky/tokens.json`
 > เอกสารนี้เป็นเอกสารออกแบบเท่านั้น ไม่ได้อนุมัติให้แก้ application source, เพิ่ม dependency หรือ deploy
@@ -368,7 +370,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 - ชุดไอคอน: **Lucide** (เว็บใช้ `lucide-react` อยู่แล้ว ฝั่ง Flutter ใช้ Lucide port หรือ export SVG ชุดเดียวกัน ให้ Architect เป็นคนเลือก dependency)
 - Stroke ปกติ 1.9, active 2.3 (ตามเว็บ) ขนาด 16 / 20 (มาตรฐาน) / 24, illustration ของ empty state 44–46 stroke 1.25–1.6
-- Nav (ก่อน D2, ยังอยู่เป็น `ZokyNavIconStyle.classic3d`): วาดเองใน `Zoky3DIcon` (`home`, `receipt`, `chat`, `person`) ทรงตาม Lucide `House` / `ReceiptText` / `MessageCircle` / `UserRound` ดูข้อ 9.8
+- Nav: ชุด rounded วาดเองใน `ZokyNavIcon` (`ZokyNavGlyph.home/orders/messages/account`) ดูข้อ 9.8 — ชุดเดิมทรง Lucide ใน `Zoky3DIcon` (`classic3d`) **superseded 2026-10-17** ลบออกจากโค้ดแล้ว
 - ไอคอนที่ต่างตาม platform: กลับ, แชร์, more (ข้อ 11)
 - สี: ปกติ `text.primary`, รอง `neutral.600`/`neutral.400`, เน้น `brand.pink`, สถานะใช้ semantic
 - ไอคอนตกแต่งต้อง `aria-hidden` / `ExcludeSemantics` ไอคอนที่เป็นปุ่มต้องมี label
@@ -376,7 +378,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 ### 7.1 "ZOKY Glossy 3D" — brand surface + 3D icons (APPROVED by Founder 2026-10-17)
 
-> ที่มา: Founder feedback 2026-10-17 "เฟส1 เฟส2 ทุกอย่างต้องไปในทิศทางเดียวกัน … ไอคอนชอบฟีล 3D" — ยังเป็นข้อเสนอ ไม่ใช่ decision
+> ที่มา: Founder feedback 2026-10-17 "เฟส1 เฟส2 ทุกอย่างต้องไปในทิศทางเดียวกัน … ไอคอนชอบฟีล 3D" — Founder อนุมัติพร้อม Phase 3 (DECISIONS 2026-10-17 "ZOKY Home Phase 3 + Glossy 3D")
 
 **Surface recipe** (โค้ดเดียว: `zoky_app/lib/core/widgets/zoky_glossy_surface.dart` → `ZokyGloss`, `ZokyGlossPainter`, `ZokyGlossySurface`)
 
@@ -402,7 +404,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 7. Glyph ตอนนี้: `heart` (ปุ่มร้านโปรด), `sparkle` (ดาว 4 แฉกใน pill), `arrowRight` (ลูกแก้วชมพู + ลูกศรขาวนูน ท้ายปุ่มค้นหา)
 8. Semantics: ค่าเริ่มต้นเป็น decorative (`ExcludeSemantics`) — label อยู่ที่ปุ่มแม่ (เช่น "ร้านโปรด"); ถ้าไอคอนยืนเดี่ยวให้ส่ง `semanticLabel`
 9. ไอคอน 3D ใช้เป็น *brand accent* เท่านั้น ไอคอนระบบ/nav ยังเป็น line icon ตามข้อ 7 (ไม่ทำทั้งแอปเป็น 3D)
-10. **(PROPOSED เฟส 5)** ข้อยกเว้นเดียวของข้อ 9: แท็บ nav ที่ *ถูกเลือก* แสดงเป็น 3D, แท็บอื่นเป็น line icon สีเทา — glyph `home`, `receipt`, `chat`, `person` มี 2 style (`Zoky3DIconStyle.line` / `.glossy`) จาก path เดียวกัน; แบบ glossy ขยาย 1.1× รอบจุดกลางเพื่อชดเชยเส้น stroke ที่ล้นออกนอก path ให้ขนาดตาเท่ากัน
+10. **(APPROVED 2026-10-17, Phase 5)** ข้อยกเว้นเดียวของข้อ 9: แท็บ nav ที่ *ถูกเลือก* แสดงเป็นไอคอนทึบชมพู 3D (Founder เลือกแบบ 3), แท็บอื่นเป็น outline สีเทา ทรงเดียวกัน — วาดด้วย `ZokyNavIcon` ชุด rounded (ดูข้อ 9.8) ไม่ใช่ `Zoky3DIcon`; แบบเดิมที่ใช้ `Zoky3DIconStyle.line` / `.glossy` กับ glyph `home/receipt/chat/person` (`classic3d`) **superseded 2026-10-17** ลบออกจากโค้ดแล้ว
 
 **Contrast บนพื้นชมพู** (WCAG 2.x)
 
@@ -422,7 +424,7 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 - ลูกศรท้ายการ์ด `Zoky3DIcon(arrowRight, 24)`, ภาพอาหาร `ZokyDealIllustration` (ชานมไข่มุก ไก่ทอด เบอร์เกอร์ ราเมง) แสงเดียวกับไอคอน 3D
 - ข้อมูลตัวอย่างต้องมีป้าย "ตัวอย่าง" ทุกการ์ด + หมายเหตุใต้หัวข้อ section และ sheet บอก "ตัวอย่าง — ยังไม่ใช่โปรโมชันจริง" (Founder rule: ห้ามสร้างโปรจริง/อ้างส่วนลดจริง)
 
-**การ์ดร้านแนะนำเฟส 4** (`zoky_app/lib/features/home/widgets/zoky_recommended_store_card.dart` → `ZokyRecommendedStoreCard`, **PROPOSED — รอ Founder review**)
+**การ์ดร้านแนะนำเฟส 4** (`zoky_app/lib/features/home/widgets/zoky_recommended_store_card.dart` → `ZokyRecommendedStoreCard`, APPROVED 2026-10-17 — รูป 1:1, ไม่มีหัวใจบนรูป)
 
 - แถวเดียวเลื่อนแนวนอน กว้าง 40% ของจอ (148–184pt) เห็น 2 ใบ + ใบที่ 3 โผล่ขอบขวา, ระยะห่าง/padding/หัวข้อเหมือนเฟส 3 (`ZokyHomeSectionHeader` ตัวเดียวกัน)
 - การ์ดขาว radius `lg` (16) เงาชมพูเดียวกับการ์ดดีล; รูปปก inset 4pt radius 12 สัดส่วน 1:1 (รูปอาหารทุกจุดเป็น 1:1 — Founder 2026-10-17) (`ZokyStoreCover`: รูปจริงจาก `coverUrl` ถ้ามี ไม่งั้นภาพอาหาร 3D วาดด้วยโค้ดบนพื้น tint อ่อน + gloss 50% สูง 30px + rim ขาว)
@@ -522,13 +524,13 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 
 ### 9.8 Bottom navigation (`fx-nav`), shared ทุก platform
 
-> Home เฟส 5b (2026-10-17) **PROPOSED — ตาม reference ที่ Founder ส่งมา 2026-10-17, รอ Founder review** แทนแบบแถบเต็มความกว้างของเฟส 5 (commit e1f44ac) โค้ด: `zoky_app/lib/core/widgets/zoky_bottom_nav.dart`
+> Home เฟส 5b (2026-10-17) **APPROVED 2026-10-17 (DECISIONS "ZOKY Home Phase 5")** — capsule ลอยตาม reference ที่ Founder ส่งมา แทนแบบแถบเต็มความกว้างของเฟส 5 (commit e1f44ac) โค้ด: `zoky_app/lib/core/widgets/zoky_bottom_nav.dart`
 
 - **Capsule ลอย** สีขาว `#FFFFFF` สูง 64 radius = สูง/2 (stadium) ห่างขอบซ้าย/ขวา 16 (+ side safe area) ยกจากขอบล่างเท่ากับ bottom safe inset (34 บน iPhone 15 Pro Max) ขั้นต่ำ 12 เมื่อ inset = 0 (iPhone SE); บนจอกว้างกว้างสูงสุด 560 อยู่กลาง เนื้อหาเลื่อนผ่านด้านข้าง/ใต้ capsule ได้ (แบบ reference) และพื้นที่ margin ไม่รับ tap แทนเนื้อหา
 - เงา: กว้างนุ่ม `#3B1A29` @14% blur 36 y 10 (neutral อมชมพูจาง) + `#16161A` @6% blur 4 y 1; hairline 0.5px ink @8% รอบ capsule
 - 4 แท็บเท่านั้น ลำดับ: หน้าหลัก / ออเดอร์ / ข้อความ / บัญชี (ห้ามเพิ่มบริการอื่น) ช่องกว้างเท่ากัน padding ในซ้าย/ขวา 6
 - ไม่ active: line icon 26pt `neutral.600` #6B6B76 + label 13/500 `text.secondary` บนขาว
-- Active: capsule highlight สี Blush `#FFEDF4` เต็มช่อง ห่างขอบบน/ล่างของ bar 6 + ไอคอน **ตัวเต็มชมพู 3D นุ่ม (แสงแบบ D2) ทรงเดียวกับ outline** (ดูหัวข้อ "ไอคอนแท็บ" ด้านล่าง) + label 13/700 `action.primary` #D61256
+- Active: capsule highlight สี Blush `#FFEDF4` เต็มช่อง ห่างขอบบน/ล่างของ bar 6 + ไอคอน **ตัวเต็มชมพู 3D นุ่ม ทรงเดียวกับ outline** (ดูหัวข้อ "ไอคอนแท็บ" ด้านล่าง) + label 13/700 `action.primary` #D61256
 - Contrast: label เทา/ขาว 5.26:1, label ชมพู/highlight 4.58:1 (วัดจาก pixel จริง 430×932@3x ตรงกัน 4.58:1), ตัวไอคอน 3D stop ล่าง `#E5135D`/highlight 4.07:1 (stop บน 2.35:1 เป็นไฮไลต์ — selected มี label ตัวหนาสีชมพูกำกับเสมอ), จุดแจ้งเตือน/ขาว 6.54:1
 - Motion: highlight เลื่อน (AnimatedAlign) 220ms `standard` ระหว่างแท็บ; ไอคอนสลับ line → 3D แบบ fade + scale 0.85→1 และสี/น้ำหนัก label 200ms (`base`); ทั้งหมดเป็นทันทีเมื่อ reduced motion; haptic `HapticFeedback.selectionClick` เมื่อเปลี่ยนแท็บ (ไม่สั่นเมื่อกดแท็บเดิม); ไม่มี hover disc
 - กดหน้าหลักซ้ำขณะอยู่หน้าหลัก = เลื่อนกลับบนสุด (แบบ iOS); แท็บอื่นเก็บ state (IndexedStack); Android back จากแท็บอื่นกลับหน้าหลักก่อน
@@ -538,16 +540,16 @@ Flutter: ใช้ `BoxShadow` ตาม token (ไม่ใช้ `Material.ele
 - พื้นที่กดเต็มช่อง (≥ 69 × 64 ที่กว้าง 320) แต่ละช่องเป็น `Semantics(button, selected, onTap)` label ภาษาไทยตรงตัว
 - เนื้อหาเว้นด้านล่าง `ZokyBottomNav.reservedHeight` = 64 + bottom offset + 8 ทุกหน้าจอ → แถวสุดท้ายของหน้าหลักอยู่เหนือ capsule เสมอเมื่อเลื่อนสุด (ทดสอบ 430×932/34, 390×844/34, 375×667/0, 320×568/0)
 - **ไม่ใช้** `CupertinoTabBar` หรือ Material `NavigationBar` เพราะ nav เป็นส่วนหนึ่งของแบรนด์ (แต่ใส่ semantics ให้ครบแบบ tab bar)
-- **ไอคอนแท็บ — ชุดตาม reference ที่ Founder ส่ง 2026-10-17 "เอาแบบนี้" (APPROVED shapes)** `ZokyNavIconStyle.rounded` = ค่าเริ่มต้นของ `ZokyBottomNav`/`ZokyNavIcon` และส่งชัดใน `zoky_shell.dart` แทนชุด D2/M1/M2/tile เดิม โค้ด: `zoky_app/lib/core/widgets/zoky_nav_icon.dart` (`_RoundedGlyph`) — วาดเองทั้งหมดด้วย CustomPainter บน grid 24 หน่วย (วัดสัดส่วนจาก reference ไม่ได้ trace artwork)
+- **ไอคอนแท็บ — ชุดตาม reference ที่ Founder ส่ง 2026-10-17 "เอาแบบนี้" (APPROVED 2026-10-17)** ชุดเดียวของ `ZokyNavIcon` (แท็บระบุด้วย `ZokyNavGlyph`) แทนชุด D2/M1/M2/tile เดิม (superseded) โค้ด: `zoky_app/lib/core/widgets/zoky_nav_icon.dart` (`_RoundedGlyph`) — วาดเองทั้งหมดด้วย CustomPainter บน grid 24 หน่วย (วัดสัดส่วนจาก reference ไม่ได้ trace artwork)
   - หน้าหลัก = บ้าน outline มน สมมาตร ยอดหลังคามนนุ่ม ชายคายื่นสั้น ผนังตรง มุมพื้นมน + **ช่องประตูโค้งมนตรงกลางด้านล่าง** (เส้นเดียวต่อเนื่อง ไม่มีปล่องไฟ)
   - ออเดอร์ = clipboard: กระดานสี่เหลี่ยมมุมมน ขอบบนหยุดที่ตัวหนีบมนตรงกลางด้านบน + เส้นสั้นชิดซ้าย 3 เส้น (สั้น/ยาว/กลาง)
   - ข้อความ = bubble วงรีเกือบกลม (~1.09:1) หางสั้นมนชี้ซ้ายล่าง + **จุด 3 จุด** ตรงกลาง
   - บัญชี = หัววงกลม + ตัวเป็นสี่เหลี่ยมมุมมน (มุมบนมนกว้าง มุมล่างมนเล็ก ก้นแบน) ไม่ใช่เส้นโค้ง
   - เส้น: หนาเท่ากันทุกไอคอน 6.8% ของขนาด (1.77pt ที่ 26pt = 1.62 บน grid 24) round cap/join — วัดจาก reference ได้เส้น ~4.8px ต่อไอคอนสูง ~63px (7.6% ของความสูงไอคอน) ไอคอนสูง ~21 หน่วยจาก 24 จึงได้ ~1.6 ไม่ใช่ 1.9–2.1 (ถ้า Founder อยากหนาขึ้น ปรับ `ZokyNavIcon.strokeFraction` ค่าเดียว)
   - ไม่ active: outline เทา `neutral.600` #6B6B76 (5.26:1 บนขาว)
-  - Active (`ZokyNavSelectedGlyph.filled3d`, shipped): ทรงเดียวกันแบบตัวเต็ม gradient แนวตั้ง `brandLight` #F4368D → `brandDeep` #D61256 + shade ล่างขวา + specular ซ้ายบน + เงาเล็ก `#C2185B` @32% (แสงแบบ D2); บ้านเจาะช่องประตู, clipboard เส้นขาว + ตัวหนีบแยกจากกระดานด้วยช่องว่าง (มีช่องขาวเล็กในตัวหนีบ), bubble จุดขาว 3 จุด, คนตัวเต็ม
-  - ทางเลือก (`ZokyNavSelectedGlyph.outlinePink`): outline เส้นเดิมสี `action.primary` #D61256 (4.58:1 บน highlight) — สลับได้บรรทัดเดียวที่ `selectedGlyph:` ใน `zoky_shell.dart`
-  - glyph อื่นที่ไม่มีเวอร์ชัน rounded, item ที่ส่ง `appleIcons` หรือ `tiled` จะใช้การวาดแบบ D2 (`appleSoft3d`) เดิม; `classic3d` / `apple` / `appleSoft3d` / M1 / M2 tile ยังเรียกได้ผ่าน API เพื่อ review แต่ไม่ใช้ใน shell แล้ว
+  - Active (**APPROVED 2026-10-17** — Founder เลือกแบบ 3 ไอคอนทึบสีชมพู 3D): ทรงเดียวกันแบบตัวเต็ม gradient แนวตั้ง `brandLight` #F4368D → `brandDeep` #D61256 + shade ล่างขวา + specular ซ้ายบน + เงาเล็ก `#C2185B` @32%; บ้านเจาะช่องประตู, clipboard เส้นขาว + ตัวหนีบแยกจากกระดานด้วยช่องว่าง (มีช่องขาวเล็กในตัวหนีบ), bubble จุดขาว 3 จุด, คนตัวเต็ม
+  - ~~ทางเลือก `outlinePink` (outline สีชมพู)~~ **superseded 2026-10-17** — Founder ไม่เลือก ลบออกจากโค้ดแล้ว
+  - ~~`classic3d` / `apple` / `appleSoft3d` (D2) / M1 / M2 tile / `appleIcons`~~ **superseded 2026-10-17** — ลบออกจากโค้ดแล้ว (CTO C2) หากต้องเทียบแบบเดิมให้ดูจาก git history
   - ต่างจาก reference: reference ไม่มีแท็บที่เลือก (ใช้ treatment ที่อนุมัติแล้วของเรา); เส้นแรกใน clipboard ของ reference จางมาก (น่าจะเป็น artifact) เราวาดเป็นเส้นทึบ; label 13pt ของเรา (เพื่อวรรณยุกต์ไทย) ทำให้ไอคอนดูเล็กกว่า reference เทียบกับ label เล็กน้อย
 - ตัวเลือกที่รอ Founder: ไอคอนออเดอร์แบบเอกสาร + นาฬิกาเล็ก (ตาม reference) แทน receipt เดิม; สีจุดแจ้งเตือนสว่างขึ้น (reference ใช้แดงสด) ซึ่งต้องเพิ่ม token ใหม่
 

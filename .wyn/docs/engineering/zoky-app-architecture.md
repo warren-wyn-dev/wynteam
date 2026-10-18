@@ -1,6 +1,10 @@
 # ZOKY App Architecture (Flutter iOS + Android) — ZOKY-103
 
-> โดย AI Coding (ทำหน้าที่ Architect สำหรับ slice นี้) | 2026-10-17 | สถานะ: **PROPOSED — รอ CTO review และ Founder อนุมัติข้อที่เป็น auth/security/infra**
+> โดย AI Coding (ทำหน้าที่ Architect สำหรับ slice นี้) | 2026-10-17 | สถานะ: **CTO-reviewed 2026-10-18** (`.wyn/docs/engineering/zoky-home-cto-review.md`)
+> - **APPROVED (CTO 2026-10-18)**: §1–7, §9–12, §14
+> - **PENDING FOUNDER APPROVAL**: §8 (auth + deep links), §13 (backend blockers R1/R2/R7), §16 (bundle ID / identity)
+> - §15 และ §17 ไม่อยู่ในขอบเขตการอนุมัติของ CTO review รอบนี้ (คงสถานะ PROPOSED)
+> - ไม่ใช่การอนุมัติ PRD ZOKY-100 (ยังรอ Founder) หรือ staging/production
 > PRD: `.wyn/tasks/backlog/ZOKY-100-zoky-customer-app.md` · Parity: `.wyn/docs/product/zoky-feature-parity.md` · Design: `.wyn/docs/design/zoky-design-system.md` + `design-reference/zoky/tokens.json`
 > Founder direction: `.wyn/company/DECISIONS.md` entry 2026-10-17
 >
