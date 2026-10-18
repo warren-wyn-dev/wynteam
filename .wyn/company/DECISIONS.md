@@ -2369,3 +2369,7 @@ Founder: "อยากให้ zoky.online พร้อมใช้งานจ
 
 ผล: อนุมัติทิศทาง D1 (rebrand ฝั่งลูกค้าบนเว็บ) และ D2 (โดเมน + redirect) ใน `.wyn/docs/product/zoky-decision-proposal.md` เพื่อเริ่ม ZOKY-113 (web rebrand code) และ ZOKY-114 (domain cutover) บน feature branch + staging
 ยังต้องขออนุมัติแยก (ไม่รวมในคำตัดสินนี้): ปลด production freeze สำหรับ release นี้, production deploy/cutover, การแก้ backend ที่ผูกโดเมนเดิม (Stripe origin allowlist, maps geocode origin — security-sensitive), การตั้งค่า DNS/Vercel/Supabase Auth/Google OAuth/Stripe ที่ Founder ต้องทำในบัญชีของตน
+
+### [2026-10-18] ZOKY — โดเมนเว็บคือ zoky.wynos.online (แทน zoky.online)
+
+Founder: "โดเมน zoky.wynos.online" แล้วเลือก **"zoky.wynos.online อย่างเดียว"** — เว็บ ZOKY ใช้ `zoky.wynos.online`; `food.wynos.online` และ `wynos.online/food*` redirect ไป `zoky.wynos.online` (คง path+query); ไม่ใช้ `zoky.online` ในแผนนี้ (แก้ไขคำตัดสินด้านบนเรื่องโดเมนเท่านั้น ส่วนอื่นคงเดิม) — การอนุมัติแยกที่ยังต้องขอยังคงเดิม
