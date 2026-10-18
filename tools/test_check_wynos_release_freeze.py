@@ -104,6 +104,14 @@ loosened = {
     "secrets read in guard job": replace("      - name: Exception has not expired\n        run: |",
                                          "      - name: Exception has not expired\n        env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: |"),
     "extra job added": lambda path: path.write_text(path.read_text() + "\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n"),
+    # Codex #1226: job keys the old text parser missed.
+    "quoted extra job key": lambda path: path.write_text(path.read_text() + '\n  "extra":\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n'),
+    "flow-style extra job": lambda path: path.write_text(path.read_text() + "\n  extra: {runs-on: ubuntu-latest, steps: [{run: echo hi}]}\n"),
+    "aliased copy of the deploy job": lambda path: path.write_text(
+        path.read_text().replace("\n  deploy:\n", "\n  deploy: &deploy_job\n", 1) + "\n  extra: *deploy_job\n"),
+    "edge environment replaced by a merge from the guard anchor": lambda path: path.write_text(
+        path.read_text().replace("\n  guard:\n", "\n  guard: &guard_job\n", 1).replace(
+            "inputs.phase == 'EDGE'\n    environment: production\n", "inputs.phase == 'EDGE'\n    <<: *guard_job\n", 1)),
     "credentials persisted": replace("persist-credentials: false", "persist-credentials: true"),
     "Vercel CLI unpinned": replace("vercel@63.1.2", "vercel@latest"),
     # Edge phase (ZOKY edge functions from the pinned SHA).

@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """Fail-closed regression gate for the WYNOS all-features-before-production freeze.
 
-This is an intentionally narrow source-code structural check, not a YAML parser
-or a substitute for reviewer / GitHub production environment approvals.
+The ZOKY exception and edge deploy workflows are checked on their parsed YAML
+(PyYAML, required; fails closed without it). Not a substitute for reviewer /
+GitHub production environment approvals.
 """
+import json
 import re
+import sys
 from pathlib import Path
+
+try:
+    import yaml
+except ImportError:  # fail closed: never pass without parsing
+    sys.exit("PyYAML is required (python3-yaml); refusing to pass without parsing workflows")
 
 ROOT = Path(__file__).resolve().parent.parent
 WF = ROOT / ".github" / "workflows"
@@ -46,115 +54,89 @@ for name in ("wynos-admin-consolidated-release.yml", "wyn-158-production-deploy.
     trigger = workflow.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
     assert "  push:" not in trigger, f"{name}: unexpected push deployment"
 
-def uncommented(text):
-    """Drop full-line comments so a commented-out line never satisfies a check."""
-    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+def load_workflow(path):
+    """Parse a workflow as YAML (anchors/aliases resolved, comments dropped)."""
+    data = yaml.safe_load(path.read_text())
+    assert isinstance(data, dict), f"{path.name}: not a YAML mapping"
+    return data
 
 
-def scalar(value):
-    """Plain YAML scalar without a trailing ` # comment`."""
-    return re.sub(r"\s+#.*$", "", value).strip()
+def trigger_of(workflow):
+    # PyYAML (YAML 1.1) reads the bare key `on` as boolean True.
+    return workflow.get("on", workflow.get(True))
 
 
-def top_level_block(text, key):
-    """Indented body of a top-level key; blank lines do not end it (Codex P2)."""
-    match = re.search(rf"^{key}:[ ]*\n((?:(?:[ ]{{2}}.*|[ \t]*)(?:\n|$))*)", text + "\n", re.M)
-    if not match:
-        return None
-    return "\n".join(line for line in match.group(1).splitlines() if line.strip())
+def as_list(value):
+    return value if isinstance(value, list) else [value]
 
 
-def block_value(block, key):
-    values = re.findall(rf"^[ ]{{2}}{key}:[ ]*(\S.*?)\s*$", block or "", re.M)
-    return scalar(values[0]) if len(values) == 1 else None
+def steps_of(job):
+    steps = job.get("steps")
+    assert isinstance(steps, list) and all(isinstance(step, dict) for step in steps), "steps must be a list of mappings"
+    return steps
 
 
-def jobs_of(text):
-    """Map job id -> uncommented job body, split on 2-space-indented keys under `jobs:`."""
-    body = text.split("\njobs:\n", 1)[1]
-    parts = re.split(r"^  ([A-Za-z0-9_-]+):[ ]*$", body, flags=re.M)
-    return {parts[i]: parts[i + 1] for i in range(1, len(parts), 2)}
+def runs_of(job):
+    return [str(step["run"]) for step in steps_of(job) if "run" in step]
 
 
-def job_key(job, key):
-    return [scalar(v) for v in re.findall(rf"^[ ]{{4}}{key}:[ ]*(.*?)\s*$", job, re.M)]
+def shell_text(job):
+    return "\n".join(runs_of(job))
 
 
-def run_bodies(text):
-    """Yield the shell text of every `run:` key (inline or block scalar)."""
-    lines = text.splitlines()
-    for i, line in enumerate(lines):
-        match = re.match(r"^(\s*)(- )?run:[ ]*(.*)$", line)
-        if not match:
-            continue
-        column = len(match.group(1)) + len(match.group(2) or "")
-        value = match.group(3)
-        if value[:1] not in ("|", ">"):
-            yield value
-            continue
-        body = []
-        for following in lines[i + 1:]:
-            if following.strip() and len(following) - len(following.lstrip()) <= column:
-                break
-            body.append(following)
-        yield "\n".join(body)
+def uses(step, action):
+    return str(step.get("uses", "")).split("@", 1)[0] == action
 
 
-def step_names(job):
-    return [scalar(v) for v in re.findall(r"^[ ]{6}- name:[ ]*(.*?)\s*$", job, re.M)]
-
-
-def first_step_name(job):
-    """Name of the first step in order, named or not (Codex P2: an unnamed step must not hide)."""
-    steps = re.split(r"^(?=[ ]{6}- )", job.split("\n    steps:\n", 1)[-1], flags=re.M)
-    steps = [step for step in steps if re.match(r"[ ]{6}- ", step)]
-    if not steps:
-        return None
-    name = re.search(r"^[ ]{6}(?:- |  )name:[ ]*(.*?)\s*$", steps[0], re.M)
-    return scalar(name.group(1)) if name else None
-
-
+INPUT_IN_SHELL = re.compile(r"\$\{\{[^}]*\binputs\.|github\.event\.inputs", re.I)
+SECRET_REF = re.compile(r"secrets\s*[.\[]", re.I)
+EXPIRY_TEST = '[[ "$today" > "$ZOKY_EXCEPTION_EXPIRES_UTC" ]]'
 PIN_AWK = (
     "awk '/^\\[/ { s = ($0 == \"[functions.wynos-maps-geocode]\") } "
     "s && /^verify_jwt[[:space:]]*=[[:space:]]*false[[:space:]]*$/ { f = 1 } END { exit !f }' supabase/config.toml"
 )
-INPUT_IN_SHELL = re.compile(r"\$\{\{[^}]*\binputs\.|github\.event\.inputs")
-EXPIRY_TEST = '[[ "$today" > "$ZOKY_EXCEPTION_EXPIRES_UTC" ]]'
 
 # Founder-approved ZOKY-only freeze exception (DECISIONS 2026-10-18, Option A).
 # The file may be deleted (exception closed); while it exists its scope guards
-# must stay intact. Checks are per job (CTO review R3), not per file.
+# must stay intact. Structural checks run on the parsed YAML, per job (CTO
+# review R3; Codex #1226: text parsing missed quoted/flow/aliased job keys).
 zoky = WF / "zoky-web-exception-release.yml"
 if zoky.exists():
-    raw = zoky.read_text()
-    workflow = uncommented(raw)
-    trigger = workflow.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
-    for forbidden in ("  push:", "  pull_request", "  workflow_run:", "  schedule:", "  repository_dispatch:"):
-        assert forbidden not in trigger, f"{zoky.name}: must be workflow_dispatch only ({forbidden.strip()})"
-    assert "  workflow_dispatch:" in trigger, f"{zoky.name}: manual-only trigger absent"
-    permissions = top_level_block(workflow, "permissions")
-    assert permissions is not None and permissions.strip() == "contents: read", (
-        f"{zoky.name}: permissions must stay contents: read"
+    name = zoky.name
+    wf = load_workflow(zoky)
+    trigger = trigger_of(wf)
+    assert isinstance(trigger, dict) and set(trigger) == {"workflow_dispatch"}, f"{name}: must be workflow_dispatch only"
+    inputs = (trigger["workflow_dispatch"] or {}).get("inputs") or {}
+    assert inputs.get("phase", {}).get("type") == "choice" and inputs["phase"].get("options") == ["EDGE", "PHASE1", "PHASE2"], (
+        f"{name}: phase options changed"
+    )
+    assert inputs.get("confirmation", {}).get("options") == ["CANCEL", "ZOKY_FREEZE_EXCEPTION_20261018"], (
+        f"{name}: confirmation options changed"
+    )
+    assert wf.get("permissions") == {"contents": "read"}, f"{name}: permissions must stay contents: read"
+
+    wyn158 = load_workflow(WF / "wyn-158-production-deploy.yml")
+    assert wf.get("concurrency") == {"group": "zoky-web-exception-release", "cancel-in-progress": False, "queue": "max"}, (
+        f"{name}: concurrency must be group zoky-web-exception-release, cancel-in-progress false, queue max"
+    )
+    assert wf["concurrency"]["group"] != (wyn158.get("concurrency") or {}).get("group"), (
+        f"{name}: must not share wyn-158's cancel-in-progress lane"
     )
 
-    concurrency = top_level_block(workflow, "concurrency")
-    group = block_value(concurrency, "group")
-    wyn158_group = block_value(
-        top_level_block(uncommented((WF / "wyn-158-production-deploy.yml").read_text()), "concurrency"), "group"
-    )
-    assert group == "zoky-web-exception-release", f"{zoky.name}: concurrency group must be zoky-web-exception-release"
-    assert group != wyn158_group, f"{zoky.name}: must not share wyn-158's cancel-in-progress lane"
-    assert block_value(concurrency, "cancel-in-progress") == "false", (
-        f"{zoky.name}: must not cancel an in-progress release"
-    )
-    assert block_value(concurrency, "queue") == "max", (
-        f"{zoky.name}: concurrency must use queue: max so a new dispatch never replaces a pending run"
-    )
+    env = wf.get("env") or {}
+    for key, value in {
+        "ZOKY_EXCEPTION_EXPIRES_UTC": "2026-11-30",
+        "ZOKY_RELEASE_BRANCH": "release/zoky-web-20261018",
+        "ZOKY_PRODUCTION_BASE_SHA": "b19687afdec361da846a2d9ceb11429547c92a24",
+        "ZOKY_EXCLUDED_SHAS": "806390ed8ab56810c6141b925e6b8aa6eb3eca49 55a290e9168ac8b82b5656cecf9ff10f4fce7bc0",
+        "ZOKY_EDGE_FUNCTIONS": "food-stripe-checkout food-stripe-cancel wynos-maps-geocode",
+    }.items():
+        assert env.get(key) == value, f"{name}: {key} changed or removed"
 
-    jobs = jobs_of(workflow)
-    assert set(jobs) == {"guard", "deploy", "edge"}, (
-        f"{zoky.name}: jobs must be exactly guard + deploy + edge, got {sorted(jobs)}"
-    )
+    jobs = wf.get("jobs")
+    assert isinstance(jobs, dict) and set(jobs) == {"guard", "deploy", "edge"} and all(
+        isinstance(job, dict) for job in jobs.values()
+    ), f"{name}: jobs must be exactly guard + deploy + edge, got {sorted(jobs or {})}"
     guard_job, deploy_job, edge_job = jobs["guard"], jobs["deploy"], jobs["edge"]
     gate = "github.ref == 'refs/heads/main' && inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018'"
     expected_if = {
@@ -162,70 +144,41 @@ if zoky.exists():
         "deploy": gate + " && inputs.phase != 'EDGE'",
         "edge": gate + " && inputs.phase == 'EDGE'",
     }
-    for name, job in jobs.items():
-        assert job_key(job, "if") == [expected_if[name]], f"{zoky.name}: {name} job lost its main-only + confirmation + phase gate"
-    assert "options: [EDGE, PHASE1, PHASE2]" in trigger, f"{zoky.name}: phase options changed"
-    for name in ("deploy", "edge"):
-        assert job_key(jobs[name], "environment") == ["production"], (
-            f"{zoky.name}: {name} job must use the protected production environment"
+    for job_name, job in jobs.items():
+        assert job.get("if") == expected_if[job_name], f"{name}: {job_name} job lost its main-only + confirmation + phase gate"
+        for key in ("permissions", "concurrency", "uses", "strategy", "container", "services"):
+            assert key not in job, f"{name}: {job_name} job must not set {key}"
+        first = steps_of(job)[0]
+        assert first.get("name") == "Exception has not expired" and EXPIRY_TEST in str(first.get("run", "")), (
+            f"{name}: {job_name} must start with the expiry check"
         )
-        assert job_key(jobs[name], "needs") == ["guard"], f"{zoky.name}: {name} must wait for scope guards"
-        assert "ref: ${{ inputs.release_sha }}" in jobs[name], f"{zoky.name}: {name} must check out the pinned release_sha"
-        assert 'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"' in jobs[name], f"{zoky.name}: {name} must re-verify HEAD"
-    for name, job in jobs.items():
-        assert job_key(job, "permissions") == [], f"{zoky.name}: {name} job must not override permissions"
-    assert job_key(guard_job, "environment") == [], f"{zoky.name}: guard job must run before (not inside) the review"
-    assert "secrets." not in guard_job, f"{zoky.name}: guard job must not read secrets"
+        assert shell_text(job).count(EXPIRY_TEST) == 1, f"{name}: {job_name} expiry comparison removed"
+        for body in runs_of(job):
+            assert not INPUT_IN_SHELL.search(body), f"{name}: inputs must reach run steps only via env: ({body.strip()[:60]})"
 
-    # Edge phase: only the 3 allowlisted functions, pinned CLI, verify_jwt pin.
-    assert 'ZOKY_EDGE_FUNCTIONS: "food-stripe-checkout food-stripe-cancel wynos-maps-geocode"' in workflow, (
-        f"{zoky.name}: edge function allowlist changed"
-    )
-    assert workflow.count("functions deploy") == 1 and (
-        'for fn in $ZOKY_EDGE_FUNCTIONS; do' in edge_job
-        and 'supabase functions deploy "$fn" --project-ref "$PROJECT_REF"' in edge_job
-    ), f"{zoky.name}: edge job may only deploy the allowlisted functions"
-    assert "--no-verify-jwt" not in workflow, f"{zoky.name}: verify_jwt must come from supabase/config.toml"
-    assert PIN_AWK in edge_job, f"{zoky.name}: edge job lost the wynos-maps-geocode verify_jwt = false pin"
-    assert "verify_jwt = false|#.*|" in guard_job and "verify_jwt = (true" not in guard_job, (
-        f"{zoky.name}: guard must only allow the verify_jwt = false geocode entry"
-    )
-    # PHASE1/PHASE2 pin ZOKY_LEGACY_FOOD_REDIRECT on the deployment (Codex P1).
-    for check in (
-        "PHASE: ${{ inputs.phase }}",
-        "PHASE1) legacy_redirect=0 ;;",
-        "PHASE2) legacy_redirect=1 ;;",
-        '--env ZOKY_LEGACY_FOOD_REDIRECT="$legacy_redirect"',
-    ):
-        assert check in deploy_job, f"{zoky.name}: deploy job must pin ZOKY_LEGACY_FOOD_REDIRECT per phase ({check})"
-    assert workflow.count("legacy_redirect=") == 2, f"{zoky.name}: ZOKY_LEGACY_FOOD_REDIRECT mapping changed"
-    assert re.search(r"^[ ]{10}version:[ ]*2\.120\.0[ ]*$", edge_job, re.M) and "version: latest" not in workflow, (
-        f"{zoky.name}: Supabase CLI must stay pinned"
-    )
-    assert "VERCEL_TOKEN" not in edge_job, f"{zoky.name}: edge job must not read Vercel credentials"
+    assert "environment" not in guard_job and "needs" not in guard_job, f"{name}: guard job must run before (not inside) the review"
+    assert not SECRET_REF.search(json.dumps(guard_job)), f"{name}: guard job must not read secrets"
+    for job_name in ("deploy", "edge"):
+        job = jobs[job_name]
+        assert job.get("environment") == "production", f"{name}: {job_name} job must use the protected production environment"
+        assert as_list(job.get("needs")) == ["guard"], f"{name}: {job_name} must wait for scope guards"
+        checkouts = [step for step in steps_of(job) if uses(step, "actions/checkout")]
+        assert len(checkouts) == 1 and (checkouts[0].get("with") or {}).get("ref") == "${{ inputs.release_sha }}", (
+            f"{name}: {job_name} must check out the pinned release_sha"
+        )
+        assert 'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"' in shell_text(job), f"{name}: {job_name} must re-verify HEAD"
 
-    for name, job in jobs.items():
-        assert first_step_name(job) == "Exception has not expired", f"{zoky.name}: {name} must start with the expiry check"
-        assert job.count(EXPIRY_TEST) == 1, f"{zoky.name}: {name} expiry comparison removed"
+    all_steps = [step for job in jobs.values() for step in steps_of(job)]
+    checkouts = [step for step in all_steps if uses(step, "actions/checkout")]
+    assert len(checkouts) == 3 and all((step.get("with") or {}).get("persist-credentials") is False for step in checkouts), (
+        f"{name}: every checkout must set persist-credentials: false"
+    )
+    dumped = json.dumps(wf)
+    assert "vercel@latest" not in dumped and "npx --yes vercel@63.1.2 deploy --prod" in shell_text(deploy_job), (
+        f"{name}: Vercel CLI must stay pinned"
+    )
 
-    # Raw text: GitHub interpolates ${{ }} even inside shell comments.
-    for body in run_bodies(raw):
-        assert not INPUT_IN_SHELL.search(body), f"{zoky.name}: inputs must reach run steps only via env: ({body.strip()[:60]})"
-
-    checkouts = workflow.count("uses: actions/checkout@")
-    assert checkouts == 3 and workflow.count("persist-credentials: false") == checkouts, (
-        f"{zoky.name}: every checkout must set persist-credentials: false"
-    )
-    assert "vercel@latest" not in workflow and "npx --yes vercel@63.1.2 deploy --prod" in deploy_job, (
-        f"{zoky.name}: Vercel CLI must stay pinned"
-    )
-    assert 'ZOKY_EXCEPTION_EXPIRES_UTC: "2026-11-30"' in workflow, f"{zoky.name}: expiry changed or removed"
-    assert "ZOKY_RELEASE_BRANCH: release/zoky-web-20261018" in workflow, f"{zoky.name}: release branch changed"
-    assert "ZOKY_PRODUCTION_BASE_SHA: b19687afdec361da846a2d9ceb11429547c92a24" in workflow, (
-        f"{zoky.name}: pinned production base SHA changed"
-    )
-    for excluded in ("806390ed8ab56810c6141b925e6b8aa6eb3eca49", "55a290e9168ac8b82b5656cecf9ff10f4fce7bc0"):
-        assert excluded in workflow, f"{zoky.name}: exclusion of {excluded[:8]} (#1133/#1135) removed"
+    guard_text, deploy_text, edge_text = shell_text(guard_job), shell_text(deploy_job), shell_text(edge_job)
     for check in (
         "^[0-9a-f]{40}$",
         'git merge-base --is-ancestor "$ZOKY_PRODUCTION_BASE_SHA" "$RELEASE_SHA"',
@@ -233,26 +186,52 @@ if zoky.exists():
         "Out-of-scope path in release",
         "git diff --no-renames --name-only",
         'case "$PHASE" in EDGE|PHASE1|PHASE2) ;; *)',
+        "verify_jwt = false|#.*|",
     ):
-        assert check in guard_job, f"{zoky.name}: guard job missing: {check}"
-    assert "npm run qa:browser" in deploy_job, f"{zoky.name}: deploy job missing: npm run qa:browser"
+        assert check in guard_text, f"{name}: guard job missing: {check}"
+    assert "verify_jwt = (true" not in guard_text, f"{name}: guard must only allow the verify_jwt = false geocode entry"
+    assert "npm run qa:browser" in deploy_text, f"{name}: deploy job missing: npm run qa:browser"
+
+    # PHASE1/PHASE2 pin ZOKY_LEGACY_FOOD_REDIRECT on the deployment (Codex P1).
+    vercel = [step for step in steps_of(deploy_job) if "vercel@" in str(step.get("run", ""))]
+    assert len(vercel) == 1 and (vercel[0].get("env") or {}).get("PHASE") == "${{ inputs.phase }}", (
+        f"{name}: the Vercel deploy step must read the phase via env:"
+    )
+    for check in ("PHASE1) legacy_redirect=0 ;;", "PHASE2) legacy_redirect=1 ;;", '--env ZOKY_LEGACY_FOOD_REDIRECT="$legacy_redirect"'):
+        assert check in vercel[0]["run"], f"{name}: deploy job must pin ZOKY_LEGACY_FOOD_REDIRECT per phase ({check})"
+    assert dumped.count("legacy_redirect=") == 2, f"{name}: ZOKY_LEGACY_FOOD_REDIRECT mapping changed"
+
+    # Edge phase: only the 3 allowlisted functions, pinned CLI, verify_jwt pin.
+    deploy_steps = [step for step in all_steps if "functions deploy" in str(step.get("run", ""))]
+    assert len(deploy_steps) == 1 and deploy_steps[0] in steps_of(edge_job) and (
+        "for fn in $ZOKY_EDGE_FUNCTIONS; do" in deploy_steps[0]["run"]
+        and 'supabase functions deploy "$fn" --project-ref "$PROJECT_REF"' in deploy_steps[0]["run"]
+    ) and dumped.count("functions deploy") == 1, f"{name}: edge job may only deploy the allowlisted functions"
+    assert "--no-verify-jwt" not in dumped, f"{name}: verify_jwt must come from supabase/config.toml"
+    assert PIN_AWK in edge_text, f"{name}: edge job lost the wynos-maps-geocode verify_jwt = false pin"
+    clis = [step for step in all_steps if uses(step, "supabase/setup-cli")]
+    assert len(clis) == 1 and clis[0] in steps_of(edge_job) and str((clis[0].get("with") or {}).get("version")) == "2.120.0", (
+        f"{name}: Supabase CLI must stay pinned"
+    )
+    assert "VERCEL" not in json.dumps(edge_job).upper(), f"{name}: edge job must not read Vercel credentials"
     assert "ZOKY_FREEZE_EXCEPTION" not in (WF / "wyn-158-production-deploy.yml").read_text(), (
         "wyn-158-production-deploy.yml must not carry the ZOKY exception"
     )
 
 # Production edge deploys are Founder-gated and cannot ship wynos-maps-geocode
-# without a pinned verify_jwt entry (CTO review R2).
+# without verify_jwt = false pinned in config.toml (CTO review R2; Founder F2).
 edge_name = "deploy-edge-functions.yml"
-edge = uncommented((WF / edge_name).read_text())
-edge_jobs = jobs_of(edge)
-assert set(edge_jobs) == {"deploy"}, f"{edge_name}: unexpected jobs {sorted(edge_jobs)}"
+edge_wf = load_workflow(WF / edge_name)
+edge_jobs = edge_wf.get("jobs")
+assert isinstance(edge_jobs, dict) and set(edge_jobs) == {"deploy"}, f"{edge_name}: unexpected jobs {sorted(edge_jobs or {})}"
 edge_deploy = edge_jobs["deploy"]
-assert job_key(edge_deploy, "environment") == ["production"], f"{edge_name}: deploy job must use production environment"
-edge_steps = step_names(edge_deploy)
+assert edge_deploy.get("environment") == "production", f"{edge_name}: deploy job must use production environment"
+edge_steps = [str(step.get("name")) for step in steps_of(edge_deploy)]
 pin_step, deploy_step = "wynos-maps-geocode verify_jwt is pinned", "Deploy"
 assert pin_step in edge_steps and deploy_step in edge_steps, f"{edge_name}: verify_jwt pin step or Deploy step missing"
 assert edge_steps.index(pin_step) < edge_steps.index(deploy_step), f"{edge_name}: verify_jwt pin must run before Deploy"
-assert PIN_AWK in edge_deploy, f"{edge_name}: verify_jwt = false pin check altered"
-assert "FUNCTION_NAME: ${{ inputs.function }}" in edge_deploy, f"{edge_name}: pin step must read the input via env:"
+pin = steps_of(edge_deploy)[edge_steps.index(pin_step)]
+assert PIN_AWK in str(pin.get("run", "")), f"{edge_name}: verify_jwt = false pin check altered"
+assert (pin.get("env") or {}).get("FUNCTION_NAME") == "${{ inputs.function }}", f"{edge_name}: pin step must read the input via env:"
 
 print("PASS coordinated final-release freeze: legacy promotions retired, acceptance gates active")
