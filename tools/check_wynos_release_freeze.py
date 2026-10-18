@@ -15,6 +15,27 @@ try:
 except ImportError:  # fail closed: never pass without parsing
     sys.exit("PyYAML is required (python3-yaml); refusing to pass without parsing workflows")
 
+
+class WorkflowLoader(yaml.SafeLoader):
+    """Read mapping keys as GitHub does: plain strings (PyYAML's YAML 1.1
+    resolver turns keys like `on`/`yes` into True and lets one silently
+    overwrite the other), and refuse duplicate keys outright. Same loader as
+    tools/check_production_secret_scoping.py (#1225)."""
+
+
+def _construct_mapping(loader, node, deep=False):
+    loader.flatten_mapping(node)  # resolve `<<` merge keys first
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = key_node.value if isinstance(key_node, yaml.ScalarNode) else loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(None, None, f"duplicate key {key!r}", key_node.start_mark)
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+WorkflowLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
+
 ROOT = Path(__file__).resolve().parent.parent
 WF = ROOT / ".github" / "workflows"
 
@@ -56,14 +77,16 @@ for name in ("wynos-admin-consolidated-release.yml", "wyn-158-production-deploy.
 
 def load_workflow(path):
     """Parse a workflow as YAML (anchors/aliases resolved, comments dropped)."""
-    data = yaml.safe_load(path.read_text())
+    try:
+        data = yaml.load(path.read_text(), Loader=WorkflowLoader)
+    except yaml.YAMLError as error:
+        raise AssertionError(f"{path.name}: rejected YAML ({error})") from None
     assert isinstance(data, dict), f"{path.name}: not a YAML mapping"
     return data
 
 
 def trigger_of(workflow):
-    # PyYAML (YAML 1.1) reads the bare key `on` as boolean True.
-    return workflow.get("on", workflow.get(True))
+    return workflow.get("on")
 
 
 def as_list(value):

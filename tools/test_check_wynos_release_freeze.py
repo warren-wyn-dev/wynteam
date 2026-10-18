@@ -111,9 +111,18 @@ loosened = {
     "flow-style extra job": lambda path: path.write_text(path.read_text() + "\n  extra: {runs-on: ubuntu-latest, steps: [{run: echo hi}]}\n"),
     "aliased copy of the deploy job": lambda path: path.write_text(
         path.read_text().replace("\n  deploy:\n", "\n  deploy: &deploy_job\n", 1) + "\n  extra: *deploy_job\n"),
-    "edge environment replaced by a merge from the guard anchor": lambda path: path.write_text(
+    "edge environment from a merged anchor (preview)": lambda path: path.write_text(
+        path.read_text().replace("permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nx-env: &preview_env\n  environment: preview\n", 1).replace(
+            "inputs.phase == 'EDGE'\n    environment: production\n", "inputs.phase == 'EDGE'\n    <<: *preview_env\n", 1)),
+    "explicit key duplicating a merged key": lambda path: path.write_text(
         path.read_text().replace("\n  guard:\n", "\n  guard: &guard_job\n", 1).replace(
-            "inputs.phase == 'EDGE'\n    environment: production\n", "inputs.phase == 'EDGE'\n    <<: *guard_job\n", 1)),
+            "inputs.phase == 'EDGE'\n    environment: production\n", "inputs.phase == 'EDGE'\n    environment: production\n    <<: *guard_job\n", 1)),
+    # Keys GitHub reads as strings must not collapse or overwrite (#1225 loader).
+    "duplicate deploy job key (ungated copy first)": replace("\njobs:\n  guard:\n",
+        "\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: echo leak\n  guard:\n"),
+    "YAML 1.1 boolean job keys yes/on": lambda path: path.write_text(path.read_text() +
+        "\n  yes:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo a\n  on:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo b\n"),
+    "duplicate top-level permissions key": replace("permissions:\n  contents: read\n", "permissions:\n  contents: read\npermissions: write-all\n"),
     "credentials persisted": replace("persist-credentials: false", "persist-credentials: true"),
     "Vercel CLI unpinned": replace("vercel@63.1.2", "vercel@latest"),
     # Edge phase (ZOKY edge functions from the pinned SHA).
