@@ -1,0 +1,404 @@
+name: ZOKY Web Exception Release
+# One-time, Founder-approved exception to the WYNOS production freeze
+# (DECISIONS 2026-10-18 "ZOKY web — อนุมัติวิธีส่งเฉพาะ ZOKY", Option A in
+# .wyn/docs/engineering/zoky-web-release-plan.md on release/zoky-web-20261018).
+#
+# Ships ONLY release/zoky-web-20261018 = Consumer Web production commit
+# b19687af + cherry-picked ZOKY commits. It never ships main, never touches
+# wyn-158-production-deploy.yml or acceptance issues #1142-#1151, and uses the
+# existing `production` environment unchanged (required reviewers still apply).
+#
+# Fail-closed scope guards run BEFORE the production environment review, so the
+# reviewer sees their result first. tools/check_wynos_release_freeze.py asserts
+# these guards stay in place. After phase 2 is stable (or on expiry) a
+# Founder-approved PR deletes this file.
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Full 40-char SHA of release/zoky-web-20261018 recorded in APPROVALS for this phase"
+        type: string
+        required: true
+      phase:
+        description: "PHASE1 = zoky.wynos.online live, food unchanged; PHASE2 = food -> zoky redirect (ZOKY_LEGACY_FOOD_REDIRECT=1 set in Vercel first)"
+        type: choice
+        required: true
+        default: PHASE1
+        options: [PHASE1, PHASE2]
+      confirmation:
+        description: "Only with a recorded Founder approval for this phase, choose ZOKY_FREEZE_EXCEPTION_20261018"
+        type: choice
+        required: true
+        default: CANCEL
+        options: [CANCEL, ZOKY_FREEZE_EXCEPTION_20261018]
+
+permissions:
+  contents: read
+
+# Shares the production web lane with wyn-158 so two web releases can never
+# race; this workflow never cancels an in-progress run.
+concurrency:
+  group: wyn-158-production
+  cancel-in-progress: false
+
+env:
+  ZOKY_EXCEPTION_EXPIRES_UTC: "2026-11-30"
+  ZOKY_RELEASE_BRANCH: release/zoky-web-20261018
+  ZOKY_PRODUCTION_BASE_SHA: b19687afdec361da846a2d9ceb11429547c92a24
+  # PR #1133 (homepage banners) and PR #1135 (featured stores): acceptance
+  # #1142 is open, so neither may be part of this release.
+  ZOKY_EXCLUDED_SHAS: "806390ed8ab56810c6141b925e6b8aa6eb3eca49 55a290e9168ac8b82b5656cecf9ff10f4fce7bc0"
+
+jobs:
+  guard:
+    name: Scope guards (before production review)
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Exception has not expired
+        run: |
+          set -euo pipefail
+          today="$(date -u +%F)"
+          if [[ "$today" > "$ZOKY_EXCEPTION_EXPIRES_UTC" ]]; then
+            echo "::error::ZOKY freeze exception expired on $ZOKY_EXCEPTION_EXPIRES_UTC (today $today UTC). A new Founder decision and workflow PR are required."
+            exit 1
+          fi
+          echo "Exception valid until $ZOKY_EXCEPTION_EXPIRES_UTC (today $today UTC)."
+
+      - name: release_sha is a full commit SHA
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::release_sha must be a full 40-char lowercase SHA"; exit 1; }
+
+      - name: Checkout release branch history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ZOKY_RELEASE_BRANCH }}
+          fetch-depth: 0
+
+      - name: Release SHA, ancestry, exclusions and path allowlist
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          PHASE: ${{ inputs.phase }}
+        run: |
+          set -euo pipefail
+          tip="$(git rev-parse "refs/remotes/origin/$ZOKY_RELEASE_BRANCH")"
+          if [ "$tip" != "$RELEASE_SHA" ]; then
+            echo "::error::release_sha $RELEASE_SHA is not the tip of $ZOKY_RELEASE_BRANCH ($tip)"
+            exit 1
+          fi
+          git merge-base --is-ancestor "$ZOKY_PRODUCTION_BASE_SHA" "$RELEASE_SHA" || {
+            echo "::error::Production base $ZOKY_PRODUCTION_BASE_SHA is not an ancestor of $RELEASE_SHA"; exit 1; }
+          for excluded in $ZOKY_EXCLUDED_SHAS; do
+            if git cat-file -e "$excluded^{commit}" 2>/dev/null && git merge-base --is-ancestor "$excluded" "$RELEASE_SHA"; then
+              echo "::error::Unaccepted commit $excluded (PR #1133/#1135) is in the release"; exit 1
+            fi
+          done
+          for path in web/lib/food-home-banners.ts web/lib/food-featured-stores.ts; do
+            if git cat-file -e "$RELEASE_SHA:$path" 2>/dev/null; then
+              echo "::error::$path (PR #1133/#1135) exists in the release"; exit 1
+            fi
+          done
+          if git grep -n -E 'food_active_home_banners|food_active_featured_stores|fx-home-banner' "$RELEASE_SHA" -- web/; then
+            echo "::error::PR #1133/#1135 homepage banner / featured store code found in web/"; exit 1
+          fi
+
+          bad=0
+          while IFS= read -r file; do
+            case "$file" in
+              web/*|docs/*|.wyn/*) ;;
+              supabase/functions/food-stripe-checkout/*|supabase/functions/food-stripe-cancel/*|supabase/functions/wynos-maps-geocode/*) ;;
+              .github/scripts/sync-auth-password-policy.sh|.github/scripts/test-auth-password-policy.sh) ;;
+              supabase/config.toml) ;;
+              *) echo "::error::Out-of-scope path in release: $file"; bad=1 ;;
+            esac
+          done < <(git diff --name-only "$ZOKY_PRODUCTION_BASE_SHA" "$RELEASE_SHA")
+          [ "$bad" -eq 0 ] || exit 1
+
+          # supabase/config.toml may only gain the reviewed wynos-maps-geocode
+          # verify_jwt entry (plan section 4), appended after the unchanged
+          # production content; any other change fails.
+          if ! git diff --quiet "$ZOKY_PRODUCTION_BASE_SHA" "$RELEASE_SHA" -- supabase/config.toml; then
+            git show "$ZOKY_PRODUCTION_BASE_SHA:supabase/config.toml" > /tmp/config-base.toml
+            git show "$RELEASE_SHA:supabase/config.toml" > /tmp/config-release.toml
+            base_bytes=$(wc -c < /tmp/config-base.toml)
+            head -c "$base_bytes" /tmp/config-release.toml | cmp -s - /tmp/config-base.toml || {
+              echo "::error::supabase/config.toml: existing production entries changed"; exit 1; }
+            tail -c +"$((base_bytes + 1))" /tmp/config-release.toml > /tmp/config-added.toml
+            grep -qx '\[functions\.wynos-maps-geocode\]' /tmp/config-added.toml || {
+              echo "::error::supabase/config.toml: only a [functions.wynos-maps-geocode] entry may be added"; exit 1; }
+            if grep -vE '^(\[functions\.wynos-maps-geocode\]|verify_jwt = (true|false)|#.*|[[:space:]]*)$' /tmp/config-added.toml; then
+              echo "::error::supabase/config.toml change is outside the allowed wynos-maps-geocode verify_jwt entry"; exit 1
+            fi
+            [ "$(grep -c '^\[' /tmp/config-added.toml)" = 1 ] && [ "$(grep -c '^verify_jwt' /tmp/config-added.toml)" = 1 ] || {
+              echo "::error::supabase/config.toml: exactly one wynos-maps-geocode verify_jwt entry allowed"; exit 1; }
+          fi
+
+          {
+            echo "## ZOKY exception release scope"
+            echo "- phase: \`$PHASE\`"
+            echo "- release_sha: \`$RELEASE_SHA\` (tip of \`$ZOKY_RELEASE_BRANCH\`)"
+            echo "- production base: \`$ZOKY_PRODUCTION_BASE_SHA\`"
+            echo "- expires: $ZOKY_EXCEPTION_EXPIRES_UTC"
+            echo
+            echo "### Commits"
+            echo '```'
+            git log --oneline --no-decorate "$ZOKY_PRODUCTION_BASE_SHA..$RELEASE_SHA"
+            echo '```'
+            echo "### Diffstat"
+            echo '```'
+            git diff --stat=120 "$ZOKY_PRODUCTION_BASE_SHA" "$RELEASE_SHA" | tail -n 40
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Domain and phase preconditions
+        env:
+          PHASE: ${{ inputs.phase }}
+        run: |
+          set -euo pipefail
+          # zoky.wynos.online must already be attached to Vercel project `web`
+          # (runbook step 8); an unattached domain does not return 200.
+          code="$(curl --silent --output /tmp/zoky-pre.html --write-out '%{http_code}' --max-time 30 "https://zoky.wynos.online/?_zoky_pre=${GITHUB_RUN_ID}")"
+          [ "$code" = "200" ] || { echo "::error::https://zoky.wynos.online/ returned $code; attach the domain in Vercel first"; exit 1; }
+          if [ "$PHASE" = "PHASE2" ]; then
+            grep -q '<title>[^<]*ZOKY' /tmp/zoky-pre.html || {
+              echo "::error::PHASE2 requires PHASE1 to be live (zoky.wynos.online does not serve ZOKY yet)"; exit 1; }
+          fi
+
+  deploy:
+    name: Deploy release to Consumer Web production
+    needs: guard
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018'
+    environment: production
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout pinned release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+
+      - name: Checked-out commit is the approved release_sha
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Production preflight
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run check
+
+      - name: Install release-gate browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Pre-production browser QA
+        run: npm run qa:browser
+
+      # Same deploy command and secret wiring as wyn-158-production-deploy.yml.
+      - name: Deploy to Vercel production
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
+          VERCEL_ORG_ID=$(clean "$VERCEL_ORG_ID")
+          VERCEL_PROJECT_ID=$(clean "$VERCEL_PROJECT_ID")
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
+
+          for value in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            test -n "$(eval echo \"\$$value\")" || { echo "::error::$value is empty"; exit 1; }
+          done
+
+          firebase_args=()
+          firebase_ready=0
+          if [ -n "$(clean "$FIREBASE_WEB_API_KEY")" ] && \
+             [ -n "$(clean "$FIREBASE_WEB_APP_ID")" ] && \
+             [ -n "$(clean "$FIREBASE_MESSAGING_SENDER_ID")" ] && \
+             [ -n "$(clean "$FIREBASE_PROJECT_ID")" ] && \
+             [ -n "$(clean "$FIREBASE_VAPID_KEY")" ]; then
+            firebase_ready=1
+            append_public_env() {
+              local name="$1" value="$2"
+              value=$(clean "$value")
+              if [ -n "$value" ]; then
+                firebase_args+=(--build-env "$name=$value" --env "$name=$value")
+              fi
+            }
+            append_public_env NEXT_PUBLIC_FIREBASE_API_KEY "$FIREBASE_WEB_API_KEY"
+            append_public_env NEXT_PUBLIC_FIREBASE_APP_ID "$FIREBASE_WEB_APP_ID"
+            append_public_env NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID "$FIREBASE_MESSAGING_SENDER_ID"
+            append_public_env NEXT_PUBLIC_FIREBASE_PROJECT_ID "$FIREBASE_PROJECT_ID"
+            append_public_env NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN "$FIREBASE_AUTH_DOMAIN"
+            append_public_env NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET "$FIREBASE_STORAGE_BUCKET"
+            append_public_env NEXT_PUBLIC_FIREBASE_VAPID_KEY "$FIREBASE_VAPID_KEY"
+            echo 'Firebase Web public config will be provided to Next.js build and runtime.'
+          else
+            echo '::warning::Missing at least one public Firebase Web config secret. Preserving existing Vercel settings; Push may remain unavailable.'
+          fi
+
+          export VERCEL_ORG_ID VERCEL_PROJECT_ID
+          url=$(npx --yes vercel@latest deploy --prod --yes \
+            --token="$VERCEL_TOKEN" \
+            --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            "${firebase_args[@]}" \
+            | tail -n 1)
+          echo "firebase_supplied=$firebase_ready" >> "$GITHUB_OUTPUT"
+
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Production deployment: $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify production routes (same checks as wyn-158)
+        env:
+          FIREBASE_SUPPLIED: ${{ steps.deploy.outputs.firebase_supplied }}
+        run: |
+          set -euo pipefail
+
+          verify_next() {
+            local url="$1"
+            local html
+            html=$(curl --silent --show-error --fail --location --retry 6 --retry-delay 5 --max-time 30 \
+              --header 'Cache-Control: no-cache' "$url")
+            grep -q '/_next/' <<< "$html"
+            ! grep -q 'flutter_bootstrap.js' <<< "$html"
+          }
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            echo "Waiting for production alias (attempt $attempt/30)"
+            if verify_next "https://wynos.online/?_wyn_verify=${GITHUB_RUN_ID}-${attempt}"; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+          test "$ready" -eq 1 || { echo '::error::wynos.online did not serve the deployed Next.js build'; exit 1; }
+
+          for route in / /search /notifications /chat /settings /profile/me /clubs /bookmarks /suggested /maps; do
+            echo "Checking https://wynos.online$route"
+            curl --fail --location --retry 5 --retry-delay 2 --max-time 30 \
+              --header 'Cache-Control: no-cache' \
+              --output /dev/null "https://wynos.online$route"
+          done
+
+          curl --silent --show-error --fail --location --retry 3 --max-time 30 \
+            --output /tmp/wynos-maps-health.json \
+            "https://wynos.online/api/maps/health?_wyn_maps_verify=${GITHUB_RUN_ID}"
+          node -e '
+            const h = require("/tmp/wynos-maps-health.json");
+            if (h.service !== "WYNOS Maps Core" || h.version !== "core-api-v1") process.exit(1);
+          '
+          maps_routing=$(node -e 'const h=require("/tmp/wynos-maps-health.json"); process.stdout.write(String(h.routing || "unknown"))')
+          if [ "$maps_routing" = 'configured' ]; then
+            curl --silent --show-error --fail --location --retry 2 --max-time 30 \
+              --header 'Content-Type: application/json' \
+              --data '{"locations":[{"lat":16.1851,"lon":103.3026},{"lat":16.1901,"lon":103.3076}],"costing":"auto","language":"th-TH"}' \
+              --output /tmp/wynos-maps-route-smoke.json \
+              "https://wynos.online/api/maps/route"
+            node -e '
+              const r = require("/tmp/wynos-maps-route-smoke.json");
+              const validValhalla = r && r.trip && r.trip.summary && Array.isArray(r.trip.legs);
+              const validCanonical = r && r.route && Number.isFinite(r.route.distanceKm) && Array.isArray(r.route.coordinates);
+              if (!validValhalla && !validCanonical) process.exit(1);
+            '
+            echo 'WYNOS Maps routing smoke request succeeded.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::WYNOS Maps routing is $maps_routing."
+          fi
+
+          # Public readiness flag only; never print Firebase keys or VAPID.
+          curl --silent --show-error --fail --location --retry 3 --max-time 30 \
+            --output /tmp/wynos-push-config.json \
+            "https://wynos.online/api/push-config?_wyn_push_verify=${GITHUB_RUN_ID}"
+          if node -e 'const c = require("/tmp/wynos-push-config.json"); process.exit(c.configured === true ? 0 : 1)'; then
+            echo 'Firebase Web Push configuration is available on production.' >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$FIREBASE_SUPPLIED" = '1' ]; then
+            echo '::error::Firebase public config was provided at deploy, but the live /api/push-config still reports unconfigured.'
+            exit 1
+          else
+            echo '::warning::Production Web Push is not configured.'
+          fi
+
+      - name: Verify ZOKY ${{ inputs.phase }}
+        env:
+          PHASE: ${{ inputs.phase }}
+        run: |
+          set -euo pipefail
+          retry() {
+            local attempt
+            for attempt in $(seq 1 20); do
+              if "$@"; then return 0; fi
+              echo "retry $attempt/20: $*"
+              sleep 5
+            done
+            echo "::error::ZOKY $PHASE smoke failed: $*"
+            return 1
+          }
+          # status <url> <expected code> [expected Location]
+          status() {
+            local out code location
+            out=$(curl --silent --output /dev/null --max-time 30 --header 'Cache-Control: no-cache' \
+              --write-out '%{http_code} %{redirect_url}' "$1") || return 1
+            code=${out%% *}; location=${out#* }
+            [ "$code" = "$2" ] || return 1
+            [ -z "${3:-}" ] || [ "$location" = "$3" ]
+          }
+          zoky_home() {
+            local html
+            html=$(curl --silent --show-error --fail --max-time 30 --header 'Cache-Control: no-cache' \
+              "https://zoky.wynos.online/?_zoky_verify=${GITHUB_RUN_ID}") || return 1
+            grep -q '<title>[^<]*ZOKY' <<< "$html" && grep -q 'rel="canonical" href="https://zoky.wynos.online' <<< "$html"
+          }
+          sw_has_cleanup() {
+            curl --silent --show-error --fail --max-time 30 --header 'Cache-Control: no-cache' "$1" | grep -q 'ZOKY-136'
+          }
+          sw_is_real_worker() {
+            local body
+            body=$(curl --silent --show-error --fail --max-time 30 --header 'Cache-Control: no-cache' "$1") || return 1
+            [ -n "$body" ] && ! grep -q 'ZOKY-136' <<< "$body"
+          }
+
+          retry zoky_home
+          retry status "https://wynos.online/food?promo=X" 307 "https://zoky.wynos.online/?promo=X"
+          retry sw_is_real_worker "https://zoky.wynos.online/sw.js"
+
+          if [ "$PHASE" = "PHASE1" ]; then
+            retry status "https://food.wynos.online/" 200
+            retry sw_is_real_worker "https://food.wynos.online/sw.js"
+          else
+            retry status "https://food.wynos.online/s/abc?x=1" 307 "https://zoky.wynos.online/s/abc?x=1"
+            retry sw_has_cleanup "https://food.wynos.online/sw.js"
+          fi
+          echo "ZOKY $PHASE verified on zoky.wynos.online / food.wynos.online / wynos.online." >> "$GITHUB_STEP_SUMMARY"

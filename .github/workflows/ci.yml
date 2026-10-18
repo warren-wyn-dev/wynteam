@@ -90,6 +90,8 @@ jobs:
       - run: python3 supabase/check_schema_ordering.py
       - name: Enforce WYNOS final production release freeze
         run: python3 tools/check_wynos_release_freeze.py
+      - name: Freeze guard rejects a loosened ZOKY exception workflow
+        run: python3 tools/test_check_wynos_release_freeze.py
 
   # BUG-004: execute every maintained PostgreSQL/RLS integration script.
   # WYN-038 is intentionally quarantined because its own header marks its
