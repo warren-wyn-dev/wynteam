@@ -201,6 +201,7 @@ if zoky.exists():
         "web/lib/food-home-banners.ts web/lib/food-featured-stores.ts",
         "Out-of-scope path in release",
         "git diff --no-renames --name-only",
+        'case "$PHASE" in EDGE|PHASE1|PHASE2) ;; *)',
     ):
         assert check in guard_job, f"{zoky.name}: guard job missing: {check}"
     assert "npm run qa:browser" in deploy_job, f"{zoky.name}: deploy job missing: npm run qa:browser"

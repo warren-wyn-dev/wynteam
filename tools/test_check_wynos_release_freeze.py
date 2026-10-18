@@ -106,6 +106,7 @@ loosened = {
     "edge verify_jwt pin removed": replace("          grep -qx '\\[functions\\.wynos-maps-geocode\\]' supabase/config.toml || {", "          true || {"),
     "edge Supabase CLI unpinned": replace("version: 2.120.0", "version: latest"),
     "edge --no-verify-jwt": replace('--project-ref "$PROJECT_REF"\n            echo "- deployed', '--project-ref "$PROJECT_REF" --no-verify-jwt\n            echo "- deployed'),
+    "guard accepts any phase": replace('case "$PHASE" in EDGE|PHASE1|PHASE2) ;; *)', 'case "$PHASE" in *) ;; EDGE)'),
     "edge expiry check removed": replace("      # Re-checked after the production review (edge phase).\n      - name: Exception has not expired\n", "      - name: Expiry note\n"),
 }
 edge_loosened = {

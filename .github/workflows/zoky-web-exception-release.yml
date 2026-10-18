@@ -76,12 +76,15 @@ jobs:
           fi
           echo "Exception valid until $ZOKY_EXCEPTION_EXPIRES_UTC (today $today UTC)."
 
-      - name: release_sha is a full commit SHA
+      - name: release_sha is a full commit SHA and phase is known
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
+          PHASE: ${{ inputs.phase }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::release_sha must be a full 40-char lowercase SHA"; exit 1; }
+          # Do not rely on GitHub's choice validation alone (CTO re-review E4).
+          case "$PHASE" in EDGE|PHASE1|PHASE2) ;; *) echo "::error::phase must be EDGE, PHASE1 or PHASE2"; exit 1 ;; esac
 
       - name: Checkout release branch history
         uses: actions/checkout@v4
@@ -157,6 +160,7 @@ jobs:
             if [ "$PHASE" = "EDGE" ]; then
               echo "- edge functions: \`$ZOKY_EDGE_FUNCTIONS\` (nothing else is deployed)"
               echo "- rollback target: dispatch deploy-edge-functions.yml on \`main\` for the affected function (main = current production source of all three)"
+              echo "- rollback order once PHASE1/PHASE2 is live: roll back web first (Vercel Instant Rollback), then edge; main's Stripe functions do not accept zoky.wynos.online"
             elif [ "$PHASE" = "PHASE1" ]; then
               echo "- rollback target: Vercel Instant Rollback to \`$ZOKY_ROLLBACK_DEPLOYMENT\` (commit \`$ZOKY_PRODUCTION_BASE_SHA\`, current production)"
             else
@@ -533,4 +537,42 @@ jobs:
             SUPABASE_ACCESS_TOKEN="$token" supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
             echo "- deployed \`$fn\` from \`$(git rev-parse HEAD)\`" >> "$GITHUB_STEP_SUMMARY"
           done
-          echo "Next: plan section 4 smoke on food.wynos.online (checkout, cancel, geocode signed-out/in); rollback = deploy-edge-functions.yml on main." >> "$GITHUB_STEP_SUMMARY"
+          echo "Next: plan section 4 smoke on food.wynos.online (checkout, cancel, geocode signed-out/in); rollback = deploy-edge-functions.yml on main (after PHASE1: web first, then edge)." >> "$GITHUB_STEP_SUMMARY"
+
+      # Credential-free smoke. The Stripe functions must still reject an
+      # unauthenticated call (401). wynos-maps-geocode must answer a ZOKY CORS
+      # preflight with 204 + that origin, which only the release code does
+      # (main's version returns 403 for zoky.wynos.online). Full behaviour is
+      # the manual plan section 4 smoke.
+      - name: Smoke deployed edge functions (no credentials)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          set -euo pipefail
+          url=$(printf '%s' "$SUPABASE_URL" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          base="${url%/}/functions/v1"
+          zoky='https://zoky.wynos.online'
+          # expect <method> <function> <status> [allow-origin]
+          expect() {
+            local attempt code acao hdr
+            hdr=$(mktemp)
+            for attempt in $(seq 1 10); do
+              code=$(curl --silent --output /dev/null --dump-header "$hdr" --max-time 20 \
+                --request "$1" --header "Origin: $zoky" --header 'Content-Type: application/json' \
+                --header 'Access-Control-Request-Method: POST' --data '{}' \
+                --write-out '%{http_code}' "$base/$2") || code=000
+              acao=$(grep -i '^access-control-allow-origin:' "$hdr" | tr -d '\r' | sed 's/^[^:]*:[[:space:]]*//' || true)
+              if [ "$code" = "$3" ] && { [ -z "${4:-}" ] || [ "$acao" = "$4" ]; }; then
+                echo "- smoke $1 $2: $code ${4:+(allow-origin $acao)}" >> "$GITHUB_STEP_SUMMARY"
+                return 0
+              fi
+              echo "retry $attempt/10: $1 $2 -> $code allow-origin='$acao'"
+              sleep 6
+            done
+            echo "::error::Edge smoke failed: $1 $2 expected $3 ${4:-}, got $code '$acao'"
+            return 1
+          }
+          expect POST food-stripe-checkout 401
+          expect POST food-stripe-cancel 401
+          expect OPTIONS wynos-maps-geocode 204 "$zoky"
+          expect POST wynos-maps-geocode 401

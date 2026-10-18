@@ -185,3 +185,12 @@ Not run: actionlint, deno (not installed), the workflows themselves. No claim of
 ### Merge order
 
 1. `ci/deploy-secrets-environment` first (closes the ungated production-credential gap at merge time and removes the Overture push-triggered write), 2. this branch. Either order is conflict-free and yields the same tree. See `deploy-secrets-environment-cto-review.md` on that branch for the full sequence.
+
+### Re-review fixes (Deploy & DevOps, 2026-10-18)
+
+| Item | Change |
+|---|---|
+| E4 | The guard rejects any `phase` other than EDGE, PHASE1 or PHASE2 itself (`case` in the first input-check step). The freeze guard asserts it, and a test variant covers it (35 + 3 loosened variants rejected). |
+| E5 | New "Smoke deployed edge functions (no credentials)" step at the end of `edge`. It reads only `SUPABASE_URL` and retries 10×. `food-stripe-checkout` and `food-stripe-cancel` must still answer an unauthenticated POST with 401. `wynos-maps-geocode` must answer an OPTIONS from `https://zoky.wynos.online` with 204 and that origin echoed back, which only the release code does (main's version returns 403), then an unauthenticated POST with 401. Verified locally against a mock that imitates the new and old behaviour (new passes, old fails). The Stripe functions' new behaviour still needs the manual section 4 smoke. |
+| E2 (runbook) | **Rollback order once PHASE1 or PHASE2 is live: web first (Vercel Instant Rollback to the recorded target), then edge (`deploy-edge-functions.yml` on `main`, per function).** Before PHASE1, an edge-only rollback is safe. The EDGE run summary and the edge job summary state this. Apply it to release plan section 7 (Edge functions row) and section 9 with the next plan update. |
+| E1 / E3 | Unchanged, Founder/team conditions: the geocode verify_jwt entry must land on `main` and on the release branch before A4, and the Founder must be available during the EDGE window. |
