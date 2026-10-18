@@ -2423,3 +2423,11 @@ Founder รายงาน: (1) Supabase `wynos-maps-geocode` → Verify JWT **�
 ### [2026-10-18] อนุมัติ merge PR #1227 (geocode verify_jwt = false)
 
 Founder: **"อนุมัติ (แนะนำ)"** — รวม `chore/geocode-verify-jwt-config` (PR #1227) เข้า `main` หลัง #1225 และ #1226 เมื่อ CI ผ่าน (ค่าเดียวกับ production ปัจจุบัน ไม่ deploy อะไร)
+
+### [2026-10-18] Merged: PR #1225, #1226, #1227 (ตามที่ Founder อนุมัติ)
+
+- #1225 → `17ea6bf6` (gate production-credential jobs on `production` env + YAML-based secret-scoping gate)
+- #1226 → `34d40618` (ZOKY freeze-exception release workflow: EDGE / PHASE1 / PHASE2)
+- #1227 → `a302098f` (`[functions.wynos-maps-geocode] verify_jwt = false`)
+ตรวจบน `main` หลัง merge: secret-scoping gate + test (23), freeze guard + test (75+4), config pin = False — ผ่านทั้งหมด; ไม่มีการ deploy
+ถัดไป: Founder ทำส่วน A–D ของ `.wyn/docs/engineering/deploy-secrets-environment-migration.md` (ยังไม่ทำส่วน E จนกว่า ZOKY staging เสร็จ)
