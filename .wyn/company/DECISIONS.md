@@ -2360,3 +2360,12 @@ Founder เลือก "ค" — ZOKY จะมีทั้ง **จัดส�
 ### [2026-10-18] ZOKY หน้าสั่งอาหาร (FoodHomeScreen) — Founder อนุมัติ
 
 Founder "โอเค" — อนุมัติหน้าสั่งอาหาร: header ชมพูอ่อนสุด (#FFEFF5 → ขาว) เต็มจอ, แถวที่อยู่ 2 บรรทัด, ปุ่มหัวใจ/คูปองแบบ 3D, ชิปเล็ก จัดส่ง/รับเองที่ร้าน, ช่องค้นหาติดด้านบนตอนเลื่อน, หมวดอาหาร 4 วง, โค้ดลดเพิ่ม (เก็บโค้ด), ร้านอาหารทั้งหมด + ตัวกรอง (แถวร้าน รูป 1:1, ดาว/ลูกศร 3D), ปุ่มตะกร้าลอย, state โหลด/ว่าง/error/ดึงรีเฟรช — ถัดไป: QA ตรวจ แล้วออกแบบหน้าร้าน
+
+### [2026-10-18] ZOKY — เปิด zoky.online ด้วยเว็บเดิมก่อน (Web first)
+
+Founder: "อยากให้ zoky.online พร้อมใช้งานจริงได้เลย" แล้วตอบคำถาม 2 ข้อ:
+- โดเมน `zoky.online` — **ซื้อแล้ว** (ข้อมูลจาก Founder; DNS ยังไม่ได้ชี้มาที่ Vercel)
+- แผน — **"เว็บก่อน (แนะนำ)"**: เอาเว็บ WYNOS Food ที่ใช้งานได้อยู่ มาเปลี่ยนชื่อ/โลโก้/สีเป็น ZOKY แล้วย้ายไป `zoky.online`; `food.wynos.online` redirect ไปโดเมนใหม่ (คง path+query); แอป iOS/Android ทำต่อทีหลัง
+
+ผล: อนุมัติทิศทาง D1 (rebrand ฝั่งลูกค้าบนเว็บ) และ D2 (โดเมน + redirect) ใน `.wyn/docs/product/zoky-decision-proposal.md` เพื่อเริ่ม ZOKY-113 (web rebrand code) และ ZOKY-114 (domain cutover) บน feature branch + staging
+ยังต้องขออนุมัติแยก (ไม่รวมในคำตัดสินนี้): ปลด production freeze สำหรับ release นี้, production deploy/cutover, การแก้ backend ที่ผูกโดเมนเดิม (Stripe origin allowlist, maps geocode origin — security-sensitive), การตั้งค่า DNS/Vercel/Supabase Auth/Google OAuth/Stripe ที่ Founder ต้องทำในบัญชีของตน
