@@ -101,7 +101,7 @@ Flag: `ZOKY_LEGACY_FOOD_REDIRECT` — server-only Vercel env (Production) ขอ
 |---|---|---|
 | `zoky.wynos.online` | ZOKY เต็มรูปแบบ | ZOKY เต็มรูปแบบ |
 | `food.wynos.online` | เสิร์ฟ Food (แบรนด์ ZOKY) แบบ `origin/main`: `/` → `/food`, `/login` `/signup*`, `/s/<code>` (→ `food.wynos.online/?store=`), `/sw.js` ตัวจริง | ทุก path → 307 `zoky.wynos.online` path+query (ยกเว้น `/_next/*`, `/api/*`); `/sw.js` = ZOKY-136 cleanup worker |
-| Auth (`web/lib/food-origin.ts`, ไม่ได้แก้) | ผู้ใช้บน food ล็อกอิน/OAuth/อีเมลบน `food.wynos.online` เอง, บน zoky ใช้ zoky (ไม่ข้าม origin, PKCE ปลอดภัย) | เหมือนกัน (food ไม่มีหน้าให้ล็อกอินแล้วเพราะ redirect) |
+| Auth (`web/lib/food-origin.ts`, ไม่ได้แก้) | ผู้ใช้บน food ล็อกอิน/OAuth/อีเมลบน `food.wynos.online` เอง, บน zoky ใช้ zoky (ไม่ข้าม origin, PKCE ปลอดภัย) — **ยกเว้น ZOKY-139 (เปิดอยู่): ลิงก์ยืนยันอีเมลตอนสมัครบน food ส่งไป zoky แบบไม่ล็อกอิน** | เหมือนกัน (food ไม่มีหน้าให้ล็อกอินแล้วเพราะ redirect) |
 | `wynos.online/food*`, Social callback legacy Food, ลิงก์แชร์/QR ของ Merchant, ปุ่ม "สั่งอาหาร" ใน Maps, sitemap/canonical | ชี้ `zoky.wynos.online` (ตั้งใจ: zoky ใช้งานได้ตั้งแต่ phase 1 และลดลิงก์ใหม่ที่ชี้โดเมนเก่า) | เหมือนกัน |
 
 หมายเหตุ phase 1: `food.wynos.online` แสดงแบรนด์ ZOKY แล้ว (canonical/OG ชี้ zoky); Push บน food ยังทำงานด้วย worker จริง (`pushAppFor` = food ทั้งสอง host); ผู้ใช้บน food ยังไม่ถูกบังคับย้าย (ไม่มี PKCE ค้าง/PWA เปิดในเบราว์เซอร์จนกว่า phase 2)
@@ -138,6 +138,16 @@ Flag: `ZOKY_LEGACY_FOOD_REDIRECT` — server-only Vercel env (Production) ขอ
 - ผลตรวจ: lint 0 errors (17 warnings เดิม), typecheck ผ่าน, unit 346/346, build ผ่าน, freeze guard PASS; local `next start` (build เดียว, ไม่มี env file/secrets) + Host header: off — food `/` 200 Food, `/login` 307 `/food/login`, `/sw.js` worker จริง, `/s/x` 307 `food.wynos.online/`, zoky 200, `wynos.online/food?promo=` 307 zoky; on — food ทุก path 307 zoky, `/sw.js` cleanup worker, zoky ไม่เปลี่ยน
 - ไม่ได้ตรวจ: browser E2E, Vercel env/redeploy จริง, Deno (ไม่ได้แตะ edge functions)
 - ต่อไป: AI QA re-test (ทั้งสอง flag state) → CTO re-review → Founder (C3)
+
+## QA re-test two-phase flag (AI QA & Security, 2026-10-18, @ 2fa7a4a) — FAIL (ZOKY-139)
+- Flag: off for unset/`""`/`0`/`false`/`TRUE`/`yes`/`" 1"`, on only `1`/`true` (unit + live `next start` with unset/`TRUE`/`1`/`true` from one build — read at runtime, not inlined; absent from `.next/static`; no `NEXT_PUBLIC_` anywhere).
+- Live routing matrix (9 hosts × 15 paths × 4 env states, `next start`, Host header): garbage == off, `true` == `1`; only `food.wynos.online` (any case/port) differs between off/on. Off: food `/` 200 ZOKY Food, `/login` 307 `/food/login`, `/sw.js` real worker, `/s/<code>` 307 `https://food.wynos.online/`, auth/Stripe return paths 200 on food. On: every food path 307 zoky path+query, `/sw.js` cleanup worker, `/_next/*` `/api/*` untouched. zoky/wynos/www/merchant/maps/localhost/preview identical in both.
+- Phase 1 proxy vs `origin/main` proxy, in-process, 480 cases (food/merchant/maps/localhost/preview hosts × 20 paths × 4 off values): 0 differences.
+- `/s/[code]` Host spoofing (evil.com, `food.wynos.online.evil.com`, `zoky.wynos.online:1@evil.com`, trailing dot, X-Forwarded-Host both ways, encoded `//evil.com`, `?store=https://evil.com`): no open redirect — target only `https://zoky|food.wynos.online/` or the server-bound `/food`.
+- Real Chromium (prod build, fake Supabase URL mocked, prod hosts blocked): food `/login` stays on food, Google `redirect_to=http://food.wynos.online:<port>/food/auth/callback` (no cross-origin). **FAIL:** Food email-confirm callback on food (`/auth/callback?next=%2Ffood`) navigates to `https://zoky.wynos.online/` signed out (session only on food); origin/main stayed on food → **ZOKY-139 (MEDIUM)** `.wyn/tasks/bugs/ZOKY-139-phase1-food-email-confirm-lands-on-zoky-signed-out.md`. Stripe return stays on food (allowlisted request origin); password reset is same-origin.
+- Regression: lint 0 errors (17 warnings), typecheck pass, unit 346/346, build pass, freeze guard PASS, Playwright Food+Merchant (chromium-desktop + chromium-android, `/opt/pw-browsers/chromium`, wynos/supabase.co blocked) 134/134 flag off and 134/134 flag on.
+- Not tested: Vercel env/redeploy, real Supabase/Stripe/Push, WebKit.
+- Next: AI Debug Engineer fixes ZOKY-139 (+ regression test) → QA re-test → CTO re-review → Founder (C3).
 
 ## Handoff ถัดไป
 AI QA & Security: ทดสอบ redirect (AC6), auth origin, open-redirect (redirect ใช้ host คงที่ ไม่รับ input เป็นปลายทาง), contrast ของสีใหม่, ไอคอน/splash บน iPhone/Android จริงบน staging preview → CTO final review → Founder
