@@ -58,6 +58,7 @@ CRITICAL: ไม่มี | HIGH (code): ไม่มี
 
 - **L1 — ชื่อสินค้า Stripe เปลี่ยนเป็น `ZOKY #<order>`** (`food-stripe-checkout/index.ts`) แต่ handoff checklist ข้อ 5 และ "ยังไม่ได้ทำ" ข้อ 2 ยังเขียนว่าคงไว้จนตัดสิน Q10, และข้อความอนุมัติ ZOKY-135 ครอบคลุมแค่ origin + success/cancel URL. ทางเทคนิคปลอดภัย (ไม่มีโค้ดใด parse ชื่อสินค้า — ตรวจด้วย grep) และสอดคล้องกับ D1 (ลูกค้าเห็น ZOKY ตลอด flow). CTO แนะนำ **คง `ZOKY #`** แต่ต้องให้ Founder ยืนยัน (หรือสั่ง revert เป็น `WYNOS Food #`) และแก้ handoff ให้ตรง. หมายเหตุ: statement descriptor/บัญชี connected ไม่เปลี่ยน, test mode return URL default เป็น ZOKY
 - **L2 — `docs/engineering/WEB_STAGING.md` ล้าสมัย**: ยังเขียนว่า merge = deploy production อัตโนมัติ (ไม่จริงหลัง freeze). แก้เป็นเอกสารแยก
+  - Status: แก้แล้วบน branch นี้ (ระบุ `wyn-158` manual gated deploy)
 - **L3 — ZOKY-136 residual risk**: push ที่ถึง worker เก่าก่อน browser ตรวจ update (~ถึง 24 ชม.) ยังแสดงเนื้อหาได้; sign-out บน ZOKY ฆ่า subscription ของ food ไม่ได้. การปิดแบบเต็มต้อง migration (origin column) หรือ PM/Founder ตัดสินเรื่อง revoke food tokens ตอน sign-out. ต้องให้ Founder รับความเสี่ยงนี้อย่างชัดเจน + มีในแผนสื่อสาร AC9
 - **L4 — ผลกระทบผู้ใช้ช่วง cutover (ยอมรับได้ แต่ต้องสื่อสาร)**: login ที่ค้าง PKCE บน food จะล้มเหลว 1 ครั้ง; session/ตะกร้า/ร้านโปรดใน localStorage ไม่ตามมา; PWA ที่ติดตั้งจาก food จะเปิด ZOKY ในเบราว์เซอร์ ต้องติดตั้งใหม่
 - **L5 — ZOKY-137 icon bevel ยังเปิด** (รอ master vector A1/Q3); โปสเตอร์ QR ใน Merchant ยังมีหัว "WYNOS Food" แต่ URL เป็น zoky (Q1/Q10) — ต้องให้ Founder ยอมรับว่าเปิดตัวได้ทั้งแบบนี้หรือรอ
@@ -65,7 +66,9 @@ CRITICAL: ไม่มี | HIGH (code): ไม่มี
 ## เงื่อนไขก่อน merge (Required)
 
 - **C1** Founder ยืนยันชื่อสินค้า Stripe `ZOKY #…` (หรือสั่ง revert) และ AI Coding แก้ handoff ข้อ 5 / "ยังไม่ได้ทำ" ข้อ 2 ให้ตรง (L1)
+  - Status: **resolved by Founder decision 2026-10-18** — คงชื่อสินค้า Stripe `ZOKY #<order>`; handoff ข้อ 5 / "ยังไม่ได้ทำ" ข้อ 2 แก้ให้ตรงแล้ว
 - **C2** Founder ตัดสินเรื่อง gate redirect (M1): (ก) ทำ env flag แบบ 2 phase ตามที่แนะนำ → implement + QA re-test + CTO re-review ก่อน merge, หรือ (ข) deploy ครั้งเดียวโดยรับเงื่อนไขขั้นต่ำใน M1 อย่างชัดเจน
+  - Status: **resolved by Founder decision 2026-10-18** — เลือก (ก) 2 phase; AI Coding implement flag `ZOKY_LEGACY_FOOD_REDIRECT` ใน `web/proxy.ts` (ค่าเริ่มต้น off) + proxy tests ทั้งสองโหมด + runbook phase 1/2 ใน handoff แล้ว → **รอ AI QA re-test + CTO re-review**
 - **C3** Founder อนุมัติ merge โดยรับรู้ว่า merge = เพิ่ม redirect URLs ของ zoky ใน Supabase Auth production ทันที (M2) และทำหลัง attach domain zoky ใน Vercel แล้ว; PR ต้องผ่าน CI + staging preview (UI/brand) ตาม `WEB_STAGING.md`
 
 ก่อน go-live (ไม่ block merge): RB1, RB2, runbook rollback ตาม M4, Founder รับความเสี่ยง L3–L5
