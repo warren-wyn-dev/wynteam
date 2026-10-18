@@ -317,3 +317,15 @@
 - วิธีป้องกันในอนาคต: ป้ายบังคับ/ป้ายสถานะห้ามใช้ `ellipsis`; ข้อมูลยาวไว้ใน meta row; regression ที่
   `zoky_app/test/store_card_overlay_labels_test.dart` และ `ZOKY-127:` ใน `test/qa/home_slice_retest_qa_test.dart`
   (รายละเอียดที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน)
+
+### [2026-10-18] Task ZOKY-128..131 (หน้า Food หลัง Founder อนุมัติ)
+- ข้อผิดพลาด: (1) 5d4d6cf แก้เฉพาะ icon ที่ Founder เห็นว่าว่าง ไม่ไล่ทั้ง flow (2) ใช้ pinned header โดยไม่ตรวจ
+  semantics order (3) ใส่ `maxLines + ellipsis` ให้ ETA, เงื่อนไขราคา และชื่อที่อยู่ตัวอย่าง ทั้งที่มีกฎ "ห้ามตัด"
+  (ZOKY-127) อยู่แล้ว (4) refresh ที่ล้มเหลวล้างรายการทิ้ง และ response ไม่มี request id
+- ผลกระทบ: icon หายบนเว็บ preview, ผู้ใช้ screen reader ได้ยินลำดับผิด, ข้อมูลราคา/เวลา/ป้ายตัวอย่างถูกซ่อน
+  (ไม่มีผลกับ production เพราะยังไม่ deploy)
+- วิธีป้องกันในอนาคต: แก้บั๊กกลุ่มเดียวกันให้ grep ทั้ง flow (`Icon(`, `maxLines`) ไม่ใช่แก้แค่จุดที่ถูกรายงาน
+  ทุกการโหลดแบบ async ต้องมี request id และต้องเก็บข้อมูลเดิมไว้เมื่อ refresh ล้มเหลว
+- Regression test ที่เพิ่ม: QA suite ใน `food_page_qa_test.dart` ที่เคย skip ไว้ 7 ตัว ตอนนี้รันและผ่านแล้ว,
+  test วาด glyph แล้วเช็ค pixel ใน `food_header_icons_test.dart`, กลุ่ม "ZOKY-131 low-severity fixes" ใน
+  `food_home_screen_test.dart`

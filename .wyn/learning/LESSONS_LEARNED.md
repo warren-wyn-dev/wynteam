@@ -376,3 +376,17 @@
   (5) ห้าม group ที่มีตัวเลขยาวเป็น `Row` ที่ตัดบรรทัดไม่ได้ — ฟอนต์ test (ตัวสี่เหลี่ยมกว้างเท่า fontSize) ทำให้ล้นทันที
 - การนำไปใช้ในอนาคต: test ตรวจป้ายต้องใช้ Anuphan จริงและตรวจทั้ง "ไม่ถูกตัด", "อยู่ในรูป/การ์ด", "ไม่ทับกัน" และ
   "ยังแสดงอยู่" (กันผ่านเพราะป้ายหายไป) ใน matrix 320–430 × 1.0–2.0 พร้อมการ์ดสังเคราะห์กรณีแย่สุด
+
+### [2026-10-18] ZOKY-128..131 — หน้า Food: icon font, ลำดับ screen reader, ข้อความถูกตัด
+- บริบท: QA รอบหน้า Food เจอ 4 บั๊ก: icon จาก font ยังเหลือ 21 จุด, VoiceOver อ่าน header/chips ที่ pin อยู่หลังเนื้อหา,
+  ETA/เงื่อนไขคูปอง/"(ตัวอย่าง)" ถูก ellipsis, และ LOW อีก 7 ข้อ
+- บทเรียน: (1) `SliverPersistentHeader(pinned: true)` ติด tag `excludeFromScrolling` ทำให้ Flutter เอา node ไปไว้
+  "หลัง" scroll node เสมอ ใช้ sortKey บน header อย่างเดียวไม่ช่วย ต้องห่อทุก sliver ด้วย
+  `SliverSemantics(container: true, explicitChildNodes: true, sortKey: OrdinalSortKey(i))` ถ้าลืม
+  `explicitChildNodes` ข้อความลูกจะถูกรวมเป็น label เดียว (2) เปลี่ยน icon บน Home ให้เหมือนเดิมได้ด้วยการใช้เส้นกลาง
+  (centre line) ของ path Material เดิม แล้วปรับ stroke ให้ปริมาณหมึกเท่า font glyph และวัดด้วย pixel diff ก่อน/หลัง
+  (โหลด MaterialIcons font ใน test ด้วย ไม่งั้น test จะเห็นเป็นสี่เหลี่ยม) (3) พอแถวมีความสูงไม่เท่ากัน
+  `jumpTo(maxScrollExtent)` ครั้งเดียวจะไปไม่ถึงท้ายจริง เพราะ SliverList ประมาณ extent ไว้ ต้อง jump ซ้ำจนนิ่ง
+  (4) ป้ายตัวอย่าง (demo) ที่อยู่ในบรรทัดความสูงคงที่ ให้ย่อให้พอดี (FittedBox scaleDown) แทน ellipsis
+- การนำไปใช้ในอนาคต: หน้าใหม่ที่มี pinned header ต้องมี test ลำดับการอ่านทั้งตอนเปิดและหลังเลื่อน งานที่แตะ Home
+  ต้องทำ pixel diff เทียบ build ก่อนแก้ทุกครั้ง และรายงานจุดที่ต่างแม้เป็น sub-pixel

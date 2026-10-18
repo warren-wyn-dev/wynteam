@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-129 (Food page: ETA/distance, coupon minimum, store name and demo address label are ellipsized)
 
-Status: **bugs**
+Status: **fixed — awaiting QA re-test**
 Severity: **MEDIUM** (same class as ZOKY-127: design §10.2 "no truncation on the main flow"; the coupon minimum "เมื่อสั่งครบ ฿100" is price information; the header can hide "(ตัวอย่าง)" so a sample address reads as real — Founder rule "demo labels everywhere"). Screen readers still get the full text (row/coupon labels are complete).
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Food page round, 2026-10-18, branch `docs/zoky-foundation` @ 46a8f0c
@@ -34,3 +34,19 @@ Files Changed:
 Tests: `zoky_app/test/qa/food_page_qa_test.dart` — "no truncated store/coupon text" (tag `qa-heavy`) and "header address keeps the demo label readable" (skipped repros, ZOKY-129).
 Regression Risk: Low–Medium (rows/coupons get taller at large text; check FAB spacing and coupon card IntrinsicHeight).
 Handoff to QA: un-skip both groups; re-run the layout matrix and scroll sweep in the same file.
+
+## Debug Engineer — 2026-10-18 (commit 4070d7c)
+
+Reproduction: `--run-skipped --plain-name "no truncated"` → 6/12 failed (QA-TRUNCATED rows/coupons as in the table); `"demo label readable"` → 320pt × 1.3 failed for 'ที่ทำงาน (ตัวอย่าง)', 'คอนโด (ตัวอย่าง)'.
+
+Root Cause (confirmed): `maxLines: 2` + `TextOverflow.ellipsis` on the row name, the row meta `Text.rich` and the coupon condition; `maxLines: 1` + ellipsis on the header address bold line. The ~150pt text column at 320pt cannot hold them at large text.
+
+Fix: the row name and meta line, and the coupon condition, wrap with no maxLines (ETA/distance keep their no-break spaces). Header: a demo address name is never ellipsized. It shrinks to fit on its line (`FittedBox(scaleDown)`), following the rule that demo labels wrap or shrink, never ellipsize. A real (non-demo) name keeps the ellipsis, so the header height is unchanged.
+
+Files Changed: `lib/features/food/widgets/zoky_food_store_row.dart`, `zoky_food_coupon_section.dart`, `zoky_food_address_button.dart`; `test/food_home_screen_test.dart` (scroll to the real end: rows now differ in height, so the list's estimated extent settles only after the last rows are laid out).
+
+Tests: both QA groups un-skipped and passing (12/12 + 6/6). Layout matrix, scroll sweep and the FAB/last-row checks pass.
+
+Regression Risk: Low–Medium. Rows and coupons get taller at large text, and very long (hostile) names make tall rows (no overflow). At 320 × 1.3 the demo address renders about 10–15% smaller.
+
+Handoff to QA: re-run the matrix; visually check 320 × 1.3 header address and 375 × 2.0 rows.
