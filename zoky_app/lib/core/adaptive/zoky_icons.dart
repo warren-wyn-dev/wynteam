@@ -10,10 +10,10 @@ import 'adaptive.dart';
 /// use the closest Material icon for now; swapping the set later means
 /// editing only this file.
 ///
-/// Small Food page glyphs (▾, coupon ticket, filter sliders, scooter, bag,
-/// check, cart) are painted by ZokyLineIcon instead, so a stale
-/// tree-shaken icon font can never blank them (Founder iPad preview,
-/// 2026-10-18).
+/// Every icon on Home + Food (incl. their sheets and empty/error states)
+/// is painted by ZokyLineIcon instead, so a stale tree-shaken icon font can
+/// never blank it (Founder iPad preview, 2026-10-18; ZOKY-128). The
+/// entries here remain for the other screens.
 abstract final class ZokyIcons {
   // Shared (same on every platform).
   static const IconData home = Icons.home_outlined; // Lucide House

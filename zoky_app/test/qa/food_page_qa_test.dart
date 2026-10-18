@@ -845,8 +845,7 @@ void main() {
         expect(found, isEmpty);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-      skip: true,
     );
-    // ZOKY-128
+    // ZOKY-128 (fixed)
   });
 }

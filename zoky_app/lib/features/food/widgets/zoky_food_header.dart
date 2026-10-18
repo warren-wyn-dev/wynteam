@@ -3,12 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/adaptive/zoky_icons.dart';
+import '../../../core/adaptive/adaptive.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/l10n/zoky_strings.dart';
 import '../../../core/widgets/zoky_3d_icon.dart';
 import '../../../core/widgets/zoky_glossy_heart_button.dart';
+import '../../../core/widgets/zoky_line_icon.dart';
 import 'zoky_food_mode_toggle.dart';
 import 'zoky_food_search_field.dart';
 
@@ -249,7 +250,15 @@ class ZokyFoodHeader extends StatelessWidget {
                 _HeaderIcon(
                   key: backKey,
                   color: backColor,
-                  icon: Icon(ZokyIcons.back(context), size: 26),
+                  // Painted, adaptive (iOS chevron / Android arrow;
+                  // ZOKY-128).
+                  icon: ZokyLineIcon(
+                    isCupertino(context)
+                        ? ZokyLineGlyph.chevronLeft
+                        : ZokyLineGlyph.arrowLeft,
+                    size: 26,
+                    color: backColor,
+                  ),
                   tooltip: ZokyStrings.back,
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),

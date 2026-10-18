@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/adaptive/adaptive.dart';
-import '../../core/adaptive/zoky_icons.dart';
 import '../../core/design/zoky_colors.dart';
 import '../../core/design/zoky_tokens.dart';
 import '../../core/design/zoky_typography.dart';
 import '../../core/l10n/zoky_strings.dart';
 import 'delivery_address_controller.dart';
 import 'domain/address_models.dart';
+import '../../core/widgets/zoky_line_icon.dart';
 
 /// "เลือกที่อยู่จัดส่ง" adaptive sheet opened from the Home address row:
 /// the saved addresses (tap = select + close) and a "เพิ่มที่อยู่ใหม่" row
@@ -120,8 +120,8 @@ class _DemoNote extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(
-          ZokyIcons.info,
+        const ZokyLineIcon(
+          ZokyLineGlyph.info,
           size: ZokySizes.iconSm,
           color: ZokyColors.warning,
         ),
@@ -177,8 +177,8 @@ class ZokyAddressTile extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(ZokySpacing.s4),
-                    child: Icon(
-                      ZokyIcons.location,
+                    child: ZokyLineIcon(
+                      ZokyLineGlyph.pin,
                       size: ZokySizes.iconMd,
                       color: selected
                           ? ZokyColors.brandDeep
@@ -211,8 +211,8 @@ class ZokyAddressTile extends StatelessWidget {
                 SizedBox.square(
                   dimension: ZokySizes.iconLg,
                   child: selected
-                      ? const Icon(
-                          Icons.check_circle_rounded,
+                      ? const ZokyLineIcon(
+                          ZokyLineGlyph.checkCircle,
                           color: ZokyColors.brandDeep,
                           size: ZokySizes.iconLg,
                         )
@@ -252,8 +252,8 @@ class _AddAddressRow extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: EdgeInsets.all(ZokySpacing.s4),
-                  child: Icon(
-                    ZokyIcons.add,
+                  child: ZokyLineIcon(
+                    ZokyLineGlyph.plus,
                     size: ZokySizes.iconMd,
                     color: ZokyColors.textSecondary,
                   ),

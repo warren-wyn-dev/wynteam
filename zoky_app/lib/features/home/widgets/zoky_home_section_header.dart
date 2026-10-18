@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/adaptive/zoky_icons.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
 import '../../../core/l10n/zoky_strings.dart';
+import '../../../core/widgets/zoky_line_icon.dart';
 
 /// Heading row of a Home section (Phases 3 and 4): [title] on the left as a
 /// semantic heading, "ดูทั้งหมด >" on the right in [ZokyColors.brandDeep]
@@ -63,8 +63,10 @@ class ZokyHomeSectionHeader extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(ZokyStrings.seeAll, style: linkStyle),
-                      const Icon(
-                        ZokyIcons.chevronRight,
+                      // Painted (same size and shape as the former font
+                      // chevron; ZOKY-128).
+                      const ZokyLineIcon(
+                        ZokyLineGlyph.chevronRight,
                         size: 18,
                         color: ZokyColors.brandDeep,
                       ),

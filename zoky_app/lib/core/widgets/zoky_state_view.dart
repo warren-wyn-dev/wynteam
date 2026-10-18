@@ -6,6 +6,7 @@ import '../design/zoky_tokens.dart';
 import '../design/zoky_typography.dart';
 import '../l10n/zoky_strings.dart';
 import 'zoky_button.dart';
+import 'zoky_line_icon.dart';
 
 enum _StateKind { empty, error }
 
@@ -16,12 +17,14 @@ enum _StateKind { empty, error }
 class ZokyStateView extends StatelessWidget {
   const ZokyStateView.empty({
     super.key,
-    required this.icon,
+    this.icon,
+    this.glyph,
     required this.title,
     this.messages = const [],
     this.actionLabel,
     this.onAction,
-  }) : _kind = _StateKind.empty;
+  }) : assert(icon != null || glyph != null),
+       _kind = _StateKind.empty;
 
   const ZokyStateView.error({
     super.key,
@@ -29,10 +32,16 @@ class ZokyStateView extends StatelessWidget {
     this.messages = const [],
     required VoidCallback this.onAction,
     this.icon = ZokyIcons.error,
+    this.glyph,
   }) : actionLabel = ZokyStrings.retry,
        _kind = _StateKind.error;
 
-  final IconData icon;
+  /// Font icon; ignored when [glyph] is set.
+  final IconData? icon;
+
+  /// Painted icon (never blank on a stale icon font; ZOKY-128). Wins over
+  /// [icon].
+  final ZokyLineGlyph? glyph;
   final String title;
   final List<String> messages;
   final String? actionLabel;
@@ -42,6 +51,7 @@ class ZokyStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isError = _kind == _StateKind.error;
+    final iconColor = isError ? ZokyColors.error : ZokyColors.brand;
     return Semantics(
       liveRegion: isError,
       container: true,
@@ -61,11 +71,9 @@ class ZokyStateView extends StatelessWidget {
                   color: isError ? ZokyColors.errorContainer : ZokyColors.blush,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  size: 44,
-                  color: isError ? ZokyColors.error : ZokyColors.brand,
-                ),
+                child: glyph != null
+                    ? ZokyLineIcon(glyph!, size: 44, color: iconColor)
+                    : Icon(icon, size: 44, color: iconColor),
               ),
             ),
             const SizedBox(height: ZokySpacing.s8),

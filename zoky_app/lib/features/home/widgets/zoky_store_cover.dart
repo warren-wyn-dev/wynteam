@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/adaptive/zoky_icons.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/widgets/zoky_glossy_surface.dart';
 import '../../catalog/domain/catalog_models.dart';
 import '../../deals/domain/deal_models.dart';
 import '../../deals/widgets/zoky_deal_illustration.dart';
+import '../../../core/widgets/zoky_line_icon.dart';
 
 /// A store's cover "photo". Uses the real cover when the store has one
 /// ([ZokyStoreSummary.coverUrl]: http(s) URL or bundled asset path) and
@@ -92,8 +92,8 @@ class ZokyStoreCover extends StatelessWidget {
             final h = constraints.maxHeight;
             if (art == null) {
               return const Center(
-                child: Icon(
-                  ZokyIcons.food,
+                child: ZokyLineIcon(
+                  ZokyLineGlyph.utensils,
                   size: 30,
                   color: ZokyColors.neutral400,
                 ),

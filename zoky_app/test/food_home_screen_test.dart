@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -174,6 +173,7 @@ Future<void> _jumpToEnd(WidgetTester tester) async {
     if (position.pixels >= position.maxScrollExtent) return;
   }
 }
+
 Finder _pill(FulfillmentMode mode) =>
     find.byKey(ZokyFoodModeToggle.keyFor(mode));
 Finder _chip(String label) => find.widgetWithText(ZokyChip, label);
@@ -268,16 +268,17 @@ void main() {
     });
 
     testWidgets('back button is adaptive and labelled', (tester) async {
-      for (final (platform, icon) in [
-        (TargetPlatform.iOS, CupertinoIcons.back),
-        (TargetPlatform.android, Icons.arrow_back),
+      // Painted glyphs, so a stale icon font cannot blank them (ZOKY-128).
+      for (final (platform, glyph) in [
+        (TargetPlatform.iOS, ZokyLineGlyph.chevronLeft),
+        (TargetPlatform.android, ZokyLineGlyph.arrowLeft),
       ]) {
         debugDefaultTargetPlatformOverride = platform;
         await _pumpFood(tester);
         expect(
           find.descendant(
             of: find.byKey(ZokyFoodHeader.backKey),
-            matching: find.byIcon(icon),
+            matching: find.byKey(ZokyLineIcon.keyFor(glyph)),
           ),
           findsOneWidget,
         );

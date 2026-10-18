@@ -82,6 +82,7 @@ void main() {
     const key = ValueKey('glyphs');
     await pumpZokyWidget(
       tester,
+      width: 24.0 * ZokyLineGlyph.values.length + 24,
       Align(
         alignment: Alignment.topLeft,
         child: RepaintBoundary(
@@ -113,8 +114,10 @@ void main() {
         Rect.fromLTWH(i * 24.0, 0, 24, 24),
         const Color(0xFF000000),
       );
-      // Visible line art, but not a filled square.
-      expect(ink, greaterThan(20), reason: '${g.name} is empty');
+      // Visible line art, but not a filled square. The "›" is thin by
+      // design (matches the Material chevron it replaced on Home).
+      final minInk = g == ZokyLineGlyph.chevronRight ? 12 : 20;
+      expect(ink, greaterThan(minInk), reason: '${g.name} is empty');
       expect(ink, lessThan(24 * 24 * 0.6), reason: '${g.name} is a blob');
     }
     img.dispose();
@@ -337,5 +340,76 @@ void main() {
         expect(whiteAt, closeTo(search.center.dy, 0.5));
       });
     }
+  });
+
+  group('ZOKY-128: Home + Food icons are painted and visible in place', () {
+    Future<void> expectInk(
+      WidgetTester tester,
+      Map<ZokyLineGlyph, Color> glyphs,
+    ) async {
+      final (data, width) = await _capture(tester);
+      for (final MapEntry(key: glyph, value: color) in glyphs.entries) {
+        final icon = find.byKey(ZokyLineIcon.keyFor(glyph)).first;
+        // A blank (font-less) glyph has 0; the thin 18pt "›" has ~7.
+        expect(
+          _pixelsNear(data, width, tester.getRect(icon), color),
+          greaterThan(glyph == ZokyLineGlyph.chevronRight ? 4 : 10),
+          reason: '${glyph.name} renders empty',
+        );
+      }
+    }
+
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets('food header back + search + "ดูทั้งหมด" '
+          '(${platform.name})', (tester) async {
+        await _openFood(tester);
+        // No icon-font glyphs left on the page.
+        expect(find.byType(Icon), findsNothing);
+        final back = platform == TargetPlatform.iOS
+            ? ZokyLineGlyph.chevronLeft
+            : ZokyLineGlyph.arrowLeft;
+        expect(
+          find.descendant(
+            of: find.byKey(ZokyFoodHeader.backKey),
+            matching: find.byKey(ZokyLineIcon.keyFor(back)),
+          ),
+          findsOneWidget,
+        );
+        await expectInk(tester, {
+          back: ZokyFoodHeader.backColor,
+          ZokyLineGlyph.search: ZokyColors.brandDeep,
+          ZokyLineGlyph.chevronRight: ZokyColors.brandDeep,
+        });
+      }, variant: TargetPlatformVariant.only(platform));
+    }
+
+    testWidgets('address sheet: check, pin, demo note, add', (tester) async {
+      await _openFood(tester);
+      await tester.tap(find.byType(ZokyFoodAddressButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(Icon), findsNothing);
+      await expectInk(tester, {
+        ZokyLineGlyph.checkCircle: ZokyColors.brandDeep,
+        ZokyLineGlyph.pin: ZokyColors.brandDeep,
+        ZokyLineGlyph.info: ZokyColors.warning,
+        ZokyLineGlyph.plus: ZokyColors.textSecondary,
+      });
+    });
+
+    testWidgets('favorites sheet heart and Home "ดูทั้งหมด"', (tester) async {
+      await _openFood(tester);
+      await tester.tap(find.byKey(ZokyFoodHeader.favoritesKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(Icon), findsNothing);
+      await expectInk(tester, {ZokyLineGlyph.heart: ZokyColors.brand});
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ZokyFoodHeader.backKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(FoodHomeScreen), findsNothing);
+      await expectInk(tester, {
+        ZokyLineGlyph.chevronRight: ZokyColors.brandDeep,
+      });
+    });
   });
 }

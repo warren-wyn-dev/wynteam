@@ -3,7 +3,6 @@ import 'package:flutter/rendering.dart' show OrdinalSortKey;
 
 import '../../app/app_dependencies.dart';
 import '../../core/adaptive/adaptive.dart';
-import '../../core/adaptive/zoky_icons.dart';
 import '../../core/design/zoky_colors.dart';
 import '../../core/design/zoky_tokens.dart';
 import '../../core/design/zoky_typography.dart';
@@ -550,7 +549,7 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
       return [
         SliverToBoxAdapter(
           child: ZokyStateView.error(
-            icon: ZokyIcons.wifiOff,
+            glyph: ZokyLineGlyph.wifiOff,
             title: ZokyStrings.offlineTitle,
             messages: const [ZokyStrings.offlineBody],
             onAction: _loadAll,
@@ -571,13 +570,13 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
         SliverToBoxAdapter(
           child: filtered
               ? ZokyStateView.empty(
-                  icon: ZokyIcons.store,
+                  glyph: ZokyLineGlyph.store,
                   title: ZokyStrings.noFilteredStores,
                   actionLabel: ZokyStrings.clearFilters,
                   onAction: () => _setFilter(StoreFilter.all),
                 )
               : const ZokyStateView.empty(
-                  icon: ZokyIcons.store,
+                  glyph: ZokyLineGlyph.store,
                   title: ZokyStrings.noStoresTitle,
                   messages: [ZokyStrings.noStoresBody],
                 ),

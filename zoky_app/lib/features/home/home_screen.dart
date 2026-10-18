@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/adaptive/adaptive.dart';
-import '../../core/adaptive/zoky_icons.dart';
 import '../../core/design/zoky_colors.dart';
 import '../../core/design/zoky_tokens.dart';
 import '../../core/l10n/zoky_strings.dart';
@@ -21,6 +20,7 @@ import 'widgets/zoky_home_header.dart';
 import 'widgets/zoky_overscroll_backdrop.dart';
 import 'widgets/zoky_recommended_stores_section.dart';
 import 'widgets/zoky_today_deals_section.dart';
+import '../../core/widgets/zoky_line_icon.dart';
 
 /// หน้าหลัก (Home v1, Founder-approved Phases 1-5): the pink glossy header
 /// with the logo and heart, the "อยากกินอะไรวันนี้?" hero card, "ดีลเด็ด
@@ -103,7 +103,7 @@ class HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (_) => const SingleChildScrollView(
         child: ZokyStateView.empty(
-          icon: ZokyIcons.favorite,
+          glyph: ZokyLineGlyph.heart,
           title: ZokyStrings.favoriteStores,
           messages: [ZokyStrings.comingSoon],
         ),

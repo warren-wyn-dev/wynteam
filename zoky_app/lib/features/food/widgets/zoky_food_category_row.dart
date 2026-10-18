@@ -5,9 +5,9 @@ import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
 import '../../../core/widgets/zoky_skeleton.dart';
 import '../../deals/widgets/zoky_deal_illustration.dart';
-import '../../../core/adaptive/zoky_icons.dart';
 import '../../../core/l10n/zoky_strings.dart';
 import '../../home/domain/home_content_models.dart';
+import '../../../core/widgets/zoky_line_icon.dart';
 
 /// Food page category circles (Founder mockup v2, 2026-10-18): soft blush
 /// circles with the "ZOKY Glossy 3D" dish illustration and the Thai name
@@ -67,8 +67,8 @@ class ZokyFoodCategoryRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(
-              ZokyIcons.wifiOff,
+            const ZokyLineIcon(
+              ZokyLineGlyph.wifiOff,
               size: ZokySizes.iconMd,
               color: ZokyColors.textSecondary,
             ),

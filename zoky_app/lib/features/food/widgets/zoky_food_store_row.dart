@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../core/adaptive/zoky_icons.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
@@ -15,6 +14,7 @@ import '../../fulfillment/fulfillment_mode_controller.dart';
 import '../../home/widgets/zoky_recommended_store_card.dart'
     show ZokyRecommendedStoreCard;
 import '../../home/widgets/zoky_store_cover.dart';
+import '../../../core/widgets/zoky_line_icon.dart';
 
 /// One store in the food page's "ร้านอาหารทั้งหมด" list (Founder mockup
 /// v2): a rounded 1:1 photo on the left (real cover, else the 3D dish art
@@ -106,7 +106,7 @@ class ZokyFoodStoreRow extends StatelessWidget {
     final labels = <Widget>[
       if (!store.isOpen)
         _Label(
-          icon: ZokyIcons.clock,
+          glyph: ZokyLineGlyph.clock,
           text: ZokyStrings.closedLabel,
           background: ZokyColors.neutral900.withValues(alpha: 0.8),
           foreground: ZokyColors.neutral0,
@@ -259,13 +259,13 @@ class _Label extends StatelessWidget {
     required this.text,
     required this.background,
     required this.foreground,
-    this.icon,
+    this.glyph,
   });
 
   final String text;
   final Color background;
   final Color foreground;
-  final IconData? icon;
+  final ZokyLineGlyph? glyph;
 
   @override
   Widget build(BuildContext context) {
@@ -279,8 +279,8 @@ class _Label extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[
-              Icon(icon, size: 13, color: foreground),
+            if (glyph case final glyph?) ...[
+              ZokyLineIcon(glyph, size: 13, color: foreground),
               const SizedBox(width: 3),
             ],
             Flexible(

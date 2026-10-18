@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/adaptive/zoky_icons.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
 import '../../../core/l10n/zoky_strings.dart';
+import '../../../core/widgets/zoky_line_icon.dart';
 
 /// Food page search entry inside the blush header (Founder mockup v2): a
 /// white rounded field with a soft shadow and a hairline [border] (so it
@@ -66,8 +66,8 @@ class ZokyFoodSearchField extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: ZokySpacing.s8),
               child: Row(
                 children: [
-                  const Icon(
-                    ZokyIcons.search,
+                  const ZokyLineIcon(
+                    ZokyLineGlyph.search,
                     size: ZokySizes.iconLg,
                     color: ZokyColors.brandDeep,
                   ),
