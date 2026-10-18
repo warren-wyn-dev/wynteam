@@ -6,8 +6,10 @@ import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
 import '../../../core/l10n/zoky_strings.dart';
 
-/// Food page search entry inside the pink header card (Founder mockup v2):
-/// a white rounded field with a pink search icon and
+/// Food page search entry inside the blush header (Founder mockup v2): a
+/// white rounded field with a soft shadow and a hairline [border] (so it
+/// separates from the pale background and the white below), a pink search
+/// icon and
 /// "ค้นหาร้านอาหารหรือเมนู". It is a button, not a text field: tapping it
 /// opens the store search page with the keyboard up.
 ///
@@ -19,6 +21,14 @@ class ZokyFoodSearchField extends StatelessWidget {
   final VoidCallback onPressed;
 
   static const BorderRadius radius = ZokyRadius.xl;
+
+  /// Hairline around the field.
+  static const Color border = ZokyColors.borderSubtle;
+
+  /// Soft ink shadow under the field.
+  static const List<BoxShadow> shadow = [
+    BoxShadow(color: Color(0x1416161A), offset: Offset(0, 2), blurRadius: 10),
+  ];
 
   static TextStyle get _style =>
       ZokyTextStyles.bodyLg.copyWith(color: ZokyColors.textSecondary);
@@ -37,11 +47,18 @@ class ZokyFoodSearchField extends StatelessWidget {
       label: ZokyStrings.foodSearchPlaceholder,
       hint: ZokyStrings.searchHint,
       excludeSemantics: true,
-      child: SizedBox(
+      child: Container(
         height: heightFor(context),
+        decoration: const BoxDecoration(
+          borderRadius: radius,
+          boxShadow: shadow,
+        ),
         child: Material(
           color: ZokyColors.surface,
-          shape: const RoundedRectangleBorder(borderRadius: radius),
+          shape: const RoundedRectangleBorder(
+            borderRadius: radius,
+            side: BorderSide(color: border),
+          ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onPressed,

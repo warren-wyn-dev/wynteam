@@ -26,6 +26,12 @@ abstract final class ZokyColors {
   static const Color headerMid = Color(0xFFF72C7E);
   static const Color headerBottom = Color(0xFFEE226E);
 
+  // Pale blush header (food page, Founder 2026-10-18: "พื้นชมพู ขอเป็นสีที่
+  // อ่อนสุดๆ"), fading to white. Light background: ink/textSecondary text,
+  // brandDeep icons (contrast in ZokyFoodHeader).
+  static const Color headerPale = Color(0xFFFFEFF5);
+  static const Color headerPaleMid = Color(0xFFFFF7FA);
+
   // Neutral scale.
   static const Color neutral0 = Color(0xFFFFFFFF);
   static const Color neutral25 = Color(0xFFF8FAFE); // Cloud White

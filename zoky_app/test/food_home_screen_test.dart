@@ -194,12 +194,12 @@ Future<void> _tapChip(WidgetTester tester, String label) async {
 
 void main() {
   group('order', () {
-    testWidgets('full-bleed header (row, chips, search, sheet), categories, '
+    testWidgets('full-bleed header (row, chips, search), categories, '
         'coupons, all stores, chips, rows', (tester) async {
       await _pumpFood(tester, height: 3000, topInset: 59);
       double top(Finder f) => tester.getTopLeft(f).dy;
       final surface = tester.getRect(find.byKey(ZokyFoodHeader.surfaceKey));
-      // Pink from the very top (under the status bar) and edge to edge.
+      // Blush from the very top (under the status bar) and edge to edge.
       expect(surface.top, 0);
       expect(surface.left, 0);
       expect(surface.right, 390);
@@ -223,17 +223,13 @@ void main() {
       );
       expect(label.left - back.right, lessThan(12));
       // Mode chips inside the header under the row, left-aligned; then
-      // the search field, then the white sheet.
+      // the search field, inside the header (which fades to white).
       final toggle = tester.getRect(find.byType(ZokyFoodModeToggle));
       expect(toggle.top, greaterThanOrEqualTo(title.bottom - 0.5));
       expect(toggle.left, 16);
       final search = tester.getRect(_searchField());
       expect(search.top, greaterThan(toggle.bottom - 0.5));
-      final sheet = tester.getRect(find.byKey(ZokyFoodHeader.sheetKey));
-      expect(sheet.top, greaterThan(search.bottom));
-      expect(sheet.left, 0);
-      expect(sheet.right, 390);
-      expect(sheet.bottom, closeTo(surface.bottom + 1, 0.01));
+      expect(search.bottom, lessThan(surface.bottom));
       expect(
         surface.bottom,
         lessThanOrEqualTo(top(find.byType(ZokyFoodCategoryRow))),
@@ -324,16 +320,16 @@ void main() {
       expect(find.text(ZokyStrings.couponsEmpty), findsOneWidget);
     });
 
-    testWidgets('status bar uses light icons over the pink, open and '
+    testWidgets('status bar uses dark icons over the pale blush, open and '
         'pinned', (tester) async {
       await _pumpFood(tester, topInset: 59);
       expect(
         ZokyFoodHeader.systemOverlayStyle.statusBarIconBrightness,
-        Brightness.light,
+        Brightness.dark,
       );
       expect(
         ZokyFoodHeader.systemOverlayStyle.statusBarBrightness,
-        Brightness.dark,
+        Brightness.light,
       );
       AnnotatedRegion<SystemUiOverlayStyle> region() => tester.widget(
         find
@@ -982,7 +978,7 @@ void main() {
   });
 
   group('sticky header and chips', () {
-    testWidgets('header folds to a full-bleed pink bar with the search '
+    testWidgets('header folds to a full-bleed blush bar with the search '
         'field; chips pin under it', (tester) async {
       await _pumpFood(
         tester,
@@ -1002,8 +998,21 @@ void main() {
       expect(card.height, lessThan(openCard.height));
       expect(search.top, greaterThanOrEqualTo(59));
       expect(search.bottom, lessThanOrEqualTo(card.bottom));
-      // The white sheet has flattened away.
-      expect(tester.getSize(find.byKey(ZokyFoodHeader.sheetKey)).height, 1);
+      // Collapsed: the bar still ends on white under the search field.
+      final gradient =
+          (tester
+                          .widget<DecoratedBox>(
+                            find.byKey(ZokyFoodHeader.surfaceKey),
+                          )
+                          .decoration
+                      as BoxDecoration)
+                  .gradient!
+              as LinearGradient;
+      expect(gradient.colors.last, const Color(0xFFFFFFFF));
+      expect(
+        card.top + gradient.stops!.last * card.height,
+        closeTo(search.center.dy, 0.5),
+      );
       expect(find.byKey(ZokyFoodHeader.backKey).hitTestable(), findsNothing);
       expect(_pill(FulfillmentMode.pickup).hitTestable(), findsNothing);
       await tester.tap(_searchField());

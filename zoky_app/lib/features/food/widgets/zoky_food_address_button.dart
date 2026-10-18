@@ -15,8 +15,10 @@ import '../../fulfillment/fulfillment_mode_controller.dart';
 /// 2026-10-18); the selected address stays the reference location for
 /// nearby stores. Tapping it opens the address sheet.
 ///
-/// Contrast: both lines are pure white on the header's
-/// [ZokyColors.brandDeep] band (5.15:1, passes 4.5:1 for small text). The
+/// Contrast on the pale blush header ([ZokyColors.headerPale] #FFEFF5, its
+/// darkest point behind text): the small label is
+/// [ZokyColors.textSecondary] (4.74:1, passes 4.5:1), the bold line is ink
+/// (16.25:1) and the ▾ is [ZokyColors.brandDeep] (4.64:1). The
 /// address name ellipsizes rather than wrapping. One 44pt+ button for
 /// assistive tech, announced with the full text ([titleFor]).
 class ZokyFoodAddressButton extends StatelessWidget {
@@ -36,7 +38,7 @@ class ZokyFoodAddressButton extends StatelessWidget {
     ZokyTextStyles.labelMd.copyWith(
       fontSize: 13,
       height: 1.3,
-      color: ZokyColors.onAction,
+      color: ZokyColors.textSecondary,
     ),
     FontWeight.w600,
   );
@@ -46,7 +48,7 @@ class ZokyFoodAddressButton extends StatelessWidget {
     ZokyTextStyles.labelLg.copyWith(
       fontSize: 17,
       height: 1.3,
-      color: ZokyColors.onAction,
+      color: ZokyColors.textPrimary,
     ),
     FontWeight.w700,
   );
@@ -123,7 +125,7 @@ class ZokyFoodAddressButton extends StatelessWidget {
                         const ZokyLineIcon(
                           ZokyLineGlyph.caretDown,
                           size: 20,
-                          color: ZokyColors.onAction,
+                          color: ZokyColors.brandDeep,
                         ),
                       ],
                     ),

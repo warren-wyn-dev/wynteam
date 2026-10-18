@@ -7,13 +7,13 @@ import '../../../core/l10n/zoky_strings.dart';
 import '../../../core/widgets/zoky_line_icon.dart';
 import '../../fulfillment/fulfillment_mode_controller.dart';
 
-/// Compact "จัดส่ง | รับเองที่ร้าน" chips inside the pink food page header
+/// Compact "จัดส่ง | รับเองที่ร้าน" chips inside the blush food page header
 /// (Founder feedback 2026-10-18: "เล็กๆที่สุดเท่าที่ทำได้ แต่ต้องดูดี";
 /// pickup opened by Founder decision "ค"). Two small left-aligned pills,
 /// each a painted icon (scooter / bag) and the label:
-/// - selected: white pill, [ZokyColors.brandDeep] icon and text (5.15:1);
-/// - unselected: [unselectedFill] (white 12%) pill with a faint white rim,
-///   white icon and text (>= 4.5:1 on the brandDeep header, see tests).
+/// - selected: [ZokyColors.brandDeep] pill, white icon and text (5.15:1);
+/// - unselected: white pill with a [unselectedRim] hairline, ink text
+///   (18.04:1) and a [ZokyColors.textSecondary] icon (5.26:1).
 ///
 /// The pill is ~32pt tall ([pillHeightFor]) but each chip takes taps over
 /// a 44pt-high box ([ZokySizes.tapTargetIos]); the extra space is
@@ -27,11 +27,14 @@ class ZokyFoodModeToggle extends StatelessWidget {
   static Key keyFor(FulfillmentMode mode) =>
       ValueKey('zoky-food-mode-${mode.name}');
 
-  /// Unselected pill fill on the pink header.
-  static const Color unselectedFill = Color(0x1FFFFFFF);
+  /// Unselected pill fill on the blush header.
+  static const Color unselectedFill = ZokyColors.surface;
 
-  /// Unselected pill rim.
-  static const Color unselectedRim = Color(0x4DFFFFFF);
+  /// Unselected pill hairline (separates the white pill from the blush).
+  static const Color unselectedRim = ZokyColors.borderSubtle;
+
+  /// Selected pill fill (carries white text, 5.15:1).
+  static const Color selectedFill = ZokyColors.brandDeep;
 
   static const double _fontSize = 13;
   static const double _lineHeight = 1.3;
@@ -102,7 +105,8 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? ZokyColors.brandDeep : ZokyColors.onAction;
+    final fg = selected ? ZokyColors.onAction : ZokyColors.textPrimary;
+    final iconColor = selected ? ZokyColors.onAction : ZokyColors.textSecondary;
     final style = ZokyTextStyles.weight(
       ZokyTextStyles.labelMd.copyWith(
         fontSize: ZokyFoodModeToggle._fontSize,
@@ -137,7 +141,7 @@ class _ModeChip extends StatelessWidget {
               ),
               decoration: ShapeDecoration(
                 color: selected
-                    ? ZokyColors.surface
+                    ? ZokyFoodModeToggle.selectedFill
                     : ZokyFoodModeToggle.unselectedFill,
                 shape: StadiumBorder(
                   side: selected
@@ -149,7 +153,7 @@ class _ModeChip extends StatelessWidget {
                 shadows: selected
                     ? const [
                         BoxShadow(
-                          color: Color(0x33991636),
+                          color: Color(0x33D61256),
                           offset: Offset(0, 2),
                           blurRadius: 6,
                         ),
@@ -159,7 +163,7 @@ class _ModeChip extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ZokyLineIcon(glyph, size: 18, color: fg),
+                  ZokyLineIcon(glyph, size: 18, color: iconColor),
                   const SizedBox(width: ZokySpacing.s2),
                   Flexible(
                     child: Text(

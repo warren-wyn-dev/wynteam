@@ -7,6 +7,7 @@ import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
 import '../../../core/l10n/zoky_strings.dart';
+import '../../../core/widgets/zoky_3d_icon.dart';
 import '../../catalog/domain/catalog_models.dart';
 import '../../deals/domain/deal_models.dart';
 import '../../deals/widgets/zoky_deal_card.dart' show ZokyDemoBadge;
@@ -200,10 +201,11 @@ class ZokyFoodStoreRow extends StatelessWidget {
                             const TextSpan(text: ' · '),
                             const WidgetSpan(
                               alignment: PlaceholderAlignment.middle,
-                              child: Icon(
-                                ZokyIcons.star,
-                                size: 15,
-                                color: ZokyColors.rating,
+                              // Glossy 3D star, as on Home's store cards.
+                              child: Zoky3DIcon(
+                                Zoky3DGlyph.star,
+                                size: 16,
+                                palette: Zoky3DPalette.gold,
                               ),
                             ),
                             TextSpan(text: ' ${rating.toStringAsFixed(1)}'),
@@ -239,11 +241,8 @@ class ZokyFoodStoreRow extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: ZokySpacing.s2),
-                        const Icon(
-                          ZokyIcons.arrowForward,
-                          size: 18,
-                          color: ZokyColors.brandDeep,
-                        ),
+                        // Glossy 3D arrow (Home hero CTA family).
+                        const Zoky3DIcon(Zoky3DGlyph.arrowRight, size: 22),
                       ],
                     ),
                   ],
