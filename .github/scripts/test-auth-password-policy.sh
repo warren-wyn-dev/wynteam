@@ -52,7 +52,7 @@ cat > "$FAKE_AUTH_STATE" <<'JSON'
 JSON
 bash "$root/.github/scripts/sync-auth-password-policy.sh"
 jq -e '(.password_min_length == 12) and (.mailer_autoconfirm == true) and
-       (.uri_allow_list == "https://wynos.online/welcome,https://wynos.online/login,https://wynos.online/auth/callback,https://food.wynos.online/food/auth/callback,https://food.wynos.online/auth/callback?next=%2Ffood,https://wynos.online/auth/callback?next=%2Ffood,https://wynos.online/reset-password")' "$FAKE_AUTH_STATE" >/dev/null
+       (.uri_allow_list == "https://wynos.online/welcome,https://wynos.online/login,https://wynos.online/auth/callback,https://food.wynos.online/food/auth/callback,https://food.wynos.online/auth/callback?next=%2Ffood,https://wynos.online/auth/callback?next=%2Ffood,https://wynos.online/reset-password,https://zoky.wynos.online/food/auth/callback,https://zoky.wynos.online/auth/callback?next=%2Ffood,https://zoky.wynos.online/reset-password?returnTo=%2Ffood%2Flogin")' "$FAKE_AUTH_STATE" >/dev/null
 test "$(wc -l < "$FAKE_PATCH_LOG")" -eq 1
 
 # Repeated production workflow must not repeatedly change Auth config.
@@ -69,7 +69,17 @@ jq -e '.password_min_length == 14 and
        (.uri_allow_list | contains("https://food.wynos.online/food/auth/callback")) and
        (.uri_allow_list | contains("https://food.wynos.online/auth/callback?next=%2Ffood")) and
        (.uri_allow_list | contains("https://wynos.online/auth/callback?next=%2Ffood")) and
-       (.uri_allow_list | contains("https://wynos.online/reset-password"))' "$FAKE_AUTH_STATE" >/dev/null
+       (.uri_allow_list | contains("https://wynos.online/reset-password")) and
+       (.uri_allow_list | contains("https://zoky.wynos.online/food/auth/callback")) and
+       (.uri_allow_list | contains("https://zoky.wynos.online/auth/callback?next=%2Ffood")) and
+       (.uri_allow_list | contains("https://zoky.wynos.online/reset-password?returnTo=%2Ffood%2Flogin"))' "$FAKE_AUTH_STATE" >/dev/null
+test "$(wc -l < "$FAKE_PATCH_LOG")" -eq 2
+
+# ZOKY-138: an allowlist that already has every entry (in any order) is left alone.
+cat > "$FAKE_AUTH_STATE" <<'JSON'
+{"password_min_length":12,"uri_allow_list":"https://zoky.wynos.online/reset-password?returnTo=%2Ffood%2Flogin,https://zoky.wynos.online/auth/callback?next=%2Ffood,https://zoky.wynos.online/food/auth/callback,https://wynos.online/reset-password,https://wynos.online/auth/callback?next=%2Ffood,https://food.wynos.online/auth/callback?next=%2Ffood,https://food.wynos.online/food/auth/callback,https://wynos.online/auth/callback"}
+JSON
+bash "$root/.github/scripts/sync-auth-password-policy.sh"
 test "$(wc -l < "$FAKE_PATCH_LOG")" -eq 2
 
 # Expired/underprivileged management token must cause an explicit failure.

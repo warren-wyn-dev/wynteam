@@ -15,6 +15,11 @@ FOOD_CALLBACK="https://food.wynos.online/food/auth/callback"
 FOOD_LEGACY_CALLBACK="https://food.wynos.online/auth/callback?next=%2Ffood"
 SOCIAL_LEGACY_FOOD_CALLBACK="https://wynos.online/auth/callback?next=%2Ffood"
 RESET_CALLBACK="https://wynos.online/reset-password"
+# ZOKY-138: ZOKY (zoky.wynos.online) is the canonical Food origin. Additive:
+# the food.wynos.online entries above stay for the transition and rollback.
+ZOKY_CALLBACK="https://zoky.wynos.online/food/auth/callback"
+ZOKY_CONFIRM_CALLBACK="https://zoky.wynos.online/auth/callback?next=%2Ffood"
+ZOKY_RESET_CALLBACK="https://zoky.wynos.online/reset-password?returnTo=%2Ffood%2Flogin"
 API="https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth"
 
 before=$(mktemp)
@@ -39,7 +44,8 @@ if (( old_min > target_min )); then target_min=$old_min; fi
 # especially those used for Google OAuth and password recovery.
 existing=$(jq -r '.uri_allow_list // ""' "$before")
 updated="$existing"
-for required in "$CALLBACK" "$FOOD_CALLBACK" "$FOOD_LEGACY_CALLBACK" "$SOCIAL_LEGACY_FOOD_CALLBACK" "$RESET_CALLBACK"; do
+for required in "$CALLBACK" "$FOOD_CALLBACK" "$FOOD_LEGACY_CALLBACK" "$SOCIAL_LEGACY_FOOD_CALLBACK" "$RESET_CALLBACK" \
+  "$ZOKY_CALLBACK" "$ZOKY_CONFIRM_CALLBACK" "$ZOKY_RESET_CALLBACK"; do
   if ! printf '%s' "$updated" | tr ',' '\n' | grep -Fxq "$required"; then
     if [ -n "$updated" ]; then updated="$updated,$required"; else updated="$required"; fi
   fi
@@ -71,16 +77,20 @@ curl --fail --silent --show-error --retry 2 --max-time 30 \
 jq -e --arg cb "$CALLBACK" --arg food "$FOOD_CALLBACK" \
   --arg food_legacy "$FOOD_LEGACY_CALLBACK" --arg social_food_legacy "$SOCIAL_LEGACY_FOOD_CALLBACK" \
   --arg reset "$RESET_CALLBACK" \
+  --arg zoky "$ZOKY_CALLBACK" --arg zoky_confirm "$ZOKY_CONFIRM_CALLBACK" --arg zoky_reset "$ZOKY_RESET_CALLBACK" \
   '(.password_min_length >= 12) and
    ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($cb)) != null) and
    ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($food)) != null) and
    ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($food_legacy)) != null) and
    ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($social_food_legacy)) != null) and
-   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($reset)) != null)' \
+   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($reset)) != null) and
+   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($zoky)) != null) and
+   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($zoky_confirm)) != null) and
+   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($zoky_reset)) != null)' \
   "$after" >/dev/null || {
     echo "::error::Supabase Auth config failed post-update verification"
     exit 1
   }
 
-echo "Supabase Auth password minimum plus Social/Food OAuth and recovery redirects verified"
+echo "Supabase Auth password minimum plus Social/Food/ZOKY OAuth and recovery redirects verified"
 echo "Email confirmation remains unchanged pending email-delivery QA"
