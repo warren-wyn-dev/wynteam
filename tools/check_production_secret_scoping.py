@@ -25,8 +25,43 @@ WF = ROOT / ".github" / "workflows"
 CREDENTIAL = re.compile(r"(?<![A-Za-z0-9_])(SUPABASE_ACCESS_TOKEN|VERCEL_TOKEN)(?![A-Za-z0-9_])", re.I)
 
 
+# Deny by default: outside the production environment a job may only name a
+# secret literally (secrets.NAME or secrets['NAME']). Any other use of the
+# secrets context (format(), toJSON(secrets), secrets: inherit) could reach a
+# production credential without spelling it out.
+EXPRESSION = re.compile(r"\$\{\{(.*?)\}\}", re.S)
+SECRETS_WORD = re.compile(r"(?<![A-Za-z0-9_.-])secrets(?![A-Za-z0-9_-])", re.I)
+LITERAL_SECRET = re.compile(r"""secrets\s*(?:\.\s*[A-Za-z_][A-Za-z0-9_]*|\[\s*['"][A-Za-z_][A-Za-z0-9_]*['"]\s*\])""", re.I)
+
+
+def strings(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield str(key)
+            yield from strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from strings(item)
+    elif value is not None:
+        yield str(value)
+
+
+def dynamic_secrets(value):
+    if isinstance(value, dict):
+        if str(value.get("secrets", "")).strip().lower() == "inherit":
+            return True
+        return any(dynamic_secrets(item) for item in value.values())
+    if isinstance(value, list):
+        return any(dynamic_secrets(item) for item in value)
+    return any(
+        SECRETS_WORD.search(LITERAL_SECRET.sub("", expression))
+        for text in strings(value)
+        for expression in EXPRESSION.findall(text)
+    )
+
+
 def mentions(value):
-    return bool(CREDENTIAL.search(json.dumps(value, default=str)))
+    return bool(CREDENTIAL.search(json.dumps(value, default=str))) or dynamic_secrets(value)
 
 
 def gated(job):

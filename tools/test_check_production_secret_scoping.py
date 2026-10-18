@@ -59,6 +59,9 @@ cases = {
     "whitespace before secret index, ungated": add("ws.yml", (NEW_JOB % "X").replace("secrets.X", "secrets [ 'VERCEL_TOKEN' ]")),
     "anchored ungated job after a gated job": add("anchor.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  ok:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n  evil: &ungated\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: echo ok\n"),
     "alias reuses gated steps in an ungated job": add("alias.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  ok:\n    environment: production\n    runs-on: ubuntu-latest\n    steps: &s\n      - env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: echo ok\n  evil:\n    runs-on: ubuntu-latest\n    steps: *s\n"),
+    "format()-built secret name, ungated": add("fmt.yml", (NEW_JOB % "X").replace("secrets.X", "secrets[format('{0}_{1}', 'VERCEL', 'TOKEN')]")),
+    "whole secrets context, ungated": add("tojson.yml", (NEW_JOB % "X").replace("secrets.X", "toJSON(secrets)")),
+    "secrets: inherit to a reusable workflow, ungated": add("inherit.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  call:\n    uses: ./.github/workflows/deploy-web.yml\n    secrets: inherit\n"),
     "workflow-level env credential": add("top-env.yml", "name: x\non:\n  workflow_dispatch:\nenv:\n  T: ${{ secrets.VERCEL_TOKEN }}\njobs:\n  a:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n"),
 }
 for label, mutate in cases.items():
@@ -67,6 +70,9 @@ for label, mutate in cases.items():
 
 code, out = run_gate(add("block-env.yml", (NEW_JOB % "VERCEL_TOKEN").replace("    runs-on:", "    environment:\n      name: production\n    runs-on:")))
 assert code == 0, f"block-form environment must be accepted: {out}"
+
+code, out = run_gate(add("literal-other.yml", (NEW_JOB % "X").replace("secrets.X", "secrets [ 'SUPABASE_URL' ]")))
+assert code == 0, f"ungated literal non-production secret must be accepted: {out}"
 
 code, out = run_gate(add("indent4-gated.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n    apply:\n      environment: production\n      runs-on: ubuntu-latest\n      steps:\n        - env:\n            T: ${{ secrets.SUPABASE_ACCESS_TOKEN }}\n          run: echo ok\n"))
 assert code == 0, f"4-space-indented gated job must be accepted: {out}"
