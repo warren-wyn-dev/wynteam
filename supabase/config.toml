@@ -22,3 +22,10 @@ verify_jwt = true
 # Vault-key-authenticated scheduler call (not a browser/JWT request).
 # The handler verifies a dedicated long random key using a service-role-only RPC.
 verify_jwt = false
+
+# wynos-maps-geocode authenticates callers itself (apikey header); guests send
+# the publishable key, which is not a JWT. Matches the live setting (Verify JWT
+# OFF, read by the Founder on 2026-10-18); without this entry a CLI deploy
+# would turn JWT verification on and break guest geocoding.
+[functions.wynos-maps-geocode]
+verify_jwt = false
