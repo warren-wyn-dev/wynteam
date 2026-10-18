@@ -17,6 +17,7 @@ const ROOT_REDIRECT_BY_HOST: Record<string, string> = {
 // ZOKY-114: WYNOS Food moved to ZOKY (zoky.wynos.online). Temporary (307)
 // until the cutover is verified; then the Founder decides on 308 (ZOKY-100 Q2).
 const FOOD_MOVE_STATUS = 307;
+const FOOD_LEGACY_SW_CLEANUP_PATH = "/food/legacy-sw-cleanup.js";
 
 function redirectToFood(pathname: string, search: string) {
   const target = new URL(FOOD_PRODUCTION_ORIGIN);
@@ -29,9 +30,20 @@ export function proxy(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0].toLowerCase() ?? "";
   const { pathname, search } = request.nextUrl;
 
-  // Every bookmark, shared link, QR poster and auth/Stripe return on the old
-  // Food host keeps working: same path and query on ZOKY.
-  if (host === FOOD_LEGACY_HOST) return redirectToFood(pathname, search);
+  if (host === FOOD_LEGACY_HOST) {
+    // ZOKY-136: browsers reject a redirected service-worker update, so the old
+    // worker (and its push subscription) would live on. Serve a cleanup worker
+    // that unsubscribes push and unregisters itself instead.
+    if (pathname === "/sw.js") {
+      const cleanup = request.nextUrl.clone();
+      cleanup.pathname = FOOD_LEGACY_SW_CLEANUP_PATH;
+      cleanup.search = "";
+      return NextResponse.rewrite(cleanup);
+    }
+    // Every bookmark, shared link, QR poster and auth/Stripe return on the old
+    // Food host keeps working: same path and query on ZOKY.
+    return redirectToFood(pathname, search);
+  }
 
   // Food is a dedicated product origin. Keeping /food on wynos.online would
   // make the Food PWA's root scope claim the Social origin too, and shared

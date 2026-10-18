@@ -61,6 +61,15 @@ test("every food.wynos.online URL moves to zoky.wynos.online with the same path 
   }
 });
 
+test("ZOKY-136: food.wynos.online/sw.js serves the legacy cleanup worker instead of redirecting", () => {
+  assert.deepEqual(run("https://food.wynos.online/sw.js"), { kind: "rewrite", url: "https://food.wynos.online/food/legacy-sw-cleanup.js" });
+  assert.deepEqual(run("https://food.wynos.online/sw.js?v=2"), { kind: "rewrite", url: "https://food.wynos.online/food/legacy-sw-cleanup.js" });
+  // Only the legacy host: ZOKY and WYNOS keep the real worker.
+  assert.deepEqual(run("https://zoky.wynos.online/sw.js"), { kind: "next" });
+  assert.deepEqual(run("https://wynos.online/sw.js"), { kind: "next" });
+  assert.deepEqual(run("https://food.wynos.online/sw.json"), { kind: "redirect", url: "https://zoky.wynos.online/sw.json", status: 307 });
+});
+
 test("wynos.online/food* moves to zoky.wynos.online, /food itself to the root", () => {
   assert.deepEqual(run("https://wynos.online/food?promo=CODE"), { kind: "redirect", url: "https://zoky.wynos.online/?promo=CODE", status: 307 });
   assert.deepEqual(run("https://www.wynos.online/food/login"), { kind: "redirect", url: "https://zoky.wynos.online/food/login", status: 307 });
