@@ -17,3 +17,27 @@ export function applicationFeeSatang(quote: unknown, amountSatang: number): numb
   if (gp > amountSatang) throw new Error("gp_quote_exceeds_amount");
   return gp;
 }
+
+/**
+ * Trusted Food customer web origins for live-mode Stripe calls (ZOKY-135).
+ * ZOKY (zoky.wynos.online) is canonical; food.wynos.online stays accepted for
+ * the domain transition and rollback. Exact string match only: no suffix,
+ * wildcard or regex matching.
+ */
+export const FOOD_WEB_ORIGIN = "https://zoky.wynos.online";
+export const FOOD_WEB_ORIGINS: ReadonlySet<string> = new Set([
+  FOOD_WEB_ORIGIN,
+  "https://food.wynos.online",
+]);
+
+export function isFoodWebOrigin(origin: string | null | undefined): boolean {
+  return typeof origin === "string" && FOOD_WEB_ORIGINS.has(origin);
+}
+
+/**
+ * Origin for Stripe success/cancel URLs: the request's origin only when it is
+ * on the allowlist, otherwise ZOKY. Never an arbitrary request origin.
+ */
+export function foodReturnOrigin(origin: string | null | undefined): string {
+  return isFoodWebOrigin(origin) ? origin as string : FOOD_WEB_ORIGIN;
+}
