@@ -51,6 +51,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       # Without a config.toml entry the CLI deploys with verify_jwt = true,
       # which breaks guest geocoding if the live function has Verify JWT off.

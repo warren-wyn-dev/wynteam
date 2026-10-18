@@ -48,6 +48,9 @@ env:
   ZOKY_EXCEPTION_EXPIRES_UTC: "2026-11-30"
   ZOKY_RELEASE_BRANCH: release/zoky-web-20261018
   ZOKY_PRODUCTION_BASE_SHA: b19687afdec361da846a2d9ceb11429547c92a24
+  # Current Consumer Web production deployment (built from the base SHA); the
+  # PHASE1 Instant Rollback target shown to the reviewer before approval.
+  ZOKY_ROLLBACK_DEPLOYMENT: web-5djnkfh16
   # PR #1133 (homepage banners) and PR #1135 (featured stores): acceptance
   # #1142 is open, so neither may be part of this release.
   ZOKY_EXCLUDED_SHAS: "806390ed8ab56810c6141b925e6b8aa6eb3eca49 55a290e9168ac8b82b5656cecf9ff10f4fce7bc0"
@@ -80,6 +83,7 @@ jobs:
         with:
           ref: ${{ env.ZOKY_RELEASE_BRANCH }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Release SHA, ancestry, exclusions and path allowlist
         env:
@@ -117,7 +121,7 @@ jobs:
               supabase/config.toml) ;;
               *) echo "::error::Out-of-scope path in release: $file"; bad=1 ;;
             esac
-          done < <(git diff --name-only "$ZOKY_PRODUCTION_BASE_SHA" "$RELEASE_SHA")
+          done < <(git diff --no-renames --name-only "$ZOKY_PRODUCTION_BASE_SHA" "$RELEASE_SHA")
           [ "$bad" -eq 0 ] || exit 1
 
           # supabase/config.toml may only gain the reviewed wynos-maps-geocode
@@ -145,6 +149,12 @@ jobs:
             echo "- release_sha: \`$RELEASE_SHA\` (tip of \`$ZOKY_RELEASE_BRANCH\`)"
             echo "- production base: \`$ZOKY_PRODUCTION_BASE_SHA\`"
             echo "- expires: $ZOKY_EXCEPTION_EXPIRES_UTC"
+            if [ "$PHASE" = "PHASE1" ]; then
+              echo "- rollback target: Vercel Instant Rollback to \`$ZOKY_ROLLBACK_DEPLOYMENT\` (commit \`$ZOKY_PRODUCTION_BASE_SHA\`, current production)"
+            else
+              echo "- rollback target: Vercel Instant Rollback to the PHASE1 production deployment recorded in APPROVALS (PHASE1 base: \`$ZOKY_ROLLBACK_DEPLOYMENT\` / \`$ZOKY_PRODUCTION_BASE_SHA\`)"
+            fi
+            echo "- on a red verify step: production has already moved; the Founder performs Instant Rollback to this target, then investigate"
             echo
             echo "### Commits"
             echo '```'
@@ -197,6 +207,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_sha }}
+          persist-credentials: false
 
       - name: Checked-out commit is the approved release_sha
         env:
@@ -225,7 +236,11 @@ jobs:
       - name: Pre-production browser QA
         run: npm run qa:browser
 
-      # Same deploy command and secret wiring as wyn-158-production-deploy.yml.
+      # Same deploy command and secret wiring as wyn-158-production-deploy.yml,
+      # except the CLI is pinned to 63.1.2: the version npx resolved for
+      # wyn-158's last successful production deploy of b19687af (run
+      # 38241263711, 2026-10-12) and the version wynos-admin-consolidated-
+      # release.yml already pins (CTO review L1).
       - name: Deploy to Vercel production
         id: deploy
         env:
@@ -282,7 +297,7 @@ jobs:
           fi
 
           export VERCEL_ORG_ID VERCEL_PROJECT_ID
-          url=$(npx --yes vercel@latest deploy --prod --yes \
+          url=$(npx --yes vercel@63.1.2 deploy --prod --yes \
             --token="$VERCEL_TOKEN" \
             --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
@@ -337,6 +352,7 @@ jobs:
             if (h.service !== "WYNOS Maps Core" || h.version !== "core-api-v1") process.exit(1);
           '
           maps_routing=$(node -e 'const h=require("/tmp/wynos-maps-health.json"); process.stdout.write(String(h.routing || "unknown"))')
+          maps_geo=$(node -e 'const h=require("/tmp/wynos-maps-health.json"); process.stdout.write(String(h.geo || "unknown"))')
           if [ "$maps_routing" = 'configured' ]; then
             curl --silent --show-error --fail --location --retry 2 --max-time 30 \
               --header 'Content-Type: application/json' \
@@ -352,6 +368,11 @@ jobs:
             echo 'WYNOS Maps routing smoke request succeeded.' >> "$GITHUB_STEP_SUMMARY"
           else
             echo "::warning::WYNOS Maps routing is $maps_routing."
+          fi
+          if [ "$maps_geo" = 'configured' ]; then
+            echo 'WYNOS Maps self-hosted geocoding is configured on production.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::WYNOS Maps self-hosted geocoding is $maps_geo; search continues using existing fallbacks."
           fi
 
           # Public readiness flag only; never print Firebase keys or VAPID.
