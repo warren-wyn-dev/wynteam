@@ -11,8 +11,12 @@ import 'zoky_bento_illustration.dart';
 /// Home Phase 2 hero (Founder mockup "เฟส 2 การ์ดสั่งอาหาร"): a "ZOKY
 /// Glossy 3D" brand card -- the same gradient, gloss band and rim as the
 /// Phase 1 header via [ZokyGlossySurface] -- with a white glossy "FOOD
-/// DELIVERY" pill, the main question, a subtitle, a bento illustration on a
-/// frosted disc and a full-width white glossy search button.
+/// DELIVERY" pill, the main question, a subtitle and a bento illustration
+/// on a frosted disc.
+///
+/// Home v2 (Founder, 2026-10-18): the card is the first slide of the Home
+/// banner carousel and its search button was dropped (search moved to the
+/// field over the header). It fills the slide height, content centered.
 ///
 /// Contrast (WCAG 2.x): the card is #F93384 -> #EE226E, so white text is
 /// 3.6-4.1:1 and only *large* text may be white on it: the title (28/700)
@@ -21,15 +25,10 @@ import 'zoky_bento_illustration.dart';
 /// controls in [ZokyColors.brandDeep]: 5.15:1 on white, 4.70:1 on
 /// [ZokyGloss.whiteBottom].
 class ZokyFoodHeroCard extends StatelessWidget {
-  const ZokyFoodHeroCard({super.key, required this.onSearch});
-
-  final VoidCallback onSearch;
+  const ZokyFoodHeroCard({super.key});
 
   static const double padding = ZokySpacing.s10;
   static const BorderRadius radius = ZokyRadius.xxl;
-
-  /// Visible button height (>= the 44pt iOS / 48pt Android tap target).
-  static const double buttonHeight = ZokySizes.buttonMd;
 
   /// Card surface: identical to the header's (one brand surface).
   static const LinearGradient background = ZokyGloss.brand;
@@ -75,6 +74,7 @@ class ZokyFoodHeroCard extends StatelessWidget {
             final scale = MediaQuery.textScalerOf(context).scale(1);
             final circle = illustrationSize(constraints.maxWidth, scale);
             return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
@@ -121,8 +121,6 @@ class ZokyFoodHeroCard extends StatelessWidget {
                     _IllustrationCircle(size: circle),
                   ],
                 ),
-                const SizedBox(height: ZokySpacing.s10),
-                _SearchButton(onPressed: onSearch),
               ],
             );
           },
@@ -208,73 +206,6 @@ class _IllustrationCircle extends StatelessWidget {
             rimBottom: const Color(0x1FFFFFFF),
           ),
           child: Center(child: ZokyBentoIllustration(size: size * 0.9)),
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchButton extends StatelessWidget {
-  const _SearchButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  static const BorderRadius _radius = ZokyRadius.md;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: ZokyStrings.heroSearchButton,
-      excludeSemantics: true,
-      child: Material(
-        type: MaterialType.transparency,
-        child: Ink(
-          decoration: const BoxDecoration(
-            borderRadius: _radius,
-            gradient: ZokyGloss.white,
-            boxShadow: ZokyGloss.controlShadow,
-          ),
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: _radius,
-            child: CustomPaint(
-              painter: const ZokyGlossPainter(
-                gradient: null,
-                borderRadius: _radius,
-                glossHeight: 0,
-                rimTop: ZokyGloss.controlRimTop,
-                rimBottom: ZokyGloss.controlRimBottom,
-              ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minHeight: ZokyFoodHeroCard.buttonHeight,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    ZokySpacing.s8,
-                    ZokySpacing.s3,
-                    ZokySpacing.s4,
-                    ZokySpacing.s3,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          ZokyStrings.heroSearchButton,
-                          style: ZokyTextStyles.labelLg.copyWith(
-                            color: ZokyColors.brandDeep,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: ZokySpacing.s4),
-                      const Zoky3DIcon(Zoky3DGlyph.arrowRight, size: 32),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
         ),
       ),
     );

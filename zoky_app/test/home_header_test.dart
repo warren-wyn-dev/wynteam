@@ -8,7 +8,9 @@ import 'package:zoky_app/core/widgets/zoky_3d_icon.dart';
 import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
 import 'package:zoky_app/core/widgets/zoky_glossy_surface.dart';
 import 'package:zoky_app/core/widgets/zoky_wordmark.dart';
+import 'package:zoky_app/features/home/widgets/zoky_home_address_button.dart';
 import 'package:zoky_app/features/home/widgets/zoky_home_header.dart';
+import 'package:zoky_app/features/home/widgets/zoky_home_search_field.dart';
 
 import 'support/pump_zoky.dart';
 
@@ -86,7 +88,8 @@ void main() {
     final surfaces = tester
         .widgetList<ZokyGlossySurface>(find.byType(ZokyGlossySurface))
         .toList();
-    expect(surfaces, hasLength(2));
+    // Header + the carousel's hero slide (+ its invisible sizing copy).
+    expect(surfaces.length, greaterThanOrEqualTo(2));
     for (final surface in surfaces) {
       expect(surface.gradient, same(ZokyGloss.brand));
     }
@@ -151,12 +154,14 @@ void main() {
         expect(heart.right, lessThanOrEqualTo(width - 12));
         expect(logo.right, lessThan(heart.left));
         expect(logo.width, inInclusiveRange(124, 164));
-        // Compact header: logo row ~90-110pt below the status bar.
-        final header = tester.getSize(find.byType(ZokyHomeHeader));
-        expect(
-          header.height - ZokyHomeHeader.sheetRadius,
-          inInclusiveRange(85, 115),
-        );
+        // Compact header (Home v2): logo row + address row stay within
+        // ~160pt of pink above the floating search field.
+        final field = tester.getRect(find.byType(ZokyHomeSearchField));
+        expect(field.top, inInclusiveRange(120, 160));
+        final address = tester.getRect(find.byType(ZokyHomeAddressButton));
+        expect(address.top, greaterThanOrEqualTo(logo.bottom - 8));
+        expect(address.bottom, lessThan(field.top));
+        expect(address.right, lessThanOrEqualTo(width - 12));
         semantics.dispose();
       });
     }

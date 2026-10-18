@@ -4,8 +4,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/design/zoky_theme.dart';
 import '../core/l10n/zoky_strings.dart';
+import '../features/address/delivery_address_controller.dart';
 import '../features/catalog/data/store_repository.dart';
 import '../features/deals/data/promotion_repository.dart';
+import '../features/home/data/home_content_repository.dart';
 import '../features/shell/zoky_shell.dart';
 import 'app_config.dart';
 import 'app_dependencies.dart';
@@ -17,11 +19,15 @@ class ZokyApp extends StatelessWidget {
     required this.config,
     required this.storeRepository,
     required this.promotionRepository,
+    required this.homeContentRepository,
+    required this.deliveryAddresses,
   });
 
   final AppConfig config;
   final StoreRepository storeRepository;
   final PromotionRepository promotionRepository;
+  final HomeContentRepository homeContentRepository;
+  final DeliveryAddressController deliveryAddresses;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +35,8 @@ class ZokyApp extends StatelessWidget {
       config: config,
       storeRepository: storeRepository,
       promotionRepository: promotionRepository,
+      homeContentRepository: homeContentRepository,
+      deliveryAddresses: deliveryAddresses,
       child: MaterialApp(
         title: ZokyStrings.appName,
         debugShowCheckedModeBanner: false,

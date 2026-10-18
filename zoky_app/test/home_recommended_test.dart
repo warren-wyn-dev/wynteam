@@ -162,7 +162,7 @@ void main() {
   });
 
   testWidgets('every card carries the demo badge', (tester) async {
-    await pumpZokyApp(tester);
+    await pumpZokyApp(tester, height: 1600);
     for (var i = 0; i < _featured.length; i++) {
       expect(
         find.descendant(
@@ -185,7 +185,7 @@ void main() {
   testWidgets('rating and time are shown only when the store has them', (
     tester,
   ) async {
-    await pumpZokyApp(tester);
+    await pumpZokyApp(tester, height: 1600);
     for (final store in _featured) {
       final card = _card(store);
       final star = find.descendant(
@@ -227,7 +227,7 @@ void main() {
 
   testWidgets('card semantics; no heart on the cover photo', (tester) async {
     final semantics = tester.ensureSemantics();
-    await pumpZokyApp(tester);
+    await pumpZokyApp(tester, height: 1600);
     expect(
       ZokyRecommendedStoreCard.semanticLabel(_featured.first),
       'ร้านตัวอย่าง ราเมงซอยเจ็ด คะแนน 4.8 ส่งใน 30 ถึง 45 นาที',

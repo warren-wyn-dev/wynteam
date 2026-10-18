@@ -5,10 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:zoky_app/app/app_config.dart';
-import 'package:zoky_app/app/zoky_app.dart';
-import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
-import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
+
+import 'support/pump_zoky.dart';
 
 const List<int> _pink = [0xF9, 0x33, 0x84]; // ZokyColors.headerTop
 
@@ -29,13 +27,7 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   debugDefaultTargetPlatformOverride = platform;
-  await tester.pumpWidget(
-    ZokyApp(
-      config: AppConfig.demo,
-      storeRepository: DemoStoreRepository(),
-      promotionRepository: const DemoPromotionRepository(),
-    ),
-  );
+  await tester.pumpWidget(demoZokyApp());
   await tester.pumpAndSettle();
 }
 

@@ -12,12 +12,17 @@ import '../../core/widgets/zoky_store_card.dart';
 import '../../core/widgets/zoky_store_grid.dart';
 import '../catalog/data/store_repository.dart';
 import '../catalog/domain/catalog_models.dart';
+import '../home/domain/home_content_models.dart';
 import '../store/store_screen.dart';
 
 /// Minimal store search / browse page opened by the Home hero button
 /// ("ค้นหาของอร่อย"). Reuses the store directory query (names and
 /// categories, same as the web `food_store_directory`), the store card grid
 /// and [StoreScreen], so the existing ordering flow continues from here.
+///
+/// A Home category circle opens it with [category]: the directory rows are
+/// then narrowed client-side to that category ([ZokyFoodCategory.matches]
+/// on the store's menu categories), together with any typed query.
 ///
 /// Placeholder until the full search experience (ZOKY-106) is specified.
 class StoreSearchScreen extends StatefulWidget {
@@ -26,6 +31,7 @@ class StoreSearchScreen extends StatefulWidget {
     required this.repository,
     this.title = ZokyStrings.heroSearchButton,
     this.autofocus = true,
+    this.category,
   });
 
   final StoreRepository repository;
@@ -34,6 +40,9 @@ class StoreSearchScreen extends StatefulWidget {
   /// from Home "ดูทั้งหมด" (browse first, so no keyboard).
   final String title;
   final bool autofocus;
+
+  /// Category filter from a Home category circle (null = all stores).
+  final ZokyFoodCategory? category;
 
   @override
   State<StoreSearchScreen> createState() => _StoreSearchScreenState();
@@ -63,7 +72,12 @@ class _StoreSearchScreenState extends State<StoreSearchScreen> {
     try {
       final stores = await widget.repository.fetchDirectory(query: _query);
       if (!mounted || request != _request) return;
-      setState(() => _stores = stores);
+      final category = widget.category;
+      setState(
+        () => _stores = category == null
+            ? stores
+            : stores.where(category.matches).toList(),
+      );
     } catch (error) {
       if (!mounted || request != _request) return;
       setState(() => _error = error);

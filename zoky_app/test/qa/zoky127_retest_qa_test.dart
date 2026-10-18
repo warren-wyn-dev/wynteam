@@ -20,16 +20,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:zoky_app/app/app_config.dart';
-import 'package:zoky_app/app/zoky_app.dart';
 import 'package:zoky_app/core/adaptive/zoky_icons.dart';
 import 'package:zoky_app/core/design/zoky_colors.dart';
 import 'package:zoky_app/core/l10n/zoky_strings.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
 import 'package:zoky_app/features/catalog/domain/catalog_models.dart';
-import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
-import 'package:zoky_app/features/home/home_screen.dart';
 import 'package:zoky_app/features/home/widgets/zoky_recommended_store_card.dart';
 import 'package:zoky_app/features/home/widgets/zoky_recommended_stores_section.dart';
 import 'package:zoky_app/features/search/store_search_screen.dart';
@@ -265,13 +261,7 @@ Future<List<String>> _checkGrid(WidgetTester tester) async {
 
 Future<void> _pumpApp(WidgetTester tester, double w, double h, double s) async {
   setPhoneViewport(tester, width: w, height: h, textScale: s);
-  await tester.pumpWidget(
-    ZokyApp(
-      config: AppConfig.demo,
-      storeRepository: DemoStoreRepository(),
-      promotionRepository: const DemoPromotionRepository(),
-    ),
-  );
+  await tester.pumpWidget(demoZokyApp());
   await tester.pump();
   await tester.pumpAndSettle();
 }
@@ -282,29 +272,16 @@ void main() {
   });
 
   group('ZOKY-127 QA re-test: app grids (Anuphan)', () {
-    for (final entry in ['search', 'seeAll', 'legacy']) {
+    for (final entry in ['search', 'seeAll']) {
       for (final w in [320.0, 360.0, 375.0, 390.0, 414.0, 430.0, 932.0]) {
         for (final s in [1.0, 1.15, 1.3, 1.45, 1.6, 2.0]) {
           testWidgets('$entry ${w.toInt()} text $s', (tester) async {
             final h = w > 600 ? 430.0 : 844.0;
-            if (entry == 'legacy') {
-              await pumpZokyWidget(
-                tester,
-                HomeScreen(
-                  repository: DemoStoreRepository(),
-                  promotionRepository: const DemoPromotionRepository(),
-                  showLegacyBody: true,
-                ),
-                width: w,
-                height: h,
-                textScale: s,
-              );
-              await tester.pumpAndSettle();
-            } else {
+            {
               await _pumpApp(tester, w, h, s);
               final Finder target;
               if (entry == 'search') {
-                target = find.text(ZokyStrings.heroSearchButton);
+                target = find.text(ZokyStrings.homeSearchPlaceholder);
               } else {
                 target = find.descendant(
                   of: find.byType(ZokyRecommendedStoresSection),
@@ -452,7 +429,7 @@ void main() {
   for (final (w, sc) in [(320.0, 1.3), (430.0, 1.0), (320.0, 1.0)]) {
     testWidgets('screenshot search grid ${w.toInt()} x $sc', (tester) async {
       await _pumpApp(tester, w, 1400, sc);
-      await tester.tap(find.text(ZokyStrings.heroSearchButton));
+      await tester.tap(find.text(ZokyStrings.homeSearchPlaceholder));
       await tester.pumpAndSettle();
       final view = tester.binding.renderViews.first;
       final layer = view.debugLayer! as OffsetLayer;

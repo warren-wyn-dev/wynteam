@@ -4,11 +4,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:zoky_app/app/app_config.dart';
-import 'package:zoky_app/app/zoky_app.dart';
+
+import 'support/pump_zoky.dart';
+
 import 'package:zoky_app/core/l10n/zoky_strings.dart';
-import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
-import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
 
 void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
@@ -29,13 +28,7 @@ void main() {
           addTearDown(tester.view.reset);
           addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
           debugDefaultTargetPlatformOverride = platform;
-          await tester.pumpWidget(
-            ZokyApp(
-              config: AppConfig.demo,
-              storeRepository: DemoStoreRepository(),
-              promotionRepository: const DemoPromotionRepository(),
-            ),
-          );
+          await tester.pumpWidget(demoZokyApp());
           await tester.pumpAndSettle();
           await tester.tap(find.bySemanticsLabel(ZokyStrings.favoriteStores));
           await tester.pumpAndSettle();

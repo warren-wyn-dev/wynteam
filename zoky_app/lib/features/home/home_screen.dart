@@ -2,19 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/app_dependencies.dart';
 import '../../core/adaptive/adaptive.dart';
 import '../../core/adaptive/zoky_icons.dart';
 import '../../core/design/zoky_colors.dart';
 import '../../core/design/zoky_tokens.dart';
-import '../../core/design/zoky_typography.dart';
 import '../../core/l10n/zoky_strings.dart';
 import '../../core/widgets/zoky_bottom_nav.dart';
-import '../../core/widgets/zoky_chip.dart';
-import '../../core/widgets/zoky_logo.dart';
-import '../../core/widgets/zoky_skeleton.dart';
 import '../../core/widgets/zoky_state_view.dart';
-import '../../core/widgets/zoky_store_card.dart';
-import '../../core/widgets/zoky_store_grid.dart';
+import '../address/address_sheet.dart';
 import '../catalog/data/store_repository.dart';
 import '../catalog/domain/catalog_models.dart';
 import '../deals/data/promotion_repository.dart';
@@ -23,39 +19,32 @@ import '../deals/deals_screen.dart';
 import '../deals/domain/deal_models.dart';
 import '../search/store_search_screen.dart';
 import '../store/store_screen.dart';
-import 'widgets/zoky_food_hero_card.dart';
+import 'domain/home_content_models.dart';
+import 'widgets/zoky_food_category_row.dart';
+import 'widgets/zoky_home_address_button.dart';
+import 'widgets/zoky_home_banner_carousel.dart';
 import 'widgets/zoky_home_header.dart';
+import 'widgets/zoky_home_search_field.dart';
 import 'widgets/zoky_recommended_stores_section.dart';
 import 'widgets/zoky_today_deals_section.dart';
 
-/// Client-side store filters (parity C04, same rules as the web).
-enum StoreFilter { all, freeDelivery, promo, near, rating }
-
-/// Home redesign review switch (Founder mockup, built phase by phase).
+/// หน้าหลัก, Home v2 (Founder decision 2026-10-18), top to bottom: the pink
+/// glossy header with the "จัดส่งที่" address row, the search field over
+/// the pink/white seam, the banner carousel (hero first), the food
+/// category circles, "ดีลเด็ดวันนี้" and "ร้านอาหารแนะนำ". The bottom nav
+/// (shell) floats over it and never covers the last row.
 ///
-/// While false, หน้าหลัก shows the new [ZokyHomeHeader] (Phase 1), the
-/// [ZokyFoodHeroCard] (Phase 2), [ZokyTodayDealsSection] (Phase 3) and
-/// [ZokyRecommendedStoresSection] (Phase 4) so the Founder can review each
-/// phase; the earlier demo body (search, filter chips, store grid) is kept
-/// intact behind this flag and comes back when it is true.
-const bool kShowLegacyHomeBody = false;
-
-/// หน้าหลัก placeholder: header, search, filter chips and the store grid.
-/// Banners, featured stores, deals, re-order and popular sections arrive in
-/// ZOKY-106 (parity C01-C16).
+/// The shell passes the store and promotion repositories; Home content and
+/// the delivery address come from [AppDependencies].
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.repository,
     required this.promotionRepository,
-    this.showLegacyBody = kShowLegacyHomeBody,
   });
 
   final StoreRepository repository;
   final PromotionRepository promotionRepository;
-
-  /// See [kShowLegacyHomeBody]; tests pass true to cover the old body.
-  final bool showLegacyBody;
 
   @override
   State<HomeScreen> createState() => HomeScreenState();
@@ -87,55 +76,12 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<ZokyStoreSummary>? _stores;
-  Object? _error;
-  StoreFilter _filter = StoreFilter.all;
-  String _query = '';
-
   @override
-  void initState() {
-    super.initState();
-    // The phased review canvas shows no stores, so it fetches nothing.
-    if (widget.showLegacyBody) _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _stores = null;
-      _error = null;
-    });
-    try {
-      final stores = await widget.repository.fetchDirectory(query: _query);
-      if (!mounted) return;
-      setState(() => _stores = stores);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _error = error);
-    }
-  }
-
-  List<ZokyStoreSummary> _filtered(List<ZokyStoreSummary> stores) {
-    final filtered = switch (_filter) {
-      StoreFilter.all => stores,
-      StoreFilter.freeDelivery =>
-        stores.where((s) => s.deliveryFee <= 0).toList(),
-      StoreFilter.promo => stores.where((s) => s.hasPromo).toList(),
-      StoreFilter.near =>
-        stores
-            .where((s) => s.distanceKm != null && s.distanceKm! <= 3)
-            .toList(),
-      StoreFilter.rating =>
-        stores.where((s) => (s.rating ?? 0) >= 4.5).toList(),
-    };
-    // Open stores first, then by distance (parity C08).
-    final sorted = [...filtered]
-      ..sort((a, b) {
-        if (a.isOpen != b.isOpen) return a.isOpen ? -1 : 1;
-        return (a.distanceKm ?? double.infinity).compareTo(
-          b.distanceKm ?? double.infinity,
-        );
-      });
-    return sorted;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Loads once (no-op afterwards), so the header shows the default
+    // address as soon as possible.
+    AppDependencies.of(context).deliveryAddresses.load();
   }
 
   void _openStore(ZokyStoreSummary store) {
@@ -147,13 +93,53 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Hero button: store search/browse, which continues into [StoreScreen].
+  /// Search field: store search with the keyboard up, which continues
+  /// into [StoreScreen].
   void _openSearch() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => StoreSearchScreen(repository: widget.repository),
       ),
     );
+  }
+
+  /// Category circle: the store list narrowed to that category (browse
+  /// first, so no keyboard).
+  void _openCategory(ZokyFoodCategory category) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => StoreSearchScreen(
+          repository: widget.repository,
+          title: category.label,
+          autofocus: false,
+          category: category,
+        ),
+      ),
+    );
+  }
+
+  void _openAddresses() => showZokyAddressSheet(
+    context,
+    AppDependencies.of(context).deliveryAddresses,
+  );
+
+  /// Banner tap: its store (web: the banner's destination store, looked up
+  /// in the directory) or, for demo banners, its deal. Nothing happens
+  /// when the target is no longer listed.
+  Future<void> _openBanner(ZokyHomeBanner banner) async {
+    final storeId = banner.destinationStoreId;
+    if (storeId != null) {
+      final stores = await widget.repository.fetchDirectory();
+      final store = stores.where((s) => s.id == storeId).firstOrNull;
+      if (store != null && mounted) _openStore(store);
+      return;
+    }
+    final dealId = banner.dealId;
+    if (dealId != null) {
+      final deals = await widget.promotionRepository.fetchTodayDeals();
+      final deal = deals.where((d) => d.id == dealId).firstOrNull;
+      if (deal != null && mounted) _openDeal(deal);
+    }
   }
 
   /// Web parity: the header heart opens the "ร้านโปรด" sheet. The app has
@@ -200,10 +186,12 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// How far the hero card rises into the header's white sheet, leaving a
-  /// small white gap under the pink like the mockup.
-  static const double _heroOverlap =
-      ZokyHomeHeader.sheetRadius - ZokySpacing.s6;
+  /// Gap between the address row and the search field (on the pink).
+  static const double _searchGapAbove = ZokySpacing.s6;
+
+  /// Gap between the search field and the header's bottom edge: the field
+  /// is centered on the seam where the white sheet starts.
+  static const double _searchGapBelow = ZokySpacing.s2;
 
   /// Height of the pink overscroll backdrop at scroll offset 0; always
   /// smaller than the header, which hides it at rest.
@@ -240,9 +228,10 @@ class HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  /// Phased review layout: header, hero card, then a plain white canvas.
-  Widget _phase1() {
+  Widget _home() {
+    final deps = AppDependencies.of(context);
     final bottomInset = ZokyBottomNav.reservedHeight(context);
+    final searchHeight = ZokyHomeSearchField.heightFor(context);
     return ColoredBox(
       color: ZokyColors.surface,
       child: Stack(
@@ -268,29 +257,46 @@ class HomeScreenState extends State<HomeScreen> {
             child: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
-                  // One box so the card's lifted top edge stays inside this
-                  // sliver's hit-test area (the card is painted last, so it
-                  // wins taps over the sheet it overlaps).
-                  child: Column(
+                  // The search field sits inside the header's box (painted
+                  // last, over the pink/white seam), so it stays inside
+                  // this sliver's hit-test area.
+                  child: Stack(
                     key: _scrollAnchor,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    // The field's soft shadow may fall past the header.
+                    clipBehavior: Clip.none,
                     children: [
-                      ZokyHomeHeader(onFavorites: _openFavorites),
-                      Transform.translate(
-                        offset: const Offset(0, -_heroOverlap),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: ZokySpacing.gutter,
-                          ),
-                          child: ZokyFoodHeroCard(onSearch: _openSearch),
+                      ZokyHomeHeader(
+                        onFavorites: _openFavorites,
+                        address: ZokyHomeAddressButton(
+                          controller: deps.deliveryAddresses,
+                          onPressed: _openAddresses,
                         ),
+                        bottomSpace:
+                            _searchGapAbove + searchHeight + _searchGapBelow,
+                      ),
+                      Positioned(
+                        left: ZokySpacing.gutter,
+                        right: ZokySpacing.gutter,
+                        bottom: _searchGapBelow,
+                        height: searchHeight,
+                        child: ZokyHomeSearchField(onPressed: _openSearch),
                       ),
                     ],
                   ),
                 ),
-                // Phase 3. The hero's translate already leaves [_heroOverlap]
-                // of layout space under the card and the 44pt "ดูทั้งหมด"
-                // target pads the heading, so no extra gap is added here.
+                SliverToBoxAdapter(
+                  child: ZokyHomeBannerCarousel(
+                    repository: deps.homeContentRepository,
+                    onOpenBanner: _openBanner,
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: ZokyFoodCategoryRow(
+                    repository: deps.homeContentRepository,
+                    onOpenCategory: _openCategory,
+                  ),
+                ),
+                // Phase 3; the 44pt "ดูทั้งหมด" target pads the heading.
                 SliverToBoxAdapter(
                   child: ZokyTodayDealsSection(
                     repository: widget.promotionRepository,
@@ -325,185 +331,5 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (!widget.showLegacyBody) return _phase1();
-    final bottomInset = ZokyBottomNav.reservedHeight(context);
-    return SafeArea(
-      bottom: false,
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: KeyedSubtree(key: _scrollAnchor, child: _header()),
-          ),
-          SliverToBoxAdapter(child: _search()),
-          SliverToBoxAdapter(child: _filters()),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-              ZokySpacing.gutter,
-              ZokySpacing.s6,
-              ZokySpacing.gutter,
-              ZokySpacing.s4,
-            ),
-            sliver: SliverToBoxAdapter(
-              child: Semantics(
-                header: true,
-                child: Text(
-                  ZokyStrings.nearbyStores,
-                  style: ZokyTextStyles.titleSm,
-                ),
-              ),
-            ),
-          ),
-          ..._body(),
-          SliverToBoxAdapter(child: SizedBox(height: bottomInset)),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _body() {
-    if (_error != null) {
-      return [
-        SliverToBoxAdapter(
-          child: ZokyStateView.error(
-            title: ZokyStrings.loadErrorTitle,
-            messages: const [ZokyStrings.offlineBody],
-            onAction: _load,
-          ),
-        ),
-      ];
-    }
-    final stores = _stores;
-    if (stores == null) {
-      return [_grid(List.filled(4, const ZokyStoreCardSkeleton()))];
-    }
-    final shown = _filtered(stores);
-    if (shown.isEmpty) {
-      return [
-        const SliverToBoxAdapter(
-          child: ZokyStateView.empty(
-            icon: ZokyIcons.store,
-            title: ZokyStrings.noStoresTitle,
-            messages: [ZokyStrings.noStoresBody],
-          ),
-        ),
-      ];
-    }
-    return [
-      _grid([
-        for (final store in shown)
-          ZokyStoreCard(store: store, onTap: () => _openStore(store)),
-      ]),
-    ];
-  }
-
-  Widget _grid(List<Widget> children) => ZokyStoreGrid(children: children);
-
-  Widget _header() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        ZokySpacing.gutter,
-        ZokySpacing.s4,
-        ZokySpacing.gutter,
-        ZokySpacing.s4,
-      ),
-      child: Row(
-        children: [
-          const ZokyLogo(size: 36),
-          const SizedBox(width: ZokySpacing.s6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(ZokyStrings.deliverTo, style: ZokyTextStyles.bodySm),
-                Row(
-                  children: [
-                    const Icon(
-                      ZokyIcons.location,
-                      size: 16,
-                      color: ZokyColors.brand,
-                    ),
-                    const SizedBox(width: ZokySpacing.s1),
-                    Flexible(
-                      child: Text(
-                        ZokyStrings.demoAddressLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ZokyTextStyles.weight(
-                          ZokyTextStyles.bodyMd,
-                          FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _search() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: ZokySpacing.gutter,
-        vertical: ZokySpacing.s2,
-      ),
-      child: TextField(
-        textInputAction: TextInputAction.search,
-        onSubmitted: (value) {
-          _query = value;
-          _load();
-        },
-        style: ZokyTextStyles.bodyLg,
-        decoration: const InputDecoration(
-          hintText: ZokyStrings.searchHint,
-          prefixIcon: Icon(ZokyIcons.search, color: ZokyColors.neutral600),
-          filled: true,
-          fillColor: ZokyColors.chip,
-          contentPadding: EdgeInsets.symmetric(vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: ZokyRadius.full,
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: ZokyRadius.full,
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: ZokyRadius.full,
-            borderSide: BorderSide(color: ZokyColors.brand, width: 2),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _filters() {
-    const labels = {
-      StoreFilter.all: ZokyStrings.filterAll,
-      StoreFilter.freeDelivery: ZokyStrings.filterFreeDelivery,
-      StoreFilter.promo: ZokyStrings.filterPromo,
-      StoreFilter.near: ZokyStrings.filterNear,
-      StoreFilter.rating: ZokyStrings.filterRating,
-    };
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: ZokySpacing.gutter),
-      child: Row(
-        children: [
-          for (final entry in labels.entries) ...[
-            ZokyChip(
-              label: entry.value,
-              selected: _filter == entry.key,
-              onSelected: () => setState(() => _filter = entry.key),
-            ),
-            const SizedBox(width: ZokySpacing.s4),
-          ],
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _home();
 }

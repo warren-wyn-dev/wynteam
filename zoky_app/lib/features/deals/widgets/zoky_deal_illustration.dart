@@ -155,6 +155,10 @@ class ZokyDealArtPainter extends CustomPainter {
         _noodleBowl(canvas);
       case ZokyDealArt.somTam:
         _somTam(canvas);
+      case ZokyDealArt.kaprao:
+        _kaprao(canvas);
+      case ZokyDealArt.dessert:
+        _mangoStickyRice(canvas);
     }
     canvas.restore();
   }
@@ -875,6 +879,295 @@ class ZokyDealArtPainter extends CustomPainter {
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round
         ..color = const Color(0xFF4E9A2A),
+    );
+  }
+
+  /// Shared white plate (som tam, kaprao, mango sticky rice).
+  static void _plate(Canvas canvas) {
+    const plate = Rect.fromLTRB(6, 60, 96, 90);
+    canvas.drawOval(
+      plate,
+      _linear(plate, const [Color(0xFFFFFFFF), Color(0xFFE9DCE2)]),
+    );
+    canvas.drawOval(
+      const Rect.fromLTRB(18, 64, 84, 86),
+      _linear(const Rect.fromLTRB(18, 64, 84, 86), const [
+        Color(0xFFEDE1E6),
+        Color(0xFFFFFFFF),
+      ]),
+    );
+  }
+
+  /// Steamed rice dome with a few lit grains.
+  static void _riceDome(Canvas canvas, Path dome, {int seed = 5}) {
+    final rect = dome.getBounds();
+    canvas.drawPath(
+      dome.shift(const Offset(1.2, 2.2)),
+      _blur(const Color(0x40806A70), 2),
+    );
+    canvas.drawPath(
+      dome,
+      _radial(
+        rect,
+        const [Color(0xFFFFFFFF), Color(0xFFF7F2EC), Color(0xFFDCD2CA)],
+        stops: const [0, 0.6, 1],
+      ),
+    );
+    canvas.save();
+    canvas.clipPath(dome);
+    final rnd = math.Random(seed);
+    for (var i = 0; i < 40; i++) {
+      final p = Offset(
+        rect.left + rnd.nextDouble() * rect.width,
+        rect.top + rnd.nextDouble() * rect.height,
+      );
+      canvas.save();
+      canvas.translate(p.dx, p.dy);
+      canvas.rotate(rnd.nextDouble() * math.pi);
+      canvas.drawOval(
+        const Rect.fromLTWH(-1.8, -0.8, 3.6, 1.6),
+        Paint()..color = const Color(0x2E8A7466),
+      );
+      canvas.drawOval(
+        const Rect.fromLTWH(-1.6, -1.1, 3, 1.1),
+        Paint()..color = const Color(0xE6FFFFFF),
+      );
+      canvas.restore();
+    }
+    canvas.restore();
+  }
+
+  // Kaprao (ตามสั่ง): rice dome, basil stir-fry with chili, crispy fried
+  // egg on top.
+  void _kaprao(Canvas canvas) {
+    _groundShadow(canvas, const Offset(51, 87), 86, 12);
+    _plate(canvas);
+
+    _riceDome(
+      canvas,
+      Path()
+        ..moveTo(14, 74)
+        ..cubicTo(12, 56, 26, 46, 40, 47)
+        ..cubicTo(54, 48, 60, 60, 58, 76)
+        ..quadraticBezierTo(36, 82, 14, 74)
+        ..close(),
+    );
+
+    // Minced pork stir-fry: glossy brown mound with crumbly bumps.
+    final pork = _blob(const Offset(64, 70), 23, 12, 7, crag: 0.12);
+    final porkRect = pork.getBounds();
+    canvas.drawPath(
+      pork.shift(const Offset(1.4, 2.4)),
+      _blur(const Color(0x594A220A), 2),
+    );
+    canvas.drawPath(
+      pork,
+      _radial(
+        porkRect,
+        const [Color(0xFFC98A52), Color(0xFF8E4F22), Color(0xFF5A2C10)],
+        stops: const [0, 0.55, 1],
+      ),
+    );
+    canvas.save();
+    canvas.clipPath(pork);
+    final rnd = math.Random(11);
+    for (var i = 0; i < 40; i++) {
+      final p = Offset(
+        porkRect.left + rnd.nextDouble() * porkRect.width,
+        porkRect.top + rnd.nextDouble() * porkRect.height,
+      );
+      final r = 0.9 + rnd.nextDouble() * 1.3;
+      canvas.drawCircle(
+        p + Offset(r * 0.3, r * 0.4),
+        r,
+        Paint()..color = const Color(0x4D3A1606),
+      );
+      canvas.drawCircle(p, r * 0.7, Paint()..color = const Color(0x40F2C08A));
+    }
+    canvas.restore();
+
+    // Holy basil leaves: glossy green ellipses with a midrib.
+    void leaf(Offset c, double len, double angle) {
+      canvas.save();
+      canvas.translate(c.dx, c.dy);
+      canvas.rotate(angle);
+      final shape = Path()
+        ..moveTo(-len / 2, 0)
+        ..quadraticBezierTo(0, -len * 0.42, len / 2, 0)
+        ..quadraticBezierTo(0, len * 0.42, -len / 2, 0)
+        ..close();
+      canvas.drawPath(
+        shape.shift(const Offset(0.6, 1.2)),
+        _blur(const Color(0x592A5410), 1),
+      );
+      canvas.drawPath(
+        shape,
+        _linear(shape.getBounds(), const [
+          Color(0xFF7FD05A),
+          Color(0xFF2E7D24),
+        ]),
+      );
+      canvas.drawLine(
+        Offset(-len * 0.42, 0),
+        Offset(len * 0.42, 0),
+        Paint()
+          ..strokeWidth = 0.7
+          ..color = const Color(0x80D8F5C0),
+      );
+      canvas.restore();
+    }
+
+    leaf(const Offset(56, 64), 11, -0.5);
+    leaf(const Offset(74, 63), 10, 0.6);
+    leaf(const Offset(81, 73), 9, -0.2);
+    leaf(const Offset(62, 77), 9, 0.3);
+
+    // Chili slices.
+    for (final p in const [Offset(68, 67), Offset(52, 72), Offset(77, 78)]) {
+      canvas.drawCircle(
+        p,
+        2.3,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = const Color(0xFFE0302A),
+      );
+    }
+
+    // Fried egg on top: craggy crisp white with a golden edge, glossy yolk.
+    final white = _blob(const Offset(42, 44), 22, 13, 3, crag: 0.1);
+    canvas.drawPath(
+      white.shift(const Offset(1.5, 2.8)),
+      _blur(const Color(0x4D6A4A3A), 2.2),
+    );
+    canvas.drawPath(
+      white,
+      _radial(
+        white.getBounds(),
+        const [Color(0xFFFFFFFF), Color(0xFFFFF8EE), Color(0xFFE8B66A)],
+        stops: const [0, 0.7, 1],
+      ),
+    );
+    canvas.save();
+    canvas.clipPath(white);
+    canvas.drawPath(
+      white,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.2
+        ..color = const Color(0x80D68A32),
+    );
+    canvas.restore();
+    const yolk = Rect.fromLTRB(36, 35, 52, 49);
+    canvas.drawOval(
+      yolk.shift(const Offset(0.8, 1.6)),
+      _blur(const Color(0x66B05A00), 1.4),
+    );
+    canvas.drawOval(
+      yolk,
+      _radial(
+        yolk,
+        const [Color(0xFFFFE07A), Color(0xFFFFA81E), Color(0xFFE8740A)],
+        stops: const [0, 0.55, 1],
+      ),
+    );
+    _specular(canvas, const Offset(41, 39), 6, 2.6, alpha: 0.85);
+    _specular(canvas, const Offset(28, 42), 10, 3.4, alpha: 0.5);
+  }
+
+  // Mango sticky rice (ของหวาน): sticky rice dome, glossy mango slices,
+  // coconut cream and toasted mung beans.
+  void _mangoStickyRice(Canvas canvas) {
+    _groundShadow(canvas, const Offset(51, 87), 86, 12);
+    _plate(canvas);
+
+    _riceDome(
+      canvas,
+      Path()
+        ..moveTo(16, 76)
+        ..cubicTo(14, 60, 26, 52, 38, 53)
+        ..cubicTo(50, 54, 56, 64, 54, 77)
+        ..quadraticBezierTo(35, 82, 16, 76)
+        ..close(),
+      seed: 9,
+    );
+    // Coconut cream drizzle over the rice.
+    final cream = Path()
+      ..moveTo(22, 61)
+      ..cubicTo(28, 55, 42, 54, 50, 62)
+      ..cubicTo(46, 66, 40, 63, 36, 67)
+      ..cubicTo(32, 70, 26, 66, 22, 61)
+      ..close();
+    canvas.drawPath(
+      cream,
+      _linear(cream.getBounds(), const [Color(0xFFFFFFFF), Color(0xFFF6EBDD)]),
+    );
+    _specular(canvas, const Offset(32, 58), 9, 2.6, alpha: 0.8);
+    // Toasted mung beans.
+    for (final p in const [
+      Offset(30, 61),
+      Offset(36, 59),
+      Offset(42, 61),
+      Offset(39, 64),
+      Offset(33, 64),
+    ]) {
+      final r = Rect.fromCenter(center: p, width: 2.6, height: 2);
+      canvas.drawOval(
+        r,
+        _linear(r, const [Color(0xFFF2D68A), Color(0xFFC9963A)]),
+      );
+    }
+
+    // Mango slices fanned to the right: glossy golden crescents.
+    void slice(Offset c, double angle) {
+      canvas.save();
+      canvas.translate(c.dx, c.dy);
+      canvas.rotate(angle);
+      final body = Path()
+        ..moveTo(-15, 4)
+        ..cubicTo(-12, -9, 10, -11, 16, 2)
+        ..quadraticBezierTo(0, 8, -15, 4)
+        ..close();
+      final rect = body.getBounds();
+      canvas.drawPath(
+        body.shift(const Offset(1, 2.2)),
+        _blur(const Color(0x59A85A00), 1.6),
+      );
+      canvas.drawPath(
+        body,
+        _radial(
+          rect,
+          const [Color(0xFFFFE89A), Color(0xFFFFC233), Color(0xFFF08A0C)],
+          stops: const [0, 0.55, 1],
+        ),
+      );
+      // Fibre lines.
+      for (var i = -2; i <= 2; i++) {
+        canvas.drawLine(
+          Offset(i * 5.0 - 1, 3),
+          Offset(i * 5.0 + 1, -5),
+          Paint()
+            ..strokeWidth = 0.6
+            ..color = const Color(0x40C06A00),
+        );
+      }
+      canvas.restore();
+      _specular(canvas, c + const Offset(-5, -4), 8, 2.6, alpha: 0.7);
+    }
+
+    slice(const Offset(70, 74), -0.25);
+    slice(const Offset(68, 65), -0.45);
+    slice(const Offset(64, 56), -0.7);
+
+    // Mint leaf.
+    final mint = Path()
+      ..moveTo(76, 50)
+      ..quadraticBezierTo(84, 44, 90, 50)
+      ..quadraticBezierTo(84, 56, 76, 50)
+      ..close();
+    canvas.drawPath(
+      mint,
+      _linear(mint.getBounds(), const [Color(0xFF8BDA62), Color(0xFF2E8A2A)]),
     );
   }
 

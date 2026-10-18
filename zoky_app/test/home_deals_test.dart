@@ -13,7 +13,7 @@ import 'package:zoky_app/features/deals/deals_screen.dart';
 import 'package:zoky_app/features/deals/domain/deal_models.dart';
 import 'package:zoky_app/features/deals/widgets/zoky_deal_card.dart';
 import 'package:zoky_app/features/deals/widgets/zoky_deal_illustration.dart';
-import 'package:zoky_app/features/home/widgets/zoky_food_hero_card.dart';
+import 'package:zoky_app/features/home/widgets/zoky_home_banner_carousel.dart';
 import 'package:zoky_app/features/home/widgets/zoky_today_deals_section.dart';
 
 import 'support/pump_zoky.dart';
@@ -56,7 +56,7 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    await pumpZokyApp(tester);
+    await pumpZokyApp(tester, height: 1600);
     expect(find.byType(ZokyTodayDealsSection), findsOneWidget);
     expect(find.text(ZokyStrings.dealsTitle), findsOneWidget);
     expect(_seeAllText(), findsOneWidget);
@@ -66,8 +66,8 @@ void main() {
       expect(find.text(deal.headline), findsOneWidget);
       expect(find.text(deal.description), findsOneWidget);
     }
-    // Section sits below the hero card.
-    final hero = tester.getRect(find.byType(ZokyFoodHeroCard));
+    // Section sits below the banner carousel (hero slide first).
+    final hero = tester.getRect(find.byType(ZokyHomeBannerCarousel));
     final title = tester.getRect(find.text(ZokyStrings.dealsTitle));
     expect(title.top, greaterThan(hero.bottom));
     // Each card: one illustration and one small 3D arrow.
@@ -92,7 +92,7 @@ void main() {
 
   testWidgets('every card is labelled as sample data', (tester) async {
     final semantics = tester.ensureSemantics();
-    await pumpZokyApp(tester);
+    await pumpZokyApp(tester, height: 1600);
     expect(_deals.every((d) => d.isDemo), isTrue);
     for (var i = 0; i < _deals.length; i++) {
       expect(
@@ -110,7 +110,7 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    await pumpZokyApp(tester);
+    await pumpZokyApp(tester, height: 1600);
     expect(
       tester.getSemantics(find.bySemanticsLabel(ZokyStrings.dealsTitle)),
       isSemantics(isHeader: true),
@@ -136,7 +136,7 @@ void main() {
   testWidgets('row scrolls horizontally and the next card peeks in', (
     tester,
   ) async {
-    await pumpZokyApp(tester, width: 390);
+    await pumpZokyApp(tester, width: 390, height: 1600);
     final second = tester.getRect(_homeCards().at(1));
     expect(second.left, lessThan(390));
     expect(second.right, greaterThan(390));
@@ -168,7 +168,7 @@ void main() {
     ) async {
       debugDefaultTargetPlatformOverride = platform;
       try {
-        await pumpZokyApp(tester);
+        await pumpZokyApp(tester, height: 1600);
         await tester.tap(_homeCards().first);
         await tester.pumpAndSettle();
         expect(find.byType(ZokyDealDetail), findsOneWidget);
@@ -215,7 +215,7 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    await pumpZokyApp(tester);
+    await pumpZokyApp(tester, height: 1600);
     await tester.tap(_seeAll());
     await tester.pumpAndSettle();
     expect(find.byType(DealsScreen), findsOneWidget);
@@ -311,7 +311,7 @@ void main() {
       testWidgets('deals fit at width $width, text scale $scale', (
         tester,
       ) async {
-        await pumpZokyApp(tester, width: width, textScale: scale);
+        await pumpZokyApp(tester, width: width, height: 1600, textScale: scale);
         expect(tester.takeException(), isNull);
         final first = tester.getRect(_homeCards().first);
         expect(first.left, 16);

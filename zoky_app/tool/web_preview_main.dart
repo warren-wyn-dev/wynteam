@@ -4,18 +4,25 @@
 //   flutter build web --release --no-web-resources-cdn -t tool/web_preview_main.dart
 // Query params: ?platform=android to preview Android-adaptive widgets,
 // ?top=/&bottom= to change the simulated insets.
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:zoky_app/app/app_config.dart';
 import 'package:zoky_app/app/app_dependencies.dart';
 import 'package:zoky_app/core/design/zoky_theme.dart';
+import 'package:zoky_app/features/address/data/demo_address_repository.dart';
+import 'package:zoky_app/features/address/delivery_address_controller.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
 import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
+import 'package:zoky_app/features/home/data/demo_home_content_repository.dart';
 import 'package:zoky_app/features/shell/zoky_shell.dart';
 
 void main() {
   final uri = Uri.base;
-  final top = double.tryParse(uri.queryParameters['top'] ?? '') ?? 59; // iPhone 15 Pro Max status bar + Dynamic Island
+  final top =
+      double.tryParse(uri.queryParameters['top'] ?? '') ??
+      59; // iPhone 15 Pro Max status bar + Dynamic Island
   final bottom = double.tryParse(uri.queryParameters['bottom'] ?? '') ?? 34;
   final android = uri.queryParameters['platform'] == 'android';
   runApp(
@@ -23,8 +30,16 @@ void main() {
       config: AppConfig.demo,
       storeRepository: DemoStoreRepository(),
       promotionRepository: const DemoPromotionRepository(),
+      homeContentRepository: const DemoHomeContentRepository(),
+      deliveryAddresses: DeliveryAddressController(
+        const DemoAddressRepository(),
+      ),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
+        // Mouse drags page carousels/rows like a finger in the preview.
+        scrollBehavior: const MaterialScrollBehavior().copyWith(
+          dragDevices: PointerDeviceKind.values.toSet(),
+        ),
         theme: buildZokyTheme().copyWith(
           platform: android ? TargetPlatform.android : TargetPlatform.iOS,
         ),

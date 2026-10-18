@@ -14,9 +14,8 @@ import 'package:zoky_app/core/widgets/zoky_skeleton.dart';
 import 'package:zoky_app/core/widgets/zoky_state_view.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
-import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
 import 'package:zoky_app/features/catalog/domain/catalog_models.dart';
-import 'package:zoky_app/features/home/home_screen.dart';
+import 'package:zoky_app/features/search/store_search_screen.dart';
 
 import 'support/pump_zoky.dart';
 
@@ -315,13 +314,13 @@ void main() {
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
         }
-        // The legacy home body (behind kShowLegacyHomeBody) and a store page.
+        // The all-stores list (store grid) and a store page.
         await pumpZokyWidget(
           tester,
-          HomeScreen(
+          StoreSearchScreen(
             repository: DemoStoreRepository(),
-            promotionRepository: const DemoPromotionRepository(),
-            showLegacyBody: true,
+            title: ZokyStrings.allStoresTitle,
+            autofocus: false,
           ),
           width: width,
           textScale: 1.3,
@@ -357,13 +356,13 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('home store grid becomes one column', (tester) async {
+    testWidgets('store grid becomes one column', (tester) async {
       await pumpZokyWidget(
         tester,
-        HomeScreen(
+        StoreSearchScreen(
           repository: DemoStoreRepository(),
-          promotionRepository: const DemoPromotionRepository(),
-          showLegacyBody: true,
+          title: ZokyStrings.allStoresTitle,
+          autofocus: false,
         ),
         width: 360,
         textScale: 1.5,

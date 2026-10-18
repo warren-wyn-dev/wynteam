@@ -1,7 +1,9 @@
 import 'package:flutter/widgets.dart';
 
+import '../features/address/delivery_address_controller.dart';
 import '../features/catalog/data/store_repository.dart';
 import '../features/deals/data/promotion_repository.dart';
+import '../features/home/data/home_content_repository.dart';
 import 'app_config.dart';
 
 /// Hands app-wide dependencies (config, repositories) down the tree without
@@ -13,12 +15,18 @@ class AppDependencies extends InheritedWidget {
     required this.config,
     required this.storeRepository,
     required this.promotionRepository,
+    required this.homeContentRepository,
+    required this.deliveryAddresses,
     required super.child,
   });
 
   final AppConfig config;
   final StoreRepository storeRepository;
   final PromotionRepository promotionRepository;
+  final HomeContentRepository homeContentRepository;
+
+  /// Saved addresses + the selected "จัดส่งที่" (listen to it for changes).
+  final DeliveryAddressController deliveryAddresses;
 
   static AppDependencies of(BuildContext context) {
     final result = context
@@ -31,5 +39,7 @@ class AppDependencies extends InheritedWidget {
   bool updateShouldNotify(AppDependencies oldWidget) =>
       config != oldWidget.config ||
       storeRepository != oldWidget.storeRepository ||
-      promotionRepository != oldWidget.promotionRepository;
+      promotionRepository != oldWidget.promotionRepository ||
+      homeContentRepository != oldWidget.homeContentRepository ||
+      deliveryAddresses != oldWidget.deliveryAddresses;
 }

@@ -9,13 +9,29 @@ import 'package:zoky_app/core/widgets/zoky_store_card.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
 import 'package:zoky_app/features/home/widgets/zoky_bento_illustration.dart';
 import 'package:zoky_app/features/home/widgets/zoky_food_hero_card.dart';
+import 'package:zoky_app/features/home/widgets/zoky_home_banner_carousel.dart';
 import 'package:zoky_app/features/home/widgets/zoky_home_header.dart';
 import 'package:zoky_app/features/search/store_search_screen.dart';
 import 'package:zoky_app/features/store/store_screen.dart';
 
 import 'support/pump_zoky.dart';
 
-Finder _button() => find.bySemanticsLabel(ZokyStrings.heroSearchButton);
+/// The hero slide of the Home banner carousel (not its invisible sizing
+/// copy).
+Finder _hero() => find.descendant(
+  of: find.byKey(ZokyHomeBannerCarousel.pagerKey),
+  matching: find.byType(ZokyFoodHeroCard),
+);
+
+/// The hero slide is one screen-reader node (PageView merges a page):
+/// pill, title and subtitle in one label, flagged as a heading.
+Finder _heroNode(String part) =>
+    find.bySemanticsLabel(RegExp(RegExp.escape(part)));
+
+Finder _inHero(Finder finder) => find.descendant(of: _hero(), matching: finder);
+
+/// Home v2 search entry (replaces the hero's search button).
+Finder _search() => find.bySemanticsLabel(ZokyStrings.homeSearchPlaceholder);
 
 double _contrast(Color a, Color b) {
   final la = a.computeLuminance();
@@ -26,18 +42,17 @@ double _contrast(Color a, Color b) {
 }
 
 void main() {
-  testWidgets('hero shows pill, title, subtitle and search button', (
+  testWidgets('hero shows pill, title and subtitle; no search button', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
     await pumpZokyApp(tester);
-    final hero = find.byType(ZokyFoodHeroCard);
+    final hero = _hero();
     expect(hero, findsOneWidget);
     for (final text in [
       ZokyStrings.heroFoodDelivery,
       ZokyStrings.heroTitleLines,
       ...ZokyFoodHeroCard.subtitlePhrases,
-      ZokyStrings.heroSearchButton,
     ]) {
       expect(
         find.descendant(of: hero, matching: find.text(text)),
@@ -45,48 +60,44 @@ void main() {
       );
     }
     expect(ZokyFoodHeroCard.subtitlePhrases.join(), ZokyStrings.heroSubtitle);
-    expect(find.bySemanticsLabel(ZokyStrings.heroSubtitle), findsOneWidget);
-    expect(find.byType(ZokyBentoIllustration), findsOneWidget);
+    expect(_heroNode(ZokyStrings.heroSubtitle), findsOneWidget);
+    expect(find.text(ZokyStrings.heroSearchButton), findsNothing);
+    expect(_inHero(find.byType(ZokyBentoIllustration)), findsOneWidget);
     // One brand surface: the card uses the header's glossy recipe.
     expect(
       find.descendant(of: hero, matching: find.byType(ZokyGlossySurface)),
       findsOneWidget,
     );
     expect(ZokyFoodHeroCard.background, same(ZokyGloss.brand));
-    // 3D sparkle in the pill and 3D arrow in the button, both decorative.
-    for (final glyph in [Zoky3DGlyph.sparkle, Zoky3DGlyph.arrowRight]) {
-      expect(
-        find.descendant(
-          of: hero,
-          matching: find.byWidgetPredicate(
-            (w) => w is Zoky3DIcon && w.glyph == glyph,
-          ),
-        ),
-        findsOneWidget,
-      );
-    }
-    // Hero sits directly under the header (it overlaps only the header's
-    // white sheet, never the pink logo row).
+    // Decorative 3D sparkle in the pill; the search button's arrow is gone.
+    Finder glyph(Zoky3DGlyph g) =>
+        _inHero(find.byWidgetPredicate((w) => w is Zoky3DIcon && w.glyph == g));
+    expect(glyph(Zoky3DGlyph.sparkle), findsOneWidget);
+    expect(glyph(Zoky3DGlyph.arrowRight), findsNothing);
+    // Home v2: the hero is the first carousel slide, under the header and
+    // the floating search field.
     final header = tester.getRect(find.byType(ZokyHomeHeader));
+    final field = tester.getRect(_search());
     final card = tester.getRect(hero);
-    expect(card.top, greaterThan(header.bottom - ZokyHomeHeader.sheetRadius));
-    expect(card.top, lessThan(header.bottom));
+    expect(card.top, greaterThan(field.bottom));
+    expect(card.top, greaterThanOrEqualTo(header.bottom));
     semantics.dispose();
   });
 
-  testWidgets('title is a heading; button is a labelled button; art is '
-      'decorative', (tester) async {
+  testWidgets('title is a heading (once); art is decorative', (tester) async {
     final semantics = tester.ensureSemantics();
     await pumpZokyApp(tester);
+    // The invisible sizing copy adds no second heading.
+    expect(_heroNode(ZokyStrings.heroTitle), findsOneWidget);
     expect(
-      tester.getSemantics(find.bySemanticsLabel(ZokyStrings.heroTitle)),
+      tester.getSemantics(_heroNode(ZokyStrings.heroTitle)),
       isSemantics(isHeader: true),
     );
-    expect(tester.getSemantics(_button()), isSemantics(isButton: true));
+    expect(find.bySemanticsLabel(ZokyStrings.heroSearchButton), findsNothing);
     // The bento drawing adds no node of its own.
     expect(
       find.descendant(
-        of: find.byType(ZokyBentoIllustration),
+        of: _inHero(find.byType(ZokyBentoIllustration)),
         matching: find.byType(ExcludeSemantics),
       ),
       findsOneWidget,
@@ -95,11 +106,11 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('search button opens store search, which filters and leads '
+  testWidgets('search field opens store search, which filters and leads '
       'into the existing store page', (tester) async {
     final semantics = tester.ensureSemantics();
     await pumpZokyApp(tester);
-    await tester.tap(_button());
+    await tester.tap(_search());
     await tester.pumpAndSettle();
     expect(find.byType(StoreSearchScreen), findsOneWidget);
     // Lazy grid: scroll through it so every store card is built once.
@@ -137,7 +148,7 @@ void main() {
     await tester.tap(find.byTooltip(ZokyStrings.back));
     await tester.pumpAndSettle();
     expect(find.byType(StoreSearchScreen), findsNothing);
-    expect(find.byType(ZokyFoodHeroCard), findsOneWidget);
+    expect(_hero(), findsOneWidget);
     semantics.dispose();
   });
 
@@ -152,7 +163,7 @@ void main() {
     final subtitle = ZokyFoodHeroCard.subtitleStyle;
     expect(subtitle.fontSize, greaterThanOrEqualTo(18.66));
     expect(subtitle.fontWeight!.value, greaterThanOrEqualTo(700));
-    // Small text (pill, button) is brandDeep on the white glossy control:
+    // Small text (pill) is brandDeep on the white glossy control:
     // >= 4.5:1 even on its pinkest bottom stop.
     for (final bg in ZokyGloss.white.colors) {
       expect(_contrast(ZokyColors.brandDeep, bg), greaterThanOrEqualTo(4.5));
@@ -161,8 +172,10 @@ void main() {
 
   testWidgets('gloss band ends above the white title', (tester) async {
     await pumpZokyApp(tester);
-    final card = tester.getRect(find.byType(ZokyFoodHeroCard));
-    final title = tester.getRect(find.text(ZokyStrings.heroTitleLines));
+    final card = tester.getRect(_hero());
+    final title = tester.getRect(
+      _inHero(find.text(ZokyStrings.heroTitleLines)),
+    );
     expect(
       title.top - card.top,
       greaterThanOrEqualTo(ZokyFoodHeroCard.glossHeight),
@@ -177,27 +190,23 @@ void main() {
         final semantics = tester.ensureSemantics();
         await pumpZokyApp(tester, width: width, textScale: scale);
         expect(tester.takeException(), isNull);
-        final card = tester.getRect(find.byType(ZokyFoodHeroCard));
+        final card = tester.getRect(_hero());
         expect(card.left, 16);
-        expect(card.right, width - 16);
+        expect(card.width, ZokyHomeBannerCarousel.slideWidth(width));
 
-        final button = tester.getRect(_button());
-        expect(button.height, greaterThanOrEqualTo(44));
-        expect(button.width, card.width - 2 * ZokyFoodHeroCard.padding);
-        expect(button.bottom, lessThanOrEqualTo(card.bottom));
-
-        final art = tester.getRect(find.byType(ZokyBentoIllustration));
+        final art = tester.getRect(_inHero(find.byType(ZokyBentoIllustration)));
         expect(
           card.contains(art.topLeft) && card.contains(art.bottomRight),
           isTrue,
         );
-        final title = tester.getRect(find.text(ZokyStrings.heroTitleLines));
-        expect(title.right, lessThan(art.left));
-        final subtitle = tester.getRect(
-          find.bySemanticsLabel(ZokyStrings.heroSubtitle),
+        final title = tester.getRect(
+          _inHero(find.text(ZokyStrings.heroTitleLines)),
         );
+        expect(title.right, lessThan(art.left));
+        expect(title.top, greaterThanOrEqualTo(card.top));
+        final subtitle = tester.getRect(_inHero(find.byType(Wrap)));
         expect(subtitle.right, lessThan(art.left));
-        expect(subtitle.bottom, lessThan(button.top));
+        expect(subtitle.bottom, lessThanOrEqualTo(card.bottom));
 
         // Bottom nav is untouched by the hero.
         expect(find.byType(ZokyBottomNav), findsOneWidget);

@@ -4,8 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_app/app/app_config.dart';
 import 'package:zoky_app/app/zoky_app.dart';
 import 'package:zoky_app/core/design/zoky_theme.dart';
+import 'package:zoky_app/features/address/data/demo_address_repository.dart';
+import 'package:zoky_app/features/address/delivery_address_controller.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
 import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
+import 'package:zoky_app/features/home/data/demo_home_content_repository.dart';
 
 /// Sets a logical phone viewport (devicePixelRatio 1), system text scale and
 /// an optional bottom safe-area inset (e.g. 34 for the iPhone home
@@ -69,16 +72,19 @@ Future<void> pumpZokyApp(
     textScale: textScale,
     bottomInset: bottomInset,
   );
-  await tester.pumpWidget(
-    ZokyApp(
-      config: AppConfig.demo,
-      storeRepository: DemoStoreRepository(),
-      promotionRepository: const DemoPromotionRepository(),
-    ),
-  );
+  await tester.pumpWidget(demoZokyApp());
   // First frame shows skeletons; the zero-latency demo load completes on
   // the next pumps, after which nothing animates and settle returns.
   await tester.pump();
   await tester.pump();
   await tester.pumpAndSettle();
 }
+
+/// The whole app wired to the demo repositories (no backend, no network).
+ZokyApp demoZokyApp() => ZokyApp(
+  config: AppConfig.demo,
+  storeRepository: DemoStoreRepository(),
+  promotionRepository: const DemoPromotionRepository(),
+  homeContentRepository: const DemoHomeContentRepository(),
+  deliveryAddresses: DeliveryAddressController(const DemoAddressRepository()),
+);

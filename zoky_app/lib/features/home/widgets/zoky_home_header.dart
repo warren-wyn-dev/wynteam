@@ -17,13 +17,31 @@ import '../../../core/widgets/zoky_wordmark.dart';
 /// on the right, soft lighter pink waves, and a white sheet with large
 /// rounded top corners that joins the content below.
 ///
+/// Home v2 (Founder, 2026-10-18) adds an optional [address] row under the
+/// logo row ("จัดส่งที่" + address name) and lets Home reserve pink
+/// [bottomSpace] for the search field that floats over the pink/white seam.
+///
 /// Status bar icons are light over the pink on iOS and Android (the region
 /// only covers this header, so once it scrolls away the shell's dark style
 /// applies again).
 class ZokyHomeHeader extends StatelessWidget {
-  const ZokyHomeHeader({super.key, required this.onFavorites});
+  const ZokyHomeHeader({
+    super.key,
+    required this.onFavorites,
+    this.address,
+    this.bottomSpace = defaultBottomSpace,
+  });
 
   final VoidCallback onFavorites;
+
+  /// Row under the logo (Home: the "จัดส่งที่" address button).
+  final Widget? address;
+
+  /// Space under the last row, the white sheet ([sheetRadius]) included.
+  final double bottomSpace;
+
+  /// Phase 1 spacing under the logo row.
+  static const double defaultBottomSpace = ZokySpacing.s5 + sheetRadius;
 
   /// Light status bar content over the pink header. statusBarBrightness is
   /// the iOS field (dark background -> light icons); the other two are
@@ -84,22 +102,32 @@ class ZokyHomeHeader extends StatelessWidget {
                   ZokySpacing.s10,
                   topInset + ZokySpacing.s3,
                   ZokySpacing.s10 - (tapTarget - heartDiameter) / 2,
-                  ZokySpacing.s5 + sheetRadius,
+                  bottomSpace,
                 ),
-                child: SizedBox(
-                  height: rowHeight,
-                  child: Row(
-                    children: [
-                      ZokyWordmark(width: logoWidth),
-                      const Spacer(),
-                      ZokyGlossyHeartButton(
-                        label: ZokyStrings.favoriteStores,
-                        onPressed: onFavorites,
-                        diameter: heartDiameter,
-                        tapTarget: tapTarget,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: rowHeight,
+                      child: Row(
+                        children: [
+                          ZokyWordmark(width: logoWidth),
+                          const Spacer(),
+                          ZokyGlossyHeartButton(
+                            label: ZokyStrings.favoriteStores,
+                            onPressed: onFavorites,
+                            diameter: heartDiameter,
+                            tapTarget: tapTarget,
+                          ),
+                        ],
                       ),
+                    ),
+                    if (address != null) ...[
+                      const SizedBox(height: ZokySpacing.s2),
+                      address!,
                     ],
-                  ),
+                  ],
                 ),
               ),
               const Positioned(

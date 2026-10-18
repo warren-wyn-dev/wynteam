@@ -5,9 +5,8 @@ import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
 import 'package:zoky_app/core/widgets/zoky_cart_bar.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
-import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
-import 'package:zoky_app/features/home/home_screen.dart';
 import 'package:zoky_app/features/home/widgets/zoky_home_header.dart';
+import 'package:zoky_app/features/search/store_search_screen.dart';
 import 'package:zoky_app/features/store/store_screen.dart';
 
 import 'support/pump_zoky.dart';
@@ -37,30 +36,13 @@ void main() {
     ]);
   });
 
-  testWidgets('home shows the Phase 1 review header, not the legacy body', (
+  testWidgets('home shows the Home v2 header, not the legacy body', (
     tester,
   ) async {
     await pumpZokyApp(tester);
-    expect(kShowLegacyHomeBody, isFalse);
     expect(find.byType(ZokyHomeHeader), findsOneWidget);
     expect(find.text(ZokyStrings.nearbyStores), findsNothing);
     expect(find.byType(ZokyStoreCard), findsNothing);
-  });
-
-  testWidgets('legacy home body still loads demo stores without a backend', (
-    tester,
-  ) async {
-    await pumpZokyWidget(
-      tester,
-      HomeScreen(
-        repository: DemoStoreRepository(),
-        promotionRepository: const DemoPromotionRepository(),
-        showLegacyBody: true,
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text(ZokyStrings.nearbyStores), findsOneWidget);
-    expect(find.byType(ZokyStoreCard), findsWidgets);
   });
 
   testWidgets('tapping each tab shows its screen', (tester) async {
@@ -135,10 +117,10 @@ void main() {
     final semantics = tester.ensureSemantics();
     await pumpZokyWidget(
       tester,
-      HomeScreen(
+      StoreSearchScreen(
         repository: DemoStoreRepository(),
-        promotionRepository: const DemoPromotionRepository(),
-        showLegacyBody: true,
+        title: ZokyStrings.allStoresTitle,
+        autofocus: false,
       ),
     );
     await tester.pumpAndSettle();
@@ -157,11 +139,11 @@ void main() {
       findsOneWidget,
     );
 
-    // Back to the home screen.
+    // Back to the store list.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(StoreScreen), findsNothing);
-    expect(find.text(ZokyStrings.nearbyStores), findsOneWidget);
+    expect(find.text(ZokyStrings.allStoresTitle), findsOneWidget);
     semantics.dispose();
   });
 }

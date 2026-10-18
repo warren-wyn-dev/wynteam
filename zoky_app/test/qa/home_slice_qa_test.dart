@@ -13,7 +13,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_app/app/app_config.dart';
-import 'package:zoky_app/app/zoky_app.dart';
 import 'package:zoky_app/core/l10n/zoky_strings.dart';
 import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
@@ -76,13 +75,7 @@ Future<void> _pumpApp(
   addTearDown(tester.view.reset);
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   debugDefaultTargetPlatformOverride = platform;
-  await tester.pumpWidget(
-    ZokyApp(
-      config: AppConfig.demo,
-      storeRepository: DemoStoreRepository(),
-      promotionRepository: const DemoPromotionRepository(),
-    ),
-  );
+  await tester.pumpWidget(demoZokyApp());
   await tester.pump();
   await tester.pump();
   await tester.pumpAndSettle();
@@ -228,7 +221,9 @@ void main() {
       tester,
     ) async {
       await _pumpApp(tester, width: 390, height: 844, top: 47, bottom: 34);
-      await tester.tap(find.bySemanticsLabel(ZokyStrings.heroSearchButton));
+      await tester.tap(
+        find.bySemanticsLabel(ZokyStrings.homeSearchPlaceholder),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(StoreSearchScreen), findsOneWidget);
       final field = tester.widget<TextField>(find.byType(TextField));
@@ -456,65 +451,54 @@ void main() {
       },
     );
 
-    testWidgets(
-      'ZOKY-123: demo suffix is never ellipsized on store grid cards '
-      '(320pt, text 1.3, real font)',
-      (tester) async {
-        await _loadAnuphan();
-        await pumpZokyWidget(
-          tester,
-          StoreSearchScreen(
-            repository: DemoStoreRepository(),
-            autofocus: false,
-          ),
-          width: 320,
-          height: 3000,
-          textScale: 1.3,
-        );
-        await tester.pumpAndSettle();
-        final cut = <String>[];
-        for (final e
-            in find
-                .descendant(
-                  of: find.byType(ZokyStoreCard),
-                  matching: find.textContaining(
-                    ZokyStoreSummary.demoNameSuffix,
-                  ),
-                )
-                .evaluate()) {
-          if ((e.findRenderObject()! as RenderParagraph).didExceedMaxLines) {
-            cut.add((e.widget as Text).data!);
-          }
+    testWidgets('ZOKY-123: demo suffix is never ellipsized on store grid cards '
+        '(320pt, text 1.3, real font)', (tester) async {
+      await _loadAnuphan();
+      await pumpZokyWidget(
+        tester,
+        StoreSearchScreen(repository: DemoStoreRepository(), autofocus: false),
+        width: 320,
+        height: 3000,
+        textScale: 1.3,
+      );
+      await tester.pumpAndSettle();
+      final cut = <String>[];
+      for (final e
+          in find
+              .descendant(
+                of: find.byType(ZokyStoreCard),
+                matching: find.textContaining(ZokyStoreSummary.demoNameSuffix),
+              )
+              .evaluate()) {
+        if ((e.findRenderObject()! as RenderParagraph).didExceedMaxLines) {
+          cut.add((e.widget as Text).data!);
         }
-        expect(cut, isEmpty);
-      },
-    );
+      }
+      expect(cut, isEmpty);
+    });
 
-    testWidgets(
-      'ZOKY-120: once the header scrolls away, no pink band remains '
-      'behind the content at the top of the screen',
-      (tester) async {
-        await _pumpApp(tester, width: 320, height: 568, top: 20);
-        final pos = _homePosition(tester);
-        pos.jumpTo(pos.maxScrollExtent);
-        await tester.pumpAndSettle();
-        final view = tester.binding.renderViews.first;
-        final layer = view.debugLayer! as OffsetLayer;
-        final img = (await tester.runAsync(
-          () => layer.toImage(Offset.zero & view.size),
-        ))!;
-        final data = (await tester.runAsync(() => img.toByteData()))!;
-        // Left gutter just under the status bar.
-        final i = (30 * img.width + 4) * 4;
-        final rgb = [
-          data.getUint8(i),
-          data.getUint8(i + 1),
-          data.getUint8(i + 2),
-        ];
-        expect(rgb, isNot([0xF9, 0x33, 0x84]));
-        img.dispose();
-      },
-    );
+    testWidgets('ZOKY-120: once the header scrolls away, no pink band remains '
+        'behind the content at the top of the screen', (tester) async {
+      await _pumpApp(tester, width: 320, height: 568, top: 20);
+      final pos = _homePosition(tester);
+      pos.jumpTo(pos.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final view = tester.binding.renderViews.first;
+      final layer = view.debugLayer! as OffsetLayer;
+      final img = (await tester.runAsync(
+        () => layer.toImage(Offset.zero & view.size),
+      ))!;
+      final data = (await tester.runAsync(() => img.toByteData()))!;
+      // Left gutter just under the status bar.
+      final i = (30 * img.width + 4) * 4;
+      final rgb = [
+        data.getUint8(i),
+        data.getUint8(i + 1),
+        data.getUint8(i + 2),
+      ];
+      expect(rgb, isNot([0xF9, 0x33, 0x84]));
+      img.dispose();
+    });
 
     testWidgets(
       'ZOKY-124: landscape with a notch keeps the logo inside the safe area',
@@ -545,7 +529,9 @@ void main() {
       final overrides = _NoNetwork();
       await HttpOverrides.runZoned(() async {
         await _pumpApp(tester, width: 390, height: 844);
-        await tester.tap(find.bySemanticsLabel(ZokyStrings.heroSearchButton));
+        await tester.tap(
+          find.bySemanticsLabel(ZokyStrings.homeSearchPlaceholder),
+        );
         await tester.pumpAndSettle();
         await tester.tap(find.byType(ZokyStoreCard).first);
         await tester.pumpAndSettle();

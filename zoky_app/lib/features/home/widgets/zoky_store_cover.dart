@@ -32,6 +32,8 @@ class ZokyStoreCover extends StatelessWidget {
       ZokyDealArt.somTam => (Color(0xFFF4FBEF), Color(0xFFDDF1D2)),
       ZokyDealArt.bubbleTea => (Color(0xFFFFF1F6), Color(0xFFFFDCEA)),
       ZokyDealArt.friedChicken => (Color(0xFFFFF6EC), Color(0xFFFFE0C4)),
+      ZokyDealArt.kaprao => (Color(0xFFF4FBEF), Color(0xFFDDF1D2)),
+      ZokyDealArt.dessert => (Color(0xFFFFFBEB), Color(0xFFFFEBC2)),
       null => (ZokyColors.neutral50, ZokyColors.neutral100),
     };
     return LinearGradient(

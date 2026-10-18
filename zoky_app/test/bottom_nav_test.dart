@@ -238,27 +238,28 @@ void main() {
     tester,
   ) async {
     await pumpZokyApp(tester, width: 430, height: 932, bottomInset: 34);
-    final headerTop = tester.getTopLeft(find.byType(ZokyHomeHeader)).dy;
+    // Home is long (Home v2): the header sliver is disposed once scrolled
+    // far away, so read the feed's scroll offset instead of its position.
+    double offset() => tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .pixels;
+    expect(offset(), 0);
     await _scrollHomeToEnd(tester);
-    expect(
-      tester.getTopLeft(find.byType(ZokyHomeHeader)).dy,
-      lessThan(headerTop),
-    );
+    expect(offset(), greaterThan(0));
 
     // Coming back from another tab keeps the scroll position...
     await tester.tap(_inNav(find.text(ZokyStrings.navAccount)));
     await tester.pumpAndSettle();
     await tester.tap(_inNav(find.text(ZokyStrings.navHome)));
     await tester.pumpAndSettle();
-    expect(
-      tester.getTopLeft(find.byType(ZokyHomeHeader)).dy,
-      lessThan(headerTop),
-    );
+    expect(offset(), greaterThan(0));
 
     // ...tapping หน้าหลัก again goes back to the top.
     await tester.tap(_inNav(find.text(ZokyStrings.navHome)));
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.byType(ZokyHomeHeader)).dy, headerTop);
+    expect(offset(), 0);
+    expect(find.byType(ZokyHomeHeader), findsOneWidget);
   });
 
   for (final (w, h, inset) in [
