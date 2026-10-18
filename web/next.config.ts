@@ -65,8 +65,10 @@ const nextConfig: NextConfig = {
         { source: "/health", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/health" },
         { source: "/route", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/route" },
         // ZOKY (Food) short share links: zoky.wynos.online/s/<code>. Old
-        // food.wynos.online/s/<code> links are redirected here by proxy.ts.
+        // food.wynos.online/s/<code> links work here in phase 1 and are
+        // redirected to ZOKY by proxy.ts in phase 2 (ZOKY_LEGACY_FOOD_REDIRECT).
         { source: "/s/:code", has: [{ type: "host", value: "zoky.wynos.online" }], destination: "/food/s/:code" },
+        { source: "/s/:code", has: [{ type: "host", value: "food.wynos.online" }], destination: "/food/s/:code" },
       ],
       afterFiles: [
         // WYNOS tile gateway. OpenFreeMap remains the temporary upstream while

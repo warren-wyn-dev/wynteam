@@ -110,6 +110,10 @@ test("share preview reads only the public RPC with the publishable key", () => {
   assert.match(route, /const normalized = code\.trim\(\)\.toLowerCase\(\);\s*const storeId = await resolveFoodShareCode\(normalized\);/);
   assert.match(route, /if \(storeId\) target\.searchParams\.set\("store", storeId\);/);
   assert.match(config, /source: "\/s\/:code", has: \[\{ type: "host", value: "zoky\.wynos\.online" \}\], destination: "\/food\/s\/:code"/);
+  // ZOKY-114 phase 1: old food.wynos.online short links keep resolving there.
+  assert.match(config, /source: "\/s\/:code", has: \[\{ type: "host", value: "food\.wynos\.online" \}\], destination: "\/food\/s\/:code"/);
+  // A short link stays on the allowlisted Food origin it was opened on.
+  assert.match(route, /isFoodAppHost\(host\) \? new URL\("\/", `https:\/\/\$\{host\}`\) : new URL\("\/food", request\.url\)/);
   assert.match(preview, /rest\/v1\/rpc\/food_store_share_preview/);
   assert.match(preview, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(preview, /SERVICE_ROLE/i);

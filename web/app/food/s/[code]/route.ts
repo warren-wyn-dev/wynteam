@@ -1,6 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 
-import { FOOD_PRODUCTION_ORIGIN, isFoodAppHost } from "@/lib/food-origin";
+import { isFoodAppHost } from "@/lib/food-origin";
 import { recordFoodShareOpen, resolveFoodShareCode } from "@/lib/food-share-preview";
 
 // Short share link zoky.wynos.online/s/<code> (rewritten here from the Food
@@ -15,8 +15,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const userAgent = request.headers.get("user-agent");
     after(() => recordFoodShareOpen(normalized, userAgent));
   }
-  const onFoodHost = isFoodAppHost(request.headers.get("host")?.split(":")[0] ?? "");
-  const target = onFoodHost ? new URL("/", FOOD_PRODUCTION_ORIGIN) : new URL("/food", request.url);
+  // Stay on the Food origin the link was opened on (allowlisted host only):
+  // zoky.wynos.online, or food.wynos.online while it still serves Food (phase 1).
+  const host = request.headers.get("host")?.split(":")[0].toLowerCase() ?? "";
+  const target = isFoodAppHost(host) ? new URL("/", `https://${host}`) : new URL("/food", request.url);
   if (storeId) target.searchParams.set("store", storeId);
   return NextResponse.redirect(target, 307);
 }

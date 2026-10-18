@@ -13,7 +13,7 @@ test("maps.wynos.online root redirects to signed-in WYNOS Maps on wynos.online",
 });
 
 // ZOKY-114: run proxy.ts against a minimal NextResponse/NextRequest stand-in.
-function loadProxy() {
+function loadProxy(env = {}) {
   const transpile = (path) => ts.transpileModule(readFileSync(new URL(path, import.meta.url), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
@@ -26,12 +26,14 @@ function loadProxy() {
   };
   const modules = { "next/server": { NextResponse }, "@/lib/food-origin": origin.exports };
   const mod = { exports: {} };
-  runInNewContext(transpile("../proxy.ts"), { module: mod, exports: mod.exports, URL, require: (name) => modules[name] });
+  runInNewContext(transpile("../proxy.ts"), { module: mod, exports: mod.exports, URL, process: { env }, require: (name) => modules[name] });
   return mod.exports;
 }
 
-function run(href) {
-  const { proxy } = loadProxy();
+// Phase 2 (redirect on) unless a test passes its own env.
+const PHASE_2 = { ZOKY_LEGACY_FOOD_REDIRECT: "1" };
+function run(href, env = PHASE_2) {
+  const { proxy } = loadProxy(env);
   const url = new URL(href);
   const nextUrl = Object.assign(new URL(url), { clone: () => new URL(url) });
   return proxy({ headers: { get: (key) => (key === "host" ? url.host : null) }, nextUrl });
@@ -70,6 +72,37 @@ test("ZOKY-136: food.wynos.online/sw.js serves the legacy cleanup worker instead
   assert.deepEqual(run("https://food.wynos.online/sw.json"), { kind: "redirect", url: "https://zoky.wynos.online/sw.json", status: 307 });
 });
 
+test("ZOKY-114 phase 1 (flag off by default): food.wynos.online keeps serving Food exactly as before", () => {
+  for (const env of [{}, { ZOKY_LEGACY_FOOD_REDIRECT: "" }, { ZOKY_LEGACY_FOOD_REDIRECT: "0" }, { ZOKY_LEGACY_FOOD_REDIRECT: "false" },
+    { ZOKY_LEGACY_FOOD_REDIRECT: "yes" }, { ZOKY_LEGACY_FOOD_REDIRECT: "TRUE" }, { ZOKY_LEGACY_FOOD_REDIRECT: " 1" }]) {
+    const label = JSON.stringify(env);
+    assert.deepEqual(run("https://food.wynos.online/", env), { kind: "rewrite", url: "https://food.wynos.online/food" }, label);
+    assert.deepEqual(run("https://food.wynos.online/?store=3f2b8c1a-9d4e-4a6b-8c2d-1e5f7a9b0c3d", env), {
+      kind: "rewrite", url: "https://food.wynos.online/food?store=3f2b8c1a-9d4e-4a6b-8c2d-1e5f7a9b0c3d",
+    }, label);
+    assert.deepEqual(run("https://food.wynos.online/login?x=1", env), { kind: "redirect", url: "https://food.wynos.online/food/login?x=1", status: 307 }, label);
+    assert.deepEqual(run("https://food.wynos.online/signup/step-1", env), { kind: "redirect", url: "https://food.wynos.online/food/signup", status: 307 }, label);
+    // The real worker, short links (next.config rewrite), auth and Stripe returns stay on food.wynos.online.
+    for (const path of ["/sw.js", "/s/k7m2qx", "/food/auth/callback?code=abc", "/food/login", "/?order=WF0001&stripe=success"]) {
+      const expected = path.startsWith("/?") ? { kind: "rewrite", url: `https://food.wynos.online/food${path.slice(1)}` } : { kind: "next" };
+      assert.deepEqual(run(`https://food.wynos.online${path}`, env), expected, `${label} ${path}`);
+    }
+    // ZOKY and the Social-origin handoff are the same in both phases.
+    assert.deepEqual(run("https://zoky.wynos.online/", env), { kind: "rewrite", url: "https://zoky.wynos.online/food" }, label);
+    assert.deepEqual(run("https://zoky.wynos.online/sw.js", env), { kind: "next" }, label);
+    assert.deepEqual(run("https://wynos.online/food?promo=CODE", env), { kind: "redirect", url: "https://zoky.wynos.online/?promo=CODE", status: 307 }, label);
+  }
+});
+
+test("ZOKY-114 phase 2: only the exact values 1 and true turn the food.wynos.online redirect on", () => {
+  for (const value of ["1", "true"]) {
+    const env = { ZOKY_LEGACY_FOOD_REDIRECT: value };
+    assert.deepEqual(run("https://food.wynos.online/?promo=CODE", env), { kind: "redirect", url: "https://zoky.wynos.online/?promo=CODE", status: 307 }, value);
+    assert.deepEqual(run("https://food.wynos.online/login", env), { kind: "redirect", url: "https://zoky.wynos.online/login", status: 307 }, value);
+    assert.deepEqual(run("https://food.wynos.online/sw.js", env), { kind: "rewrite", url: "https://food.wynos.online/food/legacy-sw-cleanup.js" }, value);
+  }
+});
+
 test("wynos.online/food* moves to zoky.wynos.online, /food itself to the root", () => {
   assert.deepEqual(run("https://wynos.online/food?promo=CODE"), { kind: "redirect", url: "https://zoky.wynos.online/?promo=CODE", status: 307 });
   assert.deepEqual(run("https://www.wynos.online/food/login"), { kind: "redirect", url: "https://zoky.wynos.online/food/login", status: 307 });
@@ -81,6 +114,9 @@ test("proxy runs on every page of the old Food host but not on build assets or A
   assert.match(proxy, /matcher: \[\s*"\/", "\/food", "\/food\/:path\*", "\/login", "\/signup", "\/signup\/:path\*",/);
   assert.match(proxy, /\{ source: "\/\(\(\?!_next\/\|api\/\)\.\*\)", has: \[\{ type: "host", value: "food\.wynos\.online" \}\] \}/);
   assert.doesNotMatch(proxy, /zoky\.online/);
+  // The phase flag is server-only and read per request, never inlined into the client.
+  assert.match(proxy, /process\.env\.ZOKY_LEGACY_FOOD_REDIRECT/);
+  assert.doesNotMatch(proxy, /NEXT_PUBLIC_ZOKY/);
 });
 
 test("Maps markers keep MapLibre's absolute positioning", () => {

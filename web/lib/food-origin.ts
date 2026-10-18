@@ -1,7 +1,8 @@
 // ZOKY (the customer Food web, formerly WYNOS Food) origins. Founder decision
-// 2026-10-18: zoky.wynos.online is the canonical origin; food.wynos.online
-// redirects there (web/proxy.ts) but stays a Food origin in this logic during
-// the transition, so a session, PKCE verifier or rollback on it keeps working.
+// 2026-10-18: zoky.wynos.online is the canonical origin. food.wynos.online keeps
+// serving Food in phase 1 and redirects to ZOKY in phase 2 (web/proxy.ts,
+// ZOKY_LEGACY_FOOD_REDIRECT), and stays a Food origin in this logic throughout,
+// so a session, PKCE verifier or rollback on it keeps working (no cross-origin auth).
 export const FOOD_PRODUCTION_HOST = "zoky.wynos.online";
 export const FOOD_PRODUCTION_ORIGIN = "https://zoky.wynos.online";
 export const FOOD_LEGACY_HOST = "food.wynos.online";
