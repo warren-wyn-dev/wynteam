@@ -88,6 +88,25 @@ loosened = {
     "extra job added": lambda path: path.write_text(path.read_text() + "\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n"),
     "credentials persisted": replace("persist-credentials: false", "persist-credentials: true"),
     "Vercel CLI unpinned": replace("vercel@63.1.2", "vercel@latest"),
+    # Edge phase (ZOKY edge functions from the pinned SHA).
+    "edge job without production environment": replace(
+        "    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018' && inputs.phase == 'EDGE'\n    environment: production\n",
+        "    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018' && inputs.phase == 'EDGE'\n"),
+    "edge job not gated on phase": replace("inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018' && inputs.phase == 'EDGE'",
+                                           "inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018'"),
+    "web deploy also runs on EDGE": replace(" && inputs.phase != 'EDGE'", ""),
+    "edge allowlist extended": replace('ZOKY_EDGE_FUNCTIONS: "food-stripe-checkout food-stripe-cancel wynos-maps-geocode"',
+                                       'ZOKY_EDGE_FUNCTIONS: "food-stripe-checkout food-stripe-cancel wynos-maps-geocode stripe-webhook"'),
+    "edge deploys an extra function": replace('          done\n          echo "Next: plan section 4',
+                                              '          done\n          supabase functions deploy stripe-webhook --project-ref "$PROJECT_REF"\n          echo "Next: plan section 4'),
+    "edge deploys repo ref instead of pinned SHA": replace("      - name: Checkout pinned release commit (edge)\n        uses: actions/checkout@v4\n        with:\n          ref: ${{ inputs.release_sha }}",
+                                                           "      - name: Checkout pinned release commit (edge)\n        uses: actions/checkout@v4\n        with:\n          ref: main"),
+    "edge job not required to wait for guard": replace("    name: Deploy the 3 allowlisted edge functions to production\n    needs: guard",
+                                                       "    name: Deploy the 3 allowlisted edge functions to production\n    needs: []"),
+    "edge verify_jwt pin removed": replace("          grep -qx '\\[functions\\.wynos-maps-geocode\\]' supabase/config.toml || {", "          true || {"),
+    "edge Supabase CLI unpinned": replace("version: 2.120.0", "version: latest"),
+    "edge --no-verify-jwt": replace('--project-ref "$PROJECT_REF"\n            echo "- deployed', '--project-ref "$PROJECT_REF" --no-verify-jwt\n            echo "- deployed'),
+    "edge expiry check removed": replace("      # Re-checked after the production review (edge phase).\n      - name: Exception has not expired\n", "      - name: Expiry note\n"),
 }
 edge_loosened = {
     "edge environment removed": replace("    environment: production\n", ""),

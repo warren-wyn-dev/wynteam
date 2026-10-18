@@ -132,17 +132,45 @@ if zoky.exists():
     )
 
     jobs = jobs_of(workflow)
-    assert set(jobs) == {"guard", "deploy"}, f"{zoky.name}: jobs must be exactly guard + deploy, got {sorted(jobs)}"
-    guard_job, deploy_job = jobs["guard"], jobs["deploy"]
-    gate = "github.ref == 'refs/heads/main' && inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018'"
-    for name, job in jobs.items():
-        assert job_key(job, "if") == [gate], f"{zoky.name}: {name} job lost the main-only + confirmation gate"
-    assert job_key(deploy_job, "environment") == ["production"], (
-        f"{zoky.name}: deploy job must use the protected production environment"
+    assert set(jobs) == {"guard", "deploy", "edge"}, (
+        f"{zoky.name}: jobs must be exactly guard + deploy + edge, got {sorted(jobs)}"
     )
+    guard_job, deploy_job, edge_job = jobs["guard"], jobs["deploy"], jobs["edge"]
+    gate = "github.ref == 'refs/heads/main' && inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018'"
+    expected_if = {
+        "guard": gate,
+        "deploy": gate + " && inputs.phase != 'EDGE'",
+        "edge": gate + " && inputs.phase == 'EDGE'",
+    }
+    for name, job in jobs.items():
+        assert job_key(job, "if") == [expected_if[name]], f"{zoky.name}: {name} job lost its main-only + confirmation + phase gate"
+    assert "options: [EDGE, PHASE1, PHASE2]" in trigger, f"{zoky.name}: phase options changed"
+    for name in ("deploy", "edge"):
+        assert job_key(jobs[name], "environment") == ["production"], (
+            f"{zoky.name}: {name} job must use the protected production environment"
+        )
+        assert job_key(jobs[name], "needs") == ["guard"], f"{zoky.name}: {name} must wait for scope guards"
+        assert "ref: ${{ inputs.release_sha }}" in jobs[name], f"{zoky.name}: {name} must check out the pinned release_sha"
+        assert 'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"' in jobs[name], f"{zoky.name}: {name} must re-verify HEAD"
     assert job_key(guard_job, "environment") == [], f"{zoky.name}: guard job must run before (not inside) the review"
     assert "secrets." not in guard_job, f"{zoky.name}: guard job must not read secrets"
-    assert job_key(deploy_job, "needs") == ["guard"], f"{zoky.name}: deploy must wait for scope guards"
+
+    # Edge phase: only the 3 allowlisted functions, pinned CLI, verify_jwt pin.
+    assert 'ZOKY_EDGE_FUNCTIONS: "food-stripe-checkout food-stripe-cancel wynos-maps-geocode"' in workflow, (
+        f"{zoky.name}: edge function allowlist changed"
+    )
+    assert workflow.count("functions deploy") == 1 and (
+        'for fn in $ZOKY_EDGE_FUNCTIONS; do' in edge_job
+        and 'supabase functions deploy "$fn" --project-ref "$PROJECT_REF"' in edge_job
+    ), f"{zoky.name}: edge job may only deploy the allowlisted functions"
+    assert "--no-verify-jwt" not in workflow, f"{zoky.name}: verify_jwt must come from supabase/config.toml"
+    assert "grep -qx '\\[functions\\.wynos-maps-geocode\\]' supabase/config.toml" in edge_job, (
+        f"{zoky.name}: edge job lost the wynos-maps-geocode verify_jwt pin"
+    )
+    assert re.search(r"^[ ]{10}version:[ ]*2\.120\.0[ ]*$", edge_job, re.M) and "version: latest" not in workflow, (
+        f"{zoky.name}: Supabase CLI must stay pinned"
+    )
+    assert "VERCEL_TOKEN" not in edge_job, f"{zoky.name}: edge job must not read Vercel credentials"
 
     for name, job in jobs.items():
         names = step_names(job)
@@ -154,7 +182,7 @@ if zoky.exists():
         assert not INPUT_IN_SHELL.search(body), f"{zoky.name}: inputs must reach run steps only via env: ({body.strip()[:60]})"
 
     checkouts = workflow.count("uses: actions/checkout@")
-    assert checkouts == 2 and workflow.count("persist-credentials: false") == checkouts, (
+    assert checkouts == 3 and workflow.count("persist-credentials: false") == checkouts, (
         f"{zoky.name}: every checkout must set persist-credentials: false"
     )
     assert "vercel@latest" not in workflow and "npx --yes vercel@63.1.2 deploy --prod" in deploy_job, (
@@ -175,12 +203,7 @@ if zoky.exists():
         "git diff --no-renames --name-only",
     ):
         assert check in guard_job, f"{zoky.name}: guard job missing: {check}"
-    for check in (
-        "ref: ${{ inputs.release_sha }}",
-        'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"',
-        "npm run qa:browser",
-    ):
-        assert check in deploy_job, f"{zoky.name}: deploy job missing: {check}"
+    assert "npm run qa:browser" in deploy_job, f"{zoky.name}: deploy job missing: npm run qa:browser"
     assert "ZOKY_FREEZE_EXCEPTION" not in (WF / "wyn-158-production-deploy.yml").read_text(), (
         "wyn-158-production-deploy.yml must not carry the ZOKY exception"
     )
