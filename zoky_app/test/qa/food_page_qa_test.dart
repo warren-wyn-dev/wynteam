@@ -409,7 +409,7 @@ void main() {
       final sorted = [...seq]..sort();
       expect(seq, sorted, reason: order.join(' | '));
       semantics.dispose();
-    }, skip: true); // ZOKY-130
+    }); // ZOKY-130 (fixed)
 
     testWidgets('selected / toggled states are exposed and update', (
       tester,

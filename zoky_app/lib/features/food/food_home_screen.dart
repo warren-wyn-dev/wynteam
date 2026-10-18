@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show OrdinalSortKey;
 
 import '../../app/app_dependencies.dart';
 import '../../core/adaptive/adaptive.dart';
@@ -352,53 +353,65 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _HeaderDelegate(
-                      maxHeight: ZokyFoodHeader.maxExtentFor(context),
-                      minHeight: ZokyFoodHeader.minExtentFor(context),
-                      builder: (collapse) => ZokyFoodHeader(
-                        collapse: collapse,
-                        title: ZokyFoodAddressButton(
-                          controller: deps.deliveryAddresses,
-                          mode: deps.fulfillmentMode,
-                          onPressed: _openAddresses,
+                  // Screen readers follow the visual order: header, body,
+                  // chips, rows. Each part is one ordered node; without
+                  // this the pinned header and chips were read after the
+                  // scrolling content (ZOKY-130).
+                  for (final (i, sliver) in [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _HeaderDelegate(
+                        maxHeight: ZokyFoodHeader.maxExtentFor(context),
+                        minHeight: ZokyFoodHeader.minExtentFor(context),
+                        builder: (collapse) => ZokyFoodHeader(
+                          collapse: collapse,
+                          title: ZokyFoodAddressButton(
+                            controller: deps.deliveryAddresses,
+                            mode: deps.fulfillmentMode,
+                            onPressed: _openAddresses,
+                          ),
+                          modeChips: ZokyFoodModeToggle(
+                            controller: deps.fulfillmentMode,
+                          ),
+                          search: ZokyFoodSearchField(onPressed: _openSearch),
+                          onFavorites: widget.onOpenFavorites,
+                          onCoupons: _openCoupons,
                         ),
-                        modeChips: ZokyFoodModeToggle(
-                          controller: deps.fulfillmentMode,
-                        ),
-                        search: ZokyFoodSearchField(onPressed: _openSearch),
-                        onFavorites: widget.onOpenFavorites,
-                        onCoupons: _openCoupons,
                       ),
                     ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: ZokyFoodCategoryRow(
-                      categories: _categories,
-                      failed: _categoriesFailed,
-                      onRetry: _loadCategories,
-                      onOpenCategory: _openCategory,
+                    SliverToBoxAdapter(
+                      child: ZokyFoodCategoryRow(
+                        categories: _categories,
+                        failed: _categoriesFailed,
+                        onRetry: _loadCategories,
+                        onOpenCategory: _openCategory,
+                      ),
                     ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: ZokyFoodCouponSection(
-                      stores: _stores,
-                      failed: _storesError != null,
-                      mode: _mode.mode,
-                      collected: deps.collectedPromos,
-                      onSeeAll: _openCoupons,
+                    SliverToBoxAdapter(
+                      child: ZokyFoodCouponSection(
+                        stores: _stores,
+                        failed: _storesError != null,
+                        mode: _mode.mode,
+                        collected: deps.collectedPromos,
+                        onSeeAll: _openCoupons,
+                      ),
                     ),
-                  ),
-                  SliverToBoxAdapter(child: _storesHeading()),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _ChipsDelegate(
-                      height: _chipsHeight(context),
-                      child: _filters(),
+                    SliverToBoxAdapter(child: _storesHeading()),
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _ChipsDelegate(
+                        height: _chipsHeight(context),
+                        child: _filters(),
+                      ),
                     ),
-                  ),
-                  ..._storeSlivers(),
+                    ..._storeSlivers(),
+                  ].indexed)
+                    SliverSemantics(
+                      container: true,
+                      explicitChildNodes: true,
+                      sortKey: OrdinalSortKey(i.toDouble()),
+                      sliver: sliver,
+                    ),
                   // Room for the floating cart button above the home
                   // indicator, so it never covers the last row.
                   SliverToBoxAdapter(
