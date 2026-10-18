@@ -9,6 +9,7 @@ const read = (path) => readFileSync(join(root, path), "utf8");
 const coreMigration = read("../supabase/migrations_wynos_stripe_payment_core_v1.sql");
 const v2Migration = read("../supabase/migrations_wynos_stripe_connect_v2_embedded.sql");
 const checkout = read("../supabase/functions/food-stripe-checkout/index.ts");
+const checkoutLib = read("../supabase/functions/food-stripe-checkout/_lib.ts");
 const connect = read("../supabase/functions/merchant-stripe-connect/index.ts");
 const refund = read("../supabase/functions/merchant-stripe-refund/index.ts");
 const cancelStripe = read("../supabase/functions/food-stripe-cancel/index.ts");
@@ -45,7 +46,13 @@ test("Checkout remains a direct connected-account charge with server-calculated 
   assert.doesNotMatch(checkout, /payment_method_types/);
   assert.match(checkout, /connected account's active payment-method/);
   assert.match(checkout, /livemode: stripeLiveMode/);
-  assert.match(checkout, /https:\/\/food\.wynos\.online/);
+  // ZOKY-135: live mode only for the exact Food web origins (ZOKY + legacy
+  // food.wynos.online); return URLs never use an arbitrary request origin.
+  assert.match(checkout, /if \(stripeLiveMode && !isFoodWebOrigin\(requestOrigin\)\)/);
+  assert.match(checkout, /const returnOrigin = foodReturnOrigin\(requestOrigin\)/);
+  assert.match(checkoutLib, /FOOD_WEB_ORIGINS: ReadonlySet<string> = new Set\(\[\s*FOOD_WEB_ORIGIN,\s*"https:\/\/food\.wynos\.online",\s*\]\)/);
+  assert.match(checkoutLib, /FOOD_WEB_ORIGIN = "https:\/\/zoky\.wynos\.online"/);
+  assert.match(cancelStripe, /if \(stripeLiveMode && !isFoodWebOrigin\(req\.headers\.get\("origin"\)\)\)/);
   assert.doesNotMatch(checkout, /transfer_data|destination/);
   // GP v1 (Founder, 2026-10-11): WYNOS GP is an application fee on the direct
   // charge, only when the database quote says GP > 0 (every store is 0% until
