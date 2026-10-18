@@ -2406,3 +2406,8 @@ Founder เลือก **"ส่งเฉพาะ ZOKY (แนะนำ)"** �
 - branch `release/zoky-web-20261018` ตัดจาก commit ที่อยู่บน production (`b19687af`) + cherry-pick เฉพาะ commit ของ ZOKY (ไม่รวม #1133/#1135)
 - สร้าง workflow ใหม่ `zoky-web-exception-release.yml` (PR แยก แก้เฉพาะ workflow) ใช้ `environment: production` เดิมโดยไม่ลด protection, ตรวจ ancestor/ไม่มี #1133/#1135, จำกัด path เฉพาะ ZOKY, มีวันหมดอายุ, และ freeze-check ครอบคลุม
 - wyn-158 และ acceptance issues #1142–#1151 คงเดิม; ทุกการ deploy (edge functions, phase 1, phase 2) ยังต้องให้ Founder อนุมัติทีละครั้ง
+
+### [2026-10-18] ZOKY release — ย้ายกุญแจ deploy เข้า production environment
+
+CTO review (`zoky-exception-workflow-cto-review.md`, C1 HIGH): secrets สำหรับ deploy (Vercel/Supabase) เป็น repository-level ทำให้ workflow เก่าบางตัว (เช่น wyn-158/deploy-web.yml เวอร์ชันบน branch เก่า) deploy production ได้โดยไม่ผ่านการอนุมัติ — freeze จึงเป็นแค่คำแนะนำ
+Founder เลือก **"ย้ายกุญแจเข้าตู้ล็อก (แนะนำ)"** — อนุมัติ security change: ย้าย deploy secrets ไปเป็น secrets ของ GitHub environment `production` (required reviewer = Founder, branch policy `main` เท่านั้น) และปรับ workflow ที่จำเป็นให้ใช้ environment นั้น — DevOps ต้อง audit ก่อนว่า workflow ไหนใช้ secret ไหน (พบ ~78 workflow อ้าง `VERCEL_TOKEN`/`SUPABASE_ACCESS_TOKEN`) และเสนอลำดับที่ไม่ทำให้ระบบที่ใช้อยู่พัง; การตั้งค่าใน GitHub/สร้าง token ใหม่ Founder ทำเอง
