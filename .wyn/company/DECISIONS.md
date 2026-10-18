@@ -2377,3 +2377,9 @@ Founder: "โดเมน zoky.wynos.online" แล้วเลือก **"zoky
 ### [2026-10-18] ZOKY — เทคโนโลยี: เว็บใช้ระบบเดิม (Next.js), แอปใช้ Flutter
 
 Founder: "เว็บใช้แบบเดิม โอเค ส่วนแอปใช้ Flutter" — เว็บลูกค้า `zoky.wynos.online` ใช้ Next.js เดิมบน Vercel (rebrand เป็น ZOKY ให้หน้าตาสอดคล้องกับแอป); แอป iOS + Android ใช้ Flutter (`zoky_app/`); ทั้งสองใช้ Supabase backend เดียวกัน — ไม่ใช้ Flutter Web สำหรับเว็บลูกค้า (เหตุผล: โหลดช้า, SEO/link preview, ต้องเขียนใหม่ทั้งหมด)
+
+### [2026-10-18] ZOKY web — อนุมัติแก้ origin ของระบบจ่ายบัตร + แก้แจ้งเตือนก่อนเปิด
+
+Founder ตอบ 2 ข้อ:
+- **ZOKY-135 — "อนุมัติ (แนะนำ)"**: แก้ edge functions `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode` ให้ยอมรับ origin `https://zoky.wynos.online` เพิ่ม โดย**คง** `https://food.wynos.online` ไว้ (rollback ได้) และชี้ success/cancel URL ไป ZOKY — ต้องผ่าน QA & Security; การ deploy edge functions/production ยังต้องผ่าน freeze lift + Founder Gate ตามเดิม (อนุมัตินี้คือแก้โค้ดและทดสอบ ไม่ใช่ deploy)
+- **ZOKY-136 — "แก้ก่อนเปิด (แนะนำ)"**: แก้ปัญหา service worker / push token ของ food.wynos.online (แจ้งเตือนซ้ำ, แจ้งเตือนหลังออกจากระบบ) ให้เสร็จก่อน cutover
