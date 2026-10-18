@@ -9,9 +9,9 @@ import '../../address/delivery_address_controller.dart';
 import '../../fulfillment/fulfillment_mode_controller.dart';
 
 /// Centered title of the food page header (Founder mockup v2): white bold
-/// "จัดส่งที่ บ้าน ▾", or "รับเองใกล้ บ้าน ▾" in pickup mode,
-/// where the address is the reference location for nearby stores. Tapping
-/// it opens the address sheet.
+/// "จัดส่งที่ บ้าน ▾", or "รับเองที่ร้าน ▾" in pickup mode (Founder,
+/// 2026-10-18); the selected address stays the reference location for
+/// nearby stores. Tapping it opens the address sheet.
 ///
 /// Contrast: bold 18pt white on the brand pink is large text (>= 3:1);
 /// the address name ellipsizes rather than wrapping. One 44pt button for
@@ -32,10 +32,10 @@ class ZokyFoodAddressButton extends StatelessWidget {
   static String nameFor(DeliveryAddressController controller) =>
       controller.selected?.label ?? ZokyStrings.chooseDeliveryAddress;
 
-  /// Text before the address name for [mode].
-  static String prefixFor(FulfillmentMode mode) => switch (mode) {
-    FulfillmentMode.delivery => ZokyStrings.deliverAt,
-    FulfillmentMode.pickup => ZokyStrings.pickupNear,
+  /// Header text for [mode] and the selected address [name].
+  static String titleFor(FulfillmentMode mode, String name) => switch (mode) {
+    FulfillmentMode.delivery => '${ZokyStrings.deliverAt} $name',
+    FulfillmentMode.pickup => ZokyStrings.modePickup,
   };
 
   @override
@@ -43,8 +43,7 @@ class ZokyFoodAddressButton extends StatelessWidget {
     return ListenableBuilder(
       listenable: Listenable.merge([controller, mode]),
       builder: (context, _) {
-        final name = nameFor(controller);
-        final prefix = prefixFor(mode.mode);
+        final title = titleFor(mode.mode, nameFor(controller));
         final style = ZokyTextStyles.weight(
           ZokyTextStyles.labelLg.copyWith(
             fontSize: 18,
@@ -55,7 +54,7 @@ class ZokyFoodAddressButton extends StatelessWidget {
         );
         return Semantics(
           button: true,
-          label: '$prefix $name',
+          label: title,
           hint: ZokyStrings.chooseDeliveryAddress,
           excludeSemantics: true,
           child: InkWell(
@@ -70,7 +69,7 @@ class ZokyFoodAddressButton extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      '$prefix $name',
+                      title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,

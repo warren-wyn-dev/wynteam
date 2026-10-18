@@ -443,14 +443,13 @@ void main() {
     testWidgets('pickup: header label, pickup stores only, no ETA, '
         'รับเองได้, no ส่งฟรี chip; back to delivery restores', (tester) async {
       await _pumpFood(tester, height: 2400);
-      final def = _addresses.firstWhere((a) => a.isDefault);
       await tester.tap(_pill(FulfillmentMode.pickup));
       await tester.pumpAndSettle();
       expect(_mode.mode, FulfillmentMode.pickup);
       expect(
         find.descendant(
           of: _addressButton(),
-          matching: find.text('${ZokyStrings.pickupNear} ${def.label}'),
+          matching: find.text(ZokyStrings.modePickup),
         ),
         findsOneWidget,
       );

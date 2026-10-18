@@ -37,11 +37,9 @@ abstract final class ZokyStrings {
   static const String foodSearchPlaceholder = 'ค้นหาร้านอาหารหรือเมนู';
   // "จัดส่ง | รับเองที่ร้าน" toggle (mockup v2; pickup opened by Founder
   // decision "ค", 2026-10-18). In pickup mode the header reads
-  // "รับเองใกล้ <address>" (short enough to keep the address visible) and
-  // pickup stores say "รับเองได้".
+  // "รับเองที่ร้าน" (Founder, 2026-10-18) and pickup stores say "รับเองได้".
   static const String modeDelivery = 'จัดส่ง';
   static const String modePickup = 'รับเองที่ร้าน';
-  static const String pickupNear = 'รับเองใกล้';
   static const String pickupAvailable = 'รับเองได้';
   static const String fulfillmentModeLabel = 'วิธีรับอาหาร';
   // Header coupon icon (mockup v2 coupon card title) and the coupon
