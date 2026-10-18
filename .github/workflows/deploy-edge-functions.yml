@@ -37,12 +37,40 @@ on:
           - merchant-stripe-connect
           - merchant-stripe-refund
           - stripe-webhook
+          # ZOKY-135 (Founder approval 2026-10-18). Deploying it is blocked by
+          # the "wynos-maps-geocode verify_jwt is pinned" step until
+          # supabase/config.toml has a [functions.wynos-maps-geocode] section
+          # with verify_jwt = false, matching the live setting (Founder F2,
+          # 2026-10-18; zoky-web-release-plan.md section 4).
+          - wynos-maps-geocode
 
 jobs:
   deploy:
+    # Production edge deploys require the Founder's `production` environment
+    # review (Founder condition 2026-10-18; CTO review R2/F2).
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Without a config.toml entry the CLI deploys with verify_jwt = true,
+      # which breaks guest geocoding if the live function has Verify JWT off.
+      # Fail closed instead of relying on a comment (CTO review R2/F2).
+      # Parsed with stdlib tomllib (a text match mis-reads indented headers);
+      # invalid TOML or anything but boolean false fails.
+      - name: wynos-maps-geocode verify_jwt is pinned
+        env:
+          FUNCTION_NAME: ${{ inputs.function }}
+        run: |
+          set -euo pipefail
+          if [ "$FUNCTION_NAME" = "wynos-maps-geocode" ] && \
+             ! python3 -c 'import sys, tomllib; c = tomllib.load(open("supabase/config.toml", "rb")); sys.exit(0 if c.get("functions", {}).get("wynos-maps-geocode", {}).get("verify_jwt") is False else 1)'; then
+            echo "::error::supabase/config.toml has no verify_jwt = false in a [functions.wynos-maps-geocode] section (Founder 2026-10-18: live Verify JWT is OFF), so this deploy would force verify_jwt = true."
+            echo "::error::Add [functions.wynos-maps-geocode] with verify_jwt = false to supabase/config.toml, then deploy from that ref (zoky-web-release-plan.md section 4)."
+            exit 1
+          fi
 
       - uses: denoland/setup-deno@v2
         with:
@@ -110,7 +138,7 @@ jobs:
             echo "::error::Check, in this order:"
             echo "::error::  1. Name is exactly SUPABASE_ACCESS_TOKEN (no trailing space, no typo, case-sensitive)."
             echo "::error::  2. It is a *Repository* secret (Settings -> Secrets and variables -> Actions -> Repository secrets)."
-            echo "::error::     An *Environment* secret is invisible unless this job declares 'environment:', and this job does not."
+            echo "::error::     This job declares 'environment: production', so a production *Environment* secret also works."
             echo "::error::     A *Dependabot* secret is a separate store that Actions never reads."
             echo "::error::  3. It is on warren-wyn-dev/wynteam itself, not another repo or the org with this repo unselected."
             echo "::error::  4. Get the value from https://supabase.com/dashboard/account/tokens -- a personal access token (sbp_...),"

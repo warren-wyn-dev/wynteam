@@ -23,6 +23,7 @@ permissions:
 
 jobs:
   apply:
+    environment: production
     if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-MERCHANT-SALES-REPORT'
     runs-on: ubuntu-latest
     env:

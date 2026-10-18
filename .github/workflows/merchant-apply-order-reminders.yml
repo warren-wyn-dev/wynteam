@@ -20,6 +20,7 @@ permissions:
 
 jobs:
   apply:
+    environment: production
     if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-MERCHANT-REMINDERS'
     runs-on: ubuntu-latest
     env:

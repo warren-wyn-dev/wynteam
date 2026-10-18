@@ -19,6 +19,7 @@ permissions:
 
 jobs:
   dump:
+    environment: production
     if: github.event.inputs.confirm == 'DUMP-WYN-219'
     runs-on: ubuntu-latest
     env:

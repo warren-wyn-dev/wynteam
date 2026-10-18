@@ -32,6 +32,7 @@ jobs:
           bash .github/scripts/sync-auth-recovery-email-template.sh --check-only
 
   sync:
+    environment: production
     needs: validate
     if: >-
       github.event_name == 'workflow_dispatch' ||

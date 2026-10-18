@@ -24,6 +24,7 @@ permissions:
 
 jobs:
   check:
+    environment: production
     if: github.event.inputs.confirm == 'CHECK-FOOD-PAYMENT'
     runs-on: ubuntu-latest
     env:
