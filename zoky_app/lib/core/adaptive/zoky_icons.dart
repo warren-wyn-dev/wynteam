@@ -9,6 +9,11 @@ import 'adaptive.dart';
 /// Flutter is not chosen yet (architecture doc section 3), so shared icons
 /// use the closest Material icon for now; swapping the set later means
 /// editing only this file.
+///
+/// Small Food page glyphs (▾, coupon ticket, filter sliders, scooter, bag,
+/// check, cart) are painted by ZokyLineIcon instead, so a stale
+/// tree-shaken icon font can never blank them (Founder iPad preview,
+/// 2026-10-18).
 abstract final class ZokyIcons {
   // Shared (same on every platform).
   static const IconData home = Icons.home_outlined; // Lucide House
@@ -32,15 +37,8 @@ abstract final class ZokyIcons {
   static const IconData cart = Icons.shopping_bag_outlined;
   static const IconData favorite = Icons.favorite_border_rounded; // Heart
   static const IconData info = Icons.info_outline_rounded; // Info
-  static const IconData coupon = Icons.confirmation_number_outlined; // Ticket
-  static const IconData bike = Icons.pedal_bike_rounded; // Bike
-  static const IconData trolley = Icons.shopping_cart_outlined; // ShoppingCart
-  static const IconData filter = Icons.tune_rounded; // SlidersHorizontal
   static const IconData arrowForward =
       Icons.arrow_forward_rounded; // ArrowRight
-  static const IconData chevronDown =
-      Icons.keyboard_arrow_down_rounded; // ChevronDown
-  static const IconData check = Icons.check_rounded; // Check
 
   // Adaptive (design 11.2): back, share, more.
   static IconData back(BuildContext context) =>

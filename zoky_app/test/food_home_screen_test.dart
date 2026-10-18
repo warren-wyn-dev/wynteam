@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_app/app/app_config.dart';
 import 'package:zoky_app/app/app_dependencies.dart';
@@ -8,6 +9,7 @@ import 'package:zoky_app/app/zoky_app.dart';
 import 'package:zoky_app/core/l10n/zoky_strings.dart';
 import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
 import 'package:zoky_app/core/widgets/zoky_chip.dart';
+import 'package:zoky_app/core/widgets/zoky_line_icon.dart';
 import 'package:zoky_app/core/widgets/zoky_state_view.dart';
 import 'package:zoky_app/core/widgets/zoky_store_card.dart';
 import 'package:zoky_app/features/address/address_sheet.dart';
@@ -106,6 +108,7 @@ Future<void> _pumpFood(
   double height = 844,
   double textScale = 1.0,
   double bottomInset = 0,
+  double topInset = 0,
   StoreRepository? stores,
   HomeContentRepository? content,
 }) async {
@@ -116,6 +119,11 @@ Future<void> _pumpFood(
     textScale: textScale,
     bottomInset: bottomInset,
   );
+  if (topInset > 0) {
+    final inset = FakeViewPadding(top: topInset, bottom: bottomInset);
+    tester.view.padding = inset;
+    tester.view.viewPadding = inset;
+  }
   _mode = FulfillmentModeController();
   _collected = CollectedPromosController();
   await tester.pumpWidget(
@@ -186,29 +194,49 @@ Future<void> _tapChip(WidgetTester tester, String label) async {
 
 void main() {
   group('order', () {
-    testWidgets('header card, toggle, categories, coupons, all stores, '
-        'chips, rows', (tester) async {
-      await _pumpFood(tester, height: 3000);
+    testWidgets('full-bleed header (row, chips, search, sheet), categories, '
+        'coupons, all stores, chips, rows', (tester) async {
+      await _pumpFood(tester, height: 3000, topInset: 59);
       double top(Finder f) => tester.getTopLeft(f).dy;
-      final card = tester.getRect(find.byKey(ZokyFoodHeader.cardKey));
-      // Rounded card inset from the edges, below the status bar area.
-      expect(card.left, 16);
-      expect(card.right, 390 - 16);
+      final surface = tester.getRect(find.byKey(ZokyFoodHeader.surfaceKey));
+      // Pink from the very top (under the status bar) and edge to edge.
+      expect(surface.top, 0);
+      expect(surface.left, 0);
+      expect(surface.right, 390);
       final back = tester.getRect(find.byKey(ZokyFoodHeader.backKey));
       final title = tester.getRect(_addressButton());
       final heart = tester.getRect(find.byKey(ZokyFoodHeader.favoritesKey));
       final coupon = tester.getRect(find.byKey(ZokyFoodHeader.couponsKey));
+      // Content respects the status bar.
+      expect(back.top, greaterThanOrEqualTo(59));
+      expect(title.top, greaterThanOrEqualTo(59));
       expect(back.right, lessThanOrEqualTo(title.left));
       expect(title.right, lessThanOrEqualTo(heart.left));
       expect(heart.right, lessThanOrEqualTo(coupon.left));
-      // Search field inside the card, under the row.
+      expect(coupon.right, lessThanOrEqualTo(390));
+      // Address block left-aligned, right after the back button.
+      final label = tester.getRect(
+        find.descendant(
+          of: _addressButton(),
+          matching: find.text(ZokyStrings.deliverAt),
+        ),
+      );
+      expect(label.left - back.right, lessThan(12));
+      // Mode chips inside the header under the row, left-aligned; then
+      // the search field, then the white sheet.
+      final toggle = tester.getRect(find.byType(ZokyFoodModeToggle));
+      expect(toggle.top, greaterThanOrEqualTo(title.bottom - 0.5));
+      expect(toggle.left, 16);
       final search = tester.getRect(_searchField());
-      expect(search.top, greaterThan(title.bottom));
-      expect(search.bottom, lessThanOrEqualTo(card.bottom));
-      expect(card.bottom, lessThan(top(find.byType(ZokyFoodModeToggle))));
+      expect(search.top, greaterThan(toggle.bottom - 0.5));
+      final sheet = tester.getRect(find.byKey(ZokyFoodHeader.sheetKey));
+      expect(sheet.top, greaterThan(search.bottom));
+      expect(sheet.left, 0);
+      expect(sheet.right, 390);
+      expect(sheet.bottom, closeTo(surface.bottom + 1, 0.01));
       expect(
-        top(find.byType(ZokyFoodModeToggle)),
-        lessThan(top(find.byType(ZokyFoodCategoryRow))),
+        surface.bottom,
+        lessThanOrEqualTo(top(find.byType(ZokyFoodCategoryRow))),
       );
       expect(
         top(find.byType(ZokyFoodCategoryRow)),
@@ -296,34 +324,53 @@ void main() {
       expect(find.text(ZokyStrings.couponsEmpty), findsOneWidget);
     });
 
-    testWidgets('status bar uses dark icons (card sits on white)', (
-      tester,
-    ) async {
-      await _pumpFood(tester);
+    testWidgets('status bar uses light icons over the pink, open and '
+        'pinned', (tester) async {
+      await _pumpFood(tester, topInset: 59);
       expect(
         ZokyFoodHeader.systemOverlayStyle.statusBarIconBrightness,
-        Brightness.dark,
+        Brightness.light,
       );
       expect(
         ZokyFoodHeader.systemOverlayStyle.statusBarBrightness,
-        Brightness.light,
+        Brightness.dark,
       );
+      AnnotatedRegion<SystemUiOverlayStyle> region() => tester.widget(
+        find
+            .ancestor(
+              of: find.byKey(ZokyFoodHeader.surfaceKey),
+              matching: find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+            )
+            .first,
+      );
+      expect(region().value, ZokyFoodHeader.systemOverlayStyle);
+      _feed(tester).jumpTo(600);
+      await tester.pumpAndSettle();
+      expect(region().value, ZokyFoodHeader.systemOverlayStyle);
+      expect(tester.getRect(find.byKey(ZokyFoodHeader.surfaceKey)).top, 0);
     });
   });
 
   group('address', () {
-    testWidgets('title shows "จัดส่งที่" and the default address', (
+    testWidgets('two lines: small "จัดส่งที่" over the bold address ▾', (
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
       await _pumpFood(tester);
       final def = _addresses.firstWhere((a) => a.isDefault);
+      Finder inButton(Finder f) =>
+          find.descendant(of: _addressButton(), matching: f);
+      final label = tester.getRect(inButton(find.text(ZokyStrings.deliverAt)));
+      final name = tester.getRect(inButton(find.text(def.label)));
+      final caret = tester.getRect(
+        inButton(find.byKey(ZokyLineIcon.keyFor(ZokyLineGlyph.caretDown))),
+      );
+      expect(label.bottom, lessThanOrEqualTo(name.top + 0.5));
+      expect(label.left, name.left);
+      expect(caret.left, greaterThanOrEqualTo(name.right));
       expect(
-        find.descendant(
-          of: _addressButton(),
-          matching: find.text('${ZokyStrings.deliverAt} ${def.label}'),
-        ),
-        findsOneWidget,
+        tester.widget<Text>(inButton(find.text(def.label))).style!.fontWeight,
+        FontWeight.w700,
       );
       expect(def.label, contains('ตัวอย่าง'));
       final node = tester.getSemantics(
@@ -435,8 +482,31 @@ void main() {
       );
       expect(find.text(ZokyStrings.comingSoon), findsNothing);
       for (final mode in FulfillmentMode.values) {
+        // 44pt tap box around a compact ~32pt pill.
         expect(tester.getSize(_pill(mode)).height, greaterThanOrEqualTo(44));
+        final pill = tester.getSize(
+          find.descendant(
+            of: _pill(mode),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        expect(pill.height, inInclusiveRange(30, 36));
+        expect(pill.width, greaterThanOrEqualTo(44));
       }
+      // Tapping the invisible part of the box (above the pill) works.
+      final box = tester.getRect(_pill(FulfillmentMode.pickup));
+      await tester.tapAt(Offset(box.center.dx, box.top + 2));
+      await tester.pumpAndSettle();
+      expect(_mode.mode, FulfillmentMode.pickup);
+      expect(
+        tester.getSemantics(_pill(FulfillmentMode.pickup)),
+        isSemantics(
+          isButton: true,
+          isSelected: true,
+          isInMutuallyExclusiveGroup: true,
+          label: ZokyStrings.modePickup,
+        ),
+      );
       semantics.dispose();
     });
 
@@ -446,10 +516,25 @@ void main() {
       await tester.tap(_pill(FulfillmentMode.pickup));
       await tester.pumpAndSettle();
       expect(_mode.mode, FulfillmentMode.pickup);
+      // Bold "รับเองที่ร้าน ▾" title, no "จัดส่งที่" label line.
       expect(
         find.descendant(
           of: _addressButton(),
           matching: find.text(ZokyStrings.modePickup),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: _addressButton(),
+          matching: find.text(ZokyStrings.deliverAt),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: _addressButton(),
+          matching: find.byKey(ZokyLineIcon.keyFor(ZokyLineGlyph.caretDown)),
         ),
         findsOneWidget,
       );
@@ -897,20 +982,30 @@ void main() {
   });
 
   group('sticky header and chips', () {
-    testWidgets('header folds to the search field; chips pin under it', (
-      tester,
-    ) async {
-      await _pumpFood(tester, width: 430, height: 932, bottomInset: 34);
-      final openCard = tester.getRect(find.byKey(ZokyFoodHeader.cardKey));
+    testWidgets('header folds to a full-bleed pink bar with the search '
+        'field; chips pin under it', (tester) async {
+      await _pumpFood(
+        tester,
+        width: 430,
+        height: 932,
+        topInset: 59,
+        bottomInset: 34,
+      );
+      final openCard = tester.getRect(find.byKey(ZokyFoodHeader.surfaceKey));
       _feed(tester).jumpTo(400);
       await tester.pumpAndSettle();
-      final card = tester.getRect(find.byKey(ZokyFoodHeader.cardKey));
+      final card = tester.getRect(find.byKey(ZokyFoodHeader.surfaceKey));
       final search = tester.getRect(_searchField());
-      expect(card.top, openCard.top);
+      expect(card.top, 0);
+      expect(card.left, 0);
+      expect(card.right, 430);
       expect(card.height, lessThan(openCard.height));
-      expect(search.top, greaterThanOrEqualTo(card.top));
+      expect(search.top, greaterThanOrEqualTo(59));
       expect(search.bottom, lessThanOrEqualTo(card.bottom));
+      // The white sheet has flattened away.
+      expect(tester.getSize(find.byKey(ZokyFoodHeader.sheetKey)).height, 1);
       expect(find.byKey(ZokyFoodHeader.backKey).hitTestable(), findsNothing);
+      expect(_pill(FulfillmentMode.pickup).hitTestable(), findsNothing);
       await tester.tap(_searchField());
       await tester.pumpAndSettle();
       expect(find.byType(StoreSearchScreen), findsOneWidget);
@@ -921,12 +1016,13 @@ void main() {
       position.jumpTo(position.maxScrollExtent);
       await tester.pumpAndSettle();
       final chips = tester.getRect(find.byKey(FoodHomeScreen.filtersKey));
-      final pinnedCard = tester.getRect(find.byKey(ZokyFoodHeader.cardKey));
+      final pinnedCard = tester.getRect(find.byKey(ZokyFoodHeader.surfaceKey));
       expect(chips.top, greaterThan(pinnedCard.bottom - 1));
       expect(chips.top, lessThan(pinnedCard.bottom + 24));
       position.jumpTo(0);
       await tester.pumpAndSettle();
       expect(find.byKey(ZokyFoodHeader.backKey).hitTestable(), findsOneWidget);
+      expect(_pill(FulfillmentMode.pickup).hitTestable(), findsOneWidget);
     });
   });
 
@@ -989,7 +1085,7 @@ void main() {
         await _pumpFood(tester, stores: stores, content: content);
         final before = (stores.directoryCalls, content.categoryCalls);
         await tester.fling(
-          find.byType(ZokyFoodModeToggle),
+          find.byType(ZokyFoodCategoryRow),
           const Offset(0, 400),
           1000,
         );
@@ -1061,9 +1157,15 @@ void main() {
             width: width,
             height: 2400,
             textScale: scale,
+            topInset: 59,
             bottomInset: 34,
           );
           expect(tester.takeException(), isNull);
+          // Compact chips stay on screen in both modes.
+          expect(
+            tester.getRect(find.byType(ZokyFoodModeToggle)).right,
+            lessThanOrEqualTo(width - 16),
+          );
           final position = _feed(tester);
           position.jumpTo(position.maxScrollExtent);
           await tester.pumpAndSettle();

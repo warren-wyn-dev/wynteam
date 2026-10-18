@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,29 +8,38 @@ import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/l10n/zoky_strings.dart';
 import '../../../core/widgets/zoky_glossy_surface.dart';
+import '../../../core/widgets/zoky_line_icon.dart';
+import 'zoky_food_mode_toggle.dart';
 import 'zoky_food_search_field.dart';
 
-/// Food page header (Founder food page mockup v2, 2026-10-18): a rounded
-/// brand-pink card inset from the screen edges, below the status bar.
-/// Pinned: as the page scrolls it folds to a compact card with only the
-/// search field ([collapse], see [maxExtentFor] / [minExtentFor]).
+/// Food page header (Founder feedback 2026-10-18, layout after LINE MAN,
+/// ZOKY brand only): a full-bleed pink surface from the very top of the
+/// screen (under the status bar) and edge to edge. Top to bottom:
+/// 1. row: adaptive back, the left-aligned address block [title]
+///    ("จัดส่งที่" / "บ้าน ▾", or "รับเองที่ร้าน ▾"), heart ("ร้านโปรด")
+///    and the coupon ticket ("คูปองส่วนลด");
+/// 2. the compact [modeChips] ("จัดส่ง | รับเองที่ร้าน"), left-aligned;
+/// 3. the white [search] field;
+/// 4. a white sheet with large rounded top corners, like Home's header,
+///    so the page continues on white.
 ///
-/// Row: the adaptive back button, the centered [title] ("จัดส่งที่ บ้าน ▾",
-/// see ZokyFoodAddressButton), the heart ("ร้านโปรด") and the coupon icon
-/// ("คูปองส่วนลด"). Under the row, inside the card: the white [search]
-/// field.
+/// Why the sheet rather than a search field floating over the seam: the
+/// search stays inside the pink (white on pink, no extra shadow), the
+/// compact chips keep a calm pink band of their own, and it matches the
+/// Home header family. Pinned: as the page scrolls, the row and the chips
+/// fold away and the sheet flattens, leaving a full-bleed pink bar with
+/// the search field ([collapse], see [maxExtentFor] / [minExtentFor]).
 ///
-/// Surface: the ZOKY brand gradient with a very faint top gloss and no
-/// waves, so it reads flat like the mockup but is the same pink as the
-/// rest of the app. The card sits on white, so the status bar above it
-/// uses dark icons.
-///
-/// Contrast: the icons are white on #F93384..#EE226E (3.6:1+, enough for
-/// non-text controls); the title is bold 18pt (large text, >= 3:1).
+/// Surface: the ZOKY brand gradient deepening from [ZokyColors.headerTop]
+/// under the status bar to [ZokyColors.brandDeep] where the content
+/// starts ([gradientFor]), plus the faint top gloss of the Home header.
+/// All small white text sits on brandDeep (5.15:1). The status bar always
+/// has pink behind it, so its icons are light.
 class ZokyFoodHeader extends StatelessWidget {
   const ZokyFoodHeader({
     super.key,
     required this.title,
+    required this.modeChips,
     required this.search,
     required this.onFavorites,
     required this.onCoupons,
@@ -36,6 +47,7 @@ class ZokyFoodHeader extends StatelessWidget {
   });
 
   final Widget title;
+  final Widget modeChips;
   final Widget search;
   final VoidCallback onFavorites;
   final VoidCallback onCoupons;
@@ -45,10 +57,14 @@ class ZokyFoodHeader extends StatelessWidget {
   /// reduce).
   final double collapse;
 
-  static const double radius = ZokyRadius.xxlValue;
+  /// Radius of the white sheet under the search field (same as Home).
+  static const double sheetRadius = ZokyRadius.xxlValue + 4;
 
-  /// Key of the rounded pink card (tests).
-  static const Key cardKey = ValueKey('zoky-food-header-card');
+  /// Key of the full-bleed pink surface (tests).
+  static const Key surfaceKey = ValueKey('zoky-food-header-surface');
+
+  /// Key of the white sheet (tests).
+  static const Key sheetKey = ValueKey('zoky-food-header-sheet');
 
   /// Back button key (tests).
   static const Key backKey = ValueKey('zoky-food-back');
@@ -57,125 +73,167 @@ class ZokyFoodHeader extends StatelessWidget {
   static const Key favoritesKey = ValueKey('zoky-food-favorites');
   static const Key couponsKey = ValueKey('zoky-food-coupons');
 
-  /// Dark status bar icons: the card starts below the status bar, on white.
+  /// Light status bar content over the pink (iOS: statusBarBrightness
+  /// dark = light icons; Android: statusBarIconBrightness).
   static const SystemUiOverlayStyle systemOverlayStyle = SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-    statusBarBrightness: Brightness.light,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
   );
 
-  /// Header row height (44pt targets; the title clamps to one line).
-  static const double rowHeight = ZokySizes.tapTargetIos;
+  /// Peak opacity of the top sheen (fades to 0 at its lower edge).
+  static const double glossOpacity = 0.06;
 
-  static const double _outerTop = ZokySpacing.s4;
-  static const double _outerBottom = ZokySpacing.s4;
-  static const double _padTop = ZokySpacing.s4;
-  static const double _gap = ZokySpacing.s4;
-  static const double _padBottomOpen = ZokySpacing.s8;
-  static const double _padBottomCompact = ZokySpacing.s4;
+  /// Header text never scales past this (the page body still does).
+  static const double maxTextScale = 1.3;
 
-  /// Full height: status bar, card with the row and the search field.
+  static const double _padTopOpen = ZokySpacing.s2;
+  static const double _padTopCompact = ZokySpacing.s3;
+  static const double _gapAfterChips = ZokySpacing.s2;
+  static const double _padBottomOpen = ZokySpacing.s6;
+  static const double _padBottomCompact = ZokySpacing.s5;
+
+  /// [context] with the header's clamped text scale.
+  static MediaQueryData _clamped(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return media.copyWith(
+      textScaler: media.textScaler.clamp(maxScaleFactor: maxTextScale),
+    );
+  }
+
+  /// Address row height: 48pt, taller when the two lines need it.
+  static double rowHeightFor(BuildContext context) {
+    final scaler = _clamped(context).textScaler;
+    final text = scaler.scale(13) * 1.3 + scaler.scale(17) * 1.3 + 4;
+    return math.max(ZokySizes.tapTargetAndroid, text);
+  }
+
+  static double _chipsHeightFor(BuildContext context) =>
+      ZokyFoodModeToggle.heightFor(context, _clamped(context).textScaler);
+
+  /// Height of the part that folds away on scroll (row + chips).
+  static double _foldFor(BuildContext context) =>
+      rowHeightFor(context) + _chipsHeightFor(context) + _gapAfterChips;
+
+  /// Full height: status bar, row, chips, search field and the sheet.
   static double maxExtentFor(BuildContext context) =>
       MediaQuery.paddingOf(context).top +
-      _outerTop +
-      _padTop +
-      rowHeight +
-      _gap +
+      _padTopOpen +
+      _foldFor(context) +
       ZokyFoodSearchField.heightFor(context) +
       _padBottomOpen +
-      _outerBottom;
+      sheetRadius;
 
-  /// Compact pinned height: status bar and the card with the search field.
+  /// Compact pinned height: status bar and the search field on pink.
   static double minExtentFor(BuildContext context) =>
       MediaQuery.paddingOf(context).top +
-      _outerTop +
-      _padTop +
+      _padTopCompact +
       ZokyFoodSearchField.heightFor(context) +
-      _padBottomCompact +
-      _outerBottom;
+      _padBottomCompact;
+
+  /// Brand gradient for a header [height] tall whose content starts at
+  /// [contentTop]: bright headerTop at the top, brandDeep from
+  /// [contentTop] down.
+  static LinearGradient gradientFor(double height, double contentTop) {
+    final deepAt = height <= 0 ? 0.0 : (contentTop / height).clamp(0.0, 1.0);
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: const [
+        ZokyColors.headerTop,
+        ZokyColors.headerBottom,
+        ZokyColors.brandDeep,
+      ],
+      stops: [0, deepAt * 0.55, deepAt],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
-    const borderRadius = BorderRadius.all(Radius.circular(radius));
     final t = collapse.clamp(0.0, 1.0);
-    final rowSpace = (rowHeight + _gap) * (1 - t);
-    final padBottom = _padBottomOpen + (_padBottomCompact - _padBottomOpen) * t;
+    final padTop = _padTopOpen + (_padTopCompact - _padTopOpen) * t;
+    final fold = _foldFor(context);
+    final foldSpace = fold * (1 - t);
     final rowOpacity = (1 - t * 1.6).clamp(0.0, 1.0);
+    final sheet = sheetRadius * (1 - t);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: systemOverlayStyle,
-      // White behind the status bar in both states (dark icons).
-      child: ColoredBox(
-        color: ZokyColors.surface,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            ZokySpacing.gutter,
-            topInset + _outerTop,
-            ZokySpacing.gutter,
-            _outerBottom,
-          ),
-          child: DecoratedBox(
-            key: cardKey,
-            decoration: const BoxDecoration(
-              borderRadius: borderRadius,
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x29EE226E),
-                  offset: Offset(0, 6),
-                  blurRadius: 16,
-                ),
-              ],
-            ),
-            child: ZokyGlossySurface(
-              borderRadius: borderRadius,
-              glossHeight: 40,
-              glossOpacity: 0.08,
-              glossInset: 0,
-              rim: false,
-              shadow: false,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  ZokySpacing.s2,
-                  _padTop,
-                  ZokySpacing.s2,
-                  padBottom,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // The row folds away as the page scrolls; it stops
-                    // taking taps once mostly hidden.
-                    ClipRect(
-                      child: SizedBox(
-                        height: rowSpace,
-                        child: OverflowBox(
-                          alignment: Alignment.bottomCenter,
-                          minHeight: rowHeight + _gap,
-                          maxHeight: rowHeight + _gap,
-                          child: IgnorePointer(
-                            ignoring: t > 0.5,
-                            child: ExcludeSemantics(
-                              excluding: t > 0.5,
-                              child: Opacity(
-                                opacity: rowOpacity,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: _gap),
-                                  child: _row(context),
-                                ),
-                              ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => ZokyGlossySurface(
+          key: surfaceKey,
+          gradient: gradientFor(constraints.maxHeight, topInset + padTop),
+          // Long, faint sheen ending under the address row: no visible
+          // band edge, and white text over it stays >= 4.5:1 (tests).
+          glossHeight: topInset + padTop + rowHeightFor(context) * (1 - t),
+          glossOpacity: glossOpacity,
+          glossInset: 0,
+          rim: false,
+          shadow: false,
+          child: MediaQuery(
+            data: _clamped(context),
+            child: Padding(
+              padding: EdgeInsets.only(top: topInset + padTop),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Row + chips fold away as the page scrolls; they stop
+                  // taking taps once mostly hidden.
+                  ClipRect(
+                    child: SizedBox(
+                      height: foldSpace,
+                      child: OverflowBox(
+                        alignment: Alignment.bottomCenter,
+                        minHeight: fold,
+                        maxHeight: fold,
+                        child: IgnorePointer(
+                          ignoring: t > 0.5,
+                          child: ExcludeSemantics(
+                            excluding: t > 0.5,
+                            child: Opacity(
+                              opacity: rowOpacity,
+                              child: _foldContent(context),
                             ),
                           ),
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: ZokySpacing.s6,
-                      ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: ZokySpacing.gutter,
+                    ),
+                    child: MediaQuery(
+                      // The field sizes itself from the page's text scale.
+                      data: MediaQuery.of(context),
                       child: search,
                     ),
-                  ],
-                ),
+                  ),
+                  // Bottom padding and the white sheet (absorbs rounding).
+                  Expanded(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          // 1px past the bottom: no hairline seam.
+                          bottom: -1,
+                          height: sheet + 1,
+                          child: const DecoratedBox(
+                            key: sheetKey,
+                            decoration: BoxDecoration(
+                              color: ZokyColors.surface,
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(sheetRadius),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -184,46 +242,63 @@ class ZokyFoodHeader extends StatelessWidget {
     );
   }
 
-  Widget _row(BuildContext context) {
-    return SizedBox(
-      height: rowHeight,
-      child: Row(
-        children: [
-          _HeaderIcon(
-            key: backKey,
-            icon: ZokyIcons.back(context),
-            tooltip: ZokyStrings.back,
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          // Same width on both sides keeps the title centered; narrow
-          // phones give that room to the title instead.
-          if (MediaQuery.sizeOf(context).width >= 360)
-            const SizedBox(width: ZokySizes.tapTargetIos),
-          Expanded(
-            child: MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 1.3,
-              child: title,
+  Widget _foldContent(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: rowHeightFor(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: ZokySpacing.s2),
+            child: Row(
+              children: [
+                _HeaderIcon(
+                  key: backKey,
+                  icon: Icon(ZokyIcons.back(context), size: 26),
+                  tooltip: ZokyStrings.back,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+                Expanded(
+                  child: Align(alignment: Alignment.centerLeft, child: title),
+                ),
+                _HeaderIcon(
+                  key: favoritesKey,
+                  icon: const Icon(ZokyIcons.favorite, size: 26),
+                  tooltip: ZokyStrings.favoriteStores,
+                  onPressed: onFavorites,
+                ),
+                _HeaderIcon(
+                  key: couponsKey,
+                  icon: const ZokyLineIcon(
+                    ZokyLineGlyph.ticket,
+                    size: 26,
+                    color: ZokyColors.onAction,
+                  ),
+                  tooltip: ZokyStrings.coupons,
+                  onPressed: onCoupons,
+                ),
+              ],
             ),
           ),
-          _HeaderIcon(
-            key: favoritesKey,
-            icon: ZokyIcons.favorite,
-            tooltip: ZokyStrings.favoriteStores,
-            onPressed: onFavorites,
+        ),
+        // Chips line up with the search field below.
+        Padding(
+          padding: const EdgeInsetsDirectional.only(
+            start: ZokySpacing.gutter,
+            end: ZokySpacing.gutter,
           ),
-          _HeaderIcon(
-            key: couponsKey,
-            icon: ZokyIcons.coupon,
-            tooltip: ZokyStrings.coupons,
-            onPressed: onCoupons,
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SizedBox(height: _chipsHeightFor(context), child: modeChips),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: _gapAfterChips),
+      ],
     );
   }
 }
 
-/// White outline icon on the pink card, 44pt target.
+/// White icon on the pink header, 44pt target.
 class _HeaderIcon extends StatelessWidget {
   const _HeaderIcon({
     super.key,
@@ -232,14 +307,14 @@ class _HeaderIcon extends StatelessWidget {
     required this.onPressed,
   });
 
-  final IconData icon;
+  final Widget icon;
   final String tooltip;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: Icon(icon, size: 26),
+      icon: icon,
       color: ZokyColors.onAction,
       tooltip: tooltip,
       constraints: const BoxConstraints(

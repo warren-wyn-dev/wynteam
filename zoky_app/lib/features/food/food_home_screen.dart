@@ -8,6 +8,7 @@ import '../../core/design/zoky_tokens.dart';
 import '../../core/design/zoky_typography.dart';
 import '../../core/l10n/zoky_strings.dart';
 import '../../core/widgets/zoky_chip.dart';
+import '../../core/widgets/zoky_line_icon.dart';
 import '../../core/widgets/zoky_skeleton.dart';
 import '../../core/widgets/zoky_state_view.dart';
 import '../address/address_sheet.dart';
@@ -32,14 +33,15 @@ enum StoreFilter { all, freeDelivery, promo, near, rating }
 
 /// Food landing page (Founder mockup v2, 2026-10-18), pushed from the Home
 /// hero card. Top to bottom:
-/// 1. pinned pink header card (back, "จัดส่งที่ บ้าน ▾", heart, coupons,
-///    search field) that folds to just the search field on scroll;
-/// 2. "จัดส่ง | รับเองที่ร้าน" toggle (pickup: Founder decision "ค");
-/// 3. category circles;
-/// 4. "โค้ดลดเพิ่มสำหรับคุณ" coupons (only when promos exist);
-/// 5. "ร้านอาหารทั้งหมด" + "ตัวกรอง", quick filter chips (pinned once
+/// 1. pinned full-bleed pink header (back, "จัดส่งที่ / บ้าน ▾", heart,
+///    coupons; compact "จัดส่ง | รับเองที่ร้าน" chips -- pickup: Founder
+///    decision "ค"; search field) that folds to just the search field on
+///    scroll (Founder feedback 2026-10-18);
+/// 2. category circles;
+/// 3. "โค้ดลดเพิ่มสำหรับคุณ" coupons (only when promos exist);
+/// 4. "ร้านอาหารทั้งหมด" + "ตัวกรอง", quick filter chips (pinned once
 ///    reached) and the store rows;
-/// 6. floating cart button.
+/// 5. floating cart button.
 ///
 /// Pull to refresh reloads the directory and the categories. A full-screen
 /// pushed page: the back button / iOS edge swipe returns to Home.
@@ -362,22 +364,12 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
                           mode: deps.fulfillmentMode,
                           onPressed: _openAddresses,
                         ),
+                        modeChips: ZokyFoodModeToggle(
+                          controller: deps.fulfillmentMode,
+                        ),
                         search: ZokyFoodSearchField(onPressed: _openSearch),
                         onFavorites: widget.onOpenFavorites,
                         onCoupons: _openCoupons,
-                      ),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(
-                      ZokySpacing.gutter,
-                      ZokySpacing.s4,
-                      ZokySpacing.gutter,
-                      ZokySpacing.s2,
-                    ),
-                    sliver: SliverToBoxAdapter(
-                      child: ZokyFoodModeToggle(
-                        controller: deps.fulfillmentMode,
                       ),
                     ),
                   ),
@@ -476,8 +468,8 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        ZokyIcons.filter,
+                      const ZokyLineIcon(
+                        ZokyLineGlyph.sliders,
                         size: 22,
                         color: ZokyColors.brandDeep,
                       ),
@@ -713,7 +705,10 @@ class _FilterOption extends StatelessWidget {
                   ),
                 ),
                 if (selected)
-                  const Icon(ZokyIcons.check, color: ZokyColors.brandDeep),
+                  const ZokyLineIcon(
+                    ZokyLineGlyph.check,
+                    color: ZokyColors.brandDeep,
+                  ),
               ],
             ),
           ),
