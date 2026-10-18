@@ -2390,3 +2390,11 @@ Founder ตอบ (หลัง CTO review `zoky-web-rebrand-cto-review.md` บ�
 - C1 — ชื่อรายการใบเสร็จ Stripe: **"ZOKY (แนะนำ)"** → ใช้ `ZOKY #<เลขออเดอร์>`
 - C2 — วิธีเปิด: **"2 ขั้น (แนะนำ)"** → เพิ่ม server-only flag (ค่าเริ่มต้นปิด) ให้ขั้น 1 เปิด `zoky.wynos.online` โดย `food.wynos.online` ยังทำงานเหมือนเดิม; ขั้น 2 เปิด redirect จาก food → zoky หลังตรวจขั้น 1 บน production แล้ว (แต่ละขั้นยังต้องผ่าน Founder Gate)
 - เรื่อง production freeze: Founder ตอบ "งง" — ยังไม่ได้ตัดสินใจ ต้องอธิบายใหม่ให้ง่ายขึ้น
+
+### [2026-10-18] ZOKY web — ข้อยกเว้น production freeze เฉพาะ ZOKY
+
+Founder เลือก **"ก"** (ยกเว้นให้ ZOKY ไปก่อน แทนการรองาน Admin acceptance #1142–#1151 ครบ): อนุญาตให้ทำ release ของ ZOKY web (feat/zoky-web-rebrand + edge functions `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode`) ระหว่าง freeze
+เงื่อนไข:
+- DevOps ต้องเทียบ commit ที่อยู่บน production กับสิ่งที่จะ deploy และยืนยันว่าไม่มีงานอื่นที่ยังไม่ผ่าน acceptance (เช่น Admin) ติดไปด้วย — ถ้ามี ต้องหยุดและรายงาน Founder
+- ห้ามปิด acceptance issues #1142–#1151 โดยไม่มีการตรวจจริง; กลไกข้อยกเว้นต้องจำกัดเฉพาะ release นี้ บันทึกไว้ตรวจสอบได้ และไม่ลด protection ของ `production` environment
+- แต่ละขั้น (edge functions, เปิด zoky ขั้น 1, เปิด redirect ขั้น 2) ยังต้องให้ Founder กดอนุมัติ production ตาม Founder Gate
