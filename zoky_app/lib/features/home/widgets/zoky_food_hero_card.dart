@@ -237,6 +237,7 @@ class _SearchButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: ZokyStrings.heroSearchButton,
+      onTap: onPressed,
       excludeSemantics: true,
       child: Material(
         type: MaterialType.transparency,

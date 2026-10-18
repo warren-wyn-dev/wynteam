@@ -390,3 +390,13 @@
   (4) ป้ายตัวอย่าง (demo) ที่อยู่ในบรรทัดความสูงคงที่ ให้ย่อให้พอดี (FittedBox scaleDown) แทน ellipsis
 - การนำไปใช้ในอนาคต: หน้าใหม่ที่มี pinned header ต้องมี test ลำดับการอ่านทั้งตอนเปิดและหลังเลื่อน งานที่แตะ Home
   ต้องทำ pixel diff เทียบ build ก่อนแก้ทุกครั้ง และรายงานจุดที่ต่างแม้เป็น sub-pixel
+
+### [2026-10-18] ZOKY-132 — ปุ่มบน Home/Food ไม่มี tap action ให้ assistive tech
+- บริบท: ปุ่ม custom ห่อ `InkWell` ด้วย `Semantics(button: true, label: …, excludeSemantics: true)` เพื่อให้อ่าน label เดียว
+  แต่ `excludeSemantics` ตัด tap action ของ `InkWell` ทิ้งไปด้วย node จึงบอกว่าเป็น "ปุ่ม" แต่กดผ่าน Switch Access /
+  Voice Access / TalkBack click action ไม่ได้ (Food 28 ปุ่ม, Home 13 ปุ่ม)
+- บทเรียน: ใช้ `excludeSemantics: true` เมื่อไรต้องใส่ `onTap:` (และ `onLongPress:` ถ้ามี) ที่ `Semantics` ตัวนั้นเอง โดยใช้
+  callback เดียวกับ gesture ด้านใน (null เมื่อ disabled) แบบเดียวกับ `zoky_bottom_nav.dart` การเพิ่ม action ไม่เปลี่ยน
+  pixel และไม่เปลี่ยนลำดับการอ่าน
+- การนำไปใช้ในอนาคต: ปุ่ม custom ใหม่ต้องผ่าน test ใน `test/semantics_tap_action_test.dart` (เดิน semantics tree:
+  ปุ่มที่ enabled ต้องมี `SemanticsAction.tap` ส่วนปุ่ม disabled ต้องไม่มี และ `performAction(tap)` ต้องเรียก callback)

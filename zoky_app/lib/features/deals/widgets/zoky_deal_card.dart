@@ -94,6 +94,7 @@ class ZokyDealCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: semanticLabel(deal),
+      onTap: onTap,
       excludeSemantics: true,
       child: SizedBox(
         width: width,

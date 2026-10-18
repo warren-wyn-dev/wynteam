@@ -169,6 +169,7 @@ class ZokyFoodCategoryItem extends StatelessWidget {
     return Semantics(
       button: true,
       label: category.label,
+      onTap: onTap,
       excludeSemantics: true,
       child: SizedBox(
         width: width,

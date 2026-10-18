@@ -158,6 +158,7 @@ class ZokyAddressTile extends StatelessWidget {
       selected: selected,
       inMutuallyExclusiveGroup: true,
       label: '${address.label} ${address.address}',
+      onTap: onTap,
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,

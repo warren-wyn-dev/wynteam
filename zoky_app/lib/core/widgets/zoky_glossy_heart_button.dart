@@ -38,6 +38,7 @@ class ZokyGlossyHeartButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
+      onTap: onPressed,
       excludeSemantics: true,
       child: Material(
         type: MaterialType.transparency,

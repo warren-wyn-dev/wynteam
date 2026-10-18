@@ -554,7 +554,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(FoodHomeScreen), findsNothing);
       semantics.dispose();
-    }, skip: true); // ZOKY-132 (open)
+    }); // ZOKY-132 (fixed, regression: test/semantics_tap_action_test.dart)
 
     testWidgets('ZOKY-132 repro: every button on Home + Food exposes a tap '
         'action', (tester) async {
@@ -578,7 +578,7 @@ void main() {
       print('QA-NO-TAP-ACTION ${missing.length}: ${missing.join(' | ')}');
       expect(missing, isEmpty);
       semantics.dispose();
-    }, skip: true); // ZOKY-132 (open)
+    }); // ZOKY-132 (fixed, regression: test/semantics_tap_action_test.dart)
   });
 
   group('ZOKY-131 re-test', () {

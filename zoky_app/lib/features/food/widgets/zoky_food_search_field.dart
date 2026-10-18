@@ -46,6 +46,7 @@ class ZokyFoodSearchField extends StatelessWidget {
       button: true,
       label: ZokyStrings.foodSearchPlaceholder,
       hint: ZokyStrings.searchHint,
+      onTap: onPressed,
       excludeSemantics: true,
       child: Container(
         height: heightFor(context),

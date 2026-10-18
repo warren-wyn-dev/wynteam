@@ -141,6 +141,7 @@ class ZokyFoodStoreRow extends StatelessWidget {
     return Semantics(
       button: true,
       label: semanticLabel(),
+      onTap: onTap,
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,

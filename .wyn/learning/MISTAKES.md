@@ -329,3 +329,13 @@
 - Regression test ที่เพิ่ม: QA suite ใน `food_page_qa_test.dart` ที่เคย skip ไว้ 7 ตัว ตอนนี้รันและผ่านแล้ว,
   test วาด glyph แล้วเช็ค pixel ใน `food_header_icons_test.dart`, กลุ่ม "ZOKY-131 low-severity fixes" ใน
   `food_home_screen_test.dart`
+
+### [2026-10-18] Task ZOKY-132 (Home v1 + หน้า Food)
+- ข้อผิดพลาด: ปุ่ม custom ทุกตัวลอก pattern `Semantics(button: true, excludeSemantics: true)` โดยไม่มี `onTap` มีแค่ bottom nav
+  ที่ทำถูก test semantics เดิมเช็คแค่ label/ลำดับ ไม่ได้เช็ค action
+- ผลกระทบ: ผู้ใช้ Switch Access / Voice Access ค้นหา เปิดร้าน เลือกที่อยู่ เก็บโค้ด และเปิดตะกร้าไม่ได้ (ยังไม่ deploy)
+- วิธีป้องกันในอนาคต: test accessibility ต้องเช็คว่า "isButton ⇒ hasAction(tap)" ทั้งหน้า ไม่ใช่เช็คแค่ label
+  และ grep `excludeSemantics: true` ทุกครั้งที่ review ปุ่มใหม่
+- Regression test ที่เพิ่ม: `zoky_app/test/semantics_tap_action_test.dart` และ ZOKY-132 repros ใน
+  `test/qa/food_page_retest_qa_test.dart` (เลิก skip แล้ว) ยังเหลือ 3 จุดนอก Home/Food (cart bar, menu add, search grid)
+  ที่รายงานไว้ในไฟล์บั๊ก

@@ -90,6 +90,7 @@ class ZokyFoodAddressButton extends StatelessWidget {
           button: true,
           label: titleFor(mode.mode, name),
           hint: ZokyStrings.chooseDeliveryAddress,
+          onTap: onPressed,
           excludeSemantics: true,
           child: InkWell(
             onTap: onPressed,

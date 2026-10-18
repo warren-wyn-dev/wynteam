@@ -49,6 +49,7 @@ class ZokyFoodCartButton extends StatelessWidget {
       button: true,
       liveRegion: true,
       label: _semanticLabel,
+      onTap: onPressed,
       excludeSemantics: true,
       child: DecoratedBox(
         decoration: const BoxDecoration(

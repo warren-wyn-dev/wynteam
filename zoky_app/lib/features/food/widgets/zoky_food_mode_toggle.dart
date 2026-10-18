@@ -121,6 +121,7 @@ class _ModeChip extends StatelessWidget {
       selected: selected,
       inMutuallyExclusiveGroup: true,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: GestureDetector(
         // The whole 44pt box takes the tap, not only the visible pill.

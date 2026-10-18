@@ -342,6 +342,7 @@ class ZokyCollectButton extends StatelessWidget {
       button: true,
       toggled: collected,
       label: text,
+      onTap: onPressed,
       excludeSemantics: true,
       child: Material(
         color: collected ? ZokyColors.surface : ZokyColors.actionPrimary,

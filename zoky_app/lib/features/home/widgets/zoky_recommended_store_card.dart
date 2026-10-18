@@ -93,6 +93,7 @@ class ZokyRecommendedStoreCard extends StatelessWidget {
       child: Semantics(
         button: true,
         label: semanticLabel(store),
+        onTap: onTap,
         excludeSemantics: true,
         // Shadow outside the Material so the ink clip does not cut it.
         child: DecoratedBox(

@@ -46,6 +46,7 @@ class ZokyHomeSectionHeader extends StatelessWidget {
           Semantics(
             button: true,
             label: seeAllLabel,
+            onTap: onSeeAll,
             excludeSemantics: true,
             child: InkWell(
               onTap: onSeeAll,

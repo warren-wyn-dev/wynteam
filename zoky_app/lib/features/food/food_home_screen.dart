@@ -487,6 +487,7 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
           Semantics(
             button: true,
             label: ZokyStrings.filters,
+            onTap: _openFilterSheet,
             excludeSemantics: true,
             child: InkWell(
               key: FoodHomeScreen.filterButtonKey,
@@ -716,6 +717,7 @@ class _FilterOption extends StatelessWidget {
       selected: selected,
       inMutuallyExclusiveGroup: true,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
