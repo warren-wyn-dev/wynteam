@@ -193,14 +193,25 @@ class ZokyFoodCategoryItem extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: ZokySpacing.s3),
-                Text(
-                  category.label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: ZokyTextStyles.bodyMd.copyWith(
-                    color: ZokyColors.textPrimary,
-                    height: 1.3,
+                // One line that shrinks to fit: a narrow item with large
+                // text broke "ก๋วยเตี๋ยว" inside the word (ZOKY-131).
+                // No-op when the label fits; the inset keeps a gap to the
+                // next label.
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: ZokySpacing.s2,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      category.label,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      style: ZokyTextStyles.bodyMd.copyWith(
+                        color: ZokyColors.textPrimary,
+                        height: 1.3,
+                      ),
+                    ),
                   ),
                 ),
               ],

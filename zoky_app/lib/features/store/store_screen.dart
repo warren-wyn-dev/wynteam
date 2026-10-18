@@ -13,6 +13,7 @@ import '../../core/widgets/zoky_skeleton.dart';
 import '../../core/widgets/zoky_state_view.dart';
 import '../catalog/data/store_repository.dart';
 import '../catalog/domain/catalog_models.dart';
+import '../fulfillment/fulfillment_mode_controller.dart';
 
 /// Store page placeholder: store info + menu rows + floating cart bar.
 ///
@@ -20,10 +21,19 @@ import '../catalog/domain/catalog_models.dart';
 /// single-store cart, item sheet with options, server quote and checkout
 /// arrive in ZOKY-106/107 (parity D01-D13, E01-E09).
 class StoreScreen extends StatefulWidget {
-  const StoreScreen({super.key, required this.store, required this.repository});
+  const StoreScreen({
+    super.key,
+    required this.store,
+    required this.repository,
+    this.fulfillmentMode = FulfillmentMode.delivery,
+  });
 
   final ZokyStoreSummary store;
   final StoreRepository repository;
+
+  /// Pickup (from the food page's "รับเองที่ร้าน") hides the delivery fee
+  /// (ZOKY-131).
+  final FulfillmentMode fulfillmentMode;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
@@ -159,10 +169,11 @@ class _StoreScreenState extends State<StoreScreen> {
                   '${store.etaMinMinutes}–${store.etaMaxMinutes} ${ZokyStrings.minutes}',
                   style: ZokyTextStyles.bodySm,
                 ),
-              Text(
-                '${ZokyStrings.deliveryFee} ${formatBaht(store.deliveryFee)}',
-                style: ZokyTextStyles.bodySm,
-              ),
+              if (widget.fulfillmentMode == FulfillmentMode.delivery)
+                Text(
+                  '${ZokyStrings.deliveryFee} ${formatBaht(store.deliveryFee)}',
+                  style: ZokyTextStyles.bodySm,
+                ),
               if (store.minimumOrder > 0)
                 Text(
                   'สั่งขั้นต่ำ ${formatBaht(store.minimumOrder)}',

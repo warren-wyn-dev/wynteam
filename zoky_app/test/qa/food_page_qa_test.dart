@@ -337,43 +337,39 @@ void main() {
     setUpAll(_loadAnuphan);
     for (final w in [320.0, 375.0, 430.0]) {
       for (final scale in [1.0, 1.3, 1.6, 2.0]) {
-        testWidgets(
-          '${w.toInt()}pt text $scale',
-          (tester) async {
-            await _pumpFood(tester, width: w, height: 844, textScale: scale);
-            final cut = <String>{};
-            void scan() {
-              for (final type in [ZokyFoodStoreRow, ZokyFoodCouponCard]) {
-                for (final e
-                    in find
-                        .descendant(
-                          of: find.byType(type),
-                          matching: find.byType(RichText),
-                        )
-                        .evaluate()) {
-                  final p = e.renderObject! as RenderParagraph;
-                  if (p.didExceedMaxLines) {
-                    cut.add('$type: "${p.text.toPlainText()}"');
-                  }
+        testWidgets('${w.toInt()}pt text $scale', (tester) async {
+          await _pumpFood(tester, width: w, height: 844, textScale: scale);
+          final cut = <String>{};
+          void scan() {
+            for (final type in [ZokyFoodStoreRow, ZokyFoodCouponCard]) {
+              for (final e
+                  in find
+                      .descendant(
+                        of: find.byType(type),
+                        matching: find.byType(RichText),
+                      )
+                      .evaluate()) {
+                final p = e.renderObject! as RenderParagraph;
+                if (p.didExceedMaxLines) {
+                  cut.add('$type: "${p.text.toPlainText()}"');
                 }
               }
             }
+          }
 
-            final position = _feed(tester);
-            for (var y = 0.0; ; y += 250) {
-              position.jumpTo(math.min(y, position.maxScrollExtent));
-              await tester.pumpAndSettle();
-              scan();
-              if (y >= position.maxScrollExtent) break;
-            }
-            for (final c in cut) {
-              // ignore: avoid_print
-              print('QA-TRUNCATED ${w.toInt()} x$scale $c');
-            }
-            expect(cut, isEmpty);
-          },
-          tags: _heavy,
-        ); // ZOKY-129 (fixed)
+          final position = _feed(tester);
+          for (var y = 0.0; ; y += 250) {
+            position.jumpTo(math.min(y, position.maxScrollExtent));
+            await tester.pumpAndSettle();
+            scan();
+            if (y >= position.maxScrollExtent) break;
+          }
+          for (final c in cut) {
+            // ignore: avoid_print
+            print('QA-TRUNCATED ${w.toInt()} x$scale $c');
+          }
+          expect(cut, isEmpty);
+        }, tags: _heavy); // ZOKY-129 (fixed)
       }
     }
   });
@@ -642,7 +638,8 @@ void main() {
       expect(find.text(ZokyStrings.offlineTitle), findsNothing);
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
-    }, skip: true); // ZOKY-131 (LOW)
+      expect(find.byType(ZokyFoodStoreRow), findsWidgets);
+    }); // ZOKY-131 (fixed)
 
     testWidgets('pull to refresh that fails keeps the list on screen', (
       tester,
@@ -658,7 +655,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(ZokyFoodStoreRow), findsWidgets);
-    }, skip: true); // ZOKY-131 (LOW)
+    }); // ZOKY-131 (fixed)
 
     testWidgets('store row opens StoreScreen in pickup too', (tester) async {
       await _pumpFood(tester);
@@ -743,7 +740,7 @@ void main() {
           expect(label, isNot(contains('คะแนน')), reason: label);
           expect(label, isNot(contains('ส่งประมาณ')), reason: label);
         }
-        // NaN/Infinity distance copy: see the skipped ZOKY-130 unit test.
+        // NaN/Infinity distance copy: see "distance renders sanely" below.
         // Coupons sheet with hostile promo.
         position.jumpTo(0);
         await tester.pumpAndSettle();
@@ -771,7 +768,7 @@ void main() {
         expect(label, isNot(contains('NaN')), reason: label);
         expect(label, isNot(contains('-1.0')), reason: label);
       }
-    }, skip: true); // ZOKY-131 (LOW)
+    }); // ZOKY-131 (fixed)
   });
 
   group('icon robustness (no font-dependent icons, Founder iPad bug)', () {
@@ -797,55 +794,51 @@ void main() {
           '$where: ${names[icon] ?? '${icon.fontFamily} 0x${icon.codePoint.toRadixString(16)}'}',
     };
 
-    testWidgets(
-      'Home + Food (and their sheets/states) use painted icons '
-      'only',
-      (tester) async {
-        final found = <String>{};
-        final stores = _Stores(DemoStoreRepository.stores);
-        await _pumpFood(tester, height: 2000, stores: stores);
-        found.addAll(fontIcons(tester, 'food'));
-        await tester.tap(find.byType(ZokyFoodAddressButton));
+    testWidgets('Home + Food (and their sheets/states) use painted icons '
+        'only', (tester) async {
+      final found = <String>{};
+      final stores = _Stores(DemoStoreRepository.stores);
+      await _pumpFood(tester, height: 2000, stores: stores);
+      found.addAll(fontIcons(tester, 'food'));
+      await tester.tap(find.byType(ZokyFoodAddressButton));
+      await tester.pumpAndSettle();
+      found.addAll(fontIcons(tester, 'address sheet'));
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ZokyFoodHeader.favoritesKey));
+      await tester.pumpAndSettle();
+      found.addAll(fontIcons(tester, 'favorites sheet'));
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ZokyFoodHeader.backKey));
+      await tester.pumpAndSettle();
+      found.addAll(fontIcons(tester, 'home'));
+      // Error state on first load (a failed refresh keeps the list since
+      // ZOKY-131).
+      final flaky = _Stores(DemoStoreRepository.stores, fail: true);
+      await _pumpFood(tester, stores: flaky);
+      Future<void> refresh() async {
+        _feed(tester).jumpTo(0);
         await tester.pumpAndSettle();
-        found.addAll(fontIcons(tester, 'address sheet'));
-        await tester.tapAt(const Offset(10, 10));
+        await tester.fling(
+          find.byKey(FoodHomeScreen.allStoresKey),
+          const Offset(0, 500),
+          1200,
+        );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(ZokyFoodHeader.favoritesKey));
-        await tester.pumpAndSettle();
-        found.addAll(fontIcons(tester, 'favorites sheet'));
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(ZokyFoodHeader.backKey));
-        await tester.pumpAndSettle();
-        found.addAll(fontIcons(tester, 'home'));
-        final flaky = _Stores(DemoStoreRepository.stores);
-        await _pumpFood(tester, stores: flaky);
-        Future<void> refresh() async {
-          _feed(tester).jumpTo(0);
-          await tester.pumpAndSettle();
-          await tester.fling(
-            find.byKey(FoodHomeScreen.allStoresKey),
-            const Offset(0, 500),
-            1200,
-          );
-          await tester.pumpAndSettle();
-        }
+      }
 
-        flaky.fail = true;
-        await refresh();
-        expect(find.byType(ZokyStateView), findsOneWidget);
-        found.addAll(fontIcons(tester, 'food error'));
-        flaky
-          ..fail = false
-          ..stores = const [];
-        await refresh();
-        found.addAll(fontIcons(tester, 'food empty'));
-        // ignore: avoid_print
-        print('QA-FONT-ICONS\n${(found.toList()..sort()).join('\n')}');
-        expect(found, isEmpty);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-    );
+      expect(find.byType(ZokyStateView), findsOneWidget);
+      found.addAll(fontIcons(tester, 'food error'));
+      flaky
+        ..fail = false
+        ..stores = const [];
+      await refresh();
+      found.addAll(fontIcons(tester, 'food empty'));
+      // ignore: avoid_print
+      print('QA-FONT-ICONS\n${(found.toList()..sort()).join('\n')}');
+      expect(found, isEmpty);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
     // ZOKY-128 (fixed)
   });
 }

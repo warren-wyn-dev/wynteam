@@ -95,8 +95,8 @@ ZokyApp demoZokyApp() => ZokyApp(
 );
 
 /// Home -> store search: the hero card's "ค้นหาของอร่อย" opens the food
-/// landing page (Founder, 2026-10-18), whose "สั่งอะไรดี?" field opens
-/// the store search.
+/// landing page (Founder, 2026-10-18), whose "ค้นหาร้านอาหารหรือเมนู"
+/// field opens the store search.
 Future<void> openStoreSearchFromHome(WidgetTester tester) async {
   final hero = find.text(ZokyStrings.heroSearchButton);
   await tester.ensureVisible(hero);

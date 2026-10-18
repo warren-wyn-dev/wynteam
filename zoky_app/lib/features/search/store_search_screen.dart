@@ -16,7 +16,7 @@ import '../home/domain/home_content_models.dart';
 import '../store/store_screen.dart';
 
 /// Minimal store search / browse page opened by the food page search field
-/// ("สั่งอะไรดี?"). Reuses the store directory query (names and
+/// ("ค้นหาร้านอาหารหรือเมนู"). Reuses the store directory query (names and
 /// categories, same as the web `food_store_directory`), the store card grid
 /// and [StoreScreen], so the existing ordering flow continues from here.
 ///

@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_app/app/app_config.dart';
@@ -140,6 +143,9 @@ Future<void> _pumpFood(
   );
   await tester.pump();
   await tester.pump();
+  await tester.pumpAndSettle();
+  // Short viewports: bring the hero button on screen first.
+  await tester.ensureVisible(find.text(ZokyStrings.heroSearchButton));
   await tester.pumpAndSettle();
   await tester.tap(find.text(ZokyStrings.heroSearchButton));
   await tester.pumpAndSettle();
@@ -1234,4 +1240,122 @@ void main() {
     expect(deps.fulfillmentMode, same(_mode));
     expect(deps.collectedPromos, same(_collected));
   });
+
+  group('ZOKY-131 low-severity fixes', () {
+    testWidgets('an older directory response never overwrites a newer one', (
+      tester,
+    ) async {
+      final stores = _ManualStores();
+      await _pumpFood(tester, stores: stores);
+      expect(find.text(ZokyStrings.offlineTitle), findsOneWidget);
+      // Retry: skeletons while loading (call 1 pending).
+      await tester.tap(find.text(ZokyStrings.retry));
+      await tester.pump();
+      expect(find.text(ZokyStrings.offlineTitle), findsNothing);
+      expect(stores.pending, hasLength(2));
+      // Pull to refresh during the retry (call 2).
+      await tester.fling(
+        find.byKey(FoodHomeScreen.allStoresKey),
+        const Offset(0, 500),
+        1200,
+      );
+      for (var i = 0; i < 20 && stores.pending.length < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(stores.pending, hasLength(3));
+      stores.pending[2].complete([_stores.first]);
+      await tester.pump();
+      stores.pending[1].complete(_stores);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(_rows(), findsOneWidget);
+    });
+
+    testWidgets('pickup store page hides the delivery fee', (tester) async {
+      await _pumpFood(tester);
+      Future<void> openFirst() async {
+        final row = _rows().first;
+        await tester.ensureVisible(row);
+        await tester.pumpAndSettle();
+        await tester.tap(row);
+        await tester.pumpAndSettle();
+        expect(find.byType(StoreScreen), findsOneWidget);
+      }
+
+      final fee = find.textContaining(ZokyStrings.deliveryFee);
+      await openFirst();
+      expect(fee, findsOneWidget);
+      await tester.tap(find.byTooltip(ZokyStrings.back));
+      await tester.pumpAndSettle();
+      _feed(tester).jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.tap(_pill(FulfillmentMode.pickup));
+      await tester.pumpAndSettle();
+      await openFirst();
+      expect(fee, findsNothing);
+    });
+
+    for (final scale in [1.0, 1.3]) {
+      for (final mode in FulfillmentMode.values) {
+        testWidgets('cart button never covers "เก็บโค้ด" at 320x568 x$scale '
+            '(${mode.name})', (tester) async {
+          await _pumpFood(
+            tester,
+            width: 320,
+            height: 568,
+            textScale: scale,
+            topInset: 20,
+          );
+          if (mode == FulfillmentMode.pickup) {
+            await tester.tap(_pill(mode));
+            await tester.pumpAndSettle();
+          }
+          final fab = tester.getRect(find.byKey(FoodHomeScreen.cartKey));
+          for (final e in find.byType(ZokyCollectButton).evaluate()) {
+            final r = tester.getRect(find.byWidget(e.widget));
+            expect(r.overlaps(fab), isFalse, reason: '$r under $fab');
+          }
+        });
+      }
+    }
+
+    for (final (width, scale) in [(320.0, 1.3), (375.0, 2.0)]) {
+      testWidgets('category labels stay one unbroken line at '
+          '${width.toInt()}pt x$scale', (tester) async {
+        await _pumpFood(tester, width: width, textScale: scale);
+        for (final c in _categories) {
+          final label = find.descendant(
+            of: find.byKey(ZokyFoodCategoryRow.rowKey),
+            matching: find.text(c.label),
+          );
+          final p = tester.renderObject<RenderParagraph>(label);
+          // One line high (no break inside the word).
+          final style = p.text.style!;
+          final line = p.textScaler.scale(style.fontSize!) * style.height!;
+          expect(p.size.height, lessThan(line * 1.5), reason: c.label);
+          expect(p.didExceedMaxLines, isFalse, reason: c.label);
+        }
+      });
+    }
+  });
+}
+
+/// Directory stub: the first call fails at once, later calls wait for the
+/// test to complete them ([pending]).
+class _ManualStores implements StoreRepository {
+  final pending = <Completer<List<ZokyStoreSummary>>>[];
+
+  @override
+  Future<List<ZokyStoreSummary>> fetchDirectory({String query = ''}) {
+    final call = Completer<List<ZokyStoreSummary>>();
+    pending.add(call);
+    if (pending.length == 1) call.completeError(StateError('offline'));
+    return call.future;
+  }
+
+  @override
+  Future<List<ZokyStoreSummary>> fetchRecommended() async => const [];
+
+  @override
+  Future<List<ZokyMenuItem>> fetchMenu(String storeId) async => const [];
 }

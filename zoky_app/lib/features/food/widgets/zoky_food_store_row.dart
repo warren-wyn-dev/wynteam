@@ -62,9 +62,17 @@ class ZokyFoodStoreRow extends StatelessWidget {
       ? null
       : ZokyRecommendedStoreCard.etaLabel(store)?.replaceAll(' ', '\u00A0');
 
-  String? get _distance => store.distanceKm == null
-      ? null
-      : '${store.distanceKm!.toStringAsFixed(1)}\u00A0กม.';
+  /// [store]'s distance when it is a real one (finite, not negative);
+  /// odd values are hidden rather than shown as "Infinity" (ZOKY-131).
+  static double? shownDistanceKm(ZokyStoreSummary store) {
+    final km = store.distanceKm;
+    return km != null && km.isFinite && km >= 0 ? km : null;
+  }
+
+  String? get _distance {
+    final km = shownDistanceKm(store);
+    return km == null ? null : '${km.toStringAsFixed(1)}\u00A0กม.';
+  }
 
   /// Screen reader label (one node for the row).
   String semanticLabel() {

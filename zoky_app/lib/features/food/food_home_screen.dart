@@ -112,9 +112,10 @@ class FoodHomeScreen extends StatefulWidget {
             s.hasPromo &&
             !(mode == FulfillmentMode.pickup && s.promoFreeDelivery),
       ),
-      StoreFilter.near => available.where(
-        (s) => s.distanceKm != null && s.distanceKm! <= 3,
-      ),
+      StoreFilter.near => available.where((s) {
+        final km = ZokyFoodStoreRow.shownDistanceKm(s);
+        return km != null && km <= 3;
+      }),
       StoreFilter.rating => available.where((s) => (s.rating ?? 0) >= 4.5),
     };
     return [...filtered]..sort((a, b) {
@@ -145,6 +146,11 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
   bool _categoriesFailed = false;
   StoreFilter _filter = StoreFilter.all;
   bool _started = false;
+
+  /// Latest request per source: an older response that lands after a
+  /// newer one is dropped (repeat retry taps, refresh during a load).
+  int _storesRequest = 0;
+  int _categoriesRequest = 0;
   late FulfillmentModeController _mode;
 
   @override
@@ -181,7 +187,7 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
 
   /// Loads the directory and the categories. First load / retry show
   /// skeletons; pull to refresh keeps the current content until the new
-  /// one arrives.
+  /// one arrives, and keeps it (with a SnackBar) when the refresh fails.
   Future<void> _loadAll({bool showSkeletons = false}) {
     return Future.wait([
       _loadStores(showSkeleton: showSkeletons),
@@ -190,6 +196,7 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
   }
 
   Future<void> _loadStores({bool showSkeleton = true}) async {
+    final request = ++_storesRequest;
     if (showSkeleton) {
       setState(() {
         _stores = null;
@@ -198,13 +205,18 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
     }
     try {
       final stores = await widget.repository.fetchDirectory();
-      if (!mounted) return;
+      if (!mounted || request != _storesRequest) return;
       setState(() {
         _stores = stores;
         _storesError = null;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || request != _storesRequest) return;
+      if (_stores != null) {
+        // Failed refresh: keep the loaded list (ZOKY-131).
+        _showRefreshFailed();
+        return;
+      }
       setState(() {
         _stores = null;
         _storesError = error;
@@ -212,7 +224,14 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
     }
   }
 
+  void _showRefreshFailed() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text(ZokyStrings.offlineTitle)));
+  }
+
   Future<void> _loadCategories({bool showSkeleton = true}) async {
+    final request = ++_categoriesRequest;
     if (showSkeleton) {
       setState(() {
         _categories = null;
@@ -222,13 +241,15 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
     try {
       final repository = AppDependencies.of(context).homeContentRepository;
       final categories = await repository.fetchFoodCategories();
-      if (!mounted) return;
+      if (!mounted || request != _categoriesRequest) return;
       setState(() {
         _categories = categories;
         _categoriesFailed = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || request != _categoriesRequest) return;
+      // Failed refresh keeps the loaded circles (ZOKY-131).
+      if (_categories != null) return;
       setState(() {
         _categories = null;
         _categoriesFailed = true;
@@ -239,8 +260,11 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
   void _openStore(ZokyStoreSummary store) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            StoreScreen(store: store, repository: widget.repository),
+        builder: (_) => StoreScreen(
+          store: store,
+          repository: widget.repository,
+          fulfillmentMode: _mode.mode,
+        ),
       ),
     );
   }
@@ -552,7 +576,8 @@ class _FoodHomeScreenState extends State<FoodHomeScreen> {
             glyph: ZokyLineGlyph.wifiOff,
             title: ZokyStrings.offlineTitle,
             messages: const [ZokyStrings.offlineBody],
-            onAction: _loadAll,
+            // Retry shows skeletons while it loads (ZOKY-131).
+            onAction: () => _loadAll(showSkeletons: true),
           ),
         ),
       ];

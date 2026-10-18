@@ -249,8 +249,10 @@ class ZokyFoodCouponCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: ZokySpacing.s4),
+                // Start side: the floating cart button sits at the end
+                // and covered "เก็บโค้ด" on small phones (ZOKY-131).
                 Align(
-                  alignment: AlignmentDirectional.centerEnd,
+                  alignment: AlignmentDirectional.centerStart,
                   child: ZokyCollectButton(
                     collected: collected,
                     onPressed: onToggle,
