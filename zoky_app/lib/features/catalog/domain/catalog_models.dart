@@ -31,11 +31,15 @@ class ZokyStoreSummary {
     this.isDemo = false,
     this.isAd = false,
     this.promoLabel,
+    this.promoName,
+    this.promoMinSubtotal = 0,
+    this.promoFreeDelivery = false,
     this.ratingAverage = 0,
     this.ratingCount = 0,
     this.distanceKm,
     this.categories = const [],
     this.minimumOrder = 0,
+    this.supportsPickup = false,
   });
 
   final String id;
@@ -61,11 +65,29 @@ class ZokyStoreSummary {
 
   /// Already-formatted promo text (web: foodPromoLabel), e.g. "ลด 20%".
   final String? promoLabel;
+
+  /// Merchant's promo name (web: `promo_name`), shown under the promo
+  /// label on a coupon card when there is no minimum order.
+  final String? promoName;
+
+  /// Minimum subtotal for the promo (web: `promo_min_subtotal`); 0 = none.
+  final num promoMinSubtotal;
+
+  /// The promo is free delivery (web: `promo_type == "free_delivery"`):
+  /// bike icon on the coupon card; not offered in pickup mode.
+  final bool promoFreeDelivery;
   final double ratingAverage;
   final int ratingCount;
   final double? distanceKm;
   final List<String> categories;
   final num minimumOrder;
+
+  /// The store accepts "รับเองที่ร้าน" orders (Founder decision "ค",
+  /// 2026-10-18). OPEN CONTRACT ITEM: the web directory has no such field
+  /// yet (the web is delivery only); the backend field is TBD with the
+  /// pickup backend task. Defaults to false so no store claims pickup
+  /// without data.
+  final bool supportsPickup;
 
   bool get hasPromo => promoLabel != null && promoLabel!.isNotEmpty;
   bool get isNew => ratingAverage <= 0;

@@ -7,7 +7,8 @@ import 'store_repository.dart';
 /// customer data. Never used when real Supabase config is supplied.
 ///
 /// Every store is flagged [ZokyStoreSummary.isDemo] and its name carries
-/// "(ร้านตัวอย่าง)"; ratings and delivery times are sample values too.
+/// "(ร้านตัวอย่าง)"; ratings, delivery times, promos and pickup support
+/// are sample values too.
 class DemoStoreRepository implements StoreRepository {
   DemoStoreRepository({this.latency = Duration.zero});
 
@@ -29,6 +30,7 @@ class DemoStoreRepository implements StoreRepository {
       distanceKm: 1.2,
       categories: ['ข้าวมันไก่', 'อาหารจานเดียว'],
       minimumOrder: 50,
+      supportsPickup: true,
     ),
     ZokyStoreSummary(
       id: 'demo-store-2',
@@ -44,6 +46,9 @@ class DemoStoreRepository implements StoreRepository {
       ratingCount: 320,
       distanceKm: 2.4,
       categories: ['อีสาน', 'ส้มตำ'],
+      supportsPickup: true,
+      promoName: 'ส่งฟรีทุกออเดอร์',
+      promoFreeDelivery: true,
     ),
     ZokyStoreSummary(
       id: 'demo-store-3',
@@ -70,6 +75,9 @@ class DemoStoreRepository implements StoreRepository {
       promoLabel: 'ลด 20%',
       distanceKm: 0.8,
       categories: ['เครื่องดื่ม', 'ของหวาน'],
+      supportsPickup: true,
+      promoName: 'ลดชานม',
+      promoMinSubtotal: 100,
     ),
     ZokyStoreSummary(
       id: 'demo-store-5',
@@ -84,6 +92,7 @@ class DemoStoreRepository implements StoreRepository {
       distanceKm: 1.9,
       categories: ['อาหารตามสั่ง'],
       minimumOrder: 40,
+      supportsPickup: true,
     ),
     ZokyStoreSummary(
       id: 'demo-store-6',
@@ -99,6 +108,8 @@ class DemoStoreRepository implements StoreRepository {
       distanceKm: 4.6,
       categories: ['ปิ้งย่าง'],
       minimumOrder: 199,
+      promoName: 'ลดหมูกระทะ',
+      promoMinSubtotal: 199,
     ),
     // Stores of the Phase 3 sample deals, featured on Home Phase 4.
     ZokyStoreSummary(
@@ -114,6 +125,7 @@ class DemoStoreRepository implements StoreRepository {
       ratingCount: 512,
       distanceKm: 2.1,
       categories: ['ราเมง', 'ญี่ปุ่น'],
+      supportsPickup: true,
     ),
     ZokyStoreSummary(
       id: 'demo-store-8',
