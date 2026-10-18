@@ -38,3 +38,28 @@ test("after sign-in Food opens at the root of a Food origin, else /food on this 
   assert.equal(foodHomeUrlFor("wynos.online", "https://wynos.online"), "https://zoky.wynos.online/");
   assert.equal(foodHomeUrlFor("localhost", "http://localhost:3000"), "http://localhost:3000/food");
 });
+
+// ZOKY-139: email confirmation / legacy popup on the shared /auth/callback must
+// return a Food user to the Food origin they are on (no cross-origin session loss).
+test("shared auth callback sends Food returns to this Food origin, never a hardcoded ZOKY origin", () => {
+  const callback = readFileSync(new URL("../app/auth/callback/page.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(callback, /FOOD_PRODUCTION_ORIGIN/);
+  const replaces = callback.match(/window\.location\.replace\(([^)]*\)?)\)/g) ?? [];
+  assert.equal(replaces.length, 3, "all three Food return sites");
+  for (const call of replaces) assert.match(call, /window\.location\.replace\(foodHome\(\)\)/);
+  assert.match(callback, /foodHomeUrlFor\(window\.location\.hostname, window\.location\.origin\)/);
+  // Open-redirect guard stays: only same-origin safe paths are honored as `next`.
+  assert.match(callback, /requestedNext && isSafeReturnPath\(requestedNext\)/);
+});
+
+test("Food return target per host for the shared callback (ZOKY-139)", () => {
+  const cases = [
+    ["food.wynos.online", "https://food.wynos.online", "https://food.wynos.online/"],
+    ["zoky.wynos.online", "https://zoky.wynos.online", "https://zoky.wynos.online/"],
+    ["wynos.online", "https://wynos.online", "https://zoky.wynos.online/"],
+    ["www.wynos.online", "https://www.wynos.online", "https://zoky.wynos.online/"],
+    ["localhost", "http://localhost:3000", "http://localhost:3000/food"],
+    ["wynos-web-git-x.vercel.app", "https://wynos-web-git-x.vercel.app", "https://wynos-web-git-x.vercel.app/food"],
+  ];
+  for (const [host, origin, expected] of cases) assert.equal(foodHomeUrlFor(host, origin), expected, host);
+});

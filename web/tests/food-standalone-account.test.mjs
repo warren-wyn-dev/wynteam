@@ -61,7 +61,8 @@ test("Food Google login uses a dedicated exact callback and never falls into Soc
   assert.doesNotMatch(foodCallback, /signup\/step-1/);
 
   assert.match(sharedCallback, /legacyFoodReturn = requestedNext === "\/food"/);
-  assert.match(sharedCallback, /window\.location\.replace\(`\$\{FOOD_PRODUCTION_ORIGIN\}\/`\)/);
+  // ZOKY-139: return to the Food origin this callback runs on, not a hardcoded ZOKY origin.
+  assert.match(sharedCallback, /window\.location\.replace\(foodHome\(\)\)/);
 });
 
 test("Food password recovery returns to the Food login flow", async () => {
