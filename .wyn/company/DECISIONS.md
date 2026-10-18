@@ -2415,3 +2415,7 @@ Founder เลือก **"ย้ายกุญแจเข้าตู้ล�
 ### [2026-10-18] อนุมัติ merge PR #1225 (deploy secrets → production env) และ #1226 (ZOKY exception workflow)
 
 Founder: **"อนุมัติ (แนะนำ)"** — ให้รวม `ci/deploy-secrets-environment` (PR #1225) ก่อน แล้ว `ci/zoky-web-exception-release` (PR #1226) เข้า `main` เมื่อ CI ผ่าน; การ merge ไม่ deploy อะไร (auth-policy/email-readiness จะรอ production approval) — การ deploy แต่ละขั้นยังต้องอนุมัติแยก; ค่า Verify JWT ของ `wynos-maps-geocode` Founder ยังไม่ได้ดู (EDGE ยังเริ่มไม่ได้)
+
+### [2026-10-18] ZOKY release — ค่าจาก dashboard (F2 + step 8)
+
+Founder รายงาน: (1) Supabase `wynos-maps-geocode` → Verify JWT **ปิด (OFF)** → ต้องเพิ่ม `[functions.wynos-maps-geocode]` `verify_jwt = false` ใน `supabase/config.toml` ทั้งบน `main` และ release branch ก่อน EDGE (ค่าเดียวกับที่ใช้อยู่ ไม่ใช่การลด security); (2) เพิ่มโดเมน `zoky.wynos.online` ใน Vercel project `web` แล้ว
