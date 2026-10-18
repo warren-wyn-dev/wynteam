@@ -2373,3 +2373,7 @@ Founder: "อยากให้ zoky.online พร้อมใช้งานจ
 ### [2026-10-18] ZOKY — โดเมนเว็บคือ zoky.wynos.online (แทน zoky.online)
 
 Founder: "โดเมน zoky.wynos.online" แล้วเลือก **"zoky.wynos.online อย่างเดียว"** — เว็บ ZOKY ใช้ `zoky.wynos.online`; `food.wynos.online` และ `wynos.online/food*` redirect ไป `zoky.wynos.online` (คง path+query); ไม่ใช้ `zoky.online` ในแผนนี้ (แก้ไขคำตัดสินด้านบนเรื่องโดเมนเท่านั้น ส่วนอื่นคงเดิม) — การอนุมัติแยกที่ยังต้องขอยังคงเดิม
+
+### [2026-10-18] ZOKY — เทคโนโลยี: เว็บใช้ระบบเดิม (Next.js), แอปใช้ Flutter
+
+Founder: "เว็บใช้แบบเดิม โอเค ส่วนแอปใช้ Flutter" — เว็บลูกค้า `zoky.wynos.online` ใช้ Next.js เดิมบน Vercel (rebrand เป็น ZOKY ให้หน้าตาสอดคล้องกับแอป); แอป iOS + Android ใช้ Flutter (`zoky_app/`); ทั้งสองใช้ Supabase backend เดียวกัน — ไม่ใช้ Flutter Web สำหรับเว็บลูกค้า (เหตุผล: โหลดช้า, SEO/link preview, ต้องเขียนใหม่ทั้งหมด)
