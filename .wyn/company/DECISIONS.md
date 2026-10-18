@@ -2411,3 +2411,7 @@ Founder เลือก **"ส่งเฉพาะ ZOKY (แนะนำ)"** �
 
 CTO review (`zoky-exception-workflow-cto-review.md`, C1 HIGH): secrets สำหรับ deploy (Vercel/Supabase) เป็น repository-level ทำให้ workflow เก่าบางตัว (เช่น wyn-158/deploy-web.yml เวอร์ชันบน branch เก่า) deploy production ได้โดยไม่ผ่านการอนุมัติ — freeze จึงเป็นแค่คำแนะนำ
 Founder เลือก **"ย้ายกุญแจเข้าตู้ล็อก (แนะนำ)"** — อนุมัติ security change: ย้าย deploy secrets ไปเป็น secrets ของ GitHub environment `production` (required reviewer = Founder, branch policy `main` เท่านั้น) และปรับ workflow ที่จำเป็นให้ใช้ environment นั้น — DevOps ต้อง audit ก่อนว่า workflow ไหนใช้ secret ไหน (พบ ~78 workflow อ้าง `VERCEL_TOKEN`/`SUPABASE_ACCESS_TOKEN`) และเสนอลำดับที่ไม่ทำให้ระบบที่ใช้อยู่พัง; การตั้งค่าใน GitHub/สร้าง token ใหม่ Founder ทำเอง
+
+### [2026-10-18] อนุมัติ merge PR #1225 (deploy secrets → production env) และ #1226 (ZOKY exception workflow)
+
+Founder: **"อนุมัติ (แนะนำ)"** — ให้รวม `ci/deploy-secrets-environment` (PR #1225) ก่อน แล้ว `ci/zoky-web-exception-release` (PR #1226) เข้า `main` เมื่อ CI ผ่าน; การ merge ไม่ deploy อะไร (auth-policy/email-readiness จะรอ production approval) — การ deploy แต่ละขั้นยังต้องอนุมัติแยก; ค่า Verify JWT ของ `wynos-maps-geocode` Founder ยังไม่ได้ดู (EDGE ยังเริ่มไม่ได้)
