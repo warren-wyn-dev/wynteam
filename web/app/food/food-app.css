@@ -1142,3 +1142,10 @@ html[data-fx-splash-ready] .fx-splash { animation: fx-splash-ready .35s ease for
 @media (prefers-reduced-motion: reduce) {
   .fx-splash-wordmark { animation: none; }
 }
+
+/* ZOKY-137: shared food.css (also used by Merchant/Maps) keeps an old WYNOS
+   red focus ring on .wf-form fields. Re-tint it with ZOKY pink only inside the
+   Food customer app (address form). The other old-red wf- shadows in food.css
+   are not rendered by any customer component, so they are left untouched. */
+.fx-app .wf-form textarea:focus,
+.fx-app .wf-form input:focus { box-shadow: 0 0 0 3px rgb(238 34 110 / 8%); }
