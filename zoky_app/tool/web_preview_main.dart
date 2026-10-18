@@ -4,9 +4,12 @@
 //   flutter build web --release --no-web-resources-cdn -t tool/web_preview_main.dart
 // Query params: ?platform=android to preview Android-adaptive widgets,
 // ?top=/&bottom= to change the simulated insets.
+import 'dart:async' show Timer;
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:zoky_app/app/app_config.dart';
 import 'package:zoky_app/app/app_dependencies.dart';
@@ -67,39 +70,7 @@ void main() {
                   left: 0,
                   right: 0,
                   height: top,
-                  child: IgnorePointer(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 40),
-                      child: Row(
-                        children: [
-                          Text(
-                            '14:19',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Anuphan',
-                              decoration: TextDecoration.none,
-                            ),
-                          ),
-                          const Spacer(),
-                          const Icon(
-                            Icons.signal_cellular_alt,
-                            size: 17,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.wifi, size: 17, color: Colors.white),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.battery_full,
-                            size: 18,
-                            color: Colors.white,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  child: const IgnorePointer(child: _FakeStatusBar()),
                 ),
               ],
             ),
@@ -109,4 +80,72 @@ void main() {
       ),
     ),
   );
+}
+
+/// Simulated status bar whose text/icons follow the app's current
+/// [SystemUiOverlayStyle] (the AnnotatedRegion under the status bar), like
+/// iOS/Android do: dark content over light headers, white over pink.
+class _FakeStatusBar extends StatefulWidget {
+  const _FakeStatusBar();
+
+  @override
+  State<_FakeStatusBar> createState() => _FakeStatusBarState();
+}
+
+class _FakeStatusBarState extends State<_FakeStatusBar> {
+  bool _dark = false;
+  bool _active = true;
+
+  @override
+  void initState() {
+    super.initState();
+    SchedulerBinding.instance.addPersistentFrameCallback((_) {
+      // SystemChrome applies the frame's style in a microtask; read it
+      // after that.
+      Timer.run(() {
+        // Preview harness only (not shipped): read what the framework
+        // last sent to the platform.
+        // ignore: invalid_use_of_visible_for_testing_member
+        final style = SystemChrome.latestStyle;
+        final dark =
+            style?.statusBarBrightness == Brightness.light ||
+            style?.statusBarIconBrightness == Brightness.dark;
+        if (_active && mounted && dark != _dark) setState(() => _dark = dark);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _active = false;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _dark ? const Color(0xFF16161A) : Colors.white;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Row(
+        children: [
+          Text(
+            '14:19',
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Anuphan',
+              decoration: TextDecoration.none,
+            ),
+          ),
+          const Spacer(),
+          Icon(Icons.signal_cellular_alt, size: 17, color: color),
+          const SizedBox(width: 4),
+          Icon(Icons.wifi, size: 17, color: color),
+          const SizedBox(width: 4),
+          Icon(Icons.battery_full, size: 18, color: color),
+        ],
+      ),
+    );
+  }
 }
