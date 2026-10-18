@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
@@ -15,6 +16,10 @@ enum Zoky3DGlyph {
 
   /// Rounded 5-point star (review rating), usually [Zoky3DPalette.gold].
   star,
+
+  /// Coupon ticket (notched sides, white embossed perforation), slightly
+  /// tilted; the food page's "คูปองส่วนลด" button.
+  ticket,
 }
 
 /// Lighting palette of a 3D icon: vertical body gradient (top -> bottom),
@@ -160,6 +165,60 @@ class Zoky3DIconPainter extends CustomPainter {
     return path..close();
   }
 
+  /// Tilt of the ticket (radians, counter-clockwise looks lively).
+  static const double ticketTilt = -0.26;
+
+  static Path _tilted(Path path, double s) {
+    final c = math.cos(ticketTilt);
+    final n = math.sin(ticketTilt);
+    final cx = 0.5 * s;
+    final cy = 0.5 * s;
+    // Rotation about the center, column-major 4x4.
+    return path.transform(
+      Float64List.fromList([
+        c, n, 0, 0, //
+        -n, c, 0, 0, //
+        0, 0, 1, 0, //
+        cx - c * cx + n * cy, cy - n * cx - c * cy, 0, 1,
+      ]),
+    );
+  }
+
+  /// Ticket with rounded corners and a half-round notch on each side.
+  static Path ticketPath(double s) {
+    const l = 0.10, r = 0.90, t = 0.27, b = 0.73, k = 0.08, n = 0.085;
+    const cy = 0.5;
+    final corner = Radius.circular(k * s);
+    final notch = Radius.circular(n * s);
+    final path = Path()
+      ..moveTo((l + k) * s, t * s)
+      ..lineTo((r - k) * s, t * s)
+      ..arcToPoint(Offset(r * s, (t + k) * s), radius: corner)
+      ..lineTo(r * s, (cy - n) * s)
+      ..arcToPoint(Offset(r * s, (cy + n) * s), radius: notch, clockwise: false)
+      ..lineTo(r * s, (b - k) * s)
+      ..arcToPoint(Offset((r - k) * s, b * s), radius: corner)
+      ..lineTo((l + k) * s, b * s)
+      ..arcToPoint(Offset(l * s, (b - k) * s), radius: corner)
+      ..lineTo(l * s, (cy + n) * s)
+      ..arcToPoint(Offset(l * s, (cy - n) * s), radius: notch, clockwise: false)
+      ..lineTo(l * s, (t + k) * s)
+      ..arcToPoint(Offset((l + k) * s, t * s), radius: corner)
+      ..close();
+    return _tilted(path, s);
+  }
+
+  /// Short dashes of the ticket's perforation (stroked).
+  static Path ticketPerforationPath(double s) {
+    final path = Path();
+    for (final y in [0.34, 0.47, 0.60]) {
+      path
+        ..moveTo(0.64 * s, y * s)
+        ..lineTo(0.64 * s, (y + 0.06) * s);
+    }
+    return _tilted(path, s);
+  }
+
   static Path spherePath(double s) =>
       Path()..addOval(Rect.fromLTWH(0.06 * s, 0.04 * s, 0.88 * s, 0.88 * s));
 
@@ -213,6 +272,26 @@ class Zoky3DIconPainter extends CustomPainter {
             width: 0.20 * s,
             height: 0.12 * s,
           ),
+        );
+      case Zoky3DGlyph.ticket:
+        _paintBody(
+          canvas,
+          ticketPath(s),
+          s,
+          palette,
+          highlight: Rect.fromCenter(
+            center: Offset(0.30 * s, 0.38 * s),
+            width: 0.26 * s,
+            height: 0.10 * s,
+          ),
+          highlightAngle: ticketTilt,
+        );
+        _paintEmbossed(
+          canvas,
+          ticketPerforationPath(s),
+          s,
+          width: 0.075,
+          shaderRect: Rect.fromLTWH(0, 0.30 * s, s, 0.40 * s),
         );
       case Zoky3DGlyph.arrowRight:
         _paintBody(

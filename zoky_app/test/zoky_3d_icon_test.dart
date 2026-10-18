@@ -80,6 +80,8 @@ void main() {
       Zoky3DIconPainter.sparklePath(s),
       Zoky3DIconPainter.spherePath(s),
       Zoky3DIconPainter.arrowPath(s),
+      Zoky3DIconPainter.ticketPath(s),
+      Zoky3DIconPainter.ticketPerforationPath(s),
     ]) {
       final b = _tight(path);
       expect(box.contains(b.topLeft) && box.contains(b.bottomRight), isTrue);
