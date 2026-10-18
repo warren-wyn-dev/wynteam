@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   promote:
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - name: Setup Node

@@ -25,6 +25,7 @@ permissions:
 
 jobs:
   apply:
+    environment: production
     if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-STRIPE-PAYMENT-CORE'
     runs-on: ubuntu-latest
     env:

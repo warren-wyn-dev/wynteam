@@ -87,6 +87,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Production credentials stay behind the production environment
+        run: |
+          python3 tools/check_production_secret_scoping.py
+          python3 tools/test_check_production_secret_scoping.py
       - run: python3 supabase/check_schema_ordering.py
       - name: Enforce WYNOS final production release freeze
         run: python3 tools/check_wynos_release_freeze.py

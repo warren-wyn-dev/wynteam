@@ -25,6 +25,7 @@ permissions:
 
 jobs:
   attach:
+    environment: production
     runs-on: ubuntu-latest
     env:
       # Same pinned IDs as deploy-admin.yml.

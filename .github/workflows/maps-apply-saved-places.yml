@@ -19,6 +19,7 @@ permissions:
 
 jobs:
   apply:
+    environment: production
     if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-MAPS-SAVED-PLACES'
     runs-on: ubuntu-latest
     env:

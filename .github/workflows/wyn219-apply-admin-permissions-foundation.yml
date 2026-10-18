@@ -36,6 +36,7 @@ permissions:
 
 jobs:
   apply:
+    environment: production
     if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-219-FOUNDATION'
     runs-on: ubuntu-latest
     env:

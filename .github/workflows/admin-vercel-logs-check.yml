@@ -20,6 +20,7 @@ permissions:
 
 jobs:
   logs:
+    environment: production
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

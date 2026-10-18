@@ -27,6 +27,7 @@ concurrency:
 
 jobs:
   preview:
+    environment: production
     # Fork and Dependabot PRs get no secrets (GitHub runs Dependabot like a
     # fork, with a read-only token), so only other same-repository PRs deploy.
     # Beta2 automatic Vercel previews remain paused generally. PR #996 is
