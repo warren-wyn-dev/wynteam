@@ -39,6 +39,20 @@ def replace(old, new):
     return mutate
 
 
+PIN_LINE = ("awk '/^\\[/ { s = ($0 == \"[functions.wynos-maps-geocode]\") } "
+            "s && /^verify_jwt[[:space:]]*=[[:space:]]*false[[:space:]]*$/ { f = 1 } END { exit !f }' supabase/config.toml")
+
+
+def pin_accepts(workflow, config):
+    """Run the workflow's real verify_jwt pin command against a synthetic config.toml."""
+    line = next(l.strip() for l in (ROOT / workflow).read_text().splitlines() if "awk '/^\\[/" in l)
+    command = line[line.index("awk "):line.index("supabase/config.toml") + len("supabase/config.toml")]
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "supabase").mkdir()
+        (Path(tmp) / "supabase" / "config.toml").write_text(config)
+        return subprocess.run(["bash", "-c", command], cwd=tmp).returncode == 0
+
+
 def move_environment_to_guard(path):
     text = path.read_text()
     text = text.replace("    environment: production\n", "", 1)
@@ -57,8 +71,12 @@ def drop_deploy_expiry_check(path):
 code, out = run_guard()
 assert code == 0, out
 
-code, out = run_guard(lambda path: path.unlink())
+code, out = run_guard(lambda path: path.unlink(missing_ok=True))
 assert code == 0, f"deleting the exception workflow must be allowed: {out}"
+
+# The exception workflow is temporary; once a Founder-approved PR deletes it,
+# only the edge-workflow cases still apply (Codex P2).
+zoky_present = (ROOT / ZOKY).exists()
 
 loosened = {
     "push trigger": replace("on:\n  workflow_dispatch:", "on:\n  push:\n    branches: [release/zoky-web-20261018]\n  workflow_dispatch:"),
@@ -103,7 +121,18 @@ loosened = {
                                                            "      - name: Checkout pinned release commit (edge)\n        uses: actions/checkout@v4\n        with:\n          ref: main"),
     "edge job not required to wait for guard": replace("    name: Deploy the 3 allowlisted edge functions to production\n    needs: guard",
                                                        "    name: Deploy the 3 allowlisted edge functions to production\n    needs: []"),
-    "edge verify_jwt pin removed": replace("          grep -qx '\\[functions\\.wynos-maps-geocode\\]' supabase/config.toml || {", "          true || {"),
+    "edge verify_jwt pin removed": replace(PIN_LINE + " || {", "true || {"),
+    "edge pin accepts verify_jwt = true": replace(PIN_LINE, PIN_LINE.replace("=[[:space:]]*false", "=[[:space:]]*(true|false)")),
+    "guard allows verify_jwt = true entry": replace("|verify_jwt = false|#.*|", "|verify_jwt = (true|false)|#.*|"),
+    # Codex #1226 findings.
+    "permissions widened after a blank line": replace("permissions:\n  contents: read\n", "permissions:\n  contents: read\n\n  actions: write\n"),
+    "job-level permissions override": replace("    name: Scope guards (before production review)\n", "    name: Scope guards (before production review)\n    permissions: write-all\n"),
+    "unnamed step before deploy expiry check": replace("        working-directory: web\n    steps:\n", "        working-directory: web\n    steps:\n      - run: echo before-expiry\n"),
+    "unnamed uses step before edge expiry check": replace("    steps:\n      # Re-checked after the production review (edge phase).\n",
+                                                          "    steps:\n      - uses: actions/checkout@v4\n      # Re-checked after the production review (edge phase).\n"),
+    "pending runs replaceable (queue removed)": replace("  queue: max\n", ""),
+    "redirect flag not pinned on deploy": replace('            --env ZOKY_LEGACY_FOOD_REDIRECT="$legacy_redirect" \\\n', ""),
+    "redirect flag mapping swapped": replace("PHASE1) legacy_redirect=0 ;;", "PHASE1) legacy_redirect=1 ;;"),
     "edge Supabase CLI unpinned": replace("version: 2.120.0", "version: latest"),
     "edge --no-verify-jwt": replace('--project-ref "$PROJECT_REF"\n            echo "- deployed', '--project-ref "$PROJECT_REF" --no-verify-jwt\n            echo "- deployed'),
     "guard accepts any phase": replace('case "$PHASE" in EDGE|PHASE1|PHASE2) ;; *)', 'case "$PHASE" in *) ;; EDGE)'),
@@ -111,15 +140,30 @@ loosened = {
 }
 edge_loosened = {
     "edge environment removed": replace("    environment: production\n", ""),
-    "edge geocode verify_jwt check removed": replace("grep -qx '\\[functions\\.wynos-maps-geocode\\]' supabase/config.toml", "true"),
+    "edge geocode verify_jwt check removed": replace(PIN_LINE, "true"),
+    "edge pin accepts any verify_jwt value": replace(PIN_LINE, PIN_LINE.replace("=[[:space:]]*false", "=[[:space:]]*(true|false)")),
     "edge pin step renamed": replace("      - name: wynos-maps-geocode verify_jwt is pinned", "      - name: wynos-maps-geocode verify_jwt check"),
 }
-for label, mutate in loosened.items():
+for label, mutate in (loosened.items() if zoky_present else ()):
     code, out = run_guard(mutate)
     assert code != 0, f"freeze guard accepted a loosened exception workflow: {label}"
 for label, mutate in edge_loosened.items():
     code, out = run_guard(mutate, target=EDGE)
     assert code != 0, f"freeze guard accepted a loosened edge workflow: {label}"
 
-print(f"PASS freeze guard rejects {len(loosened)} loosened variants of {Path(ZOKY).name} "
-      f"and {len(edge_loosened)} of {Path(EDGE).name}")
+# The pin itself: only an explicit verify_jwt = false inside the geocode section passes.
+BASE = "[functions.food-stripe-checkout]\nverify_jwt = true\n"
+pin_cases = {
+    "header only": (BASE + "[functions.wynos-maps-geocode]\n", False),
+    "verify_jwt = true": (BASE + "[functions.wynos-maps-geocode]\nverify_jwt = true\n", False),
+    "false in another section": ("[functions.wynos-maps-geocode]\n[functions.x]\nverify_jwt = false\n", False),
+    "commented false": (BASE + "[functions.wynos-maps-geocode]\n# verify_jwt = false\n", False),
+    "explicit false": (BASE + "\n[functions.wynos-maps-geocode]\n# guests send the publishable key\nverify_jwt = false\n", True),
+}
+pin_workflows = [EDGE] + ([ZOKY] if zoky_present else [])
+for workflow in pin_workflows:
+    for label, (config, expected) in pin_cases.items():
+        assert pin_accepts(workflow, config) == expected, f"{workflow}: verify_jwt pin wrong for {label}"
+
+print(f"PASS freeze guard rejects {len(loosened) if zoky_present else 0} loosened variants of {Path(ZOKY).name} "
+      f"and {len(edge_loosened)} of {Path(EDGE).name}; verify_jwt pin cases pass for {len(pin_workflows)} workflows")

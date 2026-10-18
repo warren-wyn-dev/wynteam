@@ -57,8 +57,11 @@ def scalar(value):
 
 
 def top_level_block(text, key):
-    match = re.search(rf"^{key}:\n((?:[ ]{{2}}.*\n?)*)", text, re.M)
-    return match.group(1) if match else None
+    """Indented body of a top-level key; blank lines do not end it (Codex P2)."""
+    match = re.search(rf"^{key}:[ ]*\n((?:(?:[ ]{{2}}.*|[ \t]*)(?:\n|$))*)", text + "\n", re.M)
+    if not match:
+        return None
+    return "\n".join(line for line in match.group(1).splitlines() if line.strip())
 
 
 def block_value(block, key):
@@ -101,6 +104,20 @@ def step_names(job):
     return [scalar(v) for v in re.findall(r"^[ ]{6}- name:[ ]*(.*?)\s*$", job, re.M)]
 
 
+def first_step_name(job):
+    """Name of the first step in order, named or not (Codex P2: an unnamed step must not hide)."""
+    steps = re.split(r"^(?=[ ]{6}- )", job.split("\n    steps:\n", 1)[-1], flags=re.M)
+    steps = [step for step in steps if re.match(r"[ ]{6}- ", step)]
+    if not steps:
+        return None
+    name = re.search(r"^[ ]{6}(?:- |  )name:[ ]*(.*?)\s*$", steps[0], re.M)
+    return scalar(name.group(1)) if name else None
+
+
+PIN_AWK = (
+    "awk '/^\\[/ { s = ($0 == \"[functions.wynos-maps-geocode]\") } "
+    "s && /^verify_jwt[[:space:]]*=[[:space:]]*false[[:space:]]*$/ { f = 1 } END { exit !f }' supabase/config.toml"
+)
 INPUT_IN_SHELL = re.compile(r"\$\{\{[^}]*\binputs\.|github\.event\.inputs")
 EXPIRY_TEST = '[[ "$today" > "$ZOKY_EXCEPTION_EXPIRES_UTC" ]]'
 
@@ -130,6 +147,9 @@ if zoky.exists():
     assert block_value(concurrency, "cancel-in-progress") == "false", (
         f"{zoky.name}: must not cancel an in-progress release"
     )
+    assert block_value(concurrency, "queue") == "max", (
+        f"{zoky.name}: concurrency must use queue: max so a new dispatch never replaces a pending run"
+    )
 
     jobs = jobs_of(workflow)
     assert set(jobs) == {"guard", "deploy", "edge"}, (
@@ -152,6 +172,8 @@ if zoky.exists():
         assert job_key(jobs[name], "needs") == ["guard"], f"{zoky.name}: {name} must wait for scope guards"
         assert "ref: ${{ inputs.release_sha }}" in jobs[name], f"{zoky.name}: {name} must check out the pinned release_sha"
         assert 'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"' in jobs[name], f"{zoky.name}: {name} must re-verify HEAD"
+    for name, job in jobs.items():
+        assert job_key(job, "permissions") == [], f"{zoky.name}: {name} job must not override permissions"
     assert job_key(guard_job, "environment") == [], f"{zoky.name}: guard job must run before (not inside) the review"
     assert "secrets." not in guard_job, f"{zoky.name}: guard job must not read secrets"
 
@@ -164,17 +186,26 @@ if zoky.exists():
         and 'supabase functions deploy "$fn" --project-ref "$PROJECT_REF"' in edge_job
     ), f"{zoky.name}: edge job may only deploy the allowlisted functions"
     assert "--no-verify-jwt" not in workflow, f"{zoky.name}: verify_jwt must come from supabase/config.toml"
-    assert "grep -qx '\\[functions\\.wynos-maps-geocode\\]' supabase/config.toml" in edge_job, (
-        f"{zoky.name}: edge job lost the wynos-maps-geocode verify_jwt pin"
+    assert PIN_AWK in edge_job, f"{zoky.name}: edge job lost the wynos-maps-geocode verify_jwt = false pin"
+    assert "verify_jwt = false|#.*|" in guard_job and "verify_jwt = (true" not in guard_job, (
+        f"{zoky.name}: guard must only allow the verify_jwt = false geocode entry"
     )
+    # PHASE1/PHASE2 pin ZOKY_LEGACY_FOOD_REDIRECT on the deployment (Codex P1).
+    for check in (
+        "PHASE: ${{ inputs.phase }}",
+        "PHASE1) legacy_redirect=0 ;;",
+        "PHASE2) legacy_redirect=1 ;;",
+        '--env ZOKY_LEGACY_FOOD_REDIRECT="$legacy_redirect"',
+    ):
+        assert check in deploy_job, f"{zoky.name}: deploy job must pin ZOKY_LEGACY_FOOD_REDIRECT per phase ({check})"
+    assert workflow.count("legacy_redirect=") == 2, f"{zoky.name}: ZOKY_LEGACY_FOOD_REDIRECT mapping changed"
     assert re.search(r"^[ ]{10}version:[ ]*2\.120\.0[ ]*$", edge_job, re.M) and "version: latest" not in workflow, (
         f"{zoky.name}: Supabase CLI must stay pinned"
     )
     assert "VERCEL_TOKEN" not in edge_job, f"{zoky.name}: edge job must not read Vercel credentials"
 
     for name, job in jobs.items():
-        names = step_names(job)
-        assert names and names[0] == "Exception has not expired", f"{zoky.name}: {name} must start with the expiry check"
+        assert first_step_name(job) == "Exception has not expired", f"{zoky.name}: {name} must start with the expiry check"
         assert job.count(EXPIRY_TEST) == 1, f"{zoky.name}: {name} expiry comparison removed"
 
     # Raw text: GitHub interpolates ${{ }} even inside shell comments.
@@ -221,9 +252,7 @@ edge_steps = step_names(edge_deploy)
 pin_step, deploy_step = "wynos-maps-geocode verify_jwt is pinned", "Deploy"
 assert pin_step in edge_steps and deploy_step in edge_steps, f"{edge_name}: verify_jwt pin step or Deploy step missing"
 assert edge_steps.index(pin_step) < edge_steps.index(deploy_step), f"{edge_name}: verify_jwt pin must run before Deploy"
-assert "grep -qx '\\[functions\\.wynos-maps-geocode\\]' supabase/config.toml" in edge_deploy, (
-    f"{edge_name}: verify_jwt pin check altered"
-)
+assert PIN_AWK in edge_deploy, f"{edge_name}: verify_jwt = false pin check altered"
 assert "FUNCTION_NAME: ${{ inputs.function }}" in edge_deploy, f"{edge_name}: pin step must read the input via env:"
 
 print("PASS coordinated final-release freeze: legacy promotions retired, acceptance gates active")

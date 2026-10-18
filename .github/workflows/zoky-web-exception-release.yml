@@ -21,7 +21,7 @@ on:
         type: string
         required: true
       phase:
-        description: "EDGE (first) = deploy food-stripe-checkout, food-stripe-cancel, wynos-maps-geocode; PHASE1 = zoky.wynos.online live, food unchanged; PHASE2 = food -> zoky redirect (ZOKY_LEGACY_FOOD_REDIRECT=1 set in Vercel first)"
+        description: "EDGE (first) = deploy food-stripe-checkout, food-stripe-cancel, wynos-maps-geocode; PHASE1 = zoky.wynos.online live, food unchanged; PHASE2 = food -> zoky redirect (the workflow pins ZOKY_LEGACY_FOOD_REDIRECT per phase)"
         type: choice
         required: true
         default: EDGE
@@ -41,9 +41,12 @@ permissions:
 # dispatch cancel this run while it waits for review or mid-deploy (CTO review
 # R1/F1). The Founder's `production` review serializes the two workflows.
 # Operational rule: do not dispatch wyn-158 during an exception release.
+# queue: max keeps every pending run instead of the default (single) that
+# replaces a pending run with the next dispatch (Codex P2 on #1226).
 concurrency:
   group: zoky-web-exception-release
   cancel-in-progress: false
+  queue: max
 
 env:
   ZOKY_EXCEPTION_EXPIRES_UTC: "2026-11-30"
@@ -144,7 +147,7 @@ jobs:
             tail -c +"$((base_bytes + 1))" /tmp/config-release.toml > /tmp/config-added.toml
             grep -qx '\[functions\.wynos-maps-geocode\]' /tmp/config-added.toml || {
               echo "::error::supabase/config.toml: only a [functions.wynos-maps-geocode] entry may be added"; exit 1; }
-            if grep -vE '^(\[functions\.wynos-maps-geocode\]|verify_jwt = (true|false)|#.*|[[:space:]]*)$' /tmp/config-added.toml; then
+            if grep -vE '^(\[functions\.wynos-maps-geocode\]|verify_jwt = false|#.*|[[:space:]]*)$' /tmp/config-added.toml; then
               echo "::error::supabase/config.toml change is outside the allowed wynos-maps-geocode verify_jwt entry"; exit 1
             fi
             [ "$(grep -c '^\[' /tmp/config-added.toml)" = 1 ] && [ "$(grep -c '^verify_jwt' /tmp/config-added.toml)" = 1 ] || {
@@ -257,6 +260,7 @@ jobs:
       - name: Deploy to Vercel production
         id: deploy
         env:
+          PHASE: ${{ inputs.phase }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -309,6 +313,16 @@ jobs:
             echo '::warning::Missing at least one public Firebase Web config secret. Preserving existing Vercel settings; Push may remain unavailable.'
           fi
 
+          # Pin the phase flag on this deployment instead of inheriting a stale
+          # Vercel project value. proxy.ts reads it per request (runtime env,
+          # not inlined at build), so `--env` (run-time) is the flag.
+          case "$PHASE" in
+            PHASE1) legacy_redirect=0 ;;
+            PHASE2) legacy_redirect=1 ;;
+            *) echo "::error::unexpected phase for the web deploy"; exit 1 ;;
+          esac
+          echo "ZOKY_LEGACY_FOOD_REDIRECT=$legacy_redirect ($PHASE)" >> "$GITHUB_STEP_SUMMARY"
+
           export VERCEL_ORG_ID VERCEL_PROJECT_ID
           url=$(npx --yes vercel@63.1.2 deploy --prod --yes \
             --token="$VERCEL_TOKEN" \
@@ -316,6 +330,7 @@ jobs:
             --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --env ZOKY_LEGACY_FOOD_REDIRECT="$legacy_redirect" \
             "${firebase_args[@]}" \
             | tail -n 1)
           echo "firebase_supplied=$firebase_ready" >> "$GITHUB_OUTPUT"
@@ -489,8 +504,8 @@ jobs:
       - name: wynos-maps-geocode verify_jwt is pinned
         run: |
           set -euo pipefail
-          grep -qx '\[functions\.wynos-maps-geocode\]' supabase/config.toml || {
-            echo "::error::supabase/config.toml at the release SHA has no [functions.wynos-maps-geocode] entry; add the verify_jwt value read in F2 to the release branch first."
+          awk '/^\[/ { s = ($0 == "[functions.wynos-maps-geocode]") } s && /^verify_jwt[[:space:]]*=[[:space:]]*false[[:space:]]*$/ { f = 1 } END { exit !f }' supabase/config.toml || {
+            echo "::error::supabase/config.toml at the release SHA has no verify_jwt = false in a [functions.wynos-maps-geocode] section (F2: live Verify JWT is OFF)."
             exit 1
           }
 
