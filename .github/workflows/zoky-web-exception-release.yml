@@ -35,10 +35,13 @@ on:
 permissions:
   contents: read
 
-# Shares the production web lane with wyn-158 so two web releases can never
-# race; this workflow never cancels an in-progress run.
+# Own lane, deliberately NOT wyn-158-production: wyn-158 uses
+# cancel-in-progress: true, so sharing its group would let any wyn-158
+# dispatch cancel this run while it waits for review or mid-deploy (CTO review
+# R1/F1). The Founder's `production` review serializes the two workflows.
+# Operational rule: do not dispatch wyn-158 during an exception release.
 concurrency:
-  group: wyn-158-production
+  group: zoky-web-exception-release
   cancel-in-progress: false
 
 env:
