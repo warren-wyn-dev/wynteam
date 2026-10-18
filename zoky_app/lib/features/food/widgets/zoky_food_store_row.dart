@@ -24,8 +24,9 @@ import '../../home/widgets/zoky_store_cover.dart';
 ///
 /// [mode] pickup hides delivery-only info (ETA, free-delivery promo) and
 /// adds "รับเองได้". Labels (closed, ad, promo, pickup) sit in the text
-/// column and wrap instead of being cut (ZOKY-127); demo stores carry the
-/// "ตัวอย่าง" badge on the photo (ZOKY-123).
+/// column and wrap instead of being cut (ZOKY-127); the name and the meta
+/// line wrap too, so ETA and distance are never ellipsized (ZOKY-129).
+/// Demo stores carry the "ตัวอย่าง" badge on the photo (ZOKY-123).
 class ZokyFoodStoreRow extends StatelessWidget {
   const ZokyFoodStoreRow({
     super.key,
@@ -182,8 +183,6 @@ class ZokyFoodStoreRow extends StatelessWidget {
                   children: [
                     Text(
                       store.isDemo ? store.nameWithoutDemoSuffix : store.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: ZokyTextStyles.weight(
                         ZokyTextStyles.bodyLg.copyWith(
                           fontSize: 18,
@@ -215,8 +214,6 @@ class ZokyFoodStoreRow extends StatelessWidget {
                           if (distance != null) TextSpan(text: ' · $distance'),
                         ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: meta,
                     ),
                     if (labels.isNotEmpty) ...[

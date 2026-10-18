@@ -237,8 +237,7 @@ class ZokyFoodCouponCard extends StatelessWidget {
                             const SizedBox(height: ZokySpacing.s1),
                             Text(
                               conditionFor(store),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              // Price condition: wraps, never cut (ZOKY-129).
                               style: ZokyTextStyles.bodyMd.copyWith(
                                 color: ZokyColors.textSecondary,
                               ),
@@ -303,8 +302,7 @@ class ZokyFoodCouponCard extends StatelessWidget {
                         const SizedBox(height: ZokySpacing.s1),
                         Text(
                           conditionFor(store),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          // Price condition: wraps, never cut (ZOKY-129).
                           style: ZokyTextStyles.bodyMd.copyWith(
                             color: ZokyColors.textSecondary,
                           ),

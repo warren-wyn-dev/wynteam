@@ -18,8 +18,9 @@ import '../../fulfillment/fulfillment_mode_controller.dart';
 /// Contrast on the pale blush header ([ZokyColors.headerPale] #FFEFF5, its
 /// darkest point behind text): the small label is
 /// [ZokyColors.textSecondary] (4.74:1, passes 4.5:1), the bold line is ink
-/// (16.25:1) and the ▾ is [ZokyColors.brandDeep] (4.64:1). The
-/// address name ellipsizes rather than wrapping. One 44pt+ button for
+/// (16.25:1) and the ▾ is [ZokyColors.brandDeep] (4.64:1). A real
+/// address name ellipsizes rather than wrapping; a sample (demo) name
+/// shrinks to fit instead, so "(ตัวอย่าง)" is never cut (ZOKY-129). One 44pt+ button for
 /// assistive tech, announced with the full text ([titleFor]).
 class ZokyFoodAddressButton extends StatelessWidget {
   const ZokyFoodAddressButton({
@@ -84,6 +85,7 @@ class ZokyFoodAddressButton extends StatelessWidget {
       builder: (context, _) {
         final name = nameFor(controller);
         final delivery = mode.mode == FulfillmentMode.delivery;
+        final demo = delivery && (controller.selected?.isDemo ?? false);
         return Semantics(
           button: true,
           label: titleFor(mode.mode, name),
@@ -114,12 +116,25 @@ class ZokyFoodAddressButton extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Flexible(
-                          child: Text(
-                            boldLineFor(mode.mode, name),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: titleStyle,
-                          ),
+                          child: demo
+                              // Demo labels are never cut: the sample
+                              // name shrinks to fit so "(ตัวอย่าง)" stays
+                              // readable (ZOKY-129).
+                              ? FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Text(
+                                    boldLineFor(mode.mode, name),
+                                    maxLines: 1,
+                                    style: titleStyle,
+                                  ),
+                                )
+                              : Text(
+                                  boldLineFor(mode.mode, name),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: titleStyle,
+                                ),
                         ),
                         const SizedBox(width: ZokySpacing.s1),
                         const ZokyLineIcon(

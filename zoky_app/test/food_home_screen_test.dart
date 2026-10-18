@@ -162,6 +162,18 @@ ScrollPosition _feed(WidgetTester tester) => tester
 Finder _addressButton() => find.byType(ZokyFoodAddressButton);
 Finder _searchField() => find.byType(ZokyFoodSearchField);
 Finder _rows() => find.byType(ZokyFoodStoreRow);
+
+/// Scrolls the feed to its real end. Rows wrap (ZOKY-129), so their
+/// heights differ and the list's estimated extent settles only once the
+/// last rows are laid out.
+Future<void> _jumpToEnd(WidgetTester tester) async {
+  final position = _feed(tester);
+  for (var i = 0; i < 10; i++) {
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    if (position.pixels >= position.maxScrollExtent) return;
+  }
+}
 Finder _pill(FulfillmentMode mode) =>
     find.byKey(ZokyFoodModeToggle.keyFor(mode));
 Finder _chip(String label) => find.widgetWithText(ZokyChip, label);
@@ -1132,9 +1144,7 @@ void main() {
     testWidgets('never covers the last row', (tester) async {
       await _pumpFood(tester, width: 430, height: 932, bottomInset: 34);
       expect(find.byType(ZokyBottomNav).hitTestable(), findsNothing);
-      final position = _feed(tester);
-      position.jumpTo(position.maxScrollExtent);
-      await tester.pumpAndSettle();
+      await _jumpToEnd(tester);
       final last = tester.getRect(_rows().last);
       final fab = tester.getRect(find.byKey(FoodHomeScreen.cartKey));
       expect(last.bottom, lessThanOrEqualTo(fab.top));
@@ -1176,8 +1186,7 @@ void main() {
             lessThanOrEqualTo(width - 16),
           );
           final position = _feed(tester);
-          position.jumpTo(position.maxScrollExtent);
-          await tester.pumpAndSettle();
+          await _jumpToEnd(tester);
           expect(tester.takeException(), isNull);
           // FAB never covers the last row.
           final last = tester.getRect(_rows().last);

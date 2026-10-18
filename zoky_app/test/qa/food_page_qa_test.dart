@@ -328,7 +328,7 @@ void main() {
             if (title.didExceedMaxLines) cut.add(address.label);
           }
           expect(cut, isEmpty, reason: 'demo label ellipsized: $cut');
-        }, skip: true); // ZOKY-129
+        }); // ZOKY-129 (fixed)
       }
     }
   });
@@ -373,8 +373,7 @@ void main() {
             expect(cut, isEmpty);
           },
           tags: _heavy,
-          skip: true,
-        ); // ZOKY-129
+        ); // ZOKY-129 (fixed)
       }
     }
   });
