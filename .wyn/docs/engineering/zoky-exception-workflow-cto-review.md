@@ -94,3 +94,19 @@ Adequate as documented in the release plan §7: Vercel Instant Rollback (no buil
 - `production` environment reviewer list, branch policy and secret scoping (API not accessible here; C1 inference is from the 2026-10-12 run history in the release plan).
 - Workflow never executed; actionlint not run.
 - No claim of zero regression.
+
+## Resolution (Deploy & DevOps, 2026-10-18)
+
+Applied on `ci/zoky-web-exception-release`; workflow/guard changes only, nothing dispatched or deployed, `wyn-158-production-deploy.yml` unchanged. Re-review = diff check.
+
+| Item | Commit | Change |
+|---|---|---|
+| R1 / F1 | `ea5c86b1` | Exception concurrency group `zoky-web-exception-release`, `cancel-in-progress: false`; wyn-158 untouched |
+| R4 / F4 | `8bcc33e5` | "Exception has not expired" repeated as the first `deploy` step (after environment approval) |
+| R2 / F2 | `a62c1018` | `deploy-edge-functions.yml`: `environment: production` on `deploy`; fail-closed step blocks a `wynos-maps-geocode` deploy when `supabase/config.toml` has no `[functions.wynos-maps-geocode]` entry (input via `env:`) |
+| L1/L2/L3/L5 + rollback | `e73566b8` | `vercel@63.1.2` (the CLI npx resolved for wyn-158's last successful production deploy of `b19687af`, run 38241263711; also pinned by `wynos-admin-consolidated-release.yml`); `persist-credentials: false` on all checkouts; `maps_geo` warning restored; `git diff --no-renames`; guard summary shows rollback target `web-5djnkfh16` / `b19687af` (PHASE2: the recorded PHASE1 deployment) |
+| R3 / F3 | `c267f422` | Freeze guard checks per job (env on `deploy` only, no secrets in `guard`, jobs exactly guard+deploy, concurrency group/cancel uncommented, expiry first in both jobs, no `${{ inputs.* }}`/`github.event.inputs` in any `run:` body incl. comments, checkout creds, pinned CLI) and asserts the edge gates; tests now reject 23 + 3 loosened variants (incl. env moved to guard, wyn-158 group, inputs in run) |
+
+Validation: `yaml.safe_load` on exception/edge/ci/wyn-158; `bash -n` on every `run:` step (0 failures); `check_wynos_release_freeze.py` PASS; `test_check_wynos_release_freeze.py` PASS; edge pin step simulated (geocode without entry fails, with entry / other functions pass). Not run: actionlint, the workflows themselves.
+
+Still open (Founder): C1, M1 and release-plan F1–F3 before the first production dispatch. Pre-existing `${{ inputs.function }}` in edge `run:` bodies left as-is (choice-typed, not injectable; out of scope).
