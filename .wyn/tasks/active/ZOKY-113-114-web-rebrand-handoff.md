@@ -12,12 +12,12 @@ Owner: AI Coding (Full-Stack) | Date: 2026-10-18
   - Food ที่เปิดจาก `wynos.online`/`www.wynos.online` ถูกส่งไป `zoky.wynos.online`; localhost/preview ใช้ origin ตัวเอง
 - `web/proxy.ts`:
   - `zoky.wynos.online/` → rewrite `/food` (แบบเดียวกับ `food.wynos.online` เดิม); `/login`, `/signup*` → `/food/login`, `/food/signup`
-  - **ทุก URL บน `food.wynos.online`** → `307` ไป `https://zoky.wynos.online` path+query เดิม (ยกเว้น `/_next/*`, `/api/*` เพื่อไม่ให้แท็บที่เปิดค้างพัง)
+  - **ทุก URL บน `food.wynos.online`** → `307` ไป `https://zoky.wynos.online` path+query เดิม (ยกเว้น `/_next/*`, `/api/*` เพื่อไม่ให้แท็บที่เปิดค้างพัง) — **เฉพาะ phase 2** เมื่อ `ZOKY_LEGACY_FOOD_REDIRECT` = `1` หรือ `true` (C2/M1, ดู "Two-phase rollout"); phase 1 (ค่าเริ่มต้น) `food.wynos.online` ทำงานเหมือน `origin/main`: root rewrite `/food`, `/login` `/signup*` → `/food/login` `/food/signup`, `/s/:code`, `/sw.js` ตัวจริง
   - `wynos.online/food*` → `307` ไป `zoky.wynos.online` (`/food` → `/`)
   - matcher เพิ่ม `{ source: "/((?!_next/|api/).*)", has: host food.wynos.online }` (ตรวจแล้วว่าอยู่ใน middleware-manifest หลัง build)
   - ค่า `FOOD_MOVE_STATUS = 307`; เปลี่ยนเป็น 308 หลังยืนยัน (Q2) = แก้บรรทัดเดียว
-- `web/next.config.ts`: rewrite `/s/:code` ย้ายจาก host `food.wynos.online` เป็น `zoky.wynos.online`
-- `web/app/food/s/[code]/route.ts`: ใช้ `isFoodAppHost` + redirect ไป `zoky.wynos.online/?store=`
+- `web/next.config.ts`: rewrite `/s/:code` บน host `zoky.wynos.online` และคง `food.wynos.online` (phase 1; phase 2 proxy redirect ก่อนถึง rewrite)
+- `web/app/food/s/[code]/route.ts`: ใช้ `isFoodAppHost` + redirect ไป `/?store=` บน Food origin เดียวกับที่เปิดลิงก์ (host ผ่าน allowlist เท่านั้น)
 - `web/components/food/food-auth.tsx`, `web/app/food/auth/callback/page.tsx`: ใช้ helper กลางแทน `FOOD_PRODUCTION_ORIGIN` ที่ hardcode
 - `web/app/auth/callback/page.tsx` (Social callback): legacy Food return ไป `zoky.wynos.online/` แทน `food.wynos.online/`
 - `web/lib/push-notifications.ts`: `pushAppFor("zoky.wynos.online") = "food"` (คง food.wynos.online); `web/components/push-prompt.tsx` ใช้ `isFoodAppHost`
@@ -56,12 +56,12 @@ Owner: AI Coding (Full-Stack) | Date: 2026-10-18
 
 ## สิ่งที่ยังไม่ได้ทำ (ต้องอนุมัติแยก/งานถัดไป)
 1. ~~**Edge functions (BLOCKER ของการจ่ายบัตร)**~~ — **แก้โค้ดแล้ว (ZOKY-135, commit 574f12e, Founder อนุมัติ 2026-10-18)** เหลือ QA re-test + deploy ตาม gate ก่อนหรือพร้อม cutover (ดูข้อ 6 ใน checklist)
-2. ข้อความแบรนด์ฝั่ง database/edge function (เช่น `WYNOS Food #WF…` ใน Stripe, trigger แจ้งเตือนลูกค้า, ชื่อแคมเปญ) — migration แยกหลังปลด freeze
+2. ข้อความแบรนด์ฝั่ง database (trigger แจ้งเตือนลูกค้า, ชื่อแคมเปญ) — migration แยกหลังปลด freeze. ชื่อสินค้า Stripe เปลี่ยนเป็น `ZOKY #<order>` แล้ว (ZOKY-135) และ **Founder ยืนยันคงไว้ 2026-10-18 (C1)**
 3. Merchant/Admin/Social labels ยังเป็น "WYNOS Food" (รอ Q1/Q10) รวมถึงหัวโปสเตอร์ QR ใน `merchant-share-card.tsx` (URL เปลี่ยนเป็น zoky แล้ว แต่หัวข้อยังเขียน "WYNOS Food") และทางลัด Social (`home-food-shortcut.tsx`, drawer) ซึ่งลิงก์ `/food` บน wynos.online → redirect ไป ZOKY อยู่แล้ว
 4. การแยก `--fx-red` ทุกจุดเป็น `--zk-action-primary/--zk-brand/--zk-error` แบบเต็ม, แก้ success/muted contrast, `userScalable:false` (design Q6) — ทำเฉพาะเปลี่ยนค่า token + แยก danger 3 จุด
 5. OG image 1200×630 (A16) — ยังใช้ไอคอน 512 แบบ `summary` เหมือนเดิม
-6. จอแนะนำสำหรับ PWA ที่ติดตั้งจาก `food.wynos.online` (PRD edge case 3): server redirect ทุก path ทำให้ PWA เดิมเปิด ZOKY ในหน้าต่างเบราว์เซอร์แทน standalone — ผู้ใช้ต้องติดตั้งใหม่ ต้องมีแผนสื่อสาร (AC9)
-7. Login ที่ค้างระหว่าง cutover (`food.wynos.online/food/auth/callback?code=` → zoky) จะ exchange ไม่ได้เพราะ PKCE verifier อยู่บน origin เดิม → ผู้ใช้กดล็อกอินใหม่ (ยอมรับได้ช่วงสั้น); session/ตะกร้า/ร้านโปรดในเครื่องไม่ตามมา (R4)
+6. จอแนะนำสำหรับ PWA ที่ติดตั้งจาก `food.wynos.online` (PRD edge case 3): (phase 2) server redirect ทุก path ทำให้ PWA เดิมเปิด ZOKY ในหน้าต่างเบราว์เซอร์แทน standalone — ผู้ใช้ต้องติดตั้งใหม่ ต้องมีแผนสื่อสาร (AC9)
+7. (phase 2) Login ที่ค้างระหว่าง cutover (`food.wynos.online/food/auth/callback?code=` → zoky) จะ exchange ไม่ได้เพราะ PKCE verifier อยู่บน origin เดิม → ผู้ใช้กดล็อกอินใหม่ (ยอมรับได้ช่วงสั้น); session/ตะกร้า/ร้านโปรดในเครื่องไม่ตามมา (R4)
 8. ไม่ได้รัน browser E2E; QA ต้องทดสอบบน staging preview
 
 ## Founder / DevOps checklist สำหรับ go-live (ทุกข้อต้องได้รับอนุมัติก่อน — AI ไม่ได้ทำ)
@@ -75,7 +75,7 @@ Owner: AI Coding (Full-Stack) | Date: 2026-10-18
    - Site URL: คง `https://wynos.online` (ใช้ร่วมกับ Social); อีเมล template ยังแบรนด์ WYNOS (R11/Q1)
    - [x] ZOKY-138 (5e0bec5): `.github/scripts/sync-auth-password-policy.sh` เพิ่ม 3 URL ของ zoky แบบ exact (`/food/auth/callback`, `/auth/callback?next=%2Ffood`, `/reset-password?returnTo=%2Ffood%2Flogin`) — **คำเตือน:** workflow `web-beta1-auth-password-policy.yml` รัน `apply` เมื่อ push เข้า `main` ที่แก้ script นี้ → merge = PATCH Supabase Auth production ทันที (เพิ่มอย่างเดียว); ต้องตรวจบน staging ว่า reset URL ที่มี query match จริง ถ้าไม่ match ให้เพิ่ม `https://zoky.wynos.online/reset-password**`
 4. **Google OAuth**: login ใช้ Supabase `signInWithOAuth` → Authorized redirect URI ของ Google คือ callback ของ Supabase (ไม่เปลี่ยน); ตรวจว่า Authorized JavaScript origins มีรายการโดเมนหรือไม่ ถ้ามี `https://food.wynos.online` ให้เพิ่ม `https://zoky.wynos.online`; ถ้า browser API key ของ Firebase/Google Cloud จำกัด HTTP referrer ให้เพิ่ม `zoky.wynos.online/*`
-5. **Stripe**: Checkout success/cancel ถูกสร้างใน edge function (ข้อ 6) ไม่ต้องลงทะเบียนโดเมนใน Dashboard; ชื่อสินค้า/branding/statement descriptor ใช้ร่วมกับ Merchant — คงไว้จนกว่าจะตัดสิน Q10
+5. **Stripe**: Checkout success/cancel ถูกสร้างใน edge function (ข้อ 6) ไม่ต้องลงทะเบียนโดเมนใน Dashboard; ชื่อสินค้า = `ZOKY #<order>` (**Founder ยืนยัน 2026-10-18, C1**); branding/statement descriptor ของบัญชีใช้ร่วมกับ Merchant — ไม่เปลี่ยน (Q10)
 6. **Edge functions — [x] แก้โค้ดแล้ว (ZOKY-135: 574f12e + 738d481) / [ ] QA re-test / [ ] deploy ก่อนหรือพร้อม web** (deploy 3 functions: `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode` ผ่าน `deploy-edge-functions.yml` หลังผ่าน gate — AI ไม่ได้ deploy). รายการเดิมที่แก้แล้ว:
    - `supabase/functions/food-stripe-checkout/index.ts:69` — live mode รับเฉพาะ `Origin === https://food.wynos.online` → **ต้องรับ `https://zoky.wynos.online`** (มิฉะนั้นจ่ายบัตรบน ZOKY ได้ 403 `live_stripe_origin_required`)
    - `supabase/functions/food-stripe-checkout/index.ts:152-153` — `success_url`/`cancel_url` = `food.wynos.online/?order=…` (ยังใช้ได้ผ่าน redirect 307 แต่ควรเปลี่ยนเป็น zoky); `:155` ชื่อสินค้า `WYNOS Food #…` (Q10)
@@ -83,13 +83,40 @@ Owner: AI Coding (Full-Stack) | Date: 2026-10-18
    - `supabase/functions/wynos-maps-geocode/index.ts:22-30` (`ALLOWED_ORIGINS`, บรรทัด 26 คือ food) — เพิ่ม `https://zoky.wynos.online` (ไม่งั้นค้นหาที่อยู่ fallback ผ่าน geocode จาก ZOKY ได้ 403)
    - ตรวจแล้วไม่พบ hardcode โดเมน Food ใน edge function อื่น (`merchant-stripe-*` ใช้ `merchant.wynos.online` ไม่เกี่ยว)
 7. **Freeze lift + production deploy**: Founder อนุมัติปลด freeze สำหรับ release นี้ (หรือรวมใน coordinated release), ปิด acceptance #1142–#1151, merge PR หลัง QA/CTO review + staging เขียว, แล้วรัน `wyn-158-production-deploy.yml` ด้วย `RELEASE_ALL_APPROVED` + production reviewer approval
-   - ลำดับที่แนะนำ: (a) ข้อ 1–4 + edge functions ข้อ 6 → (b) deploy web (redirect เปิดทันทีเมื่อ deploy) → (c) smoke: `zoky.wynos.online` ล็อกอิน Google/อีเมล, รีเซ็ตรหัส, สั่ง + จ่าย Stripe success/cancel, `/s/<code>`, `/?store=`, `/?order=`, `/?promo=`, link preview LINE; `food.wynos.online/*` และ `wynos.online/food*` → 307 path+query → (d) แจ้งผู้ใช้ (ล็อกอินใหม่, ติดตั้ง PWA ใหม่, เปิดแจ้งเตือนใหม่) → (e) เฝ้าดู 1–2 สัปดาห์ แล้วตัดสิน 308
-   - ถ้าต้องการเปิด `zoky.wynos.online` ก่อนโดยยังไม่ redirect (roadmap ขั้น 1) ให้สั่ง AI แยก commit redirect ของ `food.wynos.online` ออก — ตอนนี้ deploy ครั้งเดียวเปิดทั้งคู่
-8. **Rollback**:
-   - เร็วที่สุด: Vercel Instant Rollback ไป production deployment ก่อนหน้า → `food.wynos.online` เสิร์ฟแอปเดิมทันที (assets เดิมใน `/icons/food/*` ยังอยู่, ไม่มีการเปลี่ยนข้อมูล database)
+   - ลำดับ: ข้อ 1–4 + edge functions ข้อ 6 → **phase 1** → **phase 2** ตาม "Two-phase rollout" ด้านล่าง
+8. **Rollback** (รายละเอียดต่อ phase ดู "Two-phase rollout"):
+   - เร็วที่สุด: Vercel Instant Rollback ไป production deployment ก่อนหน้า → `food.wynos.online` เสิร์ฟแอปเดิมทันที (assets เดิมใน `/icons/food/*` ยังอยู่, ไม่มีการเปลี่ยนข้อมูล database) **และ** ตั้ง Vercel Domain redirect `zoky.wynos.online` → `food.wynos.online` (CTO M4) เพราะ build เก่าไม่รู้จัก host zoky
    - ถาวร: revert merge commit ของ branch นี้บน main แล้ว deploy ตาม gate
    - คง Supabase redirect URLs ของทั้งสองโดเมน และ edge function ที่รับทั้งสอง origin ไว้ตลอดช่วงเปลี่ยนผ่าน เพื่อให้ rollback ไม่ทำให้ login/จ่ายเงินพัง
    - ห้ามถอด domain `food.wynos.online` ออกจาก Vercel (ลิงก์/QR เก่าจะตาย)
+
+## Two-phase rollout (C2, Founder decision 2026-10-18; CTO M1)
+
+Flag: `ZOKY_LEGACY_FOOD_REDIRECT` — server-only Vercel env (Production) ของ Consumer Web project, **ห้ามใช้ prefix `NEXT_PUBLIC_`**; อ่านใน `web/proxy.ts` ทุก request. เปิดเฉพาะค่า exact `1` หรือ `true` (ตัวพิมพ์เล็ก ไม่มีช่องว่าง); ไม่ตั้ง/ค่าอื่น = **off** (fail-safe)
+
+- เวลาอ่านค่า: Next.js 16 `proxy.ts` รันบน Node.js runtime (ไม่ใช่ edge) และ env ที่ไม่ใช่ `NEXT_PUBLIC_` ไม่ถูก inline ตอน build — ตรวจแล้วว่า build output ยังเป็น `process.env.ZOKY_LEGACY_FOOD_REDIRECT` และ local smoke ใช้ build เดียวกัน เปลี่ยนเฉพาะ env ตอน `next start` ได้ผลทั้งสองโหมด. **แต่บน Vercel env ผูกกับ deployment**: เปลี่ยนค่าแล้วต้อง **redeploy** (ภายใต้ freeze = run `wyn-158` อีกรอบตาม gate) ค่าจึงมีผล
+- matcher ของ host `food.wynos.online` คงไว้ทั้งสอง phase (matcher กำหนดตอน build); phase 1 คืน `next()` = พฤติกรรมเหมือน `origin/main`
+
+| | Phase 1 (flag off, ค่าเริ่มต้น) | Phase 2 (flag `1`/`true`) |
+|---|---|---|
+| `zoky.wynos.online` | ZOKY เต็มรูปแบบ | ZOKY เต็มรูปแบบ |
+| `food.wynos.online` | เสิร์ฟ Food (แบรนด์ ZOKY) แบบ `origin/main`: `/` → `/food`, `/login` `/signup*`, `/s/<code>` (→ `food.wynos.online/?store=`), `/sw.js` ตัวจริง | ทุก path → 307 `zoky.wynos.online` path+query (ยกเว้น `/_next/*`, `/api/*`); `/sw.js` = ZOKY-136 cleanup worker |
+| Auth (`web/lib/food-origin.ts`, ไม่ได้แก้) | ผู้ใช้บน food ล็อกอิน/OAuth/อีเมลบน `food.wynos.online` เอง, บน zoky ใช้ zoky (ไม่ข้าม origin, PKCE ปลอดภัย) | เหมือนกัน (food ไม่มีหน้าให้ล็อกอินแล้วเพราะ redirect) |
+| `wynos.online/food*`, Social callback legacy Food, ลิงก์แชร์/QR ของ Merchant, ปุ่ม "สั่งอาหาร" ใน Maps, sitemap/canonical | ชี้ `zoky.wynos.online` (ตั้งใจ: zoky ใช้งานได้ตั้งแต่ phase 1 และลดลิงก์ใหม่ที่ชี้โดเมนเก่า) | เหมือนกัน |
+
+หมายเหตุ phase 1: `food.wynos.online` แสดงแบรนด์ ZOKY แล้ว (canonical/OG ชี้ zoky); Push บน food ยังทำงานด้วย worker จริง (`pushAppFor` = food ทั้งสอง host); ผู้ใช้บน food ยังไม่ถูกบังคับย้าย (ไม่มี PKCE ค้าง/PWA เปิดในเบราว์เซอร์จนกว่า phase 2)
+
+### Phase 1 — เปิด ZOKY โดยไม่ย้ายผู้ใช้ food
+1. ยืนยันว่า Vercel Production **ไม่มี** `ZOKY_LEGACY_FOOD_REDIRECT` (หรือค่าไม่ใช่ `1`/`true`) — ห้าม AI ตั้งค่า
+2. ทำ checklist ข้อ 1–4 + edge functions ข้อ 6 → merge (C3) → run `wyn-158` ตาม gate
+3. Smoke: `zoky.wynos.online` ครบตาม CTO runbook (c)7; `food.wynos.online/` 200 แอป Food, `/login` → `/food/login` บน food, `/sw.js` ไม่ใช่ cleanup worker (ไม่มี `ZOKY-136`), ล็อกอิน + จ่ายบัตรบน food ยังกลับ food; `wynos.online/food?promo=X` → zoky; regression Merchant/Maps/Social/Admin
+4. Rollback phase 1: Vercel Instant Rollback ไป production deployment ก่อน phase 1 **และ** ตั้ง Vercel Domain redirect `zoky.wynos.online` → `food.wynos.online` (307) ทันที (M4; ห้ามถอด domain zoky). ไม่มีผลย้อนไม่ได้ใน phase นี้ (cleanup worker ยังไม่เคยเสิร์ฟ)
+
+### Phase 2 — ย้ายผู้ใช้ food ไป ZOKY (Founder อนุมัติหลัง smoke phase 1 ผ่าน)
+1. Founder ตั้ง `ZOKY_LEGACY_FOOD_REDIRECT=1` ใน Vercel Production env → redeploy (run `wyn-158` ตาม gate; โค้ดเดิม)
+2. Smoke: `food.wynos.online/*` และ `/s/<code>`, `/food/auth/callback?code=…` → 307 zoky path+query; `food.wynos.online/sw.js` = cleanup worker; zoky ไม่เปลี่ยน
+3. ส่งแผนสื่อสาร AC9 (ล็อกอินใหม่, ติดตั้ง PWA ใหม่, เปิดแจ้งเตือนใหม่); เฝ้าดู 1–2 สัปดาห์ แล้วตัดสิน 308 (Q2)
+4. Rollback phase 2 (เฉพาะ redirect, คงแบรนด์): Vercel Instant Rollback ไป deployment ของ phase 1 (เร็วสุด ไม่ต้อง build) หรือลบ/เปลี่ยนค่า env แล้ว redeploy. ย้อนไม่ได้: push subscription/cache ที่ cleanup worker ลบบน food origin แล้ว — ผู้ใช้ต้องเปิดแจ้งเตือนใหม่
 
 ## รอบแก้ QA findings (AI Coding, 2026-10-18, Founder อนุมัติ 2026-10-18)
 - [x] ZOKY-135 (HIGH) edge functions รับ `zoky.wynos.online` + คง `food.wynos.online` (exact allowlist), success/cancel ใช้ origin ที่อยู่ใน allowlist ไม่งั้น ZOKY, ชื่อสินค้า `ZOKY #…` — 574f12e, 738d481
@@ -103,6 +130,14 @@ Owner: AI Coding (Full-Stack) | Date: 2026-10-18
 - ZOKY-135 verified/closed (exact 2-origin allowlist, no open redirect, cancel auth/ownership unchanged; Deno 2.9.6: `deno check` all 17 functions pass, `deno test` 118/118), ZOKY-136 verified/closed (cleanup worker proven in real Chromium; residual risk documented), ZOKY-138 verified/closed (add-only; merge to `main` auto-applies to production Supabase Auth), ZOKY-137 CSS part verified, icon bevel still open.
 - Regression: lint 0 errors, typecheck pass, unit 344/344, build pass, freeze guard PASS, local smoke matrix pass, Playwright Food+Merchant Chromium 134/134.
 - For CTO: Stripe product name now `ZOKY #…` — checklist item 5 / not-done item 2 still say keep until Q10; confirm and align. Next: CTO final review -> staging (live-origin Stripe, Auth reset URL match, Android push cleanup) -> Founder.
+
+## Founder decisions C1/C2 (AI Coding, 2026-10-18)
+- C1: คงชื่อสินค้า Stripe `ZOKY #<order>` — แก้ checklist ข้อ 5 และ "ยังไม่ได้ทำ" ข้อ 2 แล้ว
+- C2: 2 phase — `web/proxy.ts` (flag), `web/next.config.ts` (`/s/:code` บน food), `web/app/food/s/[code]/route.ts` (คง Food origin เดิม), comment `web/lib/food-origin.ts` (logic ไม่เปลี่ยน); tests `tests/maps-host-redirect.test.mjs` (phase 1: ไม่ตั้ง/`""`/`0`/`false`/`yes`/`TRUE`/`" 1"` = off; phase 2: `1`/`true`), `tests/food-share-links.test.mjs`
+- L2: `docs/engineering/WEB_STAGING.md` แก้เป็น `wyn-158` manual gated deploy
+- ผลตรวจ: lint 0 errors (17 warnings เดิม), typecheck ผ่าน, unit 346/346, build ผ่าน, freeze guard PASS; local `next start` (build เดียว, ไม่มี env file/secrets) + Host header: off — food `/` 200 Food, `/login` 307 `/food/login`, `/sw.js` worker จริง, `/s/x` 307 `food.wynos.online/`, zoky 200, `wynos.online/food?promo=` 307 zoky; on — food ทุก path 307 zoky, `/sw.js` cleanup worker, zoky ไม่เปลี่ยน
+- ไม่ได้ตรวจ: browser E2E, Vercel env/redeploy จริง, Deno (ไม่ได้แตะ edge functions)
+- ต่อไป: AI QA re-test (ทั้งสอง flag state) → CTO re-review → Founder (C3)
 
 ## Handoff ถัดไป
 AI QA & Security: ทดสอบ redirect (AC6), auth origin, open-redirect (redirect ใช้ host คงที่ ไม่รับ input เป็นปลายทาง), contrast ของสีใหม่, ไอคอน/splash บน iPhone/Android จริงบน staging preview → CTO final review → Founder
