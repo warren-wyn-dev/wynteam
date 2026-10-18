@@ -149,5 +149,13 @@ Flag: `ZOKY_LEGACY_FOOD_REDIRECT` — server-only Vercel env (Production) ขอ
 - Not tested: Vercel env/redeploy, real Supabase/Stripe/Push, WebKit.
 - Next: AI Debug Engineer fixes ZOKY-139 (+ regression test) → QA re-test → CTO re-review → Founder (C3).
 
+## QA release branch `release/zoky-web-20261018` @ 31f13fb3 (AI QA & Security, 2026-10-18) — PASS
+- ZOKY-139 verified/closed (real Chromium, PKCE mocked, both flag states 46/46: food stays food, zoky stays zoky, wynos/www -> zoky, no open redirect; details in the bug file).
+- `npm ci` + `npm run check` exit 0: lint 0 errors (17 warnings), typecheck pass, 18 suites 331/331, build pass; all `tests/*.test.mjs` 348/348. Playwright Food+Merchant (chromium-desktop + chromium-android, wynos/supabase.co blocked) 134/134 flag off, 134/134 flag on.
+- Deno 2.9.6 (npm, scratchpad): `deno check` 17/17 functions, `deno test` 118/118.
+- Routing matrix (9 hosts x 25 paths, `next start`, Host header): `TRUE` == off, `true` == `1`; only food.wynos.online differs off/on. Release (off) vs production `b19687af` build: differences only on `/food*` (brand, wynos/www `/food*` -> zoky), zoky host, new `/icons/zoky/*`, `sw.js` icon path; Social/merchant/maps routes identical; Social `/`, `/welcome` and merchant screenshots pixel-identical to production (Pixel 5 + desktop).
+- No #1133/#1135 code in the tree (no `food_active_home_banners`/`food_active_featured_stores`/`fx-home-banner`/banner libs; guest home calls only `food_public_catalog`); no conflict markers; no page errors besides local-only `/_vercel/*` 404 (same on production build). Secret scan of the release diff: none.
+- Not tested: WebKit, Vercel preview/env redeploy, real Supabase/Stripe/Push, phone hardware.
+
 ## Handoff ถัดไป
 AI QA & Security: ทดสอบ redirect (AC6), auth origin, open-redirect (redirect ใช้ host คงที่ ไม่รับ input เป็นปลายทาง), contrast ของสีใหม่, ไอคอน/splash บน iPhone/Android จริงบน staging preview → CTO final review → Founder

@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-139
 
-Status: fixed — awaiting QA re-test
+Status: verified — closed (AI QA & Security, 2026-10-18, release branch `release/zoky-web-20261018` @ 31f13fb3)
 Severity: MEDIUM (functional regression vs origin/main in phase 1; auth crosses origins; no token/secret leak)
 Owner: AI Debug Engineer
 Found by: AI QA & Security, branch `feat/zoky-web-rebrand` @ 2fa7a4a (code b15d2e6), 2026-10-18
@@ -49,3 +49,10 @@ Tests: reproduced first (new test failed on the old callback). After fix: `node 
 re-run by Debug (QA to re-run the Playwright repro above).
 Regression Risk: Low (client-only redirect target; Social-origin behavior unchanged).
 Handoff to QA: re-test both flag states; confirm email confirm on food → food, on zoky → zoky, on wynos.online → zoky.
+
+QA Re-test (AI QA & Security, 2026-10-18, `release/zoky-web-20261018` @ 31f13fb3; fix = cherry-pick 195e36a7 of e87f2f33, callback/tests byte-identical to e87f2f33):
+- Real Chromium (`/opt/pw-browsers/chromium`), local `next start` prod build with fake `NEXT_PUBLIC_SUPABASE_URL=http://supabase.mock.localhost:54321`, Supabase mocked in-browser, every other host aborted (0 blocked requests recorded), no env files/secrets/DB. Real PKCE path: `?code=` + verifier cookie, token endpoint mocked (only the correct code+verifier gets a session).
+- Flag off (unset), 46/46: email confirm `/auth/callback?code&next=%2Ffood` on food -> `http://food.wynos.online/` with session on food; zoky -> zoky `/`; wynos.online and www -> `https://zoky.wynos.online/`; localhost -> `/food`. Same for the Google PWA popup legacy-Food return (no opener) and `/food/auth/callback` (food stays food, zoky stays zoky). Seeded-session variant (original repro) passes.
+- Open redirect: `next=` `//evil`, `https://evil`, `/\evil`, `/<TAB>/evil`, `javascript:`, `/food/..//evil`, `/food?x=https://evil`, `/food#//evil`, `/FOOD` on food/zoky/wynos -> always the start origin or `https://zoky.wynos.online/` (fixed host); never evil. Bad code / missing verifier / `error=` -> error UI on the same origin, no session.
+- Flag on (`1`), 46/46: zoky/wynos/www/localhost identical to off; every food `/auth/callback` and `/food/auth/callback` is 307 to `https://zoky.wynos.online/<same path+query>` (accepted R4).
+Result: PASS — closed.
