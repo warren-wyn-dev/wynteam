@@ -3,62 +3,63 @@
 Founder-reviewed `production` GitHub environment (Founder decision C1,
 2026-10-18; .wyn/docs/engineering/deploy-secrets-environment-migration.md).
 
-Every job that references secrets.SUPABASE_ACCESS_TOKEN or secrets.VERCEL_TOKEN
-must declare `environment: production`, and those secrets may not be exposed
-through workflow-level `env:`. A narrow structural text check (no YAML
-dependency), not a substitute for the environment's reviewer/branch policy.
+Every job that mentions SUPABASE_ACCESS_TOKEN or VERCEL_TOKEN must declare
+`environment: production`, and those names may not appear anywhere outside a
+job. Workflows are parsed as YAML (anchors and aliases resolved, comments
+dropped), and any case-insensitive mention of either name counts, whatever
+the expression syntax or whitespace around it. Not a substitute for the
+environment's reviewer/branch policy.
 """
+import json
 import re
 import sys
 from pathlib import Path
 
+try:
+    import yaml
+except ImportError:  # fail closed: never pass without parsing
+    sys.exit("PyYAML is required (python3-yaml); refusing to pass without parsing workflows")
+
 ROOT = Path(__file__).resolve().parent.parent
 WF = ROOT / ".github" / "workflows"
-# Secret names are case-insensitive in GitHub; also match secrets['NAME'] index syntax.
-CREDENTIAL = re.compile(r"secrets(?:\.|\[\s*['\"])(SUPABASE_ACCESS_TOKEN|VERCEL_TOKEN)\b", re.I)
-KEY = r"['\"]?([A-Za-z0-9_-]+)['\"]?:[ ]*(?:#.*)?$"
+CREDENTIAL = re.compile(r"(?<![A-Za-z0-9_])(SUPABASE_ACCESS_TOKEN|VERCEL_TOKEN)(?![A-Za-z0-9_])", re.I)
+
+
+def mentions(value):
+    return bool(CREDENTIAL.search(json.dumps(value, default=str)))
+
+
+def gated(job):
+    env = job.get("environment")
+    if isinstance(env, dict):
+        env = env.get("name")
+    return env == "production"
+
 
 errors = []
 workflows = sorted(WF.glob("*.yml")) + sorted(WF.glob("*.yaml"))
 for path in workflows:
-    lines = [line for line in path.read_text().splitlines() if not line.lstrip().startswith("#")]
-    text = "\n".join(lines) + "\n"
-    jobs_at = next((i for i, line in enumerate(lines) if re.match(r"^jobs:[ ]*(?:#.*)?$", line)), None)
-    if jobs_at is None:
-        if CREDENTIAL.search(text):
-            errors.append(f"{path.name}: credential referenced but jobs: block not recognised")
+    try:
+        doc = yaml.safe_load(path.read_text())
+    except yaml.YAMLError as exc:
+        errors.append(f"{path.name}: not parseable YAML ({exc.__class__.__name__})")
         continue
-    if CREDENTIAL.search("\n".join(lines[:jobs_at])):
-        errors.append(f"{path.name}: credential exposed outside a job (workflow-level env)")
-    body = lines[jobs_at + 1:]
-    # Job keys sit at the indentation of the first key under `jobs:` (any width).
-    first = next((line for line in body if line.strip()), "")
-    indent = len(first) - len(first.lstrip())
-    job_key = re.compile(rf"^[ ]{{{indent}}}{KEY}")
-    env_inline = re.compile(rf"^[ ]{{{indent + 2}}}environment:[ ]*['\"]?production['\"]?[ ]*(?:#.*)?$", re.M)
-    env_block = re.compile(
-        rf"^[ ]{{{indent + 2}}}environment:[ ]*(?:#.*)?\n[ ]{{{indent + 4}}}name:[ ]*['\"]?production['\"]?[ ]*(?:#.*)?$", re.M
-    )
-    jobs, current, end = [], None, len(body)
-    for index, line in enumerate(body):
-        if line.strip() and len(line) - len(line.lstrip()) < indent:
-            end = index  # next top-level key ends the jobs block
-            break
-        match = job_key.match(line) if indent else None
-        if match:
-            current = [match.group(1), []]
-            jobs.append(current)
-        elif current is None:
-            if CREDENTIAL.search(line):
-                errors.append(f"{path.name}: credential appears before the first recognised job")
-        else:
-            current[1].append(line)
-    if CREDENTIAL.search("\n".join(body[end:])):
-        errors.append(f"{path.name}: credential appears outside a recognised job")
-    for job, job_lines in jobs:
-        job_body = "\n".join(job_lines)
-        if CREDENTIAL.search(job_body) and not (env_inline.search(job_body) or env_block.search(job_body)):
-            errors.append(f"{path.name}: job '{job}' reads a production credential without environment: production")
+    if not isinstance(doc, dict):
+        if mentions(doc):
+            errors.append(f"{path.name}: credential referenced but workflow is not a mapping")
+        continue
+    jobs = doc.get("jobs")
+    if mentions({key: value for key, value in doc.items() if key != "jobs"}):
+        errors.append(f"{path.name}: credential appears outside a job")
+    if not isinstance(jobs, dict):
+        if mentions(jobs):
+            errors.append(f"{path.name}: credential referenced but jobs: is not a mapping")
+        continue
+    for name, job in jobs.items():
+        if not mentions(job):
+            continue
+        if not isinstance(job, dict) or not gated(job):
+            errors.append(f"{path.name}: job '{name}' reads a production credential without environment: production")
 
 if errors:
     print("\n".join(errors), file=sys.stderr)
