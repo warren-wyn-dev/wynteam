@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/adaptive/zoky_icons.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
 import '../../../core/format/money.dart';
 import '../../../core/l10n/zoky_strings.dart';
+import '../../../core/widgets/zoky_line_icon.dart';
 
 /// Floating cart button of the food page (Founder mockup v2): a pink
 /// circle with the cart icon while the cart is empty, a pill with the
@@ -76,8 +76,8 @@ class ZokyFoodCartButton extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
-                      ZokyIcons.trolley,
+                    const ZokyLineIcon(
+                      ZokyLineGlyph.cart,
                       size: 26,
                       color: ZokyColors.onAction,
                     ),

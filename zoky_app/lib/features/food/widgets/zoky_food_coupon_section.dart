@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/adaptive/adaptive.dart';
-import '../../../core/adaptive/zoky_icons.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
 import '../../../core/format/money.dart';
 import '../../../core/l10n/zoky_strings.dart';
+import '../../../core/widgets/zoky_line_icon.dart';
 import '../../../core/widgets/zoky_skeleton.dart';
 import '../../catalog/domain/catalog_models.dart';
 import '../../deals/widgets/zoky_deal_card.dart' show ZokyDemoBadge;
@@ -195,10 +195,10 @@ class ZokyFoodCouponCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(
+                    ZokyLineIcon(
                       store.promoFreeDelivery
-                          ? ZokyIcons.bike
-                          : ZokyIcons.coupon,
+                          ? ZokyLineGlyph.scooter
+                          : ZokyLineGlyph.ticket,
                       size: 30,
                       color: ZokyColors.brandDeep,
                     ),
@@ -261,8 +261,10 @@ class ZokyFoodCouponCard extends StatelessWidget {
             )
           : Row(
               children: [
-                Icon(
-                  store.promoFreeDelivery ? ZokyIcons.bike : ZokyIcons.coupon,
+                ZokyLineIcon(
+                  store.promoFreeDelivery
+                      ? ZokyLineGlyph.scooter
+                      : ZokyLineGlyph.ticket,
                   size: 30,
                   color: ZokyColors.brandDeep,
                 ),
@@ -363,7 +365,7 @@ class ZokyCollectButton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (collected) ...[
-                    Icon(ZokyIcons.check, size: 18, color: fg),
+                    ZokyLineIcon(ZokyLineGlyph.check, size: 18, color: fg),
                     const SizedBox(width: ZokySpacing.s2),
                   ],
                   MediaQuery.withClampedTextScaling(
