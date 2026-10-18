@@ -4,17 +4,12 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { registerCurrentAccount } from "@/lib/account-registry";
+import { foodHomeUrlFor } from "@/lib/food-origin";
 import { announceGooglePwaCode, announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-const FOOD_PRODUCTION_ORIGIN = "https://food.wynos.online";
-
 function foodHomeUrl() {
-  const host = window.location.hostname.toLowerCase();
-  if (host === "food.wynos.online" || host === "wynos.online" || host === "www.wynos.online") {
-    return `${FOOD_PRODUCTION_ORIGIN}/`;
-  }
-  return new URL("/food", window.location.origin).href;
+  return foodHomeUrlFor(window.location.hostname, window.location.origin);
 }
 
 export default function FoodGoogleCallbackPage() {
@@ -83,7 +78,7 @@ export default function FoodGoogleCallbackPage() {
         window.location.replace(foodHomeUrl());
       } catch {
         window.history.replaceState(null, "", "/food/auth/callback");
-        setError("เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณากลับไปหน้า WYNOS Food แล้วลองใหม่");
+        setError("เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณากลับไปหน้า ZOKY แล้วลองใหม่");
       }
     })();
   }, []);
@@ -100,7 +95,7 @@ export default function FoodGoogleCallbackPage() {
         ) : (
           <div className="wf-auth-loading">
             <span className="wf-loader" />
-            <strong>กำลังพาคุณกลับไป WYNOS Food…</strong>
+            <strong>กำลังพาคุณกลับไป ZOKY…</strong>
           </div>
         )}
       </section>

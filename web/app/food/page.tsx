@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { WynosFoodDeveloperApp } from "@/components/food/wynos-food-developer-app";
 import { foodStoreShareMetadata } from "@/lib/food-share-preview";
 
-// A shared store link (food.wynos.online/?store=<id>) previews with that
+// A shared store link (zoky.wynos.online/?store=<id>) previews with that
 // store's name and photo; any other visit keeps the layout's metadata.
 export async function generateMetadata({
   searchParams,

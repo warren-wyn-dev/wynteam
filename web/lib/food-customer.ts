@@ -10,7 +10,7 @@ export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 export type FoodCustomerStore = {
   id: string;
   slug: string;
-  /** Short share-link code (food.wynos.online/s/<code>); null before that migration. */
+  /** Short share-link code (zoky.wynos.online/s/<code>); null before that migration. */
   share_code?: string | null;
   name: string;
   description: string | null;
@@ -519,7 +519,7 @@ export async function fetchFoodCustomerSnapshot(
 
 export function maskFoodReviewerName(name: string) {
   const firstWord = name.trim().split(/\s+/)[0] ?? "";
-  if (!firstWord) return "ผู้ใช้ WYNOS Food";
+  if (!firstWord) return "ผู้ใช้ ZOKY";
   const segments = typeof Intl.Segmenter === "function"
     ? Array.from(new Intl.Segmenter("th", { granularity: "grapheme" }).segment(firstWord), (part) => part.segment)
     : Array.from(firstWord);
@@ -549,7 +549,7 @@ export async function fetchFoodStoreReviewFeed(
           rating: Number(review.rating ?? 0),
           review_text: typeof review.review_text === "string" ? review.review_text : null,
           tags: Array.isArray(review.tags) ? review.tags.map(String) : [],
-          reviewer_label: typeof review.reviewer_label === "string" ? review.reviewer_label : "ผู้ใช้ WYNOS Food",
+          reviewer_label: typeof review.reviewer_label === "string" ? review.reviewer_label : "ผู้ใช้ ZOKY",
           verified_order: review.verified_order === true,
           created_at: typeof review.created_at === "string" ? review.created_at : new Date(0).toISOString(),
           merchant_reply: typeof review.merchant_reply === "string" ? review.merchant_reply : null,
@@ -756,7 +756,7 @@ export async function startFoodStripeCheckout(client: SupabaseClient, orderId: s
   if (!payload || typeof payload.url !== "string") {
     const code = typeof payload?.error === "string" ? payload.error : "";
     if (code === "stripe_not_ready") throw new Error("ร้านยังไม่พร้อมรับชำระผ่าน Stripe");
-    if (code === "stripe_not_configured") throw new Error("Stripe ยังไม่ได้เปิดใช้งานบน WYNOS");
+    if (code === "stripe_not_configured") throw new Error("Stripe ยังไม่ได้เปิดใช้งานบน ZOKY");
     if (code === "order_not_payable") throw new Error("ออเดอร์นี้ไม่อยู่ในสถานะที่ชำระผ่าน Stripe ได้");
     throw new Error(typeof payload?.message === "string" ? payload.message : "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ");
   }
@@ -1025,7 +1025,7 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";
   if (message.includes("store is outside the service area")) return "ร้านนี้ยังไม่เปิดให้บริการในพื้นที่";
-  if (message.includes("outside service area")) return "ตอนนี้ WYNOS Food ส่งได้เฉพาะในจังหวัดมหาสารคาม";
+  if (message.includes("outside service area")) return "ตอนนี้ ZOKY ส่งได้เฉพาะในจังหวัดมหาสารคาม";
   if (message.includes("outside delivery area")) return "ที่อยู่นี้อยู่นอกพื้นที่จัดส่งของร้าน";
   if (message.includes("delivery location required")) return "กรุณาปักหมุดตำแหน่งที่อยู่จัดส่งก่อนสั่ง";
   if (message.includes("invalid delivery location")) return "ตำแหน่งที่อยู่ไม่ถูกต้อง ลองปักหมุดใหม่";

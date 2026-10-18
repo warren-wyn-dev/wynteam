@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 const URL_BY_HOST: Record<string, string> = {
   "wynos.online": "https://wynos.online/",
   "www.wynos.online": "https://wynos.online/",
-  "food.wynos.online": "https://food.wynos.online/",
+  "zoky.wynos.online": "https://zoky.wynos.online/",
   "merchant.wynos.online": "https://merchant.wynos.online/",
   "maps.wynos.online": "https://maps.wynos.online/",
 };

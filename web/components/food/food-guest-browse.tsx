@@ -316,8 +316,8 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
           <header className="fx-header">
             <div className="fx-header-top">
               <div className="fx-brand">
-                <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
-                <span>WYNOS <b>Food</b></span>
+                <Image className="wf-brand-logo" src="/icons/zoky/icon-192-v1.png" width={32} height={32} alt="" />
+                <span>ZOKY</span>
               </div>
               <Link href="/food/login" className="fx-btn fx-btn--outline fx-btn--sm">เข้าสู่ระบบ</Link>
             </div>
@@ -337,7 +337,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
 
 
           {!query.trim() && homeBanners.length > 0 ? (
-            <div className="fx-home-banners" aria-label="แบนเนอร์ WYNOS Food">
+            <div className="fx-home-banners" aria-label="แบนเนอร์ ZOKY">
               {homeBanners.map((banner) => {
                 const target=banner.destination_store_id?stores?.find(x=>x.id===banner.destination_store_id):null;
                 const media=<>

@@ -22,31 +22,32 @@ test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   expect(layout).toContain("follow: true");
   expect(manifest).toContain('start_url: "/"');
   expect(manifest).toContain('scope: "/"');
-  expect(manifest).toContain('theme_color: "#e32636"');
-  expect(manifest).toContain('description: "WYNOS Food Public Beta"');
+  expect(manifest).toContain('theme_color: "#f93384"');
+  expect(manifest).toContain('description: "ZOKY สั่งอาหาร (Public Beta)"');
   const proxy = read("proxy.ts");
-  expect(proxy).toContain('new URL("https://food.wynos.online")');
-  expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*"]');
+  expect(proxy).toContain("new URL(FOOD_PRODUCTION_ORIGIN)");
+  expect(proxy).toContain('"/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*",');
 });
 
-test("WYNOS Food approved glossy pink-red shadow-free icon is static, consistent and cache-busted", () => {
+test("ZOKY approved icon is static, consistent and cache-busted", () => {
   const layout = read("app/food/layout.tsx");
   const manifest = read("app/food/manifest.ts");
   const publicManifest = read("public/food/manifest.webmanifest");
   const auth = read("components/food/food-auth.tsx");
   const app = read("components/food/wynos-food-developer-app.tsx");
 
-  expect(layout).toContain("/icons/food/icon-32-v12.png");
-  expect(layout).toContain("/icons/food/icon-192-v12.png");
-  expect(layout).toContain("/icons/food/icon-512-v12.png");
-  expect(layout).toContain("manifest.webmanifest?v=20261009-13");
-  expect(manifest).toContain("/icons/food/icon-192-v12.png");
-  expect(manifest).toContain("/icons/food/icon-512-v12.png");
-  expect(publicManifest).toContain("/icons/food/icon-192-v12.png");
-  expect(publicManifest).toContain("/icons/food/icon-512-v12.png");
-  expect(manifest).toContain("/icons/food/icon-512-maskable-v12.png");
-  expect(publicManifest).toContain("/icons/food/icon-512-maskable-v12.png");
-  expect(auth).toContain('src="/icons/food/icon-192-v12.png"');
+  expect(layout).toContain("/icons/zoky/icon-32-v1.png");
+  expect(layout).toContain("/icons/zoky/icon-192-v1.png");
+  expect(layout).toContain("/icons/zoky/icon-512-v1.png");
+  expect(layout).toContain("/icons/zoky/apple-touch-icon-180-v1.png");
+  expect(layout).toContain("manifest.webmanifest?v=20261018-zoky1");
+  expect(manifest).toContain("/icons/zoky/icon-192-v1.png");
+  expect(manifest).toContain("/icons/zoky/icon-512-v1.png");
+  expect(publicManifest).toContain("/icons/zoky/icon-192-v1.png");
+  expect(publicManifest).toContain("/icons/zoky/icon-512-v1.png");
+  expect(manifest).toContain("/icons/zoky/icon-512-maskable-v1.png");
+  expect(publicManifest).toContain("/icons/zoky/icon-512-maskable-v1.png");
+  expect(auth).toContain('src="/icons/zoky/icon-192-v1.png"');
   expect(app).toContain('className="wf-brand-logo"');
   for (const size of [32, 192, 512]) {
     const png = readFileSync(join(process.cwd(), `public/icons/food/icon-${size}-v12.png`));
@@ -150,17 +151,17 @@ test("WYNOS Food profile is delivery-specific and separate from Social profile",
   const app = read("components/food/wynos-food-developer-app.tsx");
   const data = read("lib/food-customer.ts");
 
-  expect(app).toContain("โปรไฟล์ WYNOS Food");
+  expect(app).toContain("โปรไฟล์ ZOKY");
   expect(app).toContain("ข้อมูลสำหรับการสั่งและจัดส่งอาหารเท่านั้น");
   expect(app).toContain("ชื่อผู้รับ");
   expect(app).toContain("เบอร์โทร");
   expect(app).toContain("ที่อยู่หลัก");
   expect(app).toContain("โลเคชั่น");
   expect(app).toContain("รายละเอียดเพิ่มเติม");
-  expect(app).toContain("ขายอาหารบน WYNOS Food");
+  expect(app).toContain("ขายอาหารบน ZOKY");
   expect(app).toContain("สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi");
   expect(app).toContain('href="https://lin.ee/SKQAOtm"');
-  expect(app).toContain("ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS");
+  expect(app).toContain("ข้อมูลนี้เป็นของ ZOKY เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS");
   expect(app).toContain("showPin={true}");
   expect(app).not.toContain('href="/profile/');
   expect(data).toContain('.from("food_customer_addresses")');
@@ -251,14 +252,14 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(overtureWorkflow).toContain("activate_confidence");
   expect(overtureImporter).toContain("source_ref");
   expect(overtureImporter).toContain("activate-confidence");
-  expect(map).toContain("สั่งอาหารได้ใน WYNOS Food");
+  expect(map).toContain("สั่งอาหารได้ใน ZOKY");
   expect(map).toContain("wf-map-food-action");
   expect(map).toContain("> สั่งอาหาร</a>");
-  expect(map).toContain("https://food.wynos.online/?store=");
+  expect(map).toContain("${FOOD_SITE_URL}/?store=");
   expect(app).toContain("sharedFoodStoreId(window.location.search)");
   expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
   expect(app).toContain("หมายเหตุถึงผู้จัดส่ง");
-  expect(app).toContain("WYNOS Place ·");
+  expect(app).toContain("สถานที่ ·");
   expect(app).toContain('const WYNOS_MAPS_PIN_STORAGE_KEY = "wynos:maps:last-pin";');
   expect(app).toContain("draftWithLastWynosMapsPin");
 });
@@ -270,7 +271,7 @@ test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
   expect(app).toContain('{ key: "messages", label: "ข้อความ"');
   expect(app).toContain("onClick={() => onTab(item.key)}");
   expect(app).toContain('tab === "messages" ? <MessagesPanel /> : null');
-  expect(app).toContain("แชท WYNOS Food แยกจากแชท WYNOS");
+  expect(app).toContain("แชท ZOKY แยกจากแชท WYNOS");
   expect(app).not.toContain('onMessages={() => router.push("/chat")}');
 });
 
@@ -502,7 +503,7 @@ test("WYN-211 WYNOS Food is open to everyone; ordering only in Maha Sarakham", (
   // Web (PR #1075): browsing is no longer GPS-gated; the server still rejects
   // out-of-area orders at checkout and the app shows the province message.
   expect(app).not.toContain('area !== "inside"');
-  expect(lib).toContain('if (message.includes("outside service area")) return "ตอนนี้ WYNOS Food ส่งได้เฉพาะในจังหวัดมหาสารคาม";');
+  expect(lib).toContain('if (message.includes("outside service area")) return "ตอนนี้ ZOKY ส่งได้เฉพาะในจังหวัดมหาสารคาม";');
   expect(panels).toContain('service_area: "ปักหมุดร้านในจังหวัดมหาสารคาม",');
   expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-211'");
 });
@@ -555,7 +556,7 @@ test("WYNOS Food storefront uses compact search and keeps favorite off the categ
   expect(app).toContain('aria-pressed={favorite}');
   expect(app).toContain('<Sheet title="ค้นหาเมนูอาหาร"');
   expect(app).not.toContain('>ร้านโปรด</button>');
-  expect(app).toContain('aria-label="กลับหน้าหลัก WYNOS Food" onClick={onBackStorefront}');
+  expect(app).toContain('aria-label="กลับหน้าหลัก ZOKY" onClick={onBackStorefront}');
   expect(app).toContain('className="fx-store-menu"');
   expect(app).toContain('loading="lazy" decoding="async"');
   expect(app).toContain('" has-cart-bar"');

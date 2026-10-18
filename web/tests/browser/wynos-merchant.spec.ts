@@ -636,7 +636,7 @@ test("WYN-206 WYNOS campaigns: Admin designs, stores join, hybrid funding is sho
   expect(page).toContain("`ทุกออเดอร์ที่ใช้แคมเปญนี้ WYNOS ออกส่วนลดให้ ${Number(confirming.platform_share_percent)}% ร้านออก ${100 - Number(confirming.platform_share_percent)}%`");
   expect(page).toContain("WYNOS จะโอนคืนร้าน");
   // Customers see the campaign on the store.
-  expect(food).toContain("{`แคมเปญ WYNOS · ${name}`}");
+  expect(food).toContain("{`แคมเปญ ZOKY · ${name}`}");
 });
 
 test("WYN-205 Wynos red leads on every Merchant page", () => {

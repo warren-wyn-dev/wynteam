@@ -145,7 +145,7 @@ test("Campaign pricing is server-authoritative, picks one best campaign and rele
   assert.doesNotMatch(campaignMigration, /food_create_manual_order/);
 
   assert.match(foodCustomer, /food_quote_order/);
-  assert.match(foodCustomerApp, /WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ/);
+  assert.match(foodCustomerApp, /ZOKY เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ/);
   assert.match(foodCustomerApp, /ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์/);
 });
 

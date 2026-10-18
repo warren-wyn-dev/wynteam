@@ -43,6 +43,7 @@ import {
   type MapsRecentPlace,
 } from "@/lib/maps-places";
 import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoutes, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
+import { FOOD_SITE_URL } from "@/lib/food-share";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -1950,7 +1951,7 @@ export function FoodDeliveryMapPicker({
                 ? "อยู่ในพื้นที่ให้บริการ"
                 : serviceAreaState === "outside"
                   ? "นอกพื้นที่ให้บริการ"
-                  : "พื้นที่ให้บริการ WYNOS Food"}
+                  : "พื้นที่ให้บริการ ZOKY"}
             </strong>
             <small>มหาสารคาม</small>
           </div>
@@ -2177,7 +2178,7 @@ export function FoodDeliveryMapPicker({
               {activeNearbyPlace.address ? <p>{activeNearbyPlace.address}</p> : null}
               {activeNearbyPlace.distanceKm != null ? <em>{activeNearbyPlace.distanceKm.toFixed(1)} กม. จากกลางแผนที่</em> : null}
               {activeNearbyPlace.merchantStoreId ? (
-                <span className="wf-map-food-badge"><Utensils size={13} /> สั่งอาหารได้ใน WYNOS Food</span>
+                <span className="wf-map-food-badge"><Utensils size={13} /> สั่งอาหารได้ใน ZOKY</span>
               ) : null}
               {activeNearbyPlace.merchantStoreId ? (
                 <div className="wf-map-place-delivery">
@@ -2275,7 +2276,7 @@ export function FoodDeliveryMapPicker({
                 </button>
               ) : null}
               {activeNearbyPlace.merchantStoreId ? (
-                <a className="wf-map-food-action" href={`https://food.wynos.online/?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}><Utensils size={15} /> สั่งอาหาร</a>
+                <a className="wf-map-food-action" href={`${FOOD_SITE_URL}/?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}><Utensils size={15} /> สั่งอาหาร</a>
               ) : null}
             </div>
           </article>
@@ -2286,7 +2287,7 @@ export function FoodDeliveryMapPicker({
             <MapPin size={18} />
             <div>
               <strong>นอกพื้นที่ให้บริการ</strong>
-              <span>ตอนนี้ WYNOS Food ให้บริการในจังหวัดมหาสารคาม</span>
+              <span>ตอนนี้ ZOKY ให้บริการในจังหวัดมหาสารคาม</span>
             </div>
           </div>
         ) : null}
