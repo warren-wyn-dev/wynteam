@@ -180,6 +180,19 @@ jobs:
       run:
         working-directory: web
     steps:
+      # Re-checked after the production review: a run can wait for approval
+      # for up to 30 days (CTO review R4/F4).
+      - name: Exception has not expired
+        working-directory: .
+        run: |
+          set -euo pipefail
+          today="$(date -u +%F)"
+          if [[ "$today" > "$ZOKY_EXCEPTION_EXPIRES_UTC" ]]; then
+            echo "::error::ZOKY freeze exception expired on $ZOKY_EXCEPTION_EXPIRES_UTC (today $today UTC). A new Founder decision and workflow PR are required."
+            exit 1
+          fi
+          echo "Exception valid until $ZOKY_EXCEPTION_EXPIRES_UTC (today $today UTC)."
+
       - name: Checkout pinned release commit
         uses: actions/checkout@v4
         with:
