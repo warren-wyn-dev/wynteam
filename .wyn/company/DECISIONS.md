@@ -2398,3 +2398,11 @@ Founder เลือก **"ก"** (ยกเว้นให้ ZOKY ไปก่
 - DevOps ต้องเทียบ commit ที่อยู่บน production กับสิ่งที่จะ deploy และยืนยันว่าไม่มีงานอื่นที่ยังไม่ผ่าน acceptance (เช่น Admin) ติดไปด้วย — ถ้ามี ต้องหยุดและรายงาน Founder
 - ห้ามปิด acceptance issues #1142–#1151 โดยไม่มีการตรวจจริง; กลไกข้อยกเว้นต้องจำกัดเฉพาะ release นี้ บันทึกไว้ตรวจสอบได้ และไม่ลด protection ของ `production` environment
 - แต่ละขั้น (edge functions, เปิด zoky ขั้น 1, เปิด redirect ขั้น 2) ยังต้องให้ Founder กดอนุมัติ production ตาม Founder Gate
+
+### [2026-10-18] ZOKY web — อนุมัติวิธีส่งเฉพาะ ZOKY (exception release workflow)
+
+DevOps (`zoky-web-release-plan.md` บน feat/zoky-web-rebrand) พบว่า `main` มีงานที่ยังไม่ผ่าน acceptance #1142 (PR #1133 แบนเนอร์หน้าแรก, PR #1135 ร้านแนะนำ) ถ้า deploy จาก main ผ่าน wyn-158 จะติดขึ้น production ไปด้วย
+Founder เลือก **"ส่งเฉพาะ ZOKY (แนะนำ)"** — อนุมัติ Option A:
+- branch `release/zoky-web-20261018` ตัดจาก commit ที่อยู่บน production (`b19687af`) + cherry-pick เฉพาะ commit ของ ZOKY (ไม่รวม #1133/#1135)
+- สร้าง workflow ใหม่ `zoky-web-exception-release.yml` (PR แยก แก้เฉพาะ workflow) ใช้ `environment: production` เดิมโดยไม่ลด protection, ตรวจ ancestor/ไม่มี #1133/#1135, จำกัด path เฉพาะ ZOKY, มีวันหมดอายุ, และ freeze-check ครอบคลุม
+- wyn-158 และ acceptance issues #1142–#1151 คงเดิม; ทุกการ deploy (edge functions, phase 1, phase 2) ยังต้องให้ Founder อนุมัติทีละครั้ง
