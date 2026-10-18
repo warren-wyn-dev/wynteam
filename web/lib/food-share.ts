@@ -1,8 +1,10 @@
-// Share links for WYNOS Food stores: a merchant or customer posts
-// https://food.wynos.online/?store=<id> to a group chat and whoever taps it
+// Share links for ZOKY (formerly WYNOS Food) stores: a merchant or customer posts
+// https://zoky.wynos.online/?store=<id> to a group chat and whoever taps it
 // opens that store's menu. Only a well-formed store id is ever read back;
 // the server still decides (RLS) whether the store is visible to the viewer.
-export const FOOD_SITE_URL = "https://food.wynos.online";
+import { FOOD_PRODUCTION_ORIGIN } from "./food-origin";
+
+export const FOOD_SITE_URL = FOOD_PRODUCTION_ORIGIN;
 
 const STORE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PENDING_KEY = "wynos-food-shared-store-v1";
@@ -20,7 +22,7 @@ export function isFoodShareCode(value: string): boolean {
 
 type ShareableStore = { id: string; share_code?: string | null };
 
-/** food.wynos.online/s/<code>; stores without a code yet keep ?store=<id>. */
+/** zoky.wynos.online/s/<code>; stores without a code yet keep ?store=<id>. */
 export function foodStoreShareUrl(store: ShareableStore): string {
   const code = store.share_code?.trim().toLowerCase() ?? "";
   if (isFoodShareCode(code)) return `${FOOD_SITE_URL}/s/${code}`;
@@ -29,8 +31,8 @@ export function foodStoreShareUrl(store: ShareableStore): string {
 
 export function foodStoreShareData(store: ShareableStore & { name: string }) {
   return {
-    title: `${store.name} | WYNOS Food`,
-    text: `สั่งอาหารร้าน ${store.name} ผ่าน WYNOS Food กดลิงก์นี้ได้เลย`,
+    title: `${store.name} | ZOKY`,
+    text: `สั่งอาหารร้าน ${store.name} ผ่าน ZOKY กดลิงก์นี้ได้เลย`,
     url: foodStoreShareUrl(store),
   };
 }
@@ -88,8 +90,8 @@ export function foodPublicFileUrl(supabaseUrl: string, path: string): string {
 export function foodStorePreviewContent(store: FoodStoreSharePreview, supabaseUrl: string) {
   const image = store.cover_path ?? store.logo_path;
   return {
-    title: `${store.name} | WYNOS Food`,
-    description: store.description ?? `สั่งอาหารร้าน ${store.name} ผ่าน WYNOS Food`,
+    title: `${store.name} | ZOKY`,
+    description: store.description ?? `สั่งอาหารร้าน ${store.name} ผ่าน ZOKY`,
     imageUrl: image ? foodPublicFileUrl(supabaseUrl, image) : null,
     largeImage: Boolean(store.cover_path),
   };

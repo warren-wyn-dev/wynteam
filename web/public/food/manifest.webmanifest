@@ -1,30 +1,30 @@
 {
   "id": "/",
-  "name": "WYNOS Food",
-  "short_name": "WYNOS Food",
-  "description": "WYNOS Food Public Beta",
+  "name": "ZOKY",
+  "short_name": "ZOKY",
+  "description": "ZOKY สั่งอาหาร (Public Beta)",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#e32636",
-  "theme_color": "#e32636",
+  "background_color": "#f93384",
+  "theme_color": "#f93384",
   "lang": "th",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/food/icon-192-v12.png",
+      "src": "/icons/zoky/icon-192-v1.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/food/icon-512-v12.png",
+      "src": "/icons/zoky/icon-512-v1.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/food/icon-512-maskable-v12.png",
+      "src": "/icons/zoky/icon-512-maskable-v1.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

@@ -44,14 +44,14 @@ test("Food Google login uses a dedicated exact callback and never falls into Soc
   const foodCallback = await read("app/food/auth/callback/page.tsx");
   const sharedCallback = await read("app/auth/callback/page.tsx");
 
-  assert.match(foodAuth, /FOOD_PRODUCTION_ORIGIN = "https:\/\/food\.wynos\.online"/);
+  assert.match(foodAuth, /foodAuthOriginFor\(window\.location\.hostname, window\.location\.origin\)/);
   assert.match(foodAuth, /redirectFoodAuthToCanonicalOrigin\("\/food\/login"\)/);
   assert.match(foodAuth, /new URL\("\/food\/auth\/callback", canonicalOrigin\)/);
   assert.doesNotMatch(foodAuth, /callback\.searchParams\.set\("next", "\/food"\)/);
   assert.match(foodAuth, /startGoogleOAuth\(client, callback\.href\)/);
   assert.match(foodAuth, /window\.location\.origin !== canonicalOrigin/);
   assert.match(foodAuth, /isLegacyInstalledFoodOrigin\(\)/);
-  assert.match(foodAuth, /เปิด WYNOS Food ที่ food\.wynos\.online/);
+  assert.match(foodAuth, /เปิด ZOKY ที่ zoky\.wynos\.online/);
   assert.match(foodAuth, /เข้าสู่ระบบด้วย Google/);
   assert.match(foodAuth, /GOOGLE_PWA_COMPLETED_CHANNEL/);
 
@@ -61,7 +61,7 @@ test("Food Google login uses a dedicated exact callback and never falls into Soc
   assert.doesNotMatch(foodCallback, /signup\/step-1/);
 
   assert.match(sharedCallback, /legacyFoodReturn = requestedNext === "\/food"/);
-  assert.match(sharedCallback, /window\.location\.replace\("https:\/\/food\.wynos\.online\/"\)/);
+  assert.match(sharedCallback, /window\.location\.replace\(`\$\{FOOD_PRODUCTION_ORIGIN\}\/`\)/);
 });
 
 test("Food password recovery returns to the Food login flow", async () => {
@@ -92,7 +92,7 @@ test("Food Home removes preview UI, promotes Social and hides the back button", 
   assert.match(source, /โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos\.online/);
   // Brand header only on the Home directory; inner pages use FoodPageHeader with a back button.
   assert.match(source, /\{tab === "home" && !storefrontOpen \? \(/);
-  assert.match(source, /aria-label="กลับหน้าหลัก WYNOS Food" onClick=\{onBackStorefront\}/);
+  assert.match(source, /aria-label="กลับหน้าหลัก ZOKY" onClick=\{onBackStorefront\}/);
   assert.match(source, /setStorefrontOpen\(false\)/);
   assert.match(css, /\.fx-header\s*\{/);
 });
@@ -102,10 +102,10 @@ test("Food Public Beta has no user-facing Developer Preview copy", async () => {
   const manifest = await read("app/food/manifest.ts");
   const staticManifest = await read("public/food/manifest.webmanifest");
   assert.doesNotMatch(source, /Developer Preview|ก่อนเริ่มทดสอบฝั่งลูกค้า/);
-  assert.match(source, /เพิ่ม WYNOS Food ไว้บนหน้าจอหลัก/);
-  assert.match(source, /เพื่อเริ่มขายบน WYNOS Food/);
-  assert.match(manifest, /description: "WYNOS Food Public Beta"/);
-  assert.match(staticManifest, /"description": "WYNOS Food Public Beta"/);
+  assert.match(source, /เพิ่ม ZOKY ไว้บนหน้าจอหลัก/);
+  assert.match(source, /เพื่อเริ่มขายบน ZOKY/);
+  assert.match(manifest, /description: "ZOKY สั่งอาหาร \(Public Beta\)"/);
+  assert.match(staticManifest, /"description": "ZOKY สั่งอาหาร \(Public Beta\)"/);
   assert.doesNotMatch(manifest + staticManifest, /Developer Preview/);
 });
 
@@ -114,7 +114,7 @@ test("Food reviews are verified, masked and use yellow five-star UI", async () =
   const data = await read("lib/food-customer.ts");
   const css = await read("app/food/food.css");
   const migration = await read("../supabase/migrations_wynos_food_store_reviews_v1.sql");
-  assert.match(source, /สั่งจริงกับ WYNOS Food/);
+  assert.match(source, /สั่งจริงกับ ZOKY/);
   assert.match(source, /อาหารเป็นอย่างไรบ้าง\?/);
   assert.match(source, /FOOD_REVIEW_TAGS/);
   assert.match(source, /submitFoodStoreReview/);
@@ -190,15 +190,15 @@ test("Food iOS launch has no white flash and the status bar matches the splash",
   const layout = await read("app/food/layout.tsx");
   // iOS ignores the manifest background; it needs apple-touch-startup-image per screen size.
   assert.match(layout, /startupImage: FOOD_IOS_LAUNCH_IMAGES/);
-  assert.match(layout, /\/icons\/food\/splash\/launch-\$\{width \* ratio\}x\$\{height \* ratio\}\.png\?v=\$\{FOOD_IOS_LAUNCH_VERSION\}/);
-  assert.match(layout, /const FOOD_IOS_LAUNCH_VERSION = 2;/);
+  assert.match(layout, /\/icons\/zoky\/splash\/launch-\$\{width \* ratio\}x\$\{height \* ratio\}\.png\?v=\$\{FOOD_IOS_LAUNCH_VERSION\}/);
+  assert.match(layout, /const FOOD_IOS_LAUNCH_VERSION = 1;/);
   for (const size of ["1290x2796", "1179x2556", "1170x2532", "1080x2340", "750x1334", "2048x2732", "1668x2388", "1640x2360", "1620x2160", "1488x2266"]) {
-    assert.ok(existsSync(new URL(`../public/icons/food/splash/launch-${size}.png`, import.meta.url)), `missing launch image ${size}`);
+    assert.ok(existsSync(new URL(`../public/icons/zoky/splash/launch-${size}.png`, import.meta.url)), `missing launch image ${size}`);
   }
   // Temporary pink theme-color while the splash shows, removed when it fades.
-  assert.match(layout, /m\.content='#ff7aa6'/);
+  assert.match(layout, /m\.content='#f93384'/);
   // iOS 26 colours the status bar from the fixed splash's background-color, so it must be the top pink.
-  assert.match(await read("app/food/food-app.css"), /background-color: #ff7aa6;/);
+  assert.match(await read("app/food/food-app.css"), /background-color: #f93384;/);
   assert.match(layout, /\[360, 780, 3\]/); // iPhone 12/13 mini
   assert.match(layout, /\[1024, 1366, 2\], \[834, 1194, 2\], \[820, 1180, 2\], \[810, 1080, 2\], \[744, 1133, 2\]/); // iPad
   assert.match(layout, /document\.head\.prepend\(m\)/);

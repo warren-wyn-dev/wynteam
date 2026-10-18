@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { FOOD_LEGACY_HOST, FOOD_PRODUCTION_HOST, FOOD_PRODUCTION_ORIGIN } from "@/lib/food-origin";
+
 const ROOT_DESTINATION_BY_HOST: Record<string, string> = {
-  "food.wynos.online": "/food",
+  [FOOD_PRODUCTION_HOST]: "/food",
   "merchant.wynos.online": "/merchant",
 };
 
@@ -12,27 +14,39 @@ const ROOT_REDIRECT_BY_HOST: Record<string, string> = {
   "maps.wynos.online": "https://wynos.online/maps",
 };
 
+// ZOKY-114: WYNOS Food moved to ZOKY (zoky.wynos.online). Temporary (307)
+// until the cutover is verified; then the Founder decides on 308 (ZOKY-100 Q2).
+const FOOD_MOVE_STATUS = 307;
+
+function redirectToFood(pathname: string, search: string) {
+  const target = new URL(FOOD_PRODUCTION_ORIGIN);
+  target.pathname = pathname;
+  target.search = search;
+  return NextResponse.redirect(target, FOOD_MOVE_STATUS);
+}
+
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0].toLowerCase() ?? "";
+  const { pathname, search } = request.nextUrl;
+
+  // Every bookmark, shared link, QR poster and auth/Stripe return on the old
+  // Food host keeps working: same path and query on ZOKY.
+  if (host === FOOD_LEGACY_HOST) return redirectToFood(pathname, search);
 
   // Food is a dedicated product origin. Keeping /food on wynos.online would
   // make the Food PWA's root scope claim the Social origin too, and shared
   // deep links could escape standalone mode. Send Social-origin Food routes
   // to the dedicated Food origin before any route rendering.
   if ((host === "wynos.online" || host === "www.wynos.online") &&
-      (request.nextUrl.pathname === "/food" || request.nextUrl.pathname.startsWith("/food/"))) {
-    const target = new URL("https://food.wynos.online");
-    target.pathname = request.nextUrl.pathname === "/food" ? "/" : request.nextUrl.pathname;
-    target.search = request.nextUrl.search;
-    return NextResponse.redirect(target, 307);
+      (pathname === "/food" || pathname.startsWith("/food/"))) {
+    return redirectToFood(pathname === "/food" ? "/" : pathname, search);
   }
 
   // On the Food origin, the shared WYNOS auth URLs open Food's own auth pages
-  // so a typed or bookmarked food.wynos.online/login never lands on Social.
-  if (host === "food.wynos.online") {
-    const path = request.nextUrl.pathname;
-    const foodAuth = path === "/login" ? "/food/login"
-      : path === "/signup" || path.startsWith("/signup/") ? "/food/signup"
+  // so a typed or bookmarked zoky.wynos.online/login never lands on Social.
+  if (host === FOOD_PRODUCTION_HOST) {
+    const foodAuth = pathname === "/login" ? "/food/login"
+      : pathname === "/signup" || pathname.startsWith("/signup/") ? "/food/signup"
       : null;
     if (foodAuth) {
       const target = request.nextUrl.clone();
@@ -41,12 +55,12 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  if (request.nextUrl.pathname !== "/") return NextResponse.next();
+  if (pathname !== "/") return NextResponse.next();
 
   const redirectTo = ROOT_REDIRECT_BY_HOST[host];
   if (redirectTo) {
     const target = new URL(redirectTo);
-    target.search = request.nextUrl.search;
+    target.search = search;
     return NextResponse.redirect(target, 307);
   }
 
@@ -59,5 +73,10 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*"],
+  matcher: [
+    "/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*",
+    // Every page on the old Food host (build assets and API calls from tabs
+    // that are already open stay where they are).
+    { source: "/((?!_next/|api/).*)", has: [{ type: "host", value: "food.wynos.online" }] },
+  ],
 };

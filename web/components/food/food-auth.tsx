@@ -16,14 +16,15 @@ import {
 } from "@/lib/auth-repository";
 import { registerCurrentAccount } from "@/lib/account-registry";
 import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_TIMEOUT_MS, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
+import { FOOD_PRODUCTION_ORIGIN, foodAuthOriginFor } from "@/lib/food-origin";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 
 function FoodAuthBrand() {
   return (
-    <div className="wf-auth-brand" aria-label="WYNOS Food">
-      <span className="wf-auth-mark"><Image src="/icons/food/icon-192-v12.png" width={48} height={48} alt="" /></span>
-      <span><strong>WYNOS</strong><b>Food</b></span>
+    <div className="wf-auth-brand" aria-label="ZOKY">
+      <span className="wf-auth-mark"><Image src="/icons/zoky/icon-192-v1.png" width={48} height={48} alt="" /></span>
+      <span><strong>ZOKY</strong></span>
     </div>
   );
 }
@@ -40,15 +41,9 @@ function FoodAuthLoading() {
   );
 }
 
-const FOOD_PRODUCTION_ORIGIN = "https://food.wynos.online";
-
 function foodAuthOrigin(): string {
   if (typeof window === "undefined") return FOOD_PRODUCTION_ORIGIN;
-  const host = window.location.hostname.toLowerCase();
-  if (host === "wynos.online" || host === "www.wynos.online" || host === "food.wynos.online") {
-    return FOOD_PRODUCTION_ORIGIN;
-  }
-  return window.location.origin;
+  return foodAuthOriginFor(window.location.hostname, window.location.origin);
 }
 
 function isInstalledWebApp(): boolean {
@@ -233,7 +228,7 @@ export function FoodLoginScreen() {
 
   async function google() {
     if (!client || loading || googleLoading) {
-      if (!client) setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS Food");
+      if (!client) setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ ZOKY");
       return;
     }
     const canonicalOrigin = foodAuthOrigin();
@@ -292,7 +287,7 @@ export function FoodLoginScreen() {
       return;
     }
     if (!client) {
-      setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS Food");
+      setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ ZOKY");
       return;
     }
 
@@ -312,7 +307,7 @@ export function FoodLoginScreen() {
   }
 
   if (!hasSupabaseBrowserConfig()) {
-    return <FoodAuthShell><div className="wf-auth-state"><FoodAuthBrand /><h1>ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h1><p>WYNOS Food ยังเชื่อมต่อระบบบัญชีไม่ได้</p></div></FoodAuthShell>;
+    return <FoodAuthShell><div className="wf-auth-state"><FoodAuthBrand /><h1>ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h1><p>ZOKY ยังเชื่อมต่อระบบบัญชีไม่ได้</p></div></FoodAuthShell>;
   }
   if (checking) return <FoodAuthLoading />;
   if (legacyInstalledOrigin) {
@@ -320,10 +315,10 @@ export function FoodLoginScreen() {
       <FoodAuthShell>
         <FoodAuthBrand />
         <div className="wf-auth-state">
-          <h1>ต้องเปิด WYNOS Food เวอร์ชันใหม่</h1>
+          <h1>ต้องเปิด ZOKY เวอร์ชันใหม่</h1>
           <p>ไอคอนบนหน้าจอหลักนี้ยังเป็น WYNOS Food รุ่นเก่าที่ติดตั้งจาก wynos.online จึงใช้เซสชันเดียวกับ Social และทำให้ Google พากลับไปผิดแอป</p>
-          <a className="wf-auth-primary wf-auth-link" href="https://food.wynos.online/food/login">เปิด WYNOS Food ที่ food.wynos.online</a>
-          <p>เมื่อเปิดใน Safari แล้ว ให้เพิ่ม WYNOS Food ลงหน้าจอหลักใหม่เพื่อให้ล็อกอินและเซสชันอยู่บนโดเมน Food โดยตรง</p>
+          <a className="wf-auth-primary wf-auth-link" href={`${FOOD_PRODUCTION_ORIGIN}/food/login`}>เปิด ZOKY ที่ zoky.wynos.online</a>
+          <p>เมื่อเปิดใน Safari แล้ว ให้เพิ่ม ZOKY ลงหน้าจอหลักใหม่เพื่อให้ล็อกอินและเซสชันอยู่บนโดเมน ZOKY โดยตรง</p>
         </div>
       </FoodAuthShell>
     );
@@ -333,7 +328,7 @@ export function FoodLoginScreen() {
     <FoodAuthShell>
       <FoodAuthBrand />
       <div className="wf-auth-hero">
-        <h1>เข้าสู่ระบบ WYNOS Food</h1>
+        <h1>เข้าสู่ระบบ ZOKY</h1>
         <p>สั่งอาหารและติดตามออเดอร์ด้วย WYNOS Account ของคุณ</p>
       </div>
       <button className="wf-auth-google" type="button" disabled={loading || googleLoading} onClick={() => void google()}>
@@ -348,7 +343,7 @@ export function FoodLoginScreen() {
         {message ? <p className="wf-auth-error" role="alert">{message}</p> : null}
         <button className="wf-auth-primary" type="button" disabled={loading || googleLoading} onClick={() => void submit()}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
       </div>
-      <p className="wf-auth-switch">ยังไม่มีบัญชี? <Link href="/food/signup">สมัคร WYNOS Food</Link></p>
+      <p className="wf-auth-switch">ยังไม่มีบัญชี? <Link href="/food/signup">สมัคร ZOKY</Link></p>
       <div className="wf-auth-note">
         <Check size={17} />
         <p><strong>ใช้ Food อย่างเดียวได้</strong><span>ไม่จำเป็นต้องมี username, โพสต์ หรือโปรไฟล์ Social</span></p>
@@ -402,7 +397,7 @@ export function FoodSignupScreen() {
       return;
     }
     if (!client) {
-      setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS Food");
+      setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ ZOKY");
       return;
     }
 
@@ -423,7 +418,7 @@ export function FoodSignupScreen() {
       } else if (error instanceof EmailAlreadyRegisteredError) {
         setMessage("อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบแทน");
       } else {
-        setMessage("สมัคร WYNOS Food ไม่สำเร็จ กรุณาลองใหม่");
+        setMessage("สมัคร ZOKY ไม่สำเร็จ กรุณาลองใหม่");
       }
     } finally {
       setLoading(false);
@@ -431,7 +426,7 @@ export function FoodSignupScreen() {
   }
 
   if (!hasSupabaseBrowserConfig()) {
-    return <FoodAuthShell><div className="wf-auth-state"><FoodAuthBrand /><h1>ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h1><p>WYNOS Food ยังเชื่อมต่อระบบบัญชีไม่ได้</p></div></FoodAuthShell>;
+    return <FoodAuthShell><div className="wf-auth-state"><FoodAuthBrand /><h1>ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h1><p>ZOKY ยังเชื่อมต่อระบบบัญชีไม่ได้</p></div></FoodAuthShell>;
   }
   if (checking) return <FoodAuthLoading />;
 
@@ -442,7 +437,7 @@ export function FoodSignupScreen() {
         <div className="wf-auth-confirm">
           <span><Mail size={27} /></span>
           <h1>ตรวจสอบอีเมลของคุณ</h1>
-          <p>เราได้ส่งลิงก์ยืนยันไปที่ <strong>{awaitingConfirmation}</strong> แล้ว กดลิงก์เพื่อยืนยันบัญชีและกลับเข้า WYNOS Food</p>
+          <p>เราได้ส่งลิงก์ยืนยันไปที่ <strong>{awaitingConfirmation}</strong> แล้ว กดลิงก์เพื่อยืนยันบัญชีและกลับเข้า ZOKY</p>
           <Link className="wf-auth-primary wf-auth-link" href="/food/login">ไปหน้าเข้าสู่ระบบ</Link>
         </div>
       </FoodAuthShell>
@@ -453,7 +448,7 @@ export function FoodSignupScreen() {
     <FoodAuthShell>
       <FoodAuthBrand />
       <div className="wf-auth-hero">
-        <h1>สมัคร WYNOS Food</h1>
+        <h1>สมัคร ZOKY</h1>
         <p>สร้าง WYNOS Account เพื่อสั่งอาหารได้เลย โดยไม่ต้องเปิดใช้ Social</p>
       </div>
       <div className="wf-auth-benefits">
@@ -466,7 +461,7 @@ export function FoodSignupScreen() {
         <label><span><LockKeyhole size={16} /> รหัสผ่าน</span><input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} /></label>
         <label><span><LockKeyhole size={16} /> ยืนยันรหัสผ่าน</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="พิมพ์รหัสผ่านอีกครั้ง" /></label>
         {message ? <p className="wf-auth-error" role="alert">{message}</p> : null}
-        <button className="wf-auth-primary" type="button" disabled={loading} onClick={() => void submit()}>{loading ? "กำลังสร้างบัญชี…" : "สมัคร WYNOS Food"}</button>
+        <button className="wf-auth-primary" type="button" disabled={loading} onClick={() => void submit()}>{loading ? "กำลังสร้างบัญชี…" : "สมัคร ZOKY"}</button>
       </div>
       <p className="wf-auth-switch">มี WYNOS Account อยู่แล้ว? <Link href="/food/login">เข้าสู่ระบบ</Link></p>
       <p className="wf-auth-terms">การสร้างบัญชีถือว่ายอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวของ WYNOS</p>

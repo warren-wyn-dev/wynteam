@@ -1,20 +1,20 @@
 import type { MetadataRoute } from "next";
 
-const FOOD_ICON_192 = "/icons/food/icon-192-v12.png";
-const FOOD_ICON_512 = "/icons/food/icon-512-v12.png";
-const FOOD_ICON_MASKABLE_512 = "/icons/food/icon-512-maskable-v12.png";
+const FOOD_ICON_192 = "/icons/zoky/icon-192-v1.png";
+const FOOD_ICON_512 = "/icons/zoky/icon-512-v1.png";
+const FOOD_ICON_MASKABLE_512 = "/icons/zoky/icon-512-maskable-v1.png";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "WYNOS Food",
-    short_name: "WYNOS Food",
-    description: "WYNOS Food Public Beta",
+    name: "ZOKY",
+    short_name: "ZOKY",
+    description: "ZOKY สั่งอาหาร (Public Beta)",
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#e32636",
-    theme_color: "#e32636",
+    background_color: "#f93384",
+    theme_color: "#f93384",
     lang: "th",
     orientation: "portrait",
     icons: [

@@ -7,6 +7,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { announceGooglePwaCode, announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 import { isSafeReturnPath } from "@/lib/return-to";
+import { FOOD_PRODUCTION_ORIGIN } from "@/lib/food-origin";
 
 /**
  * Email confirmation and installed-iOS Google popup both exchange their
@@ -92,12 +93,12 @@ export default function EmailConfirmationCallbackPage() {
               window.setTimeout(() => {
                 try { window.close(); } catch { /* iOS may keep the popup open. */ }
                 window.setTimeout(() => {
-                  if (!window.closed) window.location.replace("https://food.wynos.online/");
+                  if (!window.closed) window.location.replace(`${FOOD_PRODUCTION_ORIGIN}/`);
                 }, 250);
               }, 250);
               return;
             }
-            window.location.replace("https://food.wynos.online/");
+            window.location.replace(`${FOOD_PRODUCTION_ORIGIN}/`);
             return;
           }
           // A script-opened window may close itself; if iOS declines, the
@@ -116,7 +117,7 @@ export default function EmailConfirmationCallbackPage() {
           ? requestedNext
           : "/signup/step-1";
         if (destination === "/food") {
-          window.location.replace("https://food.wynos.online/");
+          window.location.replace(`${FOOD_PRODUCTION_ORIGIN}/`);
           return;
         }
         router.replace(destination);

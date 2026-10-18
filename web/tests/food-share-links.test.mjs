@@ -1,4 +1,4 @@
-// WYNOS Food store share links: food.wynos.online/?store=<id> opens that store,
+// ZOKY (Food) store share links: zoky.wynos.online/?store=<id> opens that store,
 // survives the sign-in wall once, and never trusts a malformed id.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -16,25 +16,31 @@ function load(now = () => 1_000_000) {
     sessionStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) },
     localStorage: { getItem: (k) => local.get(k) ?? null, setItem: (k, v) => local.set(k, String(v)), removeItem: (k) => local.delete(k) },
   };
-  const out = ts.transpileModule(read("../lib/food-share.ts"), {
+  const transpile = (path) => ts.transpileModule(read(path), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
+  const origin = { exports: {} };
+  runInNewContext(transpile("../lib/food-origin.ts"), { module: origin, exports: origin.exports, Set, URL });
   const mod = { exports: {} };
-  runInNewContext(out, { module: mod, exports: mod.exports, window, JSON, URLSearchParams, encodeURIComponent, Boolean, Date: { now } });
+  const require = (name) => {
+    if (name === "./food-origin") return origin.exports;
+    throw new Error(`unexpected import ${name}`);
+  };
+  runInNewContext(transpile("../lib/food-share.ts"), { module: mod, exports: mod.exports, require, window, JSON, URLSearchParams, encodeURIComponent, Boolean, Date: { now } });
   return { ...mod.exports, store, local };
 }
 
 test("share link is the short /s/<code> link, or ?store=<id> before a store has a code", () => {
   const { foodStoreShareUrl, foodStoreShareData, isFoodShareCode } = load();
-  assert.equal(foodStoreShareUrl({ id: STORE, share_code: "k7m2qx" }), "https://food.wynos.online/s/k7m2qx");
-  assert.equal(foodStoreShareUrl({ id: STORE, share_code: " K7M2QX " }), "https://food.wynos.online/s/k7m2qx");
-  assert.equal(foodStoreShareUrl({ id: STORE }), `https://food.wynos.online/?store=${STORE}`);
-  assert.equal(foodStoreShareUrl({ id: STORE, share_code: "../x" }), `https://food.wynos.online/?store=${STORE}`);
+  assert.equal(foodStoreShareUrl({ id: STORE, share_code: "k7m2qx" }), "https://zoky.wynos.online/s/k7m2qx");
+  assert.equal(foodStoreShareUrl({ id: STORE, share_code: " K7M2QX " }), "https://zoky.wynos.online/s/k7m2qx");
+  assert.equal(foodStoreShareUrl({ id: STORE }), `https://zoky.wynos.online/?store=${STORE}`);
+  assert.equal(foodStoreShareUrl({ id: STORE, share_code: "../x" }), `https://zoky.wynos.online/?store=${STORE}`);
   for (const bad of ["", "k7m2q", "k7m2qxx", "k7m2q0", "k7m2ql", "k7m2qi", "k7m2qo", "k7m2q/"]) assert.equal(isFoodShareCode(bad), false, bad);
   const data = foodStoreShareData({ id: STORE, name: "ข้าวมันไก่ป้าแดง", share_code: "k7m2qx" });
-  assert.equal(data.url, "https://food.wynos.online/s/k7m2qx");
+  assert.equal(data.url, "https://zoky.wynos.online/s/k7m2qx");
   assert.match(data.text, /ข้าวมันไก่ป้าแดง/);
-  assert.match(data.title, /WYNOS Food/);
+  assert.match(data.title, /ZOKY/);
 });
 
 test("only a well-formed store id is read from the link", () => {
@@ -80,7 +86,7 @@ test("link preview uses the store's name, description and cover from the public 
   const supa = "https://abc.supabase.co/";
   assert.equal(foodPublicFileUrl(supa, "stores/a b/cover.jpg"), "https://abc.supabase.co/storage/v1/object/public/food-public/stores/a%20b/cover.jpg");
   const withCover = foodStorePreviewContent({ ...base, description: "ส้มตำ", logo_path: "l.png", cover_path: "c.jpg" }, supa);
-  assert.equal(withCover.title, "มะละป๊อกป๊อก | WYNOS Food");
+  assert.equal(withCover.title, "มะละป๊อกป๊อก | ZOKY");
   assert.equal(withCover.description, "ส้มตำ");
   assert.match(withCover.imageUrl, /food-public\/c\.jpg$/);
   assert.equal(withCover.largeImage, true);
@@ -103,7 +109,7 @@ test("share preview reads only the public RPC with the publishable key", () => {
   assert.match(preview, /!isFoodShareCode\(code\)\) return null;/);
   assert.match(route, /const normalized = code\.trim\(\)\.toLowerCase\(\);\s*const storeId = await resolveFoodShareCode\(normalized\);/);
   assert.match(route, /if \(storeId\) target\.searchParams\.set\("store", storeId\);/);
-  assert.match(config, /source: "\/s\/:code", has: \[\{ type: "host", value: "food\.wynos\.online" \}\], destination: "\/food\/s\/:code"/);
+  assert.match(config, /source: "\/s\/:code", has: \[\{ type: "host", value: "zoky\.wynos\.online" \}\], destination: "\/food\/s\/:code"/);
   assert.match(preview, /rest\/v1\/rpc\/food_store_share_preview/);
   assert.match(preview, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(preview, /SERVICE_ROLE/i);

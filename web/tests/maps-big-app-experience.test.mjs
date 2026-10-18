@@ -27,7 +27,7 @@ test("Maps requests and renders route alternatives without changing quota-safe m
   assert.ok(map.includes("คำนวณใหม่"));
 });
 
-test("Maps has full-screen navigation camera and WYNOS Food place integration", () => {
+test("Maps has full-screen navigation camera and ZOKY (Food) place integration", () => {
   const map = read("../components/food/food-delivery-map-picker.tsx");
   const css = read("../app/maps/maps-v4.css");
   assert.ok(map.includes("position.coords.heading"));
@@ -35,7 +35,7 @@ test("Maps has full-screen navigation camera and WYNOS Food place integration", 
   assert.ok(map.includes("wf-map-navigation-top"));
   assert.ok(map.includes("wf-map-navigation-bottom"));
   assert.ok(css.includes(".wf-map-picker.is-navigating"));
-  assert.ok(map.includes("สั่งอาหารได้ใน WYNOS Food"));
+  assert.ok(map.includes("สั่งอาหารได้ใน ZOKY"));
   assert.ok(map.includes("wf-map-food-action"));
   assert.ok(map.includes("is-verified"));
   assert.ok(map.includes("is-merchant"));

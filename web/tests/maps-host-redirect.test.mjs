@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 const proxy = readFileSync(new URL("../proxy.ts", import.meta.url), "utf8");
 
@@ -10,16 +12,66 @@ test("maps.wynos.online root redirects to signed-in WYNOS Maps on wynos.online",
   assert.doesNotMatch(proxy, /"maps\.wynos\.online": "\/maps"/);
 });
 
-test("food and merchant subdomains keep their root rewrites", () => {
-  assert.match(proxy, /"food\.wynos\.online": "\/food"/);
-  assert.match(proxy, /"merchant\.wynos\.online": "\/merchant"/);
+// ZOKY-114: run proxy.ts against a minimal NextResponse/NextRequest stand-in.
+function loadProxy() {
+  const transpile = (path) => ts.transpileModule(readFileSync(new URL(path, import.meta.url), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const origin = { exports: {} };
+  runInNewContext(transpile("../lib/food-origin.ts"), { module: origin, exports: origin.exports, Set, URL });
+  const NextResponse = {
+    next: () => ({ kind: "next" }),
+    redirect: (url, status) => ({ kind: "redirect", url: String(url), status }),
+    rewrite: (url) => ({ kind: "rewrite", url: String(url) }),
+  };
+  const modules = { "next/server": { NextResponse }, "@/lib/food-origin": origin.exports };
+  const mod = { exports: {} };
+  runInNewContext(transpile("../proxy.ts"), { module: mod, exports: mod.exports, URL, require: (name) => modules[name] });
+  return mod.exports;
+}
+
+function run(href) {
+  const { proxy } = loadProxy();
+  const url = new URL(href);
+  const nextUrl = Object.assign(new URL(url), { clone: () => new URL(url) });
+  return proxy({ headers: { get: (key) => (key === "host" ? url.host : null) }, nextUrl });
+}
+
+test("zoky.wynos.online serves the Food (ZOKY) app at its root and keeps deep links", () => {
+  assert.deepEqual(run("https://zoky.wynos.online/"), { kind: "rewrite", url: "https://zoky.wynos.online/food" });
+  assert.deepEqual(run("https://zoky.wynos.online/?store=3f2b8c1a-9d4e-4a6b-8c2d-1e5f7a9b0c3d"), {
+    kind: "rewrite", url: "https://zoky.wynos.online/food?store=3f2b8c1a-9d4e-4a6b-8c2d-1e5f7a9b0c3d",
+  });
+  assert.deepEqual(run("https://zoky.wynos.online/food/auth/callback?code=abc"), { kind: "next" });
+  assert.deepEqual(run("https://merchant.wynos.online/"), { kind: "rewrite", url: "https://merchant.wynos.online/merchant" });
 });
 
-test("food.wynos.online/login and /signup open Food's own auth pages, only on the Food host", () => {
-  assert.match(proxy, /if \(host === "food\.wynos\.online"\) \{/);
-  assert.match(proxy, /path === "\/login" \? "\/food\/login"/);
-  assert.match(proxy, /path === "\/signup" \|\| path\.startsWith\("\/signup\/"\) \? "\/food\/signup"/);
-  assert.match(proxy, /matcher: \["\/", "\/food", "\/food\/:path\*", "\/login", "\/signup", "\/signup\/:path\*"\]/);
+test("zoky.wynos.online/login and /signup open Food's own auth pages, only on the Food host", () => {
+  assert.deepEqual(run("https://zoky.wynos.online/login?x=1"), { kind: "redirect", url: "https://zoky.wynos.online/food/login?x=1", status: 307 });
+  assert.deepEqual(run("https://zoky.wynos.online/signup/step-1"), { kind: "redirect", url: "https://zoky.wynos.online/food/signup", status: 307 });
+  assert.deepEqual(run("https://wynos.online/login"), { kind: "next" });
+});
+
+test("every food.wynos.online URL moves to zoky.wynos.online with the same path and query (307)", () => {
+  for (const path of [
+    "/", "/s/k7m2qx", "/?store=3f2b8c1a-9d4e-4a6b-8c2d-1e5f7a9b0c3d", "/?order=WF0001", "/?promo=CODE",
+    "/food/login", "/food/signup", "/food/auth/callback?code=abc", "/?order=WF0001&stripe=success",
+  ]) {
+    assert.deepEqual(run(`https://food.wynos.online${path}`), { kind: "redirect", url: `https://zoky.wynos.online${path}`, status: 307 }, path);
+  }
+});
+
+test("wynos.online/food* moves to zoky.wynos.online, /food itself to the root", () => {
+  assert.deepEqual(run("https://wynos.online/food?promo=CODE"), { kind: "redirect", url: "https://zoky.wynos.online/?promo=CODE", status: 307 });
+  assert.deepEqual(run("https://www.wynos.online/food/login"), { kind: "redirect", url: "https://zoky.wynos.online/food/login", status: 307 });
+  assert.deepEqual(run("https://wynos.online/"), { kind: "next" });
+  assert.deepEqual(run("https://wynos.online/foodie"), { kind: "next" });
+});
+
+test("proxy runs on every page of the old Food host but not on build assets or API calls", () => {
+  assert.match(proxy, /matcher: \[\s*"\/", "\/food", "\/food\/:path\*", "\/login", "\/signup", "\/signup\/:path\*",/);
+  assert.match(proxy, /\{ source: "\/\(\(\?!_next\/\|api\/\)\.\*\)", has: \[\{ type: "host", value: "food\.wynos\.online" \}\] \}/);
+  assert.doesNotMatch(proxy, /zoky\.online/);
 });
 
 test("Maps markers keep MapLibre's absolute positioning", () => {

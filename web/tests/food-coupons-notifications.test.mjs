@@ -29,7 +29,7 @@ test("Food coupon is opt-in, server-priced and atomic; old orders unchanged", ()
   assert.match(food, /client\.rpc\("food_create_order", params\)/);
   assert.match(food, /client\.rpc\("food_create_scheduled_order_v2"/);
   assert.match(food, /client\.rpc\("food_create_scheduled_order"/);
-  assert.match(checkout, /โค้ดส่วนลด WYNOS Food/);
+  assert.match(checkout, /โค้ดส่วนลด ZOKY/);
   assert.match(stripe, /Number\(order\.total\)/);
 });
 test("Food marketing does not share Social or Merchant tokens", () => {
@@ -42,7 +42,7 @@ test("Food marketing does not share Social or Merchant tokens", () => {
   assert.match(inbox, /push_marketing/);
   assert.match(inbox, /in_app_marketing/);
   assert.match(worker, /data\?\.type === "food_promotion"/);
-  assert.match(worker, /icons\/food\/icon-192-v12\.png/);
+  assert.match(worker, /icons\/zoky\/icon-192-v1\.png/);
 });
 test("Admin can schedule or cancel a Food promo; server rechecks role", () => {
   assert.match(campaign, /Only admins can send Food promotions/);

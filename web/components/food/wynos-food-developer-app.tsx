@@ -250,10 +250,10 @@ function itemFor(menu: FoodCustomerMenuItem[], id: string) {
 
 function FoodLoading() {
   return (
-    <main className="wyn-food fx-app fx-loading" aria-busy="true" aria-label="กำลังโหลด WYNOS Food">
+    <main className="wyn-food fx-app fx-loading" aria-busy="true" aria-label="กำลังโหลด ZOKY">
       <div className="fx-brand fx-loading-brand">
-        <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
-        <span>WYNOS <b>Food</b></span>
+        <Image className="wf-brand-logo" src="/icons/zoky/icon-192-v1.png" width={32} height={32} alt="" />
+        <span>ZOKY</span>
       </div>
       <div className="fx-skel fx-skel--line" style={{ width: 180 }} />
       <div className="fx-skel fx-skel--pill" />
@@ -301,11 +301,11 @@ function FoodDenied() {
     <main className="wyn-food fx-app fx-app--bare">
       <FoodStateScreen
         icon={<UtensilsCrossed size={46} strokeWidth={1.6} />}
-        title="ยังเข้าใช้ WYNOS Food ไม่ได้"
-        action={<Link className="fx-btn fx-btn--primary" href="/food/login">เข้าสู่ระบบ WYNOS Food</Link>}
+        title="ยังเข้าใช้ ZOKY ไม่ได้"
+        action={<Link className="fx-btn fx-btn--primary" href="/food/login">เข้าสู่ระบบ ZOKY</Link>}
         secondary={<a className="fx-link-muted" href="https://wynos.online/">กลับ WYNOS</a>}
       >
-        <p>บัญชีนี้ยังไม่ผ่านเงื่อนไขการใช้งาน WYNOS Food หรือเซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง</p>
+        <p>บัญชีนี้ยังไม่ผ่านเงื่อนไขการใช้งาน ZOKY หรือเซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง</p>
       </FoodStateScreen>
     </main>
   );
@@ -319,7 +319,7 @@ function FoodLoadError({ message, onRetry }: { message: string; onRetry: () => v
       <FoodStateScreen
         role="alert"
         icon={offline ? <WifiOff size={46} strokeWidth={1.6} /> : <CircleAlert size={46} strokeWidth={1.6} />}
-        title={offline ? "เชื่อมต่อไม่ได้" : "โหลด WYNOS Food ไม่สำเร็จ"}
+        title={offline ? "เชื่อมต่อไม่ได้" : "โหลด ZOKY ไม่สำเร็จ"}
         action={<button className="fx-btn fx-btn--primary" type="button" onClick={onRetry}><RefreshCw size={18} />ลองอีกครั้ง</button>}
         secondary={<a className="fx-link-muted" href="https://wynos.online/">กลับ WYNOS</a>}
       >
@@ -346,8 +346,8 @@ function FoodHeader({
     <header className="fx-header">
       <div className="fx-header-top">
         <div className="fx-brand">
-          <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
-          <span>WYNOS <b>Food</b></span>
+          <Image className="wf-brand-logo" src="/icons/zoky/icon-192-v1.png" width={32} height={32} alt="" />
+          <span>ZOKY</span>
         </div>
         <div className="fx-header-actions">
           {onFavorites ? (
@@ -412,7 +412,7 @@ function FoodNav({
     { key: "account", label: "บัญชี", icon: <UserRound size={20} strokeWidth={tab === "account" ? 2.3 : 1.9} /> },
   ];
   return (
-    <nav className="fx-nav" aria-label="WYNOS Food">
+    <nav className="fx-nav" aria-label="ZOKY">
       {items.map((item) => (
         <button
           key={item.key}
@@ -735,7 +735,7 @@ function StoreDirectory({
           title="ยังไม่มีร้านในพื้นที่นี้"
           action={<button className="fx-btn fx-btn--primary" type="button" onClick={onLocation}>เปลี่ยนที่อยู่จัดส่ง</button>}
         >
-          <p>WYNOS Food กำลังขยายพื้นที่ให้บริการ ลองเปลี่ยนที่อยู่จัดส่ง หรือกลับมาใหม่เร็วๆ นี้</p>
+          <p>ZOKY กำลังขยายพื้นที่ให้บริการ ลองเปลี่ยนที่อยู่จัดส่ง หรือกลับมาใหม่เร็วๆ นี้</p>
         </FoodStateScreen>
       ) : (
         <>
@@ -901,7 +901,7 @@ function StoreReviewsSection({ client, storeId }: { client: SupabaseClient; stor
             {shown.map((review) => (
               <article key={review.id} className="wf-review-card">
                 <div className="wf-review-card-head">
-                  <div><strong>{review.reviewer_label}</strong><span>สั่งจริงกับ WYNOS Food</span></div>
+                  <div><strong>{review.reviewer_label}</strong><span>สั่งจริงกับ ZOKY</span></div>
                   <ReviewStars rating={review.rating} compact />
                 </div>
                 {review.review_text ? <p>{review.review_text}</p> : null}
@@ -1178,8 +1178,8 @@ function HomePanel({
 
   if (!store) {
     return (
-      <FoodStateScreen icon={<Store size={46} strokeWidth={1.6} />} title="ยังไม่มีร้านสำหรับ WYNOS Food" action={<button className="fx-btn fx-btn--primary" type="button" onClick={onBackStorefront}>กลับหน้าหลัก</button>}>
-        <p>ร้านค้าสามารถสร้างและตั้งค่าร้านผ่าน WYNOS Merchant เพื่อเริ่มขายบน WYNOS Food</p>
+      <FoodStateScreen icon={<Store size={46} strokeWidth={1.6} />} title="ยังไม่มีร้านสำหรับ ZOKY" action={<button className="fx-btn fx-btn--primary" type="button" onClick={onBackStorefront}>กลับหน้าหลัก</button>}>
+        <p>ร้านค้าสามารถสร้างและตั้งค่าร้านผ่าน WYNOS Merchant เพื่อเริ่มขายบน ZOKY</p>
       </FoodStateScreen>
     );
   }
@@ -1224,7 +1224,7 @@ function HomePanel({
           ) : <Store size={46} strokeWidth={1.25} />}
         </div>
         <div className="fx-store-hero-actions">
-          <button className="fx-float-btn" type="button" aria-label="กลับหน้าหลัก WYNOS Food" onClick={onBackStorefront}>
+          <button className="fx-float-btn" type="button" aria-label="กลับหน้าหลัก ZOKY" onClick={onBackStorefront}>
             <ArrowLeft size={21} strokeWidth={2.3} />
           </button>
           <span className="fx-store-hero-right">
@@ -1267,7 +1267,7 @@ function HomePanel({
         {Number(store.minimum_order) > 0 ? <p className="fx-store-min">สั่งขั้นต่ำ {foodMoney(store.minimum_order)}</p> : null}
         {campaigns.length ? (
           <div className="fx-store-campaigns">
-            {campaigns.map((name) => <span key={name}><Ticket size={16} />{`แคมเปญ WYNOS · ${name}`}</span>)}
+            {campaigns.map((name) => <span key={name}><Ticket size={16} />{`แคมเปญ ZOKY · ${name}`}</span>)}
           </div>
         ) : null}
       </section>
@@ -1498,7 +1498,7 @@ function CartPanel({
 
           <button className="fx-add-more" type="button" onClick={onBrowse}><Plus size={18} strokeWidth={2.6} />เพิ่มเมนูอื่นจากร้านนี้</button>
 
-          {quote?.campaign_name ? <div className="fx-note fx-note--success"><BadgePercent size={18} /><span><strong>ใช้แคมเปญ {quote.campaign_name}</strong><small>WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ</small></span></div> : null}
+          {quote?.campaign_name ? <div className="fx-note fx-note--success"><BadgePercent size={18} /><span><strong>ใช้แคมเปญ {quote.campaign_name}</strong><small>ZOKY เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ</small></span></div> : null}
           {firstOrderOffer ? (
             <div className="fx-note fx-note--success" role="status">
               <Gift size={18} />
@@ -1601,7 +1601,7 @@ function MessagesPanel() {
       <FoodPageHeader title="ข้อความ" />
       <FoodStateScreen icon={<MessageCircle size={48} strokeWidth={1.6} />} title="ยังไม่มีข้อความ">
         <p>การสนทนากับร้านและผู้จัดส่งจะแสดงที่นี่</p>
-        <p>แชท WYNOS Food แยกจากแชท WYNOS</p>
+        <p>แชท ZOKY แยกจากแชท WYNOS</p>
       </FoodStateScreen>
     </div>
   );
@@ -1701,7 +1701,7 @@ function AccountPanel({
           <span className="fx-avatar" aria-hidden="true">{initial}</span>
           <span className="fx-profile-copy">
             <strong>{primary.recipient_name}</strong>
-            <small>{primary.recipient_phone} · โปรไฟล์ WYNOS Food</small>
+            <small>{primary.recipient_phone} · โปรไฟล์ ZOKY</small>
             <small>ข้อมูลสำหรับการสั่งและจัดส่งอาหารเท่านั้น</small>
           </span>
           <ChevronRight size={20} />
@@ -1762,11 +1762,11 @@ function AccountPanel({
         </button>
         {installPrompt ? (
           <button type="button" onClick={onInstall}>
-            <Download size={21} /><span><strong>ติดตั้ง WYNOS Food</strong><small>เพิ่ม WYNOS Food ไว้บนหน้าจอหลัก</small></span><ChevronRight size={18} />
+            <Download size={21} /><span><strong>ติดตั้ง ZOKY</strong><small>เพิ่ม ZOKY ไว้บนหน้าจอหลัก</small></span><ChevronRight size={18} />
           </button>
         ) : null}
-        <a href="https://lin.ee/SKQAOtm" target="_blank" rel="noreferrer" aria-label="ขายอาหารบน WYNOS Food ติดต่อ LINE @352lvyoi">
-          <Store size={21} /><span><strong>ขายอาหารบน WYNOS Food</strong><small>สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi</small></span><ChevronRight size={18} />
+        <a href="https://lin.ee/SKQAOtm" target="_blank" rel="noreferrer" aria-label="ขายอาหารบน ZOKY ติดต่อ LINE @352lvyoi">
+          <Store size={21} /><span><strong>ขายอาหารบน ZOKY</strong><small>สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi</small></span><ChevronRight size={18} />
         </a>
         <a href="https://wynos.online/login">
           <ArrowLeft size={21} /><span><strong>เปิด WYNOS Social</strong><small>ใช้ WYNOS Account เดิม แล้วค่อยตั้งโปรไฟล์ Social เมื่อต้องการ</small></span><ChevronRight size={18} />
@@ -2105,14 +2105,14 @@ function AddressEditor({
       : availability.reason === "outside_delivery_area"
         ? `อยู่นอกระยะจัดส่งของร้าน${availability.delivery_radius_km == null ? "" : ` · ร้านส่งได้ประมาณ ${availability.delivery_radius_km} กม.`}`
         : availability.reason === "outside_service_area"
-          ? "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ WYNOS Food"
+          ? "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY"
           : availability.reason === "store_unavailable"
             ? "ร้านนี้ยังไม่พร้อมรับการจัดส่ง"
             : "กรุณาตรวจสอบตำแหน่งจัดส่ง";
   return (
     <Sheet title={form.id ? "แก้ไขข้อมูลจัดส่ง" : "เพิ่มข้อมูลจัดส่ง"} onClose={onClose} variant="page">
       <div className="wf-form wf-address-form">
-        <div className="wf-form-note">ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS</div>
+        <div className="wf-form-note">ข้อมูลนี้เป็นของ ZOKY เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS</div>
 
         <label>ชื่อที่อยู่ <small>เช่น บ้าน / หอพัก / ที่ทำงาน</small>
           <input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="ที่อยู่ของฉัน" />
@@ -2146,7 +2146,7 @@ function AddressEditor({
             };
           })}
         /> : null}
-        {form.placeName ? <div className="wf-form-note">WYNOS Place · {form.placeName}</div> : null}
+        {form.placeName ? <div className="wf-form-note">สถานที่ · {form.placeName}</div> : null}
         {storeId && form.location && deliveryMessage ? (
           <div className={availability?.can_deliver ? "wf-form-note" : "wf-inline-warning"}>{deliveryMessage}</div>
         ) : null}
@@ -2205,7 +2205,7 @@ function AddressEditor({
         </label>
         <label className="wf-check">
           <input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} />
-          <span><strong>ใช้เป็นที่อยู่หลัก</strong><small>WYNOS Food จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span>
+          <span><strong>ใช้เป็นที่อยู่หลัก</strong><small>ZOKY จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span>
         </label>
 
         {!form.location ? <div className="wf-inline-warning">กรุณาปักหมุดโลเคชั่นก่อนบันทึก เพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</div> : null}
@@ -2213,7 +2213,7 @@ function AddressEditor({
           <div className="wf-inline-warning">กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก</div>
         ) : null}
         <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form)}>
-          {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล WYNOS Food"}
+          {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล ZOKY"}
         </button>
       </div>
     </Sheet>
@@ -2457,7 +2457,7 @@ function CheckoutSheet({
         </label>
 
         <section className="fx-coupon" aria-label="โค้ดส่วนลด">
-          <label htmlFor="wynos-food-coupon" className="fx-field-label"><strong>โค้ดส่วนลด WYNOS Food</strong></label>
+          <label htmlFor="wynos-food-coupon" className="fx-field-label"><strong>โค้ดส่วนลด ZOKY</strong></label>
           <div className="fx-coupon-row">
             <input id="wynos-food-coupon" type="text" autoCapitalize="characters" maxLength={24}
               placeholder="เช่น FOOD50" value={couponDraft}
@@ -2606,7 +2606,7 @@ function ReviewSheet({
           <input type="checkbox" checked={anonymous} onChange={(event) => setAnonymous(event.target.checked)} />
           <span><strong>ไม่ระบุชื่อ</strong><small>ชื่อที่จะแสดง: {reviewerLabel} · ไม่แสดง @username หรือรูปโปรไฟล์</small></span>
         </label>
-        <p className="fx-server-note">รีวิวนี้มาจากออเดอร์ที่ส่งสำเร็จและจะแสดงป้าย “สั่งจริงกับ WYNOS Food”</p>
+        <p className="fx-server-note">รีวิวนี้มาจากออเดอร์ที่ส่งสำเร็จและจะแสดงป้าย “สั่งจริงกับ ZOKY”</p>
       </div>
     </Sheet>
   );
@@ -2766,7 +2766,7 @@ function OrderDetailSheet({
     if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
     setWorking(true);
     try {
-      await cancelFoodCustomerOrder(client, order.id, "ยกเลิกโดยลูกค้าใน WYNOS Food");
+      await cancelFoodCustomerOrder(client, order.id, "ยกเลิกโดยลูกค้าใน ZOKY");
       onMessage("ยกเลิกออเดอร์แล้ว");
       await onReload();
     } catch (error) {
@@ -3122,7 +3122,7 @@ function FoodCustomerInner({
       }
       return next;
     } catch (error) {
-      const copy = foodCustomerError(error, "โหลด WYNOS Food ไม่สำเร็จ");
+      const copy = foodCustomerError(error, "โหลด ZOKY ไม่สำเร็จ");
       setLoadError(copy);
       setMessage(copy);
       return null;
@@ -3324,7 +3324,7 @@ function FoodCustomerInner({
   const requestNotifications = async () => {
     const result = await subscribeToPushNotifications(client, userId);
     setNotificationsEnabled(result.ok);
-    setMessage(result.ok ? "เปิดการแจ้งเตือน WYNOS Food แล้ว" : pushReasonDescription(result.reason));
+    setMessage(result.ok ? "เปิดการแจ้งเตือน ZOKY แล้ว" : pushReasonDescription(result.reason));
   };
 
   const install = async () => {
@@ -3416,7 +3416,7 @@ function FoodCustomerInner({
       ) : null}
       {message ? <div className="fx-toast" role="status"><span>{message}</span><button type="button" aria-label="ปิด" onClick={() => setMessage("")}><X size={16} /></button></div> : null}
 
-      <PullToRefreshIndicator pull={pull} topOffset="0px" refreshingLabel="กำลังอัปเดต WYNOS Food" />
+      <PullToRefreshIndicator pull={pull} topOffset="0px" refreshingLabel="กำลังอัปเดต ZOKY" />
       <section className="fx-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
         {tab === "home" && !storefrontOpen && <FoodPromotionCenter client={client} userId={userId} />}
         {tab === "home" ? (
