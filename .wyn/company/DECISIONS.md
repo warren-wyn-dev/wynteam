@@ -2383,3 +2383,10 @@ Founder: "เว็บใช้แบบเดิม โอเค ส่วน�
 Founder ตอบ 2 ข้อ:
 - **ZOKY-135 — "อนุมัติ (แนะนำ)"**: แก้ edge functions `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode` ให้ยอมรับ origin `https://zoky.wynos.online` เพิ่ม โดย**คง** `https://food.wynos.online` ไว้ (rollback ได้) และชี้ success/cancel URL ไป ZOKY — ต้องผ่าน QA & Security; การ deploy edge functions/production ยังต้องผ่าน freeze lift + Founder Gate ตามเดิม (อนุมัตินี้คือแก้โค้ดและทดสอบ ไม่ใช่ deploy)
 - **ZOKY-136 — "แก้ก่อนเปิด (แนะนำ)"**: แก้ปัญหา service worker / push token ของ food.wynos.online (แจ้งเตือนซ้ำ, แจ้งเตือนหลังออกจากระบบ) ให้เสร็จก่อน cutover
+
+### [2026-10-18] ZOKY web — ชื่อใบเสร็จ Stripe + เปิดใช้ 2 ขั้น
+
+Founder ตอบ (หลัง CTO review `zoky-web-rebrand-cto-review.md` บน feat/zoky-web-rebrand):
+- C1 — ชื่อรายการใบเสร็จ Stripe: **"ZOKY (แนะนำ)"** → ใช้ `ZOKY #<เลขออเดอร์>`
+- C2 — วิธีเปิด: **"2 ขั้น (แนะนำ)"** → เพิ่ม server-only flag (ค่าเริ่มต้นปิด) ให้ขั้น 1 เปิด `zoky.wynos.online` โดย `food.wynos.online` ยังทำงานเหมือนเดิม; ขั้น 2 เปิด redirect จาก food → zoky หลังตรวจขั้น 1 บน production แล้ว (แต่ละขั้นยังต้องผ่าน Founder Gate)
+- เรื่อง production freeze: Founder ตอบ "งง" — ยังไม่ได้ตัดสินใจ ต้องอธิบายใหม่ให้ง่ายขึ้น
