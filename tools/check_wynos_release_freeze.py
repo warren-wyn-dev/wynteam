@@ -157,6 +157,27 @@ def literal_secret_names(value):
     return {a or b for e in expressions(value) for a, b in LITERAL_SECRET.findall(e)}
 
 EXPIRY_TEST = '[[ "$today" > "$ZOKY_EXCEPTION_EXPIRES_UTC" ]]'
+
+# Deny by default (Codex #1226 4308136674): the workflow-level constants may
+# not be redefined anywhere else, and nothing may skip or soften a step.
+ALLOWED_TOP_KEYS = {"name", "on", "permissions", "concurrency", "env", "jobs"}
+ALLOWED_JOB_KEYS = {"name", "needs", "if", "environment", "runs-on", "defaults", "steps"}
+ALLOWED_STEP_KEYS = {"name", "id", "if", "uses", "with", "run", "env", "working-directory"}
+ALLOWED_ACTIONS = {"actions/checkout@v4", "actions/setup-node@v4", "denoland/setup-deno@v2", "supabase/setup-cli@v1"}
+ALLOWED_STEP_ENV = {
+    "RELEASE_SHA", "PHASE", "FIREBASE_SUPPLIED", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID", "SUPABASE_ACCESS_TOKEN", "SUPABASE_URL",
+    "SUPABASE_PUBLISHABLE_KEY", "FIREBASE_WEB_API_KEY", "FIREBASE_WEB_APP_ID", "FIREBASE_MESSAGING_SENDER_ID",
+    "FIREBASE_PROJECT_ID", "FIREBASE_AUTH_DOMAIN", "FIREBASE_STORAGE_BUCKET", "FIREBASE_VAPID_KEY",
+}
+ALLOWED_STEP_IFS = {("guard", "Domain and phase preconditions"): "inputs.phase != 'EDGE'"}
+ENV_FILE_WRITE = re.compile(r"GITHUB_ENV|GITHUB_PATH|BASH_ENV", re.I)
+# Builtins that can (re)assign a variable by a computed name.
+INDIRECT = re.compile(
+    r"(?:^|[;&|(]|\b(?:then|do|else|elif)\b)\s*(?:eval|declare|typeset|readonly|local|let|export|unset|source|\.|read)(?=\s|$)"
+    r"|printf\s+-v", re.M,
+)
+ALLOWED_READ = "while IFS= read -r file; do"
 PIN_CHECK = (
     "python3 -c 'import sys, tomllib; c = tomllib.load(open(\"supabase/config.toml\", \"rb\")); "
     "sys.exit(0 if c.get(\"functions\", {}).get(\"wynos-maps-geocode\", {}).get(\"verify_jwt\") is False else 1)'"
@@ -189,7 +210,9 @@ if zoky.exists():
         f"{name}: must not share wyn-158's cancel-in-progress lane"
     )
 
+    assert set(wf) <= ALLOWED_TOP_KEYS, f"{name}: unexpected top-level keys {sorted(set(wf) - ALLOWED_TOP_KEYS)}"
     env = wf.get("env") or {}
+    constants = {str(key) for key in env}
     for key, value in {
         "ZOKY_EXCEPTION_EXPIRES_UTC": "2026-11-30",
         "ZOKY_RELEASE_BRANCH": "release/zoky-web-20261018",
@@ -212,8 +235,33 @@ if zoky.exists():
     }
     for job_name, job in jobs.items():
         assert job.get("if") == expected_if[job_name], f"{name}: {job_name} job lost its main-only + confirmation + phase gate"
-        for key in ("permissions", "concurrency", "uses", "strategy", "container", "services"):
-            assert key not in job, f"{name}: {job_name} job must not set {key}"
+        assert "env" not in job, f"{name}: {job_name} job-level env could override the workflow constants"
+        assert set(job) <= ALLOWED_JOB_KEYS, f"{name}: {job_name} job must not set {sorted(set(job) - ALLOWED_JOB_KEYS)}"
+        expected_defaults = {"run": {"working-directory": "web"}} if job_name == "deploy" else None
+        assert job.get("defaults") == expected_defaults, f"{name}: {job_name} job defaults changed"
+        for step in steps_of(job):
+            step_name = str(step.get("name", step.get("uses", "")))
+            assert set(step) <= ALLOWED_STEP_KEYS, f"{name}: {job_name}/{step_name} must not set {sorted(set(step) - ALLOWED_STEP_KEYS)}"
+            assert "uses" not in step or step["uses"] in ALLOWED_ACTIONS, f"{name}: {job_name} uses an unapproved action {step.get('uses')}"
+            assert step.get("if") == ALLOWED_STEP_IFS.get((job_name, step_name)), f"{name}: {job_name}/{step_name} step if changed"
+            step_env = {str(key) for key in (step.get("env") or {})}
+            clash = {key for key in step_env if key.upper() in {c.upper() for c in constants}}
+            assert not clash, f"{name}: {job_name}/{step_name} env redefines workflow constants {sorted(clash)}"
+            assert step_env <= ALLOWED_STEP_ENV, f"{name}: {job_name}/{step_name} unexpected env {sorted(step_env - ALLOWED_STEP_ENV)}"
+            body = str(step.get("run", ""))
+            assert not ENV_FILE_WRITE.search(body), f"{name}: {job_name}/{step_name} must not touch GITHUB_ENV/GITHUB_PATH/BASH_ENV"
+            reads_constant = False
+            for constant in constants:
+                for match in re.finditer(re.escape(constant), body, re.I):
+                    before = body[max(0, match.start() - 2):match.start()]
+                    assert before.endswith("$") or before.endswith("${"), (
+                        f"{name}: {job_name}/{step_name} may only read {constant} (found a non-read use)"
+                    )
+                    reads_constant = True
+            if reads_constant:
+                assert not INDIRECT.search(body.replace(ALLOWED_READ, "")), (
+                    f"{name}: {job_name}/{step_name} reads workflow constants, so it may not use eval/declare/export/unset/read/source/printf -v"
+                )
         first = steps_of(job)[0]
         assert first.get("name") == "Exception has not expired" and EXPIRY_TEST in str(first.get("run", "")), (
             f"{name}: {job_name} must start with the expiry check"

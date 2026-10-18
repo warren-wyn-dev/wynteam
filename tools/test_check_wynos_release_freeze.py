@@ -111,9 +111,8 @@ loosened = {
     "flow-style extra job": lambda path: path.write_text(path.read_text() + "\n  extra: {runs-on: ubuntu-latest, steps: [{run: echo hi}]}\n"),
     "aliased copy of the deploy job": lambda path: path.write_text(
         path.read_text().replace("\n  deploy:\n", "\n  deploy: &deploy_job\n", 1) + "\n  extra: *deploy_job\n"),
-    "edge environment from a merged anchor (preview)": lambda path: path.write_text(
-        path.read_text().replace("permissions:\n  contents: read\n", "permissions:\n  contents: read\n\nx-env: &preview_env\n  environment: preview\n", 1).replace(
-            "inputs.phase == 'EDGE'\n    environment: production\n", "inputs.phase == 'EDGE'\n    <<: *preview_env\n", 1)),
+    "edge environment from a merged anchor (preview)": replace(
+        "inputs.phase == 'EDGE'\n    environment: production\n", "inputs.phase == 'EDGE'\n    <<: {environment: preview}\n"),
     "explicit key duplicating a merged key": lambda path: path.write_text(
         path.read_text().replace("\n  guard:\n", "\n  guard: &guard_job\n", 1).replace(
             "inputs.phase == 'EDGE'\n    environment: production\n", "inputs.phase == 'EDGE'\n    environment: production\n    <<: *guard_job\n", 1)),
@@ -123,6 +122,33 @@ loosened = {
     "YAML 1.1 boolean job keys yes/on": lambda path: path.write_text(path.read_text() +
         "\n  yes:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo a\n  on:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo b\n"),
     "duplicate top-level permissions key": replace("permissions:\n  contents: read\n", "permissions:\n  contents: read\npermissions: write-all\n"),
+    # Codex #1226 4308136674: workflow constants may not be redefined.
+    "edge job env overrides ZOKY_EDGE_FUNCTIONS": replace("    needs: guard\n    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018' && inputs.phase == 'EDGE'\n",
+        "    needs: guard\n    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'ZOKY_FREEZE_EXCEPTION_20261018' && inputs.phase == 'EDGE'\n    env:\n      ZOKY_EDGE_FUNCTIONS: food-stripe-checkout food-stripe-cancel wynos-maps-geocode stripe-webhook\n"),
+    "step env overrides the expiry constant": replace("      - name: Exception has not expired\n        run: |",
+                                                      "      - name: Exception has not expired\n        env:\n          ZOKY_EXCEPTION_EXPIRES_UTC: \"2099-12-31\"\n        run: |"),
+    "lowercase step env override": replace("      - name: Checked-out commit is the approved release_sha\n        env:\n          RELEASE_SHA: ${{ inputs.release_sha }}\n",
+                                           "      - name: Checked-out commit is the approved release_sha\n        env:\n          RELEASE_SHA: ${{ inputs.release_sha }}\n          zoky_production_base_sha: 42a8f9373fe900ff1de14b18cf0bc6ad8ae8b1de\n"),
+    "GITHUB_ENV write redefines a constant": replace('          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"\n',
+                                                     '          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"\n          echo "ZOKY_EDGE_FUNCTIONS=stripe-webhook" >> "$GITHUB_ENV"\n'),
+    "GITHUB_PATH write": replace('          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"\n',
+                                 '          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"\n          echo "$PWD/bin" >> "$GITHUB_PATH"\n'),
+    "BASH_ENV via step env": replace("      - name: Checked-out commit is the approved release_sha\n        env:\n          RELEASE_SHA: ${{ inputs.release_sha }}\n",
+                                     "      - name: Checked-out commit is the approved release_sha\n        env:\n          RELEASE_SHA: ${{ inputs.release_sha }}\n          BASH_ENV: ./evil.sh\n"),
+    "shell reassignment before the edge loop": replace('          echo "## ZOKY edge deploy" >> "$GITHUB_STEP_SUMMARY"\n',
+                                                       '          echo "## ZOKY edge deploy" >> "$GITHUB_STEP_SUMMARY"\n          ZOKY_EDGE_FUNCTIONS="$ZOKY_EDGE_FUNCTIONS stripe-webhook"\n'),
+    "computed-name eval in the edge deploy step": replace('          echo "## ZOKY edge deploy" >> "$GITHUB_STEP_SUMMARY"\n',
+                                                          '          echo "## ZOKY edge deploy" >> "$GITHUB_STEP_SUMMARY"\n          n=ZOKY_EDGE; eval "${n}_FUNCTIONS=stripe-webhook"\n'),
+    "unset in the guard scope step": replace('          tip="$(git rev-parse "refs/remotes/origin/$ZOKY_RELEASE_BRANCH")"\n',
+                                             '          tip="$(git rev-parse "refs/remotes/origin/$ZOKY_RELEASE_BRANCH")"\n          v=ZOKY_EXCLUDED; unset "${v}_SHAS"\n'),
+    "continue-on-error on a guard check": replace("      - name: Release SHA, ancestry, exclusions and path allowlist\n",
+                                                  "      - name: Release SHA, ancestry, exclusions and path allowlist\n        continue-on-error: true\n"),
+    "step if skips a guard check": replace("      - name: Release SHA, ancestry, exclusions and path allowlist\n",
+                                           "      - name: Release SHA, ancestry, exclusions and path allowlist\n        if: false\n"),
+    "custom shell on a step": replace("      - name: Release SHA, ancestry, exclusions and path allowlist\n",
+                                      "      - name: Release SHA, ancestry, exclusions and path allowlist\n        shell: python\n"),
+    "unapproved action": replace("      - uses: denoland/setup-deno@v2\n", "      - uses: evil/setup-deno@v2\n"),
+    "workflow-level defaults": replace("permissions:\n  contents: read\n", "permissions:\n  contents: read\n\ndefaults:\n  run:\n    shell: sh\n"),
     "credentials persisted": replace("persist-credentials: false", "persist-credentials: true"),
     "Vercel CLI unpinned": replace("vercel@63.1.2", "vercel@latest"),
     # Edge phase (ZOKY edge functions from the pinned SHA).
@@ -152,12 +178,9 @@ loosened = {
     "github.event dump in run": replace('          set -euo pipefail\n          test "$(git rev-parse HEAD)"',
                                         '          set -euo pipefail\n          echo "${{ toJSON(github.event) }}"\n          test "$(git rev-parse HEAD)"'),
     # Guard job must not touch the secrets context in any form.
-    "toJSON(secrets) in guard": replace("      - name: Exception has not expired\n        run: |",
-                                        "      - name: Exception has not expired\n        env:\n          ALL: ${{ toJSON(secrets) }}\n        run: |"),
-    "secrets[format()] in guard": replace("      - name: Exception has not expired\n        run: |",
-                                          "      - name: Exception has not expired\n        env:\n          T: ${{ secrets[format('VERCEL_{0}', 'TOKEN')] }}\n        run: |"),
-    "literal secret in guard env": replace("    name: Scope guards (before production review)\n",
-                                           "    name: Scope guards (before production review)\n    env:\n      URL: ${{ secrets.SUPABASE_URL }}\n"),
+    "toJSON(secrets) in guard": replace("      - name: Domain and phase preconditions\n        if: inputs.phase != 'EDGE'\n        env:\n          PHASE: ${{ inputs.phase }}\n", "      - name: Domain and phase preconditions\n        if: inputs.phase != 'EDGE'\n        env:\n          PHASE: ${{ toJSON(secrets) }}\n"),
+    "secrets[format()] in guard": replace("      - name: Domain and phase preconditions\n        if: inputs.phase != 'EDGE'\n        env:\n          PHASE: ${{ inputs.phase }}\n", "      - name: Domain and phase preconditions\n        if: inputs.phase != 'EDGE'\n        env:\n          PHASE: ${{ secrets[format('VERCEL_{0}', 'TOKEN')] }}\n"),
+    "literal secret in guard step env": replace("      - name: Domain and phase preconditions\n        if: inputs.phase != 'EDGE'\n        env:\n          PHASE: ${{ inputs.phase }}\n", "      - name: Domain and phase preconditions\n        if: inputs.phase != 'EDGE'\n        env:\n          PHASE: ${{ secrets.SUPABASE_URL }}\n"),
     "secret in workflow-level env": replace("  ZOKY_EXCEPTION_EXPIRES_UTC: \"2026-11-30\"\n",
                                             "  ZOKY_EXCEPTION_EXPIRES_UTC: \"2026-11-30\"\n  LEAK: ${{ secrets.VERCEL_TOKEN }}\n"),
     "toJSON(secrets) in edge job": replace("          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}\n        run: |\n          set -euo pipefail\n          clean()",
