@@ -682,3 +682,12 @@
 - Recommendation: อนุมัติ D1–D5 ทีละข้อตาม `.wyn/docs/product/zoky-decision-proposal.md` หลังตรวจชื่อ (ZOKY-101) และตอบ Open Questions Q1–Q16 ใน PRD; production cutover และ backend changes แต่ละข้อขออนุมัติแยกอีกครั้ง
 - สถานะ: รออนุมัติ (PENDING FOUNDER APPROVAL)
 - วันที่ตัดสินใจ:
+
+## [2026-10-18] ZOKY exception release — A4 EDGE (APPROVED by Founder)
+
+- Founder: "เริ่มEDGE"
+- Workflow: `zoky-web-exception-release.yml` on `main` (`a302098f`), phase `EDGE`
+- release_sha: `0533fb3649f3c327f451bc95832674d63c0f6873` (`release/zoky-web-20261018` tip)
+- Deploys only: `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode` (verify_jwt = false)
+- Rollback: re-deploy the same 3 functions from `main` via `deploy-edge-functions.yml` (main code = current production) — only while web PHASE1/2 is not live
+- Founder must still approve the run's `production` environment review in GitHub
