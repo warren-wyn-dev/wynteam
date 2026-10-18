@@ -2419,3 +2419,7 @@ Founder: **"อนุมัติ (แนะนำ)"** — ให้รวม `c
 ### [2026-10-18] ZOKY release — ค่าจาก dashboard (F2 + step 8)
 
 Founder รายงาน: (1) Supabase `wynos-maps-geocode` → Verify JWT **ปิด (OFF)** → ต้องเพิ่ม `[functions.wynos-maps-geocode]` `verify_jwt = false` ใน `supabase/config.toml` ทั้งบน `main` และ release branch ก่อน EDGE (ค่าเดียวกับที่ใช้อยู่ ไม่ใช่การลด security); (2) เพิ่มโดเมน `zoky.wynos.online` ใน Vercel project `web` แล้ว
+
+### [2026-10-18] อนุมัติ merge PR #1227 (geocode verify_jwt = false)
+
+Founder: **"อนุมัติ (แนะนำ)"** — รวม `chore/geocode-verify-jwt-config` (PR #1227) เข้า `main` หลัง #1225 และ #1226 เมื่อ CI ผ่าน (ค่าเดียวกับ production ปัจจุบัน ไม่ deploy อะไร)
