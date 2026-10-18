@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-124 (Home ignores the left/right safe area in landscape)
 
-Status: bugs
+Status: closed — won't fix (Founder 2026-10-17: app locked to portrait)
 Severity: **MEDIUM** (iPhone landscape is enabled in `ios/Runner/Info.plist`; logo/heart/content can sit under the notch / Dynamic Island)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Home slice QA round, 2026-10-17, branch `docs/zoky-foundation` @ 895367c
@@ -29,3 +29,12 @@ Regression Risk: Low in portrait (insets are 0).
 Handoff to QA: re-check landscape with insets 0/47/59 on both sides and portrait regression.
 
 QA Re-test (AI QA & Security, 2026-10-17, @ 41ddc95): **Still open — awaiting Founder decision** (portrait lock vs. landscape support). Repro un-skipped temporarily: still fails (logo.left ≈ 20 < 59). Not changed by the ZOKY-120..125 fixes.
+
+## Resolution (2026-10-18)
+
+Founder เลือก **ก. ล็อกแนวตั้งอย่างเดียว** (แบบเดียวกับ Grab/LINE MAN) — ไม่รองรับ landscape จึงไม่ต้องเว้น safe area ซ้าย/ขวา
+- iOS: `UISupportedInterfaceOrientations` (iPhone + iPad) = Portrait เท่านั้น + `UIRequiresFullScreen` = true
+- Android: `android:screenOrientation="portrait"` ที่ MainActivity
+- Dart: `SystemChrome.setPreferredOrientations([portraitUp])` ใน `main.dart`
+- repro test ใน `test/qa/home_slice_qa_test.dart` คง `skip` ไว้พร้อมเหตุผล won't fix
+- ยังไม่ได้ทดสอบบนเครื่องจริง (ต้องยืนยันใน TestFlight / Play internal)

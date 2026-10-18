@@ -17,6 +17,10 @@ void main() {
     yield LicenseEntryWithLineBreaks(const ['Anuphan'], text);
   });
 
+  // Portrait only (Founder, 2026-10-17; closes ZOKY-124), matching the
+  // native Info.plist / AndroidManifest locks.
+  SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+
   final config = AppConfig.fromEnvironment();
 
   // ZOKY-104 scaffold: only demo repositories exist. ZOKY-105 adds

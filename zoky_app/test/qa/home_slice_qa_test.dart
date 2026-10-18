@@ -534,7 +534,7 @@ void main() {
         );
         expect(heart.right, lessThanOrEqualTo(932 - 59));
       },
-      skip: true, // Bug repro: .wyn/tasks/bugs/ZOKY-124-*.md
+      skip: true, // Won't fix: app is portrait-only (ZOKY-124, Founder 2026-10-17)
     );
   });
 
