@@ -16,6 +16,8 @@ import 'package:zoky_app/features/address/delivery_address_controller.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
 import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
 import 'package:zoky_app/features/home/data/demo_home_content_repository.dart';
+import 'package:zoky_app/features/food/collected_promos_controller.dart';
+import 'package:zoky_app/features/fulfillment/fulfillment_mode_controller.dart';
 import 'package:zoky_app/features/shell/zoky_shell.dart';
 
 void main() {
@@ -34,6 +36,8 @@ void main() {
       deliveryAddresses: DeliveryAddressController(
         const DemoAddressRepository(),
       ),
+      fulfillmentMode: FulfillmentModeController(),
+      collectedPromos: CollectedPromosController(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         // Mouse drags page carousels/rows like a finger in the preview.

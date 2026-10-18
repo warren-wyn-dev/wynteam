@@ -6,6 +6,10 @@ import '../design/zoky_typography.dart';
 
 enum ZokyChipSelectedStyle { solid, soft }
 
+/// Unselected look: white with a border, or light gray fill without one
+/// (food page mockup v2).
+enum ZokyChipUnselectedStyle { outlined, filled }
+
 /// Filter chip (design 9.3, web `fx-chip`). 40 visual height, padded to a
 /// 48 tap target. Selected solid = action.primary + white (never #F21967);
 /// selected soft = Blush + Berry + brand.pink border.
@@ -16,19 +20,25 @@ class ZokyChip extends StatelessWidget {
     required this.selected,
     required this.onSelected,
     this.selectedStyle = ZokyChipSelectedStyle.solid,
+    this.unselectedStyle = ZokyChipUnselectedStyle.outlined,
   });
 
   final String label;
   final bool selected;
   final VoidCallback? onSelected;
   final ZokyChipSelectedStyle selectedStyle;
+  final ZokyChipUnselectedStyle unselectedStyle;
 
   @override
   Widget build(BuildContext context) {
     final Color bg;
     final Color fg;
     final BorderSide side;
-    if (!selected) {
+    if (!selected && unselectedStyle == ZokyChipUnselectedStyle.filled) {
+      bg = ZokyColors.chip;
+      fg = ZokyColors.textPrimary;
+      side = const BorderSide(color: ZokyColors.chip);
+    } else if (!selected) {
       bg = ZokyColors.surface;
       fg = ZokyColors.textPrimary;
       side = const BorderSide(color: ZokyColors.borderDefault);

@@ -9,6 +9,8 @@ import 'features/address/delivery_address_controller.dart';
 import 'features/catalog/data/demo_store_repository.dart';
 import 'features/deals/data/demo_promotion_repository.dart';
 import 'features/home/data/demo_home_content_repository.dart';
+import 'features/food/collected_promos_controller.dart';
+import 'features/fulfillment/fulfillment_mode_controller.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +54,8 @@ void main() {
       deliveryAddresses: DeliveryAddressController(
         const DemoAddressRepository(latency: Duration(milliseconds: 300)),
       ),
+      fulfillmentMode: FulfillmentModeController(),
+      collectedPromos: CollectedPromosController(),
     ),
   );
 }

@@ -10,6 +10,8 @@ import 'package:zoky_app/features/address/delivery_address_controller.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
 import 'package:zoky_app/features/deals/data/demo_promotion_repository.dart';
 import 'package:zoky_app/features/home/data/demo_home_content_repository.dart';
+import 'package:zoky_app/features/food/collected_promos_controller.dart';
+import 'package:zoky_app/features/fulfillment/fulfillment_mode_controller.dart';
 
 /// Sets a logical phone viewport (devicePixelRatio 1), system text scale and
 /// an optional bottom safe-area inset (e.g. 34 for the iPhone home
@@ -88,6 +90,8 @@ ZokyApp demoZokyApp() => ZokyApp(
   promotionRepository: const DemoPromotionRepository(),
   homeContentRepository: const DemoHomeContentRepository(),
   deliveryAddresses: DeliveryAddressController(const DemoAddressRepository()),
+  fulfillmentMode: FulfillmentModeController(),
+  collectedPromos: CollectedPromosController(),
 );
 
 /// Home -> store search: the hero card's "ค้นหาของอร่อย" opens the food

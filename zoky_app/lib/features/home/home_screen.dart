@@ -34,15 +34,10 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.promotionRepository,
-    this.onOpenOrders,
   });
 
   final StoreRepository repository;
   final PromotionRepository promotionRepository;
-
-  /// Switches the shell to the ออเดอร์ tab (the food page's orders
-  /// shortcut); the shortcut is hidden when null.
-  final VoidCallback? onOpenOrders;
 
   @override
   State<HomeScreen> createState() => HomeScreenState();
@@ -85,20 +80,11 @@ class HomeScreenState extends State<HomeScreen> {
 
   /// Hero card / "ค้นหาของอร่อย": the food landing page.
   void _openFood() {
-    final onOpenOrders = widget.onOpenOrders;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => FoodHomeScreen(
           repository: widget.repository,
-          promotionRepository: widget.promotionRepository,
           onOpenFavorites: _openFavorites,
-          onOpenOrders: onOpenOrders == null
-              ? null
-              : () {
-                  // Back to the shell first, then show the ออเดอร์ tab.
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                  onOpenOrders();
-                },
         ),
       ),
     );

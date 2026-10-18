@@ -3,85 +3,119 @@ import 'package:flutter/material.dart';
 import '../../../core/design/zoky_colors.dart';
 import '../../../core/design/zoky_tokens.dart';
 import '../../../core/design/zoky_typography.dart';
-import '../../../core/widgets/zoky_glossy_surface.dart';
 import '../../../core/widgets/zoky_skeleton.dart';
 import '../../deals/widgets/zoky_deal_illustration.dart';
-import '../../home/data/home_content_repository.dart';
+import '../../../core/adaptive/zoky_icons.dart';
+import '../../../core/l10n/zoky_strings.dart';
 import '../../home/domain/home_content_models.dart';
-import '../../home/widgets/zoky_store_cover.dart';
 
-/// Food page category circles (Founder, 2026-10-18): a horizontally
-/// scrolling row of round "ZOKY Glossy 3D" dish illustrations with the
-/// Thai name under each. Tapping one opens the store list filtered by that
-/// category.
+/// Food page category circles (Founder mockup v2, 2026-10-18): soft blush
+/// circles with the "ZOKY Glossy 3D" dish illustration and the Thai name
+/// under each. The first four fill the width evenly; further categories
+/// continue in the same horizontally scrolling row. Tapping one opens the
+/// store list filtered by that category.
 ///
-/// Loads from [HomeContentRepository.fetchFoodCategories]; skeleton circles
-/// while loading, hidden when there are none or the call fails.
-class ZokyFoodCategoryRow extends StatefulWidget {
+/// The page loads the list (so pull-to-refresh reloads it): skeleton
+/// circles while [categories] is null, a compact offline message with a
+/// retry button when [failed], nothing when the list is empty.
+class ZokyFoodCategoryRow extends StatelessWidget {
   const ZokyFoodCategoryRow({
     super.key,
-    required this.repository,
+    required this.categories,
     required this.onOpenCategory,
+    this.failed = false,
+    this.onRetry,
   });
 
-  final HomeContentRepository repository;
+  final List<ZokyFoodCategory>? categories;
   final ValueChanged<ZokyFoodCategory> onOpenCategory;
+  final bool failed;
+  final VoidCallback? onRetry;
 
   /// Key of the horizontal scroll view (tests).
   static const Key rowKey = ValueKey('zoky-category-row');
 
+  /// Key of the error message (tests).
+  static const Key errorKey = ValueKey('zoky-category-error');
+
+  /// Categories that fill the width before the row scrolls.
+  static const int visibleCount = 4;
+
+  /// Width of one item for a viewport [width] wide: the content width
+  /// split into [visibleCount] columns.
+  static double itemWidth(double width) =>
+      (width - 2 * ZokySpacing.gutter) / visibleCount;
+
   /// Circle diameter for a viewport [width] wide.
-  static double circleSize(double width) => (width * 0.165).clamp(60.0, 72.0);
+  static double circleSize(double width) =>
+      (itemWidth(width) * 0.62).clamp(52.0, 68.0);
 
-  @override
-  State<ZokyFoodCategoryRow> createState() => _ZokyFoodCategoryRowState();
-}
-
-class _ZokyFoodCategoryRowState extends State<ZokyFoodCategoryRow> {
-  List<ZokyFoodCategory>? _categories;
-  bool _failed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final categories = await widget.repository.fetchFoodCategories();
-      if (!mounted) return;
-      setState(() => _categories = categories);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _failed = true);
-    }
-  }
+  /// Soft blush circle behind each dish.
+  static const Color circleColor = Color(0xFFFDEEF3);
 
   @override
   Widget build(BuildContext context) {
-    final categories = _categories;
-    if (_failed || (categories != null && categories.isEmpty)) {
+    final categories = this.categories;
+    if (failed) {
+      return Padding(
+        key: errorKey,
+        padding: const EdgeInsets.fromLTRB(
+          ZokySpacing.gutter,
+          ZokySpacing.s4,
+          ZokySpacing.s4,
+          ZokySpacing.s4,
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              ZokyIcons.wifiOff,
+              size: ZokySizes.iconMd,
+              color: ZokyColors.textSecondary,
+            ),
+            const SizedBox(width: ZokySpacing.s4),
+            Expanded(
+              child: Text(
+                ZokyStrings.offlineTitle,
+                style: ZokyTextStyles.bodyMd.copyWith(
+                  color: ZokyColors.textSecondary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              style: TextButton.styleFrom(
+                foregroundColor: ZokyColors.brandDeep,
+                minimumSize: const Size(
+                  ZokySizes.tapTargetIos,
+                  ZokySizes.tapTargetIos,
+                ),
+              ),
+              child: const Text(ZokyStrings.retry),
+            ),
+          ],
+        ),
+      );
+    }
+    if (categories != null && categories.isEmpty) {
       return const SizedBox.shrink();
     }
-    final circle = ZokyFoodCategoryRow.circleSize(
-      MediaQuery.sizeOf(context).width,
-    );
-    final itemWidth = circle + ZokySpacing.s8;
+    final width = MediaQuery.sizeOf(context).width;
+    final circle = ZokyFoodCategoryRow.circleSize(width);
+    final itemWidth = ZokyFoodCategoryRow.itemWidth(width);
     return SingleChildScrollView(
       key: ZokyFoodCategoryRow.rowKey,
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(
-        ZokySpacing.gutter - ZokySpacing.s4,
-        ZokySpacing.s2,
-        ZokySpacing.gutter - ZokySpacing.s4,
-        ZokySpacing.s6,
+        ZokySpacing.gutter,
+        ZokySpacing.s4,
+        ZokySpacing.gutter,
+        ZokySpacing.s4,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (categories == null)
-            for (var i = 0; i < 5; i++)
+            for (var i = 0; i < ZokyFoodCategoryRow.visibleCount; i++)
               SizedBox(
                 width: itemWidth,
                 child: Column(
@@ -106,7 +140,7 @@ class _ZokyFoodCategoryRowState extends State<ZokyFoodCategoryRow> {
                 category: category,
                 circle: circle,
                 width: itemWidth,
-                onTap: () => widget.onOpenCategory(category),
+                onTap: () => onOpenCategory(category),
               ),
         ],
       ),
@@ -114,7 +148,7 @@ class _ZokyFoodCategoryRowState extends State<ZokyFoodCategoryRow> {
   }
 }
 
-/// One category: a 1:1 glossy tinted disc with the dish, label below. One
+/// One category: a 1:1 soft blush disc with the dish, label below. One
 /// button for assistive tech, at least 44pt in both directions.
 class ZokyFoodCategoryItem extends StatelessWidget {
   const ZokyFoodCategoryItem({
@@ -130,13 +164,8 @@ class ZokyFoodCategoryItem extends StatelessWidget {
   final double width;
   final VoidCallback onTap;
 
-  static const List<BoxShadow> _shadow = [
-    BoxShadow(color: Color(0x24EE226E), offset: Offset(0, 4), blurRadius: 10),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(circle / 2);
     return Semantics(
       button: true,
       label: category.label,
@@ -150,41 +179,28 @@ class ZokyFoodCategoryItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: ZokySpacing.s2),
             child: Column(
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
+                Container(
+                  width: circle,
+                  height: circle,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: ZokyStoreCover.tintFor(category.art),
-                    boxShadow: _shadow,
+                    color: ZokyFoodCategoryRow.circleColor,
                   ),
-                  child: CustomPaint(
-                    foregroundPainter: ZokyGlossPainter(
-                      gradient: null,
-                      borderRadius: radius,
-                      glossHeight: circle * 0.42,
-                      glossOpacity: 0.45,
-                      glossInset: circle * 0.06,
-                      rimTop: const Color(0xE6FFFFFF),
-                      rimBottom: const Color(0x40FFFFFF),
-                    ),
-                    child: SizedBox.square(
-                      dimension: circle,
-                      child: Center(
-                        child: ZokyDealIllustration(
-                          art: category.art,
-                          size: circle * 0.86,
-                        ),
-                      ),
-                    ),
+                  child: ZokyDealIllustration(
+                    art: category.art,
+                    size: circle * 0.8,
                   ),
                 ),
-                const SizedBox(height: ZokySpacing.s4),
+                const SizedBox(height: ZokySpacing.s3),
                 Text(
                   category.label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: ZokyTextStyles.labelMd.copyWith(
+                  style: ZokyTextStyles.bodyMd.copyWith(
                     color: ZokyColors.textPrimary,
+                    height: 1.3,
                   ),
                 ),
               ],

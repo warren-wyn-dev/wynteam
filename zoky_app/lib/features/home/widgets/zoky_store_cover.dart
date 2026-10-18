@@ -18,10 +18,16 @@ class ZokyStoreCover extends StatelessWidget {
     super.key,
     required this.store,
     required this.borderRadius,
+    this.fallbackArt,
   });
 
   final ZokyStoreSummary store;
   final BorderRadius borderRadius;
+
+  /// Art drawn when the store has neither a photo nor its own
+  /// [ZokyStoreSummary.coverArt] (e.g. picked from its food category), so
+  /// no gray placeholder shows. null keeps the placeholder.
+  final ZokyDealArt? fallbackArt;
 
   /// Soft background tint per dish (top -> bottom). Ink text never sits on
   /// these; only the white glossy badge/heart controls do.
@@ -68,7 +74,7 @@ class ZokyStoreCover extends StatelessWidget {
   }
 
   Widget _art() {
-    final art = store.coverArt;
+    final art = store.coverArt ?? fallbackArt;
     return DecoratedBox(
       decoration: BoxDecoration(gradient: tintFor(art)),
       child: CustomPaint(

@@ -78,6 +78,12 @@ class DemoHomeContentRepository implements HomeContentRepository {
       terms: ['อีสาน', 'ส้มตำ'],
     ),
     ZokyFoodCategory(
+      id: 'drinks',
+      label: 'เครื่องดื่ม',
+      art: ZokyDealArt.bubbleTea,
+      terms: ['เครื่องดื่ม', 'ชานม', 'กาแฟ'],
+    ),
+    ZokyFoodCategory(
       id: 'fast-food',
       label: 'ฟาสต์ฟู้ด',
       art: ZokyDealArt.burger,
@@ -88,12 +94,6 @@ class DemoHomeContentRepository implements HomeContentRepository {
       label: 'ไก่ทอด',
       art: ZokyDealArt.friedChicken,
       terms: ['ไก่ทอด'],
-    ),
-    ZokyFoodCategory(
-      id: 'drinks',
-      label: 'เครื่องดื่ม',
-      art: ZokyDealArt.bubbleTea,
-      terms: ['เครื่องดื่ม', 'ชานม', 'กาแฟ'],
     ),
     ZokyFoodCategory(
       id: 'desserts',

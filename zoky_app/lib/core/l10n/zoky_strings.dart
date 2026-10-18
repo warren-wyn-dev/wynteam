@@ -29,12 +29,40 @@ abstract final class ZokyStrings {
   // Placeholder until the favorite stores sheet ships (Home Phase 1 review).
   static const String comingSoon = 'เร็ว ๆ นี้';
   static const String searchHint = 'ค้นหาร้านหรือเมนูอาหาร';
-  // Food landing page (opened from the Home hero card, Founder 2026-10-18):
-  // page name for assistive tech, the delivery address in the header, the
-  // floating search field placeholder.
+  // Food landing page (opened from the Home hero card, Founder 2026-10-18;
+  // copy from the Founder food page mockup v2): page name for assistive
+  // tech, the delivery address in the header, the search field placeholder.
   static const String foodHomeTitle = 'สั่งอาหาร';
   static const String deliverAt = 'จัดส่งที่';
-  static const String foodSearchPlaceholder = 'สั่งอะไรดี?';
+  static const String foodSearchPlaceholder = 'ค้นหาร้านอาหารหรือเมนู';
+  // "จัดส่ง | รับเองที่ร้าน" toggle (mockup v2; pickup opened by Founder
+  // decision "ค", 2026-10-18). In pickup mode the header reads
+  // "รับเองใกล้ <address>" (short enough to keep the address visible) and
+  // pickup stores say "รับเองได้".
+  static const String modeDelivery = 'จัดส่ง';
+  static const String modePickup = 'รับเองที่ร้าน';
+  static const String pickupNear = 'รับเองใกล้';
+  static const String pickupAvailable = 'รับเองได้';
+  static const String fulfillmentModeLabel = 'วิธีรับอาหาร';
+  // Header coupon icon (mockup v2 coupon card title) and the coupon
+  // section (title from the mockup; card copy and sheet title from the web
+  // promoCard / "รวมโค้ดลดเพิ่ม" sheet).
+  static const String coupons = 'คูปองส่วนลด';
+  static const String couponsTitle = 'โค้ดลดเพิ่มสำหรับคุณ';
+  static const String seeAllCoupons = 'ดูทั้งหมด โค้ดลดเพิ่มสำหรับคุณ';
+  static const String couponsSheetTitle = 'รวมโค้ดลดเพิ่ม';
+  static const String collectCode = 'เก็บโค้ด';
+  static const String codeCollected = 'เก็บแล้ว';
+  static const String promoMinSubtotal = 'เมื่อสั่งครบ';
+  static const String promoFallback = 'โปรร้าน';
+  // Placeholder pending Founder review (not in the mockup or the web).
+  static const String couponsEmpty = 'ยังไม่มีโค้ดส่วนลด';
+  // Store list heading actions and rows (mockup v2).
+  static const String filters = 'ตัวกรอง';
+  static const String viewMenu = 'ดูเมนู';
+  // Floating cart button (web: aria-label "ตะกร้า").
+  static const String cart = 'ตะกร้า';
+  static const String cartItemsSuffix = 'รายการ';
   // Address sheet (web: "เลือกที่อยู่จัดส่ง"; "เพิ่มที่อยู่ใหม่" from the
   // Founder brief, a placeholder row until address entry ships).
   static const String chooseDeliveryAddress = 'เลือกที่อยู่จัดส่ง';
@@ -81,6 +109,10 @@ abstract final class ZokyStrings {
   static const String noStoresBody =
       'ZOKY กำลังขยายพื้นที่ให้บริการ ลองเปลี่ยนที่อยู่จัดส่ง หรือกลับมาใหม่เร็วๆ นี้';
   static const String changeAddress = 'เปลี่ยนที่อยู่จัดส่ง';
+  // Web: fx-empty-line under a filter with no match; "ล้างตัวกรอง" action
+  // per the Founder brief (food page states).
+  static const String noFilteredStores = 'ไม่มีร้านที่ตรงกับตัวกรองนี้';
+  static const String clearFilters = 'ล้างตัวกรอง';
   // Web: FoodLoadError (offline variant).
   static const String loadErrorTitle = 'โหลด ZOKY ไม่สำเร็จ';
   static const String offlineTitle = 'เชื่อมต่อไม่ได้';

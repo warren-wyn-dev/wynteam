@@ -61,7 +61,6 @@ class _ZokyShellState extends State<ZokyShell> {
                   key: _homeKey,
                   repository: deps.storeRepository,
                   promotionRepository: deps.promotionRepository,
-                  onOpenOrders: () => _select(ZokyTab.orders),
                 ),
                 OrdersScreen(onBrowse: () => _select(ZokyTab.home)),
                 const MessagesScreen(),

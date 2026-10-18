@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 
 import '../features/address/delivery_address_controller.dart';
 import '../features/catalog/data/store_repository.dart';
+import '../features/food/collected_promos_controller.dart';
+import '../features/fulfillment/fulfillment_mode_controller.dart';
 import '../features/deals/data/promotion_repository.dart';
 import '../features/home/data/home_content_repository.dart';
 import 'app_config.dart';
@@ -17,6 +19,8 @@ class AppDependencies extends InheritedWidget {
     required this.promotionRepository,
     required this.homeContentRepository,
     required this.deliveryAddresses,
+    required this.fulfillmentMode,
+    required this.collectedPromos,
     required super.child,
   });
 
@@ -27,6 +31,12 @@ class AppDependencies extends InheritedWidget {
 
   /// Saved addresses + the selected "จัดส่งที่" (listen to it for changes).
   final DeliveryAddressController deliveryAddresses;
+
+  /// "จัดส่ง | รับเองที่ร้าน" (listen to it for changes).
+  final FulfillmentModeController fulfillmentMode;
+
+  /// Promos collected with "เก็บโค้ด" (in memory for now).
+  final CollectedPromosController collectedPromos;
 
   static AppDependencies of(BuildContext context) {
     final result = context
@@ -41,5 +51,7 @@ class AppDependencies extends InheritedWidget {
       storeRepository != oldWidget.storeRepository ||
       promotionRepository != oldWidget.promotionRepository ||
       homeContentRepository != oldWidget.homeContentRepository ||
-      deliveryAddresses != oldWidget.deliveryAddresses;
+      deliveryAddresses != oldWidget.deliveryAddresses ||
+      fulfillmentMode != oldWidget.fulfillmentMode ||
+      collectedPromos != oldWidget.collectedPromos;
 }
