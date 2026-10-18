@@ -20,6 +20,25 @@ try:
 except ImportError:  # fail closed: never pass without parsing
     sys.exit("PyYAML is required (python3-yaml); refusing to pass without parsing workflows")
 
+class WorkflowLoader(yaml.SafeLoader):
+    """Read mapping keys as GitHub does: plain strings (PyYAML's YAML 1.1
+    resolver turns keys like `on`/`yes` into True and lets one silently
+    overwrite the other), and refuse duplicate keys outright."""
+
+
+def _construct_mapping(loader, node, deep=False):
+    loader.flatten_mapping(node)  # resolve `<<` merge keys first
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = key_node.value if isinstance(key_node, yaml.ScalarNode) else loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(None, None, f"duplicate key {key!r}", key_node.start_mark)
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+WorkflowLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
+
 ROOT = Path(__file__).resolve().parent.parent
 WF = ROOT / ".github" / "workflows"
 CREDENTIAL = re.compile(r"(?<![A-Za-z0-9_])(SUPABASE_ACCESS_TOKEN|VERCEL_TOKEN)(?![A-Za-z0-9_])", re.I)
@@ -75,7 +94,7 @@ errors = []
 workflows = sorted(WF.glob("*.yml")) + sorted(WF.glob("*.yaml"))
 for path in workflows:
     try:
-        doc = yaml.safe_load(path.read_text())
+        doc = yaml.load(path.read_text(), Loader=WorkflowLoader)
     except yaml.YAMLError as exc:
         errors.append(f"{path.name}: not parseable YAML ({exc.__class__.__name__})")
         continue
