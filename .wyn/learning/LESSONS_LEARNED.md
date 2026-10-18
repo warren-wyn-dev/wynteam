@@ -344,3 +344,15 @@
   ถ้าเจอ assertion ที่อ้างอิงค่าเดิม ให้อัปเดตพร้อมกันในรอบเดียวกัน และต้องรัน `web/tests/browser/` (regression
   suite ที่มีอยู่แล้ว) จริงก่อนส่ง QA เสมอ ไม่ใช่แค่ `npm run check` — สอดคล้องกับ pattern เดียวกับ WYN-176
   batch 6 (test coverage gap ที่หลุดเพราะไม่ cross-check ชุด assertion เดิม/ใหม่ให้ครบก่อน commit)
+
+### [2026-10-18] เปลี่ยน hardcoded production origin เป็นค่าคงที่ใหม่ ต้องคงกฎ "อยู่บน origin เดิม" ของ auth ด้วย
+- บริบท: ZOKY-139 — rebrand ZOKY แทน `https://food.wynos.online/` ใน `web/app/auth/callback/page.tsx` ด้วย
+  `${FOOD_PRODUCTION_ORIGIN}/` (zoky) ตรงๆ ทำให้คนยืนยันอีเมลบน food.wynos.online (phase 1) ถูกส่งไป zoky ซึ่งไม่มี
+  session (cookie/session อยู่ต่อ origin) จึงหลุดออกจากระบบ ทั้งที่ `foodHomeUrlFor` ใน `web/lib/food-origin.ts`
+  มีกฎ "Food origin อยู่ origin เดิม, Social ส่งต่อไป ZOKY" อยู่แล้ว
+- บทเรียน: redirect หลัง auth (callback, email confirm, OAuth return) ต้องคำนวณจาก origin ที่กำลังรันอยู่ผ่าน helper
+  กลางเสมอ ห้าม search-replace domain เดิมเป็นค่าคงที่ canonical ใหม่ เพราะ session ไม่ข้าม origin; และ source
+  assertion ที่ pin ค่า hardcoded (`food-standalone-account.test.mjs`) จะ "ล็อกบั๊ก" ไว้แทนที่จะจับมัน
+- การนำไปใช้ในอนาคต: เวลาย้าย/rebrand domain ให้ `grep -rn "<ORIGIN_CONSTANT>" app/ lib/` แล้วตรวจทุกจุดที่เป็น
+  `window.location.replace`/redirect หลัง auth ว่าใช้ helper per-host และเพิ่ม behavior test ราย host
+  (Food เดิม/ใหม่, Social, localhost, preview) ไม่ใช่แค่ regex ของ source

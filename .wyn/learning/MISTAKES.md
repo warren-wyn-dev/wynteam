@@ -291,3 +291,15 @@
   มีประโยชน์สำหรับยืนยัน live rendering/cascade แต่ไม่ทดแทน regression suite เดิมที่มี literal-string assertion
   ผูกกับค่า CSS อยู่แล้ว ควร `grep -rn "<ค่าเดิมที่กำลังจะแก้>" web/tests/browser/` ก่อนแก้ CSS ทุกครั้งเพื่อหา
   assertion ที่ต้องอัปเดตพร้อมกัน (รายละเอียดเต็มที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน)
+
+### [2026-10-18] Task ZOKY-139 (phase 1: ยืนยันอีเมลบน food.wynos.online แล้วไปตกที่ ZOKY แบบ signed out)
+- ข้อผิดพลาด: rebrand ZOKY (ZOKY-113/114) แทนที่ `https://food.wynos.online/` ทั้ง 3 จุดใน
+  `web/app/auth/callback/page.tsx` ด้วย `${FOOD_PRODUCTION_ORIGIN}/` โดยไม่ใช้ `foodHomeUrlFor` ที่คงผู้ใช้ไว้บน
+  Food origin เดิม และ test เดิมถูกแก้ให้ pin ค่า hardcoded ใหม่นั้น
+- ผลกระทบ: ผู้ใช้ Food ที่สมัครด้วยอีเมลบน food.wynos.online (phase 1, flag ปิด) ยืนยันสำเร็จแต่ถูกพาไป
+  zoky.wynos.online ที่ไม่มี session ต้อง sign in ใหม่ (MEDIUM, ไม่มี token รั่ว) — QA จับได้ก่อน merge
+- วิธีป้องกันในอนาคต: redirect หลัง auth ต้องใช้ helper per-host (`foodHomeUrlFor`) เสมอ; ตอน rebrand domain ให้ตรวจ
+  ทุก call site ของ origin constant ที่อยู่ใน auth flow และรัน test ราย host
+- Regression test ที่เพิ่ม: `web/tests/food-origin.test.mjs` (callback ห้ามใช้ `FOOD_PRODUCTION_ORIGIN`, ทั้ง 3 จุดต้อง
+  `window.location.replace(foodHome())`, คง `isSafeReturnPath`; ปลายทางราย host food/zoky/wynos/www/localhost/preview)
+  และอัปเดต assertion ใน `web/tests/food-standalone-account.test.mjs`
