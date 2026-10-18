@@ -118,3 +118,70 @@ Release plan section 9 notes (to apply on `release/zoky-web-20261018` with the n
 - `ci/deploy-secrets-environment` (C1) merges cleanly with this branch (simulated). `deploy-edge-functions.yml` is byte-identical on both.
 
 Still open (Founder): C1, M1 and release-plan F1–F3 before the first production dispatch. Pre-existing `${{ inputs.function }}` in edge `run:` bodies left as-is (choice-typed, not injectable; out of scope).
+
+## CTO Re-review (2026-10-18) — R1–R4 + EDGE phase
+
+- Reviewer: WYN CTO (AI) | Branch tip reviewed: `81bbb3a5` | Mode: read-only (no env/secrets, no dispatch, no deploy, no PR, no merge)
+
+### Verdict: **APPROVED WITH CONDITIONS**
+
+Merge is approved: merging deploys nothing (only `ci.yml` fires on push). The conditions below apply **before the first `phase=EDGE` dispatch (A4)**, not before merge.
+
+### สรุปสำหรับ Founder (ภาษาไทย)
+
+- แก้ครบทั้ง 4 ข้อ (R1–R4) ตรวจแล้วถูกต้อง และขั้น EDGE ใหม่ (deploy edge function 3 ตัวจาก commit ที่ล็อกไว้) ปลอดภัย: ต้องรันจาก `main`, ต้องผ่านปุ่มอนุมัติ `production`, deploy ได้แค่ 3 ตัวที่กำหนด, ไม่ใช้กุญแจ Vercel, ตรวจวันหมดอายุซ้ำ และหยุดเองถ้ายังไม่ได้ตั้งค่า verify_jwt ของ geocode
+- **merge ได้** แต่ก่อนกด EDGE ครั้งแรกต้องทำ 3 อย่าง:
+  1. เพิ่มบรรทัดตั้งค่า `[functions.wynos-maps-geocode]` (ค่าที่อ่านจาก Supabase ในข้อ F2) ทั้งบน branch release **และบน `main`** — ไม่งั้น rollback geocode จาก `main` จะถูกบล็อก
+  2. รู้ไว้ว่า: ถ้าเปิด ZOKY (ขั้น 1/2) ไปแล้ว **ห้าม rollback edge function อย่างเดียว** เพราะเวอร์ชันบน `main` ยังไม่รู้จัก `zoky.wynos.online` → จ่ายบัตรบน ZOKY จะพัง ต้อง rollback เว็บก่อนแล้วค่อย rollback edge
+  3. rollback edge ต้องให้ Founder กดอนุมัติเช่นกัน (ช้ากว่ากดเองได้ทันที) — ให้วางแผนเวลาที่ Founder ว่างตอน release
+
+### R1–R4 verification
+
+| Item | Verified at `81bbb3a5` | Result |
+|---|---|---|
+| R1 / F1 | `concurrency.group: zoky-web-exception-release`, `cancel-in-progress: false`; guard asserts group != wyn-158's group; wyn-158 untouched vs `origin/main` | OK |
+| R2 / F2 | `deploy-edge-functions.yml`: `environment: production` on `deploy`; fail-closed geocode pin step with input via `env:`; freeze guard asserts both (3 loosened variants rejected) | OK |
+| R3 / F3 | Per-job structural checks (`jobs_of`, `job_key`, `run_bodies`): env only on `deploy`/`edge`, none + no `secrets.` on `guard`, exact job set, exact `if:` per job, expiry first step in every job, no `${{ inputs.* }}`/`github.event.inputs` in any `run:` body (raw text incl. comments), pinned CLIs, checkout creds | OK |
+| R4 / F4 | "Exception has not expired" is the first step of `deploy` and `edge` (after environment approval) and of `guard` | OK |
+| L1/L2/L3/L5 | `vercel@63.1.2`, `persist-credentials: false` on all 3 checkouts, `maps_geo` lines restored, `--no-renames` | OK |
+
+### EDGE job review
+
+Confirmed OK:
+- Gate: `needs: guard` (guard re-proves release SHA = branch tip, base ancestry, #1133/#1135 exclusion, path allowlist, config.toml = base + exactly one appended geocode `verify_jwt` entry); job `if:` = main-only + confirmation + `phase == 'EDGE'`; `environment: production`; web `deploy` job skips EDGE, so one dispatch never ships both.
+- Pinned content: checks out `inputs.release_sha` (immutable) and re-asserts HEAD. All three function directories are self-contained (`food-stripe-cancel` imports `../food-stripe-checkout/_lib.ts`, deployed from the same SHA; no `_shared`, no import map). Only `npm:@supabase/supabase-js@2.112.3` (pinned).
+- Allowlist: `ZOKY_EDGE_FUNCTIONS` is a workflow constant, the only `functions deploy` call in the file, no `--no-verify-jwt`; verify_jwt comes from config.toml at the release SHA (base entries for both Stripe functions are `verify_jwt = true`).
+- Secrets: only `SUPABASE_ACCESS_TOKEN`/`SUPABASE_URL` in the deploy step env; no Vercel credentials; token never echoed; `deno check/test` steps run without secrets in env.
+- No injection: inputs reach shell only via `env:`; `ref:` interpolation is not shell.
+- Supabase CLI pin `2.120.0`: plausible and acceptable. npm publish times: 2.119.0 2026-09-30, **2.120.0 2026-10-06**, 2.121.0 2026-10-14; no 2.120.x patch; the GitHub release asset `v2.120.0/supabase_linux_amd64.tar.gz` exists (302). So `latest` on 2026-10-12 resolved to 2.120.0. Still an inference (run log not read); a wrong guess is low-risk because the deploy fails loudly, it does not misdeploy. Deno `v2.9.7` asset exists.
+- With `ci/deploy-secrets-environment` merged, `check_production_secret_scoping.py` passes (both `deploy` and `edge` carry `environment: production`).
+
+Findings (new):
+
+| ID | Severity | Finding | Disposition |
+|---|---|---|---|
+| E1 | MEDIUM (ops) | Edge rollback is `deploy-edge-functions.yml` on `main`. `main` has no `[functions.wynos-maps-geocode]` entry (verified), so its pin step blocks a geocode rollback. Release tip `31f13fb3` also lacks it, so EDGE fails closed today (intended). | **Condition A**: land the one-line entry, with the same value read in F2, on `main` (small PR, CTO/QA) **and** on the release branch before A4. If F2 says `verify_jwt = false`, QA confirms the function's own origin check / rate limiting first. |
+| E2 | MEDIUM (ops) | `main`'s `food-stripe-checkout`/`-cancel` equal production `b19687af` and do **not** allow `https://zoky.wynos.online`. Rolling back those functions alone after PHASE1 (or PHASE2, when all Food traffic is on zoky) breaks card checkout/cancel on ZOKY. | **Condition B**: runbook says edge rollback after PHASE1 = roll back web first (Vercel Instant Rollback), then edge. Before PHASE1 an edge rollback is safe. |
+| E3 | LOW (ops) | Rollback through `deploy-edge-functions.yml` now needs the Founder's `production` approval, so recovery time depends on Founder availability. Partial failure (set -e stops mid-loop) leaves earlier functions deployed; the summary lists which. | Condition C: Founder available for the EDGE window; rollback per listed function. |
+| E4 | LOW | `phase` relies on GitHub's choice validation; the guard does not itself reject a value outside EDGE/PHASE1/PHASE2 (a non-listed value would take the web path and skip the PHASE2 precondition). | Recommended: `case "$PHASE" in EDGE|PHASE1|PHASE2) ;; *) exit 1;; esac` in the guard. Non-blocking. |
+| E5 | LOW | No automated post-deploy smoke for the 3 functions (manual plan section 4 smoke). | Acceptable; run the section 4 smoke immediately after approval. |
+
+Observation (outside this PR): the release branch changes `.github/scripts/sync-auth-password-policy.sh` (additive ZOKY redirect URLs), but no exception path runs it; ZOKY auth redirect URLs must reach production another way (release plan F3 / Founder dashboard). `main`'s version is additive too, so it never removes ZOKY entries.
+
+Still open from the first review: C1 (in progress via `ci/deploy-secrets-environment`), M1 (protect `release/zoky-web-20261018`), release-plan F1–F3.
+
+### Checks run (re-review)
+
+| Check | Result |
+|---|---|
+| `check_wynos_release_freeze.py` / `test_check_wynos_release_freeze.py` (branch) | PASS / PASS (34 + 3 loosened variants rejected) |
+| `yaml.safe_load` all 97 workflows + `bash -n` on all 224 bash `run:` blocks (`${{ }}` stubbed) | 0 failures |
+| Simulated merge of both CI branches into `origin/main` (either order; identical trees, `ci.yml` auto-merges) | all guards PASS (freeze + test, secret scoping + test, schema ordering, `test-auth-*.sh`); 97 workflows parse; 225 run blocks `bash -n` clean; 78 credential workflows / 80 jobs all `environment: production` |
+| Push-trigger simulation of this branch's diff | only `ci.yml` fires on merge |
+| `deploy-edge-functions.yml` vs `ci/deploy-secrets-environment` | byte-identical |
+
+Not run: actionlint, deno (not installed), the workflows themselves. No claim of zero regression.
+
+### Merge order
+
+1. `ci/deploy-secrets-environment` first (closes the ungated production-credential gap at merge time and removes the Overture push-triggered write), 2. this branch. Either order is conflict-free and yields the same tree. See `deploy-secrets-environment-cto-review.md` on that branch for the full sequence.
