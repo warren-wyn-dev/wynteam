@@ -695,3 +695,10 @@
 ### [2026-10-18] ZOKY EDGE — deployed ✅
 
 Run 39159334533 (Founder approved `production` review): guard ✅, edge deploy ✅ (food-stripe-checkout, food-stripe-cancel, wynos-maps-geocode from `0533fb36`), smoke ✅. Independent check: geocode CORS allows zoky.wynos.online and food.wynos.online, rejects other origins (403); food.wynos.online still 200. Web deploy job skipped (EDGE only).
+
+## [2026-10-18] ZOKY exception release — A5 PHASE1 (APPROVED by Founder)
+
+- Founder: "เริ่มขั้น1"; Supabase Auth redirect URLs for zoky.wynos.online added by Founder ("เพิ่มแล้ว")
+- Workflow: `zoky-web-exception-release.yml` on `main`, phase `PHASE1` (ZOKY_LEGACY_FOOD_REDIRECT=0)
+- release_sha: `0533fb3649f3c327f451bc95832674d63c0f6873`
+- Rollback: Vercel Instant Rollback to `web-5djnkfh16` (`b19687af`); plus zoky→food domain redirect in Vercel if needed
