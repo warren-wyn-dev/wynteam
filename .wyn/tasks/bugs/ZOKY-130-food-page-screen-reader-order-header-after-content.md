@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-130 (Food page: VoiceOver/TalkBack read the pinned header and filter chips after the content)
 
-Status: **fixed — awaiting QA re-test**
+Status: **verified — closed** (QA re-test 2026-10-18)
 Severity: **MEDIUM** (accessibility, WCAG 1.3.2 meaningful sequence / 2.4.3 focus order): a screen-reader user swiping forward hears the categories, coupons and the first rows before the back button, address, delivery/pickup choice and search; the quick filter chips are announced before their heading "ร้านอาหารทั้งหมด". All controls remain reachable and labelled.
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Food page round, 2026-10-18, branch `docs/zoky-foundation` @ 46a8f0c
@@ -44,3 +44,13 @@ Tests: QA "reading order follows the visual order" un-skipped and passing.
 Regression Risk: Low. Side effect: the scroll node's `scrollIndex` (row X of Y hint) is no longer derived from the rows, because they now sit one level deeper. Not verified on a real device; needs a VoiceOver/TalkBack spot check.
 
 Handoff to QA: device spot check with VoiceOver and TalkBack, including after scrolling.
+
+## QA Re-test (AI QA & Security, 2026-10-18, branch `docs/zoky-foundation` @ 5775c10): **Verified — closed** (order); new finding filed separately as ZOKY-132
+
+- Original repro passes.
+- Independent check (iOS, Android, Fuchsia variants, 390×844 insets 47/34): page just opened → back, address, heart, coupons, จัดส่ง, รับเองที่ร้าน, search, coupons title, ร้านอาหารทั้งหมด, ตัวกรอง, ทั้งหมด chip, first row, cart (strictly increasing). Pickup mode → back, "รับเองที่ร้าน" header, search, ร้านอาหารทั้งหมด, chips, rows, cart. After scrolling 300 / 900 / end: "สั่งอาหาร | search | chips | rows (in visual top-to-bottom order) | ตะกร้า"; cart always last; no row before the header or chips.
+- Accepted side effect (Debug note): the scroll node no longer exposes row index/count ("row X of Y").
+- New, pre-existing (not caused by this fix): most buttons on Home + Food expose `isButton` but no tap action in the semantics tree, so a semantics activation does nothing → ZOKY-132.
+- `flutter analyze` → No issues found. `flutter test` → 994 passed, 14 skipped, 0 failed (skips: ZOKY-124 won't-fix repro, 2 tokens.json checks, screenshot helpers that run only with `QA_SHOT_DIR`, and the new open repros for ZOKY-132/133). `flutter test --exclude-tags qa-heavy` → 958 passed, no "tag not specified" warning (`qa-heavy` now registered in `zoky_app/dart_test.yaml`).
+- QA re-test suite: `zoky_app/test/qa/food_page_retest_qa_test.dart`.
+- Not verified: real VoiceOver/TalkBack devices (no device in this environment).

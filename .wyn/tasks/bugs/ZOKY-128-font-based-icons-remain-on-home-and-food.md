@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-128 (Home + Food: icons still drawn from icon fonts — blank on a stale/tree-shaken font)
 
-Status: **fixed — awaiting QA re-test**
+Status: **verified — closed** (QA re-test 2026-10-18)
 Severity: **MEDIUM** (Founder-reported iPad bug class: icons render as empty space when the icon font is stale; the food back arrow and the search magnifier are primary navigation cues). Not HIGH: native iOS/Android builds bundle a matching font; the failure needs a web preview refreshed by copying only `main.dart.js`, which is exactly how the Founder previews today. Controls keep their tap targets and screen-reader labels.
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Food page round, 2026-10-18, branch `docs/zoky-foundation` @ 46a8f0c
@@ -54,3 +54,13 @@ Tests: QA "icon robustness" un-skipped and passing (0 font icons). `food_header_
 Regression Risk: Low (visual only). Other screens (store, search, deals, orders, account) still use font icons; out of scope for this bug.
 
 Handoff to QA: re-run the audit; spot-check glyphs on iOS/Android; web preview with only `main.dart.js` replaced.
+
+## QA Re-test (AI QA & Security, 2026-10-18, branch `docs/zoky-foundation` @ 5775c10): **Verified — closed**
+
+- Original repro (`food_page_qa_test.dart` "icon robustness", iOS) passes: 0 font icons.
+- Independent audit (Android + iOS) in `food_page_retest_qa_test.dart`: Home, Home favorites sheet (Home heart), Food loading (directory call held open = skeletons), Food delivery, address sheet, Food favorites sheet, Food pickup, filtered empty ("มีโปรฯ" with no promo stores), area empty + categories offline line, offline first load, closed-store row ("ปิดอยู่" label) and cover placeholder (no art). Checks every on-stage `Icon(IconData)` and any `RichText` in the MaterialIcons/CupertinoIcons families → 0 found on both platforms. (Other tabs kept offstage still use font icons: receipt_long, chat_bubble_outline, person_outline, chevron_right — out of scope as stated.)
+- Home unchanged: rendered Home at 390/320/430pt × text 1.0/1.3/2.0 × iOS/Android × viewport 844 and 3200pt high (whole page), @2x, Anuphan + MaterialIcons + CupertinoIcons fonts loaded, at 0170d10 vs HEAD (36 pairs). Pixel diff: every difference lies inside the "ดูทั้งหมด ›" chevron boxes (6×9pt each, 66–71 px per chevron at @2x, max channel delta 25–69/255); 2 pairs identical (chevrons off-screen). Enlarged side-by-side shows the same chevron shape, weight and position. No other pixel changed.
+- Back glyph adaptive (iOS chevron / Android arrow) covered by `food_home_screen_test.dart` and `food_header_icons_test.dart` (pass).
+- `flutter analyze` → No issues found. `flutter test` → 994 passed, 14 skipped, 0 failed (skips: ZOKY-124 won't-fix repro, 2 tokens.json checks, screenshot helpers that run only with `QA_SHOT_DIR`, and the new open repros for ZOKY-132/133). `flutter test --exclude-tags qa-heavy` → 958 passed, no "tag not specified" warning (`qa-heavy` now registered in `zoky_app/dart_test.yaml`).
+- QA re-test suite: `zoky_app/test/qa/food_page_retest_qa_test.dart`.
+- Not verified: real web preview with only `main.dart.js` replaced (no device/web deploy in this round).

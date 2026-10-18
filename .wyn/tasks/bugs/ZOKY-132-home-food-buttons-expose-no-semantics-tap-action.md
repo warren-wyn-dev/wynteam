@@ -1,0 +1,30 @@
+# Bug Report — ZOKY-132 (Home + Food: buttons expose no tap action to assistive tech)
+
+Status: **bugs — open**
+Severity: **HIGH** (accessibility; WCAG 2.1.1 Keyboard / 4.1.2 Name, Role, Value). The core flow (search, open a store, choose address, collect a coupon, open the cart) is announced as "button" but has no semantics action. Assistive tech that activates through actions (Android Switch Access / Voice Access, TalkBack's click action, Flutter web semantics) cannot operate these controls. VoiceOver may still work through UIKit's simulated touch at the element centre; not verified on a device. Pre-existing (Home v1 and the Food page), **not** a regression of ZOKY-128..131. CTO may downgrade to MEDIUM if a device check shows TalkBack and VoiceOver both activate every control.
+Owner: AI Debug Engineer
+Found by: AI QA & Security — Food page re-test, 2026-10-18, branch `docs/zoky-foundation` @ 5775c10 (same at 0170d10)
+
+Bug:
+Custom buttons wrap their `InkWell`/`GestureDetector` in `Semantics(button: true, label: …, excludeSemantics: true)` without `onTap`. `excludeSemantics` also drops the InkWell's tap action, so the one semantics node has `isButton` and a label but **no `SemanticsAction.tap`**.
+
+Semantics dump, Food page at 390×844: 28 buttons with no tap action, including the address button "จัดส่งที่ บ้าน (ตัวอย่าง)", "ร้านโปรด", "คูปองส่วนลด", "จัดส่ง"/"รับเองที่ร้าน", the search field, all 7 category circles, "ดูทั้งหมด", the 3 "เก็บโค้ด" buttons, "ตัวกรอง", every store row and "ตะกร้า". Home: hero "ค้นหาของอร่อย", "ร้านโปรด", both "ดูทั้งหมด", the 5 recommended store cards and the 4 deal cards. Only the back button, the quick filter chips (`ZokyChip`) and the bottom-nav tabs have a tap action. The bottom nav already uses the correct pattern (`zoky_bottom_nav.dart:267`: `Semantics(onTap: onTap, excludeSemantics: true, …)`).
+
+Reproduction:
+1. `flutter test test/qa/food_page_retest_qa_test.dart --run-skipped --plain-name "ZOKY-132"`:
+   - "every button on Home + Food exposes a tap action" → fails, prints `QA-NO-TAP-ACTION 28: …`.
+   - "screen-reader activation (semantics tap) on the search field opens search" → `performAction(tap)` on the search node does nothing (FoodHomeScreen stays).
+2. Manual: Android, Voice Access → "show numbers" on the Food page: the numbers skip the search field, the rows and the address. Or TalkBack: focus the search field and double tap.
+
+Expected: every node that says "button" has a tap action that does the same as a finger tap (and toggles report their state), on Home, Food and their sheets.
+
+Actual: no tap action on 28 Food and 13 Home buttons (list above).
+
+Root Cause (QA, preliminary): `excludeSemantics: true` without `onTap` on the wrapping `Semantics`. Files with this pattern (check each one): `lib/features/food/widgets/{zoky_food_address_button,zoky_food_cart_button,zoky_food_category_row,zoky_food_coupon_section,zoky_food_mode_toggle,zoky_food_search_field,zoky_food_store_row}.dart`, `lib/features/food/food_home_screen.dart` (ตัวกรอง, `_storesHeading`), `lib/features/home/widgets/{zoky_food_hero_card,zoky_home_section_header,zoky_recommended_store_card}.dart`, `lib/core/widgets/{zoky_glossy_heart_button,zoky_store_card,zoky_cart_bar,zoky_menu_item_card,zoky_3d_icon}.dart`, `lib/features/deals/widgets/zoky_deal_card.dart`, `lib/features/address/address_sheet.dart`.
+
+Fix (direction): pass the same callback as `Semantics(onTap: …)`, as the bottom nav does (null when disabled), so labels and visuals do not change. Add a regression test that walks the semantics tree of Home and Food and asserts `isButton ⇒ hasAction(tap)`.
+
+Files Changed:
+Tests: `zoky_app/test/qa/food_page_retest_qa_test.dart` — two `ZOKY-132 repro` tests (`skip: true`).
+Regression Risk: Low (semantics only, no visual change). Re-run the reading-order tests (ZOKY-130), because adding actions must not change the order.
+Handoff to QA: un-skip both repros; also check Home and the address/favorites/coupon sheets; VoiceOver + TalkBack spot check on a device.

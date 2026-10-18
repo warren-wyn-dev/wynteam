@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-129 (Food page: ETA/distance, coupon minimum, store name and demo address label are ellipsized)
 
-Status: **fixed — awaiting QA re-test**
+Status: **verified — closed** (QA re-test 2026-10-18)
 Severity: **MEDIUM** (same class as ZOKY-127: design §10.2 "no truncation on the main flow"; the coupon minimum "เมื่อสั่งครบ ฿100" is price information; the header can hide "(ตัวอย่าง)" so a sample address reads as real — Founder rule "demo labels everywhere"). Screen readers still get the full text (row/coupon labels are complete).
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Food page round, 2026-10-18, branch `docs/zoky-foundation` @ 46a8f0c
@@ -50,3 +50,12 @@ Tests: both QA groups un-skipped and passing (12/12 + 6/6). Layout matrix, scrol
 Regression Risk: Low–Medium. Rows and coupons get taller at large text, and very long (hostile) names make tall rows (no overflow). At 320 × 1.3 the demo address renders about 10–15% smaller.
 
 Handoff to QA: re-run the matrix; visually check 320 × 1.3 header address and 375 × 2.0 rows.
+
+## QA Re-test (AI QA & Security, 2026-10-18, branch `docs/zoky-foundation` @ 5775c10): **Verified — closed**
+
+- Original repros pass ("no truncated" 12/12, "demo label readable" 6/6).
+- Independent check at 320×568 (inset 20) × text 1.0/1.3/1.6/2.0 with Anuphan: for all 3 demo addresses the header text contains "(ตัวอย่าง)", is never ellipsized, stays inside the 320pt screen, and is painted at ≥ 84% of its size (measured FittedBox factor: บ้าน 1.00, คอนโด 0.91, ที่ทำงาน 0.84 from text 1.3 up; header text is clamped at 1.3, so 1.6/2.0 are the same). Whole-page scroll sweep (120pt steps): no exception/overflow and no ellipsized text in any row, coupon or label (the only ellipsized text is the search placeholder, pre-existing, filed as ZOKY-133 item 2).
+- Visual (test-rendered PNG): 375×667 × 2.0 row "เครื่องดื่ม · ร้านใหม่ · 15–25 นาที · 0.8 กม." wraps on 3 lines, ETA/distance whole; 320 × 1.3/2.0 coupon condition wraps ("ชานมไข่มุกหวานใจ · เมื่อสั่ง / ครบ ฿100"); coupon cards and rows grow in height without clipping. Acceptable.
+- `flutter analyze` → No issues found. `flutter test` → 994 passed, 14 skipped, 0 failed (skips: ZOKY-124 won't-fix repro, 2 tokens.json checks, screenshot helpers that run only with `QA_SHOT_DIR`, and the new open repros for ZOKY-132/133). `flutter test --exclude-tags qa-heavy` → 958 passed, no "tag not specified" warning (`qa-heavy` now registered in `zoky_app/dart_test.yaml`).
+- QA re-test suite: `zoky_app/test/qa/food_page_retest_qa_test.dart`.
+- Caveat: the test font environment breaks Thai lines without a dictionary (e.g. "ส่งฟรีทุ/กออเดอร์"); line-break quality inside words must be checked on a device.

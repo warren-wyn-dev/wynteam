@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-131 (Food page: low-severity findings)
 
-Status: **fixed — awaiting QA re-test**
+Status: **verified — closed** (QA re-test 2026-10-18)
 Severity: **LOW** (each item; none blocks the demo)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — Food page round, 2026-10-18, branch `docs/zoky-foundation` @ 46a8f0c
@@ -40,3 +40,16 @@ Tests: three QA repros un-skipped and passing. New `food_home_screen_test.dart` 
 Regression Risk: Low.
 
 Handoff to QA: visual check of items 4–5 at 320×568 and 375×667 × 2.0; offline refresh on device.
+
+## QA Re-test (AI QA & Security, 2026-10-18, branch `docs/zoky-foundation` @ 5775c10): **Verified — closed** (items 1–5, 7; item 6 fee part); residual items moved to ZOKY-133
+
+1. Retry: tapping "ลองอีกครั้ง" removes the error and shows skeletons while the call is pending. Race: retry (call 1) + pull to refresh (call 2); call 2 succeeds with 2 stores, then call 1 fails late → 2 rows kept, no full-page error, no SnackBar from the stale failure. Debug's reverse-order race test also passes. PASS.
+2. Failed refresh (stores + categories offline) keeps rows, coupons and category circles; exactly one SnackBar "เชื่อมต่อไม่ได้" (also after two failed refreshes in a row); the next successful refresh replaces the list. Failed refresh from the offline state keeps the error + retry (no blank page). PASS.
+3. Distance Infinity, -Infinity, NaN, -0.001, -5 → no "กม.", "Infinity", "NaN" or negative number in row text or screen-reader label; "ใกล้ฉัน" excludes them (filtered empty state); 0.0 km still shows. PASS.
+4. Cart FAB vs "เก็บโค้ด" at 320×568 × 1.0/1.3/1.6/2.0, delivery + pickup, every 40pt of scroll: no fully visible collect button under the FAB at rest (y=0). The only overlaps are (a) the second coupon card peeking in from the right edge (button mostly off-screen, needs a horizontal scroll anyway) and (b) mid-scroll positions where any content passes under the floating button. Acceptable. PASS.
+5. Category labels: one line, never broken inside a word, at 320 × 1.3–2.0 and 375 × 2.0. Note: labels shrink by different amounts (at 320 × 2.0: อีสาน 28.6pt vs ของหวาน 16.6pt) but never below the text-1.0 size (15pt). Design follow-up in ZOKY-133 item 3. PASS.
+6. Store page opened from a pickup-mode row hides "ค่าส่ง"; opened in delivery mode it keeps it. PASS for the fee. Residual: the pickup store page still shows the delivery ETA "20–30 นาที" (the food row hides ETA in pickup) → ZOKY-133 item 1.
+7. Stale "สั่งอะไรดี?" comments updated. PASS.
+- `flutter analyze` → No issues found. `flutter test` → 994 passed, 14 skipped, 0 failed (skips: ZOKY-124 won't-fix repro, 2 tokens.json checks, screenshot helpers that run only with `QA_SHOT_DIR`, and the new open repros for ZOKY-132/133). `flutter test --exclude-tags qa-heavy` → 958 passed, no "tag not specified" warning (`qa-heavy` now registered in `zoky_app/dart_test.yaml`).
+- QA re-test suite: `zoky_app/test/qa/food_page_retest_qa_test.dart`.
+- Not verified: offline refresh on a real device.

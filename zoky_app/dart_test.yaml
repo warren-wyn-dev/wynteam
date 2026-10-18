@@ -1,0 +1,5 @@
+# Test tags (see test/qa/*). Run a fast suite with
+# `flutter test --exclude-tags qa-heavy`.
+tags:
+  qa-heavy:
+    description: Heavy QA matrix tests (sizes x text scales x scroll sweeps).
