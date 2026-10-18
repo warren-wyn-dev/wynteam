@@ -58,13 +58,15 @@ jobs:
       # Without a config.toml entry the CLI deploys with verify_jwt = true,
       # which breaks guest geocoding if the live function has Verify JWT off.
       # Fail closed instead of relying on a comment (CTO review R2/F2).
+      # Parsed with stdlib tomllib (a text match mis-reads indented headers);
+      # invalid TOML or anything but boolean false fails.
       - name: wynos-maps-geocode verify_jwt is pinned
         env:
           FUNCTION_NAME: ${{ inputs.function }}
         run: |
           set -euo pipefail
           if [ "$FUNCTION_NAME" = "wynos-maps-geocode" ] && \
-             ! awk '/^\[/ { s = ($0 == "[functions.wynos-maps-geocode]") } s && /^verify_jwt[[:space:]]*=[[:space:]]*false[[:space:]]*$/ { f = 1 } END { exit !f }' supabase/config.toml; then
+             ! python3 -c 'import sys, tomllib; c = tomllib.load(open("supabase/config.toml", "rb")); sys.exit(0 if c.get("functions", {}).get("wynos-maps-geocode", {}).get("verify_jwt") is False else 1)'; then
             echo "::error::supabase/config.toml has no verify_jwt = false in a [functions.wynos-maps-geocode] section (Founder 2026-10-18: live Verify JWT is OFF), so this deploy would force verify_jwt = true."
             echo "::error::Add [functions.wynos-maps-geocode] with verify_jwt = false to supabase/config.toml, then deploy from that ref (zoky-web-release-plan.md section 4)."
             exit 1

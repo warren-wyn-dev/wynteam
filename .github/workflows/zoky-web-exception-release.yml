@@ -500,11 +500,12 @@ jobs:
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 
       # Without a config.toml entry the CLI deploys with verify_jwt = true and
-      # can break guest geocoding (plan section 4 / F2). Fail closed.
+      # can break guest geocoding (plan section 4 / F2). Fail closed. Parsed with
+      # stdlib tomllib; anything but boolean false fails.
       - name: wynos-maps-geocode verify_jwt is pinned
         run: |
           set -euo pipefail
-          awk '/^\[/ { s = ($0 == "[functions.wynos-maps-geocode]") } s && /^verify_jwt[[:space:]]*=[[:space:]]*false[[:space:]]*$/ { f = 1 } END { exit !f }' supabase/config.toml || {
+          python3 -c 'import sys, tomllib; c = tomllib.load(open("supabase/config.toml", "rb")); sys.exit(0 if c.get("functions", {}).get("wynos-maps-geocode", {}).get("verify_jwt") is False else 1)' || {
             echo "::error::supabase/config.toml at the release SHA has no verify_jwt = false in a [functions.wynos-maps-geocode] section (F2: live Verify JWT is OFF)."
             exit 1
           }

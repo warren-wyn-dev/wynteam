@@ -39,18 +39,20 @@ def replace(old, new):
     return mutate
 
 
-PIN_LINE = ("awk '/^\\[/ { s = ($0 == \"[functions.wynos-maps-geocode]\") } "
-            "s && /^verify_jwt[[:space:]]*=[[:space:]]*false[[:space:]]*$/ { f = 1 } END { exit !f }' supabase/config.toml")
+PIN_LINE = ("python3 -c 'import sys, tomllib; c = tomllib.load(open(\"supabase/config.toml\", \"rb\")); "
+            "sys.exit(0 if c.get(\"functions\", {}).get(\"wynos-maps-geocode\", {}).get(\"verify_jwt\") is False else 1)'")
+LOOSE_PIN = PIN_LINE.replace(' is False else 1', ' in (True, False) else 1')
 
 
 def pin_accepts(workflow, config):
     """Run the workflow's real verify_jwt pin command against a synthetic config.toml."""
-    line = next(l.strip() for l in (ROOT / workflow).read_text().splitlines() if "awk '/^\\[/" in l)
-    command = line[line.index("awk "):line.index("supabase/config.toml") + len("supabase/config.toml")]
+    text = (ROOT / workflow).read_text()
+    assert PIN_LINE in text, f"{workflow}: verify_jwt pin command not found"
+    command = PIN_LINE
     with tempfile.TemporaryDirectory() as tmp:
         (Path(tmp) / "supabase").mkdir()
         (Path(tmp) / "supabase" / "config.toml").write_text(config)
-        return subprocess.run(["bash", "-c", command], cwd=tmp).returncode == 0
+        return subprocess.run(["bash", "-c", command], cwd=tmp, capture_output=True).returncode == 0
 
 
 def move_environment_to_guard(path):
@@ -130,7 +132,27 @@ loosened = {
     "edge job not required to wait for guard": replace("    name: Deploy the 3 allowlisted edge functions to production\n    needs: guard",
                                                        "    name: Deploy the 3 allowlisted edge functions to production\n    needs: []"),
     "edge verify_jwt pin removed": replace(PIN_LINE + " || {", "true || {"),
-    "edge pin accepts verify_jwt = true": replace(PIN_LINE, PIN_LINE.replace("=[[:space:]]*false", "=[[:space:]]*(true|false)")),
+    "edge pin accepts verify_jwt = true": replace(PIN_LINE, LOOSE_PIN),
+    # Codex #1226 round 3: any expression in a run body, any syntax.
+    "inputs via index syntax in run": replace('          set -euo pipefail\n          test "$(git rev-parse HEAD)"',
+                                              '          set -euo pipefail\n          echo "${{ inputs[\'release_sha\'] }}"\n          test "$(git rev-parse HEAD)"'),
+    "inputs with odd whitespace in run": replace('          set -euo pipefail\n          test "$(git rev-parse HEAD)"',
+                                                 '          set -euo pipefail\n          echo "${{inputs . release_sha}}"\n          test "$(git rev-parse HEAD)"'),
+    "inputs via format() in run": replace('          set -euo pipefail\n          test "$(git rev-parse HEAD)"',
+                                          '          set -euo pipefail\n          echo "${{ format(\'{0}\', github.event[\'inputs\']) }}"\n          test "$(git rev-parse HEAD)"'),
+    "github.event dump in run": replace('          set -euo pipefail\n          test "$(git rev-parse HEAD)"',
+                                        '          set -euo pipefail\n          echo "${{ toJSON(github.event) }}"\n          test "$(git rev-parse HEAD)"'),
+    # Guard job must not touch the secrets context in any form.
+    "toJSON(secrets) in guard": replace("      - name: Exception has not expired\n        run: |",
+                                        "      - name: Exception has not expired\n        env:\n          ALL: ${{ toJSON(secrets) }}\n        run: |"),
+    "secrets[format()] in guard": replace("      - name: Exception has not expired\n        run: |",
+                                          "      - name: Exception has not expired\n        env:\n          T: ${{ secrets[format('VERCEL_{0}', 'TOKEN')] }}\n        run: |"),
+    "literal secret in guard env": replace("    name: Scope guards (before production review)\n",
+                                           "    name: Scope guards (before production review)\n    env:\n      URL: ${{ secrets.SUPABASE_URL }}\n"),
+    "secret in workflow-level env": replace("  ZOKY_EXCEPTION_EXPIRES_UTC: \"2026-11-30\"\n",
+                                            "  ZOKY_EXCEPTION_EXPIRES_UTC: \"2026-11-30\"\n  LEAK: ${{ secrets.VERCEL_TOKEN }}\n"),
+    "toJSON(secrets) in edge job": replace("          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}\n        run: |\n          set -euo pipefail\n          clean()",
+                                           "          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}\n          ALL: ${{ toJSON(secrets) }}\n        run: |\n          set -euo pipefail\n          clean()"),
     "guard allows verify_jwt = true entry": replace("|verify_jwt = false|#.*|", "|verify_jwt = (true|false)|#.*|"),
     # Codex #1226 findings.
     "permissions widened after a blank line": replace("permissions:\n  contents: read\n", "permissions:\n  contents: read\n\n  actions: write\n"),
@@ -149,7 +171,7 @@ loosened = {
 edge_loosened = {
     "edge environment removed": replace("    environment: production\n", ""),
     "edge geocode verify_jwt check removed": replace(PIN_LINE, "true"),
-    "edge pin accepts any verify_jwt value": replace(PIN_LINE, PIN_LINE.replace("=[[:space:]]*false", "=[[:space:]]*(true|false)")),
+    "edge pin accepts any verify_jwt value": replace(PIN_LINE, LOOSE_PIN),
     "edge pin step renamed": replace("      - name: wynos-maps-geocode verify_jwt is pinned", "      - name: wynos-maps-geocode verify_jwt check"),
 }
 for label, mutate in (loosened.items() if zoky_present else ()):
@@ -165,6 +187,9 @@ pin_cases = {
     "header only": (BASE + "[functions.wynos-maps-geocode]\n", False),
     "verify_jwt = true": (BASE + "[functions.wynos-maps-geocode]\nverify_jwt = true\n", False),
     "false in another section": ("[functions.wynos-maps-geocode]\n[functions.x]\nverify_jwt = false\n", False),
+    "false under an indented other header": (BASE + "[functions.wynos-maps-geocode]\n  [functions.other]\nverify_jwt = false\n", False),
+    "string \"false\"": (BASE + "[functions.wynos-maps-geocode]\nverify_jwt = \"false\"\n", False),
+    "invalid TOML": (BASE + "[functions.wynos-maps-geocode\nverify_jwt = false\n", False),
     "commented false": (BASE + "[functions.wynos-maps-geocode]\n# verify_jwt = false\n", False),
     "explicit false": (BASE + "\n[functions.wynos-maps-geocode]\n# guests send the publishable key\nverify_jwt = false\n", True),
 }

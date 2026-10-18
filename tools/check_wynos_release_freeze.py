@@ -88,12 +88,55 @@ def uses(step, action):
     return str(step.get("uses", "")).split("@", 1)[0] == action
 
 
-INPUT_IN_SHELL = re.compile(r"\$\{\{[^}]*\binputs\.|github\.event\.inputs", re.I)
-SECRET_REF = re.compile(r"secrets\s*[.\[]", re.I)
+# Deny by default (Codex #1226): no ${{ }} expression of any kind in a run
+# body (inputs, github.event, format() ... reach the shell only via env:), and
+# no use of the secrets context outside the gated jobs' literal references.
+EXPRESSION = re.compile(r"\$\{\{(.*?)\}\}", re.S)
+SECRETS_WORD = re.compile(r"(?<![A-Za-z0-9_.-])secrets(?![A-Za-z0-9_-])", re.I)
+LITERAL_SECRET = re.compile(r"""secrets\s*(?:\.\s*([A-Za-z_][A-Za-z0-9_]*)|\[\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\])""", re.I)
+
+
+def strings(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield str(key)
+            yield from strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from strings(item)
+    elif value is not None:
+        yield str(value)
+
+
+def expressions(value):
+    return [expression for text in strings(value) for expression in EXPRESSION.findall(text)]
+
+
+def secrets_key(value):
+    if isinstance(value, dict):
+        return "secrets" in value or any(secrets_key(item) for item in value.values())
+    if isinstance(value, list):
+        return any(secrets_key(item) for item in value)
+    return False
+
+
+def any_secrets(value):
+    """Any reference to the secrets context, literal or dynamic, or `secrets:` (inherit)."""
+    return secrets_key(value) or any(SECRETS_WORD.search(expression) for expression in expressions(value))
+
+
+def dynamic_secrets(value):
+    """Secrets used other than as a literal secrets.NAME / secrets['NAME']."""
+    return secrets_key(value) or any(SECRETS_WORD.search(LITERAL_SECRET.sub("", e)) for e in expressions(value))
+
+
+def literal_secret_names(value):
+    return {a or b for e in expressions(value) for a, b in LITERAL_SECRET.findall(e)}
+
 EXPIRY_TEST = '[[ "$today" > "$ZOKY_EXCEPTION_EXPIRES_UTC" ]]'
-PIN_AWK = (
-    "awk '/^\\[/ { s = ($0 == \"[functions.wynos-maps-geocode]\") } "
-    "s && /^verify_jwt[[:space:]]*=[[:space:]]*false[[:space:]]*$/ { f = 1 } END { exit !f }' supabase/config.toml"
+PIN_CHECK = (
+    "python3 -c 'import sys, tomllib; c = tomllib.load(open(\"supabase/config.toml\", \"rb\")); "
+    "sys.exit(0 if c.get(\"functions\", {}).get(\"wynos-maps-geocode\", {}).get(\"verify_jwt\") is False else 1)'"
 )
 
 # Founder-approved ZOKY-only freeze exception (DECISIONS 2026-10-18, Option A).
@@ -154,10 +197,18 @@ if zoky.exists():
         )
         assert shell_text(job).count(EXPIRY_TEST) == 1, f"{name}: {job_name} expiry comparison removed"
         for body in runs_of(job):
-            assert not INPUT_IN_SHELL.search(body), f"{name}: inputs must reach run steps only via env: ({body.strip()[:60]})"
+            assert "${{" not in body, f"{name}: no ${{{{ }}}} expressions in run bodies; pass values via env: ({body.strip()[:60]})"
 
     assert "environment" not in guard_job and "needs" not in guard_job, f"{name}: guard job must run before (not inside) the review"
-    assert not SECRET_REF.search(json.dumps(guard_job)), f"{name}: guard job must not read secrets"
+    assert not any_secrets(guard_job), f"{name}: guard job must not read secrets"
+    assert not any_secrets({key: value for key, value in wf.items() if key != "jobs"}), (
+        f"{name}: secrets outside jobs would reach the guard job"
+    )
+    for job_name in ("deploy", "edge"):
+        assert not dynamic_secrets(jobs[job_name]), f"{name}: {job_name} may only name secrets literally"
+    assert literal_secret_names(edge_job) <= {"SUPABASE_ACCESS_TOKEN", "SUPABASE_URL"}, (
+        f"{name}: edge job may only read SUPABASE_ACCESS_TOKEN and SUPABASE_URL"
+    )
     for job_name in ("deploy", "edge"):
         job = jobs[job_name]
         assert job.get("environment") == "production", f"{name}: {job_name} job must use the protected production environment"
@@ -208,7 +259,7 @@ if zoky.exists():
         and 'supabase functions deploy "$fn" --project-ref "$PROJECT_REF"' in deploy_steps[0]["run"]
     ) and dumped.count("functions deploy") == 1, f"{name}: edge job may only deploy the allowlisted functions"
     assert "--no-verify-jwt" not in dumped, f"{name}: verify_jwt must come from supabase/config.toml"
-    assert PIN_AWK in edge_text, f"{name}: edge job lost the wynos-maps-geocode verify_jwt = false pin"
+    assert PIN_CHECK in edge_text, f"{name}: edge job lost the wynos-maps-geocode verify_jwt = false pin"
     clis = [step for step in all_steps if uses(step, "supabase/setup-cli")]
     assert len(clis) == 1 and clis[0] in steps_of(edge_job) and str((clis[0].get("with") or {}).get("version")) == "2.120.0", (
         f"{name}: Supabase CLI must stay pinned"
@@ -231,7 +282,7 @@ pin_step, deploy_step = "wynos-maps-geocode verify_jwt is pinned", "Deploy"
 assert pin_step in edge_steps and deploy_step in edge_steps, f"{edge_name}: verify_jwt pin step or Deploy step missing"
 assert edge_steps.index(pin_step) < edge_steps.index(deploy_step), f"{edge_name}: verify_jwt pin must run before Deploy"
 pin = steps_of(edge_deploy)[edge_steps.index(pin_step)]
-assert PIN_AWK in str(pin.get("run", "")), f"{edge_name}: verify_jwt = false pin check altered"
+assert PIN_CHECK in str(pin.get("run", "")), f"{edge_name}: verify_jwt = false pin check altered"
 assert (pin.get("env") or {}).get("FUNCTION_NAME") == "${{ inputs.function }}", f"{edge_name}: pin step must read the input via env:"
 
 print("PASS coordinated final-release freeze: legacy promotions retired, acceptance gates active")
