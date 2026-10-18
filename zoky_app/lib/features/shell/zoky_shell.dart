@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_dependencies.dart';
-import '../../core/widgets/zoky_3d_icon.dart';
 import '../../core/l10n/zoky_strings.dart';
 import '../../core/widgets/zoky_bottom_nav.dart';
 import '../../core/widgets/zoky_nav_icon.dart';
@@ -75,29 +74,23 @@ class _ZokyShellState extends State<ZokyShell> {
               child: ZokyBottomNav(
                 currentIndex: _tab.index,
                 onSelected: (index) => _onNavTap(ZokyTab.values[index]),
-                // Founder reference set (2026-10-17): rounded house with
-                // door / clipboard / bubble with dots / person, gray
-                // outline; selected = pink 3D filled. Switch the selected
-                // glyph to ZokyNavSelectedGlyph.outlinePink if asked.
-                iconStyle: ZokyNavIconStyle.rounded,
-                selectedGlyph: ZokyNavSelectedGlyph.filled3d,
                 // Exactly these four, in this order (Founder, Phase 5).
                 items: const [
                   ZokyNavItem(
                     label: ZokyStrings.navHome,
-                    glyph: Zoky3DGlyph.home,
+                    glyph: ZokyNavGlyph.home,
                   ),
                   ZokyNavItem(
                     label: ZokyStrings.navOrders,
-                    glyph: Zoky3DGlyph.receipt,
+                    glyph: ZokyNavGlyph.orders,
                   ),
                   ZokyNavItem(
                     label: ZokyStrings.navMessages,
-                    glyph: Zoky3DGlyph.chat,
+                    glyph: ZokyNavGlyph.messages,
                   ),
                   ZokyNavItem(
                     label: ZokyStrings.navAccount,
-                    glyph: Zoky3DGlyph.person,
+                    glyph: ZokyNavGlyph.account,
                   ),
                 ],
               ),

@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import '../design/zoky_colors.dart';
 import '../design/zoky_tokens.dart';
 import '../design/zoky_typography.dart';
-import 'zoky_3d_icon.dart';
 import 'zoky_nav_icon.dart';
 
 /// One destination of [ZokyBottomNav].
@@ -17,15 +16,13 @@ class ZokyNavItem {
     this.badgeCount = 0,
     this.showDot = false,
     this.badgeSemanticLabel,
-    this.appleIcons,
-    this.tiled = false,
   });
 
   final String label;
 
-  /// Drawn as a gray line icon when unselected and as the glossy 3D pink
-  /// icon (same path) when selected.
-  final Zoky3DGlyph glyph;
+  /// Drawn as a gray outline when unselected and as the filled pink 3D
+  /// glyph (same shape) when selected.
+  final ZokyNavGlyph glyph;
 
   /// Count badge ("99+" above 99). Takes precedence over [showDot].
   final int badgeCount;
@@ -36,14 +33,6 @@ class ZokyNavItem {
   /// Read after the label when a badge or dot shows, e.g.
   /// "{n} ออเดอร์ที่กำลังดำเนินการ" or [ZokyStrings.navMessagesUnread].
   final String? badgeSemanticLabel;
-
-  /// CupertinoIcons pair used by the Apple [ZokyNavIconStyle]s instead of
-  /// the glyph's default (e.g. [ZokyAppleNavIcons.ordersBag]).
-  final ZokyAppleNavIcons? appleIcons;
-
-  /// Draws the icon inside a squircle tile ([ZokyNavIcon.tiled], PROPOSED
-  /// messages variant M2).
-  final bool tiled;
 }
 
 /// Floating capsule tab bar (design 9.8, Home Phase 5 per the Founder's
@@ -56,27 +45,17 @@ class ZokyNavItem {
 /// [reservedHeight] so their resting scroll end stays above it.
 ///
 /// The selected item sits in a soft blush capsule that slides between tabs,
-/// with the glossy 3D pink icon and a bold pink label; the rest are gray
-/// line icons with gray labels.
+/// with the filled pink 3D icon and a bold pink label; the rest are gray
+/// outline icons with gray labels.
 class ZokyBottomNav extends StatelessWidget {
   const ZokyBottomNav({
     super.key,
     required this.items,
     required this.currentIndex,
     required this.onSelected,
-    this.iconStyle = ZokyNavIconStyle.rounded,
-    this.selectedGlyph = ZokyNavSelectedGlyph.filled3d,
   });
 
   final List<ZokyNavItem> items;
-
-  /// Tab icon treatment; [ZokyNavIconStyle.rounded] (Founder reference set
-  /// 2026-10-17) is shipped.
-  final ZokyNavIconStyle iconStyle;
-
-  /// Selected glyph of the [ZokyNavIconStyle.rounded] set: pink 3D filled
-  /// (shipped) or pink outline.
-  final ZokyNavSelectedGlyph selectedGlyph;
   final int currentIndex;
   final ValueChanged<int> onSelected;
 
@@ -216,8 +195,6 @@ class ZokyBottomNav extends StatelessWidget {
                                   child: _NavButton(
                                     item: items[i],
                                     selected: i == currentIndex,
-                                    iconStyle: iconStyle,
-                                    selectedGlyph: selectedGlyph,
                                     duration: reduceMotion
                                         ? Duration.zero
                                         : ZokyMotion.base,
@@ -249,16 +226,12 @@ class _NavButton extends StatelessWidget {
   const _NavButton({
     required this.item,
     required this.selected,
-    required this.iconStyle,
-    required this.selectedGlyph,
     required this.duration,
     required this.onTap,
   });
 
   final ZokyNavItem item;
   final bool selected;
-  final ZokyNavIconStyle iconStyle;
-  final ZokyNavSelectedGlyph selectedGlyph;
   final Duration duration;
   final VoidCallback onTap;
 
@@ -328,11 +301,7 @@ class _NavButton extends StatelessWidget {
                       item.glyph,
                       key: ValueKey(selected),
                       selected: selected,
-                      style: iconStyle,
-                      selectedGlyph: selectedGlyph,
                       size: ZokyBottomNav.iconSize,
-                      appleIcons: item.appleIcons,
-                      tiled: item.tiled,
                       lineColor: ZokyColors.neutral600,
                     ),
                   ),

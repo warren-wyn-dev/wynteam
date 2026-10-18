@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_app/core/adaptive/zoky_icons.dart';
 import 'package:zoky_app/core/l10n/zoky_strings.dart';
-import 'package:zoky_app/core/widgets/zoky_3d_icon.dart';
 import 'package:zoky_app/core/widgets/zoky_bottom_nav.dart';
 import 'package:zoky_app/core/widgets/zoky_button.dart';
 import 'package:zoky_app/core/widgets/zoky_cart_bar.dart';
 import 'package:zoky_app/core/widgets/zoky_chip.dart';
 import 'package:zoky_app/core/widgets/zoky_logo.dart';
 import 'package:zoky_app/core/widgets/zoky_menu_item_card.dart';
+import 'package:zoky_app/core/widgets/zoky_nav_icon.dart';
 import 'package:zoky_app/core/widgets/zoky_page_header.dart';
 import 'package:zoky_app/core/widgets/zoky_skeleton.dart';
 import 'package:zoky_app/core/widgets/zoky_state_view.dart';
@@ -225,21 +225,21 @@ void main() {
               items: const [
                 ZokyNavItem(
                   label: ZokyStrings.navHome,
-                  glyph: Zoky3DGlyph.home,
+                  glyph: ZokyNavGlyph.home,
                 ),
                 ZokyNavItem(
                   label: ZokyStrings.navOrders,
-                  glyph: Zoky3DGlyph.receipt,
+                  glyph: ZokyNavGlyph.orders,
                   badgeCount: 128,
                   badgeSemanticLabel: '128 ออเดอร์ที่กำลังดำเนินการ',
                 ),
                 ZokyNavItem(
                   label: ZokyStrings.navMessages,
-                  glyph: Zoky3DGlyph.chat,
+                  glyph: ZokyNavGlyph.messages,
                 ),
                 ZokyNavItem(
                   label: ZokyStrings.navAccount,
-                  glyph: Zoky3DGlyph.person,
+                  glyph: ZokyNavGlyph.account,
                 ),
               ],
             ),

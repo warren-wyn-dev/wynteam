@@ -91,17 +91,17 @@ void main() {
     expect(texts, _labels);
     final glyphs = [for (final l in _labels) _icon(tester, l).glyph];
     expect(glyphs, [
-      Zoky3DGlyph.home,
-      Zoky3DGlyph.receipt,
-      Zoky3DGlyph.chat,
-      Zoky3DGlyph.person,
+      ZokyNavGlyph.home,
+      ZokyNavGlyph.orders,
+      ZokyNavGlyph.messages,
+      ZokyNavGlyph.account,
     ]);
     // Items are evenly spaced: equal widths.
     final widths = {for (final l in _labels) tester.getSize(_item(l)).width};
     expect(widths.length, 1);
   });
 
-  testWidgets('selected item is pink 3D filled (rounded set) + bold pink, '
+  testWidgets('selected item is pink 3D filled + bold pink, '
       'the rest gray outline', (tester) async {
     await pumpZokyApp(tester);
     void expectSelected(String selected) {
@@ -110,21 +110,14 @@ void main() {
         final style = tester
             .widget<AnimatedDefaultTextStyle>(_labelStyle(label))
             .style;
-        expect(icon.style, ZokyNavIconStyle.rounded, reason: label);
-        expect(
-          icon.selectedGlyph,
-          ZokyNavSelectedGlyph.filled3d,
-          reason: label,
-        );
         expect(
           find.descendant(
             of: _item(label),
-            matching: find.byKey(ZokyNavIcon.roundedKey(icon.glyph)),
+            matching: find.byKey(ZokyNavIcon.glyphKey(icon.glyph)),
           ),
           findsOneWidget,
           reason: label,
         );
-        expect(icon.tiled, isFalse, reason: label);
         if (label == selected) {
           expect(icon.selected, isTrue, reason: label);
           expect(style.color, ZokyColors.actionPrimary);
@@ -466,15 +459,15 @@ void main() {
       currentIndex: current,
       onSelected: (_) {},
       items: const [
-        ZokyNavItem(label: ZokyStrings.navHome, glyph: Zoky3DGlyph.home),
-        ZokyNavItem(label: ZokyStrings.navOrders, glyph: Zoky3DGlyph.receipt),
+        ZokyNavItem(label: ZokyStrings.navHome, glyph: ZokyNavGlyph.home),
+        ZokyNavItem(label: ZokyStrings.navOrders, glyph: ZokyNavGlyph.orders),
         ZokyNavItem(
           label: ZokyStrings.navMessages,
-          glyph: Zoky3DGlyph.chat,
+          glyph: ZokyNavGlyph.messages,
           showDot: true,
           badgeSemanticLabel: ZokyStrings.navMessagesUnread,
         ),
-        ZokyNavItem(label: ZokyStrings.navAccount, glyph: Zoky3DGlyph.person),
+        ZokyNavItem(label: ZokyStrings.navAccount, glyph: ZokyNavGlyph.account),
       ],
     ),
   );
