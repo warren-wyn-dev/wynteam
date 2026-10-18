@@ -18,5 +18,7 @@ jobs:
           SUPABASE_URL=$(clean "$SUPABASE_URL")
           SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
           PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
-          curl -sS --max-time 20 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+          # --fail-with-body + pipefail: a bad token (401) fails the run instead
+          # of printing {"message":"Unauthorized"} under a green check.
+          curl -sS --fail-with-body --max-time 20 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
             "https://api.supabase.com/v1/projects/$PROJECT_REF" | jq .

@@ -50,6 +50,10 @@ cases = {
     "environment set to preview": edit("web-next-phase5-preview.yml", "    environment: production\n", "    environment: preview\n"),
     "new ungated Supabase token job": add("new-apply.yml", NEW_JOB % "SUPABASE_ACCESS_TOKEN"),
     "new ungated Vercel token job": add("new-deploy.yml", NEW_JOB % "VERCEL_TOKEN"),
+    "4-space-indented jobs, ungated": add("indent4.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n    apply:\n      runs-on: ubuntu-latest\n      steps:\n        - env:\n            T: ${{ secrets.SUPABASE_ACCESS_TOKEN }}\n          run: echo ok\n"),
+    "job key with trailing comment after a gated job": add("comment-key.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  ok:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n  evil: # x\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: echo ok\n"),
+    "quoted job key after a gated job": add("quoted-key.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  ok:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n  'evil':\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: echo ok\n"),
+    "credential in a top-level key after jobs": add("after-jobs.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  ok:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\nenv:\n  T: ${{ secrets.VERCEL_TOKEN }}\n"),
     "workflow-level env credential": add("top-env.yml", "name: x\non:\n  workflow_dispatch:\nenv:\n  T: ${{ secrets.VERCEL_TOKEN }}\njobs:\n  a:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n"),
 }
 for label, mutate in cases.items():
@@ -58,5 +62,8 @@ for label, mutate in cases.items():
 
 code, out = run_gate(add("block-env.yml", (NEW_JOB % "VERCEL_TOKEN").replace("    runs-on:", "    environment:\n      name: production\n    runs-on:")))
 assert code == 0, f"block-form environment must be accepted: {out}"
+
+code, out = run_gate(add("indent4-gated.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n    apply:\n      environment: production\n      runs-on: ubuntu-latest\n      steps:\n        - env:\n            T: ${{ secrets.SUPABASE_ACCESS_TOKEN }}\n          run: echo ok\n"))
+assert code == 0, f"4-space-indented gated job must be accepted: {out}"
 
 print(f"PASS secret-scoping gate rejects {len(cases)} ungated variants")

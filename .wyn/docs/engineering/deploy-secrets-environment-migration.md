@@ -17,7 +17,8 @@
 
 **สิ่งที่ Founder ต้องรู้:**
 1. หลังเปลี่ยน งานที่เคยรันเองจะ "รอ Founder กดอนุมัติ" ก่อน เช่น หลัง deploy wyn-158 แต่ละครั้งจะมีงาน Auth อีก 3 งานรอให้กดอนุมัติ
-2. **กระทบ ZOKY:** โค้ด Edge Function 3 ตัวบน branch ZOKY ต่างจาก `main` เมื่อจำกัดให้ใช้ได้เฉพาะ `main` จะ deploy Edge Function จาก branch ZOKY ไม่ได้ ต้องเพิ่มขั้นตอน deploy Edge Function เข้าไปใน workflow ข้อยกเว้นของ ZOKY ก่อน (ต้องให้ CTO review) ดูหัวข้อ "ZOKY impact"
+2. **กระทบ ZOKY:** โค้ด Edge Function 3 ตัวบน branch ZOKY ต่างจาก `main` เมื่อจำกัดให้ใช้ได้เฉพาะ `main` จะ deploy Edge Function จาก branch ZOKY ไม่ได้ ทีมจึงเพิ่มขั้น EDGE เข้าไปใน workflow ข้อยกเว้นของ ZOKY แล้ว (CTO อนุมัติแบบมีเงื่อนไข) ดูหัวข้อ "ZOKY impact"
+   - **ทำ ZOKY staging (preview) ให้เสร็จก่อนส่วน E** เพราะหลังลบกุญแจเก่า จะทำ preview จาก branch ZOKY ไม่ได้อีก
 3. มี workflow เก่าที่ใช้ครั้งเดียวแล้วจบอีก 50 ไฟล์ ซึ่งเสนอให้ลบทิ้ง (ยังไม่ได้ลบ ต้องรอ Founder อนุมัติ) ระหว่างนี้ทุกไฟล์ถูกล็อกด้วยการอนุมัติแล้ว จึงไม่มีความเสี่ยงเพิ่ม
 
 ### ขั้นตอนบน iPad สำหรับ Founder (ทำหลังจาก PR นี้ merge แล้วเท่านั้น)
@@ -42,15 +43,18 @@
 
 **ส่วน D — ทดสอบว่ากุญแจใหม่ใช้ได้ (ปลอดภัย อ่านข้อมูลอย่างเดียว)**
 13. GitHub → แตะ **Actions** เลือก workflow **admin-supabase-status-check** แตะ **Run workflow** (branch `main`) แล้วแตะ **Run workflow**
-14. เปิดงานที่เพิ่งเริ่ม จะเห็นปุ่ม **Review deployments** ให้แตะ ติ๊ก **production** แล้วแตะ **Approve and deploy** รอจนขึ้นเครื่องหมายถูกสีเขียว
+14. เปิดงานที่เพิ่งเริ่ม จะเห็นปุ่ม **Review deployments** ให้แตะ ติ๊ก **production** แล้วแตะ **Approve and deploy** รอจนขึ้นเครื่องหมายถูกสีเขียว (ถ้ากุญแจผิด งานจะขึ้นสีแดง; ถ้าแตะเปิด log จะเห็นคำว่า `ACTIVE_HEALTHY`)
 15. ทำแบบเดียวกันกับ workflow **admin-vercel-logs-check** ถ้าทั้ง 2 งานเป็นสีเขียว แปลว่ากุญแจใหม่ใช้ได้ (ถ้าเป็นสีแดง ให้หยุดตรงนี้แล้วส่งลิงก์ให้ทีม DevOps)
 
-**ส่วน E — ลบกุญแจเก่าและยกเลิกกุญแจเก่า**
+**ส่วน E — ลบกุญแจเก่าและยกเลิกกุญแจเก่า** (เริ่มส่วนนี้ได้เมื่อ ZOKY staging preview เสร็จแล้วเท่านั้น)
 16. GitHub → **Settings** → **Secrets and variables** → **Actions** แท็บ **Secrets** หัวข้อ **Repository secrets**
 17. แตะไอคอนถังขยะที่ `VERCEL_TOKEN` แล้วยืนยัน จากนั้นทำแบบเดียวกันที่ `SUPABASE_ACCESS_TOKEN` (**ห้ามลบตัวอื่น** เช่น `SUPABASE_URL`, `VERCEL_ORG_ID`, `FIREBASE_…` ให้เก็บไว้ตามเดิม)
-18. Vercel → **Account Settings** → **Tokens** ลบ (Delete) กุญแจเดิมที่ใช้กับ GitHub ทุกอัน **ยกเว้น** `github-production-2026-10`
-19. Supabase → **Access Tokens** แตะ **Revoke** ที่กุญแจเดิมทุกอัน **ยกเว้น** `github-production-2026-10`
-20. ทำข้อ 13–15 ซ้ำอีกรอบ ถ้ายังเป็นสีเขียวทั้งคู่ถือว่าเสร็จ แล้วบอกทีมว่า "C1 เสร็จแล้ว" เพื่อบันทึกลง DECISIONS/APPROVALS
+18. Vercel → **Account Settings** → **Tokens** **อ่านชื่อกุญแจแต่ละอันก่อน** แล้วลบ (Delete) อันเดิมที่ GitHub ใช้ **ยกเว้น** `github-production-2026-10` ถ้าเจอกุญแจที่ไม่แน่ใจว่าเครื่องมืออื่นใช้อยู่หรือไม่ (เช่น CLI บนคอมพิวเตอร์) ให้ถามทีมก่อน เพราะลบแล้วเครื่องมือนั้นจะใช้ไม่ได้ทันที
+19. Supabase → **Access Tokens** **อ่านชื่อก่อนเช่นกัน** แล้วแตะ **Revoke** ที่อันเดิม **ยกเว้น** `github-production-2026-10`
+20. **กุญแจ Android (`ANDROID_SECRETS_TOKEN`)** กุญแจนี้เขียนทับ secrets อื่นของ repo ได้ และ workflow ที่ใช้มันไม่มีปุ่มอนุมัติ
+    - ถ้าเคยสร้าง Android upload key ไปแล้ว (ในหน้า Repository secrets มี `ANDROID_UPLOAD_KEYSTORE_BASE64`): ลบ secret `ANDROID_SECRETS_TOKEN` (ไอคอนถังขยะ) แล้วไปที่ GitHub → รูปโปรไฟล์ → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** แล้วแตะ **Delete** ที่ token นั้น
+    - ถ้ายังไม่เคยสร้าง: บอกทีมก่อน ทีมจะเพิ่มปุ่มอนุมัติให้ workflow นั้นก่อนใช้ครั้งเดียว แล้วจึงลบตามข้อบน
+21. ทำข้อ 13–15 ซ้ำอีกรอบ ถ้ายังเป็นสีเขียวทั้งคู่ถือว่าเสร็จ แล้วบอกทีมว่า "C1 เสร็จแล้ว" เพื่อบันทึกลง DECISIONS/APPROVALS
 
 **ถ้ามีอะไรพัง:** ห้ามนำกุญแจเก่ากลับมาใช้ ให้สร้างกุญแจใหม่ตามข้อ 6–11 แล้วแจ้งทีม DevOps
 
@@ -67,7 +71,7 @@
 | `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | Identifiers. Useless without the token | Stay repo-level |
 | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | Shipped to every browser as `NEXT_PUBLIC_*`. Access is enforced by RLS | Stay repo-level (CI, Android and `chat-pgrst-cache-check` read them without an environment) |
 | `FIREBASE_*` (web, Android) | Public client config, also shipped in the bundle. VAPID is the public key | Stay repo-level |
-| `ANDROID_*`, `ANDROID_SECRETS_TOKEN` | Outside C1 scope. `android-release` already uses environment `android-release`. **`ANDROID_SECRETS_TOKEN` (used by `android-upload-key.yml`, no environment) can write repository secrets, so it is a separate HIGH follow-up.** | No change in this PR |
+| `ANDROID_*`, `ANDROID_SECRETS_TOKEN` | Outside C1 scope. `android-release` already uses environment `android-release`. **`ANDROID_SECRETS_TOKEN` (used by `android-upload-key.yml`, no environment) can write repository secrets, so it is an integrity risk for the values the production deploys read (CTO S2, HIGH).** | No workflow change. Handled in Part E step 20: if the upload key exists, delete the secret and the PAT; otherwise gate the job with an environment before its single run, then delete |
 
 The non-sensitive values stay as repository *secrets*, not variables. Converting them would touch about 77 references for no security gain, and secrets keep log masking. They can become `vars.*` later if wanted.
 
@@ -179,7 +183,8 @@ Workflows with no production credential: `ci.yml`, `android*.yml`, `web-next-ci`
    - `environment: production` on every job that reads `SUPABASE_ACCESS_TOKEN` or `VERCEL_TOKEN`: 71 workflows, one job each. The 5 production deploy workflows were already gated, and `wyn-158` is unchanged.
    - `deploy-edge-functions.yml` is a byte-identical copy of `ci/zoky-web-exception-release` (`a62c1018` + `e73566b8`), so the two branches merge in either order.
    - `wynos-maps-import-overture-places.yml`: the push trigger and the forced `dry_run=false` are removed. That trigger would also have fired a production write when this PR merged.
-   - New `tools/check_production_secret_scoping.py` and `tools/test_check_production_secret_scoping.py` (7 ungated variants rejected), wired into the `ci.yml` `schema` job. They fail any job that reads these credentials without `environment: production` (inline or `name:` form), and any workflow-level `env:` exposure.
+   - New `tools/check_production_secret_scoping.py` and `tools/test_check_production_secret_scoping.py` (11 ungated variants rejected), wired into the `ci.yml` `schema` job. They fail any job that reads these credentials without `environment: production` (inline or `name:` form), and any exposure outside a recognised job. Job keys are detected at any indentation, quoted, or followed by a comment (CTO S4).
+   - `admin-supabase-status-check.yml`: `curl --fail-with-body`, so a bad token fails the Part D smoke instead of showing green (CTO S1).
 2. **Not done: retiring the 49 RETIRE rows above plus `dispatch-deploy-web-once-20260912`.** The bulk deletion was refused by this session's permission guard, so it stays a proposal for an explicit Founder go-ahead. It can be a follow-up commit on this branch (`git rm` the 50 files). Deleting is reversible with `git revert`. The SQL and rollback files stay in `supabase/`. The only references are historical `.wyn/tasks/*` notes. Until then, every one of them is gated and harmless.
 
 Validation run: `yaml.safe_load` on all workflows, and `bash -n` on every `run:` block of the changed workflows. The checks `check_production_secret_scoping.py`, `test_check_production_secret_scoping.py` and `check_wynos_release_freeze.py` all PASS. Not run: actionlint, and the workflows themselves (no dispatch).
@@ -188,12 +193,13 @@ Validation run: `yaml.safe_load` on all workflows, and `bash -n` on every `run:`
 
 | Step | Who | Action | Breaks? |
 |---|---|---|---|
-| 0 | Founder (verify) | The repo plan supports environment protection rules: a private repo needs GitHub Pro/Team/Enterprise for required reviewers and branch policies. The `production` environment exists and is used by 5 workflows today. | - |
+| 0 | Founder (verify) | The `production` environment exists and is used by 5 workflows today. The repo is public and user-owned (CTO review), so required reviewers and branch policies are available. | - |
 | a | CTO review, QA, Founder merge | Merge `ci/deploy-secrets-environment`. Repo secrets are still in place, so every workflow keeps working and only gains an approval step. On merge, `web-beta1-auth-password-policy` and `web-beta1-email-readiness` start (their push paths include their own file) and wait for review. Approving them is safe because both are idempotent and already ran on 2026-10-13. Rejecting is also fine. | No |
 | a' | (optional, separate commit) | Retire the 50 one-offs after Founder approval | No |
 | b | Founder (Parts A–C) | Set the `production` reviewers to the Founder, without self-review prevention and without admin bypass. Set deployment branches to `main` only. Create **new** Vercel and Supabase tokens and add them as environment secrets `VERCEL_TOKEN` and `SUPABASE_ACCESS_TOKEN`. | No: gated jobs now use the new tokens |
 | b' | Founder (Part D) | Smoke test: dispatch `admin-supabase-status-check` and `admin-vercel-logs-check` on `main`, then approve. Both are read-only. | - |
-| c | Founder (Part E) | Delete the repo secrets `VERCEL_TOKEN` and `SUPABASE_ACCESS_TOKEN`. Revoke the old tokens in Vercel and Supabase. Repeat the smoke test. | Only ungated paths (old refs), by design |
+| b'' | Team + Founder | **Finish the ZOKY staging preview** (release plan step 7, `web-next-phase5-preview` on the release ref) before (c). After (c) that ungated release-branch copy gets no `VERCEL_TOKEN`, and `main`'s gated copy cannot preview another ref (CTO S3). | - |
+| c | Founder (Part E) | Delete the repo secrets `VERCEL_TOKEN` and `SUPABASE_ACCESS_TOKEN`. Check token names, then revoke the old tokens in Vercel and Supabase. Handle `ANDROID_SECRETS_TOKEN` (step 20). Repeat the smoke test. | Only ungated paths (old refs), by design |
 | d | DevOps | Record in `DECISIONS`/`APPROVALS` and in `.wyn/logs/deployments/`. Update the CTO review C1 status. | - |
 
 Step (c) must come after (b'). Revoking is required, not optional: the old tokens may exist outside GitHub (laptops, other repos, CI logs from before masking).
@@ -204,7 +210,10 @@ Step (c) must come after (b'). Revoking is required, not optional: the old token
 - `deploy-edge-functions`, `admin-attach-domain` and the ops tools can only run from `main` once the branch rule is set.
 - `web-next-phase5-preview`: its PR trigger is dead (PRs 996 and 1008 are merged), so it is effectively dispatch-only and needs Founder approval. Previews should come from the Vercel Git integration if that is connected (not verified).
 
-### ZOKY impact (blocker for the ZOKY sequence, needs CTO review)
+### ZOKY impact
+
+Resolved with option A: phase `EDGE` on `ci/zoky-web-exception-release` (`10af1344`), CTO re-review approved with conditions. Staging: see step b'' (finish the ZOKY preview before Part E). Original analysis below.
+
 
 `origin/release/zoky-web-20261018` differs from `main` for:
 - `food-stripe-checkout` (3 files)
@@ -232,5 +241,5 @@ The web deploy through the exception workflow is unaffected: it is dispatched on
 
 - Environment reviewers, branch policy, admin bypass and the current secret locations could not be read (API blocked here).
 - Whether other systems use the old tokens (local CLIs, other repos) is unknown. Revocation may break those, which is intended.
-- `ANDROID_SECRETS_TOKEN` is still repo-level and ungated (out of scope, follow-up).
+- `ANDROID_SECRETS_TOKEN` stays repo-level and ungated until the Founder handles it in Part E step 20.
 - No claim of zero regression. The workflows were not executed.
