@@ -691,3 +691,7 @@
 - Deploys only: `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode` (verify_jwt = false)
 - Rollback: re-deploy the same 3 functions from `main` via `deploy-edge-functions.yml` (main code = current production) — only while web PHASE1/2 is not live
 - Founder must still approve the run's `production` environment review in GitHub
+
+### [2026-10-18] ZOKY EDGE — deployed ✅
+
+Run 39159334533 (Founder approved `production` review): guard ✅, edge deploy ✅ (food-stripe-checkout, food-stripe-cancel, wynos-maps-geocode from `0533fb36`), smoke ✅. Independent check: geocode CORS allows zoky.wynos.online and food.wynos.online, rejects other origins (403); food.wynos.online still 200. Web deploy job skipped (EDGE only).
