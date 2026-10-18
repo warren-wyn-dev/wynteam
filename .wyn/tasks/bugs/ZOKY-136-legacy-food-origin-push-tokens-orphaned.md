@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-136
 
-Status: bugs
+Status: fixed — awaiting QA re-test
 Severity: MEDIUM (privacy on shared devices + duplicate notifications; decide before cutover)
 Owner: AI Debug Engineer
 Found by: AI QA & Security, branch `feat/zoky-web-rebrand` @ ffd3ac6, 2026-10-18
@@ -32,3 +32,23 @@ Files Changed: (to do) web/proxy.ts (+ cleanup worker) or DB/edge function
 Tests: proxy test that food.wynos.online/sw.js is not redirected (if option 1); unit test for cleanup worker.
 Regression Risk: Low–Medium (service worker scope on legacy host only).
 Handoff to QA: verify on staging with two origins on Android Chrome.
+
+## Fix Record (AI Coding, 2026-10-18, Founder approval 2026-10-18 — option 1)
+
+Root Cause: confirmed — the food.wynos.online matcher redirected `/sw.js`; browsers refuse redirected worker updates, so the old worker and its push subscription were never replaced.
+
+Fix:
+- `web/proxy.ts`: on host `food.wynos.online` only, `/sw.js` is rewritten (not redirected) to `web/public/food/legacy-sw-cleanup.js`; every other legacy URL still 307s to ZOKY. ZOKY/WYNOS keep the real `/sw.js`.
+- `web/public/food/legacy-sw-cleanup.js`: on activate → `pushManager.getSubscription()?.unsubscribe()`, delete `wynos-static-*` caches, `registration.unregister()`. A push reaching it before it retires shows only a generic content-free "ZOKY" banner (browsers require one) and unsubscribes; tap opens `https://zoky.wynos.online/`. No payload read, no fetch, no Supabase.
+- Server side: the FCM token of the unsubscribed registration becomes invalid; existing senders (`send-push-notification`, `send-food-promotion`, …) already delete tokens on `UNREGISTERED/NOT_FOUND` (`isDeadTokenError`). No migration done. `push_tokens` has no origin column, so retiring legacy-origin tokens proactively would need a migration (add origin/app-host column, backfill impossible for existing rows) — documented only, not done.
+- Local smoke (`next start`, Host header): `food.wynos.online/sw.js` → 200 `application/javascript`, `Cache-Control: public, max-age=0`, cleanup worker body; `food.wynos.online/?order=WF0001` → 307 zoky; `zoky.wynos.online/sw.js` → normal worker.
+
+Residual risk (cannot be closed client-side):
+1. The cleanup only runs when the browser checks the old registration for an update: on a visit/navigation to food.wynos.online, or after a push/notification event when the last check is older than 24 h. Pushes delivered to the old worker before that check (up to ~24 h after the device last checked, typically the first push after cutover) are still shown with content by the old worker.
+2. A page on zoky.wynos.online cannot reach the food.wynos.online registration (cross-origin), so signing out on ZOKY cannot synchronously kill the old subscription. Full server-side guarantee needs the migration above or revoking all of a user's `food` tokens on sign-out (changes multi-device behaviour — needs PM/Founder decision).
+3. Browsers that have uninstalled the origin data or are offline keep nothing / clean up on next check.
+Communication plan (AC9) should still tell users to re-enable notifications on ZOKY.
+
+Files Changed: web/proxy.ts, web/public/food/legacy-sw-cleanup.js, web/tests/food-legacy-sw-cleanup.test.mjs, web/tests/maps-host-redirect.test.mjs, web/package.json (test:notifications)
+Tests: proxy tests (`/sw.js` and `/sw.js?v=2` on food host → rewrite; zoky/wynos untouched; `/sw.json` still redirects); cleanup worker unit tests in a VM (activate order, no subscription, generic banner without payload content, click opens ZOKY only, no fetch/Supabase). web: lint 0 errors (17 existing warnings), typecheck pass, `node --test tests/*.test.mjs` 344/344 pass, `npm run build` pass. Deno is NOT installed in this environment: `deno check`/`deno test` not run (CI job `edge-functions` runs them); `_lib.ts` logic was executed with Node `--experimental-strip-types` and all edited .ts files parse with the TypeScript compiler (0 syntax diagnostics).
+Commit: bdcd0a1

@@ -55,7 +55,7 @@ Owner: AI Coding (Full-Stack) | Date: 2026-10-18
 - งานนี้ไม่ได้ bypass/แก้ guard
 
 ## สิ่งที่ยังไม่ได้ทำ (ต้องอนุมัติแยก/งานถัดไป)
-1. **Edge functions (BLOCKER ของการจ่ายบัตร)** — ต้องแก้โค้ด + QA Security + Founder approval + deploy ก่อนหรือพร้อม cutover (ดูข้อ 6 ใน checklist)
+1. ~~**Edge functions (BLOCKER ของการจ่ายบัตร)**~~ — **แก้โค้ดแล้ว (ZOKY-135, commit 574f12e, Founder อนุมัติ 2026-10-18)** เหลือ QA re-test + deploy ตาม gate ก่อนหรือพร้อม cutover (ดูข้อ 6 ใน checklist)
 2. ข้อความแบรนด์ฝั่ง database/edge function (เช่น `WYNOS Food #WF…` ใน Stripe, trigger แจ้งเตือนลูกค้า, ชื่อแคมเปญ) — migration แยกหลังปลด freeze
 3. Merchant/Admin/Social labels ยังเป็น "WYNOS Food" (รอ Q1/Q10) รวมถึงหัวโปสเตอร์ QR ใน `merchant-share-card.tsx` (URL เปลี่ยนเป็น zoky แล้ว แต่หัวข้อยังเขียน "WYNOS Food") และทางลัด Social (`home-food-shortcut.tsx`, drawer) ซึ่งลิงก์ `/food` บน wynos.online → redirect ไป ZOKY อยู่แล้ว
 4. การแยก `--fx-red` ทุกจุดเป็น `--zk-action-primary/--zk-brand/--zk-error` แบบเต็ม, แก้ success/muted contrast, `userScalable:false` (design Q6) — ทำเฉพาะเปลี่ยนค่า token + แยก danger 3 จุด
@@ -73,9 +73,10 @@ Owner: AI Coding (Full-Stack) | Date: 2026-10-18
    - `https://zoky.wynos.online/auth/callback?next=%2Ffood` หรือ pattern `https://zoky.wynos.online/auth/callback**` (ยืนยันอีเมลตอนสมัคร Food — `getEmailConfirmationRedirectUrl("/food")`)
    - `https://zoky.wynos.online/reset-password**` (รีเซ็ตรหัส `?returnTo=/food/login`)
    - Site URL: คง `https://wynos.online` (ใช้ร่วมกับ Social); อีเมล template ยังแบรนด์ WYNOS (R11/Q1)
+   - [x] ZOKY-138 (5e0bec5): `.github/scripts/sync-auth-password-policy.sh` เพิ่ม 3 URL ของ zoky แบบ exact (`/food/auth/callback`, `/auth/callback?next=%2Ffood`, `/reset-password?returnTo=%2Ffood%2Flogin`) — **คำเตือน:** workflow `web-beta1-auth-password-policy.yml` รัน `apply` เมื่อ push เข้า `main` ที่แก้ script นี้ → merge = PATCH Supabase Auth production ทันที (เพิ่มอย่างเดียว); ต้องตรวจบน staging ว่า reset URL ที่มี query match จริง ถ้าไม่ match ให้เพิ่ม `https://zoky.wynos.online/reset-password**`
 4. **Google OAuth**: login ใช้ Supabase `signInWithOAuth` → Authorized redirect URI ของ Google คือ callback ของ Supabase (ไม่เปลี่ยน); ตรวจว่า Authorized JavaScript origins มีรายการโดเมนหรือไม่ ถ้ามี `https://food.wynos.online` ให้เพิ่ม `https://zoky.wynos.online`; ถ้า browser API key ของ Firebase/Google Cloud จำกัด HTTP referrer ให้เพิ่ม `zoky.wynos.online/*`
 5. **Stripe**: Checkout success/cancel ถูกสร้างใน edge function (ข้อ 6) ไม่ต้องลงทะเบียนโดเมนใน Dashboard; ชื่อสินค้า/branding/statement descriptor ใช้ร่วมกับ Merchant — คงไว้จนกว่าจะตัดสิน Q10
-6. **Edge functions ที่ต้องแก้โค้ด + QA Security + Founder approval (security-sensitive) แล้ว deploy ก่อน/พร้อม web**:
+6. **Edge functions — [x] แก้โค้ดแล้ว (ZOKY-135: 574f12e + 738d481) / [ ] QA re-test / [ ] deploy ก่อนหรือพร้อม web** (deploy 3 functions: `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode` ผ่าน `deploy-edge-functions.yml` หลังผ่าน gate — AI ไม่ได้ deploy). รายการเดิมที่แก้แล้ว:
    - `supabase/functions/food-stripe-checkout/index.ts:69` — live mode รับเฉพาะ `Origin === https://food.wynos.online` → **ต้องรับ `https://zoky.wynos.online`** (มิฉะนั้นจ่ายบัตรบน ZOKY ได้ 403 `live_stripe_origin_required`)
    - `supabase/functions/food-stripe-checkout/index.ts:152-153` — `success_url`/`cancel_url` = `food.wynos.online/?order=…` (ยังใช้ได้ผ่าน redirect 307 แต่ควรเปลี่ยนเป็น zoky); `:155` ชื่อสินค้า `WYNOS Food #…` (Q10)
    - `supabase/functions/food-stripe-cancel/index.ts:71` — origin check เดียวกัน (ยกเลิกออเดอร์ที่จ่ายบัตรบน ZOKY จะ 403)
@@ -89,6 +90,14 @@ Owner: AI Coding (Full-Stack) | Date: 2026-10-18
    - ถาวร: revert merge commit ของ branch นี้บน main แล้ว deploy ตาม gate
    - คง Supabase redirect URLs ของทั้งสองโดเมน และ edge function ที่รับทั้งสอง origin ไว้ตลอดช่วงเปลี่ยนผ่าน เพื่อให้ rollback ไม่ทำให้ login/จ่ายเงินพัง
    - ห้ามถอด domain `food.wynos.online` ออกจาก Vercel (ลิงก์/QR เก่าจะตาย)
+
+## รอบแก้ QA findings (AI Coding, 2026-10-18, Founder อนุมัติ 2026-10-18)
+- [x] ZOKY-135 (HIGH) edge functions รับ `zoky.wynos.online` + คง `food.wynos.online` (exact allowlist), success/cancel ใช้ origin ที่อยู่ใน allowlist ไม่งั้น ZOKY, ชื่อสินค้า `ZOKY #…` — 574f12e, 738d481
+- [x] ZOKY-136 (MEDIUM) `food.wynos.online/sw.js` ไม่ redirect แล้ว เสิร์ฟ cleanup worker (unsubscribe push + ลบ cache + unregister) — bdcd0a1; residual risk ดูในไฟล์ bug (push ก่อน browser ตรวจ update ยังแสดงได้, server-side ต้อง migration — ยังไม่ทำ)
+- [x] ZOKY-138 (LOW) Auth allowlist sync เพิ่ม zoky — 5e0bec5 (freeze guard PASS; ดูคำเตือน merge = apply production ในข้อ 3)
+- [~] ZOKY-137 (LOW) แก้เฉพาะ focus ring ใน address form (selector อื่นใน food.css ไม่มี component ใช้) — 15fc1e3; ไอคอน bevel ยังเปิด (รอ A1/Q3)
+- ผลตรวจ: lint 0 errors, typecheck ผ่าน, unit 344/344, build ผ่าน, Auth policy offline test ผ่าน, local smoke `food.wynos.online/sw.js` = cleanup worker; **ไม่มี Deno ในเครื่อง** — `deno check/test` ไม่ได้รัน (CI รัน)
+- ยังไม่ push / deploy
 
 ## Handoff ถัดไป
 AI QA & Security: ทดสอบ redirect (AC6), auth origin, open-redirect (redirect ใช้ host คงที่ ไม่รับ input เป็นปลายทาง), contrast ของสีใหม่, ไอคอน/splash บน iPhone/Android จริงบน staging preview → CTO final review → Founder
