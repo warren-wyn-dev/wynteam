@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-135
 
-Status: fixed — awaiting QA re-test
+Status: verified — closed (QA re-test PASS, 2026-10-18; deploy still pending normal gate)
 Severity: HIGH (release blocker for the ZOKY domain cutover; known, carried from handoff)
 Owner: AI Debug Engineer (edge function change requires QA Security + Founder approval + deploy)
 Found by: AI QA & Security, branch `feat/zoky-web-rebrand` @ ffd3ac6, 2026-10-18
@@ -45,3 +45,13 @@ Files Changed: supabase/functions/food-stripe-checkout/{_lib.ts,_lib.test.ts,ind
 Tests: `food-stripe-checkout/_lib.test.ts` adds allowlist cases (zoky/food accepted; `zoky.wynos.online.evil.com`, `evil.zoky.wynos.online`, trailing slash, `:443`, `http://`, uppercase, `evil.com`, `null`, empty, missing rejected; return origin falls back to ZOKY). web: lint 0 errors (17 existing warnings), typecheck pass, `node --test tests/*.test.mjs` 344/344 pass, `npm run build` pass. Deno is NOT installed in this environment: `deno check`/`deno test` not run (CI job `edge-functions` runs them); `_lib.ts` logic was executed with Node `--experimental-strip-types` and all edited .ts files parse with the TypeScript compiler (0 syntax diagnostics).
 Residual risk: an order whose checkout was opened on one origin and retried on the other within the same `attempt` reuses the open session (old return URL) — harmless because both origins work. Not deployed: deploy of the three functions needs the normal gate (QA → CTO → Founder), before or with the web release.
 Commits: 574f12e, 738d481
+
+## QA Re-test (AI QA & Security, 2026-10-18) — PASS
+
+Env: worktree /home/user/wynteam-web @ 729a3e2, local only (no env files, no Supabase/Stripe, no production requests; Chromium runs blocked *.wynos.online/*.supabase.co via host-resolver rules except the mapped local test host).
+- Diff review 574f12e/738d481: only the origin comparison changed in checkout and cancel (`!==` single string -> `!isFoodWebOrigin()`); auth, order ownership, status and amount checks in both functions untouched. Geocode: one line added to `ALLOWED_ORIGINS` (both the preflight and POST checks use the same exact `Set.has`). No suffix/regex/wildcard, deny by default.
+- Open redirect: `success_url`/`cancel_url` origin comes from `foodReturnOrigin()` = request origin only if it is in the 2-entry set, otherwise the constant ZOKY origin. Probed with Deno: `https://zoky.wynos.online\n`, leading space, `%2f`, `@evil.com`, `HTTPS://…`, trailing slash, `.evil.com`, `null`, missing -> all rejected / fall back to ZOKY. Order number still `encodeURIComponent`-ed.
+- Test mode: still no origin check; only change is the default return origin (ZOKY instead of food). Product name `ZOKY #<order>`.
+- Deno 2.9.6 (npm package `deno@2`, scratchpad install): `deno check` on the 3 touched index.ts = pass; CI-equivalent `deno check supabase/functions/*/index.ts` (17 functions) = pass; `deno test --allow-read supabase/functions/` = 118 passed / 0 failed; deploy-gate commands per function (`deno check index.ts` + `deno test` in function dir) pass; food-stripe-checkout 9/9 incl. 3 new allowlist tests. Cross-function import `../food-stripe-checkout/_lib.ts` follows the existing `send-food-promotion` pattern.
+- Regression: web lint 0 errors (17 existing warnings), typecheck pass, `node --test tests/*.test.mjs` 344/344, `npm run test:notifications` 60/60, `npm run build` pass, freeze guard PASS, Playwright `wynos-food-developer-preview` + `wynos-merchant` on Chromium (chromium-android + chromium-desktop, /opt/pw-browsers/chromium) 134/134 pass against local `next start`.
+Notes for CTO (not blocking): (1) Stripe product name changed to `ZOKY #…`, while handoff checklist item 5 / "not done" item 2 still say Stripe branding stays until Q10 — confirm this is intended and update the handoff. (2) Not executed against a real Stripe/Supabase project; staging live-origin + success/cancel check still required. Deploy of the 3 functions must go through the gate before/with the web release.

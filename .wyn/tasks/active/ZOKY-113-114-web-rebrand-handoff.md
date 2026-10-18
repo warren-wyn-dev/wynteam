@@ -99,5 +99,10 @@ Owner: AI Coding (Full-Stack) | Date: 2026-10-18
 - ผลตรวจ: lint 0 errors, typecheck ผ่าน, unit 344/344, build ผ่าน, Auth policy offline test ผ่าน, local smoke `food.wynos.online/sw.js` = cleanup worker; **ไม่มี Deno ในเครื่อง** — `deno check/test` ไม่ได้รัน (CI รัน)
 - ยังไม่ push / deploy
 
+## QA re-test ZOKY-135..138 (AI QA & Security, 2026-10-18) — PASS
+- ZOKY-135 verified/closed (exact 2-origin allowlist, no open redirect, cancel auth/ownership unchanged; Deno 2.9.6: `deno check` all 17 functions pass, `deno test` 118/118), ZOKY-136 verified/closed (cleanup worker proven in real Chromium; residual risk documented), ZOKY-138 verified/closed (add-only; merge to `main` auto-applies to production Supabase Auth), ZOKY-137 CSS part verified, icon bevel still open.
+- Regression: lint 0 errors, typecheck pass, unit 344/344, build pass, freeze guard PASS, local smoke matrix pass, Playwright Food+Merchant Chromium 134/134.
+- For CTO: Stripe product name now `ZOKY #…` — checklist item 5 / not-done item 2 still say keep until Q10; confirm and align. Next: CTO final review -> staging (live-origin Stripe, Auth reset URL match, Android push cleanup) -> Founder.
+
 ## Handoff ถัดไป
 AI QA & Security: ทดสอบ redirect (AC6), auth origin, open-redirect (redirect ใช้ host คงที่ ไม่รับ input เป็นปลายทาง), contrast ของสีใหม่, ไอคอน/splash บน iPhone/Android จริงบน staging preview → CTO final review → Founder

@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-137
 
-Status: partially fixed (CSS) — awaiting QA re-test; icon artwork open
+Status: partially verified — CSS part PASS; icon bevel item remains open (pending A1/Q3)
 Severity: LOW (visual, no functional/security impact)
 Owner: AI Debug Engineer / UI-UX for sign-off
 Found by: AI QA & Security, branch `feat/zoky-web-rebrand` @ ffd3ac6, 2026-10-18
@@ -31,3 +31,10 @@ Fix: `web/app/food/food-app.css` overrides `.fx-app .wf-form input:focus, .fx-ap
 Not fixed: item 1 (icon bevel) — pending master vector A1 / design Q3.
 Tests: web: lint 0 errors (17 existing warnings), typecheck pass, `node --test tests/*.test.mjs` 344/344 pass, `npm run build` pass. Deno is NOT installed in this environment: `deno check`/`deno test` not run (CI job `edge-functions` runs them); `_lib.ts` logic was executed with Node `--experimental-strip-types` and all edited .ts files parse with the TypeScript compiler (0 syntax diagnostics). Visual check on staging still needed.
 Commit: 15fc1e3
+
+## QA Re-test (AI QA & Security, 2026-10-18) — CSS part PASS, item 1 open
+
+Env: worktree /home/user/wynteam-web @ 729a3e2, local only (no env files, no Supabase/Stripe, no production requests; Chromium runs blocked *.wynos.online/*.supabase.co via host-resolver rules except the mapped local test host).
+- `web/app/food/food.css` unchanged vs bb2f44c; override lives in `food-app.css` (imported only by `app/food/layout.tsx`) and is scoped to `.fx-app` (used only by Food customer components). Merchant (`merchant.wynos.online/` 200) and Maps (`wynos.online/maps` 200) unaffected; Merchant browser spec suite passes.
+- Icon bevel (item 1) not fixed — stays open, needs master vector A1 / design Q3 and visual check on real devices.
+- Regression: web lint 0 errors (17 existing warnings), typecheck pass, `node --test tests/*.test.mjs` 344/344, `npm run test:notifications` 60/60, `npm run build` pass, freeze guard PASS, Playwright `wynos-food-developer-preview` + `wynos-merchant` on Chromium (chromium-android + chromium-desktop, /opt/pw-browsers/chromium) 134/134 pass against local `next start`.

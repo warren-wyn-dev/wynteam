@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-136
 
-Status: fixed — awaiting QA re-test
+Status: verified — closed (QA re-test PASS, 2026-10-18; residual risk documented, server-side option needs PM/Founder decision; staging Android check recommended)
 Severity: MEDIUM (privacy on shared devices + duplicate notifications; decide before cutover)
 Owner: AI Debug Engineer
 Found by: AI QA & Security, branch `feat/zoky-web-rebrand` @ ffd3ac6, 2026-10-18
@@ -52,3 +52,13 @@ Communication plan (AC9) should still tell users to re-enable notifications on Z
 Files Changed: web/proxy.ts, web/public/food/legacy-sw-cleanup.js, web/tests/food-legacy-sw-cleanup.test.mjs, web/tests/maps-host-redirect.test.mjs, web/package.json (test:notifications)
 Tests: proxy tests (`/sw.js` and `/sw.js?v=2` on food host → rewrite; zoky/wynos untouched; `/sw.json` still redirects); cleanup worker unit tests in a VM (activate order, no subscription, generic banner without payload content, click opens ZOKY only, no fetch/Supabase). web: lint 0 errors (17 existing warnings), typecheck pass, `node --test tests/*.test.mjs` 344/344 pass, `npm run build` pass. Deno is NOT installed in this environment: `deno check`/`deno test` not run (CI job `edge-functions` runs them); `_lib.ts` logic was executed with Node `--experimental-strip-types` and all edited .ts files parse with the TypeScript compiler (0 syntax diagnostics).
 Commit: bdcd0a1
+
+## QA Re-test (AI QA & Security, 2026-10-18) — PASS
+
+Env: worktree /home/user/wynteam-web @ 729a3e2, local only (no env files, no Supabase/Stripe, no production requests; Chromium runs blocked *.wynos.online/*.supabase.co via host-resolver rules except the mapped local test host).
+- Local `next start` Host-header matrix: food `/sw.js`, `/sw.js?v=2`, `food.wynos.online:443`, `FOOD.WYNOS.ONLINE` -> 200 `application/javascript`, body = `public/food/legacy-sw-cleanup.js` (sha256 match), `Cache-Control: public, max-age=0`. Food `/SW.js`, `/sw.json`, `/`, `/?order=…&stripe=success`, `/s/ABC`, `/food/auth/callback?code=…`, `/icons/…`, `/manifest.webmanifest`, `/food/legacy-sw-cleanup.js` -> 307 to zoky with path+query. zoky/wynos/merchant/maps `/sw.js` -> normal worker (sha256 = `public/sw.js`). `/sw.js/` and `//sw.js` -> Next's own 308 normalisation (pre-existing).
+- Real Chromium test (temporary spec, not committed): page on `http://food.wynos.online:3940` (treated as secure, mapped to a local helper) registered the current `sw.js` with scope `/` and caches `wynos-static-v1`, `wynos-static-v2`, `other-cache`; helper then forwarded `/sw.js` to `next start` with the food Host; `registration.update()` -> cleanup worker installed and activated, `wynos-static-*` deleted, `other-cache` kept, `getRegistrations()` empty, zero outbound requests to other hosts. Push unsubscribe and generic banner covered by the VM unit tests (no push service available offline).
+- Code review: worker reads no push payload, no fetch handler, no Supabase; notification click opens fixed `https://zoky.wynos.online/` only. Cleanup file reachable on zoky at `/food/legacy-sw-cleanup.js` is harmless (registering it needs same-origin script execution; it would only unregister).
+- Residual risk statement reviewed and accurate: pushes reaching the old worker before the browser's next update check still show content; cross-origin sign-out cannot kill the old subscription; full guarantee needs a server-side origin column (migration, after freeze) or a PM/Founder decision on revoking `food` tokens at sign-out. Keep the AC9 communication item.
+- Minor: generic banner icon `/icons/zoky/icon-192-v1.png` on the food host is answered with a 307 to zoky; Chromium follows redirects for notification icons, worst case is a missing icon only.
+- Regression: web lint 0 errors (17 existing warnings), typecheck pass, `node --test tests/*.test.mjs` 344/344, `npm run test:notifications` 60/60, `npm run build` pass, freeze guard PASS, Playwright `wynos-food-developer-preview` + `wynos-merchant` on Chromium (chromium-android + chromium-desktop, /opt/pw-browsers/chromium) 134/134 pass against local `next start`.

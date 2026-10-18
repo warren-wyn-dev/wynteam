@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-138
 
-Status: fixed — awaiting QA re-test
+Status: verified — closed (QA re-test PASS, 2026-10-18; release consideration below)
 Severity: LOW (auditability / config drift; becomes a login blocker if the manual step is missed)
 Owner: AI Debug Engineer / DevOps
 Found by: AI QA & Security, branch `feat/zoky-web-rebrand` @ ffd3ac6, 2026-10-18
@@ -27,3 +27,11 @@ Tests: `bash -n` ok; `bash .github/scripts/test-auth-password-policy.sh` pass (o
 IMPORTANT: `.github/workflows/web-beta1-auth-password-policy.yml` runs the `apply` job on push to `main` when these scripts change → merging this branch to main will PATCH the production Supabase Auth allowlist immediately (additive only, before the web deploy). Founder/DevOps should treat the merge as that config change, or merge the ZOKY-138 commit together with the release.
 Open: whether Supabase matches the reset URL with its query exactly — verify on staging; if not, add `https://zoky.wynos.online/reset-password**` manually.
 Commit: 5e0bec5
+
+## QA Re-test (AI QA & Security, 2026-10-18) — PASS
+
+Env: worktree /home/user/wynteam-web @ 729a3e2, local only (no env files, no Supabase/Stripe, no production requests; Chromium runs blocked *.wynos.online/*.supabase.co via host-resolver rules except the mapped local test host).
+- Diff review 5e0bec5: add-only. Three exact URLs appended to the required loop and to the post-update `jq` verification; no existing entry removed, no wildcard. Reset URL matches what the app builds (`/reset-password?returnTo=` + `encodeURIComponent("/food/login")` = `%2Ffood%2Flogin`, `web/lib/auth-repository.ts:103`).
+- `bash -n` ok; `bash .github/scripts/test-auth-password-policy.sh` pass (fake curl on PATH, offline token, no Supabase contact) incl. new idempotency case (no extra PATCH). Freeze guard PASS.
+- RELEASE CONSIDERATION: `.github/workflows/web-beta1-auth-password-policy.yml` job `apply` runs on push to `main` touching these scripts (and after every successful `WYN-158 Production Deploy`) -> merging this branch PATCHes the production Supabase Auth allowlist immediately (additive). Founder/DevOps must treat the merge as that change. Open: confirm on staging that Supabase matches the reset URL with query; otherwise add `https://zoky.wynos.online/reset-password**` manually.
+- Regression: web lint 0 errors (17 existing warnings), typecheck pass, `node --test tests/*.test.mjs` 344/344, `npm run test:notifications` 60/60, `npm run build` pass, freeze guard PASS, Playwright `wynos-food-developer-preview` + `wynos-merchant` on Chromium (chromium-android + chromium-desktop, /opt/pw-browsers/chromium) 134/134 pass against local `next start`.
