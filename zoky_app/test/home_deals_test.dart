@@ -13,7 +13,7 @@ import 'package:zoky_app/features/deals/deals_screen.dart';
 import 'package:zoky_app/features/deals/domain/deal_models.dart';
 import 'package:zoky_app/features/deals/widgets/zoky_deal_card.dart';
 import 'package:zoky_app/features/deals/widgets/zoky_deal_illustration.dart';
-import 'package:zoky_app/features/home/widgets/zoky_home_banner_carousel.dart';
+import 'package:zoky_app/features/home/widgets/zoky_food_hero_card.dart';
 import 'package:zoky_app/features/home/widgets/zoky_today_deals_section.dart';
 
 import 'support/pump_zoky.dart';
@@ -66,8 +66,8 @@ void main() {
       expect(find.text(deal.headline), findsOneWidget);
       expect(find.text(deal.description), findsOneWidget);
     }
-    // Section sits below the banner carousel (hero slide first).
-    final hero = tester.getRect(find.byType(ZokyHomeBannerCarousel));
+    // Section sits below the hero card.
+    final hero = tester.getRect(find.byType(ZokyFoodHeroCard));
     final title = tester.getRect(find.text(ZokyStrings.dealsTitle));
     expect(title.top, greaterThan(hero.bottom));
     // Each card: one illustration and one small 3D arrow.

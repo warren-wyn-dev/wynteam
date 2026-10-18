@@ -17,31 +17,13 @@ import '../../../core/widgets/zoky_wordmark.dart';
 /// on the right, soft lighter pink waves, and a white sheet with large
 /// rounded top corners that joins the content below.
 ///
-/// Home v2 (Founder, 2026-10-18) adds an optional [address] row under the
-/// logo row ("จัดส่งที่" + address name) and lets Home reserve pink
-/// [bottomSpace] for the search field that floats over the pink/white seam.
-///
 /// Status bar icons are light over the pink on iOS and Android (the region
 /// only covers this header, so once it scrolls away the shell's dark style
 /// applies again).
 class ZokyHomeHeader extends StatelessWidget {
-  const ZokyHomeHeader({
-    super.key,
-    required this.onFavorites,
-    this.address,
-    this.bottomSpace = defaultBottomSpace,
-  });
+  const ZokyHomeHeader({super.key, required this.onFavorites});
 
   final VoidCallback onFavorites;
-
-  /// Row under the logo (Home: the "จัดส่งที่" address button).
-  final Widget? address;
-
-  /// Space under the last row, the white sheet ([sheetRadius]) included.
-  final double bottomSpace;
-
-  /// Phase 1 spacing under the logo row.
-  static const double defaultBottomSpace = ZokySpacing.s5 + sheetRadius;
 
   /// Light status bar content over the pink header. statusBarBrightness is
   /// the iOS field (dark background -> light icons); the other two are
@@ -92,7 +74,7 @@ class ZokyHomeHeader extends StatelessWidget {
         rim: false,
         shadow: false,
         child: CustomPaint(
-          painter: const _HeaderWavesPainter(),
+          painter: const ZokyHeaderWavesPainter(),
           child: Stack(
             // Let the white sheet overlap 1px past the bottom (no hairline seam).
             clipBehavior: Clip.none,
@@ -102,32 +84,22 @@ class ZokyHomeHeader extends StatelessWidget {
                   ZokySpacing.s10,
                   topInset + ZokySpacing.s3,
                   ZokySpacing.s10 - (tapTarget - heartDiameter) / 2,
-                  bottomSpace,
+                  ZokySpacing.s5 + sheetRadius,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      height: rowHeight,
-                      child: Row(
-                        children: [
-                          ZokyWordmark(width: logoWidth),
-                          const Spacer(),
-                          ZokyGlossyHeartButton(
-                            label: ZokyStrings.favoriteStores,
-                            onPressed: onFavorites,
-                            diameter: heartDiameter,
-                            tapTarget: tapTarget,
-                          ),
-                        ],
+                child: SizedBox(
+                  height: rowHeight,
+                  child: Row(
+                    children: [
+                      ZokyWordmark(width: logoWidth),
+                      const Spacer(),
+                      ZokyGlossyHeartButton(
+                        label: ZokyStrings.favoriteStores,
+                        onPressed: onFavorites,
+                        diameter: heartDiameter,
+                        tapTarget: tapTarget,
                       ),
-                    ),
-                    if (address != null) ...[
-                      const SizedBox(height: ZokySpacing.s2),
-                      address!,
                     ],
-                  ],
+                  ),
                 ),
               ),
               const Positioned(
@@ -153,8 +125,9 @@ class ZokyHomeHeader extends StatelessWidget {
 }
 
 /// Two soft, lighter pink waves over the glossy surface (decorative only).
-class _HeaderWavesPainter extends CustomPainter {
-  const _HeaderWavesPainter();
+/// Shared with the food landing page header.
+class ZokyHeaderWavesPainter extends CustomPainter {
+  const ZokyHeaderWavesPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -186,5 +159,5 @@ class _HeaderWavesPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_HeaderWavesPainter oldDelegate) => false;
+  bool shouldRepaint(ZokyHeaderWavesPainter oldDelegate) => false;
 }

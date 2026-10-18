@@ -15,12 +15,12 @@ import '../catalog/domain/catalog_models.dart';
 import '../home/domain/home_content_models.dart';
 import '../store/store_screen.dart';
 
-/// Minimal store search / browse page opened by the Home hero button
-/// ("ค้นหาของอร่อย"). Reuses the store directory query (names and
+/// Minimal store search / browse page opened by the food page search field
+/// ("สั่งอะไรดี?"). Reuses the store directory query (names and
 /// categories, same as the web `food_store_directory`), the store card grid
 /// and [StoreScreen], so the existing ordering flow continues from here.
 ///
-/// A Home category circle opens it with [category]: the directory rows are
+/// A food page category circle opens it with [category]: the directory rows are
 /// then narrowed client-side to that category ([ZokyFoodCategory.matches]
 /// on the store's menu categories), together with any typed query.
 ///
@@ -41,7 +41,7 @@ class StoreSearchScreen extends StatefulWidget {
   final String title;
   final bool autofocus;
 
-  /// Category filter from a Home category circle (null = all stores).
+  /// Category filter from a food page category circle (null = all stores).
   final ZokyFoodCategory? category;
 
   @override

@@ -36,7 +36,7 @@ void main() {
     ]);
   });
 
-  testWidgets('home shows the Home v2 header, not the legacy body', (
+  testWidgets('home shows the Home v1 header, not the legacy body', (
     tester,
   ) async {
     await pumpZokyApp(tester);

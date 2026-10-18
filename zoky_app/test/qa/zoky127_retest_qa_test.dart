@@ -279,11 +279,10 @@ void main() {
             final h = w > 600 ? 430.0 : 844.0;
             {
               await _pumpApp(tester, w, h, s);
-              final Finder target;
               if (entry == 'search') {
-                target = find.text(ZokyStrings.homeSearchPlaceholder);
+                await openStoreSearchFromHome(tester);
               } else {
-                target = find.descendant(
+                final target = find.descendant(
                   of: find.byType(ZokyRecommendedStoresSection),
                   matching: find.text(ZokyStrings.seeAll),
                 );
@@ -297,11 +296,11 @@ void main() {
                       )
                       .first,
                 );
+                await tester.ensureVisible(target);
+                await tester.pumpAndSettle();
+                await tester.tap(target);
+                await tester.pumpAndSettle();
               }
-              await tester.ensureVisible(target);
-              await tester.pumpAndSettle();
-              await tester.tap(target);
-              await tester.pumpAndSettle();
               expect(find.byType(StoreSearchScreen), findsOneWidget);
             }
             expect(tester.takeException(), isNull);
@@ -429,8 +428,7 @@ void main() {
   for (final (w, sc) in [(320.0, 1.3), (430.0, 1.0), (320.0, 1.0)]) {
     testWidgets('screenshot search grid ${w.toInt()} x $sc', (tester) async {
       await _pumpApp(tester, w, 1400, sc);
-      await tester.tap(find.text(ZokyStrings.homeSearchPlaceholder));
-      await tester.pumpAndSettle();
+      await openStoreSearchFromHome(tester);
       final view = tester.binding.renderViews.first;
       final layer = view.debugLayer! as OffsetLayer;
       final img = (await tester.runAsync(

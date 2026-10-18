@@ -733,10 +733,7 @@ void main() {
               {
                 await _pumpApp(tester, width: w, height: h, textScale: s);
                 if (entry == 'search') {
-                  final hero = find.text(ZokyStrings.homeSearchPlaceholder);
-                  await tester.ensureVisible(hero);
-                  await tester.pumpAndSettle();
-                  await tester.tap(hero);
+                  await openStoreSearchFromHome(tester);
                 } else {
                   final seeAll = find.descendant(
                     of: find.byType(ZokyRecommendedStoresSection),
@@ -780,8 +777,7 @@ void main() {
       double scale,
     ) async {
       await _pumpApp(tester, width: width, height: 844, textScale: scale);
-      await tester.tap(find.text(ZokyStrings.homeSearchPlaceholder));
-      await tester.pumpAndSettle();
+      await openStoreSearchFromHome(tester);
       final vertical = find
           .ancestor(
             of: find.byType(ZokyStoreCard).first,
@@ -968,8 +964,7 @@ void main() {
         ),
         findsWidgets,
       );
-      await tester.tap(find.text(ZokyStrings.homeSearchPlaceholder));
-      await tester.pumpAndSettle();
+      await openStoreSearchFromHome(tester);
       final gridCard = find.byWidgetPredicate(
         (w) => w is ZokyStoreCard && w.store.id == s.id,
       );

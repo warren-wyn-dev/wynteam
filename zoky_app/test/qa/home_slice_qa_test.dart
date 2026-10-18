@@ -221,10 +221,7 @@ void main() {
       tester,
     ) async {
       await _pumpApp(tester, width: 390, height: 844, top: 47, bottom: 34);
-      await tester.tap(
-        find.bySemanticsLabel(ZokyStrings.homeSearchPlaceholder),
-      );
-      await tester.pumpAndSettle();
+      await openStoreSearchFromHome(tester);
       expect(find.byType(StoreSearchScreen), findsOneWidget);
       final field = tester.widget<TextField>(find.byType(TextField));
       expect(field.autofocus, isTrue);
@@ -238,6 +235,9 @@ void main() {
       expect(find.textContaining('(ร้านตัวอย่าง)'), findsWidgets);
       await tester.tap(find.byTooltip(ZokyStrings.back).last);
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(ZokyStrings.back).last);
+      await tester.pumpAndSettle();
+      // Search -> food page -> Home.
       await tester.tap(find.byTooltip(ZokyStrings.back).last);
       await tester.pumpAndSettle();
       expect(find.byType(ZokyHomeHeader), findsOneWidget);
@@ -529,11 +529,10 @@ void main() {
       final overrides = _NoNetwork();
       await HttpOverrides.runZoned(() async {
         await _pumpApp(tester, width: 390, height: 844);
-        await tester.tap(
-          find.bySemanticsLabel(ZokyStrings.homeSearchPlaceholder),
-        );
-        await tester.pumpAndSettle();
+        await openStoreSearchFromHome(tester);
         await tester.tap(find.byType(ZokyStoreCard).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip(ZokyStrings.back).last);
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip(ZokyStrings.back).last);
         await tester.pumpAndSettle();

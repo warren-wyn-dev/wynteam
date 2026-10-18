@@ -8,7 +8,7 @@ import '../../../core/l10n/zoky_strings.dart';
 import '../../../core/widgets/zoky_glossy_surface.dart';
 import '../../address/delivery_address_controller.dart';
 
-/// Home v2 delivery address row in the pink header: a compact white glossy
+/// Food page delivery address pill in the pink header: a compact white glossy
 /// pill with a pin, a small "จัดส่งที่" label, the selected address name in
 /// bold and a ▾ chevron. Tapping it opens the address sheet.
 ///
@@ -17,8 +17,8 @@ import '../../address/delivery_address_controller.dart';
 /// [ZokyColors.textSecondary] (>= 4.8:1 on [ZokyGloss.whiteBottom]) and the
 /// name is ink. The whole row is a 44pt target, one button for assistive
 /// tech ("จัดส่งที่ บ้าน").
-class ZokyHomeAddressButton extends StatelessWidget {
-  const ZokyHomeAddressButton({
+class ZokyFoodAddressButton extends StatelessWidget {
+  const ZokyFoodAddressButton({
     super.key,
     required this.controller,
     required this.onPressed,

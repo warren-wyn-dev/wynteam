@@ -238,7 +238,7 @@ void main() {
     tester,
   ) async {
     await pumpZokyApp(tester, width: 430, height: 932, bottomInset: 34);
-    // Home is long (Home v2): the header sliver is disposed once scrolled
+    // Home can be long: the header sliver may be disposed once scrolled
     // far away, so read the feed's scroll offset instead of its position.
     double offset() => tester
         .state<ScrollableState>(find.byType(Scrollable).first)

@@ -6,27 +6,27 @@ import '../../../core/design/zoky_typography.dart';
 import '../../../core/l10n/zoky_strings.dart';
 import '../../../core/widgets/zoky_3d_icon.dart';
 import '../../../core/widgets/zoky_glossy_surface.dart';
+import '../../../core/widgets/zoky_skeleton.dart';
 import '../../deals/widgets/zoky_deal_card.dart';
 import '../../deals/widgets/zoky_deal_illustration.dart';
-import '../data/home_content_repository.dart';
-import '../domain/home_content_models.dart';
-import 'zoky_food_hero_card.dart';
-import 'zoky_store_cover.dart';
+import '../../home/data/home_content_repository.dart';
+import '../../home/domain/home_content_models.dart';
+import '../../home/widgets/zoky_store_cover.dart';
 
-/// Home v2 banner carousel (Founder, 2026-10-18): horizontally paged
-/// slides with the next one peeking in at the right, and page dots under
-/// it (the active dot is a brand-pink pill).
+/// Food page banner carousel (Founder, 2026-10-18): horizontally paged
+/// banner slides with the next one peeking in at the right, and page dots
+/// under it (the active dot is a brand-pink pill).
 ///
-/// Slide 1 is always the brand hero ([ZokyFoodHeroCard]); the banners of
-/// [HomeContentRepository.fetchActiveBanners] follow in the order the
-/// repository returns them. While they load, or when there are none or the
-/// call fails, only the hero shows (no dots for a single slide).
+/// Shows the banners of [HomeContentRepository.fetchActiveBanners] in the
+/// order the repository returns them (the brand hero card stays on Home).
+/// A skeleton slide holds the space while they load; nothing shows when
+/// there are none or the call fails (web: the banner row is hidden).
 ///
 /// Every slide has the same height: the taller of [aspectRatio] (web
-/// banners are wide, ~2.3:1) and the hero's natural height at the current
+/// banners are wide, ~2.3:1) and the tallest banner text at the current
 /// width and text size, so no slide ever clips its text.
-class ZokyHomeBannerCarousel extends StatefulWidget {
-  const ZokyHomeBannerCarousel({
+class ZokyFoodBannerCarousel extends StatefulWidget {
+  const ZokyFoodBannerCarousel({
     super.key,
     required this.repository,
     required this.onOpenBanner,
@@ -57,11 +57,12 @@ class ZokyHomeBannerCarousel extends StatefulWidget {
       width - ZokySpacing.gutter - gap - peek;
 
   @override
-  State<ZokyHomeBannerCarousel> createState() => _ZokyHomeBannerCarouselState();
+  State<ZokyFoodBannerCarousel> createState() => _ZokyFoodBannerCarouselState();
 }
 
-class _ZokyHomeBannerCarouselState extends State<ZokyHomeBannerCarousel> {
-  List<ZokyHomeBanner> _banners = const [];
+class _ZokyFoodBannerCarouselState extends State<ZokyFoodBannerCarousel> {
+  /// Null while loading.
+  List<ZokyHomeBanner>? _banners;
   PageController? _controller;
   double _fraction = 0;
   int _page = 0;
@@ -78,7 +79,9 @@ class _ZokyHomeBannerCarouselState extends State<ZokyHomeBannerCarousel> {
       if (!mounted) return;
       setState(() => _banners = banners);
     } catch (_) {
-      // Banners are optional on Home: keep the hero alone.
+      // Banners are optional: hide the carousel.
+      if (!mounted) return;
+      setState(() => _banners = const []);
     }
   }
 
@@ -115,19 +118,22 @@ class _ZokyHomeBannerCarouselState extends State<ZokyHomeBannerCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final count = 1 + _banners.length;
+    final banners = _banners;
+    if (banners != null && banners.isEmpty) return const SizedBox.shrink();
+    final count = banners?.length ?? 1;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final slide = ZokyHomeBannerCarousel.slideWidth(width);
-        final extent = slide + ZokyHomeBannerCarousel.gap;
+        final slide = ZokyFoodBannerCarousel.slideWidth(width);
+        final minHeight = slide / ZokyFoodBannerCarousel.aspectRatio;
+        final extent = slide + ZokyFoodBannerCarousel.gap;
         final controller = _controllerFor(
           extent / (width - ZokySpacing.gutter),
         );
         final page = _page.clamp(0, count - 1);
         return Semantics(
           container: true,
-          label: ZokyStrings.homeBanners,
+          label: ZokyStrings.foodBanners,
           explicitChildNodes: true,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -137,62 +143,84 @@ class _ZokyHomeBannerCarouselState extends State<ZokyHomeBannerCarousel> {
                   top: ZokySpacing.s6,
                   bottom: ZokySpacing.s8,
                 ),
-                child: Stack(
-                  children: [
-                    // Invisible copy of the hero that gives every slide its
-                    // height (see the class doc).
-                    Padding(
-                      padding: const EdgeInsets.only(left: ZokySpacing.gutter),
-                      child: ExcludeSemantics(
-                        child: Visibility(
-                          visible: false,
-                          maintainSize: true,
-                          maintainAnimation: true,
-                          maintainState: true,
-                          child: SizedBox(
+                child: banners == null
+                    ? Padding(
+                        padding: const EdgeInsets.only(
+                          left: ZokySpacing.gutter,
+                        ),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: ZokySkeleton(
                             width: slide,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minHeight:
-                                    slide / ZokyHomeBannerCarousel.aspectRatio,
+                            height: minHeight,
+                            borderRadius: ZokyFoodBannerCard.radius,
+                          ),
+                        ),
+                      )
+                    : Stack(
+                        children: [
+                          // Invisible copies of every banner's text that give
+                          // all slides their height (see the class doc).
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: ZokySpacing.gutter,
+                            ),
+                            child: ExcludeSemantics(
+                              child: Visibility(
+                                visible: false,
+                                maintainSize: true,
+                                maintainAnimation: true,
+                                maintainState: true,
+                                child: SizedBox(
+                                  width: slide,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minHeight: minHeight,
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        for (final banner in banners)
+                                          ZokyFoodBannerCard.sizer(
+                                            banner,
+                                            slide,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
-                              child: const ZokyFoodHeroCard(),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                    Positioned.fill(
-                      left: ZokySpacing.gutter,
-                      child: PageView.builder(
-                        key: ZokyHomeBannerCarousel.pagerKey,
-                        controller: controller,
-                        padEnds: false,
-                        // Slides and their soft shadows may draw past the
-                        // viewport (into the left gutter while swiping).
-                        clipBehavior: Clip.none,
-                        itemCount: count,
-                        itemBuilder: (context, index) => Padding(
-                          padding: const EdgeInsets.only(
-                            right: ZokyHomeBannerCarousel.gap,
-                          ),
-                          child: index == 0
-                              ? const ZokyFoodHeroCard()
-                              : ZokyHomeBannerCard(
-                                  banner: _banners[index - 1],
-                                  index: index - 1,
-                                  onTap: () =>
-                                      widget.onOpenBanner(_banners[index - 1]),
+                          Positioned.fill(
+                            left: ZokySpacing.gutter,
+                            child: PageView.builder(
+                              key: ZokyFoodBannerCarousel.pagerKey,
+                              controller: controller,
+                              padEnds: false,
+                              // Slides and their soft shadows may draw past
+                              // the viewport (into the left gutter while
+                              // swiping).
+                              clipBehavior: Clip.none,
+                              itemCount: count,
+                              itemBuilder: (context, index) => Padding(
+                                padding: const EdgeInsets.only(
+                                  right: ZokyFoodBannerCarousel.gap,
                                 ),
-                        ),
+                                child: ZokyFoodBannerCard(
+                                  banner: banners[index],
+                                  index: index,
+                                  onTap: () =>
+                                      widget.onOpenBanner(banners[index]),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
               if (count > 1)
                 ZokyPageDots(
-                  key: ZokyHomeBannerCarousel.dotsKey,
+                  key: ZokyFoodBannerCarousel.dotsKey,
                   count: count,
                   active: page,
                 ),
@@ -250,8 +278,8 @@ class ZokyPageDots extends StatelessWidget {
 ///
 /// Contrast: the title is >= 20 bold ("large text") in
 /// [ZokyColors.brandDeep] on the tint (>= 4:1); small text is ink.
-class ZokyHomeBannerCard extends StatelessWidget {
-  const ZokyHomeBannerCard({
+class ZokyFoodBannerCard extends StatelessWidget {
+  const ZokyFoodBannerCard({
     super.key,
     required this.banner,
     required this.index,
@@ -282,6 +310,62 @@ class ZokyHomeBannerCard extends StatelessWidget {
     return '$prefix${banner.title}$subtitle';
   }
 
+  /// Widest the dish gets, as a fraction of the slide width.
+  static const double maxArtFraction = 0.42;
+
+  /// Invisible stand-in with [banner]'s text laid out as in a slide
+  /// [slideWidth] wide (dish at its widest, so the text is at its
+  /// narrowest): its height is the least a slide needs for this banner.
+  static Widget sizer(ZokyHomeBanner banner, double slideWidth) => _text(
+    banner,
+    artSize: banner.art != null ? slideWidth * maxArtFraction : null,
+  );
+
+  /// Badge, title, subtitle and arrow, left of the dish ([artSize] wide,
+  /// null without a dish).
+  static Widget _text(ZokyHomeBanner banner, {required double? artSize}) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        ZokySpacing.s10,
+        ZokySpacing.s8,
+        artSize != null ? artSize + ZokySpacing.s8 : ZokySpacing.s10,
+        ZokySpacing.s8,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (banner.isDemo) ...[
+            const ZokyDemoBadge(),
+            const SizedBox(height: ZokySpacing.s4),
+          ],
+          Text(
+            banner.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: titleStyle,
+          ),
+          if (banner.subtitle != null) ...[
+            const SizedBox(height: ZokySpacing.s2),
+            Text(
+              banner.subtitle!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: ZokyTextStyles.bodySm.copyWith(
+                color: ZokyColors.textPrimary,
+                height: 1.35,
+              ),
+            ),
+          ],
+          if (banner.hasTarget) ...[
+            const SizedBox(height: ZokySpacing.s4),
+            const Zoky3DIcon(Zoky3DGlyph.arrowRight, size: 26),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final art = banner.art;
@@ -289,7 +373,7 @@ class ZokyHomeBannerCard extends StatelessWidget {
         ? ZokyStoreCover.tintFor(art)
         : ZokyDealTint.forIndex(index).gradient;
     final tappable = banner.hasTarget;
-    Widget card = DecoratedBox(
+    final Widget card = DecoratedBox(
       decoration: const BoxDecoration(
         borderRadius: radius,
         boxShadow: ZokyDealCard.shadow,
@@ -315,7 +399,7 @@ class ZokyHomeBannerCard extends StatelessWidget {
                   final h = constraints.maxHeight;
                   final artSize = (h * 0.92).clamp(
                     0.0,
-                    constraints.maxWidth * 0.42,
+                    constraints.maxWidth * maxArtFraction,
                   );
                   return Stack(
                     children: [
@@ -346,49 +430,13 @@ class ZokyHomeBannerCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          ZokySpacing.s10,
-                          ZokySpacing.s8,
-                          art != null
-                              ? artSize + ZokySpacing.s8
-                              : ZokySpacing.s10,
-                          ZokySpacing.s8,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (banner.isDemo) ...[
-                              const ZokyDemoBadge(),
-                              const SizedBox(height: ZokySpacing.s4),
-                            ],
-                            Text(
-                              banner.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: titleStyle,
-                            ),
-                            if (banner.subtitle != null) ...[
-                              const SizedBox(height: ZokySpacing.s2),
-                              Text(
-                                banner.subtitle!,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: ZokyTextStyles.bodySm.copyWith(
-                                  color: ZokyColors.textPrimary,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                            if (tappable) ...[
-                              const SizedBox(height: ZokySpacing.s4),
-                              const Zoky3DIcon(
-                                Zoky3DGlyph.arrowRight,
-                                size: 26,
-                              ),
-                            ],
-                          ],
+                      Positioned.fill(
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: _text(
+                            banner,
+                            artSize: art != null ? artSize : null,
+                          ),
                         ),
                       ),
                     ],

@@ -29,16 +29,18 @@ abstract final class ZokyStrings {
   // Placeholder until the favorite stores sheet ships (Home Phase 1 review).
   static const String comingSoon = 'เร็ว ๆ นี้';
   static const String searchHint = 'ค้นหาร้านหรือเมนูอาหาร';
-  // Home v2 (Founder decision 2026-10-18): delivery address row in the
-  // header, floating search field and its placeholder.
+  // Food landing page (opened from the Home hero card, Founder 2026-10-18):
+  // page name for assistive tech, the delivery address in the header, the
+  // floating search field placeholder.
+  static const String foodHomeTitle = 'สั่งอาหาร';
   static const String deliverAt = 'จัดส่งที่';
-  static const String homeSearchPlaceholder = 'สั่งอะไรดี?';
+  static const String foodSearchPlaceholder = 'สั่งอะไรดี?';
   // Address sheet (web: "เลือกที่อยู่จัดส่ง"; "เพิ่มที่อยู่ใหม่" from the
   // Founder brief, a placeholder row until address entry ships).
   static const String chooseDeliveryAddress = 'เลือกที่อยู่จัดส่ง';
   static const String addNewAddress = 'เพิ่มที่อยู่ใหม่';
-  // Home banner carousel (web: aria-label "แบนเนอร์ WYNOS Food").
-  static const String homeBanners = 'แบนเนอร์ ZOKY';
+  // Food page banner carousel (web: aria-label "แบนเนอร์ WYNOS Food").
+  static const String foodBanners = 'แบนเนอร์ ZOKY';
   static const String demoBannerPrefix = 'ตัวอย่างแบนเนอร์';
   // Home Phase 2 hero card (copy from the Founder Home mockup, Phase 2).
   static const String heroFoodDelivery = 'FOOD DELIVERY';
@@ -69,8 +71,7 @@ abstract final class ZokyStrings {
   static const String allStoresTitle = 'ร้านอาหารทั้งหมด';
   static const String demoStorePrefix = 'ร้านตัวอย่าง';
   static const String saveFavoritePrefix = 'บันทึกร้านโปรด';
-  // Parity C04 quick filters: no UI since the legacy Home body was removed
-  // (Home v2); kept until PM/Founder place them (CTO C3).
+  // Parity C04 quick filters, above the store list of the food page.
   static const String filterAll = 'ทั้งหมด';
   static const String filterFreeDelivery = 'ส่งฟรี';
   static const String filterPromo = 'มีโปรฯ';

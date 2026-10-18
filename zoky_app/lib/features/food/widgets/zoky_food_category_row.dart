@@ -6,11 +6,11 @@ import '../../../core/design/zoky_typography.dart';
 import '../../../core/widgets/zoky_glossy_surface.dart';
 import '../../../core/widgets/zoky_skeleton.dart';
 import '../../deals/widgets/zoky_deal_illustration.dart';
-import '../data/home_content_repository.dart';
-import '../domain/home_content_models.dart';
-import 'zoky_store_cover.dart';
+import '../../home/data/home_content_repository.dart';
+import '../../home/domain/home_content_models.dart';
+import '../../home/widgets/zoky_store_cover.dart';
 
-/// Home v2 food category circles (Founder, 2026-10-18): a horizontally
+/// Food page category circles (Founder, 2026-10-18): a horizontally
 /// scrolling row of round "ZOKY Glossy 3D" dish illustrations with the
 /// Thai name under each. Tapping one opens the store list filtered by that
 /// category.

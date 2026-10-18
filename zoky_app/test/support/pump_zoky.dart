@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_app/app/app_config.dart';
 import 'package:zoky_app/app/zoky_app.dart';
 import 'package:zoky_app/core/design/zoky_theme.dart';
+import 'package:zoky_app/core/l10n/zoky_strings.dart';
 import 'package:zoky_app/features/address/data/demo_address_repository.dart';
 import 'package:zoky_app/features/address/delivery_address_controller.dart';
 import 'package:zoky_app/features/catalog/data/demo_store_repository.dart';
@@ -88,3 +89,16 @@ ZokyApp demoZokyApp() => ZokyApp(
   homeContentRepository: const DemoHomeContentRepository(),
   deliveryAddresses: DeliveryAddressController(const DemoAddressRepository()),
 );
+
+/// Home -> store search: the hero card's "ค้นหาของอร่อย" opens the food
+/// landing page (Founder, 2026-10-18), whose "สั่งอะไรดี?" field opens
+/// the store search.
+Future<void> openStoreSearchFromHome(WidgetTester tester) async {
+  final hero = find.text(ZokyStrings.heroSearchButton);
+  await tester.ensureVisible(hero);
+  await tester.pumpAndSettle();
+  await tester.tap(hero);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(ZokyStrings.foodSearchPlaceholder));
+  await tester.pumpAndSettle();
+}

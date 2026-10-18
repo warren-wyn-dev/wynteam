@@ -1,6 +1,6 @@
 import '../domain/home_content_models.dart';
 
-/// Read access to Home content managed outside a store (banners,
+/// Read access to Home/food page content managed outside a store (banners,
 /// categories). Same interface + Demo pattern as StoreRepository; the
 /// Supabase implementation arrives with ZOKY-105/106.
 abstract interface class HomeContentRepository {

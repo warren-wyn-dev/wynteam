@@ -7,15 +7,15 @@ import '../../../core/design/zoky_typography.dart';
 import '../../../core/l10n/zoky_strings.dart';
 import '../../../core/widgets/zoky_glossy_surface.dart';
 
-/// Home v2 search entry that floats over the header's pink/white seam: a
+/// Food page search entry that floats over the header's pink/white seam: a
 /// white glossy rounded field with a search icon and "สั่งอะไรดี?". It is a
 /// button, not a text field: tapping it opens the store search page with
 /// the keyboard up.
 ///
 /// Placeholder text is [ZokyColors.textSecondary] (>= 4.8:1 on the white
 /// glossy fill).
-class ZokyHomeSearchField extends StatelessWidget {
-  const ZokyHomeSearchField({super.key, required this.onPressed});
+class ZokyFoodSearchField extends StatelessWidget {
+  const ZokyFoodSearchField({super.key, required this.onPressed});
 
   final VoidCallback onPressed;
 
@@ -35,7 +35,7 @@ class ZokyHomeSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: ZokyStrings.homeSearchPlaceholder,
+      label: ZokyStrings.foodSearchPlaceholder,
       hint: ZokyStrings.searchHint,
       excludeSemantics: true,
       // Shadow outside the Material: ink is clipped to the Material's box.
@@ -91,7 +91,7 @@ class ZokyHomeSearchField extends StatelessWidget {
                       const SizedBox(width: ZokySpacing.s6),
                       Expanded(
                         child: Text(
-                          ZokyStrings.homeSearchPlaceholder,
+                          ZokyStrings.foodSearchPlaceholder,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: _style,
