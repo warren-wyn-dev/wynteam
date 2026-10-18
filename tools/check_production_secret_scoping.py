@@ -48,7 +48,6 @@ CREDENTIAL = re.compile(r"(?<![A-Za-z0-9_])(SUPABASE_ACCESS_TOKEN|VERCEL_TOKEN)(
 # secret literally (secrets.NAME or secrets['NAME']). Any other use of the
 # secrets context (format(), toJSON(secrets), secrets: inherit) could reach a
 # production credential without spelling it out.
-EXPRESSION = re.compile(r"\$\{\{(.*?)\}\}", re.S)
 SECRETS_WORD = re.compile(r"(?<![A-Za-z0-9_.-])secrets(?![A-Za-z0-9_-])", re.I)
 LITERAL_SECRET = re.compile(r"""secrets\s*(?:\.\s*[A-Za-z_][A-Za-z0-9_]*|\[\s*['"][A-Za-z_][A-Za-z0-9_]*['"]\s*\])""", re.I)
 
@@ -66,17 +65,24 @@ def strings(value):
 
 
 def dynamic_secrets(value):
+    """True when any string (mapping keys included) uses the secrets context
+    other than as a literal secrets.NAME / secrets['NAME']. Deliberately does
+    not try to find where an expression ends: everything from the first `${{`
+    to the end of the string is treated as expression text, so quoted `}}`
+    tricks cannot hide a later reference."""
+    if isinstance(value, dict) and str(value.get("secrets", "")).strip().lower() == "inherit":
+        return True
     if isinstance(value, dict):
-        if str(value.get("secrets", "")).strip().lower() == "inherit":
-            return True
-        return any(dynamic_secrets(item) for item in value.values())
+        return any(dynamic_secrets(item) for item in value.values()) or any(
+            dynamic_secrets(str(key)) for key in value
+        )
     if isinstance(value, list):
         return any(dynamic_secrets(item) for item in value)
-    return any(
-        SECRETS_WORD.search(LITERAL_SECRET.sub("", expression))
-        for text in strings(value)
-        for expression in EXPRESSION.findall(text)
-    )
+    for text in strings(value):
+        start = text.find("${{")
+        if start != -1 and SECRETS_WORD.search(LITERAL_SECRET.sub("", text[start:])):
+            return True
+    return False
 
 
 def mentions(value):

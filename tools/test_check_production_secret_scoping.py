@@ -64,6 +64,8 @@ cases = {
     "secrets: inherit to a reusable workflow, ungated": add("inherit.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  call:\n    uses: ./.github/workflows/deploy-web.yml\n    secrets: inherit\n"),
     "YAML 1.1 boolean job keys collide (yes/on)": add("boolkeys.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  yes:\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: echo ok\n  on:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n"),
     "duplicate job key overwrites an ungated job": add("dupkeys.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: echo ok\n  a:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n"),
+    "quoted braces hide a later format() secret": add("quoted.yml", (NEW_JOB % "X").replace("${{ secrets.X }}", "${{ '}}' && secrets[format('{0}_{1}', 'VERCEL', 'TOKEN')] }}")),
+    "dynamic secret used as an env mapping key": add("envkey.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  a:\n    runs-on: ubuntu-latest\n    env:\n      ${{ secrets[format('{0}_{1}', 'SUPABASE', 'ACCESS_TOKEN')] }}: x\n    steps:\n      - run: env\n"),
     "workflow-level env credential": add("top-env.yml", "name: x\non:\n  workflow_dispatch:\nenv:\n  T: ${{ secrets.VERCEL_TOKEN }}\njobs:\n  a:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n"),
 }
 for label, mutate in cases.items():
