@@ -54,6 +54,8 @@ cases = {
     "job key with trailing comment after a gated job": add("comment-key.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  ok:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n  evil: # x\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: echo ok\n"),
     "quoted job key after a gated job": add("quoted-key.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  ok:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n  'evil':\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          T: ${{ secrets.VERCEL_TOKEN }}\n        run: echo ok\n"),
     "credential in a top-level key after jobs": add("after-jobs.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n  ok:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\nenv:\n  T: ${{ secrets.VERCEL_TOKEN }}\n"),
+    "lowercase secret name, ungated": add("lower.yml", NEW_JOB % "vercel_token"),
+    "index-syntax secret name, ungated": add("index.yml", (NEW_JOB % "X").replace("secrets.X", "secrets['SUPABASE_ACCESS_TOKEN']")),
     "workflow-level env credential": add("top-env.yml", "name: x\non:\n  workflow_dispatch:\nenv:\n  T: ${{ secrets.VERCEL_TOKEN }}\njobs:\n  a:\n    environment: production\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n"),
 }
 for label, mutate in cases.items():

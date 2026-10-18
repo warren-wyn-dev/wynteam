@@ -14,7 +14,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WF = ROOT / ".github" / "workflows"
-CREDENTIAL = re.compile(r"secrets\.(SUPABASE_ACCESS_TOKEN|VERCEL_TOKEN)\b")
+# Secret names are case-insensitive in GitHub; also match secrets['NAME'] index syntax.
+CREDENTIAL = re.compile(r"secrets(?:\.|\[\s*['\"])(SUPABASE_ACCESS_TOKEN|VERCEL_TOKEN)\b", re.I)
 KEY = r"['\"]?([A-Za-z0-9_-]+)['\"]?:[ ]*(?:#.*)?$"
 
 errors = []
