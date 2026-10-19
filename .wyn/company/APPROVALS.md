@@ -702,3 +702,10 @@ Run 39159334533 (Founder approved `production` review): guard ✅, edge deploy �
 - Workflow: `zoky-web-exception-release.yml` on `main`, phase `PHASE1` (ZOKY_LEGACY_FOOD_REDIRECT=0)
 - release_sha: `0533fb3649f3c327f451bc95832674d63c0f6873`
 - Rollback: Vercel Instant Rollback to `web-5djnkfh16` (`b19687af`); plus zoky→food domain redirect in Vercel if needed
+
+### [2026-10-18/19] ZOKY PHASE1 — deployed; post-deploy check flaked, verified manually ✅
+
+Run 39159774643: guard ✅, browser QA ✅, Vercel production deploy ✅. The shared "Verify production routes" step failed on `https://wynos.online/api/maps/health` returning 502 three times within ~30s right after the deploy (cold start); the ZOKY PHASE1 smoke step was therefore skipped.
+Manual re-check minutes later (all PASS): maps/health 200 (core-api-v1); wynos.online routes `/ /search /notifications /chat /settings /profile/me /clubs /bookmarks /suggested /maps` 200; push-config 200; zoky.wynos.online home (ZOKY title + canonical) ✅; `wynos.online/food?promo=X` → 307 zoky ✅; food.wynos.online 200 + real sw.js ✅; zoky sw.js real ✅; merchant 200.
+Decision: keep PHASE1 live (no rollback). Rollback target if needed: Vercel Instant Rollback to `web-5djnkfh16` (`b19687af`).
+Follow-up: give the maps health check in the exception workflow a longer warm-up retry window.
