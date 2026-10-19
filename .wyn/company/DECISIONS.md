@@ -2431,3 +2431,9 @@ Founder: **"อนุมัติ (แนะนำ)"** — รวม `chore/geoc
 - #1227 → `a302098f` (`[functions.wynos-maps-geocode] verify_jwt = false`)
 ตรวจบน `main` หลัง merge: secret-scoping gate + test (23), freeze guard + test (75+4), config pin = False — ผ่านทั้งหมด; ไม่มีการ deploy
 ถัดไป: Founder ทำส่วน A–D ของ `.wyn/docs/engineering/deploy-secrets-environment-migration.md` (ยังไม่ทำส่วน E จนกว่า ZOKY staging เสร็จ)
+
+### [2026-10-19] ZOKY web — ทำหน้าตาเว็บให้เหมือนแอป (ก)
+
+หลัง PHASE1 Founder ทดลอง zoky.wynos.online แล้ว: "ใช้ได้ แต่ทำไม ยังเป็นหน้าตาเดิม" → เลือก **"ก"**: นำดีไซน์ที่อนุมัติแล้วในแอป ZOKY (Home v1 Phase 1–5, หน้าสั่งอาหาร FoodHomeScreen, ไอคอน 3D, header ชมพูอ่อน, design system) มาทำบนเว็บ Next.js (zoky.wynos.online) ทีละหน้า เริ่มจาก Home + หน้าสั่งอาหาร; ฟังก์ชันเดิมของเว็บต้องทำงานเหมือนเดิม (ข้อมูลจริง ไม่ใช้ข้อมูลตัวอย่างบน production); Founder ดู preview และอนุมัติทีละหน้าก่อน release
+- งานเริ่มจาก branch ที่ตัดจาก `release/zoky-web-20261018` (สิ่งที่อยู่บน production) เพื่อไม่ให้งาน #1133/#1135 ที่ยังไม่ผ่าน acceptance ติดมา
+- ขั้น 2 (food → zoky redirect) ยังไม่ทำ
