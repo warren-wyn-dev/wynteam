@@ -2441,3 +2441,7 @@ Founder: **"อนุมัติ (แนะนำ)"** — รวม `chore/geoc
 ### [2026-10-19] ZOKY web Home/Food — คำตอบ 3 ข้อจาก spec (`zoky-web-home-food-spec.md`)
 
 Founder: (1) "ดีลเด็ดวันนี้" — **ซ่อนไว้ก่อน**; (2) "ร้านอาหารแนะนำ" — **ใช้ร้านยอดนิยม** (จากยอดสั่งจริงที่เว็บมีอยู่); (3) วงกลมหมวดอาหารบนหน้าสั่งอาหาร — **ซ่อนไว้ก่อน**
+
+### [2026-10-19] ZOKY web Home/Food redesign — Founder อนุมัติ preview
+
+Founder ดูภาพตัวอย่าง (`.wyn/previews/zoky-web-design/`, branch `feat/zoky-web-app-design` @ `cc823142`) แล้วตอบ **"อนุญาต"** → อนุมัติหน้าตา ส่งต่อ QA & Security → CTO → release ผ่าน exception workflow (ต้องให้ Founder อนุมัติ production อีกครั้ง)
