@@ -1,8 +1,7 @@
 "use client";
 
-import { ArrowLeft, Check, Clock3, Info, MapPin, Minus, Plus, Search, Store, Trash2, UtensilsCrossed, X } from "lucide-react";
+import { ArrowLeft, Check, Clock3, Info, MapPin, Minus, Plus, Search, ShoppingBag, Store, Trash2, UtensilsCrossed, X } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -10,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { foodCartLineKey, foodCartLineOptionsValid, foodCartLineUnitPrice, foodMoney, foodPublicUrl, type FoodCartLine, type FoodMenuOptionGroup } from "@/lib/food-customer";
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { rememberSharedFoodStore, sharedFoodStoreId } from "@/lib/food-share";
+import { Zoky3DIcon, ZokyFoodCartButton, ZokyFoodHeroCard, ZokyGlossyIconButton, ZokyHomeHeader, useZokyThemeColor } from "@/components/food/zoky-web-ui";
 
 export const GUEST_BASKET_KEY = "wynos-food-guest-basket-v1";
 
@@ -102,6 +102,39 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [showBasket, setShowBasket] = useState(false);
+  // ZOKY web: Home and the Food list share the signed-in look (?view=food).
+  const [view, setView] = useState<"home" | "food">(() => {
+    if (typeof window === "undefined") return "home";
+    if (sharedFoodStoreId(window.location.search)) return "food";
+    return new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home";
+  });
+
+  useEffect(() => {
+    const onPop = () => setView(new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home");
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const openFood = () => {
+    if (new URLSearchParams(window.location.search).get("view") !== "food") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "food");
+      window.history.pushState({ ...(window.history.state ?? {}), zkView: "food" }, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+    setView("food");
+    window.scrollTo({ top: 0 });
+  };
+  const backHome = () => {
+    if (window.history.state?.zkView === "food") {
+      window.history.back();
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("view");
+    window.history.replaceState({ ...(window.history.state ?? {}), zkView: undefined }, "", `${url.pathname}${url.search}${url.hash}`);
+    setView("home");
+    window.scrollTo({ top: 0 });
+  };
 
   useEffect(() => {
     let live = true;
@@ -229,7 +262,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
   const storeCover = store ? foodPublicUrl(client, store.cover_path) : null;
 
   return (
-    <main className={`wyn-food fx-app fx-guest${cartCount > 0 && !showBasket ? " has-cart-bar" : ""}`}>
+    <main className={`wyn-food fx-app fx-guest${store && cartCount > 0 && !showBasket ? " has-cart-bar" : ""}${!store ? (view === "home" ? " is-zk-home" : " is-zk-food") : ""}`}>
       {store ? (
         <>
           <section className={`fx-store-hero${store.is_open ? "" : " is-closed"}`}>
@@ -303,67 +336,41 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
             ) : null}
           </section>
         </>
+      ) : view === "home" ? (
+        <div className="zk-home">
+          <ZokyHomeHeader
+            actions={(
+              <>
+                {cartCount > 0 ? (
+                  <ZokyGlossyIconButton label={`ตะกร้า ${cartCount} รายการ`} onClick={() => setShowBasket(true)} badge={cartCount}>
+                    <ShoppingBag size={22} strokeWidth={2} color="#D61256" aria-hidden="true" />
+                  </ZokyGlossyIconButton>
+                ) : null}
+                <Link href="/food/login" className="zk-login-pill">เข้าสู่ระบบ</Link>
+              </>
+            )}
+          />
+          <ZokyFoodHeroCard onOpen={openFood} />
+          <p className="zk-col zk-service-area"><MapPin size={16} aria-hidden="true" />ให้บริการในพื้นที่มหาสารคาม</p>
+        </div>
       ) : (
-        <>
-          <header className="fx-header">
-            <div className="fx-header-top">
-              <div className="fx-brand">
-                <Image className="wf-brand-logo" src="/icons/zoky/icon-192-v1.png" width={32} height={32} alt="" />
-                <span>ZOKY</span>
-              </div>
-              <Link href="/food/login" className="fx-btn fx-btn--outline fx-btn--sm">เข้าสู่ระบบ</Link>
-            </div>
-          </header>
-
-          <section className="fx-guest-hero">
-            <span className="fx-guest-tag"><MapPin size={14} /> ให้บริการในพื้นที่มหาสารคาม</span>
-            <h1>เลือกอาหารที่อยากกินได้เลย</h1>
-            <p>ดูร้านและเมนูได้ทันที ไม่ต้องล็อกอินหรือเปิด GPS ตรวจสอบพื้นที่จัดส่งเมื่อสั่งซื้อจริง</p>
-          </section>
-
-          <label className="fx-search">
-            <Search size={20} strokeWidth={2} />
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาร้านหรือชื่ออาหาร" aria-label="ค้นหาร้านหรือชื่ออาหาร" />
-            {query ? <button type="button" className="fx-search-clear" aria-label="ล้างการค้นหา" onClick={() => setQuery("")}><X size={14} strokeWidth={3} /></button> : null}
-          </label>
-
-          <section className="fx-section fx-guest-stores">
-            <div className="fx-section-head"><h2>ร้านอาหารที่เปิดเผยแพร่</h2></div>
-            {stores === null ? <p className="fx-empty-line" role="status">กำลังโหลดร้านอาหาร…</p> : null}
-            {error ? <div className="fx-note fx-note--danger" role="alert">{error}</div> : null}
-            {stores && !error && !filtered.length ? (
-              <div className="fx-state" role="status">
-                <span className="fx-state-icon"><Search size={40} strokeWidth={1.6} /></span>
-                <h2>ยังไม่พบร้านอาหารที่ตรงกับการค้นหา</h2>
-                <div className="fx-state-copy"><p>ลองค้นด้วยชื่อร้าน ชื่อเมนู หรือคำที่สั้นลง</p></div>
-              </div>
-            ) : null}
-            <div className="fx-store-grid">
-              {filtered.map((entry) => {
-                const cover = foodPublicUrl(client, entry.cover_path);
-                return (
-                  <button type="button" className={`fx-store-card${entry.is_open ? "" : " is-closed"}`} key={entry.id} onClick={() => pickStore(entry)}>
-                    <span className="fx-store-card-photo">
-                      {cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cover} alt="" loading="lazy" decoding="async" />
-                      ) : <Store size={30} strokeWidth={1.4} />}
-                      {!entry.is_open ? <b className="fx-closed-label"><Clock3 size={12} strokeWidth={2.4} />ปิดอยู่</b> : null}
-                    </span>
-                    <span className="fx-store-card-name">{entry.name}</span>
-                    <span className="fx-store-card-tags">
-                      <span>{entry.menu.length} เมนู</span>
-                      <span>ค่าส่ง {foodMoney(entry.delivery_fee)}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        </>
+        <GuestFoodList
+          client={client}
+          stores={stores}
+          filtered={filtered}
+          error={error}
+          query={query}
+          onQuery={setQuery}
+          onBack={backHome}
+          onPick={pickStore}
+        />
       )}
 
-      {cartCount > 0 && !showBasket ? (
+      {!store && view === "food" && !showBasket ? (
+        <ZokyFoodCartButton count={cartCount} totalLabel={foodMoney(subtotal)} totalSpoken={String(subtotal)} onClick={() => setShowBasket(true)} />
+      ) : null}
+
+      {store && cartCount > 0 && !showBasket ? (
         <button className="fx-cart-bar" type="button" onClick={() => setShowBasket(true)} aria-label={`ดูตะกร้า ${cartCount} รายการ ${foodMoney(subtotal)}`}>
           <span className="fx-cart-bar-count">{cartCount > 99 ? "99+" : cartCount}</span>
           <span className="fx-cart-bar-label">ดูตะกร้า</span>
@@ -487,5 +494,98 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
         </div>
       ) : null}
     </main>
+  );
+}
+
+/** Guest Food list: same look as the signed-in Food page, public catalogue only. */
+function GuestFoodList({
+  client,
+  stores,
+  filtered,
+  error,
+  query,
+  onQuery,
+  onBack,
+  onPick,
+}: {
+  client: SupabaseClient;
+  stores: GuestStore[] | null;
+  filtered: GuestStore[];
+  error: string;
+  query: string;
+  onQuery: (value: string) => void;
+  onBack: () => void;
+  onPick: (store: GuestStore) => void;
+}) {
+  useZokyThemeColor("#FFEFF5");
+  return (
+    <section className="zk-food">
+      <h1 className="zk-sr-only">สั่งอาหาร</h1>
+      <span className="zk-statusbar" aria-hidden="true" />
+      <div className="zk-food-top">
+        <div className="zk-col zk-food-toprow">
+          <button className="zk-back" type="button" aria-label="กลับ" onClick={onBack}><ArrowLeft size={24} strokeWidth={2.1} /></button>
+          <p className="zk-guest-area"><MapPin size={18} aria-hidden="true" />ให้บริการในพื้นที่มหาสารคาม</p>
+        </div>
+      </div>
+      <div className="zk-food-search">
+        <div className="zk-col">
+          <label className="zk-search">
+            <Search size={24} strokeWidth={2} aria-hidden="true" />
+            <input type="search" value={query} onChange={(e) => onQuery(e.target.value)} placeholder="ค้นหาร้านอาหารหรือเมนู" aria-label="ค้นหาร้านอาหารหรือเมนู" autoComplete="off" enterKeyHint="search" />
+            {query ? <button type="button" className="zk-search-clear" aria-label="ล้างการค้นหา" onClick={() => onQuery("")}><X size={16} strokeWidth={2.6} /></button> : null}
+          </label>
+        </div>
+      </div>
+      <div className="zk-col zk-food-body">
+        <section className="zk-section zk-all-stores">
+          <div className="zk-section-head"><h2>{query.trim() ? `ผลการค้นหา “${query.trim()}”` : "ร้านอาหารทั้งหมด"}</h2></div>
+          {stores === null ? (
+            <div className="zk-row-skeletons" role="status" aria-label="กำลังโหลดร้านอาหาร…">
+              {[0, 1, 2].map((index) => (
+                <div className="zk-row-skeleton" key={index} aria-hidden="true">
+                  <div className="fx-skel zk-skel-photo" />
+                  <div className="zk-row-skeleton-lines"><div className="fx-skel" style={{ height: 18 }} /><div className="fx-skel" style={{ height: 14, width: "70%" }} /></div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {error ? <div className="fx-note fx-note--danger" role="alert">{error}</div> : null}
+          {stores && !error && !filtered.length ? (
+            <div className="fx-state" role="status">
+              <span className="fx-state-icon"><Search size={40} strokeWidth={1.6} /></span>
+              <h2>ยังไม่พบร้านอาหารที่ตรงกับการค้นหา</h2>
+              <div className="fx-state-copy"><p>ลองค้นด้วยชื่อร้าน ชื่อเมนู หรือคำที่สั้นลง</p></div>
+            </div>
+          ) : null}
+          {filtered.length ? (
+            <ul className="zk-store-list">
+              {filtered.map((entry) => {
+                const cover = foodPublicUrl(client, entry.cover_path);
+                const spoken = [entry.name, `${entry.menu.length} เมนู`, `ค่าส่ง ${Number(entry.delivery_fee ?? 0)} บาท`, entry.is_open ? "" : "ร้านปิดอยู่", "ดูเมนู"].filter(Boolean).join(", ");
+                return (
+                  <li key={entry.id}>
+                    <button type="button" className={`zk-store-row${entry.is_open ? "" : " is-closed"}`} onClick={() => onPick(entry)} aria-label={spoken}>
+                      <span className="zk-store-row-photo">
+                        {cover ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={cover} alt="" loading="lazy" decoding="async" />
+                        ) : <UtensilsCrossed size={30} strokeWidth={1.6} />}
+                      </span>
+                      <span className="zk-store-row-body">
+                        <strong className="zk-store-row-name">{entry.name}</strong>
+                        <span className="zk-meta"><span>{entry.menu.length} เมนู</span><span>ค่าส่ง {foodMoney(entry.delivery_fee)}</span></span>
+                        {!entry.is_open ? <span className="zk-store-row-tags"><b className="zk-tag is-closed"><Clock3 size={13} strokeWidth={2.4} />ปิดอยู่</b></span> : null}
+                        <span className="zk-store-row-cta">ดูเมนู<Zoky3DIcon glyph="arrowRight" size={22} /></span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </section>
+      </div>
+    </section>
   );
 }

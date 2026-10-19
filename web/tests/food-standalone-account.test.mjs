@@ -91,11 +91,13 @@ test("Food Home removes preview UI, promotes Social and hides the back button", 
   assert.doesNotMatch(source, /Developer Preview เท่านั้น/);
   assert.match(source, /className="fx-social-promo" href="https:\/\/wynos\.online\/" aria-label="เปิด WYNOS Social"/);
   assert.match(source, /โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos\.online/);
-  // Brand header only on the Home directory; inner pages use FoodPageHeader with a back button.
-  assert.match(source, /\{tab === "home" && !storefrontOpen \? \(/);
+  // ZOKY web (2026-10-19): Home and Food discovery only while no storefront is open;
+  // inner pages use FoodPageHeader with a back button.
+  assert.match(source, /const discovery = tab === "home" && !storefrontOpen \? \(/);
+  assert.match(source, /<ZokyHomeHeader/);
   assert.match(source, /aria-label="กลับหน้าหลัก ZOKY" onClick=\{onBackStorefront\}/);
   assert.match(source, /setStorefrontOpen\(false\)/);
-  assert.match(css, /\.fx-header\s*\{/);
+  assert.match(css, /\.zk-home-header\s*\{/);
 });
 
 test("Food Public Beta has no user-facing Developer Preview copy", async () => {
@@ -136,24 +138,31 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
   const data = await read("lib/food-customer.ts");
   const migration = await read("../supabase/migrations_wynos_food_home_directory_v2.sql");
 
+  // ZOKY web Home + Food (2026-10-19): the nearby list became "ร้านอาหารทั้งหมด" (open first, then nearest).
   for (const label of [
-    "ค้นหาร้านหรือเมนูอาหาร",
+    "ค้นหาร้านอาหารหรือเมนู",
     "รวมโค้ดลดเพิ่ม",
+    "โค้ดลดเพิ่มสำหรับคุณ",
     "สั่งอีกครั้ง",
-    "ร้านใกล้คุณ",
+    "ร้านอาหารทั้งหมด",
     "ร้านยอดนิยม",
   ]) assert.match(source, new RegExp(label));
   // Founder decision (2026-10-10): delivery only — no pickup and no scheduled orders.
   assert.doesNotMatch(source, /รับเองที่ร้าน|สั่งล่วงหน้า/);
   assert.match(source, /scheduledFor: null/);
 
-  assert.match(source, /aria-label="ร้านโปรด"/);
+  assert.match(source, /label="ร้านโปรด"/);
   assert.match(source, /aria-label="รายการโปรด"\s*aria-pressed=\{favorite\}/);
-  const homeRows = source.slice(source.indexOf("function FoodDirectoryStoreCard"), source.indexOf("function FoodHomeSectionHeader"));
+  const homeRows = source.slice(source.indexOf("function FoodStoreRow"), source.indexOf("function FoodRecentStoreTile"));
   assert.ok(homeRows.length > 0);
   assert.doesNotMatch(homeRows, /<Heart\b/);
 
-  assert.match(css, /\.fx-store-card-photo\s*\{[\s\S]*?aspect-ratio:/);
+  // Store photos are 1:1 (Founder rule) in the Food rows and the Home popular cards.
+  assert.match(css, /\.zk-store-row-photo \{[^}]*aspect-ratio: 1;/);
+  assert.match(css, /\.zk-pop-card-photo \{[^}]*aspect-ratio: 1;/);
+  // Ratings only with real reviews; ETA only with real preparation times.
+  assert.match(source, /return rating > 0 && count > 0 \? rating : null;/);
+  assert.match(source, /if \(store\.prep_time_min_minutes == null \|\| store\.prep_time_max_minutes == null\) return null;/);
   assert.match(source, /distance < 0\.1\) return "ใกล้คุณ"/);
   assert.doesNotMatch(source, /🛵/);
   assert.match(data, /rating_average\?: number \| string \| null/);
@@ -167,7 +176,7 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
 
 test("Food framed photos fill their frame on iOS Safari (absolute fill, not grid-centered height:100%)", async () => {
   const css = await read("app/food/food-app.css");
-  for (const frame of [".fx-store-cover", ".fx-store-card-photo", ".fx-menu-image", ".fx-item-photo", ".fx-recent-store", ".fx-cart-store-logo"]) {
+  for (const frame of [".fx-store-cover", ".fx-store-card-photo", ".zk-store-row-photo", ".zk-pop-card-photo", ".fx-menu-image", ".fx-item-photo", ".fx-recent-store", ".fx-cart-store-logo"]) {
     const escaped = frame.replace(/[.]/g, "\\.");
     assert.match(css, new RegExp(`${escaped} img \\{ position: absolute; inset: 0; width: 100%; height: 100%;`), `${frame} img must be absolutely filled`);
   }

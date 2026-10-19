@@ -74,7 +74,7 @@ export function FoodPromotionCenter({ client, userId }: { client: SupabaseClient
 
   return <section className="fx-promo-center" aria-label="โปรโมชัน ZOKY">
     <button type="button" className="fx-promo-center-toggle" onClick={() => setOpen(p => !p)} aria-expanded={open}>
-      {unread ? <BellRing size={20} /> : <Bell size={20} />}
+      {unread ? <BellRing size={22} /> : <Bell size={22} />}
       <span>โปรโมชันและข่าวสาร</span>
       {unread > 0 ? <i aria-label={`${unread} ข้อความใหม่`}>{unread}</i> : null}
       <small>{open ? "ปิด" : "ดูทั้งหมด"}</small>

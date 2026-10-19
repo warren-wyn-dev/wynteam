@@ -2761,6 +2761,25 @@ Object.assign(EN_EXACT, {
   "ใน WYNOS พร้อมส่งชื่อร้านและ Store ID เพื่อให้ทีมตรวจสอบได้เร็วขึ้น": "in WYNOS and include your store name and Store ID so the team can investigate faster",
 });
 
+// ZOKY web Home + Food (2026-10-19)
+Object.assign(EN_EXACT, {
+  "ค้นหาร้านอาหารหรือเมนู": "Search restaurants or dishes",
+  "ร้านอาหารทั้งหมด": "All restaurants",
+  "ดูเมนู": "View menu",
+  "โค้ดลดเพิ่มสำหรับคุณ": "Extra discount codes for you",
+  "ตัวกรอง": "Filters",
+  "ล้างตัวกรอง": "Clear filters",
+  "คูปองส่วนลด": "Discount coupons",
+  "ยังไม่มีโค้ดส่วนลด": "No discount codes yet",
+  "กำลังโหลดร้านยอดนิยม": "Loading popular restaurants",
+  "อยากกินอะไรวันนี้?": "What do you feel like eating today?",
+  "อยากกินอะไร": "What do you feel like",
+  "วันนี้?": "eating today?",
+  "ของอร่อยใกล้คุณ": "Good food near you",
+  "เริ่มที่นี่": "starts here",
+  "ค้นหาของอร่อย": "Find something tasty",
+});
+
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
 Object.assign(EN_EXACT, {
   "ครัว / KDS": "Kitchen / KDS",
@@ -3320,4 +3339,14 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["แคมเปญ ZOKY · {0}", "ZOKY campaign · {0}"],
   ["สั่งอาหารร้าน {0} ผ่าน ZOKY กดลิงก์นี้ได้เลย", "Order from {0} on ZOKY. Just tap this link"],
   ["สั่งอาหารร้าน {0} ผ่าน ZOKY", "Order from {0} on ZOKY"],
+  // ZOKY web Home + Food (2026-10-19)
+  ["ค่าส่ง {0} บาท", "Delivery fee {0} baht"],
+  ["คะแนน {0}", "Rating {0}"],
+  ["ส่งประมาณ {0}", "Delivers in about {0}"],
+  ["ระยะ {0}", "Distance {0}"],
+  ["โปรโมชัน {0}", "Promotion {0}"],
+  ["{0} · เมื่อสั่งครบ {1}", "{0} · on orders of {1} or more"],
+  ["จัดส่งที่ {0}", "Deliver to {0}"],
+  ["ดูทั้งหมด {0}", "See all {0}"],
+  ["ตะกร้า {0} รายการ รวม {1} บาท", "Cart, {0} items, total {1} baht"],
 ];

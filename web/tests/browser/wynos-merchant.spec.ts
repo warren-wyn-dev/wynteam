@@ -669,7 +669,8 @@ test("WYN-207 pay-per-click ads: Admin-controlled, charged on the server, labell
   expect(app).toContain("<MerchantAds client={client} store={store} onMessage={setMessage} />");
   expect(ads).toContain("ส่งสลิปให้ WYNOS ตรวจ");
   // Food: ads first, always labelled; opening one reports the click.
-  expect(food).toContain('{store.is_ad ? <b className="fx-ad-label">โฆษณา</b> : null}');
+  // ZOKY web store rows and popular cards (2026-10-19) keep the paid label.
+  expect(food).toContain('{store.is_ad ? <b className="zk-tag is-ad">โฆษณา</b> : null}');
   expect(food).toContain("if (next.is_ad) void recordFoodAdClick(client, next.id, placement)");
 });
 

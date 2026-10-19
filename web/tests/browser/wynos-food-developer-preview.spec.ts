@@ -34,7 +34,6 @@ test("ZOKY approved icon is static, consistent and cache-busted", () => {
   const manifest = read("app/food/manifest.ts");
   const publicManifest = read("public/food/manifest.webmanifest");
   const auth = read("components/food/food-auth.tsx");
-  const app = read("components/food/wynos-food-developer-app.tsx");
 
   expect(layout).toContain("/icons/zoky/icon-32-v1.png");
   expect(layout).toContain("/icons/zoky/icon-192-v1.png");
@@ -48,7 +47,8 @@ test("ZOKY approved icon is static, consistent and cache-busted", () => {
   expect(manifest).toContain("/icons/zoky/icon-512-maskable-v1.png");
   expect(publicManifest).toContain("/icons/zoky/icon-512-maskable-v1.png");
   expect(auth).toContain('src="/icons/zoky/icon-192-v1.png"');
-  expect(app).toContain('className="wf-brand-logo"');
+  // ZOKY web Home header uses the approved white wordmark (versioned static asset).
+  expect(read("components/food/zoky-web-ui.tsx")).toContain('src="/icons/zoky/wordmark-white-v1.png"');
   for (const size of [32, 192, 512]) {
     const png = readFileSync(join(process.cwd(), `public/icons/food/icon-${size}-v12.png`));
     expect(png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))).toBe(true);
@@ -269,7 +269,8 @@ test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
 
   expect(app).toContain('type FoodTab = "home" | "orders" | "messages" | "cart" | "account"');
   expect(app).toContain('{ key: "messages", label: "ข้อความ"');
-  expect(app).toContain("onClick={() => onTab(item.key)}");
+  // ZOKY capsule nav (2026-10-19) keeps the same Food-only tab handler.
+  expect(app).toContain("onSelect={(key) => onTab(key)}");
   expect(app).toContain('tab === "messages" ? <MessagesPanel /> : null');
   expect(app).toContain("แชท ZOKY แยกจากแชท WYNOS");
   expect(app).not.toContain('onMessages={() => router.push("/chat")}');
@@ -639,4 +640,41 @@ test("standalone WYNOS Maps stays independent from Food-only chrome and service-
   expect(polish).toContain(".wf-map-sheet.is-half .wf-map-place-card");
   expect(polish).toContain(":has(.wf-map-place-card) .wf-map-confirm-copy");
   expect(polish).toContain(":has(.wf-map-directions) .wf-map-confirm-copy");
+});
+
+test("ZOKY web Home + Food follow the app design with real data only (2026-10-19)", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const guest = read("components/food/food-guest-browse.tsx");
+  const ui = read("components/food/zoky-web-ui.tsx");
+  const css = read("app/food/food-app.css");
+
+  // Directory load: a failed fetch is an error state with retry, never an endless skeleton.
+  expect(app).toContain("fetchFoodStoreDirectory(client).catch(() => null)");
+  expect(app).toContain('setDirectory((current) => current.status === "ready" ? current : { status: "error" });');
+  expect(app).toContain("<FoodDirectoryError onRetry={onRetry} />");
+  // Home ↔ Food is a history entry (?view=food) so browser back returns Home.
+  expect(app).toContain('url.searchParams.set("view", "food")');
+  expect(app).toContain('window.history.state?.zkView === "food"');
+  expect(guest).toContain('url.searchParams.set("view", "food")');
+  // Founder 2026-10-19: deals, category circles and pickup stay hidden; "ร้านอาหารแนะนำ" = real popular stores.
+  for (const source of [app, guest, ui]) {
+    expect(source).not.toContain("ดีลเด็ดวันนี้");
+    expect(source).not.toContain("รับเองที่ร้าน");
+    expect(source).not.toContain("ข้อมูลตัวอย่าง");
+  }
+  expect(app).toContain("foodPopularStores(directory.stores)");
+  expect(app).toContain('title="ร้านยอดนิยม"');
+  // No fake ratings or ETAs.
+  expect(app).toContain("return rating > 0 && count > 0 ? rating : null;");
+  expect(app).toContain("if (store.prep_time_min_minutes == null || store.prep_time_max_minutes == null) return null;");
+  // Bottom nav is hidden on the Food page; the floating cart takes its place.
+  expect(app).toContain('{discoveryView !== "food" ? (');
+  expect(app).toContain("<ZokyFoodCartButton");
+  // Inline SVG 3D icons, unique ids per instance; bento is a versioned static SVG.
+  expect(ui).toContain("useId()");
+  expect(ui).toContain('src="/icons/zoky/bento-v1.svg"');
+  expect(read("public/icons/zoky/bento-v1.svg")).toContain("<svg");
+  // Centred 480px column; tap targets of at least 44px.
+  expect(css).toContain(".zk-col { width: 100%; max-width: 480px; margin-inline: auto; }");
+  expect(css).toContain(".zk-glossy-btn.is-sm { width: 44px; height: 44px;");
 });
