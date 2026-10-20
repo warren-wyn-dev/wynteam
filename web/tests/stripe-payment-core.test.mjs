@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 const root = new URL("..", import.meta.url).pathname;
 const read = (path) => readFileSync(join(root, path), "utf8");
@@ -49,7 +51,7 @@ test("Checkout remains a direct connected-account charge with server-calculated 
   // ZOKY-135: live mode only for the exact Food web origins (ZOKY + legacy
   // food.wynos.online); return URLs never use an arbitrary request origin.
   assert.match(checkout, /if \(stripeLiveMode && !isFoodWebOrigin\(requestOrigin\)\)/);
-  assert.match(checkout, /const returnOrigin = foodReturnOrigin\(requestOrigin\)/);
+  assert.match(checkout, /const returnBaseUrl = foodReturnBaseUrl\(\s*requestOrigin, stripeLiveMode, Deno\.env\.get\("STRIPE_TEST_RETURN_ORIGINS"\)/);
   assert.match(checkoutLib, /FOOD_WEB_ORIGINS: ReadonlySet<string> = new Set\(\[\s*FOOD_WEB_ORIGIN,\s*"https:\/\/food\.wynos\.online",\s*\]\)/);
   assert.match(checkoutLib, /FOOD_WEB_ORIGIN = "https:\/\/zoky\.wynos\.online"/);
   assert.match(cancelStripe, /if \(stripeLiveMode && !isFoodWebOrigin\(req\.headers\.get\("origin"\)\)\)/);
@@ -214,4 +216,94 @@ test("Merchant errors are localized and raw gateway errors stay out of client UI
   assert.match(merchantCore, /อัปเดตสถานะการรับเงินไม่สำเร็จ/);
   assert.match(merchantCore, /เปิดหน้าตั้งค่ารับเงินไม่สำเร็จ/);
   assert.doesNotMatch(merchantCore, /return raw\.message/);
+});
+
+const compileEdge = (input) => ts.transpileModule(input, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const returnLibrary = { exports: {} };
+runInNewContext(compileEdge(checkoutLib), { module: returnLibrary, exports: returnLibrary.exports, URL });
+
+test("test return origins require an explicit exact HTTPS origin and known test mode", () => {
+  const preview = "https://zoky-qa.example.test";
+  const otherPreview = "https://merchant-qa.example.test";
+  const config = ` ${otherPreview}, ${preview} `;
+  const { foodReturnBaseUrl, merchantReturnBaseUrl } = returnLibrary.exports;
+  assert.equal(foodReturnBaseUrl(preview, false, config), `${preview}/food`);
+  assert.equal(merchantReturnBaseUrl(otherPreview, false, config), `${otherPreview}/merchant`);
+  for (const mode of [true, null, undefined]) {
+    assert.equal(foodReturnBaseUrl(preview, mode, config), "https://zoky.wynos.online");
+    assert.equal(merchantReturnBaseUrl(preview, mode, config), "https://merchant.wynos.online");
+  }
+  for (const configValue of [undefined, null, "", "*", "https://*.example.test", otherPreview]) {
+    assert.equal(foodReturnBaseUrl(preview, false, configValue), "https://zoky.wynos.online");
+    assert.equal(merchantReturnBaseUrl(preview, false, configValue), "https://merchant.wynos.online");
+  }
+  assert.equal(foodReturnBaseUrl("https://food.wynos.online", true, config), "https://food.wynos.online");
+  assert.equal(foodReturnBaseUrl("https://zoky.wynos.online", false, "https://zoky.wynos.online"), "https://zoky.wynos.online");
+  assert.equal(merchantReturnBaseUrl("https://merchant.wynos.online", false, "https://merchant.wynos.online"), "https://merchant.wynos.online");
+});
+
+test("malformed, normalized and lookalike URLs cannot become Stripe return targets", () => {
+  const preview = "https://zoky-qa.example.test";
+  const { foodReturnBaseUrl, merchantReturnBaseUrl } = returnLibrary.exports;
+  const rejected = [
+    "http://zoky-qa.example.test", "http://localhost:3000", "//zoky-qa.example.test",
+    `${preview}/`, `${preview}/food`, `${preview}?next=evil`, `${preview}#fragment`,
+    "https://user:password@zoky-qa.example.test", "https://zoky-qa.example.test@evil.test",
+    "https://ZOKY-QA.example.test", "https://zoky-qa.example.test:443",
+    " https://zoky-qa.example.test", "https://zoky-qa.example.test ",
+    "https://zoky-qa.example.test.evil.test", "https://zoky-qa.example.test\\evil",
+    "https:////zoky-qa.example.test", "javascript:alert(1)", "data:text/html,test", "null", "",
+  ];
+  for (const origin of rejected) {
+    assert.equal(foodReturnBaseUrl(origin, false, preview), "https://zoky.wynos.online", origin);
+    assert.equal(merchantReturnBaseUrl(origin, false, preview), "https://merchant.wynos.online", origin);
+  }
+  // URL accepts '*' as a literal hostname character. An exact string match
+  // must still reject wildcard-like configuration, even when both inputs match.
+  for (const wildcard of ["https://*.example.test", "https://qa*.example.test"]) {
+    assert.equal(foodReturnBaseUrl(wildcard, false, wildcard), "https://zoky.wynos.online", wildcard);
+    assert.equal(merchantReturnBaseUrl(wildcard, false, wildcard), "https://merchant.wynos.online", wildcard);
+  }
+  // An explicitly configured attacker-controlled-looking but valid origin is a
+  // deliberate operator choice. Malformed entries cannot authorize the clean
+  // origin through URL normalization, credentials, a path or a default port.
+  for (const invalidEntry of rejected.filter((value) => value === value.trim() && !value.endsWith(".evil.test"))) {
+    assert.equal(foodReturnBaseUrl(preview, false, invalidEntry), "https://zoky.wynos.online", invalidEntry);
+    assert.equal(merchantReturnBaseUrl(preview, false, invalidEntry), "https://merchant.wynos.online", invalidEntry);
+  }
+});
+
+test("hosted v1 and v2 Merchant onboarding use the mode-bound preview app route", async () => {
+  const preview = "https://zoky-qa.example.test";
+  for (const api of ["v1", "v2"]) {
+    for (const [secret, origin, configured, expectedBase] of [
+      ["sk_test_fixture_only", preview, preview, `${preview}/merchant`],
+      ["rk_test_fixture_only", preview, undefined, "https://merchant.wynos.online"],
+      ["sk_live_fixture_only", preview, preview, "https://merchant.wynos.online"],
+      ["unknown_fixture_only", preview, preview, "https://merchant.wynos.online"],
+    ]) {
+      const requests = [];
+      const context = {
+        exports: {},
+        require: (path) => path.includes("_lib.ts") ? returnLibrary.exports : { createClient: () => assert.fail("No database call expected") },
+        Deno: { serve: () => {} },
+        URLSearchParams, Response, btoa, console,
+        fetch: async (url, init) => {
+          requests.push({ url, init });
+          return Response.json({ url: "https://connect.stripe.test/onboarding" });
+        },
+      };
+      runInNewContext(compileEdge(`${connect}\nglobalThis.onboardingLinkForTest = createOnboardingLink;`), context);
+      await context.onboardingLinkForTest(secret, "acct_fixture", "store/fixture", api, origin, configured);
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0].url, `https://api.stripe.com/${api === "v1" ? "v1" : "v2/core"}/account_links`);
+      const body = requests[0].init.body;
+      const config = api === "v1" ? body : JSON.parse(body).use_case.account_onboarding;
+      const get = (key) => api === "v1" ? config.get(key) : config[key];
+      assert.equal(get("return_url"), `${expectedBase}/?payments=return&store=store%2Ffixture`);
+      assert.equal(get("refresh_url"), `${expectedBase}/?payments=refresh&store=store%2Ffixture`);
+    }
+  }
 });

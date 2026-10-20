@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
-import { applicationFeeSatang, foodReturnOrigin, isFoodWebOrigin } from "./_lib.ts";
+import { applicationFeeSatang, foodReturnBaseUrl, isFoodWebOrigin } from "./_lib.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -168,10 +168,11 @@ Deno.serve(async (req: Request) => {
   const params = new URLSearchParams();
   params.set("mode", "payment");
   params.set("client_reference_id", order.id);
-  // Return to the allowlisted origin the customer paid from (ZOKY by default).
-  const returnOrigin = foodReturnOrigin(requestOrigin);
-  params.set("success_url", `${returnOrigin}/?order=${encodeURIComponent(order.order_number)}&stripe=success`);
-  params.set("cancel_url", `${returnOrigin}/?order=${encodeURIComponent(order.order_number)}&stripe=cancelled`);
+  const returnBaseUrl = foodReturnBaseUrl(
+    requestOrigin, stripeLiveMode, Deno.env.get("STRIPE_TEST_RETURN_ORIGINS"),
+  );
+  params.set("success_url", `${returnBaseUrl}/?order=${encodeURIComponent(order.order_number)}&stripe=success`);
+  params.set("cancel_url", `${returnBaseUrl}/?order=${encodeURIComponent(order.order_number)}&stripe=cancelled`);
   params.set("line_items[0][price_data][currency]", "thb");
   params.set("line_items[0][price_data][product_data][name]", `ZOKY #${order.order_number}`);
   params.set("line_items[0][price_data][unit_amount]", String(amountSatang));

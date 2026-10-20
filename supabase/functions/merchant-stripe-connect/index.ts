@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+import { merchantReturnBaseUrl } from "../food-stripe-checkout/_lib.ts";
+
 type AdminClient = ReturnType<typeof createClient<any>>;
 
 const cors = {
@@ -416,9 +418,17 @@ async function createAccountSession(secret: string, accountId: string, component
     body: params,
   });
 }
-async function createOnboardingLink(secret: string, accountId: string, storeId: string, api: "v1" | "v2") {
-  const refreshUrl = `https://merchant.wynos.online/?payments=refresh&store=${encodeURIComponent(storeId)}`;
-  const returnUrl = `https://merchant.wynos.online/?payments=return&store=${encodeURIComponent(storeId)}`;
+async function createOnboardingLink(
+  secret: string,
+  accountId: string,
+  storeId: string,
+  api: "v1" | "v2",
+  origin: string | null,
+  configuredTestOrigins: string | undefined,
+) {
+  const returnBaseUrl = merchantReturnBaseUrl(origin, stripeLivemode(secret), configuredTestOrigins);
+  const refreshUrl = `${returnBaseUrl}/?payments=refresh&store=${encodeURIComponent(storeId)}`;
+  const returnUrl = `${returnBaseUrl}/?payments=return&store=${encodeURIComponent(storeId)}`;
   if (api === "v1") {
     const params = new URLSearchParams();
     params.set("account", accountId);
@@ -617,7 +627,10 @@ Deno.serve(async (req: Request) => {
       return json({ ...publicState, flow: "embedded", surface: "embedded", publishableKey });
     }
 
-    const link = await createOnboardingLink(stripeSecret, accountId, storeId, synced.api);
+    const link = await createOnboardingLink(
+      stripeSecret, accountId, storeId, synced.api, req.headers.get("origin"),
+      Deno.env.get("STRIPE_TEST_RETURN_ORIGINS"),
+    );
     if (typeof link.url !== "string") throw new Error("stripe_onboarding_link_unavailable");
     return json({ ...publicState, flow: "redirect", surface: "redirect", url: link.url });
   } catch (error) {

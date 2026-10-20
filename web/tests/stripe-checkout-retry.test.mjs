@@ -10,7 +10,7 @@ const compile = (input) => ts.transpileModule(input, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const library = { exports: {} };
-runInNewContext(compile(libSource), { module: library, exports: library.exports });
+runInNewContext(compile(libSource), { module: library, exports: library.exports, URL });
 
 // Run the real Edge Function handler with in-memory database and gateway
 // boundaries. No Stripe, Supabase, account or transaction is contacted.
@@ -19,6 +19,9 @@ function checkoutHarness({
   lookupError = null,
   onCreate = () => {},
   gatewayLookup = () => Response.json({ id: "cs_existing", status: "open", payment_status: "unpaid", url: "https://checkout.stripe.test/existing" }),
+  stripeSecret = "sk_test_fixture_only",
+  requestOrigin,
+  testReturnOrigins,
 } = {}) {
   const gatewayCalls = [];
   const writes = [];
@@ -29,7 +32,7 @@ function checkoutHarness({
   };
   const ledger = { current: existing ? { ...existing, order_id: order.id } : null };
   const account = {
-    stripe_account_id: "acct_fixture", livemode: false, status: "ready",
+    stripe_account_id: "acct_fixture", livemode: /^(?:sk|rk)_live_/.test(stripeSecret), status: "ready",
     details_submitted: true, charges_enabled: true,
   };
   const admin = {
@@ -83,7 +86,8 @@ function checkoutHarness({
   let handler;
   const env = {
     SUPABASE_URL: "https://supabase.test", SUPABASE_SERVICE_ROLE_KEY: "fixture-service-key",
-    STRIPE_SECRET_KEY: "sk_test_fixture_only",
+    STRIPE_SECRET_KEY: stripeSecret,
+    STRIPE_TEST_RETURN_ORIGINS: testReturnOrigins,
   };
   runInNewContext(compile(source), {
     exports: {},
@@ -106,13 +110,46 @@ function checkoutHarness({
     ledger,
     async run() {
       const response = await handler(new Request("https://function.test", {
-        method: "POST", headers: { Authorization: "Bearer fixture-user-token", "Content-Type": "application/json" },
+        method: "POST", headers: {
+          Authorization: "Bearer fixture-user-token", "Content-Type": "application/json",
+          ...(requestOrigin === undefined ? {} : { Origin: requestOrigin }),
+        },
         body: JSON.stringify({ orderId: order.id }),
       }));
       return { status: response.status, body: await response.json() };
     },
   };
 }
+
+test("configured Sandbox Checkout returns stay in the preview Food route", async () => {
+  const origin = "https://zoky-qa.example.test";
+  const harness = checkoutHarness({ existing: null, requestOrigin: origin, testReturnOrigins: origin });
+  assert.equal((await harness.run()).status, 200);
+  const params = harness.gatewayCalls[0].init.body;
+  assert.equal(params.get("success_url"), `${origin}/food/?order=FIXTURE1&stripe=success`);
+  assert.equal(params.get("cancel_url"), `${origin}/food/?order=FIXTURE1&stripe=cancelled`);
+});
+
+test("a configured Sandbox origin never authorizes live Checkout", async () => {
+  const origin = "https://zoky-qa.example.test";
+  const harness = checkoutHarness({
+    existing: null, stripeSecret: "sk_live_fixture_only", requestOrigin: origin, testReturnOrigins: origin,
+  });
+  const result = await harness.run();
+  assert.equal(result.status, 403);
+  assert.equal(result.body.error, "live_stripe_origin_required");
+  assert.equal(harness.gatewayCalls.length, 0);
+  assert.equal(harness.writes.length, 0);
+});
+
+test("live Checkout keeps its canonical return even when test origins are configured", async () => {
+  const harness = checkoutHarness({
+    existing: null, stripeSecret: "rk_live_fixture_only", requestOrigin: "https://food.wynos.online",
+    testReturnOrigins: "https://zoky-qa.example.test",
+  });
+  assert.equal((await harness.run()).status, 200);
+  assert.equal(harness.gatewayCalls[0].init.body.get("success_url"), "https://food.wynos.online/?order=FIXTURE1&stripe=success");
+});
 
 test("gateway lookup failures never create a second payable Checkout or overwrite the ledger", async () => {
   for (const gatewayLookup of [
