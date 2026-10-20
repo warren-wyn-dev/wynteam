@@ -147,3 +147,20 @@ test("invalid new credentials are rejected before any network request", async ()
   assert.deepEqual(f.attempts, []);
   assert.deepEqual(f.updates, []);
 });
+
+test("password recovery accepts only the exact Food return destination", () => {
+  const recoverySource = readFileSync(new URL("../lib/password-recovery-link.ts", import.meta.url), "utf8");
+  const recoveryCompiled = ts.transpileModule(recoverySource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const recoveryModule = { exports: {} };
+  new Function("module", "exports", recoveryCompiled)(recoveryModule, recoveryModule.exports);
+  const { passwordRecoveryReturnPath: normalize } = recoveryModule.exports;
+
+  assert.equal(normalize("/food/login"), "/food/login");
+  for (const value of [
+    undefined, null, "", "/login", [], ["/food/login"], ["/food/login", "/login"],
+    "https://example.test", "//example.test", "/food/login/", "/food/login?next=//example.test",
+    "%2Ffood%2Flogin", "/food/login#fragment", "/merchant/login",
+  ]) assert.equal(normalize(value), "/login", JSON.stringify(value));
+});

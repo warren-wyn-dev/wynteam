@@ -155,3 +155,52 @@
   border: none;
   flex-shrink: 0;
 }
+
+/* Recovery is shared with Social, while the Food entry keeps ZOKY's brand. */
+.auth-ref-viewport[data-auth-product="zoky"] {
+  --bg: #fff;
+  --surface: #f6f6f7;
+  --text-primary: #111;
+  --text-secondary: #6f6f73;
+  --text-muted: #737378;
+  --border: #e7e7e9;
+  --border-strong: #dcdce2;
+  --red: #b3261e;
+  color: var(--text-primary);
+  color-scheme: light;
+}
+
+.auth-ref-viewport[data-auth-product="zoky"] .phone {
+  max-width: 430px;
+  margin-inline: auto;
+}
+
+.auth-ref-viewport[data-auth-product="zoky"] .btn-primary {
+  background: #d61256;
+  color: #fff;
+}
+
+.auth-ref-viewport[data-auth-product="zoky"] .ic-btn {
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-recovery-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+.password-recovery-brand img {
+  border-radius: 14px;
+}
+
+.password-recovery-brand strong {
+  font-size: 20px;
+  font-weight: 850;
+  letter-spacing: -.5px;
+}

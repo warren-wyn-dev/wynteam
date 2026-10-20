@@ -30,13 +30,13 @@ const FOOD_BRAND_TOP = "#f93384";
 // It plays once per browser session; the boot script marks <html> before the
 // splash paints so later loads in the same session skip it without a flash.
 // Storage is best effort: if it is blocked the splash still shows and fades.
-// While the splash shows, a temporary pink theme-color (prepended, so iOS uses
-// it first) keeps the status-bar strip the same pink as the splash top; it is
-// removed when the splash fades so the app keeps its normal theme color.
+// Keep theme-color under Next/React ownership through the viewport export.
+// Inserting and later removing a matching meta lets React adopt a node that
+// the splash timer detaches, crashing client navigation when React unmounts it.
 // The splash waits for the screen underneath to report its data is ready
 // (markFoodSplashReady in lib/food-splash.ts): at least 1 s, at most ~4 s.
 const FOOD_SPLASH_BOOT_SCRIPT =
-  "(function(){var d=document.documentElement,seen=null;try{seen=sessionStorage.getItem('wynos-food-splash')}catch(e){}if(seen){d.setAttribute('data-fx-splash','seen');return}try{sessionStorage.setItem('wynos-food-splash','1')}catch(e){}try{var m=document.createElement('meta');m.name='theme-color';m.content='#f93384';m.setAttribute('data-fx-splash-theme','');document.head.prepend(m);var t=Date.now(),r=0;window.__fxSplashReady=function(){if(r)return;r=1;setTimeout(function(){d.setAttribute('data-fx-splash-ready','');setTimeout(function(){m.remove()},350)},Math.max(0,1000-(Date.now()-t)))};setTimeout(window.__fxSplashReady,4000)}catch(e){}})()";
+  "(function(){var d=document.documentElement,seen=null;try{seen=sessionStorage.getItem('wynos-food-splash')}catch(e){}if(seen){d.setAttribute('data-fx-splash','seen');return}try{sessionStorage.setItem('wynos-food-splash','1')}catch(e){}try{var t=Date.now(),r=0;window.__fxSplashReady=function(){if(r)return;r=1;setTimeout(function(){d.setAttribute('data-fx-splash-ready','')},Math.max(0,1000-(Date.now()-t)))};setTimeout(window.__fxSplashReady,4000)}catch(e){}})()";
 
 // iOS shows these while the installed app launches (it ignores the manifest
 // background), so there is no white flash before the splash. One image per

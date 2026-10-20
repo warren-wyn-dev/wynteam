@@ -127,23 +127,41 @@ Deno.serve(async (req: Request) => {
     return json({ error: "gp_quote_failed", message: "เปิดหน้าชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 503);
   }
 
-  const { data: existing } = await admin.from("food_stripe_payments")
+  const { data: existing, error: existingError } = await admin.from("food_stripe_payments")
     .select("checkout_session_id,attempt,status").eq("order_id", order.id).maybeSingle();
+  if (existingError) {
+    return json({ error: "payment_lookup_failed", message: "ตรวจสอบการชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 503);
+  }
+  if (existing && ["paid", "refunded"].includes(existing.status)) {
+    return json({ error: "payment_already_completed" }, 409);
+  }
 
   let attempt = Number(existing?.attempt ?? 1);
-  if (existing?.checkout_session_id && existing.status === "pending") {
+  if (existing?.checkout_session_id) {
     try {
       const session = await stripeJson(
         `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(existing.checkout_session_id)}`,
         { headers: stripeHeaders(stripeSecret, account.stripe_account_id) },
       );
+      if (session.payment_status === "paid") return json({ error: "payment_already_completed" }, 409);
+      // A completed Checkout can still be processing an asynchronous payment.
+      // Its webhook remains authoritative; another session could charge twice.
+      if (session.status === "complete") {
+        return json({ error: "payment_processing", message: "กำลังยืนยันการชำระเงิน กรุณารอสักครู่แล้วตรวจสอบออเดอร์อีกครั้ง" }, 409);
+      }
       if (session.status === "open" && typeof session.url === "string") {
         return json({ url: session.url, sessionId: session.id, reused: true });
       }
-      if (session.payment_status === "paid") return json({ error: "payment_already_completed" }, 409);
+      // A failed payment attempt does not expire its Checkout Session. Only a
+      // confirmed expired session is safe to replace, regardless of ledger status.
+      if (session.status !== "expired") {
+        return json({ error: "stripe_session_lookup_failed", message: "ตรวจสอบการชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 503);
+      }
       attempt += 1;
     } catch {
-      attempt += 1;
+      // A lookup outage tells us nothing about whether the old URL can accept
+      // payment. Preserve its idempotency attempt and never create another URL.
+      return json({ error: "stripe_session_lookup_failed", message: "ตรวจสอบการชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 503);
     }
   }
 
@@ -191,7 +209,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: "stripe_checkout_invalid_response" }, 502);
   }
 
-  const { error: paymentError } = await admin.from("food_stripe_payments").upsert({
+  const paymentRecord = {
     order_id: order.id,
     store_id: order.store_id,
     buyer_id: order.buyer_id,
@@ -205,8 +223,37 @@ Deno.serve(async (req: Request) => {
     attempt,
     last_error: null,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "order_id" });
-  if (paymentError) return json({ error: "payment_record_failed" }, 500);
+  };
+  if (existing) {
+    // The webhook may have paid/refunded this order since our first read.
+    // A conditional PATCH is atomic; a read followed by an unconditional
+    // upsert could regress the authoritative ledger back to pending.
+    let update = admin.from("food_stripe_payments").update(paymentRecord)
+      .eq("order_id", order.id)
+      .eq("attempt", existing.attempt ?? 1)
+      .in("status", ["pending", "failed"]);
+    update = existing.checkout_session_id
+      ? update.eq("checkout_session_id", existing.checkout_session_id)
+      : update.is("checkout_session_id", null);
+    const { data: recorded, error: paymentError } = await update.select("checkout_session_id").maybeSingle();
+    if (paymentError) return json({ error: "payment_record_failed" }, 500);
+    if (!recorded) return json({ error: "payment_state_changed", message: "สถานะการชำระเงินเปลี่ยนแล้ว กรุณาตรวจสอบออเดอร์อีกครั้ง" }, 409);
+  } else {
+    // Concurrent first attempts share Stripe's idempotency key. If another
+    // request already inserted the row, leave it intact even if a webhook has
+    // since advanced it to a terminal state.
+    const { error: paymentError } = await admin.from("food_stripe_payments")
+      .upsert(paymentRecord, { onConflict: "order_id", ignoreDuplicates: true });
+    if (paymentError) return json({ error: "payment_record_failed" }, 500);
+  }
+
+  const { data: recordedPayment, error: recordedError } = await admin.from("food_stripe_payments")
+    .select("checkout_session_id,attempt,status").eq("order_id", order.id).maybeSingle();
+  if (recordedError) return json({ error: "payment_lookup_failed" }, 503);
+  if (!recordedPayment || recordedPayment.checkout_session_id !== session.id ||
+      Number(recordedPayment.attempt) !== attempt || !["pending", "failed"].includes(recordedPayment.status)) {
+    return json({ error: "payment_state_changed", message: "สถานะการชำระเงินเปลี่ยนแล้ว กรุณาตรวจสอบออเดอร์อีกครั้ง" }, 409);
+  }
 
   // Checkout creation can outlive the 10-minute deadline or race a cron
   // cancellation. Only publish the URL if the DB still allows payment.

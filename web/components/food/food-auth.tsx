@@ -464,7 +464,7 @@ export function FoodSignupScreen() {
         <button className="wf-auth-primary" type="button" disabled={loading} onClick={() => void submit()}>{loading ? "กำลังสร้างบัญชี…" : "สมัคร ZOKY"}</button>
       </div>
       <p className="wf-auth-switch">มี WYNOS Account อยู่แล้ว? <Link href="/food/login">เข้าสู่ระบบ</Link></p>
-      <p className="wf-auth-terms">การสร้างบัญชีถือว่ายอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวของ WYNOS</p>
+      <p className="wf-auth-terms">การสร้างบัญชีถือว่ายอมรับ<Link href="/food/terms">ข้อกำหนดการใช้งาน</Link> และรับทราบ<Link href="/food/privacy">นโยบายความเป็นส่วนตัว</Link>ของ ZOKY</p>
     </FoodAuthShell>
   );
 }

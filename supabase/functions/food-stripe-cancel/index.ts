@@ -30,9 +30,14 @@ function stripeHeaders(secret: string, account: string) {
   };
 }
 async function stripeJson(url: string, init: RequestInit) {
-  const response = await fetch(url, init);
-  const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
-  return { response, payload };
+  try {
+    const response = await fetch(url, init);
+    const raw: unknown = await response.json().catch(() => null);
+    const payload = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string,unknown> : {};
+    return { response, payload };
+  } catch {
+    return { response: new Response(null, { status: 502 }), payload: {} as Record<string,unknown> };
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -96,13 +101,16 @@ Deno.serve(async (req: Request) => {
   if (current.payload.payment_status === "paid" || current.payload.status === "complete") {
     return json({ error: "stripe_payment_already_completed" }, 409);
   }
+  if (current.payload.status !== "open" && current.payload.status !== "expired") {
+    return json({ error: "stripe_session_lookup_failed" }, 502);
+  }
 
   if (current.payload.status === "open") {
     const expired = await stripeJson(
       `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}/expire`,
       { method: "POST", headers: stripeHeaders(stripeSecret, stripeAccountId) },
     );
-    if (!expired.response.ok) {
+    if (!expired.response.ok || expired.payload.status !== "expired") {
       const retry = await stripeJson(
         `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
         { headers: stripeHeaders(stripeSecret, stripeAccountId) },
@@ -110,7 +118,9 @@ Deno.serve(async (req: Request) => {
       if (retry.response.ok && (retry.payload.payment_status === "paid" || retry.payload.status === "complete")) {
         return json({ error: "stripe_payment_already_completed" }, 409);
       }
-      return json({ error: "stripe_session_expire_failed" }, 502);
+      if (!retry.response.ok || retry.payload.status !== "expired") {
+        return json({ error: "stripe_session_expire_failed" }, 502);
+      }
     }
   }
 
@@ -127,7 +137,9 @@ Deno.serve(async (req: Request) => {
     status: "failed",
     last_error: "Customer switched to manual transfer",
     updated_at: new Date().toISOString(),
-  }).eq("order_id", order.id).eq("checkout_session_id", sessionId);
+  }).eq("order_id", order.id).eq("checkout_session_id", sessionId)
+    // A delayed webhook may settle the ledger after the order mapping clears.
+    .in("status", ["pending", "failed"]);
 
   return json({ cancelled: true });
 });

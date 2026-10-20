@@ -1,0 +1,37 @@
+.page {
+  min-height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) 18px max(36px, env(safe-area-inset-bottom));
+  background: #f7f7fa;
+  color: #25202a;
+  font-family: var(--font-anuphan), sans-serif;
+  font-size: 16px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+
+.content { width: min(100%, 780px); margin: 0 auto; }
+.back { display: inline-block; margin-bottom: 20px; font-weight: 600; }
+.document { padding: clamp(20px, 4vw, 44px); border: 1px solid #e9e4e9; border-radius: 20px; background: #fff; }
+.header { margin-bottom: 28px; }
+.brand { color: #c31859; font-weight: 700; letter-spacing: 0.08em; }
+.header h1 { margin: 8px 0 16px; font-size: clamp(25px, 4vw, 34px); line-height: 1.4; }
+.header p { margin: 8px 0; }
+.date { color: #685f6a; font-size: 14px; }
+.notice { margin-bottom: 28px; padding: 16px; border: 1px solid #e5c57e; border-radius: 12px; background: #fff7e7; color: #654600; }
+.notice p { margin: 4px 0 0; }
+.contents { display: grid; gap: 7px; margin: 28px 0; padding: 20px; border-radius: 12px; background: #fcf3f7; }
+.section { margin-top: 32px; scroll-margin-top: 20px; }
+.section h2 { margin: 0 0 12px; font-size: 20px; line-height: 1.6; }
+.section p { margin: 0 0 16px; }
+.section ul { margin: 0; padding-left: 24px; }
+.section li { margin-bottom: 12px; }
+.footer { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 28px; padding: 24px 0; font-size: 14px; }
+.page a { color: #b71452; text-decoration: underline; text-underline-offset: 3px; }
+.page a:focus-visible { outline: 3px solid #b71452; outline-offset: 4px; border-radius: 2px; }
+
+@media print {
+  .page { padding: 0; background: #fff; }
+  .back, .contents, .footer { display: none; }
+  .document { padding: 0; border: 0; }
+  .section h2 { break-after: avoid; }
+}

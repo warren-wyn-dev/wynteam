@@ -198,7 +198,7 @@ test("source: logout removes the saved slot before recreating the auth singleton
 
 test("source: direct Login cannot overwrite a live account, OAuth and password bind a canonical slot", () => {
   const auth = readFileSync(new URL("../components/auth-flow/screens.tsx", import.meta.url), "utf8");
-  const login = auth.slice(auth.indexOf("export function LoginScreen()"), auth.indexOf("export function ForgotPasswordScreen()"));
+  const login = auth.slice(auth.indexOf("export function LoginScreen()"), auth.indexOf("export function ForgotPasswordScreen("));
   assert.ok(login.indexOf("supabase.auth.getSession()") < login.indexOf("signInWithEmail(supabase, email, password)"));
   assert.match(login, /if \(active.session\)/);
   const resolver = auth.slice(auth.indexOf("async function resolvePostAuthPath("), auth.indexOf("const THAI_MONTHS ="));
