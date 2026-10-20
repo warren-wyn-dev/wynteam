@@ -23,9 +23,18 @@ Patch base is the actual production release, `0533fb3649f3c327f451bc95832674d63c
 - PostgreSQL 17.11: 35 real local behavior/concurrency assertions plus the existing Stripe SQL suite passed. Three deliberately regressed SQL controls and separate Edge negative controls fail as expected.
 - Independent technical/security review passed for this bounded patch and staging. No production payment or account was used in the tests.
 - Read-only production aggregate preflight on 2026-10-20 returned zero Stripe-linked order rows and zero mismatches in the inspected paid/refunded/cancelled-refund-queue categories. This establishes no historical Stripe rows to reconcile in those checks; it does not establish provider integration readiness.
-- Safari/WebKit did not run: downloaded browser requires system libraries unavailable in this environment, and system installation was denied. Chromium mobile emulation does not establish Safari compatibility.
+- Subsequent WebKit iPhone-emulation QA passed 13/13 cases with no skips, failures or flaky results. Missing runtime libraries were SHA-256-verified and unpacked into a scratch directory without system installation or browser-binary changes; a custom launcher preserves that library path. Combined local Chromium/WebKit coverage is 39 project-cases. This is Linux WebKit emulation, not physical iOS Safari verification.
+- Hosted Preview verification passed all 26 distinct Chromium mobile/desktop cases: 24 initially, then the two API-fixture cases passed after correcting the test environment HTTPS proxy. No application source change was needed. A separate real public-catalog smoke returned HTTP 200 with no page errors or horizontal overflow at 390px; it submitted no order or payment.
 
 Evidence logs/screenshots are in the session workspace `/workspace/zoky-audit/`; they are not shipped as application source or credential-bearing CI artifacts.
+
+## Hosted artifact and sandbox preflight
+
+Reviewed application commit: `4f2c0b9feedec725b61dfc1fce8d5ccda9bb24ed`. Draft PR: https://github.com/warren-wyn-dev/wynteam/pull/1228. Protected Preview: https://web-3p1rz8343-warren14.vercel.app (Vercel sign-in required). Preview deployment `dpl_5wD3jBi3Kon5vFGXimu5xMd28kbG` is ready; production remains the baseline deployment recorded above. Temporary deployment-specific access expired and local authentication state was removed.
+
+The existing separate Stripe sandbox contains earlier test payments/refund events, but lacks current customer-access, quote/create, cancellation and merchant-fulfillment RPCs and has no published catalog for the current browser flow. An active merchant membership exists; empty legacy staff tables alone do not establish an access blocker. Its authorized fixture session is unavailable. Root-level legacy migration files contain baseline definitions, but replaying them wholesale can replace newer functions, access policies, rollout and campaign settings. A guarded sandbox-only alignment bundle needs separate review and rehearsal before use. No sandbox or production schema was changed by this preflight.
+
+The connected Stripe app currently exposes only a live account, with no test/sandbox context. The execution environment has no Auth-admin credential binding. No live financial mutation was attempted; a supported Sandbox connection and designated test identities are needed to establish fresh provider end-to-end verification.
 
 ## Release boundaries and sequence
 
