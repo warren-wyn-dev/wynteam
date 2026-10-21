@@ -130,9 +130,11 @@ test("Merchant payment UX is WYNOS-first and return URLs refresh automatically",
   assert.doesNotMatch(paymentUi, /Accounts v2|capabilit|webhook|connected account/i);
 });
 
-test("readiness requires card, payouts, requirements, bank and verified automatic payout schedule", () => {
+test("readiness requires card, payouts, requirements, bank and a verified payout schedule", () => {
   assert.match(connect, /const automaticPayouts = settings !== "manual" && settings !== "unknown"/);
-  assert.match(connect, /charges && payoutsEnabled && !core\.needsInfo && bank\.ready && automaticPayouts/);
+  assert.match(connect, /charges && payoutsEnabled && !core\.needsInfo && bank\.ready && payoutReady/);
+  assert.match(connect, /settings === "manual" && managedPayouts/);
+  assert.match(connect, /food_store_managed_payouts/);
   assert.match(connect, /requirements_due_count/);
   assert.match(connect, /bank_last4/);
   assert.match(connect, /stripe_payments_enabled: state\.status === "ready"/);

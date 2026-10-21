@@ -304,12 +304,14 @@ function composeState(
   money: MoneySummary,
   payout: PayoutSummary,
   promptpay: PromptPaySummary,
+  managedPayouts = false,
 ) {
   const settings = payoutInterval(payout.interval);
   const charges = core.charges;
   const payoutsEnabled = core.payouts;
   const automaticPayouts = settings !== "manual" && settings !== "unknown";
-  const ready = charges && payoutsEnabled && !core.needsInfo && bank.ready && automaticPayouts;
+  const payoutReady = automaticPayouts || (settings === "manual" && managedPayouts);
+  const ready = charges && payoutsEnabled && !core.needsInfo && bank.ready && payoutReady;
   const status = ready ? "ready" : core.restricted ? "restricted" : core.needsInfo ? "onboarding" : "pending";
   return {
     details_submitted: core.details,
@@ -355,7 +357,8 @@ async function syncAccount(admin: AdminClient, secret: string, storeId: string, 
     fetchPromptPaySummary(secret, accountId),
   ]);
   const core = retrieved.api === "v2" ? v2CoreState(retrieved.account) : v1CoreState(retrieved.account);
-  const state = composeState(core, bank, money, payout, promptpay);
+  const managed = payout.interval === "manual" ? await admin.rpc("food_store_managed_payouts", { p_store_id: storeId }) : null;
+  const state = composeState(core, bank, money, payout, promptpay, !managed?.error && managed?.data === true);
   const now = new Date().toISOString();
   const { error } = await admin.from("food_stripe_accounts").upsert({
     store_id: storeId,

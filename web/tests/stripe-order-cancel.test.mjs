@@ -19,6 +19,9 @@ const { cancelFoodCustomerOrder, prepareFoodManualPayment } = clientModule.expor
 function cancelHarness({
   sessionId = "cs_existing",
   buyer = "buyer_fixture",
+  paymentStatus = "pending",
+  orderStatus = "pending_acceptance",
+  purpose = "",
   clearSucceeds = true,
   ledgerAfterClear = null,
   responses = [
@@ -31,7 +34,7 @@ function cancelHarness({
   const ledger = { status: "pending", checkout_session_id: sessionId, order_id: "order_fixture" };
   const order = {
     id: "order_fixture", buyer_id: buyer, store_id: "store_fixture",
-    payment_status: "pending", stripe_checkout_session_id: sessionId,
+    payment_status: paymentStatus, status: orderStatus, payment_provider: "stripe", stripe_checkout_session_id: sessionId,
   };
   const admin = {
     auth: { getUser: async () => ({ data: { user: { id: "buyer_fixture" } }, error: null }) },
@@ -82,7 +85,7 @@ function cancelHarness({
     async run() {
       const response = await handler(new Request("https://function.test", {
         method: "POST", headers: { Authorization: "Bearer fixture-token", "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({ orderId: order.id, purpose }),
       }));
       return { status: response.status, body: await response.json() };
     },
@@ -100,6 +103,15 @@ test("order cancellation expires its Checkout before clearing the locked session
   assert.equal(harness.writes[0].table, "food_orders");
   assert.equal(harness.writes[0].value.stripe_checkout_session_id, null);
   assert.equal(harness.writes[1].table, "food_stripe_payments");
+});
+
+test("paid Stripe order may proceed to cancellation RPC only before merchant acceptance", async () => {
+  const allowed = cancelHarness({ paymentStatus: "paid", purpose: "cancel_order" });
+  assert.equal((await allowed.run()).body.reason, "paid_order_cancel_allowed"); assert.equal(allowed.calls.length, 0);
+  const accepted = cancelHarness({ paymentStatus: "paid", orderStatus: "accepted", purpose: "cancel_order" });
+  assert.equal((await accepted.run()).status, 409);
+  const switchPayment = cancelHarness({ paymentStatus: "paid" });
+  assert.equal((await switchPayment.run()).status, 409);
 });
 
 test("already-expired Checkout can be safely cleared without expiring again", async () => {
@@ -182,7 +194,7 @@ test("a webhook settling after session cleanup cannot be demoted by cancellation
 });
 
 test("customer cancel checks the server's latest Checkout even without a client session snapshot", async () => {
-  for (const data of [{ cancelled: true }, { cancelled: false, reason: "no_stripe_session" }]) {
+  for (const data of [{ cancelled: true }, { cancelled: false, reason: "no_stripe_session" }, { cancelled: false, reason: "paid_order_cancel_allowed" }]) {
     const sequence = [];
     await cancelFoodCustomerOrder({
       functions: { invoke: async (name) => { sequence.push(name); return { data, error: null }; } },
@@ -190,6 +202,12 @@ test("customer cancel checks the server's latest Checkout even without a client 
     }, "order_fixture", "fixture cancellation");
     assert.deepEqual(sequence, ["food-stripe-cancel", "food_cancel_order"]);
   }
+});
+
+test("paid-order cancellation permission cannot be used to switch to a manual payment", async () => {
+  await assert.rejects(() => prepareFoodManualPayment({
+    functions: { invoke: async () => ({ data: { cancelled: false, reason: "paid_order_cancel_allowed" }, error: null }) },
+  }, "order_fixture"), /ตรวจสอบและยกเลิกการชำระเงินไม่สำเร็จ/);
 });
 
 test("customer cancel stops before RPC on failed or uncertain payment cleanup", async () => {

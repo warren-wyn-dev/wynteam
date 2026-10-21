@@ -236,7 +236,9 @@ async function syncMappedAccount(admin: AdminClient, secret: string, accountId: 
   }
 
   const automaticPayouts = payoutSchedule !== "manual" && payoutSchedule !== "unknown";
-  const ready = charges && payouts && dueCount === 0 && bank.ready && automaticPayouts;
+  const managed = payoutSchedule === "manual" ? await admin.rpc("food_store_managed_payouts", { p_store_id: saved.store_id }) : null;
+  const payoutReady = automaticPayouts || (!managed?.error && managed?.data === true);
+  const ready = charges && payouts && dueCount === 0 && bank.ready && payoutReady;
   const status = ready ? "ready" : restricted ? "restricted" : dueCount > 0 ? "onboarding" : "pending";
   const now = new Date().toISOString();
   const { error: updateError } = await admin.from("food_stripe_accounts").update({

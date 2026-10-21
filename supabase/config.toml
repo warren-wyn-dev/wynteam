@@ -18,6 +18,20 @@ verify_jwt = true
 [functions.merchant-stripe-refund]
 verify_jwt = true
 
+[functions.food-auto-refund]
+# Dedicated Vault key verified through a service-role-only RPC.
+verify_jwt = false
+
+[functions.food-finance-refund]
+verify_jwt = false
+
+[functions.food-finance-sync]
+verify_jwt = false
+
+[functions.food-finance-payout]
+# Dedicated Cron key or authenticated finance administrator, checked in handler.
+verify_jwt = false
+
 [functions.send-food-promotion]
 # Vault-key-authenticated scheduler call (not a browser/JWT request).
 # The handler verifies a dedicated long random key using a service-role-only RPC.

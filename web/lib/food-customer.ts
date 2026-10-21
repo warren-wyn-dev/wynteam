@@ -775,9 +775,9 @@ export async function fetchFoodPromptPayQr(client: SupabaseClient, orderId: stri
   };
 }
 
-export async function prepareFoodManualPayment(client: SupabaseClient, orderId: string) {
+export async function prepareFoodManualPayment(client: SupabaseClient, orderId: string, forCancellation = false) {
   const { data, error } = await client.functions.invoke("food-stripe-cancel", {
-    body: { orderId },
+    body: { orderId, ...(forCancellation ? { purpose: "cancel_order" } : {}) },
   });
   let payload = data as { cancelled?: unknown; reason?: unknown; error?: unknown } | null;
   // Supabase puts non-2xx Edge responses in the error context rather than data.
@@ -788,6 +788,7 @@ export async function prepareFoodManualPayment(client: SupabaseClient, orderId: 
     throw new Error("ชำระเงินผ่าน Stripe แล้ว หรือกำลังยืนยันการชำระเงิน กรุณาตรวจสอบออเดอร์อีกครั้ง");
   }
   if (!error && payload?.cancelled === true) return true;
+  if (!error && forCancellation && payload?.reason === "paid_order_cancel_allowed") return false;
   if (!error && payload?.cancelled === false && payload.reason === "no_stripe_session") return false;
   throw new Error("ตรวจสอบและยกเลิกการชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
 }
@@ -967,7 +968,7 @@ export async function cancelFoodCustomerOrder(
 ) {
   // Always ask the server: another tab may have opened Checkout since this
   // order snapshot loaded. Expire its payment URL before cancelling the order.
-  await prepareFoodManualPayment(client, orderId);
+  await prepareFoodManualPayment(client, orderId, true);
   const { error } = await client.rpc("food_cancel_order", {
     p_order_id: orderId,
     p_reason: reason || null,
