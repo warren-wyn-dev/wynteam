@@ -12,7 +12,7 @@ import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
 import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { registerCurrentAccount } from "@/lib/account-registry";
 import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_TIMEOUT_MS, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
-import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
+import { parsePasswordRecoveryLink, passwordRecoveryReturnPath, type PasswordRecoveryReturnPath } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { consumeReturnPath } from "@/lib/return-to";
 import { detectInAppBrowser, type InAppBrowser } from "@/lib/in-app-browser";
@@ -38,15 +38,6 @@ import {
 } from "@/lib/auth-repository";
 
 const MIN_ONBOARDING_AGE = 13;
-
-function passwordRecoveryReturnPath(url?: string): "/login" | "/food/login" {
-  if (!url) return "/login";
-  try {
-    return new URL(url).searchParams.get("returnTo") === "/food/login" ? "/food/login" : "/login";
-  } catch {
-    return "/login";
-  }
-}
 
 /// Where a session lands right after Google OAuth returns to /welcome, or
 /// right after a successful email/password login. Only ever sends a
@@ -128,13 +119,22 @@ function subscribeNever() {
   return () => {};
 }
 
-function AuthPhone({ children }: { children: ReactNode }) {
+function AuthPhone({ children, product }: { children: ReactNode; product?: "zoky" }) {
   return (
-    <main className="auth-ref-viewport">
+    <main className="auth-ref-viewport" data-auth-product={product}>
       <div className="phone" id="phone">
         {children}
       </div>
     </main>
+  );
+}
+
+function PasswordRecoveryBrand() {
+  return (
+    <div className="password-recovery-brand" aria-label="ZOKY">
+      <Image src="/icons/zoky/icon-192-v1.png" alt="" width={48} height={48} priority />
+      <strong>ZOKY</strong>
+    </div>
   );
 }
 
@@ -1014,15 +1014,14 @@ export function LoginScreen() {
   );
 }
 
-export function ForgotPasswordScreen() {
+export function ForgotPasswordScreen({ returnTo: requestedReturnTo = "/login" }: { returnTo?: PasswordRecoveryReturnPath }) {
   const supabase = getSupabaseBrowserClient();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
-  const [returnTo] = useState<"/login" | "/food/login">(() =>
-    passwordRecoveryReturnPath(typeof window !== "undefined" ? window.location.href : undefined),
-  );
+  const [returnTo] = useState(() => passwordRecoveryReturnPath(requestedReturnTo));
+  const isFood = returnTo === "/food/login";
 
   async function submit() {
     if (loading) return;
@@ -1048,10 +1047,11 @@ export function ForgotPasswordScreen() {
   }
 
   return (
-    <AuthPhone>
+    <AuthPhone product={isFood ? "zoky" : undefined}>
       <BackTopbar href={returnTo} />
       <div style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ลืมรหัสผ่าน?</div>
+        {isFood ? <PasswordRecoveryBrand /> : null}
+        <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ลืมรหัสผ่าน?</h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>กรอกอีเมลที่ใช้สมัคร เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้</p>
         {sent ? (
           <p style={{ fontSize: 13, color: "var(--text-primary)" }}>ส่งลิงก์ไปที่ {email.trim()} แล้ว ตรวจสอบกล่องอีเมลของคุณ</p>
@@ -1072,7 +1072,7 @@ export function ForgotPasswordScreen() {
  * while already signed in never grants reset access without a valid link.
  * Credentials are consumed immediately and removed from browser history.
  */
-export function ResetPasswordScreen() {
+export function ResetPasswordScreen({ returnTo: requestedReturnTo = "/login" }: { returnTo?: PasswordRecoveryReturnPath }) {
   const router = useRouter();
   const recoveryClient = useRef<ReturnType<typeof createPasswordRecoveryClient>>(null);
   const pendingRecoveryHash = useRef<string | null>(null);
@@ -1083,9 +1083,8 @@ export function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [returnTo] = useState<"/login" | "/food/login">(() =>
-    passwordRecoveryReturnPath(typeof window !== "undefined" ? window.location.href : undefined),
-  );
+  const [returnTo] = useState(() => passwordRecoveryReturnPath(requestedReturnTo));
+  const isFood = returnTo === "/food/login";
 
   useEffect(() => {
     if (started.current) return;
@@ -1093,9 +1092,11 @@ export function ResetPasswordScreen() {
     const currentUrl = window.location.href;
     const link = parsePasswordRecoveryLink(currentUrl);
     // Never leave an access token, verifier code or recovery hash in browser
-    // history, analytics, or subsequent navigation URLs. The already-sanitized
-    // return destination stays in component state, never in browser history.
-    window.history.replaceState(window.history.state, "", "/reset-password");
+    // history, analytics, or subsequent navigation URLs. Keep only the
+    // allowlisted Food destination so refreshing still returns to ZOKY.
+    window.history.replaceState(window.history.state, "", returnTo === "/food/login"
+      ? "/reset-password?returnTo=%2Ffood%2Flogin"
+      : "/reset-password");
 
     if (link.kind === "token_hash") {
       // Mail clients and preview bots can GET this page harmlessly. Only a
@@ -1140,7 +1141,7 @@ export function ResetPasswordScreen() {
         setPhase("invalid");
       }
     })();
-  }, []);
+  }, [returnTo]);
 
   async function continueFromEmail() {
     if (phase !== "confirm" || loading || !pendingRecoveryHash.current) return;
@@ -1196,12 +1197,12 @@ export function ResetPasswordScreen() {
   }
 
   return (
-    <AuthPhone>
+    <AuthPhone product={isFood ? "zoky" : undefined}>
       <BackTopbar href={returnTo} />
       <div style={{ padding: "16px 20px", flex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <Image src="/wynos_logo_mark.png" alt="Wynos" width={99} height={64}
-            style={{ height: 64, width: "auto", margin: "0 auto 14px", display: "block" }} priority />
+          {isFood ? <PasswordRecoveryBrand /> : <Image src="/wynos_logo_mark.png" alt="Wynos" width={99} height={64}
+            style={{ height: 64, width: "auto", margin: "0 auto 14px", display: "block" }} priority />}
           <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em" }}>ตั้งรหัสผ่านใหม่</h1>
         </div>
 

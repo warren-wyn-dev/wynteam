@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
 
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
+import { MerchantFinanceOperations } from "@/components/merchant/merchant-finance-operations";
 import { money, type FoodStore } from "@/lib/food-merchant";
 import { fetchMerchantStripeFinance, type MerchantStripeFinance } from "@/lib/merchant-core";
 import {
@@ -135,7 +136,7 @@ export function MerchantFinance({
         <>
           <div className="wm-fin-kpis">
             <div className="wm-fin-kpi is-sales"><small>ยอดขายสุทธิ</small><strong>{money(current.sales_net)}</strong><span>ที่ลูกค้าจ่าย หลังส่วนลดและเงินคืน</span></div>
-            <div className="wm-fin-kpi is-income"><small>รายได้ร้าน</small><strong>{money(current.income)}</strong><span>เงินที่ร้านได้จริง</span></div>
+            <div className="wm-fin-kpi is-income"><small>รายได้หลัง GP</small><strong>{money(current.income)}</strong><span>ก่อนค่าธรรมเนียมรับชำระ ดูยอดสุทธิรายออเดอร์ด้านล่าง</span></div>
           </div>
 
           <section className="wm-fin-card">
@@ -157,6 +158,7 @@ export function MerchantFinance({
             <FinanceLine label="คืนเงินลูกค้า" value={-current.refunds} />
           </section>
 
+          <MerchantFinanceOperations key={`${store.id}:${range.from}:${range.to}`} client={client} storeId={store.id} from={range.from} to={range.to} refreshKey={refreshKey} />
           <div className="wm-fin-mini">
             <span><small>ออเดอร์</small><b>{current.orders}</b></span>
             <span><small>เฉลี่ย/ออเดอร์</small><b>{current.orders ? money(paid / current.orders) : "–"}</b></span>

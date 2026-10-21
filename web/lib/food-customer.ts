@@ -775,16 +775,22 @@ export async function fetchFoodPromptPayQr(client: SupabaseClient, orderId: stri
   };
 }
 
-export async function prepareFoodManualPayment(client: SupabaseClient, orderId: string) {
+export async function prepareFoodManualPayment(client: SupabaseClient, orderId: string, forCancellation = false) {
   const { data, error } = await client.functions.invoke("food-stripe-cancel", {
-    body: { orderId },
+    body: { orderId, ...(forCancellation ? { purpose: "cancel_order" } : {}) },
   });
-  if (error) throw new Error(error.message);
-  const payload = data as { cancelled?: unknown; error?: unknown } | null;
-  if (payload?.error === "stripe_payment_already_completed") {
-    throw new Error("Stripe ชำระเงินสำเร็จแล้ว ไม่สามารถเปลี่ยนเป็นสลิปได้");
+  let payload = data as { cancelled?: unknown; reason?: unknown; error?: unknown } | null;
+  // Supabase puts non-2xx Edge responses in the error context rather than data.
+  if (error && error.context instanceof Response) {
+    payload = await error.context.clone().json().catch(() => null);
   }
-  return payload?.cancelled === true;
+  if (payload?.error === "stripe_payment_already_completed") {
+    throw new Error("ชำระเงินผ่าน Stripe แล้ว หรือกำลังยืนยันการชำระเงิน กรุณาตรวจสอบออเดอร์อีกครั้ง");
+  }
+  if (!error && payload?.cancelled === true) return true;
+  if (!error && forCancellation && payload?.reason === "paid_order_cancel_allowed") return false;
+  if (!error && payload?.cancelled === false && payload.reason === "no_stripe_session") return false;
+  throw new Error("ตรวจสอบและยกเลิกการชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
 }
 
 export async function submitFoodPayment(
@@ -960,6 +966,9 @@ export async function cancelFoodCustomerOrder(
   orderId: string,
   reason?: string,
 ) {
+  // Always ask the server: another tab may have opened Checkout since this
+  // order snapshot loaded. Expire its payment URL before cancelling the order.
+  await prepareFoodManualPayment(client, orderId, true);
   const { error } = await client.rpc("food_cancel_order", {
     p_order_id: orderId,
     p_reason: reason || null,
@@ -1022,6 +1031,7 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("scheduled time is too far")) return "เวลาที่เลือกไกลเกินช่วงที่ร้านเปิดรับออเดอร์ล่วงหน้า";
   if (message.includes("store is closed at scheduled time")) return "ร้านปิดในวันหรือเวลาที่เลือก กรุณาเลือกเวลาใหม่";
   if (message.includes("order cannot be cancelled by customer")) return "ออเดอร์นี้ยกเลิกเองไม่ได้แล้ว กรุณาติดต่อร้าน";
+  if (message.includes("cancel stripe checkout before cancelling order")) return "มีการชำระเงินเปิดอยู่ กรุณาลองยกเลิกออเดอร์อีกครั้ง";
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";
   if (message.includes("store is outside the service area")) return "ร้านนี้ยังไม่เปิดให้บริการในพื้นที่";

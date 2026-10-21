@@ -2763,7 +2763,9 @@ function OrderDetailSheet({
   };
 
   const cancel = async () => {
-    if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
+    if (!window.confirm(order.payment_status === "paid" && order.payment_provider === "stripe"
+      ? "ยืนยันยกเลิกก่อนร้านรับออเดอร์? ระบบจะเริ่มคืนค่าอาหารและค่าส่งผ่าน Stripe เงินเข้าจริงขึ้นกับธนาคาร"
+      : "ยืนยันยกเลิกออเดอร์นี้?")) return;
     setWorking(true);
     try {
       await cancelFoodCustomerOrder(client, order.id, "ยกเลิกโดยลูกค้าใน ZOKY");
@@ -2782,7 +2784,7 @@ function OrderDetailSheet({
   const paymentExpired = secondsLeft === 0;
   const awaitingPayment = ["pending", "issue"].includes(order.payment_status);
   const canPay = !isCancelled && !paymentExpired && awaitingPayment;
-  const canCancel = order.status === "pending_acceptance" && awaitingPayment;
+  const canCancel = order.status === "pending_acceptance" && (awaitingPayment || (order.payment_status === "paid" && order.payment_provider === "stripe"));
   const paymentQr = dynamicPaymentQr ?? foodPublicUrl(client, orderStore?.payment_qr_path);
   const combinedBusy = busy || working;
   const slipUnderReview = !isCancelled && order.payment_status === "submitted";

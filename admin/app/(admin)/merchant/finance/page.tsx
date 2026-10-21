@@ -89,6 +89,7 @@ export default async function MerchantFinancePage({
           </p>
         </div>
         <RefreshButton />
+        <Link href="/merchant/finance/operations" className="text-sm underline">ตรวจยอด คืนเงิน และปรับยอด</Link>
       </section>
 
       <nav aria-label="เมนูการเงินร้านค้า" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">

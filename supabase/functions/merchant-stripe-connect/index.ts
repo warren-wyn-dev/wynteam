@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+import { merchantReturnBaseUrl } from "../food-stripe-checkout/_lib.ts";
+
 type AdminClient = ReturnType<typeof createClient<any>>;
 
 const cors = {
@@ -302,12 +304,14 @@ function composeState(
   money: MoneySummary,
   payout: PayoutSummary,
   promptpay: PromptPaySummary,
+  managedPayouts = false,
 ) {
   const settings = payoutInterval(payout.interval);
   const charges = core.charges;
   const payoutsEnabled = core.payouts;
   const automaticPayouts = settings !== "manual" && settings !== "unknown";
-  const ready = charges && payoutsEnabled && !core.needsInfo && bank.ready && automaticPayouts;
+  const payoutReady = automaticPayouts || (settings === "manual" && managedPayouts);
+  const ready = charges && payoutsEnabled && !core.needsInfo && bank.ready && payoutReady;
   const status = ready ? "ready" : core.restricted ? "restricted" : core.needsInfo ? "onboarding" : "pending";
   return {
     details_submitted: core.details,
@@ -353,7 +357,8 @@ async function syncAccount(admin: AdminClient, secret: string, storeId: string, 
     fetchPromptPaySummary(secret, accountId),
   ]);
   const core = retrieved.api === "v2" ? v2CoreState(retrieved.account) : v1CoreState(retrieved.account);
-  const state = composeState(core, bank, money, payout, promptpay);
+  const managed = payout.interval === "manual" ? await admin.rpc("food_store_managed_payouts", { p_store_id: storeId }) : null;
+  const state = composeState(core, bank, money, payout, promptpay, !managed?.error && managed?.data === true);
   const now = new Date().toISOString();
   const { error } = await admin.from("food_stripe_accounts").upsert({
     store_id: storeId,
@@ -416,9 +421,17 @@ async function createAccountSession(secret: string, accountId: string, component
     body: params,
   });
 }
-async function createOnboardingLink(secret: string, accountId: string, storeId: string, api: "v1" | "v2") {
-  const refreshUrl = `https://merchant.wynos.online/?payments=refresh&store=${encodeURIComponent(storeId)}`;
-  const returnUrl = `https://merchant.wynos.online/?payments=return&store=${encodeURIComponent(storeId)}`;
+async function createOnboardingLink(
+  secret: string,
+  accountId: string,
+  storeId: string,
+  api: "v1" | "v2",
+  origin: string | null,
+  configuredTestOrigins: string | undefined,
+) {
+  const returnBaseUrl = merchantReturnBaseUrl(origin, stripeLivemode(secret), configuredTestOrigins);
+  const refreshUrl = `${returnBaseUrl}/?payments=refresh&store=${encodeURIComponent(storeId)}`;
+  const returnUrl = `${returnBaseUrl}/?payments=return&store=${encodeURIComponent(storeId)}`;
   if (api === "v1") {
     const params = new URLSearchParams();
     params.set("account", accountId);
@@ -617,7 +630,10 @@ Deno.serve(async (req: Request) => {
       return json({ ...publicState, flow: "embedded", surface: "embedded", publishableKey });
     }
 
-    const link = await createOnboardingLink(stripeSecret, accountId, storeId, synced.api);
+    const link = await createOnboardingLink(
+      stripeSecret, accountId, storeId, synced.api, req.headers.get("origin"),
+      Deno.env.get("STRIPE_TEST_RETURN_ORIGINS"),
+    );
     if (typeof link.url !== "string") throw new Error("stripe_onboarding_link_unavailable");
     return json({ ...publicState, flow: "redirect", surface: "redirect", url: link.url });
   } catch (error) {

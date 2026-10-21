@@ -41,3 +41,55 @@ export function isFoodWebOrigin(origin: string | null | undefined): boolean {
 export function foodReturnOrigin(origin: string | null | undefined): string {
   return isFoodWebOrigin(origin) ? origin as string : FOOD_WEB_ORIGIN;
 }
+
+/**
+ * A separately configured Sandbox browser may return to its own app routes.
+ * This setting never authorizes a live-mode request or a live return URL.
+ * Configuration is a comma-separated list of exact HTTPS origins: no paths,
+ * credentials, query strings, fragments, wildcards or URL normalization.
+ */
+function testReturnOrigin(
+  origin: string | null | undefined,
+  stripeLiveMode: boolean | null | undefined,
+  configuredOrigins: string | null | undefined,
+): string | null {
+  if (stripeLiveMode !== false || !origin || !configuredOrigins) return null;
+  const exactHttpsOrigin = (value: string): string | null => {
+    if (value.includes("*")) return null;
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && !url.username && !url.password && url.origin === value
+        ? value
+        : null;
+    } catch { return null; }
+  };
+  const candidate = exactHttpsOrigin(origin);
+  if (!candidate) return null;
+  return configuredOrigins.split(",").some((entry) => exactHttpsOrigin(entry.trim()) === candidate)
+    ? candidate
+    : null;
+}
+
+export function foodReturnBaseUrl(
+  origin: string | null | undefined,
+  stripeLiveMode: boolean | null | undefined,
+  configuredTestOrigins: string | null | undefined,
+): string {
+  const testOrigin = testReturnOrigin(origin, stripeLiveMode, configuredTestOrigins);
+  // Preview hosts do not have the canonical host's root-to-Food rewrite.
+  return testOrigin && !isFoodWebOrigin(testOrigin)
+    ? `${testOrigin}/food`
+    : foodReturnOrigin(origin);
+}
+
+export function merchantReturnBaseUrl(
+  origin: string | null | undefined,
+  stripeLiveMode: boolean | null | undefined,
+  configuredTestOrigins: string | null | undefined,
+): string {
+  const canonicalOrigin = "https://merchant.wynos.online";
+  const testOrigin = testReturnOrigin(origin, stripeLiveMode, configuredTestOrigins);
+  return testOrigin && testOrigin !== canonicalOrigin
+    ? `${testOrigin}/merchant`
+    : canonicalOrigin;
+}

@@ -74,6 +74,16 @@ Deno.serve(async (req: Request) => {
   }
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
 
+  // New finance deployments reserve the remaining amount in one durable queue.
+  // User-scoped RPC keeps the same manager authorization as the browser flow.
+  const scoped = createClient(url, key, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false, autoRefreshToken: false } });
+  const queued = await scoped.rpc("merchant_request_cancelled_refund", { p_order_id: order.id });
+  if (!queued.error) {
+    return queued.data ? json({ status: "queued", requestId: queued.data }) : json({ error: "refund_queue_disabled" }, 503);
+  }
+  if (queued.error.code !== "PGRST202") return json({ error: "refund_reservation_failed" }, 409);
+  // Compatibility only for deployments without the finance operations migration.
+
   const { data: payment } = await admin.from("food_stripe_payments")
     .select("stripe_account_id,livemode,application_fee_satang").eq("order_id", order.id).maybeSingle();
 
@@ -98,13 +108,16 @@ Deno.serve(async (req: Request) => {
   const feeSatang = Number(payment?.application_fee_satang ?? 0);
   if (feeSatang > 0) params.set("refund_application_fee", "true");
   params.set("metadata[wynos_order_id]", order.id);
-  if (note) params.set("metadata[wynos_note]", note);
+  // Keep Stripe parameters identical to the automatic worker on retries.
+  // The merchant note is retained in our order record below.
 
   try {
     const response = await fetch("https://api.stripe.com/v1/refunds", {
       method: "POST",
       headers: stripeHeaders(stripeSecret, stripeAccountId, `wynos-refund-${order.id}`),
       body: params,
+      signal: AbortSignal.timeout(7500),
+      redirect: "error",
     });
     const payload = await response.json().catch(() => ({})) as Record<string,unknown>;
     if (!response.ok || typeof payload.id !== "string") {
@@ -123,12 +136,12 @@ Deno.serve(async (req: Request) => {
       refund_requested_at: new Date().toISOString(),
       refund_updated_by: user.id,
       stripe_refund_id: payload.id,
-    }).eq("id", order.id);
+    }).eq("id", order.id).neq("refund_status", "refunded");
     // GP v1: finance reports reverse GP only for a fee WYNOS actually returned.
     // Stripe has already refunded, so a failed write must not undo that answer;
     // retry, then log loudly with the ids needed to reconcile by hand.
     let gpRecordPending = false;
-    if (feeSatang > 0) {
+    if (feeSatang > 0 && payload.status === "succeeded") {
       const refundedAt = new Date().toISOString();
       let recordError: unknown = null;
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -157,7 +170,7 @@ Deno.serve(async (req: Request) => {
       refund_status: "failed",
       refund_note: note || "การคืนเงินไม่สำเร็จ",
       refund_updated_by: user.id,
-    }).eq("id", order.id);
+    }).eq("id", order.id).neq("refund_status", "refunded");
     return json({
       error: "refund_failed",
       message: "คืนเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",

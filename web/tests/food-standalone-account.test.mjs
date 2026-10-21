@@ -196,16 +196,14 @@ test("Food iOS launch has no white flash and the status bar matches the splash",
   for (const size of ["1290x2796", "1179x2556", "1170x2532", "1080x2340", "750x1334", "2048x2732", "1668x2388", "1640x2360", "1620x2160", "1488x2266"]) {
     assert.ok(existsSync(new URL(`../public/icons/zoky/splash/launch-${size}.png`, import.meta.url)), `missing launch image ${size}`);
   }
-  // Temporary pink theme-color while the splash shows, removed when it fades.
-  assert.match(layout, /m\.content='#f93384'/);
+  // Next owns the brand-colored metadata throughout splash and navigation.
+  assert.match(layout, /const FOOD_BRAND_TOP = "#f93384";/);
+  assert.match(layout, /themeColor: \[[\s\S]*?color: FOOD_BRAND_TOP/);
   // iOS 26 colours the status bar from the fixed splash's background-color, so it must be the top pink.
   assert.match(await read("app/food/food-app.css"), /background-color: #f93384;/);
   assert.match(layout, /\[360, 780, 3\]/); // iPhone 12/13 mini
   assert.match(layout, /\[1024, 1366, 2\], \[834, 1194, 2\], \[820, 1180, 2\], \[810, 1080, 2\], \[744, 1133, 2\]/); // iPad
-  assert.match(layout, /document\.head\.prepend\(m\)/);
-  // Theme sync must not repaint the splash's temporary status-bar color.
-  assert.match(await read("lib/theme-preference.ts"), /meta\[name="theme-color"\]:not\(\[data-fx-splash-theme\]\)/);
-  assert.match(layout, /d\.setAttribute\('data-fx-splash-ready',''\);setTimeout\(function\(\)\{m\.remove\(\)\},350\)/);
+  assert.doesNotMatch(layout, /document\.createElement\('meta'\)|document\.head\.prepend|m\.remove\(\)/);
 });
 
 test("Food splash stays until the screen has data (min 1 s, max ~4 s)", async () => {

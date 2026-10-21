@@ -5,6 +5,13 @@ export type PasswordRecoveryLink =
   | { kind: "implicit"; accessToken: string; refreshToken: string }
   | { kind: "invalid" };
 
+export type PasswordRecoveryReturnPath = "/login" | "/food/login";
+
+/** Recovery may return only to the two supported account entry points. */
+export function passwordRecoveryReturnPath(value: unknown): PasswordRecoveryReturnPath {
+  return value === "/food/login" ? "/food/login" : "/login";
+}
+
 export function parsePasswordRecoveryLink(href: string): PasswordRecoveryLink {
   const url = new URL(href);
   const query = url.searchParams;
