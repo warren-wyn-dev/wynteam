@@ -902,4 +902,3 @@ revoke all on function public.merchant_finance_summary(uuid, date, date) from pu
 grant execute on function public.merchant_finance_summary(uuid, date, date) to authenticated;
 
 -- ------------------------------------------------------------
-

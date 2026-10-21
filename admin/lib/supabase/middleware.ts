@@ -43,7 +43,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublicPath = PUBLIC_PATHS.includes(request.nextUrl.pathname);
+  const isFinanceQaLogin =
+    process.env.NEXT_PUBLIC_SUPABASE_URL === "https://pcatuxtenluqzjzzwsvl.supabase.co" &&
+    request.nextUrl.pathname === "/finance-qa";
+  const isPublicPath = PUBLIC_PATHS.includes(request.nextUrl.pathname) || isFinanceQaLogin;
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
