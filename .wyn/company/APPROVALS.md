@@ -709,3 +709,13 @@ Run 39159774643: guard ✅, browser QA ✅, Vercel production deploy ✅. The sh
 Manual re-check minutes later (all PASS): maps/health 200 (core-api-v1); wynos.online routes `/ /search /notifications /chat /settings /profile/me /clubs /bookmarks /suggested /maps` 200; push-config 200; zoky.wynos.online home (ZOKY title + canonical) ✅; `wynos.online/food?promo=X` → 307 zoky ✅; food.wynos.online 200 + real sw.js ✅; zoky sw.js real ✅; merchant 200.
 Decision: keep PHASE1 live (no rollback). Rollback target if needed: Vercel Instant Rollback to `web-5djnkfh16` (`b19687af`).
 Follow-up: give the maps health check in the exception workflow a longer warm-up retry window.
+
+## [2026-10-22] ZOKY web redesign (Home + Food) — release preparation (APPROVED by Founder; production NOT yet approved)
+
+- Founder (AskUserQuestion, 2026-10-22): moving 8e6aa209 to the release branch → **"อนุญาต (แนะนำ)"**; staging → **"ทำเว็บทดสอบก่อน (แนะนำ)"**
+- `release/zoky-web-20261018` fast-forwarded `0533fb36` → `8e6aa209067dd45fe3a416c82d717468a220a475` (= `feat/zoky-web-app-design`; 7 commits: redesign cc823142, QA docs, ZOKY-140/143/144 history fixes, ZOKY-145 guest-login dead page fix — ZOKY-145 HIGH also exists on current production)
+- QA & Security: Re-test 4 **PASS** (`.wyn/tasks/qa/ZOKY-web-home-food-redesign-qa.md`); ZOKY-140/143/144/145 closed. Open LOW follow-ups: ZOKY-141, ZOKY-142, ZOKY-146 (+ order sheet stays open after browser back)
+- CTO final review: **APPROVE WITH CONDITIONS** — staging incl. real iPad/Safari check, then explicit Founder production approval
+- Staging path: PR #1230 adds an optional `zoky_release_sha` input to `web-next-phase5-preview.yml` (preview only, no production alias change). Needs Founder merge approval + the `production` environment review for the run
+- Production (later, separate Founder approval): `zoky-web-exception-release.yml` phase `PHASE1`, release_sha `8e6aa209067dd45fe3a416c82d717468a220a475`, flag stays 0
+- Rollback for that step: Vercel Instant Rollback to the current production deployment (PHASE1 run 39159774643, commit `0533fb36`)
