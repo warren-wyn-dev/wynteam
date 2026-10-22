@@ -737,3 +737,17 @@ Follow-up: give the maps health check in the exception workflow a longer warm-up
 - Open LOW follow-ups: ZOKY-141, ZOKY-142, ZOKY-146, order sheet not closed on browser back, and ratings/ETA for guests (needs a DB change).
 - Rollback: Vercel Instant Rollback to the current production deployment (PHASE1 run 39159774643, commit `0533fb36`).
 - The Founder must still approve the run's `production` environment review in GitHub.
+
+### [2026-10-22] ZOKY redesign PHASE1 — deployed ✅
+
+Run 39817455373 (the Founder approved the `production` review). Every step passed: guard ✅, browser QA ✅, Vercel production deploy ✅, production route verify ✅, ZOKY PHASE1 verify ✅. Release `e6f577dc`.
+Independent check after the deploy:
+- zoky.wynos.online returns 200, title "ZOKY • สั่งอาหาร", and the new splash fix (`removeAttribute('name')`) is live.
+- food.wynos.online returns 200.
+- `wynos.online/food?promo=X` returns 307 to zoky.
+- zoky sw.js returns 200.
+- maps/health returns 200.
+- wynos.online returns 200.
+- zoky `/login` returns 307 to `/food/login`.
+
+Rollback target if needed: Vercel Instant Rollback to the previous PHASE1 deployment (run 39159774643, `0533fb36`).
