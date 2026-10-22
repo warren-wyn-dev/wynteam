@@ -3,7 +3,7 @@
 Feature: ZOKY web Home + Food (spec `.wyn/docs/design/zoky-web-home-food-spec.md`, DECISIONS 2026-10-19)
 Branch / commit: `feat/zoky-web-app-design` @ cc823142 (base `release/zoky-web-20261018` @ 0533fb36)
 Tester: AI QA & Security, 2026-10-19
-Final Status: PASS (re-test 4, 2026-10-22, @ 5e232d68: ZOKY-140/143/144/145 PASS and closed; no open CRITICAL/HIGH; LOW follow-ups ZOKY-142, ZOKY-146 do not block)
+Final Status: PASS (re-test 5, 2026-10-22, @ 76c9a139: storefront header change PASS; no open CRITICAL/HIGH; LOW follow-ups ZOKY-142, ZOKY-146 do not block)
 
 Environment:
 - Local `next build` + `next start` for the branch and for the base (for comparison), fake
@@ -240,3 +240,38 @@ Safari, real devices, staging/production.
 ZOKY-140: PASS (closed). ZOKY-143: PASS (closed). ZOKY-144: PASS (closed). ZOKY-145: PASS (closed).
 Final Status: PASS — no open CRITICAL/HIGH. Open LOW items (ZOKY-142, ZOKY-146) do not block release. Ready for CTO
 final review, then staging and Founder approval.
+
+## Re-test 5 (storefront header) 2026-10-22
+
+Scope: Founder request 2026-10-22, `git diff 8e6aa209..76c9a139 -- web` (storefront header = name · address; meta =
+rating or "ร้านใหม่" · ZokyScooterIcon + distance · delivery minutes; menu count, fee and "open" line removed; guest =
+name · address only). Production build of 76c9a139, fake env `sb-mock.test`, Chromium, synthetic data, non-local hosts
+aborted. New script `qa-header.mjs` (QA scratchpad), 29/32 at 320/390/820; the 3 failures are pre-existing (below).
+
+- PASS: name · address on one line; meta `4.6 (1,234) · [scooter] 1.9 กม. · 26–31 นาที`. No reviews = `ร้านใหม่`, no "(0)".
+- PASS: prep min or max missing = distance only, no minutes. No address, address without pin, or store without pin =
+  rating only, no scooter, no distance, no minutes. Default address is used over the first one. Same pin = `ใกล้คุณ`
+  and prep-only minutes (15–20).
+- PASS: store address null or "" = name only, no dangling dot. Long address truncates with an ellipsis inside the card
+  at 320/390/820, with no page overflow (it moves below the name when it does not fit; the full address is still in
+  the Info tab).
+- PASS: closed store, signed in and guest: badge and closed box shown; no "เปิดอยู่"/"เปิดรับออเดอร์" line anywhere.
+- PASS: XSS payload (`<img onerror>` + `<script>`) as name and address, signed in and guest, renders as text; no element
+  injected, no script run.
+- PASS: scooter icon `aria-hidden="true"`, `focusable="false"`; gradient `url(#…)` refs resolve; no duplicate ids in the
+  document after store A → store B; a double server render gives unique ids (`_R_1_`, `_R_2_`). The meta reads as
+  "4.6 (1,234) 1.9 กม. 26–31 นาที" in the accessibility tree.
+- PASS: guest storefront = name · address only (no rating, distance, minutes, fee); guest requests =
+  `food_public_catalog` only. Signed-in requests are the same endpoints as before; the diff adds no fetch.
+- Pre-existing, not a regression, not filed: a store name that is one long unbroken Latin string (no spaces) overflows the
+  card at 320/390 (page scrolls sideways). The old layout overflows by exactly the same amount. Thai long names wrap
+  fine. A future `overflow-wrap: anywhere` on the h1 would fix it.
+
+Regression at 390: `qa144.mjs` 59/59, `qa143-guest.mjs` 52/52, `qa145.mjs` 53/53, `zoky140-retest.mjs` 58/61 (the 3
+failures are the known B2–B4 `dblclick` probes, informational). Static spec "ZOKY web Home + Food follow the app design"
+3/3 projects, `tsc --noEmit` clean, eslint clean on the 3 changed components.
+
+Security: rendering change only, no new requests, no auth change, no secrets; text is escaped by React. Not tested:
+WebKit/iOS Safari rendering, real devices, staging/production.
+
+Final Status: PASS — no open CRITICAL/HIGH. Ready for CTO final review, then staging and Founder approval.
