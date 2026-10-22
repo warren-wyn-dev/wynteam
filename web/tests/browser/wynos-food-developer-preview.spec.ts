@@ -695,6 +695,8 @@ test("ZOKY web Home + Food follow the app design with real data only (2026-10-19
     expect(source).not.toContain("ค่าส่งเริ่มต้น");
     expect(source).not.toContain("เปิดรับออเดอร์</p>");
   }
+  // The guest header no longer repeats the store description (Founder 2026-10-22: it duplicated the address).
+  expect(guest).not.toContain('{store.description ? <p className="fx-store-min">{store.description}</p> : null}');
   // Centred 480px column; tap targets of at least 44px.
   expect(css).toContain(".zk-col { width: 100%; max-width: 480px; margin-inline: auto; }");
   expect(css).toContain(".zk-glossy-btn.is-sm { width: 44px; height: 44px;");

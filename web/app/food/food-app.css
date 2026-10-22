@@ -505,6 +505,7 @@
 .fx-store-info { position: relative; z-index: 3; margin-top: -20px; padding: 18px 16px 4px; border-radius: 22px 22px 0 0; background: #fff; display: grid; gap: 6px; }
 .fx-store-info h1 { font-size: 23px; font-weight: 700; letter-spacing: -.3px; line-height: 1.25; }
 .fx-store-title { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; min-width: 0; }
+.fx-store-title h1 { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .fx-store-title span { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fx-sub); font-size: 15px; }
 .fx-store-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; color: var(--fx-sub); font-size: 13.5px; }
 .fx-store-meta b { color: var(--fx-ink); }

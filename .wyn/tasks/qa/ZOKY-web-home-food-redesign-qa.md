@@ -275,3 +275,13 @@ Security: rendering change only, no new requests, no auth change, no secrets; te
 WebKit/iOS Safari rendering, real devices, staging/production.
 
 Final Status: PASS — no open CRITICAL/HIGH. Ready for CTO final review, then staging and Founder approval.
+
+### Developer change after Founder staging review (2026-10-22, staging run 39807414871 @ 82f613d6)
+- Founder: the guest storefront showed the store description under the header, and here it repeats the address ("หอพักธาราทิพย์"). The description line is removed from the guest header; signed-in users still see the description in the "ข้อมูลร้าน" tab.
+- Fixed the QA LOW: a long unbroken Latin store name overflowed the card. The store title `h1` now has `overflow-wrap: anywhere`.
+- Results at 390 (synthetic data, all non-local hosts aborted), all from QA's scripts:
+  - qa-header: 32/32. S6 overflow passes at 320/390/820.
+  - qa143-guest: 52/52.
+  - qa144: 59/59.
+  - qa145: 53/53.
+- Unit tests: 348/348. Playwright food + merchant: 68/68. Lint: 0 errors.

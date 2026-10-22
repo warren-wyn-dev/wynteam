@@ -326,7 +326,6 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                 <span>ดูเมนูไว้ก่อนได้ สั่งได้เมื่อร้านเปิด</span>
               </div>
             )}
-            {store.description ? <p className="fx-store-min">{store.description}</p> : null}
           </section>
 
           <section className="fx-store-menu">
