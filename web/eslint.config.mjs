@@ -33,5 +33,5 @@ export default defineConfig([
       "@next/next/no-img-element": "off",
     },
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "public/merchant-flutter/**", "merchant_flutter/web/flutter_bootstrap.js", "merchant_flutter/.dart_tool/**", "merchant_flutter/build/**", ".vercel/**"]),
 ]);

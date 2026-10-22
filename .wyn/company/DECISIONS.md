@@ -2269,3 +2269,7 @@ reconciliation ที่ทนทานสำหรับการคืน GP �
 ถ้ายังล้มเหลวจะ log `order_id`/`stripe_refund_id` ให้แก้มือ (ระหว่าง GP = 0% ไม่มี fee จึงไม่เกิดกรณีนี้)
 reconciliation นี้ต้องอ่านจาก Stripe (`application_fee.refunded` / `ApplicationFee.amount_refunded`) เพื่อรองรับ
 การคืน fee ผ่าน Stripe Dashboard และการคืนบางส่วนด้วย — ต้องเพิ่ม event subscription ระดับ platform ใน Stripe (Founder)
+
+## [2026-10-21] Zoky Merchant Flutter belongs to the existing Food system
+
+Founder explicitly clarified “มันคือระบบเดียวกับ food ไง” and requested “จัดการให้เรียบร้อยทั้งหมด พร้อมใช้งานเลยได้มั้ย”. Merchant remains in `wynteam`, uses the existing Food stores/orders/menu/payment backend and shared WYNOS account. Implement the Flutter user interface inside the current web deployment; do not create a separate repository/database or auth system. Preserve existing server authorization, payment verification, private delivery evidence and controlled release gates. Work item: `.wyn/tasks/active/zoky-merchant-flutter-integration.md`.

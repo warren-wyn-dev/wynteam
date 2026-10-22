@@ -50,7 +50,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(target, 307);
   }
 
-  const destination = ROOT_DESTINATION_BY_HOST[host];
+  // This only switches the Merchant origin. Auth and legacy /merchant/*
+  // remain in the existing Next.js app, and Food/Social are unaffected.
+  const destination = host === "merchant.wynos.online" && process.env.ZOKY_MERCHANT_FLUTTER_ENABLED === "1"
+    ? "/merchant/flutter"
+    : ROOT_DESTINATION_BY_HOST[host];
   if (!destination) return NextResponse.next();
 
   const url = request.nextUrl.clone();
