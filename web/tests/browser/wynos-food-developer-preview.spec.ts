@@ -661,6 +661,9 @@ test("ZOKY web Home + Food follow the app design with real data only (2026-10-19
   expect(app).toContain('window.history.pushState({ zkScreen: screen }, "", `${url.pathname}${url.search}${url.hash}`);');
   expect(app).toContain('setTab(screen && screen !== "store" ? screen : "home");');
   expect(app).toContain('setStorefrontOpen(screen === "store");');
+  // ZOKY-143: the signed-out Food list does the same for a store or the basket.
+  expect(guest).toContain('window.history.pushState({ zkScreen: screen, zkStore: selectedId }, "", `${url.pathname}${url.search}${url.hash}`);');
+  expect(guest).toContain('setSelectedId(state?.zkScreen ? state.zkStore ?? null : null);');
   // Founder 2026-10-19: deals, category circles and pickup stay hidden; "ร้านอาหารแนะนำ" = real popular stores.
   for (const source of [app, guest, ui]) {
     expect(source).not.toContain("ดีลเด็ดวันนี้");

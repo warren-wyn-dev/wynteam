@@ -110,7 +110,14 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
   });
 
   useEffect(() => {
-    const onPop = () => setView(new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home");
+    // ZOKY-143: as signed in (ZOKY-140), an entry pushed when leaving Food
+    // records the store/basket; any other entry is the list.
+    const onPop = () => {
+      const state = window.history.state;
+      setView(new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home");
+      setSelectedId(state?.zkScreen ? state.zkStore ?? null : null);
+      setShowBasket(state?.zkScreen === "basket");
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -135,6 +142,23 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
     setView("home");
     window.scrollTo({ top: 0 });
   };
+
+  // Leaving Food for a store or the basket pushes an entry without ?view=food,
+  // so back returns to the list; later moves keep that entry current.
+  useEffect(() => {
+    const screen = showBasket ? "basket" : selectedId ? "store" : null;
+    const url = new URL(window.location.href);
+    const state = window.history.state;
+    if (state?.zkScreen) {
+      if (state.zkScreen !== screen || state.zkStore !== selectedId) {
+        window.history.replaceState(screen ? { zkScreen: screen, zkStore: selectedId } : null, "", url.href);
+      }
+      return;
+    }
+    if (!screen || url.searchParams.get("view") !== "food") return;
+    url.searchParams.delete("view");
+    window.history.pushState({ zkScreen: screen, zkStore: selectedId }, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [selectedId, showBasket]);
 
   useEffect(() => {
     let live = true;
@@ -273,7 +297,14 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
               ) : <Store size={46} strokeWidth={1.25} />}
             </div>
             <div className="fx-store-hero-actions">
-              <button className="fx-float-btn" type="button" aria-label="ดูร้านทั้งหมด" onClick={() => { setSelectedId(null); setShowBasket(false); }}>
+              <button className="fx-float-btn" type="button" aria-label="ดูร้านทั้งหมด" onClick={() => {
+                if (window.history.state?.zkScreen) {
+                  window.history.back();
+                  return;
+                }
+                setSelectedId(null);
+                setShowBasket(false);
+              }}>
                 <ArrowLeft size={21} strokeWidth={2.3} />
               </button>
               <Link href="/food/login" className="fx-btn fx-btn--outline fx-btn--sm fx-guest-login">เข้าสู่ระบบ</Link>
