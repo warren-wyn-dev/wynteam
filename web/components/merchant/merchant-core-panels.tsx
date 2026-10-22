@@ -28,6 +28,7 @@ import {
   markMerchantNotificationRead,
   replyMerchantStoreReview,
   requestStripeRefund,
+  retryStripeRefund,
   setMerchantRefundStatus,
   updateMerchantStaff,
   type MerchantActivity,
@@ -427,11 +428,14 @@ export function MerchantStoreTools({
 export function RefundControls({
   client,
   order,
+  stripeOnly = false,
   onMessage,
   onReload,
 }: {
   client: SupabaseClient;
   order: FoodOrder;
+  /** Stripe-only policy on: Stripe refunds are automatic (server job), not merchant buttons. */
+  stripeOnly?: boolean;
   onMessage: (message: string) => void;
   onReload: () => void;
 }) {
@@ -442,6 +446,49 @@ export function RefundControls({
     && (order.payment_status === "paid" || order.payment_status === "refunded" || status !== "none");
 
   if (!eligible) return null;
+
+  // Under the Stripe-only policy a Stripe payment on a cancelled order is
+  // refunded in full by the server. The store only sees the state and can
+  // ask for a retry when the automatic refund failed.
+  if (stripeOnly && order.payment_provider === "stripe") {
+    const retry = async () => {
+      setBusy(true);
+      try {
+        await retryStripeRefund(client, order.id);
+        onMessage("ส่งคืนเงินอีกครั้งแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ");
+        onReload();
+      } catch (error) {
+        onMessage(error instanceof Error ? error.message : "ลองคืนเงินอีกครั้งไม่สำเร็จ");
+      } finally {
+        setBusy(false);
+      }
+    };
+    return (
+      <section className="wm-detail-section wm-refund-box">
+        <div className="wm-refund-title">
+          <div>
+            {status === "refunded" ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />}
+            <span><strong>การคืนเงินอัตโนมัติ</strong><small>ระบบคืนเงินเต็มจำนวนให้ลูกค้าผ่าน Stripe</small></span>
+          </div>
+          <b className={`wm-refund-status is-${status}`}>
+            {status === "pending" ? "กำลังคืนเงิน" : status === "refunded" ? "คืนเงินแล้ว" : status === "failed" ? "คืนเงินไม่สำเร็จ" : "ยังไม่เริ่ม"}
+          </b>
+        </div>
+        {order.refund_requested_at ? <p>เริ่มคืนเงิน: {shortDate(order.refund_requested_at)}</p> : null}
+        {order.refunded_at ? <p>คืนเงินสำเร็จ: {shortDate(order.refunded_at)}</p> : null}
+        {status === "pending" ? <p>ระบบกำลังคืนเงินให้ลูกค้า ไม่ต้องกดคืนเงินเอง</p> : null}
+        {status === "failed" ? (
+          <>
+            <p>คืนเงินอัตโนมัติไม่สำเร็จ เช่น ยอดเงินในบัญชี Stripe ของร้านไม่พอ ตรวจสอบบัญชีแล้วลองอีกครั้ง</p>
+            <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void retry()}>
+              {busy ? "กำลังส่ง…" : "ลองคืนเงินอีกครั้ง"}
+            </button>
+          </>
+        ) : null}
+        {order.refund_note ? <p>{order.refund_note}</p> : null}
+      </section>
+    );
+  }
 
   const run = async (next: "pending" | "refunded" | "failed", success: string) => {
     setBusy(true);

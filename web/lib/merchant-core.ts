@@ -355,6 +355,19 @@ export async function requestStripeRefund(client: SupabaseClient, orderId: strin
   return String(payload.status);
 }
 
+/**
+ * Stripe-only automatic refunds: asks the server to try a failed automatic
+ * refund again. The server checks the merchant's role on the store and only
+ * requeues the refund job; the refund itself is created by the server.
+ */
+export async function retryStripeRefund(client: SupabaseClient, orderId: string) {
+  const { error } = await client.rpc("merchant_retry_stripe_refund", { p_order_id: orderId });
+  if (!error) return;
+  if (error.code === "PGRST202") throw new Error("ยังลองคืนเงินอีกครั้งไม่ได้ในตอนนี้ กรุณาติดต่อทีม WYNOS");
+  if (/[ก-๙]/.test(error.message)) throw new Error(error.message);
+  throw new Error("ลองคืนเงินอีกครั้งไม่สำเร็จ กรุณาลองใหม่ภายหลัง");
+}
+
 export async function setMerchantRefundStatus(
   client: SupabaseClient,
   orderId: string,

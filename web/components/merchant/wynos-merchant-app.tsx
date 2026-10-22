@@ -65,6 +65,7 @@ import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@
 import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
+import { fetchFoodPaymentPolicy, fetchStorePaymentOptions } from "@/lib/food-payment-policy";
 import {
   MERCHANT_NOTIFICATION_TEST_RESULT_KEY,
   fetchMerchantStripeStatus,
@@ -401,6 +402,11 @@ function MerchantInner({
   const [menuAddOpen, setMenuAddOpen] = useState(false);
   const [menuToolMode, setMenuToolMode] = useState<"options" | "categories" | null>(null);
   const [storeEditing, setStoreEditing] = useState(false);
+  const [storeEditSection, setStoreEditSection] = useState<"payment" | null>(null);
+  // ZOKY Stripe-only policy (Founder 2026-10-22). A missing RPC = legacy (off).
+  const [stripeOnly, setStripeOnly] = useState(false);
+  // Whether the server lets this store take ZOKY orders under the policy.
+  const [storeAccepting, setStoreAccepting] = useState<{ storeId: string; accepting: boolean } | null>(null);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
   const loadingRef = useRef(false);
@@ -582,6 +588,33 @@ function MerchantInner({
     setInstallPrompt(null);
   };
 
+  useEffect(() => {
+    let live = true;
+    void fetchFoodPaymentPolicy(client).then((on) => { if (live) setStripeOnly(on); });
+    return () => { live = false; };
+  }, [client]);
+  const paymentStoreId = store?.id ?? null;
+  const storeStripeReady = store?.stripe_payments_enabled === true;
+  useEffect(() => {
+    if (!stripeOnly || !paymentStoreId) return;
+    let live = true;
+    // Re-checked when the store's Stripe readiness changes (after onboarding).
+    void fetchStorePaymentOptions(client, [paymentStoreId]).then((options) => {
+      if (!live) return;
+      const option = options?.get(paymentStoreId);
+      setStoreAccepting(option ? { storeId: paymentStoreId, accepting: option.accepting_orders } : null);
+    });
+    return () => { live = false; };
+  }, [client, paymentStoreId, storeStripeReady, stripeOnly]);
+  // The server's answer when we have it; otherwise the store's own Stripe flag.
+  const paymentsNotReady = stripeOnly && Boolean(store) && (
+    storeAccepting && storeAccepting.storeId === store?.id ? !storeAccepting.accepting : !storeStripeReady
+  );
+  const openPaymentSetup = () => {
+    setStoreEditSection("payment");
+    setStoreEditing(true);
+  };
+
   const chooseStore = (storeId: string) => {
     if (!storeId || storeId === store?.id) return;
     setSelectedOrder(null);
@@ -721,9 +754,13 @@ function MerchantInner({
             onOpenTab={setTab}
             onEditStore={() => setStoreEditing(true)}
             onMessage={setMessage}
+            stripeOnly={stripeOnly}
+            paymentsNotReady={paymentsNotReady}
+            onOpenPayments={openPaymentSetup}
           />
         ) : null}
 
+        {tab === "orders" && store && paymentsNotReady ? <StripeOnlyNotReadyBanner onOpen={openPaymentSetup} /> : null}
         {tab === "orders" && store ? (
           <OrdersPanel
             orders={filteredOrders}
@@ -891,6 +928,7 @@ function MerchantInner({
           client={client}
           store={store}
           order={selectedOrder}
+          stripeOnly={stripeOnly}
           onClose={() => setSelectedOrder(null)}
           onReload={() => void load(true)}
           onMessage={setMessage}
@@ -956,8 +994,10 @@ function MerchantInner({
         <StoreEditor
           client={client}
           store={store}
-          onClose={() => setStoreEditing(false)}
-          onSaved={async () => { setStoreEditing(false); await load(true); }}
+          stripeOnly={stripeOnly}
+          initialSection={storeEditSection}
+          onClose={() => { setStoreEditing(false); setStoreEditSection(null); }}
+          onSaved={async () => { setStoreEditing(false); setStoreEditSection(null); await load(true); }}
           onMessage={setMessage}
         />
       ) : null}
@@ -986,6 +1026,20 @@ function NavButton({
   );
 }
 
+/** Stripe-only: the store cannot take ZOKY orders until Stripe is ready. */
+function StripeOnlyNotReadyBanner({ onOpen }: { onOpen: () => void }) {
+  return (
+    <div className="wm-setup-banner wm-stripe-only-banner" role="status">
+      <CircleDollarSign size={22} />
+      <span>
+        <strong>ร้านยังรับออเดอร์จาก ZOKY ไม่ได้</strong>
+        <small>ZOKY รับเงินผ่าน Stripe เท่านั้น ร้านต้องเปิดรับชำระเงินก่อนจึงจะรับออเดอร์ได้</small>
+      </span>
+      <button className="wm-primary" type="button" onClick={onOpen}>เปิดรับชำระเงิน</button>
+    </div>
+  );
+}
+
 function HomePanel({
   client,
   store,
@@ -998,6 +1052,9 @@ function HomePanel({
   onOpenTab,
   onEditStore,
   onMessage,
+  stripeOnly,
+  paymentsNotReady,
+  onOpenPayments,
 }: {
   client: SupabaseClient;
   store: FoodStore;
@@ -1010,6 +1067,9 @@ function HomePanel({
   onOpenTab: (tab: MerchantTab) => void;
   onEditStore: () => void;
   onMessage: (message: string) => void;
+  stripeOnly: boolean;
+  paymentsNotReady: boolean;
+  onOpenPayments: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
@@ -1030,7 +1090,8 @@ function HomePanel({
   const filled = (value: string | null | undefined) => Boolean(value?.trim());
   const checklist = [
     { key: "info", label: "ใส่เบอร์ ที่อยู่ เวลาเปิด และพื้นที่ส่ง", done: filled(store.phone) && filled(store.address) && filled(store.business_hours) && filled(store.delivery_area), action: "แก้ไขร้าน", onGo: onEditStore },
-    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: store.stripe_payments_enabled === true || (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
+    // Stripe-only: only a ready Stripe account counts as a payment channel.
+    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: stripeOnly ? store.stripe_payments_enabled === true : store.stripe_payments_enabled === true || (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: stripeOnly ? onOpenPayments : onEditStore },
     { key: "menu", label: "เปิดขายเมนูอย่างน้อย 1 รายการ", done: availableMenu > 0, action: "ไปที่เมนู", onGo: () => onOpenTab("menu") },
     { key: "publish", label: "เผยแพร่ร้านบน WYNOS Food", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
   ];
@@ -1078,6 +1139,7 @@ function HomePanel({
           <span><strong>ร้านถูกระงับโดยทีม WYNOS</strong><small>{store.admin_suspended_reason ? `เหตุผล: ${store.admin_suspended_reason}` : "ติดต่อทีม WYNOS เพื่อขอยกเลิกการระงับ"}</small></span>
         </div>
       ) : null}
+      {paymentsNotReady && !store.admin_suspended_at ? <StripeOnlyNotReadyBanner onOpen={onOpenPayments} /> : null}
 
       <nav className="wm-shortcuts" aria-label="ทางลัด">
         <button type="button" onClick={() => onOpenTab("finance")}><MerchantIcon3D name="finance" size={52} />การเงิน</button>
@@ -1897,10 +1959,19 @@ function Sheet({
   );
 }
 
+/** Cancel confirmation; under the Stripe-only policy it says how the money goes back. */
+function cancelConfirmText(order: FoodOrder, stripeOnly: boolean) {
+  if (!stripeOnly || order.payment_status !== "paid") return "ยืนยันยกเลิกออเดอร์นี้?";
+  return order.payment_provider === "stripe"
+    ? "ยืนยันยกเลิกออเดอร์นี้?\nลูกค้าชำระผ่าน Stripe แล้ว ระบบจะคืนเงินเต็มจำนวนให้ลูกค้าอัตโนมัติ"
+    : "ยืนยันยกเลิกออเดอร์นี้?\nออเดอร์นี้ไม่ได้ชำระผ่าน Stripe ร้านต้องโอนเงินคืนลูกค้าเองแล้วบันทึกในส่วนการคืนเงิน";
+}
+
 function OrderSheet({
   client,
   store,
   order,
+  stripeOnly,
   onClose,
   onReload,
   onMessage,
@@ -1908,10 +1979,16 @@ function OrderSheet({
   client: SupabaseClient;
   store: FoodStore;
   order: FoodOrder;
+  /** ZOKY Stripe-only policy (Founder 2026-10-22). */
+  stripeOnly: boolean;
   onClose: () => void;
   onReload: () => void;
   onMessage: (message: string) => void;
 }) {
+  // Under the policy customer orders are paid through Stripe only, so the
+  // store cannot mark them paid by hand. Exceptions: slips submitted before
+  // the cut-over (legacy) and store-entered orders (D7). The server enforces this.
+  const manualPaymentAllowed = !stripeOnly || order.source !== "app" || order.payment_status === "submitted";
   const [busy, setBusy] = useState(false);
   const [eta, setEta] = useState(order.eta_minutes ?? 30);
   // The signed slip URL for a given slip path; null url = it failed to load.
@@ -2093,8 +2170,10 @@ function OrderSheet({
               ) : null}
             </>
           ) : null}
-          {order.payment_status === "pending" ? <p>รอลูกค้าโอนเงิน ถ้าได้รับเงินช่องทางอื่นแล้ว กด “ทำเครื่องหมายว่าชำระแล้ว” ด้านล่าง</p> : null}
-          {order.payment_status === "issue" ? <p>แจ้งลูกค้าแล้วว่าสลิปมีปัญหา รอลูกค้าส่งสลิปใหม่</p> : null}
+          {!manualPaymentAllowed && order.payment_status === "pending" ? <p>รอลูกค้าชำระผ่าน Stripe · ระบบยืนยันการชำระเงินให้อัตโนมัติ</p> : null}
+          {!manualPaymentAllowed && order.payment_status === "issue" ? <p>การชำระเงินยังไม่สำเร็จ · รอลูกค้าชำระใหม่ผ่าน Stripe</p> : null}
+          {manualPaymentAllowed && order.payment_status === "pending" ? <p>รอลูกค้าโอนเงิน ถ้าได้รับเงินช่องทางอื่นแล้ว กด “ทำเครื่องหมายว่าชำระแล้ว” ด้านล่าง</p> : null}
+          {manualPaymentAllowed && order.payment_status === "issue" ? <p>แจ้งลูกค้าแล้วว่าสลิปมีปัญหา รอลูกค้าส่งสลิปใหม่</p> : null}
           {order.payment_status === "submitted" || order.payment_status === "paid" ? (
             <>
               <label>เวลาทำโดยประมาณ<select value={eta} onChange={(e) => setEta(Number(e.target.value))}><option value={15}>15 นาที</option><option value={30}>30 นาที</option><option value={45}>45 นาที</option><option value={60}>60 นาที</option></select></label>
@@ -2172,7 +2251,7 @@ function OrderSheet({
           {order.payment_verification_status === "manual_verified" ? <p>ร้านยืนยันการชำระเงินแล้ว</p> : null}
           {order.payment_verification_status === "rejected" && order.payment_verification_note ? <p>{order.payment_verification_note}</p> : null}
           {order.status === "pending_acceptance" ? (
-            order.payment_status === "pending" ? (
+            manualPaymentAllowed && order.payment_status === "pending" ? (
               <button className="wm-secondary wm-full" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "บันทึกว่าชำระแล้ว")}>ทำเครื่องหมายว่าชำระแล้ว</button>
             ) : null
           ) : order.payment_status === "submitted" ? (
@@ -2180,7 +2259,7 @@ function OrderSheet({
               <button className="wm-primary" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "ยืนยันเงินเข้าแล้ว")}>ยืนยันเงินเข้า</button>
               <button className="wm-secondary" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "issue", "กรุณาตรวจสอบหรือส่งสลิปใหม่"))}>มีปัญหา</button>
             </div>
-          ) : order.payment_status === "pending" ? (
+          ) : manualPaymentAllowed && order.payment_status === "pending" ? (
             <button className="wm-secondary wm-full" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "บันทึกว่าชำระแล้ว")}>ทำเครื่องหมายว่าชำระแล้ว</button>
           ) : null}
         </div>
@@ -2189,6 +2268,7 @@ function OrderSheet({
       <RefundControls
         client={client}
         order={order}
+        stripeOnly={stripeOnly}
         onMessage={onMessage}
         onReload={onReload}
       />
@@ -2217,7 +2297,7 @@ function OrderSheet({
 
       {!["delivered", "cancelled"].includes(order.status) ? (
         <button className="wm-danger-link" disabled={locked} type="button" onClick={() => {
-          if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
+          if (!window.confirm(cancelConfirmText(order, stripeOnly))) return;
           void run(() => transitionFoodOrder(client, order.id, "cancelled"), "ยกเลิกออเดอร์แล้ว");
         }}>ยกเลิกออเดอร์</button>
       ) : null}
@@ -2633,16 +2713,29 @@ function MenuEditor({
 function StoreEditor({
   client,
   store,
+  stripeOnly,
+  initialSection,
   onClose,
   onSaved,
   onMessage,
 }: {
   client: SupabaseClient;
   store: FoodStore;
+  /** Stripe-only: no PromptPay/bank/QR receiving details for customers. */
+  stripeOnly: boolean;
+  /** Opened from "เปิดรับชำระเงิน": start at the payment section. */
+  initialSection: "payment" | null;
   onClose: () => void;
   onSaved: () => Promise<void>;
   onMessage: (message: string) => void;
 }) {
+  useEffect(() => {
+    if (initialSection !== "payment") return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("wm-store-section-payment")?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialSection]);
   const [form, setForm] = useState({
     name: store.name,
     description: store.description ?? "",
@@ -3053,6 +3146,7 @@ function StoreEditor({
               onReady={onSaved}
             />
 
+            {stripeOnly ? null : (
             <details className="wm-payment-fallback">
               <summary>ช่องทางโอนเงินสำรอง</summary>
               <small>ใช้เฉพาะกรณีที่ร้านต้องการรับโอนและตรวจสลิปเอง</small>
@@ -3062,6 +3156,7 @@ function StoreEditor({
               <label>เลขบัญชี<input value={form.bank_account_number} onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })} inputMode="numeric" /></label>
               <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setQrFile(e.target.files?.[0] ?? null)} /><Upload size={20} /><span>{qrFile ? qrFile.name : "อัปโหลด QR รับเงิน"}</span></label>
             </details>
+            )}
 
             <div className="wm-tax-settings">
               <label className="wm-check-row"><input type="checkbox" checked={form.tax_invoice_enabled} onChange={(e) => setForm({ ...form, tax_invoice_enabled: e.target.checked })} /><span><strong>แสดงข้อมูลภาษีในใบเสร็จ</strong><small>ใช้สำหรับเอกสารที่พิมพ์จาก WYNOS Merchant</small></span></label>
