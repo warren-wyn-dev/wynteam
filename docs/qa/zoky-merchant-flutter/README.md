@@ -12,6 +12,8 @@ Independent contract/security review exercised 16 bridge cases and 19 Flutter ca
 
 `python tools/check_wynos_release_freeze.py`: **PASS**, coordinated freeze preserved. Staged secret-pattern scan and `git diff --check`: **PASS**.
 
+The dedicated `tests/merchant-browser` suite runs through `playwright.merchant-flutter.config.ts` after compilation; the general Next.js browser suite does not require a Flutter artifact.
+
 ## Browser evidence
 
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/path/to/chromium npm run qa:merchant-flutter`: **8/8 passed** on Chromium mobile (Pixel 5) and desktop. Tests cover signed-out recovery, existing shared-session embedding, token-free bridge, view disposal, bundle failure recovery, and actual compiled Flutter rendering from slip review through payment confirmation, acceptance, preparation, dispatch and mandatory-photo completion. Missing evidence is rejected. The photo/payment/backend responses are synthetic fixtures; no real payment, account, customer data or database is used.

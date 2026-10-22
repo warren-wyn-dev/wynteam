@@ -24,4 +24,4 @@ Do not dispatch the general main production workflow while its final acceptance 
 
 ## Status
 
-Implementation and local verification complete: `npm run check` passed (343 Node tests, 19 Flutter tests, analysis, lint/typecheck and production build), focused Chromium mobile/desktop browser QA passed 8/8 with synthetic fixtures, and release-freeze validation passed. Evidence and hosted-verification limitations: `docs/qa/zoky-merchant-flutter/README.md`. Production remains blocked by staging/release gates; no deployment or root cutover has occurred. PR reference will follow branch publication.
+Implementation and local verification complete: `npm run check` passed (343 Node tests, 19 Flutter tests, analysis, lint/typecheck and production build), focused Chromium mobile/desktop browser QA passed 8/8 with synthetic fixtures, and release-freeze validation passed. Evidence and hosted-verification limitations: `docs/qa/zoky-merchant-flutter/README.md`. Production remains blocked by staging/release gates; no deployment or root cutover has occurred. Review PR: https://github.com/warren-wyn-dev/wynteam/pull/1229.
