@@ -37,6 +37,9 @@ on:
           - merchant-stripe-connect
           - merchant-stripe-refund
           - stripe-webhook
+          # ZOKY Stripe jobs worker (Founder approval 2026-10-22, release path B).
+          # Cron-called with a Vault key; verify_jwt = false in supabase/config.toml.
+          - food-stripe-refund-worker
           # ZOKY-135 (Founder approval 2026-10-18). Deploying it is blocked by
           # the "wynos-maps-geocode verify_jwt is pinned" step until
           # supabase/config.toml has a [functions.wynos-maps-geocode] section
