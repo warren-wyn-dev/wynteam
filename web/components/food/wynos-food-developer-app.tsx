@@ -3344,7 +3344,14 @@ function FoodCustomerInner({
   }, [discoveryOpen, loadDirectory]);
 
   useEffect(() => {
-    const onPop = () => setHomeView(new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home");
+    // ZOKY-140: an entry pushed when leaving Food (below) records its screen;
+    // any other entry is discovery, so back from cart/store/account lands on Food.
+    const onPop = () => {
+      const screen = window.history.state?.zkScreen as FoodTab | "store" | undefined;
+      setHomeView(new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home");
+      setTab(screen && screen !== "store" ? screen : "home");
+      setStorefrontOpen(screen === "store");
+    };
     const up = () => setOnline(true);
     const down = () => setOnline(false);
     window.addEventListener("popstate", onPop);
@@ -3616,7 +3623,26 @@ function FoodCustomerInner({
     if (mode === "push") window.history.pushState(state, "", next);
     else window.history.replaceState(state, "", next);
   };
+  // ZOKY-140: leaving Food for a store or another tab pushes an entry without
+  // ?view=food, so back returns to Food and a reload does not land on it.
+  // Later moves keep that entry's screen current (none once back on Home).
+  useEffect(() => {
+    const screen = tab === "home" ? (storefrontOpen ? "store" : null) : tab;
+    const url = new URL(window.location.href);
+    if (window.history.state?.zkScreen) {
+      if (window.history.state.zkScreen !== screen) window.history.replaceState(screen ? { zkScreen: screen } : null, "", url.href);
+      return;
+    }
+    if (!screen || url.searchParams.get("view") !== "food") return;
+    url.searchParams.delete("view");
+    window.history.pushState({ zkScreen: screen }, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [tab, storefrontOpen]);
   const openDirectory = () => {
+    if (window.history.state?.zkScreen) {
+      window.history.back();
+      window.scrollTo({ top: 0 });
+      return;
+    }
     setTab("home");
     setStorefrontOpen(false);
     if (homeView !== "food" && new URLSearchParams(window.location.search).get("view") !== "food") writeViewUrl("food", "push");
@@ -3703,6 +3729,10 @@ function FoodCustomerInner({
             onItem={setSelectedItem}
             onShareStore={shareStore}
             onBackStorefront={() => {
+              if (window.history.state?.zkScreen) {
+                window.history.back();
+                return;
+              }
               setStorefrontOpen(false);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}

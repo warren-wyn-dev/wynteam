@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-140
 
-Status: bugs
+Status: fixed — waiting QA re-test
 Severity: MEDIUM (navigation/UX regression introduced by the new `?view=food` history entry; no data loss, no security impact)
 Owner: AI Debug Engineer
 Found by: AI QA & Security, branch `feat/zoky-web-app-design` @ cc823142, 2026-10-19
@@ -31,8 +31,18 @@ came from Food — for example, when leaving Food for a tab or storefront, push 
 in state) so that back closes that screen. Alternatively, drop `view` with `replaceState` when leaving the home tab so
 a reload does not land on Food. Do not touch `?store=` / `?order=` handling.
 
-Files Changed: (to be filled by Debug Engineer)
-Tests: add a browser regression: Food → cart → back = Food; Food → store → back = Food; Food → account → reload ≠ Food;
+Fix (done 2026-10-22): leaving Food for a store or another tab pushes one history entry without `?view=food`
+(state `zkScreen`); later moves only replace that entry's screen, and going back to Home clears it. `popstate`
+restores tab + storefront from the entry (no `zkScreen` = discovery), so back from cart/store/account returns to Food,
+and a reload there does not land on Food. In-app back from the storefront and `openDirectory` use `history.back()` on such
+an entry, so entries do not stack. `?store=` / `?order=` handling untouched.
+Files Changed: `web/components/food/wynos-food-developer-app.tsx`, `web/tests/browser/wynos-food-developer-preview.spec.ts`
+Verification (2026-10-22, local production build, mocked Supabase `sb-mock.test`, synthetic data, other hosts aborted,
+Chromium 1194 390x844): 16/16 scenario checks pass — Food→cart→back = Food (forward = cart), Food→store→back = Food
+(twice, then back = Home on site), Food→store→cart→back = Food, storefront in-app back = Food without stacking,
+Food→account→reload ≠ Food, deep link `?view=food` + in-app back = Home on site. lint 0 errors, typecheck pass,
+unit 348/348, Playwright food + merchant 68/68. Not tested: WebKit/real iPad swipe (no WebKit in sandbox).
+Tests (requested): add a browser regression: Food → cart → back = Food; Food → store → back = Food; Food → account → reload ≠ Food;
 existing back/forward/reload/deep-link checks for `?view=food` must still pass.
 Regression Risk: medium — history handling is shared by shared links (`?store=`, `?order=`), pull-to-refresh and nav.
 Handoff to QA: rerun ZOKY web Home/Food history matrix (390/430/820).

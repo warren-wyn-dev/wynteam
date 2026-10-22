@@ -656,6 +656,11 @@ test("ZOKY web Home + Food follow the app design with real data only (2026-10-19
   expect(app).toContain('url.searchParams.set("view", "food")');
   expect(app).toContain('window.history.state?.zkView === "food"');
   expect(guest).toContain('url.searchParams.set("view", "food")');
+  // ZOKY-140: leaving Food for a store or tab pushes an entry without ?view=food,
+  // and popstate restores that screen, so back returns to Food and reload does not.
+  expect(app).toContain('window.history.pushState({ zkScreen: screen }, "", `${url.pathname}${url.search}${url.hash}`);');
+  expect(app).toContain('setTab(screen && screen !== "store" ? screen : "home");');
+  expect(app).toContain('setStorefrontOpen(screen === "store");');
   // Founder 2026-10-19: deals, category circles and pickup stay hidden; "ร้านอาหารแนะนำ" = real popular stores.
   for (const source of [app, guest, ui]) {
     expect(source).not.toContain("ดีลเด็ดวันนี้");
