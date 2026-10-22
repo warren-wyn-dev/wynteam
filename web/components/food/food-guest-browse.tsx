@@ -117,6 +117,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
       setView(new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home");
       setSelectedId(state?.zkScreen ? state.zkStore ?? null : null);
       setShowBasket(state?.zkScreen === "basket");
+      setSelectedItem(null);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -476,7 +477,11 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
         <div className="fx-sheet-backdrop is-page" role="presentation">
           <section className="fx-sheet is-page" role="dialog" aria-modal="true" aria-label="ตะกร้าอาหาร">
             <header className="fx-sheet-head">
-              <button className="fx-icon-btn" type="button" aria-label="ย้อนกลับ" onClick={() => setShowBasket(false)}><ArrowLeft size={22} strokeWidth={2.1} /></button>
+              <button className="fx-icon-btn" type="button" aria-label="ย้อนกลับ" onClick={() => {
+                // ZOKY-144: a basket opened from the Food list has its own entry.
+                if (window.history.state?.zkScreen === "basket" && !selectedId) window.history.back();
+                else setShowBasket(false);
+              }}><ArrowLeft size={22} strokeWidth={2.1} /></button>
               <h2>ตะกร้าอาหาร</h2>
               <span />
             </header>

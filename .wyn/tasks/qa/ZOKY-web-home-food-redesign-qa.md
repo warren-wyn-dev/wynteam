@@ -114,3 +114,43 @@ ZOKY-140 did. Handoff: AI Debug Engineer (fix ZOKY-143), then QA re-runs the gue
   real taps, so they are not counted as bugs. Original scenario script: 16/16. Unit tests: 348/348.
   Playwright food + merchant: 68/68. Lint and typecheck pass.
 - Waiting on the QA re-test of the guest + signed-in history matrix.
+
+## Re-test 2 (ZOKY-143) 2026-10-22
+
+Environment: `feat/zoky-web-app-design` @ f4ac83ab, production build on :3100 (fake env `sb-mock.test`), Supabase mocked
+in Playwright with synthetic data only, all other hosts aborted (0 seen), Chromium 1194, 390x844 / 430x932 / 820x1180.
+QA wrote its own guest script (`qa143-guest.mjs`, 53 checks per viewport); the developer-added I7–I13 were not relied on.
+
+Guest results (same at all 3 viewports):
+- PASS: Food → store → basket → back = Food → Home → off site (store entry replaced, no stacking).
+- PASS: store → basket → in-app close = store → back = Food → forward = store.
+- PASS: back/forward chains; back then a different store discards the old forward entry; in-app back = Food → Home → off site.
+- PASS: switch store with non-empty basket: dismiss = stay on Food, no entry, basket kept; accept = store 2, basket cleared, back = Food → Home.
+- PASS: `?store=` without view (opens store, in-app back = list, browser back leaves site); `?view=food&store=` (back/in-app back = Food);
+  invalid / unknown store id = Home / Food, no crash.
+- PASS: reload on store/basket entry = Home (basket kept) → back = Food; reload on Food = Food.
+- PASS: login link from store → `/food/login` → back = store → back = Food.
+- PASS: browser double/triple back from store/basket. Playwright `dblclick` on in-app back = Home (same informational class as B2–B4).
+- FAIL (new): ZOKY-144 MEDIUM — basket opened from the Food list, closed with in-app "ย้อนกลับ": list shown with URL `/food`,
+  back = list again, reload = Home. Introduced by f4ac83ab. Signed-in equivalent checked: not affected.
+- FAIL (LOW, pre-existing class): item sheet stays open after browser back (guest: now over the Food list, blocks taps,
+  "เพิ่มลงตะกร้า" silently does nothing; signed-in: sheet also stays). No cross-store basket line was produced. Follow-up candidate, not a blocker.
+- Info: `?store=` in-app back shows the list while the URL keeps `?store=` and lacks `?view=food` (unchanged, pre-existing).
+  Guest → `/food/login` logs a React `removeChild` pageerror also from the Home login pill (not caused by this diff).
+
+Signed-in regression (ZOKY-140 matrix A–H, 3 viewports): 174/183, the 9 failures are the known B2–B4 `dblclick` probes
+(informational). No regression.
+
+Security: diff only touches client history state; `zkStore` from history.state is only compared to catalog ids
+(never used as URL/HTML); no new requests, no auth change, no secrets. Not tested: WebKit/real iOS swipe-back, real devices.
+
+ZOKY-140: PASS. ZOKY-143 (store/back scenario as reported): fixed, but its fix introduced ZOKY-144.
+Final Status: FAIL — ZOKY-144 MEDIUM. Handoff: AI Debug Engineer (`.wyn/tasks/bugs/ZOKY-144-guest-basket-from-food-list-close-desync.md`).
+
+### Developer verification of the ZOKY-144 fix (2026-10-22, not a QA sign-off)
+- Fix: the guest basket's "ย้อนกลับ" goes back when the basket was opened from the list. `popstate` now closes the
+  item sheet, for both guests and signed-in users.
+- QA guest script `qa143-guest.mjs`: 156/156 passed at 390/430/820, including G9a/G9b (the stale item sheet) and
+  the ZOKY-144 basket checks.
+- Signed-in A–H: 174/183 passed. The 9 failures are the B2–B4 `dblclick` probes, which are informational.
+- Original script: 16/16. Unit tests: 348/348. Playwright food + merchant: 68/68. Lint: 0 errors.

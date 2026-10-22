@@ -3351,6 +3351,7 @@ function FoodCustomerInner({
       setHomeView(new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home");
       setTab(screen && screen !== "store" ? screen : "home");
       setStorefrontOpen(screen === "store");
+      setSelectedItem(null);
     };
     const up = () => setOnline(true);
     const down = () => setOnline(false);
