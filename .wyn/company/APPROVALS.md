@@ -726,3 +726,4 @@ Follow-up: give the maps health check in the exception workflow a longer warm-up
 - QA Re-test 5 **PASS**. CTO **APPROVE WITH CONDITIONS** (new SHA, staging, Founder production approval)
 - `release/zoky-web-20261018` fast-forwarded `8e6aa209` → `82f613d627c8bf63b5f6decb9426be0c977e0048`. This SHA replaces 8e6aa209 for staging and PHASE1
 - Next: staging via `web-next-phase5-preview.yml` with `zoky_release_sha=82f613d6…`, then the Founder's explicit production approval
+- [2026-10-22] Founder staging review of `82f613d6` (run 39807414871, 1008 passed): "ตรงขึ้นที่อยู่อีกทำไม" → the guest header's repeated store description was removed and long names now wrap. The release branch was fast-forwarded to `e6f577dcccb86b51c68d91e754b19fe4cfa27222`, which replaces 82f613d6 for staging and PHASE1. Developer re-run of the QA suites passed (see the QA doc).
