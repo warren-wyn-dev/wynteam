@@ -2466,3 +2466,7 @@ Founder ดูภาพตัวอย่าง (`.wyn/previews/zoky-web-design/
     - D7: merchant-entered orders stay outside Stripe.
     - D8: ad top-up slips are not included.
   - D2 (refund fee) and D5 (refund larger than the store's Stripe balance) are deferred until the Stripe questions are answered.
+- Founder, 2026-10-22:
+  - **Stripe processing fees are paid by the store**, which keeps the current direct-charge setup.
+  - GP is set per store by the Founder in ZOKY Admin, using the existing `merchant_gp_rates` (per store, plus a default).
+  - "Other fees" such as transfer/payout fees are TBD after checking with Stripe.
