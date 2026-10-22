@@ -621,7 +621,8 @@ test("WYNOS Food item sheet matches the approved native ordering layout", () => 
 
   expect(app).toContain('className="fx-float-btn fx-item-close"');
   expect(app).toContain('className="fx-item-scroll"');
-  expect(app).toContain('storeStatus={foodStoreStatusText(store)}');
+  // Stripe-only: a store that is not ready reads "ร้านนี้ยังไม่เปิดรับออเดอร์" (policy off: unchanged).
+  expect(app).toContain('storeStatus={storeNotAccepting ? FOOD_STORE_NOT_ACCEPTING_COPY : foodStoreStatusText(store)}');
   expect(app).toContain('maxLength={200}');
   expect(app).not.toContain('ร้านอาจไม่สามารถทำตามคำขอได้ทุกกรณี');
   expect(app).toContain('disabled={orderingDisabled}');
