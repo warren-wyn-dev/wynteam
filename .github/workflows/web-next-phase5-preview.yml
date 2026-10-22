@@ -1,4 +1,6 @@
 name: Web Staging (Vercel Preview per PR)
+# Shows the staged ZOKY release SHA on the run (and its environment review).
+run-name: ${{ inputs.zoky_release_sha != '' && format('Web staging ZOKY release {0}', inputs.zoky_release_sha) || github.event.pull_request.title || 'Web Staging (Vercel Preview per PR)' }}
 
 # Staging for WYNOS Web (Founder decision 2026-09-26, .wyn/company/APPROVALS.md):
 # Automatic PR preview deployment is paused. A protected preview can still be started manually,
