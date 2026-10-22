@@ -15,7 +15,12 @@ on:
     paths:
       - '.github/workflows/web-next-phase5-preview.yml'
       - 'web/**'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      zoky_release_sha:
+        description: "Optional: full SHA of the release/zoky-web-20261018 tip to stage (ZOKY exception release staging). Empty = this ref."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -39,6 +44,22 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.zoky_release_sha != '' && 'release/zoky-web-20261018' || github.sha }}
+          persist-credentials: false
+
+      # ZOKY exception release staging: only the current tip of the ZOKY
+      # release branch may be staged this way (Founder decision 2026-10-22).
+      - name: ZOKY release SHA is the release branch tip
+        if: inputs.zoky_release_sha != ''
+        working-directory: .
+        env:
+          ZOKY_RELEASE_SHA: ${{ inputs.zoky_release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$ZOKY_RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::zoky_release_sha must be a full 40-char SHA"; exit 1; }
+          tip=$(git rev-parse HEAD)
+          [ "$tip" = "$ZOKY_RELEASE_SHA" ] || { echo "::error::$ZOKY_RELEASE_SHA is not the tip of release/zoky-web-20261018 ($tip)"; exit 1; }
 
       - uses: actions/setup-node@v4
         with:
@@ -83,6 +104,7 @@ jobs:
             --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             --env VERCEL_PREVIEW_FEEDBACK_ENABLED=0 \
+            --env ZOKY_LEGACY_FOOD_REDIRECT=0 \
             | tail -n 1)
 
           test -n "$url"
