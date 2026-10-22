@@ -2453,3 +2453,16 @@ Founder ดูภาพตัวอย่าง (`.wyn/previews/zoky-web-design/
 - Founder also wants simple merchant signup and daily payouts after GP deduction. That is not decided yet: settlement model A (Stripe Connect, recommended) vs B (platform-held funds) is open as D12.
 - Plan: `.wyn/docs/product/zoky-promptpay-auto-refund-prd.md` (PM draft). Open decisions: D2–D12. Implementation, DB migration and production each need separate Founder approval.
 - Found while analysing (needs verification and a fix in P0): cancelling an unpaid order does not expire its Stripe Checkout session, so a customer could still pay a cancelled order.
+- Founder answers (AskUserQuestion, 2026-10-22):
+  - D12 settlement: **Model A** (merchant's own Stripe Connect account; GP as an application fee; daily payouts).
+  - Step 1 (close the cancelled-but-payable gap + automatic refunds): **start now**.
+  - D11 slip cut-off notice: **immediate** (stores without a ready Stripe account stop taking orders at cut-over).
+  - D3–D10: **use the team's recommendations**:
+    - D9: store with Stripe but no PromptPay takes cards only.
+    - D10: a store that isn't ready shows "ยังไม่เปิดรับ".
+    - D3: customers cannot cancel after paying.
+    - D6: a store cancellation means a full refund.
+    - D4: no partial refunds yet.
+    - D7: merchant-entered orders stay outside Stripe.
+    - D8: ad top-up slips are not included.
+  - D2 (refund fee) and D5 (refund larger than the store's Stripe balance) are deferred until the Stripe questions are answered.
