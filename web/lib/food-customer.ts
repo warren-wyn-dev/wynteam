@@ -4,8 +4,27 @@ import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { sessionErrorCopy } from "@/lib/supabase/clock-skew-fetch";
+import {
+  FOOD_PROMPTPAY_UNAVAILABLE_COPY,
+  FOOD_STORE_NOT_ACCEPTING_COPY,
+  foodEdgePayload,
+  foodStripeCheckoutErrorCopy,
+  type FoodCheckoutMethod,
+  type FoodRefundStatus,
+} from "@/lib/food-payment-policy";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
+export {
+  cancelFoodStripeCheckout,
+  FOOD_CANCEL_ALREADY_PAID_COPY,
+  FOOD_STORE_NOT_ACCEPTING_COPY,
+  FOOD_STORE_NOT_ACCEPTING_TAG,
+  fetchFoodPaymentPolicy,
+  fetchStorePaymentOptions,
+  foodRefundNotice,
+  foodStoreNotAccepting,
+} from "@/lib/food-payment-policy";
+export type { FoodCheckoutMethod, FoodStorePaymentOption } from "@/lib/food-payment-policy";
 
 export type FoodCustomerStore = {
   id: string;
@@ -140,6 +159,8 @@ export type FoodCustomerOrder = {
   stripe_checkout_session_id?: string | null;
   stripe_payment_intent_id?: string | null;
   stripe_refund_id?: string | null;
+  /** none | pending | refunded | failed (merchant core); refunds run server-side. */
+  refund_status?: FoodRefundStatus | null;
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
@@ -747,18 +768,19 @@ export type FoodPaymentVerificationResult = {
   code?: string | null;
 };
 
-export async function startFoodStripeCheckout(client: SupabaseClient, orderId: string) {
+/**
+ * Opens Stripe Checkout for an order. `method` limits the session to
+ * PromptPay or card (Stripe-only UI); without it the store's Stripe
+ * payment-method configuration decides, as before. The server checks the
+ * order, the amount and whether the store's account supports the method.
+ */
+export async function startFoodStripeCheckout(client: SupabaseClient, orderId: string, method?: FoodCheckoutMethod) {
   const { data, error } = await client.functions.invoke("food-stripe-checkout", {
-    body: { orderId },
+    body: method ? { orderId, method } : { orderId },
   });
-  if (error) throw new Error(error.message);
-  const payload = data as { url?: unknown; error?: unknown; message?: unknown } | null;
-  if (!payload || typeof payload.url !== "string") {
-    const code = typeof payload?.error === "string" ? payload.error : "";
-    if (code === "stripe_not_ready") throw new Error("ร้านยังไม่พร้อมรับชำระผ่าน Stripe");
-    if (code === "stripe_not_configured") throw new Error("Stripe ยังไม่ได้เปิดใช้งานบน ZOKY");
-    if (code === "order_not_payable") throw new Error("ออเดอร์นี้ไม่อยู่ในสถานะที่ชำระผ่าน Stripe ได้");
-    throw new Error(typeof payload?.message === "string" ? payload.message : "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ");
+  const payload = await foodEdgePayload(error, data);
+  if (error || !payload || typeof payload.url !== "string") {
+    throw new Error(foodStripeCheckoutErrorCopy(payload));
   }
   return payload.url;
 }
@@ -1007,6 +1029,8 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   const message = error instanceof Error ? error.message : String(error ?? "");
   const sessionCopy = sessionErrorCopy(message);
   if (sessionCopy) return sessionCopy;
+  if (message.includes("store_not_accepting_orders")) return FOOD_STORE_NOT_ACCEPTING_COPY;
+  if (message.includes("promptpay_unavailable")) return FOOD_PROMPTPAY_UNAVAILABLE_COPY;
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
   if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";

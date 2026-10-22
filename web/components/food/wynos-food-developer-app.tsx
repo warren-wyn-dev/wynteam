@@ -24,6 +24,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  QrCode,
   ReceiptText,
   RefreshCw,
   Search,
@@ -44,7 +45,7 @@ import {
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodGuestBrowse, readGuestFoodBasket, clearGuestFoodBasket } from "@/components/food/food-guest-browse";
@@ -92,7 +93,17 @@ import {
 } from "@/lib/food-store-availability";
 import {
   cancelFoodCustomerOrder,
+  cancelFoodStripeCheckout,
   createFoodCustomerOrder,
+  FOOD_CANCEL_ALREADY_PAID_COPY,
+  FOOD_STORE_NOT_ACCEPTING_COPY,
+  FOOD_STORE_NOT_ACCEPTING_TAG,
+  fetchFoodPaymentPolicy,
+  fetchStorePaymentOptions,
+  foodRefundNotice,
+  foodStoreNotAccepting,
+  type FoodCheckoutMethod,
+  type FoodStorePaymentOption,
   deleteFoodCustomerAddress,
   fetchFoodCustomerSnapshot,
   fetchFoodCustomerOrdersPage,
@@ -257,6 +268,41 @@ function formatDate(value: string) {
 
 function itemFor(menu: FoodCustomerMenuItem[], id: string) {
   return menu.find((item) => item.id === id) ?? null;
+}
+
+/**
+ * Stripe-only payments (Founder 2026-10-22). `stripeOnly` comes from
+ * food_payment_policy_public(); `ready` is false until it has answered.
+ * `options` holds food_store_payment_options() rows fetched on demand.
+ * Missing RPCs = legacy behaviour (stripeOnly false, every store accepting).
+ * The server enforces all of it again; this only drives what is shown.
+ */
+type FoodPaymentGateState = {
+  ready: boolean;
+  stripeOnly: boolean;
+  options: ReadonlyMap<string, FoodStorePaymentOption>;
+  request: (storeIds: readonly string[]) => void;
+};
+
+const FoodPaymentGateContext = createContext<FoodPaymentGateState>({
+  ready: true,
+  stripeOnly: false,
+  options: new Map(),
+  request: () => undefined,
+});
+
+/** Loads payment options for these stores (only under the policy) and says which cannot take orders. */
+function useFoodPaymentGate(storeIds: ReadonlyArray<string | null | undefined>) {
+  const { ready, stripeOnly, options, request } = useContext(FoodPaymentGateContext);
+  const key = stripeOnly ? storeIds.filter(Boolean).join(",") : "";
+  useEffect(() => {
+    if (key) request(key.split(","));
+  }, [key, request]);
+  const notAccepting = useCallback(
+    (storeId: string | null | undefined) => foodStoreNotAccepting(stripeOnly, options, storeId),
+    [options, stripeOnly],
+  );
+  return { ready, stripeOnly, options, notAccepting };
 }
 
 function FoodLoading() {
@@ -473,6 +519,7 @@ function FoodStoreRow({
   const promo = foodPromoLabel(store);
   const distanceLabel = foodDistanceLabel(distance);
   const category = Array.isArray(store.categories) && store.categories[0] ? store.categories[0] : "อาหาร";
+  const notAccepting = useFoodPaymentGate([store.id]).notAccepting(store.id);
   const spoken = [
     store.name,
     category,
@@ -480,14 +527,14 @@ function FoodStoreRow({
     eta ? `ส่งประมาณ ${eta}` : "",
     distanceLabel ? `ระยะ ${distanceLabel}` : "",
     `ค่าส่ง ${Number(store.delivery_fee ?? 0)} บาท`,
-    store.is_open ? "" : "ร้านปิดอยู่",
+    !store.is_open ? "ร้านปิดอยู่" : notAccepting ? FOOD_STORE_NOT_ACCEPTING_COPY : "",
     promo ? `โปรโมชัน ${promo}` : "",
     store.is_ad ? "โฆษณา" : "",
     "ดูเมนู",
   ].filter(Boolean).join(", ");
   return (
     <li>
-      <button className={`zk-store-row${store.is_open ? "" : " is-closed"}`} type="button" onClick={onPick} aria-label={spoken}>
+      <button className={`zk-store-row${store.is_open && !notAccepting ? "" : " is-closed"}`} type="button" onClick={onPick} aria-label={spoken}>
         <span className="zk-store-row-photo"><FoodStoreCover client={client} store={store} iconSize={30} /></span>
         <span className="zk-store-row-body">
           <strong className="zk-store-row-name">{store.name}</strong>
@@ -498,9 +545,10 @@ function FoodStoreRow({
             {distanceLabel ? <span>{distanceLabel}</span> : null}
             <span>ค่าส่ง {foodMoney(store.delivery_fee)}</span>
           </span>
-          {!store.is_open || promo || store.is_ad ? (
+          {!store.is_open || notAccepting || promo || store.is_ad ? (
             <span className="zk-store-row-tags">
               {!store.is_open ? <b className="zk-tag is-closed"><Clock3 size={13} strokeWidth={2.4} />ปิดอยู่</b> : null}
+              {store.is_open && notAccepting ? <b className="zk-tag is-closed">{FOOD_STORE_NOT_ACCEPTING_TAG}</b> : null}
               {promo ? <b className="zk-tag is-promo">{promo}</b> : null}
               {store.is_ad ? <b className="zk-tag is-ad">โฆษณา</b> : null}
             </span>
@@ -526,23 +574,24 @@ function FoodPopularStoreCard({
 }) {
   const rating = foodStoreRating(store);
   const eta = foodStoreEtaLabel(store, distance);
+  const notAccepting = useFoodPaymentGate([store.id]).notAccepting(store.id);
   const spoken = [
     store.name,
     rating ? `คะแนน ${rating.toFixed(1)}` : "",
     eta ? `ส่งประมาณ ${eta}` : "",
-    store.is_open ? "" : "ร้านปิดอยู่",
+    !store.is_open ? "ร้านปิดอยู่" : notAccepting ? FOOD_STORE_NOT_ACCEPTING_COPY : "",
     store.is_ad ? "โฆษณา" : "",
   ].filter(Boolean).join(", ");
   return (
-    <button className={`zk-pop-card${store.is_open ? "" : " is-closed"}`} type="button" onClick={onPick} aria-label={spoken}>
+    <button className={`zk-pop-card${store.is_open && !notAccepting ? "" : " is-closed"}`} type="button" onClick={onPick} aria-label={spoken}>
       <span className="zk-pop-card-photo">
         <FoodStoreCover client={client} store={store} iconSize={30} />
         {store.is_ad ? <b className="zk-tag is-ad">โฆษณา</b> : null}
       </span>
       <strong className="zk-pop-card-name">{store.name}</strong>
-      {!store.is_open || rating || eta ? (
+      {!store.is_open || notAccepting || rating || eta ? (
         <span className="zk-pop-card-meta">
-          {!store.is_open ? <b>ปิดอยู่</b> : null}
+          {!store.is_open ? <b>ปิดอยู่</b> : notAccepting ? <b>{FOOD_STORE_NOT_ACCEPTING_TAG}</b> : null}
           {rating ? <span className="zk-meta-rating"><Zoky3DIcon glyph="star" palette="gold" size={16} /><b>{rating.toFixed(1)}</b></span> : null}
           {eta ? <span>{eta}</span> : null}
         </span>
@@ -693,6 +742,8 @@ function StoreDirectory({
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const customerLocation = addressLocation(primaryAddress);
   const directoryStores = directory.status === "ready" ? directory.stores : [];
+  const paymentGate = useFoodPaymentGate(directoryStores.map((store) => store.id));
+  const takesOrders = (store: FoodDirectoryStore) => store.is_open && !paymentGate.notAccepting(store.id);
   const distanceFor = (store: FoodDirectoryStore) => foodDistanceKm(customerLocation, store);
   const storeMap = new Map(directoryStores.map((store) => [store.id, store]));
 
@@ -717,7 +768,7 @@ function StoreDirectory({
   const listedStores = directoryStores.filter(matchesFilter).sort((a, b) => {
     const da = distanceFor(a);
     const db = distanceFor(b);
-    if (Number(b.is_open) !== Number(a.is_open)) return Number(b.is_open) - Number(a.is_open);
+    if (Number(takesOrders(b)) !== Number(takesOrders(a))) return Number(takesOrders(b)) - Number(takesOrders(a));
     if (da == null && db == null) return 0;
     if (da == null) return 1;
     if (db == null) return -1;
@@ -1029,6 +1080,7 @@ function FavoriteStoresSheet({
     ids = [];
   }
   const favorites = (stores ?? []).filter((store) => ids.includes(store.id));
+  const { notAccepting } = useFoodPaymentGate(favorites.map((store) => store.id));
 
   return (
     <Sheet title="ร้านโปรด" onClose={onClose}>
@@ -1042,7 +1094,7 @@ function FavoriteStoresSheet({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={logo} alt="" loading="lazy" decoding="async" />
                 ) : <Store size={20} />}</span>
-                <div><strong>{store.name}</strong><small>{store.address || (store.is_open ? "เปิดรับออเดอร์" : "ปิดอยู่")}</small></div>
+                <div><strong>{store.name}</strong><small>{store.address || (!store.is_open ? "ปิดอยู่" : notAccepting(store.id) ? FOOD_STORE_NOT_ACCEPTING_COPY : "เปิดรับออเดอร์")}</small></div>
                 <ChevronRight size={18} />
               </button>
             );
@@ -1308,6 +1360,7 @@ function HomePanel({
   const [campaigns, setCampaigns] = useState<string[]>([]);
   const [reviewSummary, setReviewSummary] = useState<{ storeId: string | null; average: number; count: number }>({ storeId: null, average: 0, count: 0 });
   const storeId = store?.id ?? null;
+  const storeNotAccepting = useFoodPaymentGate([storeId]).notAccepting(storeId);
   const favoriteKey = `wynos-food-favorite-stores-v1:${userId}`;
   const [favorite, setFavorite] = useState(() => {
     if (!storeId || typeof window === "undefined") return false;
@@ -1359,8 +1412,9 @@ function HomePanel({
   }
 
   const cover = foodPublicUrl(client, store.cover_path);
-  const open = foodStoreIsEffectivelyOpen(store);
-  const statusText = foodStoreStatusText(store);
+  // Stripe-only: a store without a ready Stripe account cannot take orders yet.
+  const open = !storeNotAccepting && foodStoreIsEffectivelyOpen(store);
+  const statusText = storeNotAccepting ? FOOD_STORE_NOT_ACCEPTING_COPY : foodStoreStatusText(store);
   const hoursText = foodStoreTodayHoursText(store) || store.business_hours;
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const distance = foodDistanceKm(addressLocation(primaryAddress), store);
@@ -1420,7 +1474,7 @@ function HomePanel({
             </button>
           </span>
         </div>
-        {!open ? <span className="fx-store-closed-badge"><Clock3 size={16} strokeWidth={2.4} />ร้านปิดอยู่</span> : null}
+        {!open ? <span className="fx-store-closed-badge"><Clock3 size={16} strokeWidth={2.4} />{storeNotAccepting ? FOOD_STORE_NOT_ACCEPTING_TAG : "ร้านปิดอยู่"}</span> : null}
       </section>
 
       <section className="fx-store-info">
@@ -1437,8 +1491,8 @@ function HomePanel({
         </p>
         {open ? null : (
           <div className="fx-store-closed-box" role="status">
-            <strong>ปิดรับออเดอร์ชั่วคราว</strong>
-            <span>{statusText} · ดูเมนูไว้ก่อนได้</span>
+            <strong>{storeNotAccepting ? FOOD_STORE_NOT_ACCEPTING_COPY : "ปิดรับออเดอร์ชั่วคราว"}</strong>
+            <span>{storeNotAccepting ? "ร้านยังไม่เปิดรับชำระเงินออนไลน์ · ดูเมนูไว้ก่อนได้" : `${statusText} · ดูเมนูไว้ก่อนได้`}</span>
           </div>
         )}
         {Number(store.minimum_order) > 0 ? <p className="fx-store-min">สั่งขั้นต่ำ {foodMoney(store.minimum_order)}</p> : null}
@@ -1582,7 +1636,9 @@ function CartPanel({
   });
   const minimum = Number(store?.minimum_order ?? 0);
   const belowMinimum = subtotal < minimum;
-  const storeOpen = !!store && foodStoreIsEffectivelyOpen(store);
+  const storeNotAccepting = useFoodPaymentGate([store?.id]).notAccepting(store?.id);
+  const storeOpen = !!store && !storeNotAccepting && foodStoreIsEffectivelyOpen(store);
+  const storeStatus = !store ? "" : storeNotAccepting ? FOOD_STORE_NOT_ACCEPTING_COPY : foodStoreStatusText(store);
   const canCheckout = !!store && storeOpen && cart.length > 0 && !hasUnavailable && !belowMinimum;
   const logo = store ? foodPublicUrl(client, store.logo_path) : null;
   const eta = store ? foodEstimateDeliveryRange(store, quote?.delivery_distance_km ?? null) : null;
@@ -1633,7 +1689,7 @@ function CartPanel({
               </span>
               <span>
                 <strong>{store.name}</strong>
-                <small>{storeOpen ? `${eta?.min ?? 0}–${eta?.max ?? 0} นาที` : foodStoreStatusText(store)}</small>
+                <small>{storeOpen ? `${eta?.min ?? 0}–${eta?.max ?? 0} นาที` : storeStatus}</small>
               </span>
             </div>
           ) : null}
@@ -1697,7 +1753,7 @@ function CartPanel({
             <div className="fx-note fx-note--warn">เพิ่มอีก {foodMoney(Math.max(0, minimum - subtotal))} เพื่อถึงยอดขั้นต่ำ {foodMoney(minimum)}</div>
           ) : null}
           {hasUnavailable ? <div className="fx-note fx-note--warn">มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณาปรับตะกร้าก่อนชำระเงิน</div> : null}
-          {store && !storeOpen ? <div className="fx-note fx-note--warn">{foodStoreStatusText(store)}</div> : null}
+          {store && !storeOpen ? <div className="fx-note fx-note--warn">{storeStatus}</div> : null}
 
           <div className="fx-bottom-bar">
             <div className="fx-bottom-total"><span>ยอดรวม</span><b>{foodMoney(total)}</b></div>
@@ -2044,7 +2100,9 @@ function ItemSheet({
   const unitPrice = Number(item.price) + selectedOptions.reduce((sum, option) => sum + Math.max(0, Number(option.price ?? 0)), 0);
   const orderingDisabled = !itemAvailable || !storeOpen || quantityLimit <= 0;
   const canAdd = !orderingDisabled && selectionValid && quantity <= quantityLimit;
-  const closedActionLabel = storeStatus.startsWith("ปิด") ? `ร้าน${storeStatus}` : `ร้านปิด · ${storeStatus}`;
+  const closedActionLabel = storeStatus === FOOD_STORE_NOT_ACCEPTING_COPY
+    ? storeStatus
+    : storeStatus.startsWith("ปิด") ? `ร้าน${storeStatus}` : `ร้านปิด · ${storeStatus}`;
   const actionLabel = !storeOpen
     ? closedActionLabel
     : !itemAvailable
@@ -2501,7 +2559,9 @@ function CheckoutSheet({
         : quoteAddressError
           ? quoteError
           : "";
+  const paymentGate = useFoodPaymentGate([store.id]);
   const blockedReason = addressProblem
+    || (paymentGate.notAccepting(store.id) ? FOOD_STORE_NOT_ACCEPTING_COPY : "")
     || (quoteError && !quoteAddressError ? quoteError : "")
     || (cartUnavailable ? "มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณากลับไปปรับตะกร้า" : "")
     || (minimumMissing > 0 ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}` : "")
@@ -2530,11 +2590,15 @@ function CheckoutSheet({
     onSubmit(address, note, couponCode);
   };
 
-  const paymentMethods = [
-    store.promptpay_id || store.payment_qr_path ? "สแกน QR พร้อมเพย์" : null,
-    store.bank_account_number ? "โอนแล้วแนบสลิป" : null,
-    store.stripe_payments_enabled ? "บัตร" : null,
-  ].filter(Boolean);
+  const storePaymentOption = paymentGate.options.get(store.id);
+  // Stripe-only: PromptPay (when the store's Stripe account has it) and card, both confirmed automatically.
+  const paymentMethods = paymentGate.stripeOnly
+    ? [storePaymentOption?.promptpay ? "พร้อมเพย์" : null, "บัตรเครดิต/เดบิต"].filter(Boolean)
+    : [
+      store.promptpay_id || store.payment_qr_path ? "สแกน QR พร้อมเพย์" : null,
+      store.bank_account_number ? "โอนแล้วแนบสลิป" : null,
+      store.stripe_payments_enabled ? "บัตร" : null,
+    ].filter(Boolean);
 
   const applyCoupon = () => {
     const normalized = couponDraft.trim().toUpperCase();
@@ -2679,8 +2743,17 @@ function CheckoutSheet({
         <div className="fx-note fx-note--info" role="note">
           <Timer size={18} />
           <span>
-            <strong>กรุณาชำระเงินหรือส่งสลิปภายใน 10 นาทีหลังยืนยันออเดอร์</strong>
-            <small>{paymentMethods.length ? `${paymentMethods.join(" · ")} · ` : ""}หากยังไม่ชำระหรือไม่ส่งสลิป ระบบจะยกเลิกออเดอร์อัตโนมัติ</small>
+            {paymentGate.stripeOnly ? (
+              <>
+                <strong>กรุณาชำระเงินภายใน 10 นาทีหลังยืนยันออเดอร์</strong>
+                <small>{`${paymentMethods.join(" · ")} · ยืนยันอัตโนมัติ ไม่ต้องแนบสลิป · หากยังไม่ชำระ ระบบจะยกเลิกออเดอร์อัตโนมัติ`}</small>
+              </>
+            ) : (
+              <>
+                <strong>กรุณาชำระเงินหรือส่งสลิปภายใน 10 นาทีหลังยืนยันออเดอร์</strong>
+                <small>{paymentMethods.length ? `${paymentMethods.join(" · ")} · ` : ""}หากยังไม่ชำระหรือไม่ส่งสลิป ระบบจะยกเลิกออเดอร์อัตโนมัติ</small>
+              </>
+            )}
           </span>
         </div>
 
@@ -2846,12 +2919,17 @@ function OrderDetailSheet({
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [dynamicPaymentQr, setDynamicPaymentQr] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  const [openingMethod, setOpeningMethod] = useState<FoodCheckoutMethod | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const slipInputRef = useRef<HTMLInputElement>(null);
   const slipPreviewUrlRef = useRef<string | null>(null);
   const proof = orderDeliveryProof(order);
   // The store that owns this order; an order from another store keeps its own payment details private to that store.
   const orderStore = store?.id === order.store_id ? store : null;
+  // Stripe-only (Founder 2026-10-22): no store QR, bank details or slips; PromptPay or card through Stripe.
+  const paymentGate = useFoodPaymentGate([order.store_id]);
+  const stripeOnly = paymentGate.stripeOnly;
+  const orderStoreOption = paymentGate.options.get(order.store_id);
   useEffect(() => {
     if (!order.payment_due_at || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") return;
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
@@ -2873,7 +2951,7 @@ function OrderDetailSheet({
     const timer = window.setTimeout(() => {
       if (!live) return;
       // The QR is built server-side for this order's own store, so it is safe even when another store is open.
-      if ((orderStore && !orderStore.promptpay_id) || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
+      if (!paymentGate.ready || stripeOnly || (orderStore && !orderStore.promptpay_id) || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
         setDynamicPaymentQr(null);
         return;
       }
@@ -2885,7 +2963,7 @@ function OrderDetailSheet({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [client, order.id, order.payment_status, order.status, orderStore]);
+  }, [client, order.id, order.payment_status, order.status, orderStore, paymentGate.ready, stripeOnly]);
 
   const selectSlip = (file: File | null) => {
     if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
@@ -2900,14 +2978,16 @@ function OrderDetailSheet({
     if (slipInputRef.current) slipInputRef.current.value = "";
   };
 
-  const payWithStripe = async () => {
+  const payWithStripe = async (method?: FoodCheckoutMethod) => {
     setWorking(true);
+    setOpeningMethod(method ?? null);
     try {
-      const url = await startFoodStripeCheckout(client, order.id);
+      const url = await startFoodStripeCheckout(client, order.id, method);
       window.location.assign(url);
     } catch (error) {
       onMessage(foodCustomerError(error, "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ"));
       setWorking(false);
+      setOpeningMethod(null);
     }
   };
 
@@ -2943,6 +3023,16 @@ function OrderDetailSheet({
     if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
     setWorking(true);
     try {
+      // Close the Stripe Checkout first so a cancelled order cannot be paid.
+      // If Stripe already took the payment, the order is not cancelled (D3).
+      if (order.stripe_checkout_session_id) {
+        const stripe = await cancelFoodStripeCheckout(client, order.id);
+        if (stripe === "paid") {
+          onMessage(FOOD_CANCEL_ALREADY_PAID_COPY);
+          await onReload();
+          return;
+        }
+      }
       await cancelFoodCustomerOrder(client, order.id, "ยกเลิกโดยลูกค้าใน ZOKY");
       onMessage("ยกเลิกออเดอร์แล้ว");
       await onReload();
@@ -2963,6 +3053,8 @@ function OrderDetailSheet({
   const paymentQr = dynamicPaymentQr ?? foodPublicUrl(client, orderStore?.payment_qr_path);
   const combinedBusy = busy || working;
   const slipUnderReview = !isCancelled && order.payment_status === "submitted";
+  const refundNotice = foodRefundNotice(order);
+  const storeNotAccepting = paymentGate.notAccepting(order.store_id);
   const countdown = secondsLeft == null ? null : `${Math.floor(secondsLeft / 60).toString().padStart(2, "0")}:${(secondsLeft % 60).toString().padStart(2, "0")}`;
   const itemCount = (order.food_order_items ?? []).reduce((sum, item) => sum + item.quantity, 0);
 
@@ -2981,7 +3073,7 @@ function OrderDetailSheet({
       title={canPay ? "ชำระเงิน" : `ออเดอร์ #${order.order_number}`}
       onClose={onClose}
       variant="page"
-      footer={canPay ? (
+      footer={canPay && paymentGate.ready && !stripeOnly ? (
         <div className="fx-pay-footer">
           {slipFile ? (
             <button className="fx-btn fx-btn--primary fx-btn--block" type="button" disabled={combinedBusy} onClick={() => void submitSlip()}>
@@ -3009,6 +3101,12 @@ function OrderDetailSheet({
             <section className="fx-pay-card">
               <small>ยอดที่ต้องชำระ · ออเดอร์ #{order.order_number}</small>
               <strong className="fx-pay-amount">{foodMoney(order.total)}</strong>
+              {!paymentGate.ready ? (
+                <small className="fx-pay-qr-note" role="status">กำลังโหลดช่องทางชำระเงิน…</small>
+              ) : stripeOnly ? (
+                <small className="fx-pay-qr-note">ชำระผ่าน Stripe อย่างปลอดภัย · ระบบยืนยันการชำระเงินให้อัตโนมัติ ไม่ต้องแนบสลิป</small>
+              ) : (
+              <>
               {paymentQr ? (
                 <div className="fx-pay-qr">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -3033,9 +3131,32 @@ function OrderDetailSheet({
               <small className="fx-pay-qr-note">{orderStore?.stripe_payments_enabled ? "โอนเงินเข้าบัญชีร้านโดยตรงและแนบสลิปเป็นช่องทางสำรอง" : "โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ"}</small>
               {orderStore && !orderStore.stripe_payments_enabled && !paymentQr && !orderStore.promptpay_id && !orderStore.bank_account_number ? <div className="fx-note fx-note--warn">ร้านยังไม่ได้ตั้งค่าช่องทางรับเงิน กรุณาติดต่อร้าน</div> : null}
               {!orderStore && !paymentQr ? <div className="fx-note fx-note--warn">เปิดหน้าร้านของออเดอร์นี้เพื่อดูข้อมูลบัญชีรับเงิน</div> : null}
+              </>
+              )}
             </section>
 
-            {orderStore?.stripe_payments_enabled ? (
+            {paymentGate.ready && stripeOnly ? (
+              storeNotAccepting ? (
+                <div className="fx-note fx-note--warn" role="status">ร้านนี้ยังไม่เปิดรับชำระเงินออนไลน์ กรุณาติดต่อร้าน</div>
+              ) : (
+                <div className="fx-pay-options" role="group" aria-label="เลือกวิธีชำระเงิน">
+                  {orderStoreOption?.promptpay ? (
+                    <button className="fx-pay-option" type="button" disabled={combinedBusy} onClick={() => void payWithStripe("promptpay")}>
+                      <QrCode size={22} />
+                      <span><strong>{openingMethod === "promptpay" ? "กำลังเปิดหน้าชำระเงิน…" : "พร้อมเพย์ · ยืนยันอัตโนมัติ"}</strong><small>สแกน QR ด้วยแอปธนาคาร ไม่ต้องแนบสลิป</small></span>
+                      <ChevronRight size={18} />
+                    </button>
+                  ) : null}
+                  <button className="fx-pay-option" type="button" disabled={combinedBusy} onClick={() => void payWithStripe("card")}>
+                    <CreditCard size={22} />
+                    <span><strong>{openingMethod === "card" ? "กำลังเปิดหน้าชำระเงิน…" : "บัตรเครดิต/เดบิต"}</strong><small>ชำระผ่าน Stripe · ยืนยันอัตโนมัติ</small></span>
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              )
+            ) : null}
+
+            {paymentGate.ready && !stripeOnly && orderStore?.stripe_payments_enabled ? (
               <button className="fx-pay-option" type="button" disabled={combinedBusy} onClick={() => void payWithStripe()}>
                 <CreditCard size={22} />
                 <span><strong>{combinedBusy ? "กำลังเปิด Stripe…" : "จ่ายด้วยบัตร"}</strong><small>บัตร หรือพร้อมเพย์ผ่าน Stripe · ยืนยันสถานะอัตโนมัติ</small></span>
@@ -3043,7 +3164,7 @@ function OrderDetailSheet({
               </button>
             ) : null}
 
-            {slipFile ? (
+            {!stripeOnly && slipFile ? (
               <div className="fx-slip">
                 <div className="fx-slip-image">
                   {slipPreviewUrl ? (
@@ -3116,6 +3237,13 @@ function OrderDetailSheet({
               </span>
             </div>
           </>
+        ) : null}
+
+        {refundNotice ? (
+          <div className={`fx-note fx-note--${refundNotice.tone === "warn" ? "warn" : refundNotice.tone === "success" ? "success" : "info"}`} role="status">
+            {refundNotice.tone === "warn" ? <CircleAlert size={18} /> : refundNotice.tone === "success" ? <Check size={18} /> : <RefreshCw size={18} />}
+            <span><strong>{refundNotice.title}</strong><small>{refundNotice.detail}</small></span>
+          </div>
         ) : null}
 
         {order.scheduled_for ? <div className="fx-note fx-note--info"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{formatDate(order.scheduled_for)}</small></span></div> : null}
@@ -3269,6 +3397,12 @@ function FoodCustomerInner({
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [favoritesOpen, setFavoritesOpen] = useState(false);
+  // Stripe-only policy and per-store payment options (see FoodPaymentGateContext).
+  const [paymentPolicy, setPaymentPolicy] = useState<{ ready: boolean; stripeOnly: boolean }>({ ready: false, stripeOnly: false });
+  const [storePaymentOptions, setStorePaymentOptions] = useState<ReadonlyMap<string, FoodStorePaymentOption>>(() => new Map());
+  const requestedPaymentOptionsRef = useRef<Set<string>>(new Set());
+  const pendingPaymentOptionsRef = useRef<Set<string>>(new Set());
+  const paymentOptionsTimerRef = useRef<number | null>(null);
   const loadingRef = useRef(false);
   const previousOrdersRef = useRef<Map<string, string>>(new Map());
 
@@ -3324,6 +3458,52 @@ function FoodCustomerInner({
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    let live = true;
+    void fetchFoodPaymentPolicy(client).then((stripeOnly) => {
+      if (live) setPaymentPolicy({ ready: true, stripeOnly });
+    });
+    return () => { live = false; };
+  }, [client]);
+
+  // Batches the stores asked for in one render into one RPC call. A failed
+  // call leaves them unknown (= accepting, legacy) and lets a later view retry.
+  const requestStorePaymentOptions = useCallback((storeIds: readonly string[]) => {
+    let added = false;
+    for (const id of storeIds) {
+      if (!id || requestedPaymentOptionsRef.current.has(id)) continue;
+      requestedPaymentOptionsRef.current.add(id);
+      pendingPaymentOptionsRef.current.add(id);
+      added = true;
+    }
+    if (!added || paymentOptionsTimerRef.current != null) return;
+    paymentOptionsTimerRef.current = window.setTimeout(() => {
+      paymentOptionsTimerRef.current = null;
+      const batch = Array.from(pendingPaymentOptionsRef.current);
+      pendingPaymentOptionsRef.current.clear();
+      void fetchStorePaymentOptions(client, batch).then((next) => {
+        if (!next) {
+          for (const id of batch) requestedPaymentOptionsRef.current.delete(id);
+          return;
+        }
+        setStorePaymentOptions((current) => {
+          const merged = new Map(current);
+          next.forEach((option, id) => merged.set(id, option));
+          return merged;
+        });
+      });
+    }, 0);
+  }, [client]);
+  useEffect(() => () => {
+    if (paymentOptionsTimerRef.current != null) window.clearTimeout(paymentOptionsTimerRef.current);
+  }, []);
+  const paymentGate = useMemo<FoodPaymentGateState>(() => ({
+    ready: paymentPolicy.ready,
+    stripeOnly: paymentPolicy.stripeOnly,
+    options: storePaymentOptions,
+    request: requestStorePaymentOptions,
+  }), [paymentPolicy, requestStorePaymentOptions, storePaymentOptions]);
 
   // fetchFoodStoreDirectory resolves null on failure: that is an error state,
   // not "still loading". A failed quiet refresh keeps the stores already shown.
@@ -3717,7 +3897,9 @@ function FoodCustomerInner({
 
   if (!snapshot) return loadError ? <FoodLoadError message={loadError} onRetry={() => { setLoadError(""); void load(); }} /> : <FoodLoading />;
   if (!snapshot.allowed) return <FoodDenied />;
+  const storeNotAccepting = foodStoreNotAccepting(paymentPolicy.stripeOnly, storePaymentOptions, store?.id);
   return (
+    <FoodPaymentGateContext.Provider value={paymentGate}>
     <main className={`wyn-food fx-app${discoveryView === "home" ? " is-zk-home" : ""}${discoveryView === "food" ? " is-zk-food" : ""}${tab === "home" && storefrontOpen ? " fx-storefront-open" : ""}${tab === "home" && storefrontOpen && cartCount > 0 ? " has-cart-bar" : ""}`}>
       {discoveryView && !online ? <div className="fx-offline-bar zk-offline-bar" role="status"><WifiOff size={18} />ไม่มีการเชื่อมต่ออินเทอร์เน็ต</div> : null}
       {message ? <div className="fx-toast" role="status"><span>{message}</span><button type="button" aria-label="ปิด" onClick={() => setMessage("")}><X size={16} /></button></div> : null}
@@ -3832,8 +4014,8 @@ function FoodCustomerInner({
           item={selectedItem}
           existing={(selectedItem.options?.length ?? 0) > 0 ? null : cart.find((line) => line.menu_item_id === selectedItem.id) ?? null}
           cartQuantity={cart.reduce((sum, line) => sum + (line.menu_item_id === selectedItem.id ? line.quantity : 0), 0)}
-          storeOpen={foodStoreIsEffectivelyOpen(store)}
-          storeStatus={foodStoreStatusText(store)}
+          storeOpen={!storeNotAccepting && foodStoreIsEffectivelyOpen(store)}
+          storeStatus={storeNotAccepting ? FOOD_STORE_NOT_ACCEPTING_COPY : foodStoreStatusText(store)}
           onClose={() => setSelectedItem(null)}
           onAdd={addItem}
         />
@@ -3908,6 +4090,7 @@ function FoodCustomerInner({
         />
       ) : null}
     </main>
+    </FoodPaymentGateContext.Provider>
   );
 }
 
