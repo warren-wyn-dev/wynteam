@@ -686,6 +686,15 @@ test("ZOKY web Home + Food follow the app design with real data only (2026-10-19
   expect(ui).toContain("useId()");
   expect(ui).toContain('src="/icons/zoky/bento-v1.svg"');
   expect(read("public/icons/zoky/bento-v1.svg")).toContain("<svg");
+  // Founder 2026-10-22: storefront header = name · address, then rating, distance (ZOKY scooter icon) and
+  // delivery minutes; no menu count, delivery fee or "open" line. Minutes only with a pin and prep times.
+  expect(app).toContain('const etaLabel = distance != null ? foodStoreEtaLabel(store, distance) : null;');
+  expect(app).toContain("<ZokyScooterIcon />");
+  for (const source of [app, guest]) {
+    expect(source).toContain('<div className="fx-store-title">');
+    expect(source).not.toContain("ค่าส่งเริ่มต้น");
+    expect(source).not.toContain("เปิดรับออเดอร์</p>");
+  }
   // Centred 480px column; tap targets of at least 44px.
   expect(css).toContain(".zk-col { width: 100%; max-width: 480px; margin-inline: auto; }");
   expect(css).toContain(".zk-glossy-btn.is-sm { width: 44px; height: 44px;");

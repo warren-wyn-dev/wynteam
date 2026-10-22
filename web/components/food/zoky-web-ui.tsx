@@ -452,3 +452,30 @@ export function ZokyFoodCartButton({
     </>
   );
 }
+
+/* ---------- Delivery scooter (storefront distance, Founder 2026-10-22) ---------- */
+
+export function ZokyScooterIcon({ size = 22 }: { size?: number }) {
+  const uid = useId().replace(/:/g, "");
+  const body = `zk-scooter-body-${uid}`;
+  const box = `zk-scooter-box-${uid}`;
+  return (
+    <svg className="zk-scooter" width={size} height={(size * 3) / 4} viewBox="0 0 32 24" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id={body} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF6BAA" /><stop offset="1" stopColor="#E5135D" /></linearGradient>
+        <linearGradient id={box} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFD45C" /><stop offset="1" stopColor="#F59E0B" /></linearGradient>
+      </defs>
+      <rect x="1.6" y="3.2" width="9.2" height="7.6" rx="2" fill={`url(#${box})`} />
+      <path d="M1.6 5.6h9.2" stroke="#B45309" strokeWidth="1" opacity=".35" />
+      <rect x="9.2" y="9.4" width="7.4" height="2.4" rx="1.2" fill="#3A2F38" />
+      <path d="M3 12.4h13.6c1.4 0 2.1-1.2 2.7-3l1-3h2.4l1 7.4c.2 1.8-1.2 3.4-3 3.4H7.6A4.6 4.6 0 0 1 3 12.6z" fill={`url(#${body})`} />
+      <path d="M5.4 13.6h9.4" stroke="#fff" strokeWidth="1.1" strokeLinecap="round" opacity=".55" />
+      <path d="M22.6 13.2 24.9 18.4" stroke="#9E0E3E" strokeWidth="2" strokeLinecap="round" />
+      <path d="M21.5 6.4 22.4 2.6" stroke="#3A2F38" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M20.3 2.6h4.2" stroke="#3A2F38" strokeWidth="1.8" strokeLinecap="round" />
+      <ellipse cx="23.3" cy="7.6" rx="1.2" ry="1" fill="#FFF3C4" />
+      <circle cx="8.2" cy="18.6" r="3.3" fill="#2B2B33" /><circle cx="8.2" cy="18.6" r="1.3" fill="#FF8DBE" />
+      <circle cx="24.9" cy="18.6" r="3.3" fill="#2B2B33" /><circle cx="24.9" cy="18.6" r="1.3" fill="#FF8DBE" />
+    </svg>
+  );
+}

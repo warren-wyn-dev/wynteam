@@ -314,18 +314,19 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
           </section>
 
           <section className="fx-store-info">
-            <h1>{store.name}</h1>
-            <p className="fx-store-meta">{store.menu.length} เมนู · ค่าส่งเริ่มต้น {foodMoney(store.delivery_fee)}</p>
-            {store.is_open ? (
-              <p className="fx-store-open"><Clock3 size={14} strokeWidth={2.3} />เปิดรับออเดอร์</p>
-            ) : (
+            {/* Founder 2026-10-22: address after the name; no menu count, fee or "open" line.
+                The public catalog has no ratings, prep times or customer location, so none are shown. */}
+            <div className="fx-store-title">
+              <h1>{store.name}</h1>
+              {store.address ? <span>· {store.address}</span> : null}
+            </div>
+            {store.is_open ? null : (
               <div className="fx-store-closed-box" role="status">
                 <strong>ปิดรับออเดอร์ชั่วคราว</strong>
                 <span>ดูเมนูไว้ก่อนได้ สั่งได้เมื่อร้านเปิด</span>
               </div>
             )}
             {store.description ? <p className="fx-store-min">{store.description}</p> : null}
-            {store.address ? <p className="fx-store-min"><MapPin size={14} /> {store.address}</p> : null}
           </section>
 
           <section className="fx-store-menu">

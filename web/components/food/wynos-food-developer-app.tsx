@@ -57,6 +57,7 @@ import {
   Zoky3DIcon,
   ZokyBottomNav,
   ZokyFoodCartButton,
+  ZokyScooterIcon,
   ZokyFoodHeroCard,
   ZokyGlossyIconButton,
   ZokyHomeHeader,
@@ -429,7 +430,7 @@ function foodDistanceLabel(distance: number | null) {
 }
 
 /** W6 (zoky-web-home-food-spec): an ETA only when the store set real preparation times. */
-function foodStoreEtaLabel(store: FoodDirectoryStore, distance: number | null) {
+function foodStoreEtaLabel(store: Pick<FoodDirectoryStore, "prep_time_min_minutes" | "prep_time_max_minutes">, distance: number | null) {
   if (store.prep_time_min_minutes == null || store.prep_time_max_minutes == null) return null;
   const eta = foodEstimateDeliveryRange(store, distance);
   return eta.min === eta.max ? `${eta.min} นาที` : `${eta.min}–${eta.max} นาที`;
@@ -1364,7 +1365,8 @@ function HomePanel({
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const distance = foodDistanceKm(addressLocation(primaryAddress), store);
   const distanceLabel = foodDistanceLabel(distance);
-  const eta = foodEstimateDeliveryRange(store, distance);
+  // Delivery minutes = prep time + ride time, so only with both a pin and prep times.
+  const etaLabel = distance != null ? foodStoreEtaLabel(store, distance) : null;
   const hasRating = reviewSummary.storeId === store.id && reviewSummary.count > 0;
   const recommended = category === "ทั้งหมด" ? menu.filter(isOrderable).slice(0, 6) : [];
   const toggleFavorite = () => {
@@ -1422,16 +1424,18 @@ function HomePanel({
       </section>
 
       <section className="fx-store-info">
-        <h1>{store.name}</h1>
+        {/* Founder 2026-10-22: address after the name; rating, distance and delivery minutes only (real data). */}
+        <div className="fx-store-title">
+          <h1>{store.name}</h1>
+          {store.address ? <span>· {store.address}</span> : null}
+        </div>
         <p className="fx-store-meta">
           <Star size={14} fill="#F5A623" strokeWidth={0} />
           {hasRating ? <><b>{reviewSummary.average.toFixed(1)}</b> ({new Intl.NumberFormat("th-TH").format(reviewSummary.count)})</> : <b>ร้านใหม่</b>}
-          {distanceLabel ? <> · {distanceLabel}</> : null}
-          {" · "}{eta.min}–{eta.max} นาที · {foodMoney(store.delivery_fee)}
+          {distanceLabel ? <><span aria-hidden="true"> · </span><ZokyScooterIcon /><span>{distanceLabel}</span></> : null}
+          {etaLabel ? <><span aria-hidden="true"> · </span><span>{etaLabel}</span></> : null}
         </p>
-        {open ? (
-          <p className="fx-store-open"><Clock3 size={14} strokeWidth={2.3} />เปิดอยู่{hoursText ? <span>{hoursText}</span> : null}</p>
-        ) : (
+        {open ? null : (
           <div className="fx-store-closed-box" role="status">
             <strong>ปิดรับออเดอร์ชั่วคราว</strong>
             <span>{statusText} · ดูเมนูไว้ก่อนได้</span>
