@@ -2445,3 +2445,11 @@ Founder: (1) "ดีลเด็ดวันนี้" — **ซ่อนไว�
 ### [2026-10-19] ZOKY web Home/Food redesign — Founder อนุมัติ preview
 
 Founder ดูภาพตัวอย่าง (`.wyn/previews/zoky-web-design/`, branch `feat/zoky-web-app-design` @ `cc823142`) แล้วตอบ **"อนุญาต"** → อนุมัติหน้าตา ส่งต่อ QA & Security → CTO → release ผ่าน exception workflow (ต้องให้ Founder อนุมัติ production อีกครั้ง)
+
+### DECISION — [2026-10-22] ZOKY payments: Stripe only, slip QR removed (Founder)
+
+- Founder: "ระบบจ่ายเงินที่ตัดอัตโนมัติ โดยใช้ QR พร้อมเพย์ และระบบคืนเงิน หากยกเลิก" and then "ตัด QR แบบแนบสลิปออก เงินต้องจ่ายผ่าน Stripe ทุกคน".
+- Direction: every ZOKY order is paid through Stripe (card or Stripe PromptPay, confirmed automatically). The store PromptPay QR and slip-upload path is removed, and refunds are automatic on cancellation.
+- Founder also wants simple merchant signup and daily payouts after GP deduction. That is not decided yet: settlement model A (Stripe Connect, recommended) vs B (platform-held funds) is open as D12.
+- Plan: `.wyn/docs/product/zoky-promptpay-auto-refund-prd.md` (PM draft). Open decisions: D2–D12. Implementation, DB migration and production each need separate Founder approval.
+- Found while analysing (needs verification and a fix in P0): cancelling an unpaid order does not expire its Stripe Checkout session, so a customer could still pay a cancelled order.
