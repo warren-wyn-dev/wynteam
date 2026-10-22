@@ -205,7 +205,7 @@ test("Food iOS launch has no white flash and the status bar matches the splash",
   for (const size of ["1290x2796", "1179x2556", "1170x2532", "1080x2340", "750x1334", "2048x2732", "1668x2388", "1640x2360", "1620x2160", "1488x2266"]) {
     assert.ok(existsSync(new URL(`../public/icons/zoky/splash/launch-${size}.png`, import.meta.url)), `missing launch image ${size}`);
   }
-  // Temporary pink theme-color while the splash shows, removed when it fades.
+  // Temporary pink theme-color while the splash shows, switched off when it fades.
   assert.match(layout, /m\.content='#f93384'/);
   // iOS 26 colours the status bar from the fixed splash's background-color, so it must be the top pink.
   assert.match(await read("app/food/food-app.css"), /background-color: #f93384;/);
@@ -214,7 +214,10 @@ test("Food iOS launch has no white flash and the status bar matches the splash",
   assert.match(layout, /document\.head\.prepend\(m\)/);
   // Theme sync must not repaint the splash's temporary status-bar color.
   assert.match(await read("lib/theme-preference.ts"), /meta\[name="theme-color"\]:not\(\[data-fx-splash-theme\]\)/);
-  assert.match(layout, /d\.setAttribute\('data-fx-splash-ready',''\);setTimeout\(function\(\)\{m\.remove\(\)\},350\)/);
+  // ZOKY-145: switch the meta off instead of removing it; removing a <head> node React owns
+  // crashes the next client navigation (guest → /food/login showed a dead page).
+  assert.match(layout, /d\.setAttribute\('data-fx-splash-ready',''\);setTimeout\(function\(\)\{m\.removeAttribute\('name'\)\},350\)/);
+  assert.doesNotMatch(layout, /m\.remove\(\)/);
 });
 
 test("Food splash stays until the screen has data (min 1 s, max ~4 s)", async () => {

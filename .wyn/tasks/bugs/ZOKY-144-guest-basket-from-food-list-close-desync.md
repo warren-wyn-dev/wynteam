@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-144
 
-Status: fixed — waiting QA re-test
+Status: closed — QA re-test 3 PASS @ 136b548b, 2026-10-22
 Severity: MEDIUM (same history/URL desync class as ZOKY-140/143, signed-out visitors; no data loss, no security impact)
 Owner: AI Debug Engineer
 Found by: AI QA & Security re-test 2 of ZOKY-143, branch `feat/zoky-web-app-design` @ f4ac83ab, 2026-10-22

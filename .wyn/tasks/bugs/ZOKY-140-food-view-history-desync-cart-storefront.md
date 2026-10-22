@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-140
 
-Status: fixed — waiting QA re-test
+Status: closed — QA re-test 3 PASS @ 136b548b, 2026-10-22
 Severity: MEDIUM (navigation/UX regression introduced by the new `?view=food` history entry; no data loss, no security impact)
 Owner: AI Debug Engineer
 Found by: AI QA & Security, branch `feat/zoky-web-app-design` @ cc823142, 2026-10-19

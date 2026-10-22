@@ -3,7 +3,7 @@
 Feature: ZOKY web Home + Food (spec `.wyn/docs/design/zoky-web-home-food-spec.md`, DECISIONS 2026-10-19)
 Branch / commit: `feat/zoky-web-app-design` @ cc823142 (base `release/zoky-web-20261018` @ 0533fb36)
 Tester: AI QA & Security, 2026-10-19
-Final Status: FAIL (ZOKY-140 MEDIUM must be fixed first; no CRITICAL/HIGH)
+Final Status: FAIL (re-test 3, 2026-10-22: ZOKY-140/143/144 PASS; new ZOKY-145 HIGH, pre-existing on base 0533fb36 — fix or documented Founder risk acceptance needed)
 
 Environment:
 - Local `next build` + `next start` for the branch and for the base (for comparison), fake
@@ -154,3 +154,40 @@ Final Status: FAIL — ZOKY-144 MEDIUM. Handoff: AI Debug Engineer (`.wyn/tasks/
   the ZOKY-144 basket checks.
 - Signed-in A–H: 174/183 passed. The 9 failures are the B2–B4 `dblclick` probes, which are informational.
 - Original script: 16/16. Unit tests: 348/348. Playwright food + merchant: 68/68. Lint: 0 errors.
+
+## Re-test 3 (ZOKY-144) 2026-10-22
+
+Environment: `feat/zoky-web-app-design` @ 136b548b, production build on :3100 (fake env `sb-mock.test`), Supabase mocked
+in Playwright with synthetic data, all other hosts aborted (0 seen), Chromium 1194, 390x844 / 430x932 / 820x1180.
+Run by QA, not the developer: `qa143-guest.mjs` 156/156; `zoky140-retest.mjs` 174/183 (the 9 failures are the known
+B2–B4 `dblclick` probes, informational); new attack script `qa144.mjs` 174/180 (the 6 failures are ZOKY-145 below).
+
+New attacks (`qa144.mjs`, all 3 viewports):
+- PASS: list basket → in-app back = Food (`?view=food`) → fwd = basket → in-app back = Food → reload = Food → back = Home
+  (no dead back) → fwd = Food → Food in-app back = Home.
+- PASS: 5 list-basket open/close cycles: `history.length` unchanged, back = Home, back = off site (no stacked entries).
+- PASS: store basket in-app back = store with no new entry; then list basket in-app back = Food, then back = Home.
+- PASS: emptying the list basket keeps it open; in-app back = Food; back = Home. Reload on a list-basket entry = Home, back = Food.
+- PASS: Home basket (no Food entry) in-app back = Home, no entry, back = off site. Double tap on basket back = Food.
+- PASS: guest item sheet + back = Food without the sheet; fwd = store without the sheet; adding still works; deep-link
+  `?store=` sheet + back = off site, fwd = store without the sheet; X close after fwd works.
+- PASS: signed-in item sheet + back = Food, fwd = store without the sheet, add works; sheet + back, then another store
+  shows no stale sheet; back chain Food → Home → off site; Food cart back/fwd/reload/back with no extra entry.
+- FAIL (new, pre-existing): ZOKY-145 HIGH. In the first `/food` load of a browser session (splash plays), every in-app
+  navigation to `/food/login` (Home pill, store link, basket "เข้าสู่ระบบเพื่อยืนยันคำสั่งซื้อ") throws React
+  `removeChild` and leaves the old DOM, so the login form never shows. From the basket, the dead basket covers the screen.
+  Back from login shows the same dead screen. Reload fixes it. Not caused by this branch: same on base 0533fb36 (rebuilt
+  with the fake env). With the splash skipped (`wynos-food-splash` preset) the login form renders. Earlier rounds only
+  checked the URL (G7a) and logged the pageerror as informational.
+
+Security: the 136b548b diff only touches client history and UI state (`history.back()`, `setSelectedItem(null)`); no new
+requests, no auth/authorization change, no secrets. Not tested: WebKit/real iOS swipe-back, real devices, production.
+
+ZOKY-140: PASS (closed). ZOKY-143: PASS (closed). ZOKY-144: PASS (closed). The earlier LOW stale item sheet is also fixed.
+Final Status: FAIL — ZOKY-145 HIGH (pre-existing). It needs a fix, or a documented Founder risk acceptance, before
+release. Handoff: AI Debug Engineer (`.wyn/tasks/bugs/ZOKY-145-guest-login-navigation-dead-page-after-splash.md`).
+Note (13:05): every result above was captured against the 12:26 build of 136b548b, and none had connection errors.
+At 12:58 :3100 was rebuilt from the worktree, which now holds an uncommitted ZOKY-145 change (`web/app/food/layout.tsx`:
+`m.removeAttribute('name')` instead of `m.remove()`, plus the matching unit test). On that build, `qa144.mjs` passes
+177/177 and fresh-session login renders without errors. That is preliminary evidence only, not a sign-off. ZOKY-145
+stays open until the fix is committed and re-tested.
