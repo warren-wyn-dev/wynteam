@@ -719,3 +719,10 @@ Follow-up: give the maps health check in the exception workflow a longer warm-up
 - Staging path: PR #1230 adds an optional `zoky_release_sha` input to `web-next-phase5-preview.yml` (preview only, no production alias change). Needs Founder merge approval + the `production` environment review for the run
 - Production (later, separate Founder approval): `zoky-web-exception-release.yml` phase `PHASE1`, release_sha `8e6aa209067dd45fe3a416c82d717468a220a475`, flag stays 0
 - Rollback for that step: Vercel Instant Rollback to the current production deployment (PHASE1 run 39159774643, commit `0533fb36`)
+
+### [2026-10-22] ZOKY redesign — storefront header added to this release (Founder)
+
+- Founder reviewed staging run 39791664083 (preview `web-9y7cywmgu`, release `8e6aa209`, browser QA 1008 passed) on a phone. Asked for the storefront header change, chose **"รวมไปรอบนี้เลย"**, delivery fee **"เอาออก"**, minutes **"เวลาทำอาหาร + เวลาวิ่ง"**, a nicer scooter icon, then **"โอเค ทำต่อเลย"**
+- QA Re-test 5 **PASS**. CTO **APPROVE WITH CONDITIONS** (new SHA, staging, Founder production approval)
+- `release/zoky-web-20261018` fast-forwarded `8e6aa209` → `82f613d627c8bf63b5f6decb9426be0c977e0048`. This SHA replaces 8e6aa209 for staging and PHASE1
+- Next: staging via `web-next-phase5-preview.yml` with `zoky_release_sha=82f613d6…`, then the Founder's explicit production approval
