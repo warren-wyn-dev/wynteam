@@ -3,7 +3,7 @@
 Feature: ZOKY web Home + Food (spec `.wyn/docs/design/zoky-web-home-food-spec.md`, DECISIONS 2026-10-19)
 Branch / commit: `feat/zoky-web-app-design` @ cc823142 (base `release/zoky-web-20261018` @ 0533fb36)
 Tester: AI QA & Security, 2026-10-19
-Final Status: FAIL (re-test 3, 2026-10-22: ZOKY-140/143/144 PASS; new ZOKY-145 HIGH, pre-existing on base 0533fb36 — fix or documented Founder risk acceptance needed)
+Final Status: PASS (re-test 4, 2026-10-22, @ 5e232d68: ZOKY-140/143/144/145 PASS and closed; no open CRITICAL/HIGH; LOW follow-ups ZOKY-142, ZOKY-146 do not block)
 
 Environment:
 - Local `next build` + `next start` for the branch and for the base (for comparison), fake
@@ -191,3 +191,52 @@ At 12:58 :3100 was rebuilt from the worktree, which now holds an uncommitted ZOK
 `m.removeAttribute('name')` instead of `m.remove()`, plus the matching unit test). On that build, `qa144.mjs` passes
 177/177 and fresh-session login renders without errors. That is preliminary evidence only, not a sign-off. ZOKY-145
 stays open until the fix is committed and re-tested.
+
+## Re-test 4 (ZOKY-145) 2026-10-22
+
+Environment: `feat/zoky-web-app-design` @ 5e232d68 (clean tree). :3100 is a production build (BUILD_ID
+`80KGFHT3Zo26DJmExGnnJ`, 12:58). No source file is newer than the build, and the served `/food` HTML contains
+`m.removeAttribute('name')`. Fake env `sb-mock.test`, Supabase mocked with synthetic data, other hosts aborted (0 seen).
+Chromium 1194 at 390x844 / 430x932 / 820x1180. Run by QA, not the developer.
+
+Automated: unit 348/348, lint 0 errors (17 pre-existing warnings), typecheck pass. `qa144.mjs` 177/177,
+`qa143-guest.mjs` 156/156, `zoky140-retest.mjs` 174/183 (the 9 failures are the known B2–B4 `dblclick` probes,
+informational). 0 page errors in all three.
+
+New independent script `qa145.mjs`: 159/159 at all 3 viewports. Every case uses a new session with no sessionStorage
+preset, and the script asserts both that the splash played (pink `[data-fx-splash-theme]` meta named first) and that
+it finished (the meta is still in `<head>` with no name).
+- PASS: guest Home pill, store "เข้าสู่ระบบ" link, and basket "เข้าสู่ระบบเพื่อยืนยันคำสั่งซื้อ" each render the login
+  form (email + password). The old Home/store/basket DOM is gone and there are 0 page errors. Back gives a live screen,
+  and Home is tappable again (it opens Food). Forward returns to login. Reload on login shows the form. From the basket,
+  back lands on a live Home with no dead overlay, and reload has no errors.
+- PASS: a login tapped while the splash meta is still named (before the fade) renders the form. The meta is switched off
+  later on the login page with no errors, and back goes to Home.
+- PASS: login → signup link → signup form → back = login → back = Home. Three Home↔login cycles give 0 errors and no
+  named splash meta left behind.
+- PASS signed in, with the splash playing: Account sign-out → `/food/login` form, 0 errors. Food → share link
+  `/food/s/<code>` (mock code, resolves to `/food`) → live, back has 0 errors. Home → Food → store → back → Orders →
+  Account, 0 errors.
+- PASS cross-layout client navigations after the splash (Food → `/`, Food → login → `/`, Food → `/login`,
+  Food → login → `/food` → `/settings`): 0 errors.
+- PASS theme-color: the nameless meta is ignored. useZokyThemeColor sets every named meta to `#FFEFF5` on the Food list,
+  does not touch the nameless one, and restores the previous values on back. ThemeSync dark gives `#000000` on every
+  named meta, and during the splash only the splash meta stays pink. After the fade only the dark metas remain, and login
+  still works.
+- Observation (pre-existing, same with the splash skipped): guest store → login → back lands on Home, not on the store.
+  The guest store view has no URL of its own. This matches re-test 3 N6. It is not a regression and not filed.
+- New LOW ZOKY-146 (`.wyn/tasks/bugs/ZOKY-146-splash-session-orphan-theme-color-meta.md`): in a session where the
+  splash played, the first in-app Food navigation leaves one orphan `#000000@dark` theme-color meta. React removes the
+  nameless splash meta instead. In OS dark mode the Food status bar is then black instead of `#f93384`. Light mode is
+  unchanged, there are no errors, and the orphan is cleared on leaving Food. Visual only, related to ZOKY-142.
+
+Security: 5e232d68 only changes one DOM call inside the inline splash script, plus a unit-test regex and docs. It adds
+no requests, no auth/authorization change, and no secrets. The CSP is `frame-ancestors 'none'` only, so there is no
+inline-script hash to update. Gap: the repository regression test for ZOKY-145 is a static regex
+(`food-standalone-account.test.mjs`). The fresh-session browser test asked for in the bug report was not added to the
+repo; it is covered by the QA scratchpad `qa145.mjs` only, which is recommended as a follow-up. Not tested: WebKit/iOS
+Safari, real devices, staging/production.
+
+ZOKY-140: PASS (closed). ZOKY-143: PASS (closed). ZOKY-144: PASS (closed). ZOKY-145: PASS (closed).
+Final Status: PASS — no open CRITICAL/HIGH. Open LOW items (ZOKY-142, ZOKY-146) do not block release. Ready for CTO
+final review, then staging and Founder approval.

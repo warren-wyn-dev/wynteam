@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-145
 
-Status: fixed — waiting QA re-test
+Status: closed — QA re-test 4 PASS @ 5e232d68 (2026-10-22)
 Severity: HIGH (guest sign-in funnel blocked on the first Food visit of each browser session; no data loss, no security impact)
 Owner: AI Debug Engineer
 Found by: AI QA & Security re-test 3 (ZOKY-144), branch `feat/zoky-web-app-design` @ 136b548b, 2026-10-22
@@ -46,3 +46,7 @@ browsers, and ThemeSync already skips `[data-fx-splash-theme]`.
 Files Changed: `web/app/food/layout.tsx`, `web/tests/food-standalone-account.test.mjs`
 Verification (developer): with a fresh session + splash, the guest Home login link renders the login form with 0 page errors.
 probe144f: splash seen=false/true both render the login form with 0 errors.
+QA re-test 4 (2026-10-22, @ 5e232d68): PASS. The three guest entries, back, reload, signup, signed-in sign-out and the
+share link all work in a new splash session at 390/430/820 with 0 page errors (`qa145.mjs` 159/159). Regression scripts
+pass: `qa144` 177/177, `qa143-guest` 156/156, `zoky140-retest` 174/183 (known dblclick probes). Side effect (LOW,
+not blocking): ZOKY-146.
