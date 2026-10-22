@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - 'web/app/merchant/**'
+      - 'web/merchant_flutter/**'
+      - 'web/lib/merchant-flutter-*.ts'
+      - 'web/scripts/check-web-fonts.mjs'
+      - 'web/tests/browser/merchant-flutter-*.spec.ts'
+      - 'web/playwright.merchant-flutter.config.ts'
       - 'web/components/merchant/**'
       - 'web/lib/food-merchant.ts'
       - 'web/lib/merchant-*.ts'
@@ -19,6 +24,11 @@ on:
       - main
     paths:
       - 'web/app/merchant/**'
+      - 'web/merchant_flutter/**'
+      - 'web/lib/merchant-flutter-*.ts'
+      - 'web/scripts/check-web-fonts.mjs'
+      - 'web/tests/browser/merchant-flutter-*.spec.ts'
+      - 'web/playwright.merchant-flutter.config.ts'
       - 'web/components/merchant/**'
       - 'web/lib/food-merchant.ts'
       - 'web/lib/merchant-*.ts'
@@ -52,6 +62,10 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Run Merchant browser QA
         run: npx playwright test tests/browser/wynos-merchant.spec.ts
+      - name: Build Flutter Merchant bundle
+        run: npm run build:merchant-flutter
+      - name: Verify embedded Flutter Merchant with synthetic shared auth
+        run: npm run qa:merchant-flutter
       - name: Upload Merchant Playwright results on failure
         if: failure()
         uses: actions/upload-artifact@v4
