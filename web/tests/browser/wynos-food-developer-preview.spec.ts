@@ -347,7 +347,11 @@ test("Food customer flow is connected to real ordering, payment and realtime API
   expect(data).toContain('table: "food_orders"');
   expect(data).toContain('const FOOD_PRIVATE = "food-private"');
   expect(app).toContain("ไปชำระเงิน");
+  // Legacy slip flow only while the Stripe-only policy is off (Founder 2026-10-22).
   expect(app).toContain("แจ้งชำระเงิน");
+  expect(app).toContain("footer={canPay && paymentGate.ready && !stripeOnly ? (");
+  expect(app).toContain('payWithStripe("promptpay")');
+  expect(app).toContain('payWithStripe("card")');
   expect(app).toContain("subscribeToPushNotifications(client, userId)");
   expect(app).toContain("isCurrentDevicePushEnabled(client, userId)");
   expect(app).toContain("กำลังเตรียมอาหาร");
@@ -364,6 +368,8 @@ test("Food customer checkout uses server-authoritative totals and direct store s
   expect(sql).toContain("minimum order not met");
   expect(sql).toContain("menu item is unavailable");
   expect(app).toContain("โอนเงินเข้าบัญชีร้านโดยตรง");
+  // Under Stripe-only the store's Stripe account is paid directly (no QR/bank rows).
+  expect(app).toContain("ชำระผ่าน Stripe อย่างปลอดภัย");
   expect(app).not.toContain("ค่าคอม");
   expect(app).not.toContain("WYNOS Wallet");
 });

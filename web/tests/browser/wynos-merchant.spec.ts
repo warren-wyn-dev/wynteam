@@ -286,6 +286,8 @@ test("Merchant receives orders from WYNOS Food only while keeping delivery workf
   expect(app).toContain("วางสินค้าไว้ที่ไหน?");
   expect(app).toContain("ยืนยันส่งสำเร็จ");
   expect(app).toContain("ยืนยันเงินเข้า");
+  // Stripe-only: manual confirmation stays only for legacy slips and store-entered orders.
+  expect(app).toContain('const manualPaymentAllowed = !stripeOnly || order.source !== "app" || order.payment_status === "submitted";');
   expect(app).toContain("เริ่มจัดส่ง");
 });
 
@@ -575,7 +577,8 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   expect(app).toContain("badge={activeOrderCount}");
   expect(app).not.toContain("<h2>ต้องจัดการตอนนี้</h2>");
   // Readiness uses the publish rules (paired payment fields).
-  expect(app).toContain("done: store.stripe_payments_enabled === true || (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
+  // Stripe-only policy on (2026-10-22): only Stripe counts; off: the publish rules as before.
+  expect(app).toContain("done: stripeOnly ? store.stripe_payments_enabled === true : store.stripe_payments_enabled === true || (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
   expect(app).toContain("{nextStep && !store.admin_suspended_at ? (");
   // Four bottom tabs; reports, store settings and campaigns live under "เพิ่มเติม".
   expect(app).toContain('label="รับออเดอร์"');
