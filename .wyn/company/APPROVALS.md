@@ -727,3 +727,13 @@ Follow-up: give the maps health check in the exception workflow a longer warm-up
 - `release/zoky-web-20261018` fast-forwarded `8e6aa209` → `82f613d627c8bf63b5f6decb9426be0c977e0048`. This SHA replaces 8e6aa209 for staging and PHASE1
 - Next: staging via `web-next-phase5-preview.yml` with `zoky_release_sha=82f613d6…`, then the Founder's explicit production approval
 - [2026-10-22] Founder staging review of `82f613d6` (run 39807414871, 1008 passed): "ตรงขึ้นที่อยู่อีกทำไม" → the guest header's repeated store description was removed and long names now wrap. The release branch was fast-forwarded to `e6f577dcccb86b51c68d91e754b19fe4cfa27222`, which replaces 82f613d6 for staging and PHASE1. Developer re-run of the QA suites passed (see the QA doc).
+
+## [2026-10-22] ZOKY web redesign — PHASE1 production release (APPROVED by Founder)
+
+- Founder approved the staging preview (run 39812934932, `web-2s7i8o313`, release `e6f577dc`, 1008 passed) with **"ผ่าน"**, then the production release with **"อนุมัติขึ้นเว็บจริง (แนะนำ)"** (AskUserQuestion, 2026-10-22).
+- Workflow: `zoky-web-exception-release.yml` on `main`, phase `PHASE1` (ZOKY_LEGACY_FOOD_REDIRECT=0, so food.wynos.online is unchanged).
+- release_sha: `e6f577dcccb86b51c68d91e754b19fe4cfa27222`
+- Includes: Home + Food redesign, ZOKY-140/143/144 history fixes, ZOKY-145 (HIGH, live today) guest-login dead page fix, and the storefront header update.
+- Open LOW follow-ups: ZOKY-141, ZOKY-142, ZOKY-146, order sheet not closed on browser back, and ratings/ETA for guests (needs a DB change).
+- Rollback: Vercel Instant Rollback to the current production deployment (PHASE1 run 39159774643, commit `0533fb36`).
+- The Founder must still approve the run's `production` environment review in GitHub.
