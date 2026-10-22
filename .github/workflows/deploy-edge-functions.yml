@@ -75,6 +75,21 @@ jobs:
             exit 1
           fi
 
+      # ZOKY PHASE1 is live: production runs the release/zoky-web-20261018
+      # versions of these two functions (ZOKY origins, Stripe method/expiry).
+      # Deploying them from main would break ZOKY checkout; they ship only via
+      # zoky-web-exception-release.yml (CTO condition C1, 2026-10-22).
+      - name: ZOKY Stripe functions ship only from the ZOKY release
+        env:
+          FUNCTION_NAME: ${{ inputs.function }}
+        run: |
+          set -euo pipefail
+          case "$FUNCTION_NAME" in
+            food-stripe-checkout|food-stripe-cancel)
+              echo "::error::$FUNCTION_NAME is deployed only by zoky-web-exception-release.yml (phase EDGE) while ZOKY runs from release/zoky-web-20261018."
+              exit 1 ;;
+          esac
+
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
