@@ -751,3 +751,9 @@ Independent check after the deploy:
 - zoky `/login` returns 307 to `/food/login`.
 
 Rollback target if needed: Vercel Instant Rollback to the previous PHASE1 deployment (run 39159774643, `0533fb36`).
+
+## [2026-10-22] ZOKY Stripe-only payments + auto-refund — implementation approved (Founder)
+
+- Founder (AskUserQuestion): **"อนุมัติ เริ่มเขียนโค้ด (แนะนำ)"**. This approves the Architect design (`.wyn/docs/architecture/zoky-stripe-only-auto-refund-design.md`) and release path **B**: additive migrations, a `food-apply-zoky-stripe-jobs.yml` apply workflow and a `food-stripe-refund-worker` deploy via a reviewed PR to `main`, as a freeze exception scoped to this work only. Web and `food-stripe-checkout`/`food-stripe-cancel` ship through the ZOKY exception workflow.
+- This approval does **not** cover any production step. Each production step (worker deploy, migration apply, cron enable, EDGE, PHASE, Stripe-only activation) needs its own Founder approval and GitHub `production` review. Testing uses Stripe test mode only.
+- Never deploy `food-stripe-checkout`/`food-stripe-cancel` from `main`, because the `main` versions lack the ZOKY origins.
