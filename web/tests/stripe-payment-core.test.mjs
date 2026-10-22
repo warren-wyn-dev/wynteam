@@ -43,7 +43,10 @@ test("Checkout remains a direct connected-account charge with server-calculated 
   assert.match(checkout, /"Stripe-Account": account/);
   assert.match(checkout, /headers\["Idempotency-Key"\]\s*=\s*idempotencyKey/);
   assert.match(checkout, /Math\.round\(Number\(order\.total\) \* 100\)/);
-  assert.doesNotMatch(checkout, /payment_method_types/);
+  // Stripe-only (2026-10-22): at most one method, and only the validated one
+  // (no method from an older client keeps the account configuration).
+  assert.equal(checkout.match(/params\.set\("payment_method_types/g)?.length, 1);
+  assert.match(checkout, /if \(method\) params\.set\("payment_method_types\[0\]", method\)/);
   assert.match(checkout, /connected account's active payment-method/);
   assert.match(checkout, /livemode: stripeLiveMode/);
   // ZOKY-135: live mode only for the exact Food web origins (ZOKY + legacy

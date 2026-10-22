@@ -1,6 +1,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
-import { applicationFeeSatang, foodReturnOrigin, isFoodWebOrigin } from "./_lib.ts";
+import {
+  applicationFeeSatang,
+  checkoutExpiresAt,
+  checkoutIdempotencyKey,
+  foodReturnOrigin,
+  isFoodWebOrigin,
+  parseCheckoutMethod,
+  sessionMatchesMethod,
+} from "./_lib.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -54,6 +62,27 @@ async function stripeJson(url: string, init: RequestInit) {
   return payload;
 }
 
+/**
+ * Expires an open session. Returns null when it is closed, or the response
+ * to send: 409 if Stripe says it was paid meanwhile (never open a second
+ * payable link for a paid order), 502 if it could not be closed.
+ */
+async function expireOpenSession(stripeSecret: string, stripeAccountId: string, sessionId: string): Promise<Response | null> {
+  const sessionUrl = `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`;
+  try {
+    await stripeJson(`${sessionUrl}/expire`, { method: "POST", headers: stripeHeaders(stripeSecret, stripeAccountId) });
+    return null;
+  } catch { /* Re-check below: it may have been paid or closed meanwhile. */ }
+  try {
+    const current = await stripeJson(sessionUrl, { headers: stripeHeaders(stripeSecret, stripeAccountId) });
+    if (current.payment_status === "paid" || current.status === "complete") {
+      return json({ error: "payment_already_completed" }, 409);
+    }
+    if (current.status === "expired") return null;
+  } catch { /* fall through */ }
+  return json({ error: "stripe_session_expire_failed", message: "เปลี่ยนวิธีชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 502);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -78,11 +107,16 @@ Deno.serve(async (req: Request) => {
   if (userError || !user) return json({ error: "unauthorized" }, 401);
 
   let orderId = "";
+  let rawMethod: unknown = undefined;
   try {
-    const body = await req.json() as { orderId?: unknown };
+    const body = await req.json() as { orderId?: unknown; method?: unknown };
     orderId = typeof body.orderId === "string" ? body.orderId : "";
+    rawMethod = body.method;
   } catch { return json({ error: "invalid_body" }, 400); }
   if (!orderId) return json({ error: "order_id_required" }, 400);
+  // Optional: older clients send no method and keep the account's configuration.
+  const method = parseCheckoutMethod(rawMethod);
+  if (method === null) return json({ error: "invalid_payment_method" }, 400);
 
   const { data: order } = await admin.from("food_orders")
     .select("id,order_number,buyer_id,store_id,total,status,payment_status,payment_due_at")
@@ -103,6 +137,10 @@ Deno.serve(async (req: Request) => {
   }
   if (!account || account.status !== "ready" || !account.details_submitted || !account.charges_enabled) {
     return json({ error: "stripe_not_ready" }, 422);
+  }
+  // PromptPay is only offered when Stripe has enabled it on the store's account.
+  if (method === "promptpay" && account.promptpay_enabled !== true) {
+    return json({ error: "promptpay_unavailable", message: "ร้านนี้ยังไม่รองรับพร้อมเพย์ กรุณาเลือกบัตรเครดิต/เดบิต" }, 422);
   }
 
   const amountSatang = Math.round(Number(order.total) * 100);
@@ -137,10 +175,18 @@ Deno.serve(async (req: Request) => {
         `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(existing.checkout_session_id)}`,
         { headers: stripeHeaders(stripeSecret, account.stripe_account_id) },
       );
-      if (session.status === "open" && typeof session.url === "string") {
+      if (session.payment_status === "paid" || session.status === "complete") {
+        return json({ error: "payment_already_completed" }, 409);
+      }
+      if (session.status === "open" && typeof session.url === "string" && sessionMatchesMethod(session, method)) {
         return json({ url: session.url, sessionId: session.id, reused: true });
       }
-      if (session.payment_status === "paid") return json({ error: "payment_already_completed" }, 409);
+      if (session.status === "open") {
+        // The customer switched method: close the old session before opening a
+        // new one, so only one payable link exists (same as food-stripe-cancel).
+        const expireError = await expireOpenSession(stripeSecret, account.stripe_account_id, existing.checkout_session_id);
+        if (expireError) return expireError;
+      }
       attempt += 1;
     } catch {
       attempt += 1;
@@ -158,9 +204,13 @@ Deno.serve(async (req: Request) => {
   params.set("line_items[0][price_data][product_data][name]", `ZOKY #${order.order_number}`);
   params.set("line_items[0][price_data][unit_amount]", String(amountSatang));
   params.set("line_items[0][quantity]", "1");
-  // Stripe Checkout uses the connected account's active payment-method
-  // configuration. Card remains capability-gated and PromptPay only appears
-  // when Stripe marks it available for this connected account.
+  // With a method the session offers only that method (so the recorded
+  // payment_method_types[0] is what the customer chose). Without one, Stripe
+  // Checkout uses the connected account's active payment-method configuration.
+  if (method) params.set("payment_method_types[0]", method);
+  // Backstop: an abandoned link stops being payable (Stripe minimum 30 min).
+  const expiresAt = checkoutExpiresAt(Date.now());
+  params.set("expires_at", String(expiresAt));
   params.set("metadata[order_id]", order.id);
   params.set("metadata[store_id]", order.store_id);
   params.set("payment_intent_data[metadata][order_id]", order.id);
@@ -176,7 +226,7 @@ Deno.serve(async (req: Request) => {
   try {
     session = await stripeJson("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
-      headers: stripeHeaders(stripeSecret, account.stripe_account_id, `wynos-food-${order.id}-${attempt}`),
+      headers: stripeHeaders(stripeSecret, account.stripe_account_id, checkoutIdempotencyKey(order.id, attempt, method, expiresAt)),
       body: params,
     });
   } catch (error) {

@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
-import { isFoodWebOrigin } from "../food-stripe-checkout/_lib.ts";
+import { isFoodWebOrigin, stripeCancelLedgerNote } from "../food-stripe-checkout/_lib.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -51,9 +51,12 @@ Deno.serve(async (req: Request) => {
   if (userError || !user) return json({ error: "unauthorized" }, 401);
 
   let orderId = "";
+  let ledgerNote = stripeCancelLedgerNote(undefined);
   try {
-    const body = await req.json() as { orderId?: unknown };
+    const body = await req.json() as { orderId?: unknown; reason?: unknown };
     orderId = typeof body.orderId === "string" ? body.orderId : "";
+    // Optional, only used for the ledger note below; never changes behaviour.
+    ledgerNote = stripeCancelLedgerNote(body.reason);
   } catch { return json({ error: "invalid_body" }, 400); }
   if (!orderId) return json({ error: "order_id_required" }, 400);
 
@@ -125,7 +128,7 @@ Deno.serve(async (req: Request) => {
 
   await admin.from("food_stripe_payments").update({
     status: "failed",
-    last_error: "Customer switched to manual transfer",
+    last_error: ledgerNote,
     updated_at: new Date().toISOString(),
   }).eq("order_id", order.id).eq("checkout_session_id", sessionId);
 

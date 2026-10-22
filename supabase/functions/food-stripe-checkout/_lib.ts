@@ -41,3 +41,58 @@ export function isFoodWebOrigin(origin: string | null | undefined): boolean {
 export function foodReturnOrigin(origin: string | null | undefined): string {
   return isFoodWebOrigin(origin) ? origin as string : FOOD_WEB_ORIGIN;
 }
+
+/**
+ * Stripe-only payments (ZOKY 2026-10-22): the customer picks PromptPay or
+ * card in ZOKY, and the Checkout session is limited to that one method so the
+ * recorded `payment_method_types[0]` is the method actually offered.
+ * `undefined` = the body had no method (older clients): keep the account's
+ * payment-method configuration exactly as before.
+ */
+export type FoodCheckoutMethod = "promptpay" | "card";
+
+export function parseCheckoutMethod(value: unknown): FoodCheckoutMethod | undefined | null {
+  if (value === undefined || value === null) return undefined;
+  if (value === "promptpay" || value === "card") return value;
+  return null;
+}
+
+/** True when an existing session already offers exactly `method`. */
+export function sessionMatchesMethod(session: Record<string, unknown>, method: FoodCheckoutMethod | undefined): boolean {
+  if (!method) return true;
+  const types = session.payment_method_types;
+  return Array.isArray(types) && types.length === 1 && types[0] === method;
+}
+
+/**
+ * Checkout `expires_at` (unix seconds). Stripe's minimum is 30 minutes after
+ * creation, so this is 31-32 minutes away, bucketed to the minute: retries in
+ * the same minute send identical parameters and stay idempotent.
+ */
+export function checkoutExpiresAt(nowMs: number): number {
+  return Math.floor(nowMs / 60_000) * 60 + 32 * 60;
+}
+
+/**
+ * Idempotency key for creating a session. It covers every parameter that can
+ * differ between two requests for the same attempt (method and expiry), so a
+ * retry never collides with an earlier request that had other parameters.
+ */
+export function checkoutIdempotencyKey(
+  orderId: string,
+  attempt: number,
+  method: FoodCheckoutMethod | undefined,
+  expiresAt: number,
+): string {
+  return `wynos-food-${orderId}-${attempt}-${method ?? "any"}-${expiresAt}`;
+}
+
+/**
+ * food-stripe-cancel ledger note (`food_stripe_payments.last_error`). The
+ * optional `reason` only changes this note; anything unknown keeps the
+ * original note, so behaviour is the same for older clients.
+ */
+export function stripeCancelLedgerNote(reason: unknown): string {
+  if (reason === "order_cancelled") return "Customer cancelled the order";
+  return "Customer switched to manual transfer";
+}

@@ -1,6 +1,16 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1";
 
-import { applicationFeeSatang, FOOD_WEB_ORIGIN, foodReturnOrigin, isFoodWebOrigin } from "./_lib.ts";
+import {
+  applicationFeeSatang,
+  checkoutExpiresAt,
+  checkoutIdempotencyKey,
+  FOOD_WEB_ORIGIN,
+  foodReturnOrigin,
+  isFoodWebOrigin,
+  parseCheckoutMethod,
+  sessionMatchesMethod,
+  stripeCancelLedgerNote,
+} from "./_lib.ts";
 
 Deno.test("no GP: fee is 0", () => {
   assertEquals(applicationFeeSatang({ gp_satang: 0, total_satang: 12000 }, 12000), 0);
@@ -63,4 +73,54 @@ Deno.test("Stripe return origin: allowlisted request origin, otherwise ZOKY", ()
   assertEquals(foodReturnOrigin("https://zoky.wynos.online.evil.com"), "https://zoky.wynos.online");
   assertEquals(foodReturnOrigin("http://localhost:3000"), "https://zoky.wynos.online");
   assertEquals(foodReturnOrigin(null), "https://zoky.wynos.online");
+});
+
+Deno.test("checkout method: optional, promptpay or card only", () => {
+  assertEquals(parseCheckoutMethod(undefined), undefined);
+  assertEquals(parseCheckoutMethod(null), undefined);
+  assertEquals(parseCheckoutMethod("promptpay"), "promptpay");
+  assertEquals(parseCheckoutMethod("card"), "card");
+  for (const bad of ["", "PromptPay", "bank_transfer", "card ", 1, true, ["card"], {}]) {
+    assertEquals(parseCheckoutMethod(bad), null, JSON.stringify(bad));
+  }
+});
+
+Deno.test("session reuse: only when it offers exactly the requested method", () => {
+  assertEquals(sessionMatchesMethod({ payment_method_types: ["card", "promptpay"] }, undefined), true);
+  assertEquals(sessionMatchesMethod({ payment_method_types: ["promptpay"] }, "promptpay"), true);
+  assertEquals(sessionMatchesMethod({ payment_method_types: ["card"] }, "card"), true);
+  assertEquals(sessionMatchesMethod({ payment_method_types: ["card"] }, "promptpay"), false);
+  assertEquals(sessionMatchesMethod({ payment_method_types: ["card", "promptpay"] }, "card"), false);
+  assertEquals(sessionMatchesMethod({}, "card"), false);
+});
+
+Deno.test("checkout expires_at: within Stripe's 30 min..24 h window, stable per minute", () => {
+  const now = Date.UTC(2026, 9, 22, 10, 15, 42);
+  const expiresAt = checkoutExpiresAt(now);
+  const seconds = Math.floor(now / 1000);
+  assertEquals(expiresAt - seconds >= 31 * 60, true);
+  assertEquals(expiresAt - seconds <= 32 * 60, true);
+  assertEquals(checkoutExpiresAt(Date.UTC(2026, 9, 22, 10, 15, 0)), expiresAt);
+  assertEquals(checkoutExpiresAt(Date.UTC(2026, 9, 22, 10, 15, 59, 999)), expiresAt);
+  assertEquals(checkoutExpiresAt(Date.UTC(2026, 9, 22, 10, 16, 0)), expiresAt + 60);
+});
+
+Deno.test("checkout idempotency key: differs by attempt, method and expiry", () => {
+  const order = "11111111-1111-4111-8111-111111111111";
+  const base = checkoutIdempotencyKey(order, 1, "card", 100);
+  assertEquals(base, `wynos-food-${order}-1-card-100`);
+  assertEquals(checkoutIdempotencyKey(order, 1, undefined, 100), `wynos-food-${order}-1-any-100`);
+  assertEquals(new Set([
+    base,
+    checkoutIdempotencyKey(order, 2, "card", 100),
+    checkoutIdempotencyKey(order, 1, "promptpay", 100),
+    checkoutIdempotencyKey(order, 1, "card", 160),
+  ]).size, 4);
+});
+
+Deno.test("cancel ledger note: reason only selects the note", () => {
+  assertEquals(stripeCancelLedgerNote("order_cancelled"), "Customer cancelled the order");
+  assertEquals(stripeCancelLedgerNote(undefined), "Customer switched to manual transfer");
+  assertEquals(stripeCancelLedgerNote("anything"), "Customer switched to manual transfer");
+  assertEquals(stripeCancelLedgerNote({ toString: () => "order_cancelled" }), "Customer switched to manual transfer");
 });
