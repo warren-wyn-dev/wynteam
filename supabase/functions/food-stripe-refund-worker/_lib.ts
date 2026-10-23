@@ -260,8 +260,9 @@ async function refund(job: Job, ctx: Context): Promise<Outcome> {
   }
   if (job.livemode !== ctx.livemode) return { outcome: "needs_attention", errorCode: "stripe_environment_mismatch" };
   // ZOKY-154/156: a duplicate payment is refunded by an operator at Stripe,
-  // never here. A review job is only claimed after food_requeue_stripe_refund_jobs
-  // (a succeeded refund of the duplicate): close it when succeeded refunds
+  // never here. A review job is claimed once when created (its refund may
+  // predate it) and again after food_requeue_stripe_refund_jobs (a succeeded
+  // refund of the duplicate): close it when succeeded refunds
   // of the duplicate PaymentIntent cover it, else park it again. Pending
   // refunds never count, and the order (first payment) is never touched.
   if (job.reason === "duplicate_payment") return await checkDuplicateRefunded(job, ctx, account);
@@ -281,6 +282,15 @@ async function refund(job: Job, ctx: Context): Promise<Outcome> {
     if (!current.ok) return fromError(current, "refund_lookup");
     const ours = fee > 0 && refundIsOurs(current.body, job.job_id);
     const outcome = refundOutcome(current.body, ours, method);
+    if (outcome.outcome === "refunded" && job.payment_intent_id) {
+      // The full amount may be several refunds (adopted while another was
+      // pending): close only when the live refunds cover it and none is
+      // still pending, the same rule as adoptExisting.
+      const all = await listExistingFor(job.payment_intent_id);
+      if (all && "ok" in all) return fromError(all, "refund_list");
+      if (!all) return { outcome: "retry", errorCode: "refund_list_inconsistent" };
+      return all.outcome === "refunded" ? outcome : all;
+    }
     if (outcome.outcome !== "failed" || !job.payment_intent_id) return outcome;
     // Ours failed or was canceled: another live refund (Dashboard, legacy
     // button) may cover the payment; adopt it instead of reporting failure.

@@ -226,8 +226,12 @@ Deno.test("refund: polls a requested refund until final", async () => {
   const job = refundJob({ status: "awaiting_refund", stripe_refund_id: "re_1", payment_method: "card" });
   assertEquals(await processJob(job, m.ctx), { outcome: "refund_requested", refundId: "re_1", awaitingCustomer: false });
   assert(m.calls[0].url.endsWith("/v1/refunds/re_1"));
-  m = mockStripe([{ body: { id: "re_1", status: "succeeded" } }]);
+  m = mockStripe([
+    { body: { id: "re_1", status: "succeeded", amount: 12000 } },
+    { body: { data: [{ id: "re_1", status: "succeeded", amount: 12000 }] } },
+  ]);
   assertEquals((await processJob(job, m.ctx)).outcome, "refunded");
+  assert(m.calls[1].url.endsWith("/v1/refunds?payment_intent=pi_test_1&limit=100"), "success is re-summed from the list");
   m = mockStripe([
     { body: { id: "re_1", status: "failed", failure_reason: "lost_or_stolen_card" } },
     { body: { data: [] } },
@@ -238,9 +242,10 @@ Deno.test("refund: polls a requested refund until final", async () => {
 
 Deno.test("refund: GP is claimed on a polled success only for our own refund", async () => {
   const job = refundJob({ status: "awaiting_refund", stripe_refund_id: "re_1", application_fee_satang: 500 });
-  let m = mockStripe([{ body: { id: "re_1", status: "succeeded", metadata: { wynos_refund_job_id: job.job_id } } }]);
+  const ownRefund = { id: "re_1", status: "succeeded", amount: 12000, metadata: { wynos_refund_job_id: job.job_id } };
+  let m = mockStripe([{ body: ownRefund }, { body: { data: [ownRefund] } }]);
   assertEquals(await processJob(job, m.ctx), { outcome: "refunded", refundId: "re_1", feeRefunded: true });
-  m = mockStripe([{ body: { id: "re_1", status: "succeeded" } }]);
+  m = mockStripe([{ body: { id: "re_1", status: "succeeded" } }, { body: { data: [{ id: "re_1", status: "succeeded", amount: 12000 }] } }]);
   assertEquals(await processJob(job, m.ctx), { outcome: "refunded", refundId: "re_1", feeRefunded: false });
 });
 
@@ -393,4 +398,41 @@ Deno.test("ZOKY-156: a duplicate payment's review job closes from Stripe's list 
   m = mockStripe([]);
   assertEquals((await processJob({ ...dup, payment_intent_id: null }, m.ctx)).outcome, "needs_attention");
   assertEquals(m.calls.length, 0);
+});
+
+Deno.test("Codex P1: a polled refund that succeeds closes only when every refund making up the total has succeeded", async () => {
+  // Adopted while two partial refunds were pending; the tracked one succeeds first.
+  const job = refundJob({ status: "awaiting_refund", stripe_refund_id: "re_a", payment_method: "card" });
+  let m = mockStripe([
+    { body: { id: "re_a", status: "succeeded", amount: 5000 } },
+    { body: { data: [{ id: "re_b", status: "pending", amount: 7000 }, { id: "re_a", status: "succeeded", amount: 5000 }] } },
+  ]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "refund_requested", refundId: "re_b", awaitingCustomer: false },
+    "keeps polling the refund that is still pending");
+  // The other one failed: the succeeded refunds no longer cover the total.
+  m = mockStripe([
+    { body: { id: "re_a", status: "succeeded", amount: 5000 } },
+    { body: { data: [{ id: "re_b", status: "failed", amount: 7000 }, { id: "re_a", status: "succeeded", amount: 5000 }] } },
+  ]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "needs_attention", errorCode: "partial_refund_exists" });
+  // Both succeeded: refunded with the tracked refund.
+  m = mockStripe([
+    { body: { id: "re_a", status: "succeeded", amount: 5000 } },
+    { body: { data: [{ id: "re_b", status: "succeeded", amount: 7000 }, { id: "re_a", status: "succeeded", amount: 5000 }] } },
+  ]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "refunded", refundId: "re_a", feeRefunded: false });
+  // The list cannot be read: retry, never refunded on the single refund alone.
+  m = mockStripe([{ body: { id: "re_a", status: "succeeded", amount: 5000 } }, "network"]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "retry", errorCode: "network_error" });
+});
+
+Deno.test("Codex P2: a requeued failed refund job adopts the operator's refund and never posts a new one", async () => {
+  // e.g. failed with balance_insufficient, then the operator refunded at Stripe.
+  const job = refundJob({ requeue_count: 2, order_refund_status: "failed" });
+  let m = mockStripe([{ body: { data: [{ id: "re_op", status: "succeeded", amount: 12000 }] } }]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "refunded", refundId: "re_op", feeRefunded: false });
+  assertEquals(m.calls.length, 1);
+  m = mockStripe([{ body: { data: [{ id: "re_op", status: "succeeded", amount: 5000 }] } }]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "needs_attention", errorCode: "partial_refund_exists" });
+  assertEquals(m.calls.filter((c) => c.method === "POST").length, 0);
 });
