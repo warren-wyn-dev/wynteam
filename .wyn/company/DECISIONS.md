@@ -2470,3 +2470,7 @@ Founder ดูภาพตัวอย่าง (`.wyn/previews/zoky-web-design/
   - **Stripe processing fees are paid by the store**, which keeps the current direct-charge setup.
   - GP is set per store by the Founder in ZOKY Admin, using the existing `merchant_gp_rates` (per store, plus a default).
   - "Other fees" such as transfer/payout fees are TBD after checking with Stripe.
+- Founder, 2026-10-23:
+  - After the gateway comparison (`.wyn/docs/product/zoky-payment-gateway-comparison.md`), stay with **Stripe**.
+  - Customers may pay **by PromptPay QR only** (via Stripe), with no card option. This replaces D9: a store without PromptPay on its Stripe account does not accept orders.
+  - Consequence: every refund is a PromptPay refund. Stripe emails the customer for the bank account, and each refund costs ฿10.
