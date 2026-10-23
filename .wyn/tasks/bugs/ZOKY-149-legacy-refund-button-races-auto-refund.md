@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-149
 
-Status: bugs
+Status: approved (fixed and verified in Re-test 2, 2026-10-23: one owner of the refund — the automatic box whenever a job exists, and merchant-stripe-refund adopts an existing refund)
 Owner: AI Debug Engineer
 Severity: MEDIUM (false "refund failed" state shown to the customer and merchant; no double refund)
 

@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-151
 
-Status: bugs
+Status: approved (fixed and verified in Re-test 2, 2026-10-23: source is distinct from 'manual' in both triggers and in the merchant UI)
 Owner: AI Debug Engineer
 Severity: LOW (not reachable by clients today)
 

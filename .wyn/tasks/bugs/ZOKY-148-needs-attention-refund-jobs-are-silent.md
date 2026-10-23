@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-148
 
-Status: bugs
+Status: approved (fixed and verified in Re-test 2, 2026-10-23: the merchant is notified, admin_food_refund_jobs is available and the merchant UI shows "ต้องตรวจสอบ"; LOW residual: the customer still sees the "check your Stripe email" copy on a parked job)
 Owner: AI Debug Engineer
 Severity: MEDIUM (a refund can stall forever, with no alert, while the UI says it is in progress)
 

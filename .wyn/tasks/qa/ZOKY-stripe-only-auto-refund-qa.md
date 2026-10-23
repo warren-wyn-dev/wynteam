@@ -144,5 +144,125 @@ Other LOW observations (no separate bug):
 - ZOKY-151 and ZOKY-152 can be fixed in the same pass.
 - A Stripe test-mode E2E for PromptPay and card refunds (succeeded / requires_action → failed) is required before Founder Gate.
 
+Round 1 status: FAIL → AI Debug Engineer, with ZOKY-147 to ZOKY-152. (See Re-test 2 below for the current status.)
+
+---
+
+## Re-test 2 (2026-10-23)
+
+Environment:
+- payjobs feat/zoky-stripe-jobs-db @ 99c74881
+- payweb feat/zoky-stripe-only-web @ 7d40229e
+- New Founder decision 2026-10-23: customers pay only by PromptPay QR through Stripe; stores without PromptPay are not accepting orders.
+- Throwaway PG16 (removed afterwards), synthetic data, mocked Supabase/Stripe.
+
+### Developer suites (re-run by me)
+| Suite | Result |
+|---|---|
+| SQL `food_stripe_auto_refund_test.sh` | 140/140 PASS |
+| deno backend (`--allow-read`) | 141/141 PASS; `deno check` worker + merchant-stripe-refund pass |
+| deno web (checkout/cancel) | 16/16 PASS; `deno check` passes |
+| eslint (changed files) / `tsc --noEmit` | 0 / 0 |
+| node `tests/*.test.mjs` | 367/367 PASS |
+| Playwright (food preview + merchant, chromium-android, temporary config, removed) | 68/68 PASS |
+| probe.mjs (customer) | 30/30 PASS |
+| probe-merchant.mjs | 15/15 PASS |
+
+### My round-1 attack scripts (expected flips)
+- **t1 authz:** 31/31. **t2 flows:** 37/37. **t4 parity:** policy-OFF diff is still only the audit event `refund_auto_queued`.
+- **t3 policy ON** (both live variants of `food_set_payment_status`):
+  - All 3 "BYPASS?" lines for `source='social'` are now refused (ZOKY-151 fixed).
+  - A card-only store is refused, as the new Founder rule requires; that old D9 expectation is now intentionally reversed.
+  - `food_set_payment_status('refunded')` on a Stripe-paid order is refused in the core_completion variant too (`stripe_payment_managed_by_stripe`; ZOKY-150 fixed).
+- **t5 PromptPay:** all "BUG" lines flipped:
+  - After a premature `charge.refunded` and a later failed refund, the order ends `cancelled/paid/failed`.
+  - Customer and merchant are notified with the reason (no bank account entered in Stripe's email).
+  - The GP fee is no longer booked at request time.
+  - The merchant can retry.
+  - needs_attention now notifies the merchant, and `admin_food_refund_jobs` exists.
+  - SKIP LOCKED is still OK.
+- **`promptpay_refund_test.ts`:** the worker now polls its own refund even when the order is flagged refunded, and reports `failed` (ZOKY-147 fixed).
+
+### New attacks (t6_round2.sh, 31 real checks pass; 4 harness-format mismatches "true" vs "t" have correct states)
+**Guard on auth.role (ZOKY-150)**
+- authenticated or anon, even through a SECURITY DEFINER RPC, cannot mark a Stripe-paid order refunded or swap its provider.
+- service_role (webhook/worker) can.
+- Merchant accept/cancel and `merchant_retry_stripe_refund` still work.
+- role NULL (pg_cron/operator SQL) is allowed by design.
+- Stripe orders still `pending`/`issue` are not covered (legacy; live-version dependent).
+
+**refund_awaiting_customer flips**
+- `requires_action` sets the flag and notifies the customer once ("ตรวจอีเมลจาก Stripe…"); repeat polls do not resend.
+- A failure clears the flag and tells both sides why; a retry clears it.
+- Clients have no write path (no UPDATE grant).
+
+**Webhook-sets-refunded → worker-reverts loop**
+- The state is always corrected (`cancelled/paid/pending`), and no second refund job is created.
+- **But each revert to `paid` fires the existing `food_order_notify` trigger**: the buyer gets "ชำระเงินออเดอร์ #X สำเร็จแล้ว", and the merchant and staff get "ชำระเงินแล้ว #X". → **ZOKY-153 (MEDIUM, new)**
+
+**admin_food_refund_jobs**
+- anon gets permission denied; merchant and buyer get `Not authorized`.
+- A food:view admin can list.
+- The status filter is validated (an injection string is rejected).
+- Returns ids, codes and counters plus order number and store name; no customer personal data.
+
+**Backfill (opt-in)**
+- A rerun is idempotent (same dedupe key; one event per order).
+- Orders with existing jobs are skipped.
+- Rollback removes only jobs not picked up yet.
+
+**Activate / deactivate**
+- An activate rerun keeps the cut-over time.
+- Deactivate brings back legacy behaviour: the unready store accepts orders and slips are accepted.
+- Workflow steps preflight/backfill/deactivate/cron-off parse, are main-only, require the typed confirm and the `production` environment, and are verified.
+- Preflight is read-only and prints function definitions and counts only.
+
+**Checkout** (unit tests + code review)
+- Under the policy, `card` → 422 `promptpay_only`; no method → PromptPay.
+- A policy RPC error other than "function missing" → 503 `payment_policy_unavailable` (fail-closed).
+- `promptpay` skips the policy read and is still gated by `promptpay_enabled`.
+- An open card session from before activation is expired and replaced by a PromptPay session.
+
+**UI** (probes + review)
+- A single "จ่ายด้วยพร้อมเพย์ (QR)" option with the payee note "STRIPE PAYMENTS (THAILAND)" (`aria-describedby`).
+- Refund states for the customer (pending/awaiting email/failed with reason).
+- Merchant: one owner of refunds — the automatic box whenever a job exists, in any policy state; the legacy button only for old orders without a job.
+- `manualPaymentAllowed` only when `source==='manual'`.
+- Error codes are mapped to Thai.
+
+### Bug status after Re-test 2
+| ID | Status |
+|---|---|
+| ZOKY-147 HIGH | Fixed, verified (side effect → ZOKY-153) |
+| ZOKY-148 MEDIUM | Fixed, verified. LOW residual: the customer view of a parked (needs_attention) refund still shows "กำลังคืนเงิน · ตรวจอีเมลจาก Stripe". `FOOD_REFUND_NEEDS_ATTENTION_COPY` exists but is only used on the merchant side |
+| ZOKY-149 MEDIUM | Fixed, verified |
+| ZOKY-150 MEDIUM | Fixed, verified (both live variants) |
+| ZOKY-151 LOW | Fixed, verified |
+| ZOKY-152 LOW | Still open. `internal.food_order_status_notify` still says "ร้านจะคืนเงินให้คุณ"; acceptable to defer with a CTO/PM decision |
+| **ZOKY-153 MEDIUM (new)** | Open. A refund revert sends "ชำระเงิน…สำเร็จแล้ว" / "ชำระเงินแล้ว" notifications on the main PromptPay refund path |
+
+### Open items judged
+- **Team name:**
+  - DB uses "ทีม WYNOS": `food_stripe_job_attention` merchant notification and event; `retryStripeRefund` PGRST202 copy.
+  - Merchant web uses "ทีม ZOKY".
+  - Inconsistent (LOW). Merchant-facing text sits under "WYNOS Merchant", so pick one with PM/Founder; I recommend "ทีม ZOKY" for customer-facing text and one term for merchant-facing text.
+- **Customer view for needs_attention:** LOW. Not money-affecting, because the merchant is told and the admin list exists, but the customer copy is misleading. Recommend `foodRefundNotice` uses the order's `refund_needs_attention` event and shows "การคืนเงินต้องตรวจสอบ ติดต่อทีม ZOKY".
+- **ZOKY-152:** LOW, defer acceptable.
+- **Backfill (LOW recommendation):** for Stripe orders, merchants could never record an off-Stripe refund (`merchant_set_refund_status` refuses Stripe). A merchant who refunded in cash would be refunded again by the backfill. Before running `backfill`, review the candidate list (age, store) with the merchants; the preflight gives only a count.
+
+### Still not testable here
+Same as round 1:
+- real Stripe test mode, in particular PromptPay refund `requires_action` → succeeded/failed, whether `charge.refunded` arrives before the refund succeeds, Stripe's refund email, and the ฿10 PromptPay refund fee;
+- pg_cron/pg_net/Vault;
+- production live function versions (the preflight step now covers this);
+- HTTP-level edge function `index.ts`;
+- WebKit/desktop Playwright projects.
+
+### Recommendation
+- Fix ZOKY-153: preferred option C (the webhook does not treat `charge.refunded` as final), or a revert flag honoured by the notify function. This needs a CTO call on the allowlist.
+- Fix or accept the LOW items (ZOKY-148 customer copy, team name, ZOKY-152).
+- Then a short re-test and a Stripe test-mode E2E for PromptPay refunds before Founder Gate.
+- Everything else in the money path (refund correctness, double-refund protection, authz, Stripe-only/PromptPay-only enforcement, policy-OFF parity, rollback paths) passed.
+
 Final Status: FAIL
-→ AI Debug Engineer, with ZOKY-147 to ZOKY-152.
+→ AI Debug Engineer, with ZOKY-153 (MEDIUM, a regression introduced by the ZOKY-147 fix on the main PromptPay refund path) plus the LOW items above. The Founder/CTO may instead explicitly accept ZOKY-153 as a documented risk; if they do, nothing else blocks the QA gate.

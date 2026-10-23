@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-147
 
-Status: bugs
+Status: approved (fixed and verified in Re-test 2, 2026-10-23: payjobs 99c74881 / payweb 7d40229e; the follow-up side effect is ZOKY-153)
 Owner: AI Debug Engineer
 Severity: HIGH (money: a refund can fail while the order says "คืนเงินแล้ว", and nobody is told)
 Branches: wynteam-payjobs feat/zoky-stripe-jobs-db (worker + migration 20261023100000), wynteam-payweb feat/zoky-stripe-only-web (customer/merchant UI), stripe-webhook (unchanged, on both)

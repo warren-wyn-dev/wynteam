@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-150
 
-Status: bugs
+Status: approved (fixed and verified in Re-test 2, 2026-10-23: the guard on auth.role() refuses changes from both live versions, and the preflight step dumps pg_get_functiondef)
 Owner: AI Debug Engineer
 Severity: MEDIUM (conditional on the live definition of food_set_payment_status; needs a merchant with the orders role)
 

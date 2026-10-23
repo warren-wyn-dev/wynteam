@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-152
 
-Status: bugs
+Status: bugs (still open, LOW, Re-test 2 2026-10-23: the text in internal.food_order_status_notify is unchanged; acceptable to defer with a CTO/PM decision)
 Owner: AI Debug Engineer
 Severity: LOW (Thai copy)
 
