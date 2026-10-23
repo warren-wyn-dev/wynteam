@@ -14,7 +14,7 @@ Every step needs its own Founder approval, the GitHub `production` review, and a
 |---|---|---|---|
 | 0 | Merge the payjobs PR to main (deploys nothing). Fast-forward `release/zoky-web-20261018` to eeeb5f5e. | CI green; reviews done | Revert PR on main; revert commit on the release branch (no force push) |
 | 1 | Stripe test-mode E2E on a separate Free Supabase staging project (2026-09-27 approval, no spend), with Stripe test keys and a Vercel Preview pointed at staging | Step 0 done | n/a |
-| 2 | `food-apply-zoky-stripe-jobs.yml` preflight (read-only) | E2E PASS | n/a |
+| 2 | `food-apply-zoky-stripe-jobs.yml` preflight (read-only) | E2E PASS; the `docs/zoky-foundation` approvals (APPROVALS/DECISIONS) are on main | n/a |
 | 3 | Deploy `stripe-webhook` from main | Preflight shows `refund.*` events, or the Dashboard Connect endpoint lists `refund.created`, `refund.updated`, `refund.failed` and `charge.refund.updated`. Live edge source equals main ≤ 1166a59d (F3). Webhook revert PR prepared. | Revert PR + redeploy (cron must be off) |
 | 4 | Deploy `merchant-stripe-refund` from main (F1) | Step 3 healthy | Revert + redeploy |
 | 5 | Deploy `food-stripe-refund-worker` | Worker from the same main as steps 3–4 (ZOKY-156: it must understand `duplicate_payment` rechecks before any job exists) | Inert until cron |
