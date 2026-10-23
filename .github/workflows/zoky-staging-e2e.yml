@@ -139,7 +139,7 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.120.0
 
       - name: Deploy the 6 Edge Functions to staging
         env:
