@@ -766,3 +766,7 @@ Rollback target if needed: Vercel Instant Rollback to the previous PHASE1 deploy
   - fast-forwarding `release/zoky-web-20261018` from `e6f577dc` to `eeeb5f5e`.
 - Staging E2E (step 1): Founder chose **"ไว้วันอื่น"**. No production step (2–12) may run before it passes.
 - Production still runs `e6f577dc`. The release branch tip is not production until EDGE/PHASE1 are approved separately.
+
+### [2026-10-23] ZOKY Stripe-only — step 0 done ✅
+- PR #1231 merged by the Founder at `830dd14b8b8c22648a2aada8b2c6fffd14e884c6` (QA re-test 7 PASS, CI green). Nothing deployed; migrations not applied.
+- PR #1232 (staging E2E) default `backend_sha` updated to `830dd14b`.
