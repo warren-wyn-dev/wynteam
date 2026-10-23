@@ -393,7 +393,7 @@ Recommend adding checks 1 and 3 to the `preflight` step of `food-apply-zoky-stri
 - WebKit/desktop Playwright.
 - A Stripe test-mode E2E is still required at the Staging/Founder gate.
 
-## Final Status: PASS
+### Re-test 3 status: PASS (superseded by Re-test 4)
 
 The QA & Security gate for the code passed, with no CRITICAL, HIGH or MEDIUM issue open. Conditions carried into the rollout, each Founder-gated:
 - (a) Run preflight checks 1–2 and confirm the `refund.*` webhook subscription before deploying `stripe-webhook`.
@@ -402,3 +402,69 @@ The QA & Security gate for the code passed, with no CRITICAL, HIGH or MEDIUM iss
 
 Open LOW items (ZOKY-152, ZOKY-148 customer copy, one "ทีม WYNOS" string, backfill review) can follow.
 → CTO final review, then AI Deploy & DevOps.
+
+---
+
+## Re-test 4 (2026-10-23, PR #1231 review fixes)
+
+Environment:
+- payjobs feat/zoky-stripe-jobs-db @ fa1e9e49 (40e7f342 db, fa1e9e49 edge, b3ccc010 ci).
+- Throwaway PG16 with the real legacy RPC bodies, now including the core_completion `merchant_set_refund_status`. Removed afterwards.
+
+### Results
+| Suite | Result |
+|---|---|
+| Developer SQL | 162/162 PASS |
+| deno backend (`--allow-read`) | 145/145 PASS; `deno check` merchant-stripe-refund, stripe-webhook, worker pass |
+| t1 / t2 / t6 / t153 | 31/31, 37/37, 43/43, 7/7 |
+| t3 / t5 | Same intended flips as Re-test 2/3. In the core_completion variant, `merchant_set_refund_status` on Stripe orders is now refused by the guard |
+| t4 slip/manual policy-OFF parity | Unchanged (only `refund_auto_queued` differs) |
+| t7_round4.sh (new) | See below |
+
+### Verified
+**Duplicate payment before cancel**
+- The order keeps `pi_1/cs_1`, and the needs_attention duplicate job is bound to `pi_2`.
+- After the store cancels, the auto-refund job targets `pi_1`, and the worker claims only that job.
+
+**Duplicate payment after cancel**
+- One automatic refund for the first PI, plus one parked job for the duplicate.
+
+**core_completion `merchant_set_refund_status` on Stripe orders**
+- `failed` and `refunded` → `stripe_payment_managed_by_stripe`.
+- `pending` when already pending is a no-op.
+- stripe_payment_core version: refused by the function itself.
+
+**`wynos.food_refund_retry` bypass**
+- Not reachable by clients:
+  - no `[api]` override, so PostgREST exposes only `public`/`graphql_public`; `set_config` lives in `pg_catalog`;
+  - no public function forwards caller input to `set_config` or runs dynamic SQL from parameters (checked);
+  - PostgREST sets only `request.*` settings.
+- In a raw SQL session (not a client path) the flag allows only failed→pending. `refunded` is still refused, because changes to `payment_status` stay service_role-only.
+- **Not HIGH**: informational.
+
+**Partial refund adopt path**
+- deno tests and review: `merchant-stripe-refund` adopts only when the live refunds cover the full amount.
+- Partial or missing amounts → 409 `partial_refund_exists` and `refund_status='failed'`. This is a service_role write, so the guard allows it.
+- The worker's `adoptExisting` already parks partial refunds.
+
+**Other review fixes**
+- awaiting_refund poll cap (lookup failures too) → needs_attention with the lease cleared.
+- Expire-job failures are audited and listed in `admin_food_refund_jobs`.
+- Rollback revokes merchant retry.
+- Preflight adds the refund webhook event counts.
+
+### New findings
+| ID | Severity | Summary |
+|---|---|---|
+| **ZOKY-154** | **HIGH** | `food_apply_stripe_event` overwrites the ledger (`food_stripe_payments`) PI and session with the DUPLICATE, while the order keeps the first. The webhook resolves Refund events through the ledger PI and never checks that the refund's PI is the order's PI. So when the operator refunds the duplicate (the runbook), the order is marked refunded. On a live order it shows "คืนเงินแล้ว"; after a cancel, **no refund job is created for the first payment, so it is never refunded and there is no alert** (t7 "loss path"). |
+| ZOKY-155 | LOW | A payment arriving after the order was already cancelled and refunded is silently kept: no job, no notification, ledger flipped back to `paid`. |
+
+### Not testable here
+Unchanged (real Stripe test mode incl. Dashboard refund events on connected accounts, pg_cron/pg_net/Vault, HTTP-level edge functions).
+
+## Final Status: FAIL
+→ AI Debug Engineer, with ZOKY-154 (HIGH). Fix suggestion:
+- ledger guard trigger on `food_stripe_payments`, and/or
+- in stripe-webhook, require the refund's `payment_intent` to equal `food_orders.stripe_payment_intent_id` before marking refunded.
+
+ZOKY-155 (LOW) can be fixed in the same change. Everything else in Re-test 4 passed.
