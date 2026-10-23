@@ -97,6 +97,7 @@ create table public.food_orders(
   cancelled_at timestamptz,
   stripe_checkout_session_id text,
   stripe_payment_intent_id text,
+  payment_transaction_ref text,
   stripe_refund_id text,
   refund_status text not null default 'none' check (refund_status in ('none','pending','refunded','failed')),
   refund_note text,
@@ -165,7 +166,8 @@ begin
     update public.food_orders
     set payment_status = 'paid', payment_provider = 'stripe',
         stripe_checkout_session_id = coalesce(p_session, stripe_checkout_session_id),
-        stripe_payment_intent_id = coalesce(p_pi, stripe_payment_intent_id), paid_at = coalesce(paid_at, now())
+        stripe_payment_intent_id = coalesce(p_pi, stripe_payment_intent_id),
+        payment_transaction_ref = p_pi, paid_at = coalesce(paid_at, now())
     where id = p_order_id and payment_status in ('pending','issue','submitted','paid');
   elsif p_state = 'refunded' then
     update public.food_orders
@@ -268,8 +270,14 @@ eq "$(q "select count(*) from public.merchant_notifications where recipient_user
 
 # 2d. Duplicate payment is parked, not refunded.
 O4=$(new_order "$STORE" app preparing paid stripe cs_test_o4 pi_test_o4a)
-q "update public.food_orders set payment_status='paid', payment_provider='stripe', stripe_payment_intent_id='pi_test_o4b' where id='$O4'" >/dev/null
-eq "$(jobs "$O4")" "refund:duplicate_payment:needs_attention" "duplicate payment parked for review"
+q "update public.food_orders set payment_transaction_ref='pi_test_o4a' where id='$O4'" >/dev/null
+q "update public.food_orders set payment_status='paid', payment_provider='stripe', stripe_payment_intent_id='pi_test_o4b', payment_transaction_ref='pi_test_o4b' where id='$O4'" >/dev/null
+eq "$(q "select payment_transaction_ref from public.food_orders where id='$O4'")" "pi_test_o4a" "Codex P2: duplicate keeps the first payment's transaction ref"
+eq "$(jobs "$O4")" "refund:duplicate_payment:queued" "duplicate payment queued for a check-only Stripe lookup"
+eq "$(q "select count(*) from public.food_order_events where order_id='$O4' and event_type='refund_needs_attention'")" "0" "merchant not told before the worker checks Stripe"
+JO4=$(q "select id from public.food_stripe_jobs where order_id='$O4'")
+eq "$(svc "select public.food_complete_stripe_job('$JO4','needs_attention',null,'duplicate_payment_review')")" "needs_attention" "worker parks the duplicate for review"
+eq "$(q "select count(*) from public.food_order_events where order_id='$O4' and event_type='refund_needs_attention'")" "1" "merchant told once, when parked"
 eq "$(q "select payment_intent_id from public.food_stripe_jobs where order_id='$O4'")" "pi_test_o4b" "duplicate job is bound to the NEW (duplicate) PaymentIntent"
 eq "$(q "select stripe_payment_intent_id from public.food_orders where id='$O4'")" "pi_test_o4a" "order keeps its first payment"
 q "update public.food_orders set payment_status='paid', payment_provider='stripe', stripe_payment_intent_id='pi_test_o4b' where id='$O4'" >/dev/null
@@ -431,7 +439,10 @@ svc "select public.test_apply_event('$G1','cs_test_g1','pi_test_g1','paid')" >/d
 svc "select public.test_apply_event('$G1','cs_test_g2','pi_test_g2','paid')" >/dev/null
 eq "$(lg "$G1")" "paid/pi_test_g1/cs_test_g1" "ledger keeps the first payment"
 eq "$(po "$G1")" "pending_acceptance/paid/none/pi_test_g1/cs_test_g1" "order keeps the first payment"
-eq "$(q "select status || ':' || payment_intent_id from public.food_stripe_jobs where order_id='$G1' and reason='duplicate_payment'")" "needs_attention:pi_test_g2" "duplicate review job bound to the duplicate"
+eq "$(q "select status || ':' || payment_intent_id from public.food_stripe_jobs where order_id='$G1' and reason='duplicate_payment'")" "queued:pi_test_g2" "duplicate review job bound to the duplicate"
+eq "$(q "select payment_transaction_ref from public.food_orders where id='$G1'")" "pi_test_g1" "Codex P2: transaction ref stays the first payment's"
+JG1=$(q "select id from public.food_stripe_jobs where order_id='$G1' and reason='duplicate_payment'")
+svc "select public.food_complete_stripe_job('$JG1','needs_attention',null,'duplicate_payment_review')" >/dev/null
 eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$G1NUM%ทีม ZOKY ตรวจสอบ%'")" "1" "merchant told about the duplicate once"
 svc "select public.test_apply_event('$G1','cs_test_g2','pi_test_g2','paid')" >/dev/null
 eq "$(q "select count(*) from public.food_stripe_jobs where order_id='$G1'")" "1" "replayed duplicate: one review job"
@@ -460,8 +471,10 @@ svc "select public.food_complete_stripe_job('$JG3','refunded','re_test_g5')" >/d
 svc "select public.test_apply_event('$G3','cs_test_g6','pi_test_g6','paid')" >/dev/null
 eq "$(po "$G3")" "cancelled/refunded/refunded/pi_test_g5/cs_test_g5" "refunded order unchanged by a late payment"
 eq "$(lg "$G3")" "refunded/pi_test_g5/cs_test_g5" "ledger stays refunded for the first payment"
-eq "$(q "select status || ':' || payment_intent_id from public.food_stripe_jobs where order_id='$G3' and reason='duplicate_payment'")" "needs_attention:pi_test_g6" "late payment gets a review job"
-eq "$(q "select count(*) from public.food_order_events where order_id='$G3' and event_type='refund_needs_attention'")" "1" "late payment notifies"
+eq "$(q "select status || ':' || payment_intent_id from public.food_stripe_jobs where order_id='$G3' and reason='duplicate_payment'")" "queued:pi_test_g6" "late payment gets a review job"
+JG3D=$(q "select id from public.food_stripe_jobs where order_id='$G3' and reason='duplicate_payment'")
+svc "select public.food_complete_stripe_job('$JG3D','needs_attention',null,'duplicate_payment_review')" >/dev/null
+eq "$(q "select count(*) from public.food_order_events where order_id='$G3' and event_type='refund_needs_attention'")" "1" "late payment notifies (once, when parked)"
 
 # PR #1231 (4): a polled refund that keeps failing to load is capped too.
 P8=$(new_order "$STORE" app preparing paid stripe cs_test_p8 pi_test_p8)
@@ -495,7 +508,7 @@ expect_fail "admin list refused without food:view" authenticated "$OWNER" "selec
 eq "$(as authenticated "$ADMIN" "select status || ':' || last_error_code from public.admin_food_refund_jobs('needs_attention') where order_id='$P4'")" "needs_attention:partial_refund_exists" "staff see the parked job"
 eq "$(as authenticated "$ADMIN" "select count(*) from public.admin_food_refund_jobs() where status='done'")" "0" "default list hides finished jobs"
 eq "$(as authenticated "$ADMIN" "select kind || ':' || status || ':' || checkout_session_id from public.admin_food_refund_jobs('failed') where order_id='$E1'")" "expire_checkout:failed:cs_test_e1" "staff see failed expire jobs"
-eq "$(as authenticated "$ADMIN" "select payment_intent_id from public.admin_food_refund_jobs('needs_attention') where order_id='$D1'")" "pi_test_d1b" "staff see which PaymentIntent the duplicate review is about"
+eq "$(as authenticated "$ADMIN" "select payment_intent_id from public.admin_food_refund_jobs() where order_id='$D1' and reason='duplicate_payment'")" "pi_test_d1b" "staff see which PaymentIntent the duplicate review is about"
 expect_fail "admin list rejects a bad status" authenticated "$ADMIN" "select * from public.admin_food_refund_jobs('x')" "invalid job status"
 P5=$(new_order "$STORE" app preparing paid stripe cs_test_p5 pi_test_p5)
 q "update public.food_orders set status='cancelled' where id='$P5'" >/dev/null
@@ -578,8 +591,11 @@ R3=$(new_order "$STORE" app pending_acceptance pending "" "" "")
 svc "select public.test_apply_event('$R3','cs_test_r3a','pi_test_r3a','paid')" >/dev/null
 svc "select public.test_apply_event('$R3','cs_test_r3b','pi_test_r3b','paid')" >/dev/null
 JR3=$(q "select id from public.food_stripe_jobs where order_id='$R3' and reason='duplicate_payment'")
+# Codex P2: the duplicate's refund event came BEFORE its payment event, so
+# nothing was parked yet; the new job starts queued and the worker's
+# check-only lookup still sees the refund.
+eq "$(q "select status from public.food_stripe_jobs where id='$JR3'")" "queued" "duplicate job starts queued (refund may predate it)"
 eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r3a')")" "0" "a refund of the first payment does not touch the duplicate's job"
-eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r3b')")" "1" "a refund of the duplicate requeues its review job"
 eq "$(svc "select payment_intent_id || ':' || order_payment_status from public.food_claim_stripe_jobs(25) where job_id='$JR3'")" "pi_test_r3b:paid" "worker gets the duplicate PaymentIntent, never the order's"
 unlock
 eq "$(svc "select public.food_complete_stripe_job('$JR3','done','re_test_r3b','duplicate_refunded')")" "done" "duplicate's refund confirmed at Stripe"
@@ -587,6 +603,29 @@ eq "$(q "select status || ':' || stripe_refund_id || ':' || last_error_code from
 eq "$(po "$R3")" "pending_acceptance/paid/none/pi_test_r3a/cs_test_r3a" "duplicate's refund never marks the order refunded"
 eq "$(lg "$R3")" "paid/pi_test_r3a/cs_test_r3a" "ledger keeps the first payment"
 eq "$(q "select count(*) from public.food_order_events where order_id='$R3' and event_type='duplicate_payment_refunded'")" "1" "duplicate refund audited"
+# Parked duplicate, then the operator refunds it: requeued.
+R5=$(new_order "$STORE" app pending_acceptance pending "" "" "")
+svc "select public.test_apply_event('$R5','cs_test_r5a','pi_test_r5a','paid')" >/dev/null
+svc "select public.test_apply_event('$R5','cs_test_r5b','pi_test_r5b','paid')" >/dev/null
+JR5=$(q "select id from public.food_stripe_jobs where order_id='$R5' and reason='duplicate_payment'")
+svc "select public.food_complete_stripe_job('$JR5','needs_attention',null,'duplicate_payment_review')" >/dev/null
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r5b')")" "1" "a refund of a parked duplicate requeues its review job"
+eq "$(q "select status from public.food_stripe_jobs where id='$JR5'")" "queued" "parked duplicate back with the worker"
+# Codex P2: failed order refund jobs are rechecked after an operator refund.
+R6=$(new_order "$STORE" app preparing paid stripe cs_test_r6 pi_test_r6)
+q "update public.food_orders set status='cancelled' where id='$R6'" >/dev/null
+JR6=$(q "select id from public.food_stripe_jobs where order_id='$R6' and kind='refund'")
+svc "select public.food_complete_stripe_job('$JR6','failed',null,'balance_insufficient')" >/dev/null
+eq "$(q "select payment_status || '/' || refund_status from public.food_orders where id='$R6'")" "paid/failed" "refund failed (balance)"
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r6')")" "1" "failed refund job requeued after a succeeded refund"
+eq "$(q "select status || ':' || attempts || ':' || requeue_count || ':' || (completed_at is null) from public.food_stripe_jobs where id='$JR6'")" "queued:0:1:true" "failed job requeued with a new idempotency key"
+svc "select public.food_complete_stripe_job('$JR6','refunded','re_test_r6')" >/dev/null
+eq "$(q "select payment_status || '/' || refund_status from public.food_orders where id='$R6'")" "refunded/refunded" "worker adopts the operator's refund"
+R7=$(new_order "$STORE" app preparing paid stripe cs_test_r7 pi_test_r7)
+q "update public.food_orders set status='cancelled' where id='$R7'" >/dev/null
+JR7=$(q "select id from public.food_stripe_jobs where order_id='$R7' and kind='refund'")
+svc "select public.food_complete_stripe_job('$JR7','failed',null,'stripe_account_missing')" >/dev/null
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r7')")" "0" "failed for a missing account: not requeued"
 # A duplicate check that keeps failing ends failed without touching the order.
 R4=$(new_order "$STORE" app pending_acceptance pending "" "" "")
 svc "select public.test_apply_event('$R4','cs_test_r4a','pi_test_r4a','paid')" >/dev/null

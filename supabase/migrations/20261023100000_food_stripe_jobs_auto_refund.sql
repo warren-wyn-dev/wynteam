@@ -360,6 +360,7 @@ begin
     new.refunded_at := old.refunded_at;
     new.stripe_refund_id := old.stripe_refund_id;
     new.stripe_payment_intent_id := old.stripe_payment_intent_id;
+    new.payment_transaction_ref := old.payment_transaction_ref;
     new.stripe_checkout_session_id := old.stripe_checkout_session_id;
   end if;
 
@@ -396,7 +397,9 @@ begin
   -- Stripe order (two Checkout sessions). The order keeps its FIRST payment
   -- (the one a cancel refund job targets) and the review job is bound to the
   -- NEW PaymentIntent, so the operator refunds the duplicate. Not
-  -- auto-refunded in this step: parked for review (P1). Normally
+  -- auto-refunded in this step (P1): the job starts queued so the worker
+  -- checks Stripe once (check-only; a refund of the duplicate may already
+  -- exist) and parks it for review, telling the merchant once. Normally
   -- food_stripe_payments_keep_first already did this (and the block above
   -- kept the first PI); this covers orders without a ledger PaymentIntent.
   if old.payment_status = 'paid' and new.payment_status = 'paid'
@@ -408,7 +411,7 @@ begin
                                         checkout_session_id, payment_intent_id, last_error_code)
     values ('refund', new.id, new.store_id,
             'duplicate_payment:' || new.id || ':' || new.stripe_payment_intent_id,
-            'duplicate_payment', 'needs_attention',
+            'duplicate_payment', 'queued',
             new.stripe_checkout_session_id, new.stripe_payment_intent_id, 'duplicate_payment_review')
     on conflict (dedupe_key) do nothing
     returning id into v_dup_job;
@@ -416,9 +419,9 @@ begin
       insert into public.food_order_events(order_id, event_type, note, actor_id)
       values (new.id, 'duplicate_payment',
               'ได้รับชำระเงินซ้ำ (' || new.stripe_payment_intent_id || ') ทีม ZOKY จะตรวจสอบและคืนเงินรายการที่ซ้ำ', null);
-      perform internal.food_stripe_job_attention(v_dup_job);
     end if;
     new.stripe_payment_intent_id := old.stripe_payment_intent_id;
+    new.payment_transaction_ref := old.payment_transaction_ref;
     new.stripe_checkout_session_id := old.stripe_checkout_session_id;
   end if;
 
@@ -558,8 +561,10 @@ revoke all on function internal.food_orders_require_stripe_ready() from public, 
 -- refunded) PaymentIntent, an event for a DIFFERENT PaymentIntent keeps the
 -- first one on the ledger (the webhook resolves refunds through it), flags
 -- the statement for food_orders_payment_guard, and a duplicate PAYMENT gets
--- a needs_attention review job bound to the new PaymentIntent, also when the
--- order was already refunded (no food_orders trigger fires then).
+-- a review job bound to the new PaymentIntent, also when the order was
+-- already refunded (no food_orders trigger fires then). The job starts
+-- queued: the worker checks Stripe once (check-only) and closes it if the
+-- duplicate is already refunded, else parks it and tells the merchant once.
 create or replace function internal.food_stripe_payments_keep_first()
 returns trigger
 language plpgsql
@@ -583,7 +588,7 @@ begin
                                         checkout_session_id, payment_intent_id, last_error_code)
     select 'refund', o.id, o.store_id,
            'duplicate_payment:' || o.id || ':' || new.payment_intent_id,
-           'duplicate_payment', 'needs_attention',
+           'duplicate_payment', 'queued',
            new.checkout_session_id, new.payment_intent_id, 'duplicate_payment_review'
     from public.food_orders o where o.id = old.order_id
     on conflict (dedupe_key) do nothing
@@ -592,7 +597,6 @@ begin
       insert into public.food_order_events(order_id, event_type, note, actor_id)
       values (old.order_id, 'duplicate_payment',
               'ได้รับชำระเงินซ้ำ (' || new.payment_intent_id || ') ทีม ZOKY จะตรวจสอบและคืนเงินรายการที่ซ้ำ', null);
-      perform internal.food_stripe_job_attention(v_job_id);
     end if;
   end if;
 
@@ -960,8 +964,10 @@ grant execute on function public.food_complete_stripe_job(uuid,text,text,text,bo
 --     otherwise they are polled or parked again (worker adoptExisting);
 --   * duplicate_payment review jobs close as done when succeeded refunds of
 --     the duplicate cover it; the order is never touched (ZOKY-154).
--- Only codes that a Stripe refund can resolve are requeued (not environment
--- mismatch, missing account or an order that is not refundable). A requeued
+-- Order refund jobs that ended failed (e.g. balance_insufficient) are
+-- rechecked the same way. Only codes that a Stripe refund can resolve are
+-- requeued (not environment mismatch, missing account/PaymentIntent or an
+-- order that is not refundable). A requeued
 -- job gets a new Idempotency-Key, like merchant_retry_stripe_refund. Replays
 -- are no-ops (the job is no longer needs_attention).
 create or replace function public.food_requeue_stripe_refund_jobs(p_payment_intent_id text)
@@ -985,14 +991,20 @@ begin
     select j.id, j.order_id
     from public.food_stripe_jobs j
     join public.food_orders o on o.id = j.order_id
-    where j.kind = 'refund' and j.status = 'needs_attention'
+    where j.kind = 'refund' and j.status in ('needs_attention','failed')
       and coalesce(j.payment_intent_id,
                    case when j.reason <> 'duplicate_payment' then o.stripe_payment_intent_id end) = p_payment_intent_id
       and case when j.reason = 'duplicate_payment'
-               then j.last_error_code = 'duplicate_payment_review'
-               else j.last_error_code in ('partial_refund_exists','charge_already_refunded',
-                                          'refund_pending_too_long','order_refunded_without_stripe_refund')
-                    or j.last_error_code like 'refund\_poll\_failing:%' end
+                 then j.status = 'needs_attention' and j.last_error_code = 'duplicate_payment_review'
+               when j.status = 'needs_attention'
+                 then j.last_error_code in ('partial_refund_exists','charge_already_refunded',
+                                            'refund_pending_too_long','order_refunded_without_stripe_refund')
+                      or j.last_error_code like 'refund\_poll\_failing:%'
+               -- failed (e.g. balance_insufficient, refund_failed_*): the worker
+               -- lists first and adopts the operator's refund; it never posts a
+               -- new one while a live refund exists (a partial one parks it).
+               else coalesce(j.last_error_code, '') not in ('stripe_environment_mismatch','stripe_account_missing',
+                                                            'order_not_refundable','payment_intent_missing') end
     order by j.created_at
     for update of j
   loop
