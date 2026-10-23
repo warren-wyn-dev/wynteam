@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+import { findLiveRefund } from "./_lib.ts";
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -115,6 +117,17 @@ Deno.serve(async (req: Request) => {
         status: response.status,
         request_id: response.headers.get("request-id"),
       });
+      // ZOKY-149: a refund may already exist (automatic refund worker,
+      // Dashboard). That is not a failure: record it as pending and let the
+      // worker/webhook record the final state. No GP is booked here.
+      const existing = await findLiveRefund(fetch, stripeSecret, stripeAccountId, order.stripe_payment_intent_id);
+      if (existing) {
+        await admin.from("food_orders").update({
+          refund_status: "pending",
+          stripe_refund_id: existing.id,
+        }).eq("id", order.id).neq("refund_status", "refunded");
+        return json({ status: existing.status, refundId: existing.id, alreadyRequested: true, gpRecordPending: false });
+      }
       throw new Error("gateway_refund_failed");
     }
     await admin.from("food_orders").update({
