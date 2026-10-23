@@ -2,6 +2,7 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import {
   adoptExisting,
+  awaitingCustomer,
   type Context,
   isTransient,
   type Job,
@@ -53,6 +54,7 @@ function refundJob(overrides: Partial<Job> = {}): Job {
     order_payment_status: "paid",
     order_payment_provider: "stripe",
     order_refund_status: "pending",
+    payment_method: "promptpay",
     ...overrides,
   };
 }
@@ -106,7 +108,8 @@ Deno.test("refund: GP > 0 asks Stripe to return the application fee", async () =
     { body: { id: "re_fee", status: "pending" } },
   ]);
   const out = await processJob(refundJob({ application_fee_satang: 1410 }), ctx);
-  assertEquals(out, { outcome: "refund_requested", refundId: "re_fee", feeRefunded: true });
+  // Pending PromptPay refund: waiting for the customer; GP not booked yet.
+  assertEquals(out, { outcome: "refund_requested", refundId: "re_fee", awaitingCustomer: true });
   assertEquals(new URLSearchParams(calls[1].body).get("refund_application_fee"), "true");
 });
 
@@ -115,7 +118,7 @@ Deno.test("refund: an existing refund is adopted, never a second one", async () 
     { body: { data: [{ id: "re_prev", status: "pending", amount: 12000, metadata: { wynos_refund_job_id: "00000000-0000-0000-0000-00000000j001" } }] } },
   ]);
   const out = await processJob(refundJob({ application_fee_satang: 500 }), ctx);
-  assertEquals(out, { outcome: "refund_requested", refundId: "re_prev", feeRefunded: true });
+  assertEquals(out, { outcome: "refund_requested", refundId: "re_prev", awaitingCustomer: true });
   assertEquals(calls.length, 1);
 });
 
@@ -164,23 +167,81 @@ Deno.test("refund: livemode guard and missing account make no Stripe call", asyn
   assertEquals(m.calls.length, 0);
 });
 
-Deno.test("refund: order no longer refundable or already refunded", async () => {
+Deno.test("refund: order no longer refundable", async () => {
   const m = mockStripe([]);
   assertEquals((await processJob(refundJob({ order_status: "preparing" }), m.ctx)).outcome, "needs_attention");
-  assertEquals((await processJob(refundJob({ order_payment_status: "refunded" }), m.ctx)).outcome, "refunded");
   assertEquals(m.calls.length, 0);
+});
+
+Deno.test("ZOKY-147: an order flagged refunded is never closed without asking Stripe", async () => {
+  // Queued job, order already says refunded: Stripe has a live refund -> adopt it.
+  let m = mockStripe([{ body: { data: [{ id: "re_live", status: "succeeded", amount: 12000 }] } }]);
+  assertEquals(await processJob(refundJob({ order_payment_status: "refunded", order_refund_status: "refunded" }), m.ctx),
+    { outcome: "refunded", refundId: "re_live", feeRefunded: false });
+  assertEquals(m.calls.length, 1);
+  // ...and no live refund at Stripe: an operator looks, no refund is created.
+  m = mockStripe([{ body: { data: [{ id: "re_dead", status: "failed", amount: 12000 }] } }]);
+  assertEquals(await processJob(refundJob({ order_payment_status: "refunded", order_refund_status: "refunded" }), m.ctx),
+    { outcome: "needs_attention", errorCode: "order_refunded_without_stripe_refund" });
+  assertEquals(m.calls.length, 1);
+  // Missing account on a refunded-looking order is parked, never failed.
+  m = mockStripe([]);
+  assertEquals((await processJob(refundJob({ order_payment_status: "refunded", stripe_account_id: null }), m.ctx)).outcome,
+    "needs_attention");
+});
+
+Deno.test("ZOKY-147: awaiting PromptPay refund keeps polling after the webhook flagged the order refunded", async () => {
+  const job = refundJob({ status: "awaiting_refund", stripe_refund_id: "re_pp",
+    order_payment_status: "refunded", order_refund_status: "refunded" });
+  // Still waiting for the customer's bank account.
+  let m = mockStripe([{ body: { id: "re_pp", status: "requires_action",
+    next_action: { type: "display_details", display_details: { email_sent: { email_sent_at: 1 } } } } }]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "refund_requested", refundId: "re_pp", awaitingCustomer: true });
+  assert(m.calls[0].url.endsWith("/v1/refunds/re_pp"));
+  // The customer never answered: the refund fails, nothing else covers it.
+  m = mockStripe([
+    { body: { id: "re_pp", status: "failed", failure_reason: "unknown" } },
+    { body: { data: [{ id: "re_pp", status: "failed", amount: 12000 }] } },
+  ]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "failed", refundId: "re_pp", errorCode: "refund_failed_unknown" });
+  assertEquals(m.calls.length, 2);
+  // Canceled, but another live refund covers the payment: adopt it.
+  m = mockStripe([
+    { body: { id: "re_pp", status: "canceled" } },
+    { body: { data: [{ id: "re_pp", status: "canceled", amount: 12000 }, { id: "re_dash", status: "succeeded", amount: 12000 }] } },
+  ]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "refunded", refundId: "re_dash", feeRefunded: false });
+});
+
+Deno.test("awaiting customer detection", () => {
+  assert(awaitingCustomer({ status: "requires_action" }));
+  assert(awaitingCustomer({ status: "pending", next_action: { type: "display_details" } }));
+  assert(awaitingCustomer({ status: "pending" }, "promptpay"));
+  assert(!awaitingCustomer({ status: "pending" }, "card"));
+  assert(!awaitingCustomer({ status: "succeeded" }, "promptpay"));
 });
 
 Deno.test("refund: polls a requested refund until final", async () => {
   let m = mockStripe([{ body: { id: "re_1", status: "pending" } }]);
-  const job = refundJob({ status: "awaiting_refund", stripe_refund_id: "re_1" });
-  assertEquals(await processJob(job, m.ctx), { outcome: "refund_requested", refundId: "re_1", feeRefunded: false });
+  const job = refundJob({ status: "awaiting_refund", stripe_refund_id: "re_1", payment_method: "card" });
+  assertEquals(await processJob(job, m.ctx), { outcome: "refund_requested", refundId: "re_1", awaitingCustomer: false });
   assert(m.calls[0].url.endsWith("/v1/refunds/re_1"));
   m = mockStripe([{ body: { id: "re_1", status: "succeeded" } }]);
   assertEquals((await processJob(job, m.ctx)).outcome, "refunded");
-  m = mockStripe([{ body: { id: "re_1", status: "failed", failure_reason: "lost_or_stolen_card" } }]);
+  m = mockStripe([
+    { body: { id: "re_1", status: "failed", failure_reason: "lost_or_stolen_card" } },
+    { body: { data: [] } },
+  ]);
   assertEquals(await processJob(job, m.ctx),
     { outcome: "failed", refundId: "re_1", errorCode: "refund_failed_lost_or_stolen_card" });
+});
+
+Deno.test("refund: GP is claimed on a polled success only for our own refund", async () => {
+  const job = refundJob({ status: "awaiting_refund", stripe_refund_id: "re_1", application_fee_satang: 500 });
+  let m = mockStripe([{ body: { id: "re_1", status: "succeeded", metadata: { wynos_refund_job_id: job.job_id } } }]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "refunded", refundId: "re_1", feeRefunded: true });
+  m = mockStripe([{ body: { id: "re_1", status: "succeeded" } }]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "refunded", refundId: "re_1", feeRefunded: false });
 });
 
 Deno.test("refund: payment intent recovered from the Checkout session", async () => {
@@ -248,7 +309,24 @@ Deno.test("runWorker: claims, processes and records each job", async () => {
     p_refund_id: "re_w",
     p_error_code: null,
     p_fee_refunded: false,
+    p_awaiting_customer: false,
   }]);
+});
+
+Deno.test("runWorker: passes the awaiting-customer state to the database", async () => {
+  const { ctx } = mockStripe([{ body: { id: "re_pp", status: "requires_action" } }]);
+  const rpcCalls: Array<[string, Record<string, unknown>]> = [];
+  const rpc = (fn: string, args: Record<string, unknown>) => {
+    rpcCalls.push([fn, args]);
+    if (fn === "food_claim_stripe_jobs") {
+      return Promise.resolve({ data: [refundJob({ status: "awaiting_refund", stripe_refund_id: "re_pp" })], error: null });
+    }
+    return Promise.resolve({ data: "awaiting_refund", error: null });
+  };
+  await runWorker(rpc, ctx);
+  assertEquals(rpcCalls[1][1].p_outcome, "refund_requested");
+  assertEquals(rpcCalls[1][1].p_awaiting_customer, true);
+  assertEquals(rpcCalls[1][1].p_fee_refunded, false);
 });
 
 Deno.test("runWorker: claim failure stops before any Stripe call", async () => {

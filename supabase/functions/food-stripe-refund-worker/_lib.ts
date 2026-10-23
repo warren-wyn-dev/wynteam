@@ -11,6 +11,13 @@
  * ever sent, so a refund is always the full PaymentIntent (D4, D6). Calls are
  * made on the connected account that took the payment (Stripe-Account), and
  * only when the payment's livemode matches the secret key's mode.
+ *
+ * Refund truth (ZOKY-147): a refund is final only when Stripe says
+ * `succeeded`. A requested refund is always polled to a final state, even if
+ * the order row already says refunded (the webhook's charge.refunded can come
+ * first). PromptPay refunds wait for the customer to give Stripe a bank
+ * account (Stripe emails them): that is reported as `awaitingCustomer` so the
+ * database can tell the customer to check the email.
  */
 
 export type Job = {
@@ -32,6 +39,7 @@ export type Job = {
   order_payment_status: string | null;
   order_payment_provider: string | null;
   order_refund_status: string | null;
+  payment_method?: string | null;
 };
 
 export type Outcome = {
@@ -39,6 +47,7 @@ export type Outcome = {
   refundId?: string | null;
   errorCode?: string | null;
   feeRefunded?: boolean;
+  awaitingCustomer?: boolean;
 };
 
 export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>;
@@ -119,8 +128,27 @@ function fromError(result: StripeResult, fallback: string): Outcome {
   return { outcome: isTransient(result.status) ? "retry" : "failed", errorCode: code };
 }
 
-/** Map a Stripe Refund object to a job outcome. */
-export function refundOutcome(refund: Record<string, unknown>, feeRefunded: boolean): Outcome {
+/**
+ * True while Stripe waits for the customer to give a bank account for the
+ * refund: `requires_action`, a `display_details` next action (Stripe emailed
+ * the customer), or any pending refund of a PromptPay payment (every PromptPay
+ * refund needs the customer's bank account).
+ */
+export function awaitingCustomer(refund: Record<string, unknown>, paymentMethod?: string | null): boolean {
+  const status = str(refund.status);
+  if (status === "requires_action") return true;
+  const next = refund.next_action as Record<string, unknown> | null | undefined;
+  if (next && (next.type === "display_details" || next.display_details)) return true;
+  return status === "pending" && paymentMethod === "promptpay";
+}
+
+/** Map a Stripe Refund object to a job outcome. The fee flag only matters
+ * for `refunded` (GP is booked as returned only on success). */
+export function refundOutcome(
+  refund: Record<string, unknown>,
+  feeRefunded: boolean,
+  paymentMethod?: string | null,
+): Outcome {
   const id = str(refund.id);
   const status = str(refund.status);
   if (!id) return { outcome: "retry", errorCode: "refund_id_missing" };
@@ -130,7 +158,12 @@ export function refundOutcome(refund: Record<string, unknown>, feeRefunded: bool
     return { outcome: "failed", refundId: id, errorCode: `refund_${status}${reason ? `_${reason}` : ""}` };
   }
   // pending / requires_action / unknown: poll again later.
-  return { outcome: "refund_requested", refundId: id, feeRefunded };
+  return { outcome: "refund_requested", refundId: id, awaitingCustomer: awaitingCustomer(refund, paymentMethod) };
+}
+
+function refundIsOurs(refund: Record<string, unknown>, jobId: string): boolean {
+  const metadata = refund.metadata as Record<string, unknown> | undefined;
+  return metadata?.wynos_refund_job_id === jobId;
 }
 
 /**
@@ -144,6 +177,7 @@ export function adoptExisting(
   amountSatang: number | null,
   jobId: string,
   feeSatang: number,
+  paymentMethod?: string | null,
 ): Outcome | null {
   const list = Array.isArray(refunds) ? refunds as Record<string, unknown>[] : [];
   const live = list.filter((r) => r && typeof r === "object" && !["failed", "canceled"].includes(String(r.status)));
@@ -153,14 +187,11 @@ export function adoptExisting(
     // Someone refunded part of it (D4: no partial refunds). Do not guess.
     return { outcome: "needs_attention", errorCode: "partial_refund_exists" };
   }
-  const ours = live.some((r) => {
-    const metadata = r.metadata as Record<string, unknown> | undefined;
-    return metadata?.wynos_refund_job_id === jobId;
-  });
+  const ours = live.some((r) => refundIsOurs(r, jobId));
   const feeRefunded = ours && feeSatang > 0;
   const pending = live.find((r) => r.status !== "succeeded");
-  if (pending) return refundOutcome(pending, feeRefunded);
-  return refundOutcome(live[0], feeRefunded);
+  if (pending) return refundOutcome(pending, feeRefunded, paymentMethod);
+  return refundOutcome(live[0], feeRefunded, paymentMethod);
 }
 
 async function expireCheckout(job: Job, ctx: Context): Promise<Outcome> {
@@ -204,22 +235,41 @@ async function expireCheckout(job: Job, ctx: Context): Promise<Outcome> {
 }
 
 async function refund(job: Job, ctx: Context): Promise<Outcome> {
-  if (job.order_payment_status === "refunded" || job.order_refund_status === "refunded") {
-    return { outcome: "refunded", refundId: job.stripe_refund_id };
-  }
-  if (job.order_status !== "cancelled" || job.order_payment_status !== "paid" || job.order_payment_provider !== "stripe") {
-    return { outcome: "needs_attention", errorCode: "order_not_refundable" };
-  }
+  // The order row may already say refunded (webhook charge.refunded), but
+  // only Stripe can confirm it: never close a job on the order flag alone.
+  const orderRefunded = job.order_payment_status === "refunded" || job.order_refund_status === "refunded";
   const account = job.stripe_account_id;
-  if (!account) return { outcome: "failed", errorCode: "stripe_account_missing" };
+  if (!account) {
+    return { outcome: orderRefunded ? "needs_attention" : "failed", errorCode: "stripe_account_missing" };
+  }
   if (job.livemode !== ctx.livemode) return { outcome: "needs_attention", errorCode: "stripe_environment_mismatch" };
   const fee = Number(job.application_fee_satang ?? 0);
+  const method = job.payment_method ?? null;
 
-  // Poll a refund we already asked for.
+  const listExistingFor = async (paymentIntent: string): Promise<Outcome | StripeResult | null> => {
+    const listPath = `/refunds?payment_intent=${encodeURIComponent(paymentIntent)}&limit=100`;
+    const listed = await stripe(ctx, account, "GET", listPath);
+    if (!listed.ok) return listed;
+    return adoptExisting(listed.body.data, job.amount_satang, job.job_id, fee, method);
+  };
+
+  // Poll a refund we already asked for, until Stripe reports a final state.
   if (job.status === "awaiting_refund" && job.stripe_refund_id) {
     const current = await stripe(ctx, account, "GET", `/refunds/${encodeURIComponent(job.stripe_refund_id)}`);
     if (!current.ok) return fromError(current, "refund_lookup");
-    return refundOutcome(current.body, false);
+    const ours = fee > 0 && refundIsOurs(current.body, job.job_id);
+    const outcome = refundOutcome(current.body, ours, method);
+    if (outcome.outcome !== "failed" || !job.payment_intent_id) return outcome;
+    // Ours failed or was canceled: another live refund (Dashboard, legacy
+    // button) may cover the payment; adopt it instead of reporting failure.
+    const other = await listExistingFor(job.payment_intent_id);
+    if (other && !("ok" in other)) return other;
+    return outcome;
+  }
+
+  if (!orderRefunded &&
+    (job.order_status !== "cancelled" || job.order_payment_status !== "paid" || job.order_payment_provider !== "stripe")) {
+    return { outcome: "needs_attention", errorCode: "order_not_refundable" };
   }
 
   let paymentIntent = job.payment_intent_id;
@@ -229,18 +279,15 @@ async function refund(job: Job, ctx: Context): Promise<Outcome> {
     const value = session.body.payment_intent;
     paymentIntent = str(value) ?? str((value as Record<string, unknown> | null)?.id);
   }
-  if (!paymentIntent) return { outcome: "failed", errorCode: "payment_intent_missing" };
+  if (!paymentIntent) {
+    return { outcome: orderRefunded ? "needs_attention" : "failed", errorCode: "payment_intent_missing" };
+  }
 
-  const listPath = `/refunds?payment_intent=${encodeURIComponent(paymentIntent)}&limit=100`;
-  const listExisting = async (): Promise<Outcome | StripeResult | null> => {
-    const listed = await stripe(ctx, account, "GET", listPath);
-    if (!listed.ok) return listed;
-    return adoptExisting(listed.body.data, job.amount_satang, job.job_id, fee);
-  };
-
-  const existing = await listExisting();
+  const existing = await listExistingFor(paymentIntent);
   if (existing && "ok" in existing) return fromError(existing, "refund_list");
   if (existing) return existing;
+  // The order says refunded but Stripe has no live refund: do not guess.
+  if (orderRefunded) return { outcome: "needs_attention", errorCode: "order_refunded_without_stripe_refund" };
 
   const params = new URLSearchParams();
   params.set("payment_intent", paymentIntent);
@@ -252,11 +299,11 @@ async function refund(job: Job, ctx: Context): Promise<Outcome> {
   params.set("metadata[wynos_refund_reason]", job.reason);
 
   const created = await stripe(ctx, account, "POST", "/refunds", params, refundIdempotencyKey(job.job_id, job.requeue_count));
-  if (created.ok) return refundOutcome(created.body, fee > 0);
+  if (created.ok) return refundOutcome(created.body, fee > 0, method);
 
   if (created.code === "charge_already_refunded") {
     // Stripe caps a payment at its full amount: someone refunded it already.
-    const again = await listExisting();
+    const again = await listExistingFor(paymentIntent);
     if (again && !("ok" in again)) return again;
     return { outcome: "needs_attention", errorCode: "charge_already_refunded" };
   }
@@ -290,6 +337,7 @@ export async function runWorker(rpc: Rpc, ctx: Context, limit = 10) {
       p_refund_id: result.refundId ?? null,
       p_error_code: result.errorCode ?? null,
       p_fee_refunded: result.feeRefunded === true,
+      p_awaiting_customer: result.awaitingCustomer === true,
     });
     const final = saved.error ? "complete_failed" : String(saved.data);
     counts[final] = (counts[final] ?? 0) + 1;
