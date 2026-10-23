@@ -8,3 +8,10 @@ npm-debug.log*
 tsconfig.tsbuildinfo
 test-results/
 playwright-report/
+
+# Flutter Merchant build outputs and pinned SDK cache
+.vercel/
+public/merchant-flutter/
+merchant_flutter/.dart_tool/
+merchant_flutter/build/
+merchant_flutter/.flutter-plugins-dependencies
