@@ -141,6 +141,16 @@ jobs:
                   (select count(*) from public.food_orders where status='cancelled' and payment_status='paid'
                      and payment_provider='stripe' and refund_status='failed') as stripe_cancelled_refund_failed,
                   (select count(*) from public.food_stripe_payments where status='pending') as checkout_ledger_pending;" | jq .
+              # ZOKY-153: the new webhook marks refunds only from refund.* events,
+              # so the live endpoint must already deliver them (QA re-test 3).
+              echo "== Refund webhook events received (counts only; need a refund.* type before deploying stripe-webhook)"
+              run_sql "select event_type, count(*) as events, max(received_at) as last_received
+                  from public.food_stripe_webhook_events
+                  where event_type in ('charge.refunded','refund.created','refund.updated','refund.failed','charge.refund.updated')
+                  group by event_type order by event_type;" | jq .
+              echo "== Legacy Stripe refunds still pending (watch after deploy)"
+              run_sql "select count(*) as stripe_refund_pending_total
+                  from public.food_orders where payment_provider='stripe' and refund_status='pending';" | jq .
               if [ "$(run_sql "select to_regclass('public.food_stripe_jobs') is not null as ok;" | jq -r '.[0].ok')" = "true" ]; then
                 run_sql "select
                     (select count(*) from public.food_orders o where o.status='cancelled' and o.payment_status='paid'
