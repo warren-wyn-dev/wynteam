@@ -61,6 +61,9 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   await expect.poll(()=>page.evaluate(()=> (window as Window & {qaWrites?: string[]}).qaWrites)).toEqual(['payment','preparing','ready_for_delivery','out_for_delivery','delivered']);
   expect(errors).toEqual([]);
   await page.screenshot({path:test.info().outputPath('merchant-completed.png'),fullPage:true});
+  await page.getByRole('tab',{name:'ภาพรวม',exact:true}).or(page.getByRole('button',{name:'ภาพรวม',exact:true})).click();
+  await expect(page.getByText('ภาพรวมร้านวันนี้',{exact:false})).toBeVisible();
+  await page.screenshot({path:test.info().outputPath('merchant-dashboard.png'),fullPage:true});
 });
 
 }
