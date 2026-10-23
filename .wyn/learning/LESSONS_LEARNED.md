@@ -357,3 +357,12 @@
   ดีกว่าการแก้ RPC ทีละตัว (5) gate แบบ deny-by-default (`source is distinct from 'manual'`) ปลอดภัยกว่า allow-list (`= 'app'`)
 - การนำไปใช้ในอนาคต: งานเงินทุกงานต้องมี test ลำดับเหตุการณ์ที่ webhook มาก่อน/หลัง worker และกรณี refund ล้มเหลว
   หลังถูกตั้งเป็น refunded แล้ว; harness ของ QA ที่โหลด body ของ RPC จริง (`scratchpad/qa/sql`) ควรรันซ้ำทุกครั้งที่แก้ migration
+
+### [2026-10-23] ZOKY-156 — สถานะ "รอคนตรวจ" (needs_attention) ต้องมีทางกลับเข้าระบบเมื่อ Stripe เปลี่ยนสถานะ
+- บริบท: Codex review (PR #1231, P2 x2) พบว่า job ที่ถูก park เป็น `needs_attention` (partial refund / ชำระซ้ำ) ไม่มีวันปิด
+  แม้ operator คืนเงินครบใน Stripe ตาม runbook แล้ว เพราะ webhook บันทึกเป็น noop (ถูกต้องตาม ZOKY-153/154) และ worker ไม่ claim
+  `needs_attention` — ส่วน DB path เดิมที่ปิด job ชำระซ้ำ (guard + foreign-PI flag) ไม่มี caller จริงอีกต่อไปหลัง commit 0b1cbafc
+- บทเรียน: (1) ทุกสถานะ "รอมนุษย์" ต้องตอบได้ว่า "หลังมนุษย์ทำตาม runbook แล้ว อะไรปิดมัน" และต้องมี test end-to-end ของคำตอบนั้น
+  (2) เมื่อเปลี่ยน mapper ให้ส่ง noop แทน state เดิม ต้อง grep หา DB branch ที่พึ่ง state เดิม (dead path) ในรอบเดียวกัน
+  (3) ทางแก้ที่ปลอดภัยคือ requeue ให้ worker อ่าน refund list จาก Stripe อีกครั้ง (Stripe เป็นความจริง) แทนการให้ webhook ตัดสินจาก event เดียว
+- การนำไปใช้ในอนาคต: review state machine เงินต้องมีตาราง "สถานะ → เหตุการณ์ที่ออกจากสถานะ" ครบทุกสถานะ รวมถึง needs_attention/failed
