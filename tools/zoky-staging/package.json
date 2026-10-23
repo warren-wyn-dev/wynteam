@@ -1,0 +1,12 @@
+{
+  "name": "zoky-staging-e2e",
+  "private": true,
+  "description": "ZOKY Stripe test-mode staging E2E (CI only, see .github/workflows/zoky-staging-e2e.yml)",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "jsqr": "1.4.0",
+    "playwright": "1.63.0",
+    "pngjs": "7.0.0"
+  }
+}
