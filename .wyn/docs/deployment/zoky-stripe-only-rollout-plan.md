@@ -26,6 +26,10 @@ Every step needs its own Founder approval, the GitHub `production` review, and a
 | 11 | `activate` (Stripe-only, PromptPay only) | Preflight `ready_test = 0` and `ready_mode_unknown = 0`; Founder reviews the PromptPay-ready store count (stores that aren't ready stop taking orders); merchants notified; LOW items ideally fixed | `deactivate` |
 | 12 | `backfill` (optional) | Candidates reviewed with merchants (cash refunds already made) | Backfill rollback |
 
+## Operational note
+
+Re-running `jobs` after `cron` is on can deadlock with the worker (seen on staging 2026-10-23, run 40012263916; the transaction rolls back whole). Run `cron-off` first, then `jobs`, then `cron`.
+
 ## Staging E2E scenarios
 - PromptPay pay leaves the order paid.
 - Store cancel creates a refund job, which goes pending/requires_action, then succeeded, then refunded, with exactly one notification each.
