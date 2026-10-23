@@ -483,7 +483,9 @@ Deno.serve(async (req: Request) => {
     const { error: requeueError } = await admin.rpc("food_requeue_stripe_refund_jobs", {
       p_payment_intent_id: recheckPaymentIntent,
     });
-    if (requeueError) return json({ error: "event_processing_failed" }, 500);
+    // PGRST202: the jobs migration is not applied yet, so no job can be parked
+    // and there is nothing to recheck. This lets the webhook ship before it.
+    if (requeueError && requeueError.code !== "PGRST202") return json({ error: "event_processing_failed" }, 500);
   }
   return json({ received: true });
 });

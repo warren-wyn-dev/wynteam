@@ -102,7 +102,8 @@ jobs:
         run: |
           deno check index.ts
           if ls ./*.test.ts >/dev/null 2>&1; then
-            deno test
+            # index.test.ts files read their own source (same as ci.yml's --allow-read).
+            deno test --allow-read=.
           else
             echo "No test file for ${{ inputs.function }} -- deno check only."
           fi

@@ -59,5 +59,5 @@ Deno.test("ZOKY-156: succeeded refunds requeue parked refund jobs after the even
   assert.ok(apply >= 0);
   assert.ok(requeue > apply);
   assert.match(source, /refundRecheckPaymentIntent\(eventType, object\)/);
-  assert.match(source, /if \(requeueError\) return json\(\{ error: "event_processing_failed" \}, 500\)/);
+  assert.match(source, /if \(requeueError && requeueError\.code !== "PGRST202"\) return json\(\{ error: "event_processing_failed" \}, 500\)/);
 });
