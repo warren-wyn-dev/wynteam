@@ -6,6 +6,8 @@
 - Backend: `feat/zoky-stripe-jobs-db` @ `b3ccc010`. A PR to `main` fast-forwards onto `1166a59d`.
 - Web and edge: `feat/zoky-stripe-only-web` @ `eeeb5f5e`. This fast-forwards from release `e6f577dc`, and the exception guard simulation PASSes.
 
+ZOKY-156 (fa2dafbb): the webhook calls `food_requeue_stripe_refund_jobs` after every succeeded refund and ignores PGRST202, so step 3 may ship before step 6.
+
 Every step needs its own Founder approval, the GitHub `production` review, and a record in APPROVALS.
 
 | # | Step | Must be true before | Rollback |
@@ -15,7 +17,7 @@ Every step needs its own Founder approval, the GitHub `production` review, and a
 | 2 | `food-apply-zoky-stripe-jobs.yml` preflight (read-only) | E2E PASS | n/a |
 | 3 | Deploy `stripe-webhook` from main | Preflight shows `refund.*` events, or the Dashboard Connect endpoint lists `refund.created`, `refund.updated`, `refund.failed` and `charge.refund.updated`. Live edge source equals main ≤ 1166a59d (F3). Webhook revert PR prepared. | Revert PR + redeploy (cron must be off) |
 | 4 | Deploy `merchant-stripe-refund` from main (F1) | Step 3 healthy | Revert + redeploy |
-| 5 | Deploy `food-stripe-refund-worker` | — | Inert until cron |
+| 5 | Deploy `food-stripe-refund-worker` | Worker from the same main as steps 3–4 (ZOKY-156: it must understand `duplicate_payment` rechecks before any job exists) | Inert until cron |
 | 6 | Apply `jobs` | Steps 3–5 done; Vault project URL present; record the legacy-pending and backfill counts | Rollback file (unschedule cron, policy NULL, drop the 3 triggers; tables kept) |
 | 7 | Apply `cron` | Step 6 verified | `cron-off` |
 | 8 | ZOKY exception EDGE (checkout/cancel @ eeeb5f5e) | Cron ticks; no failed or needs_attention spike | Revert on the release branch, then EDGE again |
