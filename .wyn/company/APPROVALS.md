@@ -679,3 +679,10 @@
 - Approved scope: Flutter Merchant frontend integration, existing Food service/account reuse, core payment/order/delivery completion, tests, review and deployment preparation for the Merchant feature.
 - Implementation boundary: `web/merchant_flutter`, a shared-auth JSON bridge, the authenticated `/merchant/flutter` host, controlled Merchant-origin root entry, build/CI checks and documentation. No backend/schema/authentication redesign, new infrastructure or API key in Dart.
 - This instruction does not approve shipping unrelated unreleased main code or bypassing release/environment protection. A reviewed production-based scoped artifact and passing staging evidence remain required. No production deployment has been performed for this task at this point.
+
+### DECISION — [2026-10-23] Merchant preview public configuration copy
+
+- Founder reconnected Vercel and replied “อนุญาต” to the concrete request to copy only the existing sandbox preview Supabase URL and publishable key to the Merchant branch and redeploy Preview, without displaying values or changing production.
+- Narrow exception for this task: two public browser configuration values only, existing project `wynteam-gesb`, source `sandbox/stripe-testmode-20261008`, destination `feat/zoky-merchant-flutter`, Preview only. No production secrets/database access, other credential extraction or protection-policy change is authorized by this decision.
+- Executed without exposing values. Deployment `dpl_DVDSnnkGu4U73JFdqaKBTDBcsvtD`, application source `e2ea20d1`, Preview READY. Hosted synthetic browser QA 10/10 passed. Evidence: `docs/qa/zoky-merchant-flutter/hosted-preview.md`.
+- Production promotion, root cutover and release gates remain separate; no production deployment occurred.
