@@ -151,6 +151,14 @@ jobs:
               echo "== Legacy Stripe refunds still pending (watch after deploy)"
               run_sql "select count(*) as stripe_refund_pending_total
                   from public.food_orders where payment_provider='stripe' and refund_status='pending';" | jq .
+              # ZOKY-154: the webhook marks an order refunded only for a refund of
+              # food_orders.stripe_payment_intent_id; these legacy rows have none.
+              echo "== Stripe orders paid / refund-pending without a PaymentIntent (counts only)"
+              run_sql "select
+                  (select count(*) from public.food_orders where payment_provider='stripe'
+                     and payment_status='paid' and stripe_payment_intent_id is null) as stripe_paid_without_pi,
+                  (select count(*) from public.food_orders where payment_provider='stripe'
+                     and refund_status='pending' and stripe_payment_intent_id is null) as stripe_refund_pending_without_pi;" | jq .
               if [ "$(run_sql "select to_regclass('public.food_stripe_jobs') is not null as ok;" | jq -r '.[0].ok')" = "true" ]; then
                 run_sql "select
                     (select count(*) from public.food_orders o where o.status='cancelled' and o.payment_status='paid'
@@ -247,6 +255,8 @@ jobs:
                   exists (select 1 from information_schema.columns where table_schema='public'
                           and table_name='food_orders' and column_name='refund_awaiting_customer') as awaiting_column,
                   has_function_privilege('service_role','public.food_claim_stripe_jobs(integer)','execute') as service_claim,
+                  has_function_privilege('authenticated','public.food_requeue_stripe_refund_jobs(text)','execute') as members_requeue,
+                  has_function_privilege('service_role','public.food_requeue_stripe_refund_jobs(text)','execute') as service_requeue,
                   has_function_privilege('anon','public.merchant_retry_stripe_refund(uuid)','execute') as anon_retry,
                   has_function_privilege('anon','public.food_store_payment_options(uuid[])','execute') as anon_options,
                   (select count(*) from vault.secrets where name='wynos_food_refund_worker_cron_key') as cron_keys,
@@ -256,6 +266,7 @@ jobs:
                      and .[0].triggers == 3 and .[0].members_claim == false and .[0].members_complete == false
                      and .[0].service_claim == true and .[0].anon_retry == false and .[0].anon_options == true
                      and .[0].anon_admin_jobs == false and .[0].awaiting_column == true
+                     and .[0].members_requeue == false and .[0].service_requeue == true
                      and .[0].cron_keys == 1 and .[0].policy_off == true and .[0].policy_public == false' result.json >/dev/null \
                 || { echo "::error::Verification failed"; exit 1; } ;;
             cron)
