@@ -61,9 +61,15 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   await expect.poll(()=>page.evaluate(()=> (window as Window & {qaWrites?: string[]}).qaWrites)).toEqual(['payment','preparing','ready_for_delivery','out_for_delivery','delivered']);
   expect(errors).toEqual([]);
   await page.screenshot({path:test.info().outputPath('merchant-completed.png'),fullPage:true});
-  await page.getByRole('tab',{name:'ภาพรวม',exact:true}).or(page.getByRole('button',{name:'ภาพรวม',exact:true})).click();
-  await expect(page.getByText('ภาพรวมร้านวันนี้',{exact:false})).toBeVisible();
+  await page.getByRole('tab',{name:'หน้าหลัก',exact:true}).or(page.getByRole('button',{name:'หน้าหลัก',exact:true})).click();
+  await expect(page.getByRole('group',{name:/ยอดขายวันนี้/}).first()).toBeVisible();
   await page.screenshot({path:test.info().outputPath('merchant-dashboard.png'),fullPage:true});
+  await page.getByRole('tab',{name:'เมนูอาหาร',exact:true}).or(page.getByRole('button',{name:'เมนูอาหาร',exact:true})).first().click();
+  await expect(page.getByRole('switch',{name:'เปิดขาย ข้าวกะเพรา',exact:true})).toBeVisible();
+  await page.screenshot({path:test.info().outputPath('merchant-menu.png'),fullPage:true});
+  await page.getByRole('tab',{name:'เพิ่มเติม',exact:true}).or(page.getByRole('button',{name:'เพิ่มเติม',exact:true})).click();
+  await expect(page.getByRole('button',{name:'รายงานยอดขาย',exact:true})).toBeVisible();
+  await page.screenshot({path:test.info().outputPath('merchant-more.png'),fullPage:true});
 });
 
 }
