@@ -344,3 +344,59 @@
   ถ้าเจอ assertion ที่อ้างอิงค่าเดิม ให้อัปเดตพร้อมกันในรอบเดียวกัน และต้องรัน `web/tests/browser/` (regression
   suite ที่มีอยู่แล้ว) จริงก่อนส่ง QA เสมอ ไม่ใช่แค่ `npm run check` — สอดคล้องกับ pattern เดียวกับ WYN-176
   batch 6 (test coverage gap ที่หลุดเพราะไม่ cross-check ชุด assertion เดิม/ใหม่ให้ครบก่อน commit)
+
+### [2026-10-17] ZOKY-120..125 — "ฉากหลังที่ไม่เลื่อนตาม" ต้องผูกกับ scroll offset และกฎข้อมูลเดียวกันต้องใช้ getter เดียวทุกหน้าจอ
+- บริบท (ZOKY-120): Home วาง `ColoredBox` สีชมพูแบบ fixed ไว้ใต้ `CustomScrollView` เพื่อให้ iOS overscroll bounce
+  เห็นสีชมพู โดยคอมเมนต์อ้างว่า "header บังไว้เสมอ" — จริง ๆ header เลื่อนแต่ฉากหลังไม่เลื่อน พอเลื่อนเกินความสูงของ
+  ฉากหลัง เนื้อหาที่โปร่งใส (หัวข้อ section, ข้อความ "ข้อมูลตัวอย่าง") จึงไปอยู่บนสีชมพู contrast เหลือ ~1.4:1
+- บทเรียน: ฉากหลังที่มีไว้เติมช่อง overscroll ต้องคำนวณจาก scroll offset (`max(0, base - pixels)`) ไม่ใช่ขนาดคงที่ —
+  ที่ offset 0 ได้ขนาดเดิม (ภาพที่ Founder อนุมัติไม่เปลี่ยน, ยืนยันด้วย screenshot ก่อน/หลังแบบ byte-identical)
+  ฟังทั้ง `ScrollNotification` และ `ScrollMetricsNotification` (depth 0) เพื่อรองรับ offset ที่เปลี่ยนจาก layout เช่น
+  หมุนจอ และอย่า clamp ค่า offset ด้วยค่าที่ขึ้นกับ MediaQuery ณ ตอนเลื่อน (ค่าเก่าจะค้างเมื่อ inset เปลี่ยน)
+  และเมื่อเอาพื้นหลังที่ "บังเอิญ" ช่วย contrast ออก ให้ตรวจสิ่งที่พึ่งพามันอยู่ด้วย (ที่นี่คือสี status bar — ยืนยันด้วย
+  test ว่า region default ของแอปให้ไอคอนสีเข้มเมื่อ header พ้นไป)
+- บริบท (ZOKY-121/123/125): Home card ใช้กฎใหม่ (`ZokyStoreSummary.rating`, badge "ตัวอย่าง", รูป 1:1) แต่การ์ด grid /
+  StoreScreen ที่ห่างไปแค่หนึ่ง tap ยังใช้ logic เดิม (`isNew`/`ratingAverage`, suffix ในชื่อที่ถูก ellipsis, 4:3)
+- บทเรียน: เมื่อเพิ่ม getter/กฎใหม่ตาม Founder decision ให้ `grep` หาทุก call site ของ field ดิบ (`ratingAverage`,
+  `isNew`, `aspectRatio: 4 / 3`, `demoNameSuffix`) แล้วแก้พร้อมกัน ป้ายบังคับ (demo label, การเปิดเผยโฆษณา) ต้องเป็น
+  widget แยกที่ตัดไม่ได้ ไม่ใช่ส่วนหนึ่งของข้อความที่ `maxLines`/`ellipsis` ตัดได้
+- การนำไปใช้ในอนาคต: test ที่ตรวจ "ข้อความต้องไม่ถูกตัด" ต้องโหลดฟอนต์จริง (Anuphan ผ่าน `FontLoader`) และ test ที่
+  ตรวจ repro แบบ "หาไม่เจอ" (`findsNothing`) ควรมี test ยืนยันเชิงบวกคู่กัน (badge มีครบทุกการ์ด / rated store ยังแสดง
+  คะแนน) เพื่อไม่ให้ผ่านแบบว่างเปล่า
+
+### [2026-10-17] ZOKY-127 — ป้ายบนรูปต้องไม่ถูก ellipsis: ย้ายข้อมูลที่ยาวออกจากรูป และใช้ Wrap แทนการจำกัดครึ่งความกว้าง
+- บริบท: `ZokyStoreCard._Photo` จำกัดทุก overlay (โฆษณา, ปิดอยู่, โปร, ETA) ไว้ที่ครึ่งความกว้างรูปแบบตายตัว + `maxLines: 1,
+  ellipsis` บนการ์ด 2 คอลัมน์ (รูปกว้าง 138–180pt) จึงเห็น "โฆษ…", "ปิ…", "ลด 2…", "20–…" แม้มุมตรงข้ามจะว่าง
+- บทเรียน: (1) ข้อมูลที่ยาวและไม่ใช่ป้ายสถานะ (ETA) ควรอยู่ใน meta row ใต้ชื่อเหมือนการ์ด Home ที่อนุมัติแล้ว ไม่ใช่บนรูป
+  (2) ป้ายบนรูปที่สั้นให้วางด้วย `Wrap(alignment: spaceBetween)` — วางข้างกันเมื่อพอ ซ้อนลงเมื่อไม่พอ ไม่ต้องคำนวณ
+  ครึ่งความกว้างเอง (3) ป้ายเปิดเผยข้อมูล (โฆษณา/ปิด/ราคาโปร) ห้าม ellipsis ให้ wrap แทน
+  (4) ตัวคั่นแบบ "|" ใน `Wrap` จะค้างท้าย/ต้นบรรทัดเมื่อขึ้นบรรทัดใหม่ — ให้ตัวคั่นเป็นส่วนหน้าของแต่ละกลุ่ม แล้วเลื่อนทั้งแถว
+  ไปทางซ้ายเท่าความกว้างช่องตัวคั่นพร้อม clip เฉพาะขอบซ้าย ทุก child ต้องมีช่องนำหน้าเท่ากัน ไม่งั้น child ที่ขึ้นต้น
+  บรรทัดจะถูกตัดไปด้วย (เจอจาก test "text ต้องอยู่ในการ์ด")
+  (5) ห้าม group ที่มีตัวเลขยาวเป็น `Row` ที่ตัดบรรทัดไม่ได้ — ฟอนต์ test (ตัวสี่เหลี่ยมกว้างเท่า fontSize) ทำให้ล้นทันที
+- การนำไปใช้ในอนาคต: test ตรวจป้ายต้องใช้ Anuphan จริงและตรวจทั้ง "ไม่ถูกตัด", "อยู่ในรูป/การ์ด", "ไม่ทับกัน" และ
+  "ยังแสดงอยู่" (กันผ่านเพราะป้ายหายไป) ใน matrix 320–430 × 1.0–2.0 พร้อมการ์ดสังเคราะห์กรณีแย่สุด
+
+### [2026-10-18] ZOKY-128..131 — หน้า Food: icon font, ลำดับ screen reader, ข้อความถูกตัด
+- บริบท: QA รอบหน้า Food เจอ 4 บั๊ก: icon จาก font ยังเหลือ 21 จุด, VoiceOver อ่าน header/chips ที่ pin อยู่หลังเนื้อหา,
+  ETA/เงื่อนไขคูปอง/"(ตัวอย่าง)" ถูก ellipsis, และ LOW อีก 7 ข้อ
+- บทเรียน: (1) `SliverPersistentHeader(pinned: true)` ติด tag `excludeFromScrolling` ทำให้ Flutter เอา node ไปไว้
+  "หลัง" scroll node เสมอ ใช้ sortKey บน header อย่างเดียวไม่ช่วย ต้องห่อทุก sliver ด้วย
+  `SliverSemantics(container: true, explicitChildNodes: true, sortKey: OrdinalSortKey(i))` ถ้าลืม
+  `explicitChildNodes` ข้อความลูกจะถูกรวมเป็น label เดียว (2) เปลี่ยน icon บน Home ให้เหมือนเดิมได้ด้วยการใช้เส้นกลาง
+  (centre line) ของ path Material เดิม แล้วปรับ stroke ให้ปริมาณหมึกเท่า font glyph และวัดด้วย pixel diff ก่อน/หลัง
+  (โหลด MaterialIcons font ใน test ด้วย ไม่งั้น test จะเห็นเป็นสี่เหลี่ยม) (3) พอแถวมีความสูงไม่เท่ากัน
+  `jumpTo(maxScrollExtent)` ครั้งเดียวจะไปไม่ถึงท้ายจริง เพราะ SliverList ประมาณ extent ไว้ ต้อง jump ซ้ำจนนิ่ง
+  (4) ป้ายตัวอย่าง (demo) ที่อยู่ในบรรทัดความสูงคงที่ ให้ย่อให้พอดี (FittedBox scaleDown) แทน ellipsis
+- การนำไปใช้ในอนาคต: หน้าใหม่ที่มี pinned header ต้องมี test ลำดับการอ่านทั้งตอนเปิดและหลังเลื่อน งานที่แตะ Home
+  ต้องทำ pixel diff เทียบ build ก่อนแก้ทุกครั้ง และรายงานจุดที่ต่างแม้เป็น sub-pixel
+
+### [2026-10-18] ZOKY-132 — ปุ่มบน Home/Food ไม่มี tap action ให้ assistive tech
+- บริบท: ปุ่ม custom ห่อ `InkWell` ด้วย `Semantics(button: true, label: …, excludeSemantics: true)` เพื่อให้อ่าน label เดียว
+  แต่ `excludeSemantics` ตัด tap action ของ `InkWell` ทิ้งไปด้วย node จึงบอกว่าเป็น "ปุ่ม" แต่กดผ่าน Switch Access /
+  Voice Access / TalkBack click action ไม่ได้ (Food 28 ปุ่ม, Home 13 ปุ่ม)
+- บทเรียน: ใช้ `excludeSemantics: true` เมื่อไรต้องใส่ `onTap:` (และ `onLongPress:` ถ้ามี) ที่ `Semantics` ตัวนั้นเอง โดยใช้
+  callback เดียวกับ gesture ด้านใน (null เมื่อ disabled) แบบเดียวกับ `zoky_bottom_nav.dart` การเพิ่ม action ไม่เปลี่ยน
+  pixel และไม่เปลี่ยนลำดับการอ่าน
+- การนำไปใช้ในอนาคต: ปุ่ม custom ใหม่ต้องผ่าน test ใน `test/semantics_tap_action_test.dart` (เดิน semantics tree:
+  ปุ่มที่ enabled ต้องมี `SemanticsAction.tap` ส่วนปุ่ม disabled ต้องไม่มี และ `performAction(tap)` ต้องเรียก callback)

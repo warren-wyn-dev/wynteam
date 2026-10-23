@@ -291,3 +291,51 @@
   มีประโยชน์สำหรับยืนยัน live rendering/cascade แต่ไม่ทดแทน regression suite เดิมที่มี literal-string assertion
   ผูกกับค่า CSS อยู่แล้ว ควร `grep -rn "<ค่าเดิมที่กำลังจะแก้>" web/tests/browser/` ก่อนแก้ CSS ทุกครั้งเพื่อหา
   assertion ที่ต้องอัปเดตพร้อมกัน (รายละเอียดเต็มที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน)
+
+### [2026-10-17] ZOKY-120: ฉากหลังสีชมพูแบบ fixed ใต้ scroll view โผล่หลังเนื้อหาเมื่อเลื่อน + กฎเรตติ้ง/ป้ายตัวอย่าง/รูป 1:1 ไม่ถูกนำไปใช้กับการ์ด grid (ZOKY-121/123/125)
+
+- เกิดอะไรขึ้น: `HomeScreen._phase1()` ใส่ `Positioned` สีชมพูสูง `paddingTop + 24` ไว้ใต้ `CustomScrollView` เพื่อ
+  overscroll bounce โดยเชื่อว่า header บังไว้เสมอ แต่ฉากหลังไม่เลื่อนตาม header เมื่อเลื่อนลงเนื้อหาจึงอยู่บนแถบชมพู
+  นอกจากนี้ตอนทำ Phase 4 เพิ่ม `rating` getter, `ZokyDemoBadge` และรูป 1:1 ให้การ์ด Home แต่ไม่ได้แก้
+  `ZokyStoreCard`/`StoreScreen` ที่อยู่ถัดไปหนึ่ง tap และแผ่น "ร้านโปรด" ใช้ `showModalBottomSheet` ตรง ๆ ที่สูงจำกัด
+  ไม่เลื่อนได้ (ZOKY-122)
+- ผลกระทบ: ข้อความตัวอย่างตามกฎ Founder อ่านไม่ออก (HIGH), ร้านเดียวกันดูมีคะแนนบางหน้าแต่ไม่มีอีกหน้า, ป้าย
+  "(ร้านตัวอย่าง)" หายบนจอแคบ, รูปร้าน crop ต่างกันระหว่างหน้า, sheet ล้นในแนวนอน/ตัวอักษรใหญ่ — ต้องเปิดรอบ QA/Debug เพิ่ม
+- จับได้อย่างไร: AI QA & Security รัน device matrix × text scale พร้อม sample pixel ใต้ status bar และ FlutterError capture
+- วิธีป้องกันในอนาคต: (1) อะไรก็ตามที่วางใต้ scroll view เพื่อ overscroll ต้องผูกขนาดกับ scroll offset และมี test
+  sample pixel หลังเลื่อน (`test/home_overscroll_backdrop_test.dart`); (2) เพิ่มกฎใหม่ให้ข้อมูลร้าน → grep หา field ดิบ
+  ทุกจุดแล้วแก้ในรอบเดียว (`test/store_rating_rule_test.dart`, `test/store_card_demo_badge_test.dart`,
+  `test/store_card_photo_ratio_test.dart`); (3) sheet ทุกอันใช้ `showZokySheet` + เนื้อหาเลื่อนได้
+  (`test/home_favorites_sheet_test.dart`) — รายละเอียดที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน
+
+### [2026-10-17] ZOKY-127: ป้ายบนรูปการ์ด grid ถูก ellipsis ("โฆษ…", "ปิ…", "ลด 2…", "20–…")
+
+- เกิดอะไรขึ้น: `_Overlay` ทุกตัวถูกจำกัดที่ `photoWidth / 2 - 6` และตัดบรรทัดเดียวพร้อม ellipsis โดยไม่ดูว่ามุมตรงข้าม
+  ว่างหรือไม่ ETA ("xx–yy นาที") ไม่เคยพอดีที่ 375pt; ปัญหามีอยู่ตั้งแต่ก่อน ZOKY-123/125 และหลุด QA รอบแรก
+- ผลกระทบ: ป้ายเปิดเผยโฆษณาและราคาโปรอ่านไม่ออก ร้านปิดไม่มีสัญญาณที่มองเห็น — ต้องแก้ก่อนเปิดโฆษณา/โปรจริง (ZOKY-105/106)
+- จับได้อย่างไร: AI Debug Engineer สังเกตตอนแก้ ZOKY-123; AI QA & Security วัด `didExceedMaxLines` ด้วยฟอนต์จริงทั้ง matrix
+- วิธีป้องกันในอนาคต: ป้ายบังคับ/ป้ายสถานะห้ามใช้ `ellipsis`; ข้อมูลยาวไว้ใน meta row; regression ที่
+  `zoky_app/test/store_card_overlay_labels_test.dart` และ `ZOKY-127:` ใน `test/qa/home_slice_retest_qa_test.dart`
+  (รายละเอียดที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน)
+
+### [2026-10-18] Task ZOKY-128..131 (หน้า Food หลัง Founder อนุมัติ)
+- ข้อผิดพลาด: (1) 5d4d6cf แก้เฉพาะ icon ที่ Founder เห็นว่าว่าง ไม่ไล่ทั้ง flow (2) ใช้ pinned header โดยไม่ตรวจ
+  semantics order (3) ใส่ `maxLines + ellipsis` ให้ ETA, เงื่อนไขราคา และชื่อที่อยู่ตัวอย่าง ทั้งที่มีกฎ "ห้ามตัด"
+  (ZOKY-127) อยู่แล้ว (4) refresh ที่ล้มเหลวล้างรายการทิ้ง และ response ไม่มี request id
+- ผลกระทบ: icon หายบนเว็บ preview, ผู้ใช้ screen reader ได้ยินลำดับผิด, ข้อมูลราคา/เวลา/ป้ายตัวอย่างถูกซ่อน
+  (ไม่มีผลกับ production เพราะยังไม่ deploy)
+- วิธีป้องกันในอนาคต: แก้บั๊กกลุ่มเดียวกันให้ grep ทั้ง flow (`Icon(`, `maxLines`) ไม่ใช่แก้แค่จุดที่ถูกรายงาน
+  ทุกการโหลดแบบ async ต้องมี request id และต้องเก็บข้อมูลเดิมไว้เมื่อ refresh ล้มเหลว
+- Regression test ที่เพิ่ม: QA suite ใน `food_page_qa_test.dart` ที่เคย skip ไว้ 7 ตัว ตอนนี้รันและผ่านแล้ว,
+  test วาด glyph แล้วเช็ค pixel ใน `food_header_icons_test.dart`, กลุ่ม "ZOKY-131 low-severity fixes" ใน
+  `food_home_screen_test.dart`
+
+### [2026-10-18] Task ZOKY-132 (Home v1 + หน้า Food)
+- ข้อผิดพลาด: ปุ่ม custom ทุกตัวลอก pattern `Semantics(button: true, excludeSemantics: true)` โดยไม่มี `onTap` มีแค่ bottom nav
+  ที่ทำถูก test semantics เดิมเช็คแค่ label/ลำดับ ไม่ได้เช็ค action
+- ผลกระทบ: ผู้ใช้ Switch Access / Voice Access ค้นหา เปิดร้าน เลือกที่อยู่ เก็บโค้ด และเปิดตะกร้าไม่ได้ (ยังไม่ deploy)
+- วิธีป้องกันในอนาคต: test accessibility ต้องเช็คว่า "isButton ⇒ hasAction(tap)" ทั้งหน้า ไม่ใช่เช็คแค่ label
+  และ grep `excludeSemantics: true` ทุกครั้งที่ review ปุ่มใหม่
+- Regression test ที่เพิ่ม: `zoky_app/test/semantics_tap_action_test.dart` และ ZOKY-132 repros ใน
+  `test/qa/food_page_retest_qa_test.dart` (เลิก skip แล้ว) ยังเหลือ 3 จุดนอก Home/Food (cart bar, menu add, search grid)
+  ที่รายงานไว้ในไฟล์บั๊ก

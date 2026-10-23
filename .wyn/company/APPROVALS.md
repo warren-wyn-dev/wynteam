@@ -672,3 +672,97 @@
 - Duration update (PR #1109): the Founder's iPhone recording showed a white loading skeleton after the ~1.2 s splash. I proposed keeping the splash until the screen's data is ready (at least 1 s, at most ~4 s), plus iOS launch images and a pink status bar during the splash. The Founder replied "แก้ไข ทั้งหมดให้ด้วยนะ" (2026-10-11), approving all three. This replaces the fixed ~1.2 s above. Rollback: revert PR #1109.
 - Rollback: revert the PR.
 - สถานะ: **ตัดสินใจแล้ว**. วันที่ 2026-10-11
+
+### APPROVAL_REQUIRED — [2026-10-17] ZOKY: WYNOS Food (ฝั่งลูกค้า) → ZOKY บน Web + iOS + Android
+- Proposed change: (D1) เปลี่ยนแบรนด์ WYNOS Food ฝั่งลูกค้าเป็น ZOKY — ผลิตภัณฑ์ใหม่ ไม่ใช่ ZOKY Marketplace เดิม, task ใช้เลข ZOKY-1xx; (D2) โดเมน `zoky.online` + redirect จาก `food.wynos.online` คง path+query; (D3) แอป Flutter ใหม่หนึ่งแอป (โฟลเดอร์แยก) สำหรับ iOS + Android ฟีเจอร์เท่าเว็บ 96 รายการ — ข้อยกเว้นของ decision 2026-09-19 เฉพาะแอปนี้; (D4) Codemagic สำหรับ iOS build + Apple Developer Program + Google Play Console (ค่าใช้จ่ายใหม่); (D5) App identity เสนอ `online.zoky.app`
+- Reason: ทิศทางจาก Founder ในแชท 2026-10-17 (ส่งต่อผ่าน agent ที่มอบหมายงาน) — ต้องได้รับอนุมัติอย่างเป็นทางการเพราะเป็น production infrastructure, ค่าใช้จ่าย และสถาปัตยกรรมหลัก
+- Benefits: แบรนด์และโดเมนของบริการสั่งอาหารเอง; แอปใน App Store/Play; ลิงก์และ QR เดิมยังใช้ได้
+- Risks: Stripe edge functions ตรวจ origin `food.wynos.online` (แอป/โดเมนใหม่จ่ายบัตรไม่ได้จนกว่าจะแก้), push โปรโมชันส่งเฉพาะ web token, App Store อาจบังคับ Sign in with Apple/ลบบัญชีในแอป, ผู้ใช้เว็บต้องล็อกอินใหม่หลังย้ายโดเมน, ชื่อยังไม่ตรวจ trademark, โดเมนยังไม่ซื้อ, ติด production freeze
+- Files affected: เอกสาร — `.wyn/tasks/backlog/ZOKY-100-zoky-customer-app.md`, `.wyn/docs/product/zoky-feature-parity.md`, `.wyn/docs/product/zoky-roadmap.md`, `.wyn/docs/product/zoky-decision-proposal.md`; เมื่อ implement — `web/app/food/**`, `web/components/food/**`, `web/lib/food-*.ts`, `web/proxy.ts`, `web/public/sw.js`, `supabase/functions/food-stripe-checkout`, `food-stripe-cancel`, `send-food-promotion`, `send-push-notification`, `wynos-maps-geocode`, โฟลเดอร์แอปใหม่, CI config ใหม่
+- Recommendation: อนุมัติ D1–D5 ทีละข้อตาม `.wyn/docs/product/zoky-decision-proposal.md` หลังตรวจชื่อ (ZOKY-101) และตอบ Open Questions Q1–Q16 ใน PRD; production cutover และ backend changes แต่ละข้อขออนุมัติแยกอีกครั้ง
+- สถานะ: รออนุมัติ (PENDING FOUNDER APPROVAL)
+- วันที่ตัดสินใจ:
+
+## [2026-10-18] ZOKY exception release — A4 EDGE (APPROVED by Founder)
+
+- Founder: "เริ่มEDGE"
+- Workflow: `zoky-web-exception-release.yml` on `main` (`a302098f`), phase `EDGE`
+- release_sha: `0533fb3649f3c327f451bc95832674d63c0f6873` (`release/zoky-web-20261018` tip)
+- Deploys only: `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode` (verify_jwt = false)
+- Rollback: re-deploy the same 3 functions from `main` via `deploy-edge-functions.yml` (main code = current production) — only while web PHASE1/2 is not live
+- Founder must still approve the run's `production` environment review in GitHub
+
+### [2026-10-18] ZOKY EDGE — deployed ✅
+
+Run 39159334533 (Founder approved `production` review): guard ✅, edge deploy ✅ (food-stripe-checkout, food-stripe-cancel, wynos-maps-geocode from `0533fb36`), smoke ✅. Independent check: geocode CORS allows zoky.wynos.online and food.wynos.online, rejects other origins (403); food.wynos.online still 200. Web deploy job skipped (EDGE only).
+
+## [2026-10-18] ZOKY exception release — A5 PHASE1 (APPROVED by Founder)
+
+- Founder: "เริ่มขั้น1"; Supabase Auth redirect URLs for zoky.wynos.online added by Founder ("เพิ่มแล้ว")
+- Workflow: `zoky-web-exception-release.yml` on `main`, phase `PHASE1` (ZOKY_LEGACY_FOOD_REDIRECT=0)
+- release_sha: `0533fb3649f3c327f451bc95832674d63c0f6873`
+- Rollback: Vercel Instant Rollback to `web-5djnkfh16` (`b19687af`); plus zoky→food domain redirect in Vercel if needed
+
+### [2026-10-18/19] ZOKY PHASE1 — deployed; post-deploy check flaked, verified manually ✅
+
+Run 39159774643: guard ✅, browser QA ✅, Vercel production deploy ✅. The shared "Verify production routes" step failed on `https://wynos.online/api/maps/health` returning 502 three times within ~30s right after the deploy (cold start); the ZOKY PHASE1 smoke step was therefore skipped.
+Manual re-check minutes later (all PASS): maps/health 200 (core-api-v1); wynos.online routes `/ /search /notifications /chat /settings /profile/me /clubs /bookmarks /suggested /maps` 200; push-config 200; zoky.wynos.online home (ZOKY title + canonical) ✅; `wynos.online/food?promo=X` → 307 zoky ✅; food.wynos.online 200 + real sw.js ✅; zoky sw.js real ✅; merchant 200.
+Decision: keep PHASE1 live (no rollback). Rollback target if needed: Vercel Instant Rollback to `web-5djnkfh16` (`b19687af`).
+Follow-up: give the maps health check in the exception workflow a longer warm-up retry window.
+
+## [2026-10-22] ZOKY web redesign (Home + Food) — release preparation (APPROVED by Founder; production NOT yet approved)
+
+- Founder (AskUserQuestion, 2026-10-22): moving 8e6aa209 to the release branch → **"อนุญาต (แนะนำ)"**; staging → **"ทำเว็บทดสอบก่อน (แนะนำ)"**
+- `release/zoky-web-20261018` fast-forwarded `0533fb36` → `8e6aa209067dd45fe3a416c82d717468a220a475` (= `feat/zoky-web-app-design`; 7 commits: redesign cc823142, QA docs, ZOKY-140/143/144 history fixes, ZOKY-145 guest-login dead page fix — ZOKY-145 HIGH also exists on current production)
+- QA & Security: Re-test 4 **PASS** (`.wyn/tasks/qa/ZOKY-web-home-food-redesign-qa.md`); ZOKY-140/143/144/145 closed. Open LOW follow-ups: ZOKY-141, ZOKY-142, ZOKY-146 (+ order sheet stays open after browser back)
+- CTO final review: **APPROVE WITH CONDITIONS** — staging incl. real iPad/Safari check, then explicit Founder production approval
+- Staging path: PR #1230 adds an optional `zoky_release_sha` input to `web-next-phase5-preview.yml` (preview only, no production alias change). Needs Founder merge approval + the `production` environment review for the run
+- Production (later, separate Founder approval): `zoky-web-exception-release.yml` phase `PHASE1`, release_sha `8e6aa209067dd45fe3a416c82d717468a220a475`, flag stays 0
+- Rollback for that step: Vercel Instant Rollback to the current production deployment (PHASE1 run 39159774643, commit `0533fb36`)
+
+### [2026-10-22] ZOKY redesign — storefront header added to this release (Founder)
+
+- Founder reviewed staging run 39791664083 (preview `web-9y7cywmgu`, release `8e6aa209`, browser QA 1008 passed) on a phone. Asked for the storefront header change, chose **"รวมไปรอบนี้เลย"**, delivery fee **"เอาออก"**, minutes **"เวลาทำอาหาร + เวลาวิ่ง"**, a nicer scooter icon, then **"โอเค ทำต่อเลย"**
+- QA Re-test 5 **PASS**. CTO **APPROVE WITH CONDITIONS** (new SHA, staging, Founder production approval)
+- `release/zoky-web-20261018` fast-forwarded `8e6aa209` → `82f613d627c8bf63b5f6decb9426be0c977e0048`. This SHA replaces 8e6aa209 for staging and PHASE1
+- Next: staging via `web-next-phase5-preview.yml` with `zoky_release_sha=82f613d6…`, then the Founder's explicit production approval
+- [2026-10-22] Founder staging review of `82f613d6` (run 39807414871, 1008 passed): "ตรงขึ้นที่อยู่อีกทำไม" → the guest header's repeated store description was removed and long names now wrap. The release branch was fast-forwarded to `e6f577dcccb86b51c68d91e754b19fe4cfa27222`, which replaces 82f613d6 for staging and PHASE1. Developer re-run of the QA suites passed (see the QA doc).
+
+## [2026-10-22] ZOKY web redesign — PHASE1 production release (APPROVED by Founder)
+
+- Founder approved the staging preview (run 39812934932, `web-2s7i8o313`, release `e6f577dc`, 1008 passed) with **"ผ่าน"**, then the production release with **"อนุมัติขึ้นเว็บจริง (แนะนำ)"** (AskUserQuestion, 2026-10-22).
+- Workflow: `zoky-web-exception-release.yml` on `main`, phase `PHASE1` (ZOKY_LEGACY_FOOD_REDIRECT=0, so food.wynos.online is unchanged).
+- release_sha: `e6f577dcccb86b51c68d91e754b19fe4cfa27222`
+- Includes: Home + Food redesign, ZOKY-140/143/144 history fixes, ZOKY-145 (HIGH, live today) guest-login dead page fix, and the storefront header update.
+- Open LOW follow-ups: ZOKY-141, ZOKY-142, ZOKY-146, order sheet not closed on browser back, and ratings/ETA for guests (needs a DB change).
+- Rollback: Vercel Instant Rollback to the current production deployment (PHASE1 run 39159774643, commit `0533fb36`).
+- The Founder must still approve the run's `production` environment review in GitHub.
+
+### [2026-10-22] ZOKY redesign PHASE1 — deployed ✅
+
+Run 39817455373 (the Founder approved the `production` review). Every step passed: guard ✅, browser QA ✅, Vercel production deploy ✅, production route verify ✅, ZOKY PHASE1 verify ✅. Release `e6f577dc`.
+Independent check after the deploy:
+- zoky.wynos.online returns 200, title "ZOKY • สั่งอาหาร", and the new splash fix (`removeAttribute('name')`) is live.
+- food.wynos.online returns 200.
+- `wynos.online/food?promo=X` returns 307 to zoky.
+- zoky sw.js returns 200.
+- maps/health returns 200.
+- wynos.online returns 200.
+- zoky `/login` returns 307 to `/food/login`.
+
+Rollback target if needed: Vercel Instant Rollback to the previous PHASE1 deployment (run 39159774643, `0533fb36`).
+
+## [2026-10-22] ZOKY Stripe-only payments + auto-refund — implementation approved (Founder)
+
+- Founder (AskUserQuestion): **"อนุมัติ เริ่มเขียนโค้ด (แนะนำ)"**. This approves the Architect design (`.wyn/docs/architecture/zoky-stripe-only-auto-refund-design.md`) and release path **B**: additive migrations, a `food-apply-zoky-stripe-jobs.yml` apply workflow and a `food-stripe-refund-worker` deploy via a reviewed PR to `main`, as a freeze exception scoped to this work only. Web and `food-stripe-checkout`/`food-stripe-cancel` ship through the ZOKY exception workflow.
+- This approval does **not** cover any production step. Each production step (worker deploy, migration apply, cron enable, EDGE, PHASE, Stripe-only activation) needs its own Founder approval and GitHub `production` review. Testing uses Stripe test mode only.
+- Never deploy `food-stripe-checkout`/`food-stripe-cancel` from `main`, because the `main` versions lack the ZOKY origins.
+
+## [2026-10-23] ZOKY Stripe-only + auto-refund — step 0 approved (Founder)
+
+- QA Re-test 3 PASS. CTO final review: APPROVE WITH CONDITIONS. Plan: `.wyn/docs/deployment/zoky-stripe-only-rollout-plan.md`.
+- Founder (AskUserQuestion): step 0 **"อนุมัติ (แนะนำ)"**. This covers:
+  - a PR merging `feat/zoky-stripe-jobs-db` into `main`, which deploys nothing;
+  - fast-forwarding `release/zoky-web-20261018` from `e6f577dc` to `eeeb5f5e`.
+- Staging E2E (step 1): Founder chose **"ไว้วันอื่น"**. No production step (2–12) may run before it passes.
+- Production still runs `e6f577dc`. The release branch tip is not production until EDGE/PHASE1 are approved separately.

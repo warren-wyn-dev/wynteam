@@ -2269,3 +2269,208 @@ reconciliation ที่ทนทานสำหรับการคืน GP �
 ถ้ายังล้มเหลวจะ log `order_id`/`stripe_refund_id` ให้แก้มือ (ระหว่าง GP = 0% ไม่มี fee จึงไม่เกิดกรณีนี้)
 reconciliation นี้ต้องอ่านจาก Stripe (`application_fee.refunded` / `ApplicationFee.amount_refunded`) เพื่อรองรับ
 การคืน fee ผ่าน Stripe Dashboard และการคืนบางส่วนด้วย — ต้องเพิ่ม event subscription ระดับ platform ใน Stripe (Founder)
+
+## [2026-10-17] Founder: เริ่ม ZOKY ใหม่จากศูนย์ — rebrand WYNOS Food ฝั่งลูกค้าเป็น ZOKY บนเว็บ + iOS + Android
+
+บันทึกตามกติกา Founder Feedback ใน `.wyn/company/RULES.md` จากการคุยกับ Founder โดยตรง (2026-10-17)
+
+**สิ่งที่ Founder ยืนยันแล้ว**
+
+1. **ZOKY ใหม่ไม่ใช่ Marketplace เดิม** (ZOKY-001..005 / SELLER-001..005 ที่ลบออกไปแล้ว) — "เริ่มนับ 0 ใหม่" ใช้เลข task `ZOKY-1xx` เพื่อไม่ชนของเก่า
+2. **ZOKY = WYNOS Food ฝั่งลูกค้า (food.wynos.online) เปลี่ยนเป็น ZOKY ทั้งหมด** — "จะเป็น Zoky ทั้งหมดเลย" รวมทั้ง**ชื่อและโดเมน** → `zoky.online` (Founder เช็กแล้วว่าว่าง ยังไม่ยืนยันว่าจดแล้ว)
+3. **ฟีเจอร์ต้องเท่าเว็บเดิม** และ**ต้องใช้ได้ทั้งเว็บ iOS และ Android**
+4. **เทคโนโลยี**: เว็บใช้ Next.js เดิม (rebrand) / iOS + Android ใช้ **Flutter** codebase เดียว — Founder เปลี่ยนจาก Swift เป็น Flutter หลังทราบว่า Swift ได้แค่ iOS ถือเป็นการระบุเจาะจงเรื่องแอป Flutter ตามข้อ 2 ของ decision 2026-09-19 — การพัก `app/` (WYNOS App) ยังคงเดิม ZOKY เป็นแอปใหม่แยกโฟลเดอร์
+5. **UX**: แบรนด์เดียวกันทั้งสองแพลตฟอร์ม แต่ส่วนพื้นฐานของระบบ (dialog, action/bottom sheet, date picker, switch, ไอคอน share/back) ปรับตาม iOS/Android
+6. **โลโก้**: ใช้โลโก้ต้นฉบับ (แบบ A) 100% — `design-reference/zoky/zoky-logo-source.jpg` (Founder ดูทางเลือกสว่างขึ้นและโทนแดง+ชมพูแล้ว เลือกต้นฉบับ)
+7. **สีแบรนด์**: ดึงจากโลโก้ — ZOKY Pink `#F21967` (หลัก), `#F4368D`, `#F880BE`, `#D61256`, `#AF1341`, `#991636`, Cloud White `#F8FAFE`, Blush `#F1E4F5`
+8. Founder มีแค่ iPad (ไม่มี Mac) → แนวทาง build iOS ผ่าน cloud macOS CI
+
+**ยังรอ Founder อนุมัติ** (ดู `.wyn/docs/product/zoky-decision-proposal.md` และ `.wyn/company/APPROVALS.md`): ค่าใช้จ่าย Codemagic / Apple Developer / Google Play, bundle ID, การแก้ backend ที่ผูกโดเมนเดิม (Stripe Origin allowlist, push routing), Sign in with Apple และการลบบัญชีในแอป, ลำดับ cutover โดเมนและ redirect, การทำ TestFlight/internal testing ระหว่าง production freeze
+
+**ขอบเขต**: เป็นการตัดสินใจทิศทางผลิตภัณฑ์ ยังไม่ใช่การอนุมัติแก้ application source, backend, โดเมน production หรือ deploy — ทุกอย่างต้องผ่าน gate เดิม
+
+### [2026-10-17] ZOKY Design System — คำตอบ Founder ต่อคำถามเปิด
+
+1. **สีปุ่ม**: ใช้ Pink Deep `#D61256` สำหรับปุ่มและพื้นที่มีตัวหนังสือขาว (ผ่าน WCAG AA) — โลโก้/ไอคอน/ไฮไลต์ยังใช้ ZOKY Pink `#F21967`
+2. **ไฟล์โลโก้ฉบับจริง (vector)**: ให้ทีม AI วาดเองจากโลโก้ต้นฉบับ แบบ A — หน้าตาต้องเหมือนเดิม
+3. **เว็บเดิม**: ไม่แก้เรื่อง pinch-zoom และขนาดปุ่มเล็กตอน rebrand เป็น ZOKY — คงพฤติกรรมเดิม
+
+### [2026-10-17] ZOKY โลโก้ — Founder เลือกแบบ "ไม่มีเงา คงความมันวาว"
+
+Founder เห็นว่าโลโก้ต้นฉบับดูมืด จึงให้เอาเงาใต้ตัวอักษรออกเพื่อให้สดใส — เลือกแบบ 2: ตัวอักษร/สัดส่วนเหมือนต้นฉบับ, ไม่มี drop shadow, พื้นชมพูสว่างขึ้น (`#FF5AA8` → `#F7287A` → `#F21967`), คงแสงมันวาวด้านบนและขอบตัวอักษรนูนเบา ๆ — ไฟล์: `design-reference/zoky/zoky-logo.svg`, `zoky-app-icon.svg`, `zoky-app-icon-1024.png`
+
+### [2026-10-17] ZOKY — Founder ยืนยัน Flutter แม้พบงาน Expo/Kotlin เดิม
+
+พบงาน ZOKY จาก session อื่นที่ยังไม่ merge: `feat/zoky-ios-expo-food-preview-20261016` (`zoky-ios/`, React Native + Expo) และ `feat/zoky-android-*` (`food-android/`, Kotlin + Compose) — Founder เลือก **"ใช้ Flutter ตามที่ตกลงวันนี้"** (`zoky_app/`) — branch เดิมเก็บไว้เป็นตัวอ้างอิง (ห้ามลบ) เช่น โลโก้ PNG โปร่งใสต้นฉบับ `zoky-ios/assets/zoky-wordmark-original-1066.png` และพฤติกรรม/ข้อจำกัดที่บันทึกไว้ใน `food-android/`
+หน้า Home ออกแบบตามภาพอ้างอิง 5 เฟสที่ Founder ส่ง (Header+Logo / การ์ดสั่งอาหาร / ดีลเด็ดวันนี้ / ร้านอาหารแนะนำ / Bottom Nav: หน้าหลัก·ออเดอร์·ข้อความ·บัญชี) ทำทีละเฟส รอ Founder อนุมัติแต่ละเฟส
+
+### [2026-10-17] ZOKY Home Phase 1 — Founder อนุมัติ
+
+Founder อนุมัติ Home Phase 1 (Header + โลโก้) หลังดูบน iPad preview — header gradient ตรงกับพื้นหลังโลโก้ (`#F93384` → `#F72C7E` → `#EE226E`), wordmark PNG ต้นฉบับ, ปุ่มหัวใจ placeholder "เร็ว ๆ นี้", แผ่นขาวขอบโค้ง, คลื่นแสงนุ่ม และขนาดโลโก้คงตามที่ทำ — เริ่ม Phase 2 (การ์ดสั่งอาหาร)
+
+### [2026-10-17] ZOKY Home — Founder: Phase 1 และ 2 ต้องไปทิศทางเดียวกัน + ไอคอนสไตล์ 3D
+
+Founder ดู Phase 2 แล้วให้ความเห็น: "เฟส1 เฟส2 ทุกอย่างต้องไปในทิศทางเดียวกัน" และ "ไอคอนชอบฟีล 3D" — อนุญาตให้ทีมเสนอการออกแบบได้
+ทิศทางที่ทีมเสนอ: **ZOKY Glossy 3D** — ทุกพื้นผิวสีแบรนด์ใช้ gradient เดียวกับพื้นหลังโลโก้ (`#F93384` → `#F72C7E` → `#EE226E`) + แถบแสงมันวาวด้านบนแบบโลโก้ + เงาชมพูนุ่ม; ไอคอนเป็นแบบ 3D มันวาว (ไล่สี, จุดสะท้อนแสง, เงาใต้) — รอ Founder ดูตัวอย่างและอนุมัติ
+
+### [2026-10-17] ZOKY Home Phase 3 + Glossy 3D — Founder อนุมัติ
+
+Founder ตอบ "อนุญาต" ต่อ Phase 3 (ดีลเด็ดวันนี้): อนุมัติ Phase 3, แนวทาง **ZOKY Glossy 3D** เป็นแนวทางหลักของทั้งแอป (design system ข้อ 7.1 → APPROVED, รวมปุ่มหัวใจ 3D ใน Phase 1), และข้อความตัวอย่าง "ข้อมูลตัวอย่าง ยังไม่ใช่โปรโมชันจริง" / ชื่อดีลและร้านตัวอย่าง
+ยังเปิดอยู่: แหล่งข้อมูลจริงของดีลเด็ด (โปรร้าน / แคมเปญแพลตฟอร์ม / แบนเนอร์), ปุ่มในหน้ารายละเอียดดีล — เริ่ม Phase 4 (ร้านอาหารแนะนำ)
+
+### [2026-10-17] ZOKY — รูปอาหารทุกจุดเป็น 1:1
+
+Founder เสนอและเลือกทางเลือก ก: รูปเมนูอาหาร **และ** รูปร้านในการ์ดร้านแนะนำ (Phase 4) ใช้สัดส่วน 1:1 ให้ตรงกับเว็บ (`.wf-menu-image`, `.wf-home-store-photo`) ร้านอัปโหลดรูปแบบเดียวใช้ได้ทุกที่ — รูปที่ไม่ใช่อาหาร (เช่น แบนเนอร์) ยังเป็นแนวนอนได้
+
+### [2026-10-17] ZOKY — เอาปุ่มหัวใจออกจากรูปร้านในการ์ดร้านแนะนำ
+
+Founder: "เอาหัวใจอยู่รูปอาหารออก" — การ์ดร้านแนะนำ (Phase 4) ไม่มีปุ่มหัวใจบนรูปแล้ว ร้านโปรดเข้าได้จากปุ่มหัวใจบน header (Phase 1) เท่านั้น
+
+### [2026-10-17] ZOKY Home Phase 4 — Founder อนุมัติ
+
+Founder: "โอเค ไปต่อ" — อนุมัติ Phase 4 (ร้านอาหารแนะนำ: รูป 1:1, ไม่มีหัวใจบนรูป, คะแนน/เวลาแสดงเฉพาะเมื่อมีข้อมูล) — คำถามเปิด (fallback เมื่อไม่มีร้าน featured, ไม่ใช้ค่าเดา ETA 15/30 ของเว็บ) ยังไม่ได้ตอบ ใช้ค่าปัจจุบันไปก่อน: ซ่อน section ตามเว็บ / ไม่แสดงเวลาเมื่อไม่มีข้อมูล — เริ่ม Phase 5 (Bottom Navigation)
+
+### [2026-10-17] ZOKY Home Phase 5 (Bottom Navigation) — Founder อนุมัติ
+
+- แถบเมนูเป็นแคปซูลขาวลอยตามตัวอย่างของ Founder, พื้นชมพูอ่อน (blush) ใต้เมนูที่เลือก + ชื่อเมนูตัวหนาสีชมพู
+- ไอคอนชุดใหม่ตามรูปตัวอย่างของ Founder (วาดเอง): บ้านมีประตู, คลิปบอร์ด, ฟองคำพูดมีจุด 3 จุด, คน — ไม่ได้เลือกเป็นเส้นเทา
+- เมนูที่เลือก: Founder เลือกแบบ **3 — ไอคอนทึบสีชมพู 3D** (ไม่ใช่เส้นชมพู)
+- หน้า Home ครบทั้ง 5 เฟส (Phase 1–5 อนุมัติแล้ว) — ป้ายตัวเลข/จุดแจ้งเตือนรองรับแล้วแต่ยังไม่แสดงจนกว่ามีข้อมูลจริง
+
+### [2026-10-17] ZOKY — ล็อกแนวตั้งอย่างเดียว
+
+Founder เลือก "ก" — แอป ZOKY (iOS/Android) ใช้แนวตั้งเท่านั้น แบบเดียวกับแอปสั่งอาหารทั่วไป ปิด ZOKY-124 เป็น won't fix — iPad ใช้ `UIRequiresFullScreen` เพื่อให้ล็อกได้ (ไม่รองรับ Split View/Slide Over)
+
+### [2026-10-18] ZOKY — Founder ชี้แจง: Home v1 คงเดิม, เลย์เอาต์แบบ Robinhood/LINE MAN คือหน้า Food
+
+Founder: "ไม่ใช่ คุณเข้าใจผิด หน้า Home v1 ถูกแล้ว แล้วถ้ากดจะเด้งไปอีกหน้า" — หน้า Home กลับเป็น v1 ที่อนุมัติแล้ว (Phase 1–5: header โลโก้+หัวใจ, การ์ด "อยากกินอะไรวันนี้?" พร้อมปุ่ม "ค้นหาของอร่อย", ดีลเด็ดวันนี้, ร้านอาหารแนะนำ, bottom nav) ภาพตรวจ pixel ตรงกับ commit ff8cb3d ที่ 430×932 และ 375×667
+เลย์เอาต์แรงบันดาลใจจาก Robinhood/LINE MAN (ใช้แบรนด์ ZOKY เท่านั้น) เป็น **หน้า Food (`FoodHomeScreen`)** ที่เปิดเมื่อกดการ์ด hero หรือปุ่ม "ค้นหาของอร่อย": header ชมพู glossy (ปุ่มกลับ, "จัดส่งที่" + ที่อยู่ ▾, หัวใจ, ปุ่มออเดอร์), ช่องค้นหา "สั่งอะไรดี?", แบนเนอร์ (ตัวอย่าง), หมวดอาหาร, ดีลเด็ดวันนี้, ร้านอาหารทั้งหมด + ตัวกรองด่วน C04 — หน้า Food เป็นหน้าเต็มจอที่ push ทับ shell (ไม่มี bottom nav เหมือนหน้าร้าน/หน้าค้นหา) — การจัดวางหน้า Food ยังรอ Founder ดูและอนุมัติ
+
+### [2026-10-18] ZOKY — เปิดบริการ "รับเองที่ร้าน" (Pickup) — เปลี่ยนจากคำตัดสิน 2026-10-10
+
+Founder เลือก "ค" — ZOKY จะมีทั้ง **จัดส่ง** และ **รับเองที่ร้าน** (ยกเลิกคำตัดสินเดิมของ WYNOS Food 2026-10-10 ที่ให้ส่งอย่างเดียว ไม่มี pickup) — เป็น major product scope change:
+- UI ในแอป (หน้าสั่งอาหาร) ทำปุ่มสลับ จัดส่ง/รับเองที่ร้าน ด้วยข้อมูลตัวอย่างได้ทันที
+- งานจริงต้องทำเป็น task แยก ผ่าน workflow ครบ (PM → Architect → Database → Full-Stack → QA): โครงสร้างออเดอร์ (fulfillment type), ร้านเปิด/ปิดรับ pickup, จุดรับ/เวลาเตรียม, การชำระเงิน, ฝั่ง Merchant, แจ้งเตือน และ migration ฐานข้อมูล (ต้องให้ Founder อนุมัติ migration ก่อน apply) — ยังติด production freeze
+
+### [2026-10-18] ZOKY หน้าสั่งอาหาร — ข้อความหัวโหมดรับเอง + คูปองส่งฟรี
+
+- โหมดรับเองที่ร้าน: หัว Header แสดง **"รับเองที่ร้าน ▾"** (Founder เลือก) — แตะยังเปิดรายการที่อยู่ (ใช้เป็นจุดอ้างอิงหาร้านใกล้)
+- โหมดรับเองที่ร้าน: ซ่อนคูปอง/ป้าย/ตัวกรอง "ส่งฟรี" (Founder ยืนยัน)
+
+### [2026-10-18] ZOKY หน้าสั่งอาหาร (FoodHomeScreen) — Founder อนุมัติ
+
+Founder "โอเค" — อนุมัติหน้าสั่งอาหาร: header ชมพูอ่อนสุด (#FFEFF5 → ขาว) เต็มจอ, แถวที่อยู่ 2 บรรทัด, ปุ่มหัวใจ/คูปองแบบ 3D, ชิปเล็ก จัดส่ง/รับเองที่ร้าน, ช่องค้นหาติดด้านบนตอนเลื่อน, หมวดอาหาร 4 วง, โค้ดลดเพิ่ม (เก็บโค้ด), ร้านอาหารทั้งหมด + ตัวกรอง (แถวร้าน รูป 1:1, ดาว/ลูกศร 3D), ปุ่มตะกร้าลอย, state โหลด/ว่าง/error/ดึงรีเฟรช — ถัดไป: QA ตรวจ แล้วออกแบบหน้าร้าน
+
+### [2026-10-18] ZOKY — เปิด zoky.online ด้วยเว็บเดิมก่อน (Web first)
+
+Founder: "อยากให้ zoky.online พร้อมใช้งานจริงได้เลย" แล้วตอบคำถาม 2 ข้อ:
+- โดเมน `zoky.online` — **ซื้อแล้ว** (ข้อมูลจาก Founder; DNS ยังไม่ได้ชี้มาที่ Vercel)
+- แผน — **"เว็บก่อน (แนะนำ)"**: เอาเว็บ WYNOS Food ที่ใช้งานได้อยู่ มาเปลี่ยนชื่อ/โลโก้/สีเป็น ZOKY แล้วย้ายไป `zoky.online`; `food.wynos.online` redirect ไปโดเมนใหม่ (คง path+query); แอป iOS/Android ทำต่อทีหลัง
+
+ผล: อนุมัติทิศทาง D1 (rebrand ฝั่งลูกค้าบนเว็บ) และ D2 (โดเมน + redirect) ใน `.wyn/docs/product/zoky-decision-proposal.md` เพื่อเริ่ม ZOKY-113 (web rebrand code) และ ZOKY-114 (domain cutover) บน feature branch + staging
+ยังต้องขออนุมัติแยก (ไม่รวมในคำตัดสินนี้): ปลด production freeze สำหรับ release นี้, production deploy/cutover, การแก้ backend ที่ผูกโดเมนเดิม (Stripe origin allowlist, maps geocode origin — security-sensitive), การตั้งค่า DNS/Vercel/Supabase Auth/Google OAuth/Stripe ที่ Founder ต้องทำในบัญชีของตน
+
+### [2026-10-18] ZOKY — โดเมนเว็บคือ zoky.wynos.online (แทน zoky.online)
+
+Founder: "โดเมน zoky.wynos.online" แล้วเลือก **"zoky.wynos.online อย่างเดียว"** — เว็บ ZOKY ใช้ `zoky.wynos.online`; `food.wynos.online` และ `wynos.online/food*` redirect ไป `zoky.wynos.online` (คง path+query); ไม่ใช้ `zoky.online` ในแผนนี้ (แก้ไขคำตัดสินด้านบนเรื่องโดเมนเท่านั้น ส่วนอื่นคงเดิม) — การอนุมัติแยกที่ยังต้องขอยังคงเดิม
+
+### [2026-10-18] ZOKY — เทคโนโลยี: เว็บใช้ระบบเดิม (Next.js), แอปใช้ Flutter
+
+Founder: "เว็บใช้แบบเดิม โอเค ส่วนแอปใช้ Flutter" — เว็บลูกค้า `zoky.wynos.online` ใช้ Next.js เดิมบน Vercel (rebrand เป็น ZOKY ให้หน้าตาสอดคล้องกับแอป); แอป iOS + Android ใช้ Flutter (`zoky_app/`); ทั้งสองใช้ Supabase backend เดียวกัน — ไม่ใช้ Flutter Web สำหรับเว็บลูกค้า (เหตุผล: โหลดช้า, SEO/link preview, ต้องเขียนใหม่ทั้งหมด)
+
+### [2026-10-18] ZOKY web — อนุมัติแก้ origin ของระบบจ่ายบัตร + แก้แจ้งเตือนก่อนเปิด
+
+Founder ตอบ 2 ข้อ:
+- **ZOKY-135 — "อนุมัติ (แนะนำ)"**: แก้ edge functions `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode` ให้ยอมรับ origin `https://zoky.wynos.online` เพิ่ม โดย**คง** `https://food.wynos.online` ไว้ (rollback ได้) และชี้ success/cancel URL ไป ZOKY — ต้องผ่าน QA & Security; การ deploy edge functions/production ยังต้องผ่าน freeze lift + Founder Gate ตามเดิม (อนุมัตินี้คือแก้โค้ดและทดสอบ ไม่ใช่ deploy)
+- **ZOKY-136 — "แก้ก่อนเปิด (แนะนำ)"**: แก้ปัญหา service worker / push token ของ food.wynos.online (แจ้งเตือนซ้ำ, แจ้งเตือนหลังออกจากระบบ) ให้เสร็จก่อน cutover
+
+### [2026-10-18] ZOKY web — ชื่อใบเสร็จ Stripe + เปิดใช้ 2 ขั้น
+
+Founder ตอบ (หลัง CTO review `zoky-web-rebrand-cto-review.md` บน feat/zoky-web-rebrand):
+- C1 — ชื่อรายการใบเสร็จ Stripe: **"ZOKY (แนะนำ)"** → ใช้ `ZOKY #<เลขออเดอร์>`
+- C2 — วิธีเปิด: **"2 ขั้น (แนะนำ)"** → เพิ่ม server-only flag (ค่าเริ่มต้นปิด) ให้ขั้น 1 เปิด `zoky.wynos.online` โดย `food.wynos.online` ยังทำงานเหมือนเดิม; ขั้น 2 เปิด redirect จาก food → zoky หลังตรวจขั้น 1 บน production แล้ว (แต่ละขั้นยังต้องผ่าน Founder Gate)
+- เรื่อง production freeze: Founder ตอบ "งง" — ยังไม่ได้ตัดสินใจ ต้องอธิบายใหม่ให้ง่ายขึ้น
+
+### [2026-10-18] ZOKY web — ข้อยกเว้น production freeze เฉพาะ ZOKY
+
+Founder เลือก **"ก"** (ยกเว้นให้ ZOKY ไปก่อน แทนการรองาน Admin acceptance #1142–#1151 ครบ): อนุญาตให้ทำ release ของ ZOKY web (feat/zoky-web-rebrand + edge functions `food-stripe-checkout`, `food-stripe-cancel`, `wynos-maps-geocode`) ระหว่าง freeze
+เงื่อนไข:
+- DevOps ต้องเทียบ commit ที่อยู่บน production กับสิ่งที่จะ deploy และยืนยันว่าไม่มีงานอื่นที่ยังไม่ผ่าน acceptance (เช่น Admin) ติดไปด้วย — ถ้ามี ต้องหยุดและรายงาน Founder
+- ห้ามปิด acceptance issues #1142–#1151 โดยไม่มีการตรวจจริง; กลไกข้อยกเว้นต้องจำกัดเฉพาะ release นี้ บันทึกไว้ตรวจสอบได้ และไม่ลด protection ของ `production` environment
+- แต่ละขั้น (edge functions, เปิด zoky ขั้น 1, เปิด redirect ขั้น 2) ยังต้องให้ Founder กดอนุมัติ production ตาม Founder Gate
+
+### [2026-10-18] ZOKY web — อนุมัติวิธีส่งเฉพาะ ZOKY (exception release workflow)
+
+DevOps (`zoky-web-release-plan.md` บน feat/zoky-web-rebrand) พบว่า `main` มีงานที่ยังไม่ผ่าน acceptance #1142 (PR #1133 แบนเนอร์หน้าแรก, PR #1135 ร้านแนะนำ) ถ้า deploy จาก main ผ่าน wyn-158 จะติดขึ้น production ไปด้วย
+Founder เลือก **"ส่งเฉพาะ ZOKY (แนะนำ)"** — อนุมัติ Option A:
+- branch `release/zoky-web-20261018` ตัดจาก commit ที่อยู่บน production (`b19687af`) + cherry-pick เฉพาะ commit ของ ZOKY (ไม่รวม #1133/#1135)
+- สร้าง workflow ใหม่ `zoky-web-exception-release.yml` (PR แยก แก้เฉพาะ workflow) ใช้ `environment: production` เดิมโดยไม่ลด protection, ตรวจ ancestor/ไม่มี #1133/#1135, จำกัด path เฉพาะ ZOKY, มีวันหมดอายุ, และ freeze-check ครอบคลุม
+- wyn-158 และ acceptance issues #1142–#1151 คงเดิม; ทุกการ deploy (edge functions, phase 1, phase 2) ยังต้องให้ Founder อนุมัติทีละครั้ง
+
+### [2026-10-18] ZOKY release — ย้ายกุญแจ deploy เข้า production environment
+
+CTO review (`zoky-exception-workflow-cto-review.md`, C1 HIGH): secrets สำหรับ deploy (Vercel/Supabase) เป็น repository-level ทำให้ workflow เก่าบางตัว (เช่น wyn-158/deploy-web.yml เวอร์ชันบน branch เก่า) deploy production ได้โดยไม่ผ่านการอนุมัติ — freeze จึงเป็นแค่คำแนะนำ
+Founder เลือก **"ย้ายกุญแจเข้าตู้ล็อก (แนะนำ)"** — อนุมัติ security change: ย้าย deploy secrets ไปเป็น secrets ของ GitHub environment `production` (required reviewer = Founder, branch policy `main` เท่านั้น) และปรับ workflow ที่จำเป็นให้ใช้ environment นั้น — DevOps ต้อง audit ก่อนว่า workflow ไหนใช้ secret ไหน (พบ ~78 workflow อ้าง `VERCEL_TOKEN`/`SUPABASE_ACCESS_TOKEN`) และเสนอลำดับที่ไม่ทำให้ระบบที่ใช้อยู่พัง; การตั้งค่าใน GitHub/สร้าง token ใหม่ Founder ทำเอง
+
+### [2026-10-18] อนุมัติ merge PR #1225 (deploy secrets → production env) และ #1226 (ZOKY exception workflow)
+
+Founder: **"อนุมัติ (แนะนำ)"** — ให้รวม `ci/deploy-secrets-environment` (PR #1225) ก่อน แล้ว `ci/zoky-web-exception-release` (PR #1226) เข้า `main` เมื่อ CI ผ่าน; การ merge ไม่ deploy อะไร (auth-policy/email-readiness จะรอ production approval) — การ deploy แต่ละขั้นยังต้องอนุมัติแยก; ค่า Verify JWT ของ `wynos-maps-geocode` Founder ยังไม่ได้ดู (EDGE ยังเริ่มไม่ได้)
+
+### [2026-10-18] ZOKY release — ค่าจาก dashboard (F2 + step 8)
+
+Founder รายงาน: (1) Supabase `wynos-maps-geocode` → Verify JWT **ปิด (OFF)** → ต้องเพิ่ม `[functions.wynos-maps-geocode]` `verify_jwt = false` ใน `supabase/config.toml` ทั้งบน `main` และ release branch ก่อน EDGE (ค่าเดียวกับที่ใช้อยู่ ไม่ใช่การลด security); (2) เพิ่มโดเมน `zoky.wynos.online` ใน Vercel project `web` แล้ว
+
+### [2026-10-18] อนุมัติ merge PR #1227 (geocode verify_jwt = false)
+
+Founder: **"อนุมัติ (แนะนำ)"** — รวม `chore/geocode-verify-jwt-config` (PR #1227) เข้า `main` หลัง #1225 และ #1226 เมื่อ CI ผ่าน (ค่าเดียวกับ production ปัจจุบัน ไม่ deploy อะไร)
+
+### [2026-10-18] Merged: PR #1225, #1226, #1227 (ตามที่ Founder อนุมัติ)
+
+- #1225 → `17ea6bf6` (gate production-credential jobs on `production` env + YAML-based secret-scoping gate)
+- #1226 → `34d40618` (ZOKY freeze-exception release workflow: EDGE / PHASE1 / PHASE2)
+- #1227 → `a302098f` (`[functions.wynos-maps-geocode] verify_jwt = false`)
+ตรวจบน `main` หลัง merge: secret-scoping gate + test (23), freeze guard + test (75+4), config pin = False — ผ่านทั้งหมด; ไม่มีการ deploy
+ถัดไป: Founder ทำส่วน A–D ของ `.wyn/docs/engineering/deploy-secrets-environment-migration.md` (ยังไม่ทำส่วน E จนกว่า ZOKY staging เสร็จ)
+
+### [2026-10-19] ZOKY web — ทำหน้าตาเว็บให้เหมือนแอป (ก)
+
+หลัง PHASE1 Founder ทดลอง zoky.wynos.online แล้ว: "ใช้ได้ แต่ทำไม ยังเป็นหน้าตาเดิม" → เลือก **"ก"**: นำดีไซน์ที่อนุมัติแล้วในแอป ZOKY (Home v1 Phase 1–5, หน้าสั่งอาหาร FoodHomeScreen, ไอคอน 3D, header ชมพูอ่อน, design system) มาทำบนเว็บ Next.js (zoky.wynos.online) ทีละหน้า เริ่มจาก Home + หน้าสั่งอาหาร; ฟังก์ชันเดิมของเว็บต้องทำงานเหมือนเดิม (ข้อมูลจริง ไม่ใช้ข้อมูลตัวอย่างบน production); Founder ดู preview และอนุมัติทีละหน้าก่อน release
+- งานเริ่มจาก branch ที่ตัดจาก `release/zoky-web-20261018` (สิ่งที่อยู่บน production) เพื่อไม่ให้งาน #1133/#1135 ที่ยังไม่ผ่าน acceptance ติดมา
+- ขั้น 2 (food → zoky redirect) ยังไม่ทำ
+
+### [2026-10-19] ZOKY web Home/Food — คำตอบ 3 ข้อจาก spec (`zoky-web-home-food-spec.md`)
+
+Founder: (1) "ดีลเด็ดวันนี้" — **ซ่อนไว้ก่อน**; (2) "ร้านอาหารแนะนำ" — **ใช้ร้านยอดนิยม** (จากยอดสั่งจริงที่เว็บมีอยู่); (3) วงกลมหมวดอาหารบนหน้าสั่งอาหาร — **ซ่อนไว้ก่อน**
+
+### [2026-10-19] ZOKY web Home/Food redesign — Founder อนุมัติ preview
+
+Founder ดูภาพตัวอย่าง (`.wyn/previews/zoky-web-design/`, branch `feat/zoky-web-app-design` @ `cc823142`) แล้วตอบ **"อนุญาต"** → อนุมัติหน้าตา ส่งต่อ QA & Security → CTO → release ผ่าน exception workflow (ต้องให้ Founder อนุมัติ production อีกครั้ง)
+
+### DECISION — [2026-10-22] ZOKY payments: Stripe only, slip QR removed (Founder)
+
+- Founder: "ระบบจ่ายเงินที่ตัดอัตโนมัติ โดยใช้ QR พร้อมเพย์ และระบบคืนเงิน หากยกเลิก" and then "ตัด QR แบบแนบสลิปออก เงินต้องจ่ายผ่าน Stripe ทุกคน".
+- Direction: every ZOKY order is paid through Stripe (card or Stripe PromptPay, confirmed automatically). The store PromptPay QR and slip-upload path is removed, and refunds are automatic on cancellation.
+- Founder also wants simple merchant signup and daily payouts after GP deduction. That is not decided yet: settlement model A (Stripe Connect, recommended) vs B (platform-held funds) is open as D12.
+- Plan: `.wyn/docs/product/zoky-promptpay-auto-refund-prd.md` (PM draft). Open decisions: D2–D12. Implementation, DB migration and production each need separate Founder approval.
+- Found while analysing (needs verification and a fix in P0): cancelling an unpaid order does not expire its Stripe Checkout session, so a customer could still pay a cancelled order.
+- Founder answers (AskUserQuestion, 2026-10-22):
+  - D12 settlement: **Model A** (merchant's own Stripe Connect account; GP as an application fee; daily payouts).
+  - Step 1 (close the cancelled-but-payable gap + automatic refunds): **start now**.
+  - D11 slip cut-off notice: **immediate** (stores without a ready Stripe account stop taking orders at cut-over).
+  - D3–D10: **use the team's recommendations**:
+    - D9: store with Stripe but no PromptPay takes cards only.
+    - D10: a store that isn't ready shows "ยังไม่เปิดรับ".
+    - D3: customers cannot cancel after paying.
+    - D6: a store cancellation means a full refund.
+    - D4: no partial refunds yet.
+    - D7: merchant-entered orders stay outside Stripe.
+    - D8: ad top-up slips are not included.
+  - D2 (refund fee) and D5 (refund larger than the store's Stripe balance) are deferred until the Stripe questions are answered.
+- Founder, 2026-10-22:
+  - **Stripe processing fees are paid by the store**, which keeps the current direct-charge setup.
+  - GP is set per store by the Founder in ZOKY Admin, using the existing `merchant_gp_rates` (per store, plus a default).
+  - "Other fees" such as transfer/payout fees are TBD after checking with Stripe.
+- Founder, 2026-10-23:
+  - After the gateway comparison (`.wyn/docs/product/zoky-payment-gateway-comparison.md`), stay with **Stripe**.
+  - Customers may pay **by PromptPay QR only** (via Stripe), with no card option. This replaces D9: a store without PromptPay on its Stripe account does not accept orders.
+  - Consequence: every refund is a PromptPay refund. Stripe emails the customer for the bank account, and each refund costs ฿10.
