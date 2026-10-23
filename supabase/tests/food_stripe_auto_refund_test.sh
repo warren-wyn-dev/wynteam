@@ -145,6 +145,23 @@ begin
   where id = p_order_id and payment_status in ('paid','refunded');
 end \$\$;
 grant execute on function public.test_webhook_refunded(uuid,text) to service_role;
+-- merchant_core_completion merchant_set_refund_status (no Stripe check) and
+-- food_transition_order's cancel of a paid order.
+create function public.test_set_refund_status(p_order_id uuid, p_status text) returns void
+  language plpgsql security definer set search_path='' as \$\$
+begin
+  update public.food_orders set refund_status = p_status where id = p_order_id;
+end \$\$;
+create function public.test_merchant_cancel(p_order_id uuid) returns void
+  language plpgsql security definer set search_path='' as \$\$
+begin
+  update public.food_orders
+  set status = 'cancelled', cancelled_at = now(),
+      refund_status = case when payment_status = 'paid' then 'pending' else refund_status end,
+      refund_requested_at = case when payment_status = 'paid' then now() else refund_requested_at end
+  where id = p_order_id;
+end \$\$;
+grant execute on function public.test_set_refund_status(uuid,text), public.test_merchant_cancel(uuid) to authenticated;
 
 insert into public.merchant_memberships values ('$ACCOUNT','$OWNER','owner',true), ('$OTHER_ACCOUNT','$OTHER_MERCHANT','owner',true);
 insert into public.food_stores(id, merchant_account_id, name, is_published, stripe_payments_enabled) values
@@ -223,6 +240,10 @@ eq "$(q "select count(*) from public.merchant_notifications where recipient_user
 O4=$(new_order "$STORE" app preparing paid stripe cs_test_o4 pi_test_o4a)
 q "update public.food_orders set payment_status='paid', payment_provider='stripe', stripe_payment_intent_id='pi_test_o4b' where id='$O4'" >/dev/null
 eq "$(jobs "$O4")" "refund:duplicate_payment:needs_attention" "duplicate payment parked for review"
+eq "$(q "select payment_intent_id from public.food_stripe_jobs where order_id='$O4'")" "pi_test_o4b" "duplicate job is bound to the NEW (duplicate) PaymentIntent"
+eq "$(q "select stripe_payment_intent_id from public.food_orders where id='$O4'")" "pi_test_o4a" "order keeps its first payment"
+q "update public.food_orders set payment_status='paid', payment_provider='stripe', stripe_payment_intent_id='pi_test_o4b' where id='$O4'" >/dev/null
+eq "$(q "select count(*) from public.food_stripe_jobs where order_id='$O4'")" "1" "replayed duplicate event: still one review job"
 
 # 2e. Manual orders / non-Stripe payments never queue Stripe jobs.
 O5=$(new_order "$STORE" manual preparing paid merchant_manual "" "")
@@ -241,7 +262,7 @@ q "update public.food_stripe_jobs set locked_until=null" >/dev/null
 HOLDER=$!
 got=$(run -At -c "do \$\$ begin
     while not exists (select 1 from pg_stat_activity where wait_event='PgSleep' and pid<>pg_backend_pid()) loop
-      perform pg_sleep(0.05); end loop; end \$\$;" \
+      perform pg_sleep(0.05); perform pg_stat_clear_snapshot(); end loop; end \$\$;" \
   -c "select set_config('test.role','service_role',false);" -c "select count(*) from public.food_claim_stripe_jobs(25);" | tail -n1)
 wait $HOLDER
 eq "$got" "4" "concurrent claim skips the locked job"
@@ -356,6 +377,39 @@ P3NUM=$(q "select order_number from public.food_orders where id='$P3'")
 svc "select public.food_complete_stripe_job('$JP3','failed',null,'balance_insufficient')" >/dev/null
 eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$P3NUM%ยอดเงินในบัญชี Stripe ของร้านไม่พอ%'")" "1" "balance failure wording for the merchant"
 
+# PR #1231 (2): duplicate on an active order, then the store cancels: the
+# auto refund targets the first payment, the review job the duplicate.
+D1=$(new_order "$STORE" app preparing paid stripe cs_test_d1a pi_test_d1a)
+q "update public.food_orders set payment_status='paid', payment_provider='stripe', stripe_payment_intent_id='pi_test_d1b', stripe_checkout_session_id='cs_test_d1b' where id='$D1'" >/dev/null
+q "update public.food_orders set status='cancelled' where id='$D1'" >/dev/null
+eq "$(q "select string_agg(reason || '=' || payment_intent_id, ',' order by reason) from public.food_stripe_jobs where order_id='$D1'")" \
+  "duplicate_payment=pi_test_d1b,store_cancelled=pi_test_d1a" "cancel refunds the first payment, review job holds the duplicate"
+# ...and a duplicate on an already cancelled order (first payment refunding).
+D2=$(new_order "$STORE" app preparing paid stripe cs_test_d2a pi_test_d2a)
+q "update public.food_orders set status='cancelled' where id='$D2'" >/dev/null
+q "update public.food_orders set payment_status='paid', payment_provider='stripe', stripe_payment_intent_id='pi_test_d2b' where id='$D2'" >/dev/null
+eq "$(q "select string_agg(reason || '=' || payment_intent_id, ',' order by reason) from public.food_stripe_jobs where order_id='$D2'")" \
+  "duplicate_payment=pi_test_d2b,store_cancelled=pi_test_d2a" "duplicate after cancel: review job holds the duplicate, not the refunding one"
+
+# PR #1231 (4): a polled refund that keeps failing to load is capped too.
+P8=$(new_order "$STORE" app preparing paid stripe cs_test_p8 pi_test_p8)
+q "update public.food_orders set status='cancelled' where id='$P8'" >/dev/null
+JP8=$(q "select id from public.food_stripe_jobs where order_id='$P8' and kind='refund'")
+svc "select public.food_complete_stripe_job('$JP8','refund_requested','re_test_p8',null,false,false)" >/dev/null
+eq "$(svc "select public.food_complete_stripe_job('$JP8','retry',null,'network_error')")" "awaiting_refund" "transient poll error keeps polling"
+q "update public.food_stripe_jobs set poll_count=30 where id='$JP8'" >/dev/null
+eq "$(svc "select public.food_complete_stripe_job('$JP8','retry',null,'network_error')")" "needs_attention" "poll errors past the cap go to an operator"
+eq "$(q "select last_error_code || ':' || (locked_until is null) from public.food_stripe_jobs where id='$JP8'")" "refund_poll_failing:network_error:true" "cap reason recorded"
+eq "$(q "select count(*) from public.food_order_events where order_id='$P8' and event_type='refund_needs_attention'")" "1" "capped poll notifies"
+
+# PR #1231 (6): expire jobs that fail are audited and listed for staff.
+E1=$(new_order "$STORE" app pending_acceptance pending "" cs_test_e1 "")
+q "update public.food_orders set status='cancelled' where id='$E1'" >/dev/null
+JE1=$(q "select id from public.food_stripe_jobs where order_id='$E1'")
+eq "$(svc "select public.food_complete_stripe_job('$JE1','failed',null,'stripe_account_missing')")" "failed" "expire job failed"
+eq "$(q "select count(*) from public.food_order_events where order_id='$E1' and event_type='checkout_expire_failed'")" "1" "expire failure audited"
+eq "$(q "select refund_status from public.food_orders where id='$E1'")" "none" "expire failure never touches the refund state"
+
 # 7b. ZOKY-148: needs_attention notifies the merchant and is listed for staff.
 P4=$(new_order "$STORE" app preparing paid stripe cs_test_p4 pi_test_p4)
 q "update public.food_orders set status='cancelled' where id='$P4'" >/dev/null
@@ -368,6 +422,8 @@ expect_fail "admin list refused for anon" anon "" "select * from public.admin_fo
 expect_fail "admin list refused without food:view" authenticated "$OWNER" "select * from public.admin_food_refund_jobs()" "Not authorized"
 eq "$(as authenticated "$ADMIN" "select status || ':' || last_error_code from public.admin_food_refund_jobs('needs_attention') where order_id='$P4'")" "needs_attention:partial_refund_exists" "staff see the parked job"
 eq "$(as authenticated "$ADMIN" "select count(*) from public.admin_food_refund_jobs() where status='done'")" "0" "default list hides finished jobs"
+eq "$(as authenticated "$ADMIN" "select kind || ':' || status || ':' || checkout_session_id from public.admin_food_refund_jobs('failed') where order_id='$E1'")" "expire_checkout:failed:cs_test_e1" "staff see failed expire jobs"
+eq "$(as authenticated "$ADMIN" "select payment_intent_id from public.admin_food_refund_jobs('needs_attention') where order_id='$D1'")" "pi_test_d1b" "staff see which PaymentIntent the duplicate review is about"
 expect_fail "admin list rejects a bad status" authenticated "$ADMIN" "select * from public.admin_food_refund_jobs('x')" "invalid job status"
 P5=$(new_order "$STORE" app preparing paid stripe cs_test_p5 pi_test_p5)
 q "update public.food_orders set status='cancelled' where id='$P5'" >/dev/null
@@ -382,6 +438,17 @@ expect_fail "merchant cannot mark a Stripe-paid order refunded" authenticated "$
 expect_fail "merchant cannot re-mark a Stripe-paid order manual paid" authenticated "$OWNER" "select public.test_set_payment_status('$P6','paid')" "stripe_payment_managed_by_stripe"
 expect_fail "merchant cannot mark a Stripe-paid order issue" authenticated "$OWNER" "select public.test_set_payment_status('$P6','issue')" "stripe_payment_managed_by_stripe"
 eq "$(q "select payment_status || ':' || payment_provider || ':' || refund_status from public.food_orders where id='$P6'")" "paid:stripe:none" "Stripe order unchanged"
+# PR #1231 (5): no client refund_status changes on Stripe-paid orders.
+for st in failed pending refunded; do
+  expect_fail "merchant cannot set refund_status=$st on a Stripe-paid order" authenticated "$OWNER" "select public.test_set_refund_status('$P6','$st')" "stripe_payment_managed_by_stripe"
+done
+as authenticated "$OWNER" "select public.test_merchant_cancel('$P6')" >/dev/null
+eq "$(q "select status || ':' || refund_status || ':' || (select count(*) from public.food_stripe_jobs where order_id='$P6' and kind='refund') from public.food_orders where id='$P6'")" "cancelled:pending:1" "merchant cancel of a Stripe-paid order still works and queues the refund"
+expect_fail "merchant cannot flip the cancelled order's refund to failed" authenticated "$OWNER" "select public.test_set_refund_status('$P6','failed')" "stripe_payment_managed_by_stripe"
+SLIP=$(new_order "$STORE" app preparing paid merchant_manual "" "")
+q "update public.food_orders set status='cancelled' where id='$SLIP'" >/dev/null
+as authenticated "$OWNER" "select public.test_set_refund_status('$SLIP','refunded')" >/dev/null
+eq "$(q "select refund_status from public.food_orders where id='$SLIP'")" "refunded" "slip orders keep the legacy manual refund status"
 svc "select public.test_webhook_refunded('$P6', 're_test_p6')" >/dev/null
 eq "$(q "select payment_status from public.food_orders where id='$P6'")" "refunded" "webhook (service role) can still mark it refunded"
 P7=$(new_order "$STORE" app preparing pending "" "" "")
@@ -469,10 +536,12 @@ run >/dev/null < "$ROOT/supabase/rollbacks/20261023100100_food_stripe_jobs_enabl
 run >/dev/null < "$ROOT/supabase/rollbacks/20261023100000_food_stripe_jobs_auto_refund_rollback.sql"
 eq "$(q "select count(*) from pg_trigger where tgname in ('food_orders_payment_guard','food_orders_payment_jobs','food_orders_require_stripe_ready')")" "0" "rollback drops the 3 triggers"
 eq "$(q "select (to_regclass('public.food_stripe_jobs') is not null) || ':' || (select count(*) > 0 from public.food_stripe_jobs)")" "true:true" "rollback keeps tables and history"
+eq "$(q "select has_function_privilege('authenticated','public.merchant_retry_stripe_refund(uuid)','execute')")" "f" "rollback stops merchant retries (no worker to run them)"
 O9=$(new_order "$STORE" app preparing paid stripe cs_test_o9 pi_test_o9)
 q "update public.food_orders set status='cancelled' where id='$O9'" >/dev/null
 eq "$(jobs "$O9")" "" "after rollback no jobs are queued"
 run >/dev/null < "$MIGRATION"
 eq "$(q "select count(*) from pg_trigger where tgname in ('food_orders_payment_guard','food_orders_payment_jobs','food_orders_require_stripe_ready')")" "3" "re-apply after rollback works"
+eq "$(q "select has_function_privilege('authenticated','public.merchant_retry_stripe_refund(uuid)','execute')")" "t" "re-apply grants merchant retry again"
 
 echo "PASS food_stripe_auto_refund_test"

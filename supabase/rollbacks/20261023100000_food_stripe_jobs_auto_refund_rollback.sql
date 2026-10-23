@@ -25,3 +25,8 @@ update public.food_payment_policy set stripe_only_from = null, updated_at = now(
 drop trigger if exists food_orders_require_stripe_ready on public.food_orders;
 drop trigger if exists food_orders_payment_jobs on public.food_orders;
 drop trigger if exists food_orders_payment_guard on public.food_orders;
+
+-- With the worker and triggers gone, a merchant retry would requeue a failed
+-- refund that nothing executes and show the order as refunding again.
+-- Re-applying 20261023100000 grants it back.
+revoke execute on function public.merchant_retry_stripe_refund(uuid) from authenticated;

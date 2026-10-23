@@ -209,7 +209,15 @@ begin
       updated_at = now()
   where id = p_job_id and status in ('queued','awaiting_refund')
   returning * into j;
-  if not found or j.kind <> 'refund' then
+  if not found then
+    return;
+  end if;
+  if j.kind <> 'refund' then
+    -- The order is cancelled either way; a session that could not be
+    -- expired is still refunded automatically if it is paid later (1b).
+    -- Audit + admin_food_refund_jobs make it visible; no customer notice.
+    insert into public.food_order_events(order_id, event_type, note, actor_id)
+    values (j.order_id, 'checkout_expire_failed', 'ปิดลิงก์ชำระเงิน Stripe ไม่สำเร็จ (' || left(v_code,80) || ')', null);
     return;
   end if;
 
@@ -262,6 +270,7 @@ revoke all on function internal.food_stripe_job_fail(uuid,text) from public, ano
 
 -- ZOKY-148: a refund job parked for an operator. The merchant is told (once,
 -- when the job is parked) and the job shows in public.admin_food_refund_jobs().
+-- Expire jobs are audited only (no money is held; see food_stripe_job_fail).
 -- Runbook (read-only, SQL editor / service role):
 --   select j.id, j.order_id, j.reason, j.status, j.last_error_code, j.attempts,
 --          j.poll_count, j.requeue_count, j.stripe_refund_id, j.updated_at
@@ -280,12 +289,18 @@ as $$
 declare
   v_order_id uuid;
   v_number text;
+  v_kind text;
 begin
-  select j.order_id, o.order_number into v_order_id, v_number
+  select j.order_id, o.order_number, j.kind into v_order_id, v_number, v_kind
   from public.food_stripe_jobs j
   join public.food_orders o on o.id = j.order_id
-  where j.id = p_job_id and j.kind = 'refund' and j.status = 'needs_attention';
+  where j.id = p_job_id and j.status = 'needs_attention';
   if not found then
+    return;
+  end if;
+  if v_kind <> 'refund' then
+    insert into public.food_order_events(order_id, event_type, note, actor_id)
+    values (v_order_id, 'checkout_expire_needs_attention', 'ปิดลิงก์ชำระเงิน Stripe ต้องให้ทีม ZOKY ตรวจสอบ', null);
     return;
   end if;
   insert into public.food_order_events(order_id, event_type, note, actor_id)
@@ -322,10 +337,50 @@ begin
   if old.payment_provider = 'stripe' and old.payment_status in ('paid','refunded')
      and v_role is not null and v_role <> 'service_role'
      and (new.payment_status is distinct from old.payment_status
-          or new.payment_provider is distinct from old.payment_provider
-          or (new.refund_status = 'refunded' and old.refund_status is distinct from 'refunded')) then
+          or new.payment_provider is distinct from old.payment_provider) then
     raise exception 'stripe_payment_managed_by_stripe'
       using errcode = 'P0001', hint = 'สถานะการชำระเงินของออเดอร์ Stripe เปลี่ยนได้ผ่าน Stripe เท่านั้น';
+  end if;
+  -- The refund state of a Stripe-paid order is the refund job's. Clients may
+  -- only (a) mark it pending while cancelling it (food_transition_order), or
+  -- (b) requeue a failed refund through merchant_retry_stripe_refund (which
+  -- sets a transaction-local flag). Anything else, e.g. any live version of
+  -- merchant_set_refund_status setting failed/pending/refunded, is refused.
+  if old.payment_provider = 'stripe' and old.payment_status in ('paid','refunded')
+     and v_role is not null and v_role <> 'service_role'
+     and new.refund_status is distinct from old.refund_status
+     and not (new.refund_status = 'pending' and new.status = 'cancelled'
+              and old.status is distinct from 'cancelled')
+     and not (new.refund_status = 'pending' and old.refund_status = 'failed'
+              and current_setting('wynos.food_refund_retry', true) = 'on') then
+    raise exception 'stripe_payment_managed_by_stripe'
+      using errcode = 'P0001', hint = 'สถานะการคืนเงินของออเดอร์ Stripe เปลี่ยนได้ผ่านระบบคืนเงินอัตโนมัติเท่านั้น';
+  end if;
+
+  -- Duplicate payment: another PaymentIntent arrives on an already paid
+  -- Stripe order (two Checkout sessions). The order keeps its FIRST payment
+  -- (the one a cancel refund job targets) and the review job is bound to the
+  -- NEW PaymentIntent, so the operator refunds the duplicate. Not
+  -- auto-refunded in this step: parked for review (P1).
+  if old.payment_status = 'paid' and new.payment_status = 'paid'
+     and old.payment_provider = 'stripe' and new.payment_provider = 'stripe'
+     and old.stripe_payment_intent_id is not null
+     and new.stripe_payment_intent_id is not null
+     and new.stripe_payment_intent_id is distinct from old.stripe_payment_intent_id then
+    insert into public.food_stripe_jobs(kind, order_id, store_id, dedupe_key, reason, status,
+                                        checkout_session_id, payment_intent_id, last_error_code)
+    values ('refund', new.id, new.store_id,
+            'duplicate_payment:' || new.id || ':' || new.stripe_payment_intent_id,
+            'duplicate_payment', 'needs_attention',
+            new.stripe_checkout_session_id, new.stripe_payment_intent_id, 'duplicate_payment_review')
+    on conflict (dedupe_key) do nothing;
+    if found then
+      insert into public.food_order_events(order_id, event_type, note, actor_id)
+      values (new.id, 'refund_needs_attention',
+              'ได้รับชำระเงินซ้ำ (' || new.stripe_payment_intent_id || ') ทีม ZOKY จะตรวจสอบและคืนเงินรายการที่ซ้ำ', null);
+    end if;
+    new.stripe_payment_intent_id := old.stripe_payment_intent_id;
+    new.stripe_checkout_session_id := old.stripe_checkout_session_id;
   end if;
 
   -- Stripe-only (policy on). Deny by default: every source except
@@ -422,20 +477,7 @@ begin
     end if;
   end if;
 
-  -- Duplicate payment (another PaymentIntent on an already paid order).
-  -- Not auto-refunded in this step: parked for review (P1).
-  if old.payment_status = 'paid' and new.payment_status = 'paid'
-     and new.payment_provider = 'stripe'
-     and old.stripe_payment_intent_id is not null
-     and new.stripe_payment_intent_id is distinct from old.stripe_payment_intent_id then
-    insert into public.food_stripe_jobs(kind, order_id, store_id, dedupe_key, reason, status,
-                                        payment_intent_id, last_error_code)
-    values ('refund', new.id, new.store_id,
-            'duplicate_payment:' || new.id || ':' || old.stripe_payment_intent_id,
-            'duplicate_payment', 'needs_attention',
-            old.stripe_payment_intent_id, 'duplicate_payment_review')
-    on conflict (dedupe_key) do nothing;
-  end if;
+  -- Duplicate payments are handled in food_orders_payment_guard (BEFORE).
 
   return null;
 end;
@@ -473,7 +515,7 @@ revoke all on function internal.food_orders_require_stripe_ready() from public, 
 
 drop trigger if exists food_orders_payment_guard on public.food_orders;
 create trigger food_orders_payment_guard
-before update of status, payment_status, payment_provider, refund_status on public.food_orders
+before update of status, payment_status, payment_provider, refund_status, stripe_payment_intent_id on public.food_orders
 for each row execute function internal.food_orders_payment_guard();
 
 drop trigger if exists food_orders_payment_jobs on public.food_orders;
@@ -709,7 +751,7 @@ begin
     -- Refunds that never settle are handed to an operator (about 3 weeks).
     if j.poll_count >= 30 then
       update public.food_stripe_jobs
-      set status = 'needs_attention', last_error_code = 'refund_pending_too_long'
+      set status = 'needs_attention', last_error_code = 'refund_pending_too_long', locked_until = null
       where id = j.id;
       perform internal.food_stripe_job_attention(j.id);
       return 'needs_attention';
@@ -754,6 +796,16 @@ begin
 
   elsif p_outcome = 'retry' then
     if j.status = 'awaiting_refund' then
+      -- Same cap as refund_requested: a refund we cannot even look up for
+      -- about 3 weeks goes to an operator.
+      if j.poll_count >= 30 then
+        update public.food_stripe_jobs
+        set status = 'needs_attention', locked_until = null, updated_at = now(),
+            last_error_code = left('refund_poll_failing:' || coalesce(v_code, 'unknown'), 120)
+        where id = j.id;
+        perform internal.food_stripe_job_attention(j.id);
+        return 'needs_attention';
+      end if;
       update public.food_stripe_jobs
       set locked_until = null, last_error_code = v_code,
           next_attempt_at = now() + internal.food_stripe_job_delay(j.poll_count),
@@ -903,11 +955,14 @@ begin
       updated_at = now()
   where id = v_job;
 
+  -- Lets food_orders_payment_guard accept this failed -> pending change.
+  perform set_config('wynos.food_refund_retry', 'on', true);
   update public.food_orders
   set refund_status = 'pending',
       refund_awaiting_customer = false,
       refund_updated_by = (select auth.uid())
   where id = p_order_id and refund_status = 'failed';
+  perform set_config('wynos.food_refund_retry', '', true);
 
   insert into public.food_order_events(order_id, event_type, note, actor_id)
   values (p_order_id, 'refund_retry_requested', 'ร้านขอให้ระบบคืนเงินอีกครั้ง', (select auth.uid()));
@@ -983,7 +1038,9 @@ grant execute on function public.food_store_payment_options(uuid[]) to anon, aut
 
 -- Staff with food:view (WYN219 permission model, internal.has_admin_permission).
 -- Default: every job that is not finished cleanly (needs_attention, failed,
--- queued, awaiting_refund). Ids, codes and counters only; no customer data.
+-- queued, awaiting_refund), refund and expire_checkout jobs alike. Ids,
+-- codes and counters only; no customer data. payment_intent_id is the one
+-- the job acts on (for a duplicate payment: the duplicate to refund).
 create or replace function public.admin_food_refund_jobs(p_status text default null)
 returns table (
   job_id uuid,
@@ -999,6 +1056,8 @@ returns table (
   poll_count integer,
   requeue_count integer,
   stripe_refund_id text,
+  payment_intent_id text,
+  checkout_session_id text,
   order_status text,
   order_payment_status text,
   order_refund_status text,
@@ -1024,13 +1083,15 @@ begin
   return query
   select j.id, j.order_id, o.order_number, j.store_id, s.name, j.kind, j.reason, j.status,
          j.last_error_code, j.attempts, j.poll_count, j.requeue_count, j.stripe_refund_id,
+         coalesce(j.payment_intent_id, case when j.kind = 'refund' and j.reason <> 'duplicate_payment'
+                                            then o.stripe_payment_intent_id end),
+         j.checkout_session_id,
          o.status, o.payment_status, o.refund_status, o.refund_awaiting_customer,
          j.created_at, j.updated_at
   from public.food_stripe_jobs j
   join public.food_orders o on o.id = j.order_id
   join public.food_stores s on s.id = j.store_id
-  where j.kind = 'refund'
-    and (case when p_status is null then j.status <> 'done' else j.status = p_status end)
+  where (case when p_status is null then j.status <> 'done' else j.status = p_status end)
   order by (j.status = 'needs_attention') desc, (j.status = 'failed') desc, j.updated_at
   limit 500;
 end;
