@@ -220,6 +220,14 @@ begin
     values (j.order_id, 'checkout_expire_failed', 'ปิดลิงก์ชำระเงิน Stripe ไม่สำเร็จ (' || left(v_code,80) || ')', null);
     return;
   end if;
+  -- ZOKY-154: a duplicate payment's review job is not the order's refund;
+  -- the order keeps its first payment's state. Audit + admin list only.
+  if j.reason = 'duplicate_payment' then
+    insert into public.food_order_events(order_id, event_type, note, actor_id)
+    values (j.order_id, 'duplicate_payment_check_failed',
+            'ตรวจการคืนเงินรายการที่ชำระซ้ำไม่สำเร็จ (' || left(v_code,80) || ')', null);
+    return;
+  end if;
 
   select * into o from public.food_orders
   where id = j.order_id
@@ -768,8 +776,16 @@ begin
   if p_outcome = 'done' then
     update public.food_stripe_jobs
     set status = 'done', locked_until = null, completed_at = now(), updated_at = now(),
+        stripe_refund_id = coalesce(p_refund_id, stripe_refund_id),
         last_error_code = v_code
     where id = j.id;
+    -- ZOKY-156: the worker confirmed at Stripe that succeeded refunds cover
+    -- the duplicate payment. The order (first payment) is not touched.
+    if j.kind = 'refund' and j.reason = 'duplicate_payment' and v_code = 'duplicate_refunded' then
+      insert into public.food_order_events(order_id, event_type, note, actor_id)
+      values (j.order_id, 'duplicate_payment_refunded',
+              'คืนเงินรายการที่ชำระซ้ำแล้ว (' || coalesce(j.payment_intent_id, '-') || ')', null);
+    end if;
     -- Only when Stripe confirmed the session expired: a completed session
     -- whose webhook is late must keep its pending ledger row for the webhook.
     if j.kind = 'expire_checkout' and j.checkout_session_id is not null
@@ -932,6 +948,76 @@ end;
 $$;
 revoke all on function public.food_complete_stripe_job(uuid,text,text,text,boolean,boolean) from public, anon, authenticated;
 grant execute on function public.food_complete_stripe_job(uuid,text,text,text,boolean,boolean) to service_role;
+
+-- ZOKY-156: a refund job parked for an operator (needs_attention) is never
+-- claimed by the worker. When the operator then refunds at Stripe (the rest
+-- of a partial refund, a full Dashboard refund, or a duplicate payment),
+-- stripe-webhook calls this for every succeeded Refund with its
+-- PaymentIntent, and the parked jobs for that PaymentIntent go back to the
+-- worker, which reads Stripe's refund list again (Stripe is the truth):
+--   * order refund jobs close as refunded only when the live refunds of the
+--     order's own PaymentIntent cover the full amount and none is pending;
+--     otherwise they are polled or parked again (worker adoptExisting);
+--   * duplicate_payment review jobs close as done when succeeded refunds of
+--     the duplicate cover it; the order is never touched (ZOKY-154).
+-- Only codes that a Stripe refund can resolve are requeued (not environment
+-- mismatch, missing account or an order that is not refundable). A requeued
+-- job gets a new Idempotency-Key, like merchant_retry_stripe_refund. Replays
+-- are no-ops (the job is no longer needs_attention).
+create or replace function public.food_requeue_stripe_refund_jobs(p_payment_intent_id text)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_job record;
+  v_count integer := 0;
+begin
+  if auth.role() is distinct from 'service_role' then
+    raise exception 'service role required';
+  end if;
+  if p_payment_intent_id is null or p_payment_intent_id !~ '^pi_[A-Za-z0-9_]{3,250}$' then
+    return 0;
+  end if;
+
+  for v_job in
+    select j.id, j.order_id
+    from public.food_stripe_jobs j
+    join public.food_orders o on o.id = j.order_id
+    where j.kind = 'refund' and j.status = 'needs_attention'
+      and coalesce(j.payment_intent_id,
+                   case when j.reason <> 'duplicate_payment' then o.stripe_payment_intent_id end) = p_payment_intent_id
+      and case when j.reason = 'duplicate_payment'
+               then j.last_error_code = 'duplicate_payment_review'
+               else j.last_error_code in ('partial_refund_exists','charge_already_refunded',
+                                          'refund_pending_too_long','order_refunded_without_stripe_refund')
+                    or j.last_error_code like 'refund\_poll\_failing:%' end
+    order by j.created_at
+    for update of j
+  loop
+    update public.food_stripe_jobs
+    set status = 'queued',
+        attempts = 0,
+        poll_count = 0,
+        requeue_count = requeue_count + 1,
+        next_attempt_at = now(),
+        locked_until = null,
+        completed_at = null,
+        last_error_code = null,
+        requeued_by = null,
+        requeued_at = now(),
+        updated_at = now()
+    where id = v_job.id;
+    insert into public.food_order_events(order_id, event_type, note, actor_id)
+    values (v_job.order_id, 'refund_recheck_queued', 'Stripe มีการคืนเงินใหม่ ระบบจะตรวจสอบการคืนเงินอีกครั้ง', null);
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end;
+$$;
+revoke all on function public.food_requeue_stripe_refund_jobs(text) from public, anon, authenticated;
+grant execute on function public.food_requeue_stripe_refund_jobs(text) to service_role;
 
 -- ------------------------------------------------------------
 -- Cron key (Vault) + tick, same pattern as food-unpaid-timeout

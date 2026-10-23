@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
-import { isRefundEvent, refundEventNeedsOrderTotal, refundEventState } from "./_lib.ts";
+import { isRefundEvent, refundEventNeedsOrderTotal, refundEventState, refundRecheckPaymentIntent } from "./_lib.ts";
 
 type AdminClient = ReturnType<typeof createClient<any>>;
 
@@ -477,5 +477,13 @@ Deno.serve(async (req: Request) => {
     p_refund_id: refundId,
   });
   if (error) return json({ error: "event_processing_failed" }, 500);
+  // ZOKY-156: also on a replay (the event row may exist from a failed try).
+  const recheckPaymentIntent = refundRecheckPaymentIntent(eventType, object);
+  if (recheckPaymentIntent) {
+    const { error: requeueError } = await admin.rpc("food_requeue_stripe_refund_jobs", {
+      p_payment_intent_id: recheckPaymentIntent,
+    });
+    if (requeueError) return json({ error: "event_processing_failed" }, 500);
+  }
   return json({ received: true });
 });

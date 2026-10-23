@@ -235,6 +235,21 @@ async function expireCheckout(job: Job, ctx: Context): Promise<Outcome> {
   return { outcome: "retry", errorCode: expired.code ?? "session_expire_failed" };
 }
 
+async function checkDuplicateRefunded(job: Job, ctx: Context, account: string): Promise<Outcome> {
+  const review: Outcome = { outcome: "needs_attention", errorCode: "duplicate_payment_review" };
+  const amount = job.amount_satang;
+  if (!job.payment_intent_id || amount == null || amount <= 0) return review;
+  const listed = await stripe(ctx, account, "GET",
+    `/refunds?payment_intent=${encodeURIComponent(job.payment_intent_id)}&limit=100`);
+  // Transient errors are retried; anything else is parked for the operator.
+  if (!listed.ok) return isTransient(listed.status) ? fromError(listed, "refund_list") : review;
+  const list = Array.isArray(listed.body.data) ? listed.body.data as Record<string, unknown>[] : [];
+  const succeeded = list.filter((r) => r && typeof r === "object" && r.status === "succeeded");
+  const total = succeeded.reduce((sum, r) => sum + (num(r.amount) ?? 0), 0);
+  if (total < amount) return review;
+  return { outcome: "done", refundId: str(succeeded[0].id), errorCode: "duplicate_refunded" };
+}
+
 async function refund(job: Job, ctx: Context): Promise<Outcome> {
   // The order row may already say refunded (webhook charge.refunded), but
   // only Stripe can confirm it: never close a job on the order flag alone.
@@ -244,6 +259,12 @@ async function refund(job: Job, ctx: Context): Promise<Outcome> {
     return { outcome: orderRefunded ? "needs_attention" : "failed", errorCode: "stripe_account_missing" };
   }
   if (job.livemode !== ctx.livemode) return { outcome: "needs_attention", errorCode: "stripe_environment_mismatch" };
+  // ZOKY-154/156: a duplicate payment is refunded by an operator at Stripe,
+  // never here. A review job is only claimed after food_requeue_stripe_refund_jobs
+  // (a succeeded refund of the duplicate): close it when succeeded refunds
+  // of the duplicate PaymentIntent cover it, else park it again. Pending
+  // refunds never count, and the order (first payment) is never touched.
+  if (job.reason === "duplicate_payment") return await checkDuplicateRefunded(job, ctx, account);
   const fee = Number(job.application_fee_satang ?? 0);
   const method = job.payment_method ?? null;
 

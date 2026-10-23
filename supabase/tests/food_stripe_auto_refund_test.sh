@@ -20,7 +20,8 @@
 #      notifications, GP booked on success only), ZOKY-148 (needs_attention
 #      notifies the merchant, admin list), ZOKY-150 (client paths cannot change
 #      a Stripe-paid order's payment state), ZOKY-151 (source<>'manual'),
-#      PromptPay-only gate (Founder 2026-10-23), CTO C3 opt-in backfill.
+#      PromptPay-only gate (Founder 2026-10-23), CTO C3 opt-in backfill,
+#      ZOKY-156 (parked jobs rechecked after an operator refund at Stripe).
 # Synthetic data only. Usage: PSQL="sudo -u postgres psql" supabase/tests/food_stripe_auto_refund_test.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -209,14 +210,14 @@ pass "jobs migration applies twice"
 # 1. Privileges.
 eq "$(q "select count(*) from pg_class where relname in ('food_stripe_jobs','food_payment_policy') and relrowsecurity")" "2" "RLS on for new tables"
 eq "$(q "select has_table_privilege('authenticated','public.food_stripe_jobs','select') or has_table_privilege('anon','public.food_payment_policy','select') or has_table_privilege('authenticated','public.food_payment_policy','update')")" "f" "no client grants on new tables"
-for fn in "public.food_claim_stripe_jobs(integer)" "public.food_complete_stripe_job(uuid,text,text,text,boolean,boolean)" "public.food_refund_worker_cron_authorized(text)"; do
+for fn in "public.food_claim_stripe_jobs(integer)" "public.food_complete_stripe_job(uuid,text,text,text,boolean,boolean)" "public.food_refund_worker_cron_authorized(text)" "public.food_requeue_stripe_refund_jobs(text)"; do
   eq "$(q "select has_function_privilege('authenticated','$fn','execute') or has_function_privilege('anon','$fn','execute')")" "f" "$fn not callable by clients"
   eq "$(q "select has_function_privilege('service_role','$fn','execute')")" "t" "$fn callable by service_role"
 done
 eq "$(q "select has_function_privilege('anon','public.merchant_retry_stripe_refund(uuid)','execute')")" "f" "merchant retry not callable by anon"
 eq "$(q "select has_function_privilege('anon','public.food_payment_policy_public()','execute') and has_function_privilege('anon','public.food_store_payment_options(uuid[])','execute')")" "t" "public RPCs callable by guests"
 eq "$(q "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-  where p.proname in ('food_claim_stripe_jobs','food_complete_stripe_job','food_refund_worker_cron_authorized','merchant_retry_stripe_refund','food_payment_policy_public','food_store_payment_options','food_orders_payment_guard','food_orders_payment_jobs','food_orders_require_stripe_ready','food_refund_worker_tick','admin_food_refund_jobs','food_stripe_job_attention','food_stripe_job_fail')
+  where p.proname in ('food_claim_stripe_jobs','food_complete_stripe_job','food_refund_worker_cron_authorized','merchant_retry_stripe_refund','food_payment_policy_public','food_store_payment_options','food_orders_payment_guard','food_orders_payment_jobs','food_orders_require_stripe_ready','food_refund_worker_tick','admin_food_refund_jobs','food_stripe_job_attention','food_stripe_job_fail','food_requeue_stripe_refund_jobs')
     and (not p.prosecdef or not coalesce(array_to_string(p.proconfig,','),'') like '%search_path=\"\"%')")" "0" "security definer + empty search_path"
 expect_fail "claim refused for authenticated" authenticated "$OWNER" "select * from public.food_claim_stripe_jobs(5)" "permission denied"
 eq "$(q "select stripe_only_from is null from public.food_payment_policy")" "t" "policy installed off (NULL)"
@@ -542,6 +543,62 @@ q "update public.food_stripe_jobs set attempts=1 where order_id='$B2' and reason
 run >/dev/null < "$ROOT/supabase/rollbacks/20261023100300_food_stripe_jobs_backfill_rollback.sql"
 eq "$(jobs "$B1"),$(jobs "$B2")" ",refund:backfill:queued" "backfill rollback removes only untouched jobs"
 q "update public.food_stripe_jobs set status='done', completed_at=now() where reason='backfill'" >/dev/null
+
+# 7e. ZOKY-156: a parked job is rechecked after an operator refunds at Stripe.
+claimed() { svc "select count(*) from public.food_claim_stripe_jobs(25) where job_id='$1'"; }
+unlock() { q "update public.food_stripe_jobs set locked_until=null where status in ('queued','awaiting_refund')" >/dev/null; }
+expect_fail "requeue refused for authenticated" authenticated "$OWNER" "select public.food_requeue_stripe_refund_jobs('pi_test_r1')" "permission denied"
+# Partial refund parked; the remainder is refunded as a second Refund.
+R1=$(new_order "$STORE" app preparing paid stripe cs_test_r1 pi_test_r1)
+ledger "$R1" cs_test_r1 pi_test_r1 paid
+q "update public.food_orders set status='cancelled' where id='$R1'" >/dev/null
+JR1=$(q "select id from public.food_stripe_jobs where order_id='$R1' and kind='refund'")
+svc "select public.food_complete_stripe_job('$JR1','needs_attention',null,'partial_refund_exists')" >/dev/null
+eq "$(q "select status from public.food_stripe_jobs where id='$JR1'")" "needs_attention" "partial refund parked"
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_other')")" "0" "a refund of another PaymentIntent requeues nothing"
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r1')")" "1" "succeeded refund of the order's PaymentIntent requeues the parked job"
+eq "$(q "select status || ':' || attempts || ':' || requeue_count || ':' || coalesce(last_error_code,'-') from public.food_stripe_jobs where id='$JR1'")" "queued:0:1:-" "requeued with a fresh attempt budget and a new idempotency key"
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r1')")" "0" "replayed refund event: no-op"
+eq "$(po "$R1")" "cancelled/paid/pending/pi_test_r1/cs_test_r1" "requeue alone never marks the order refunded"
+eq "$(claimed "$JR1")" "1" "worker claims the requeued job"
+unlock
+svc "select public.food_complete_stripe_job('$JR1','refunded','re_test_r1b')" >/dev/null
+eq "$(po "$R1")" "cancelled/refunded/refunded/pi_test_r1/cs_test_r1" "worker-confirmed full refund resolves the order"
+eq "$(q "select status from public.food_stripe_jobs where id='$JR1'")" "done" "parked job leaves the admin queue"
+eq "$(q "select count(*) from public.food_order_events where order_id='$R1' and event_type='refund_recheck_queued'")" "1" "recheck audited"
+# Codes a Stripe refund cannot resolve stay parked.
+R2=$(new_order "$STORE" app preparing paid stripe cs_test_r2 pi_test_r2)
+q "update public.food_orders set status='cancelled' where id='$R2'" >/dev/null
+JR2=$(q "select id from public.food_stripe_jobs where order_id='$R2' and kind='refund'")
+svc "select public.food_complete_stripe_job('$JR2','needs_attention',null,'stripe_environment_mismatch')" >/dev/null
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r2')")" "0" "environment mismatch is not requeued"
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('bad id')")" "0" "malformed PaymentIntent ignored"
+# Duplicate payment refunded by the operator: the review job closes, the order keeps its first payment.
+R3=$(new_order "$STORE" app pending_acceptance pending "" "" "")
+svc "select public.test_apply_event('$R3','cs_test_r3a','pi_test_r3a','paid')" >/dev/null
+svc "select public.test_apply_event('$R3','cs_test_r3b','pi_test_r3b','paid')" >/dev/null
+JR3=$(q "select id from public.food_stripe_jobs where order_id='$R3' and reason='duplicate_payment'")
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r3a')")" "0" "a refund of the first payment does not touch the duplicate's job"
+eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_r3b')")" "1" "a refund of the duplicate requeues its review job"
+eq "$(svc "select payment_intent_id || ':' || order_payment_status from public.food_claim_stripe_jobs(25) where job_id='$JR3'")" "pi_test_r3b:paid" "worker gets the duplicate PaymentIntent, never the order's"
+unlock
+eq "$(svc "select public.food_complete_stripe_job('$JR3','done','re_test_r3b','duplicate_refunded')")" "done" "duplicate's refund confirmed at Stripe"
+eq "$(q "select status || ':' || stripe_refund_id || ':' || last_error_code from public.food_stripe_jobs where id='$JR3'")" "done:re_test_r3b:duplicate_refunded" "review job closed with the refund id"
+eq "$(po "$R3")" "pending_acceptance/paid/none/pi_test_r3a/cs_test_r3a" "duplicate's refund never marks the order refunded"
+eq "$(lg "$R3")" "paid/pi_test_r3a/cs_test_r3a" "ledger keeps the first payment"
+eq "$(q "select count(*) from public.food_order_events where order_id='$R3' and event_type='duplicate_payment_refunded'")" "1" "duplicate refund audited"
+# A duplicate check that keeps failing ends failed without touching the order.
+R4=$(new_order "$STORE" app pending_acceptance pending "" "" "")
+svc "select public.test_apply_event('$R4','cs_test_r4a','pi_test_r4a','paid')" >/dev/null
+svc "select public.test_apply_event('$R4','cs_test_r4b','pi_test_r4b','paid')" >/dev/null
+JR4=$(q "select id from public.food_stripe_jobs where order_id='$R4' and reason='duplicate_payment'")
+svc "select public.food_requeue_stripe_refund_jobs('pi_test_r4b')" >/dev/null
+q "update public.food_stripe_jobs set attempts=8 where id='$JR4'" >/dev/null
+eq "$(svc "select public.food_complete_stripe_job('$JR4','retry',null,'network_error')")" "failed" "duplicate check past max attempts fails"
+eq "$(q "select payment_status || '/' || refund_status from public.food_orders where id='$R4'")" "paid/none" "failed duplicate check leaves the order's refund state alone"
+# Parked again (still partial) and re-parked jobs do not loop: needs a new refund event.
+svc "select public.food_requeue_stripe_refund_jobs('pi_test_r1')" >/dev/null
+eq "$(q "select status from public.food_stripe_jobs where id='$JR1'")" "done" "done jobs are never requeued"
 
 # 5. Policy off: legacy behaviour.
 eq "$(as anon "" "select public.food_payment_policy_public()")" "f" "policy reads off"

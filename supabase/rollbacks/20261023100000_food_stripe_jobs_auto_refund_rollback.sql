@@ -9,6 +9,9 @@
 --   select id, order_id, kind, status, last_error_code from public.food_stripe_jobs
 --   where status in ('queued','awaiting_refund');
 -- and use merchant-stripe-refund (legacy button) where needed.
+-- food_requeue_stripe_refund_jobs (ZOKY-156) stays callable by service_role:
+-- stripe-webhook calls it on succeeded refunds, and a revoke would make
+-- those events fail; with no worker the requeued jobs only wait (queued).
 do $$
 declare v_job bigint;
 begin

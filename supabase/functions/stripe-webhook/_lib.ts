@@ -40,6 +40,14 @@ export function refundEventNeedsOrderTotal(eventType: string, object: Record<str
   return REFUND_OBJECT_EVENTS.has(eventType) && object.status === "succeeded";
 }
 
+/** ZOKY-156: the PaymentIntent whose parked refund jobs go back to the worker
+ * (food_requeue_stripe_refund_jobs) after a succeeded Refund, own payment or
+ * duplicate, partial or full. The worker re-reads Stripe's refund list and
+ * decides; this event alone never marks the order refunded. */
+export function refundRecheckPaymentIntent(eventType: string, object: Record<string, unknown>): string | null {
+  return refundEventNeedsOrderTotal(eventType, object) ? refundPaymentIntent(object) : null;
+}
+
 /** expectedSatang: the order total in satang (null when unknown);
  * orderPaymentIntent: food_orders.stripe_payment_intent_id (null when unknown). */
 export function refundEventState(

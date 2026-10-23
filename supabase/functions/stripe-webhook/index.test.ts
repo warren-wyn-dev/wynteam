@@ -52,3 +52,12 @@ Deno.test("webhook ignores cross-environment account and payment state", () => {
   assert.match(source, /paymentEnvironment\.livemode !== stripeLiveMode/);
   assert.match(source, /received: true, ignored: true/);
 });
+
+Deno.test("ZOKY-156: succeeded refunds requeue parked refund jobs after the event is recorded", () => {
+  const apply = source.lastIndexOf('admin.rpc("food_apply_stripe_event"');
+  const requeue = source.indexOf('admin.rpc("food_requeue_stripe_refund_jobs"');
+  assert.ok(apply >= 0);
+  assert.ok(requeue > apply);
+  assert.match(source, /refundRecheckPaymentIntent\(eventType, object\)/);
+  assert.match(source, /if \(requeueError\) return json\(\{ error: "event_processing_failed" \}, 500\)/);
+});

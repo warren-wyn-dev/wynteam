@@ -335,3 +335,62 @@ Deno.test("runWorker: claim failure stops before any Stripe call", async () => {
   assertEquals(result, { ok: false, error: "claim_failed" });
   assertEquals(m.calls.length, 0);
 });
+
+Deno.test("ZOKY-156: requeued partial-refund job closes only when live refunds of its own PaymentIntent cover the total", async () => {
+  const job = refundJob({ requeue_count: 1, attempts: 1 });
+  // Operator refunded the remainder as a separate Refund: both succeeded.
+  let m = mockStripe([{ body: { data: [
+    { id: "re_rest", status: "succeeded", amount: 7000 },
+    { id: "re_part", status: "succeeded", amount: 5000 },
+  ] } }]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "refunded", refundId: "re_rest", feeRefunded: false });
+  assertEquals(m.calls.length, 1, "list only, no refund created");
+  assert(m.calls[0].url.endsWith("/v1/refunds?payment_intent=pi_test_1&limit=100"));
+  // The remainder is still pending: never counted as refunded, polled instead.
+  m = mockStripe([{ body: { data: [
+    { id: "re_rest", status: "pending", amount: 7000 },
+    { id: "re_part", status: "succeeded", amount: 5000 },
+  ] } }]);
+  assertEquals((await processJob(job, m.ctx)).outcome, "refund_requested");
+  // Still short of the total: parked again.
+  m = mockStripe([{ body: { data: [
+    { id: "re_a", status: "succeeded", amount: 5000 },
+    { id: "re_b", status: "succeeded", amount: 2000 },
+  ] } }]);
+  assertEquals(await processJob(job, m.ctx), { outcome: "needs_attention", errorCode: "partial_refund_exists" });
+});
+
+Deno.test("ZOKY-156: a duplicate payment's review job closes from Stripe's list and never creates a refund", async () => {
+  const dup = refundJob({ reason: "duplicate_payment", payment_intent_id: "pi_test_dup", order_status: "preparing",
+    order_refund_status: "none" });
+  let m = mockStripe([{ body: { data: [{ id: "re_dup", status: "succeeded", amount: 12000 }] } }]);
+  assertEquals(await processJob(dup, m.ctx), { outcome: "done", refundId: "re_dup", errorCode: "duplicate_refunded" });
+  assertEquals(m.calls.length, 1);
+  assertEquals(m.calls[0].method, "GET");
+  assert(m.calls[0].url.endsWith("/v1/refunds?payment_intent=pi_test_dup&limit=100"));
+  // Two partial refunds of the duplicate that together cover it.
+  m = mockStripe([{ body: { data: [
+    { id: "re_d2", status: "succeeded", amount: 7000 }, { id: "re_d1", status: "succeeded", amount: 5000 },
+  ] } }]);
+  assertEquals((await processJob(dup, m.ctx)).outcome, "done");
+  // Pending or partial: parked again; a pending refund never counts.
+  for (const data of [
+    [{ id: "re_p", status: "pending", amount: 12000 }],
+    [{ id: "re_s", status: "succeeded", amount: 5000 }, { id: "re_p", status: "pending", amount: 7000 }],
+    [{ id: "re_f", status: "failed", amount: 12000 }],
+    [],
+  ]) {
+    m = mockStripe([{ body: { data } }]);
+    assertEquals(await processJob(dup, m.ctx), { outcome: "needs_attention", errorCode: "duplicate_payment_review" });
+    assertEquals(m.calls.length, 1, "never a POST /refunds for a duplicate");
+  }
+  // Transient list error retries; a permanent one parks (never `failed`).
+  m = mockStripe(["network"]);
+  assertEquals((await processJob(dup, m.ctx)).outcome, "retry");
+  m = mockStripe([{ status: 404, body: { error: { code: "resource_missing" } } }]);
+  assertEquals(await processJob(dup, m.ctx), { outcome: "needs_attention", errorCode: "duplicate_payment_review" });
+  // No PaymentIntent on the review job: parked without a Stripe call.
+  m = mockStripe([]);
+  assertEquals((await processJob({ ...dup, payment_intent_id: null }, m.ctx)).outcome, "needs_attention");
+  assertEquals(m.calls.length, 0);
+});
