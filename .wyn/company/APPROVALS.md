@@ -757,3 +757,12 @@ Rollback target if needed: Vercel Instant Rollback to the previous PHASE1 deploy
 - Founder (AskUserQuestion): **"อนุมัติ เริ่มเขียนโค้ด (แนะนำ)"**. This approves the Architect design (`.wyn/docs/architecture/zoky-stripe-only-auto-refund-design.md`) and release path **B**: additive migrations, a `food-apply-zoky-stripe-jobs.yml` apply workflow and a `food-stripe-refund-worker` deploy via a reviewed PR to `main`, as a freeze exception scoped to this work only. Web and `food-stripe-checkout`/`food-stripe-cancel` ship through the ZOKY exception workflow.
 - This approval does **not** cover any production step. Each production step (worker deploy, migration apply, cron enable, EDGE, PHASE, Stripe-only activation) needs its own Founder approval and GitHub `production` review. Testing uses Stripe test mode only.
 - Never deploy `food-stripe-checkout`/`food-stripe-cancel` from `main`, because the `main` versions lack the ZOKY origins.
+
+## [2026-10-23] ZOKY Stripe-only + auto-refund — step 0 approved (Founder)
+
+- QA Re-test 3 PASS. CTO final review: APPROVE WITH CONDITIONS. Plan: `.wyn/docs/deployment/zoky-stripe-only-rollout-plan.md`.
+- Founder (AskUserQuestion): step 0 **"อนุมัติ (แนะนำ)"**. This covers:
+  - a PR merging `feat/zoky-stripe-jobs-db` into `main`, which deploys nothing;
+  - fast-forwarding `release/zoky-web-20261018` from `e6f577dc` to `eeeb5f5e`.
+- Staging E2E (step 1): Founder chose **"ไว้วันอื่น"**. No production step (2–12) may run before it passes.
+- Production still runs `e6f577dc`. The release branch tip is not production until EDGE/PHASE1 are approved separately.
