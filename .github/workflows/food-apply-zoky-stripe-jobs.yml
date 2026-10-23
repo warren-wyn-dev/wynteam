@@ -151,6 +151,16 @@ jobs:
               echo "== Legacy Stripe refunds still pending (watch after deploy)"
               run_sql "select count(*) as stripe_refund_pending_total
                   from public.food_orders where payment_provider='stripe' and refund_status='pending';" | jq .
+              # The database does not know which Stripe mode the Edge secret uses: a
+              # 'ready' account from the other mode still passes the order gate (Codex P2).
+              echo "== Ready Stripe accounts by mode (counts only; must match the Edge STRIPE_SECRET_KEY mode)"
+              run_sql "select
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.stripe_payments_enabled and a.status='ready' and a.livemode is true) as ready_live,
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.stripe_payments_enabled and a.status='ready' and a.livemode is false) as ready_test,
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.stripe_payments_enabled and a.status='ready' and a.livemode is null) as ready_mode_unknown;" | jq .
               # ZOKY-154: the webhook marks an order refunded only for a refund of
               # food_orders.stripe_payment_intent_id; these legacy rows have none.
               echo "== Stripe orders paid / refund-pending without a PaymentIntent (counts only)"
