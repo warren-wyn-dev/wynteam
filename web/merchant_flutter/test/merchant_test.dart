@@ -5,6 +5,14 @@ import 'package:zoky_merchant/screens/merchant_home.dart';
 import 'package:zoky_merchant/data/merchant_controller.dart';
 import 'support/fake_repository.dart';
 
+class _LargeSalesRepository extends FakeRepository {
+  @override
+  Future<Map<String, dynamic>> report(String id) async => {
+    ...await super.report(id),
+    'today_sales': 9999999.99,
+  };
+}
+
 void main() {
   Future<void> mount(
     WidgetTester tester,
@@ -93,6 +101,32 @@ void main() {
     expect(tester.widget<Switch>(find.byType(Switch).first).onChanged, isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+  testWidgets(
+    'reference layout preserves four destinations and menu readability at large text',
+    (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final repo = _LargeSalesRepository();
+      await mount(tester, repo, width: 320);
+      expect(
+        tester
+            .widget<NavigationBar>(find.byType(NavigationBar))
+            .destinations
+            .length,
+        4,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('เมนูอาหาร').last);
+      await tester.pumpAndSettle();
+      expect(find.text('ข้าวกะเพรา'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('เพิ่มเติม').last);
+      await tester.pumpAndSettle();
+      expect(find.text('เครื่องมือร้าน'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   test('revocation clears customer data and disables writes', () async {
     final repo = FakeRepository();
     final c = MerchantController(repo);

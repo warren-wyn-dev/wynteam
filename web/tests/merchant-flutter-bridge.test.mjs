@@ -21,7 +21,7 @@ function harness() {
     auth:{getSession:async()=>{state.events.push('session');return {data:{session:state.user?{user:{id:state.user,is_anonymous:false}}:null},error:null}}},
     rpc:async(name,args)=>{calls.push({name,args});return {data:name==='food_has_merchant_access'?state.access && args.p_store_id!==OTHER:name==='merchant_has_store_role'?state.manage:true,error:null};},
     from:(table)=>{
-      const filters={};const chain={};let update=null,insert=null;
+      const filters={};const chain={};let update=null,insert=null,single=false;
       for(const name of ['select','order','range'])chain[name]=(...args)=>{calls.push({table,name,args});return chain};
       chain.update=(patch)=>{update=patch;calls.push({table,name:'update',patch});return chain};
       chain.insert=(patch)=>{insert=patch;calls.push({table,name:'insert',patch});return chain};
@@ -36,11 +36,11 @@ function harness() {
           if(!Array.isArray(filters.id)&&!Array.isArray(filters.merchant_account_id))throw new Error('unfiltered public catalog query');
           return {data:[state.store,{id:OTHER,merchant_account_id:OTHER,name:'ร้านอื่น'}].filter(row=>Array.isArray(filters.id)?filters.id.includes(row.id):filters.merchant_account_id.includes(row.merchant_account_id)),error:null};
         }
-        if(table==='food_menu_items'){if(state.noOp&&(update||insert))return {data:null,error:null};if(update)Object.assign(menu,update);return {data:insert?{...insert,id:ITEM}:menu,error:null};}
+        if(table==='food_menu_items'){if(state.noOp&&(update||insert))return {data:null,error:null};if(update)Object.assign(menu,update);return {data:insert?{...insert,id:ITEM}:single?menu:[menu],error:null};}
         if(table==='food_orders')return {data:filters.store_id && filters.store_id!==state.order.store_id?null:state.order,error:null};
         throw new Error('Unexpected table '+table);
       };
-      chain.single=resolve;chain.maybeSingle=resolve;chain.then=(...args)=>resolve().then(...args);return chain;
+      chain.single=()=>{single=true;return resolve()};chain.maybeSingle=()=>{single=true;return resolve()};chain.then=(...args)=>resolve().then(...args);return chain;
     },
     removeChannel:async()=>{state.disposedChannels++;},
   };
@@ -50,6 +50,7 @@ function harness() {
     transitionFoodOrder:async(...args)=>{calls.push({name:'transitionFoodOrder',args});},
     setFoodPaymentStatus:async(...args)=>{calls.push({name:'setFoodPaymentStatus',args});},
     completeFoodDelivery:async(...args)=>{calls.push({name:'completeFoodDelivery',args});if(state.completeFailures-->0)throw new Error('network failed');state.order.status='delivered';state.order.food_delivery_proofs=[{image_path:args[4]}];},
+    foodPublicUrl:(_client,path)=>{calls.push({name:'foodPublicUrl',path});return path?'https://public.invalid/'+path:null;},
     foodPrivateSignedUrl:async(...args)=>{calls.push({name:'foodPrivateSignedUrl',args});return args[1]?'https://signed.invalid/private-image':null;},
     uploadFoodPrivateImage:async(...args)=>{calls.push({name:'uploadFoodPrivateImage',args});return `${args[2]}/photo.jpg`;},
     subscribeMerchantOrders:(_client,_store,callback)=>{state.orderEvent=callback;return {};},
@@ -208,4 +209,18 @@ test('legacy staff grants are store-filtered and deduplicated with membership st
  const h=harness();h.state.staff=[{store_id:STORE}];const result=await h.request('stores');assert.equal(result.ok,true);assert.equal(result.data.length,1);
  assert.ok(h.calls.some(c=>c.table==='food_stores'&&c.name==='in'&&c.key==='id'&&c.values[0]===STORE));
  const none=harness();none.state.memberships=[];none.state.staff=[];assert.deepEqual((await none.request('stores')).data,[]);assert.equal(none.calls.some(c=>c.table==='food_stores'),false);
+});
+
+test('menu and store image URLs use the existing public-image helper without changing stored paths',async()=>{
+ const h=harness();h.state.store.logo_path='stores/store/logo.jpg';
+ const stores=await h.request('stores');assert.equal(stores.ok,true);
+ assert.equal(stores.data[0].image_url,'https://public.invalid/stores/store/logo.jpg');
+ assert.equal(stores.data[0].logo_path,'stores/store/logo.jpg');
+ const menu=await h.request('menu',{storeId:STORE});assert.equal(menu.ok,true);
+ assert.equal(menu.data[0].image_url,'https://public.invalid/stores/store/menu/original.jpg');
+ assert.equal(menu.data[0].image_path,'stores/store/menu/original.jpg');
+ assert.equal(h.calls.some(c=>c.name==='foodPrivateSignedUrl'),false);
+ h.state.store.logo_path=null;h.menu.image_path=null;
+ assert.equal((await h.request('stores')).data[0].image_url,null);
+ assert.equal((await h.request('menu',{storeId:STORE})).data[0].image_url,null);
 });

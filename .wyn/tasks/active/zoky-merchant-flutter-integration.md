@@ -31,3 +31,5 @@ GitHub review follow-up fixed Stripe callback routing, no-slip receipt confirmat
 ## Founder visual follow-up (2026-10-23)
 
 Match the live ZOKY consumer brand: pink gradient, berry actions, white surfaces and clear semantic status colors. See `docs/qa/zoky-merchant-flutter/brand-refresh.md`. The visual follow-up stays within the existing Merchant preview scope.
+
+Founder supplied the original Merchant screens as a layout reference. Restored four primary destinations, sales/open-store home, category menu cards and a More tools page while keeping ZOKY pink. Verification and limits: `docs/qa/zoky-merchant-flutter/reference-layout.md`.

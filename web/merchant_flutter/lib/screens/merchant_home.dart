@@ -39,14 +39,15 @@ class _MerchantHomeState extends State<MerchantHome>
   bool pushEnabled = false, pushBusy = false;
   int page = 0;
   String query = '';
+  String? category;
+  String menuSort = 'default';
   bool foreground = true, signingOut = false;
-  final labels = ['ภาพรวม', 'ออเดอร์', 'เมนูอาหาร', 'ยอดขาย', 'ร้านของฉัน'];
+  final labels = ['หน้าหลัก', 'ออเดอร์', 'เมนูอาหาร', 'เพิ่มเติม'];
   final icons = [
-    Icons.grid_view_rounded,
+    Icons.storefront_outlined,
     Icons.receipt_long_outlined,
     Icons.restaurant_menu,
-    Icons.bar_chart_rounded,
-    Icons.storefront_outlined,
+    Icons.grid_view_rounded,
   ];
   @override
   void initState() {
@@ -192,7 +193,7 @@ class _MerchantHomeState extends State<MerchantHome>
                             vertical: 4,
                           ),
                           child: ListTile(
-                            selected: page == i,
+                            selected: (page >= 3 ? 3 : page) == i,
                             selectedColor: brand,
                             selectedTileColor: const Color(0xFFFFEFF5),
                             shape: RoundedRectangleBorder(
@@ -218,71 +219,7 @@ class _MerchantHomeState extends State<MerchantHome>
             Expanded(
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        if (!wide)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 12),
-                            child: Text(
-                              'Z',
-                              style: TextStyle(
-                                fontSize: 32,
-                                color: brand,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        Expanded(
-                          child: c.stores.length > 1
-                              ? DropdownButtonFormField<String>(
-                                  initialValue: c.storeId,
-                                  isExpanded: true,
-                                  items: c.stores
-                                      .map(
-                                        (s) => DropdownMenuItem(
-                                          value: s['id'] as String,
-                                          child: Text(
-                                            s['name'] as String,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                  onChanged: c.loading || c.busy
-                                      ? null
-                                      : (v) {
-                                          if (v != null) {
-                                            unawaited(c.selectStore(v));
-                                          }
-                                        },
-                                )
-                              : Text(
-                                  c.store?['name'] ?? 'Zoky Merchant',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                        ),
-                        IconButton(
-                          tooltip: 'รีเฟรชข้อมูล',
-                          onPressed: c.loading || c.busy ? null : c.refresh,
-                          icon: const Icon(Icons.refresh),
-                        ),
-                        IconButton(
-                          tooltip: 'ออกจากระบบ',
-                          onPressed: c.busy || signingOut ? null : signOut,
-                          icon: const Icon(Icons.logout),
-                        ),
-                      ],
-                    ),
-                  ),
+                  header(wide),
                   if (c.loading || c.busy)
                     const LinearProgressIndicator(minHeight: 3),
                   Expanded(
@@ -293,6 +230,7 @@ class _MerchantHomeState extends State<MerchantHome>
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 1280),
                           child: ListView(
+                            key: ValueKey(page),
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: EdgeInsets.fromLTRB(
                               wide ? 36 : 18,
@@ -360,13 +298,24 @@ class _MerchantHomeState extends State<MerchantHome>
                                     ],
                                   ),
                                 ),
+                              if (c.store != null && page > 3)
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton.icon(
+                                    onPressed: () => navigate(3),
+                                    icon: const Icon(Icons.chevron_left),
+                                    label: const Text('เพิ่มเติม'),
+                                  ),
+                                ),
                               if (c.store != null)
                                 ...switch (page) {
                                   0 => dashboard(),
                                   1 => orderPage(),
                                   2 => menuPage(),
-                                  3 => reportPage(),
-                                  _ => settingsPage(),
+                                  3 => morePage(),
+                                  4 => reportPage(),
+                                  5 => settingsPage(),
+                                  _ => promotionsPage(),
                                 },
                             ],
                           ),
@@ -383,7 +332,7 @@ class _MerchantHomeState extends State<MerchantHome>
       bottomNavigationBar: wide
           ? null
           : NavigationBar(
-              selectedIndex: page,
+              selectedIndex: page >= 3 ? 3 : page,
               onDestinationSelected: navigate,
               destinations: List.generate(
                 labels.length,
@@ -538,73 +487,425 @@ class _MerchantHomeState extends State<MerchantHome>
       );
     },
   );
+  Widget header(bool wide) => Container(
+    padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      border: Border(bottom: BorderSide(color: Color(0xFFEBEBEF))),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'ZOKY ',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 23,
+                        letterSpacing: -1,
+                        color: brand,
+                      ),
+                    ),
+                    TextSpan(
+                      text: 'Merchant',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                        color: ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'เปิดแจ้งเตือนออเดอร์',
+              onPressed: pushBusy ? null : enablePush,
+              icon: Icon(
+                pushEnabled
+                    ? Icons.notifications_active_outlined
+                    : Icons.notifications_outlined,
+                color: brand,
+              ),
+            ),
+            IconButton(
+              tooltip: 'รีเฟรชข้อมูล',
+              onPressed: c.loading || c.busy ? null : c.refresh,
+              icon: const Icon(Icons.refresh, size: 23),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            const Icon(
+              Icons.storefront_outlined,
+              size: 17,
+              color: Color(0xFF6B6B76),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: c.stores.length > 1
+                  ? DropdownButton<String>(
+                      value: c.storeId,
+                      isExpanded: true,
+                      isDense: true,
+                      underline: const SizedBox.shrink(),
+                      items: c.stores
+                          .map(
+                            (store) => DropdownMenuItem(
+                              value: store['id'] as String,
+                              child: Text(
+                                store['name'],
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: c.loading || c.busy
+                          ? null
+                          : (id) {
+                              if (id != null) unawaited(c.selectStore(id));
+                            },
+                    )
+                  : Text(
+                      c.store?['name'] ?? 'ร้านของคุณ',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF6B6B76),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget storeSwitch() => Switch.adaptive(
+    value: c.store!['is_open'] == true,
+    activeTrackColor: success,
+    onChanged:
+        c.writable && c.canManage && c.store!['admin_suspended_at'] == null
+        ? (value) => c.mutate(
+            () => widget.repository.saveStore(c.storeId!, {'is_open': value}),
+          )
+        : null,
+  );
+
+  Widget tool(String label, IconData icon, Color color, VoidCallback? onTap) =>
+      InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+          child: Column(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(icon, color: color, size: 30),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget tools(List<Widget> items) => LayoutBuilder(
+    builder: (context, size) {
+      final cols =
+          size.maxWidth < 340 || MediaQuery.textScalerOf(context).scale(14) > 19
+          ? 2
+          : 4;
+      return Wrap(
+        children: items
+            .map((item) => SizedBox(width: size.maxWidth / cols, child: item))
+            .toList(),
+      );
+    },
+  );
+
   List<Widget> dashboard() => [
-    heading('ภาพรวมร้านวันนี้', 'ทุกออเดอร์ จัดการได้ในที่เดียว'),
+    if (c.reportError != null) errorBox(c.reportError!),
     Container(
-      padding: const EdgeInsets.all(24),
-      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFFF93384), Color(0xFFEE226E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(26),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'พร้อมเสิร์ฟความอร่อยแล้วหรือยัง?',
-                  style: TextStyle(
+          const Text('ร้านของคุณ', style: TextStyle(color: ink, fontSize: 12)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  c.store!['name'],
+                  style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 21,
+                    fontSize: 26,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  c.store!['is_open'] == true
-                      ? 'ร้านเปิดอยู่ • พร้อมรับออเดอร์ใหม่'
-                      : 'ร้านปิดรับออเดอร์อยู่',
-                  style: const TextStyle(
-                    color: ink,
-                    fontWeight: FontWeight.w500,
+              ),
+              if (c.canManage)
+                IconButton(
+                  tooltip: 'แก้ไขข้อมูลร้าน',
+                  onPressed: c.writable ? editStore : null,
+                  icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          const Text(
+            'ยอดขายวันนี้',
+            style: TextStyle(color: ink, fontSize: 13),
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              c.reportError == null ? money(c.report['today_sales']) : '—',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 38,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: ink,
+              padding: EdgeInsets.zero,
+            ),
+            onPressed: () => navigate(4),
+            child: Text('${c.report['today_orders'] ?? 0} ออเดอร์สำเร็จ  ›'),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: c.store!['is_open'] == true
+                        ? success
+                        : const Color(0xFF8A8A94),
+                    shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(height: 18),
-                FilledButton(
-                  onPressed: () => navigate(1),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: brand,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c.store!['is_open'] == true
+                            ? 'เปิดรับออเดอร์'
+                            : 'ปิดรับออเดอร์',
+                        style: TextStyle(
+                          color: c.store!['is_open'] == true ? success : ink,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        c.canManage
+                            ? 'แตะสวิตช์เพื่อเปลี่ยนสถานะร้าน'
+                            : 'เฉพาะผู้มีสิทธิ์จัดการร้าน',
+                        style: const TextStyle(
+                          color: Color(0xFF6B6B76),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text('จัดการออเดอร์ →'),
+                ),
+                Semantics(
+                  container: true,
+                  label: 'เปิดรับออเดอร์',
+                  child: storeSwitch(),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          const Icon(Icons.ramen_dining, color: Color(0xFFFFEFF5), size: 48),
         ],
       ),
     ),
-    if (c.reportError != null) errorBox(c.reportError!),
-    stats(),
+    const SizedBox(height: 14),
+    tools([
+      tool(
+        'ยอดขาย',
+        Icons.bar_chart_rounded,
+        const Color(0xFF8256CF),
+        () => navigate(4),
+      ),
+      tool('เมนูอาหาร', Icons.restaurant_menu, success, () => navigate(2)),
+      tool('โปรโมชั่น', Icons.local_offer_outlined, brand, () => navigate(6)),
+      tool(
+        'ตั้งค่าร้าน',
+        Icons.settings_outlined,
+        const Color(0xFF2862A7),
+        () => navigate(5),
+      ),
+    ]),
+    const SizedBox(height: 18),
+    FilledButton.icon(
+      onPressed: () => navigate(1),
+      icon: const Icon(Icons.receipt_long_outlined),
+      label: const Text('จัดการออเดอร์ →'),
+    ),
     section('ออเดอร์รอรับ'),
     if (c.status == 'pending_acceptance') ...[
       if (c.orders.isEmpty && !c.loading)
-        box(const Text('ยังไม่มีออเดอร์รอรับ')),
+        emptyState(
+          Icons.shopping_bag_outlined,
+          'ยังไม่มีออเดอร์รอรับ',
+          'ออเดอร์ใหม่จะแสดงที่นี่เมื่อมีลูกค้าสั่งซื้อ',
+        ),
       ...c.orders.take(3).map(orderCard),
-    ] else
-      TextButton(
-        onPressed: () => c.selectStatus('pending_acceptance'),
-        child: const Text('ดูออเดอร์รอรับ'),
+    ],
+  ];
+
+  Widget emptyState(IconData icon, String title, String subtitle) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 46, horizontal: 12),
+    child: Column(
+      children: [
+        Icon(icon, size: 48, color: const Color(0xFF8A8A94)),
+        const SizedBox(height: 14),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF6B6B76),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
+        ),
+      ],
+    ),
+  );
+
+  List<Widget> morePage() => [
+    heading('เพิ่มเติม', 'เครื่องมือสำหรับร้านของคุณ'),
+    box(
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.storefront_outlined, color: brand, size: 36),
+        title: Text(
+          c.store!['name'],
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          c.store!['is_published'] == true
+              ? 'เผยแพร่บน ZOKY แล้ว'
+              : 'ร้านยังไม่เผยแพร่',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => navigate(5),
       ),
-    section('โปรโมชั่นของร้าน'),
+    ),
+    section('เครื่องมือร้าน'),
+    tools([
+      tool(
+        'รายงานยอดขาย',
+        Icons.bar_chart_rounded,
+        const Color(0xFF8256CF),
+        () => navigate(4),
+      ),
+      tool(
+        'ประวัติออเดอร์',
+        Icons.history,
+        brand,
+        c.loading || c.busy
+            ? null
+            : () {
+                navigate(1);
+                unawaited(c.selectStatus('delivered'));
+              },
+      ),
+      tool('โปรโมชั่น', Icons.local_offer_outlined, brand, () => navigate(6)),
+      tool(
+        'ตั้งค่าร้าน',
+        Icons.settings_outlined,
+        const Color(0xFF2862A7),
+        () => navigate(5),
+      ),
+    ]),
+    const SizedBox(height: 18),
+    box(
+      Column(
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.notifications_outlined, color: brand),
+            title: const Text('การแจ้งเตือน'),
+            subtitle: Text(
+              pushEnabled
+                  ? 'เปิดแจ้งเตือนออเดอร์แล้ว'
+                  : 'รับการแจ้งเตือนเมื่อมีออเดอร์ใหม่',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: pushBusy ? null : enablePush,
+          ),
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.wallet_outlined, color: success),
+            title: const Text('การเงินและเครื่องมือเพิ่มเติม'),
+            subtitle: const Text(
+              'เปิดหน้าจัดการเดิม: การเงิน แคมเปญ โฆษณา และทีมงาน',
+            ),
+            trailing: const Icon(Icons.open_in_new, size: 20),
+            onTap: openOriginal,
+          ),
+        ],
+      ),
+    ),
+    TextButton.icon(
+      onPressed: c.busy || signingOut ? null : signOut,
+      icon: const Icon(Icons.logout),
+      label: const Text('ออกจากระบบ'),
+    ),
+  ];
+
+  List<Widget> promotionsPage() => [
+    heading('โปรโมชั่นของร้าน', 'จัดการส่วนลดและโปรโมชั่นที่ลูกค้าเห็น'),
     if (c.campaignError != null) errorBox(c.campaignError!),
     ...c.campaigns.map(
       (p) => box(
@@ -630,17 +931,21 @@ class _MerchantHomeState extends State<MerchantHome>
                 ],
               ),
             ),
-            Switch(
-              value: p['is_active'] == true,
-              onChanged: c.writable && c.canCampaigns
-                  ? (value) => c.mutate(
-                      () => widget.repository.setCampaignActive(
-                        c.storeId!,
-                        p['id'],
-                        value,
-                      ),
-                    )
-                  : null,
+            Semantics(
+              container: true,
+              label: 'เปิดโปรโมชั่น ${p['name']}',
+              child: Switch(
+                value: p['is_active'] == true,
+                onChanged: c.writable && c.canCampaigns
+                    ? (value) => c.mutate(
+                        () => widget.repository.setCampaignActive(
+                          c.storeId!,
+                          p['id'],
+                          value,
+                        ),
+                      )
+                    : null,
+              ),
             ),
           ],
         ),
@@ -685,11 +990,10 @@ class _MerchantHomeState extends State<MerchantHome>
     ),
     const SizedBox(height: 20),
     if (c.orders.isEmpty && !c.loading)
-      box(
-        const Padding(
-          padding: EdgeInsets.all(24),
-          child: Center(child: Text('ยังไม่มีออเดอร์ในสถานะนี้')),
-        ),
+      emptyState(
+        Icons.shopping_bag_outlined,
+        'ไม่มีออเดอร์ในแท็บนี้',
+        'ออเดอร์จะแสดงตามสถานะที่เลือก',
       ),
     ...c.orders.map(orderCard),
     if (c.hasMore)
@@ -971,48 +1275,184 @@ class _MerchantHomeState extends State<MerchantHome>
     }
   }
 
-  List<Widget> menuPage() => [
-    heading(
-      'เมนูอาหาร',
-      'การบันทึกมีผลกับเมนูที่ลูกค้าเห็น',
-      action: c.canManage
-          ? FilledButton.icon(
-              onPressed: c.writable ? () => editMenu() : null,
-              icon: const Icon(Icons.add),
-              label: const Text('เพิ่มเมนู'),
-            )
-          : null,
-    ),
-    TextField(
-      onChanged: (v) => setState(() => query = v),
-      decoration: const InputDecoration(
-        hintText: 'ค้นหาเมนูอาหาร',
-        prefixIcon: Icon(Icons.search),
+  List<Widget> menuPage() {
+    final categories = c.menu
+        .map((m) => '${m['category'] ?? 'ทั่วไป'}')
+        .toSet()
+        .toList();
+    final selectedCategory = categories.contains(category) ? category : null;
+    final rows = c.menu
+        .where(
+          (m) =>
+              (selectedCategory == null ||
+                  '${m['category'] ?? 'ทั่วไป'}' == selectedCategory) &&
+              '${m['name']} ${m['category'] ?? ''}'.toLowerCase().contains(
+                query.toLowerCase(),
+              ),
+        )
+        .toList();
+    if (menuSort != 'default') {
+      rows.sort(
+        (a, b) => menuSort == 'price'
+            ? ((a['price'] as num?) ?? 0).compareTo((b['price'] as num?) ?? 0)
+            : '${a['name']}'.compareTo('${b['name']}'),
+      );
+    }
+    final groups = <String, List<Json>>{};
+    for (final row in rows) {
+      groups.putIfAbsent('${row['category'] ?? 'ทั่วไป'}', () => []).add(row);
+    }
+    return [
+      heading(
+        'เมนูอาหาร',
+        'จัดการเมนูที่ลูกค้าเห็น',
+        action: c.canManage
+            ? FilledButton.icon(
+                onPressed: c.writable ? () => editMenu() : null,
+                icon: const Icon(Icons.add),
+                label: const Text('เพิ่มเมนู'),
+              )
+            : null,
       ),
-    ),
-    const SizedBox(height: 18),
-    if (c.menu
-        .where(
-          (m) => '${m['name']}'.toLowerCase().contains(query.toLowerCase()),
-        )
-        .isEmpty)
-      box(const Text('ไม่พบเมนู')),
-    ...c.menu
-        .where(
-          (m) => '${m['name']}'.toLowerCase().contains(query.toLowerCase()),
-        )
-        .map(
-          (m) => box(
+      TextField(
+        onChanged: (value) => setState(() => query = value),
+        decoration: InputDecoration(
+          hintText: 'ค้นหาเมนูหรือหมวดหมู่',
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(32),
+            borderSide: const BorderSide(color: Color(0xFFEBEBEF)),
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        children: [
+          PopupMenuButton<String>(
+            initialValue: menuSort,
+            tooltip: 'จัดลำดับเมนู',
+            onSelected: (value) => setState(() => menuSort = value),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'default', child: Text('ลำดับร้าน')),
+              PopupMenuItem(value: 'name', child: Text('ชื่อเมนู')),
+              PopupMenuItem(value: 'price', child: Text('ราคาน้อยไปมาก')),
+            ],
+            child: const Chip(
+              avatar: Icon(Icons.swap_vert, size: 18),
+              label: Text('จัดลำดับ'),
+              deleteIcon: Icon(Icons.expand_more),
+            ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'เลือกหมวดหมู่',
+            onSelected: (value) =>
+                setState(() => category = value == '' ? null : value),
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: '', child: Text('ทุกหมวดหมู่')),
+              ...categories.map(
+                (name) => PopupMenuItem(value: name, child: Text(name)),
+              ),
+            ],
+            child: Chip(
+              avatar: const Icon(Icons.grid_view_outlined, size: 18),
+              label: Text(selectedCategory ?? 'ทุกหมวดหมู่'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      if (rows.isEmpty)
+        emptyState(
+          Icons.restaurant_menu,
+          'ไม่พบเมนู',
+          'ลองค้นหาด้วยชื่ออื่น หรือเพิ่มเมนูใหม่',
+        ),
+      for (final group in groups.entries)
+        Card(
+          margin: const EdgeInsets.only(bottom: 18),
+          clipBehavior: Clip.antiAlias,
+          child: ExpansionTile(
+            initiallyExpanded: true,
+            shape: const Border(),
+            collapsedShape: const Border(),
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
+            title: Text(
+              group.key,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Text(
+              '${group.value.length} เมนู',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
+            ),
+            children: [
+              for (var index = 0; index < group.value.length; index++) ...[
+                const Divider(height: 1),
+                menuRow(group.value[index]),
+              ],
+            ],
+          ),
+        ),
+    ];
+  }
+
+  Widget menuRow(Json item) => LayoutBuilder(
+    builder: (context, size) {
+      final compact =
+          size.maxWidth < 380 ||
+          MediaQuery.textScalerOf(context).scale(14) > 19;
+      final controls = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            container: true,
+            label: 'เปิดขาย ${item['name']}',
+            child: Switch.adaptive(
+              value: item['is_available'] == true,
+              activeTrackColor: success,
+              onChanged: c.writable && c.canManage
+                  ? (value) => c.mutate(
+                      () => widget.repository.saveMenu(c.storeId!, {
+                        'is_available': value,
+                      }, id: item['id']),
+                    )
+                  : null,
+            ),
+          ),
+          if (c.canManage)
+            IconButton(
+              tooltip: 'แก้ไขเมนู ${item['name']}',
+              onPressed: c.writable ? () => editMenu(item) : null,
+              icon: const Icon(Icons.more_horiz),
+            ),
+        ],
+      );
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        child: Column(
+          children: [
             Row(
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFEFF5),
-                    borderRadius: BorderRadius.circular(12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    width: 64,
+                    height: 64,
+                    child:
+                        item['image_url'] is String &&
+                            (item['image_url'] as String).isNotEmpty
+                        ? Image.network(
+                            item['image_url'],
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, error, stack) =>
+                                menuPlaceholder(),
+                          )
+                        : menuPlaceholder(),
                   ),
-                  child: const Icon(Icons.restaurant, color: brand),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1020,48 +1460,54 @@ class _MerchantHomeState extends State<MerchantHome>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        m['name'],
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        item['name'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
-                        '${m['category']} • ${money(m['price'])}',
-                        style: const TextStyle(color: brand, fontSize: 12),
+                        (item['options'] as List? ?? []).isEmpty
+                            ? 'ไม่มีตัวเลือกเสริม'
+                            : '${(item['options'] as List).length} กลุ่มตัวเลือกเสริม',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF6B6B76),
+                        ),
                       ),
-                      if (m['sold_out_until'] != null)
+                      if (item['sold_out_until'] != null)
                         Text(
-                          'หมดชั่วคราวถึง ${dateLabel(m['sold_out_until'])}',
+                          'หมดชั่วคราวถึง ${dateLabel(item['sold_out_until'])}',
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Colors.orange,
+                            color: Color(0xFF9A5800),
                           ),
                         ),
+                      const SizedBox(height: 3),
+                      Text(
+                        money(item['price']),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ],
                   ),
                 ),
-                if (c.canManage)
-                  IconButton(
-                    tooltip: 'แก้ไขเมนู ${m['name']}',
-                    onPressed: c.writable ? () => editMenu(m) : null,
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                Semantics(
-                  label: 'เปิดขาย ${m['name']}',
-                  child: Switch(
-                    value: m['is_available'] == true,
-                    onChanged: c.writable && c.canManage
-                        ? (v) => c.mutate(
-                            () => widget.repository.saveMenu(c.storeId!, {
-                              'is_available': v,
-                            }, id: m['id']),
-                          )
-                        : null,
-                  ),
-                ),
+                if (!compact) controls,
               ],
             ),
-          ),
+            if (compact)
+              Align(alignment: Alignment.centerRight, child: controls),
+          ],
         ),
-  ];
+      );
+    },
+  );
+
+  Widget menuPlaceholder() => Container(
+    color: brandSoft,
+    child: const Icon(Icons.restaurant, color: brand, size: 28),
+  );
+
   List<Widget> reportPage() => [
     heading('ยอดขายของร้าน', 'คำนวณจากข้อมูลทั้งหมดในระบบเดิม'),
     if (c.reportError != null) errorBox(c.reportError!),
@@ -1114,7 +1560,7 @@ class _MerchantHomeState extends State<MerchantHome>
     ),
   );
   List<Widget> settingsPage() => [
-    heading('ร้านของฉัน', 'ข้อมูลร้านเชื่อมกับระบบ WYNOS เดิม'),
+    heading('ตั้งค่าร้าน', 'ข้อมูลที่ลูกค้าเห็นบน ZOKY'),
     box(
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

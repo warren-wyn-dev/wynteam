@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl,
+  completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl, foodPublicUrl,
   setFoodPaymentStatus, subscribeMerchantOrders, transitionFoodOrder, updateFoodStore,
   uploadFoodPrivateImage, type FoodMenuItem, type FoodOrder, type FoodStore,
 } from "@/lib/food-merchant";
@@ -154,7 +154,9 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         }
       }
     }
-    return [...stores.values()].sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "") || a.id.localeCompare(b.id));
+    return [...stores.values()]
+      .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "") || a.id.localeCompare(b.id))
+      .map((store) => ({ ...store, image_url: foodPublicUrl(client, store.logo_path) }));
   };
   const execute = async (method: string, args: Args, picked: Promise<File | null> | null, permissionRequest?: Promise<NotificationPermission>): Promise<unknown> => {
     await ensureSession();
@@ -197,7 +199,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
           const rows = (data ?? []) as FoodMenuItem[]; all.push(...rows);
           if (rows.length < 500) break;
         }
-        return all;
+        return all.map((item) => ({ ...item, image_url: foodPublicUrl(client, item.image_path) }));
       }
       case "orders": {
         const status = text(args.status, 30, true), offset = args.offset ?? 0;
