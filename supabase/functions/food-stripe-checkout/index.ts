@@ -7,7 +7,9 @@ import {
   foodReturnOrigin,
   isFoodWebOrigin,
   parseCheckoutMethod,
+  resolveCheckoutMethod,
   sessionMatchesMethod,
+  stripeOnlyFromPolicyResult,
 } from "./_lib.ts";
 
 const cors = {
@@ -115,8 +117,20 @@ Deno.serve(async (req: Request) => {
   } catch { return json({ error: "invalid_body" }, 400); }
   if (!orderId) return json({ error: "order_id_required" }, 400);
   // Optional: older clients send no method and keep the account's configuration.
-  const method = parseCheckoutMethod(rawMethod);
-  if (method === null) return json({ error: "invalid_payment_method" }, 400);
+  const requestedMethod = parseCheckoutMethod(rawMethod);
+  if (requestedMethod === null) return json({ error: "invalid_payment_method" }, 400);
+  // Stripe-only policy (read from the DB): PromptPay QR only (Founder 2026-10-23).
+  // PromptPay is allowed in both states, so only other requests need the check.
+  let method = requestedMethod;
+  if (requestedMethod !== "promptpay") {
+    const stripeOnly = stripeOnlyFromPolicyResult(await admin.rpc("food_payment_policy_public"));
+    if (stripeOnly === null) {
+      return json({ error: "payment_policy_unavailable", message: "เปิดหน้าชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, 503);
+    }
+    const resolved = resolveCheckoutMethod(requestedMethod, stripeOnly);
+    if (resolved.error) return json({ error: resolved.error, message: "ZOKY รับชำระด้วยพร้อมเพย์เท่านั้น" }, 422);
+    method = resolved.method;
+  }
 
   const { data: order } = await admin.from("food_orders")
     .select("id,order_number,buyer_id,store_id,total,status,payment_status,payment_due_at")
@@ -140,7 +154,7 @@ Deno.serve(async (req: Request) => {
   }
   // PromptPay is only offered when Stripe has enabled it on the store's account.
   if (method === "promptpay" && account.promptpay_enabled !== true) {
-    return json({ error: "promptpay_unavailable", message: "ร้านนี้ยังไม่รองรับพร้อมเพย์ กรุณาเลือกบัตรเครดิต/เดบิต" }, 422);
+    return json({ error: "promptpay_unavailable", message: "ร้านนี้ยังไม่เปิดรับชำระเงินด้วยพร้อมเพย์ กรุณาติดต่อร้าน" }, 422);
   }
 
   const amountSatang = Math.round(Number(order.total) * 100);

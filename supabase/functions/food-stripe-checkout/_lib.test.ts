@@ -8,8 +8,10 @@ import {
   foodReturnOrigin,
   isFoodWebOrigin,
   parseCheckoutMethod,
+  resolveCheckoutMethod,
   sessionMatchesMethod,
   stripeCancelLedgerNote,
+  stripeOnlyFromPolicyResult,
 } from "./_lib.ts";
 
 Deno.test("no GP: fee is 0", () => {
@@ -123,4 +125,24 @@ Deno.test("cancel ledger note: reason only selects the note", () => {
   assertEquals(stripeCancelLedgerNote(undefined), "Customer switched to manual transfer");
   assertEquals(stripeCancelLedgerNote("anything"), "Customer switched to manual transfer");
   assertEquals(stripeCancelLedgerNote({ toString: () => "order_cancelled" }), "Customer switched to manual transfer");
+});
+
+Deno.test("policy read: true only when the RPC says so; missing RPC = legacy; other errors = unknown", () => {
+  assertEquals(stripeOnlyFromPolicyResult({ data: true, error: null }), true);
+  assertEquals(stripeOnlyFromPolicyResult({ data: [{ stripe_only: true }], error: null }), true);
+  assertEquals(stripeOnlyFromPolicyResult({ data: false, error: null }), false);
+  assertEquals(stripeOnlyFromPolicyResult({ data: "true", error: null }), false);
+  assertEquals(stripeOnlyFromPolicyResult({ data: null, error: { code: "PGRST202" } }), false);
+  assertEquals(stripeOnlyFromPolicyResult({ data: null, error: { code: "42883" } }), false);
+  assertEquals(stripeOnlyFromPolicyResult({ data: null, error: { code: "57014" } }), null);
+  assertEquals(stripeOnlyFromPolicyResult({ data: null, error: { code: "" } }), null);
+});
+
+Deno.test("PromptPay-only under the policy: card refused, no method = PromptPay; policy off unchanged", () => {
+  assertEquals(resolveCheckoutMethod("card", true), { error: "promptpay_only" });
+  assertEquals(resolveCheckoutMethod(undefined, true), { method: "promptpay" });
+  assertEquals(resolveCheckoutMethod("promptpay", true), { method: "promptpay" });
+  assertEquals(resolveCheckoutMethod("card", false), { method: "card" });
+  assertEquals(resolveCheckoutMethod(undefined, false), { method: undefined });
+  assertEquals(resolveCheckoutMethod("promptpay", false), { method: "promptpay" });
 });

@@ -57,6 +57,36 @@ export function parseCheckoutMethod(value: unknown): FoodCheckoutMethod | undefi
   return null;
 }
 
+/**
+ * food_payment_policy_public() as read by this function (service role).
+ * true = Stripe-only is on; false = legacy. A database without the function
+ * (PGRST202, or 42883 from Postgres) is legacy, as in the web. Any other
+ * error = null: the caller must not guess, so a card session can never be
+ * opened by mistake while the policy is on.
+ */
+export function stripeOnlyFromPolicyResult(result: { data: unknown; error: { code?: unknown } | null }): boolean | null {
+  if (result.error) {
+    const code = result.error.code;
+    return code === "PGRST202" || code === "42883" ? false : null;
+  }
+  if (result.data === true) return true;
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  return Boolean(row && typeof row === "object" && (row as { stripe_only?: unknown }).stripe_only === true);
+}
+
+/**
+ * PromptPay-only under the policy (Founder 2026-10-23): no method (older
+ * clients) means PromptPay and card is refused. Policy off: unchanged.
+ */
+export function resolveCheckoutMethod(
+  method: FoodCheckoutMethod | undefined,
+  stripeOnly: boolean,
+): { method: FoodCheckoutMethod | undefined; error?: undefined } | { method?: undefined; error: "promptpay_only" } {
+  if (!stripeOnly) return { method };
+  if (method === "card") return { error: "promptpay_only" };
+  return { method: "promptpay" };
+}
+
 /** True when an existing session already offers exactly `method`. */
 export function sessionMatchesMethod(session: Record<string, unknown>, method: FoodCheckoutMethod | undefined): boolean {
   if (!method) return true;
