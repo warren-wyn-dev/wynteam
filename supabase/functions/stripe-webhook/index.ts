@@ -444,11 +444,15 @@ Deno.serve(async (req: Request) => {
     // Only a succeeded full Refund marks the order refunded; charge.refunded
     // is recorded only (ZOKY-153, see _lib.ts).
     let expected: number | null = null;
+    let orderPaymentIntent: string | null = null;
     if (orderId && refundEventNeedsOrderTotal(eventType, object)) {
-      const { data: order } = await admin.from("food_orders").select("total").eq("id", orderId).maybeSingle();
+      const { data: order } = await admin.from("food_orders")
+        .select("total,stripe_payment_intent_id").eq("id", orderId).maybeSingle();
       expected = Math.round(Number(order?.total ?? 0) * 100);
+      orderPaymentIntent = stringValue(order?.stripe_payment_intent_id);
     }
-    const mapped = refundEventState(eventType, object, expected);
+    // ZOKY-154: only a refund of the order's own PaymentIntent marks it refunded.
+    const mapped = refundEventState(eventType, object, expected, orderPaymentIntent);
     state = mapped.state;
     refundId = mapped.refundId;
     if (mapped.amount != null) amount = mapped.amount;
