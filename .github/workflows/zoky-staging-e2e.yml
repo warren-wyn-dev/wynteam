@@ -37,9 +37,9 @@ on:
         type: choice
         options: [setup, e2e]
       backend_sha:
-        description: 'Backend commit (feat/zoky-stripe-jobs-db, PR #1231)'
+        description: 'Backend commit (main after PR #1231)'
         required: true
-        default: 'b3ccc010903660e6088a77cdbc77c7148b496170'
+        default: '830dd14b8b8c22648a2aada8b2c6fffd14e884c6'
       web_sha:
         description: 'Web/edge commit (release/zoky-web-20261018)'
         required: true
