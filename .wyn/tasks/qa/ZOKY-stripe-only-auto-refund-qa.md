@@ -553,12 +553,101 @@ ZOKY-155 (LOW) can be fixed in the same change. Everything else in Re-test 4 pas
 - WebKit/desktop Playwright.
 - A Stripe test-mode E2E is required before Founder Gate.
 
-## Final Status: PASS
+### Re-test 6 status: PASS (superseded by Re-test 7)
 No CRITICAL, HIGH or MEDIUM issue is open. ZOKY-147 to ZOKY-151 and ZOKY-153 to ZOKY-156 are fixed and verified; only LOW items remain.
 
 Rollout conditions (each Founder-gated):
 - (a) Preflight: the refund webhook event types are being received, the counts of Stripe orders without a PI are reviewed, and the Dashboard subscription to `refund.*` is confirmed.
 - (b) Deploy order: `stripe-webhook` (from main) → worker → jobs → cron → EDGE/PHASE → activate.
 - (c) The Stripe test-mode E2E for PromptPay refunds passes before Founder Gate.
+
+→ CTO final review, then AI Deploy & DevOps.
+
+---
+
+## Re-test 7 (2026-10-23, payjobs feat/zoky-stripe-jobs-db @ 0e3ebe04)
+
+Delta since fa2dafbb:
+- 75b6bd4d: the polling path re-lists refunds before closing a job as refunded.
+- c0db39ac:
+  - `payment_transaction_ref` is restored to the first payment's value in both duplicate branches;
+  - duplicate jobs are created `queued` for a single check-only run;
+  - the requeue RPC also requeues `failed` order jobs, except duplicate jobs and the non-resolvable codes.
+- 0e3ebe04: the preflight counts ready Stripe accounts by mode.
+
+### Results
+| Suite | Result |
+|---|---|
+| Developer SQL | 217/217 PASS |
+| deno `--allow-read=.` | stripe-webhook 13/13, merchant-stripe-refund 3/3, food-stripe-refund-worker 28/28; `deno check` OK; full functions dir 153/153 |
+| t1 / t2 / t3 (both variants) / t5 / t6 / t7 / t8 / t153 | 31, 37, 24+24, 16, 43, 10, 14, 7, all PASS. t7/t8 were adjusted: duplicate jobs now start queued, and the worker claims the cancel job with the first PI and the duplicate check with the duplicate PI |
+| t9 | 32 passed; the same 2 harness-modelling lines as Re-test 6 (pending gating lives in the webhook, covered by deno) |
+| t4 slip/manual policy-OFF parity | Unchanged |
+| deno round6_test.ts / round7_test.ts (new) | 6/6, 6/6 |
+| t10_round7.sh (new) | 16/16 |
+
+### Covered in this round
+**Several pending refunds, one succeeds**
+- The poll keeps going on the remaining pending refund (`refund_requested re_b`).
+- A succeeded refund that only partly covers the payment → `partial_refund_exists`, no POST.
+- When all pieces succeed → refunded.
+
+**Duplicate refund event before the duplicate payment event**
+- The requeue finds no job yet.
+- The job created `queued` is then checked once at Stripe and closes as done. No POST; the query is scoped to the duplicate PI.
+
+**Failed job (balance_insufficient), then an operator refund**
+- The requeue (PI must be at least 3 chars after `pi_`) leaves the order untouched; it stays `failed` until the worker decides.
+- The worker adopts the operator's refund (refunded, no POST).
+- A partial operator refund → parked, no POST.
+- Failed jobs with `stripe_environment_mismatch`, `stripe_account_missing`, `order_not_refundable` or `payment_intent_missing` are never requeued.
+
+**Re-notification abuse**
+- Each "requeue → worker fails again" cycle sends the customer one more "คืนเงิน…มีปัญหา" notice (4 after 3 cycles).
+- Each cycle needs a new succeeded Refund event signed by Stripe for that PI, and an operator refund normally gets adopted rather than failed, so clients cannot trigger it. **LOW**: suppress a repeat customer notice for the same job.
+
+**Duplicate job queued with cron off**
+- `admin_food_refund_jobs` lists it with the DUPLICATE PI.
+- No merchant notice is sent until the check-only run parks it.
+- The duplicate job is claimed with the duplicate PI, never the first PI.
+- The worker's duplicate path never POSTs (deno), so there is no wrong refund of the first PI.
+
+**`payment_transaction_ref`**
+- The order keeps PI and ref of the first payment in the ledger-trigger branch (`pi_1/pi_1`).
+- It also keeps them in the guard branch for an order without a ledger PI (`pi_3/pi_3`, and the duplicate job is queued for `pi_4`).
+
+**Invariants ZOKY-147 to ZOKY-156 still hold**
+- 147: refund truth from Stripe and the PromptPay awaiting state (t5, worker).
+- 148: needs_attention notifies the merchant, and the admin list works.
+- 149: one owner of the refund (adopt-only legacy path, deno).
+- 150 / 151: guard and source gates (t3, t6).
+- 152: unchanged LOW.
+- 153: no spurious payment notifications (t6, t153).
+- 154: the ledger keeps the first PI and the loss path is closed (t7, t8).
+- 155: covered in t8.
+- 156: requeue and check-only runs (t9, deno).
+
+### Remaining (LOW)
+- Repeated customer "มีปัญหา" notice per failed recheck cycle (above).
+- When a duplicate job is parked, `internal.food_stripe_job_attention` sends the merchant the generic "คืนเงินอัตโนมัติออเดอร์ … ต้องให้ทีม ZOKY ตรวจสอบ ยังไม่ต้องกดคืนเงินเอง" and writes a `refund_needs_attention` event. On a cancelled order this can make the merchant refund box show "ต้องตรวจสอบ" for the main refund. Not run in a browser; copy and UI only.
+- Earlier LOWs:
+  - ZOKY-152;
+  - the ZOKY-148 customer copy;
+  - "ทีม WYNOS" in `retryStripeRefund`;
+  - backfill review;
+  - the ZOKY-156 race where an event is processed before the job is parked;
+  - a raw-SQL same-transaction freeze (informational).
+
+### Still not testable here
+- Real Stripe test mode (connected-account refund events and ordering, PromptPay refund email, ฿10 fee).
+- pg_cron, pg_net and Vault.
+- HTTP-level edge functions.
+- WebKit/desktop Playwright.
+
+## Final Status: PASS
+No CRITICAL, HIGH or MEDIUM issue is open. Rollout conditions are unchanged:
+- (a) Preflight: refund webhook events are received, the counts of orders without a PI and the ready accounts by mode are reviewed, and the `refund.*` subscription is confirmed.
+- (b) Deploy order: `stripe-webhook` (from main) → worker → jobs → cron → EDGE/PHASE → activate.
+- (c) A Stripe test-mode E2E for PromptPay refunds passes before Founder Gate.
 
 → CTO final review, then AI Deploy & DevOps.
