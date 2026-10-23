@@ -98,7 +98,8 @@ function fixture({
   };
   return {
     availability: () => exports.getPushAvailability(),
-    subscribe: () => exports.subscribeToPushNotifications(client, "test-user"),
+    subscribe: (options) => exports.subscribeToPushNotifications(client, "test-user", options),
+    capturePermission: () => exports.requestPushPermissionFromGesture(),
     checkCurrent: () => exports.isCurrentDevicePushEnabled(client, "test-user"),
     install: (ua, points, standalone) => exports.isIosWebPushInstallRequired(ua, points, standalone),
     get calls() { return calls; },
@@ -183,4 +184,18 @@ test("production deploy forwards PUBLIC Firebase config to build/runtime and che
   assert.match(source, /firebase_args\[@\]/);
   assert.match(source, /\/api\/push-config/);
   assert.doesNotMatch(source, /FCM_SERVICE_ACCOUNT|FIREBASE_PRIVATE_KEY/);
+});
+
+test("captured permission preserves the live tap and the helper prompts only once", async () => {
+ const f=fixture();const permissionRequest=f.capturePermission();
+ assert.deepEqual(f.calls,["permission-request"]);
+ const result=await f.subscribe({permissionRequest});assert.equal(result.ok,true);
+ assert.equal(f.calls.filter(c=>c==="permission-request").length,1);
+});
+test("capture does not prompt in an uninstalled iOS tab and active-account checks precede token save", async () => {
+ const ios=fixture({userAgent:"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)",installed:false});
+ assert.equal(ios.capturePermission(),undefined);assert.deepEqual(ios.calls,[]);
+ const f=fixture();const permissionRequest=f.capturePermission();
+ await assert.rejects(()=>f.subscribe({permissionRequest,ensureActive:async()=>{throw new Error("account switched")}}));
+ assert.equal(f.calls.includes("upsert"),false);assert.equal(f.calls.some(c=>c.startsWith("worker-register")),false);
 });

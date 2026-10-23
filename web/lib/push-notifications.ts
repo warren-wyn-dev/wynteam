@@ -325,9 +325,19 @@ export function keepPushOnAcrossAccountChange(fromUserId: string | null | undefi
  * `push_tokens` with platform "web" — the same table and shape the existing
  * `send-push-notification` Edge Function already reads for Android/iOS.
  */
+/** Capture the OS prompt synchronously inside a real tap, before auth/config work. */
+export function requestPushPermissionFromGesture(): Promise<NotificationPermission> | undefined {
+  if (typeof window === "undefined" || typeof navigator === "undefined" || iosNeedsInstallation() ||
+      !("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) return undefined;
+  if (Notification.permission !== "default") return Promise.resolve(Notification.permission);
+  try { return Notification.requestPermission(); }
+  catch { return Promise.reject(new Error("permission-request-failed")); }
+}
+
 export async function subscribeToPushNotifications(
   client: SupabaseClient,
   userId: string,
+  options: { permissionRequest?: Promise<NotificationPermission>; ensureActive?: () => Promise<void> } = {},
 ): Promise<PushSubscribeResult> {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return { ok: false, reason: "unsupported" };
@@ -344,7 +354,7 @@ export async function subscribeToPushNotifications(
   // a live user gesture; never await config/Firebase before this point.
   let permission: NotificationPermission;
   try {
-    permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+    permission = options.permissionRequest ? await options.permissionRequest : Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
   } catch {
     return { ok: false, reason: "temporary" };
   }
@@ -352,6 +362,7 @@ export async function subscribeToPushNotifications(
     return { ok: false, reason: permission === "denied" ? "denied" : "dismissed" };
   }
 
+  await options.ensureActive?.();
   const availability = await getPushAvailability();
   if (!availability.available) return { ok: false, reason: availability.reason };
   const config = await fetchPushConfig();
@@ -386,6 +397,7 @@ export async function subscribeToPushNotifications(
   if (!token) return { ok: false, reason: "no-token" };
 
   try {
+    await options.ensureActive?.();
     const { error } = await savePushToken(client, userId, token);
     if (error) return { ok: false, reason: "server-failed" };
 

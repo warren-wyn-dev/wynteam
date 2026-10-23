@@ -4,6 +4,23 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "Zoky Merchant | จัดการร้านของคุณ": "Zoky Merchant | Manage your store",
+  "กำลังเปิด Zoky Merchant…": "Opening Zoky Merchant\u2026",
+  "เปิด Zoky Merchant ไม่สำเร็จ": "Unable to open Zoky Merchant",
+  "กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่ หรือใช้หน้าร้านเดิมได้ทันที": "Check your connection and try again, or open the existing merchant page.",
+  "ลองโหลดใหม่": "Reload",
+  "เปิดหน้าร้านเดิม": "Open existing merchant page",
+  "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่": "Invalid information. Check your input and try again.",
+  "บัญชีนี้ไม่มีสิทธิ์เข้าถึงร้านหรือออเดอร์นี้ กรุณาเข้าสู่ระบบใหม่": "This account cannot access this store or order. Please sign in again.",
+  "ต้องยืนยันเงินเข้าก่อนรับออเดอร์": "Verify payment before accepting the order.",
+  "รายการนี้ชำระผ่านระบบอัตโนมัติ กรุณารอสถานะจากผู้ให้บริการ": "This payment is processed automatically. Wait for confirmation from the payment provider.",
+  "สถานะออเดอร์เปลี่ยนไปแล้ว กรุณารีเฟรชก่อนลองใหม่": "The order status has changed. Refresh before trying again.",
+  "กรุณาแนบรูปหลักฐานการจัดส่งของออเดอร์นี้": "Attach a delivery photo for this order.",
+  "กรุณาระบุจุดวางอาหาร": "Enter the dropoff location.",
+  "บัญชีนี้ไม่มีสิทธิ์ดำเนินการ กรุณาตรวจสอบกับเจ้าของร้าน": "This account cannot perform this action. Contact the store owner.",
+  "ร้านถูกระงับ กรุณาติดต่อทีม WYNOS": "This store is suspended. Contact the WYNOS team.",
+  "เชื่อมต่อหรือบันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง": "Unable to connect or save. Refresh before trying again.",
+
   "โหลดร้านอาหารไม่สำเร็จ กรุณาลองอีกครั้ง": "Unable to load restaurants. Please try again.",
   "เปลี่ยนร้านอาหารและล้างตะกร้าเดิม?": "Switch restaurants and clear your current basket?",
   "ร้านปิดอยู่": "Currently closed",

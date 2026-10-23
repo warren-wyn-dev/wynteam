@@ -672,3 +672,10 @@
 - Duration update (PR #1109): the Founder's iPhone recording showed a white loading skeleton after the ~1.2 s splash. I proposed keeping the splash until the screen's data is ready (at least 1 s, at most ~4 s), plus iOS launch images and a pink status bar during the splash. The Founder replied "แก้ไข ทั้งหมดให้ด้วยนะ" (2026-10-11), approving all three. This replaces the fixed ~1.2 s above. Rollback: revert PR #1109.
 - Rollback: revert the PR.
 - สถานะ: **ตัดสินใจแล้ว**. วันที่ 2026-10-11
+
+### DECISION — [2026-10-21] Zoky Merchant Flutter integration with Food
+
+- Founder instruction in this session: “จัดการให้เรียบร้อยทั้งหมด พร้อมใช้งานเลยได้มั้ย”, following explicit direction that Merchant is the same Food system and should remain in wynteam.
+- Approved scope: Flutter Merchant frontend integration, existing Food service/account reuse, core payment/order/delivery completion, tests, review and deployment preparation for the Merchant feature.
+- Implementation boundary: `web/merchant_flutter`, a shared-auth JSON bridge, the authenticated `/merchant/flutter` host, controlled Merchant-origin root entry, build/CI checks and documentation. No backend/schema/authentication redesign, new infrastructure or API key in Dart.
+- This instruction does not approve shipping unrelated unreleased main code or bypassing release/environment protection. A reviewed production-based scoped artifact and passing staging evidence remain required. No production deployment has been performed for this task at this point.
