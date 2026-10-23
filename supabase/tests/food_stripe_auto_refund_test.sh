@@ -108,7 +108,7 @@ create table public.food_stripe_payments(order_id uuid primary key references pu
   stripe_account_id text not null, checkout_session_id text unique, payment_intent_id text unique,
   amount_satang bigint not null, status text not null default 'pending', livemode boolean not null default false,
   application_fee_satang bigint not null default 0, application_fee_refunded_satang bigint not null default 0,
-  application_fee_refunded_at timestamptz, refunded_at timestamptz, last_error text, payment_method text, updated_at timestamptz default now());
+  application_fee_refunded_at timestamptz, paid_at timestamptz, refunded_at timestamptz, last_error text, payment_method text, updated_at timestamptz default now());
 create table public.food_order_events(order_id uuid, event_type text, from_status text, to_status text, note text, actor_id uuid);
 create table public.notifications(recipient_id uuid, actor_id uuid, type text, reason text);
 create table public.merchant_notifications(merchant_account_id uuid, recipient_user_id uuid, type text check (type in ('system','order','payment','staff')), reason text);
@@ -145,6 +145,35 @@ begin
   where id = p_order_id and payment_status in ('paid','refunded');
 end \$\$;
 grant execute on function public.test_webhook_refunded(uuid,text) to service_role;
+-- Same ledger upsert + order updates as food_apply_stripe_event (paid / refunded).
+create function public.test_apply_event(p_order_id uuid, p_session text, p_pi text, p_state text, p_refund_id text default null)
+  returns void language plpgsql security definer set search_path='' as \$\$
+begin
+  insert into public.food_stripe_payments(order_id, store_id, stripe_account_id, checkout_session_id, payment_intent_id,
+                                          amount_satang, status, paid_at, refunded_at)
+  select o.id, o.store_id, 'acct_test_ready', p_session, p_pi, 12000, p_state, now(),
+         case when p_state = 'refunded' then now() end
+  from public.food_orders o where o.id = p_order_id
+  on conflict (order_id) do update set
+    checkout_session_id = coalesce(excluded.checkout_session_id, public.food_stripe_payments.checkout_session_id),
+    payment_intent_id = coalesce(excluded.payment_intent_id, public.food_stripe_payments.payment_intent_id),
+    status = excluded.status,
+    paid_at = coalesce(public.food_stripe_payments.paid_at, excluded.paid_at),
+    refunded_at = coalesce(excluded.refunded_at, public.food_stripe_payments.refunded_at);
+  if p_state = 'paid' then
+    update public.food_orders
+    set payment_status = 'paid', payment_provider = 'stripe',
+        stripe_checkout_session_id = coalesce(p_session, stripe_checkout_session_id),
+        stripe_payment_intent_id = coalesce(p_pi, stripe_payment_intent_id), paid_at = coalesce(paid_at, now())
+    where id = p_order_id and payment_status in ('pending','issue','submitted','paid');
+  elsif p_state = 'refunded' then
+    update public.food_orders
+    set payment_status = 'refunded', refund_status = 'refunded',
+        stripe_refund_id = coalesce(p_refund_id, stripe_refund_id), refunded_at = coalesce(refunded_at, now())
+    where id = p_order_id and payment_status in ('paid','refunded');
+  end if;
+end \$\$;
+grant execute on function public.test_apply_event(uuid,text,text,text,text) to service_role;
 -- merchant_core_completion merchant_set_refund_status (no Stripe check) and
 -- food_transition_order's cancel of a paid order.
 create function public.test_set_refund_status(p_order_id uuid, p_status text) returns void
@@ -390,6 +419,48 @@ q "update public.food_orders set status='cancelled' where id='$D2'" >/dev/null
 q "update public.food_orders set payment_status='paid', payment_provider='stripe', stripe_payment_intent_id='pi_test_d2b' where id='$D2'" >/dev/null
 eq "$(q "select string_agg(reason || '=' || payment_intent_id, ',' order by reason) from public.food_stripe_jobs where order_id='$D2'")" \
   "duplicate_payment=pi_test_d2b,store_cancelled=pi_test_d2a" "duplicate after cancel: review job holds the duplicate, not the refunding one"
+
+# ZOKY-154: the ledger keeps the FIRST payment; a refund of the duplicate
+# never marks the order refunded; the first payment is still refunded on cancel.
+lg() { q "select status || '/' || payment_intent_id || '/' || checkout_session_id from public.food_stripe_payments where order_id='$1'"; }
+po() { q "select status || '/' || payment_status || '/' || refund_status || '/' || stripe_payment_intent_id || '/' || stripe_checkout_session_id from public.food_orders where id='$1'"; }
+G1=$(new_order "$STORE" app pending_acceptance pending "" "" "")
+G1NUM=$(q "select order_number from public.food_orders where id='$G1'")
+svc "select public.test_apply_event('$G1','cs_test_g1','pi_test_g1','paid')" >/dev/null
+svc "select public.test_apply_event('$G1','cs_test_g2','pi_test_g2','paid')" >/dev/null
+eq "$(lg "$G1")" "paid/pi_test_g1/cs_test_g1" "ledger keeps the first payment"
+eq "$(po "$G1")" "pending_acceptance/paid/none/pi_test_g1/cs_test_g1" "order keeps the first payment"
+eq "$(q "select status || ':' || payment_intent_id from public.food_stripe_jobs where order_id='$G1' and reason='duplicate_payment'")" "needs_attention:pi_test_g2" "duplicate review job bound to the duplicate"
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$G1NUM%ทีม ZOKY ตรวจสอบ%'")" "1" "merchant told about the duplicate once"
+svc "select public.test_apply_event('$G1','cs_test_g2','pi_test_g2','paid')" >/dev/null
+eq "$(q "select count(*) from public.food_stripe_jobs where order_id='$G1'")" "1" "replayed duplicate: one review job"
+svc "select public.test_apply_event('$G1',null,'pi_test_g2','refunded','re_test_dup')" >/dev/null
+eq "$(po "$G1")" "pending_acceptance/paid/none/pi_test_g1/cs_test_g1" "refund of the duplicate leaves the live order paid"
+eq "$(lg "$G1")" "paid/pi_test_g1/cs_test_g1" "ledger unchanged by the duplicate's refund"
+eq "$(q "select status || ':' || stripe_refund_id from public.food_stripe_jobs where order_id='$G1' and reason='duplicate_payment'")" "done:re_test_dup" "duplicate's refund attached to its review job"
+q "update public.food_orders set status='cancelled' where id='$G1'" >/dev/null
+eq "$(q "select status || ':' || payment_intent_id from public.food_stripe_jobs where order_id='$G1' and reason='store_cancelled'")" "queued:pi_test_g1" "store cancel still refunds the first payment (loss path closed)"
+svc "select public.test_apply_event('$G1',null,'pi_test_g1','refunded','re_test_g1')" >/dev/null
+eq "$(po "$G1")" "cancelled/refunded/refunded/pi_test_g1/cs_test_g1" "refund of the first payment resolves the order"
+eq "$(lg "$G1")" "refunded/pi_test_g1/cs_test_g1" "ledger refunded for the first payment"
+# Normal single payment: a pending ledger row without a PaymentIntent is filled in.
+G2=$(new_order "$STORE" app pending_acceptance pending "" cs_test_g3 "")
+ledger "$G2" cs_test_g3 "" pending
+svc "select public.test_apply_event('$G2','cs_test_g4','pi_test_g4','paid')" >/dev/null
+eq "$(lg "$G2")" "paid/pi_test_g4/cs_test_g4" "single payment after a method switch updates the ledger as before"
+eq "$(q "select count(*) from public.food_stripe_jobs where order_id='$G2'")" "0" "no duplicate job for a single payment"
+
+# ZOKY-155: a payment after the order was cancelled AND refunded is caught.
+G3=$(new_order "$STORE" app pending_acceptance pending "" "" "")
+svc "select public.test_apply_event('$G3','cs_test_g5','pi_test_g5','paid')" >/dev/null
+q "update public.food_orders set status='cancelled' where id='$G3'" >/dev/null
+JG3=$(q "select id from public.food_stripe_jobs where order_id='$G3' and reason='store_cancelled'")
+svc "select public.food_complete_stripe_job('$JG3','refunded','re_test_g5')" >/dev/null
+svc "select public.test_apply_event('$G3','cs_test_g6','pi_test_g6','paid')" >/dev/null
+eq "$(po "$G3")" "cancelled/refunded/refunded/pi_test_g5/cs_test_g5" "refunded order unchanged by a late payment"
+eq "$(lg "$G3")" "refunded/pi_test_g5/cs_test_g5" "ledger stays refunded for the first payment"
+eq "$(q "select status || ':' || payment_intent_id from public.food_stripe_jobs where order_id='$G3' and reason='duplicate_payment'")" "needs_attention:pi_test_g6" "late payment gets a review job"
+eq "$(q "select count(*) from public.food_order_events where order_id='$G3' and event_type='refund_needs_attention'")" "1" "late payment notifies"
 
 # PR #1231 (4): a polled refund that keeps failing to load is capped too.
 P8=$(new_order "$STORE" app preparing paid stripe cs_test_p8 pi_test_p8)

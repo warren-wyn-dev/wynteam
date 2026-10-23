@@ -327,7 +327,34 @@ as $$
 declare
   v_from timestamptz;
   v_role text := auth.role();
+  v_foreign_pi text;
+  v_dup_job uuid;
 begin
+  -- ZOKY-154: food_stripe_payments_keep_first flagged this statement as an
+  -- event for ANOTHER PaymentIntent of this order (a duplicate payment).
+  -- Its refund must not mark the order refunded (the first payment is still
+  -- held); it is attached to the duplicate review job instead.
+  if current_setting('wynos.food_foreign_pi_order', true) = new.id::text then
+    v_foreign_pi := nullif(current_setting('wynos.food_foreign_pi', true), '');
+    if new.payment_status = 'refunded' or new.refund_status = 'refunded' then
+      update public.food_stripe_jobs
+      set status = 'done', stripe_refund_id = coalesce(new.stripe_refund_id, stripe_refund_id),
+          last_error_code = 'duplicate_refunded', locked_until = null,
+          completed_at = now(), updated_at = now()
+      where order_id = new.id and reason = 'duplicate_payment'
+        and payment_intent_id = v_foreign_pi and status <> 'done';
+      insert into public.food_order_events(order_id, event_type, note, actor_id)
+      values (new.id, 'duplicate_payment_refunded',
+              'คืนเงินรายการที่ชำระซ้ำแล้ว (' || coalesce(v_foreign_pi, '-') || ')', null);
+    end if;
+    new.payment_status := old.payment_status;
+    new.refund_status := old.refund_status;
+    new.refunded_at := old.refunded_at;
+    new.stripe_refund_id := old.stripe_refund_id;
+    new.stripe_payment_intent_id := old.stripe_payment_intent_id;
+    new.stripe_checkout_session_id := old.stripe_checkout_session_id;
+  end if;
+
   -- ZOKY-150: the payment state of a Stripe-paid order belongs to Stripe.
   -- Client requests (anon/authenticated JWT, e.g. any live version of
   -- food_set_payment_status or merchant_set_refund_status) cannot change it
@@ -361,7 +388,9 @@ begin
   -- Stripe order (two Checkout sessions). The order keeps its FIRST payment
   -- (the one a cancel refund job targets) and the review job is bound to the
   -- NEW PaymentIntent, so the operator refunds the duplicate. Not
-  -- auto-refunded in this step: parked for review (P1).
+  -- auto-refunded in this step: parked for review (P1). Normally
+  -- food_stripe_payments_keep_first already did this (and the block above
+  -- kept the first PI); this covers orders without a ledger PaymentIntent.
   if old.payment_status = 'paid' and new.payment_status = 'paid'
      and old.payment_provider = 'stripe' and new.payment_provider = 'stripe'
      and old.stripe_payment_intent_id is not null
@@ -373,11 +402,13 @@ begin
             'duplicate_payment:' || new.id || ':' || new.stripe_payment_intent_id,
             'duplicate_payment', 'needs_attention',
             new.stripe_checkout_session_id, new.stripe_payment_intent_id, 'duplicate_payment_review')
-    on conflict (dedupe_key) do nothing;
-    if found then
+    on conflict (dedupe_key) do nothing
+    returning id into v_dup_job;
+    if v_dup_job is not null then
       insert into public.food_order_events(order_id, event_type, note, actor_id)
-      values (new.id, 'refund_needs_attention',
+      values (new.id, 'duplicate_payment',
               'ได้รับชำระเงินซ้ำ (' || new.stripe_payment_intent_id || ') ทีม ZOKY จะตรวจสอบและคืนเงินรายการที่ซ้ำ', null);
+      perform internal.food_stripe_job_attention(v_dup_job);
     end if;
     new.stripe_payment_intent_id := old.stripe_payment_intent_id;
     new.stripe_checkout_session_id := old.stripe_checkout_session_id;
@@ -513,9 +544,70 @@ end;
 $$;
 revoke all on function internal.food_orders_require_stripe_ready() from public, anon, authenticated;
 
+-- ZOKY-154/155: one food_stripe_payments row per order. food_apply_stripe_event
+-- (not redefined) upserts it with the PaymentIntent/session of each event, so
+-- a second payment would overwrite the first. Once the row holds a paid (or
+-- refunded) PaymentIntent, an event for a DIFFERENT PaymentIntent keeps the
+-- first one on the ledger (the webhook resolves refunds through it), flags
+-- the statement for food_orders_payment_guard, and a duplicate PAYMENT gets
+-- a needs_attention review job bound to the new PaymentIntent, also when the
+-- order was already refunded (no food_orders trigger fires then).
+create or replace function internal.food_stripe_payments_keep_first()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_job_id uuid;
+begin
+  if old.payment_intent_id is null or old.status not in ('paid','refunded')
+     or new.payment_intent_id is null
+     or new.payment_intent_id is not distinct from old.payment_intent_id then
+    return new;
+  end if;
+
+  perform set_config('wynos.food_foreign_pi_order', old.order_id::text, true);
+  perform set_config('wynos.food_foreign_pi', new.payment_intent_id, true);
+
+  if new.status = 'paid' then
+    insert into public.food_stripe_jobs(kind, order_id, store_id, dedupe_key, reason, status,
+                                        checkout_session_id, payment_intent_id, last_error_code)
+    select 'refund', o.id, o.store_id,
+           'duplicate_payment:' || o.id || ':' || new.payment_intent_id,
+           'duplicate_payment', 'needs_attention',
+           new.checkout_session_id, new.payment_intent_id, 'duplicate_payment_review'
+    from public.food_orders o where o.id = old.order_id
+    on conflict (dedupe_key) do nothing
+    returning id into v_job_id;
+    if v_job_id is not null then
+      insert into public.food_order_events(order_id, event_type, note, actor_id)
+      values (old.order_id, 'duplicate_payment',
+              'ได้รับชำระเงินซ้ำ (' || new.payment_intent_id || ') ทีม ZOKY จะตรวจสอบและคืนเงินรายการที่ซ้ำ', null);
+      perform internal.food_stripe_job_attention(v_job_id);
+    end if;
+  end if;
+
+  new.payment_intent_id := old.payment_intent_id;
+  new.checkout_session_id := old.checkout_session_id;
+  new.status := old.status;
+  new.paid_at := old.paid_at;
+  new.refunded_at := old.refunded_at;
+  new.last_error := old.last_error;
+  new.payment_method := old.payment_method;
+  return new;
+end;
+$$;
+revoke all on function internal.food_stripe_payments_keep_first() from public, anon, authenticated;
+
+drop trigger if exists food_stripe_payments_keep_first on public.food_stripe_payments;
+create trigger food_stripe_payments_keep_first
+before update on public.food_stripe_payments
+for each row execute function internal.food_stripe_payments_keep_first();
+
 drop trigger if exists food_orders_payment_guard on public.food_orders;
 create trigger food_orders_payment_guard
-before update of status, payment_status, payment_provider, refund_status, stripe_payment_intent_id on public.food_orders
+before update of status, payment_status, payment_provider, refund_status, stripe_payment_intent_id, stripe_refund_id on public.food_orders
 for each row execute function internal.food_orders_payment_guard();
 
 drop trigger if exists food_orders_payment_jobs on public.food_orders;
