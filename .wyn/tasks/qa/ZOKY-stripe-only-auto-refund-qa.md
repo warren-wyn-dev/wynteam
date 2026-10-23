@@ -264,5 +264,141 @@ Same as round 1:
 - Then a short re-test and a Stripe test-mode E2E for PromptPay refunds before Founder Gate.
 - Everything else in the money path (refund correctness, double-refund protection, authz, Stripe-only/PromptPay-only enforcement, policy-OFF parity, rollback paths) passed.
 
-Final Status: FAIL
+Re-test 2 status: FAIL
 → AI Debug Engineer, with ZOKY-153 (MEDIUM, a regression introduced by the ZOKY-147 fix on the main PromptPay refund path) plus the LOW items above. The Founder/CTO may instead explicitly accept ZOKY-153 as a documented risk; if they do, nothing else blocks the QA gate.
+
+---
+
+## Re-test 3 (2026-10-23, focused on ZOKY-153)
+
+Environment:
+- payjobs feat/zoky-stripe-jobs-db @ 869e1705:
+  - `stripe-webhook` now maps `charge.refunded` to noop;
+  - it marks refunded only on `refund.created`, `refund.updated` or `charge.refund.updated` with status `succeeded` and the full amount (new `_lib.ts` plus tests);
+  - the worker revert stays as a safety net;
+  - the team name is now "ทีม ZOKY".
+- payweb code is unchanged since 7d40229e (docs only).
+- Throwaway PG16, removed afterwards.
+
+### Results
+| Suite | Result |
+|---|---|
+| Developer SQL `food_stripe_auto_refund_test.sh` | 140/140 PASS |
+| deno backend (`--allow-read`) | 144/144 PASS; `deno check` stripe-webhook + worker pass |
+| Developer `dbg/t153.sh` | 7/7 PASS |
+| t1 authz / t2 flows | 31/31, 37/37 |
+| t3 policy ON (both live variants) | Same intended flips as Re-test 2 (social refused, card-only store refused, Stripe→refunded refused) |
+| t4 policy-OFF parity | Unchanged: only the audit event `refund_auto_queued` differs |
+| t5 PromptPay (still simulates the old `charge.refunded`→refunded mapping, so it exercises the safety net) | Same flips as Re-test 2: a failed refund ends `paid/failed` with notifications |
+| t6 (harness fixed to expect true/false; `charge.refunded` simulated as noop; new no-job/refund.* section) | 43/43 PASS |
+| `promptpay_refund_test.ts` | The worker polls and reports `failed` (fixed) |
+
+### What was checked
+**ZOKY-153**
+- Three `charge.refunded` events while a PromptPay refund waits → the order stays `cancelled/paid/pending/awaiting=true`.
+- The buyer's "ชำระเงิน…สำเร็จแล้ว" count stays 1 → 1 (was 1 → 4 in Re-test 2).
+- `refund.updated succeeded` arrives before the worker → order refunded; the worker poll then sees succeeded → done.
+- The customer gets "คืนเงินออเดอร์…แล้ว" exactly once, with no spurious payment notification.
+
+**Webhook diff review**
+- `orderId` for Refund objects is resolved through `metadata.wynos_order_id` (set by both the worker and merchant-stripe-refund) or `payment_intent` → `food_stripe_payments`.
+- Amount check: only a full succeeded refund counts. Partial, unknown total, `pending`, `requires_action` and `failed` → noop.
+- `refund.failed` is recorded only.
+- Non-refund events are unchanged; the code is a pure extraction into `_lib.ts`.
+- The release branch's `stripe-webhook` equals main before this change, and the ZOKY exception workflow does not deploy `stripe-webhook`. So it ships only from main through `deploy-edge-functions.yml`, and nothing overwrites it with the old version.
+
+### Regression analysis (the coordinator's questions)
+**Slip / manual flows: no change.**
+- Refunds of non-Stripe orders go through `merchant_set_refund_status` / `food_set_payment_status`.
+- They never depend on the webhook.
+
+**Orders with an automatic refund job: no webhook dependency.**
+- The worker polls its own refund to `succeeded` and writes `refunded` itself.
+- This covers every Stripe order cancelled after the `jobs` step.
+
+**Orders without a job — the only path that changes:**
+- The merchant legacy button on older orders (under the policy it is kept for orders with no job; CTO C3).
+- A refund from the Stripe Dashboard.
+- Backfilled orders become job orders, so they are covered.
+
+For these orders:
+- They reach `refunded` only through `refund.created`, `refund.updated` or `charge.refund.updated` with `succeeded`. Verified in t6: a no-job order + `refund.updated succeeded` → `cancelled/refunded/refunded`, and no job is created.
+- `merchant-stripe-refund` itself writes only `refund_status='pending'` + `stripe_refund_id`. The final state always came from the webhook.
+- Before this change, `charge.refunded` alone was enough.
+
+**If the production endpoint is NOT subscribed to `refund.*` (only `charge.refunded`):**
+- No-job orders refunded by the legacy button or the Dashboard stay `refund_status='pending'` forever.
+- The customer keeps seeing "กำลังคืนเงิน", and the merchant sees a pending refund.
+- The money is still refunded; only the status is wrong.
+- This is a regression vs today (MEDIUM, operational). If the endpoint is subscribed, nothing changes, because the `refund.*` mapping already existed before this change.
+
+### Required preflight (read-only) and deploy order
+**1. Webhook event evidence (SQL, counts only).** The webhook records every event in `food_stripe_webhook_events` before it processes it:
+
+```sql
+select event_type, count(*) as events, max(received_at) as last_received
+from public.food_stripe_webhook_events
+where event_type in ('charge.refunded','refund.created','refund.updated','refund.failed','charge.refund.updated')
+group by event_type order by event_type;
+```
+
+- **Pass:** at least one of `refund.created` / `refund.updated` / `charge.refund.updated` has been received since `charge.refunded` started appearing.
+- **No rows at all:** inconclusive. Go by the Stripe Dashboard check.
+- **Only `charge.refunded`:** the endpoint is not subscribed to `refund.*`. The Founder must add those events first.
+
+**2. Stripe Dashboard (Founder, read-only check).**
+- Location: Developers → Webhooks → the Connect ("events on connected accounts") endpoint that points to `/functions/v1/stripe-webhook`.
+- Its event list must include `refund.created`, `refund.updated`, `refund.failed` and `charge.refund.updated`.
+- Keep `charge.refunded`; it is harmless.
+- Also confirm the endpoint API version sends Refund objects for these events.
+
+**3. Legacy in-flight count, to watch after deploy:**
+
+```sql
+select count(*) from public.food_orders o
+where o.payment_provider='stripe' and o.refund_status='pending' and o.stripe_refund_id is not null
+  and (to_regclass('public.food_stripe_jobs') is null or not exists
+       (select 1 from public.food_stripe_jobs j where j.order_id=o.id and j.kind='refund'));
+```
+
+The number should fall as the `refund.*` events arrive.
+
+Recommend adding checks 1 and 3 to the `preflight` step of `food-apply-zoky-stripe-jobs.yml`.
+
+**Deploy order (each step Founder-gated):**
+0. preflight: function definitions + checks 1–3 + the Dashboard event list confirmed.
+1. Deploy `stripe-webhook` from main (`deploy-edge-functions.yml`, option `stripe-webhook`). Then verify in Stripe test mode: a refund in pending → succeeded marks the order refunded only on succeeded, and `charge.refunded` is noop.
+2. Deploy `food-stripe-refund-worker`.
+3. `jobs`.
+4. `cron`. Must come after step 1, as the migration header says, so the safety-net revert is not hit by old `charge.refunded` handling.
+5. ZOKY EDGE/PHASE.
+6. Watch 24–48 h.
+7. `activate`.
+
+`backfill` is optional, after `cron`, once the candidates have been reviewed with the merchants (Re-test 2 note).
+
+### Bug status after Re-test 3
+| ID | Status |
+|---|---|
+| ZOKY-147, 148, 149, 150, 151 | Fixed, verified (Re-test 2), no regression in Re-test 3 |
+| ZOKY-153 MEDIUM | **Fixed, verified**. Condition: preflight checks 1–2 above |
+| ZOKY-152 LOW | Open, deferrable (`internal.food_order_status_notify` text) |
+| ZOKY-148 residual LOW | Customer view of a parked refund still shows the "ตรวจอีเมลจาก Stripe" copy |
+| Team name | Fixed on the DB side ("ทีม ZOKY"). The web `retryStripeRefund` PGRST202 copy still says "ทีม WYNOS" (LOW) |
+
+### Still not testable here
+- Real Stripe test mode: refund event ordering and the event subscription itself; PromptPay refund email/`requires_action`; the ฿10 PromptPay refund fee.
+- pg_cron, pg_net and Vault.
+- HTTP-level edge functions.
+- WebKit/desktop Playwright.
+- A Stripe test-mode E2E is still required at the Staging/Founder gate.
+
+## Final Status: PASS
+
+The QA & Security gate for the code passed, with no CRITICAL, HIGH or MEDIUM issue open. Conditions carried into the rollout, each Founder-gated:
+- (a) Run preflight checks 1–2 and confirm the `refund.*` webhook subscription before deploying `stripe-webhook`.
+- (b) Follow the deploy order above, with `stripe-webhook` deployed before `cron`.
+- (c) Pass the Stripe test-mode E2E for PromptPay refunds before Founder Gate.
+
+Open LOW items (ZOKY-152, ZOKY-148 customer copy, one "ทีม WYNOS" string, backfill review) can follow.
+→ CTO final review, then AI Deploy & DevOps.

@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-153
 
-Status: bugs
+Status: approved (fixed and verified in Re-test 3, 2026-10-23: payjobs 869e1705 — stripe-webhook no longer marks refunded on charge.refunded; 0 spurious notifications. Condition: the production webhook endpoint must be subscribed to refund.* events, see the QA doc Re-test 3)
 Owner: AI Debug Engineer
 Severity: MEDIUM (a misleading money notification and push on the main PromptPay refund path; no money is moved wrongly)
 Found in: Re-test 2 (payjobs 99c74881)
