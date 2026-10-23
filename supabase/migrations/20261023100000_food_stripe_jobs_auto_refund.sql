@@ -28,6 +28,13 @@
 -- the customer is told to check Stripe's email; a refund that later fails or
 -- is canceled always ends as payment_status='paid', refund_status='failed'
 -- with customer and merchant notifications, so the merchant can retry.
+-- ZOKY-153: stripe-webhook marks an order refunded only for a succeeded
+-- full Refund (never on charge.refunded), so putting a refunded order back
+-- to paid is a safety net only (legacy charge.refunded rows from before that
+-- webhook change, or a refund Stripe fails after success). It goes through
+-- the existing food_order_notify trigger, which announces every change to
+-- payment_status='paid' ("ชำระเงิน...สำเร็จแล้ว"); that function is not
+-- redefined here (CTO), so deploy the stripe-webhook change before cron.
 -- The food-stripe-refund-worker Edge Function executes the jobs at Stripe.
 --
 -- Safe defaults: the policy row is created with stripe_only_from = NULL
@@ -282,11 +289,11 @@ begin
     return;
   end if;
   insert into public.food_order_events(order_id, event_type, note, actor_id)
-  values (v_order_id, 'refund_needs_attention', 'คืนเงินอัตโนมัติต้องให้ทีม WYNOS ตรวจสอบ', null);
+  values (v_order_id, 'refund_needs_attention', 'คืนเงินอัตโนมัติต้องให้ทีม ZOKY ตรวจสอบ', null);
   perform internal.food_stripe_refund_notify(
     v_order_id, null,
     'WYNOS Merchant · คืนเงินอัตโนมัติออเดอร์ #' || v_number
-      || ' ต้องให้ทีม WYNOS ตรวจสอบ ยังไม่ต้องกดคืนเงินเอง ทีมงานจะติดต่อกลับ'
+      || ' ต้องให้ทีม ZOKY ตรวจสอบ ยังไม่ต้องกดคืนเงินเอง ทีมงานจะติดต่อกลับ'
   );
 end;
 $$;
@@ -657,8 +664,11 @@ begin
       values (j.order_id, 'refund_requested', 'ส่งคำขอคืนเงินไปที่ Stripe แล้ว (' || p_refund_id || ')', null);
     end if;
 
-    -- The refund is not final: the order must not claim it is refunded
-    -- (the webhook's charge.refunded may already have said so).
+    -- The refund is not final: the order must not claim it is refunded.
+    -- Safety net only (see ZOKY-153 in the header): with the current
+    -- stripe-webhook an order is refunded only by a succeeded refund, which
+    -- the worker then also sees as succeeded, so this revert is not reached
+    -- in normal flows.
     select * into o from public.food_orders
     where id = j.order_id
       and payment_provider = 'stripe'

@@ -362,7 +362,7 @@ q "update public.food_orders set status='cancelled' where id='$P4'" >/dev/null
 JP4=$(q "select id from public.food_stripe_jobs where order_id='$P4' and kind='refund'")
 P4NUM=$(q "select order_number from public.food_orders where id='$P4'")
 eq "$(svc "select public.food_complete_stripe_job('$JP4','needs_attention',null,'partial_refund_exists')")" "needs_attention" "job parked"
-eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$P4NUM%ต้องให้ทีม WYNOS ตรวจสอบ%'")" "1" "merchant told an operator will check"
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$P4NUM%ต้องให้ทีม ZOKY ตรวจสอบ%'")" "1" "merchant told an operator will check"
 eq "$(q "select count(*) from public.food_order_events where order_id='$P4' and event_type='refund_needs_attention'")" "1" "needs_attention audit event"
 expect_fail "admin list refused for anon" anon "" "select * from public.admin_food_refund_jobs()" "permission denied"
 expect_fail "admin list refused without food:view" authenticated "$OWNER" "select * from public.admin_food_refund_jobs()" "Not authorized"

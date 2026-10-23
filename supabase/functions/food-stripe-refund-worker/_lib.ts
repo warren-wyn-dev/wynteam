@@ -14,8 +14,9 @@
  *
  * Refund truth (ZOKY-147): a refund is final only when Stripe says
  * `succeeded`. A requested refund is always polled to a final state, even if
- * the order row already says refunded (the webhook's charge.refunded can come
- * first). PromptPay refunds wait for the customer to give Stripe a bank
+ * the order row already says refunded (stripe-webhook now marks refunded only
+ * for a succeeded full Refund, ZOKY-153; older rows may still have come from
+ * charge.refunded). PromptPay refunds wait for the customer to give Stripe a bank
  * account (Stripe emails them): that is reported as `awaitingCustomer` so the
  * database can tell the customer to check the email.
  */
