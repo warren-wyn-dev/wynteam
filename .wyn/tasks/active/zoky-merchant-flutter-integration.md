@@ -27,3 +27,7 @@ Do not dispatch the general main production workflow while its final acceptance 
 Implementation and local verification complete: `npm run check` passed (351 Node tests, 23 Flutter tests, analysis, lint/typecheck and production build), focused Chromium mobile/desktop browser QA passed 10/10 with synthetic fixtures, and release-freeze validation passed. Evidence and hosted-verification limitations: `docs/qa/zoky-merchant-flutter/README.md`. Production remains blocked by staging/release gates; no deployment or root cutover has occurred. Review PR: https://github.com/warren-wyn-dev/wynteam/pull/1229.
 
 GitHub review follow-up fixed Stripe callback routing, no-slip receipt confirmation, preparation ETA, synchronous push permission, merchant-filtered store listing and deferred delivery-photo uploads. Residual private object after an ultimately failed delivery RPC and abandoned session is documented in the QA report; no immutable evidence policy was weakened.
+
+## Founder visual follow-up (2026-10-23)
+
+Match the live ZOKY consumer brand: pink gradient, berry actions, white surfaces and clear semantic status colors. See `docs/qa/zoky-merchant-flutter/brand-refresh.md`. The visual follow-up stays within the existing Merchant preview scope.

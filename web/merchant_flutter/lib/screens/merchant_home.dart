@@ -6,7 +6,8 @@ import '../data/merchant_controller.dart';
 import '../data/merchant_repository.dart';
 import 'order_dialogs.dart';
 
-const green = Color(0xFF087F5B), ink = Color(0xFF182B25);
+const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
+const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
 String money(dynamic value) =>
     '฿${(num.tryParse('$value') ?? 0).toStringAsFixed(2)}';
 String dateLabel(dynamic value) {
@@ -164,12 +165,12 @@ class _MerchantHomeState extends State<MerchantHome>
                       const Padding(
                         padding: EdgeInsets.fromLTRB(28, 28, 20, 0),
                         child: Text(
-                          'zoky.',
+                          'ZOKY',
                           style: TextStyle(
-                            color: green,
-                            fontSize: 44,
+                            color: brand,
+                            fontSize: 34,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: -3,
+                            letterSpacing: -1.8,
                           ),
                         ),
                       ),
@@ -178,7 +179,7 @@ class _MerchantHomeState extends State<MerchantHome>
                         child: Text(
                           'MERCHANT',
                           style: TextStyle(
-                            color: green,
+                            color: brand,
                             letterSpacing: 3,
                             fontSize: 11,
                           ),
@@ -192,8 +193,8 @@ class _MerchantHomeState extends State<MerchantHome>
                           ),
                           child: ListTile(
                             selected: page == i,
-                            selectedColor: green,
-                            selectedTileColor: const Color(0xFFE6F4EC),
+                            selectedColor: brand,
+                            selectedTileColor: const Color(0xFFFFEFF5),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -206,8 +207,8 @@ class _MerchantHomeState extends State<MerchantHome>
                       const Padding(
                         padding: EdgeInsets.all(24),
                         child: Text(
-                          'เติบโตไปด้วยกัน 🌱\nทุกออเดอร์คือโอกาสใหม่',
-                          style: TextStyle(color: green, height: 1.8),
+                          'ร้านของคุณ พร้อมเติบโต\nไปด้วยกันกับ ZOKY',
+                          style: TextStyle(color: brand, height: 1.8),
                         ),
                       ),
                     ],
@@ -228,10 +229,10 @@ class _MerchantHomeState extends State<MerchantHome>
                           const Padding(
                             padding: EdgeInsets.only(right: 12),
                             child: Text(
-                              'z.',
+                              'Z',
                               style: TextStyle(
                                 fontSize: 32,
-                                color: green,
+                                color: brand,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -306,7 +307,9 @@ class _MerchantHomeState extends State<MerchantHome>
                                     c.error == null
                                         ? Icons.cloud_done_outlined
                                         : Icons.cloud_off,
-                                    color: c.error == null ? green : Colors.red,
+                                    color: c.error == null
+                                        ? success
+                                        : Colors.red,
                                     size: 16,
                                   ),
                                   const SizedBox(width: 8),
@@ -314,10 +317,10 @@ class _MerchantHomeState extends State<MerchantHome>
                                     child: Text(
                                       c.updatedAt == null
                                           ? 'กำลังเชื่อมต่อร้านของคุณ'
-                                          : 'ข้อมูลจริง • อัปเดต ${dateLabel(c.updatedAt!.toIso8601String())}',
+                                          : 'อัปเดตล่าสุด ${dateLabel(c.updatedAt!.toIso8601String())}',
                                       style: const TextStyle(
                                         fontSize: 11,
-                                        color: Colors.grey,
+                                        color: Color(0xFF6B6B76),
                                       ),
                                     ),
                                   ),
@@ -334,7 +337,7 @@ class _MerchantHomeState extends State<MerchantHome>
                                       const Icon(
                                         Icons.storefront_outlined,
                                         size: 52,
-                                        color: green,
+                                        color: brand,
                                       ),
                                       const SizedBox(height: 16),
                                       const Text(
@@ -431,7 +434,7 @@ class _MerchantHomeState extends State<MerchantHome>
             Text(
               title,
               style: const TextStyle(
-                fontSize: 28,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
                 color: ink,
               ),
@@ -439,7 +442,7 @@ class _MerchantHomeState extends State<MerchantHome>
             const SizedBox(height: 6),
             Text(
               subtitle,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
+              style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 13),
             ),
           ],
         ),
@@ -462,9 +465,19 @@ class _MerchantHomeState extends State<MerchantHome>
     Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: green),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: brandSoft,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: brand, size: 22),
+        ),
         const SizedBox(height: 12),
-        Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(
+          title,
+          style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
+        ),
         Text(
           value,
           style: const TextStyle(
@@ -473,13 +486,19 @@ class _MerchantHomeState extends State<MerchantHome>
             color: ink,
           ),
         ),
-        Text(hint, style: const TextStyle(fontSize: 11, color: green)),
+        Text(
+          hint,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B76)),
+        ),
       ],
     ),
   );
   Widget stats() => LayoutBuilder(
     builder: (context, size) {
-      final cols = size.maxWidth >= 800 ? 4 : 2;
+      final largeText = MediaQuery.textScalerOf(context).scale(14) > 18;
+      final cols = size.maxWidth < 340 || largeText
+          ? 1
+          : (size.maxWidth >= 800 ? 4 : 2);
       final data = [
         metric(
           'ยอดขายวันนี้',
@@ -520,13 +539,17 @@ class _MerchantHomeState extends State<MerchantHome>
     },
   );
   List<Widget> dashboard() => [
-    heading('สวัสดี เจ้าของร้าน 👋', 'ดูแลทุกออเดอร์ เติบโตไปด้วยกัน'),
+    heading('ภาพรวมร้านวันนี้', 'ทุกออเดอร์ จัดการได้ในที่เดียว'),
     Container(
       padding: const EdgeInsets.all(24),
       margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
-        color: ink,
-        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF93384), Color(0xFFEE226E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
         children: [
@@ -545,16 +568,19 @@ class _MerchantHomeState extends State<MerchantHome>
                 const SizedBox(height: 10),
                 Text(
                   c.store!['is_open'] == true
-                      ? 'เปิดรับออเดอร์ • อัปเดตอัตโนมัติทุก 20 วินาที'
+                      ? 'ร้านเปิดอยู่ • พร้อมรับออเดอร์ใหม่'
                       : 'ร้านปิดรับออเดอร์อยู่',
-                  style: const TextStyle(color: Color(0xFFB7D6C8)),
+                  style: const TextStyle(
+                    color: ink,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 18),
                 FilledButton(
                   onPressed: () => navigate(1),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFD8F28C),
-                    foregroundColor: ink,
+                    backgroundColor: Colors.white,
+                    foregroundColor: brand,
                   ),
                   child: const Text('จัดการออเดอร์ →'),
                 ),
@@ -562,7 +588,7 @@ class _MerchantHomeState extends State<MerchantHome>
             ),
           ),
           const SizedBox(width: 8),
-          const Icon(Icons.ramen_dining, color: Color(0xFFD8F28C), size: 48),
+          const Icon(Icons.ramen_dining, color: Color(0xFFFFEFF5), size: 48),
         ],
       ),
     ),
@@ -584,7 +610,7 @@ class _MerchantHomeState extends State<MerchantHome>
       (p) => box(
         Row(
           children: [
-            const Icon(Icons.local_offer_outlined, color: green),
+            const Icon(Icons.local_offer_outlined, color: brand),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -596,7 +622,10 @@ class _MerchantHomeState extends State<MerchantHome>
                   ),
                   Text(
                     campaignLabel(p),
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: const TextStyle(
+                      color: Color(0xFF6B6B76),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -671,7 +700,7 @@ class _MerchantHomeState extends State<MerchantHome>
     const SizedBox(height: 12),
     const Text(
       'อัปเดตผ่าน Realtime และตรวจข้อมูลซ้ำทุก 20 วินาที',
-      style: TextStyle(color: Colors.grey, fontSize: 12),
+      style: TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
     ),
   ];
   Widget orderCard(Json o) {
@@ -698,19 +727,25 @@ class _MerchantHomeState extends State<MerchantHome>
               ),
               Chip(
                 label: Text(orderStatuses[status] ?? status),
-                backgroundColor: const Color(0xFFEDF5EE),
+                backgroundColor: status == 'delivered'
+                    ? const Color(0xFFE9F7EF)
+                    : brandSoft,
+                labelStyle: TextStyle(
+                  color: status == 'delivered' ? success : brand,
+                  fontWeight: FontWeight.w600,
+                ),
                 side: BorderSide.none,
               ),
             ],
           ),
           Text(
             '${o['recipient_name']} • ${dateLabel(o['created_at'])}',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
+            style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
           ),
           if (o['scheduled_for'] != null)
             Text(
               'นัดส่ง: ${dateLabel(o['scheduled_for'])}',
-              style: const TextStyle(color: green),
+              style: const TextStyle(color: brand),
             ),
           const Divider(height: 28),
           for (final item in (o['food_order_items'] as List? ?? []))
@@ -727,7 +762,10 @@ class _MerchantHomeState extends State<MerchantHome>
                       (item['selected_options'] as List).isNotEmpty)
                     Text(
                       optionLabel(item['selected_options'] as List),
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                      style: const TextStyle(
+                        color: Color(0xFF6B6B76),
+                        fontSize: 12,
+                      ),
                     ),
                   if ((item['item_note'] ?? '').toString().isNotEmpty)
                     Text(
@@ -749,7 +787,7 @@ class _MerchantHomeState extends State<MerchantHome>
             paymentStatuses[o['payment_status']] ?? o['payment_status'],
             style: TextStyle(
               color: o['payment_status'] == 'paid'
-                  ? green
+                  ? success
                   : Colors.orange.shade800,
               fontWeight: FontWeight.bold,
             ),
@@ -763,7 +801,7 @@ class _MerchantHomeState extends State<MerchantHome>
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
                   'รอระบบยืนยันการชำระเงินอัตโนมัติ',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
                 ),
               )
             else if (o['payment_slip_path'] != null ||
@@ -795,14 +833,14 @@ class _MerchantHomeState extends State<MerchantHome>
           const SizedBox(height: 8),
           Text(
             'อาหาร ${money(o['subtotal'])} • ค่าส่ง ${money(o['delivery_fee'])}',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
+            style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
           ),
           if ((num.tryParse('${o['campaign_discount']}') ?? 0) +
                   (num.tryParse('${o['delivery_discount']}') ?? 0) >
               0)
             Text(
               'ส่วนลด ${money((num.tryParse('${o['campaign_discount']}') ?? 0) + (num.tryParse('${o['delivery_discount']}') ?? 0))}',
-              style: const TextStyle(fontSize: 12, color: green),
+              style: const TextStyle(fontSize: 12, color: brand),
             ),
           const SizedBox(height: 14),
           Wrap(
@@ -971,10 +1009,10 @@ class _MerchantHomeState extends State<MerchantHome>
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEDF5EE),
+                    color: const Color(0xFFFFEFF5),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.restaurant, color: green),
+                  child: const Icon(Icons.restaurant, color: brand),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -987,7 +1025,7 @@ class _MerchantHomeState extends State<MerchantHome>
                       ),
                       Text(
                         '${m['category']} • ${money(m['price'])}',
-                        style: const TextStyle(color: green, fontSize: 12),
+                        style: const TextStyle(color: brand, fontSize: 12),
                       ),
                       if (m['sold_out_until'] != null)
                         Text(
@@ -1002,19 +1040,22 @@ class _MerchantHomeState extends State<MerchantHome>
                 ),
                 if (c.canManage)
                   IconButton(
-                    tooltip: 'แก้ไขเมนู',
+                    tooltip: 'แก้ไขเมนู ${m['name']}',
                     onPressed: c.writable ? () => editMenu(m) : null,
                     icon: const Icon(Icons.edit_outlined),
                   ),
-                Switch(
-                  value: m['is_available'] == true,
-                  onChanged: c.writable && c.canManage
-                      ? (v) => c.mutate(
-                          () => widget.repository.saveMenu(c.storeId!, {
-                            'is_available': v,
-                          }, id: m['id']),
-                        )
-                      : null,
+                Semantics(
+                  label: 'เปิดขาย ${m['name']}',
+                  child: Switch(
+                    value: m['is_available'] == true,
+                    onChanged: c.writable && c.canManage
+                        ? (v) => c.mutate(
+                            () => widget.repository.saveMenu(c.storeId!, {
+                              'is_available': v,
+                            }, id: m['id']),
+                          )
+                        : null,
+                  ),
                 ),
               ],
             ),
@@ -1057,7 +1098,7 @@ class _MerchantHomeState extends State<MerchantHome>
     ),
     const Text(
       'ยอดขายแสดงยอดรวมที่ลูกค้าชำระของออเดอร์สำเร็จ ยังไม่หัก GP หรือค่าธรรมเนียม',
-      style: TextStyle(fontSize: 12, color: Colors.grey),
+      style: TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
     ),
   ];
   Widget summary(String label, String value) => Padding(
@@ -1067,7 +1108,7 @@ class _MerchantHomeState extends State<MerchantHome>
         Expanded(child: Text(label)),
         Text(
           value,
-          style: const TextStyle(fontWeight: FontWeight.bold, color: green),
+          style: const TextStyle(fontWeight: FontWeight.bold, color: brand),
         ),
       ],
     ),
@@ -1078,7 +1119,7 @@ class _MerchantHomeState extends State<MerchantHome>
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.storefront_outlined, size: 56, color: green),
+          const Icon(Icons.storefront_outlined, size: 56, color: brand),
           const SizedBox(height: 12),
           Text(
             c.store!['name'],

@@ -362,6 +362,7 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
             children: [
               DropdownButtonFormField<String>(
                 initialValue: method,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'วิธีส่ง'),
                 items: const [
                   DropdownMenuItem(
@@ -370,7 +371,10 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
                   ),
                   DropdownMenuItem(
                     value: 'dropoff',
-                    child: Text('วางอาหารตามจุดนัดหมาย'),
+                    child: Text(
+                      'วางอาหารตามจุดนัดหมาย',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
                 onChanged: saving || selecting
