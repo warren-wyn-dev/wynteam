@@ -3,6 +3,8 @@
 -- return to legacy payment behaviour, then remove the triggers so no new jobs
 -- are queued. Tables, job history, functions and the Vault key are kept for
 -- audit/reconciliation (dropping them is a separate, destructive change).
+-- The food_orders.refund_awaiting_customer column is also kept (additive,
+-- default false; nothing writes it once the worker stops).
 -- Refund jobs still queued are NOT executed after this; reconcile them with
 --   select id, order_id, kind, status, last_error_code from public.food_stripe_jobs
 --   where status in ('queued','awaiting_refund');

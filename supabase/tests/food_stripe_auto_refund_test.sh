@@ -15,6 +15,12 @@
 #   5. Policy off = legacy; policy on = order gate, slip/manual block, legacy
 #      in-flight slip exception, manual orders excluded.
 #   6. Vault cron key + tick; rollback keeps tables and restores legacy.
+#   7. QA fixes: ZOKY-147 (PromptPay refund waiting for the customer's bank
+#      account, webhook flagged refunded early, later failure -> paid/failed +
+#      notifications, GP booked on success only), ZOKY-148 (needs_attention
+#      notifies the merchant, admin list), ZOKY-150 (client paths cannot change
+#      a Stripe-paid order's payment state), ZOKY-151 (source<>'manual'),
+#      PromptPay-only gate (Founder 2026-10-23), CTO C3 opt-in backfill.
 # Synthetic data only. Usage: PSQL="sudo -u postgres psql" supabase/tests/food_stripe_auto_refund_test.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -48,6 +54,8 @@ OTHER_ACCOUNT=00000000-0000-0000-0000-000000000045
 STORE=00000000-0000-0000-0000-000000000033
 UNREADY=00000000-0000-0000-0000-000000000034
 HIDDEN=00000000-0000-0000-0000-000000000035
+CARDONLY=00000000-0000-0000-0000-000000000036
+ADMIN=00000000-0000-0000-0000-000000000099
 
 run >/dev/null <<SQL
 do \$\$ begin create role anon; exception when duplicate_object then null; end \$\$;
@@ -100,7 +108,7 @@ create table public.food_stripe_payments(order_id uuid primary key references pu
   stripe_account_id text not null, checkout_session_id text unique, payment_intent_id text unique,
   amount_satang bigint not null, status text not null default 'pending', livemode boolean not null default false,
   application_fee_satang bigint not null default 0, application_fee_refunded_satang bigint not null default 0,
-  application_fee_refunded_at timestamptz, refunded_at timestamptz, last_error text, updated_at timestamptz default now());
+  application_fee_refunded_at timestamptz, refunded_at timestamptz, last_error text, payment_method text, updated_at timestamptz default now());
 create table public.food_order_events(order_id uuid, event_type text, from_status text, to_status text, note text, actor_id uuid);
 create table public.notifications(recipient_id uuid, actor_id uuid, type text, reason text);
 create table public.merchant_notifications(merchant_account_id uuid, recipient_user_id uuid, type text check (type in ('system','order','payment','staff')), reason text);
@@ -108,15 +116,43 @@ create function public.merchant_has_store_role(p_store_id uuid, p_roles text[] d
 returns boolean language sql stable security definer set search_path='' as \$\$
   select exists(select 1 from public.food_stores s join public.merchant_memberships mm on mm.merchant_account_id = s.merchant_account_id
     where s.id = p_store_id and mm.user_id = auth.uid() and mm.active and (p_roles is null or mm.role = any(p_roles))) \$\$;
+-- WYN219 stand-in: only ADMIN has food:view.
+create function internal.has_admin_permission(p_system text, p_level text) returns boolean
+  language sql stable security definer set search_path='' as \$\$ select auth.uid() = '$ADMIN'::uuid \$\$;
 grant usage on schema public, auth, internal to anon, authenticated, service_role;
 grant select on public.food_orders to authenticated;
+grant execute on function internal.has_admin_permission(text,text) to authenticated;
+-- Stand-ins for the legacy RPCs that write payment state:
+--  * merchant_core_completion food_set_payment_status (no Stripe check);
+--  * the stripe-webhook food_apply_stripe_event 'refunded' branch.
+create function public.test_set_payment_status(p_order_id uuid, p_status text) returns void
+  language plpgsql security definer set search_path='' as \$\$
+begin
+  update public.food_orders
+  set payment_status = p_status,
+      payment_provider = case when p_status in ('paid','issue') then 'merchant_manual' else payment_provider end,
+      refund_status = case when p_status = 'refunded' then 'refunded' else refund_status end
+  where id = p_order_id;
+end \$\$;
+grant execute on function public.test_set_payment_status(uuid,text) to authenticated, service_role;
+create function public.test_webhook_refunded(p_order_id uuid, p_refund_id text) returns void
+  language plpgsql security definer set search_path='' as \$\$
+begin
+  update public.food_stripe_payments set status='refunded', refunded_at=now() where order_id = p_order_id;
+  update public.food_orders
+  set payment_status='refunded', refund_status='refunded',
+      stripe_refund_id = coalesce(p_refund_id, stripe_refund_id), refunded_at = coalesce(refunded_at, now())
+  where id = p_order_id and payment_status in ('paid','refunded');
+end \$\$;
+grant execute on function public.test_webhook_refunded(uuid,text) to service_role;
 
 insert into public.merchant_memberships values ('$ACCOUNT','$OWNER','owner',true), ('$OTHER_ACCOUNT','$OTHER_MERCHANT','owner',true);
 insert into public.food_stores(id, merchant_account_id, name, is_published, stripe_payments_enabled) values
   ('$STORE','$ACCOUNT','Ready store',true,true), ('$UNREADY','$OTHER_ACCOUNT','Unready store',true,false),
-  ('$HIDDEN','$ACCOUNT','Hidden store',false,true);
+  ('$HIDDEN','$ACCOUNT','Hidden store',false,true), ('$CARDONLY','$OTHER_ACCOUNT','Card-only store',true,true);
 insert into public.food_stripe_accounts(store_id, stripe_account_id, details_submitted, charges_enabled, promptpay_enabled, status) values
-  ('$STORE','acct_test_ready',true,true,true,'ready'), ('$UNREADY','acct_test_unready',true,false,false,'restricted');
+  ('$STORE','acct_test_ready',true,true,true,'ready'), ('$UNREADY','acct_test_unready',true,false,false,'restricted'),
+  ('$CARDONLY','acct_test_card',true,true,false,'ready');
 SQL
 
 MIGRATION="$ROOT/supabase/migrations/20261023100000_food_stripe_jobs_auto_refund.sql"
@@ -127,14 +163,14 @@ pass "jobs migration applies twice"
 # 1. Privileges.
 eq "$(q "select count(*) from pg_class where relname in ('food_stripe_jobs','food_payment_policy') and relrowsecurity")" "2" "RLS on for new tables"
 eq "$(q "select has_table_privilege('authenticated','public.food_stripe_jobs','select') or has_table_privilege('anon','public.food_payment_policy','select') or has_table_privilege('authenticated','public.food_payment_policy','update')")" "f" "no client grants on new tables"
-for fn in "public.food_claim_stripe_jobs(integer)" "public.food_complete_stripe_job(uuid,text,text,text,boolean)" "public.food_refund_worker_cron_authorized(text)"; do
+for fn in "public.food_claim_stripe_jobs(integer)" "public.food_complete_stripe_job(uuid,text,text,text,boolean,boolean)" "public.food_refund_worker_cron_authorized(text)"; do
   eq "$(q "select has_function_privilege('authenticated','$fn','execute') or has_function_privilege('anon','$fn','execute')")" "f" "$fn not callable by clients"
   eq "$(q "select has_function_privilege('service_role','$fn','execute')")" "t" "$fn callable by service_role"
 done
 eq "$(q "select has_function_privilege('anon','public.merchant_retry_stripe_refund(uuid)','execute')")" "f" "merchant retry not callable by anon"
 eq "$(q "select has_function_privilege('anon','public.food_payment_policy_public()','execute') and has_function_privilege('anon','public.food_store_payment_options(uuid[])','execute')")" "t" "public RPCs callable by guests"
 eq "$(q "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-  where p.proname in ('food_claim_stripe_jobs','food_complete_stripe_job','food_refund_worker_cron_authorized','merchant_retry_stripe_refund','food_payment_policy_public','food_store_payment_options','food_orders_payment_guard','food_orders_payment_jobs','food_orders_require_stripe_ready','food_refund_worker_tick')
+  where p.proname in ('food_claim_stripe_jobs','food_complete_stripe_job','food_refund_worker_cron_authorized','merchant_retry_stripe_refund','food_payment_policy_public','food_store_payment_options','food_orders_payment_guard','food_orders_payment_jobs','food_orders_require_stripe_ready','food_refund_worker_tick','admin_food_refund_jobs','food_stripe_job_attention','food_stripe_job_fail')
     and (not p.prosecdef or not coalesce(array_to_string(p.proconfig,','),'') like '%search_path=\"\"%')")" "0" "security definer + empty search_path"
 expect_fail "claim refused for authenticated" authenticated "$OWNER" "select * from public.food_claim_stripe_jobs(5)" "permission denied"
 eq "$(q "select stripe_only_from is null from public.food_payment_policy")" "t" "policy installed off (NULL)"
@@ -235,10 +271,11 @@ q "update public.food_stripe_jobs set locked_until=null where status in ('queued
 J3=$(q "select id from public.food_stripe_jobs where order_id='$O3' and kind='refund'")
 q "update public.food_stripe_payments set status='paid', payment_intent_id='pi_test_o3', application_fee_satang=500 where order_id='$O3'" >/dev/null
 eq "$(svc "select public.food_complete_stripe_job('$J3','refund_requested','re_test_o3',null,true)")" "awaiting_refund" "refund requested -> awaiting_refund"
-eq "$(q "select stripe_refund_id || ':' || refund_status from public.food_orders where id='$O3'")" "re_test_o3:pending" "order carries the refund id"
-eq "$(q "select application_fee_refunded_satang from public.food_stripe_payments where order_id='$O3'")" "500" "GP fee refund recorded"
+eq "$(q "select stripe_refund_id || ':' || refund_status || ':' || refund_awaiting_customer from public.food_orders where id='$O3'")" "re_test_o3:pending:false" "order carries the refund id"
+eq "$(q "select application_fee_refunded_satang from public.food_stripe_payments where order_id='$O3'")" "0" "GP fee not booked while the refund is not final"
 expect_fail "bad refund id rejected" service_role "" "select public.food_complete_stripe_job('$J3','refund_requested','re x; drop',null,false)" "invalid refund id"
-eq "$(svc "select public.food_complete_stripe_job('$J3','refunded','re_test_o3',null,false)")" "done" "refund succeeded"
+eq "$(svc "select public.food_complete_stripe_job('$J3','refunded','re_test_o3',null,true)")" "done" "refund succeeded"
+eq "$(q "select application_fee_refunded_satang from public.food_stripe_payments where order_id='$O3'")" "500" "GP fee refund recorded on success"
 eq "$(q "select payment_status || ':' || refund_status || ':' || (refunded_at is not null) from public.food_orders where id='$O3'")" "refunded:refunded:true" "order refunded"
 eq "$(q "select status from public.food_stripe_payments where order_id='$O3'")" "refunded" "ledger refunded"
 eq "$(q "select count(*) from public.notifications where recipient_id='$BUYER' and reason like 'คืนเงินออเดอร์ #% แล้ว'")" "1" "customer told the refund is done"
@@ -262,6 +299,112 @@ eq "$(q "select refund_status from public.food_orders where id='$O2'")" "pending
 expect_fail "nothing to retry" authenticated "$OWNER" "select public.merchant_retry_stripe_refund('$O2')" "no_failed_refund"
 expect_fail "unpaid order not eligible" authenticated "$OWNER" "select public.merchant_retry_stripe_refund('$O1')" "stripe_refund_not_eligible"
 
+# 7a. ZOKY-147: PromptPay refund waits for the customer's bank account, the
+# webhook flags the order refunded early, then the refund fails.
+ord() { q "select status || '/' || payment_status || '/' || refund_status || '/' || refund_awaiting_customer from public.food_orders where id='$1'"; }
+P1=$(new_order "$STORE" app preparing paid stripe cs_test_p1 pi_test_p1)
+ledger "$P1" cs_test_p1 pi_test_p1 paid 600
+q "update public.food_stripe_payments set payment_method='promptpay' where order_id='$P1'" >/dev/null
+q "update public.food_orders set status='cancelled' where id='$P1'" >/dev/null
+JP=$(q "select id from public.food_stripe_jobs where order_id='$P1' and kind='refund'")
+eq "$(svc "select payment_method from public.food_claim_stripe_jobs(25) where order_id='$P1'")" "promptpay" "claim returns the payment method"
+P1NUM=$(q "select order_number from public.food_orders where id='$P1'")
+eq "$(svc "select public.food_complete_stripe_job('$JP','refund_requested','re_test_pp',null,true,true)")" "awaiting_refund" "PromptPay refund requested, waiting for the customer"
+eq "$(ord "$P1")" "cancelled/paid/pending/true" "order shows waiting for customer bank details"
+eq "$(q "select last_error_code from public.food_stripe_jobs where id='$JP'")" "awaiting_customer_bank_details" "job shows waiting for customer"
+eq "$(q "select count(*) from public.notifications where recipient_id='$BUYER' and reason like '%#$P1NUM%ตรวจอีเมลจาก Stripe เพื่อกรอกบัญชีรับเงินคืน%'")" "1" "customer told to check the Stripe email"
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$P1NUM%รอลูกค้ากรอกบัญชีรับเงินคืน%'")" "1" "merchant told the refund waits for the customer"
+eq "$(q "select application_fee_refunded_satang from public.food_stripe_payments where order_id='$P1'")" "0" "GP not booked while waiting"
+svc "select public.food_complete_stripe_job('$JP','refund_requested','re_test_pp',null,true,true)" >/dev/null
+eq "$(q "select count(*) from public.notifications where reason like '%#$P1NUM%ตรวจอีเมลจาก Stripe%'")" "1" "repeated polls do not repeat the email notice"
+svc "select public.test_webhook_refunded('$P1', null)" >/dev/null
+eq "$(ord "$P1")" "cancelled/refunded/refunded/true" "webhook charge.refunded flags the order early"
+eq "$(svc "select public.food_complete_stripe_job('$JP','refund_requested','re_test_pp',null,false,true)")" "awaiting_refund" "worker still polls its own refund"
+eq "$(ord "$P1")" "cancelled/paid/pending/true" "unfinished refund puts the order back to refund pending"
+eq "$(q "select status || ':' || (refunded_at is null) from public.food_stripe_payments where order_id='$P1'")" "paid:true" "ledger back to paid"
+eq "$(q "select count(*) from public.food_stripe_jobs where order_id='$P1' and kind='refund'")" "1" "putting the order back queues no second refund"
+svc "select public.test_webhook_refunded('$P1', null)" >/dev/null
+eq "$(svc "select public.food_complete_stripe_job('$JP','failed','re_test_pp','refund_failed_unknown',false,false)")" "failed" "customer never answered: refund failed"
+eq "$(ord "$P1")" "cancelled/paid/failed/false" "failed refund ends as paid/failed even after the webhook said refunded"
+eq "$(q "select status from public.food_stripe_payments where order_id='$P1'")" "paid" "ledger back to paid after failure"
+eq "$(q "select count(*) from public.notifications where recipient_id='$BUYER' and reason like '%#$P1NUM%ยังไม่ได้กรอกบัญชีรับเงินคืนในอีเมลจาก Stripe%'")" "1" "customer told why the refund failed"
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$P1NUM%ลูกค้ายังไม่ได้กรอกบัญชีรับเงินคืน%'")" "1" "merchant told the customer did not answer Stripe"
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$P1NUM%ยอดเงินในบัญชี Stripe%'")" "0" "no balance wording for a customer no-answer"
+eq "$(as authenticated "$OWNER" "select public.merchant_retry_stripe_refund('$P1')")" "queued" "merchant can retry after the failure"
+eq "$(ord "$P1")" "cancelled/paid/pending/false" "retry resets the waiting flag"
+svc "select public.food_complete_stripe_job('$JP','refund_requested','re_test_pp2',null,true,true)" >/dev/null
+eq "$(q "select count(*) from public.notifications where reason like '%#$P1NUM%ตรวจอีเมลจาก Stripe เพื่อกรอก%'")" "2" "new refund: customer told to check the new email"
+eq "$(svc "select public.food_complete_stripe_job('$JP','refunded','re_test_pp2',null,true,false)")" "done" "customer answered: refund succeeded"
+eq "$(ord "$P1")" "cancelled/refunded/refunded/false" "order refunded only on Stripe success"
+eq "$(q "select application_fee_refunded_satang from public.food_stripe_payments where order_id='$P1'")" "600" "GP booked on success"
+
+# A different refund already succeeded: a failure of ours does not undo it.
+P2=$(new_order "$STORE" app preparing paid stripe cs_test_p2 pi_test_p2)
+ledger "$P2" cs_test_p2 pi_test_p2 paid
+q "update public.food_orders set status='cancelled' where id='$P2'" >/dev/null
+JP2=$(q "select id from public.food_stripe_jobs where order_id='$P2' and kind='refund'")
+svc "select public.food_complete_stripe_job('$JP2','refund_requested','re_test_p2',null,false,false)" >/dev/null
+svc "select public.test_webhook_refunded('$P2', 're_test_dash')" >/dev/null
+svc "select public.food_complete_stripe_job('$JP2','failed','re_test_p2','refund_canceled',false,false)" >/dev/null
+eq "$(ord "$P2")" "cancelled/refunded/refunded/false" "another succeeded refund is kept"
+
+# Store balance too low: merchant wording says so.
+P3=$(new_order "$STORE" app preparing paid stripe cs_test_p3 pi_test_p3)
+q "update public.food_orders set status='cancelled' where id='$P3'" >/dev/null
+JP3=$(q "select id from public.food_stripe_jobs where order_id='$P3' and kind='refund'")
+P3NUM=$(q "select order_number from public.food_orders where id='$P3'")
+svc "select public.food_complete_stripe_job('$JP3','failed',null,'balance_insufficient')" >/dev/null
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$P3NUM%ยอดเงินในบัญชี Stripe ของร้านไม่พอ%'")" "1" "balance failure wording for the merchant"
+
+# 7b. ZOKY-148: needs_attention notifies the merchant and is listed for staff.
+P4=$(new_order "$STORE" app preparing paid stripe cs_test_p4 pi_test_p4)
+q "update public.food_orders set status='cancelled' where id='$P4'" >/dev/null
+JP4=$(q "select id from public.food_stripe_jobs where order_id='$P4' and kind='refund'")
+P4NUM=$(q "select order_number from public.food_orders where id='$P4'")
+eq "$(svc "select public.food_complete_stripe_job('$JP4','needs_attention',null,'partial_refund_exists')")" "needs_attention" "job parked"
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$P4NUM%ต้องให้ทีม WYNOS ตรวจสอบ%'")" "1" "merchant told an operator will check"
+eq "$(q "select count(*) from public.food_order_events where order_id='$P4' and event_type='refund_needs_attention'")" "1" "needs_attention audit event"
+expect_fail "admin list refused for anon" anon "" "select * from public.admin_food_refund_jobs()" "permission denied"
+expect_fail "admin list refused without food:view" authenticated "$OWNER" "select * from public.admin_food_refund_jobs()" "Not authorized"
+eq "$(as authenticated "$ADMIN" "select status || ':' || last_error_code from public.admin_food_refund_jobs('needs_attention') where order_id='$P4'")" "needs_attention:partial_refund_exists" "staff see the parked job"
+eq "$(as authenticated "$ADMIN" "select count(*) from public.admin_food_refund_jobs() where status='done'")" "0" "default list hides finished jobs"
+expect_fail "admin list rejects a bad status" authenticated "$ADMIN" "select * from public.admin_food_refund_jobs('x')" "invalid job status"
+P5=$(new_order "$STORE" app preparing paid stripe cs_test_p5 pi_test_p5)
+q "update public.food_orders set status='cancelled' where id='$P5'" >/dev/null
+JP5=$(q "select id from public.food_stripe_jobs where order_id='$P5' and kind='refund'")
+q "update public.food_stripe_jobs set poll_count=30 where id='$JP5'" >/dev/null
+eq "$(svc "select public.food_complete_stripe_job('$JP5','refund_requested','re_test_p5',null,false,false)")" "needs_attention" "refund pending too long parked"
+eq "$(q "select count(*) from public.food_order_events where order_id='$P5' and event_type='refund_needs_attention'")" "1" "pending-too-long also notifies"
+
+# 7c. ZOKY-150: client paths cannot change a Stripe-paid order's payment state.
+P6=$(new_order "$STORE" app preparing paid stripe cs_test_p6 pi_test_p6)
+expect_fail "merchant cannot mark a Stripe-paid order refunded" authenticated "$OWNER" "select public.test_set_payment_status('$P6','refunded')" "stripe_payment_managed_by_stripe"
+expect_fail "merchant cannot re-mark a Stripe-paid order manual paid" authenticated "$OWNER" "select public.test_set_payment_status('$P6','paid')" "stripe_payment_managed_by_stripe"
+expect_fail "merchant cannot mark a Stripe-paid order issue" authenticated "$OWNER" "select public.test_set_payment_status('$P6','issue')" "stripe_payment_managed_by_stripe"
+eq "$(q "select payment_status || ':' || payment_provider || ':' || refund_status from public.food_orders where id='$P6'")" "paid:stripe:none" "Stripe order unchanged"
+svc "select public.test_webhook_refunded('$P6', 're_test_p6')" >/dev/null
+eq "$(q "select payment_status from public.food_orders where id='$P6'")" "refunded" "webhook (service role) can still mark it refunded"
+P7=$(new_order "$STORE" app preparing pending "" "" "")
+as authenticated "$OWNER" "select public.test_set_payment_status('$P7','paid')" >/dev/null
+eq "$(q "select payment_status from public.food_orders where id='$P7'")" "paid" "policy off: manual paid on a non-Stripe order still works"
+
+# 7d. CTO C3: opt-in backfill for Stripe orders cancelled before the jobs migration.
+BACKFILL="$ROOT/supabase/migrations/20261023100300_food_stripe_jobs_backfill.sql"
+B1=$(new_order "$STORE" app cancelled paid stripe cs_test_b1 pi_test_b1)
+B2=$(new_order "$STORE" app cancelled paid stripe cs_test_b2 pi_test_b2)
+B3=$(new_order "$STORE" app cancelled paid stripe cs_test_b3 pi_test_b3)
+q "update public.food_orders set refund_status='pending' where id='$B1'" >/dev/null
+q "update public.food_orders set refund_status='failed' where id='$B2'" >/dev/null
+eq "$(jobs "$B1")$(jobs "$B2")$(jobs "$B3")" "" "pre-existing cancelled orders have no jobs"
+run >/dev/null < "$BACKFILL"
+run >/dev/null < "$BACKFILL"
+eq "$(jobs "$B1"),$(jobs "$B2"),$(jobs "$B3")" "refund:backfill:queued,refund:backfill:queued," "backfill queues pending/failed refunds once (rerun adds nothing)"
+eq "$(q "select count(*) from public.food_stripe_jobs where reason='backfill' and order_id not in ('$B1','$B2')")" "0" "backfill skips orders that already have a refund job"
+q "update public.food_stripe_jobs set attempts=1 where order_id='$B2' and reason='backfill'" >/dev/null
+run >/dev/null < "$ROOT/supabase/rollbacks/20261023100300_food_stripe_jobs_backfill_rollback.sql"
+eq "$(jobs "$B1"),$(jobs "$B2")" ",refund:backfill:queued" "backfill rollback removes only untouched jobs"
+q "update public.food_stripe_jobs set status='done', completed_at=now() where reason='backfill'" >/dev/null
+
 # 5. Policy off: legacy behaviour.
 eq "$(as anon "" "select public.food_payment_policy_public()")" "f" "policy reads off"
 LEG=$(new_order "$UNREADY" app pending_acceptance pending "" "" "")
@@ -278,13 +421,20 @@ T1=$(q "select stripe_only_from from public.food_payment_policy")
 run >/dev/null < "$ACTIVATE"
 eq "$(q "select stripe_only_from from public.food_payment_policy")" "$T1" "activation rerun keeps the cut-over time"
 eq "$(as anon "" "select public.food_payment_policy_public()")" "t" "policy reads on"
-eq "$(as anon "" "select string_agg(store_id || ':' || accepting_orders || ':' || promptpay || ':' || card, ',' order by store_id) from public.food_store_payment_options(array['$STORE','$UNREADY']::uuid[])")" \
-  "$STORE:true:true:true,$UNREADY:false:false:false" "options with policy on"
+eq "$(as anon "" "select string_agg(store_id || ':' || accepting_orders || ':' || promptpay || ':' || card, ',' order by store_id) from public.food_store_payment_options(array['$STORE','$UNREADY','$CARDONLY']::uuid[])")" \
+  "$STORE:true:true:true,$UNREADY:false:false:false,$CARDONLY:false:false:true" "options with policy on (card-only store not accepting)"
 expect_fail "too many stores refused" anon "" "select * from public.food_store_payment_options(array_fill(gen_random_uuid(), array[101]))" "too many stores"
 expect_fail "app order at unready store refused" postgres "" \
   "insert into public.food_orders(store_id, buyer_id) values ('$UNREADY','$BUYER')" "store_not_accepting_orders"
+expect_fail "app order at card-only store refused (PromptPay only)" postgres "" \
+  "insert into public.food_orders(store_id, buyer_id) values ('$CARDONLY','$BUYER')" "store_not_accepting_orders"
+expect_fail "social order at unready store refused (ZOKY-151)" postgres "" \
+  "insert into public.food_orders(store_id, buyer_id, source) values ('$UNREADY','$BUYER','social')" "store_not_accepting_orders"
 NEW=$(new_order "$STORE" app pending_acceptance pending "" "" "")
 pass "app order at ready store accepted"
+SOC=$(new_order "$STORE" social pending_acceptance pending "" "" "")
+expect_fail "slip refused on social order (ZOKY-151)" postgres "" "update public.food_orders set payment_status='submitted' where id='$SOC'" "stripe_only_payments"
+expect_fail "manual paid refused on social order (ZOKY-151)" postgres "" "update public.food_orders set payment_status='paid', payment_provider='merchant_manual' where id='$SOC'" "stripe_only_payments"
 MAN=$(new_order "$UNREADY" manual pending_acceptance pending "" "" "")
 q "update public.food_orders set payment_status='paid', payment_provider='merchant_manual' where id='$MAN'" >/dev/null
 pass "manual orders excluded from the gate and the manual-paid block"
