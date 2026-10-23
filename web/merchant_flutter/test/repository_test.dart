@@ -47,6 +47,29 @@ void main() {
     },
   );
   test(
+    'manual confirmation, preparation ETA and photo release cross the bridge explicitly',
+    () async {
+      final transport = RecordingTransport();
+      final repo = BridgeMerchantRepository(transport);
+      await repo.payment(
+        'store-a',
+        'order-a',
+        'paid',
+        manualConfirmation: true,
+      );
+      expect(transport.args!['manualConfirmation'], true);
+      await repo.transition('store-a', 'order-a', 'preparing', etaMinutes: 45);
+      expect(transport.args!['etaMinutes'], 45);
+      await repo.releaseDeliveryPhoto('store-a', 'order-a', 'pending:photo');
+      expect(transport.method, 'releaseDeliveryPhoto');
+      expect(transport.args, {
+        'storeId': 'store-a',
+        'orderId': 'order-a',
+        'imagePath': 'pending:photo',
+      });
+    },
+  );
+  test(
     'bridge errors reject writes and never become a successful null response',
     () async {
       final transport = RecordingTransport()

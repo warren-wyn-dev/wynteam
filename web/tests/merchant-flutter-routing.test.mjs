@@ -30,6 +30,12 @@ test("Merchant root cutover preserves the query and leaves legacy auth/deep link
     assert.equal(proxy(request("merchant.wynos.online", path)).kind, "next");
   }
 });
+test("Stripe Connect callbacks retain the existing payment setup handler", () => {
+  for (const action of ["return", "refresh"]) {
+    const query = `?payments=${action}&store=store-id`;
+    assert.equal(router("1")(request("merchant.wynos.online", "/" + query)).url, "https://merchant.wynos.online/merchant" + query);
+  }
+});
 test("enabling Merchant Flutter does not switch Food, Social or Maps", () => {
   const proxy = router("1");
   assert.equal(proxy(request("food.wynos.online")).url, "https://food.wynos.online/food");

@@ -754,7 +754,8 @@ class _MerchantHomeState extends State<MerchantHome>
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (status == 'pending_acceptance' && o['payment_status'] != 'paid')
+          if (!['delivered', 'cancelled'].contains(status) &&
+              o['payment_status'] != 'paid')
             if (o['payment_provider'] == 'stripe' ||
                 (o['stripe_checkout_session_id'] != null &&
                     o['payment_slip_path'] == null))
@@ -765,7 +766,8 @@ class _MerchantHomeState extends State<MerchantHome>
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               )
-            else if (o['payment_slip_path'] != null)
+            else if (o['payment_slip_path'] != null ||
+                o['payment_status'] == 'pending')
               TextButton(
                 onPressed: c.writable && c.canOrders
                     ? () => reviewPayment(o)
@@ -871,12 +873,39 @@ class _MerchantHomeState extends State<MerchantHome>
       })
       .join(' • ');
   Future<void> advance(Json o, String status) async {
+    int eta =
+        (num.tryParse(
+                  '${o['eta_minutes'] ?? c.store?['prep_time_max_minutes'] ?? 30}',
+                )?.toInt() ??
+                30)
+            .clamp(1, 240);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(nextActions[o['status']]!),
-        content: Text(
-          'ออเดอร์ #${o['order_number']}\n${o['recipient_name']} • ${money(o['total'])}',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'ออเดอร์ #${o['order_number']}\n${o['recipient_name']} • ${money(o['total'])}',
+            ),
+            if (status == 'preparing')
+              DropdownButtonFormField<int>(
+                initialValue: eta,
+                decoration: const InputDecoration(labelText: 'เวลาทำโดยประมาณ'),
+                items: ({15, 30, 45, 60, eta}.toList()..sort())
+                    .map(
+                      (minutes) => DropdownMenuItem(
+                        value: minutes,
+                        child: Text('$minutes นาที'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) eta = value;
+                },
+              ),
+          ],
         ),
         actions: [
           TextButton(
@@ -892,7 +921,12 @@ class _MerchantHomeState extends State<MerchantHome>
     );
     if (ok == true && mounted) {
       if (await c.mutate(
-        () => widget.repository.transition(c.storeId!, o['id'], status),
+        () => widget.repository.transition(
+          c.storeId!,
+          o['id'],
+          status,
+          etaMinutes: status == 'preparing' ? eta : null,
+        ),
       )) {
         notice('อัปเดตออเดอร์แล้ว');
       }
@@ -1132,8 +1166,14 @@ class _MerchantHomeState extends State<MerchantHome>
         storeId: id,
         order: order,
         store: c.store ?? {},
-        save: (status, note) => c.mutate(
-          () => widget.repository.payment(id, order['id'], status, note: note),
+        save: (status, note, manualConfirmation) => c.mutate(
+          () => widget.repository.payment(
+            id,
+            order['id'],
+            status,
+            note: note,
+            manualConfirmation: manualConfirmation,
+          ),
         ),
         error: () => c.error,
       ),
@@ -1150,15 +1190,20 @@ class _MerchantHomeState extends State<MerchantHome>
         repository: widget.repository,
         storeId: id,
         orderId: order['id'],
-        save: (method, path, note) => c.mutate(
-          () => widget.repository.completeDelivery(
-            id,
-            order['id'],
-            method,
-            path,
-            locationNote: note,
-          ),
-        ),
+        save: (method, path, note) async {
+          // Recheck access/status before retrying the retained local photo.
+          if (c.error != null) await c.refresh();
+          if (c.storeId != id || !c.canDelivery) return false;
+          return c.mutate(
+            () => widget.repository.completeDelivery(
+              id,
+              order['id'],
+              method,
+              path,
+              locationNote: note,
+            ),
+          );
+        },
         error: () => c.error,
       ),
     );

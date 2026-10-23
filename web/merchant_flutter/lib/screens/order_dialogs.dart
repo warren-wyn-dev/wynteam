@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/merchant_repository.dart';
 
@@ -15,7 +16,12 @@ class PaymentReviewDialog extends StatefulWidget {
   final String storeId;
   final Json order;
   final Json store;
-  final Future<bool> Function(String status, String note) save;
+  final Future<bool> Function(
+    String status,
+    String note,
+    bool manualConfirmation,
+  )
+  save;
   final String? Function() error;
   @override
   State<PaymentReviewDialog> createState() => _PaymentReviewDialogState();
@@ -24,16 +30,26 @@ class PaymentReviewDialog extends StatefulWidget {
 class _PaymentReviewDialogState extends State<PaymentReviewDialog> {
   final note = TextEditingController();
   late Future<String?> slip;
-  bool saving = false, failed = false, slipVisible = false;
+  bool saving = false,
+      failed = false,
+      slipVisible = false,
+      manualConfirmed = false;
+  bool get manualMode =>
+      widget.order['payment_slip_path'] == null &&
+      widget.order['payment_status'] == 'pending' &&
+      widget.order['payment_provider'] != 'stripe' &&
+      widget.order['stripe_checkout_session_id'] == null;
   String? error;
   @override
   void initState() {
     super.initState();
-    slip = widget.repository.signedUrl(
-      widget.storeId,
-      widget.order['id'],
-      'slip',
-    );
+    slip = widget.order['payment_slip_path'] == null
+        ? Future.value(null)
+        : widget.repository.signedUrl(
+            widget.storeId,
+            widget.order['id'],
+            'slip',
+          );
   }
 
   @override
@@ -43,7 +59,11 @@ class _PaymentReviewDialogState extends State<PaymentReviewDialog> {
   }
 
   Future<void> save(String status) async {
-    if (saving || failed || (status == 'paid' && !slipVisible)) return;
+    if (saving ||
+        failed ||
+        (status == 'paid' && !(manualMode ? manualConfirmed : slipVisible))) {
+      return;
+    }
     if (status == 'issue' && note.text.trim().isEmpty) {
       setState(() => error = 'กรุณาระบุปัญหาที่พบในสลิป');
       return;
@@ -52,7 +72,11 @@ class _PaymentReviewDialogState extends State<PaymentReviewDialog> {
       saving = true;
       error = null;
     });
-    final ok = await widget.save(status, note.text.trim());
+    final ok = await widget.save(
+      status,
+      note.text.trim(),
+      manualMode && manualConfirmed,
+    );
     if (!mounted) return;
     if (ok) {
       Navigator.pop(context, true);
@@ -91,72 +115,95 @@ class _PaymentReviewDialogState extends State<PaymentReviewDialog> {
                   'ชื่อผู้รับเงิน: ${widget.store['promptpay_name'] ?? widget.store['bank_account_name']}',
                 ),
               const SizedBox(height: 12),
-              FutureBuilder<String?>(
-                future: slip,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
+              if (manualMode) ...[
+                const Text(
+                  'ไม่มีสลิปจากลูกค้า ยืนยันได้เมื่อได้รับเงินจริงจากช่องทางอื่นแล้วเท่านั้น',
+                ),
+                CheckboxListTile(
+                  value: manualConfirmed,
+                  onChanged: saving || failed
+                      ? null
+                      : (value) =>
+                            setState(() => manualConfirmed = value == true),
+                  title: const Text('ตรวจสอบแล้วว่าได้รับเงินครบตามยอด'),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+                FilledButton(
+                  onPressed: saving || failed || !manualConfirmed
+                      ? null
+                      : () => save('paid'),
+                  child: const Text('ยืนยันว่ารับเงินแล้ว'),
+                ),
+              ] else
+                FutureBuilder<String?>(
+                  future: slip,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Column(
+                        children: [
+                          Text(errorMessage(snapshot.error!)),
+                          TextButton(
+                            onPressed: () => setState(
+                              () => slip = widget.repository.signedUrl(
+                                widget.storeId,
+                                widget.order['id'],
+                                'slip',
+                              ),
+                            ),
+                            child: const Text('โหลดสลิปใหม่'),
+                          ),
+                        ],
+                      );
+                    }
+                    if (snapshot.data == null) {
+                      return const Text('ยังไม่มีสลิปที่ตรวจสอบได้');
+                    }
                     return Column(
                       children: [
-                        Text(errorMessage(snapshot.error!)),
-                        TextButton(
-                          onPressed: () => setState(
-                            () => slip = widget.repository.signedUrl(
-                              widget.storeId,
-                              widget.order['id'],
-                              'slip',
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 380),
+                          child: InteractiveViewer(
+                            child: Image.network(
+                              snapshot.data!,
+                              frameBuilder: (context, child, frame, sync) {
+                                if (frame != null && !slipVisible) {
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (mounted) {
+                                      setState(() => slipVisible = true);
+                                    }
+                                  });
+                                }
+                                return child;
+                              },
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, e, stack) => const Text(
+                                'โหลดรูปสลิปไม่สำเร็จ กรุณารีเฟรช',
+                              ),
                             ),
                           ),
-                          child: const Text('โหลดสลิปใหม่'),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'ตรวจชื่อผู้รับ ยอดเงิน และวันเวลาก่อนยืนยัน',
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: saving || failed || !slipVisible
+                              ? null
+                              : () => save('paid'),
+                          child: Text(
+                            saving ? 'กำลังบันทึก…' : 'ยืนยันว่ารับเงินแล้ว',
+                          ),
                         ),
                       ],
                     );
-                  }
-                  if (snapshot.data == null) {
-                    return const Text('ยังไม่มีสลิปที่ตรวจสอบได้');
-                  }
-                  return Column(
-                    children: [
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 380),
-                        child: InteractiveViewer(
-                          child: Image.network(
-                            snapshot.data!,
-                            frameBuilder: (context, child, frame, sync) {
-                              if (frame != null && !slipVisible) {
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  if (mounted) {
-                                    setState(() => slipVisible = true);
-                                  }
-                                });
-                              }
-                              return child;
-                            },
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, e, stack) =>
-                                const Text('โหลดรูปสลิปไม่สำเร็จ กรุณารีเฟรช'),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text('ตรวจชื่อผู้รับ ยอดเงิน และวันเวลาก่อนยืนยัน'),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: saving || failed || !slipVisible
-                            ? null
-                            : () => save('paid'),
-                        child: Text(
-                          saving ? 'กำลังบันทึก…' : 'ยืนยันว่ารับเงินแล้ว',
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                  },
+                ),
               const SizedBox(height: 16),
               TextField(
                 controller: note,
@@ -184,7 +231,9 @@ class _PaymentReviewDialogState extends State<PaymentReviewDialog> {
           child: const Text('ปิด'),
         ),
         OutlinedButton(
-          onPressed: saving || failed ? null : () => save('issue'),
+          onPressed: saving || failed || manualMode
+              ? null
+              : () => save('issue'),
           child: const Text('แจ้งปัญหาสลิป'),
         ),
       ],
@@ -214,9 +263,20 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
   String method = 'direct';
   Json? photo;
   String? error;
-  bool selecting = false, saving = false, failed = false;
+  bool selecting = false, saving = false;
   @override
   void dispose() {
+    if (photo != null) {
+      unawaited(
+        widget.repository
+            .releaseDeliveryPhoto(
+              widget.storeId,
+              widget.orderId,
+              photo!['path'],
+            )
+            .catchError((_) {}),
+      );
+    }
     note.dispose();
     super.dispose();
   }
@@ -232,7 +292,25 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
         widget.storeId,
         widget.orderId,
       );
-      if (mounted && value != null) setState(() => photo = value);
+      if (value != null) {
+        if (!mounted) {
+          await widget.repository.releaseDeliveryPhoto(
+            widget.storeId,
+            widget.orderId,
+            value['path'],
+          );
+        } else {
+          final previous = photo;
+          setState(() => photo = value);
+          if (previous != null) {
+            await widget.repository.releaseDeliveryPhoto(
+              widget.storeId,
+              widget.orderId,
+              previous['path'],
+            );
+          }
+        }
+      }
     } catch (e) {
       if (mounted) setState(() => error = errorMessage(e));
     } finally {
@@ -241,7 +319,7 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
   }
 
   Future<void> save() async {
-    if (selecting || saving || failed) return;
+    if (selecting || saving) return;
     if (photo == null) {
       setState(() => error = 'กรุณาแนบรูปหลักฐานส่งสำเร็จ');
       return;
@@ -266,7 +344,6 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
     }
     setState(() {
       saving = false;
-      failed = true;
       error = widget.error() ?? 'บันทึกไม่สำเร็จ กรุณาปิดแล้วรีเฟรช';
     });
   }
@@ -296,7 +373,7 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
                     child: Text('วางอาหารตามจุดนัดหมาย'),
                   ),
                 ],
-                onChanged: saving || selecting || failed
+                onChanged: saving || selecting
                     ? null
                     : (value) => setState(() => method = value!),
               ),
@@ -304,7 +381,7 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
               if (method == 'dropoff')
                 TextField(
                   controller: note,
-                  enabled: !saving && !failed,
+                  enabled: !saving,
                   maxLength: 500,
                   decoration: const InputDecoration(
                     labelText: 'จุดวางอาหาร (จำเป็น)',
@@ -318,7 +395,7 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
                     child:
                         photo!['previewUrl'] is! String ||
                             (photo!['previewUrl'] as String).isEmpty
-                        ? const Text('อัปโหลดหลักฐานแล้ว แต่แสดงตัวอย่างไม่ได้')
+                        ? const Text('แนบรูปแล้ว แต่แสดงตัวอย่างไม่ได้')
                         : Image.network(
                             photo!['previewUrl'] as String,
                             fit: BoxFit.contain,
@@ -328,11 +405,11 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
                   ),
                 ),
               OutlinedButton.icon(
-                onPressed: saving || selecting || failed ? null : pick,
+                onPressed: saving || selecting ? null : pick,
                 icon: const Icon(Icons.add_a_photo_outlined),
                 label: Text(
                   selecting
-                      ? 'กำลังตรวจและอัปโหลดรูป…'
+                      ? 'กำลังตรวจรูป…'
                       : photo == null
                       ? 'แนบรูปหลักฐาน (จำเป็น)'
                       : 'เปลี่ยนรูปหลักฐาน',
@@ -360,7 +437,7 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
           child: const Text('ปิด'),
         ),
         FilledButton(
-          onPressed: saving || selecting || failed ? null : save,
+          onPressed: saving || selecting ? null : save,
           child: Text(saving ? 'กำลังบันทึก…' : 'ยืนยันส่งสำเร็จ'),
         ),
       ],

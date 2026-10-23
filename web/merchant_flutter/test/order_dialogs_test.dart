@@ -108,7 +108,7 @@ void main() {
                     repository: FakeRepository(),
                     storeId: 'store-1',
                     order: {'id': 'order-1', 'order_number': 'TEST-1'},
-                    save: (status, note) async {
+                    save: (status, note, manualConfirmation) async {
                       saved = status;
                       return true;
                     },

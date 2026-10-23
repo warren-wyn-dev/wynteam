@@ -3,30 +3,39 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
+import { randomUUID } from 'node:crypto';
 
 const STORE = '10000000-0000-4000-8000-000000000001';
 const OTHER = '20000000-0000-4000-8000-000000000002';
 const ORDER = '30000000-0000-4000-8000-000000000003';
+const ACCOUNT = '50000000-0000-4000-8000-000000000005';
 const ITEM = '40000000-0000-4000-8000-000000000004';
 const source = readFileSync(new URL('../lib/merchant-flutter-bridge.ts',import.meta.url),'utf8');
 const compiled = ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 
 function harness() {
   const calls=[];
-  const state={user:'merchant-a',access:true,manage:true,noOp:false,store:{id:STORE,name:'ร้านเรา',phone:'0811111111',address:'มหาสารคาม',is_open:true},order:{id:ORDER,store_id:STORE,status:'out_for_delivery',payment_provider:null,payment_slip_path:'buyer/slips/slip.jpg'}, disposedChannels:0, orderEvent:null, injectRead:null};
+  const state={events:[],memberships:[{merchant_account_id:ACCOUNT}],staff:[],completeFailures:0,user:'merchant-a',access:true,manage:true,noOp:false,store:{id:STORE,merchant_account_id:ACCOUNT,name:'ร้านเรา',phone:'0811111111',address:'มหาสารคาม',is_open:true},order:{id:ORDER,store_id:STORE,status:'out_for_delivery',payment_provider:null,payment_slip_path:'buyer/slips/slip.jpg'}, disposedChannels:0, orderEvent:null, injectRead:null};
   const menu={id:ITEM,name:'เดิม',category:'อาหาร',description:null,price:60,image_path:'stores/store/menu/original.jpg',is_available:true,options:[{id:'spicy',name:'ความเผ็ด',choices:[{id:'mild',name:'น้อย',price:0}]}],daily_stock_limit:20,sold_out_until:'2026-10-22T00:00:00Z'};
   const client={
-    auth:{getSession:async()=>({data:{session:state.user?{user:{id:state.user,is_anonymous:false}}:null},error:null})},
+    auth:{getSession:async()=>{state.events.push('session');return {data:{session:state.user?{user:{id:state.user,is_anonymous:false}}:null},error:null}}},
     rpc:async(name,args)=>{calls.push({name,args});return {data:name==='food_has_merchant_access'?state.access && args.p_store_id!==OTHER:name==='merchant_has_store_role'?state.manage:true,error:null};},
     from:(table)=>{
       const filters={};const chain={};let update=null,insert=null;
       for(const name of ['select','order','range'])chain[name]=(...args)=>{calls.push({table,name,args});return chain};
       chain.update=(patch)=>{update=patch;calls.push({table,name:'update',patch});return chain};
       chain.insert=(patch)=>{insert=patch;calls.push({table,name:'insert',patch});return chain};
-      chain.eq=(key,value)=>{filters[key]=value;return chain};
+      chain.eq=(key,value)=>{filters[key]=value;calls.push({table,name:'eq',key,value});return chain};
+      chain.in=(key,values)=>{filters[key]=values;calls.push({table,name:'in',key,values});return chain};
       const resolve=async()=>{
         if(state.injectRead)await state.injectRead(table,filters);
-        if(table==='food_stores')return {data:filters.id?state.store:[{id:STORE,name:'ร้านเรา'},{id:OTHER,name:'ร้านอื่น'}],error:null};
+        if(table==='merchant_memberships')return {data:state.memberships,error:null};
+        if(table==='food_staff')return {data:state.staff,error:null};
+        if(table==='food_stores'){
+          if(typeof filters.id==='string')return {data:state.store,error:null};
+          if(!Array.isArray(filters.id)&&!Array.isArray(filters.merchant_account_id))throw new Error('unfiltered public catalog query');
+          return {data:[state.store,{id:OTHER,merchant_account_id:OTHER,name:'ร้านอื่น'}].filter(row=>Array.isArray(filters.id)?filters.id.includes(row.id):filters.merchant_account_id.includes(row.merchant_account_id)),error:null};
+        }
         if(table==='food_menu_items'){if(state.noOp&&(update||insert))return {data:null,error:null};if(update)Object.assign(menu,update);return {data:insert?{...insert,id:ITEM}:menu,error:null};}
         if(table==='food_orders')return {data:filters.store_id && filters.store_id!==state.order.store_id?null:state.order,error:null};
         throw new Error('Unexpected table '+table);
@@ -40,7 +49,7 @@ function harness() {
     updateFoodStore:async(...args)=>{calls.push({name:'updateFoodStore',args});if(!state.noOp)Object.assign(state.store,args[2]);},
     transitionFoodOrder:async(...args)=>{calls.push({name:'transitionFoodOrder',args});},
     setFoodPaymentStatus:async(...args)=>{calls.push({name:'setFoodPaymentStatus',args});},
-    completeFoodDelivery:async(...args)=>{calls.push({name:'completeFoodDelivery',args});},
+    completeFoodDelivery:async(...args)=>{calls.push({name:'completeFoodDelivery',args});if(state.completeFailures-->0)throw new Error('network failed');state.order.status='delivered';state.order.food_delivery_proofs=[{image_path:args[4]}];},
     foodPrivateSignedUrl:async(...args)=>{calls.push({name:'foodPrivateSignedUrl',args});return args[1]?'https://signed.invalid/private-image':null;},
     uploadFoodPrivateImage:async(...args)=>{calls.push({name:'uploadFoodPrivateImage',args});return `${args[2]}/photo.jpg`;},
     subscribeMerchantOrders:(_client,_store,callback)=>{state.orderEvent=callback;return {};},
@@ -50,7 +59,7 @@ function harness() {
   const input={files:null,style:{},listeners:{},addEventListener(name,callback){this.listeners[name]=callback;},remove(){},click(){this.files=picked?[picked]:[];this.listeners[picked?'change':'cancel']();}};
   const exports={};
   runInNewContext(compiled,{
-    exports,Uint8Array,URL,Image:class {},Notification:{permission:'granted'},
+    exports,Uint8Array,crypto:{randomUUID},URL:class extends URL {static createObjectURL(){const url='blob:'+randomUUID();calls.push({name:'createObjectURL',url});return url;}static revokeObjectURL(url){calls.push({name:'revokeObjectURL',url});}},Image:class {},Notification:{permission:'granted'},
     createImageBitmap:async()=>({width:1,height:1,close(){}}),
     document:{createElement:()=>input,body:{appendChild(){}}},
     window:{addEventListener(){},removeEventListener(){},setTimeout},
@@ -58,7 +67,7 @@ function harness() {
       if(path==='@/lib/food-merchant')return food;
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
       if(path==='@/lib/merchant-campaigns')return {fetchMerchantCampaigns:async()=>({can_manage:true,campaigns:[]}),saveMerchantCampaign:async(...args)=>{calls.push({name:'saveMerchantCampaign',args});},setMerchantCampaignActive:async()=>{}};
-      if(path==='@/lib/push-notifications')return {getPushAvailability:async()=>({available:true}),hasActivePushSubscription:async()=>true,subscribeToPushNotifications:async()=>({ok:true}),unsubscribeFromPushNotifications:async()=>true,pushReasonDescription:r=>r};
+      if(path==='@/lib/push-notifications')return {getPushAvailability:async()=>({available:true}),hasActivePushSubscription:async()=>true,requestPushPermissionFromGesture:()=>{state.events.push('permission');return state.permissionRequest??Promise.resolve('granted');},subscribeToPushNotifications:async(_client,_user,options)=>{await options.permissionRequest;await options.ensureActive();state.events.push('subscribe');return {ok:true}},unsubscribeFromPushNotifications:async()=>true,pushReasonDescription:r=>r};
       throw new Error('Unexpected import '+path);
     },
   });
@@ -75,7 +84,10 @@ test('shared session is required, and account changes suppress stale in-flight r
 });
 test('store listing removes published stores without merchant access',async()=>{
   const h=harness();const result=await h.request('stores');
-  assert.equal(result.ok,true);assert.deepEqual(result.data,[{id:STORE,name:'ร้านเรา'}]);
+  assert.equal(result.ok,true);assert.deepEqual(result.data.map(s=>s.id),[STORE]);
+  assert.equal(h.calls.some(c=>c.name==='food_has_merchant_access'),false);
+  for(const table of ['merchant_memberships','food_staff'])assert.ok(h.calls.some(c=>c.table===table&&c.name==='eq'&&c.key==='user_id'&&c.value==='merchant-a'));
+  assert.ok(h.calls.some(c=>c.table==='food_stores'&&c.name==='in'&&c.key==='merchant_account_id'));
 });
 test('cross-store order mutation is denied before invoking the existing transition',async()=>{
   const h=harness();const result=await h.request('transition',{storeId:OTHER,orderId:ORDER,status:'preparing'});
@@ -106,7 +118,7 @@ test('delivery completion rejects another order photo and dropoff without a loca
   const h=harness();assert.equal((await h.request('completeDelivery',{storeId:STORE,orderId:ORDER,method:'direct',imagePath:`delivery/${OTHER}/photo.jpg`})).ok,false);
   assert.equal((await h.request('completeDelivery',{storeId:STORE,orderId:ORDER,method:'dropoff',imagePath:`delivery/${ORDER}/photo.jpg`})).ok,false);
   assert.equal(h.calls.some(c=>c.name==='completeFoodDelivery'),false);
-  assert.equal((await h.request('completeDelivery',{storeId:STORE,orderId:ORDER,method:'dropoff',locationNote:'หน้าประตู',imagePath:`delivery/${ORDER}/photo.jpg`})).ok,true);
+
 });
 test('file cancellation performs no upload; spoofed image signatures are rejected',async()=>{
   const h=harness();const args={storeId:STORE,orderId:ORDER};
@@ -114,11 +126,35 @@ test('file cancellation performs no upload; spoofed image signatures are rejecte
   h.setFile({size:5,type:'image/jpeg',slice:()=>({arrayBuffer:async()=>new Uint8Array([1,2,3,4,5]).buffer})});
   assert.equal((await h.request('pickDeliveryPhoto',args)).ok,false);assert.equal(h.calls.some(c=>c.name==='uploadFoodPrivateImage'),false);
 });
-test('validated photo upload delegates to existing location-stripping uploader and yields a private preview',async()=>{
-  const h=harness();h.setFile({size:10,type:'image/jpeg',slice:()=>({arrayBuffer:async()=>new Uint8Array([255,216,255,217]).buffer})});
-  const result=await h.request('pickDeliveryPhoto',{storeId:STORE,orderId:ORDER});
-  assert.equal(result.ok,true);assert.equal(result.data.path,`delivery/${ORDER}/photo.jpg`);
-  assert.equal(h.calls.find(c=>c.name==='uploadFoodPrivateImage').args[2],`delivery/${ORDER}`);
+const jpeg=()=>({size:10,type:'image/jpeg',slice:()=>({arrayBuffer:async()=>new Uint8Array([255,216,255,217]).buffer})});
+test('validated photo stays local through selection, replacement and cancellation',async()=>{
+  const h=harness();h.setFile(jpeg());const args={storeId:STORE,orderId:ORDER};
+  const first=(await h.request('pickDeliveryPhoto',args)).data;
+  assert.match(first.path,/^pending:/);assert.match(first.previewUrl,/^blob:/);
+  const second=(await h.request('pickDeliveryPhoto',args)).data;
+  assert.notEqual(first.path,second.path);
+  assert.ok(h.calls.some(c=>c.name==='revokeObjectURL'&&c.url===first.previewUrl));
+  assert.equal((await h.request('releaseDeliveryPhoto',{...args,imagePath:second.path})).ok,true);
+  assert.ok(h.calls.some(c=>c.name==='revokeObjectURL'&&c.url===second.previewUrl));
+  assert.equal(h.calls.some(c=>c.name==='uploadFoodPrivateImage'),false);
+});
+test('delivery uploads only at confirmation and reuses the upload after an RPC failure',async()=>{
+  const h=harness();h.setFile(jpeg());const args={storeId:STORE,orderId:ORDER};
+  const photo=(await h.request('pickDeliveryPhoto',args)).data;
+  h.state.completeFailures=1;
+  const payload={...args,method:'dropoff',locationNote:'หน้าประตู',imagePath:photo.path};
+  assert.equal((await h.request('completeDelivery',payload)).ok,false);
+  assert.equal((await h.request('completeDelivery',payload)).ok,true);
+  assert.equal(h.calls.filter(c=>c.name==='uploadFoodPrivateImage').length,1);
+  const call=h.calls.find(c=>c.name==='completeFoodDelivery');
+  assert.equal(call.args[4],`delivery/${ORDER}/photo.jpg`);
+  assert.ok(h.calls.some(c=>c.name==='revokeObjectURL'&&c.url===photo.previewUrl));
+});
+test('another order cannot consume a local photo and disposal revokes its preview',async()=>{
+  const h=harness();h.setFile(jpeg());const photo=(await h.request('pickDeliveryPhoto',{storeId:STORE,orderId:ORDER})).data;
+  assert.equal((await h.request('completeDelivery',{storeId:STORE,orderId:OTHER,method:'direct',imagePath:photo.path})).ok,false);
+  h.bridge.dispose();assert.ok(h.calls.some(c=>c.name==='revokeObjectURL'&&c.url===photo.previewUrl));
+  assert.equal(h.calls.some(c=>c.name==='uploadFoodPrivateImage'),false);
 });
 test('dispose silences realtime events, removes channel and rejects future operations',async()=>{
   const h=harness();assert.equal((await h.request('subscribe',{storeId:STORE})).ok,true);
@@ -152,4 +188,24 @@ test('manual payment without the customer slip is rejected',async()=>{
   const h=harness();h.state.order.payment_slip_path=null;
   assert.equal((await h.request('payment',{storeId:STORE,orderId:ORDER,status:'paid'})).ok,false);
   assert.equal(h.calls.some(c=>c.name==='setFoodPaymentStatus'),false);
+});
+
+test('pending manual payment requires explicit receipt confirmation; submitted no-slip and Stripe stay blocked',async()=>{
+ const h=harness();h.state.order.payment_slip_path=null;h.state.order.payment_status='pending';
+ const payload={storeId:STORE,orderId:ORDER,status:'paid'};
+ assert.equal((await h.request('payment',payload)).ok,false);
+ assert.equal((await h.request('payment',{...payload,manualConfirmation:true})).ok,true);
+ h.state.order.payment_status='submitted';assert.equal((await h.request('payment',{...payload,manualConfirmation:true})).ok,false);
+ h.state.order.payment_status='pending';h.state.order.payment_provider='stripe';assert.equal((await h.request('payment',{...payload,manualConfirmation:true})).ok,false);
+});
+test('push permission capture happens synchronously before session validation and never registers for a switched account',async()=>{
+ const h=harness();let settle;h.state.permissionRequest=new Promise(resolve=>{settle=resolve});
+ const pending=h.request('pushEnable');assert.equal(h.state.events[0],'permission');
+ h.state.user='merchant-b';settle('granted');assert.equal((await pending).ok,false);
+ assert.equal(h.state.events.includes('subscribe'),false);
+});
+test('legacy staff grants are store-filtered and deduplicated with membership stores',async()=>{
+ const h=harness();h.state.staff=[{store_id:STORE}];const result=await h.request('stores');assert.equal(result.ok,true);assert.equal(result.data.length,1);
+ assert.ok(h.calls.some(c=>c.table==='food_stores'&&c.name==='in'&&c.key==='id'&&c.values[0]===STORE));
+ const none=harness();none.state.memberships=[];none.state.staff=[];assert.deepEqual((await none.request('stores')).data,[]);assert.equal(none.calls.some(c=>c.table==='food_stores'),false);
 });

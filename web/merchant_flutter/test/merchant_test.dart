@@ -40,10 +40,15 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'รับออเดอร์').first);
       await tester.pumpAndSettle();
       expect(repo.writes, 0);
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('45 นาที').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('ยืนยัน'));
       await tester.pumpAndSettle();
       expect(repo.writes, 1);
       expect(repo.orderRows.first['status'], 'preparing');
+      expect(repo.orderRows.first['eta_minutes'], 45);
       await tester.tap(find.text('กำลังเตรียม').first);
       await tester.pumpAndSettle();
       expect(find.text('#TEST-1'), findsOneWidget);

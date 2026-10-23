@@ -127,9 +127,12 @@ class FakeRepository extends MerchantRepository {
     String id,
     String status, {
     String? note,
+    int? etaMinutes,
   }) async {
     write();
-    orderRows.firstWhere((o) => o['id'] == id)['status'] = status;
+    final order = orderRows.firstWhere((o) => o['id'] == id);
+    order['status'] = status;
+    if (etaMinutes != null) order['eta_minutes'] = etaMinutes;
   }
 
   @override
@@ -152,6 +155,7 @@ class FakeRepository extends MerchantRepository {
     String orderId,
     String status, {
     String? note,
+    bool manualConfirmation = false,
   }) async {
     write();
     orderRows.firstWhere((o) => o['id'] == orderId)['payment_status'] = status;

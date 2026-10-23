@@ -51,14 +51,21 @@ abstract class MerchantRepository {
     String orderId,
     String status, {
     String? note,
+    int? etaMinutes,
   });
   Future<void> payment(
     String storeId,
     String orderId,
     String status, {
     String? note,
+    bool manualConfirmation = false,
   });
   Future<Json?> pickDeliveryPhoto(String storeId, String orderId);
+  Future<void> releaseDeliveryPhoto(
+    String storeId,
+    String orderId,
+    String imagePath,
+  ) async {}
   Future<void> completeDelivery(
     String storeId,
     String orderId,
@@ -137,12 +144,14 @@ class BridgeMerchantRepository extends MerchantRepository {
     String orderId,
     String status, {
     String? note,
+    int? etaMinutes,
   }) async {
     await call('transition', {
       'storeId': storeId,
       'orderId': orderId,
       'status': status,
       'note': ?note,
+      'etaMinutes': ?etaMinutes,
     });
   }
 
@@ -152,12 +161,14 @@ class BridgeMerchantRepository extends MerchantRepository {
     String orderId,
     String status, {
     String? note,
+    bool manualConfirmation = false,
   }) async {
     await call('payment', {
       'storeId': storeId,
       'orderId': orderId,
       'status': status,
       'note': ?note,
+      if (manualConfirmation) 'manualConfirmation': true,
     });
   }
 
@@ -168,6 +179,19 @@ class BridgeMerchantRepository extends MerchantRepository {
       'orderId': orderId,
     });
     return data == null ? null : object(data);
+  }
+
+  @override
+  Future<void> releaseDeliveryPhoto(
+    String storeId,
+    String orderId,
+    String imagePath,
+  ) async {
+    await call('releaseDeliveryPhoto', {
+      'storeId': storeId,
+      'orderId': orderId,
+      'imagePath': imagePath,
+    });
   }
 
   @override

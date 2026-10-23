@@ -8,7 +8,7 @@ import 'package:zoky_merchant/screens/merchant_home.dart';
 import 'package:zoky_merchant/screens/order_dialogs.dart';
 import 'support/fake_repository.dart';
 
-class UploadedPhotoWithoutPreview extends FakeRepository {
+class SelectedPhotoWithoutPreview extends FakeRepository {
   @override
   Future<Json?> pickDeliveryPhoto(String storeId, String orderId) async => {
     'path': 'delivery/$orderId/photo.jpg',
@@ -25,7 +25,7 @@ void main() {
   }
 
   testWidgets(
-    'an uploaded delivery photo with no signed preview does not crash or lose its proof path',
+    'a selected delivery photo without preview does not crash or lose its handle',
     (tester) async {
       phoneSize(tester);
       String? savedPath;
@@ -37,7 +37,7 @@ void main() {
                 onPressed: () => showDialog<void>(
                   context: ctx,
                   builder: (_) => DeliveryProofDialog(
-                    repository: UploadedPhotoWithoutPreview(),
+                    repository: SelectedPhotoWithoutPreview(),
                     storeId: 'store-1',
                     orderId: 'order-1',
                     save: (method, path, note) async {
@@ -57,10 +57,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('แนบรูปหลักฐาน (จำเป็น)'));
       await tester.pumpAndSettle();
-      expect(
-        find.text('อัปโหลดหลักฐานแล้ว แต่แสดงตัวอย่างไม่ได้'),
-        findsOneWidget,
-      );
+      expect(find.text('แนบรูปแล้ว แต่แสดงตัวอย่างไม่ได้'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('ยืนยันส่งสำเร็จ').last);
       await tester.pumpAndSettle();
@@ -130,7 +127,7 @@ void main() {
             storeId: 'store-1',
             order: {'id': 'order-1', 'order_number': 'TEST-1', 'total': 125.50},
             store: const {'promptpay_name': 'ร้านตัวอย่าง'},
-            save: (status, note) async => true,
+            save: (status, note, manualConfirmation) async => true,
             error: () => null,
           ),
         ),

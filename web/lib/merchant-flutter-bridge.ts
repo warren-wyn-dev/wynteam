@@ -6,7 +6,7 @@ import {
 } from "@/lib/food-merchant";
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
 import { fetchMerchantCampaigns, saveMerchantCampaign, setMerchantCampaignActive } from "@/lib/merchant-campaigns";
-import { getPushAvailability, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 
 // DeveloperRouteGate remains the sole auth owner. Credentials never cross Dart.
 // Every operation still uses existing RPCs and row/storage authorization.
@@ -93,6 +93,12 @@ async function validateImage(file: File): Promise<void> {
 }
 export function createMerchantFlutterBridge({ client, userId, signOut, onOrderChange }: BridgeOptions): MerchantFlutterBridge {
   let disposed = false;
+  type PhotoSelection = { storeId: string; orderId: string; file: File; previewUrl: string; uploadedPath?: string; completing?: Promise<void> };
+  const photos = new Map<string, PhotoSelection>();
+  const releasePhoto = (path: string) => {
+    const selection = photos.get(path);
+    if (selection) { URL.revokeObjectURL(selection.previewUrl); photos.delete(path); }
+  };
   let subscription: ReturnType<typeof subscribeMerchantOrders> | null = null;
   const ensureSession = async () => {
     if (disposed) throw new BridgeAccessError();
@@ -121,27 +127,42 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     return data as FoodOrder;
   };
   const listStores = async () => {
-    const allowed: FoodStore[] = [];
-    for (let offset = 0; ; offset += 100) {
-      const { data, error } = await client.from("food_stores").select("*").order("created_at").order("id").range(offset, offset + 99);
-      if (error) throw error;
-      const rows = (data ?? []) as FoodStore[];
-      const grants = await Promise.all(rows.map((s) => client.rpc("food_has_merchant_access", { p_store_id: s.id })));
-      for (let i = 0; i < rows.length; i += 1) {
-        if (grants[i].error) throw grants[i].error;
-        if (grants[i].data === true) allowed.push(rows[i]);
+    // Read this user's indexed grants first. Public catalog visibility must not
+    // turn each merchant refresh into a catalog scan plus one RPC per store.
+    const grants = async (table: "merchant_memberships" | "food_staff", column: string) => {
+      const values = new Set<string>();
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await client.from(table).select(column).eq("user_id", userId).eq("active", true).order(column).range(offset, offset + 499);
+        if (error) throw error;
+        const rows = (data ?? []) as unknown as Args[];
+        rows.forEach((row) => values.add(id(row[column])));
+        if (rows.length < 500) break;
       }
-      if (rows.length < 100) break;
+      return [...values];
+    };
+    const [accounts, staffStores] = await Promise.all([grants("merchant_memberships", "merchant_account_id"), grants("food_staff", "store_id")]);
+    await ensureSession();
+    const stores = new Map<string, FoodStore>();
+    for (const [column, values] of [["merchant_account_id", accounts], ["id", staffStores]] as const) {
+      for (let batch = 0; batch < values.length; batch += 100) {
+        for (let offset = 0; ; offset += 500) {
+          const { data, error } = await client.from("food_stores").select("*").in(column, values.slice(batch, batch + 100)).order("created_at").order("id").range(offset, offset + 499);
+          if (error) throw error;
+          const rows = (data ?? []) as FoodStore[];
+          rows.forEach((store) => stores.set(store.id, store));
+          if (rows.length < 500) break;
+        }
+      }
     }
-    return allowed;
+    return [...stores.values()].sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "") || a.id.localeCompare(b.id));
   };
-  const execute = async (method: string, args: Args, picked: Promise<File | null> | null): Promise<unknown> => {
+  const execute = async (method: string, args: Args, picked: Promise<File | null> | null, permissionRequest?: Promise<NotificationPermission>): Promise<unknown> => {
     await ensureSession();
     if (method === "signOut") { await signOut(); return null; }
     if (method === "stores") return listStores();
     if (method === "pushStatus") return { enabled: await hasActivePushSubscription() === true, permission: typeof Notification === "undefined" ? "unsupported" : Notification.permission, ...(await getPushAvailability()) };
     if (method === "pushEnable") {
-      const result = await subscribeToPushNotifications(client, userId);
+      const result = await subscribeToPushNotifications(client, userId, { permissionRequest, ensureActive: ensureSession });
       return result.ok ? { ok: true, enabled: true } : { ok: false, enabled: false, reason: result.reason, message: pushReasonDescription(result.reason) };
     }
     if (method === "pushDisable") {
@@ -248,7 +269,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         const orderId = id(args.orderId), status = text(args.status, 20, true);
         if (!["paid", "issue"].includes(status)) throw new BridgeInputError();
         const order = await ownedOrder(storeId, orderId);
-        if (status === "paid" && !order.payment_slip_path) throw new BridgeInputError();
+        if (status === "paid" && !order.payment_slip_path && !(args.manualConfirmation === true && order.payment_status === "pending")) throw new BridgeInputError();
         if (order.payment_provider === "stripe" || (order.stripe_checkout_session_id && !order.payment_slip_path)) throw new Error("stripe payment status");
         await ensureSession();
         await setFoodPaymentStatus(client, orderId, status as "paid" | "issue", text(args.note, 800)); return null;
@@ -265,14 +286,48 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         const file = await picked;
         if (!file) return null;
         await validateImage(file); await ensureSession();
-        const path = await uploadFoodPrivateImage(client, file, `delivery/${order.id}`);
-        return { path, previewUrl: await foodPrivateSignedUrl(client, path, 900) };
+        const handle = `pending:${crypto.randomUUID()}`;
+        const previewUrl = URL.createObjectURL(file);
+        for (const [path, selection] of photos) {
+          if (selection.storeId === storeId && selection.orderId === order.id) {
+            if (selection.completing) { URL.revokeObjectURL(previewUrl); throw new BridgeInputError(); }
+            releasePhoto(path);
+          }
+        }
+        photos.set(handle, { storeId, orderId: order.id, file, previewUrl });
+        return { path: handle, previewUrl };
+      }
+      case "releaseDeliveryPhoto": {
+        const path = text(args.imagePath, 250, true), orderId = id(args.orderId);
+        const selection = photos.get(path);
+        if (selection && (selection.storeId !== storeId || selection.orderId !== orderId)) throw new BridgeAccessError();
+        if (selection?.completing) throw new BridgeInputError();
+        releasePhoto(path); return null;
       }
       case "completeDelivery": {
-        const orderId = id(args.orderId), method = text(args.method, 10, true), path = text(args.imagePath, 250, true);
-        if (!["direct", "dropoff"].includes(method) || !path.startsWith(`delivery/${orderId}/`) || path.includes("..")) throw new BridgeInputError();
+        const orderId = id(args.orderId), method = text(args.method, 10, true), handle = text(args.imagePath, 250, true);
+        if (!["direct", "dropoff"].includes(method)) throw new BridgeInputError();
         const note = text(args.locationNote, 500, method === "dropoff");
-        await ownedOrder(storeId, orderId); await ensureSession(); await completeFoodDelivery(client, orderId, method as "direct" | "dropoff", note, path); return null;
+        const selection = photos.get(handle);
+        if (!selection || selection.storeId !== storeId || selection.orderId !== orderId) throw new BridgeInputError();
+        if (selection.completing) { await selection.completing; return null; }
+        const operation = async () => {
+          const order = await ownedOrder(storeId, orderId);
+          const proof = orderDeliveryProof(order);
+          // A lost RPC response must not create another upload or undo evidence.
+          if (selection.uploadedPath && order.status === "delivered" && proof?.image_path === selection.uploadedPath) return;
+          if (order.status !== "out_for_delivery") throw new Error("not out for delivery");
+          const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin", "manager", "orders", "delivery"] });
+          if (error || data !== true) throw new BridgeAccessError();
+          await ensureSession();
+          selection.uploadedPath ??= await uploadFoodPrivateImage(client, selection.file, `delivery/${orderId}`);
+          await ensureSession();
+          await completeFoodDelivery(client, orderId, method as "direct" | "dropoff", note, selection.uploadedPath);
+        };
+        selection.completing = operation();
+        try { await selection.completing; releasePhoto(handle); }
+        finally { selection.completing = undefined; }
+        return null;
       }
       case "createCampaign": {
         const name = text(args.name, 80, true), discount = amount(args.discount, 100);
@@ -296,13 +351,17 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         // OS picker opens synchronously during the user's tap, before network awaits.
         if (method === "pickDeliveryPhoto") { id(args.storeId); id(args.orderId); }
         const picked = method === "pickDeliveryPhoto" ? pickImage() : null;
-        const data = await execute(method, args, picked);
+        const permissionRequest = method === "pushEnable" ? requestPushPermissionFromGesture() : undefined;
+        // Session validation may reject before the captured prompt settles.
+        void permissionRequest?.catch(() => undefined);
+        const data = await execute(method, args, picked, permissionRequest);
         if (method !== "signOut") await ensureSession();
         return JSON.stringify({ ok: true, data: data ?? null });
       } catch (error) { return JSON.stringify({ ok: false, error: safeError(error) }); }
     },
     dispose() {
       disposed = true;
+      for (const path of photos.keys()) releasePhoto(path);
       if (subscription) { void client.removeChannel(subscription).catch(() => undefined); subscription = null; }
     },
   };
