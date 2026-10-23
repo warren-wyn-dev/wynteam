@@ -291,3 +291,24 @@
   มีประโยชน์สำหรับยืนยัน live rendering/cascade แต่ไม่ทดแทน regression suite เดิมที่มี literal-string assertion
   ผูกกับค่า CSS อยู่แล้ว ควร `grep -rn "<ค่าเดิมที่กำลังจะแก้>" web/tests/browser/` ก่อนแก้ CSS ทุกครั้งเพื่อหา
   assertion ที่ต้องอัปเดตพร้อมกัน (รายละเอียดเต็มที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน)
+
+### [2026-10-23] ZOKY Stripe jobs: worker ปิด refund job ตาม flag ใน DB และ fail path ข้ามออเดอร์ที่ถูกตั้ง refunded ก่อนเวลา
+
+- เกิดอะไรขึ้น: `_lib.ts refund()` คืนค่า `refunded` ทันทีเมื่อ `order_payment_status='refunded'` (ก่อน branch poll refund ของตัวเอง)
+  และ `internal.food_stripe_job_fail` อัปเดตเฉพาะ `payment_status='paid'`; GP ถูกบันทึกว่าคืนตอน `refund_requested`;
+  gate ใช้ `source='app'` แทน deny-by-default; ไม่มี guard กันเส้นทาง client ตั้ง Stripe order เป็น refunded
+- ผลกระทบ: (ก่อน apply production) refund พร้อมเพย์ที่ล้มเหลวจะแสดง "คืนเงินแล้ว" โดยไม่มีใครรู้ — QA จัดเป็น HIGH
+- จับได้อย่างไร: AI QA & Security โหลด body ของ RPC จริงลง Postgres ชั่วคราว + mock fetch ของ worker (t5_promptpay, promptpay_refund_test.ts)
+- วิธีป้องกันในอนาคต: ห้าม short-circuit สถานะเงินจาก flag ที่ระบบอื่นเขียนได้; ทุก fail path ต้องทดสอบกับสถานะที่ถูกตั้งก่อนเวลา;
+  บันทึกผลทางการเงิน (GP) เฉพาะเมื่อ provider ยืนยันสำเร็จ; gate ใหม่ต้อง deny-by-default
+
+### [2026-10-23] ZOKY-156: refund job ที่ park ไว้ (partial refund / ชำระซ้ำ) ค้างใน admin queue ตลอดไป
+
+- เกิดอะไรขึ้น: ZOKY-153/154 ทำให้ webhook ส่ง `noop` สำหรับ partial refund และ refund ของ PaymentIntent ที่ชำระซ้ำ (ถูกต้อง)
+  แต่ไม่มีเส้นทางใดปิด job `needs_attention` หลัง operator คืนเงินส่วนที่เหลือ/คืนรายการซ้ำใน Stripe; branch ปิด job ชำระซ้ำ
+  ใน `food_orders_payment_guard` กลายเป็น dead path (webhook ไม่ส่ง `refunded` ให้ PI ซ้ำแล้ว และหา order จาก PI ซ้ำไม่เจอด้วย)
+- ผลกระทบ: (ก่อน apply production) ออเดอร์ค้าง paid/pending และ job ค้างใน admin queue แม้เงินคืนครบแล้ว — Codex P2
+- จับได้อย่างไร: Codex review บน PR #1231; ยืนยันด้วยการอ่าน flow จริง (mapper → food_apply_stripe_event → keep_first/guard → claim)
+- วิธีแก้: `food_requeue_stripe_refund_jobs(pi)` (service_role) ที่ webhook เรียกทุก succeeded Refund; worker ตรวจ refund list จาก Stripe
+  ใหม่ (job ปกติ: adoptExisting เดิม; job ชำระซ้ำ: ตรวจอย่างเดียว ปิดเป็น done ไม่แตะ order และไม่สร้าง refund)
+- วิธีป้องกันในอนาคต: ทุกสถานะ park ต้องมี test ของเส้นทางออกจากสถานะ; เปลี่ยน mapper แล้วต้องหา consumer ฝั่ง DB ที่พึ่ง state เดิม

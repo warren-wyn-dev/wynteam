@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+import { findLiveRefund } from "./_lib.ts";
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -59,7 +61,7 @@ Deno.serve(async (req: Request) => {
   if (!orderId) return json({ error: "order_id_required" }, 400);
 
   const { data: order } = await admin.from("food_orders")
-    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status")
+    .select("id,store_id,status,payment_status,payment_provider,stripe_payment_intent_id,refund_status,total")
     .eq("id", orderId).maybeSingle();
   if (!order) return json({ error: "order_not_found" }, 404);
 
@@ -75,7 +77,7 @@ Deno.serve(async (req: Request) => {
   if (order.refund_status === "refunded") return json({ error: "already_refunded" }, 409);
 
   const { data: payment } = await admin.from("food_stripe_payments")
-    .select("stripe_account_id,livemode,application_fee_satang").eq("order_id", order.id).maybeSingle();
+    .select("stripe_account_id,livemode,application_fee_satang,amount_satang").eq("order_id", order.id).maybeSingle();
 
   let stripeAccountId = typeof payment?.stripe_account_id === "string" ? payment.stripe_account_id : null;
   let paymentLivemode = typeof payment?.livemode === "boolean" ? payment.livemode : null;
@@ -115,6 +117,32 @@ Deno.serve(async (req: Request) => {
         status: response.status,
         request_id: response.headers.get("request-id"),
       });
+      // ZOKY-149: a refund may already exist (automatic refund worker,
+      // Dashboard). That is not a failure: record it as pending and let the
+      // worker/webhook record the final state. No GP is booked here.
+      const amountSatang = typeof payment?.amount_satang === "number"
+        ? payment.amount_satang
+        : Math.round(Number(order.total ?? 0) * 100);
+      const existing = await findLiveRefund(fetch, stripeSecret, stripeAccountId, order.stripe_payment_intent_id, amountSatang);
+      if (existing?.kind === "partial") {
+        // Someone refunded only part of it (D4: full refunds only): a person checks it.
+        await admin.from("food_orders").update({
+          refund_status: "failed",
+          refund_note: "มีการคืนเงินบางส่วนแล้ว ต้องให้ทีม ZOKY ตรวจสอบ",
+          refund_updated_by: user.id,
+        }).eq("id", order.id).neq("refund_status", "refunded");
+        return json({
+          error: "partial_refund_exists",
+          message: "มีการคืนเงินบางส่วนแล้ว กรุณาติดต่อทีม ZOKY เพื่อตรวจสอบ",
+        }, 409);
+      }
+      if (existing) {
+        await admin.from("food_orders").update({
+          refund_status: "pending",
+          stripe_refund_id: existing.id,
+        }).eq("id", order.id).neq("refund_status", "refunded");
+        return json({ status: existing.status, refundId: existing.id, alreadyRequested: true, gpRecordPending: false });
+      }
       throw new Error("gateway_refund_failed");
     }
     await admin.from("food_orders").update({

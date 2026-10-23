@@ -1,0 +1,305 @@
+name: Food -- apply ZOKY Stripe jobs (auto refund / Stripe-only)
+
+# Runs ONE step per run. Write steps apply one file in one transaction, then verify:
+#   preflight READ-ONLY (design step 0, CTO C4): pg_get_functiondef of the
+#            legacy payment RPCs (to see which duplicated version is live,
+#            ZOKY-150) and aggregate counts only (no personal data, no secrets).
+#   jobs     supabase/migrations/20261023100000_food_stripe_jobs_auto_refund.sql
+#            Stripe job queue, auto-refund triggers, worker RPCs, Vault cron key,
+#            merchant retry, public boolean RPCs, admin refund list.
+#            Stripe-only policy stays OFF.
+#   cron     supabase/migrations/20261023100100_food_stripe_jobs_enable_cron.sql
+#            Runs food-stripe-refund-worker every minute.
+#   activate supabase/migrations/20261023100200_food_stripe_only_activate.sql
+#            Stripe-only (PromptPay via Stripe) cut-over (D11: immediate).
+#   backfill supabase/migrations/20261023100300_food_stripe_jobs_backfill.sql
+#            OPT-IN (CTO C3): refund jobs for Stripe orders cancelled before
+#            `jobs` that still wait for a refund. Never runs unless chosen.
+#   deactivate supabase/rollbacks/20261023100200_food_stripe_only_activate_rollback.sql
+#            Policy rollback (CTO C5): stripe_only_from = NULL (legacy payments).
+#   cron-off supabase/rollbacks/20261023100100_food_stripe_jobs_enable_cron_rollback.sql
+#            cron.unschedule the worker; jobs keep queueing.
+# Design: .wyn/docs/architecture/zoky-stripe-only-auto-refund-design.md (section 6).
+# Founder approval 2026-10-22 covers implementation only: every write step
+# here (jobs, cron, activate, backfill, deactivate, cron-off) needs its own
+# Founder approval and the GitHub
+# `production` environment review. Order: deploy food-stripe-refund-worker
+# (deploy-edge-functions.yml) -> jobs -> cron -> EDGE/PHASE (ZOKY exception
+# workflow) -> activate.
+# Test: supabase/tests/food_stripe_auto_refund_test.sh
+#
+# ROLLBACK: steps `deactivate` (policy) and `cron-off` (schedule) run the
+# rollbacks from here; otherwise apply supabase/rollbacks/<same file name>_rollback.sql
+# (jobs: unschedule cron, policy NULL, drop the 3 triggers; tables kept;
+#  backfill: remove backfill jobs not picked up yet).
+on:
+  workflow_dispatch:
+    inputs:
+      migration:
+        description: 'Which step to run (preflight is read-only; write steps one per run, in order)'
+        required: true
+        type: choice
+        options: [preflight, jobs, cron, activate, backfill, deactivate, cron-off]
+      confirm:
+        description: 'Type APPLY-ZOKY-STRIPE-JOBS to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    environment: production
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-ZOKY-STRIPE-JOBS'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      STEP: ${{ github.event.inputs.migration }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"
+            exit 1
+          fi
+          case "$STEP" in
+            preflight) FILE= ;;
+            jobs) FILE=supabase/migrations/20261023100000_food_stripe_jobs_auto_refund.sql ;;
+            cron) FILE=supabase/migrations/20261023100100_food_stripe_jobs_enable_cron.sql ;;
+            activate) FILE=supabase/migrations/20261023100200_food_stripe_only_activate.sql ;;
+            backfill) FILE=supabase/migrations/20261023100300_food_stripe_jobs_backfill.sql ;;
+            deactivate) FILE=supabase/rollbacks/20261023100200_food_stripe_only_activate_rollback.sql ;;
+            cron-off) FILE=supabase/rollbacks/20261023100100_food_stripe_jobs_enable_cron_rollback.sql ;;
+            *) echo "::error::unknown step"; exit 1 ;;
+          esac
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2
+              cat "$out" >&2
+              rm -f "$out"
+              return 1
+            fi
+            cat "$out"
+            rm -f "$out"
+          }
+
+          # Preconditions: definitions, extensions and counts only; no personal
+          # or financial rows and no secret values are read.
+          case "$STEP" in
+            preflight)
+              echo "== Live definitions of the legacy payment RPCs (compare with the repo copies)"
+              run_sql "select p.oid::regprocedure::text as signature, md5(pg_get_functiondef(p.oid)) as md5,
+                    pg_get_functiondef(p.oid) as definition
+                  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'public'
+                    and p.proname in ('food_set_payment_status','food_transition_order','food_cancel_order',
+                                      'food_submit_payment','food_apply_stripe_event','merchant_set_refund_status',
+                                      'food_timeout_cancel')
+                  order by 1;" > defs.json
+              jq -r '.[] | "---- \(.signature)  md5=\(.md5)\n\(.definition)"' defs.json
+              echo "== Counts only (CTO C4)"
+              run_sql "select
+                  (select count(*) from pg_extension where extname='pg_cron') as pg_cron,
+                  (select count(*) from pg_extension where extname='pg_net') as pg_net,
+                  (select count(*) from public.food_stores where is_published) as published_stores,
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.is_published and s.stripe_payments_enabled and a.status='ready'
+                       and a.details_submitted and a.charges_enabled) as stripe_ready_stores,
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.is_published and s.stripe_payments_enabled and a.status='ready'
+                       and a.details_submitted and a.charges_enabled and a.promptpay_enabled) as promptpay_ready_stores,
+                  (select count(*) from public.food_orders where status not in ('delivered','cancelled')) as open_orders,
+                  (select count(*) from public.food_orders where status not in ('delivered','cancelled')
+                     and payment_status='submitted') as open_slip_submitted,
+                  (select count(*) from public.food_orders where status not in ('delivered','cancelled')
+                     and payment_status in ('pending','issue') and stripe_checkout_session_id is not null) as open_unpaid_with_checkout,
+                  (select count(*) from public.food_orders where status not in ('delivered','cancelled')
+                     and payment_status='paid' and payment_provider='stripe') as open_stripe_paid,
+                  (select count(*) from public.food_orders where status not in ('delivered','cancelled')
+                     and source is distinct from 'app' and source is distinct from 'manual') as open_other_source,
+                  (select count(*) from public.food_orders where status='cancelled' and payment_status='paid'
+                     and payment_provider='stripe' and refund_status='pending') as stripe_cancelled_refund_pending,
+                  (select count(*) from public.food_orders where status='cancelled' and payment_status='paid'
+                     and payment_provider='stripe' and refund_status='failed') as stripe_cancelled_refund_failed,
+                  (select count(*) from public.food_stripe_payments where status='pending') as checkout_ledger_pending;" | jq .
+              # ZOKY-153: the new webhook marks refunds only from refund.* events,
+              # so the live endpoint must already deliver them (QA re-test 3).
+              echo "== Refund webhook events received (counts only; need a refund.* type before deploying stripe-webhook)"
+              run_sql "select event_type, count(*) as events, max(received_at) as last_received
+                  from public.food_stripe_webhook_events
+                  where event_type in ('charge.refunded','refund.created','refund.updated','refund.failed','charge.refund.updated')
+                  group by event_type order by event_type;" | jq .
+              echo "== Legacy Stripe refunds still pending (watch after deploy)"
+              run_sql "select count(*) as stripe_refund_pending_total
+                  from public.food_orders where payment_provider='stripe' and refund_status='pending';" | jq .
+              # The database does not know which Stripe mode the Edge secret uses: a
+              # 'ready' account from the other mode still passes the order gate (Codex P2).
+              echo "== Ready Stripe accounts by mode (counts only; must match the Edge STRIPE_SECRET_KEY mode)"
+              run_sql "select
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.stripe_payments_enabled and a.status='ready' and a.livemode is true) as ready_live,
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.stripe_payments_enabled and a.status='ready' and a.livemode is false) as ready_test,
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.stripe_payments_enabled and a.status='ready' and a.livemode is null) as ready_mode_unknown;" | jq .
+              # ZOKY-154: the webhook marks an order refunded only for a refund of
+              # food_orders.stripe_payment_intent_id; these legacy rows have none.
+              echo "== Stripe orders paid / refund-pending without a PaymentIntent (counts only)"
+              run_sql "select
+                  (select count(*) from public.food_orders where payment_provider='stripe'
+                     and payment_status='paid' and stripe_payment_intent_id is null) as stripe_paid_without_pi,
+                  (select count(*) from public.food_orders where payment_provider='stripe'
+                     and refund_status='pending' and stripe_payment_intent_id is null) as stripe_refund_pending_without_pi;" | jq .
+              if [ "$(run_sql "select to_regclass('public.food_stripe_jobs') is not null as ok;" | jq -r '.[0].ok')" = "true" ]; then
+                run_sql "select
+                    (select count(*) from public.food_orders o where o.status='cancelled' and o.payment_status='paid'
+                       and o.payment_provider='stripe' and o.refund_status in ('pending','failed')
+                       and not exists (select 1 from public.food_stripe_jobs j where j.order_id=o.id
+                                       and j.kind='refund' and j.reason <> 'duplicate_payment')) as backfill_candidates,
+                    (select count(*) from public.food_stripe_jobs where status='queued') as jobs_queued,
+                    (select count(*) from public.food_stripe_jobs where status='awaiting_refund') as jobs_awaiting_refund,
+                    (select count(*) from public.food_stripe_jobs where status='failed') as jobs_failed,
+                    (select count(*) from public.food_stripe_jobs where status='needs_attention') as jobs_needs_attention,
+                    (select count(*) from public.food_orders where refund_awaiting_customer) as refunds_awaiting_customer,
+                    (select stripe_only_from is not null from public.food_payment_policy) as policy_set,
+                    (select count(*) from cron.job where jobname='wynos-food-stripe-refund-worker' and active) as worker_cron;" | jq .
+              else
+                echo "food_stripe_jobs not installed yet (jobs step not applied)."
+              fi
+              echo "Preflight finished. Nothing was changed."
+              exit 0 ;;
+            jobs)
+              run_sql "select
+                  (to_regclass('public.food_stripe_payments') is not null
+                   and to_regclass('public.food_stripe_accounts') is not null
+                   and to_regclass('public.merchant_notifications') is not null
+                   and to_regclass('vault.decrypted_secrets') is not null
+                   and to_regprocedure('public.merchant_has_store_role(uuid,text[])') is not null
+                   and to_regprocedure('internal.has_admin_permission(text,text)') is not null
+                   and exists (select 1 from information_schema.columns where table_schema='public'
+                               and table_name='food_stripe_payments' and column_name='application_fee_satang')
+                   and exists (select 1 from information_schema.columns where table_schema='public'
+                               and table_name='food_stripe_payments' and column_name='livemode')
+                   and exists (select 1 from information_schema.columns where table_schema='public'
+                               and table_name='food_stripe_payments' and column_name='payment_method')
+                   and exists (select 1 from information_schema.columns where table_schema='public'
+                               and table_name='food_stripe_accounts' and column_name='promptpay_enabled')) as ok;" | tee pre.json | jq .
+              jq -e '.[0].ok == true' pre.json >/dev/null \
+                || { echo "::error::Stripe payment core / GP v1 / Connect v2 / Vault / WYN219 prerequisites missing"; exit 1; } ;;
+            cron)
+              run_sql "select
+                  (to_regprocedure('internal.food_refund_worker_tick()') is not null
+                   and exists (select 1 from pg_extension where extname='pg_cron')
+                   and exists (select 1 from pg_extension where extname='pg_net')
+                   and exists (select 1 from vault.secrets where name='wynos_project_url')
+                   and exists (select 1 from vault.secrets where name='wynos_food_refund_worker_cron_key')) as ok;" | tee pre.json | jq .
+              jq -e '.[0].ok == true' pre.json >/dev/null \
+                || { echo "::error::Apply the jobs step first (and check pg_cron / pg_net / Vault project URL)"; exit 1; } ;;
+            activate)
+              run_sql "select
+                  (select count(*) from pg_trigger where tgrelid='public.food_orders'::regclass and not tgisinternal
+                     and tgname in ('food_orders_payment_guard','food_orders_payment_jobs','food_orders_require_stripe_ready')) = 3
+                  and exists (select 1 from cron.job where jobname='wynos-food-stripe-refund-worker' and active) as ok,
+                  (select count(*) from public.food_stores where is_published) as published_stores,
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.is_published and s.stripe_payments_enabled and a.status='ready'
+                       and a.details_submitted and a.charges_enabled) as stripe_ready_stores,
+                  (select count(*) from public.food_stores s join public.food_stripe_accounts a on a.store_id=s.id
+                     where s.is_published and s.stripe_payments_enabled and a.status='ready'
+                       and a.details_submitted and a.charges_enabled and a.promptpay_enabled) as promptpay_ready_stores;" | tee pre.json | jq .
+              jq -e '.[0].ok == true' pre.json >/dev/null \
+                || { echo "::error::Apply the jobs and cron steps first"; exit 1; }
+              echo "Published stores without a ready Stripe account with PromptPay active stop taking orders at cut-over (D11, Founder 2026-10-23)." ;;
+            backfill)
+              run_sql "select
+                  (to_regprocedure('public.food_complete_stripe_job(uuid,text,text,text,boolean,boolean)') is not null
+                   and exists (select 1 from cron.job where jobname='wynos-food-stripe-refund-worker' and active)) as ok,
+                  (select count(*) from public.food_orders o where o.status='cancelled' and o.payment_status='paid'
+                     and o.payment_provider='stripe' and o.refund_status in ('pending','failed')
+                     and not exists (select 1 from public.food_stripe_jobs j where j.order_id=o.id
+                                     and j.kind='refund' and j.reason <> 'duplicate_payment')) as candidates;" | tee pre.json | jq .
+              jq -e '.[0].ok == true' pre.json >/dev/null \
+                || { echo "::error::Apply the jobs and cron steps first"; exit 1; } ;;
+            deactivate)
+              run_sql "select to_regclass('public.food_payment_policy') is not null as ok;" | tee pre.json | jq .
+              jq -e '.[0].ok == true' pre.json >/dev/null || { echo "::error::Policy table missing"; exit 1; } ;;
+            cron-off)
+              run_sql "select exists (select 1 from pg_extension where extname='pg_cron') as ok;" | tee pre.json | jq .
+              jq -e '.[0].ok == true' pre.json >/dev/null || { echo "::error::pg_cron missing"; exit 1; } ;;
+          esac
+
+          run_sql "begin;
+          $(cat "$FILE")
+          commit;" >/dev/null
+
+          case "$STEP" in
+            jobs)
+              run_sql "select
+                  (select count(*) from pg_class where oid in ('public.food_stripe_jobs'::regclass,'public.food_payment_policy'::regclass) and relrowsecurity) as rls_tables,
+                  has_table_privilege('authenticated','public.food_stripe_jobs','select') as members_read_jobs,
+                  has_table_privilege('anon','public.food_payment_policy','select') as anon_read_policy,
+                  (select count(*) from pg_trigger where tgrelid='public.food_orders'::regclass and not tgisinternal
+                     and tgname in ('food_orders_payment_guard','food_orders_payment_jobs','food_orders_require_stripe_ready')) as triggers,
+                  has_function_privilege('authenticated','public.food_claim_stripe_jobs(integer)','execute') as members_claim,
+                  has_function_privilege('authenticated','public.food_complete_stripe_job(uuid,text,text,text,boolean,boolean)','execute') as members_complete,
+                  has_function_privilege('anon','public.admin_food_refund_jobs(text)','execute') as anon_admin_jobs,
+                  exists (select 1 from information_schema.columns where table_schema='public'
+                          and table_name='food_orders' and column_name='refund_awaiting_customer') as awaiting_column,
+                  has_function_privilege('service_role','public.food_claim_stripe_jobs(integer)','execute') as service_claim,
+                  has_function_privilege('authenticated','public.food_requeue_stripe_refund_jobs(text)','execute') as members_requeue,
+                  has_function_privilege('service_role','public.food_requeue_stripe_refund_jobs(text)','execute') as service_requeue,
+                  has_function_privilege('anon','public.merchant_retry_stripe_refund(uuid)','execute') as anon_retry,
+                  has_function_privilege('anon','public.food_store_payment_options(uuid[])','execute') as anon_options,
+                  (select count(*) from vault.secrets where name='wynos_food_refund_worker_cron_key') as cron_keys,
+                  (select stripe_only_from is null from public.food_payment_policy) as policy_off,
+                  public.food_payment_policy_public() as policy_public;" | tee result.json | jq .
+              jq -e '.[0].rls_tables == 2 and .[0].members_read_jobs == false and .[0].anon_read_policy == false
+                     and .[0].triggers == 3 and .[0].members_claim == false and .[0].members_complete == false
+                     and .[0].service_claim == true and .[0].anon_retry == false and .[0].anon_options == true
+                     and .[0].anon_admin_jobs == false and .[0].awaiting_column == true
+                     and .[0].members_requeue == false and .[0].service_requeue == true
+                     and .[0].cron_keys == 1 and .[0].policy_off == true and .[0].policy_public == false' result.json >/dev/null \
+                || { echo "::error::Verification failed"; exit 1; } ;;
+            cron)
+              run_sql "select count(*) as jobs from cron.job
+                  where jobname='wynos-food-stripe-refund-worker' and active and schedule='* * * * *'
+                    and command like '%internal.food_refund_worker_tick()%';" | tee result.json | jq .
+              jq -e '.[0].jobs == 1' result.json >/dev/null || { echo "::error::Verification failed"; exit 1; } ;;
+            activate)
+              run_sql "select
+                  (select stripe_only_from is not null and stripe_only_from <= now() from public.food_payment_policy) as active,
+                  public.food_payment_policy_public() as policy_public;" | tee result.json | jq .
+              jq -e '.[0].active == true and .[0].policy_public == true' result.json >/dev/null \
+                || { echo "::error::Verification failed"; exit 1; } ;;
+            backfill)
+              run_sql "select count(*) as backfill_jobs from public.food_stripe_jobs where reason='backfill';" | tee result.json | jq . ;;
+            deactivate)
+              run_sql "select
+                  (select stripe_only_from is null from public.food_payment_policy) as policy_off,
+                  public.food_payment_policy_public() as policy_public;" | tee result.json | jq .
+              jq -e '.[0].policy_off == true and .[0].policy_public == false' result.json >/dev/null \
+                || { echo "::error::Verification failed"; exit 1; } ;;
+            cron-off)
+              run_sql "select count(*) as jobs from cron.job where jobname='wynos-food-stripe-refund-worker';" | tee result.json | jq .
+              jq -e '.[0].jobs == 0' result.json >/dev/null || { echo "::error::Verification failed"; exit 1; } ;;
+          esac
+          echo "ZOKY Stripe jobs step '$STEP' applied and verified."
