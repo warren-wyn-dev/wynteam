@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-155
 
-Status: bugs
+Status: approved (fixed and verified in Re-test 5/6, 2026-10-23: a payment after a refund opens a duplicate review job and the ledger stays refunded)
 Owner: AI Debug Engineer
 Severity: LOW (rare: needs an extra payment after the order was refunded)
 

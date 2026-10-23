@@ -462,9 +462,103 @@ Environment:
 ### Not testable here
 Unchanged (real Stripe test mode incl. Dashboard refund events on connected accounts, pg_cron/pg_net/Vault, HTTP-level edge functions).
 
-## Final Status: FAIL
+### Re-test 4 status: FAIL (superseded by Re-test 6)
 → AI Debug Engineer, with ZOKY-154 (HIGH). Fix suggestion:
 - ledger guard trigger on `food_stripe_payments`, and/or
 - in stripe-webhook, require the refund's `payment_intent` to equal `food_orders.stripe_payment_intent_id` before marking refunded.
 
 ZOKY-155 (LOW) can be fixed in the same change. Everything else in Re-test 4 passed.
+
+---
+
+## Re-test 5 (0b1cbafc, paused) and Re-test 6 (2026-10-23, payjobs feat/zoky-stripe-jobs-db @ fa2dafbb)
+
+**Re-test 5 (paused, then superseded):** t8_round5 passed 14/14.
+- The ledger keeps the first PI.
+- A payment after a refund opens a review job (ZOKY-155).
+- A refund of the order's own PI still works.
+- A foreign-PI refund leaves the order untouched; cancel then refunds the first PI, so the ZOKY-154 loss path is closed.
+- The tx-local flags do not leak to the next transaction and cannot be set by clients.
+- Orders with a NULL PI still get a refund job.
+
+**Re-test 6.** New since 0b1cbafc:
+- ZOKY-156 requeue of parked jobs after a succeeded Refund event: `food_requeue_stripe_refund_jobs`, the worker check-only `checkDuplicateRefunded`, and `job_fail` no longer touching the order for duplicate jobs;
+- preflight counts of Stripe orders without a PI;
+- `deno test --allow-read=.` on deploy.
+
+### Results
+| Suite | Result |
+|---|---|
+| Developer SQL `food_stripe_auto_refund_test.sh` | 205/205 PASS |
+| deno `--allow-read=.` per function | stripe-webhook 13/13, merchant-stripe-refund 3/3, food-stripe-refund-worker 26/26; `deno check` OK; full functions dir 151/151 |
+| t1 / t2 | 31/31, 37/37 |
+| t3 (expectations corrected: PromptPay-only, social gated, refusals from function or guard), stripecore and core_completion | 24/24, 24/24 |
+| t5 (expectations corrected) | 16/16 |
+| t6 / t7 / t8 / t153 | 43/43, 10/10 (incl. the ZOKY-154 loss path), 14/14, 7/7 |
+| t4 slip/manual policy-OFF parity | Unchanged (only `refund_auto_queued`) |
+| t9_round6.sh (new, requeue) | 31 passed; the 2 "FAIL" lines are a harness modelling error (the pending gating is in the webhook, covered by deno) |
+| deno round6_test.ts (new) | 6/6 PASS |
+
+### Covered in this round
+**Partial refund, then the remainder**
+- Card: the job is parked with `partial_refund_exists`. A succeeded remainder event requeues it (attempts reset, `requeue_count`+1, a new idempotency key), and the worker adopts the full coverage and marks the order refunded, with no POST.
+- PromptPay with a pending remainder:
+  - no succeeded event is sent, so the job stays parked, which is correct;
+  - once a requeue happens with a pending refund listed, the worker polls (`awaitingCustomer`) and then refunds;
+  - a refund that is still partial is parked again, never a second full POST.
+
+**Duplicate PI**
+- Refunded in full or in two parts → done, with an audit event; the order (first payment) is untouched.
+- A pending refund does not count, the worker never POSTs, and the list query is scoped to the duplicate PI.
+- A refund of the first PI never requeues the duplicate job.
+- A failed duplicate job does not touch the order and sends no customer notice.
+
+**Replayed / out-of-order events**
+- A replayed requeue is a no-op; a late event after done is a no-op.
+- A partial succeeded event never marks the order refunded.
+- `charge.refunded`, `pending`, `requires_action` and `failed` trigger no recheck.
+
+**Cross-environment**
+- The webhook returns early for a mismatched environment, before any requeue.
+- In the worker, a livemode mismatch → needs_attention before any Stripe call.
+- `stripe_environment_mismatch` is never requeued.
+
+**Requeue RPC**
+- anon and authenticated: permission denied.
+- Bad, empty, null, wrong-prefix, injection and >250-char PIs → 0.
+- Only resolvable codes are requeued.
+
+**Abuse**
+- Requeueing needs a real succeeded Refund event signed by Stripe, so clients cannot trigger it.
+- Done jobs cannot be requeued.
+- Attempt resets are bounded by real refunds.
+
+**Invariants still hold**
+- ZOKY-153: no spurious payment notifications (t6, t153).
+- ZOKY-154: the ledger keeps the first PI and the loss path is closed (t7, t8).
+- ZOKY-155: covered in t8.
+- ZOKY-147 refund truth (t5, worker poll) and ZOKY-150/151 guards (t3) are unchanged.
+
+### Remaining (LOW, not blocking)
+- ZOKY-156 residual 1: a duplicate job parked again after a partial refund re-notifies the merchant ("ต้องให้ทีม ZOKY ตรวจสอบ"). Bounded by real refund events.
+- ZOKY-156 residual 2: a race where a succeeded event is processed before the worker parks the job leaves it parked. Recommend an admin "recheck" action or a periodic recheck of needs_attention jobs.
+- Webhook-only paths for orders with a NULL PI no longer mark refunded; job orders are covered by the worker. Before deploying `stripe-webhook`, check the counts in the preflight (`stripe_paid_without_pi`, `stripe_refund_pending_without_pi`).
+- Earlier LOWs: ZOKY-152, the ZOKY-148 customer copy, the `retryStripeRefund` "ทีม WYNOS" string, and the backfill candidate review.
+- In a raw SQL session (not a client path), a foreign-PI event followed by an own-PI refund in the same transaction freezes the order's state. Informational.
+
+### Still not testable here
+- Real Stripe test mode: refund events on connected accounts, PromptPay refund email/`requires_action`, event ordering, the ฿10 fee.
+- pg_cron, pg_net and Vault.
+- HTTP-level edge functions.
+- WebKit/desktop Playwright.
+- A Stripe test-mode E2E is required before Founder Gate.
+
+## Final Status: PASS
+No CRITICAL, HIGH or MEDIUM issue is open. ZOKY-147 to ZOKY-151 and ZOKY-153 to ZOKY-156 are fixed and verified; only LOW items remain.
+
+Rollout conditions (each Founder-gated):
+- (a) Preflight: the refund webhook event types are being received, the counts of Stripe orders without a PI are reviewed, and the Dashboard subscription to `refund.*` is confirmed.
+- (b) Deploy order: `stripe-webhook` (from main) → worker → jobs → cron → EDGE/PHASE → activate.
+- (c) The Stripe test-mode E2E for PromptPay refunds passes before Founder Gate.
+
+→ CTO final review, then AI Deploy & DevOps.

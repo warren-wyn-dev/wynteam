@@ -1,6 +1,6 @@
 # Bug Report — ZOKY-154
 
-Status: bugs
+Status: approved (fixed and verified in Re-test 5/6, 2026-10-23, payjobs fa2dafbb: the ledger keeps the first PaymentIntent, the webhook marks refunded only for the order's own PaymentIntent, and the t7 loss path passes)
 Owner: AI Debug Engineer
 Severity: HIGH (money: after a duplicate payment, the customer's real payment can end up never refunded while the order says "คืนเงินแล้ว")
 Found in: Re-test 4 (payjobs fa1e9e49)
