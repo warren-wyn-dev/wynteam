@@ -602,7 +602,8 @@ function MerchantInner({
     void fetchStorePaymentOptions(client, [paymentStoreId]).then((options) => {
       if (!live) return;
       const option = options?.get(paymentStoreId);
-      setStoreAccepting(option ? { storeId: paymentStoreId, accepting: option.accepting_orders } : null);
+      // PromptPay-only (Founder 2026-10-23): a store without PromptPay cannot take ZOKY orders.
+      setStoreAccepting(option ? { storeId: paymentStoreId, accepting: option.accepting_orders && option.promptpay } : null);
     });
     return () => { live = false; };
   }, [client, paymentStoreId, storeStripeReady, stripeOnly]);
@@ -1033,7 +1034,7 @@ function StripeOnlyNotReadyBanner({ onOpen }: { onOpen: () => void }) {
       <CircleDollarSign size={22} />
       <span>
         <strong>ร้านยังรับออเดอร์จาก ZOKY ไม่ได้</strong>
-        <small>ZOKY รับเงินผ่าน Stripe เท่านั้น ร้านต้องเปิดรับชำระเงินก่อนจึงจะรับออเดอร์ได้</small>
+        <small>ZOKY รับชำระด้วยพร้อมเพย์ผ่าน Stripe เท่านั้น ร้านต้องเปิดรับชำระเงินและให้บัญชี Stripe รองรับพร้อมเพย์ก่อนจึงจะรับออเดอร์ได้</small>
       </span>
       <button className="wm-primary" type="button" onClick={onOpen}>เปิดรับชำระเงิน</button>
     </div>
@@ -1963,7 +1964,7 @@ function Sheet({
 function cancelConfirmText(order: FoodOrder, stripeOnly: boolean) {
   if (!stripeOnly || order.payment_status !== "paid") return "ยืนยันยกเลิกออเดอร์นี้?";
   return order.payment_provider === "stripe"
-    ? "ยืนยันยกเลิกออเดอร์นี้?\nลูกค้าชำระผ่าน Stripe แล้ว ระบบจะคืนเงินเต็มจำนวนให้ลูกค้าอัตโนมัติ"
+    ? "ยืนยันยกเลิกออเดอร์นี้?\nลูกค้าชำระผ่าน Stripe แล้ว ระบบจะคืนเงินเต็มจำนวนให้ลูกค้าอัตโนมัติ ถ้าลูกค้าชำระด้วยพร้อมเพย์ ลูกค้าต้องกรอกเลขบัญชีในอีเมลจาก Stripe ก่อนเงินจะคืน"
     : "ยืนยันยกเลิกออเดอร์นี้?\nออเดอร์นี้ไม่ได้ชำระผ่าน Stripe ร้านต้องโอนเงินคืนลูกค้าเองแล้วบันทึกในส่วนการคืนเงิน";
 }
 
@@ -1988,7 +1989,7 @@ function OrderSheet({
   // Under the policy customer orders are paid through Stripe only, so the
   // store cannot mark them paid by hand. Exceptions: slips submitted before
   // the cut-over (legacy) and store-entered orders (D7). The server enforces this.
-  const manualPaymentAllowed = !stripeOnly || order.source !== "app" || order.payment_status === "submitted";
+  const manualPaymentAllowed = !stripeOnly || order.source === "manual" || order.payment_status === "submitted";
   const [busy, setBusy] = useState(false);
   const [eta, setEta] = useState(order.eta_minutes ?? 30);
   // The signed slip URL for a given slip path; null url = it failed to load.

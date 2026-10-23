@@ -351,7 +351,9 @@ test("Food customer flow is connected to real ordering, payment and realtime API
   expect(app).toContain("แจ้งชำระเงิน");
   expect(app).toContain("footer={canPay && paymentGate.ready && !stripeOnly ? (");
   expect(app).toContain('payWithStripe("promptpay")');
-  expect(app).toContain('payWithStripe("card")');
+  // PromptPay QR only under the policy (Founder 2026-10-23); the legacy card button stays for policy off.
+  expect(app).not.toContain('payWithStripe("card")');
+  expect(app).toContain("{FOOD_PROMPTPAY_PAYEE_NOTE}");
   expect(app).toContain("subscribeToPushNotifications(client, userId)");
   expect(app).toContain("isCurrentDevicePushEnabled(client, userId)");
   expect(app).toContain("กำลังเตรียมอาหาร");

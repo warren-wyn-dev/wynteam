@@ -7,12 +7,16 @@ import { test } from "node:test";
 import {
   cancelFoodStripeCheckout,
   FOOD_CANCEL_ALREADY_PAID_COPY,
+  FOOD_PROMPTPAY_PAYEE_NOTE,
+  fetchFoodAutoRefundSignals,
   fetchFoodPaymentPolicy,
   fetchStorePaymentOptions,
+  foodAutoRefundActive,
   foodEdgePayload,
   foodRefundNotice,
   foodStoreNotAccepting,
   foodStripeCheckoutErrorCopy,
+  merchantAutoRefundView,
 } from "../lib/food-payment-policy.ts";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -88,6 +92,10 @@ test("a store is shown as not accepting only under the policy and only when the 
   assert.equal(foodStoreNotAccepting(true, null, STORE_A), false, "options unavailable = accepting");
   assert.equal(foodStoreNotAccepting(true, new Map(), STORE_A), false, "unknown store = accepting");
   assert.equal(foodStoreNotAccepting(true, options, null), false);
+  // PromptPay-only (Founder 2026-10-23): a ready store without PromptPay is not accepting.
+  const cardOnly = new Map([[STORE_A, { store_id: STORE_A, accepting_orders: true, promptpay: false, card: true }]]);
+  assert.equal(foodStoreNotAccepting(true, cardOnly, STORE_A), true);
+  assert.equal(foodStoreNotAccepting(false, cardOnly, STORE_A), false, "policy off = legacy");
 });
 
 test("Edge Function errors are read from the non-2xx body", async () => {
@@ -100,7 +108,9 @@ test("Edge Function errors are read from the non-2xx body", async () => {
 });
 
 test("checkout errors map to Thai copy, including the new Stripe-only codes", () => {
-  assert.equal(foodStripeCheckoutErrorCopy({ error: "promptpay_unavailable" }), "ร้านนี้ยังไม่รองรับพร้อมเพย์ กรุณาเลือกบัตรเครดิต/เดบิต");
+  assert.equal(foodStripeCheckoutErrorCopy({ error: "promptpay_unavailable" }), "ร้านนี้ยังไม่เปิดรับชำระเงินด้วยพร้อมเพย์ กรุณาติดต่อร้าน");
+  assert.equal(foodStripeCheckoutErrorCopy({ error: "promptpay_only" }), "ZOKY รับชำระด้วยพร้อมเพย์เท่านั้น");
+  assert.equal(foodStripeCheckoutErrorCopy({ error: "invalid_payment_method" }), "วิธีชำระเงินไม่ถูกต้อง กรุณาเลือกใหม่อีกครั้ง");
   assert.equal(foodStripeCheckoutErrorCopy({ error: "store_not_accepting_orders" }), "ร้านนี้ยังไม่เปิดรับออเดอร์");
   assert.equal(foodStripeCheckoutErrorCopy({ error: "stripe_not_ready" }), "ร้านยังไม่พร้อมรับชำระผ่าน Stripe");
   assert.equal(foodStripeCheckoutErrorCopy({ error: "payment_deadline_expired", message: "หมดเวลาชำระเงินแล้ว" }), "หมดเวลาชำระเงินแล้ว");
@@ -122,14 +132,86 @@ test("customer cancel closes the Stripe session first; a completed payment block
 test("refund states shown to the customer", () => {
   assert.equal(foodRefundNotice({ refund_status: "none", payment_status: "paid" }), null);
   assert.equal(foodRefundNotice({ payment_status: "paid" }), null);
-  assert.equal(foodRefundNotice({ refund_status: "pending", payment_provider: "stripe" }).title, "กำลังคืนเงิน");
-  assert.match(foodRefundNotice({ refund_status: "pending", payment_provider: "stripe" }).detail, /อัตโนมัติ/);
+  const stripePending = { refund_status: "pending", payment_provider: "stripe" };
+  // Policy on (PromptPay-only): always the "check the Stripe email" path (ZOKY-147).
+  const pp = foodRefundNotice(stripePending, { stripeOnly: true });
+  assert.equal(pp.title, "กำลังคืนเงิน");
+  assert.equal(pp.detail, "กรุณาตรวจอีเมลจาก Stripe เพื่อกรอกเลขบัญชีที่ใช้จ่าย หากไม่ได้กรอก การคืนเงินอาจไม่สำเร็จ");
+  // Backend flag: Stripe is waiting for the customer's bank account.
+  assert.equal(foodRefundNotice({ ...stripePending, refund_awaiting_customer: true }).detail, pp.detail);
+  // Policy off, method unknown: covers PromptPay and card, no promise of timing beyond "may".
+  const generic = foodRefundNotice(stripePending);
+  assert.match(generic.detail, /ชำระด้วยพร้อมเพย์: กรุณาตรวจอีเมลจาก Stripe เพื่อกรอกเลขบัญชีที่ใช้จ่าย/);
+  assert.match(generic.detail, /ชำระด้วยบัตร: อาจใช้ 5–10 วันทำการ/);
+  assert.doesNotMatch(generic.detail, /อัตโนมัติ/);
+  // Store-transfer refunds (non-Stripe) are unchanged.
   assert.equal(foodRefundNotice({ refund_status: "pending", payment_provider: "manual" }).detail, "ร้านจะโอนเงินคืนให้คุณ");
+  assert.equal(foodRefundNotice({ refund_status: "pending", payment_provider: "manual" }, { stripeOnly: true }).detail, "ร้านจะโอนเงินคืนให้คุณ");
   assert.equal(foodRefundNotice({ refund_status: "refunded" }).title, "คืนเงินแล้ว");
   assert.equal(foodRefundNotice({ refund_status: "none", payment_status: "refunded" }).title, "คืนเงินแล้ว");
-  const failed = foodRefundNotice({ refund_status: "failed", payment_provider: "stripe" });
+  const failed = foodRefundNotice({ refund_status: "failed", payment_provider: "stripe" }, { stripeOnly: true });
   assert.equal(failed.title, "คืนเงินมีปัญหา ติดต่อร้าน");
   assert.equal(failed.tone, "warn");
+  assert.match(failed.detail, /ยังไม่ได้กรอกเลขบัญชีในอีเมลจาก Stripe/);
+  assert.doesNotMatch(foodRefundNotice({ refund_status: "failed", payment_provider: "manual" }).detail, /Stripe/);
+});
+
+test("merchant refund box copy: needs attention, awaiting customer, failure reason and retry", () => {
+  const pending = { refund_status: "pending" };
+  const on = merchantAutoRefundView(pending, true);
+  assert.equal(on.label, "กำลังคืนเงิน");
+  assert.match(on.lines.join(" "), /ลูกค้าชำระด้วยพร้อมเพย์ ลูกค้าต้องกรอกเลขบัญชีที่ใช้จ่ายในอีเมลจาก Stripe/);
+  assert.match(on.lines.join(" "), /ไม่ต้องกดคืนเงินเอง/);
+  assert.equal(on.canRetry, false);
+  assert.match(merchantAutoRefundView(pending, false).lines[0], /^ถ้าลูกค้าชำระด้วยพร้อมเพย์/);
+  // ZOKY-148: needs attention never says "do not refund manually".
+  const attention = merchantAutoRefundView(pending, true, true);
+  assert.equal(attention.needsAttention, true);
+  assert.equal(attention.label, "ต้องตรวจสอบ");
+  assert.deepEqual(attention.lines, ["การคืนเงินต้องตรวจสอบ ติดต่อทีม ZOKY"]);
+  assert.equal(attention.canRetry, false);
+  const waiting = merchantAutoRefundView({ ...pending, refund_awaiting_customer: true }, false);
+  assert.equal(waiting.label, "รอลูกค้า");
+  assert.match(waiting.lines[0], /รอลูกค้ากรอกเลขบัญชีที่ใช้จ่ายในอีเมลจาก Stripe/);
+  const failed = merchantAutoRefundView({ refund_status: "failed" }, true);
+  assert.equal(failed.canRetry, true);
+  assert.match(failed.lines[0], /ยังไม่ได้กรอกเลขบัญชีในอีเมลจาก Stripe หรือยอดเงินในบัญชี Stripe ของร้านไม่พอ/);
+  assert.match(failed.lines[1], /อาจต้องกรอกเลขบัญชีในอีเมลจาก Stripe อีกครั้ง/);
+  // A failure after a parked job is retryable again; a finished refund is final.
+  assert.equal(merchantAutoRefundView({ refund_status: "failed" }, true, true).canRetry, true);
+  assert.equal(merchantAutoRefundView({ refund_status: "refunded" }, true, true).label, "คืนเงินแล้ว");
+});
+
+test("ZOKY-148/149: automatic refund signals come from the order's job events", async () => {
+  const none = { jobExists: false, needsAttention: false };
+  const job = { jobExists: true, needsAttention: false };
+  assert.equal(foodAutoRefundActive({ refund_status: "pending" }, null), false);
+  assert.equal(foodAutoRefundActive({ refund_status: "pending" }, none), false, "old order without a job keeps the manual path (C3)");
+  assert.equal(foodAutoRefundActive({ refund_status: "pending" }, job), true);
+  assert.equal(foodAutoRefundActive({ refund_status: "pending", refund_awaiting_customer: true }, null), true);
+  assert.equal(foodAutoRefundActive({ refund_status: "pending", stripe_refund_id: "re_test" }, none), true);
+  assert.equal(foodAutoRefundActive({ refund_status: "failed", stripe_refund_id: "re_test" }, none), false);
+
+  const calls = [];
+  const query = (result) => {
+    const builder = {
+      select: (cols) => { calls.push(["select", cols]); return builder; },
+      eq: (col, value) => { calls.push(["eq", col, value]); return builder; },
+      in: (col, values) => { calls.push(["in", col, values]); return builder; },
+      order: (col, opts) => { calls.push(["order", col, opts]); return builder; },
+      limit: async (n) => { calls.push(["limit", n]); return result; },
+    };
+    return { from: (table) => { calls.push(["from", table]); return builder; } };
+  };
+  assert.deepEqual(await fetchFoodAutoRefundSignals(query({ data: [{ event_type: "refund_requested" }, { event_type: "refund_auto_queued" }], error: null }), "order-1"), job);
+  assert.deepEqual(calls.slice(0, 3), [["from", "food_order_events"], ["select", "event_type"], ["eq", "order_id", "order-1"]]);
+  for (const type of ["refund_auto_queued", "refund_awaiting_customer", "refund_failed", "refund_needs_attention"]) assert.ok(calls[3][2].includes(type), type);
+  assert.deepEqual(calls.slice(4, 7), [["order", "created_at", { ascending: false }], ["order", "id", { ascending: false }], ["limit", 20]]);
+  assert.deepEqual(await fetchFoodAutoRefundSignals(query({ data: [{ event_type: "refund_needs_attention" }, { event_type: "refund_auto_queued" }], error: null }), "o"), { jobExists: true, needsAttention: true });
+  assert.deepEqual(await fetchFoodAutoRefundSignals(query({ data: [{ event_type: "refund_retry_requested" }, { event_type: "refund_needs_attention" }], error: null }), "o"), job, "only the latest event counts");
+  assert.deepEqual(await fetchFoodAutoRefundSignals(query({ data: [], error: null }), "o"), none);
+  assert.equal(await fetchFoodAutoRefundSignals(query({ data: null, error: { code: "42501" } }), "o"), null);
+  assert.equal(await fetchFoodAutoRefundSignals({ from: () => { throw new Error("offline"); } }, "o"), null);
 });
 
 test("customer web wires the policy without changing the legacy flow", () => {
@@ -141,12 +223,16 @@ test("customer web wires the policy without changing the legacy flow", () => {
   assert.match(lib, /fetchFoodPaymentPolicy,\n\s*fetchStorePaymentOptions,/);
   assert.match(lib, /message\.includes\("store_not_accepting_orders"\)\) return FOOD_STORE_NOT_ACCEPTING_COPY/);
   assert.match(lib, /message\.includes\("promptpay_unavailable"\)\) return FOOD_PROMPTPAY_UNAVAILABLE_COPY/);
-  // Two first-class Stripe options under the policy; PromptPay only when the store has it.
-  assert.match(app, /\{orderStoreOption\?\.promptpay \? \(/);
+  assert.match(lib, /message\.includes\("stripe_only_payments"\)\) return FOOD_STRIPE_ONLY_PAYMENTS_COPY/);
+  assert.match(lib, /message\.includes\("promptpay_only"\)\) return FOOD_PROMPTPAY_ONLY_COPY/);
+  // PromptPay QR through Stripe is the only option under the policy (Founder 2026-10-23), with the payee note.
   assert.match(app, /payWithStripe\("promptpay"\)/);
-  assert.match(app, /"พร้อมเพย์ · ยืนยันอัตโนมัติ"/);
-  assert.match(app, /payWithStripe\("card"\)/);
-  assert.match(app, /"บัตรเครดิต\/เดบิต"/);
+  assert.match(app, /: FOOD_PROMPTPAY_OPTION_COPY\}/);
+  assert.doesNotMatch(app, /payWithStripe\("card"\)/);
+  assert.match(app, /aria-describedby="fx-pay-promptpay-payee"/);
+  assert.match(app, /<small id="fx-pay-promptpay-payee" className="fx-pay-payee-note">\{FOOD_PROMPTPAY_PAYEE_NOTE\}<\/small>/);
+  assert.equal(FOOD_PROMPTPAY_PAYEE_NOTE, "ชื่อผู้รับในแอปธนาคารจะเป็น STRIPE PAYMENTS (THAILAND)");
+  assert.match(app, /\? \["พร้อมเพย์ \(QR\)"\]/);
   // No QR, bank rows, copy buttons or slip picker under the policy; legacy kept when it is off.
   assert.match(app, /footer=\{canPay && paymentGate\.ready && !stripeOnly \? \(/);
   assert.match(app, /if \(!paymentGate\.ready \|\| stripeOnly \|\| \(orderStore && !orderStore\.promptpay_id\)/);
@@ -165,7 +251,7 @@ test("customer web wires the policy without changing the legacy flow", () => {
   assert.match(app, /storeOpen=\{!storeNotAccepting && foodStoreIsEffectivelyOpen\(store\)\}/);
   assert.match(app, /\|\| \(paymentGate\.notAccepting\(store\.id\) \? FOOD_STORE_NOT_ACCEPTING_COPY : ""\)/);
   // Refund states on the order.
-  assert.match(app, /const refundNotice = foodRefundNotice\(order\);/);
+  assert.match(app, /const refundNotice = foodRefundNotice\(order, \{ stripeOnly \}\);/);
   // Options are only fetched under the policy.
   assert.match(app, /const key = stripeOnly \? storeIds\.filter\(Boolean\)\.join\(","\) : "";/);
 });
@@ -173,7 +259,12 @@ test("customer web wires the policy without changing the legacy flow", () => {
 test("food-stripe-checkout validates the method server-side and keeps the session short-lived", () => {
   const checkout = read("../../supabase/functions/food-stripe-checkout/index.ts");
   const cancel = read("../../supabase/functions/food-stripe-cancel/index.ts");
-  assert.match(checkout, /const method = parseCheckoutMethod\(rawMethod\);\s*if \(method === null\) return json\(\{ error: "invalid_payment_method" \}, 400\);/);
+  assert.match(checkout, /const requestedMethod = parseCheckoutMethod\(rawMethod\);\s*if \(requestedMethod === null\) return json\(\{ error: "invalid_payment_method" \}, 400\);/);
+  // PromptPay-only under the policy, read server-side; unknown policy never opens a card session.
+  assert.match(checkout, /stripeOnlyFromPolicyResult\(await admin\.rpc\("food_payment_policy_public"\)\)/);
+  assert.match(checkout, /if \(stripeOnly === null\) \{\s*return json\(\{ error: "payment_policy_unavailable"/);
+  assert.match(checkout, /if \(resolved\.error\) return json\(\{ error: resolved\.error, [^\n]*\}, 422\);/);
+  assert.ok(checkout.indexOf("resolveCheckoutMethod(") < checkout.indexOf('params.set("payment_method_types[0]", method)'));
   assert.match(checkout, /if \(method === "promptpay" && account\.promptpay_enabled !== true\) \{\s*return json\(\{ error: "promptpay_unavailable"[^\n]*\}, 422\);/);
   assert.match(checkout, /sessionMatchesMethod\(session, method\)/);
   assert.match(checkout, /const expireError = await expireOpenSession\(/);

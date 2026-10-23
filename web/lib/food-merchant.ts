@@ -147,6 +147,8 @@ export type FoodOrder = {
   stripe_checkout_session_id?: string | null;
   stripe_payment_intent_id?: string | null;
   stripe_refund_id?: string | null;
+  /** PromptPay refund waiting for the customer's bank account (migration 20261023100000; absent before it). */
+  refund_awaiting_customer?: boolean | null;
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;

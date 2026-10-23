@@ -287,7 +287,7 @@ test("Merchant receives orders from WYNOS Food only while keeping delivery workf
   expect(app).toContain("ยืนยันส่งสำเร็จ");
   expect(app).toContain("ยืนยันเงินเข้า");
   // Stripe-only: manual confirmation stays only for legacy slips and store-entered orders.
-  expect(app).toContain('const manualPaymentAllowed = !stripeOnly || order.source !== "app" || order.payment_status === "submitted";');
+  expect(app).toContain('const manualPaymentAllowed = !stripeOnly || order.source === "manual" || order.payment_status === "submitted";');
   expect(app).toContain("เริ่มจัดส่ง");
 });
 

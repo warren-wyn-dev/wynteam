@@ -28,20 +28,41 @@ test("retry errors are shown in Thai; a missing RPC is not reported as a raw err
   await assert.rejects(retryStripeRefund(rpcClient({ error: { code: "42501", message: "permission denied" } }), "o"), /ลองคืนเงินอีกครั้งไม่สำเร็จ/);
 });
 
-test("refund box: automatic state and retry under the policy, existing controls otherwise", () => {
+test("refund box: automatic box when an automatic refund exists, manual Stripe button otherwise", () => {
   assert.match(panels, /stripeOnly = false,/);
-  assert.match(panels, /if \(stripeOnly && order\.payment_provider === "stripe"\) \{/);
+  // ZOKY-149: one owner of Stripe refunds, in both policy states.
+  assert.match(panels, /void fetchFoodAutoRefundSignals\(client, order\.id\)/);
+  assert.match(panels, /foodAutoRefundActive\(order, signals \?\? null\) \|\| \(signals === null && stripeOnly\)/);
+  assert.match(panels, /if \(stripeOrder && signals === undefined && status !== "refunded"\) \{/);
+  assert.match(panels, /if \(autoRefund\) \{/);
+  // No manual button while the job check is still running.
+  assert.match(panels, /aria-busy="true">\s*<p role="status">กำลังตรวจสอบสถานะการคืนเงิน…<\/p>/);
+  assert.match(panels, /const view = merchantAutoRefundView\(order, stripeOnly, signals\?\.needsAttention === true\);/);
   assert.match(panels, /await retryStripeRefund\(client, order\.id\);/);
-  assert.match(panels, /\{status === "failed" \? \(\s*<>[\s\S]*?ลองคืนเงินอีกครั้ง/);
-  assert.match(panels, /"กำลังคืนเงิน" : status === "refunded" \? "คืนเงินแล้ว" : status === "failed" \? "คืนเงินไม่สำเร็จ"/);
-  // The manual Stripe refund button remains for the legacy path (policy off).
+  assert.match(panels, /\{view\.canRetry \? \(\s*<button[\s\S]*?ลองคืนเงินอีกครั้ง/);
+  assert.doesNotMatch(panels, /ระบบกำลังคืนเงินให้ลูกค้า ไม่ต้องกดคืนเงินเอง/);
+  // The manual Stripe refund button remains for orders with no automatic refund (CTO C3).
   assert.match(panels, /await requestStripeRefund\(client, order\.id, note\);/);
   assert.match(panels, /"คืนเงินผ่าน Stripe"/);
+  assert.ok(panels.indexOf("if (autoRefund) {") < panels.indexOf("await requestStripeRefund(client, order.id, note);"));
   assert.match(app, /<RefundControls\s+client=\{client\}\s+order=\{order\}\s+stripeOnly=\{stripeOnly\}/);
 });
 
+test("retry error codes are shown in Thai", async () => {
+  await assert.rejects(retryStripeRefund(rpcClient({ error: { code: "P0001", message: "no_failed_refund" } }), "o"), /ยังลองใหม่ไม่ได้/);
+  await assert.rejects(retryStripeRefund(rpcClient({ error: { code: "P0001", message: "stripe_refund_not_eligible" } }), "o"), /คืนเงินผ่าน Stripe ไม่ได้/);
+  await assert.rejects(retryStripeRefund(rpcClient({ error: { code: "P0001", message: "order management role required" } }), "o"), /ไม่มีสิทธิ์จัดการคืนเงิน/);
+});
+
+test("PromptPay-only readiness and copy for the store", () => {
+  assert.match(app, /accepting: option\.accepting_orders && option\.promptpay/);
+  assert.match(app, /ZOKY รับชำระด้วยพร้อมเพย์ผ่าน Stripe เท่านั้น/);
+  assert.match(app, /ถ้าลูกค้าชำระด้วยพร้อมเพย์ ลูกค้าต้องกรอกเลขบัญชีในอีเมลจาก Stripe ก่อนเงินจะคืน/);
+  assert.doesNotMatch(app, /ร้านจะคืนเงินให้คุณ/);
+});
+
 test("manual payment confirmation is hidden for Stripe-only customer orders except legacy slips", () => {
-  assert.match(app, /const manualPaymentAllowed = !stripeOnly \|\| order\.source !== "app" \|\| order\.payment_status === "submitted";/);
+  assert.match(app, /const manualPaymentAllowed = !stripeOnly \|\| order\.source === "manual" \|\| order\.payment_status === "submitted";/);
   assert.match(app, /manualPaymentAllowed && order\.payment_status === "pending" \? \(\s*<button className="wm-secondary wm-full"[\s\S]{0,200}?>ทำเครื่องหมายว่าชำระแล้ว<\/button>/);
   assert.equal((app.match(/>ทำเครื่องหมายว่าชำระแล้ว</g) ?? []).length, 2);
   assert.equal((app.match(/manualPaymentAllowed && order\.payment_status === "pending" \? \(/g) ?? []).length, 2);

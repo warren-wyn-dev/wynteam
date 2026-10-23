@@ -3395,3 +3395,33 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["{0} · ดูเมนูไว้ก่อนได้", "{0} · You can still browse the menu"],
   ["{0} · ยืนยันอัตโนมัติ ไม่ต้องแนบสลิป · หากยังไม่ชำระ ระบบจะยกเลิกออเดอร์อัตโนมัติ", "{0} · Confirmed automatically, no slip needed · Unpaid orders are cancelled automatically"],
 ];
+
+// ZOKY PromptPay-only payments + refund states (Founder 2026-10-23, ZOKY-147/148/149).
+Object.assign(EN_EXACT, {
+  "พร้อมเพย์ (QR)": "PromptPay (QR)",
+  "กำลังตรวจสอบสถานะการคืนเงิน…": "Checking the refund status…",
+  "ส่งคำขอคืนเงินอีกครั้งแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ": "Refund requested again. The status will update automatically",
+  "ZOKY รับชำระด้วยพร้อมเพย์ผ่าน Stripe เท่านั้น ร้านต้องเปิดรับชำระเงินและให้บัญชี Stripe รองรับพร้อมเพย์ก่อนจึงจะรับออเดอร์ได้": "ZOKY takes PromptPay through Stripe only. Turn on payments and make sure your Stripe account supports PromptPay to start taking orders",
+  "ยืนยันยกเลิกออเดอร์นี้?\nลูกค้าชำระผ่าน Stripe แล้ว ระบบจะคืนเงินเต็มจำนวนให้ลูกค้าอัตโนมัติ ถ้าลูกค้าชำระด้วยพร้อมเพย์ ลูกค้าต้องกรอกเลขบัญชีในอีเมลจาก Stripe ก่อนเงินจะคืน": "Cancel this order?\nThe customer paid through Stripe. The full amount will be refunded automatically. If the customer paid with PromptPay, they must enter their bank account in the email from Stripe before the money is returned",
+  "วิธีชำระเงินไม่ถูกต้อง กรุณาเลือกใหม่อีกครั้ง": "Invalid payment method. Please choose again",
+  "ร้านนี้ยังไม่เปิดรับชำระเงินด้วยพร้อมเพย์ กรุณาติดต่อร้าน": "This store does not take PromptPay yet. Please contact the store",
+  "จ่ายด้วยพร้อมเพย์ (QR)": "Pay with PromptPay (QR)",
+  "ชื่อผู้รับในแอปธนาคารจะเป็น STRIPE PAYMENTS (THAILAND)": "The recipient name in your banking app will be STRIPE PAYMENTS (THAILAND)",
+  "ZOKY รับชำระด้วยพร้อมเพย์เท่านั้น": "ZOKY accepts PromptPay only",
+  "ออเดอร์นี้ชำระผ่านพร้อมเพย์ (Stripe) เท่านั้น ไม่รับสลิปหรือการยืนยันเอง": "This order can only be paid with PromptPay (Stripe). Slips and manual confirmation are not accepted",
+  "กรุณาตรวจอีเมลจาก Stripe เพื่อกรอกเลขบัญชีที่ใช้จ่าย หากไม่ได้กรอก การคืนเงินอาจไม่สำเร็จ": "Please check the email from Stripe and enter the bank account you paid from. If you do not, the refund may fail",
+  "การคืนเงินต้องตรวจสอบ ติดต่อทีม ZOKY": "This refund needs review. Contact the ZOKY team",
+  "คืนเงินผ่าน Stripe ไม่สำเร็จ ถ้าชำระด้วยพร้อมเพย์ อาจเป็นเพราะยังไม่ได้กรอกเลขบัญชีในอีเมลจาก Stripe กรุณาติดต่อร้าน": "The Stripe refund failed. If you paid with PromptPay, the bank account may not have been entered in the email from Stripe. Please contact the store",
+  "ต้องตรวจสอบ": "Needs review",
+  "คืนเงินเต็มจำนวนผ่าน Stripe · ชำระด้วยพร้อมเพย์: กรุณาตรวจอีเมลจาก Stripe เพื่อกรอกเลขบัญชีที่ใช้จ่าย · ชำระด้วยบัตร: อาจใช้ 5–10 วันทำการ": "Full refund through Stripe · Paid with PromptPay: check the email from Stripe and enter the bank account you paid from · Paid by card: this may take 5–10 business days",
+  "คืนเงินอัตโนมัติไม่สำเร็จ สาเหตุที่พบบ่อย: ลูกค้าที่ชำระด้วยพร้อมเพย์ยังไม่ได้กรอกเลขบัญชีในอีเมลจาก Stripe หรือยอดเงินในบัญชี Stripe ของร้านไม่พอ": "The automatic refund failed. Common causes: a PromptPay customer has not entered their bank account in the email from Stripe, or the store's Stripe balance is too low",
+  "กดลองอีกครั้งเพื่อส่งคำขอคืนเงินใหม่ ถ้าลูกค้าชำระด้วยพร้อมเพย์ ลูกค้าอาจต้องกรอกเลขบัญชีในอีเมลจาก Stripe อีกครั้ง": "Retry to send a new refund request. If the customer paid with PromptPay, they may need to enter their bank account in the email from Stripe again",
+  "ระบบดำเนินการคืนเงินให้ ไม่ต้องกดคืนเงินเอง หากค้างนานผิดปกติ ติดต่อทีม ZOKY": "The refund is handled for you. You do not need to refund manually. If it takes unusually long, contact the ZOKY team",
+  "รอลูกค้า": "Waiting for customer",
+  "รอลูกค้ากรอกเลขบัญชีที่ใช้จ่ายในอีเมลจาก Stripe เงินจะคืนหลังลูกค้ากรอกแล้ว": "Waiting for the customer to enter the bank account they paid from in the email from Stripe. The money is returned after they do",
+  "ลูกค้าชำระด้วยพร้อมเพย์ ลูกค้าต้องกรอกเลขบัญชีที่ใช้จ่ายในอีเมลจาก Stripe ก่อนเงินจะคืน": "The customer paid with PromptPay. They must enter the bank account they paid from in the email from Stripe before the money is returned",
+  "ถ้าลูกค้าชำระด้วยพร้อมเพย์ ลูกค้าต้องกรอกเลขบัญชีที่ใช้จ่ายในอีเมลจาก Stripe ก่อนเงินจะคืน": "If the customer paid with PromptPay, they must enter the bank account they paid from in the email from Stripe before the money is returned",
+  "ยังลองใหม่ไม่ได้ การคืนเงินยังดำเนินอยู่หรือต้องให้ทีม ZOKY ตรวจสอบ": "Cannot retry yet. The refund is still in progress or needs review by the ZOKY team",
+  "ออเดอร์นี้คืนเงินผ่าน Stripe ไม่ได้ ติดต่อทีม ZOKY": "This order cannot be refunded through Stripe. Contact the ZOKY team",
+  "บัญชีนี้ไม่มีสิทธิ์จัดการคืนเงินของร้าน": "This account cannot manage refunds for the store",
+});

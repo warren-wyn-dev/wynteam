@@ -365,6 +365,10 @@ export async function retryStripeRefund(client: SupabaseClient, orderId: string)
   if (!error) return;
   if (error.code === "PGRST202") throw new Error("ยังลองคืนเงินอีกครั้งไม่ได้ในตอนนี้ กรุณาติดต่อทีม WYNOS");
   if (/[ก-๙]/.test(error.message)) throw new Error(error.message);
+  // Error codes raised by merchant_retry_stripe_refund (migration 20261023100000).
+  if (error.message?.includes("no_failed_refund")) throw new Error("ยังลองใหม่ไม่ได้ การคืนเงินยังดำเนินอยู่หรือต้องให้ทีม ZOKY ตรวจสอบ");
+  if (error.message?.includes("stripe_refund_not_eligible")) throw new Error("ออเดอร์นี้คืนเงินผ่าน Stripe ไม่ได้ ติดต่อทีม ZOKY");
+  if (error.message?.includes("order management role required")) throw new Error("บัญชีนี้ไม่มีสิทธิ์จัดการคืนเงินของร้าน");
   throw new Error("ลองคืนเงินอีกครั้งไม่สำเร็จ กรุณาลองใหม่ภายหลัง");
 }
 

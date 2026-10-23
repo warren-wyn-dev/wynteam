@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MerchantNotificationTest } from "@/components/merchant/merchant-notification-test";
 import type { FoodOrder, FoodStore } from "@/lib/food-merchant";
+import { fetchFoodAutoRefundSignals, foodAutoRefundActive, merchantAutoRefundView, type FoodAutoRefundSignals } from "@/lib/food-payment-policy";
 import {
   addMerchantStaff,
   fetchMerchantActivity,
@@ -444,18 +445,49 @@ export function RefundControls({
   const status = order.refund_status ?? "none";
   const eligible = order.status === "cancelled"
     && (order.payment_status === "paid" || order.payment_status === "refunded" || status !== "none");
+  const stripeOrder = eligible && order.payment_provider === "stripe";
+  // ZOKY-148/149: the automatic refund job's events for this order.
+  // undefined = still checking; null = could not tell.
+  const [jobCheck, setJobCheck] = useState<{ orderId: string; signals: FoodAutoRefundSignals | null } | null>(null);
+  useEffect(() => {
+    if (!stripeOrder) return;
+    let live = true;
+    void fetchFoodAutoRefundSignals(client, order.id).then((signals) => {
+      if (live) setJobCheck({ orderId: order.id, signals });
+    });
+    return () => { live = false; };
+  }, [client, order.id, order.refund_status, order.refund_awaiting_customer, stripeOrder]);
 
   if (!eligible) return null;
 
-  // Under the Stripe-only policy a Stripe payment on a cancelled order is
-  // refunded in full by the server. The store only sees the state and can
-  // ask for a retry when the automatic refund failed.
-  if (stripeOnly && order.payment_provider === "stripe") {
+  const signals = jobCheck?.orderId === order.id ? jobCheck.signals : undefined;
+  // One owner of Stripe refunds: the automatic box whenever an automatic
+  // refund exists (any policy state). Under the policy an older order with no
+  // job keeps the manual Stripe button so a stuck refund can still be done
+  // (CTO C3); if the events cannot be read, the policy decides as before.
+  const autoRefund = stripeOrder && (
+    foodAutoRefundActive(order, signals ?? null) || (signals === null && stripeOnly)
+  );
+  // Until the events are read, show neither the manual button nor "no need
+  // to refund manually" (the job may be parked for the ZOKY team).
+  if (stripeOrder && signals === undefined && status !== "refunded") {
+    return (
+      <section className="wm-detail-section wm-refund-box" aria-busy="true">
+        <p role="status">กำลังตรวจสอบสถานะการคืนเงิน…</p>
+      </section>
+    );
+  }
+
+  // A Stripe payment on a cancelled order is refunded in full by the server.
+  // The store only sees the state and can ask for a retry when the automatic
+  // refund failed.
+  if (autoRefund) {
+    const view = merchantAutoRefundView(order, stripeOnly, signals?.needsAttention === true);
     const retry = async () => {
       setBusy(true);
       try {
         await retryStripeRefund(client, order.id);
-        onMessage("ส่งคืนเงินอีกครั้งแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ");
+        onMessage("ส่งคำขอคืนเงินอีกครั้งแล้ว ระบบจะอัปเดตสถานะให้อัตโนมัติ");
         onReload();
       } catch (error) {
         onMessage(error instanceof Error ? error.message : "ลองคืนเงินอีกครั้งไม่สำเร็จ");
@@ -470,20 +502,15 @@ export function RefundControls({
             {status === "refunded" ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />}
             <span><strong>การคืนเงินอัตโนมัติ</strong><small>ระบบคืนเงินเต็มจำนวนให้ลูกค้าผ่าน Stripe</small></span>
           </div>
-          <b className={`wm-refund-status is-${status}`}>
-            {status === "pending" ? "กำลังคืนเงิน" : status === "refunded" ? "คืนเงินแล้ว" : status === "failed" ? "คืนเงินไม่สำเร็จ" : "ยังไม่เริ่ม"}
-          </b>
+          <b className={`wm-refund-status is-${view.needsAttention ? "failed" : status}`}>{view.label}</b>
         </div>
         {order.refund_requested_at ? <p>เริ่มคืนเงิน: {shortDate(order.refund_requested_at)}</p> : null}
         {order.refunded_at ? <p>คืนเงินสำเร็จ: {shortDate(order.refunded_at)}</p> : null}
-        {status === "pending" ? <p>ระบบกำลังคืนเงินให้ลูกค้า ไม่ต้องกดคืนเงินเอง</p> : null}
-        {status === "failed" ? (
-          <>
-            <p>คืนเงินอัตโนมัติไม่สำเร็จ เช่น ยอดเงินในบัญชี Stripe ของร้านไม่พอ ตรวจสอบบัญชีแล้วลองอีกครั้ง</p>
-            <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void retry()}>
-              {busy ? "กำลังส่ง…" : "ลองคืนเงินอีกครั้ง"}
-            </button>
-          </>
+        {view.lines.map((line) => <p key={line}>{line}</p>)}
+        {view.canRetry ? (
+          <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void retry()}>
+            {busy ? "กำลังส่ง…" : "ลองคืนเงินอีกครั้ง"}
+          </button>
         ) : null}
         {order.refund_note ? <p>{order.refund_note}</p> : null}
       </section>

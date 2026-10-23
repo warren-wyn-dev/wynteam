@@ -5,8 +5,10 @@ import { imageUploadType } from "@/lib/upload-image";
 import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { sessionErrorCopy } from "@/lib/supabase/clock-skew-fetch";
 import {
+  FOOD_PROMPTPAY_ONLY_COPY,
   FOOD_PROMPTPAY_UNAVAILABLE_COPY,
   FOOD_STORE_NOT_ACCEPTING_COPY,
+  FOOD_STRIPE_ONLY_PAYMENTS_COPY,
   foodEdgePayload,
   foodStripeCheckoutErrorCopy,
   type FoodCheckoutMethod,
@@ -17,6 +19,8 @@ export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 export {
   cancelFoodStripeCheckout,
   FOOD_CANCEL_ALREADY_PAID_COPY,
+  FOOD_PROMPTPAY_OPTION_COPY,
+  FOOD_PROMPTPAY_PAYEE_NOTE,
   FOOD_STORE_NOT_ACCEPTING_COPY,
   FOOD_STORE_NOT_ACCEPTING_TAG,
   fetchFoodPaymentPolicy,
@@ -161,6 +165,8 @@ export type FoodCustomerOrder = {
   stripe_refund_id?: string | null;
   /** none | pending | refunded | failed (merchant core); refunds run server-side. */
   refund_status?: FoodRefundStatus | null;
+  /** PromptPay refund waiting for the customer's bank account (migration 20261023100000; absent before it). */
+  refund_awaiting_customer?: boolean | null;
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
@@ -1031,6 +1037,10 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (sessionCopy) return sessionCopy;
   if (message.includes("store_not_accepting_orders")) return FOOD_STORE_NOT_ACCEPTING_COPY;
   if (message.includes("promptpay_unavailable")) return FOOD_PROMPTPAY_UNAVAILABLE_COPY;
+  if (message.includes("promptpay_only")) return FOOD_PROMPTPAY_ONLY_COPY;
+  if (message.includes("stripe_only_payments")) return FOOD_STRIPE_ONLY_PAYMENTS_COPY;
+  if (message.includes("stripe_payment_already_completed") || message.includes("payment_already_completed")) return "ชำระเงินแล้ว กำลังอัปเดตสถานะออเดอร์";
+  if (message.includes("invalid_payment_method")) return "วิธีชำระเงินไม่ถูกต้อง กรุณาเลือกใหม่อีกครั้ง";
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
   if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";

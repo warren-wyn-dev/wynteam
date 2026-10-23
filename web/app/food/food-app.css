@@ -918,8 +918,9 @@
 .fx-pay-option small { color: var(--fx-sub); font-size: 12.5px; }
 .fx-pay-option > svg:first-child { color: var(--fx-red); }
 .fx-pay-option:disabled { opacity: .6; }
-/* Stripe-only: PromptPay and card as two equal choices. */
+/* Stripe-only: the PromptPay QR option and its payee note. */
 .fx-pay-options { display: grid; gap: 10px; }
+.fx-pay-payee-note { color: var(--fx-sub); font-size: 12px; line-height: 1.4; padding: 0 4px; }
 .fx-file-btn { position: relative; overflow: hidden; }
 .fx-file-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .fx-file-btn.is-disabled { opacity: .55; pointer-events: none; }

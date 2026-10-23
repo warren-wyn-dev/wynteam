@@ -96,6 +96,8 @@ import {
   cancelFoodStripeCheckout,
   createFoodCustomerOrder,
   FOOD_CANCEL_ALREADY_PAID_COPY,
+  FOOD_PROMPTPAY_OPTION_COPY,
+  FOOD_PROMPTPAY_PAYEE_NOTE,
   FOOD_STORE_NOT_ACCEPTING_COPY,
   FOOD_STORE_NOT_ACCEPTING_TAG,
   fetchFoodPaymentPolicy,
@@ -2590,10 +2592,9 @@ function CheckoutSheet({
     onSubmit(address, note, couponCode);
   };
 
-  const storePaymentOption = paymentGate.options.get(store.id);
-  // Stripe-only: PromptPay (when the store's Stripe account has it) and card, both confirmed automatically.
+  // Stripe-only: PromptPay QR through Stripe only (Founder 2026-10-23), confirmed automatically.
   const paymentMethods = paymentGate.stripeOnly
-    ? [storePaymentOption?.promptpay ? "พร้อมเพย์" : null, "บัตรเครดิต/เดบิต"].filter(Boolean)
+    ? ["พร้อมเพย์ (QR)"]
     : [
       store.promptpay_id || store.payment_qr_path ? "สแกน QR พร้อมเพย์" : null,
       store.bank_account_number ? "โอนแล้วแนบสลิป" : null,
@@ -2926,10 +2927,9 @@ function OrderDetailSheet({
   const proof = orderDeliveryProof(order);
   // The store that owns this order; an order from another store keeps its own payment details private to that store.
   const orderStore = store?.id === order.store_id ? store : null;
-  // Stripe-only (Founder 2026-10-22): no store QR, bank details or slips; PromptPay or card through Stripe.
+  // Stripe-only: no store QR, bank details or slips; PromptPay QR through Stripe only (Founder 2026-10-23).
   const paymentGate = useFoodPaymentGate([order.store_id]);
   const stripeOnly = paymentGate.stripeOnly;
-  const orderStoreOption = paymentGate.options.get(order.store_id);
   useEffect(() => {
     if (!order.payment_due_at || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") return;
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
@@ -3053,7 +3053,7 @@ function OrderDetailSheet({
   const paymentQr = dynamicPaymentQr ?? foodPublicUrl(client, orderStore?.payment_qr_path);
   const combinedBusy = busy || working;
   const slipUnderReview = !isCancelled && order.payment_status === "submitted";
-  const refundNotice = foodRefundNotice(order);
+  const refundNotice = foodRefundNotice(order, { stripeOnly });
   const storeNotAccepting = paymentGate.notAccepting(order.store_id);
   const countdown = secondsLeft == null ? null : `${Math.floor(secondsLeft / 60).toString().padStart(2, "0")}:${(secondsLeft % 60).toString().padStart(2, "0")}`;
   const itemCount = (order.food_order_items ?? []).reduce((sum, item) => sum + item.quantity, 0);
@@ -3140,18 +3140,14 @@ function OrderDetailSheet({
                 <div className="fx-note fx-note--warn" role="status">ร้านนี้ยังไม่เปิดรับชำระเงินออนไลน์ กรุณาติดต่อร้าน</div>
               ) : (
                 <div className="fx-pay-options" role="group" aria-label="เลือกวิธีชำระเงิน">
-                  {orderStoreOption?.promptpay ? (
-                    <button className="fx-pay-option" type="button" disabled={combinedBusy} onClick={() => void payWithStripe("promptpay")}>
-                      <QrCode size={22} />
-                      <span><strong>{openingMethod === "promptpay" ? "กำลังเปิดหน้าชำระเงิน…" : "พร้อมเพย์ · ยืนยันอัตโนมัติ"}</strong><small>สแกน QR ด้วยแอปธนาคาร ไม่ต้องแนบสลิป</small></span>
-                      <ChevronRight size={18} />
-                    </button>
-                  ) : null}
-                  <button className="fx-pay-option" type="button" disabled={combinedBusy} onClick={() => void payWithStripe("card")}>
-                    <CreditCard size={22} />
-                    <span><strong>{openingMethod === "card" ? "กำลังเปิดหน้าชำระเงิน…" : "บัตรเครดิต/เดบิต"}</strong><small>ชำระผ่าน Stripe · ยืนยันอัตโนมัติ</small></span>
+                  {/* PromptPay QR through Stripe is the only method under the policy (Founder 2026-10-23).
+                      Unknown store options still offer it: the server checks the account. */}
+                  <button className="fx-pay-option" type="button" disabled={combinedBusy} aria-describedby="fx-pay-promptpay-payee" onClick={() => void payWithStripe("promptpay")}>
+                    <QrCode size={22} />
+                    <span><strong>{openingMethod === "promptpay" ? "กำลังเปิดหน้าชำระเงิน…" : FOOD_PROMPTPAY_OPTION_COPY}</strong><small>สแกน QR ด้วยแอปธนาคาร ไม่ต้องแนบสลิป</small></span>
                     <ChevronRight size={18} />
                   </button>
+                  <small id="fx-pay-promptpay-payee" className="fx-pay-payee-note">{FOOD_PROMPTPAY_PAYEE_NOTE}</small>
                 </div>
               )
             ) : null}
