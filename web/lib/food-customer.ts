@@ -19,12 +19,14 @@ export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 export {
   cancelFoodStripeCheckout,
   FOOD_CANCEL_ALREADY_PAID_COPY,
+  FOOD_PAYMENT_POLICY_UNAVAILABLE_COPY,
   FOOD_PROMPTPAY_OPTION_COPY,
   FOOD_PROMPTPAY_PAYEE_NOTE,
   FOOD_STORE_NOT_ACCEPTING_COPY,
   FOOD_STORE_NOT_ACCEPTING_TAG,
-  fetchFoodPaymentPolicy,
+  fetchFoodPaymentPolicyState,
   fetchStorePaymentOptions,
+  foodPaymentGateForPolicy,
   foodRefundNotice,
   foodStoreNotAccepting,
 } from "@/lib/food-payment-policy";

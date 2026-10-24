@@ -3405,6 +3405,7 @@ Object.assign(EN_EXACT, {
   "ยืนยันยกเลิกออเดอร์นี้?\nลูกค้าชำระผ่าน Stripe แล้ว ระบบจะคืนเงินเต็มจำนวนให้ลูกค้าอัตโนมัติ ถ้าลูกค้าชำระด้วยพร้อมเพย์ ลูกค้าต้องกรอกเลขบัญชีในอีเมลจาก Stripe ก่อนเงินจะคืน": "Cancel this order?\nThe customer paid through Stripe. The full amount will be refunded automatically. If the customer paid with PromptPay, they must enter their bank account in the email from Stripe before the money is returned",
   "วิธีชำระเงินไม่ถูกต้อง กรุณาเลือกใหม่อีกครั้ง": "Invalid payment method. Please choose again",
   "ร้านนี้ยังไม่เปิดรับชำระเงินด้วยพร้อมเพย์ กรุณาติดต่อร้าน": "This store does not take PromptPay yet. Please contact the store",
+  "ระบบชำระเงินขัดข้องชั่วคราว ตอนนี้ชำระได้เฉพาะพร้อมเพย์ผ่าน Stripe": "Payments are having a temporary problem. Only PromptPay through Stripe is available right now",
   "จ่ายด้วยพร้อมเพย์ (QR)": "Pay with PromptPay (QR)",
   "ชื่อผู้รับในแอปธนาคารจะเป็น STRIPE PAYMENTS (THAILAND)": "The recipient name in your banking app will be STRIPE PAYMENTS (THAILAND)",
   "ZOKY รับชำระด้วยพร้อมเพย์เท่านั้น": "ZOKY accepts PromptPay only",

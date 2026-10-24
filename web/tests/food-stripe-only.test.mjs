@@ -9,9 +9,12 @@ import {
   FOOD_CANCEL_ALREADY_PAID_COPY,
   FOOD_PROMPTPAY_PAYEE_NOTE,
   fetchFoodAutoRefundSignals,
+  FOOD_PAYMENT_POLICY_UNAVAILABLE_COPY,
   fetchFoodPaymentPolicy,
+  fetchFoodPaymentPolicyState,
   fetchStorePaymentOptions,
   foodAutoRefundActive,
+  foodPaymentGateForPolicy,
   foodEdgePayload,
   foodRefundNotice,
   foodStoreNotAccepting,
@@ -48,7 +51,31 @@ const functionsClient = (result) => {
   return { calls, functions: { invoke: async (name, options) => { calls.push({ name, options }); return result; } } };
 };
 
-test("payment policy: on only when the RPC says so; missing RPC or errors keep legacy", async () => {
+test("payment policy state: only a missing RPC means legacy; other errors are unavailable (ZOKY-157)", async () => {
+  const state = (handler) => fetchFoodPaymentPolicyState(rpcClient(handler));
+  assert.equal(await state(() => ({ data: true, error: null })), "stripe_only");
+  assert.equal(await state(() => ({ data: [{ stripe_only: true }], error: null })), "stripe_only");
+  assert.equal(await state(() => ({ data: { stripe_only: true }, error: null })), "stripe_only");
+  assert.equal(await state(() => ({ data: false, error: null })), "legacy");
+  assert.equal(await state(() => ({ data: null, error: null })), "legacy", "policy NULL before activation stays legacy");
+  assert.equal(await state(() => ({ data: [{ stripe_only: false }], error: null })), "legacy");
+  assert.equal(await state(() => ({ data: "true", error: null })), "legacy");
+  assert.equal(await state(missingRpc), "legacy");
+  assert.equal(await state(() => ({ data: null, error: { code: "42883", message: "function does not exist" } })), "legacy");
+  // One 500, a timeout, a permission error or an offline client must never fall back to the store's own QR.
+  assert.equal(await state(() => ({ data: null, error: { code: "", message: "Internal Server Error" } })), "unavailable");
+  assert.equal(await state(() => ({ data: null, error: { code: "57014", message: "statement timeout" } })), "unavailable");
+  assert.equal(await state(() => ({ data: null, error: { code: "42501", message: "permission denied" } })), "unavailable");
+  assert.equal(await state(() => ({ data: null, error: { message: "Failed to fetch" } })), "unavailable");
+  assert.equal(await fetchFoodPaymentPolicyState({ rpc: async () => { throw new Error("offline"); } }), "unavailable");
+
+  assert.deepEqual(foodPaymentGateForPolicy("stripe_only"), { stripeOnly: true, unavailable: false });
+  assert.deepEqual(foodPaymentGateForPolicy("legacy"), { stripeOnly: false, unavailable: false });
+  assert.deepEqual(foodPaymentGateForPolicy("unavailable"), { stripeOnly: true, unavailable: true }, "fail closed");
+  assert.match(FOOD_PAYMENT_POLICY_UNAVAILABLE_COPY, /^ระบบชำระเงินขัดข้อง/);
+});
+
+test("payment policy (merchant boolean): on only when the RPC says so", async () => {
   assert.equal(await fetchFoodPaymentPolicy(rpcClient(() => ({ data: true, error: null }))), true);
   assert.equal(await fetchFoodPaymentPolicy(rpcClient(() => ({ data: [{ stripe_only: true }], error: null }))), true);
   assert.equal(await fetchFoodPaymentPolicy(rpcClient(() => ({ data: false, error: null }))), false);
@@ -220,7 +247,7 @@ test("customer web wires the policy without changing the legacy flow", () => {
   // Library contract.
   assert.match(lib, /export async function startFoodStripeCheckout\(client: SupabaseClient, orderId: string, method\?: FoodCheckoutMethod\)/);
   assert.match(lib, /body: method \? \{ orderId, method \} : \{ orderId \}/);
-  assert.match(lib, /fetchFoodPaymentPolicy,\n\s*fetchStorePaymentOptions,/);
+  assert.match(lib, /fetchFoodPaymentPolicyState,\n\s*fetchStorePaymentOptions,\n\s*foodPaymentGateForPolicy,/);
   assert.match(lib, /message\.includes\("store_not_accepting_orders"\)\) return FOOD_STORE_NOT_ACCEPTING_COPY/);
   assert.match(lib, /message\.includes\("promptpay_unavailable"\)\) return FOOD_PROMPTPAY_UNAVAILABLE_COPY/);
   assert.match(lib, /message\.includes\("stripe_only_payments"\)\) return FOOD_STRIPE_ONLY_PAYMENTS_COPY/);
@@ -240,6 +267,12 @@ test("customer web wires the policy without changing the legacy flow", () => {
   assert.match(app, /\{!stripeOnly && slipFile \? \(/);
   assert.match(app, /paymentGate\.ready && !stripeOnly && orderStore\?\.stripe_payments_enabled \? \(/);
   assert.match(app, /แนบสลิปการโอน/, "legacy slip flow still exists for policy off");
+  // ZOKY-157: the policy is read as a state, never cached as legacy on an error, and read again on the order view.
+  assert.doesNotMatch(app, /fetchFoodPaymentPolicy\(/);
+  assert.match(app, /void fetchFoodPaymentPolicyState\(client\)\.then\(\(state\) => \{\s*if \(request === paymentPolicyRequestRef\.current\) setPaymentPolicy\(\{ ready: true, \.\.\.foodPaymentGateForPolicy\(state\) \}\);/);
+  assert.match(app, /useEffect\(\(\) => \{\s*if \(policyUnavailable\) retryPolicy\(\);\s*\}, \[order\.id, policyUnavailable, retryPolicy\]\);/);
+  assert.match(app, /\{paymentGate\.ready && policyUnavailable \? \(\s*<div className="fx-note fx-note--warn" role="status">\s*<span>\{FOOD_PAYMENT_POLICY_UNAVAILABLE_COPY\}<\/span>\s*<button [^>]*onClick=\{retryPolicy\}>ลองใหม่<\/button>/);
+  assert.match(app, /retry: loadPaymentPolicy,/);
   // Customer cancel: Stripe session first, then the RPC.
   assert.match(app, /if \(order\.stripe_checkout_session_id\) \{\s*const stripe = await cancelFoodStripeCheckout\(client, order\.id\);\s*if \(stripe === "paid"\) \{\s*onMessage\(FOOD_CANCEL_ALREADY_PAID_COPY\);/);
   assert.ok(app.indexOf("await cancelFoodStripeCheckout(client, order.id)") < app.indexOf('await cancelFoodCustomerOrder(client, order.id, "ยกเลิกโดยลูกค้าใน ZOKY")'));

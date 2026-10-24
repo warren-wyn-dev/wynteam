@@ -39,20 +39,50 @@ export const FOOD_PROMPTPAY_PAYEE_NOTE = "ชื่อผู้รับใน�
 export const FOOD_PROMPTPAY_ONLY_COPY = "ZOKY รับชำระด้วยพร้อมเพย์เท่านั้น";
 export const FOOD_STRIPE_ONLY_PAYMENTS_COPY = "ออเดอร์นี้ชำระผ่านพร้อมเพย์ (Stripe) เท่านั้น ไม่รับสลิปหรือการยืนยันเอง";
 
+export const FOOD_PAYMENT_POLICY_UNAVAILABLE_COPY = "ระบบชำระเงินขัดข้องชั่วคราว ตอนนี้ชำระได้เฉพาะพร้อมเพย์ผ่าน Stripe";
+
 /**
- * true = Stripe-only is on. A missing RPC (older database), an error or any
- * unexpected shape means false: the legacy payment UI stays.
+ * food_payment_policy_public() as the web sees it (ZOKY-157):
+ * - "stripe_only": the policy is on.
+ * - "legacy": the policy is off, or the database has no such function yet
+ *   (PGRST202, or 42883 from Postgres = migration not applied).
+ * - "unavailable": any other error (5xx, timeout, offline). The caller must
+ *   fail closed: never show the store's own QR/slip upload on a guess.
+ * An answer of an unexpected shape counts as off, as on the server.
  */
-export async function fetchFoodPaymentPolicy(client: RpcClient): Promise<boolean> {
+export type FoodPaymentPolicyState = "stripe_only" | "legacy" | "unavailable";
+
+export async function fetchFoodPaymentPolicyState(client: RpcClient): Promise<FoodPaymentPolicyState> {
   try {
     const { data, error } = await client.rpc("food_payment_policy_public");
-    if (error) return false;
-    if (data === true) return true;
+    if (error) {
+      const code = (error as { code?: unknown }).code;
+      return code === "PGRST202" || code === "42883" ? "legacy" : "unavailable";
+    }
+    if (data === true) return "stripe_only";
     const row = Array.isArray(data) ? data[0] : data;
-    return Boolean(row && typeof row === "object" && (row as { stripe_only?: unknown }).stripe_only === true);
+    return row && typeof row === "object" && (row as { stripe_only?: unknown }).stripe_only === true ? "stripe_only" : "legacy";
   } catch {
-    return false;
+    return "unavailable";
   }
+}
+
+/**
+ * What the customer payment UI does for a policy state: anything but a
+ * confirmed "legacy" shows the Stripe-only UI (no store QR, no slips).
+ * `unavailable` = show the outage note and read the policy again later.
+ */
+export function foodPaymentGateForPolicy(state: FoodPaymentPolicyState): { stripeOnly: boolean; unavailable: boolean } {
+  return { stripeOnly: state !== "legacy", unavailable: state === "unavailable" };
+}
+
+/**
+ * true = Stripe-only is on (merchant web). Only a confirmed "stripe_only"
+ * counts; the server and the database enforce the policy again, and the
+ * customer web uses fetchFoodPaymentPolicyState() to fail closed.
+ */
+export async function fetchFoodPaymentPolicy(client: RpcClient): Promise<boolean> {
+  return (await fetchFoodPaymentPolicyState(client)) === "stripe_only";
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

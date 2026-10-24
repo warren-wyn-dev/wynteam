@@ -96,12 +96,14 @@ import {
   cancelFoodStripeCheckout,
   createFoodCustomerOrder,
   FOOD_CANCEL_ALREADY_PAID_COPY,
+  FOOD_PAYMENT_POLICY_UNAVAILABLE_COPY,
   FOOD_PROMPTPAY_OPTION_COPY,
   FOOD_PROMPTPAY_PAYEE_NOTE,
   FOOD_STORE_NOT_ACCEPTING_COPY,
   FOOD_STORE_NOT_ACCEPTING_TAG,
-  fetchFoodPaymentPolicy,
+  fetchFoodPaymentPolicyState,
   fetchStorePaymentOptions,
+  foodPaymentGateForPolicy,
   foodRefundNotice,
   foodStoreNotAccepting,
   type FoodCheckoutMethod,
@@ -277,11 +279,15 @@ function itemFor(menu: FoodCustomerMenuItem[], id: string) {
  * food_payment_policy_public(); `ready` is false until it has answered.
  * `options` holds food_store_payment_options() rows fetched on demand.
  * Missing RPCs = legacy behaviour (stripeOnly false, every store accepting).
+ * A policy read that fails any other way fails closed (ZOKY-157): stripeOnly
+ * true + `unavailable`, and `retry` reads the policy again.
  * The server enforces all of it again; this only drives what is shown.
  */
 type FoodPaymentGateState = {
   ready: boolean;
   stripeOnly: boolean;
+  unavailable: boolean;
+  retry: () => void;
   options: ReadonlyMap<string, FoodStorePaymentOption>;
   request: (storeIds: readonly string[]) => void;
 };
@@ -289,13 +295,15 @@ type FoodPaymentGateState = {
 const FoodPaymentGateContext = createContext<FoodPaymentGateState>({
   ready: true,
   stripeOnly: false,
+  unavailable: false,
+  retry: () => undefined,
   options: new Map(),
   request: () => undefined,
 });
 
 /** Loads payment options for these stores (only under the policy) and says which cannot take orders. */
 function useFoodPaymentGate(storeIds: ReadonlyArray<string | null | undefined>) {
-  const { ready, stripeOnly, options, request } = useContext(FoodPaymentGateContext);
+  const { ready, stripeOnly, unavailable, retry, options, request } = useContext(FoodPaymentGateContext);
   const key = stripeOnly ? storeIds.filter(Boolean).join(",") : "";
   useEffect(() => {
     if (key) request(key.split(","));
@@ -304,7 +312,7 @@ function useFoodPaymentGate(storeIds: ReadonlyArray<string | null | undefined>) 
     (storeId: string | null | undefined) => foodStoreNotAccepting(stripeOnly, options, storeId),
     [options, stripeOnly],
   );
-  return { ready, stripeOnly, options, notAccepting };
+  return { ready, stripeOnly, unavailable, retry, options, notAccepting };
 }
 
 function FoodLoading() {
@@ -2930,6 +2938,11 @@ function OrderDetailSheet({
   // Stripe-only: no store QR, bank details or slips; PromptPay QR through Stripe only (Founder 2026-10-23).
   const paymentGate = useFoodPaymentGate([order.store_id]);
   const stripeOnly = paymentGate.stripeOnly;
+  const { unavailable: policyUnavailable, retry: retryPolicy } = paymentGate;
+  // Opening an order reads an unreadable policy again (ZOKY-157).
+  useEffect(() => {
+    if (policyUnavailable) retryPolicy();
+  }, [order.id, policyUnavailable, retryPolicy]);
   useEffect(() => {
     if (!order.payment_due_at || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") return;
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
@@ -3134,6 +3147,13 @@ function OrderDetailSheet({
               </>
               )}
             </section>
+
+            {paymentGate.ready && policyUnavailable ? (
+              <div className="fx-note fx-note--warn" role="status">
+                <span>{FOOD_PAYMENT_POLICY_UNAVAILABLE_COPY}</span>
+                <button className="fx-btn fx-btn--outline fx-btn--sm" type="button" onClick={retryPolicy}>ลองใหม่</button>
+              </div>
+            ) : null}
 
             {paymentGate.ready && stripeOnly ? (
               storeNotAccepting ? (
@@ -3394,7 +3414,8 @@ function FoodCustomerInner({
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   // Stripe-only policy and per-store payment options (see FoodPaymentGateContext).
-  const [paymentPolicy, setPaymentPolicy] = useState<{ ready: boolean; stripeOnly: boolean }>({ ready: false, stripeOnly: false });
+  const [paymentPolicy, setPaymentPolicy] = useState<{ ready: boolean; stripeOnly: boolean; unavailable: boolean }>({ ready: false, stripeOnly: false, unavailable: false });
+  const paymentPolicyRequestRef = useRef(0);
   const [storePaymentOptions, setStorePaymentOptions] = useState<ReadonlyMap<string, FoodStorePaymentOption>>(() => new Map());
   const requestedPaymentOptionsRef = useRef<Set<string>>(new Set());
   const pendingPaymentOptionsRef = useRef<Set<string>>(new Set());
@@ -3455,13 +3476,18 @@ function FoodCustomerInner({
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  useEffect(() => {
-    let live = true;
-    void fetchFoodPaymentPolicy(client).then((stripeOnly) => {
-      if (live) setPaymentPolicy({ ready: true, stripeOnly });
+  // An unreadable policy is not cached as legacy (ZOKY-157): it fails closed
+  // and the order view reads it again. Only the latest read is applied.
+  const loadPaymentPolicy = useCallback(() => {
+    const request = ++paymentPolicyRequestRef.current;
+    void fetchFoodPaymentPolicyState(client).then((state) => {
+      if (request === paymentPolicyRequestRef.current) setPaymentPolicy({ ready: true, ...foodPaymentGateForPolicy(state) });
     });
-    return () => { live = false; };
   }, [client]);
+  useEffect(() => {
+    loadPaymentPolicy();
+    return () => { paymentPolicyRequestRef.current += 1; };
+  }, [loadPaymentPolicy]);
 
   // Batches the stores asked for in one render into one RPC call. A failed
   // call leaves them unknown (= accepting, legacy) and lets a later view retry.
@@ -3497,9 +3523,11 @@ function FoodCustomerInner({
   const paymentGate = useMemo<FoodPaymentGateState>(() => ({
     ready: paymentPolicy.ready,
     stripeOnly: paymentPolicy.stripeOnly,
+    unavailable: paymentPolicy.unavailable,
+    retry: loadPaymentPolicy,
     options: storePaymentOptions,
     request: requestStorePaymentOptions,
-  }), [paymentPolicy, requestStorePaymentOptions, storePaymentOptions]);
+  }), [loadPaymentPolicy, paymentPolicy, requestStorePaymentOptions, storePaymentOptions]);
 
   // fetchFoodStoreDirectory resolves null on failure: that is an error state,
   // not "still loading". A failed quiet refresh keeps the stores already shown.
