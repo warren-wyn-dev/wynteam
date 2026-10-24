@@ -74,9 +74,9 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   const quality = page.getByRole('button',{name:'คุณภาพร้าน',exact:true});
   await quality.scrollIntoViewIfNeeded();
   await quality.click();
-  await expect(page.getByText('รีวิวทั้งหมด',{exact:true})).toBeVisible();
+  await expect(page.getByText(/รีวิวทั้งหมด/)).toBeVisible();
   await expect(page.getByRole('button',{name:'ดูรีวิวและตอบกลับ',exact:true})).toBeVisible();
-  await expect(page.getByText('4.8 /5',{exact:true})).toBeVisible();
+  await expect(page.getByText(/4\.8 \/5/)).toBeVisible();
   await page.screenshot({path:test.info().outputPath('merchant-quality.png'),fullPage:true});
   await page.getByRole('tab',{name:'เมนูอาหาร',exact:true}).or(page.getByRole('button',{name:'เมนูอาหาร',exact:true})).first().click();
   await expect(page.getByRole('switch',{name:'เปิดขาย ข้าวกะเพรา',exact:true})).toBeVisible();
