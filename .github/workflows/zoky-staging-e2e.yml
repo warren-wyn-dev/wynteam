@@ -180,8 +180,8 @@ jobs:
 
       # Edge Function errors (e.g. "food-stripe-checkout gateway failure
       # {code, status}") are only in the staging project's logs. Print the
-      # failure/error lines of the last hour so a red run can be diagnosed
-      # without a dashboard login. Codes and statuses only; capped at 300 chars.
+      # latest log lines of the last hour so a red run can be diagnosed
+      # without a dashboard login. At most 40 lines of 300 chars.
       - name: Staging Edge Function errors (last hour)
         # Only after both fail-closed checks passed (never on a refused ref or token).
         if: failure() && steps.inputs.outcome == 'success' && steps.guard.outcome == 'success'
@@ -189,13 +189,17 @@ jobs:
           STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
         run: |
           set -uo pipefail
-          sql="select timestamp, event_message from function_logs where regexp_contains(event_message, '(?i)(failure|error)') order by timestamp desc limit 50"
+          # Logs reach the analytics store about a minute late (run 40051071573
+          # printed nothing when queried right away). Staging data is synthetic,
+          # so print the latest lines unfiltered.
+          sleep 75
+          sql="select timestamp, event_message from function_logs order by timestamp desc limit 40"
           curl -sS -G "https://api.supabase.com/v1/projects/$STAGING_REF/analytics/endpoints/logs.all" \
             -H "Authorization: Bearer $STAGING_MGMT_TOKEN" \
             --data-urlencode "sql=$sql" \
             --data-urlencode "iso_timestamp_start=$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)" \
             --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o fnlogs.json || true
-          jq -r '(.error // empty | tostring | "logs API error: " + .), (.result // [] | .[] | "\(.timestamp) \(.event_message[0:300])")' fnlogs.json 2>/dev/null || echo "logs unavailable"
+          jq -r '"log rows: \(.result // [] | length)", (.error // empty | tostring | "logs API error: " + .), (.result // [] | .[] | "\(.timestamp) \(.event_message[0:300])")' fnlogs.json 2>/dev/null || { echo "logs unavailable:"; head -c 300 fnlogs.json; }
           rm -f fnlogs.json
 
       - name: Keep Checkout screenshots (test mode pages only)
