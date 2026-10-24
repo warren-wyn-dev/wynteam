@@ -70,6 +70,15 @@ test("signed-out Merchant route redirects to the existing login without starting
   await expect(page).toHaveURL(/\/merchant\/login$/);
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
   expect(bootstrapRequests).toBe(0);
+  await expect(page.getByRole('img', { name: 'ZOKY Merchant', exact: true })).toBeVisible();
+  await expect.poll(() => page.locator('.wm-auth-brand img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth === 1140)).toBe(true);
+  await expect.poll(() => page.locator('.wm-auth-brand').evaluate(element => {
+    for (let current: Element | null = element; current; current = current.parentElement) {
+      if (Number(getComputedStyle(current).opacity) < .999) return false;
+    }
+    return true;
+  })).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('merchant-official-logo-login.png'), fullPage: true });
 });
 
 test("authenticated wrapper mounts one removable view and exposes a token-free bridge", async ({ page }, testInfo) => {

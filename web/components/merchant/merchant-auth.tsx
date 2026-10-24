@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, CheckCircle2, Clock3, Eye, EyeOff, Store, XCircle } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -27,8 +28,15 @@ const EMPTY_DRAFT: MerchantApplicationDraft = {
 
 function MerchantAuthBrand() {
   return (
-    <div className="wm-auth-brand" aria-label="WYNOS Merchant">
-      <span>WYNOS</span>
+    <div className="wm-auth-brand" role="img" aria-label="ZOKY Merchant">
+      <Image
+        className="wm-auth-brand-logo"
+        src="/brand/zoky/zoky-logo-pink-transparent.png"
+        alt=""
+        width={1140}
+        height={664}
+        unoptimized
+      />
       <b>Merchant</b>
     </div>
   );

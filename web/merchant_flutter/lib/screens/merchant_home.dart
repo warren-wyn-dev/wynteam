@@ -163,15 +163,16 @@ class _MerchantHomeState extends State<MerchantHome>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(28, 28, 20, 0),
-                        child: Text(
-                          'ZOKY',
-                          style: TextStyle(
-                            color: brand,
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -1.8,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(28, 24, 20, 6),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Image.asset(
+                            'assets/brand/zoky-logo-pink-transparent.png',
+                            width: 112,
+                            height: 65.24,
+                            fit: BoxFit.contain,
+                            semanticLabel: 'ZOKY',
                           ),
                         ),
                       ),
@@ -498,29 +499,28 @@ class _MerchantHomeState extends State<MerchantHome>
       children: [
         Row(
           children: [
-            const Expanded(
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'ZOKY ',
+            Expanded(
+              child: Row(
+                children: [
+                  Image.asset(
+                    'assets/brand/zoky-logo-pink-transparent.png',
+                    width: 80,
+                    height: 46.6,
+                    fit: BoxFit.contain,
+                    semanticLabel: 'ZOKY',
+                  ),
+                  const SizedBox(width: 8),
+                  const Flexible(
+                    child: Text(
+                      'Merchant',
                       style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 23,
-                        letterSpacing: -1,
-                        color: brand,
-                      ),
-                    ),
-                    TextSpan(
-                      text: 'Merchant',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
                         fontSize: 17,
+                        fontWeight: FontWeight.w700,
                         color: ink,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             IconButton(
