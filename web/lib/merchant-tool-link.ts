@@ -1,6 +1,6 @@
 import { isFoodStoreId } from "@/lib/food-share";
 
-const TOOL_PAGES = ["finance", "ads", "campaigns", "promotions", "feedback", "store"] as const;
+const TOOL_PAGES = ["finance", "ads", "campaigns", "promotions", "feedback", "store", "help", "notifications"] as const;
 export type MerchantToolPage = typeof TOOL_PAGES[number];
 export type MerchantToolLink = { tool: MerchantToolPage; storeId: string | null };
 

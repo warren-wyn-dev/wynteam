@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../data/merchant_controller.dart';
 import '../data/merchant_repository.dart';
+import '../widgets/merchant_tool_icon.dart';
 import 'order_dialogs.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
@@ -153,161 +154,178 @@ class _MerchantHomeState extends State<MerchantHome>
     final wide = MediaQuery.sizeOf(context).width >= 960;
     return Scaffold(
       backgroundColor: page == 0 ? const Color(0xFFF6F6F8) : Colors.white,
-      body: SafeArea(
-        child: Row(
-          children: [
-            if (wide)
-              SizedBox(
-                width: 230,
-                child: Material(
-                  color: Colors.white,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 24),
-                      for (var i = 0; i < labels.length; i++)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 4,
-                          ),
-                          child: ListTile(
-                            selected: (page >= 3 ? 3 : page) == i,
-                            selectedColor: brand,
-                            selectedTileColor: const Color(0xFFFFEFF5),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: page == 0
+              ? const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFFFEFF5),
+                    Color(0xFFF7FAFC),
+                    Color(0xFFF6F6F8),
+                  ],
+                  stops: [0, .3, 1],
+                )
+              : null,
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              if (wide)
+                SizedBox(
+                  width: 230,
+                  child: Material(
+                    color: Colors.white,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 24),
+                        for (var i = 0; i < labels.length; i++)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 4,
                             ),
-                            leading: Icon(icons[i]),
-                            title: Text(labels[i]),
-                            onTap: () => navigate(i),
+                            child: ListTile(
+                              selected: (page >= 3 ? 3 : page) == i,
+                              selectedColor: brand,
+                              selectedTileColor: const Color(0xFFFFEFF5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              leading: Icon(icons[i]),
+                              title: Text(labels[i]),
+                              onTap: () => navigate(i),
+                            ),
+                          ),
+                        const Spacer(),
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'ร้านของคุณ พร้อมเติบโต\nไปด้วยกันกับ ZOKY',
+                            style: TextStyle(color: brand, height: 1.8),
                           ),
                         ),
-                      const Spacer(),
-                      const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text(
-                          'ร้านของคุณ พร้อมเติบโต\nไปด้วยกันกับ ZOKY',
-                          style: TextStyle(color: brand, height: 1.8),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            Expanded(
-              child: Column(
-                children: [
-                  header(),
-                  if (c.loading || c.busy)
-                    const LinearProgressIndicator(minHeight: 3),
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: c.refresh,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1280),
-                          child: ListView(
-                            key: ValueKey(page),
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.fromLTRB(
-                              wide ? 36 : 18,
-                              16,
-                              wide ? 36 : 18,
-                              32,
-                            ),
-                            children: [
-                              if (page != 0) ...[
-                                Row(
-                                  children: [
-                                    Icon(
-                                      c.error == null
-                                          ? Icons.cloud_done_outlined
-                                          : Icons.cloud_off,
-                                      color: c.error == null
-                                          ? success
-                                          : Colors.red,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        c.updatedAt == null
-                                            ? 'กำลังเชื่อมต่อร้านของคุณ'
-                                            : 'อัปเดตล่าสุด ${dateLabel(c.updatedAt!.toIso8601String())}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF6B6B76),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-                              if (c.error != null) errorBox(c.error!),
-                              if (c.store == null &&
-                                  !c.loading &&
-                                  c.error == null)
-                                box(
-                                  Column(
+              Expanded(
+                child: Column(
+                  children: [
+                    header(),
+                    if (c.loading || c.busy)
+                      const LinearProgressIndicator(minHeight: 3),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: c.refresh,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1280),
+                            child: ListView(
+                              key: ValueKey(page),
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(
+                                wide ? 36 : 18,
+                                16,
+                                wide ? 36 : 18,
+                                32,
+                              ),
+                              children: [
+                                if (page != 0) ...[
+                                  Row(
                                     children: [
-                                      const Icon(
-                                        Icons.storefront_outlined,
-                                        size: 52,
-                                        color: brand,
+                                      Icon(
+                                        c.error == null
+                                            ? Icons.cloud_done_outlined
+                                            : Icons.cloud_off,
+                                        color: c.error == null
+                                            ? success
+                                            : Colors.red,
+                                        size: 16,
                                       ),
-                                      const SizedBox(height: 16),
-                                      const Text(
-                                        'ไม่พบร้านที่บัญชีนี้มีสิทธิ์จัดการ',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      const Text(
-                                        'ใช้บัญชีเจ้าของร้านเดิม หรือให้เจ้าของร้านเพิ่มคุณเป็นทีมงาน',
-                                      ),
-                                      TextButton(
-                                        onPressed: openOriginal,
-                                        child: const Text(
-                                          'เปิด WYNOS Merchant',
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          c.updatedAt == null
+                                              ? 'กำลังเชื่อมต่อร้านของคุณ'
+                                              : 'อัปเดตล่าสุด ${dateLabel(c.updatedAt!.toIso8601String())}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF6B6B76),
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                              if (c.store != null && page > 3)
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: TextButton.icon(
-                                    onPressed: () => navigate(3),
-                                    icon: const Icon(Icons.chevron_left),
-                                    label: const Text('เพิ่มเติม'),
+                                  const SizedBox(height: 16),
+                                ],
+                                if (c.error != null) errorBox(c.error!),
+                                if (c.store == null &&
+                                    !c.loading &&
+                                    c.error == null)
+                                  box(
+                                    Column(
+                                      children: [
+                                        const Icon(
+                                          Icons.storefront_outlined,
+                                          size: 52,
+                                          color: brand,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const Text(
+                                          'ไม่พบร้านที่บัญชีนี้มีสิทธิ์จัดการ',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        const Text(
+                                          'ใช้บัญชีเจ้าของร้านเดิม หรือให้เจ้าของร้านเพิ่มคุณเป็นทีมงาน',
+                                        ),
+                                        TextButton(
+                                          onPressed: openOriginal,
+                                          child: const Text(
+                                            'เปิด WYNOS Merchant',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              if (c.store != null)
-                                ...switch (page) {
-                                  0 => dashboard(),
-                                  1 => orderPage(),
-                                  2 => menuPage(),
-                                  3 => morePage(),
-                                  4 => reportPage(),
-                                  5 => settingsPage(),
-                                  _ => promotionsPage(),
-                                },
-                            ],
+                                if (c.store != null && page > 3)
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton.icon(
+                                      onPressed: () => navigate(3),
+                                      icon: const Icon(Icons.chevron_left),
+                                      label: const Text('เพิ่มเติม'),
+                                    ),
+                                  ),
+                                if (c.store != null)
+                                  ...switch (page) {
+                                    0 => dashboard(),
+                                    1 => orderPage(),
+                                    2 => menuPage(),
+                                    3 => morePage(),
+                                    4 => reportPage(),
+                                    5 => settingsPage(),
+                                    6 => promotionsPage(),
+                                    _ => qualityPage(),
+                                  },
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: wide
@@ -471,11 +489,8 @@ class _MerchantHomeState extends State<MerchantHome>
     },
   );
   Widget header() => Container(
-    padding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
-    decoration: const BoxDecoration(
-      color: Colors.white,
-      border: Border(bottom: BorderSide(color: Color(0xFFEBEBEF))),
-    ),
+    padding: const EdgeInsets.fromLTRB(22, 18, 12, 8),
+    color: page == 0 ? null : Colors.white,
     child: Row(
       children: [
         Expanded(
@@ -485,7 +500,7 @@ class _MerchantHomeState extends State<MerchantHome>
                   isExpanded: true,
                   hint: const Text('เลือกร้าน'),
                   style: const TextStyle(
-                    fontSize: 19,
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
                     color: ink,
                   ),
@@ -513,26 +528,21 @@ class _MerchantHomeState extends State<MerchantHome>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 19,
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
                     color: ink,
                   ),
                 ),
         ),
         IconButton(
-          tooltip: 'เปิดแจ้งเตือนออเดอร์',
-          onPressed: pushBusy ? null : enablePush,
+          tooltip: 'การแจ้งเตือน',
+          onPressed: () => openTool('notifications'),
           icon: Icon(
             pushEnabled
                 ? Icons.notifications_active_outlined
                 : Icons.notifications_outlined,
             color: brand,
           ),
-        ),
-        IconButton(
-          tooltip: 'รีเฟรชข้อมูล',
-          onPressed: c.loading || c.busy ? null : c.refresh,
-          icon: const Icon(Icons.refresh, size: 23),
         ),
       ],
     ),
@@ -617,24 +627,86 @@ class _MerchantHomeState extends State<MerchantHome>
     }
   }
 
-  Widget homePanel(Widget child, {VoidCallback? onTap, String? label}) => Card(
-    margin: const EdgeInsets.only(bottom: 12),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+  Widget homePanel(
+    Widget child, {
+    VoidCallback? onTap,
+    String? label,
+    double radius = 22,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+    Gradient? gradient,
+  }) => Card(
+    margin: const EdgeInsets.only(bottom: 14),
+    color: Colors.white,
+    surfaceTintColor: Colors.transparent,
+    shadowColor: const Color(0x0D50364A),
+    elevation: 1,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
     clipBehavior: Clip.antiAlias,
-    child: onTap == null
-        ? Padding(padding: const EdgeInsets.all(18), child: child)
-        : Semantics(
-            container: true,
-            explicitChildNodes: true,
-            button: true,
-            label: label,
-            onTap: onTap,
-            child: InkWell(
-              excludeFromSemantics: true,
+    child: Ink(
+      decoration: BoxDecoration(gradient: gradient),
+      child: onTap == null
+          ? Padding(padding: padding, child: child)
+          : Semantics(
+              container: true,
+              explicitChildNodes: true,
+              button: true,
+              label: label,
               onTap: onTap,
-              child: Padding(padding: const EdgeInsets.all(18), child: child),
+              child: InkWell(
+                excludeFromSemantics: true,
+                onTap: onTap,
+                child: Padding(padding: padding, child: child),
+              ),
             ),
-          ),
+    ),
+  );
+
+  Widget homeTool(
+    String label,
+    int index,
+    IconData fallback,
+    VoidCallback? onTap,
+  ) => Semantics(
+    button: true,
+    enabled: onTap != null,
+    label: label,
+    onTap: onTap,
+    excludeSemantics: true,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+        child: Column(
+          children: [
+            Opacity(
+              opacity: onTap == null ? .4 : 1,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3F8),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: MerchantToolIcon(
+                  index: index,
+                  size: 60,
+                  fallback: fallback,
+                ),
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: onTap == null ? const Color(0xFF8A8A94) : ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 
   Future<void> showStoreStatus() async {
@@ -819,16 +891,7 @@ class _MerchantHomeState extends State<MerchantHome>
         const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: Text(
-            c.updatedAt != null && c.reportError == null
-                ? money(c.report['today_sales'])
-                : '—',
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              color: ink,
-            ),
-          ),
+          child: salesAmount(),
         ),
         const SizedBox(height: 10),
         Row(
@@ -855,23 +918,67 @@ class _MerchantHomeState extends State<MerchantHome>
     ),
     onTap: () => navigate(4),
     label: 'ดูยอดขายวันนี้',
+    gradient: const LinearGradient(
+      begin: Alignment.bottomLeft,
+      end: Alignment.topRight,
+      colors: [Colors.white, Colors.white, Color(0xFFFFEFF5)],
+      stops: [0, .45, 1],
+    ),
   );
+
+  Widget salesAmount() {
+    if (c.updatedAt == null || c.reportError != null) {
+      return const Text('—', style: TextStyle(fontSize: 36, color: brand));
+    }
+    final value = (num.tryParse('${c.report['today_sales']}') ?? 0)
+        .toStringAsFixed(2)
+        .split('.');
+    final whole = value.first.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: '฿$whole'),
+          TextSpan(
+            text: '.${value.last}',
+            style: const TextStyle(fontSize: 25, letterSpacing: -.4),
+          ),
+        ],
+      ),
+      style: const TextStyle(
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+        color: brand,
+        letterSpacing: -1,
+      ),
+    );
+  }
 
   List<Widget> dashboard() {
     final store = c.store!;
     final effectiveOpen = store['effective_open'] == true;
     final steps = readiness();
     final done = steps.where((step) => step.done).length;
-    final quality = c.qualityData;
-    final qualityAvailable = quality['available'] == true;
-    final reviewCount = (quality['count'] as num?)?.toInt() ?? 0;
     return [
       homePanel(
         Row(
           children: [
+            Container(
+              width: 11,
+              height: 11,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: effectiveOpen ? success : const Color(0xFF8A8A94),
+              ),
+            ),
+            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     store['status_text'] ??
@@ -880,74 +987,94 @@ class _MerchantHomeState extends State<MerchantHome>
                             : 'ปิดรับออเดอร์'),
                     style: TextStyle(
                       color: effectiveOpen ? success : ink,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
                     ),
                   ),
                   if ((store['business_hours'] ?? '')
                       .toString()
                       .trim()
                       .isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        store['business_hours'],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF6B6B76),
-                        ),
+                    Text(
+                      '(${store['business_hours']})',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B6B76),
                       ),
                     ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Container(
               width: 44,
               height: 44,
               decoration: const BoxDecoration(
-                color: brandSoft,
+                color: brand,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.edit_outlined, color: brand, size: 21),
+              child: const Icon(
+                Icons.edit_outlined,
+                color: Colors.white,
+                size: 21,
+              ),
             ),
           ],
         ),
         onTap: showStoreStatus,
         label: 'แก้ไขสถานะร้าน',
+        radius: 40,
+        padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
       ),
       if (c.reportError != null) errorBox(c.reportError!),
       salesSummary(),
       homePanel(
         tools([
-          tool(
+          homeTool(
             'การเงิน',
+            0,
             Icons.account_balance_wallet_outlined,
-            brand,
             c.canManage ? () => openTool('finance') : null,
-            compact: true,
           ),
-          tool(
+          homeTool(
             'โฆษณา',
+            1,
             Icons.campaign_outlined,
-            brand,
             c.canManage ? () => openTool('ads') : null,
-            compact: true,
           ),
-          tool(
+          homeTool(
             'โปรโมชั่น',
+            2,
             Icons.local_offer_outlined,
-            brand,
             () => navigate(6),
-            compact: true,
           ),
-          tool(
+          homeTool(
             'แคมเปญ',
-            Icons.track_changes_outlined,
-            brand,
+            3,
+            Icons.shopping_bag_outlined,
             c.canManage ? () => openTool('campaigns') : null,
-            compact: true,
           ),
+          homeTool(
+            'คุณภาพร้าน',
+            4,
+            Icons.verified_user_outlined,
+            () => navigate(7),
+          ),
+          homeTool(
+            'ฟีดแบ็ก',
+            5,
+            Icons.chat_bubble_outline,
+            () => openTool('feedback'),
+          ),
+          homeTool(
+            'ช่วยเหลือ',
+            6,
+            Icons.support_outlined,
+            () => openTool('help'),
+          ),
+          homeTool('การตั้งค่า', 7, Icons.settings_outlined, () => navigate(5)),
         ], compact: true),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),
       homePanel(
         Column(
@@ -1012,6 +1139,23 @@ class _MerchantHomeState extends State<MerchantHome>
         onTap: c.updatedAt == null ? null : showReadiness,
         label: 'เตรียมร้านให้พร้อม',
       ),
+      if (c.updatedAt != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'อัปเดต ${dateLabel(c.updatedAt!.toIso8601String())}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B76)),
+          ),
+        ),
+    ];
+  }
+
+  List<Widget> qualityPage() {
+    final quality = c.qualityData;
+    final qualityAvailable = quality['available'] == true;
+    final reviewCount = (quality['count'] as num?)?.toInt() ?? 0;
+    return [
       homePanel(
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1024,12 +1168,11 @@ class _MerchantHomeState extends State<MerchantHome>
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Color(0xFF6B6B76)),
               ],
             ),
             const SizedBox(height: 4),
             const Text(
-              'จากรีวิวลูกค้าทั้งหมด',
+              'รีวิวทั้งหมด',
               style: TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
             ),
             const SizedBox(height: 16),
@@ -1095,18 +1238,12 @@ class _MerchantHomeState extends State<MerchantHome>
               ),
           ],
         ),
-        onTap: () => openTool('feedback'),
-        label: 'ดูคุณภาพร้าน',
       ),
-      if (c.updatedAt != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            'อัปเดต ${dateLabel(c.updatedAt!.toIso8601String())}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B76)),
-          ),
-        ),
+      FilledButton.icon(
+        onPressed: () => openTool('feedback'),
+        icon: const Icon(Icons.chat_bubble_outline),
+        label: const Text('ดูรีวิวและตอบกลับ'),
+      ),
     ];
   }
 
