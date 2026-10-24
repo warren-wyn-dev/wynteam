@@ -644,10 +644,61 @@ Delta since fa2dafbb:
 - HTTP-level edge functions.
 - WebKit/desktop Playwright.
 
-## Final Status: PASS
+### Re-test 7 status: PASS (superseded by Re-test 8)
 No CRITICAL, HIGH or MEDIUM issue is open. Rollout conditions are unchanged:
 - (a) Preflight: refund webhook events are received, the counts of orders without a PI and the ready accounts by mode are reviewed, and the `refund.*` subscription is confirmed.
 - (b) Deploy order: `stripe-webhook` (from main) → worker → jobs → cron → EDGE/PHASE → activate.
 - (c) A Stripe test-mode E2E for PromptPay refunds passes before Founder Gate.
 
 → CTO final review, then AI Deploy & DevOps.
+
+---
+
+## Re-test 8 (2026-10-24, PR #1237, fix/zoky-refund-notice-dedupe @ 195361e7, based on main f596e5f9)
+
+Change:
+- New `food_stripe_jobs.failed_notified_at` / `attention_notified_at` markers. `food_stripe_job_fail` / `food_stripe_job_attention` notify the customer and merchant once per job across requeue cycles.
+- `merchant_retry_stripe_refund` clears both markers.
+- The main migration on f596e5f9 is identical to 0e3ebe04 (re-test 7 base).
+
+### Results
+| Suite | Result |
+|---|---|
+| Developer SQL | 238/238 PASS |
+| deno `--allow-read=.` | stripe-webhook 13/13, merchant-stripe-refund 3/3, food-stripe-refund-worker 28/28; `deno check` OK |
+| t1 / t2 / t3 (both variants) / t5 / t6 / t7 / t8 / t10 / t153 | All PASS (31, 37, 24+24, 16, 43, 10, 14, 16, 7) |
+| t9 | 32 passed; the same 2 harness-modelling lines as before |
+| t4 slip/manual policy-OFF parity | Unchanged |
+| t11_round8.sh (new) | 12/12 |
+
+### Checked
+**Client access**
+- anon and authenticated cannot read or update `food_stripe_jobs`, so they cannot set or clear the markers. RLS is on and there are no client grants.
+- The markers are written only inside SECURITY DEFINER internals and in `merchant_retry_stripe_refund`, which checks the merchant role and only acts on failed jobs.
+
+**Requeue does not re-arm**
+- 3 cycles of "Stripe refund event requeue → worker fails again": the customer "มีปัญหา" and merchant "ไม่สำเร็จ" notices are each sent once. All 4 failures are still audited in `food_order_events`.
+- Parked jobs: the merchant notice is sent once across 3 requeues, and all 4 parks are audited.
+- Duplicate job: the parked notice is sent once.
+- The t10 spam scenario dropped from 4 notices to 1.
+
+**Merchant retry**
+- Re-arms by design: 1 customer notice per retry that fails again.
+- A back-to-back retry without a worker run is refused (`no_failed_refund`), so the effective rate is at most 1 per worker run (about 1 per minute with cron) per order.
+- **LOW**: the merchant can still re-notify their own customer about once a minute by retrying a refund that keeps failing. Suggest a retry cooldown (for example 15 minutes) or a cap if it becomes a problem.
+
+**Migration upgrade and idempotency**
+- Applying the f596e5f9 migration, adding a job, then applying the new migration twice: both columns are added, the existing job is kept, and markers are NULL.
+- Rollback: the 4 triggers are dropped, merchant retry is revoked, and the marker columns are kept (additive).
+- Re-applying after rollback restores the triggers and the grant.
+
+**Invariants ZOKY-147 to ZOKY-156**
+- Unchanged: same harness results as Re-test 7.
+
+### Not testable here
+Unchanged (real Stripe test mode, pg_cron/pg_net/Vault, HTTP-level edge functions, WebKit/desktop).
+
+## Final Status: PASS
+PR #1237 is OK to merge after CTO review.
+- Remaining LOW: the merchant-retry notice rate (no cooldown), plus the earlier LOW list from Re-test 7.
+- Rollout conditions are unchanged: preflight + `refund.*` subscription, deploy order, and a Stripe test-mode E2E before Founder Gate.
