@@ -1,0 +1,256 @@
+name: ZOKY Merchant UI scoped release
+
+# Merchant-only exception authorized 2026-10-24 ("เอาขึ้นเว็บจริง").
+# Does not change the general WYNOS freeze or the previous ZOKY exception.
+# Both secret-bearing jobs retain the existing production environment review.
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Full reviewed Merchant candidate SHA from the release manifest
+        required: true
+        type: string
+      confirmation:
+        description: Release only the reviewed Merchant frontend candidate
+        required: true
+        type: choice
+        default: CANCEL
+        options: [CANCEL, ZOKY_MERCHANT_UI_20261024]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoky-merchant-ui-release
+  cancel-in-progress: false
+  queue: max
+
+env:
+  RELEASE_BRANCH: release/zoky-merchant-ui-20261024
+  VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+  VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
+
+jobs:
+  guard:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UI_20261024'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: ops
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: release
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Ensure trusted workflow parser is available
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml; }
+      - name: Validate exact isolated candidate before application install or credentials
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          tip=$(git -C release ls-remote origin "refs/heads/$RELEASE_BRANCH" | cut -f1)
+          python3 ops/tools/check_merchant_ui_release.py --release-root release --sha "$RELEASE_SHA" --branch-tip "$tip"
+          python3 ops/tools/check_wynos_release_freeze.py
+          python3 ops/tools/check_production_secret_scoping.py
+          python3 ops/tools/test_merchant_ui_release.py
+          node --test ops/tools/merchant_ui_release_ops.test.mjs
+          {
+            echo '## Reviewed Merchant release'
+            echo "- Candidate: $RELEASE_SHA"
+            echo '- Current production base: e6f577dcccb86b51c68d91e754b19fe4cfa27222'
+            echo '- Rollback (Founder-directed only): dpl_HhzmnfVpb9qyHd7yeiAiiUmkbPV9'
+            echo '- Project: web / prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a'
+            echo '- Food stays in phase 1; database, Edge Functions and other origins are preserved.'
+            git -C release diff --stat e6f577dc "$RELEASE_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UI_20261024'
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: release/web
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://merchant-fixture.example.test
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: fixture-public-key
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: release
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Full web and Flutter checks with synthetic public configuration
+        run: npm run check
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Existing Merchant and compiled Flutter browser flows
+        run: |
+          set -euo pipefail
+          npx playwright test tests/browser/wynos-merchant.spec.ts
+          npm run qa:merchant-flutter
+      - name: Upload synthetic browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: merchant-release-browser-results
+          path: release/web/test-results/
+          retention-days: 7
+
+  stage:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UI_20261024'
+    needs: [guard, verify]
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      url: ${{ steps.stage.outputs.url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: ops
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: release
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Ensure trusted workflow parser is available
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml; }
+      - name: Recheck candidate and expiry after production review
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          tip=$(git -C release ls-remote origin "refs/heads/$RELEASE_BRANCH" | cut -f1)
+          python3 ops/tools/check_merchant_ui_release.py --release-root release --sha "$RELEASE_SHA" --branch-tip "$tip"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install reviewed Vercel CLI without production credentials
+        run: npm install --global vercel@63.1.2 --no-audit --no-fund
+      - name: Stage the production artifact without assigning domains
+        id: stage
+        working-directory: release/web
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
+        run: |
+          set -euo pipefail
+          node ../../ops/tools/merchant_ui_release_ops.mjs current
+          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY FIREBASE_WEB_API_KEY FIREBASE_WEB_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_VAPID_KEY; do
+            [ -n "${!name}" ] || { echo "::error::Required existing public configuration missing: $name"; exit 1; }
+          done
+          args=()
+          public_env() { [ -z "$2" ] || args+=(--build-env "$1=$2" --env "$1=$2"); }
+          public_env NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
+          public_env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$SUPABASE_PUBLISHABLE_KEY"
+          public_env NEXT_PUBLIC_FIREBASE_API_KEY "$FIREBASE_WEB_API_KEY"
+          public_env NEXT_PUBLIC_FIREBASE_APP_ID "$FIREBASE_WEB_APP_ID"
+          public_env NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID "$FIREBASE_MESSAGING_SENDER_ID"
+          public_env NEXT_PUBLIC_FIREBASE_PROJECT_ID "$FIREBASE_PROJECT_ID"
+          public_env NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN "$FIREBASE_AUTH_DOMAIN"
+          public_env NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET "$FIREBASE_STORAGE_BUCKET"
+          public_env NEXT_PUBLIC_FIREBASE_VAPID_KEY "$FIREBASE_VAPID_KEY"
+          upload_root=$(node ../../ops/tools/merchant_ui_release_ops.mjs upload-root)
+          case "$upload_root" in .|..) ;; *) echo '::error::Invalid upload directory'; exit 1 ;; esac
+          cd "$upload_root"
+          url=$(vercel deploy --prod --skip-domain --yes --scope warren14 \
+            --env ZOKY_MERCHANT_FLUTTER_ENABLED=1 --env ZOKY_LEGACY_FOOD_REDIRECT=0 \
+            --meta githubCommitSha="$RELEASE_SHA" --meta githubCommitRef="$RELEASE_BRANCH" \
+            --meta githubRepo=wynteam --meta githubOrg=warren-wyn-dev \
+            "${args[@]}" | tail -n1)
+          cd "$GITHUB_WORKSPACE/release/web"
+          MERCHANT_DEPLOYMENT_URL="$url" node ../../ops/tools/merchant_ui_release_ops.mjs staged
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Staged production artifact (domains unchanged): $url" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify immutable artifact over authenticated HTTP
+        working-directory: release/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          MERCHANT_DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
+        run: |
+          set -euo pipefail
+          vercel curl /merchant/flutter --deployment "$MERCHANT_DEPLOYMENT_URL" -- --fail --silent --show-error --output /tmp/merchant-host.html
+          grep -q 'merchant-flutter' /tmp/merchant-host.html
+          vercel curl /merchant/login --deployment "$MERCHANT_DEPLOYMENT_URL" -- --fail --silent --show-error --output /tmp/merchant-login.html
+          grep -q 'zoky-logo-pink-transparent.png' /tmp/merchant-login.html
+          for path in /merchant-flutter/flutter_bootstrap.js /merchant-flutter/main.dart.js /merchant-flutter/canvaskit/canvaskit.wasm /merchant-flutter/assets/assets/brand/merchant-tools-3d.png; do
+            vercel curl "$path" --deployment "$MERCHANT_DEPLOYMENT_URL" -- --fail --silent --show-error --output /dev/null
+          done
+          rm -f /tmp/merchant-host.html /tmp/merchant-login.html
+          echo '- Immutable host, login, Flutter bundle, renderer and 3D assets: PASS' >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UI_20261024'
+    needs: [guard, verify, stage]
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: ops
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: release
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Ensure trusted workflow parser is available
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml; }
+      - name: Recheck candidate and expiry after final production review
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          tip=$(git -C release ls-remote origin "refs/heads/$RELEASE_BRANCH" | cut -f1)
+          python3 ops/tools/check_merchant_ui_release.py --release-root release --sha "$RELEASE_SHA" --branch-tip "$tip"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm install --global vercel@63.1.2 --no-audit --no-fund
+      - name: Promote only the tested staged production artifact
+        working-directory: release/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          MERCHANT_DEPLOYMENT_URL: ${{ needs.stage.outputs.url }}
+        run: |
+          set -euo pipefail
+          node ../../ops/tools/merchant_ui_release_ops.mjs current
+          node ../../ops/tools/merchant_ui_release_ops.mjs staged
+          vercel promote "$MERCHANT_DEPLOYMENT_URL" --yes --scope warren14
+          node ../../ops/tools/merchant_ui_release_ops.mjs promoted
+          for url in https://merchant.wynos.online/ https://merchant.wynos.online/merchant/login https://merchant.wynos.online/merchant/flutter https://zoky.wynos.online/ https://food.wynos.online/ https://wynos.online/; do
+            curl --fail --silent --show-error --max-time 30 --output /dev/null "$url"
+          done
+          {
+            echo '## Merchant production release verified'
+            echo "- Tested production artifact: $MERCHANT_DEPLOYMENT_URL"
+            echo '- Public Merchant, ZOKY, Food and Social routes: HTTP PASS'
+            echo '- All existing production aliases preserved; Food phase unchanged.'
+            echo '- No database or Edge Function deployment. No automatic rollback.'
+            echo '- On regression: stop and request Founder-directed recovery to dpl_HhzmnfVpb9qyHd7yeiAiiUmkbPV9.'
+          } >> "$GITHUB_STEP_SUMMARY"
