@@ -27,6 +27,7 @@ void main() {
     WidgetTester tester,
     FakeRepository repo, {
     double width = 1200,
+    Future<void> Function()? onSignOut,
   }) async {
     tester.view.physicalSize = Size(width, 1800);
     tester.view.devicePixelRatio = 1;
@@ -34,11 +35,67 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       ZokyApp(
-        home: MerchantHome(repository: repo, onSignOut: () async {}),
+        home: MerchantHome(
+          repository: repo,
+          onSignOut: onSignOut ?? () async {},
+        ),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  for (final offline in [false, true]) {
+    testWidgets(
+      'sign out remains available without a store (offline: $offline)',
+      (tester) async {
+        final repo = FakeRepository()..storeRows = [];
+        repo.failReads = offline;
+        var signOutCalls = 0;
+        await mount(
+          tester,
+          repo,
+          width: 360,
+          onSignOut: () async {
+            signOutCalls++;
+          },
+        );
+        final action = find.widgetWithText(TextButton, 'ออกจากระบบ');
+        expect(action, findsOneWidget);
+        await tester.tap(action);
+        await tester.pumpAndSettle();
+        expect(signOutCalls, 1);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets('losing the final store preserves an account exit', (
+    tester,
+  ) async {
+    final repo = FakeRepository();
+    var signOutCalls = 0;
+    await mount(
+      tester,
+      repo,
+      width: 360,
+      onSignOut: () async {
+        signOutCalls++;
+      },
+    );
+    expect(find.text('ร้านทดสอบ'), findsOneWidget);
+    repo.access = false;
+    await tester
+        .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+        .onRefresh();
+    await tester.pumpAndSettle();
+    expect(find.text('ร้านทดสอบ'), findsNothing);
+    await tester.tap(find.widgetWithText(TextButton, 'ออกจากระบบ'));
+    await tester.pumpAndSettle();
+    expect(signOutCalls, 1);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'real mutation is awaited, payment gate is enforced, order is read back',
