@@ -356,3 +356,8 @@
 - การนำไปใช้ในอนาคต: เวลาย้าย/rebrand domain ให้ `grep -rn "<ORIGIN_CONSTANT>" app/ lib/` แล้วตรวจทุกจุดที่เป็น
   `window.location.replace`/redirect หลัง auth ว่าใช้ helper per-host และเพิ่ม behavior test ราย host
   (Food เดิม/ใหม่, Social, localhost, preview) ไม่ใช่แค่ regex ของ source
+
+### [2026-10-24] Policy reads that gate money paths must be three-state and fail closed (ZOKY-157)
+- บริบท: web อ่าน `food_payment_policy_public` แบบ boolean ถ้าเจอ error ใดๆ ก็ถือว่า legacy และจำค่านี้ไว้ทั้ง session ส่วน edge function `food-payment-qr`/`food-verify-slip` ไม่เช็ก policy เลย RPC ล้มแค่ครั้งเดียว ลูกค้าก็เห็น QR ส่วนตัวของร้าน
+- บทเรียน: "migration ยังไม่ลง" (PGRST202/42883) กับ "อ่านไม่ได้ชั่วคราว" (5xx/timeout/offline) เป็นคนละความหมาย กรณีแรกเป็น legacy ได้ แต่กรณีหลังต้อง fail closed และอ่านใหม่ภายหลัง ห้ามจำค่า legacy ไว้ และทุก endpoint ที่เป็นช่องทางจ่ายเงิน legacy ต้องเช็ก policy ฝั่ง server เอง ไม่ใช่พึ่ง UI หรือ DB trigger ที่ทำงานหลังลูกค้าจ่ายไปแล้ว
+- การนำไปใช้ในอนาคต: feature flag/policy ที่คุมเงินให้คืนค่าเป็น state (`on | off | unavailable`) และเพิ่ม test ให้ error แต่ละ code ใน web กับ deno ให้ตรงกับ `stripeOnlyFromPolicyResult`

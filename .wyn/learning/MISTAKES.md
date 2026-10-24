@@ -303,3 +303,9 @@
 - Regression test ที่เพิ่ม: `web/tests/food-origin.test.mjs` (callback ห้ามใช้ `FOOD_PRODUCTION_ORIGIN`, ทั้ง 3 จุดต้อง
   `window.location.replace(foodHome())`, คง `isSafeReturnPath`; ปลายทางราย host food/zoky/wynos/www/localhost/preview)
   และอัปเดต assertion ใน `web/tests/food-standalone-account.test.mjs`
+
+### [2026-10-24] Task ZOKY-157 (Stripe-only policy fail-open, QA 2026-10-24 H1)
+- ข้อผิดพลาด: `fetchFoodPaymentPolicy` ถือว่า error ทุกชนิดเป็น legacy และอ่านครั้งเดียวต่อ session; `food-payment-qr`/`food-verify-slip` ไม่เช็ก policy (มีแค่ `food-stripe-checkout` ที่เช็ก)
+- ผลกระทบ: RPC policy ล้มครั้งเดียว ลูกค้าก็จ่ายเข้าบัญชีส่วนตัวของร้านได้ แต่ DB ปฏิเสธสลิป ออเดอร์จึงถูกยกเลิก และการคืนเงินอัตโนมัติไม่ครอบคลุมกรณีนี้ PromptPay ID ของร้านก็ถูกเปิดเผยด้วย (HIGH) QA จับได้ก่อน release
+- วิธีป้องกันในอนาคต: แยก error ว่า "function ไม่มี" หรือ "อ่านไม่ได้"; ทุก endpoint ของช่องทางจ่ายเงิน legacy ต้องเช็ก policy ฝั่ง server; review ให้ครอบคลุมทุก consumer ของ policy ไม่ใช่แค่ checkout
+- Regression test ที่เพิ่ม: `web/tests/food-stripe-only.test.mjs` (state ตาม error code, gate fail closed, wiring การอ่านใหม่), `supabase/functions/food-payment-qr/_lib.test.ts` + `index.test.ts`, `supabase/functions/food-verify-slip/index.test.ts`
