@@ -181,6 +181,25 @@ void main() {
       expect(controller.store, isNull);
     },
   );
+  testWidgets('quality tool opens real all-review metrics from the home', (
+    tester,
+  ) async {
+    await mount(tester, _QualityRepository(), width: 360);
+    expect(find.text('คุณภาพร้านสัปดาห์นี้'), findsNothing);
+    expect(find.text('คะแนนร้าน'), findsNothing);
+    final shortcut = find.text('คุณภาพร้าน');
+    await tester.ensureVisible(shortcut);
+    await tester.tap(shortcut);
+    await tester.pumpAndSettle();
+    expect(find.text('รีวิวทั้งหมด'), findsOneWidget);
+    expect(find.text('4.8 /5'), findsOneWidget);
+    expect(find.text('รีวิวรอตอบ'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('ดูรีวิวและตอบกลับ'), findsOneWidget);
+    expect(find.text('คุณภาพร้านสัปดาห์นี้'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   test('revocation clears customer data and disables writes', () async {
     final repo = FakeRepository();
     final c = MerchantController(repo);

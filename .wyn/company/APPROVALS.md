@@ -686,3 +686,12 @@
 - Narrow exception for this task: two public browser configuration values only, existing project `wynteam-gesb`, source `sandbox/stripe-testmode-20261008`, destination `feat/zoky-merchant-flutter`, Preview only. No production secrets/database access, other credential extraction or protection-policy change is authorized by this decision.
 - Executed without exposing values. Deployment `dpl_DVDSnnkGu4U73JFdqaKBTDBcsvtD`, application source `e2ea20d1`, Preview READY. Hosted synthetic browser QA 10/10 passed. Evidence: `docs/qa/zoky-merchant-flutter/hosted-preview.md`.
 - Production promotion, root cutover and release gates remain separate; no production deployment occurred.
+
+### APPROVAL — [2026-10-24] Publish the final ZOKY Merchant Flutter home
+
+- Founder explicitly instructed “เอาขึ้นเว็บจริง”, then “ต่อ”, after approving the pink home with eight 3D tool shortcuts and removing the lower weekly-quality card.
+- Approved action: finish that Merchant UI, verify it, prepare the scoped release from the current live Food/Web production commit, and publish Merchant on `merchant.wynos.online`, including controlled Flutter root entry and the existing shared-login return path.
+- Boundaries: existing `web` Vercel project and Food account/backend; no schema changes, live-customer tests, unrelated main release, credential extraction or required review/environment-protection bypass. Keep Food/Social/Maps behavior and Stripe return/refresh callbacks.
+- Benefit: merchants use the approved home with actual store status, sales and readiness, plus eight working tool destinations. No fabricated weekly metrics.
+- Risks and recovery: shared web deployment needs a production-based candidate and checked origin routing. Retain `/merchant` legacy entry and the previous production deployment as the recovery target; follow the existing protected release review and monitoring gates.
+- Status: production publishing authorized; implementation and release verification in progress. This record does not claim that the live deployment has changed.

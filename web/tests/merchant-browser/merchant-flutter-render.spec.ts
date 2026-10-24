@@ -68,7 +68,15 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   // This isolated fixture has no network polling; wait for renderer/font requests.
   await page.waitForLoadState('networkidle');
   await page.screenshot({path:test.info().outputPath('merchant-dashboard.png'),fullPage:true});
-  await page.getByRole('button',{name:'ดูคุณภาพร้าน',exact:true}).scrollIntoViewIfNeeded();
+  // Quality is a tool destination; its metrics describe all reviews, not a
+  // fabricated weekly summary or a duplicate card at the bottom of the home.
+  await expect(page.getByText('คุณภาพร้านสัปดาห์นี้',{exact:true})).toHaveCount(0);
+  const quality = page.getByRole('button',{name:'คุณภาพร้าน',exact:true});
+  await quality.scrollIntoViewIfNeeded();
+  await quality.click();
+  await expect(page.getByText('รีวิวทั้งหมด',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'ดูรีวิวและตอบกลับ',exact:true})).toBeVisible();
+  await expect(page.getByText('4.8 /5',{exact:true})).toBeVisible();
   await page.screenshot({path:test.info().outputPath('merchant-quality.png'),fullPage:true});
   await page.getByRole('tab',{name:'เมนูอาหาร',exact:true}).or(page.getByRole('button',{name:'เมนูอาหาร',exact:true})).first().click();
   await expect(page.getByRole('switch',{name:'เปิดขาย ข้าวกะเพรา',exact:true})).toBeVisible();

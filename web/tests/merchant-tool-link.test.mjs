@@ -15,7 +15,7 @@ function compile(relative, imports = {}) {
 const foodShare = compile("../lib/food-share.ts");
 const { parseMerchantToolLink } = compile("../lib/merchant-tool-link.ts", { "@/lib/food-share": foodShare });
 
-for (const tool of ["finance", "ads", "campaigns", "promotions", "feedback", "store"]) {
+for (const tool of ["finance", "ads", "campaigns", "promotions", "feedback", "store", "help", "notifications"]) {
   test(`explicit ${tool} shortcut preserves a validated store preference`, () => {
     const result = parseMerchantToolLink(`?merchant-tool=${tool}&merchant-store=${store}`);
     assert.equal(result.tool, tool); assert.equal(result.storeId, store);
@@ -38,8 +38,10 @@ test("duplicate explicit parameters are rejected rather than choosing an ambiguo
   assert.equal(parseMerchantToolLink(`?merchant-tool=finance&merchant-store=${store}&merchant-store=${store}`), null);
 });
 test("order, notification-test and payment return flows retain precedence", () => {
-  for (const reserved of ["order=WF0015", "order=bad", "notification-test=1", "notification-test=0", "payments=return", "payments=refresh", "payments="]) {
-    assert.equal(parseMerchantToolLink(`?merchant-tool=finance&merchant-store=${store}&${reserved}`), null, reserved);
+  for (const tool of ["finance", "help", "notifications"]) {
+    for (const reserved of ["order=WF0015", "order=bad", "notification-test=1", "notification-test=0", "payments=return", "payments=refresh", "payments="]) {
+      assert.equal(parseMerchantToolLink(`?merchant-tool=${tool}&merchant-store=${store}&${reserved}`), null, `${tool}: ${reserved}`);
+    }
   }
 });
 test("an unrelated query is preserved as unrelated rather than interpreted as a store or navigation instruction", () => {
