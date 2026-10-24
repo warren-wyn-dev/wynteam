@@ -28,6 +28,12 @@ done < <(cd "$REPO" && ls supabase/schema.sql supabase/migrations_*.sql supabase
 
 if [ "$(psql_run -At -c "select to_regclass('staging_meta.bootstrap') is not null")" = "t" ]; then
   echo "Already bootstrapped; re-applying the ZOKY Stripe jobs + cron migrations (idempotent)."
+  # The refund worker cron (every minute) locks food_stripe_jobs rows while the
+  # jobs migration re-runs its DDL in one transaction, which deadlocked on
+  # 2026-10-23 (run 40012263916). Pause it; the cron migration below
+  # schedules it again.
+  psql_run -c "select cron.unschedule(jobid) from cron.job where jobname = 'wynos-food-stripe-refund-worker'" >/dev/null
+  sleep 10 # let an in-flight worker call finish
   for f in supabase/migrations/20261023100000_food_stripe_jobs_auto_refund.sql \
            supabase/migrations/20261023100100_food_stripe_jobs_enable_cron.sql; do
     psql_run --single-transaction -f "$REPO/$f"
