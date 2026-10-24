@@ -68,7 +68,7 @@ test("signed-out Merchant route redirects to the existing login without starting
   await page.route("**/merchant-flutter/flutter_bootstrap.js", (route) => { bootstrapRequests++; return route.abort(); });
   await page.goto("/merchant/flutter");
   await expect(page).toHaveURL(/\/merchant\/login$/);
-  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบร้านค้าของคุณ" })).toBeVisible();
   expect(bootstrapRequests).toBe(0);
   await expect(page.getByRole('img', { name: 'ZOKY Merchant', exact: true })).toBeVisible();
   await expect.poll(() => page.locator('.wm-auth-brand img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth === 1140)).toBe(true);
@@ -79,11 +79,12 @@ test("signed-out Merchant route redirects to the existing login without starting
     return true;
   })).toBe(true);
   await expect(page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true })).toHaveCSS('background-color', 'rgb(214, 18, 86)');
-  await expect(page.getByRole('link', { name: 'ลืมรหัสผ่าน?' })).toHaveCSS('color', 'rgb(214, 18, 86)');
+  await expect(page.getByRole('link', { name: 'ลืมรหัสผ่าน?' })).toHaveCSS('color', 'rgb(107, 107, 118)');
   const email = page.getByLabel('อีเมล');
   await email.focus();
   await expect(email).toHaveCSS('border-color', 'rgb(214, 18, 86)');
   await email.blur();
+  await expect(email).toHaveCSS('border-color', 'rgb(235, 235, 239)');
   await page.screenshot({ path: test.info().outputPath('merchant-official-logo-login.png'), fullPage: true });
 });
 

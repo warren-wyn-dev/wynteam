@@ -57,7 +57,7 @@ test("Merchant reports use complete server-side aggregation in Bangkok time", ()
 
 test("Merchant public auth surface is interactive", async ({ page }) => {
   await page.goto("/merchant/login");
-  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบร้านค้าของคุณ" })).toBeVisible();
   await expect(page.getByRole("link", { name: "กลับ WYNOS Merchant" })).toHaveCount(0);
 
   await page.getByLabel("อีเมล").fill("merchant@example.com");
@@ -72,7 +72,7 @@ test("Merchant public auth surface is interactive", async ({ page }) => {
   await expect(submit).toBeEnabled();
   await expect(submit).toHaveCSS("background-color", "rgb(214, 18, 86)");
 
-  await page.getByRole("link", { name: "สมัคร WYNOS Merchant" }).click();
+  await page.getByRole("link", { name: "สมัครเป็นร้านค้า" }).click();
   await expect(page).toHaveURL(/\/merchant\/signup$/);
   await expect(page.getByLabel("ZOKY Merchant", { exact: true })).toBeVisible();
 });
@@ -825,7 +825,7 @@ test("Merchant payment onboarding stays WYNOS-first across the browser matrix", 
   // Also render a real public Merchant page in each project so WebKit/Android/desktop
   // exercise the same app shell and responsive CSS rather than only parsing source.
   await page.goto("/merchant/login");
-  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ Merchant" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบร้านค้าของคุณ" })).toBeVisible();
   await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
 });
 
