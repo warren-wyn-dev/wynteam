@@ -88,6 +88,15 @@ create table if not exists public.food_stripe_jobs (
 alter table public.food_orders
   add column if not exists refund_awaiting_customer boolean not null default false;
 
+-- Notice markers (QA re-test 7): a job that is requeued by a Stripe refund
+-- event (food_requeue_stripe_refund_jobs) and fails or parks again must not
+-- repeat the same customer/merchant notice. Set when the failed / parked
+-- notice is sent; a merchant retry (merchant_retry_stripe_refund) clears
+-- them so the merchant hears the result of the retry they asked for.
+alter table public.food_stripe_jobs
+  add column if not exists failed_notified_at timestamptz,
+  add column if not exists attention_notified_at timestamptz;
+
 create index if not exists food_stripe_jobs_due_idx
   on public.food_stripe_jobs(next_attempt_at)
   where status in ('queued','awaiting_refund');
@@ -271,13 +280,19 @@ begin
     v_merchant := 'WYNOS Merchant · คืนเงินอัตโนมัติออเดอร์ #' || o.order_number
       || ' ไม่สำเร็จ กรุณาตรวจสอบบัญชี Stripe แล้วกดลองใหม่';
   end if;
-  perform internal.food_stripe_refund_notify(j.order_id, v_customer, v_merchant);
+  -- Once per job (until a merchant retry): requeue cycles stay quiet.
+  update public.food_stripe_jobs set failed_notified_at = now()
+  where id = j.id and failed_notified_at is null;
+  if found then
+    perform internal.food_stripe_refund_notify(j.order_id, v_customer, v_merchant);
+  end if;
 end;
 $$;
 revoke all on function internal.food_stripe_job_fail(uuid,text) from public, anon, authenticated;
 
--- ZOKY-148: a refund job parked for an operator. The merchant is told (once,
--- when the job is parked) and the job shows in public.admin_food_refund_jobs().
+-- ZOKY-148: a refund job parked for an operator. The merchant is told (once
+-- per job, when it is first parked; attention_notified_at) and the job shows
+-- in public.admin_food_refund_jobs().
 -- Expire jobs are audited only (no money is held; see food_stripe_job_fail).
 -- Runbook (read-only, SQL editor / service role):
 --   select j.id, j.order_id, j.reason, j.status, j.last_error_code, j.attempts,
@@ -313,6 +328,12 @@ begin
   end if;
   insert into public.food_order_events(order_id, event_type, note, actor_id)
   values (v_order_id, 'refund_needs_attention', 'คืนเงินอัตโนมัติต้องให้ทีม ZOKY ตรวจสอบ', null);
+  -- Once per job (until a merchant retry): requeue cycles stay quiet.
+  update public.food_stripe_jobs set attention_notified_at = now()
+  where id = p_job_id and attention_notified_at is null;
+  if not found then
+    return;
+  end if;
   perform internal.food_stripe_refund_notify(
     v_order_id, null,
     'WYNOS Merchant · คืนเงินอัตโนมัติออเดอร์ #' || v_number
@@ -1142,6 +1163,8 @@ begin
       last_error_code = null,
       requeued_by = (select auth.uid()),
       requeued_at = now(),
+      failed_notified_at = null,
+      attention_notified_at = null,
       updated_at = now()
   where id = v_job;
 
