@@ -12,7 +12,8 @@ function compile(relative, imports = {}) {
   runInNewContext(output, { module: mod, exports: mod.exports, URLSearchParams, require(name) { assert.ok(name in imports, `unexpected dependency: ${name}`); return imports[name]; } });
   return mod.exports;
 }
-const foodShare = compile("../lib/food-share.ts");
+const foodOrigin = compile("../lib/food-origin.ts");
+const foodShare = compile("../lib/food-share.ts", { "./food-origin": foodOrigin });
 const { parseMerchantToolLink } = compile("../lib/merchant-tool-link.ts", { "@/lib/food-share": foodShare });
 
 for (const tool of ["finance", "ads", "campaigns", "promotions", "feedback", "store", "help", "notifications"]) {
