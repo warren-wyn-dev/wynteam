@@ -37,3 +37,9 @@ Founder supplied the original Merchant screens as a layout reference. Restored f
 ## Implemented home structure (2026-10-24)
 
 Founder explicitly requested real UX/UI implementation from the latest structure. Flutter home now renders the actual selected-store status, sales, functional tool links, readiness checklist and customer-review aggregates. Validation/limitations: `docs/qa/zoky-merchant-flutter/real-home.md`. Production remains unchanged.
+
+## Final home and explicit production instruction (2026-10-24)
+
+Founder requested “เอาขึ้นเว็บจริง” and “ต่อ”. Final home now has eight pink 3D tool shortcuts, a same-row shop/bell header, actual editable status pill, smaller baseline-aligned sales fractions and readiness, without the lower quality card. Quality remains an actionable tool showing actual all-review data. Source validation: 374 Node +27 Flutter tests and 10/10 compiled mobile/desktop browser cases passed. Evidence: `docs/qa/zoky-merchant-flutter/final-home.md`.
+
+PR #1229 merged the earlier integration, not these later UI refinements. Live Merchant shares Vercel project `web` with Food; the new scoped candidate uses actual live base `e6f577dc`, replacing the stale `0533fb` candidate. A narrow reviewed release workflow retains the production environment reviewer and the general release freeze. Source completion is not a claim that production changed.
