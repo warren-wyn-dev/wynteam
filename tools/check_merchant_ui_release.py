@@ -80,6 +80,11 @@ def allowed(path):
     })
 
 
+def validate_git_deploy_config(config):
+    require(config.get("git", {}).get("deploymentEnabled") == {"main": False},
+            "Disable automatic all-main deployments while preserving preview branches")
+
+
 def validate(release, sha, branch_tip, manifest, today=None):
     today = today or datetime.datetime.now(datetime.timezone.utc).date()
     require(today <= datetime.date.fromisoformat(manifest["expiresUtc"]), "Merchant release approval expired")
@@ -181,6 +186,7 @@ def main():
     parser.add_argument("--branch-tip", required=True)
     args = parser.parse_args()
     try:
+        validate_git_deploy_config(json.loads((ROOT / "web/vercel.json").read_text()))
         paths = validate(args.release_root, args.sha, args.branch_tip,
                          json.loads(MANIFEST.read_text()))
     except (ValueError, KeyError, subprocess.CalledProcessError) as exc:

@@ -126,6 +126,12 @@ class WorkflowTests(unittest.TestCase):
             with self.assertRaises((ValueError, yaml.YAMLError)):
                 yaml.load(text, Loader=guard.WorkflowLoader)
 
+    def test_main_git_deploy_gate_preserves_previews(self):
+        guard.validate_git_deploy_config(json.loads((ROOT / "web/vercel.json").read_text()))
+        for enabled in [True,False,{}, {"main":True}, {"*":False}, {"main":False,"preview":False}]:
+            with self.subTest(enabled=enabled), self.assertRaises(ValueError):
+                guard.validate_git_deploy_config({"git":{"deploymentEnabled":enabled}})
+
 
 if __name__ == "__main__":
     unittest.main()
