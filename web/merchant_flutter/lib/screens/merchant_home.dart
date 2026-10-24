@@ -164,30 +164,7 @@ class _MerchantHomeState extends State<MerchantHome>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(28, 24, 20, 6),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Image.asset(
-                            'assets/brand/zoky-logo-pink-transparent.png',
-                            width: 112,
-                            height: 65.24,
-                            fit: BoxFit.contain,
-                            semanticLabel: 'ZOKY',
-                          ),
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(28, 0, 20, 36),
-                        child: Text(
-                          'MERCHANT',
-                          style: TextStyle(
-                            color: brand,
-                            letterSpacing: 3,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 24),
                       for (var i = 0; i < labels.length; i++)
                         Padding(
                           padding: const EdgeInsets.symmetric(
@@ -221,7 +198,7 @@ class _MerchantHomeState extends State<MerchantHome>
             Expanded(
               child: Column(
                 children: [
-                  header(wide),
+                  header(),
                   if (c.loading || c.busy)
                     const LinearProgressIndicator(minHeight: 3),
                   Expanded(
@@ -493,108 +470,69 @@ class _MerchantHomeState extends State<MerchantHome>
       );
     },
   );
-  Widget header(bool wide) => Container(
-    padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+  Widget header() => Container(
+    padding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
     decoration: const BoxDecoration(
       color: Colors.white,
       border: Border(bottom: BorderSide(color: Color(0xFFEBEBEF))),
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    child: Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  Image.asset(
-                    'assets/brand/zoky-logo-pink-transparent.png',
-                    width: 80,
-                    height: 46.6,
-                    fit: BoxFit.contain,
-                    semanticLabel: 'ZOKY',
+        Expanded(
+          child: c.stores.length > 1
+              ? DropdownButton<String>(
+                  value: c.storeId,
+                  isExpanded: true,
+                  hint: const Text('เลือกร้าน'),
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
                   ),
-                  const SizedBox(width: 8),
-                  const Flexible(
-                    child: Text(
-                      'Merchant',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: ink,
-                      ),
-                    ),
+                  underline: const SizedBox.shrink(),
+                  items: c.stores
+                      .map(
+                        (store) => DropdownMenuItem(
+                          value: store['id'] as String,
+                          child: Text(
+                            store['name'],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: c.loading || c.busy
+                      ? null
+                      : (id) {
+                          if (id != null) unawaited(c.selectStore(id));
+                        },
+                )
+              : Text(
+                  c.store?['name'] ?? 'ร้านของคุณ',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
                   ),
-                ],
-              ),
-            ),
-            IconButton(
-              tooltip: 'เปิดแจ้งเตือนออเดอร์',
-              onPressed: pushBusy ? null : enablePush,
-              icon: Icon(
-                pushEnabled
-                    ? Icons.notifications_active_outlined
-                    : Icons.notifications_outlined,
-                color: brand,
-              ),
-            ),
-            IconButton(
-              tooltip: 'รีเฟรชข้อมูล',
-              onPressed: c.loading || c.busy ? null : c.refresh,
-              icon: const Icon(Icons.refresh, size: 23),
-            ),
-          ],
+                ),
         ),
-        Row(
-          children: [
-            const Icon(
-              Icons.storefront_outlined,
-              size: 17,
-              color: Color(0xFF6B6B76),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              child: c.stores.length > 1
-                  ? DropdownButton<String>(
-                      value: c.storeId,
-                      isExpanded: true,
-                      isDense: true,
-                      style: TextStyle(
-                        fontSize: page == 0 ? 18 : 14,
-                        fontWeight: FontWeight.w700,
-                        color: ink,
-                      ),
-                      underline: const SizedBox.shrink(),
-                      items: c.stores
-                          .map(
-                            (store) => DropdownMenuItem(
-                              value: store['id'] as String,
-                              child: Text(
-                                store['name'],
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: c.loading || c.busy
-                          ? null
-                          : (id) {
-                              if (id != null) unawaited(c.selectStore(id));
-                            },
-                    )
-                  : Text(
-                      c.store?['name'] ?? 'ร้านของคุณ',
-                      style: TextStyle(
-                        fontSize: page == 0 ? 18 : 13,
-                        fontWeight: page == 0
-                            ? FontWeight.w700
-                            : FontWeight.w400,
-                        color: ink,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-            ),
-          ],
+        IconButton(
+          tooltip: 'เปิดแจ้งเตือนออเดอร์',
+          onPressed: pushBusy ? null : enablePush,
+          icon: Icon(
+            pushEnabled
+                ? Icons.notifications_active_outlined
+                : Icons.notifications_outlined,
+            color: brand,
+          ),
+        ),
+        IconButton(
+          tooltip: 'รีเฟรชข้อมูล',
+          onPressed: c.loading || c.busy ? null : c.refresh,
+          icon: const Icon(Icons.refresh, size: 23),
         ),
       ],
     ),
