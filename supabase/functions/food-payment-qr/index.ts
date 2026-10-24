@@ -1,7 +1,7 @@
 // @ts-types="npm:@types/qrcode@1.5.5"
 import QRCode from "npm:qrcode@1.5.4";
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
-import { buildPromptPayPayload } from "./_lib.ts";
+import { buildPromptPayPayload, storePaymentPolicyRefusal } from "./_lib.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +60,10 @@ Deno.serve(async (req: Request) => {
 
   if (orderError || !order || order.buyer_id !== user.id) return json({ error: "order_not_found" }, 404);
   if (["delivered", "cancelled"].includes(order.status)) return json({ error: "order_closed" }, 409);
+
+  // ZOKY-157: no store QR while Stripe-only is on, or when the policy cannot be read.
+  const refusal = storePaymentPolicyRefusal(await admin.rpc("food_payment_policy_public"));
+  if (refusal) return json({ error: refusal.error }, refusal.status);
 
   const { data: store, error: storeError } = await admin
     .from("food_stores")

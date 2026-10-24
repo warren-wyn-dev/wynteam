@@ -46,3 +46,24 @@ export function buildPromptPayPayload(rawPromptPayId: string, amount: number) {
   const withCrcTag = body + "6304";
   return withCrcTag + crc16Ccitt(withCrcTag);
 }
+
+export type PaymentPolicyRpcResult = { data: unknown; error: { code?: unknown } | null };
+
+/**
+ * ZOKY-157: the store's own PromptPay QR and slip verification are legacy
+ * payment paths. Under the Stripe-only policy (food_payment_policy_public()
+ * = true) they are refused. A database without the function (PGRST202, or
+ * 42883 from Postgres = migration not applied) is legacy. Any other error
+ * fails closed: the caller cannot tell whether the policy is on.
+ * Returns the refusal to send, or null to carry on with the legacy flow.
+ */
+export function storePaymentPolicyRefusal(result: PaymentPolicyRpcResult): { status: number; error: string } | null {
+  if (result.error) {
+    const code = result.error.code;
+    return code === "PGRST202" || code === "42883" ? null : { status: 503, error: "payment_policy_unavailable" };
+  }
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  const stripeOnly = result.data === true ||
+    Boolean(row && typeof row === "object" && (row as { stripe_only?: unknown }).stripe_only === true);
+  return stripeOnly ? { status: 409, error: "stripe_only_payments" } : null;
+}
