@@ -70,7 +70,7 @@ test("Merchant public auth surface is interactive", async ({ page }) => {
 
   const submit = page.getByRole("button", { name: "เข้าสู่ระบบ" });
   await expect(submit).toBeEnabled();
-  await expect(submit).toHaveCSS("background-color", "rgb(227, 38, 54)");
+  await expect(submit).toHaveCSS("background-color", "rgb(214, 18, 86)");
 
   await page.getByRole("link", { name: "สมัคร WYNOS Merchant" }).click();
   await expect(page).toHaveURL(/\/merchant\/signup$/);
