@@ -21,7 +21,8 @@
 #      notifies the merchant, admin list), ZOKY-150 (client paths cannot change
 #      a Stripe-paid order's payment state), ZOKY-151 (source<>'manual'),
 #      PromptPay-only gate (Founder 2026-10-23), CTO C3 opt-in backfill,
-#      ZOKY-156 (parked jobs rechecked after an operator refund at Stripe).
+#      ZOKY-156 (parked jobs rechecked after an operator refund at Stripe),
+#      QA re-test 7 (failed/parked notices once per job; merchant retry resets).
 # Synthetic data only. Usage: PSQL="sudo -u postgres psql" supabase/tests/food_stripe_auto_refund_test.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -638,6 +639,57 @@ eq "$(q "select payment_status || '/' || refund_status from public.food_orders w
 # Parked again (still partial) and re-parked jobs do not loop: needs a new refund event.
 svc "select public.food_requeue_stripe_refund_jobs('pi_test_r1')" >/dev/null
 eq "$(q "select status from public.food_stripe_jobs where id='$JR1'")" "done" "done jobs are never requeued"
+
+# 7f. QA re-test 7: requeue -> fail/park again does not repeat a notice
+# (once per job per outcome); audit events still record every cycle.
+N1=$(new_order "$STORE" app preparing paid stripe cs_test_n1 pi_test_n1)
+N1NUM=$(q "select order_number from public.food_orders where id='$N1'")
+q "update public.food_orders set status='cancelled' where id='$N1'" >/dev/null
+JN1=$(q "select id from public.food_stripe_jobs where order_id='$N1' and kind='refund'")
+svc "select public.food_complete_stripe_job('$JN1','failed',null,'balance_insufficient')" >/dev/null
+for i in 1 2 3; do
+  eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_n1')")" "1" "failed job requeued (cycle $i)"
+  eq "$(svc "select public.food_complete_stripe_job('$JN1','failed',null,'balance_insufficient')")" "failed" "requeued job fails again (cycle $i)"
+done
+eq "$(q "select count(*) from public.notifications where reason like '%#$N1NUM %มีปัญหา%'")" "1" "3 requeue cycles: customer told about the problem once"
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$N1NUM %ไม่สำเร็จ%'")" "1" "3 requeue cycles: merchant told about the failure once"
+eq "$(q "select count(*) from public.food_order_events where order_id='$N1' and event_type='refund_failed'")" "4" "every failure still audited"
+# Failed then parked: a different outcome is told once.
+svc "select public.food_requeue_stripe_refund_jobs('pi_test_n1')" >/dev/null
+svc "select public.food_complete_stripe_job('$JN1','needs_attention',null,'partial_refund_exists')" >/dev/null
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$N1NUM %ต้องให้ทีม ZOKY ตรวจสอบ%'")" "1" "failed then parked: merchant told about the parking once"
+for i in 1 2 3; do
+  svc "select public.food_requeue_stripe_refund_jobs('pi_test_n1')" >/dev/null
+  svc "select public.food_complete_stripe_job('$JN1','needs_attention',null,'partial_refund_exists')" >/dev/null
+done
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$N1NUM %ต้องให้ทีม ZOKY ตรวจสอบ%'")" "1" "3 requeue/park cycles: merchant attention notice once"
+eq "$(q "select count(*) from public.food_order_events where order_id='$N1' and event_type='refund_needs_attention'")" "4" "every parking still audited"
+eq "$(q "select count(*) from public.notifications where reason like '%#$N1NUM %'")" "1" "parking never notifies the customer"
+# Parked duplicate payment: requeue -> parked again keeps one generic notice.
+N2=$(new_order "$STORE" app pending_acceptance pending "" "" "")
+N2NUM=$(q "select order_number from public.food_orders where id='$N2'")
+svc "select public.test_apply_event('$N2','cs_test_n2a','pi_test_n2a','paid')" >/dev/null
+svc "select public.test_apply_event('$N2','cs_test_n2b','pi_test_n2b','paid')" >/dev/null
+JN2=$(q "select id from public.food_stripe_jobs where order_id='$N2' and reason='duplicate_payment'")
+svc "select public.food_complete_stripe_job('$JN2','needs_attention',null,'duplicate_payment_review')" >/dev/null
+for i in 1 2 3; do
+  eq "$(svc "select public.food_requeue_stripe_refund_jobs('pi_test_n2b')")" "1" "parked duplicate requeued (cycle $i)"
+  svc "select public.food_complete_stripe_job('$JN2','needs_attention',null,'duplicate_payment_review')" >/dev/null
+done
+eq "$(q "select count(*) from public.merchant_notifications where reason like 'WYNOS Merchant · คืนเงินอัตโนมัติออเดอร์ #$N2NUM ต้องให้ทีม ZOKY ตรวจสอบ%'")" "1" "duplicate re-parked 3 times: one generic merchant notice"
+# A merchant retry is a new request: its failure is told again.
+N3=$(new_order "$STORE" app preparing paid stripe cs_test_n3 pi_test_n3)
+N3NUM=$(q "select order_number from public.food_orders where id='$N3'")
+q "update public.food_orders set status='cancelled' where id='$N3'" >/dev/null
+JN3=$(q "select id from public.food_stripe_jobs where order_id='$N3' and kind='refund'")
+svc "select public.food_complete_stripe_job('$JN3','failed',null,'balance_insufficient')" >/dev/null
+svc "select public.food_requeue_stripe_refund_jobs('pi_test_n3')" >/dev/null
+svc "select public.food_complete_stripe_job('$JN3','failed',null,'balance_insufficient')" >/dev/null
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$N3NUM %ไม่สำเร็จ%'")" "1" "requeue failure not told again"
+eq "$(as authenticated "$OWNER" "select public.merchant_retry_stripe_refund('$N3')")" "queued" "merchant retries"
+svc "select public.food_complete_stripe_job('$JN3','failed',null,'balance_insufficient')" >/dev/null
+eq "$(q "select count(*) from public.merchant_notifications where reason like '%#$N3NUM %ไม่สำเร็จ%'")" "2" "merchant retry failure told to the merchant"
+eq "$(q "select count(*) from public.notifications where reason like '%#$N3NUM %มีปัญหา%'")" "2" "merchant retry failure told to the customer"
 
 # 5. Policy off: legacy behaviour.
 eq "$(as anon "" "select public.food_payment_policy_public()")" "f" "policy reads off"
