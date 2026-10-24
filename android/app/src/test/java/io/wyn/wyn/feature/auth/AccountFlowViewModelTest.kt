@@ -275,6 +275,71 @@ class AccountFlowViewModelTest {
         assertEquals(Route.SessionCheckFailed, vm.route)
     }
 
+    @Test fun failedRemoteSignOutClearsTheLocalSessionBeforeLeavingHome() = runTest(dispatcher) {
+        existingUser("u1", "a@example.com", "anna")
+        val vm = start()
+        vm.navigate(Route.Login())
+        vm.updateLoginEmail("a@example.com"); vm.updateLoginPassword("password-1234")
+        vm.submitLogin(); advanceUntilIdle()
+
+        repo.failSignOut = true
+        vm.signOut(); advanceUntilIdle()
+        assertNull(repo.active)
+        assertEquals(Route.Welcome, vm.route)
+        assertTrue(store.all().isEmpty())
+        assertFalse("u1" in repo.revoked)
+    }
+
+    @Test fun signOutDoesNotPretendSuccessWhenLocalSessionCannotBeCleared() = runTest(dispatcher) {
+        existingUser("u1", "a@example.com", "anna")
+        val vm = start()
+        vm.navigate(Route.Login())
+        vm.updateLoginEmail("a@example.com"); vm.updateLoginPassword("password-1234")
+        vm.submitLogin(); advanceUntilIdle()
+
+        repo.failSignOut = true
+        repo.failDetach = true
+        vm.signOut(); advanceUntilIdle()
+        assertEquals(Route.Home, vm.route)
+        assertEquals("u1", repo.active)
+        assertEquals("u1", vm.activeUserId)
+        assertEquals(R.string.err_connection, vm.homeMessage?.res)
+        assertEquals(listOf("u1"), store.all().map { it.userId })
+
+        repo.failDetach = false
+        vm.signOut(); advanceUntilIdle()
+        assertEquals(Route.Welcome, vm.route)
+        assertNull(repo.active)
+    }
+
+    @Test fun pushUnregisterFailurePreventsUnsafeSignOut() = runTest(dispatcher) {
+        existingUser("u1", "a@example.com", "anna")
+        val tokens = io.wyn.wyn.testing.FakePushTokens()
+        val push = io.wyn.wyn.core.push.PushController(
+            tokens, io.wyn.wyn.testing.FakeDeviceToken("t1"),
+            io.wyn.wyn.core.push.InMemoryPushMemory(),
+        ) { true }
+        val vm = AccountFlowViewModel(repo, store, configured = true, push = push)
+        advanceUntilIdle()
+        vm.navigate(Route.Login())
+        vm.updateLoginEmail("a@example.com"); vm.updateLoginPassword("password-1234")
+        vm.submitLogin(); advanceUntilIdle()
+        push.enable("u1")
+        tokens.fail = true
+
+        vm.signOut(); advanceUntilIdle()
+        assertEquals(Route.Home, vm.route)
+        assertEquals("u1", repo.active)
+        assertEquals(R.string.push_detach_failed, vm.homeMessage?.res)
+        assertEquals("u1", tokens.registered["t1"])
+
+        tokens.fail = false
+        vm.signOut(); advanceUntilIdle()
+        assertEquals(Route.Welcome, vm.route)
+        assertNull(repo.active)
+        assertTrue(tokens.registered.isEmpty())
+    }
+
     @Test fun forgotPasswordSendsTheWebResetLink() = runTest(dispatcher) {
         val vm = start()
         vm.navigate(Route.ForgotPassword)

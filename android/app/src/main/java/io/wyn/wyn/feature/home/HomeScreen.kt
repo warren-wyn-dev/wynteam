@@ -1,6 +1,7 @@
 package io.wyn.wyn.feature.home
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -35,6 +37,11 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +50,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -72,11 +80,13 @@ import io.wyn.wyn.feature.quote.QuoteSheets
 import kotlinx.coroutines.delay
 
 private val HeaderGrey = Color(0xFF737780)
+private val HeaderGreyDark = Color(0xFFA3A6AD)
 private val TabGrey = Color(0xFF757A84)
 
 /** Actions the Home screen hands to screens that arrive in later milestones. */
 data class HomeNavigation(
     val onCompose: () -> Unit = {},
+    val onComposePrompt: (String) -> Unit = {},
     val onOpenPost: (FeedRow) -> Unit = {},
     val onOpenProfile: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
@@ -91,15 +101,44 @@ data class HomeNavigation(
 /** web HomeScreen: header, For You / Following / My Clubs, quick compose and the feed. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 0, clubs: ClubFeedViewModel? = null) {
+fun HomeScreen(
+    vm: HomeViewModel,
+    nav: HomeNavigation,
+    notificationCount: Int = 0,
+    clubs: ClubFeedViewModel? = null,
+    onChromeVisible: (Boolean) -> Unit = {},
+) {
     val c = Wyn.colors
     val context = LocalContext.current
     fun share(row: FeedRow) = sharePost(context, vm, row)
+    // Web HomeHeader: hide header/tabs/dock on a deliberate down scroll,
+    // restore them after a short upward swipe or near the beginning of the feed.
+    val listState = rememberLazyListState()
+    val chromePolicy = remember(vm.mode) { HomeChromePolicy() }
+    var chromeVisible by remember(vm.mode) { mutableStateOf(true) }
+    val nearTopThreshold = with(LocalDensity.current) { 112.dp.roundToPx() }
+    LaunchedEffect(vm.mode) { onChromeVisible(true) }
+    LaunchedEffect(listState, vm.mode, nearTopThreshold) {
+        snapshotFlow {
+            Triple(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, listState.isScrollInProgress)
+        }.collect { (index, offset, scrolling) ->
+            val nextVisible = chromePolicy.update(index, offset, scrolling, nearTopThreshold)
+            if (nextVisible != chromeVisible) {
+                chromeVisible = nextVisible
+                onChromeVisible(nextVisible)
+            }
+        }
+    }
     // Entering "คลับของฉัน" always revalidates in the background (web home-screen).
     LaunchedEffect(vm.mode, clubs) { if (vm.mode == FeedMode.Clubs) clubs?.load() }
-    Column(Modifier.fillMaxSize().background(c.bg)) {
-        HomeHeader(notificationCount, nav)
-        HomeTabs(vm.mode, vm::select)
+    Box(Modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize().background(c.bg)) {
+        AnimatedVisibility(visible = chromeVisible) {
+            Column {
+                HomeHeader(notificationCount, nav)
+                HomeTabs(vm.mode, vm::select)
+            }
+        }
         val snapshot = vm.snapshot
         val clubMode = vm.mode == FeedMode.Clubs && clubs != null
         PullToRefreshBox(
@@ -107,10 +146,9 @@ fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 
             onRefresh = { if (clubMode) clubs!!.load(pull = true) else vm.refresh() },
             modifier = Modifier.weight(1f),
         ) {
-            val listState = rememberLazyListState()
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 if (vm.mode != FeedMode.Clubs) {
-                    item(key = "compose") { QuickCompose(vm.identity?.avatarUrl, nav.onCompose) }
+                    item(key = "compose") { QuickCompose(vm.identity, nav.onCompose, nav.onComposePrompt) }
                 }
                 when {
                     vm.mode == FeedMode.Clubs -> if (clubs != null) clubRows(clubs, nav)
@@ -132,6 +170,20 @@ fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 
                 }
             }
         }
+      }
+      if (!chromeVisible) {
+          // The Web's 56px Home post FAB replaces the hidden five-tab dock.
+          val label = stringResource(R.string.nav_post)
+          Box(
+              Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp)
+                  .size(56.dp).clip(CircleShape).background(Color(0xFF111214))
+                  .clickable(role = Role.Button, onClickLabel = label, onClick = nav.onCompose)
+                  .semantics { contentDescription = label },
+              contentAlignment = Alignment.Center,
+          ) {
+              Icon(WynIcons.NavAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+          }
+      }
     }
     FeedOverlays(vm, nav, ::share, vm.identity?.avatarUrl, vm.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: vm.identity?.username)
     if (vm.mode == FeedMode.Clubs && clubs != null) {
@@ -283,27 +335,38 @@ private fun HeaderButton(icon: ImageVector, label: String, onClick: () -> Unit, 
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = HeaderGrey, modifier = Modifier.size(23.dp))
+        Icon(
+            icon, contentDescription = null,
+            tint = if (Wyn.colors.bg == DarkWynColors.bg) HeaderGreyDark else HeaderGrey,
+            modifier = Modifier.size(23.dp),
+        )
     }
 }
 
+/** web/app/home.css canonical 38px tabs, 18px text (16px at <=359px), 120px active underline. */
 @Composable
 private fun HomeTabs(mode: FeedMode, onSelect: (FeedMode) -> Unit) {
     val c = Wyn.colors
+    val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp <= 359
     val labels = listOf(FeedMode.ForYou to R.string.tab_for_you, FeedMode.Following to R.string.tab_following, FeedMode.Clubs to R.string.tab_my_clubs)
     Column {
-        Row(Modifier.fillMaxWidth().height(37.dp)) {
+        Row(Modifier.fillMaxWidth().height(38.dp)) {
             labels.forEach { (key, label) ->
                 val active = key == mode
                 Column(
-                    Modifier.weight(1f).fillMaxSize().selectable(active, role = Role.Tab) { onSelect(key) }.padding(horizontal = 8.dp),
+                    Modifier.weight(1f).fillMaxSize().selectable(active, role = Role.Tab) { onSelect(key) }
+                        .padding(horizontal = if (narrow) 5.dp else 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Spacer(Modifier.height(1.dp))
                     Text(
-                        stringResource(label), color = if (active) c.text else TabGrey, fontSize = 18.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold, maxLines = 1,
+                        stringResource(label), color = if (active) c.text else TabGrey,
+                        fontSize = if (narrow) 16.sp else 18.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
+                        maxLines = 1, lineHeight = if (narrow) 19.sp else 22.sp,
+                        textAlign = TextAlign.Center,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     Box(
                         Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(999.dp))
@@ -316,19 +379,89 @@ private fun HomeTabs(mode: FeedMode, onSelect: (FeedMode) -> Unit) {
     }
 }
 
+/**
+ * HomeQuickCompose from the Web: unpublished users see their first-post
+ * suggestions, returning users see the local-day rotating prompt.
+ * Prompt taps open the one existing Native composer, never a separate post path.
+ */
 @Composable
-private fun QuickCompose(avatarUrl: String?, onCompose: () -> Unit) {
+private fun QuickCompose(
+    identity: io.wyn.wyn.core.data.HomeIdentity?,
+    onCompose: () -> Unit,
+    onPrompt: (String) -> Unit,
+) {
     val c = Wyn.colors
-    val prompt = stringResource(R.string.quick_compose)
-    Column {
+    val english = rememberEnglish()
+    if (identity?.hasPublishedPost == false) {
+        Column(
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp)
+                .clip(RoundedCornerShape(20.dp)).border(1.dp, c.border, RoundedCornerShape(20.dp))
+                .background(c.bg).padding(14.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WynAvatar(identity.avatarUrl, 42)
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (english) "Create your first post ✨" else "เริ่มโพสต์แรกของคุณ ✨",
+                        color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        if (english) "Keep it simple—pick a prompt and start writing."
+                        else "ไม่ต้องคิดเยอะ เลือกหัวข้อหนึ่งแล้วเริ่มเขียนได้เลย",
+                        color = c.textSecondary, fontSize = 12.sp,
+                    )
+                }
+            }
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            ) {
+                items(PostingPrompts.first, key = { it.key }) { item ->
+                    Box(
+                        Modifier.clip(RoundedCornerShape(999.dp))
+                            .background(c.surface).border(1.dp, c.border, RoundedCornerShape(999.dp))
+                            .clickable(role = Role.Button) { onPrompt(item.key) }
+                            .padding(horizontal = 11.dp, vertical = 8.dp),
+                    ) {
+                        Text(item.localized(english), color = c.text, fontSize = 12.sp, maxLines = 1)
+                    }
+                }
+            }
+            Box(
+                Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 40.dp)
+                    .clip(RoundedCornerShape(999.dp)).background(c.text)
+                    .clickable(role = Role.Button, onClick = { onPrompt("first-intro") }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (english) "Create first post" else "สร้างโพสต์แรก",
+                    color = c.bg, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+    } else {
+        val prompt = PostingPrompts.forDay()
+        val actionLabel = if (english) "Create post" else "สร้างโพสต์"
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().height(65.dp).clickable(onClickLabel = prompt, onClick = onCompose).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp)
+                .clickable(role = Role.Button, onClickLabel = actionLabel) {
+                    // Older/uncertain profile state still opens a normal composer.
+                    if (identity?.hasPublishedPost == true) onPrompt(prompt.key) else onCompose()
+                }.padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            WynAvatar(avatarUrl, 38)
+            WynAvatar(identity?.avatarUrl, 38)
             Spacer(Modifier.width(12.dp))
-            Text(prompt, color = c.textSecondary, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            Icon(WynIcons.Image, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(22.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    if (english) "Today's prompt" else "หัวข้อวันนี้",
+                    color = c.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                )
+                Text(prompt.localized(english), color = c.text, fontSize = 15.sp, maxLines = 2)
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(WynIcons.Pencil, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(22.dp))
         }
         HorizontalDivider(color = c.border, thickness = 1.dp)
     }
@@ -340,7 +473,7 @@ internal fun EmptyState(message: String, action: String?, onAction: () -> Unit) 
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(message, color = Wyn.colors.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+        Text(message, color = Wyn.colors.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center)
         if (action != null) {
             Spacer(Modifier.height(16.dp))
             WynPrimaryButton(action, onAction, modifier = Modifier.width(220.dp))
@@ -419,7 +552,7 @@ private fun SheetRow(icon: ImageVector, label: String, first: Boolean = false, o
         ) {
             Icon(icon, contentDescription = null, tint = c.text, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(14.dp))
-            Text(label, color = c.text, fontSize = 15.sp)
+            Text(label, color = c.text, fontSize = 14.5.sp)
         }
     }
 }
@@ -438,7 +571,7 @@ private fun RepostChoice(icon: ImageVector, label: String, enabled: Boolean, onC
     ) {
         Icon(icon, contentDescription = null, tint = c.text.copy(alpha = if (enabled) 1f else 0.55f), modifier = Modifier.size(28.dp))
         Spacer(Modifier.width(18.dp))
-        Text(label, color = c.text.copy(alpha = if (enabled) 1f else 0.55f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = c.text.copy(alpha = if (enabled) 1f else 0.55f), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -452,7 +585,7 @@ private fun ReportForm(vm: FeedViewModel<*>) {
         "other" to R.string.report_other,
     )
     Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 14.dp, top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.report_post), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        Text(stringResource(R.string.report_post), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         Column(Modifier.border(1.dp, c.border, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp))) {
             ReportCategories.forEachIndexed { index, key ->
                 if (index > 0) HorizontalDivider(color = c.border, thickness = 1.dp)

@@ -18,6 +18,11 @@
 > v1.0.0 Beta 1 (native, `android/`) ห้ามเริ่มงานใหม่หรือ release โดยไม่ถาม Founder ก่อน ตอนนี้โฟกัสเฉพาะ WYNOS Web
 > รายละเอียดที่ `.wyn/company/DECISIONS.md` (2026-10-10)
 
+> **[2026-10-13] กลับมาพัฒนา WYNOS Android v1.0.0 Beta 1**: Founder อนุมัติชัดเจนให้พัฒนาต่อบน GitHub
+> และระบุให้ใช้ Beta 1 เท่านั้น การอนุมัตินี้ครอบคลุมการแก้โค้ดบน branch แยกและเปิด PR เพื่อตรวจสอบ
+> แต่ **ยังไม่ใช่คำสั่ง merge, build signed release, deploy เว็บ หรือเผยแพร่บน Google Play**
+> Flutter `app/` ยังคงพัก และ Web Beta 1 ยังคงไม่เปลี่ยนตามคำสั่งนี้
+
 ## Current Version
 
 **WYNOS v1.0.0 Beta4** คือ Baseline ปัจจุบันที่ผู้ใช้ทั่วไปใช้งานอยู่ (production, deploy จริงตั้งแต่ 2026-09-03 — ดู `.wyn/logs/deployments/2026-09-03-wynos-beta4-real-deploy.md`)

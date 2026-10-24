@@ -120,7 +120,7 @@ fun QuoteCard(
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 26.dp)) {
                 Row(Modifier.weight(1f).clickable { row.redropperId?.let(onOpenAuthor) }, verticalAlignment = Alignment.CenterVertically) {
-                    Text(row.quoteAuthorLabel, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Text(row.quoteAuthorLabel, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (row.redropperIsVerified) Text(" ✓", color = LinkBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text(" · ${FeedText.relativeTime(row.createdAt, english)}", color = MetaGrey, fontSize = 14.sp, maxLines = 1)
                 }
@@ -243,7 +243,7 @@ fun QuoteSheets(controller: QuoteController, userId: String, onDeleted: (FeedRow
                     SheetRow(WynIcons.Flag, stringResource(R.string.quote_report), c.text) { controller.open(QuoteSheet.Report(row)) }
                 }
                 is QuoteSheet.ConfirmDelete -> {
-                    Text(stringResource(R.string.quote_delete_title), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.quote_delete_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Text(stringResource(R.string.quote_delete_hint), color = c.textSecondary, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         SheetButton(stringResource(R.string.back), c.text, !controller.busy, Modifier.weight(1f)) { controller.open(QuoteSheet.Menu(row)) }
@@ -251,7 +251,7 @@ fun QuoteSheets(controller: QuoteController, userId: String, onDeleted: (FeedRow
                     }
                 }
                 is QuoteSheet.Report -> {
-                    Text(stringResource(R.string.quote_report), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp))
+                    Text(stringResource(R.string.quote_report), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp))
                     val labels = mapOf("spam" to R.string.quote_reason_spam, "scam" to R.string.quote_reason_scam, "harassment" to R.string.quote_reason_harassment, "other" to R.string.quote_reason_other)
                     QuoteReportReasons.forEach { key ->
                         Row(
@@ -278,7 +278,7 @@ fun QuoteSheets(controller: QuoteController, userId: String, onDeleted: (FeedRow
             ErrorText(controller.error.text())
             if (sheet !is QuoteSheet.ConfirmDelete) {
                 Text(
-                    stringResource(R.string.cancel), color = c.textSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
+                    stringResource(R.string.cancel), color = c.textSecondary, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clickable(enabled = !controller.busy) { controller.open(null) }.padding(12.dp),
                 )
             }
@@ -294,7 +294,7 @@ private fun SheetRow(icon: ImageVector, label: String, tint: Color, onClick: () 
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(21.dp))
         Spacer(Modifier.width(14.dp))
-        Text(label, color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = tint, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -306,7 +306,7 @@ private fun SheetButton(label: String, color: Color, enabled: Boolean, modifier:
             .then(if (filled) Modifier.background(c.text) else Modifier.border(1.dp, c.border, RoundedCornerShape(12.dp)))
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(label, color = color, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+    ) { Text(label, color = color, fontSize = 14.5.sp, fontWeight = FontWeight.Bold) }
 }
 
 @Composable
@@ -318,7 +318,7 @@ private fun Choice(icon: ImageVector, label: String, enabled: Boolean, onClick: 
     ) {
         Icon(icon, contentDescription = null, tint = c.text, modifier = Modifier.size(28.dp))
         Spacer(Modifier.width(18.dp))
-        Text(label, color = c.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -336,7 +336,7 @@ fun QuoteComposer(controller: QuoteController, avatarUrl: String?, name: String,
                 stringResource(R.string.cancel), color = c.text, fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.align(Alignment.CenterStart).clickable(enabled = !controller.busy) { controller.requestCloseQuote() }.padding(vertical = 14.dp),
             )
-            Text(stringResource(R.string.quote), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+            Text(stringResource(R.string.quote), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
             val enabled = !controller.busy && controller.quoteText.isNotBlank()
             Box(
                 Modifier.align(Alignment.CenterEnd).widthIn(min = 72.dp).height(42.dp).clip(RoundedCornerShape(999.dp))
@@ -345,7 +345,7 @@ fun QuoteComposer(controller: QuoteController, avatarUrl: String?, name: String,
                 contentAlignment = Alignment.Center,
             ) {
                 if (controller.busy) CircularProgressIndicator(color = c.bg, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-                else Text(stringResource(R.string.publish), color = if (enabled) c.bg else c.textMuted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                else Text(stringResource(R.string.publish), color = if (enabled) c.bg else c.textMuted, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
             }
         }
         HorizontalDivider(color = c.border, thickness = 1.dp)
@@ -354,16 +354,16 @@ fun QuoteComposer(controller: QuoteController, avatarUrl: String?, name: String,
             WynAvatar(avatarUrl, 44)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(name, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(name, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
                 val focus = remember { FocusRequester() }
                 LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
                 val placeholder = stringResource(R.string.quote_placeholder)
                 BasicTextField(
                     value = controller.quoteText, onValueChange = controller::updateQuoteText, enabled = !controller.busy,
-                    textStyle = TextStyle(color = c.text, fontSize = 16.sp, lineHeight = 22.sp), cursorBrush = SolidColor(c.text),
+                    textStyle = TextStyle(color = c.text, fontSize = 15.sp, lineHeight = 21.sp), cursorBrush = SolidColor(c.text),
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp).heightIn(min = 44.dp, max = 220.dp).focusRequester(focus)
                         .semantics { contentDescription = placeholder },
-                    decorationBox = { inner -> Box { if (controller.quoteText.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 16.sp); inner() } },
+                    decorationBox = { inner -> Box { if (controller.quoteText.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 15.sp); inner() } },
                 )
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).border(1.dp, c.border, RoundedCornerShape(15.dp)).padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

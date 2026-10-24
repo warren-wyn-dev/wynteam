@@ -204,7 +204,7 @@ fun QuoteDetailScreen(vm: QuoteDetailViewModel, onBack: () -> Unit, onOpenDrop: 
             Box(Modifier.size(48.dp, 56.dp).clickable(role = Role.Button, onClick = onBack).semantics { contentDescription = back }, contentAlignment = Alignment.Center) {
                 Icon(WynIcons.Back, contentDescription = null, tint = c.text, modifier = Modifier.size(22.dp))
             }
-            Text(stringResource(R.string.post_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+            Text(stringResource(R.string.post_title), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         }
         HorizontalDivider(color = c.border, thickness = 1.dp)
         val row = vm.row
@@ -232,7 +232,7 @@ fun QuoteDetailScreen(vm: QuoteDetailViewModel, onBack: () -> Unit, onOpenDrop: 
                             onOpenAuthor = {},
                         )
                         HorizontalDivider(color = c.border, thickness = 1.dp)
-                        Text(stringResource(R.string.quote_comments_title), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 8.dp))
+                        Text(stringResource(R.string.quote_comments_title), color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 8.dp))
                         ErrorText(vm.error.text())
                     }
                     if (vm.comments.isEmpty() && !vm.commentsLoading) {
@@ -246,11 +246,11 @@ fun QuoteDetailScreen(vm: QuoteDetailViewModel, onBack: () -> Unit, onOpenDrop: 
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(comment.authorLabel + if (comment.authorVerified) " ✓" else "", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                    Text(comment.authorLabel + if (comment.authorVerified) " ✓" else "", color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                                     Spacer(Modifier.width(8.dp))
                                     Text(FeedText.relativeTime(comment.createdAt, english), color = c.textMuted, fontSize = 13.sp)
                                 }
-                                Text(comment.text, color = c.text, fontSize = 15.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 4.dp))
+                                Text(comment.text, color = c.text, fontSize = 14.5.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 4.dp))
                             }
                             if (comment.authorId == vm.userId) {
                                 val delete = stringResource(R.string.quote_comment_delete)
@@ -275,10 +275,10 @@ fun QuoteDetailScreen(vm: QuoteDetailViewModel, onBack: () -> Unit, onOpenDrop: 
                         val placeholder = stringResource(R.string.quote_comment_placeholder)
                         BasicTextField(
                             value = vm.draft, onValueChange = vm::updateDraft, singleLine = true,
-                            textStyle = TextStyle(color = c.text, fontSize = 15.sp), cursorBrush = SolidColor(c.text),
+                            textStyle = TextStyle(color = c.text, fontSize = 14.5.sp), cursorBrush = SolidColor(c.text),
                             modifier = Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(999.dp)).border(1.dp, c.border, RoundedCornerShape(999.dp))
                                 .background(c.surface).padding(horizontal = 14.dp, vertical = 11.dp).semantics { contentDescription = placeholder },
-                            decorationBox = { inner -> Box { if (vm.draft.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 15.sp); inner() } },
+                            decorationBox = { inner -> Box { if (vm.draft.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 14.5.sp); inner() } },
                         )
                         Spacer(Modifier.width(7.dp))
                         val enabled = !vm.sending && vm.draft.isNotBlank()

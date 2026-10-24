@@ -113,7 +113,7 @@ private fun Hero(onCreate: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 24.dp)) {
         Text(
             stringResource(R.string.clubs_hero_title) + " " + stringResource(R.string.clubs_hero_title_2),
-            color = c.text, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold,
+            color = c.text, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold,
         )
         Text(
             stringResource(R.string.clubs_hero_body), color = c.textSecondary, fontSize = 13.sp, lineHeight = 18.sp,
@@ -126,7 +126,7 @@ private fun Hero(onCreate: () -> Unit) {
         ) {
             Icon(WynIcons.Plus, contentDescription = null, tint = c.bg, modifier = Modifier.size(17.dp))
             Spacer(Modifier.width(7.dp))
-            Text(stringResource(R.string.clubs_create), color = c.bg, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.clubs_create), color = c.bg, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -139,7 +139,7 @@ private fun SearchField(value: String, onChange: (String) -> Unit) {
         value = value,
         onValueChange = onChange,
         singleLine = true,
-        textStyle = TextStyle(color = c.text, fontSize = 16.sp),
+        textStyle = TextStyle(color = c.text, fontSize = 15.sp),
         cursorBrush = SolidColor(c.text),
         modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp).semantics { contentDescription = hint },
         decorationBox = { inner ->
@@ -151,7 +151,7 @@ private fun SearchField(value: String, onChange: (String) -> Unit) {
                 Icon(WynIcons.Search, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
                 Box(Modifier.weight(1f)) {
-                    if (value.isEmpty()) Text(hint, color = c.textMuted, fontSize = 16.sp)
+                    if (value.isEmpty()) Text(hint, color = c.textMuted, fontSize = 15.sp)
                     inner()
                 }
             }
@@ -196,7 +196,7 @@ private fun ExploreRow(club: Club, pending: Boolean, joining: Boolean, enabled: 
             ClubAvatar(club)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(club.name, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(club.name, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(stringResource(R.string.clubs_members, memberCount(club.memberCount)), color = c.textSecondary, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
             }
         }
@@ -235,7 +235,7 @@ fun MyClubsScreen(vm: MyClubsViewModel, onBack: () -> Unit, onOpen: (String) -> 
                     vm.loading -> item(key = "loading") { ClubLoading() }
                     vm.error != null -> item(key = "error") {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(vm.error.text().orEmpty(), color = c.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+                            Text(vm.error.text().orEmpty(), color = c.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center)
                             Spacer(Modifier.height(12.dp))
                             PillButton(stringResource(R.string.retry), filled = false, outlined = true) { vm.load() }
                         }
@@ -250,7 +250,7 @@ fun MyClubsScreen(vm: MyClubsViewModel, onBack: () -> Unit, onOpen: (String) -> 
                             ) {
                                 ClubAvatar(club)
                                 Column(Modifier.weight(1f)) {
-                                    Text(club.name, color = c.text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(club.name, color = c.text, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(stringResource(R.string.clubs_members, memberCount(club.memberCount)), color = c.textSecondary, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
                                 }
                                 Icon(WynIcons.ChevronRight, contentDescription = null, tint = c.text, modifier = Modifier.size(18.dp))
@@ -290,7 +290,7 @@ fun CreateClubScreen(vm: CreateClubViewModel, onBack: () -> Unit, onCreated: (St
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Column {
-                Text(stringResource(R.string.create_club_intro_title), color = c.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.create_club_intro_title), color = c.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.create_club_intro_body), color = c.textSecondary, fontSize = 13.sp, lineHeight = 19.5.sp, modifier = Modifier.padding(top = 6.dp))
             }
             val pickLabel = stringResource(if (vm.icon != null) R.string.create_club_change_image else R.string.create_club_pick_image)
@@ -343,7 +343,7 @@ private fun ClubField(label: String, value: String, onChange: (String) -> Unit, 
             value = value,
             onValueChange = onChange,
             singleLine = singleLine,
-            textStyle = TextStyle(color = c.text, fontSize = 16.sp),
+            textStyle = TextStyle(color = c.text, fontSize = 15.sp),
             cursorBrush = SolidColor(c.text),
             modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
             decorationBox = { inner ->
@@ -352,7 +352,7 @@ private fun ClubField(label: String, value: String, onChange: (String) -> Unit, 
                         .border(1.dp, c.borderStrong, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = if (singleLine) 0.dp else 12.dp),
                     contentAlignment = if (singleLine) Alignment.CenterStart else Alignment.TopStart,
                 ) {
-                    if (value.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 16.sp)
+                    if (value.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 15.sp)
                     inner()
                 }
             },
@@ -393,12 +393,12 @@ fun ClubPostScreen(vm: ClubPostViewModel, onBack: () -> Unit) {
                     WynAvatar(page.authorAvatarUrl, 40)
                     Spacer(Modifier.width(10.dp))
                     Column {
-                        Text(page.authorLabel, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(page.authorLabel, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
                         Text(FeedText.relativeTime(page.createdAt, english), color = c.textSecondary, fontSize = 12.sp)
                     }
                 }
                 page.content?.takeIf { it.isNotEmpty() }?.let {
-                    Text(it, color = c.text, fontSize = 15.sp, lineHeight = 22.sp, modifier = Modifier.padding(top = 12.dp))
+                    Text(it, color = c.text, fontSize = 14.5.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 12.dp))
                 }
                 page.imageUrls.forEach { url ->
                     AsyncImage(url, contentDescription = null, contentScale = ContentScale.FillWidth, modifier = Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)))
@@ -436,7 +436,7 @@ fun ClubInviteScreen(vm: ClubInviteViewModel, onBack: () -> Unit, onOpenClub: (S
                 preview.iconUrl?.let {
                     AsyncImage(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(76.dp).clip(CircleShape))
                 }
-                Text(preview.clubName ?: "Club", color = c.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Text(preview.clubName ?: "Club", color = c.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Text(
                     stringResource(if (preview.clubPrivacy == "private") R.string.club_private_label else R.string.club_public_label),
                     color = c.textSecondary, fontSize = 13.sp,
