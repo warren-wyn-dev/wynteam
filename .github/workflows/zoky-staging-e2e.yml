@@ -1,0 +1,212 @@
+name: ZOKY staging E2E (Stripe test mode)
+
+# Rollout plan step 1 (.wyn/docs/deployment/zoky-stripe-only-rollout-plan.md):
+# Stripe TEST-MODE end-to-end run of the Stripe-only + auto-refund work on the
+# separate Free Supabase staging project (Founder approval 2026-09-27: Free
+# staging, no spend). Founder steps (Thai):
+# .wyn/docs/deployment/zoky-staging-e2e-founder-steps.md
+#
+#   setup  bootstrap a fresh staging DB to the production-like schema
+#          (tools/zoky-staging/bootstrap-order.txt; on later runs only the
+#          idempotent jobs + cron migrations are re-applied), deploy the 6 Edge
+#          Functions, seed synthetic data, start Stripe TEST onboarding of the
+#          test store (link in the run summary).
+#   e2e    redeploy the same functions, then run the CTO scenario list
+#          (tools/zoky-staging/e2e.mjs). The Stripe-only policy is left OFF.
+#
+# Code under test (inputs): backend_sha for stripe-webhook,
+# food-stripe-refund-worker, merchant-stripe-refund, merchant-stripe-connect and
+# all SQL; web_sha for food-stripe-checkout and food-stripe-cancel.
+#
+# Isolation from production (fail closed, checked every run):
+#   * only `staging` environment secrets, all named STAGING_* (enforced by
+#     tools/check_production_secret_scoping.py); no production secret is read;
+#   * the staging access token belongs to a separate Supabase account: the run
+#     stops if that token can see the production project, or if the target ref
+#     is the production ref;
+#   * Stripe keys are never in GitHub: they are Supabase secrets of the staging
+#     project, and e2e.mjs stops if the staging functions hold a LIVE key.
+# Rollback: nothing here touches production. To start staging over, delete and
+# recreate the Free staging project (Founder steps, part A) and run setup again.
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'setup (first, and after onboarding) or e2e'
+        required: true
+        type: choice
+        options: [setup, e2e]
+      backend_sha:
+        description: 'Backend commit (main after PR #1231)'
+        required: true
+        default: '830dd14b8b8c22648a2aada8b2c6fffd14e884c6'
+      web_sha:
+        description: 'Web/edge commit (release/zoky-web-20261018)'
+        required: true
+        default: 'eeeb5f5eaf59eae9a004bd03e3b90ee0d0999944'
+      confirm:
+        description: 'Type ZOKY-STAGING-TEST-MODE to confirm (staging only, Stripe test mode)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoky-staging-e2e
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    environment: staging
+    if: github.event.inputs.confirm == 'ZOKY-STAGING-TEST-MODE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # Secrets are given only to the steps that need them (least privilege).
+    env:
+      STAGING_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      PRODUCTION_REF: kqokpocajhfbidcxpvhh
+      STEP: ${{ github.event.inputs.step }}
+      BACKEND_SHA: ${{ github.event.inputs.backend_sha }}
+      WEB_SHA: ${{ github.event.inputs.web_sha }}
+    steps:
+      - name: Check inputs
+        id: inputs
+        env:
+          STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+          PGPASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for sha in "$BACKEND_SHA" "$WEB_SHA"; do
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::use full 40-character commit SHAs"; exit 1; }
+          done
+          STAGING_REF=$(printf '%s' "$STAGING_REF" | tr -d '[:space:]')
+          [[ "$STAGING_REF" =~ ^[a-z0-9]{20}$ ]] || { echo "::error::environment variable STAGING_SUPABASE_PROJECT_REF is missing or malformed"; exit 1; }
+          [ "$STAGING_REF" != "$PRODUCTION_REF" ] || { echo "::error::STOP: the staging ref is the PRODUCTION project"; exit 1; }
+          [ -n "$STAGING_MGMT_TOKEN" ] && [ -n "$PGPASSWORD" ] || { echo "::error::staging secrets missing (see Founder steps part B)"; exit 1; }
+          echo "STAGING_REF=$STAGING_REF" >> "$GITHUB_ENV"
+
+      - name: Isolation guard (the staging token must not reach production)
+        id: guard
+        env:
+          STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o projects.json -w '%{http_code}' https://api.supabase.com/v1/projects \
+            -H "Authorization: Bearer $STAGING_MGMT_TOKEN")
+          [ "$code" = "200" ] || { echo "::error::staging token rejected (HTTP $code)"; exit 1; }
+          refs=$(jq -r '.[].id' projects.json)
+          rm -f projects.json
+          if grep -qx "$PRODUCTION_REF" <<<"$refs"; then
+            echo "::error::STOP: this token can see the PRODUCTION project. Use a token from the separate staging Supabase account only."
+            exit 1
+          fi
+          grep -qx "$STAGING_REF" <<<"$refs" || { echo "::error::the staging token cannot see project $STAGING_REF"; exit 1; }
+          echo "Token sees $(wc -l <<<"$refs") project(s); production is not one of them."
+
+      - uses: actions/checkout@v4
+        with:
+          path: ops
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.backend_sha }}
+          path: backend
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.web_sha }}
+          path: web
+          persist-credentials: false
+
+      - name: Connect to the staging database (session pooler, IPv4)
+        env:
+          STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client >/dev/null; }
+          curl -sS -f "https://api.supabase.com/v1/projects/$STAGING_REF/config/database/pooler" \
+            -H "Authorization: Bearer $STAGING_MGMT_TOKEN" -o pooler.json
+          host=$(jq -r '[.[] | select(.database_type == "PRIMARY")][0].db_host' pooler.json)
+          user=$(jq -r '[.[] | select(.database_type == "PRIMARY")][0].db_user' pooler.json)
+          rm -f pooler.json
+          [ -n "$host" ] && [ "$host" != null ] && [[ "$user" == *".$STAGING_REF" ]] || { echo "::error::pooler config not found"; exit 1; }
+          { echo "PGHOST=$host"; echo "PGPORT=5432"; echo "PGUSER=$user"; echo "PGDATABASE=postgres";
+            echo "PGSSLMODE=require"; echo "PGOPTIONS=-c client_min_messages=warning"; } >> "$GITHUB_ENV"
+
+      - name: Bootstrap / update the staging schema
+        env:
+          PGPASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+        run: bash ops/tools/zoky-staging/bootstrap.sh "$GITHUB_WORKSPACE/backend" "$STAGING_REF"
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.120.0
+
+      - name: Deploy the 6 Edge Functions to staging
+        env:
+          STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The CLI takes the staging token through `login`; each function is
+          # deployed with the supabase/config.toml (verify_jwt) of its own ref.
+          supabase login --token "$STAGING_MGMT_TOKEN" >/dev/null
+          for f in stripe-webhook food-stripe-refund-worker merchant-stripe-refund merchant-stripe-connect; do
+            (cd backend && supabase functions deploy "$f" --project-ref "$STAGING_REF")
+          done
+          for f in food-stripe-checkout food-stripe-cancel; do
+            (cd web && supabase functions deploy "$f" --project-ref "$STAGING_REF")
+          done
+          # Do not leave the token on disk for the npm/Playwright steps.
+          supabase logout --yes >/dev/null 2>&1 || true
+          rm -f "$HOME/.supabase/access-token"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install E2E tools
+        working-directory: ops/tools/zoky-staging
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Run ${{ github.event.inputs.step }}
+        working-directory: ops/tools/zoky-staging
+        env:
+          STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+          BACKEND_DIR: ${{ github.workspace }}/backend
+        run: node e2e.mjs "$([ "$STEP" = setup ] && echo setup || echo run)"
+
+      # Edge Function errors (e.g. "food-stripe-checkout gateway failure
+      # {code, status}") are only in the staging project's logs. Print the
+      # latest log lines of the last hour so a red run can be diagnosed
+      # without a dashboard login. At most 40 lines of 300 chars.
+      - name: Staging Edge Function errors (last hour)
+        # Only after both fail-closed checks passed (never on a refused ref or token).
+        if: failure() && steps.inputs.outcome == 'success' && steps.guard.outcome == 'success'
+        env:
+          STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Logs reach the analytics store about a minute late (run 40051071573
+          # printed nothing when queried right away). Staging data is synthetic,
+          # so print the latest lines unfiltered.
+          sleep 75
+          sql="select timestamp, event_message from function_logs order by timestamp desc limit 40"
+          curl -sS -G "https://api.supabase.com/v1/projects/$STAGING_REF/analytics/endpoints/logs.all" \
+            -H "Authorization: Bearer $STAGING_MGMT_TOKEN" \
+            --data-urlencode "sql=$sql" \
+            --data-urlencode "iso_timestamp_start=$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)" \
+            --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o fnlogs.json || true
+          jq -r '"log rows: \(.result // [] | length)", (.error // empty | tostring | "logs API error: " + .), (.result // [] | .[] | "\(.timestamp) \(.event_message[0:300])")' fnlogs.json 2>/dev/null || { echo "logs unavailable:"; head -c 300 fnlogs.json; }
+          rm -f fnlogs.json
+
+      - name: Keep Checkout screenshots (test mode pages only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoky-staging-checkout-screenshots
+          path: ops/tools/zoky-staging/checkout-*.png
+          if-no-files-found: ignore
+          retention-days: 7

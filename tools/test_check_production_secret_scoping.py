@@ -81,4 +81,26 @@ assert code == 0, f"ungated literal non-production secret must be accepted: {out
 code, out = run_gate(add("indent4-gated.yml", "name: x\non:\n  workflow_dispatch:\njobs:\n    apply:\n      environment: production\n      runs-on: ubuntu-latest\n      steps:\n        - env:\n            T: ${{ secrets.SUPABASE_ACCESS_TOKEN }}\n          run: echo ok\n"))
 assert code == 0, f"4-space-indented gated job must be accepted: {out}"
 
-print(f"PASS secret-scoping gate rejects {len(cases)} ungated variants")
+# Staging (ZOKY staging E2E): STAGING_* secrets only inside `environment: staging`
+# jobs, and those jobs read nothing else and never a production credential name.
+STAGING_JOB = "name: x\non:\n  workflow_dispatch:\njobs:\n  e2e:\n    environment: %s\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          T: ${{ secrets.%s }}\n        run: echo ok\n"
+staging_cases = {
+    "staging secret in an ungated job": add("stg-ungated.yml", NEW_JOB % "STAGING_SUPABASE_ACCESS_TOKEN"),
+    "staging secret in a production job": add("stg-prod.yml", STAGING_JOB % ("production", "STAGING_SUPABASE_ACCESS_TOKEN")),
+    "staging secret, index syntax, ungated": add("stg-index.yml", (NEW_JOB % "X").replace("secrets.X", "secrets['staging_supabase_db_password']")),
+    "staging secret in workflow-level env": add("stg-top.yml", "name: x\non:\n  workflow_dispatch:\nenv:\n  T: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}\njobs:\n  a:\n    environment: staging\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n"),
+    "staging job reads a repository secret": add("stg-repo.yml", STAGING_JOB % ("staging", "SUPABASE_URL")),
+    "staging job reads the production Supabase token": add("stg-sb.yml", STAGING_JOB % ("staging", "SUPABASE_ACCESS_TOKEN")),
+    "staging job names the production token as an env var": add("stg-name.yml", (STAGING_JOB % ("staging", "STAGING_SUPABASE_ACCESS_TOKEN")).replace("          T:", "          SUPABASE_ACCESS_TOKEN:")),
+    "staging job uses the whole secrets context": add("stg-dyn.yml", (STAGING_JOB % ("staging", "X")).replace("secrets.X", "toJSON(secrets)")),
+}
+for label, mutate in staging_cases.items():
+    code, out = run_gate(mutate)
+    assert code != 0, f"secret-scoping gate accepted: {label}"
+
+code, out = run_gate(add("stg-ok.yml", STAGING_JOB % ("staging", "STAGING_SUPABASE_ACCESS_TOKEN")))
+assert code == 0, f"staging job reading a STAGING_* secret must be accepted: {out}"
+code, out = run_gate(add("stg-ok-block.yml", (STAGING_JOB % ("staging", "STAGING_SUPABASE_DB_PASSWORD")).replace("    environment: staging\n", "    environment:\n      name: staging\n")))
+assert code == 0, f"block-form staging environment must be accepted: {out}"
+
+print(f"PASS secret-scoping gate rejects {len(cases)} ungated variants and {len(staging_cases)} staging variants")

@@ -1,0 +1,168 @@
+# ZOKY staging bootstrap order (fresh Free Supabase project -> production-like schema).
+# Read by tools/zoky-staging/bootstrap.sh. One entry per line:
+#   apply <file>          run the file in one transaction (psql ON_ERROR_STOP)
+#   skip <file> # why     listed on purpose, not applied on staging
+#   sql <statement>       staging-only fixup statement (see the reason comment above it)
+# Order: supabase/schema.sql, then root supabase/migrations_*.sql by the date each file was
+# first added to git (the production apply order is not recorded anywhere else), with two
+# same-commit pairs swapped so the dependency comes first, then supabase/migrations/* by name.
+# Rehearsed 2026-10-23 on PostgreSQL 16 with Supabase stand-ins: every apply line passes
+# except the cron step, which needs the real pg_cron/pg_net (enabled by bootstrap.sh).
+# bootstrap.sh fails if a migration file in the repo is missing from this list.
+skip supabase/pending_approval_rls_with_check.sql # NOT APPROVED (APPROVALS 2026-09-03)
+apply supabase/schema.sql
+apply supabase/migrations_beta2_indexes.sql
+apply supabase/migrations_wyn109_image_aspect_ratio.sql
+apply supabase/migrations_wyn109a_column_only.sql
+apply supabase/migrations_wyn127_club_channels.sql
+apply supabase/migrations_wyn129_club_member_badges.sql
+apply supabase/migrations_wyn128_club_channel_messages.sql
+apply supabase/migrations_wyn130_club_ghost_members.sql
+apply supabase/migrations_wyn133_club_channel_categories.sql
+apply supabase/migrations_wyn134_dm_new_message_notification.sql
+apply supabase/migrations_wyn136_club_invite_link.sql
+apply supabase/migrations_wyn138_dm_message_edit_pin.sql
+apply supabase/migrations_wyn139_dm_presence.sql
+apply supabase/migrations_wyn140_trending_velocity.sql
+apply supabase/migrations_wyn141_top100_trending_integration.sql
+skip supabase/migrations_wyn142_personalization_signals.sql # already folded into schema.sql (re-run fails: trigger exists)
+apply supabase/migrations_wyn143_cold_start.sql
+apply supabase/migrations_wyn144_feed_quality.sql
+apply supabase/migrations_wyn149_location_search_rate_limit.sql
+apply supabase/migrations_wyn150_personalization_trigger_record_safety.sql
+apply supabase/migrations_wyn145_experimentation.sql
+apply supabase/migrations_wyn146_feed_algorithm_v1.sql
+apply supabase/migrations_wyn147_feed_repetition_control.sql
+apply supabase/migrations_wyn148_atomic_drop_publication.sql
+apply supabase/migrations_wyn151_discovery_creator_affinity.sql
+apply supabase/migrations_wyn152_experiment_outcome_trigger_record_safety.sql
+apply supabase/migrations_wyn153_feed_repetition_config_access.sql
+apply supabase/migrations_wyn154_club_invite_preview_not_found.sql
+apply supabase/migrations_wyn141_founder_profile_cover.sql
+apply supabase/migrations_edit_profile_social_links.sql
+apply supabase/migrations_guest_follow_requires_account.sql
+apply supabase/migrations_wyn155_security_definer_privileges.sql
+apply supabase/migrations_wyn156_view_privileges.sql
+apply supabase/migrations_wyn157_full_system_hardening.sql
+apply supabase/migrations_wyn161_wynii_chat_pet.sql
+apply supabase/migrations_wyn185_public_club_read_access.sql
+apply supabase/migrations_wyn187_profile_external_link_validation.sql
+apply supabase/migrations_wyn187_cleanup_legacy_social_links_keys.sql
+apply supabase/migrations_wyn186_quote_interactions.sql
+apply supabase/migrations_web_beta1_verified_privilege_guard.sql
+apply supabase/migrations_wyn157_function_search_path.sql
+apply supabase/migrations_web_beta1_club_invite_preview_privacy.sql
+apply supabase/migrations_web_beta1_username_preflight.sql
+skip supabase/migrations_web_beta1_official_autofollow.sql # needs the real @wynos_s profile; social only
+apply supabase/migrations_web_beta1_draft_image_upsert.sql
+apply supabase/migrations_web_beta1_club_rpc_anon_privilege.sql
+apply supabase/migrations_web_beta1_notification_flood_guard.sql
+apply supabase/migrations_web_beta1_referral_code_guard.sql
+apply supabase/migrations_web_beta1_storage_upload_limits.sql
+apply supabase/migrations_web_beta2_user_preferences.sql
+apply supabase/migrations_web_beta2_message_reactions.sql
+apply supabase/migrations_web_beta2_club_announcements.sql
+apply supabase/migrations_web_beta2_club_chat_actions.sql
+apply supabase/migrations_wynos_food_merchant_v1.sql
+apply supabase/migrations_wynos_food_merchant_v1_hardening.sql
+apply supabase/migrations_wynos_food_customer_preview_v1.sql
+apply supabase/migrations_wynos_food_rollout_gate_v1.sql
+apply supabase/migrations_wynos_food_customer_access_gate_v2.sql
+apply supabase/migrations_wynos_food_customer_access_gate_v2_cleanup.sql
+apply supabase/migrations_wynos_merchant_application_v1.sql
+apply supabase/migrations_wynos_merchant_admin_review_v1.sql
+apply supabase/migrations_wynos_merchant_payment_core_v1.sql
+apply supabase/migrations_wynos_merchant_accounts_v2.sql
+apply supabase/migrations_wynos_merchant_shared_auth_v1.sql
+apply supabase/migrations_wynos_merchant_core_completion_v1.sql
+apply supabase/migrations_wynos_merchant_core_completion_hardening_v1.sql
+apply supabase/migrations_wynos_merchant_notification_test_center_v1.sql
+apply supabase/migrations_wynos_merchant_legacy_store_backfill_v1.sql
+apply supabase/migrations_wynos_food_orders_only_v1.sql
+apply supabase/migrations_wynos_merchant_campaign_center_v1.sql
+apply supabase/migrations_wynos_merchant_campaign_center_total_consistency_v1.sql
+apply supabase/migrations_admin_inactive_reminders.sql
+apply supabase/migrations_wynos_food_delivery_photo_required_v1.sql
+apply supabase/migrations_wynos_food_storage_store_isolation_v1.sql
+apply supabase/migrations_wynos_food_delivery_zone_v1.sql
+apply supabase/migrations_wynos_food_store_places_v1.sql
+apply supabase/migrations_wynos_admin_food_ops_v1.sql
+apply supabase/migrations_wynos_platform_campaigns_v1.sql
+apply supabase/migrations_wynos_food_ads_v1.sql
+apply supabase/migrations_wynos_merchant_finance_v1.sql
+apply supabase/migrations_wynos_food_service_area_v1.sql
+apply supabase/migrations_wynos_maps_places_saved_addresses_v1.sql
+apply supabase/migrations_wynos_maps_store_place_search_v1.sql
+apply supabase/migrations_wynos_maps_nearby_places_v1.sql
+apply supabase/migrations_wynos_places_manager_audit_v1.sql
+apply supabase/migrations_wynos_places_manager_v1.sql
+apply supabase/migrations_wynos_maps_reverse_place_v1.sql
+apply supabase/migrations_wynos_merchant_access_hardening_v1.sql
+apply supabase/migrations_wynos_maps_osm_reverse_fallback_v1.sql
+apply supabase/migrations_wynos_admin_merchant_polish_v1.sql
+apply supabase/migrations_wynos_maps_photon_fallback_v1.sql
+apply supabase/migrations_wynos_maps_place_suggestions_v1.sql
+apply supabase/migrations_wynos_maps_saved_places_v1.sql
+apply supabase/migrations_wynos_maps_nearby_ranking_v2.sql
+apply supabase/migrations_wynos_maps_place_photos_v1.sql
+apply supabase/migrations_wynos_push_app_routing_v1.sql
+apply supabase/migrations_wynos_food_store_pickup_point_v1.sql
+apply supabase/migrations_wynos_food_share_preview_v1.sql
+apply supabase/migrations_wynos_merchant_production_readiness_v1.sql
+apply supabase/migrations_wynos_merchant_production_readiness_hardening_v1.sql
+apply supabase/migrations_wynos_food_store_reviews_v1.sql
+apply supabase/migrations_wynos_food_share_code_v1.sql
+apply supabase/migrations_wynos_merchant_ops_completion_v1.sql
+apply supabase/migrations_wynos_food_order_push_share_stats_v1.sql
+apply supabase/migrations_wynos_food_home_directory_v2.sql
+apply supabase/migrations_wynos_food_customer_stock_v1.sql
+apply supabase/migrations_wynos_merchant_sales_report_v1.sql
+apply supabase/migrations_wynos_merchant_order_reminders_v1.sql
+apply supabase/migrations_food_customer_address_structured_v1.sql
+apply supabase/migrations_wynos_food_merchant_launch_hardening_v1.sql
+apply supabase/migrations_wynos_food_order_options_v1.sql
+apply supabase/migrations_wynos_stripe_payment_core_v1.sql
+apply supabase/migrations_wynos_stripe_connect_v2_embedded.sql
+apply supabase/migrations/20260929132826_web_people_search_ranked.sql
+apply supabase/migrations/20260929140657_web_post_search_ranked_i18n.sql
+apply supabase/migrations/20260929164203_web_daily_follow_suggestions.sql
+apply supabase/migrations/20260929164437_daily_follow_suggestions_permanent_account_guard.sql
+apply supabase/migrations/20260929164931_daily_follow_suggestions_timezone_guard.sql
+apply supabase/migrations/20260929190537_web_posting_activation_loop.sql
+apply supabase/migrations/20260929190655_posting_activity_performance_indexes.sql
+apply supabase/migrations/20260929190826_web_posting_activation_loop.sql
+apply supabase/migrations/20260929190851_posting_activity_restriction_null_safety.sql
+apply supabase/migrations/20260929193000_notifications_developer_preview.sql
+apply supabase/migrations/20260929201547_daily_follow_suggestions_twice_daily.sql
+apply supabase/migrations/20260930014500_notifications_realtime_all_users.sql
+apply supabase/migrations/20261008113000_food_unpaid_payment_timeout.sql
+skip supabase/migrations/20261008113001_food_unpaid_payment_timeout_enable_cron.sql # food-unpaid-timeout is not deployed on staging
+apply supabase/migrations/20261008161000_food_admin_coupons.sql
+apply supabase/migrations/20261008161100_food_promo_notifications.sql
+skip supabase/migrations/20261008161200_food_promo_cron.sql # promotion sender is not deployed on staging
+apply supabase/migrations/20261009120000_food_first_order_merchant_funded.sql
+skip supabase/migrations/20261009230000_food_first_order_100_40.sql # needs the production first-order campaign row; promo only
+apply supabase/migrations/20261010120000_food_public_guest_catalog.sql
+apply supabase/migrations/20261010150000_wyn219_admin_permissions_foundation.sql
+apply supabase/migrations/20261010160000_wyn219_step2_maps_permissions.sql
+apply supabase/migrations/20261010170000_wyn219_step2_merchant_permissions.sql
+apply supabase/migrations/20261010170100_wyn219_step2_food_permissions.sql
+apply supabase/migrations/20261010170200_wyn219_step2_social_permissions.sql
+apply supabase/migrations/20261010170300_wyn219_step2_account_permissions.sql
+# Production has newer admin_dashboard_* return types than schema.sql (applied outside the repo, e.g.
+# .wyn/logs/deployments/*.sql); this migration replaces all four, so drop the schema.sql versions first.
+sql drop function if exists public.admin_dashboard_metrics(); drop function if exists public.admin_dashboard_trends(); drop function if exists public.admin_signup_counts(); drop function if exists public.admin_activity_trend(integer);
+apply supabase/migrations/20261010170400_wyn219_step2_central_permissions.sql
+apply supabase/migrations/20261011120000_admin_merchant_finance_overview.sql
+apply supabase/migrations/20261011140000_merchant_gp_v1.sql
+apply supabase/migrations/20261011140100_merchant_gp_finance_lines.sql
+apply supabase/migrations/20261013161500_admin_merchant_delivery_live.sql
+apply supabase/migrations/20261013163000_admin_merchant_store_operations.sql
+apply supabase/migrations/20261013183000_admin_merchant_menu_live.sql
+apply supabase/migrations/20261013190000_admin_food_banners_v1.sql
+apply supabase/migrations/20261013194500_admin_food_featured_stores_v1.sql
+apply supabase/migrations/20261013204000_admin_food_review_moderation.sql
+apply supabase/migrations/20261023100000_food_stripe_jobs_auto_refund.sql
+apply supabase/migrations/20261023100100_food_stripe_jobs_enable_cron.sql
+skip supabase/migrations/20261023100200_food_stripe_only_activate.sql # the E2E turns the policy on and off itself
+skip supabase/migrations/20261023100300_food_stripe_jobs_backfill.sql # opt-in production step; nothing to backfill on staging

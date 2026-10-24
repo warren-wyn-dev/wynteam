@@ -9,6 +9,11 @@ job. Workflows are parsed as YAML (anchors and aliases resolved, comments
 dropped), and any case-insensitive mention of either name counts, whatever
 the expression syntax or whitespace around it. Not a substitute for the
 environment's reviewer/branch policy.
+
+Staging (ZOKY staging E2E, separate Free Supabase account): secrets named
+STAGING_* may only be read by jobs with `environment: staging`, and such jobs
+may read no other secret (so they cannot pick up a repository-level production
+secret) and never the production credential names above.
 """
 import json
 import re
@@ -89,11 +94,29 @@ def mentions(value):
     return bool(CREDENTIAL.search(json.dumps(value, default=str))) or dynamic_secrets(value)
 
 
-def gated(job):
+def environment(job):
     env = job.get("environment")
     if isinstance(env, dict):
         env = env.get("name")
-    return env == "production"
+    return env
+
+
+def gated(job):
+    return environment(job) == "production"
+
+
+SECRET_NAME = re.compile(r"""secrets\s*(?:\.\s*([A-Za-z_][A-Za-z0-9_]*)|\[\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\])""", re.I)
+STAGING_NAME = re.compile(r"^STAGING_[A-Z0-9_]+$", re.I)
+
+
+def secret_names(value):
+    """Literal secrets.NAME / secrets['NAME'] references (dynamic ones are
+    refused separately by dynamic_secrets)."""
+    names = set()
+    for text in strings(value):
+        for match in SECRET_NAME.finditer(text):
+            names.add(match.group(1) or match.group(2))
+    return names
 
 
 errors = []
@@ -109,13 +132,24 @@ for path in workflows:
             errors.append(f"{path.name}: credential referenced but workflow is not a mapping")
         continue
     jobs = doc.get("jobs")
-    if mentions({key: value for key, value in doc.items() if key != "jobs"}):
+    outside = {key: value for key, value in doc.items() if key != "jobs"}
+    if mentions(outside):
         errors.append(f"{path.name}: credential appears outside a job")
+    if any(STAGING_NAME.match(n) for n in secret_names(outside)):
+        errors.append(f"{path.name}: staging secret appears outside a job")
     if not isinstance(jobs, dict):
-        if mentions(jobs):
+        if mentions(jobs) or any(STAGING_NAME.match(n) for n in secret_names(jobs)):
             errors.append(f"{path.name}: credential referenced but jobs: is not a mapping")
         continue
     for name, job in jobs.items():
+        names = secret_names(job)
+        staging_job = isinstance(job, dict) and environment(job) == "staging"
+        if staging_job:
+            other = sorted(n for n in names if not STAGING_NAME.match(n))
+            if other:
+                errors.append(f"{path.name}: staging job '{name}' reads non-staging secrets {other}")
+        elif any(STAGING_NAME.match(n) for n in names):
+            errors.append(f"{path.name}: job '{name}' reads a STAGING_* secret without environment: staging")
         if not mentions(job):
             continue
         if not isinstance(job, dict) or not gated(job):

@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+import { isRefundEvent, refundEventNeedsOrderTotal, refundEventState, refundRecheckPaymentIntent } from "./_lib.ts";
+
 type AdminClient = ReturnType<typeof createClient<any>>;
 
 const STRIPE_V2_VERSION = "2026-07-29.dahlia";
@@ -438,27 +440,25 @@ Deno.serve(async (req: Request) => {
       request_id: stringValue(request?.id),
     });
     note = "การชำระเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-  } else if (eventType === "charge.refunded") {
-    const refunded = numberValue(object.amount_refunded);
-    const original = numberValue(object.amount);
-    if (refunded != null && original != null && refunded >= original) {
-      state = "refunded";
-      amount = original;
+  } else if (isRefundEvent(eventType)) {
+    // Only a succeeded full Refund marks the order refunded; charge.refunded
+    // is recorded only (ZOKY-153, see _lib.ts).
+    let expected: number | null = null;
+    let orderPaymentIntent: string | null = null;
+    if (orderId && refundEventNeedsOrderTotal(eventType, object)) {
+      const { data: order } = await admin.from("food_orders")
+        .select("total,stripe_payment_intent_id").eq("id", orderId).maybeSingle();
+      expected = Math.round(Number(order?.total ?? 0) * 100);
+      orderPaymentIntent = stringValue(order?.stripe_payment_intent_id);
     }
-  } else if (eventType === "refund.created" || eventType === "refund.updated") {
-    if (object.status === "succeeded") {
-      refundId = stringValue(object.id);
-      amount = numberValue(object.amount);
-      if (orderId && amount != null) {
-        const { data: order } = await admin.from("food_orders").select("total").eq("id", orderId).maybeSingle();
-        const expected = Math.round(Number(order?.total ?? 0) * 100);
-        state = expected > 0 && amount === expected ? "refunded" : "noop";
-      }
+    // ZOKY-154: only a refund of the order's own PaymentIntent marks it refunded.
+    const mapped = refundEventState(eventType, object, expected, orderPaymentIntent);
+    state = mapped.state;
+    refundId = mapped.refundId;
+    if (mapped.amount != null) amount = mapped.amount;
+    if (eventType === "refund.failed") {
+      console.warn("stripe refund failed", { eventType, refundId: mapped.refundId });
     }
-  } else if (eventType === "refund.failed") {
-    console.warn("stripe refund failed", { eventType, refundId: stringValue(object.id) });
-    state = "noop";
-    refundId = stringValue(object.id);
   }
 
   const { error } = await admin.rpc("food_apply_stripe_event", {
@@ -477,5 +477,15 @@ Deno.serve(async (req: Request) => {
     p_refund_id: refundId,
   });
   if (error) return json({ error: "event_processing_failed" }, 500);
+  // ZOKY-156: also on a replay (the event row may exist from a failed try).
+  const recheckPaymentIntent = refundRecheckPaymentIntent(eventType, object);
+  if (recheckPaymentIntent) {
+    const { error: requeueError } = await admin.rpc("food_requeue_stripe_refund_jobs", {
+      p_payment_intent_id: recheckPaymentIntent,
+    });
+    // PGRST202: the jobs migration is not applied yet, so no job can be parked
+    // and there is nothing to recheck. This lets the webhook ship before it.
+    if (requeueError && requeueError.code !== "PGRST202") return json({ error: "event_processing_failed" }, 500);
+  }
   return json({ received: true });
 });
