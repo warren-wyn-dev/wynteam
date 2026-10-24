@@ -13,6 +13,15 @@ class _LargeSalesRepository extends FakeRepository {
   };
 }
 
+class _QualityRepository extends FakeRepository {
+  bool failQuality = false;
+  @override
+  Future<Map<String, dynamic>> quality(String id) async {
+    if (failQuality) throw Exception('โหลดรีวิวไม่สำเร็จ');
+    return {'available': true, 'count': 12, 'average': 4.8, 'unanswered': 2};
+  }
+}
+
 void main() {
   Future<void> mount(
     WidgetTester tester,
@@ -125,6 +134,51 @@ void main() {
       expect(find.text('เครื่องมือร้าน'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'home structure opens the actual readiness checklist and preserves data at large text',
+    (tester) async {
+      final repo = _QualityRepository();
+      await mount(tester, repo, width: 360);
+      await tester.tap(find.bySemanticsLabel('ดูยอดขายวันนี้'));
+      await tester.pumpAndSettle();
+      expect(find.text('ยอดขายของร้าน'), findsOneWidget);
+      await tester.tap(find.text('หน้าหลัก').last);
+      await tester.pumpAndSettle();
+      expect(find.text('เตรียมร้านให้พร้อม'), findsOneWidget);
+      await tester.ensureVisible(find.text('เตรียมร้านให้พร้อม'));
+      await tester.tap(find.text('เตรียมร้านให้พร้อม'));
+      await tester.pumpAndSettle();
+      expect(find.text('ช่องทางรับเงิน'), findsOneWidget);
+      expect(find.text('เผยแพร่ร้านให้ลูกค้าเห็น'), findsOneWidget);
+      await tester.tap(find.text('เปิดขายเมนูอย่างน้อย 1 รายการ'));
+      await tester.pumpAndSettle();
+      expect(find.text('ข้าวกะเพรา'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  test(
+    'review failure clears old quality without faking zeros and access revocation clears the summary',
+    () async {
+      final repo = _QualityRepository();
+      final controller = MerchantController(repo);
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      expect(controller.qualityData['average'], 4.8);
+      repo.failQuality = true;
+      await controller.refresh();
+      expect(controller.qualityData, isEmpty);
+      expect(controller.qualityError, isNotNull);
+      expect(controller.error, isNull);
+      repo.failQuality = false;
+      await controller.refresh();
+      expect(controller.qualityData['unanswered'], 2);
+      repo.access = false;
+      await controller.refresh();
+      expect(controller.qualityData, isEmpty);
+      expect(controller.store, isNull);
     },
   );
   test('revocation clears customer data and disables writes', () async {

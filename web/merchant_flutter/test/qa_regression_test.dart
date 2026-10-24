@@ -86,6 +86,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.text('ออเดอร์').first);
+      await tester.pumpAndSettle();
       expect(find.text('ตรวจการชำระเงิน'), findsOneWidget);
       expect(find.text('รอระบบยืนยันการชำระเงินอัตโนมัติ'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -111,6 +113,8 @@ void main() {
         home: MerchantHome(repository: repo, onSignOut: () async {}),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ออเดอร์').first);
     await tester.pumpAndSettle();
     expect(find.text('ตรวจการชำระเงิน'), findsNothing);
     expect(find.text('รอระบบยืนยันการชำระเงินอัตโนมัติ'), findsOneWidget);

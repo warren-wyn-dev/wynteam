@@ -5,8 +5,8 @@ class MerchantController extends ChangeNotifier {
   MerchantController(this.repository);
   final MerchantRepository repository;
   List<Json> stores = [], menu = [], orders = [], campaigns = [];
-  Json report = {};
-  String? storeId, error, reportError, campaignError;
+  Json report = {}, qualityData = {};
+  String? storeId, error, reportError, campaignError, qualityError;
   String status = 'pending_acceptance';
   bool loading = false,
       busy = false,
@@ -63,6 +63,8 @@ class MerchantController extends ChangeNotifier {
     orders = [];
     campaigns = [];
     report = {};
+    qualityData = {};
+    qualityError = null;
     updatedAt = null;
     await refresh();
   }
@@ -88,6 +90,8 @@ class MerchantController extends ChangeNotifier {
       orders = [];
       campaigns = [];
       report = {};
+      qualityData = {};
+      qualityError = null;
       canManage = canOrders = canDelivery = canCampaigns = false;
       return;
     }
@@ -118,7 +122,19 @@ class MerchantController extends ChangeNotifier {
       reportError = null;
     } catch (e) {
       report = {};
+      qualityData = {};
+      qualityError = null;
       reportError = errorMessage(e);
+    }
+    try {
+      final value = await repository.quality(id);
+      if (_disposed || g != _generation) return;
+      qualityData = value;
+      qualityError = null;
+    } catch (e) {
+      if (_disposed || g != _generation) return;
+      qualityData = {};
+      qualityError = errorMessage(e);
     }
     try {
       final value = await repository.campaigns(id);
@@ -156,6 +172,8 @@ class MerchantController extends ChangeNotifier {
         menu = [];
         campaigns = [];
         report = {};
+        qualityData = {};
+        qualityError = null;
         canManage = canOrders = canDelivery = canCampaigns = false;
       }
     } finally {

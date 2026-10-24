@@ -9,7 +9,7 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAACgAAABQCAIAAADk7aCWAAAAPklEQVR4nO3NQQEAAAQEMPTvfGLw2Aqsk9SFOVnFYrFYLBaLxWKxWCwWi8VisVgsFovFYrFYLBaLxWKx+G289qoDnUEG01QAAAAASUVORK5CYII=', 'base64');
   await page.route('**/merchant-qa-photo.png', route => route.fulfill({contentType:'image/png',body:image}));
   await page.route('**/merchant-flutter-qa', route => route.fulfill({contentType:'text/html; charset=utf-8',body:`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body,#host{margin:0;width:100%;height:100%;overflow:hidden}</style></head><body><div id="host"></div><script>
-    const store={id:'store-1',name:'ร้าน QA',is_open:true,is_published:true,phone:'0811111111',address:'ที่อยู่ทดสอบ'};
+    const store={id:'store-1',name:'ร้าน QA',is_open:true,is_published:true,phone:'0811111111',address:'ที่อยู่ทดสอบ',business_hours:'09:00–22:00',delivery_area:'พื้นที่ทดสอบ',effective_open:true,status_text:'เปิดรับออเดอร์'};
     const order={id:'order-1',order_number:'QA-001',status:'pending_acceptance',payment_status:'${manualPayment ? 'pending' : 'submitted'}',payment_slip_path:${manualPayment ? 'null' : "'slips/order-1/slip.png'"},recipient_name:'ลูกค้าทดสอบ',recipient_phone:'0811111111',shipping_address:'ที่อยู่ทดสอบ',total:75,subtotal:75,delivery_fee:0,created_at:'2026-10-21T03:00:00Z',food_order_items:[{item_name:'ข้าวกะเพรา',quantity:1}]};
     window.qaWrites=[];
     window.zokyMerchant={request:async(method,raw)=>{
@@ -20,6 +20,7 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
         case 'menu':data=[{id:'menu-1',name:'ข้าวกะเพรา',price:75,category:'อาหาร',is_available:true}];break;
         case 'orders':data=order.status===a.status?[order]:[];break;
         case 'report':data={today_sales:order.status==='delivered'?75:0,today_orders:order.status==='delivered'?1:0,month_sales:order.status==='delivered'?75:0,total_orders:order.status==='delivered'?1:0,best:[]};break;
+        case 'quality':data={available:true,count:12,average:4.8,unanswered:2};break;
         case 'campaigns':data={can_manage:true,campaigns:[]};break;
         case 'pushStatus':data={enabled:false,available:false};break;
         case 'signedUrl':data=location.origin+'/merchant-qa-photo.png';break;
@@ -34,7 +35,7 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   await page.goto('/merchant-flutter-qa');
   await page.locator('flutter-view').waitFor({timeout:45000});
   await expect(page.getByText('ร้าน QA',{exact:true}).first()).toBeVisible({timeout:30000});
-  await page.getByRole('button',{name:'จัดการออเดอร์ →',exact:true}).click();
+  await page.getByRole('tab',{name:'ออเดอร์',exact:true}).or(page.getByRole('button',{name:'ออเดอร์',exact:true})).first().click();
   await page.getByRole('button',{name:'ตรวจการชำระเงิน',exact:true}).click();
   if (manualPayment) {
     await expect(page.getByRole('button',{name:'ยืนยันว่ารับเงินแล้ว',exact:true})).toBeDisabled();
@@ -61,9 +62,14 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   await expect.poll(()=>page.evaluate(()=> (window as Window & {qaWrites?: string[]}).qaWrites)).toEqual(['payment','preparing','ready_for_delivery','out_for_delivery','delivered']);
   expect(errors).toEqual([]);
   await page.screenshot({path:test.info().outputPath('merchant-completed.png'),fullPage:true});
-  await page.getByRole('tab',{name:'หน้าหลัก',exact:true}).or(page.getByRole('button',{name:'หน้าหลัก',exact:true})).click();
-  await expect(page.getByRole('group',{name:/ยอดขายวันนี้/}).first()).toBeVisible();
+  // A fresh synthetic document removes queued mutation toasts from design captures.
+  await page.reload();
+  await expect(page.getByRole('button',{name:/ยอดขายวันนี้/}).first()).toBeVisible();
+  // This isolated fixture has no network polling; wait for renderer/font requests.
+  await page.waitForLoadState('networkidle');
   await page.screenshot({path:test.info().outputPath('merchant-dashboard.png'),fullPage:true});
+  await page.getByRole('button',{name:'ดูคุณภาพร้าน',exact:true}).scrollIntoViewIfNeeded();
+  await page.screenshot({path:test.info().outputPath('merchant-quality.png'),fullPage:true});
   await page.getByRole('tab',{name:'เมนูอาหาร',exact:true}).or(page.getByRole('button',{name:'เมนูอาหาร',exact:true})).first().click();
   await expect(page.getByRole('switch',{name:'เปิดขาย ข้าวกะเพรา',exact:true})).toBeVisible();
   await page.screenshot({path:test.info().outputPath('merchant-menu.png'),fullPage:true});

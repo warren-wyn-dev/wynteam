@@ -152,6 +152,7 @@ class _MerchantHomeState extends State<MerchantHome>
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 960;
     return Scaffold(
+      backgroundColor: page == 0 ? const Color(0xFFF6F6F8) : Colors.white,
       body: SafeArea(
         child: Row(
           children: [
@@ -240,32 +241,34 @@ class _MerchantHomeState extends State<MerchantHome>
                               32,
                             ),
                             children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    c.error == null
-                                        ? Icons.cloud_done_outlined
-                                        : Icons.cloud_off,
-                                    color: c.error == null
-                                        ? success
-                                        : Colors.red,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      c.updatedAt == null
-                                          ? 'กำลังเชื่อมต่อร้านของคุณ'
-                                          : 'อัปเดตล่าสุด ${dateLabel(c.updatedAt!.toIso8601String())}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF6B6B76),
+                              if (page != 0) ...[
+                                Row(
+                                  children: [
+                                    Icon(
+                                      c.error == null
+                                          ? Icons.cloud_done_outlined
+                                          : Icons.cloud_off,
+                                      color: c.error == null
+                                          ? success
+                                          : Colors.red,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        c.updatedAt == null
+                                            ? 'กำลังเชื่อมต่อร้านของคุณ'
+                                            : 'อัปเดตล่าสุด ${dateLabel(c.updatedAt!.toIso8601String())}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF6B6B76),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                              ],
                               if (c.error != null) errorBox(c.error!),
                               if (c.store == null &&
                                   !c.loading &&
@@ -452,7 +455,9 @@ class _MerchantHomeState extends State<MerchantHome>
       final data = [
         metric(
           'ยอดขายวันนี้',
-          c.reportError == null ? money(c.report['today_sales']) : '—',
+          c.updatedAt != null && c.reportError == null
+              ? money(c.report['today_sales'])
+              : '—',
           Icons.payments_outlined,
           'ออเดอร์สำเร็จ • เวลาไทย',
         ),
@@ -554,6 +559,11 @@ class _MerchantHomeState extends State<MerchantHome>
                       value: c.storeId,
                       isExpanded: true,
                       isDense: true,
+                      style: TextStyle(
+                        fontSize: page == 0 ? 18 : 14,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
                       underline: const SizedBox.shrink(),
                       items: c.stores
                           .map(
@@ -574,9 +584,12 @@ class _MerchantHomeState extends State<MerchantHome>
                     )
                   : Text(
                       c.store?['name'] ?? 'ร้านของคุณ',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF6B6B76),
+                      style: TextStyle(
+                        fontSize: page == 0 ? 18 : 13,
+                        fontWeight: page == 0
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                        color: ink,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -598,41 +611,48 @@ class _MerchantHomeState extends State<MerchantHome>
         : null,
   );
 
-  Widget tool(String label, IconData icon, Color color, VoidCallback? onTap) =>
-      InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-          child: Column(
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: .08),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(icon, color: color, size: 30),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+  Widget tool(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback? onTap, {
+    bool compact = false,
+  }) => InkWell(
+    borderRadius: BorderRadius.circular(18),
+    onTap: onTap,
+    child: Padding(
+      padding: EdgeInsets.symmetric(vertical: compact ? 6 : 14, horizontal: 4),
+      child: Column(
+        children: [
+          Container(
+            width: compact ? 44 : 58,
+            height: compact ? 44 : 58,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              icon,
+              color: onTap == null ? const Color(0xFF8A8A94) : color,
+              size: compact ? 24 : 30,
+            ),
           ),
-        ),
-      );
+          SizedBox(height: compact ? 6 : 10),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    ),
+  );
 
-  Widget tools(List<Widget> items) => LayoutBuilder(
+  Widget tools(List<Widget> items, {bool compact = false}) => LayoutBuilder(
     builder: (context, size) {
       final cols =
-          size.maxWidth < 340 || MediaQuery.textScalerOf(context).scale(14) > 19
+          size.maxWidth < (compact ? 280 : 340) ||
+              MediaQuery.textScalerOf(context).scale(14) > 19
           ? 2
           : 4;
       return Wrap(
@@ -643,159 +663,541 @@ class _MerchantHomeState extends State<MerchantHome>
     },
   );
 
-  List<Widget> dashboard() => [
-    if (c.reportError != null) errorBox(c.reportError!),
-    Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF93384), Color(0xFFEE226E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  Future<void> openTool(String toolName) async {
+    final storeId = c.storeId;
+    if (storeId == null) return;
+    final url = Uri.base
+        .resolve('/merchant')
+        .replace(
+          queryParameters: {
+            'merchant-tool': toolName,
+            'merchant-store': storeId,
+          },
+        );
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      notice('เปิดเครื่องมือร้านไม่สำเร็จ กรุณาลองอีกครั้ง');
+    }
+  }
+
+  Widget homePanel(Widget child, {VoidCallback? onTap, String? label}) => Card(
+    margin: const EdgeInsets.only(bottom: 12),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    clipBehavior: Clip.antiAlias,
+    child: onTap == null
+        ? Padding(padding: const EdgeInsets.all(18), child: child)
+        : Semantics(
+            container: true,
+            explicitChildNodes: true,
+            button: true,
+            label: label,
+            onTap: onTap,
+            child: InkWell(
+              excludeFromSemantics: true,
+              onTap: onTap,
+              child: Padding(padding: const EdgeInsets.all(18), child: child),
+            ),
+          ),
+  );
+
+  Future<void> showStoreStatus() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: ListenableBuilder(
+              listenable: c,
+              builder: (context, _) {
+                if (c.store == null) {
+                  return const Text('ไม่พบร้านที่มีสิทธิ์จัดการ');
+                }
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'สถานะร้าน',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      c.store?['status_text'] ??
+                          (c.store?['is_open'] == true
+                              ? 'เปิดรับออเดอร์'
+                              : 'ปิดรับออเดอร์'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Expanded(child: Text('สวิตช์รับออเดอร์ของร้าน')),
+                        Semantics(
+                          container: true,
+                          label: 'เปิดรับออเดอร์',
+                          child: storeSwitch(),
+                        ),
+                      ],
+                    ),
+                    const Text(
+                      'ลูกค้าสั่งได้ตามเวลาเปิด วันหยุด และสถานะเผยแพร่ของร้าน',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF6B6B76)),
+                    ),
+                    if (c.error != null) errorBox(c.error!),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        unawaited(openTool('store'));
+                      },
+                      icon: const Icon(Icons.schedule),
+                      label: const Text('ตั้งเวลาเปิดร้านและวันหยุด'),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ),
-        borderRadius: BorderRadius.circular(26),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('ร้านของคุณ', style: TextStyle(color: ink, fontSize: 12)),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  c.store!['name'],
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (c.canManage)
-                IconButton(
-                  tooltip: 'แก้ไขข้อมูลร้าน',
-                  onPressed: c.writable ? editStore : null,
-                  icon: const Icon(Icons.edit_outlined, color: Colors.white),
-                ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          const Text(
-            'ยอดขายวันนี้',
-            style: TextStyle(color: ink, fontSize: 13),
-          ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              c.reportError == null ? money(c.report['today_sales']) : '—',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 38,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: ink,
-              padding: EdgeInsets.zero,
-            ),
-            onPressed: () => navigate(4),
-            child: Text('${c.report['today_orders'] ?? 0} ออเดอร์สำเร็จ  ›'),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
+    );
+  }
+
+  List<({String label, bool done, String? tool, int? destination})>
+  readiness() {
+    final store = c.store ?? {};
+    bool filled(String key) => (store[key] ?? '').toString().trim().isNotEmpty;
+    return [
+      (
+        label: 'ข้อมูลติดต่อ เวลาเปิด และพื้นที่จัดส่ง',
+        done:
+            filled('phone') &&
+            filled('address') &&
+            filled('business_hours') &&
+            filled('delivery_area'),
+        tool: 'store',
+        destination: null,
+      ),
+      (
+        label: 'ช่องทางรับเงิน',
+        done:
+            store['stripe_payments_enabled'] == true ||
+            (filled('promptpay_name') && filled('promptpay_id')) ||
+            (filled('bank_account_name') && filled('bank_account_number')) ||
+            filled('payment_qr_path'),
+        tool: 'store',
+        destination: null,
+      ),
+      (
+        label: 'เปิดขายเมนูอย่างน้อย 1 รายการ',
+        done: c.menu.any((item) => item['is_available'] == true),
+        tool: null,
+        destination: 2,
+      ),
+      (
+        label: 'เผยแพร่ร้านให้ลูกค้าเห็น',
+        done: store['is_published'] == true,
+        tool: 'store',
+        destination: null,
+      ),
+    ];
+  }
+
+  Future<void> showReadiness() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: c.store!['is_open'] == true
-                        ? success
-                        : const Color(0xFF8A8A94),
-                    shape: BoxShape.circle,
-                  ),
+                const Text(
+                  'เตรียมร้านให้พร้อม',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        c.store!['is_open'] == true
+                const SizedBox(height: 8),
+                const Text(
+                  'ตรวจจากข้อมูลร้านปัจจุบัน การเผยแพร่ยังผ่านการตรวจของระบบ',
+                  style: TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
+                ),
+                for (final item in readiness())
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      item.done
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: item.done ? success : const Color(0xFF8A8A94),
+                    ),
+                    title: Text(item.label),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      if (item.destination != null) {
+                        navigate(item.destination!);
+                      } else {
+                        unawaited(openTool(item.tool!));
+                      }
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget salesSummary() => homePanel(
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Expanded(
+              child: Text(
+                'ยอดขายวันนี้',
+                style: TextStyle(fontSize: 15, color: Color(0xFF6B6B76)),
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Color(0xFF6B6B76)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Text(
+            c.updatedAt != null && c.reportError == null
+                ? money(c.report['today_sales'])
+                : '—',
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: ink,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            const Icon(
+              Icons.shopping_bag_outlined,
+              size: 16,
+              color: Color(0xFF6B6B76),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                c.updatedAt == null
+                    ? 'กำลังโหลดยอดขาย'
+                    : c.reportError == null
+                    ? '${c.report['today_orders'] ?? 0} ออเดอร์สำเร็จ'
+                    : 'โหลดข้อมูลยอดขายไม่สำเร็จ',
+                style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+    onTap: () => navigate(4),
+    label: 'ดูยอดขายวันนี้',
+  );
+
+  List<Widget> dashboard() {
+    final store = c.store!;
+    final effectiveOpen = store['effective_open'] == true;
+    final steps = readiness();
+    final done = steps.where((step) => step.done).length;
+    final quality = c.qualityData;
+    final qualityAvailable = quality['available'] == true;
+    final reviewCount = (quality['count'] as num?)?.toInt() ?? 0;
+    return [
+      homePanel(
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    store['status_text'] ??
+                        (store['is_open'] == true
                             ? 'เปิดรับออเดอร์'
-                            : 'ปิดรับออเดอร์',
-                        style: TextStyle(
-                          color: c.store!['is_open'] == true ? success : ink,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        c.canManage
-                            ? 'แตะสวิตช์เพื่อเปลี่ยนสถานะร้าน'
-                            : 'เฉพาะผู้มีสิทธิ์จัดการร้าน',
+                            : 'ปิดรับออเดอร์'),
+                    style: TextStyle(
+                      color: effectiveOpen ? success : ink,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  if ((store['business_hours'] ?? '')
+                      .toString()
+                      .trim()
+                      .isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        store['business_hours'],
                         style: const TextStyle(
+                          fontSize: 12,
                           color: Color(0xFF6B6B76),
-                          fontSize: 11,
                         ),
                       ),
-                    ],
+                    ),
+                ],
+              ),
+            ),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: brandSoft,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.edit_outlined, color: brand, size: 21),
+            ),
+          ],
+        ),
+        onTap: showStoreStatus,
+        label: 'แก้ไขสถานะร้าน',
+      ),
+      if (c.reportError != null) errorBox(c.reportError!),
+      salesSummary(),
+      homePanel(
+        tools([
+          tool(
+            'การเงิน',
+            Icons.account_balance_wallet_outlined,
+            brand,
+            c.canManage ? () => openTool('finance') : null,
+            compact: true,
+          ),
+          tool(
+            'โฆษณา',
+            Icons.campaign_outlined,
+            brand,
+            c.canManage ? () => openTool('ads') : null,
+            compact: true,
+          ),
+          tool(
+            'โปรโมชั่น',
+            Icons.local_offer_outlined,
+            brand,
+            () => navigate(6),
+            compact: true,
+          ),
+          tool(
+            'แคมเปญ',
+            Icons.track_changes_outlined,
+            brand,
+            c.canManage ? () => openTool('campaigns') : null,
+            compact: true,
+          ),
+        ], compact: true),
+      ),
+      homePanel(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'เตรียมร้านให้พร้อม',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
-                Semantics(
-                  container: true,
-                  label: 'เปิดรับออเดอร์',
-                  child: storeSwitch(),
+                Icon(Icons.chevron_right, color: Color(0xFF6B6B76)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'เช็กลิสต์การเตรียมร้าน',
+                    style: TextStyle(color: Color(0xFF6B6B76), fontSize: 13),
+                  ),
+                ),
+                Text(
+                  c.updatedAt == null
+                      ? '—/${steps.length}'
+                      : '$done/${steps.length}',
+                  style: const TextStyle(
+                    color: brand,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            Semantics(
+              label: 'เตรียมร้านพร้อม $done จาก ${steps.length} ขั้นตอน',
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: c.updatedAt == null ? null : done / steps.length,
+                  minHeight: 7,
+                  backgroundColor: brandSoft,
+                  color: brand,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              c.updatedAt == null
+                  ? 'กำลังตรวจข้อมูลร้าน'
+                  : done == steps.length
+                  ? 'ข้อมูลพื้นฐานครบแล้ว'
+                  : 'เหลืออีก ${steps.length - done} ขั้นตอนที่ต้องทำ',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
+            ),
+          ],
+        ),
+        onTap: c.updatedAt == null ? null : showReadiness,
+        label: 'เตรียมร้านให้พร้อม',
+      ),
+      homePanel(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'คุณภาพร้าน',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Color(0xFF6B6B76)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'จากรีวิวลูกค้าทั้งหมด',
+              style: TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
+            ),
+            const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, size) {
+                final items = [
+                  qualityMetric(
+                    'คะแนนร้าน',
+                    qualityAvailable &&
+                            reviewCount > 0 &&
+                            quality['average'] is num
+                        ? '${(quality['average'] as num).toStringAsFixed(1)} /5'
+                        : '—',
+                    Icons.star_border_rounded,
+                  ),
+                  qualityMetric(
+                    'รีวิวรอตอบ',
+                    qualityAvailable ? '${quality['unanswered'] ?? 0}' : '—',
+                    Icons.chat_bubble_outline,
+                  ),
+                ];
+                return MediaQuery.textScalerOf(context).scale(14) > 19
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          items.first,
+                          const SizedBox(height: 14),
+                          items.last,
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: items.first),
+                          Expanded(child: items.last),
+                        ],
+                      );
+              },
+            ),
+            if (c.qualityError != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                c.qualityError!,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF9A2525)),
+              ),
+              TextButton(
+                onPressed: c.loading ? null : c.refresh,
+                child: const Text('ลองโหลดรีวิวอีกครั้ง'),
+              ),
+            ] else if (!qualityAvailable || reviewCount == 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  c.updatedAt == null
+                      ? 'กำลังโหลดข้อมูลรีวิว'
+                      : qualityAvailable
+                      ? 'ยังไม่มีรีวิวจากลูกค้า'
+                      : 'ยังไม่มีข้อมูลรีวิวสำหรับร้านนี้',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B6B76),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        onTap: () => openTool('feedback'),
+        label: 'ดูคุณภาพร้าน',
+      ),
+      if (c.updatedAt != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'อัปเดต ${dateLabel(c.updatedAt!.toIso8601String())}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B76)),
+          ),
+        ),
+    ];
+  }
+
+  Widget qualityMetric(String label, String value, IconData icon) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(fontSize: 13, color: Color(0xFF6B6B76)),
+      ),
+      const SizedBox(height: 6),
+      Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: label == 'คะแนนร้าน' ? const Color(0xFFB77900) : brand,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
             ),
           ),
         ],
       ),
-    ),
-    const SizedBox(height: 14),
-    tools([
-      tool(
-        'ยอดขาย',
-        Icons.bar_chart_rounded,
-        const Color(0xFF8256CF),
-        () => navigate(4),
-      ),
-      tool('เมนูอาหาร', Icons.restaurant_menu, success, () => navigate(2)),
-      tool('โปรโมชั่น', Icons.local_offer_outlined, brand, () => navigate(6)),
-      tool(
-        'ตั้งค่าร้าน',
-        Icons.settings_outlined,
-        const Color(0xFF2862A7),
-        () => navigate(5),
-      ),
-    ]),
-    const SizedBox(height: 18),
-    FilledButton.icon(
-      onPressed: () => navigate(1),
-      icon: const Icon(Icons.receipt_long_outlined),
-      label: const Text('จัดการออเดอร์ →'),
-    ),
-    section('ออเดอร์รอรับ'),
-    if (c.status == 'pending_acceptance') ...[
-      if (c.orders.isEmpty && !c.loading)
-        emptyState(
-          Icons.shopping_bag_outlined,
-          'ยังไม่มีออเดอร์รอรับ',
-          'ออเดอร์ใหม่จะแสดงที่นี่เมื่อมีลูกค้าสั่งซื้อ',
-        ),
-      ...c.orders.take(3).map(orderCard),
     ],
-  ];
+  );
 
   Widget emptyState(IconData icon, String title, String subtitle) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 46, horizontal: 12),
