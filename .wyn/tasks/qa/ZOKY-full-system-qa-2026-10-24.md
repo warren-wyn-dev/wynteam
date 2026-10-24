@@ -45,9 +45,9 @@ ZOKY ส่วนที่จะ ship รอบถัดไป:
 
 ## Failed / Findings
 
-จำนวนตาม severity: **CRITICAL 0 · HIGH 1 · MEDIUM 3 · LOW 6**
+จำนวนตาม severity (หลัง re-test H1 / ZOKY-157): **CRITICAL 0 · HIGH 0 open (H1 RESOLVED) · MEDIUM 3 · LOW 8**
 
-### H1 (HIGH) — โหมด Stripe-only "fail-open" บน web + `food-payment-qr` ไม่เช็ก policy → ลูกค้าเห็น QR พร้อมเพย์ส่วนตัวของร้านและปุ่มแนบสลิป
+### H1 (HIGH → RESOLVED โดย ZOKY-157, re-test 2026-10-24 PASS) — โหมด Stripe-only "fail-open" บน web + `food-payment-qr` ไม่เช็ก policy → ลูกค้าเห็น QR พร้อมเพย์ส่วนตัวของร้านและปุ่มแนบสลิป
 - Files:
   - `web/components/food/wynos-food-developer-app.tsx:3460-3463` (อ่าน policy ครั้งเดียวตอนโหลดแอป), `:2950-2960` (เรียก `fetchFoodPromptPayQr` เมื่อ `!stripeOnly`), `:3076`, `:3155`
   - `web/lib/food-payment-policy.ts:46-56` — error ใดๆ (timeout/5xx/offline) → `false` (legacy)
@@ -57,6 +57,35 @@ ZOKY ส่วนที่จะ ship รอบถัดไป:
 - Expected: เมื่อ policy on ห้ามมีทางจ่ายนอก Stripe ทั้ง UI และ API (Founder 2026-10-22/23: "ตัด QR แบบแนบสลิปออก เงินต้องจ่ายผ่าน Stripe ทุกคน")
 - Actual: ถ้า RPC policy ล้มเหลวชั่วคราวแค่ครั้งเดียว web จะใช้ legacy ทั้ง session ลูกค้าสแกน QR ร้านแล้วจ่ายได้ แต่ DB ปฏิเสธสลิป (`stripe_only_payments`) → order ยกเลิกเองใน 10 นาที เงินอยู่ในบัญชีส่วนตัวของร้าน ระบบคืนเงินอัตโนมัติไม่ครอบคลุม (เสียเงิน/เกิดข้อพิพาท) และเปิดเผย PromptPay ID ของร้าน
 - Suggested fix: (1) `food-payment-qr` (และควรรวม `food-verify-slip`) เรียก `food_payment_policy_public` แล้วคืน 410/422 `stripe_only_payments` เมื่อ policy on, ถ้าอ่าน policy ไม่ได้ให้ fail closed (ยกเว้น PGRST202/42883 เหมือน `stripeOnlyFromPolicyResult`) (2) web: แยก "ไม่มี RPC" (PGRST202 → legacy) ออกจาก error อื่น (→ ไม่แสดงช่องทางจ่าย + ปุ่มลองใหม่/retry policy) แทนการตก legacy (3) เพิ่ม regression test ทั้ง deno และ node/Playwright
+
+#### H1 re-test (ZOKY-157) — PASS
+- Code under test: web `feat/zoky-stripe-only-web` @ `a8f6405f` (fix `859d4040`: `fetchFoodPaymentPolicyState` = `stripe_only`/`legacy`/`unavailable`; `unavailable` fail closed + แสดงข้อความขัดข้องและปุ่ม "ลองใหม่"; อ่าน policy ใหม่เมื่อเปิด order) และ backend PR #1238 `fix/zoky-slip-qr-policy-gate` @ `8d4298a2` (`food-payment-qr` และ `food-verify-slip` ปฏิเสธเมื่อ policy on = 409 `stripe_only_payments`, policy อ่านไม่ได้ = 503 `payment_policy_unavailable`, NULL/false/PGRST202/42883 = legacy)
+- Web: `node --test tests/*.test.mjs` 368 pass / 0 fail · `tsc --noEmit` pass · eslint ไฟล์ที่แก้ 0 error · `next build` (public env ปลอม) pass
+- Deno (PR #1238): `deno test --allow-read=.` 157 pass / 0 fail · `deno check` food-payment-qr, food-verify-slip pass
+- Handler-level (import `index.ts` จริง, mock Supabase HTTP local, synthetic):
+
+| policy RPC | food-payment-qr | food-verify-slip |
+|---|---|---|
+| `true` / `[{stripe_only:true}]` | 409 `stripe_only_payments`, ไม่อ่าน `food_stores` | 409, ไม่ download slip/ไม่เรียก SlipOK/ไม่บันทึก verification |
+| `false` | 200 QR (legacy เดิม) | 200 `manual_review` (legacy เดิม) |
+| `null` | 200 QR (legacy เดิม) | 200 `manual_review` |
+| PGRST202 (ยังไม่มี function) | 200 QR (legacy) | 200 `manual_review` |
+| 500 `57014` / 503 ไม่มี code | 503 `payment_policy_unavailable`, ไม่อ่าน `food_stores` | 503, ไม่บันทึก verification |
+| baseline main (ก่อนแก้) | 200 QR ทุกกรณี (ยืนยัน H1 เดิม) | — |
+
+- Playwright S4 บน production build (iPhone 13, order pending): 9/9 PASS
+
+| policy RPC | ผล |
+|---|---|
+| 500 ครั้งแรก แล้ว `true` | ไม่เรียก `food-payment-qr`, ไม่มีสลิป/QR ร้าน, แสดง PromptPay ผ่าน Stripe (อ่าน policy 2 ครั้ง) |
+| 500 ครั้งแรก แล้ว `false` | กลับเป็น legacy ถูกต้องหลังอ่านซ้ำ |
+| 500 ตลอด / network fail ตลอด | fail closed: ไม่เรียก QR ร้าน, ไม่มีสลิป, แสดง "ระบบชำระเงินขัดข้องชั่วคราว…" + "ลองใหม่" (กดแล้วอ่าน policy ซ้ำและยังปิดอยู่), PromptPay ผ่าน Stripe ยังใช้ได้, ไม่มี overflow |
+| PGRST202 / `false` / `null` | legacy flow เดิมครบ (QR ร้าน + แนบสลิป) — ไม่ regression |
+| `true` | Stripe PromptPay เท่านั้น |
+
+- Screenshots: `/tmp/claude-0/-home-user-wynteam/a4bef52b-31cd-5461-ba0f-50621a25ded3/scratchpad/h1-retest-*.png`
+- เงื่อนไข: ต้อง deploy `food-payment-qr` + `food-verify-slip` จาก PR #1238 ก่อนหรือพร้อมเปิด policy และ ship web `a8f6405f` (ฝั่ง web อย่างเดียวไม่ปิด direct-API)
+- ความเสี่ยงที่เหลือ (LOW): L7, L8 ด้านล่าง
 
 ### M1 (MEDIUM, pre-existing) — ข้อมูลการเงิน/ภาษีของทุกร้านอ่านได้โดยผู้ใช้ที่ login ทุกคน
 - Files: `supabase/migrations_wynos_food_customer_access_gate_v2.sql:25-34` (row policy ไม่จำกัด column), `supabase/migrations_wynos_food_merchant_v1.sql:341` (`grant select, update on table public.food_stores to authenticated` ทั้งตาราง), `web/lib/food-customer.ts:484-490` (`select("*")` ของร้านทั้งหมด)
@@ -90,14 +119,20 @@ ZOKY ส่วนที่จะ ship รอบถัดไป:
 ### L5 (LOW, test harness) — `supabase/tests/wynos_stripe_payment_core_test.sh:148` fail ในเครื่อง
 - `FAIL: account api version` เกิดทั้งบน release และ main เพราะ role `service_role` ใน Postgres local ไม่มี `BYPASSRLS` (บน Supabase มี) → query ผ่าน RLS ได้ 0 แถว ไม่ใช่ bug ของ product; แก้ test ให้ `create role service_role bypassrls` หรือ `alter role`
 
+### L7 (LOW, จาก fix ZOKY-157) — `food-verify-slip` ปฏิเสธสลิป legacy ที่ค้างอยู่ก่อน cut-over
+- DB guard ยังยอมให้ปิด order สลิปที่ `submitted` ก่อน cut-over แต่ function ตอบ 409 เมื่อ policy on → order เหล่านั้นไม่ได้ตรวจอัตโนมัติ ร้านต้องยืนยันเอง (`food_set_payment_status` ยังทำได้) — ยอมรับได้ถ้าแจ้งร้าน/ทำ runbook
+
+### L8 (LOW, residual) — PGRST202 ถูกตีความเป็น legacy ทั้ง web และ server
+- ถ้า PostgREST schema cache ตอบ PGRST202 ชั่วคราวหลัง migration ทั้งสองฝั่งจะกลับเป็น legacy; DB guard ยังบล็อกสลิป/manual paid แต่ QR ร้านจะแสดงได้ → หลัง activate policy แล้วพิจารณาให้ PGRST202 fail closed
+
 ### L6 (LOW, process) — โค้ด drift ระหว่าง main กับ production
 - `food-stripe-checkout`/`food-stripe-cancel`/`wynos-maps-geocode` บน main ต่างจากเวอร์ชัน release ที่ ship จริง (มี guard แล้วสำหรับ 2 ตัวแรก) → หลัง release ควร merge กลับ main เพื่อไม่ให้ test/รีวิวบน main ตรวจโค้ดที่ไม่ได้รันจริง
 
 ## Severity
-CRITICAL 0 · HIGH 1 (H1) · MEDIUM 3 (M1–M3) · LOW 6 (L1–L6)
+CRITICAL 0 · HIGH 0 open (H1 resolved, re-test PASS) · MEDIUM 3 (M1–M3) · LOW 8 (L1–L8)
 
 ## Security Findings
-- H1: bypass นโยบาย PromptPay-only ผ่าน `food-payment-qr` + web fail-open (เสี่ยงเงินลูกค้า, เปิดเผย PromptPay ID ร้าน)
+- H1: bypass นโยบาย PromptPay-only ผ่าน `food-payment-qr` + web fail-open — RESOLVED (ZOKY-157, web `a8f6405f` + PR #1238 `8d4298a2`)
 - M1: ข้อมูลบัญชีธนาคาร/PromptPay/เลขภาษีของร้านทุกร้านอ่านได้โดยผู้ใช้ทุกคนที่ login (privacy/PDPA)
 - ไม่พบ: cross-user order access, cross-store merchant access, price tampering, secret ใน bundle, XSS, open redirect, การแก้สถานะ payment/refund ของ order Stripe จาก client
 
@@ -108,8 +143,8 @@ CRITICAL 0 · HIGH 1 (H1) · MEDIUM 3 (M1–M3) · LOW 6 (L1–L6)
 - Rate limit ตรวจแบบ static (5 orders/10 นาที, 3 pending/store, test-notification 3 วินาที) ไม่ได้ load test
 
 ## Recommendation
-- แก้ H1 ก่อน release (หรือ Founder ยอมรับความเสี่ยงเป็นลายลักษณ์อักษร) พร้อม regression test; แก้ M2 (PR เล็ก) ก่อน deploy edge ครั้งถัดไป; วางแผน M1 เป็น migration ที่ขออนุมัติแยก; M3 ก่อนเปิด policy ใน production
-- ส่ง bug report H1 ให้ AI Debug Engineer
+- H1 แก้แล้ว: merge PR #1238 และ deploy `food-payment-qr`/`food-verify-slip` ก่อนหรือพร้อมเปิด policy, ship web `a8f6405f`; แก้ M2 (PR เล็ก) ก่อน deploy edge ครั้งถัดไป; วางแผน M1 เป็น migration ที่ขออนุมัติแยก; M3 ก่อนเปิด policy ใน production
+- MEDIUM/LOW ที่เหลือไม่ block release ตาม Release Gate (ไม่มี CRITICAL, ไม่มี HIGH ค้าง) แต่ควรติดตามเป็น task แยก
 
 ## Final Status
-**FAIL**
+**PASS** (re-test 2026-10-24 หลัง ZOKY-157; รอบแรก FAIL จาก H1) — มีเงื่อนไข deploy PR #1238 พร้อม/ก่อน web `a8f6405f` และก่อนเปิด policy
