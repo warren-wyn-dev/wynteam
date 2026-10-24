@@ -295,6 +295,14 @@ class _MerchantHomeState extends State<MerchantHome>
                                       ],
                                     ),
                                   ),
+                                if (c.store == null)
+                                  TextButton.icon(
+                                    onPressed: c.busy || signingOut
+                                        ? null
+                                        : signOut,
+                                    icon: const Icon(Icons.logout),
+                                    label: const Text('ออกจากระบบ'),
+                                  ),
                                 if (c.store != null && page > 3)
                                   Align(
                                     alignment: Alignment.centerLeft,
