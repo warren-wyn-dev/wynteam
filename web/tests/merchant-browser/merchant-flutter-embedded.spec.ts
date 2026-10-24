@@ -78,6 +78,12 @@ test("signed-out Merchant route redirects to the existing login without starting
     }
     return true;
   })).toBe(true);
+  await expect(page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true })).toHaveCSS('background-color', 'rgb(214, 18, 86)');
+  await expect(page.getByRole('link', { name: 'ลืมรหัสผ่าน?' })).toHaveCSS('color', 'rgb(214, 18, 86)');
+  const email = page.getByLabel('อีเมล');
+  await email.focus();
+  await expect(email).toHaveCSS('border-color', 'rgb(214, 18, 86)');
+  await email.blur();
   await page.screenshot({ path: test.info().outputPath('merchant-official-logo-login.png'), fullPage: true });
 });
 

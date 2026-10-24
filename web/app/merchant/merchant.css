@@ -742,25 +742,25 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 
 /* Merchant-only authentication and application flow */
 .wm-auth-shell {
-  --wm-red: #e32636;
-  --wm-red-strong: #c91d2c;
-  --wm-red-soft: #fff1f2;
-  --wm-red-border: #ffd8dc;
+  --wm-red: #d61256;
+  --wm-red-strong: #af1341;
+  --wm-red-soft: #ffeff5;
+  --wm-red-border: #f9c0de;
   min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: max(20px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
   background:
-    radial-gradient(circle at 50% -10%, rgb(227 38 54 / 9%), transparent 34%),
+    radial-gradient(circle at 50% -10%, rgb(249 51 132 / 9%), transparent 34%),
     #fff;
-  color: #111;
+  color: #16161a;
 }
 .wm-auth-card {
   width: min(100%, 500px);
   display: grid;
   gap: 20px;
   padding: 22px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #ebebef;
   border-radius: 24px;
   background: #fff;
   box-shadow: 0 18px 54px rgb(0 0 0 / 7%);
@@ -784,7 +784,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: #111;
+  color: #16161a;
   text-decoration: none;
 }
 .wm-auth-back:hover { background: #f5f5f5; }
@@ -821,8 +821,8 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   display: grid;
   place-items: center;
   border-radius: 20px;
-  background: #fff1f2;
-  color: #e32636;
+  background: #ffeff5;
+  color: var(--wm-red);
 }
 .wm-auth-hero h1,
 .wm-auth-heading h1,
@@ -838,7 +838,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-auth-state p,
 .wm-application-status p {
   margin: 0;
-  color: #737373;
+  color: #6b6b76;
   font-size: 13px;
   line-height: 1.6;
 }
@@ -858,14 +858,14 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 }
 .wm-auth-card .wm-primary:hover:not(:disabled) { background: var(--wm-red-strong); }
 .wm-auth-card .wm-primary:focus-visible {
-  outline: 3px solid rgb(227 38 54 / 18%);
+  outline: 3px solid rgb(214 18 86 / 18%);
   outline-offset: 2px;
 }
 .wm-auth-submit { margin-top: 2px; }
 .wm-auth-form label {
   display: grid;
   gap: 7px;
-  color: #111;
+  color: #16161a;
   font-size: 12px;
   font-weight: 650;
 }
@@ -879,11 +879,11 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   width: 100%;
   min-height: 50px;
   padding: 0 14px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #ebebef;
   border-radius: 14px;
   outline: none;
   background: #fff;
-  color: #111;
+  color: #16161a;
   font: inherit;
   font-size: 14px;
   transition: border-color 120ms ease, box-shadow 120ms ease;
@@ -896,13 +896,13 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-auth-form input:focus,
 .wm-auth-form select:focus,
 .wm-auth-form textarea:focus {
-  border-color: #e32636;
-  box-shadow: 0 0 0 3px rgb(227 38 54 / 10%);
+  border-color: var(--wm-red);
+  box-shadow: 0 0 0 3px rgb(214 18 86 / 10%);
 }
 .wm-auth-form input:-webkit-autofill,
 .wm-auth-form input:-webkit-autofill:hover,
 .wm-auth-form input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #111;
+  -webkit-text-fill-color: #16161a;
   box-shadow: 0 0 0 1000px #fff inset;
   transition: background-color 9999s ease-out 0s;
 }
@@ -921,15 +921,15 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: #737373;
+  color: #6b6b76;
   display: grid;
   place-items: center;
   transform: translateY(-50%);
   cursor: pointer;
 }
-.wm-auth-password-toggle:hover { background: #f5f5f5; color: #111; }
+.wm-auth-password-toggle:hover { background: #f5f5f5; color: #16161a; }
 .wm-auth-password-toggle:focus-visible {
-  outline: 2px solid rgb(227 38 54 / 30%);
+  outline: 2px solid rgb(214 18 86 / 30%);
   outline-offset: 1px;
 }
 .wm-auth-inline {
@@ -939,7 +939,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 }
 .wm-auth-inline a,
 .wm-auth-switch a {
-  color: #e32636;
+  color: var(--wm-red);
   font-weight: 700;
   text-decoration: none;
 }
@@ -947,7 +947,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-auth-footnote {
   margin: 0;
   text-align: center;
-  color: #737373;
+  color: #6b6b76;
   font-size: 12px;
   line-height: 1.55;
 }
@@ -956,13 +956,13 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-auth-text-button {
   border: 0;
   background: transparent;
-  color: #111;
+  color: #16161a;
   cursor: pointer;
 }
 .wm-auth-secondary {
   min-height: 48px;
   padding: 0 16px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #ebebef;
   border-radius: 14px;
   background: #fff;
   font-weight: 700;
@@ -971,7 +971,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-auth-text-button {
   justify-self: center;
   font-size: 12px;
-  color: #737373;
+  color: #6b6b76;
 }
 .wm-auth-text-button--top { justify-self: end; width: 40px; }
 .wm-auth-error,
@@ -990,13 +990,15 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   background: #eef8f0;
   color: #1d6e3c;
 }
+.wm-auth-shell .wm-loader,
+.wm-auth-shell .wm-mini-loader { border-top-color: var(--wm-red); }
 .wm-auth-loading {
   min-height: 260px;
   display: grid;
   place-content: center;
   justify-items: center;
   gap: 12px;
-  color: #737373;
+  color: #6b6b76;
   font-size: 13px;
 }
 .wm-auth-benefits {
@@ -1010,10 +1012,10 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   display: flex;
   align-items: center;
   gap: 9px;
-  color: #111;
+  color: #16161a;
   font-size: 13px;
 }
-.wm-auth-benefits svg { color: #e32636; flex: 0 0 auto; }
+.wm-auth-benefits svg { color: var(--wm-red); flex: 0 0 auto; }
 .wm-link-button {
   display: inline-flex;
   align-items: center;
@@ -1040,11 +1042,11 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   display: grid;
   gap: 3px;
   padding: 12px 13px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #ebebef;
   border-radius: 14px;
 }
 .wm-application-summary small {
-  color: #737373;
+  color: #6b6b76;
   font-size: 11px;
 }
 .wm-application-summary strong { font-size: 13px; }
