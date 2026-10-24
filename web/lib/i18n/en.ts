@@ -227,6 +227,8 @@ export const EN_EXACT: Record<string, string> = {
   "ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS Merchant": "WYNOS Merchant connection is not configured yet",
   "กำลังตรวจสอบบัญชี…": "Checking account…",
   "เข้าสู่ระบบ Merchant": "Sign in to Merchant",
+  "เข้าสู่ระบบร้านค้าของคุณ": "Sign in to your store",
+  "สมัครเป็นร้านค้า": "Register your store",
   "จัดการร้าน ออเดอร์ เมนู ยอดขาย และการจัดส่งจากบัญชี WYNOS ของคุณ": "Manage your store, orders, menu, sales and deliveries with your WYNOS account",
   "จัดการร้าน ออเดอร์ เมนู ยอดขาย และการจัดส่ง": "Manage your store, orders, menu, sales and deliveries",
   "แสดงรหัสผ่าน": "Show password",
