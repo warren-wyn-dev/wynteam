@@ -43,6 +43,7 @@ abstract class MerchantRepository {
   Future<List<Json>> menu(String storeId);
   Future<List<Json>> orders(String storeId, String status, int offset);
   Future<Json> report(String storeId);
+  Future<Json> quality(String storeId) async => {'available': false};
   Future<Json> campaigns(String storeId);
   Future<void> saveMenu(String storeId, Json values, {String? id});
   Future<void> saveStore(String storeId, Json values);
@@ -125,6 +126,9 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<Json> report(String storeId) async =>
       object(await call('report', {'storeId': storeId}));
+  @override
+  Future<Json> quality(String storeId) async =>
+      object(await call('quality', {'storeId': storeId}));
   @override
   Future<Json> campaigns(String storeId) async =>
       object(await call('campaigns', {'storeId': storeId}));

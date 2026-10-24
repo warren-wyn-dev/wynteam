@@ -83,22 +83,74 @@ class ZokyApp extends StatelessWidget {
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     theme: ThemeData(
       useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFFF5F7F5),
+      scaffoldBackgroundColor: Colors.white,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF087F5B),
-        primary: const Color(0xFF087F5B),
+        seedColor: const Color(0xFFD61256),
+        primary: const Color(0xFFD61256),
+        onPrimary: Colors.white,
+        surface: Colors.white,
+        onSurface: const Color(0xFF16161A),
+        primaryContainer: const Color(0xFFFFEFF5),
+        onPrimaryContainer: const Color(0xFFAF1341),
+        outline: const Color(0xFF8A8A94),
+        outlineVariant: const Color(0xFFEBEBEF),
+      ),
+      dividerTheme: const DividerThemeData(color: Color(0xFFEBEBEF)),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: Colors.white,
+        indicatorColor: const Color(0xFFFFEFF5),
+        elevation: 0,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontSize: 11,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
+            color: states.contains(WidgetState.selected)
+                ? const Color(0xFFD61256)
+                : const Color(0xFF6B6B76),
+          ),
+        ),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? const Color(0xFFD61256)
+                : const Color(0xFF6B6B76),
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        selectedColor: const Color(0xFFFFEFF5),
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: Color(0xFFEBEBEF)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
       cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFFE5EBE7)),
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Color(0xFFEBEBEF)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFF5F7F5),
+        fillColor: const Color(0xFFF6F6F8),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,

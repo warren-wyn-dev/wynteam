@@ -62,6 +62,7 @@ import { MerchantShareCard } from "@/components/merchant/merchant-share-card";
 import { MerchantOrderHistory } from "@/components/merchant/merchant-order-history";
 import { MerchantFeedbackPanel } from "@/components/merchant/merchant-feedback";
 import { clearRequestedOrder, foodStoreShareData, requestedOrderNumber } from "@/lib/food-share";
+import { parseMerchantToolLink } from "@/lib/merchant-tool-link";
 import { shareOrCopyLink } from "@/lib/share";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
@@ -352,6 +353,7 @@ function MerchantInner({
   signOut: () => Promise<void>;
 }) {
   const [tab, setTab] = useState<MerchantTab>("home");
+  const requestedToolRef = useRef(typeof window === "undefined" ? null : parseMerchantToolLink(window.location.search));
   const [stores, setStores] = useState<FoodStore[]>([]);
   const [store, setStore] = useState<FoodStore | null>(null);
   const [menu, setMenu] = useState<FoodMenuItem[]>([]);
@@ -419,7 +421,10 @@ function MerchantInner({
     else setRefreshing(true);
     if (!quiet) setMessage("");
     try {
-      const next = await fetchMerchantSnapshot(client, selectedStoreId);
+      const requestedTool = requestedToolRef.current;
+      // A link only suggests a store. The existing RLS-scoped snapshot resolves
+      // it against accessible stores and falls back through its normal contract.
+      const next = await fetchMerchantSnapshot(client, requestedTool?.storeId ?? selectedStoreId);
       setAccess(next.access);
       setStores(next.stores);
       setStore(next.store);
@@ -429,6 +434,10 @@ function MerchantInner({
       setDataRevision((value) => value + 1);
       if (next.store && next.store.id !== selectedStoreId) setSelectedStoreId(next.store.id);
       paymentStatusRef.current = new Map(next.orders.map((order) => [order.id, order.payment_status]));
+      if (requestedTool) {
+        requestedToolRef.current = null;
+        setTab(requestedTool.tool);
+      }
       const requested = requestedOrderRef.current;
       const requestedOrder = requested ? next.orders.find((order) => order.order_number === requested) ?? null : null;
       if (requested) {

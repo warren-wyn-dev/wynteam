@@ -13,15 +13,29 @@ const ITEM = '40000000-0000-4000-8000-000000000004';
 const source = readFileSync(new URL('../lib/merchant-flutter-bridge.ts',import.meta.url),'utf8');
 const compiled = ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 
+function moduleExports(path) {
+  const code=ts.transpileModule(readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const exports={};runInNewContext(code,{exports,Date,Intl});return exports;
+}
+const availability=moduleExports('../lib/food-store-availability.ts');
+const merchantCore=moduleExports('../lib/merchant-core.ts');
+
 function harness() {
   const calls=[];
-  const state={events:[],memberships:[{merchant_account_id:ACCOUNT}],staff:[],completeFailures:0,user:'merchant-a',access:true,manage:true,noOp:false,store:{id:STORE,merchant_account_id:ACCOUNT,name:'ร้านเรา',phone:'0811111111',address:'มหาสารคาม',is_open:true},order:{id:ORDER,store_id:STORE,status:'out_for_delivery',payment_provider:null,payment_slip_path:'buyer/slips/slip.jpg'}, disposedChannels:0, orderEvent:null, injectRead:null};
+  const state={events:[],memberships:[{merchant_account_id:ACCOUNT}],staff:[],completeFailures:0,user:'merchant-a',access:true,manage:true,noOp:false,store:{id:STORE,merchant_account_id:ACCOUNT,is_published:true,name:'ร้านเรา',phone:'0811111111',address:'มหาสารคาม',is_open:true},order:{id:ORDER,store_id:STORE,status:'out_for_delivery',payment_provider:null,payment_slip_path:'buyer/slips/slip.jpg'}, disposedChannels:0, orderEvent:null, injectRead:null};
   const menu={id:ITEM,name:'เดิม',category:'อาหาร',description:null,price:60,image_path:'stores/store/menu/original.jpg',is_available:true,options:[{id:'spicy',name:'ความเผ็ด',choices:[{id:'mild',name:'น้อย',price:0}]}],daily_stock_limit:20,sold_out_until:'2026-10-22T00:00:00Z'};
   const client={
     auth:{getSession:async()=>{state.events.push('session');return {data:{session:state.user?{user:{id:state.user,is_anonymous:false}}:null},error:null}}},
-    rpc:async(name,args)=>{calls.push({name,args});return {data:name==='food_has_merchant_access'?state.access && args.p_store_id!==OTHER:name==='merchant_has_store_role'?state.manage:true,error:null};},
+    rpc:async(name,args)=>{
+      calls.push({name,args});
+      if(name==='merchant_store_reviews'){
+        if(state.reviewHook)await state.reviewHook();
+        return {data:state.reviewData??{count:0,average:0,unanswered:0,reviews:[]},error:state.reviewError??null};
+      }
+      return {data:name==='food_has_merchant_access'?state.access && args.p_store_id!==OTHER:name==='merchant_has_store_role'?state.manage:true,error:null};
+    },
     from:(table)=>{
-      const filters={};const chain={};let update=null,insert=null;
+      const filters={};const chain={};let update=null,insert=null,single=false;
       for(const name of ['select','order','range'])chain[name]=(...args)=>{calls.push({table,name,args});return chain};
       chain.update=(patch)=>{update=patch;calls.push({table,name:'update',patch});return chain};
       chain.insert=(patch)=>{insert=patch;calls.push({table,name:'insert',patch});return chain};
@@ -36,11 +50,11 @@ function harness() {
           if(!Array.isArray(filters.id)&&!Array.isArray(filters.merchant_account_id))throw new Error('unfiltered public catalog query');
           return {data:[state.store,{id:OTHER,merchant_account_id:OTHER,name:'ร้านอื่น'}].filter(row=>Array.isArray(filters.id)?filters.id.includes(row.id):filters.merchant_account_id.includes(row.merchant_account_id)),error:null};
         }
-        if(table==='food_menu_items'){if(state.noOp&&(update||insert))return {data:null,error:null};if(update)Object.assign(menu,update);return {data:insert?{...insert,id:ITEM}:menu,error:null};}
+        if(table==='food_menu_items'){if(state.noOp&&(update||insert))return {data:null,error:null};if(update)Object.assign(menu,update);return {data:insert?{...insert,id:ITEM}:single?menu:[menu],error:null};}
         if(table==='food_orders')return {data:filters.store_id && filters.store_id!==state.order.store_id?null:state.order,error:null};
         throw new Error('Unexpected table '+table);
       };
-      chain.single=resolve;chain.maybeSingle=resolve;chain.then=(...args)=>resolve().then(...args);return chain;
+      chain.single=()=>{single=true;return resolve()};chain.maybeSingle=()=>{single=true;return resolve()};chain.then=(...args)=>resolve().then(...args);return chain;
     },
     removeChannel:async()=>{state.disposedChannels++;},
   };
@@ -50,6 +64,7 @@ function harness() {
     transitionFoodOrder:async(...args)=>{calls.push({name:'transitionFoodOrder',args});},
     setFoodPaymentStatus:async(...args)=>{calls.push({name:'setFoodPaymentStatus',args});},
     completeFoodDelivery:async(...args)=>{calls.push({name:'completeFoodDelivery',args});if(state.completeFailures-->0)throw new Error('network failed');state.order.status='delivered';state.order.food_delivery_proofs=[{image_path:args[4]}];},
+    foodPublicUrl:(_client,path)=>{calls.push({name:'foodPublicUrl',path});return path?'https://public.invalid/'+path:null;},
     foodPrivateSignedUrl:async(...args)=>{calls.push({name:'foodPrivateSignedUrl',args});return args[1]?'https://signed.invalid/private-image':null;},
     uploadFoodPrivateImage:async(...args)=>{calls.push({name:'uploadFoodPrivateImage',args});return `${args[2]}/photo.jpg`;},
     subscribeMerchantOrders:(_client,_store,callback)=>{state.orderEvent=callback;return {};},
@@ -65,6 +80,8 @@ function harness() {
     window:{addEventListener(){},removeEventListener(){},setTimeout},
     require(path){
       if(path==='@/lib/food-merchant')return food;
+      if(path==='@/lib/food-store-availability')return availability;
+      if(path==='@/lib/merchant-core')return merchantCore;
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
       if(path==='@/lib/merchant-campaigns')return {fetchMerchantCampaigns:async()=>({can_manage:true,campaigns:[]}),saveMerchantCampaign:async(...args)=>{calls.push({name:'saveMerchantCampaign',args});},setMerchantCampaignActive:async()=>{}};
       if(path==='@/lib/push-notifications')return {getPushAvailability:async()=>({available:true}),hasActivePushSubscription:async()=>true,requestPushPermissionFromGesture:()=>{state.events.push('permission');return state.permissionRequest??Promise.resolve('granted');},subscribeToPushNotifications:async(_client,_user,options)=>{await options.permissionRequest;await options.ensureActive();state.events.push('subscribe');return {ok:true}},unsubscribeFromPushNotifications:async()=>true,pushReasonDescription:r=>r};
@@ -208,4 +225,57 @@ test('legacy staff grants are store-filtered and deduplicated with membership st
  const h=harness();h.state.staff=[{store_id:STORE}];const result=await h.request('stores');assert.equal(result.ok,true);assert.equal(result.data.length,1);
  assert.ok(h.calls.some(c=>c.table==='food_stores'&&c.name==='in'&&c.key==='id'&&c.values[0]===STORE));
  const none=harness();none.state.memberships=[];none.state.staff=[];assert.deepEqual((await none.request('stores')).data,[]);assert.equal(none.calls.some(c=>c.table==='food_stores'),false);
+});
+
+test('menu and store image URLs use the existing public-image helper without changing stored paths',async()=>{
+ const h=harness();h.state.store.logo_path='stores/store/logo.jpg';
+ const stores=await h.request('stores');assert.equal(stores.ok,true);
+ assert.equal(stores.data[0].image_url,'https://public.invalid/stores/store/logo.jpg');
+ assert.equal(stores.data[0].logo_path,'stores/store/logo.jpg');
+ const menu=await h.request('menu',{storeId:STORE});assert.equal(menu.ok,true);
+ assert.equal(menu.data[0].image_url,'https://public.invalid/stores/store/menu/original.jpg');
+ assert.equal(menu.data[0].image_path,'stores/store/menu/original.jpg');
+ assert.equal(h.calls.some(c=>c.name==='foodPrivateSignedUrl'),false);
+ h.state.store.logo_path=null;h.menu.image_path=null;
+ assert.equal((await h.request('stores')).data[0].image_url,null);
+ assert.equal((await h.request('menu',{storeId:STORE})).data[0].image_url,null);
+});
+
+test('store presentation distinguishes the manual switch from effective trading availability',async()=>{
+ const h=harness();
+ let store=(await h.request('stores')).data[0];assert.equal(store.effective_open,true);assert.equal(store.status_text,'เปิดรับออเดอร์');
+ h.state.store.temporary_closed_until='2099-01-01T00:00:00Z';h.state.store.temporary_closed_reason='พักร้านชั่วคราว';
+ store=(await h.request('stores')).data[0];assert.equal(store.is_open,true);assert.equal(store.effective_open,false);assert.equal(store.status_text,'พักร้านชั่วคราว');
+ h.state.store.temporary_closed_until=null;
+ h.state.store.business_schedule={weekly:Object.fromEntries(['mon','tue','wed','thu','fri','sat','sun'].map(day=>[day,{enabled:false,open:'09:00',close:'21:00'}]))};
+ store=(await h.request('stores')).data[0];assert.equal(store.is_open,true);assert.equal(store.effective_open,false);assert.equal(store.status_text,'ปิดตามเวลาร้าน');
+ h.state.store.business_schedule=null;h.state.store.is_open=false;
+ store=(await h.request('stores')).data[0];assert.equal(store.effective_open,false);assert.equal(store.status_text,'ปิดรับออเดอร์');
+});
+test('unpublished and suspended stores never advertise that customers can order',async()=>{
+ const h=harness();h.state.store.is_published=false;
+ let store=(await h.request('stores')).data[0];assert.equal(store.is_open,true);assert.equal(store.effective_open,false);assert.equal(store.status_text,'ร้านยังไม่เผยแพร่');
+ h.state.store.admin_suspended_at='2026-10-01T00:00:00Z';
+ store=(await h.request('stores')).data[0];assert.equal(store.effective_open,false);assert.equal(store.status_text,'ร้านถูกระงับ กรุณาติดต่อทีม WYNOS');
+});
+test('quality returns real store-wide aggregates while omitting customer review details',async()=>{
+ const h=harness();h.state.reviewData={count:21,average:4.7,unanswered:3,reviews:[{id:ORDER,rating:5,review_text:'private review detail',reviewer_label:'private name'}]};
+ const result=await h.request('quality',{storeId:STORE});
+ assert.deepEqual(result,{ok:true,data:{available:true,count:21,average:4.7,unanswered:3}});
+ const call=h.calls.find(c=>c.name==='merchant_store_reviews');assert.equal(call.args.p_store_id,STORE);assert.equal(call.args.p_limit,1);
+});
+test('quality distinguishes zero reviews, missing RPC and failed access instead of inventing ratings',async()=>{
+ const h=harness();assert.deepEqual((await h.request('quality',{storeId:STORE})).data,{available:true,count:0,average:null,unanswered:0});
+ for(const code of ['PGRST202','42883']){
+  h.state.reviewError={code,message:'missing RPC'};
+  assert.deepEqual((await h.request('quality',{storeId:STORE})).data,{available:false,count:null,average:null,unanswered:null});
+ }
+ h.state.reviewError={code:'42501',message:'permission denied'};assert.equal((await h.request('quality',{storeId:STORE})).ok,false);
+ const other=harness();assert.equal((await other.request('quality',{storeId:OTHER})).ok,false);assert.equal(other.calls.some(c=>c.name==='merchant_store_reviews'),false);
+});
+test('malformed quality aggregates and account switches cannot become successful dashboard metrics',async()=>{
+ const h=harness();h.state.reviewData={count:3,average:6,unanswered:1,reviews:[]};assert.equal((await h.request('quality',{storeId:STORE})).ok,false);
+ h.state.reviewData={count:3,average:4,unanswered:4,reviews:[]};assert.equal((await h.request('quality',{storeId:STORE})).ok,false);
+ const switched=harness();switched.state.reviewHook=async()=>{switched.state.user='merchant-b'};
+ assert.equal((await switched.request('quality',{storeId:STORE})).ok,false);
 });
