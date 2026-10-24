@@ -71,6 +71,7 @@ jobs:
       WEB_SHA: ${{ github.event.inputs.web_sha }}
     steps:
       - name: Check inputs
+        id: inputs
         env:
           STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
           PGPASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
@@ -86,6 +87,7 @@ jobs:
           echo "STAGING_REF=$STAGING_REF" >> "$GITHUB_ENV"
 
       - name: Isolation guard (the staging token must not reach production)
+        id: guard
         env:
           STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
         run: |
@@ -181,7 +183,8 @@ jobs:
       # failure/error lines of the last hour so a red run can be diagnosed
       # without a dashboard login. Codes and statuses only; capped at 300 chars.
       - name: Staging Edge Function errors (last hour)
-        if: failure()
+        # Only after both fail-closed checks passed (never on a refused ref or token).
+        if: failure() && steps.inputs.outcome == 'success' && steps.guard.outcome == 'success'
         env:
           STAGING_MGMT_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
         run: |
