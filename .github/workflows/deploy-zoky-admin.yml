@@ -4,11 +4,12 @@ name: Deploy ZOKY Admin (Next.js) to Vercel
 # Vercel project created by zoky-admin-bootstrap.yml (located by name and
 # verified by Root Directory -- never created here).
 #   * preview: staging build for QA; no production alias or domain changes.
-#   * production: also subject to the WYNOS final cross-system release
-#     freeze (acceptance issues #1142-#1151), typed confirmation and the
-#     protected production environment; attaches zoky-admin.wynos.online.
-#     Ship together with the WYNOS Admin release that redirects Food/Merchant
-#     here (wynos-admin-consolidated-release.yml checks this domain is live).
+#   * production: Founder exception to the WYNOS release freeze for ZOKY
+#     Admin only (2026-10-25, .wyn/company/APPROVALS.md): typed exception and
+#     production confirmations plus the protected production environment;
+#     attaches zoky-admin.wynos.online. WYNOS Admin, Web, Food and Merchant
+#     stay under the freeze (#1142-#1151) -- the WYNOS Admin release that
+#     redirects Food/Merchant here still waits for it.
 # Rollback: promote the previous zoky-admin production deployment in Vercel,
 # or remove the domain (Project -> Settings -> Domains).
 on:
@@ -23,11 +24,11 @@ on:
           - preview
           - production
       release_confirmation:
-        description: "Production only: release after all WYNOS acceptance issues pass"
+        description: "Production only: Founder exception for ZOKY Admin (2026-10-25)"
         type: choice
         required: true
         default: CANCEL
-        options: [CANCEL, RELEASE_ALL_APPROVED]
+        options: [CANCEL, ZOKY_ADMIN_EXCEPTION_APPROVED]
       confirm_production:
         description: "For production only, type DEPLOY_ZOKY_ADMIN_PRODUCTION"
         type: string
@@ -36,11 +37,10 @@ on:
 
 permissions:
   contents: read
-  issues: read
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main' && (inputs.target == 'preview' || inputs.release_confirmation == 'RELEASE_ALL_APPROVED')
+    if: github.ref == 'refs/heads/main' && (inputs.target == 'preview' || inputs.release_confirmation == 'ZOKY_ADMIN_EXCEPTION_APPROVED')
     environment: production
     runs-on: ubuntu-latest
     env:
@@ -50,14 +50,9 @@ jobs:
       DOMAIN: zoky-admin.wynos.online
       DEPLOY_TARGET: ${{ inputs.target }}
       CONFIRM_PRODUCTION: ${{ inputs.confirm_production }}
+      RELEASE_CONFIRMATION: ${{ inputs.release_confirmation }}
     steps:
       - uses: actions/checkout@v4
-      - name: Enforce WYNOS final cross-system release freeze
-        if: inputs.target == 'production'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          WYNOS_RELEASE_CONFIRMATION: ${{ inputs.release_confirmation }}
-        run: bash "$GITHUB_WORKSPACE/.github/scripts/require-wynos-final-release-ready.sh"
       - name: Verify requested environment and link the existing project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -66,8 +61,8 @@ jobs:
           case "$DEPLOY_TARGET" in
             preview) echo "ZOKY Admin preview requested. Production aliases will not change." ;;
             production)
-              if [ "$CONFIRM_PRODUCTION" != "DEPLOY_ZOKY_ADMIN_PRODUCTION" ]; then
-                echo "::error::Production requires confirm_production=DEPLOY_ZOKY_ADMIN_PRODUCTION."
+              if [ "$RELEASE_CONFIRMATION" != "ZOKY_ADMIN_EXCEPTION_APPROVED" ] || [ "$CONFIRM_PRODUCTION" != "DEPLOY_ZOKY_ADMIN_PRODUCTION" ]; then
+                echo "::error::Production requires the ZOKY_ADMIN_EXCEPTION_APPROVED exception and confirm_production=DEPLOY_ZOKY_ADMIN_PRODUCTION."
                 exit 1
               fi
               ;;

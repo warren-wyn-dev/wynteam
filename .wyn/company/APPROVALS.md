@@ -703,3 +703,11 @@
 - Boundaries: delivered as separate PRs per the proposal plan; migrations need tests and rollback SQL and are not applied to production outside the release gates; no production deployment, domain change or production DB change without passing QA & Security, CTO review and staging. The HIGH privilege-delegation risk must be tested before release.
 - Rollback: before release nothing reaches production; after release revert the WYNOS Admin cleanup PR and redeploy the previous release SHA; the migration is additive with rollback SQL.
 - Status: approved; implementation starting with PR 1 (scaffold). No deployment performed.
+
+### APPROVAL — [2026-10-25] ZOKY Admin production ahead of the WYNOS release freeze
+
+- Founder asked "เอาให้พร้อมใช้งานนะ" and, given the open release freeze (#1142–#1151), chose "ยกเว้นให้ ZOKY Admin ขึ้นก่อน" (AskUserQuestion, 2026-10-25).
+- Approved: merge PR #1246, apply `20261025100000_zoky_admin_team_v1.sql`, create the `zoky-admin` Vercel project, deploy ZOKY Admin production and attach `zoky-admin.wynos.online`, through `deploy-zoky-admin.yml` with the `ZOKY_ADMIN_EXCEPTION_APPROVED` input and the protected production environment.
+- Not covered: WYNOS Admin, Web, Food and Merchant stay under the freeze. Live WYNOS Admin keeps its Food/Merchant pages until the coordinated release (whose workflow now also requires ZOKY Admin to be live), so both admin surfaces work on the same data and permissions in between.
+- Risks: the HIGH privilege-delegation risk is covered by the 75-check DB test but has no staging verification; Founder accepted shipping ahead of staging for ZOKY Admin. Mitigation: no Team Lead exists until the super admin appoints one; verify login and pages right after deploy.
+- Rollback: remove the domain or promote nothing (no previous production); revert the migration with `supabase/rollbacks/20261025100000_zoky_admin_team_v1_rollback.sql` (granted permissions stay).

@@ -24,7 +24,7 @@ Verdict: **PASS for code review / merge — staging and production verification 
 - **Enumeration:** `admin_zoky_find_user` = exact username, ≤1 row, Lead/super admin only.
 - **Redirects:** fixed destination origin (`NEXT_PUBLIC_ZOKY_ADMIN_URL`, default `https://zoky-admin.wynos.online`), no user-controlled host → no open redirect; 307 so rollback is not cached.
 - **Secrets:** only public Supabase URL/publishable key; workflows use the protected `production` environment; values never printed.
-- **Release safety:** WYNOS Admin consolidated release fails unless `zoky-admin.wynos.online/login` answers; ZOKY Admin production deploy is behind the WYNOS release freeze (#1142–#1151), typed confirmation and the protected environment (enforced by `tools/check_wynos_release_freeze.py`).
+- **Release safety:** WYNOS Admin consolidated release fails unless `zoky-admin.wynos.online/login` answers and stays under the release freeze. ZOKY Admin production is a Founder exception to the freeze (2026-10-25, `.wyn/company/APPROVALS.md`): typed exception + production confirmations and the protected environment (enforced by `tools/check_wynos_release_freeze.py`).
 
 ## Not verified (must be done on staging)
 
@@ -36,4 +36,4 @@ Verdict: **PASS for code review / merge — staging and production verification 
 
 ## Release order
 
-1. `zoky-admin-apply-team.yml` (migration) → 2. `zoky-admin-bootstrap.yml` (Vercel project) → 3. `deploy-zoky-admin.yml` preview → staging QA above → 4. Founder production approval + release freeze cleared → `deploy-zoky-admin.yml` production (attaches domain) → 5. WYNOS Admin consolidated release (redirects).
+1. `zoky-admin-apply-team.yml` (migration) → 2. `zoky-admin-bootstrap.yml` (Vercel project) → 3. `deploy-zoky-admin.yml` production with `ZOKY_ADMIN_EXCEPTION_APPROVED` (Founder exception, attaches domain) → post-deploy checks above → 4. WYNOS Admin consolidated release (redirects) once the freeze clears.

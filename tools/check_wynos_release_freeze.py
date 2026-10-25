@@ -356,20 +356,19 @@ pin = steps_of(edge_deploy)[edge_steps.index(pin_step)]
 assert PIN_CHECK in str(pin.get("run", "")), f"{edge_name}: verify_jwt = false pin check altered"
 assert (pin.get("env") or {}).get("FUNCTION_NAME") == "${{ inputs.function }}", f"{edge_name}: pin step must read the input via env:"
 
-# ZOKY-ADMIN-001: preview builds are allowed for QA, production stays behind
-# the same acceptance freeze, typed confirmation and protected environment.
+# ZOKY-ADMIN-001: preview builds are allowed for QA. Production is a Founder
+# exception to the freeze for ZOKY Admin only (2026-10-25): typed exception and
+# production confirmations plus the protected environment.
 zoky = load_workflow(WF / "deploy-zoky-admin.yml")
 zoky_job = zoky["jobs"]["deploy"]
 assert set(zoky["on"]) == {"workflow_dispatch"}, "deploy-zoky-admin.yml: manual-only trigger required"
 assert zoky_job.get("environment") == "production", "deploy-zoky-admin.yml: protected environment required"
-assert "inputs.release_confirmation == 'RELEASE_ALL_APPROVED'" in zoky_job["if"], "deploy-zoky-admin.yml: release confirmation absent"
+assert "inputs.release_confirmation == 'ZOKY_ADMIN_EXCEPTION_APPROVED'" in zoky_job["if"], "deploy-zoky-admin.yml: exception confirmation absent"
 assert "inputs.target == 'preview'" in zoky_job["if"], "deploy-zoky-admin.yml: only preview may skip the release confirmation"
-freeze_steps = [step for step in zoky_job["steps"] if "require-wynos-final-release-ready.sh" in str(step.get("run", ""))]
-assert len(freeze_steps) == 1 and freeze_steps[0].get("if") == "inputs.target == 'production'", (
-    "deploy-zoky-admin.yml: production must run the shared acceptance guard"
-)
 zoky_steps = {step.get("name"): step for step in zoky_job["steps"]}
-assert "DEPLOY_ZOKY_ADMIN_PRODUCTION" in zoky_steps["Verify requested environment and link the existing project"]["run"]
+zoky_verify = zoky_steps["Verify requested environment and link the existing project"]["run"]
+assert "DEPLOY_ZOKY_ADMIN_PRODUCTION" in zoky_verify and '"$RELEASE_CONFIRMATION" != "ZOKY_ADMIN_EXCEPTION_APPROVED"' in zoky_verify
+# The exception covers ZOKY Admin only: WYNOS Admin keeps the full freeze.
 assert "--prod" in zoky_steps["Deploy"]["run"] and 'DEPLOY_TARGET" = production' in zoky_steps["Deploy"]["run"]
 assert zoky_steps["Attach zoky-admin.wynos.online"].get("if") == "inputs.target == 'production'"
 
