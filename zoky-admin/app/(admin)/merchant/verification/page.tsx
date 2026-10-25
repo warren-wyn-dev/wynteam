@@ -44,7 +44,7 @@ export default async function MerchantApplicationsPage({
           {FILTERS.map((filter) => (
             <Link
               key={filter.value}
-              href={filter.value === "pending" ? "/merchants" : `/merchants?status=${filter.value}`}
+              href={filter.value === "pending" ? "/merchant/verification" : `/merchant/verification?status=${filter.value}`}
               className={cn(
                 "inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-medium transition-colors",
                 resolved === filter.value

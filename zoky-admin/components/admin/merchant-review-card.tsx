@@ -195,7 +195,7 @@ export function MerchantApplicationCard({
                 <p>
                   บัญชีนี้มีสิทธิ์ Merchant แล้ว
                   {application.food_store_id ? (
-                    <> · <Link href={`/food/stores/${application.food_store_id}`} className="font-medium underline-offset-4 hover:underline">เปิดหน้าร้านใน Admin</Link></>
+                    <> · <Link href={`/merchant/stores/${application.food_store_id}`} className="font-medium underline-offset-4 hover:underline">เปิดหน้าร้านใน Admin</Link></>
                   ) : null}
                 </p>
               ) : (

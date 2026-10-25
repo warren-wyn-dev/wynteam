@@ -21,6 +21,7 @@ export type AdminContext = {
 
 /** The WYN-219 systems ZOKY Admin covers (ZOKY-ADMIN-001). */
 export const ZOKY_SYSTEMS = ["food", "merchant"] as const satisfies readonly AdminSystem[];
+export type ZokySystem = (typeof ZOKY_SYSTEMS)[number];
 
 /**
  * Whether an account may enter ZOKY Admin at all (shared with the login

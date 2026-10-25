@@ -732,8 +732,8 @@ test("WYN-210 finance: any period, net sales and income worked out on the server
 
 test("WYN-213 merchant access hardening: no developer cross-store access, legacy roles, safe payouts", () => {
   const sql = read("../supabase/migrations_wynos_merchant_access_hardening_v1.sql");
-  const adminActions = read("../admin/lib/admin-food-actions.ts");
-  const settleButton = read("../admin/components/admin/platform-campaign-actions.tsx");
+  const adminActions = read("../zoky-admin/lib/admin-food-actions.ts");
+  const settleButton = read("../zoky-admin/components/admin/platform-campaign-actions.tsx");
   const workflow = read("../.github/workflows/food-apply-wyn213.yml");
 
   // Helpers no longer let developer accounts into every store.
@@ -777,10 +777,10 @@ test("Food + Merchant launch hardening preserves only the intentional anonymous 
 
 test("WYN-214 Admin merchant polish: service area, order money, refunds, safe approvals", () => {
   const sql = read("../supabase/migrations_wynos_admin_merchant_polish_v1.sql");
-  const store = read("../admin/app/(admin)/food/stores/[id]/page.tsx");
-  const orders = read("../admin/app/(admin)/food/orders/page.tsx");
-  const order = read("../admin/app/(admin)/food/orders/[id]/page.tsx");
-  const card = read("../admin/components/admin/merchant-review-card.tsx");
+  const store = read("../zoky-admin/app/(admin)/merchant/stores/[id]/page.tsx");
+  const orders = read("../zoky-admin/app/(admin)/food/orders/page.tsx");
+  const order = read("../zoky-admin/app/(admin)/food/orders/[id]/page.tsx");
+  const card = read("../zoky-admin/components/admin/merchant-review-card.tsx");
 
   expect(sql).toContain("'in_service_area', internal.food_in_service_area(v_store.latitude, v_store.longitude),");
   expect(sql).toContain("or (p_status = 'refund_pending' and o.refund_status in ('pending', 'failed'))");

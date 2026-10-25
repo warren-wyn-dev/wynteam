@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin-food";
 import { adminCan, requireAdminRole } from "@/lib/auth";
 import { NoAccess } from "@/components/admin/no-access";
+import { wynosAdminUrl } from "@/lib/app-urls";
 
 function storeStatus(store: AdminFoodStore) {
   if (store.admin_suspended_at) return <Badge variant="destructive">ระงับโดย WYNOS</Badge>;
@@ -60,7 +61,7 @@ export default async function FoodStoresPage({
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <form className="flex w-full max-w-md gap-2" action="/food">
+          <form className="flex w-full max-w-md gap-2" action="/merchant/stores">
             <input
               name="q"
               defaultValue={q ?? ""}
@@ -71,14 +72,14 @@ export default async function FoodStoresPage({
             <button type="submit" className="h-11 rounded-md border px-4 text-sm font-medium hover:bg-accent">ค้นหา</button>
           </form>
           <div className="flex flex-wrap gap-2">
-            <Link href="/maps/places" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
+            <Link href={wynosAdminUrl("/maps/places")} className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
               <MapPinned className="size-4" /> WYNOS Places
             </Link>
-            <Link href="/food/campaigns" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
+            <Link href="/merchant/campaigns" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
               <Gift className="size-4" /> แคมเปญ WYNOS
             </Link>
             {canEditFood ? (
-              <Link href="/food/ads" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
+              <Link href="/merchant/ads" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
                 <Megaphone className="size-4" /> โฆษณา
               </Link>
             ) : null}
@@ -98,7 +99,7 @@ export default async function FoodStoresPage({
         ) : (
           <div className="flex flex-col divide-y rounded-xl border">
             {stores.map((store) => (
-              <Link key={store.id} href={`/food/stores/${store.id}`} className="flex flex-col gap-2 px-4 py-3 hover:bg-accent sm:flex-row sm:items-center sm:justify-between">
+              <Link key={store.id} href={`/merchant/stores/${store.id}`} className="flex flex-col gap-2 px-4 py-3 hover:bg-accent sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{store.name}</p>

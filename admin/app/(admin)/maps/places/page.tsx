@@ -2,7 +2,7 @@ import { MapPinned } from "lucide-react";
 
 import { WynosPlacePhotoReview } from "@/components/admin/wynos-place-photo-review";
 import { WynosPlacesManager } from "@/components/admin/wynos-places-manager";
-import { fetchAdminWynosPlacePhotos, fetchAdminWynosPlaces, fetchAdminWynosPlaceSuggestions } from "@/lib/admin-food";
+import { fetchAdminWynosPlacePhotos, fetchAdminWynosPlaces, fetchAdminWynosPlaceSuggestions } from "@/lib/admin-maps";
 import { fetchAdminAccess } from "@/lib/admin-permissions";
 import { hasSystemAccess } from "@/lib/admin-systems";
 import { requireAdminRole } from "@/lib/auth";

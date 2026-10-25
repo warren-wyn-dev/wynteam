@@ -1,38 +1,27 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  AlertTriangle,
-  Ban,
-  BadgeCheck,
-  Camera,
-  Flag,
-  MapPinPlus,
-  ReceiptText,
-  ShieldAlert,
-  Store,
-  Wallet,
-} from "lucide-react";
+import { AlertTriangle, Camera, Flag, MapPinPlus, ShieldAlert } from "lucide-react";
 
 import { NoAccess } from "@/components/admin/no-access";
 import { RefreshButton } from "@/components/admin/refresh-button";
 import { StatCard } from "@/components/admin/stat-card";
-import { ADMIN_NAV_GROUPS, adminNavItemsForRole, isAdminNavItemAvailable, systemDashboardHref } from "@/lib/admin-nav";
-import { fetchAdminFoodOverview, fetchAdminWynosPlacePhotos, fetchAdminWynosPlaceSuggestions } from "@/lib/admin-food";
-import { MERCHANT_APPLICATION_LIMIT, fetchMerchantApplications } from "@/lib/admin-merchants";
+import { ADMIN_NAV_GROUPS, adminNavItemsForRole, isAdminNavItemAvailable, systemDashboardHref, type WynosDashboardSystem } from "@/lib/admin-nav";
+import { fetchAdminWynosPlacePhotos, fetchAdminWynosPlaceSuggestions } from "@/lib/admin-maps";
 import { fetchQueue } from "@/lib/admin-reports";
 import { ADMIN_SYSTEM_LABEL, isAdminSystem, type AdminSystem } from "@/lib/admin-systems";
-import { adminCan, requireAdminRole, type AdminContext } from "@/lib/auth";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 
 /**
  * Per-system dashboards (sidebar restructure, 2026-10-11): one page for each
- * of WYNOS Account, Social, Food, Merchant and Maps. Numbers come only from
+ * of WYNOS Account, Social and Maps. Food and Merchant moved to ZOKY Admin
+ * (ZOKY-ADMIN-001); next.config.ts redirects their old dashboard URLs. Numbers come only from
  * RPCs/views the matching menu pages already use, under the same permission;
  * where no such source exists the page says so instead of showing a figure.
  */
 export default async function SystemDashboardPage({ params }: { params: Promise<{ system: string }> }) {
   const { system } = await params;
-  if (!isAdminSystem(system)) notFound();
+  if (!isAdminSystem(system) || !isWynosDashboardSystem(system)) notFound();
 
   const ctx = await requireAdminRole();
   if (!adminCan(ctx, system)) return <NoAccess what={` ${ADMIN_SYSTEM_LABEL[system]}`} />;
@@ -53,7 +42,7 @@ export default async function SystemDashboardPage({ params }: { params: Promise<
       </section>
 
       <Suspense fallback={<StatsSkeleton />}>
-        <SystemStats system={system} ctx={ctx} />
+        <SystemStats system={system} />
       </Suspense>
 
       {menu.length > 0 ? (
@@ -100,7 +89,11 @@ async function settle<T>(promise: Promise<T>): Promise<{ ok: true; value: T } | 
   }
 }
 
-async function SystemStats({ system, ctx }: { system: AdminSystem; ctx: AdminContext }) {
+function isWynosDashboardSystem(system: AdminSystem): system is WynosDashboardSystem {
+  return system !== "food" && system !== "merchant";
+}
+
+async function SystemStats({ system }: { system: WynosDashboardSystem }) {
   switch (system) {
     case "account":
       return (
@@ -121,52 +114,6 @@ async function SystemStats({ system, ctx }: { system: AdminSystem; ctx: AdminCon
         <StatGrid>
           <StatCard label="รายงานรอดำเนินการ" value={pending} icon={Flag} sublabel="ที่ Report Center" />
           <StatCard label="รายงานกำลังตรวจสอบ" value={reviewing} icon={ShieldAlert} />
-        </StatGrid>
-      );
-    }
-
-    case "food": {
-      const overview = await settle(fetchAdminFoodOverview());
-      if (!overview.ok) return <LoadFailed />;
-      const o = overview.value;
-      return (
-        <StatGrid>
-          <StatCard label="ออเดอร์วันนี้" value={o.orders_today} icon={ReceiptText} />
-          <StatCard label="กำลังดำเนินการ" value={o.active_orders} icon={ReceiptText} />
-          <StatCard label="ยอดขายวันนี้ (บาท)" value={Number(o.sales_today)} icon={Wallet} sublabel="นับเฉพาะออเดอร์ที่ส่งแล้ว" />
-        </StatGrid>
-      );
-    }
-
-    case "merchant": {
-      // Stores still use the `food` permission they always did.
-      const canSeeStores = adminCan(ctx, "food");
-      const [applications, overview] = await Promise.all([
-        settle(fetchMerchantApplications("pending")),
-        canSeeStores ? settle(fetchAdminFoodOverview()) : Promise.resolve(null),
-      ]);
-      if (!applications.ok && (!overview || !overview.ok)) return <LoadFailed />;
-      return (
-        <StatGrid>
-          {applications.ok ? (
-            <StatCard
-              label="คำขอ Merchant รอตรวจสอบ"
-              value={applications.value.length}
-              icon={BadgeCheck}
-              sublabel={applications.value.length >= MERCHANT_APPLICATION_LIMIT ? `นับได้สูงสุด ${MERCHANT_APPLICATION_LIMIT} รายการ` : undefined}
-            />
-          ) : null}
-          {overview?.ok ? (
-            <>
-              <StatCard
-                label="ร้านทั้งหมด"
-                value={overview.value.stores_total}
-                icon={Store}
-                sublabel={`เผยแพร่ ${overview.value.stores_published} · เปิดอยู่ ${overview.value.stores_open}`}
-              />
-              <StatCard label="ร้านที่ถูกระงับ" value={overview.value.stores_suspended} icon={Ban} />
-            </>
-          ) : null}
         </StatGrid>
       );
     }

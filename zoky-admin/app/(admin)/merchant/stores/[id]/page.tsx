@@ -29,6 +29,7 @@ import { hasSystemAccess } from "@/lib/admin-systems";
 import { adminCan, requireAdminRole, type AdminContext } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { NoAccess } from "@/components/admin/no-access";
+import { wynosAdminUrl } from "@/lib/app-urls";
 
 const TABS = [
   { value: "overview", label: "Overview" },
@@ -65,7 +66,7 @@ export default async function FoodStoreDetailPage({
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
-      <Link href="/food" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/merchant/stores" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> ร้านค้าทั้งหมด
       </Link>
 
@@ -94,7 +95,7 @@ export default async function FoodStoreDetailPage({
           {TABS.map((item) => (
             <li key={item.value}>
               <Link
-                href={item.value === "overview" ? `/food/stores/${store.id}` : `/food/stores/${store.id}?tab=${item.value}`}
+                href={item.value === "overview" ? `/merchant/stores/${store.id}` : `/merchant/stores/${store.id}?tab=${item.value}`}
                 aria-current={tab === item.value ? "page" : undefined}
                 scroll={false}
                 className={cn(
@@ -192,7 +193,7 @@ async function InfoTab({ store, canEditFood }: { store: AdminFoodStoreDetail; ca
             )}
           </div>
           {canSeeMaps ? (
-            <Link href="/maps/places?category=restaurant" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent">เปิด Places Manager</Link>
+            <Link href={wynosAdminUrl("/maps/places?category=restaurant")} className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent">เปิด Places Manager</Link>
           ) : null}
         </div>
       </section>
@@ -239,7 +240,7 @@ function TeamSection({ store, canEditFood }: { store: AdminFoodStoreDetail; canE
             <div key={member.user_id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/users/${member.user_id}`} className="font-medium hover:underline">@{member.username ?? "ไม่ทราบชื่อ"}</Link>
+                  <Link href={wynosAdminUrl(`/users/${member.user_id}`)} className="font-medium hover:underline">@{member.username ?? "ไม่ทราบชื่อ"}</Link>
                   <Badge variant={member.role === "owner" ? "ink-solid" : "gray-tonal"}>{FOOD_TEAM_ROLE_LABEL[member.role] ?? member.role}</Badge>
                   {!member.active ? <Badge variant="outline">ปิดสิทธิ์อยู่</Badge> : null}
                 </div>
@@ -314,10 +315,10 @@ function PromotionsTab() {
       <Note>ยังไม่มี API สรุปโปรโมชันรายร้าน — ดูและจัดการได้จากหน้ารวมของ WYNOS Merchant ด้านล่าง</Note>
       <div className="flex flex-wrap gap-2">
         {[
-          ["/food/coupons", "Coupons"],
-          ["/food/campaigns", "Campaigns"],
-          ["/food/ads", "Ads"],
-          ["/food/notifications", "Promo Notifications"],
+          ["/merchant/coupons", "Coupons"],
+          ["/merchant/campaigns", "Campaigns"],
+          ["/merchant/ads", "Ads"],
+          ["/merchant/notifications", "Promo Notifications"],
         ].map(([href, label]) => (
           <Link key={href} href={href} className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent">{label}</Link>
         ))}

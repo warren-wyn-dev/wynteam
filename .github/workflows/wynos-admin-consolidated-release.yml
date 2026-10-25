@@ -66,13 +66,18 @@ jobs:
           for var in VERCEL_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
             test -n "${!var:-}" || { echo "::error::Missing configured secret: $var"; exit 1; }
           done
-          grep -Fq 'id: "food-banners"' admin/lib/admin-nav.ts
-          grep -Fq 'id: "food-featured"' admin/lib/admin-nav.ts
-          grep -Fq 'id: "food-reviews"' admin/lib/admin-nav.ts
-          test -f "admin/app/(admin)/food/banners/page.tsx"
-          test -f "admin/app/(admin)/food/featured/page.tsx"
-          test -f "admin/app/(admin)/food/reviews/page.tsx"
-          test -f "admin/app/(admin)/merchant/operations/page.tsx"
+          # ZOKY-ADMIN-001: Food and Merchant live in ZOKY Admin; this Admin
+          # build only redirects their old URLs there.
+          grep -Fq 'id: "food-banners"' zoky-admin/lib/admin-nav.ts
+          grep -Fq 'id: "food-featured"' zoky-admin/lib/admin-nav.ts
+          grep -Fq 'id: "food-reviews"' zoky-admin/lib/admin-nav.ts
+          test -f "zoky-admin/app/(admin)/food/banners/page.tsx"
+          test -f "zoky-admin/app/(admin)/food/featured/page.tsx"
+          test -f "zoky-admin/app/(admin)/food/reviews/page.tsx"
+          test -f "zoky-admin/app/(admin)/merchant/operations/page.tsx"
+          grep -Fq 'id: "zoky-admin"' admin/lib/admin-nav.ts
+          # Never ship the redirects before ZOKY Admin answers on its domain.
+          curl -fsS -o /dev/null --max-time 20 https://zoky-admin.wynos.online/login || { echo "::error::Release blocked: ZOKY Admin is not live at zoky-admin.wynos.online yet"; exit 1; }
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
       - name: Setup Node

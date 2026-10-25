@@ -37,7 +37,7 @@ type View = (typeof VIEWS)[number]["value"];
  * admin_merchant_finance_overview (merchant:view), which uses the same lines
  * as each store's own finance page. Money only moves through the existing
  * flows (Stripe Connect automatic payouts; WYNOS campaign settlements on
- * /food/campaigns) -- nothing here pays, refunds or changes a rate.
+ * /merchant/campaigns) -- nothing here pays, refunds or changes a rate.
  */
 export default async function MerchantFinancePage({
   searchParams,
@@ -247,7 +247,7 @@ function Overview({ data, href }: { data: MerchantFinanceOverview; href: (next: 
 function StoreLink({ id, name, linkable }: { id: string; name: string; linkable: boolean }) {
   if (!linkable) return <span className="font-medium">{name}</span>;
   return (
-    <Link href={`/food/stores/${id}?tab=finance`} className="font-medium hover:underline">
+    <Link href={`/merchant/stores/${id}?tab=finance`} className="font-medium hover:underline">
       {name}
     </Link>
   );
@@ -324,7 +324,7 @@ function Owed({ data, canOpenStores }: { data: MerchantFinanceOverview; canOpenS
     <section className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
         ส่วนแบ่งแคมเปญที่ WYNOS ยังค้างโอนให้ร้าน ณ ตอนนี้ (ไม่ขึ้นกับช่วงเวลา) · การบันทึกการโอนทำได้ที่{" "}
-        <Link href="/food/campaigns" className="underline">Campaigns</Link> ซึ่งตรวจยอดซ้ำและป้องกันการโอนซ้ำฝั่งฐานข้อมูล
+        <Link href="/merchant/campaigns" className="underline">Campaigns</Link> ซึ่งตรวจยอดซ้ำและป้องกันการโอนซ้ำฝั่งฐานข้อมูล
       </p>
       {owed.length === 0 ? (
         <Empty text="ไม่มียอดค้างโอน" />

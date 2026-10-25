@@ -7,45 +7,32 @@ import {
   Flag,
   ScrollText,
   Megaphone,
-  Store,
   UtensilsCrossed,
-  ShoppingBag,
-  TicketPercent,
-  Gift,
-  BadgeDollarSign,
-  BadgeCheck,
-  BellRing,
   MapPinned,
   Map as MapIcon,
   MessageCircle,
-  CreditCard,
-  Headset,
-  BookOpen,
   MapPinOff,
   Bot,
   Settings,
-  Wallet,
-  Truck,
-  Clock3,
-  SlidersHorizontal,
-  Images,
+  ExternalLink,
   type LucideIcon,
 } from "lucide-react";
 
+import { zokyAdminUrl } from "@/lib/app-urls";
 import type { AdminRole } from "@/lib/auth";
 import { hasSystemAccess, type AdminLevel, type AdminSystem, type AdminSystemAccess } from "@/lib/admin-systems";
 
 /**
  * Sidebar sections, in display order (Founder sidebar restructure,
- * 2026-10-11). "Dashboard รวม" sits above every section and belongs to none
+ * 2026-10-11; Food and Merchant moved to ZOKY Admin, ZOKY-ADMIN-001).
+ * "Dashboard รวม" sits above every section and belongs to none
  * of them. Moving an item between sections changes navigation only -- the
  * route, its page and its permission check stay where they were.
  */
 export const ADMIN_NAV_GROUPS = [
   { id: "account", label: "WYNOS Account", icon: Users, description: "บัญชีผู้ใช้ส่วนกลาง สิทธิ์ และความปลอดภัย" },
   { id: "social", label: "WYNOS Social", icon: MessageCircle, description: "จัดการเนื้อหา รายงาน และประกาศ" },
-  { id: "food", label: "WYNOS Food", icon: UtensilsCrossed, description: "ดูแลฝั่งลูกค้า คำสั่งซื้อ และการชำระเงิน" },
-  { id: "merchant", label: "WYNOS Merchant", icon: Store, description: "ดูแลร้านค้า เมนู คูปอง แคมเปญ และโฆษณาของร้านค้า" },
+  { id: "zoky", label: "ZOKY Food & Merchant", icon: UtensilsCrossed, description: "ย้ายไปที่ ZOKY Admin แล้ว" },
   { id: "maps", label: "WYNOS Maps", icon: MapIcon, description: "สถานที่และความถูกต้องของข้อมูลแผนที่" },
   { id: "other", label: "ส่วนกลางและระบบ", icon: Settings, description: "ฟังก์ชันที่ครอบคลุมหลายบริการ: การตลาดระดับแพลตฟอร์ม สิทธิ์ Audit Log และการตั้งค่า" },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; icon: LucideIcon; description: string }>;
@@ -80,11 +67,14 @@ export type AdminNavItem = {
 };
 
 /** The per-system dashboard route (app/(admin)/dashboard/[system]). */
-export function systemDashboardHref(system: AdminSystem) {
+export function systemDashboardHref(system: WynosDashboardSystem) {
   return `/dashboard/${system}`;
 }
 
-function systemDashboard(system: AdminSystem): AdminNavItem {
+/** Systems whose dashboard lives in WYNOS Admin; Food and Merchant's live in ZOKY Admin. */
+export type WynosDashboardSystem = Exclude<AdminSystem, "food" | "merchant">;
+
+function systemDashboard(system: WynosDashboardSystem): AdminNavItem {
   return {
     id: `${system}-dashboard`,
     href: systemDashboardHref(system),
@@ -118,34 +108,9 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: "reports", href: "/reports", label: "Report Center", icon: Flag, group: "social", requires: { systems: ["social"] } },
   { id: "announcements", href: "/announcements", label: "Announcements", icon: Megaphone, group: "social", requires: { systems: ["social"] } },
 
-  // WYNOS Food: the customer and order side.
-  systemDashboard("food"),
-  { id: "food-control", href: "/food/control", label: "ศูนย์ควบคุม Food", icon: SlidersHorizontal, group: "food", requires: { systems: ["food"] } },
-  { id: "food-banners", href: "/food/banners", label: "แบนเนอร์หน้าแรก Food", icon: Images, group: "food", requires: { systems: ["food"] } },
-  { id: "food-reviews", href: "/food/reviews", label: "ตรวจสอบรีวิว Food", icon: MessageCircle, group: "food", requires: { systems: ["food"] } },
-  { id: "food-featured", href: "/food/featured", label: "ร้านแนะนำ Food", icon: Store, group: "food", requires: { systems: ["food"] } },
-  { id: "food-orders", href: "/food/orders", label: "Orders", icon: ShoppingBag, group: "food", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
-  { id: "food-customers", label: "Customers", icon: Users, group: "food", requires: { systems: ["food"] } },
-  { id: "food-payments", label: "Payments & Refunds", icon: CreditCard, group: "food", requires: { systems: ["food"] } },
-  { id: "food-support", label: "Customer Support", icon: Headset, group: "food", requires: { systems: ["food"] } },
-
-  // WYNOS Merchant: stores and their marketing. Stores, Coupons, Campaigns,
-  // Ads and Promo Notifications moved here from WYNOS Food; they keep their
-  // /food/* URLs and still require the `food` permission they always did.
-  systemDashboard("merchant"),
-  { id: "merchant-control", href: "/merchant/control", label: "ศูนย์ควบคุม Merchant", icon: SlidersHorizontal, group: "merchant", requires: { systems: ["merchant"] } },
-  { id: "stores", href: "/food", label: "Stores", icon: Store, group: "merchant", requires: { systems: ["food"] } },
-  { id: "merchant-verification", href: "/merchants", label: "Merchant Verification", icon: BadgeCheck, group: "merchant", requires: { systems: ["merchant"] } },
-  { id: "menu-management", href: "/merchant/menu", label: "Menu Management", icon: BookOpen, group: "merchant", requires: { systems: ["merchant"] } },
-  { id: "coupons", href: "/food/coupons", label: "Coupons", icon: TicketPercent, group: "merchant", requires: { systems: ["food"] } },
-  { id: "campaigns", href: "/food/campaigns", label: "Campaigns", icon: Gift, group: "merchant", requires: { systems: ["food"] } },
-  { id: "ads", href: "/food/ads", label: "Ads", icon: BadgeDollarSign, group: "merchant", adminOnly: true, requires: { systems: ["food"], level: "edit" } },
-  { id: "promo-notifications", href: "/food/notifications", label: "Promo Notifications", icon: BellRing, group: "merchant", requires: { systems: ["food"] } },
-  // GP, store income, payouts and settlement history live here, never as a
-  // top-level section. Read only; reads need merchant:view.
-  { id: "merchant-finance", href: "/merchant/finance", label: "การเงินร้านค้า", icon: Wallet, group: "merchant", requires: { systems: ["merchant"] } },
-  { id: "merchant-delivery", href: "/merchant/delivery", label: "ค่าส่งและรัศมีรายร้าน", icon: Truck, group: "merchant", requires: { systems: ["merchant"] } },
-  { id: "merchant-operations", href: "/merchant/operations", label: "เปิด–ปิดร้านและเวลาเตรียม", icon: Clock3, group: "merchant", requires: { systems: ["merchant"] } },
+  // Food and Merchant moved to ZOKY Admin (ZOKY-ADMIN-001); their old URLs
+  // redirect there from next.config.ts.
+  { id: "zoky-admin", href: zokyAdminUrl("/"), label: "เปิด ZOKY Admin", icon: ExternalLink, group: "zoky", requires: { systems: ["food", "merchant"] } },
 
   systemDashboard("maps"),
   { id: "places", href: "/maps/places", label: "Place Management", icon: MapPinned, group: "maps", requires: { systems: ["maps"] } },
@@ -179,8 +144,9 @@ export function adminNavItemsForRole(role: AdminRole, access: AdminSystemAccess)
 
 /**
  * The item a path belongs to: the longest href that equals the path or is a
- * parent segment of it, so `/food/orders/123` resolves to Orders and
- * `/food/stores/9` to Stores. Dashboard รวม (`/`) only matches itself.
+ * parent segment of it, so `/users/123` resolves to User Management.
+ * Dashboard รวม (`/`) only matches itself; the external ZOKY Admin link
+ * never matches.
  * Items without a page never match.
  */
 export function findActiveAdminNavItem(pathname: string, items: AdminNavItem[] = ADMIN_NAV_ITEMS): AdminNavItem | undefined {

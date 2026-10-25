@@ -1,4 +1,5 @@
 import type { AdminSystem } from "@/lib/admin-systems";
+import { wynosAdminUrl } from "@/lib/app-urls";
 
 /**
  * Admin control inventory, not a switchboard. A live href is an existing route,
@@ -19,7 +20,7 @@ export type ControlArea = "food" | "merchant";
 
 export const FOOD_CONTROLS: ControlGroup[] = [
   { name: "ประสบการณ์ลูกค้า", items: [
-    { name: "ภาพรวม Food", description: "สรุปการใช้งานและสถานะของบริการ", href: "/dashboard/food" },
+    { name: "ภาพรวม Food", description: "สรุปการใช้งานและสถานะของบริการ", href: "/merchant/stores" },
     { name: "หน้าแรกและลำดับร้าน", description: "กำหนดร้านแนะนำ ลำดับ และเวลาแสดงบนหน้า Food (อัลกอริทึมร้านยอดนิยมยังไม่เปิดปรับ)", href: "/food/featured" },
     { name: "แบนเนอร์หน้าแรก", description: "อัปโหลด จัดลำดับ ตั้งเวลา เปิด/ปิด พร้อมลิงก์ไปยังร้านค้า (สถิติคลิกยังรอพัฒนา)", href: "/food/banners" },
     { name: "การค้นหาและตัวกรอง", description: "คำค้น หมวดหมู่ ตัวกรอง ผลค้นหาและการแสดงผล" },
@@ -34,11 +35,11 @@ export const FOOD_CONTROLS: ControlGroup[] = [
     { name: "รีวิวและคุณภาพ", description: "ดูรีวิวล่าสุด ซ่อน/คืนการแสดงพร้อมเหตุผลและประวัติ; ระบบรายงานรีวิวเชิงลึกยังต้องเพิ่ม", href: "/food/reviews" },
   ]},
   { name: "การตลาดและราคา", items: [
-    { name: "โปรโมชันและแคมเปญ", description: "แคมเปญระดับแพลตฟอร์มและการแบ่งภาระส่วนลด", href: "/food/campaigns" },
-    { name: "สิทธิ์ลูกค้าใหม่", description: "ข้อเสนอครั้งแรก เงื่อนไขการใช้และสิทธิ์ต่อบัญชี", href: "/food/campaigns" },
+    { name: "โปรโมชันและแคมเปญ", description: "แคมเปญระดับแพลตฟอร์มและการแบ่งภาระส่วนลด", href: "/merchant/campaigns" },
+    { name: "สิทธิ์ลูกค้าใหม่", description: "ข้อเสนอครั้งแรก เงื่อนไขการใช้และสิทธิ์ต่อบัญชี", href: "/merchant/campaigns" },
     { name: "ค่าธรรมเนียมออเดอร์", description: "ตั้งเกณฑ์คำสั่งซื้อขนาดเล็กและค่าบริการ" },
     { name: "ค่าส่งฝั่งลูกค้า", description: "อัตราส่วนเพิ่ม เพดานราคาและส่วนลดค่าส่ง" },
-    { name: "Push และ In-App", description: "ข้อความการตลาด การตั้งเวลาส่งและกลุ่มเป้าหมาย", href: "/food/notifications" },
+    { name: "Push และ In-App", description: "ข้อความการตลาด การตั้งเวลาส่งและกลุ่มเป้าหมาย", href: "/merchant/notifications" },
   ]},
   { name: "คุณภาพระบบและการปฏิบัติการ", items: [
     { name: "พื้นที่ให้บริการ", description: "เปิด/ปิดจังหวัด เขตและโซนตามความพร้อม" },
@@ -50,10 +51,10 @@ export const FOOD_CONTROLS: ControlGroup[] = [
 
 export const MERCHANT_CONTROLS: ControlGroup[] = [
   { name: "ร้านค้าและบุคลากร", items: [
-    { name: "ภาพรวม Merchant", description: "สถานะร้านและภาพรวมการดำเนินงาน", href: "/dashboard/merchant" },
-    { name: "ร้านอาหารทั้งหมด", description: "ตรวจและระงับร้าน จัดการข้อมูลและทีมร้าน", href: "/food", access: "food" },
-    { name: "อนุมัติและยืนยันร้าน", description: "ตรวจใบสมัครและหลักฐานผู้ประกอบการ", href: "/merchants" },
-    { name: "เจ้าของร้านและพนักงาน", description: "บทบาท ทีมร้านและขอบเขตการเข้าถึง", href: "/food", access: "food" },
+    { name: "ภาพรวม Merchant", description: "สถานะร้านและภาพรวมการดำเนินงาน", href: "/merchant" },
+    { name: "ร้านอาหารทั้งหมด", description: "ตรวจและระงับร้าน จัดการข้อมูลและทีมร้าน", href: "/merchant/stores", access: "food" },
+    { name: "อนุมัติและยืนยันร้าน", description: "ตรวจใบสมัครและหลักฐานผู้ประกอบการ", href: "/merchant/verification" },
+    { name: "เจ้าของร้านและพนักงาน", description: "บทบาท ทีมร้านและขอบเขตการเข้าถึง", href: "/merchant/stores", access: "food" },
     { name: "การจัดการหลายสาขา", description: "สิทธิ์/พิกัด/เวลา/การเงินแยกสาขา" },
   ]},
   { name: "เมนูและการรับออเดอร์", items: [
@@ -67,9 +68,9 @@ export const MERCHANT_CONTROLS: ControlGroup[] = [
   { name: "การตลาดและการเงินร้าน", items: [
     { name: "GP รายร้าน", description: "กำหนดอัตรา GP พร้อมประวัติและการอนุมัติสำหรับ super admin", href: "/merchant/finance?view=gp", superAdminOnly: true },
     { name: "ค่าคอมมิชชันและยอดหัก", description: "ดูยอดเงินและ GP ที่เกี่ยวข้องกับร้าน", href: "/merchant/finance" },
-    { name: "คูปองร้านค้า", description: "สร้าง/จัดการคูปองที่มีในระบบ", href: "/food/coupons", access: "food" },
-    { name: "แคมเปญร้าน", description: "ร้านเข้าร่วมแคมเปญและแบ่งรับผิดชอบส่วนลด", href: "/food/campaigns", access: "food" },
-    { name: "โฆษณาร้านค้า", description: "บริหาร CPC เครดิตและการตรวจสลิปเติมเงิน", href: "/food/ads", access: "food", editOnly: true },
+    { name: "คูปองร้านค้า", description: "สร้าง/จัดการคูปองที่มีในระบบ", href: "/merchant/coupons", access: "food" },
+    { name: "แคมเปญร้าน", description: "ร้านเข้าร่วมแคมเปญและแบ่งรับผิดชอบส่วนลด", href: "/merchant/campaigns", access: "food" },
+    { name: "โฆษณาร้านค้า", description: "บริหาร CPC เครดิตและการตรวจสลิปเติมเงิน", href: "/merchant/ads", access: "food", editOnly: true },
     { name: "การเงินร้าน", description: "ยอดรับเงิน ค้างจ่าย ประวัติโอน และ Stripe payout", href: "/merchant/finance" },
     { name: "บัญชีรับเงินร้าน", description: "ตรวจความพร้อมบัญชี Stripe และข้อมูลสำหรับการจ่ายเงิน", href: "/merchant/finance" },
   ]},
@@ -81,10 +82,10 @@ export const MERCHANT_CONTROLS: ControlGroup[] = [
   ]},
   { name: "ตรวจสอบร้าน", items: [
     { name: "คุณภาพและคะแนนร้าน", description: "ข้อร้องเรียน อัตรายกเลิก การเตรียมและรีวิว" },
-    { name: "การแจ้งเตือนร้าน", description: "ข่าวสารและแคมเปญสำหรับ Merchant", href: "/food/notifications", access: "food" },
+    { name: "การแจ้งเตือนร้าน", description: "ข่าวสารและแคมเปญสำหรับ Merchant", href: "/merchant/notifications", access: "food" },
     { name: "สถิติร้านอาหาร", description: "ยอดขาย เมนูขายดี รายงานรายสาขา", href: "/merchant/finance" },
     { name: "สิทธิ์แก้ไขของร้าน", description: "กำหนดสิ่งที่ร้านเปลี่ยนเองได้เทียบกับนโยบายกลาง" },
-    { name: "ประวัติการแก้ไข", description: "บันทึกสิทธิ์ ผู้แก้ไข ก่อน/หลัง และเหตุผล", href: "/audit-log", superAdminOnly: true },
+    { name: "ประวัติการแก้ไข", description: "บันทึกสิทธิ์ ผู้แก้ไข ก่อน/หลัง และเหตุผล", href: wynosAdminUrl("/audit-log"), superAdminOnly: true },
   ]},
 ];
 
@@ -99,7 +100,7 @@ export const SHARED_CONTROLS: ControlGroup[] = [
     { name: "ระงับฉุกเฉินเฉพาะพื้นที่", description: "สวิตช์ที่ต้องอนุมัติและมีผลต่อระบบจริง" },
     { name: "ตรวจสุขภาพระบบเรียลไทม์", description: "Health/latency/error ของ payment, orders, notifications" },
     { name: "กฎตั้งค่าหลายระดับ", description: "ค่าทั้งระบบ → พื้นที่ → ร้าน → รายการ พร้อมกำหนดเวลา" },
-    { name: "ความปลอดภัยและบันทึก", description: "สิทธิ์เฉพาะงาน 2FA audit และอนุมัติสำหรับงานเสี่ยง", href: "/team", superAdminOnly: true },
+    { name: "ความปลอดภัยและบันทึก", description: "สิทธิ์เฉพาะงาน 2FA audit และอนุมัติสำหรับงานเสี่ยง", href: wynosAdminUrl("/team"), superAdminOnly: true },
   ]},
 ];
 

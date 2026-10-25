@@ -25,7 +25,7 @@ export default async function FoodOrderDetailPage({
   const ctx = await requireAdminRole();
   if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
   const canEditFood = adminCan(ctx, "food", "edit");
-  if (!canEditFood) redirect("/food");
+  if (!canEditFood) redirect("/merchant/stores");
   const { id } = await params;
   const detail = await fetchAdminFoodOrderDetail(id);
   if (!detail) notFound();
@@ -49,7 +49,7 @@ export default async function FoodOrderDetailPage({
           {order.refund_status !== "none" ? <Badge variant="destructive">{FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}</Badge> : null}
         </div>
         <p className="text-sm text-muted-foreground">
-          ร้าน <Link href={`/food/stores/${order.store_id}`} className="hover:underline">{detail.store_name ?? "—"}</Link> · สั่งเมื่อ {formatThaiDate(order.created_at)}
+          ร้าน <Link href={`/merchant/stores/${order.store_id}`} className="hover:underline">{detail.store_name ?? "—"}</Link> · สั่งเมื่อ {formatThaiDate(order.created_at)}
         </p>
         <p className="text-xs text-muted-foreground">การเปิดดูหน้านี้ถูกบันทึกใน Audit Log แล้ว</p>
       </section>

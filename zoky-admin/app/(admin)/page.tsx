@@ -2,9 +2,8 @@ import { ADMIN_LEVEL_LABEL, ADMIN_SYSTEM_LABEL } from "@/lib/admin-systems";
 import { ZOKY_SYSTEMS, requireAdminRole } from "@/lib/auth";
 
 /**
- * ZOKY Admin overview. Food and Merchant pages move here from WYNOS Admin
- * one PR at a time (ZOKY-ADMIN-001); until then this page only shows which
- * ZOKY systems the signed-in account can use.
+ * ZOKY Admin overview: which ZOKY systems the signed-in account can use.
+ * Each system's numbers live on its own dashboard (/food, /merchant).
  */
 export default async function OverviewPage() {
   const { access } = await requireAdminRole();
@@ -14,8 +13,8 @@ export default async function OverviewPage() {
       <section className="rounded-xl border bg-background p-5">
         <h2 className="text-lg font-semibold">ยินดีต้อนรับสู่ ZOKY Admin</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          หลังบ้านของ ZOKY Food และ ZOKY Merchant — หน้าต่างๆ กำลังย้ายมาจาก WYNOS Admin
-          ระหว่างนี้เมนูที่ยังไม่ย้ายจะแสดงเป็น &ldquo;เร็วๆ นี้&rdquo;
+          หลังบ้านของ ZOKY Food และ ZOKY Merchant (ย้ายมาจาก WYNOS Admin) — เลือกเมนูจากแถบด้านข้าง
+          ส่วน Account, Social, Maps และ Audit Log ยังอยู่ที่ WYNOS Admin
         </p>
       </section>
 

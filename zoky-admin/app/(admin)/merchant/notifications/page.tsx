@@ -22,7 +22,7 @@ export default async function FoodNotificationAdminPage() {
         <h1 className="text-2xl font-semibold">Food · การแจ้งเตือนโปรโมชัน</h1>
         <p className="mt-1 text-sm text-muted-foreground">สื่อสารเฉพาะ WYNOS Food; Push เฉพาะลูกค้าที่ยินยอมและมีอุปกรณ์ Food</p>
       </div>
-      <Link href="/food/campaigns" className="rounded-lg border px-4 py-2 text-sm">แคมเปญ WYNOS</Link>
+      <Link href="/merchant/campaigns" className="rounded-lg border px-4 py-2 text-sm">แคมเปญ WYNOS</Link>
     </div>
     {unavailable && <p className="rounded-lg border p-4">Backend สำหรับโปรโมชันยังไม่ได้เปิดใช้งาน</p>}
     <FoodPromotionBroadcastManager canManage={canEditFood && !unavailable}

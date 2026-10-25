@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { ZOKY_ADMIN_ORIGIN } from "./lib/app-urls";
+
 // /_next/image is excluded from proxy.ts's auth matcher (Next.js requires
 // the optimizer route itself stay reachable), so remotePatterns is the only
 // gate on what this server will fetch on a caller's behalf. A wildcard
@@ -41,7 +43,22 @@ const nextConfig: NextConfig = {
   // WYN-219: Places moved from WYNOS Food to WYNOS Maps. Keep old links and
   // bookmarks working; the query string (?q=, ?category=) is carried over.
   async redirects() {
-    return [{ source: "/food/places", destination: "/maps/places", permanent: false }];
+    return [
+      { source: "/food/places", destination: "/maps/places", permanent: false },
+      // ZOKY-ADMIN-001: Food and Merchant moved to ZOKY Admin. Order matters
+      // (first match wins); query strings are carried over. Temporary (307)
+      // so a rollback is not stuck in browsers' redirect caches.
+      ...[
+        ["/dashboard/food", "/food"],
+        ["/dashboard/merchant", "/merchant"],
+        ["/food", "/merchant/stores"],
+        ["/food/stores/:id", "/merchant/stores/:id"],
+        ["/food/:section(coupons|campaigns|ads|notifications)", "/merchant/:section"],
+        ["/food/:path*", "/food/:path*"],
+        ["/merchants", "/merchant/verification"],
+        ["/merchant/:path*", "/merchant/:path*"],
+      ].map(([source, path]) => ({ source, destination: `${ZOKY_ADMIN_ORIGIN}${path}`, permanent: false })),
+    ];
   },
 };
 

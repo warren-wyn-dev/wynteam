@@ -26,7 +26,7 @@ export default async function FoodCouponsPage() {
             ผูกโค้ดกับแคมเปญ WYNOS เดิม ไม่เปลี่ยนโครงสร้างราคาและการจ่ายเงินของร้าน
           </p>
         </div>
-        <Link href="/food/campaigns" className="rounded-lg border px-4 py-2 text-sm">กลับไปแคมเปญ</Link>
+        <Link href="/merchant/campaigns" className="rounded-lg border px-4 py-2 text-sm">กลับไปแคมเปญ</Link>
       </div>
       {res.error ? <p className="rounded-lg border px-4 py-3 text-sm">ระบบคูปองยังไม่เปิดในฐานข้อมูล Production</p> : null}
       <FoodCouponManager canManage={canEditFood} campaigns={campaigns.map(c => ({

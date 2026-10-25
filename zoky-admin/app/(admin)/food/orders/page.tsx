@@ -59,7 +59,7 @@ export default async function FoodOrdersPage({
 
   return (
     <div className="flex flex-col gap-5 p-6">
-      <Link href="/food" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/merchant/stores" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> ร้านค้าทั้งหมด
       </Link>
       <section className="flex flex-col gap-1">
