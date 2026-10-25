@@ -1,6 +1,6 @@
 # ZOKY-ADMIN-001 — แยก ZOKY Admin ออกจาก WYNOS Admin (PRD + Architecture Proposal)
 
-Status: **DRAFT — รอ Founder อนุมัติ** (Change Control: major architecture change, authorization change, infrastructure ใหม่)
+Status: **APPROVED by the Founder** ("อนุญาต", 2026-10-25 — `.wyn/company/APPROVALS.md`) · Change Control: major architecture change, authorization change, infrastructure ใหม่
 Date: 2026-10-25
 Source: Founder request "WYNOS Admin แยกฟังชั่น ของ ZOKY Admin ออกจากกันได้มั้ย"
 
@@ -102,12 +102,12 @@ Additive migration เท่านั้น ไม่แก้ RPC Food/Merchant
 
 ## 6. ต้องอนุมัติ (Founder)
 
-- [ ] Major architecture: แอปที่สอง `zoky-admin/` และย้าย Food/Merchant ออกจาก `admin/`
-- [ ] Authorization change: ZOKY Team Lead + DB migration ตามหัวข้อ 3
-- [ ] Infrastructure: Vercel project ใหม่ + โดเมน `zoky-admin.wynos.online` + deploy workflow
-- [ ] รวมงานนี้ใน coordinated release ของ WYNOS Admin/Food/Merchant (หรือแยก release รอบถัดไป)
+- [x] Major architecture: แอปที่สอง `zoky-admin/` และย้าย Food/Merchant ออกจาก `admin/`
+- [x] Authorization change: ZOKY Team Lead + DB migration ตามหัวข้อ 3
+- [x] Infrastructure: Vercel project ใหม่ + โดเมน `zoky-admin.wynos.online` + deploy workflow
+- [x] รวมงานนี้ใน coordinated release ของ WYNOS Admin/Food/Merchant (หรือแยก release รอบถัดไป)
 
-### คำถามที่ยังเปิด
-1. ZOKY Team Lead ควรเพิ่ม/ถอด Lead คนอื่นได้ไหม (ข้อเสนอ: ไม่ได้ — Founder/super admin เท่านั้น)
-2. "Merchant Verification" (`/merchants`) ตรวจร้านทุกประเภท (food/retail/service) — ย้ายไป ZOKY Admin ทั้งหมดใช่ไหม (ข้อเสนอ: ใช่)
-3. ชื่อหมวดใน ZOKY Admin ใช้ "ZOKY Food / ZOKY Merchant" หรือคง "WYNOS Food / WYNOS Merchant"
+### คำถามที่เคยเปิด (ใช้ค่าตามข้อเสนอ — Founder อนุมัติ 2026-10-25)
+1. ZOKY Team Lead เพิ่ม/ถอด Lead คนอื่น **ไม่ได้** — Founder/super admin เท่านั้น
+2. "Merchant Verification" (`/merchants`) **ย้ายไป ZOKY Admin**
+3. ชื่อหมวด: **ZOKY Food / ZOKY Merchant**

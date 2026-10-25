@@ -695,3 +695,11 @@
 - Benefit: merchants use the approved home with actual store status, sales and readiness, plus eight working tool destinations. No fabricated weekly metrics.
 - Risks and recovery: shared web deployment needs a production-based candidate and checked origin routing. Retain `/merchant` legacy entry and the previous production deployment as the recovery target; follow the existing protected release review and monitoring gates.
 - Status: production publishing authorized; implementation and release verification in progress. This record does not claim that the live deployment has changed.
+
+### APPROVAL — [2026-10-25] ZOKY-ADMIN-001 split ZOKY Admin from WYNOS Admin
+
+- Founder replied “อนุญาต” to the four approval items in `.wyn/docs/product/zoky-admin-001-split-proposal.md` section 6: (1) a second Next.js app `zoky-admin/` taking every WYNOS Food and Merchant page out of `admin/`; (2) the ZOKY Team Lead authorization change with an additive DB migration; (3) a new Vercel project, the domain `zoky-admin.wynos.online` and a deploy workflow; (4) shipping it in the coordinated Admin/Food/Merchant release.
+- Open questions resolved by the proposal's defaults (the Founder approved without changing them): Team Leads cannot appoint other Leads; Merchant Verification (`/merchants`) moves to ZOKY Admin; sections are named "ZOKY Food" and "ZOKY Merchant".
+- Boundaries: delivered as separate PRs per the proposal plan; migrations need tests and rollback SQL and are not applied to production outside the release gates; no production deployment, domain change or production DB change without passing QA & Security, CTO review and staging. The HIGH privilege-delegation risk must be tested before release.
+- Rollback: before release nothing reaches production; after release revert the WYNOS Admin cleanup PR and redeploy the previous release SHA; the migration is additive with rollback SQL.
+- Status: approved; implementation starting with PR 1 (scaffold). No deployment performed.
