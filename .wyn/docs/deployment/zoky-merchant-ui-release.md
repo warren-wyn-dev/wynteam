@@ -21,3 +21,13 @@ Merchant's `/merchant` route remains the existing fallback, and `payments=return
 If any post-promotion check fails, stop and preserve the run evidence. Do not perform an automatic rollback. The Founder can direct Vercel Instant Rollback to the recorded old deployment. A separate root-flag-off release is also possible if the Founder chooses it. Never deploy a stale candidate after production drifts; update the production base, rebuild, revalidate and review a new pin.
 
 The GitHub production environment remains restricted to `main` and requires reviewer `warren-wyn-dev`. Chat authorization does not self-approve that platform review. No personal tokens or customer data are required for verification. Protected staging review and promotion review are concrete, reviewable final actions.
+
+## Account-exit follow-up, 2026-10-25
+
+The first release run, `40097479381`, was cancelled before staging or promotion after review found that an account without an accessible store could not reach sign-out. No production deployment or domain assignment occurred in that run.
+
+The reviewed replacement is `514fd13a1655d2c94fed82272d12273e98a17a1b`, on the same live base and release branch. It includes the `9a53e008` account-exit fix: empty, initial-load failure and revoked-store states can use the existing shared sign-out callback. The normal shop home is unchanged. Independent review found no blocker/HIGH.
+
+Verification passed: Flutter analysis, all 30 Flutter tests, release compilation and system-font guard; all 16 compiled browser cases (10 existing core cases plus mobile/desktop empty, offline and revoked-store account exits); ESLint and diff checks. The exact 103 approved paths are unchanged. Food, Next configuration, auth callbacks, database, existing workflows and release controls remain byte-identical to the live base. The manifest changes only the reviewed SHA; targets, root flags, required production reviewer and rollback target remain unchanged.
+
+PR #1239 is merged as code integration (`b9142015`). Production still uses the isolated live-based candidate rather than all of main. The replacement must pass the existing workflow guard and credential-free verification before the protected staging and promotion actions.
