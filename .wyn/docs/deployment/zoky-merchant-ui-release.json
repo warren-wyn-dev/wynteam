@@ -1,5 +1,5 @@
 {
-  "releaseSha": "514fd13a1655d2c94fed82272d12273e98a17a1b",
+  "releaseSha": "49e34d35657771949e26472fa14f1f4744955af0",
   "releaseBranch": "release/zoky-merchant-ui-20261024",
   "productionBase": "e6f577dcccb86b51c68d91e754b19fe4cfa27222",
   "rollbackDeployment": "dpl_HhzmnfVpb9qyHd7yeiAiiUmkbPV9",
