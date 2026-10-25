@@ -348,7 +348,7 @@ export function ZokyFoodHeroCard({ onOpen }: { onOpen: () => void }) {
         <ZokyGlossBand className="zk-gloss--hero" opacity={0.35} />
         <div className="zk-hero-top">
           <div className="zk-hero-copy">
-            <span className="zk-hero-pill"><Zoky3DIcon glyph="sparkle" size={16} /><span lang="en">FOOD DELIVERY</span></span>
+            <span className="zk-hero-pill"><Zoky3DIcon glyph="sparkle" size={16} /><span>ส่งอาหารถึงที่</span></span>
             <h2 className="zk-hero-title" aria-label="อยากกินอะไรวันนี้?">
               <span aria-hidden="true">อยากกินอะไร<br />วันนี้?</span>
             </h2>

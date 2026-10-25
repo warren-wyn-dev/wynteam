@@ -346,7 +346,7 @@ export function FoodLoginScreen() {
       <p className="wf-auth-switch">ยังไม่มีบัญชี? <Link href="/food/signup">สมัคร ZOKY</Link></p>
       <div className="wf-auth-note">
         <Check size={17} />
-        <p><strong>ใช้ Food อย่างเดียวได้</strong><span>ไม่จำเป็นต้องมี username, โพสต์ หรือโปรไฟล์ Social</span></p>
+        <p><strong>ใช้สั่งอาหารอย่างเดียวได้</strong><span>ไม่ต้องมีชื่อผู้ใช้ โพสต์ หรือโปรไฟล์ WYNOS Social</span></p>
       </div>
     </FoodAuthShell>
   );
@@ -449,11 +449,11 @@ export function FoodSignupScreen() {
       <FoodAuthBrand />
       <div className="wf-auth-hero">
         <h1>สมัคร ZOKY</h1>
-        <p>สร้าง WYNOS Account เพื่อสั่งอาหารได้เลย โดยไม่ต้องเปิดใช้ Social</p>
+        <p>สร้าง WYNOS Account เพื่อสั่งอาหารได้เลย โดยไม่ต้องเปิดใช้ WYNOS Social</p>
       </div>
       <div className="wf-auth-benefits">
-        <span><Check size={17} />ไม่ต้องตั้ง @username</span>
-        <span><Check size={17} />ไม่ต้องสร้างโปรไฟล์ Social</span>
+        <span><Check size={17} />ไม่ต้องตั้งชื่อผู้ใช้</span>
+        <span><Check size={17} />ไม่ต้องสร้างโปรไฟล์ WYNOS Social</span>
         <span><Check size={17} />เปิด WYNOS Social ภายหลังได้ด้วยบัญชีเดิม</span>
       </div>
       <div className="wf-auth-form">
