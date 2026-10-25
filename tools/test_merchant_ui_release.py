@@ -82,7 +82,7 @@ class CandidateTests(unittest.TestCase):
             setattr(self, key, False)
 
     def test_wrong_project_and_food_phase(self):
-        for key in ["projectId", "teamId", "legacyFoodRedirect", "productionBase", "rollbackDeployment", "releaseBranch"]:
+        for key in ["projectId", "teamId", "legacyFoodRedirect", "productionBase", "rollbackDeployment", "releaseBranch", "stagedDeploymentId", "stagedUrl"]:
             old = self.manifest[key]
             self.manifest[key] = "unexpected"
             with self.subTest(key=key), self.assertRaises(ValueError):
@@ -104,9 +104,13 @@ class WorkflowTests(unittest.TestCase):
         def failure_ignored(w): w["jobs"]["stage"]["continue-on-error"] = "true"
         def missing_dependency(w): w["jobs"]["promote"]["needs"] = ["guard"]
         def automatic(w): w["on"]["push"] = {"branches": ["main"]}
-        def preview_promotion(w):
+        def arbitrary_resume(w):
             for step in w["jobs"]["stage"]["steps"]:
-                if "run" in step: step["run"] = step["run"].replace("--prod --skip-domain", "--yes")
+                if "run" in step: step["run"] = step["run"].replace("merchant_ui_release_ops.mjs resume-url", "merchant_ui_release_ops.mjs arbitrary-url")
+        def rebuilt_artifact(w): w["jobs"]["stage"]["steps"].append({"run": "vercel deploy --prod --skip-domain"})
+        def early_promotion(w): w["jobs"]["stage"]["steps"].append({"run": "vercel promote https://example.vercel.app"})
+        def unnecessary_build_secret(w):
+            w["jobs"]["stage"]["steps"].append({"run": "echo nope", "env": {"VERCEL_TOKEN": "${{ secrets.VERCEL_TOKEN }}", "SUPABASE_URL": "${{ secrets.SUPABASE_URL }}"}})
         def unsafe_secret(w): w["jobs"]["verify"]["steps"].append({"run": "echo nope", "env": {"TOKEN": "${{ secrets.VERCEL_TOKEN }}"}})
         def unpinned_action(w): w["jobs"]["guard"]["steps"][0]["uses"] = "actions/checkout@v4"
         def missing_post_review_recheck(w):
@@ -115,7 +119,7 @@ class WorkflowTests(unittest.TestCase):
         def expression_in_shell(w): w["jobs"]["stage"]["steps"][2]["run"] += "\necho ${{ github.event.inputs['release_sha'] }}"
         def target_override(w): w["jobs"]["promote"]["env"] = {"VERCEL_PROJECT_ID": "wrong"}
         def file_override(w): w["jobs"]["stage"]["steps"][2]["run"] += '\necho VERCEL_PROJECT_ID=wrong >> "$GITHUB_ENV"'
-        for mutate in [release_review, stage_review, skipped_qa, failure_ignored, missing_dependency, automatic, preview_promotion, unsafe_secret, unpinned_action, missing_post_review_recheck, skipped_guard, expression_in_shell, target_override, file_override]:
+        for mutate in [release_review, stage_review, skipped_qa, failure_ignored, missing_dependency, automatic, arbitrary_resume, rebuilt_artifact, early_promotion, unnecessary_build_secret, unsafe_secret, unpinned_action, missing_post_review_recheck, skipped_guard, expression_in_shell, target_override, file_override]:
             workflow = copy.deepcopy(self.workflow)
             mutate(workflow)
             with self.subTest(mutation=mutate.__name__), self.assertRaises(ValueError):
