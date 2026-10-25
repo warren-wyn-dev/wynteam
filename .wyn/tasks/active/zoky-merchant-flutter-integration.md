@@ -24,7 +24,9 @@ Do not dispatch the general main production workflow while its final acceptance 
 
 ## Status
 
-Implementation and local verification complete: `npm run check` passed (351 Node tests, 23 Flutter tests, analysis, lint/typecheck and production build), focused Chromium mobile/desktop browser QA passed 10/10 with synthetic fixtures, and release-freeze validation passed. Evidence and hosted-verification limitations: `docs/qa/zoky-merchant-flutter/README.md`. Production remains blocked by staging/release gates; no deployment or root cutover has occurred. Review PR: https://github.com/warren-wyn-dev/wynteam/pull/1229.
+Production release completed on 2026-10-25 at 17:51:44 UTC after both owner-approved GitHub Production reviews. All jobs in run `40205781151` passed, and `merchant.wynos.online` now serves the reviewed Flutter-root artifact `dpl_AzSiNf7cK7GfS7qboogk3YtR1q73` / source `49e34d35657771949e26472fa14f1f4744955af0`. Public HTTP, anonymous mobile/desktop login and all production alias checks passed. Full evidence and limitations: `.wyn/logs/deployments/2026-10-25-zoky-merchant-ui-release.md`. Keep this task active pending the Founder's actual store-account acceptance; deployment success alone does not move it to completed.
+
+Initial integration evidence (before the later final-home and account-exit follow-ups): `npm run check` passed (351 Node tests, 23 Flutter tests, analysis, lint/typecheck and production build), focused Chromium mobile/desktop browser QA passed 10/10 with synthetic fixtures, and release-freeze validation passed. Historical QA: `docs/qa/zoky-merchant-flutter/README.md`. Review PR: https://github.com/warren-wyn-dev/wynteam/pull/1229.
 
 GitHub review follow-up fixed Stripe callback routing, no-slip receipt confirmation, preparation ETA, synchronous push permission, merchant-filtered store listing and deferred delivery-photo uploads. Residual private object after an ultimately failed delivery RPC and abandoned session is documented in the QA report; no immutable evidence policy was weakened.
 
