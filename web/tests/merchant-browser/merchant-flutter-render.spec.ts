@@ -119,7 +119,7 @@ for (const scenario of ['empty', 'offline', 'revoked'] as const) {
       await expect(page.getByText('ร้านบัญชีทดสอบ',{exact:true})).toBeVisible({timeout:30000});
       await expect(page.getByRole('button',{name:/ยอดขายวันนี้/}).first()).toBeVisible();
       await page.evaluate(() => {
-        (window as Window & {qaStoreAccess:boolean}).qaStoreAccess=false;
+        (window as Window & {qaStoreAccess?:boolean}).qaStoreAccess=false;
         window.dispatchEvent(new Event('zoky-merchant-order-change'));
       });
       await expect(page.getByText('ร้านบัญชีทดสอบ',{exact:true})).toHaveCount(0);
@@ -127,7 +127,7 @@ for (const scenario of ['empty', 'offline', 'revoked'] as const) {
     const exit = page.getByRole('button',{name:'ออกจากระบบ',exact:true});
     await expect(exit).toBeVisible({timeout:30000});
     await exit.click();
-    await expect.poll(() => page.evaluate(() => (window as Window & {qaSignedOut:number}).qaSignedOut)).toBe(1);
+    await expect.poll(() => page.evaluate(() => (window as Window & {qaSignedOut?:number}).qaSignedOut)).toBe(1);
     expect(errors).toEqual([]);
   });
 }
