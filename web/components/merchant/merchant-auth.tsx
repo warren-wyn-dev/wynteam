@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, CheckCircle2, Clock3, Eye, EyeOff, Store, XCircle } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -27,16 +28,24 @@ const EMPTY_DRAFT: MerchantApplicationDraft = {
 
 function MerchantAuthBrand() {
   return (
-    <div className="wm-auth-brand" aria-label="WYNOS Merchant">
-      <span>WYNOS</span>
+    <div className="wm-auth-brand" role="img" aria-label="ZOKY Merchant">
+      <Image
+        className="wm-auth-brand-logo"
+        src="/brand/zoky/zoky-logo-pink-transparent.png"
+        alt=""
+        width={1140}
+        height={664}
+        unoptimized
+        loading="eager"
+      />
       <b>Merchant</b>
     </div>
   );
 }
 
-function MerchantAuthShell({ children }: { children: ReactNode }) {
+function MerchantAuthShell({ children, login = false }: { children: ReactNode; login?: boolean }) {
   return (
-    <main className="wm-auth-shell">
+    <main className={`wm-auth-shell${login ? " wm-auth-shell--login" : ""}`}>
       <section className="wm-auth-card">{children}</section>
     </main>
   );
@@ -109,23 +118,21 @@ export function MerchantLoginScreen() {
   }
 
   if (checking) {
-    return <MerchantAuthShell><div className="wm-auth-loading"><div className="wm-loader" /><span>กำลังตรวจสอบบัญชี…</span></div></MerchantAuthShell>;
+    return <MerchantAuthShell login><div className="wm-auth-loading"><div className="wm-loader" /><span>กำลังตรวจสอบบัญชี…</span></div></MerchantAuthShell>;
   }
 
   return (
-    <MerchantAuthShell>
+    <MerchantAuthShell login>
       <div className="wm-auth-top wm-auth-top--brand-only"><MerchantAuthBrand /></div>
       <div className="wm-auth-hero">
-        <div className="wm-auth-mark"><Store size={30} strokeWidth={1.7} /></div>
-        <h1>เข้าสู่ระบบ Merchant</h1>
-        <p>จัดการร้าน ออเดอร์ เมนู ยอดขาย และการจัดส่ง</p>
+        <h1>เข้าสู่ระบบร้านค้าของคุณ</h1>
       </div>
       <form className="wm-auth-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        <label>อีเมล<input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
+        <label><span className="wm-login-label">อีเมล</span><input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="อีเมล" /></label>
         <div className="wm-auth-field">
-          <label htmlFor="merchant-password">รหัสผ่าน</label>
+          <label className="wm-login-label" htmlFor="merchant-password">รหัสผ่าน</label>
           <span className="wm-auth-password-field">
-            <input id="merchant-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" />
+            <input id="merchant-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่าน" />
             <button
               className="wm-auth-password-toggle"
               type="button"
@@ -141,8 +148,8 @@ export function MerchantLoginScreen() {
         {message ? <p className="wm-auth-error" role="alert">{message}</p> : null}
         <button className="wm-primary wm-full wm-auth-submit" type="submit" disabled={loading}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
       </form>
-      <p className="wm-auth-switch">ยังไม่มี Merchant? <Link href="/merchant/signup">สมัคร WYNOS Merchant</Link></p>
-      <p className="wm-auth-footnote">ใช้บัญชี WYNOS เดียวกันได้ ไม่ต้องสร้างบัญชีซ้ำ</p>
+      <p className="wm-auth-switch"><Link href="/merchant/signup">สมัครเป็นร้านค้า</Link></p>
+      <p className="wm-auth-footnote">ใช้บัญชี WYNOS เดิมได้</p>
     </MerchantAuthShell>
   );
 }

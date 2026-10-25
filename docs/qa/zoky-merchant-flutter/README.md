@@ -1,5 +1,7 @@
 # Zoky Merchant Flutter verification — 2026-10-22
 
+Latest hosted update: [configured Preview and 10/10 hosted synthetic browser checks](hosted-preview.md). Earlier access/configuration blockers below are historical. Production remains unchanged.
+
 ## Scope and result
 
 Embedded Flutter UI in the existing Food/Next.js application, at `/merchant/flutter`. The existing account gate, backend authorization, RPCs, storage and service worker remain in use. No migrations or production configuration changes are included. Merchant-origin root routing defaults to the existing app; enabling Flutter requires the reviewed deployment flag.

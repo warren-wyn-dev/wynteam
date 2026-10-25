@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl,
+  completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl, foodPublicUrl,
   setFoodPaymentStatus, subscribeMerchantOrders, transitionFoodOrder, updateFoodStore,
   uploadFoodPrivateImage, type FoodMenuItem, type FoodOrder, type FoodStore,
 } from "@/lib/food-merchant";
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
+import { foodStoreIsEffectivelyOpen, foodStoreStatusText } from "@/lib/food-store-availability";
+import { fetchMerchantStoreReviews } from "@/lib/merchant-core";
 import { fetchMerchantCampaigns, saveMerchantCampaign, setMerchantCampaignActive } from "@/lib/merchant-campaigns";
 import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 
@@ -154,7 +156,20 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         }
       }
     }
-    return [...stores.values()].sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "") || a.id.localeCompare(b.id));
+    const at = new Date();
+    return [...stores.values()]
+      .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "") || a.id.localeCompare(b.id))
+      .map((store) => {
+        const suspended = Boolean(store.admin_suspended_at);
+        const unpublished = store.is_published !== true;
+        return {
+          ...store,
+          image_url: foodPublicUrl(client, store.logo_path),
+          effective_open: !suspended && !unpublished && foodStoreIsEffectivelyOpen(store, at),
+          status_text: suspended ? "ร้านถูกระงับ กรุณาติดต่อทีม WYNOS"
+            : unpublished ? "ร้านยังไม่เผยแพร่" : foodStoreStatusText(store, at),
+        };
+      });
   };
   const execute = async (method: string, args: Args, picked: Promise<File | null> | null, permissionRequest?: Promise<NotificationPermission>): Promise<unknown> => {
     await ensureSession();
@@ -197,7 +212,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
           const rows = (data ?? []) as FoodMenuItem[]; all.push(...rows);
           if (rows.length < 500) break;
         }
-        return all;
+        return all.map((item) => ({ ...item, image_url: foodPublicUrl(client, item.image_path) }));
       }
       case "orders": {
         const status = text(args.status, 30, true), offset = args.offset ?? 0;
@@ -207,6 +222,16 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         return data ?? [];
       }
       case "report": return fetchMerchantSalesReport(client, storeId);
+      case "quality": {
+        // The existing RPC aggregates all visible store reviews independently
+        // of feed length. Do not transfer customer review details into Dart.
+        const feed = await fetchMerchantStoreReviews(client, storeId, 1);
+        if (!feed) return { available: false, count: null, average: null, unanswered: null };
+        const { count, average, unanswered } = feed;
+        if (!Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(unanswered) || unanswered < 0 || unanswered > count ||
+            (count > 0 && (!Number.isFinite(average) || average < 1 || average > 5))) throw new Error("invalid_review_summary");
+        return { available: true, count, average: count === 0 ? null : average, unanswered };
+      }
       case "campaigns": return fetchMerchantCampaigns(client, storeId);
       case "saveMenu": {
         const values = object(args.values), itemId = args.id == null ? undefined : id(args.id);

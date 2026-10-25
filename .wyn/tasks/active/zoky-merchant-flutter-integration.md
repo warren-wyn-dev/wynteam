@@ -27,3 +27,19 @@ Do not dispatch the general main production workflow while its final acceptance 
 Implementation and local verification complete: `npm run check` passed (351 Node tests, 23 Flutter tests, analysis, lint/typecheck and production build), focused Chromium mobile/desktop browser QA passed 10/10 with synthetic fixtures, and release-freeze validation passed. Evidence and hosted-verification limitations: `docs/qa/zoky-merchant-flutter/README.md`. Production remains blocked by staging/release gates; no deployment or root cutover has occurred. Review PR: https://github.com/warren-wyn-dev/wynteam/pull/1229.
 
 GitHub review follow-up fixed Stripe callback routing, no-slip receipt confirmation, preparation ETA, synchronous push permission, merchant-filtered store listing and deferred delivery-photo uploads. Residual private object after an ultimately failed delivery RPC and abandoned session is documented in the QA report; no immutable evidence policy was weakened.
+
+## Founder visual follow-up (2026-10-23)
+
+Match the live ZOKY consumer brand: pink gradient, berry actions, white surfaces and clear semantic status colors. See `docs/qa/zoky-merchant-flutter/brand-refresh.md`. The visual follow-up stays within the existing Merchant preview scope.
+
+Founder supplied the original Merchant screens as a layout reference. Restored four primary destinations, sales/open-store home, category menu cards and a More tools page while keeping ZOKY pink. Verification and limits: `docs/qa/zoky-merchant-flutter/reference-layout.md`.
+
+## Implemented home structure (2026-10-24)
+
+Founder explicitly requested real UX/UI implementation from the latest structure. Flutter home now renders the actual selected-store status, sales, functional tool links, readiness checklist and customer-review aggregates. Validation/limitations: `docs/qa/zoky-merchant-flutter/real-home.md`. Production remains unchanged.
+
+## Final home and explicit production instruction (2026-10-24)
+
+Founder requested “เอาขึ้นเว็บจริง” and “ต่อ”. Final home now has eight pink 3D tool shortcuts, a same-row shop/bell header, actual editable status pill, smaller baseline-aligned sales fractions and readiness, without the lower quality card. Quality remains an actionable tool showing actual all-review data. Source validation: 374 Node +27 Flutter tests and 10/10 compiled mobile/desktop browser cases passed. Evidence: `docs/qa/zoky-merchant-flutter/final-home.md`.
+
+PR #1229 merged the earlier integration, not these later UI refinements. Live Merchant shares Vercel project `web` with Food; the new scoped candidate uses actual live base `e6f577dc`, replacing the stale `0533fb` candidate. A narrow reviewed release workflow retains the production environment reviewer and the general release freeze. Source completion is not a claim that production changed.
