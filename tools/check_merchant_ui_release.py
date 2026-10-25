@@ -95,6 +95,9 @@ def validate(release, sha, branch_tip, manifest, today=None):
     require(manifest["projectId"] == "prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a" and
             manifest["teamId"] == "team_Kamt1PUT5XKn9MWrF404re1w", "Unexpected Vercel target")
     require(manifest["rollbackDeployment"] == "dpl_HhzmnfVpb9qyHd7yeiAiiUmkbPV9", "Unexpected rollback deployment")
+    require(manifest["stagedDeploymentId"] == "dpl_AzSiNf7cK7GfS7qboogk3YtR1q73" and
+            manifest["stagedUrl"] == "https://web-198ctc2ea-warren14.vercel.app",
+            "Resume only the reviewed existing production artifact")
     require(manifest["legacyFoodRedirect"] == "0", "Food behavior must remain at the live phase")
     require(git(release, "rev-parse", "HEAD").stdout.strip() == sha, "Checkout is not the pinned candidate")
     require(not git(release, "status", "--porcelain", "--untracked-files=no").stdout.strip(), "Candidate has uncommitted changes")
@@ -170,8 +173,15 @@ def validate_workflow(doc):
         require("vercel@63.1.2" in script, "Pin the reviewed Vercel CLI")
         require("merchant_ui_release_ops.mjs current" in script, "Check production drift after review")
     stage = json.dumps(jobs["stage"])
-    require("--prod --skip-domain" in stage and "ZOKY_MERCHANT_FLUTTER_ENABLED=1" in stage and "ZOKY_LEGACY_FOOD_REDIRECT=0" in stage,
-            "Stage production without domains and preserve explicit product flags")
+    require("url=$(node ../../ops/tools/merchant_ui_release_ops.mjs resume-url)" in stage and
+            'MERCHANT_DEPLOYMENT_URL=\\"$url\\" node ../../ops/tools/merchant_ui_release_ops.mjs staged' in stage,
+            "Resume and inspect only the manifest-pinned immutable artifact")
+    require("vercel deploy" not in stage and "vercel promote" not in stage,
+            "Resuming must not rebuild or assign customer domains")
+    stage_secrets = [step.get("env", {}) for step in jobs["stage"]["steps"] if "secrets." in json.dumps(step)]
+    require(all(env.get("VERCEL_TOKEN") == "${{ secrets.VERCEL_TOKEN }}" and
+                all("secrets." not in str(value) for key, value in env.items() if key != "VERCEL_TOKEN")
+                for env in stage_secrets), "Resume needs only the existing Vercel authentication secret")
     require("vercel curl" in stage and "canvaskit.wasm" in stage and "merchant-tools-3d.png" in stage,
             "Verify the immutable artifact before promotion")
     promote = json.dumps(jobs["promote"])
