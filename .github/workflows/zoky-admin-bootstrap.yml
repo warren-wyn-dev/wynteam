@@ -1,0 +1,84 @@
+name: ZOKY Admin -- create Vercel project
+
+# Manual-only, one time (idempotent). Creates the separate ZOKY Admin Vercel
+# project approved by the Founder on 2026-10-25 (ZOKY-ADMIN-001,
+# .wyn/company/APPROVALS.md): name `zoky-admin`, Root Directory `zoky-admin`,
+# framework Next.js, same Vercel team and Supabase project as WYNOS Admin.
+# Sets the public browser configuration only (Supabase URL + publishable
+# key, WYNOS Admin origin). It does NOT deploy, attach a domain or connect a
+# Git repository (no automatic deployments); deploy-zoky-admin.yml does the
+# deployments.
+#
+# Rollback: delete the `zoky-admin` project in Vercel (nothing serves from it
+# until deploy-zoky-admin.yml runs).
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type CREATE_ZOKY_ADMIN_PROJECT"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    if: github.ref == 'refs/heads/main' && inputs.confirm == 'CREATE_ZOKY_ADMIN_PROJECT'
+    environment: production
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      PROJECT_NAME: zoky-admin
+      ROOT_DIRECTORY: zoky-admin
+      WYNOS_ADMIN_URL: https://admin.wynos.online
+    steps:
+      - name: Create or verify the project and its public configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
+          for name in VERCEL_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            [ -n "${!name}" ] || { echo "::error::Required GitHub Actions secret $name is not available"; exit 1; }
+          done
+          api="https://api.vercel.com"
+          auth=(--header "Authorization: Bearer $VERCEL_TOKEN" --header "Content-Type: application/json")
+
+          code=$(curl --silent --output project.json --write-out '%{http_code}' "${auth[@]}" \
+            "$api/v9/projects/$PROJECT_NAME?teamId=$VERCEL_ORG_ID")
+          if [ "$code" = "404" ]; then
+            body=$(jq -n --arg name "$PROJECT_NAME" --arg root "$ROOT_DIRECTORY" \
+              '{name: $name, framework: "nextjs", rootDirectory: $root}')
+            code=$(curl --silent --output project.json --write-out '%{http_code}' "${auth[@]}" \
+              --request POST "$api/v11/projects?teamId=$VERCEL_ORG_ID" --data "$body")
+            echo "create project: HTTP $code"
+            [ "$code" = "200" ] || [ "$code" = "201" ] || { jq '{error}' project.json || true; exit 1; }
+          elif [ "$code" != "200" ]; then
+            echo "::error::Project lookup failed: HTTP $code"; jq '{error}' project.json || true; exit 1
+          fi
+          jq '{id, name, framework, rootDirectory, link: (.link.type // null)}' project.json
+          [ "$(jq -r '.rootDirectory' project.json)" = "$ROOT_DIRECTORY" ] \
+            || { echo "::error::A project named $PROJECT_NAME exists with another Root Directory; refusing to touch it"; exit 1; }
+          [ "$(jq -r '.link.type // empty' project.json)" = "" ] \
+            || { echo "::error::$PROJECT_NAME is connected to Git; disconnect it so only deploy-zoky-admin.yml deploys"; exit 1; }
+          project_id=$(jq -r '.id' project.json)
+
+          # Public browser configuration (upsert). Values are never printed.
+          for pair in "NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL" \
+                      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
+                      "NEXT_PUBLIC_WYNOS_ADMIN_URL=$WYNOS_ADMIN_URL"; do
+            key="${pair%%=*}"; value="${pair#*=}"
+            body=$(jq -n --arg key "$key" --arg value "$value" \
+              '{key: $key, value: $value, type: "plain", target: ["production", "preview"]}')
+            code=$(curl --silent --output env.json --write-out '%{http_code}' "${auth[@]}" \
+              --request POST "$api/v10/projects/$project_id/env?upsert=true&teamId=$VERCEL_ORG_ID" --data "$body")
+            echo "env $key: HTTP $code"
+            [ "$code" = "200" ] || [ "$code" = "201" ] || { jq '{error}' env.json || true; exit 1; }
+          done
+          echo "ZOKY Admin project ready: $project_id (no deployment made)."

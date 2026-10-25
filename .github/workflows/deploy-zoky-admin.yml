@@ -1,0 +1,127 @@
+name: Deploy ZOKY Admin (Next.js) to Vercel
+
+# Manual-only (ZOKY-ADMIN-001). Deploys zoky-admin/ to the `zoky-admin`
+# Vercel project created by zoky-admin-bootstrap.yml (located by name and
+# verified by Root Directory -- never created here).
+#   * preview: staging build for QA; no production alias or domain changes.
+#   * production: also subject to the WYNOS final cross-system release
+#     freeze (acceptance issues #1142-#1151), typed confirmation and the
+#     protected production environment; attaches zoky-admin.wynos.online.
+#     Ship together with the WYNOS Admin release that redirects Food/Merchant
+#     here (wynos-admin-consolidated-release.yml checks this domain is live).
+# Rollback: promote the previous zoky-admin production deployment in Vercel,
+# or remove the domain (Project -> Settings -> Domains).
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment environment"
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - production
+      release_confirmation:
+        description: "Production only: release after all WYNOS acceptance issues pass"
+        type: choice
+        required: true
+        default: CANCEL
+        options: [CANCEL, RELEASE_ALL_APPROVED]
+      confirm_production:
+        description: "For production only, type DEPLOY_ZOKY_ADMIN_PRODUCTION"
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && (inputs.target == 'preview' || inputs.release_confirmation == 'RELEASE_ALL_APPROVED')
+    environment: production
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_TEAM_SLUG: warren14
+      PROJECT_NAME: zoky-admin
+      DOMAIN: zoky-admin.wynos.online
+      DEPLOY_TARGET: ${{ inputs.target }}
+      CONFIRM_PRODUCTION: ${{ inputs.confirm_production }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce WYNOS final cross-system release freeze
+        if: inputs.target == 'production'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WYNOS_RELEASE_CONFIRMATION: ${{ inputs.release_confirmation }}
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/require-wynos-final-release-ready.sh"
+      - name: Verify requested environment and link the existing project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          case "$DEPLOY_TARGET" in
+            preview) echo "ZOKY Admin preview requested. Production aliases will not change." ;;
+            production)
+              if [ "$CONFIRM_PRODUCTION" != "DEPLOY_ZOKY_ADMIN_PRODUCTION" ]; then
+                echo "::error::Production requires confirm_production=DEPLOY_ZOKY_ADMIN_PRODUCTION."
+                exit 1
+              fi
+              ;;
+            *) echo "::error::Invalid deployment target"; exit 1 ;;
+          esac
+          VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r ')
+          code=$(curl --silent --output project.json --write-out '%{http_code}' \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$PROJECT_NAME?teamId=$VERCEL_ORG_ID")
+          [ "$code" = "200" ] || { echo "::error::Project $PROJECT_NAME not found (HTTP $code); run zoky-admin-bootstrap.yml first"; exit 1; }
+          [ "$(jq -r '.rootDirectory' project.json)" = "zoky-admin" ] || { echo "::error::Unexpected Root Directory"; exit 1; }
+          # Link this checkout to that exact project so the CLI never creates or infers one.
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$(jq -r '.id' project.json)" > .vercel/project.json
+      - name: Deploy
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r ')
+          args=()
+          if [ "$DEPLOY_TARGET" = production ]; then args+=(--prod); fi
+          # Runs from the repository root: the project's Root Directory is zoky-admin.
+          # Build configuration comes from the project's environment variables.
+          url=$(npx --yes vercel@latest deploy "${args[@]}" --yes --scope "$VERCEL_TEAM_SLUG" --token="$VERCEL_TOKEN")
+          echo "Deployment: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: Attach zoky-admin.wynos.online
+        if: inputs.target == 'production'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r ')
+          project_id=$(jq -r .projectId .vercel/project.json)
+          api="https://api.vercel.com"
+          curl --silent --output add.json --write-out 'add domain: HTTP %{http_code}\n' \
+            --request POST "$api/v10/projects/$project_id/domains?teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" --header "Content-Type: application/json" \
+            --data "{\"name\":\"$DOMAIN\"}"
+          get=$(curl --silent --output domain.json --write-out '%{http_code}' \
+            "$api/v9/projects/$project_id/domains/$DOMAIN?teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN")
+          jq '{name, projectId, verified}' domain.json || cat domain.json
+          if [ "$get" != "200" ] || [ "$(jq -r '.projectId' domain.json)" != "$project_id" ]; then
+            echo "::error::$DOMAIN is not on the ZOKY Admin project; if another project owns it, move it in the Vercel dashboard."
+            exit 1
+          fi
+          for attempt in $(seq 1 40); do
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "https://$DOMAIN/login" || true)
+            echo "attempt $attempt: HTTP $code"
+            [ "$code" = "200" ] && { echo "https://$DOMAIN/login is serving ZOKY Admin."; exit 0; }
+            sleep 15
+          done
+          echo "::error::https://$DOMAIN did not answer 200 within 10 minutes (certificate may still be issuing)."
+          exit 1
