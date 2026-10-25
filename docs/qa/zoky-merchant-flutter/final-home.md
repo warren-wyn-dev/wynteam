@@ -21,3 +21,11 @@ The first compiled run exposed exact-text assertions incompatible with Flutter's
 - [Desktop home](final-home/desktop-dashboard.png), [desktop quality](final-home/desktop-quality.png)
 
 These are actual Flutter captures, not mockups. The source branch is not the production artifact: release preparation isolates Merchant changes onto the live `web` project base `e6f577dcccb86b51c68d91e754b19fe4cfa27222`, preserving later Food fixes. Production staging, protected review and promotion are recorded separately; passing local tests does not claim a live rollout.
+
+## Pre-release account-exit follow-up — 2026-10-25
+
+GitHub review found that removing header actions also hid the only sign-out action when no store was accessible. Source fix `9a53e008` (candidate cherry-pick `57f63d91`) keeps a sign-out button outside store-dependent content. It reuses the existing shared-auth sign-out, pending-operation guard and failure recovery. The approved normal-store design is unchanged.
+
+Flutter analysis, all 30 widget/controller/repository tests, the release compilation and system-font guard passed. Three added widget regressions exercise empty stores, failed store loading and final-store access revocation, and verify that the actual sign-out callback remains callable. The compiled mobile/desktop suite passed 16/16: the original ten core cases plus six account-exit cases, including refresh-triggered revocation and the actual Dart-to-host `signOut` request. Independent review found no CRITICAL/HIGH issue.
+
+Only synthetic fixtures were used. Existing JavaScript/backend source is unchanged by this follow-up; the previously recorded full web checks remain baseline evidence and the protected release workflow reruns the full candidate checks before staging. The earlier release run `40097479381` was cancelled before staging or production action. Live metadata was rechecked on 2026-10-25 and still identified the original `e6f577dc` / `dpl_HhzmnfVpb9qyHd7yeiAiiUmkbPV9` deployment.
