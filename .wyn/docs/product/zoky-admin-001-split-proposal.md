@@ -76,6 +76,8 @@ Additive migration เท่านั้น ไม่แก้ RPC Food/Merchant
 - audit event types ใหม่ (additive): `zoky_team_lead_appointed`, `zoky_team_lead_removed`; grant/revoke ใช้ event `admin_permission_granted/revoked` เดิม
 - พร้อม `supabase/tests/zoky_admin_team_test.sh`, rollback SQL, apply workflow
 
+**Implemented (PR 4, 2026-10-25):** `supabase/migrations/20261025100000_zoky_admin_team_v1.sql` — ตามข้างบน และเพิ่ม 2 RPC ที่หน้า "ทีม ZOKY" ต้องใช้: `zoky_admin_my_access()` (super admin / team lead / สิทธิ์ food+merchant เท่านั้น) และ `admin_zoky_find_user(username)` (ค้นด้วย username ตรงตัวเท่านั้น คืนได้สูงสุด 1 แถว เพื่อให้ Lead เพิ่มสมาชิกได้โดยไม่ต้องมีสิทธิ์ Account); Lead แก้สิทธิ์ของตัวเองหรือ Lead คนอื่นไม่ได้ — สิทธิ์ของ Lead ให้โดย super admin. Test 75 checks (PostgreSQL 16) · rollback `supabase/rollbacks/20261025100000_zoky_admin_team_v1_rollback.sql` · apply `.github/workflows/zoky-admin-apply-team.yml` (ยังไม่ได้ apply production)
+
 ## 4. Plan (แต่ละข้อเป็น PR แยก)
 
 1. **Scaffold `zoky-admin/`** — shell, login, auth gate, sidebar ว่าง, CI build (ยังไม่มี Vercel project)
