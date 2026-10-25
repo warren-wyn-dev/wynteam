@@ -32,6 +32,12 @@ export default async function OverviewPage() {
               </li>
             );
           })}
+          {access.teamLead ? (
+            <li className="flex min-h-11 items-center justify-between gap-3 rounded-md bg-muted/50 px-3">
+              <span className="text-sm font-medium">หัวหน้าทีม ZOKY</span>
+              <span className="text-sm text-muted-foreground">จัดการสมาชิกและสิทธิ์ได้</span>
+            </li>
+          ) : null}
         </ul>
       </section>
     </div>

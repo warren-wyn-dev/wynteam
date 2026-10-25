@@ -40,3 +40,22 @@ export async function fetchAdminPermissions(): Promise<AdminPermissionRow[]> {
   if (error) throw error;
   return (data ?? []) as AdminPermissionRow[];
 }
+
+/**
+ * ZOKY Team Leads (ZOKY-ADMIN-001), read through admin_zoky_list_team --
+ * super admin only on this page. null until that migration is applied, so
+ * the page can ship first and hide the Team Lead controls.
+ */
+export async function fetchZokyTeamLeads(): Promise<Array<{ userId: string; username: string | null }> | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_zoky_list_team");
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    throw error;
+  }
+  const leads = new Map<string, string | null>();
+  for (const row of (data ?? []) as Array<{ user_id: string; username: string | null; is_team_lead: boolean }>) {
+    if (row.is_team_lead) leads.set(row.user_id, row.username);
+  }
+  return [...leads].map(([userId, username]) => ({ userId, username }));
+}

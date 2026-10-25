@@ -1,7 +1,7 @@
 import { KeyRound } from "lucide-react";
 
 import { TeamPermissionsManager, type TeamMember } from "@/components/admin/team-permissions-manager";
-import { fetchAdminAccess, fetchAdminPermissions } from "@/lib/admin-permissions";
+import { fetchAdminAccess, fetchAdminPermissions, fetchZokyTeamLeads } from "@/lib/admin-permissions";
 import { searchUsers } from "@/lib/admin-users";
 import { requireAdminRole } from "@/lib/auth";
 
@@ -32,13 +32,21 @@ export default async function TeamPermissionsPage({
 
   // Plain characters only: the search is passed into a PostgREST or() filter.
   const query = ((await searchParams).q ?? "").replace(/[^\p{L}\p{N}_.\s-]/gu, "").trim().slice(0, 40);
-  const [rows, results] = await Promise.all([fetchAdminPermissions(), query ? searchUsers(query) : Promise.resolve([])]);
+  const [rows, results, zokyLeads] = await Promise.all([
+    fetchAdminPermissions(),
+    query ? searchUsers(query) : Promise.resolve([]),
+    fetchZokyTeamLeads(),
+  ]);
 
   const byUser = new Map<string, TeamMember>();
   for (const row of rows) {
     const member = byUser.get(row.user_id) ?? { userId: row.user_id, username: row.username, permissions: [] };
     member.permissions.push({ system: row.system, level: row.level });
     byUser.set(row.user_id, member);
+  }
+  // A ZOKY Team Lead without any permission row still belongs on this page.
+  for (const lead of zokyLeads ?? []) {
+    if (!byUser.has(lead.userId)) byUser.set(lead.userId, { userId: lead.userId, username: lead.username, permissions: [] });
   }
 
   return (
@@ -57,6 +65,7 @@ export default async function TeamPermissionsPage({
         members={[...byUser.values()]}
         candidates={results.map((u) => ({ userId: u.id, username: u.username, displayName: u.display_name }))}
         searched={query.length > 0}
+        zokyLeadIds={zokyLeads ? zokyLeads.map((lead) => lead.userId) : null}
       />
     </div>
   );

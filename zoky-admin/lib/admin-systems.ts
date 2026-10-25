@@ -6,6 +6,10 @@
 export const ADMIN_SYSTEMS = ["account", "social", "food", "merchant", "maps"] as const;
 export type AdminSystem = (typeof ADMIN_SYSTEMS)[number];
 
+/** The WYN-219 systems ZOKY Admin covers (ZOKY-ADMIN-001). */
+export const ZOKY_SYSTEMS = ["food", "merchant"] as const satisfies readonly AdminSystem[];
+export type ZokySystem = (typeof ZOKY_SYSTEMS)[number];
+
 export function isAdminSystem(value: string): value is AdminSystem {
   return (ADMIN_SYSTEMS as readonly string[]).includes(value);
 }
@@ -29,6 +33,8 @@ export const ADMIN_LEVEL_LABEL: Record<AdminLevel, string> = {
 export type AdminSystemAccess = {
   available: boolean;
   superAdmin: boolean;
+  /** ZOKY-ADMIN-001: may manage the ZOKY team's food/merchant permissions. */
+  teamLead: boolean;
   permissions: Partial<Record<AdminSystem, AdminLevel>>;
 };
 

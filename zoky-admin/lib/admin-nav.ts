@@ -52,6 +52,8 @@ export type AdminNavItem = {
   group?: AdminNavGroupId;
   /** Shown only to the WYN-219 super admin (navigation only). */
   superAdminOnly?: boolean;
+  /** Shown only to the super admin and ZOKY Team Leads (navigation only). */
+  teamManagersOnly?: boolean;
   /**
    * Who sees the item: any of these systems at `level` (default view), or
    * "any" ZOKY permission. Navigation only: every page and RPC re-checks.
@@ -103,7 +105,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: "merchant-delivery", href: "/merchant/delivery", label: "ค่าส่งและรัศมีรายร้าน", icon: Truck, group: "merchant", requires: { systems: ["merchant"] } },
   { id: "merchant-operations", href: "/merchant/operations", label: "เปิด–ปิดร้านและเวลาเตรียม", icon: Clock3, group: "merchant", requires: { systems: ["merchant"] } },
 
-  { id: "zoky-team", label: "สมาชิกและสิทธิ์", icon: UserCog, group: "team", requires: "any" },
+  { id: "zoky-team", href: "/team", label: "สมาชิกและสิทธิ์", icon: UserCog, group: "team", teamManagersOnly: true },
 ];
 
 export function isAdminNavItemAvailable(item: AdminNavItem): item is AdminNavItem & { href: string } {
@@ -120,6 +122,7 @@ export function adminNavItemsForRole(_role: AdminRole, access: AdminSystemAccess
   return ADMIN_NAV_ITEMS.filter((item) => {
     if (access.superAdmin) return true;
     if (item.superAdminOnly) return false;
+    if (item.teamManagersOnly) return access.teamLead;
     if (!item.requires || item.requires === "any") return true;
     const { systems, level = "view" } = item.requires;
     return systems.some((system) => hasSystemAccess(access, system, level) === true);

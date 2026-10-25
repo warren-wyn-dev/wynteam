@@ -2,7 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { fetchAdminAccess } from "@/lib/admin-permissions";
-import { hasSystemAccess, type AdminLevel, type AdminSystem, type AdminSystemAccess } from "@/lib/admin-systems";
+import { ZOKY_SYSTEMS, hasSystemAccess, type AdminLevel, type AdminSystem, type AdminSystemAccess } from "@/lib/admin-systems";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -19,19 +19,22 @@ export type AdminContext = {
   access: AdminSystemAccess;
 };
 
-/** The WYN-219 systems ZOKY Admin covers (ZOKY-ADMIN-001). */
-export const ZOKY_SYSTEMS = ["food", "merchant"] as const satisfies readonly AdminSystem[];
-export type ZokySystem = (typeof ZOKY_SYSTEMS)[number];
+export { ZOKY_SYSTEMS, type ZokySystem } from "@/lib/admin-systems";
 
 /**
  * Whether an account may enter ZOKY Admin at all (shared with the login
- * action): the super admin, or a food/merchant permission. Fails closed
- * when the permissions could not be read -- there is no pre-WYN-219
- * platform_role fallback here, unlike WYNOS Admin.
+ * action): the super admin, a ZOKY Team Lead, or a food/merchant
+ * permission. Fails closed when the permissions could not be read -- there
+ * is no pre-WYN-219 platform_role fallback here, unlike WYNOS Admin.
  */
 export function mayEnterZokyAdmin(access: AdminSystemAccess): boolean {
   if (!access.available) return false;
-  return access.superAdmin || ZOKY_SYSTEMS.some((system) => access.permissions[system] !== undefined);
+  return access.superAdmin || access.teamLead || ZOKY_SYSTEMS.some((system) => access.permissions[system] !== undefined);
+}
+
+/** UI check for the ทีม ZOKY page; the admin_zoky_* RPCs re-check. */
+export function canManageZokyTeam(access: AdminSystemAccess): boolean {
+  return access.available && (access.superAdmin || access.teamLead);
 }
 
 /**
