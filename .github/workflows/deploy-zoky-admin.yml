@@ -77,6 +77,8 @@ jobs:
           # Link this checkout to that exact project so the CLI never creates or infers one.
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$(jq -r '.id' project.json)" > .vercel/project.json
+          # The CLI requires VERCEL_PROJECT_ID whenever VERCEL_ORG_ID is set.
+          echo "VERCEL_PROJECT_ID=$(jq -r '.id' project.json)" >> "$GITHUB_ENV"
       - name: Deploy
         id: deploy
         env:
