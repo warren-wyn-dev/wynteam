@@ -87,3 +87,47 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
 });
 
 }
+
+for (const scenario of ['empty', 'offline', 'revoked'] as const) {
+  test(`Flutter account exit remains available after ${scenario} store access`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.route('**/merchant-account-exit-qa', route => route.fulfill({contentType:'text/html; charset=utf-8', body:`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body,#host{margin:0;width:100%;height:100%;overflow:hidden}</style></head><body><div id="host"></div><script>
+      const scenario=${JSON.stringify(scenario)};
+      const store={id:'store-1',name:'ร้านบัญชีทดสอบ',is_open:true,is_published:true,effective_open:true};
+      window.qaStoreAccess=true;window.qaSignedOut=0;
+      window.zokyMerchant={request:async(method)=>{
+        let data=null;
+        switch(method){
+          case 'stores':
+            if(scenario==='offline')return JSON.stringify({ok:false,error:'offline'});
+            data=scenario==='revoked'&&window.qaStoreAccess?[store]:[];break;
+          case 'hasRole':data=true;break;
+          case 'menu':case 'orders':data=[];break;
+          case 'report':data={today_sales:0,today_orders:0,month_sales:0,total_orders:0,best:[]};break;
+          case 'quality':data={available:false};break;
+          case 'campaigns':data={can_manage:true,campaigns:[]};break;
+          case 'pushStatus':data={enabled:false,available:false};break;
+          case 'signOut':window.qaSignedOut++;break;
+        }
+        return JSON.stringify({ok:true,data});
+      }};
+      </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="_flutter.loader.load({config:{entrypointBaseUrl:'/merchant-flutter/',assetBase:'/merchant-flutter/',canvasKitBaseUrl:'/merchant-flutter/canvaskit/'},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:'/merchant-flutter/',canvasKitBaseUrl:'/merchant-flutter/canvaskit/'});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})"></script></body></html>`}));
+    await page.goto('/merchant-account-exit-qa');
+    await page.locator('flutter-view').waitFor({timeout:45000});
+    if (scenario === 'revoked') {
+      await expect(page.getByText('ร้านบัญชีทดสอบ',{exact:true})).toBeVisible({timeout:30000});
+      await expect(page.getByRole('button',{name:/ยอดขายวันนี้/}).first()).toBeVisible();
+      await page.evaluate(() => {
+        (window as Window & {qaStoreAccess:boolean}).qaStoreAccess=false;
+        window.dispatchEvent(new Event('zoky-merchant-order-change'));
+      });
+      await expect(page.getByText('ร้านบัญชีทดสอบ',{exact:true})).toHaveCount(0);
+    }
+    const exit = page.getByRole('button',{name:'ออกจากระบบ',exact:true});
+    await expect(exit).toBeVisible({timeout:30000});
+    await exit.click();
+    await expect.poll(() => page.evaluate(() => (window as Window & {qaSignedOut:number}).qaSignedOut)).toBe(1);
+    expect(errors).toEqual([]);
+  });
+}
