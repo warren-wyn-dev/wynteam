@@ -1072,9 +1072,6 @@
 .fx-sheet .wf-form .wf-primary { border-radius: 999px; min-height: 52px; background: var(--fx-red, #d61256); box-shadow: 0 8px 18px rgb(238 34 110 / 24%); }
 .fx-sheet .wf-form .wf-primary:disabled { background: #efeff2; color: #77777f; box-shadow: none; }
 
-@media (min-width: 680px) {
-  .fx-store-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
 @media (max-width: 359px) {
   .fx-store-grid { gap: 14px 10px; }
   .fx-brand > span { font-size: 18px; }
@@ -1330,9 +1327,10 @@ html:has(.fx-app.is-zk-home) body, html:has(.fx-app.is-zk-food) body { backgroun
   font-size: 12px;
   font-weight: 700;
   line-height: 1.25;
-  letter-spacing: 1.4px;
   white-space: nowrap;
 }
+/* Tracking suits the English caps label only; it breaks up Thai text. */
+.zk-hero-pill:lang(en) { letter-spacing: 1.4px; }
 .zk-hero-title { margin-top: 14px !important; font-size: 28px; font-weight: 700; line-height: 1.25; letter-spacing: -.3px; }
 .zk-hero-subtitle { margin-top: 6px !important; font-size: 19px; font-weight: 700; line-height: 1.35; }
 .zk-hero-subtitle span { white-space: nowrap; }
@@ -1671,3 +1669,27 @@ html:has(.fx-app.is-zk-home) body, html:has(.fx-app.is-zk-food) body { backgroun
   .zk-chips { gap: 6px; }
 }
 .fx-store-meta .zk-scooter { flex: none; margin-inline: 1px 2px; }
+
+/* ---------- Mobile-only frame ----------
+   Founder decision (2026-10-25): ZOKY web is for phones only. Wider screens
+   show the same phone layout in a centred column, and full-screen layers
+   (sheets, overlays, map) and floating bars stay inside that column. */
+@media (min-width: 481px) {
+  :root { --zk-phone: 480px; }
+  html:has(.wyn-food), html:has(.fx-app.is-zk-home), html:has(.fx-app.is-zk-food), html:has(.wf-auth-shell) { background: #f2f2f5; }
+  html:has(.wyn-food) body, html:has(.wf-auth-shell) body { background: transparent; }
+  .wyn-food, .fx-app.is-zk-home, .fx-app.is-zk-food, .wf-auth-shell {
+    max-width: var(--zk-phone);
+    margin-inline: auto;
+    box-shadow: 0 0 0 1px #e9e9ee, 0 12px 40px rgb(22 22 26 / 6%);
+  }
+  .wf-sheet-backdrop, .fx-sheet-backdrop, .wf-guest-overlay, .wf-map-picker, .zk-statusbar {
+    right: auto;
+    left: calc(50% - var(--zk-phone) / 2);
+    width: var(--zk-phone);
+  }
+  /* food.css centres the shared map picker with a transform for WYNOS Maps. */
+  .wf-map-picker { transform: none; }
+  .wf-nav { max-width: var(--zk-phone); }
+  .wf-toast, .wf-store-cart-bar, .wf-guest-cartbar, .fx-nav, .fx-cart-bar, .fx-toast { max-width: calc(var(--zk-phone) - 32px); }
+}
