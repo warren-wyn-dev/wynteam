@@ -184,10 +184,9 @@
 .wf-auth-loading .wf-loader { margin: 0; }
 .wf-auth-loading strong { font-size: 11px; color: var(--wf-secondary); }
 
-@media (max-width: 480px) {
-  .wf-auth-shell { padding-inline: 0; padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom); place-items: stretch; }
-  .wf-auth-card { min-height: 100dvh; width: 100%; padding: 28px 20px; border: 0; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; justify-content: center; }
-}
+/* ZOKY is mobile-only (Founder decision 2026-10-25): the phone layout at every width. */
+.wf-auth-shell { padding-inline: 0; padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom); place-items: stretch; }
+.wf-auth-card { min-height: 100dvh; width: 100%; padding: 28px 20px; border: 0; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; justify-content: center; }
 
 .wf-loading {
   min-height: 100dvh;
@@ -1272,16 +1271,6 @@
   color: #c52936;
   font-size: 11.5px;
   font-weight: 700;
-}
-
-@media (min-width: 680px) {
-  .wf-content { padding-inline: 22px; }
-  .wf-category-tabs { margin-inline: -22px; padding-inline: 22px; }
-  .wf-sheet-backdrop { align-items: center; padding: 20px; }
-  .wf-sheet { border-radius: 24px; max-height: min(88dvh, 820px); }
-  .wf-sheet-body { max-height: calc(min(88dvh, 820px) - 55px); }
-  .wf-item-sheet { height: min(88dvh, 820px); border-radius: 24px; }
-  .wf-item-photo { height: min(360px, 38dvh); }
 }
 
 @media (max-width: 370px) {
@@ -3002,9 +2991,6 @@
 .wf-store-cart-bar span { font-size: 11.5px; font-weight: 760; }
 .wf-store-cart-bar b { font-size: 11.5px; font-weight: 850; }
 
-@media (min-width: 640px) {
-  .wf-dir-cover { height: 190px; }
-}
 
 /* WYNOS Food compact in-store search + favorite action. */
 .wf-store-actions {
@@ -3157,9 +3143,6 @@
 }
 .wf-menu-search-list > button > svg { color: var(--wf-muted); }
 
-@media (min-width: 680px) {
-  .wf-menu-filter-bar { margin-inline: -22px; padding-inline: 22px; }
-}
 @media (max-width: 370px) {
   .wf-menu-filter-bar { margin-inline: -13px; padding-inline: 13px; }
 }
@@ -3797,15 +3780,6 @@
 .wf-favorite-store-list strong { font-size: 13px; }
 .wf-favorite-store-list small { color: var(--wf-secondary); font-size: 10px; }
 
-@media (min-width: 700px) {
-  .wf-recent-store { flex-basis: 142px; }
-  .wf-recent-store > span { width: 142px; }
-  .wf-home-store-row { grid-template-columns: 112px minmax(0, 1fr); }
-  .wf-home-store-photo { width: 112px; }
-  .wf-home-store-title strong { font-size: 13.5px; }
-  .wf-home-store-meta,
-  .wf-home-store-quality { font-size: 10.5px; }
-}
 
 
 /* Founder-approved full-bleed WYNOS Food storefront (2026-10-06). */
@@ -3948,12 +3922,6 @@
 .wf-storefront-open .wf-store-menu.is-category .wf-soldout {
   margin: 0;
   justify-self: end;
-}
-@media (min-width: 680px) {
-  .wf-storefront-open .wf-content { padding-inline: 0; }
-  .wf-storefront-open .wf-store-menu { padding-inline: 22px; }
-  .wf-storefront-open .wf-menu-filter-bar { margin-inline: -22px; padding-inline: 22px; }
-  .wf-storefront-open .wf-store-tabs { padding-inline: 22px; }
 }
 @media (max-width: 370px) {
   .wf-storefront-open .wf-store-menu { padding-inline: 13px; }
@@ -4545,5 +4513,4 @@
 .wf-guest-basket-line strong { font-size: 13px; }
 .wf-guest-basket-line small { color: #777; font-size: 11px; }
 .wf-guest-basket-line b { font-size: 12px; }
-@media (min-width: 720px) { .wf-guest-overlay { align-items: center; } .wf-guest-sheet { border-radius: 22px; padding: 25px; } }
 @media (max-width: 600px) { .wf-guest-intro { margin: 0 12px; } .wf-guest-header { padding: 0 16px; } .wf-guest-shop-photo { flex-basis: 72px; height: 72px; } }
