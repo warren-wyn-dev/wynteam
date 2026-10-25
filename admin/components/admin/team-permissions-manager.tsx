@@ -19,6 +19,7 @@ import {
   grantAdminPermission,
   permissionErrorMessage,
   revokeAdminPermission,
+  setZokyTeamLead,
 } from "@/lib/admin-permissions-actions";
 import {
   ADMIN_LEVELS,
@@ -47,10 +48,13 @@ export function TeamPermissionsManager({
   members,
   candidates,
   searched,
+  zokyLeadIds,
 }: {
   members: TeamMember[];
   candidates: GrantCandidate[];
   searched: boolean;
+  /** ZOKY-ADMIN-001 Team Leads; null hides the controls until the migration is applied. */
+  zokyLeadIds: string[] | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -87,6 +91,25 @@ export function TeamPermissionsManager({
     run(() => grantAdminPermission(userId, s, next), "เปลี่ยนระดับสิทธิ์ไม่สำเร็จ");
   }
 
+  function toggleZokyLead(userId: string, username: string | null, enable: boolean) {
+    const who = `@${username ?? "ผู้ใช้"}`;
+    const question = enable
+      ? `แต่งตั้ง ${who} เป็นหัวหน้าทีม ZOKY? หัวหน้าทีมให้/ถอนสิทธิ์ ZOKY Food และ ZOKY Merchant กับผู้อื่นได้เอง`
+      : `ถอด ${who} จากหัวหน้าทีม ZOKY? สิทธิ์ที่เคยให้ไว้ยังอยู่จนกว่าจะถอน`;
+    if (!window.confirm(question)) return;
+    run(() => setZokyTeamLead(userId, enable), enable ? "แต่งตั้งหัวหน้าทีม ZOKY ไม่สำเร็จ" : "ถอดหัวหน้าทีม ZOKY ไม่สำเร็จ");
+  }
+
+  function zokyLeadButton(userId: string, username: string | null) {
+    if (zokyLeadIds === null) return null;
+    const isLead = zokyLeadIds.includes(userId);
+    return (
+      <Button variant="outline" size="sm" disabled={pending} onClick={() => toggleZokyLead(userId, username, !isLead)}>
+        {isLead ? "ถอดหัวหน้าทีม ZOKY" : "ตั้งเป็นหัวหน้าทีม ZOKY"}
+      </Button>
+    );
+  }
+
   function revoke(userId: string, username: string | null, s: AdminSystem) {
     if (!window.confirm(`ถอนสิทธิ์ ${ADMIN_SYSTEM_LABEL[s]} ของ @${username ?? "ผู้ใช้"}?`)) return;
     run(() => revokeAdminPermission(userId, s), "ถอนสิทธิ์ไม่สำเร็จ");
@@ -111,11 +134,20 @@ export function TeamPermissionsManager({
             {members.map((member) => (
               <li key={member.userId} className="rounded-xl border bg-card p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium">@{member.username ?? "ไม่ทราบชื่อ"}</p>
-                  <Button variant="outline" size="sm" disabled={pending} onClick={() => openGrant(member.userId, member.username)}>
-                    <KeyRound /> เพิ่มสิทธิ์
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">@{member.username ?? "ไม่ทราบชื่อ"}</p>
+                    {zokyLeadIds?.includes(member.userId) ? <Badge variant="ink-solid">หัวหน้าทีม ZOKY</Badge> : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {zokyLeadButton(member.userId, member.username)}
+                    <Button variant="outline" size="sm" disabled={pending} onClick={() => openGrant(member.userId, member.username)}>
+                      <KeyRound /> เพิ่มสิทธิ์
+                    </Button>
+                  </div>
                 </div>
+                {member.permissions.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">ยังไม่มีสิทธิ์ระบบใด</p>
+                ) : null}
                 <ul className="mt-3 divide-y">
                   {member.permissions.map((p) => (
                     <li key={p.system} className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
@@ -173,9 +205,12 @@ export function TeamPermissionsManager({
                   <p className="truncate text-sm font-medium">@{c.username}</p>
                   {c.displayName ? <p className="truncate text-xs text-muted-foreground">{c.displayName}</p> : null}
                 </div>
-                <Button variant="outline" size="sm" disabled={pending} onClick={() => openGrant(c.userId, c.username)}>
-                  <UserPlus /> ให้สิทธิ์
-                </Button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {zokyLeadButton(c.userId, c.username)}
+                  <Button variant="outline" size="sm" disabled={pending} onClick={() => openGrant(c.userId, c.username)}>
+                    <UserPlus /> ให้สิทธิ์
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>

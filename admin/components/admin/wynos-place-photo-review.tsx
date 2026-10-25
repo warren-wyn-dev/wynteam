@@ -4,8 +4,8 @@ import { ImageIcon, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { reviewWynosPlacePhoto } from "@/lib/admin-food-actions";
-import type { AdminWynosPlacePhoto } from "@/lib/admin-food";
+import { reviewWynosPlacePhoto } from "@/lib/admin-maps-actions";
+import type { AdminWynosPlacePhoto } from "@/lib/admin-maps";
 
 export function WynosPlacePhotoReview({ photos }: { photos: AdminWynosPlacePhoto[] }) {
   const router = useRouter();

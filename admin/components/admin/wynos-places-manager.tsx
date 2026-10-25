@@ -11,8 +11,8 @@ import {
   saveWynosPlace,
   setWynosPlaceActive,
   type WynosPlaceInput,
-} from "@/lib/admin-food-actions";
-import type { AdminWynosPlace, AdminWynosPlaceSuggestion } from "@/lib/admin-food";
+} from "@/lib/admin-maps-actions";
+import type { AdminWynosPlace, AdminWynosPlaceSuggestion } from "@/lib/admin-maps";
 
 const CATEGORIES = [
   ["place", "สถานที่"], ["restaurant", "ร้านอาหาร"], ["store", "ร้านค้า"],

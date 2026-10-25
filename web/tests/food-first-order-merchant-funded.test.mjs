@@ -7,9 +7,9 @@ const migration = source("../../supabase/migrations/20261009120000_food_first_or
 const updated = source("../../supabase/migrations/20261009230000_food_first_order_100_40.sql");
 const food = source("../components/food/wynos-food-developer-app.tsx");
 const merchant = source("../components/merchant/merchant-platform-campaigns.tsx");
-const adminPage = source("../../admin/app/(admin)/food/campaigns/page.tsx");
-const adminAction = source("../../admin/lib/admin-food-actions.ts");
-const adminControl = source("../../admin/components/admin/platform-campaign-actions.tsx");
+const adminPage = source("../../zoky-admin/app/(admin)/merchant/campaigns/page.tsx");
+const adminAction = source("../../zoky-admin/lib/admin-food-actions.ts");
+const adminControl = source("../../zoky-admin/components/admin/platform-campaign-actions.tsx");
 
 test("first-order preset is 120/20 merchant funded and never pre-enabled", () => {
   assert.match(migration, /first_order_only boolean not null default false/);

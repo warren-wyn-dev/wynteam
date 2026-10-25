@@ -24,9 +24,17 @@ export async function revokeAdminPermission(userId: string, system: AdminSystem)
   if (error) throw error;
 }
 
+/** ZOKY-ADMIN-001: appoint or remove a ZOKY Team Lead (super admin only, re-checked by the RPC). */
+export async function setZokyTeamLead(userId: string, enabled: boolean): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_set_zoky_team_lead", { p_user_id: userId, p_enabled: enabled });
+  if (error) throw error;
+}
+
 /** Thai messages for the errors admin_grant/revoke_permission raise. */
 export function permissionErrorMessage(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? "");
+  if (message.includes("cannot be a ZOKY Team Lead")) return "super admin เป็นหัวหน้าทีม ZOKY ไม่ได้ (มีสิทธิ์ทุกระบบอยู่แล้ว)";
   if (message.includes("Only the super admin")) return "เฉพาะ super admin เท่านั้นที่ให้หรือถอนสิทธิ์ได้";
   if (message.includes("already has every permission")) return "super admin มีสิทธิ์ทุกระบบอยู่แล้ว";
   if (message.includes("User not found")) return "ไม่พบผู้ใช้นี้ ลองรีเฟรช";

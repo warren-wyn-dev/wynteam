@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+/*
+ * WYN-106 fix: this used to be `&:is(.dark *)` (class-based), but no JS
+ * anywhere in this app ever adds a `.dark` class to the DOM -- there is
+ * no manual theme toggle. Every semantic-token class (bg-background,
+ * text-foreground, etc.) already flips correctly via the CSS custom
+ * properties in the `@media (prefers-color-scheme: dark)` block below;
+ * a class-based `dark:` variant just silently never activates, which is
+ * exactly how Badge's `dark:bg-white/10` (gray-tonal variant) shipped as
+ * dead code -- see .wyn/tasks/bugs/WYN-106-admin-badge-dark-mode-dead-variant.md.
+ * Media-query-based instead, so every `dark:`-prefixed utility (present
+ * or future) activates consistently with the same OS preference the
+ * token layer already reads.
+ */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+/*
+ * shadcn/ui's standard "neutral" base theme, now aligned end-to-end with
+ * .wyn/docs/design/wyn-admin-design-system.md (APPROVED 2026-09-04,
+ * "black-and-white premium" -- see also .wyn/docs/design/wyn-049-admin-foundation.md
+ * for why the neutral scale itself is reused as-is). --primary/--ring
+ * used to be WYN Cyan (app/lib/core/design/wyn_colors.dart's cyan500,
+ * #00C8FF) for minimal brand continuity with the Consumer app; per the
+ * approved design doc's section 3.3 ("color is signal, not decoration"),
+ * that accent is now removed system-wide -- --primary/--ring are "ink"
+ * (#0A0A0A, oklch(0.145 0 0) is the well-known shadcn/Tailwind neutral-950
+ * equivalent of that hex, already used below for --foreground) in light
+ * mode, inverted to white in dark mode. --muted-foreground is now an
+ * explicit hex pull from the doc's zinc-based neutral scale (section 3.1)
+ * rather than a single oklch reused for both modes, since the previous
+ * single value did not reliably clear WCAG AA in dark mode. Every
+ * component (Button, active nav state, focus rings) reads these via
+ * Tailwind's `bg-primary`/`text-primary`/`ring-ring` etc., so this is
+ * still the only place any of these colors is defined.
+ */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.145 0 0);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: #71717a;
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.145 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(1 0 0);
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: #a1a1aa;
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(1 0 0);
+}
+
+/*
+ * Design doc section 8: define all 3 dark-mode activation states. The
+ * admin panel has no manual theme toggle yet (no `data-theme`/JS to add
+ * the `.dark` class below), so -- per the doc's own fallback rule -- OS
+ * preference via `prefers-color-scheme` is the primary activation
+ * mechanism for now. This block mirrors `.dark` above onto bare `:root`
+ * so every component using the semantic tokens (bg-background,
+ * text-foreground, bg-primary, text-muted-foreground, etc.) picks up
+ * dark values automatically with no per-component changes. The `.dark`
+ * class block above stays defined and untouched so a future manual
+ * toggle can still override this without any further token work.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(1 0 0);
+    --primary-foreground: oklch(0.145 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: #a1a1aa;
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(1 0 0);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* WYN-141: motion remains subtle, but user preference always wins. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

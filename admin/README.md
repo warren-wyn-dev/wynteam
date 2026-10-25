@@ -6,6 +6,8 @@ Stack (approved by the Founder as a Major Architecture decision, `.wyn/company/D
 
 See `.wyn/tasks/approved/WYN-049-admin-foundation.md` and `.wyn/docs/design/wyn-049-admin-foundation.md` for the full Product/Design spec this scaffold implements.
 
+> **Food and Merchant moved to ZOKY Admin** (`zoky-admin/`, ZOKY-ADMIN-001, Founder-approved 2026-10-25). Their old URLs (`/food/*`, `/merchant/*`, `/merchants`, `/dashboard/{food,merchant}`) redirect there from `next.config.ts`; the sidebar shows a "เปิด ZOKY Admin" link instead. WYNOS Admin keeps Account, Social, Maps, the audit log and Roles & Permissions.
+
 ## Getting Started
 
 ```bash

@@ -69,6 +69,26 @@ jobs:
       - run: npx next typegen
       - run: npx tsc --noEmit
 
+  zoky-admin:
+    name: ZOKY Admin (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: zoky-admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: zoky-admin/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+
   edge-functions:
     name: Supabase Edge Functions (Deno)
     runs-on: ubuntu-latest
