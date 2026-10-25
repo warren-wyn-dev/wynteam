@@ -192,14 +192,14 @@ jobs:
         run: |
           set -euo pipefail
           vercel curl /merchant/flutter --deployment "$MERCHANT_DEPLOYMENT_URL" -- --fail --silent --show-error --output /tmp/merchant-host.html
-          grep -q 'merchant-flutter' /tmp/merchant-host.html
+          grep -Fq '/merchant/flutter/manifest.webmanifest' /tmp/merchant-host.html
           vercel curl /merchant/login --deployment "$MERCHANT_DEPLOYMENT_URL" -- --fail --silent --show-error --output /tmp/merchant-login.html
-          grep -q 'zoky-logo-pink-transparent.png' /tmp/merchant-login.html
-          for path in /merchant-flutter/flutter_bootstrap.js /merchant-flutter/main.dart.js /merchant-flutter/canvaskit/canvaskit.wasm /merchant-flutter/assets/assets/brand/merchant-tools-3d.png; do
+          grep -Fq '/_next/static/' /tmp/merchant-login.html
+          for path in /brand/zoky/zoky-logo-pink-transparent.png /merchant-flutter/flutter_bootstrap.js /merchant-flutter/main.dart.js /merchant-flutter/canvaskit/canvaskit.wasm /merchant-flutter/assets/assets/brand/merchant-tools-3d.png; do
             vercel curl "$path" --deployment "$MERCHANT_DEPLOYMENT_URL" -- --fail --silent --show-error --output /dev/null
           done
           rm -f /tmp/merchant-host.html /tmp/merchant-login.html
-          echo '- Immutable host, login, Flutter bundle, renderer and 3D assets: PASS' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Immutable host, login, official logo, Flutter bundle, renderer and 3D assets: PASS' >> "$GITHUB_STEP_SUMMARY"
 
   promote:
     if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UI_20261024'

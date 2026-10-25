@@ -31,3 +31,13 @@ The reviewed replacement is `514fd13a1655d2c94fed82272d12273e98a17a1b`, on the s
 Verification passed: Flutter analysis, all 30 Flutter tests, release compilation and system-font guard; all 16 compiled browser cases (10 existing core cases plus mobile/desktop empty, offline and revoked-store account exits); ESLint and diff checks. The exact 103 approved paths are unchanged. Food, Next configuration, auth callbacks, database, existing workflows and release controls remain byte-identical to the live base. The manifest changes only the reviewed SHA; targets, root flags, required production reviewer and rollback target remain unchanged.
 
 PR #1239 is merged as code integration (`b9142015`). Production still uses the isolated live-based candidate rather than all of main. The replacement must pass the existing workflow guard and credential-free verification before the protected staging and promotion actions.
+
+## Synthetic browser typecheck correction, 2026-10-25
+
+Replacement run `40169014948` passed the candidate guard but failed verification during TypeScript checking: the new synthetic browser cases declared `qaStoreAccess` and `qaSignedOut` as required Window fields. Staging and promotion were skipped; no production artifact or domain was changed.
+
+The corrected candidate is `49e34d35657771949e26472fa14f1f4744955af0`. The fix changes only those two test-fixture fields to optional TypeScript properties. Application code, emitted JavaScript fixture behavior, assertions, authorization and release controls are unchanged. Independent review found no blocker/HIGH.
+
+The complete candidate `npm run check` passed after the correction: ESLint, TypeScript, 390 Node executions, all 30 Flutter tests, Flutter analysis/release build/system-font guard and the Next production build. The previous 16 compiled browser outcomes remain applicable to this type-only change; the protected workflow still reruns the browser suite before staging. The exact 103 approved paths and the live-based Food/auth/config/database boundaries remain unchanged. The manifest update changes only the reviewed SHA.
+
+Pre-staging HTTP checks were also verified against the actual Next production server using synthetic public configuration. The authenticated Flutter route server-renders its manifest metadata, while the login server-renders the Next hydration shell; client content and its logo are rendered after hydration. Staging now checks those real SSR markers and fetches the official logo PNG as an asset, rather than requiring client-only strings in initial HTML. HTTP failure still blocks, and every existing Flutter/renderer/3D asset check and release gate remains in place.
