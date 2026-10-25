@@ -17,3 +17,11 @@ Latest visual evidence is in `final-home.md` and its captures. The home has eigh
 The Founder instructed “เอาขึ้นเว็บจริง” and “ต่อ” on 2026-10-24. Production still follows the reviewed, narrow Merchant release workflow and the existing protected GitHub `production` environment. The general all-system release freeze, its acceptance issues, and required reviewer policy are unchanged. A staged production build must pass checks before promotion. Preserve the deployment above for Founder-directed recovery; do not roll back automatically.
 
 The integration reuses the existing account, Food backend, permissions and payment/order/delivery flow. It includes explicit manual receipt confirmation, preparation ETA, membership-filtered stores and deferred photo upload. The documented residual concerning an immutable storage object after an abandoned failed completion remains; no storage policy is weakened. No database or live customer-data tests are part of this release.
+
+## Account-exit fix verified on 2026-10-25
+
+The earlier `0fc4650b` pin is superseded by this branch's sign-out follow-up. Source fix `9a53e008`, cherry-picked as `57f63d91`, preserves an account exit when stores are empty, unavailable or finally revoked. No normal-home design or authentication contract changes. The previous release run `40097479381` was cancelled before a staging artifact or production action.
+
+After the fix, Flutter analysis, all 30 Flutter tests, release compilation and font guard passed. Compiled mobile/desktop browser QA passed 16/16, including the ten existing core cases and six new empty/offline/revoked-store sign-out cases. ESLint and diff checks passed for the expanded browser fixture. Independent review found no CRITICAL/HIGH issue. The unchanged Node/backend source retains the baseline 390-test evidence above; the release workflow must run the full candidate checks again before staging.
+
+The exact reviewed 103-path set is unchanged. Food source, shared auth callbacks, Next configuration, workflows, Supabase and tools remain byte-identical to `e6f577dc`. Read-only Vercel metadata on 2026-10-25 confirmed that `merchant.wynos.online` still serves `dpl_HhzmnfVpb9qyHd7yeiAiiUmkbPV9` / `e6f577dc` in the pinned `web` project. Immutable staging and promotion remain pending and are not claimed by this local verification record.
