@@ -1,0 +1,167 @@
+name: ZOKY fulfil -- apply ZOKY-FULFILL-001 to production DB
+
+# ZOKY-FULFILL-001 (pickup, store-enabled COD, store-decided cancellation and
+# refunds). Founder approval 2026-10-26 (.wyn/company/APPROVALS.md) and the
+# Founder's go-ahead to make it ready "อนุญาตทุกอย่างคืนนี้" (2026-10-27 night).
+# Every write step still needs the GitHub `production` environment review.
+#
+# One step per run, each file in one transaction:
+#   preflight     READ-ONLY. Checks that the six live functions the migration
+#                 redefines still match the baseline dump (run 40318273032) and
+#                 reports whether the feature objects already exist. Counts only.
+#   apply         supabase/migrations/20261026120000_zoky_fulfill_001.sql
+#   apply-admin   supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql
+#   rollback-admin supabase/rollbacks/20261026130000_zoky_fulfill_001_admin_rollback.sql
+#   rollback      supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql
+#                 (refuses while any pickup/COD/cancel/refund-slip data exists;
+#                 after that, fix forward)
+# The SQL comes from a pinned commit of feat/zoky-fulfill-001 and each file is
+# checked against its pinned SHA-256 before it runs.
+# Order: preflight -> apply -> apply-admin. Both are additive: existing
+# orders become delivery/transfer, every store keeps delivery only, v1/v2 RPCs
+# keep working, so the live web/merchant/admin apps are unaffected until the
+# app release turns the new screens on. Test: supabase/tests/zoky_fulfill_001_test.sh
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'preflight (read-only), apply, apply-admin, rollback-admin, rollback'
+        required: true
+        type: choice
+        options: [preflight, apply, apply-admin, rollback-admin, rollback]
+      confirm:
+        description: 'Type APPLY-ZOKY-FULFILL-001 to confirm'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoky-fulfill-001-apply
+  cancel-in-progress: false
+
+env:
+  MIGRATION_SHA: 7dd20c6d9e0315b0c837da352a07cfa395534fb6
+
+jobs:
+  apply:
+    environment: production
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-ZOKY-FULFILL-001'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      STEP: ${{ github.event.inputs.step }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MIGRATION_SHA }}
+          persist-credentials: false
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1; }
+          [ "$(git rev-parse HEAD)" = "$MIGRATION_SHA" ] || { echo "::error::checkout is not the pinned migration commit"; exit 1; }
+          case "$STEP" in
+            preflight) FILE= ; SUM= ;;
+            apply) FILE=supabase/migrations/20261026120000_zoky_fulfill_001.sql; SUM=0618bee8a21f086c8caea6bf96cd0b834d2d3068af12fa26cbaab049c176a8d2 ;;
+            apply-admin) FILE=supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql; SUM=7f4b6310eeeec333264db0dac141ab9ad4e778582a9750ec8d38d1bc253ca5ee ;;
+            rollback-admin) FILE=supabase/rollbacks/20261026130000_zoky_fulfill_001_admin_rollback.sql; SUM=919be47d9eadee687bf4be5146777e49deebcd9a470b7a59e424bfb116012130 ;;
+            rollback) FILE=supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql; SUM=5698c2515c5c3bb4f9208c3b92ee70401caf815853d5913ce532512479a174a2 ;;
+            *) echo "::error::unknown step"; exit 1 ;;
+          esac
+          if [ -n "$FILE" ]; then
+            echo "$SUM  $FILE" | sha256sum -c - || { echo "::error::$FILE does not match its pinned SHA-256"; exit 1; }
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local out code
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+              -d "$(jq -n --arg q "$1" '{query: $q}')")
+            [ "$code" = "200" ] || [ "$code" = "201" ] || { echo "::error::HTTP $code"; cat "$out" >&2; rm -f "$out"; return 1; }
+            cat "$out"; rm -f "$out"
+          }
+          # Baseline md5 of pg_get_functiondef for the six functions the
+          # migration redefines (read-only dump, run 40318273032).
+          baseline_check() {
+            run_sql "select p.oid::regprocedure::text as signature, md5(pg_get_functiondef(p.oid)) as md5
+                from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where (n.nspname, p.proname) in (('internal','food_delivery_fee'),('internal','food_orders_gp_snapshot'),
+                  ('public','food_transition_order'),('public','food_complete_delivery'),('public','food_submit_payment'),
+                  ('internal','food_order_status_notify'))
+                order by 1;" > live.json
+            jq -r '.[] | "\(.signature) \(.md5)"' live.json
+            jq -e 'map({(.signature): .md5}) | add as $m
+              | $m["internal.food_delivery_fee(uuid,double precision,double precision)"] == "13121fef9fe24a85c6dc95aaf5b58246"
+              and $m["internal.food_orders_gp_snapshot()"] == "0dba3344077f213dca93bfa94a05df4e"
+              and $m["food_transition_order(uuid,text,integer,text)"] == "0f76c766864a640bebcc543be04d755a"
+              and $m["food_complete_delivery(uuid,text,text,text)"] == "b0c073dbca20e074ea1f243dec04ecac"
+              and $m["food_submit_payment(uuid,text)"] == "79bcdaf6bdefb7e027d6b43806c3eb9e"
+              and $m["internal.food_order_status_notify()"] == "7c22fc77abc300ecfd3040f1fc6f5f28"' live.json >/dev/null
+          }
+          applied() {
+            run_sql "select exists (select 1 from information_schema.columns where table_schema='public'
+                and table_name='food_orders' and column_name='fulfillment_type') as ok;" | jq -r '.[0].ok'
+          }
+          state() {
+            run_sql "select
+                (select count(*) from information_schema.columns where table_schema='public' and table_name='food_orders'
+                   and column_name in ('fulfillment_type','payment_method','pickup_code','cancel_requested_at','refund_slip_path')) as order_columns,
+                (select count(*) from information_schema.columns where table_schema='public' and table_name='food_stores'
+                   and column_name in ('pickup_enabled','delivery_enabled','cod_enabled','pickup_prep_minutes')) as store_columns,
+                (select count(*) from pg_proc where proname in ('food_create_order_v3','food_quote_order_v3','food_pickup_slots',
+                   'food_complete_pickup','food_request_cancel','food_resolve_cancel_request','food_store_mark_refunded',
+                   'food_store_set_fulfillment')) as new_functions,
+                (select count(*) from pg_proc where proname = 'admin_food_orders_v2') as admin_v2,
+                (select count(*) from pg_trigger where tgname in ('food_orders_fulfillment_guard','food_stores_fulfillment_settings_guard')) as guards,
+                (select count(*) from pg_policies where schemaname='storage' and policyname like 'Food refund slip%') as refund_policies;" | jq .
+          }
+          case "$STEP" in
+            preflight)
+              echo "== Live definitions vs baseline"
+              if baseline_check; then echo "Baseline: MATCH"; else echo "Baseline: DIFFERENT (or already migrated)"; fi
+              echo "== Feature objects already present"
+              state
+              run_sql "select (select count(*) from public.food_stores where is_published) as published_stores,
+                  (select count(*) from public.food_orders where status not in ('delivered','cancelled')) as open_orders;" | jq .
+              echo "Preflight finished. Nothing was changed."
+              exit 0 ;;
+            apply)
+              WAS_APPLIED=$(applied)
+              if [ "$WAS_APPLIED" != "true" ]; then
+                baseline_check || { echo "::error::live functions changed since the baseline dump; re-dump and rebuild the migration"; exit 1; }
+              else
+                echo "Migration already applied once; re-running (idempotent)."
+              fi ;;
+            apply-admin)
+              [ "$(applied)" = "true" ] || { echo "::error::run apply first"; exit 1; } ;;
+          esac
+          run_sql "begin;
+          $(cat "$FILE")
+          commit;" >/dev/null
+          echo "== After $STEP"
+          state
+          case "$STEP" in
+            apply)
+              # On the first install every existing store and order must keep
+              # delivery + transfer. A later re-run (stores may have turned the
+              # feature on by then) only re-checks that the objects exist.
+              if [ "$WAS_APPLIED" != "true" ]; then
+                run_sql "select
+                    (select count(*) from public.food_stores where pickup_enabled or cod_enabled or not delivery_enabled) as stores_changed,
+                    (select count(*) from public.food_orders where fulfillment_type <> 'delivery' or payment_method <> 'transfer') as orders_changed;" > smoke.json
+                jq . smoke.json
+                jq -e '.[0].stores_changed == 0 and .[0].orders_changed == 0' smoke.json >/dev/null || { echo "::error::existing stores/orders did not keep delivery + transfer"; exit 1; }
+              fi
+              [ "$(state | jq -r '.[0].new_functions')" = "8" ] || { echo "::error::new functions missing"; exit 1; } ;;
+            apply-admin)
+              [ "$(state | jq -r '.[0].admin_v2')" = "1" ] || { echo "::error::admin_food_orders_v2 missing"; exit 1; } ;;
+          esac
+          echo "$STEP finished."
