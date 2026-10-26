@@ -276,7 +276,9 @@ test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
   expect(app).not.toContain('onMessages={() => router.push("/chat")}');
 });
 
-test("Food checkout is delivery-only and immediate (Founder decision 2026-10-10)", () => {
+// Founder 2026-10-10: no scheduled orders. ZOKY-FULFILL-001 (approved 2026-10-26)
+// added pickup today, offered only when the store turns it on.
+test("Food checkout is immediate; pickup only when the store offers it (ZOKY-FULFILL-001)", () => {
   const data = read("lib/food-customer.ts");
   const app = read("components/food/wynos-food-developer-app.tsx");
 
@@ -286,7 +288,8 @@ test("Food checkout is delivery-only and immediate (Founder decision 2026-10-10)
   expect(app).toContain("scheduledFor: null");
   expect(app).not.toContain('useState<"asap" | "scheduled">');
   expect(app).not.toContain("สั่งล่วงหน้า");
-  expect(app).not.toContain("รับเองที่ร้าน");
+  expect(app).toContain("const modes = storeFulfillmentModes(store);");
+  expect(data).toContain('if (!store || typeof store.pickup_enabled !== "boolean") return ["delivery"];');
   expect(app).toContain("order.scheduled_for");
 });
 
@@ -445,8 +448,8 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   // Client sends the pin; checkout blocks unpinned or out-of-range addresses.
   expect(lib).toContain("return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};");
   expect(lib).toContain('client.functions.invoke("location-search"');
-  expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
-  expect(app).toContain("const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason);");
+  expect(app).toContain("location: !isPickup && storeHasDeliveryZone(store) ? addressLocation(address) : null");
+  expect(app).toContain("const confirmDisabled = (!isPickup && !address) || busy || quoteLoading || Boolean(blockedReason);");
   expect(app).toContain("disabled={confirmDisabled}");
   expect(map).toContain('aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}');
   expect(merchant).toContain("Math.ceil(");
@@ -668,12 +671,17 @@ test("ZOKY web Home + Food follow the app design with real data only (2026-10-19
   expect(guest).toContain('if (window.history.state?.zkScreen === "basket" && !selectedId) window.history.back();');
   expect(guest).toContain('setShowBasket(state?.zkScreen === "basket");\n      setSelectedItem(null);');
   expect(app).toContain('setStorefrontOpen(screen === "store");\n      setSelectedItem(null);');
-  // Founder 2026-10-19: deals, category circles and pickup stay hidden; "ร้านอาหารแนะนำ" = real popular stores.
+  // Founder 2026-10-19: deals, category circles and pickup stay hidden on Home; "ร้านอาหารแนะนำ" = real popular stores.
+  // ZOKY-FULFILL-001 (2026-10-26) puts pickup in checkout and orders only, never on Home.
   for (const source of [app, guest, ui]) {
     expect(source).not.toContain("ดีลเด็ดวันนี้");
-    expect(source).not.toContain("รับเองที่ร้าน");
     expect(source).not.toContain("ข้อมูลตัวอย่าง");
   }
+  for (const source of [guest, ui]) expect(source).not.toContain("รับเองที่ร้าน");
+  const homeStart = app.indexOf("\nfunction FoodHomeScreen(");
+  const home = app.slice(homeStart, app.indexOf("\nfunction ", homeStart + 1));
+  expect(home.length).toBeGreaterThan(0);
+  expect(home).not.toContain("รับเองที่ร้าน");
   expect(app).toContain("foodPopularStores(directory.stores)");
   expect(app).toContain('title="ร้านยอดนิยม"');
   // No fake ratings or ETAs.
