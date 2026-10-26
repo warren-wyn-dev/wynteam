@@ -2647,7 +2647,7 @@ Object.assign(EN_EXACT, {
   "ศุกร์": "Friday",
   "เสาร์": "Saturday",
   "อาทิตย์": "Sunday",
-  "ปิด": "Closed",
+  "ปิดทำการ": "Closed",
   "วันหยุดพิเศษ": "Special closed dates",
   "เพิ่มวันหยุด": "Add closed date",
   "ยังไม่มีวันหยุดพิเศษ": "No special closed dates",

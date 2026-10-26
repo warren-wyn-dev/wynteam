@@ -149,3 +149,10 @@ test("CSS keyed on Thai attribute text also matches the English text", () => {
   }
   assert.deepEqual(bad, []);
 });
+
+test("the close button label reads Close, not the store-hours Closed", () => {
+  // A second "ปิด" key once overrode "Close", so every close button read "Closed".
+  assert.equal(translateToEnglish("ปิด"), "Close");
+  assert.equal(translateToEnglish("ปิดทำการ"), "Closed");
+  assert.equal(read("lib/i18n/en.ts").match(/^  "ปิด": /gm)?.length, 1);
+});
