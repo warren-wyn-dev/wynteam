@@ -173,6 +173,7 @@ class FakeRepository extends MerchantRepository {
     String method,
     String imagePath, {
     String? locationNote,
+    bool cashReceived = false,
   }) async {
     write();
     orderRows.firstWhere((o) => o['id'] == orderId)['status'] = 'delivered';

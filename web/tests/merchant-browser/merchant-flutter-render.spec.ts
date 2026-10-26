@@ -131,3 +131,44 @@ for (const scenario of ['empty', 'offline', 'revoked'] as const) {
     expect(errors).toEqual([]);
   });
 }
+
+test('pickup cancellation rejection refreshes the order and pickup completes without delivery evidence', async ({ page }) => {
+  await page.route('**/merchant-fulfillment-qa', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body,#host{margin:0;width:100%;height:100%;overflow:hidden}</style></head><body><div id="host"></div><script>
+    const store={id:'store-1',name:'ร้านรับเอง QA',is_open:true,is_published:true,effective_open:true};
+    const order={id:'order-1',order_number:'PICKUP-01',status:'preparing',fulfillment_type:'pickup',payment_method:'transfer',payment_status:'paid',pickup_at:'2026-10-26T05:00:00Z',pickup_code:'A23',cancel_requested_at:'2026-10-26T04:00:00Z',cancel_request_note:'ขอเปลี่ยนแผน',recipient_name:'ลูกค้าทดสอบ',recipient_phone:'0811111111',total:75,subtotal:75,delivery_fee:0,created_at:'2026-10-26T03:00:00Z',food_order_items:[]};
+    window.qaWrites=[];
+    window.zokyMerchant={request:async(method,raw)=>{
+      const a=JSON.parse(raw);let data=null;
+      switch(method){
+        case 'stores':data=[store];break;
+        case 'hasRole':data=true;break;
+        case 'orders':data=a.status===order.status?[order]:[];break;
+        case 'menu':data=[];break;
+        case 'report':data={today_sales:0,today_orders:0,month_sales:0,total_orders:0,best:[]};break;
+        case 'quality':data={available:false};break;
+        case 'campaigns':data={can_manage:false,campaigns:[]};break;
+        case 'pushStatus':data={enabled:false,available:false};break;
+        case 'resolveCancel':if(a.approve)throw new Error('expected rejection');order.cancel_requested_at=null;window.qaWrites.push('reject');break;
+        case 'transition':order.status=a.status;window.qaWrites.push(a.status);break;
+        case 'pickDeliveryPhoto':case 'completeDelivery':throw new Error('pickup must not use delivery evidence');
+      }
+      return JSON.stringify({ok:true,data});
+    }};
+    </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="_flutter.loader.load({config:{entrypointBaseUrl:'/merchant-flutter/',assetBase:'/merchant-flutter/',canvasKitBaseUrl:'/merchant-flutter/canvaskit/'},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:'/merchant-flutter/',canvasKitBaseUrl:'/merchant-flutter/canvaskit/'});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})"></script></body></html>` }));
+  await page.goto('/merchant-fulfillment-qa');
+  await expect(page.getByText('ร้านรับเอง QA', { exact: true }).first()).toBeVisible({ timeout: 45000 });
+  await page.getByRole('tab', { name: 'ออเดอร์', exact: true }).or(page.getByRole('button', { name: 'ออเดอร์', exact: true })).first().click();
+  await page.getByRole('checkbox', { name: 'กำลังเตรียม', exact: true }).click();
+  await expect(page.getByRole('group', { name: /รหัสรับอาหาร: A23/ })).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('merchant-pickup-request.png'), fullPage: true });
+  await expect(page.getByRole('button', { name: 'อนุมัติคำขอยกเลิก', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'ปฏิเสธคำขอยกเลิก', exact: true }).click();
+  await page.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'ปฏิเสธคำขอยกเลิก', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'พร้อมให้รับ', exact: true }).click();
+  await page.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'พร้อมให้รับ', exact: true }).click();
+  await page.getByRole('button', { name: 'ลูกค้ารับแล้ว', exact: true }).click();
+  await page.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as Window & {qaWrites?: string[]}).qaWrites)).toEqual(['reject', 'ready_for_pickup', 'picked_up']);
+});

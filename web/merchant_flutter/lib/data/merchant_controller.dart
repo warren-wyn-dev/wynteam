@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'merchant_repository.dart';
 
@@ -11,6 +12,7 @@ class MerchantController extends ChangeNotifier {
   bool loading = false,
       busy = false,
       hasMore = false,
+      canConfigure = false,
       canManage = false,
       canOrders = false,
       canDelivery = false,
@@ -18,6 +20,14 @@ class MerchantController extends ChangeNotifier {
   DateTime? updatedAt;
   int _generation = 0;
   bool _disposed = false;
+  bool _refreshPending = false;
+  void _drainRefresh() {
+    if (_refreshPending && !_disposed && !loading && !busy) {
+      _refreshPending = false;
+      unawaited(refresh());
+    }
+  }
+
   Json? get store => stores.where((s) => s['id'] == storeId).firstOrNull;
   bool get writable =>
       !_disposed && !loading && !busy && error == null && store != null;
@@ -51,6 +61,7 @@ class MerchantController extends ChangeNotifier {
       if (!_disposed && g == _generation) {
         loading = false;
         notifyListeners();
+        _drainRefresh();
       }
     }
   }
@@ -92,10 +103,11 @@ class MerchantController extends ChangeNotifier {
       report = {};
       qualityData = {};
       qualityError = null;
-      canManage = canOrders = canDelivery = canCampaigns = false;
+      canConfigure = canManage = canOrders = canDelivery = canCampaigns = false;
       return;
     }
     final results = await Future.wait([
+      repository.hasRole(id, ['owner', 'admin']),
       repository.menu(id),
       repository.orders(id, status, 0),
       repository.hasRole(id, ['owner', 'admin', 'manager']),
@@ -109,11 +121,12 @@ class MerchantController extends ChangeNotifier {
       ]),
     ]);
     if (_disposed || g != _generation) return;
-    menu = results[0] as List<Json>;
-    orders = results[1] as List<Json>;
-    canManage = results[2] as bool;
-    canOrders = results[3] as bool;
-    canDelivery = results[4] as bool;
+    canConfigure = results[0] as bool;
+    menu = results[1] as List<Json>;
+    orders = results[2] as List<Json>;
+    canManage = results[3] as bool;
+    canOrders = results[4] as bool;
+    canDelivery = results[5] as bool;
     hasMore = orders.length == MerchantRepository.pageSize;
     try {
       final value = await repository.report(id);
@@ -154,7 +167,11 @@ class MerchantController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    if (loading || busy || _disposed) return;
+    if (_disposed) return;
+    if (loading || busy) {
+      _refreshPending = true;
+      return;
+    }
     if (storeId == null) {
       await initialize();
       return;
@@ -174,12 +191,14 @@ class MerchantController extends ChangeNotifier {
         report = {};
         qualityData = {};
         qualityError = null;
-        canManage = canOrders = canDelivery = canCampaigns = false;
+        canConfigure = canManage = canOrders = canDelivery = canCampaigns =
+            false;
       }
     } finally {
       if (!_disposed && g == _generation) {
         loading = false;
         notifyListeners();
+        _drainRefresh();
       }
     }
   }
@@ -199,6 +218,7 @@ class MerchantController extends ChangeNotifier {
     } finally {
       loading = false;
       notifyListeners();
+      _drainRefresh();
     }
   }
 

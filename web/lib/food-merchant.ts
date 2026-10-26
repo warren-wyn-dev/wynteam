@@ -28,6 +28,10 @@ export type FoodStore = {
   prep_time_min_minutes?: number;
   prep_time_max_minutes?: number;
   menu_category_order?: string[];
+  pickup_enabled?: boolean;
+  delivery_enabled?: boolean;
+  cod_enabled?: boolean;
+  prep_minutes?: number;
   delivery_area: string | null;
   delivery_fee: number | string;
   minimum_order: number | string;
@@ -126,6 +130,15 @@ export type FoodOrder = {
   created_by: string | null;
   source: "app" | "manual" | "social";
   status: "pending_acceptance" | "preparing" | "ready_for_delivery" | "out_for_delivery" | "delivered" | "cancelled";
+  fulfillment_type?: "delivery" | "pickup";
+  payment_method?: "transfer" | "cod";
+  pickup_at?: string | null;
+  pickup_code?: string | null;
+  picked_up_at?: string | null;
+  cancel_requested_at?: string | null;
+  cancel_request_note?: string | null;
+  refund_slip_path?: string | null;
+  refunded_by_store_at?: string | null;
   payment_status: "pending" | "submitted" | "paid" | "issue" | "refunded";
   refund_status: "none" | "pending" | "refunded" | "failed";
   refund_note: string | null;
