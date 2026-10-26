@@ -3,10 +3,10 @@ import { ArrowLeft } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
-  FOOD_ORDER_STATUS_LABEL,
   FOOD_PAYMENT_STATUS_LABEL,
   FOOD_REFUND_STATUS_LABEL,
   fetchAdminFoodOrders,
+  foodOrderStatusLabelFor,
   formatBaht,
   formatThaiDate,
   type AdminFoodOrderStatusFilter,
@@ -22,6 +22,9 @@ const FILTERS: Array<{ value: "all" | AdminFoodOrderStatusFilter; label: string 
   { value: "cancelled", label: "ยกเลิก" },
   { value: "payment_review", label: "รอตรวจการชำระ" },
   { value: "refund_pending", label: "รอคืนเงิน" },
+  { value: "cancel_request", label: "ลูกค้าขอยกเลิก" },
+  { value: "pickup", label: "รับเองที่ร้าน" },
+  { value: "cod", label: "เก็บเงินปลายทาง" },
 ];
 const ORDER_LIMIT = 300;
 
@@ -70,7 +73,7 @@ export default async function FoodOrdersPage({
       <form className="flex w-full max-w-md gap-2" action="/food/orders">
         {resolved !== "all" ? <input type="hidden" name="status" value={resolved} /> : null}
         {store ? <input type="hidden" name="store" value={store} /> : null}
-        <input name="q" defaultValue={q ?? ""} placeholder="เลขออเดอร์ · ชื่อ · เบอร์โทร" aria-label="ค้นหาออเดอร์" className="h-11 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" />
+        <input name="q" defaultValue={q ?? ""} placeholder="เลขออเดอร์ · ชื่อ · เบอร์โทร · รหัสรับ" aria-label="ค้นหาออเดอร์" className="h-11 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" />
         <button type="submit" className="h-11 rounded-md border px-4 text-sm font-medium hover:bg-accent">ค้นหา</button>
       </form>
 
@@ -102,10 +105,16 @@ export default async function FoodOrdersPage({
               <div className="min-w-0">
                 <p className="font-medium">#{order.order_number} · {order.store_name}</p>
                 <p className="text-sm text-muted-foreground">{order.recipient_name} · {order.recipient_phone} · {formatThaiDate(order.created_at)}</p>
+                {order.fulfillment_type === "pickup" ? (
+                  <p className="text-sm text-muted-foreground">{`นัดรับ ${formatThaiDate(order.pickup_at)}${order.pickup_code ? ` · รหัส ${order.pickup_code}` : ""}`}</p>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <Badge variant="gray-tonal">{FOOD_ORDER_STATUS_LABEL[order.status] ?? order.status}</Badge>
-                <Badge variant="outline">{FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
+                {order.fulfillment_type === "pickup" ? <Badge variant="outline">รับเอง</Badge> : null}
+                {order.payment_method === "cod" ? <Badge variant="outline">เก็บเงินปลายทาง</Badge> : null}
+                {order.cancel_requested_at && order.status !== "cancelled" ? <Badge variant="destructive">ขอยกเลิก</Badge> : null}
+                <Badge variant="gray-tonal">{foodOrderStatusLabelFor(order)}</Badge>
+                <Badge variant="outline">{order.payment_method === "cod" && order.payment_status === "pending" ? "รอเก็บเงินสด" : FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
                 {order.refund_status !== "none" ? <Badge variant="destructive">{FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}</Badge> : null}
                 <span className="font-medium tabular-nums">{formatBaht(order.total)}</span>
               </div>
