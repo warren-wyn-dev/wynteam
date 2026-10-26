@@ -108,7 +108,10 @@ jobs:
             "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" | jq -r '.rootDirectory // ""')
           if [ "$root_dir" = "web" ]; then cd ..; fi
           # Same runtime flags as the live Merchant release (dpl_AzSiNf7cK7GfS7qboogk3YtR1q73).
+          # A clean build: the cached Flutter SDK from the previous production
+          # build has no .git, so build_web.sh's revision check fails on it.
           url=$(vercel deploy --prod --skip-domain --yes --scope warren14 \
+            --build-env VERCEL_FORCE_NO_BUILD_CACHE=1 \
             --env ZOKY_MERCHANT_FLUTTER_ENABLED=1 --env ZOKY_LEGACY_FOOD_REDIRECT=0 \
             --meta githubCommitSha="$RELEASE_SHA" --meta githubCommitRef="$RELEASE_BRANCH" \
             --meta githubRepo=wynteam --meta githubOrg=warren-wyn-dev | tail -n1)
