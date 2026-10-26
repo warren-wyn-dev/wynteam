@@ -3125,9 +3125,10 @@ function OrderDetailSheet({
   const canCancel = order.status === "pending_acceptance" && (awaitingPayment || (isCod && order.payment_status === "pending"));
   // Pickup after payment or acceptance: the customer asks, the store decides (Founder 2026-10-26).
   const cancelRequested = !isCancelled && Boolean(order.cancel_requested_at);
+  // The server allows one request per paid order (contract v2.1).
   const canRequestCancel = isPickup && !canCancel && !cancelRequested
     && ["pending_acceptance", "preparing", "ready_for_delivery"].includes(order.status)
-    && !["pending", "issue"].includes(order.payment_status);
+    && order.payment_status === "paid";
   const storePinLat = orderStore?.pickup_latitude ?? orderStore?.latitude;
   const storePinLon = orderStore?.pickup_longitude ?? orderStore?.longitude;
   const storePin = storePinLat != null && storePinLon != null
