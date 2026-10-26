@@ -15,6 +15,7 @@ db() { run -At -c "$1" 2>&1 | tail -n1; }
 as() { db "set test.uid='$1'; $2"; }
 expect() { local got; got="$(db "$1")"; [[ "$got" == "$2" ]] || { echo "FAIL: $3 (got '$got', want '$2')"; exit 1; }; }
 expect_as() { local got; got="$(as "$1" "$2")"; [[ "$got" == "$3" ]] || { echo "FAIL: $4 (got '$got', want '$3')"; exit 1; }; }
+expect_fail_db() { local err; if err="$(run -c "$1" 2>&1)"; then echo "FAIL (expected error): $3"; exit 1; fi; [[ "$err" == *"$2"* ]] || { echo "FAIL: $3 (wrong error: $err)"; exit 1; }; }
 expect_fail_as() { local err; if err="$(run -c "set test.uid='$1'; $2" 2>&1)"; then echo "FAIL (expected error): $4"; exit 1; fi; [[ "$err" == *"$3"* ]] || { echo "FAIL: $4 (wrong error: $err)"; exit 1; }; }
 
 STORE=00000000-0000-0000-0000-0000000000a1
@@ -117,12 +118,21 @@ expect_fail_as "$OWNER" "select public.food_store_set_fulfillment('$STORE', true
 expect_fail_as "$OWNER" "select public.food_store_set_fulfillment('$STORE', true, true, false, 2)" "invalid_prep_minutes" "prep minutes range"
 expect_fail_as "$OTHER" "select public.food_store_set_fulfillment('$STORE', true, true, true, 15)" "store settings role required" "stranger cannot change settings"
 as "$OWNER" "select public.food_store_set_fulfillment('$STORE', true, true, true, 20)" >/dev/null
+expect_fail_as "$OWNER" "update public.food_stores set cod_enabled=false where id='$STORE'" "use food_store_set_fulfillment" "settings change only through the RPC"
+expect_fail_as "$STAFF" "update public.food_stores set pickup_prep_minutes=30 where id='$STORE'" "use food_store_set_fulfillment" "staff cannot bypass the RPC"
+as "$OWNER" "update public.food_stores set name='ร้านทดสอบ' where id='$STORE'" >/dev/null
+expect "select name||cod_enabled::text from public.food_stores where id='$STORE'" "ร้านทดสอบtrue" "other store fields still update directly"
 
 # --- pickup slots ------------------------------------------------------------
 SLOT=$(db "select s from internal.food_pickup_slots('$STORE', now()) s order by s limit 1")
 [[ -n "$SLOT" ]] || { echo "FAIL: no pickup slot"; exit 1; }
 expect "select (min(s) >= now() + interval '20 minutes')::text || (extract(minute from min(s))::int % 15)::text || bool_and((s at time zone 'Asia/Bangkok')::date = (now() at time zone 'Asia/Bangkok')::date)::text from internal.food_pickup_slots('$STORE', now()) s" "true0true" "slots after prep, on 15-min marks, today only"
 expect "select count(*) from internal.food_pickup_slots('$STORE2', now())" "0" "no slots without pickup"
+db "update public.food_stores set is_published=false where id='$STORE'" >/dev/null
+expect "select count(*) from internal.food_pickup_slots('$STORE', now())" "0" "no slots for an unpublished store"
+db "update public.food_stores set is_published=true, temporary_closed_until=now() + interval '2 hours' where id='$STORE'" >/dev/null
+expect "select count(*) from internal.food_pickup_slots('$STORE', now())" "0" "no slots while the store is closed now"
+db "update public.food_stores set temporary_closed_until=null where id='$STORE'" >/dev/null
 
 # --- quote v3 ---------------------------------------------------------------
 expect_as "$BUYER" "select (q->>'delivery_fee')::numeric::int || (q->>'fulfillment_type') || (jsonb_array_length(q->'pickup_slots') > 0)::text from (select public.food_quote_order_v3('$STORE',$ITEMS,null,null,null,'pickup') q) x" "0pickuptrue" "pickup quote has no fee and offers slots"
@@ -139,6 +149,7 @@ P1=$(as "$BUYER" "select public.food_create_order_v3('$STORE','ลูกค้�
 expect "select fulfillment_type||'|'||pickup_code||'|'||delivery_fee::int||'|'||shipping_address||'|'||(pickup_at='$SLOT'::timestamptz)::text||'|'||(delivery_latitude is null)::text||'|'||total::int from public.food_orders where id='$P1'" "pickup|P001|0|รับเองที่ร้าน|true|true|100" "pickup order fields"
 P2=$(as "$BUYER2" "select public.food_create_order_v3('$STORE','ลูกค้า2','0800000001','','',$ITEMS,null,null,null,'pickup','$SLOT','transfer')")
 expect "select pickup_code from public.food_orders where id='$P2'" "P002" "pickup codes are sequential per store/day"
+expect_fail_db "update public.food_orders set pickup_code='P001' where id='$P2'" "food_orders_pickup_code_day_key" "pickup codes unique per store/day"
 
 # --- pickup flow ------------------------------------------------------------
 expect_fail_as "$STAFF" "select public.food_transition_order('$P1','preparing')" "payment must be verified first" "unpaid pickup cannot be accepted"
@@ -163,10 +174,25 @@ expect_fail_as "$BUYER2" "select public.food_request_cancel('$P2','อีกท�
 expect_fail_as "$BUYER2" "select public.food_resolve_cancel_request('$P2', true, true, null)" "order management role required" "customer cannot resolve own request"
 as "$STAFF" "select public.food_resolve_cancel_request('$P2', false, false, 'ทำเสร็จแล้ว')" >/dev/null
 expect "select status||coalesce(cancel_requested_at::text,'null') from public.food_orders where id='$P2'" "preparingnull" "rejected request keeps order"
-as "$BUYER2" "select public.food_request_cancel('$P2','ขออีกครั้ง')" >/dev/null
-as "$STAFF" "select public.food_resolve_cancel_request('$P2', true, false, 'อาหารทำแล้ว')" >/dev/null
-expect "select status||'|'||refund_status||'|'||coalesce(refund_requested_at::text,'null') from public.food_orders where id='$P2'" "cancelled|none|null" "approved without refund"
+expect_fail_as "$BUYER2" "select public.food_request_cancel('$P2','ขออีกครั้ง')" "cancel request not available" "one request per order after a rejection"
+
+P4=$(as "$BUYER2" "select public.food_create_order_v3('$STORE','ลูกค้า2','0800000001','','',$ITEMS,null,null,null,'pickup','$SLOT','transfer')")
+db "update public.food_orders set payment_status='submitted' where id='$P4'" >/dev/null
+expect_fail_as "$BUYER2" "select public.food_request_cancel('$P4','x')" "cancel request not available" "no cancel request while the slip is unchecked"
+db "update public.food_orders set payment_status='paid' where id='$P4'" >/dev/null
+as "$STAFF" "select public.food_transition_order('$P4','preparing')" >/dev/null
+as "$BUYER2" "select public.food_request_cancel('$P4','ไม่ว่างไปรับ')" >/dev/null
+as "$STAFF" "select public.food_resolve_cancel_request('$P4', true, false, 'อาหารทำแล้ว')" >/dev/null
+expect "select status||'|'||refund_status||'|'||coalesce(refund_requested_at::text,'null') from public.food_orders where id='$P4'" "cancelled|none|null" "approved without refund"
 expect "select count(*) from public.notifications where recipient_id='$BUYER2' and reason like '%ร้านไม่คืนเงิน%'" "1" "customer told there is no refund"
+
+P5=$(as "$OTHER" "select public.food_create_order_v3('$STORE','ลูกค้า','0800000000','','',$ITEMS,null,null,null,'pickup','$SLOT','transfer')")
+db "update public.food_orders set payment_status='paid' where id='$P5'" >/dev/null
+as "$STAFF" "select public.food_transition_order('$P5','preparing')" >/dev/null
+as "$STAFF" "select public.food_transition_order('$P5','ready_for_delivery')" >/dev/null
+as "$OTHER" "select public.food_request_cancel('$P5','มาไม่ทัน')" >/dev/null
+as "$STAFF" "select public.food_complete_pickup('$P5')" >/dev/null
+expect "select status||coalesce(cancel_requested_at::text,'null') from public.food_orders where id='$P5'" "deliverednull" "collecting the order closes an open cancel request"
 
 P3=$(as "$BUYER" "select public.food_create_order_v3('$STORE','ลูกค้า','0800000000','','',$ITEMS,null,null,null,'pickup','$SLOT','transfer')")
 db "update public.food_orders set payment_status='paid' where id='$P3'" >/dev/null
@@ -182,6 +208,13 @@ expect_fail_as "$STAFF" "select public.food_store_mark_refunded('$P3','refunds/$
 as "$OWNER" "select public.food_store_mark_refunded('$P3','refunds/$P3/slip.jpg','โอนคืนแล้ว')" >/dev/null
 expect "select refund_status||'|'||payment_status||'|'||refund_slip_path||'|'||(refunded_by_store_at is not null)::text from public.food_orders where id='$P3'" "refunded|refunded|refunds/$P3/slip.jpg|true" "store refund recorded"
 expect_fail_as "$OWNER" "select public.food_store_mark_refunded('$P3','refunds/$P3/slip.jpg',null)" "no refund pending" "refund recorded once"
+
+# --- delivery turned off: no client can still order delivery ------------------
+as "$OWNER" "select public.food_store_set_fulfillment('$STORE', true, false, false, 20)" >/dev/null
+expect_fail_as "$BUYER" "select public.food_create_order_v2('$STORE','ลูกค้า','0800000000','บ้าน','',$ITEMS,16.181,103.301,null)" "delivery_not_available" "v2 client cannot order delivery when it is off"
+expect_fail_as "$BUYER" "select public.food_create_order_v3('$STORE','ลูกค้า','0800000000','บ้าน','',$ITEMS,16.181,103.301,null,'delivery',null,'transfer')" "delivery_not_available" "v3 delivery refused when off"
+P6=$(as "$OTHER" "select public.food_create_order_v3('$STORE','ลูกค้า','0800000000','','',$ITEMS,null,null,null,'pickup','$SLOT','transfer')")
+expect "select fulfillment_type from public.food_orders where id='$P6'" "pickup" "pickup still works with delivery off"
 
 # --- COD ---------------------------------------------------------------------
 as "$OWNER" "select public.food_store_set_fulfillment('$STORE', true, true, false, 20)" >/dev/null
@@ -211,15 +244,19 @@ expect "select refund_status from public.food_orders where id='$T1'" "pending" "
 
 # --- table constraints --------------------------------------------------------
 expect_fail_as "$OWNER" "update public.food_orders set payment_method='cod' where id='$P1'" "violates check constraint" "pickup+COD blocked by constraint"
-expect_fail_as "$OWNER" "update public.food_stores set pickup_enabled=false, delivery_enabled=false where id='$STORE'" "food_stores_fulfillment_mode_check" "store must keep a mode"
+expect_fail_db "update public.food_stores set pickup_enabled=false, delivery_enabled=false where id='$STORE'" "food_stores_fulfillment_mode_check" "store must keep a mode"
 
 # --- rollback ------------------------------------------------------------------
 if err="$(run -f "$ROOT/supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql" 2>&1)"; then echo "FAIL: rollback ran with pickup/COD orders"; exit 1; fi
-[[ "$err" == *"rollback would lose them"* ]] || { echo "FAIL: rollback guard ($err)"; exit 1; }
-db "delete from public.food_orders where fulfillment_type <> 'delivery' or payment_method <> 'transfer'" >/dev/null
+[[ "$err" == *"rollback would lose it"* ]] || { echo "FAIL: rollback guard ($err)"; exit 1; }
+db "delete from public.food_orders where fulfillment_type <> 'delivery' or payment_method <> 'transfer' or cancel_requested_at is not null or refund_slip_path is not null" >/dev/null
+if err="$(run -f "$ROOT/supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql" 2>&1)"; then echo "FAIL: rollback ran with feature events"; exit 1; fi
+[[ "$err" == *"order events exist"* ]] || { echo "FAIL: rollback event guard ($err)"; exit 1; }
+db "delete from public.food_order_events where event_type in ('cancel_requested','cancel_request_rejected','pickup_scheduled','cod_selected')" >/dev/null
 run -f "$ROOT/supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql" >/dev/null
 expect "select count(*) from information_schema.columns where table_name in ('food_orders','food_stores') and column_name in ('fulfillment_type','payment_method','pickup_enabled','cod_enabled')" "0" "rollback drops new columns"
-expect "select count(*) from pg_proc where proname in ('food_create_order_v3','food_complete_pickup','food_store_mark_refunded')" "0" "rollback drops new functions"
+expect "select count(*) from pg_proc where proname in ('food_create_order_v3','food_complete_pickup','food_store_mark_refunded','food_orders_fulfillment_guard','food_stores_fulfillment_settings_guard')" "0" "rollback drops new functions"
+expect "select count(*) from pg_trigger where tgname in ('food_orders_fulfillment_guard','food_stores_fulfillment_settings_guard')" "0" "rollback drops new triggers"
 O9=$(as "$BUYER" "select public.food_create_order_v2('$STORE','ลูกค้า','0800000000','บ้าน','',$ITEMS,16.181,103.301,null)")
 expect "select delivery_fee::int||status from public.food_orders where id='$O9'" "20pending_acceptance" "v2 orders still work after rollback"
 

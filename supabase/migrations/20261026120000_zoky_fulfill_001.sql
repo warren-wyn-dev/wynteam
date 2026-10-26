@@ -57,9 +57,15 @@ alter table public.food_orders
     refund_slip_path is null
     or (refund_slip_path like 'refunds/' || id::text || '/%' and position('..' in refund_slip_path) = 0));
 
-create index if not exists food_orders_pickup_code_idx
+create index if not exists food_orders_pickup_at_idx
   on public.food_orders (store_id, pickup_at)
   where fulfillment_type = 'pickup';
+
+-- Pickup codes restart every Bangkok day; the advisory lock in
+-- food_create_order_v3 serialises them and this index backs it up.
+create unique index if not exists food_orders_pickup_code_day_key
+  on public.food_orders (store_id, pickup_code, ((created_at at time zone 'Asia/Bangkok')::date))
+  where pickup_code is not null;
 
 CREATE OR REPLACE FUNCTION internal.food_delivery_fee(p_store_id uuid, p_latitude double precision, p_longitude double precision)
  RETURNS TABLE(distance_km numeric, delivery_fee numeric)
@@ -417,7 +423,10 @@ declare
   v_day date;
 begin
   select * into v_store from public.food_stores where id = p_store_id;
-  if not found or not v_store.pickup_enabled
+  -- Only published stores that are open right now offer slots, the same
+  -- rule the order insert guard applies.
+  if not found or not v_store.pickup_enabled or not v_store.is_published
+     or not internal.food_store_effectively_open(p_store_id, p_now)
      or jsonb_typeof(v_store.business_schedule->'weekly') is distinct from 'object' then
     return;
   end if;
@@ -602,10 +611,12 @@ begin
   if p_prep_minutes is null or p_prep_minutes not between 5 and 120 then
     raise exception 'invalid_prep_minutes';
   end if;
+  perform set_config('wyn.food_fulfillment_settings', 'on', true);
   update public.food_stores
   set pickup_enabled = p_pickup, delivery_enabled = p_delivery,
       cod_enabled = coalesce(p_cod, false), pickup_prep_minutes = p_prep_minutes
   where id = p_store_id;
+  perform set_config('wyn.food_fulfillment_settings', '', true);
 end;
 $$;
 revoke all on function public.food_store_set_fulfillment(uuid,boolean,boolean,boolean,integer) from public, anon;
@@ -628,7 +639,8 @@ begin
   if v_order.fulfillment_type <> 'pickup' then raise exception 'not a pickup order'; end if;
   if v_order.status <> 'ready_for_delivery' then raise exception 'invalid order transition'; end if;
   update public.food_orders
-  set status = 'delivered', delivered_at = now(), picked_up_at = now()
+  set status = 'delivered', delivered_at = now(), picked_up_at = now(),
+      cancel_requested_at = null
   where id = p_order_id;
   insert into public.food_order_events(order_id, event_type, from_status, to_status, note, actor_id)
   values (p_order_id, 'picked_up', 'ready_for_delivery', 'delivered',
@@ -659,11 +671,18 @@ begin
   select * into v_order from public.food_orders where id = p_order_id for update;
   if not found or v_order.buyer_id is distinct from auth.uid() then raise exception 'order not found'; end if;
   if v_order.fulfillment_type <> 'pickup' then raise exception 'cancel request is for pickup orders'; end if;
+  -- Only paid orders: a slip still under review has no money confirmed, so a
+  -- refund decision would have nothing to refund.
   if v_order.status not in ('pending_acceptance','preparing','ready_for_delivery')
-     or (v_order.status = 'pending_acceptance' and v_order.payment_status in ('pending','issue')) then
+     or v_order.payment_status <> 'paid' then
     raise exception 'cancel request not available';
   end if;
   if v_order.cancel_requested_at is not null then raise exception 'cancel already requested'; end if;
+  -- One request per order: after the store says no, the customer contacts the store.
+  if exists (select 1 from public.food_order_events e
+             where e.order_id = p_order_id and e.event_type = 'cancel_request_rejected') then
+    raise exception 'cancel request not available';
+  end if;
   update public.food_orders
   set cancel_requested_at = now(),
       cancel_request_note = nullif(left(btrim(coalesce(p_note, '')), 500), '')
@@ -784,4 +803,56 @@ using (
       and (o.buyer_id = auth.uid() or public.food_has_merchant_access(o.store_id))
   )
 );
+
+-- ---------------------------------------------------------------------------
+-- Guards (QA 2026-10-26)
+-- ---------------------------------------------------------------------------
+
+-- A store that turned delivery off gets no delivery orders from any client,
+-- including the v1/v2 RPCs. Pickup orders pass (v3 sets the flag), and so do
+-- the store's own manual/social orders.
+create or replace function internal.food_orders_fulfillment_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.source = 'app'
+     and current_setting('wyn.food_fulfillment', true) is distinct from 'pickup'
+     and exists (select 1 from public.food_stores s where s.id = new.store_id and not s.delivery_enabled) then
+    raise exception 'delivery_not_available';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function internal.food_orders_fulfillment_guard() from public, anon, authenticated;
+drop trigger if exists food_orders_fulfillment_guard on public.food_orders;
+create trigger food_orders_fulfillment_guard
+before insert on public.food_orders
+for each row execute function internal.food_orders_fulfillment_guard();
+
+-- Pickup / delivery / COD / prep time change only through
+-- food_store_set_fulfillment (owner/admin, schedule check). Store staff who may
+-- update other store fields directly cannot change these. Service-role jobs
+-- (no auth.uid()) are not affected.
+create or replace function internal.food_stores_fulfillment_settings_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if (new.pickup_enabled, new.delivery_enabled, new.cod_enabled, new.pickup_prep_minutes)
+       is distinct from (old.pickup_enabled, old.delivery_enabled, old.cod_enabled, old.pickup_prep_minutes)
+     and auth.uid() is not null
+     and current_setting('wyn.food_fulfillment_settings', true) is distinct from 'on' then
+    raise exception 'use food_store_set_fulfillment';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function internal.food_stores_fulfillment_settings_guard() from public, anon, authenticated;
+drop trigger if exists food_stores_fulfillment_settings_guard on public.food_stores;
+create trigger food_stores_fulfillment_settings_guard
+before update on public.food_stores
+for each row execute function internal.food_stores_fulfillment_settings_guard();
 

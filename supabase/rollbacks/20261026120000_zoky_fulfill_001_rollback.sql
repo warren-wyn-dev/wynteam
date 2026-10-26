@@ -1,6 +1,8 @@
 -- Rollback for 20261026120000_zoky_fulfill_001.sql (needs Founder approval).
--- 1. Refuses to run while pickup or COD orders exist, because dropping the
---    columns would lose them. Close those orders first, or keep the columns.
+-- 1. Refuses to run once any order or store has used the feature (pickup,
+--    COD, a cancel request or a store refund slip), because dropping the
+--    columns would delete that order history. This rollback is only for the
+--    window before stores turn the feature on; after that, fix forward.
 -- 2. Drops the new functions and refund-slip storage policies.
 -- 3. Restores the six redefined functions to the live production definitions
 --    of 2026-10-26 (read-only dump, GitHub run 40318273032).
@@ -8,12 +10,23 @@
 -- Client v2 RPCs keep working throughout.
 do $$
 begin
-  if exists (select 1 from public.food_orders where fulfillment_type <> 'delivery' or payment_method <> 'transfer') then
-    raise exception 'pickup or COD orders exist; rollback would lose them';
+  if exists (select 1 from public.food_orders
+             where fulfillment_type <> 'delivery' or payment_method <> 'transfer'
+                or cancel_requested_at is not null or refund_slip_path is not null
+                or refunded_by_store_at is not null) then
+    raise exception 'ZOKY-FULFILL-001 order data exists; rollback would lose it, fix forward instead';
+  end if;
+  if exists (select 1 from public.food_order_events
+             where event_type in ('cancel_requested','cancel_request_rejected','pickup_scheduled','cod_selected')) then
+    raise exception 'ZOKY-FULFILL-001 order events exist; rollback would orphan them, fix forward instead';
   end if;
 end;
 $$;
 
+drop trigger if exists food_orders_fulfillment_guard on public.food_orders;
+drop trigger if exists food_stores_fulfillment_settings_guard on public.food_stores;
+drop function if exists internal.food_orders_fulfillment_guard();
+drop function if exists internal.food_stores_fulfillment_settings_guard();
 drop policy if exists "Food refund slip upload by store" on storage.objects;
 drop policy if exists "Food refund slip readable by store and customer" on storage.objects;
 drop function if exists public.food_store_mark_refunded(uuid, text, text);
@@ -336,7 +349,8 @@ alter table public.food_orders
   drop constraint if exists food_orders_cod_delivery_only_check,
   drop constraint if exists food_orders_cancel_request_note_length,
   drop constraint if exists food_orders_refund_slip_path_check;
-drop index if exists public.food_orders_pickup_code_idx;
+drop index if exists public.food_orders_pickup_code_day_key;
+drop index if exists public.food_orders_pickup_at_idx;
 alter table public.food_orders
   drop column if exists fulfillment_type,
   drop column if exists payment_method,
