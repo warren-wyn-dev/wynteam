@@ -171,4 +171,6 @@ test("no Thai key in en.ts is mapped to two different English strings", () => {
   assert.equal(translateToEnglish("ยกเลิกแล้ว"), "Cancelled");
   assert.equal(translateToEnglish("เพิ่มเมนู"), "Add item");
   assert.equal(translateToEnglish("แก้ไขเมนูแล้ว"), "Menu item edited");
+  // Status labels use the past-tense key, never the button key.
+  assert.match(read("components/merchant/merchant-order-history.tsx"), /<option value="cancelled">ยกเลิกแล้ว<\/option>/);
 });
