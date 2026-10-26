@@ -1,0 +1,33 @@
+# ZOKY Merchant stability repair release — 2026-10-26
+
+The Founder asked for QA after the Merchant publication, then requested “แก้ไขทั้งหมดให้หน่อย” after the three reproduced stability defects and cold-login loading opportunity were reported. Together with the existing Merchant publication scope, this authorizes preparing and releasing the reviewed Merchant repair. It does not approve unrelated `main` features, database or auth-provider changes, infrastructure changes, or bypassing either GitHub Production review.
+
+## Exact target and finalization
+
+The actual prior publication is READY production artifact `dpl_CACVkPQDL3MDfFSZvY64Ggpyqu8v`, source `b2e5c184eeaef42aeb7b94ef10e54627d5d594ab`, immutable URL `web-7kz1waklu-warren14.vercel.app`. It belongs to project `web` / `prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a`, team `team_Kamt1PUT5XKn9MWrF404re1w`, and serves the nine existing customer hostnames. Do not deploy the separate preview project or all of `main`.
+
+During preparation, the independent Thai/mobile release completed successfully in run `40278320692` and moved every customer hostname plus the generated alias to this artifact. The repair candidate must therefore be rebuilt from this newly verified source, preserving that published release in full. Its artifact is the recovery target for this repair; the older Merchant publication is no longer the current production base or rollback target. Existing old UI release controls are not changed.
+
+The parallel release recorded an incomplete cached Flutter SDK without `.git`, which fails the existing pinned-revision build check (PR #1252, followed by the staging cleanup in #1256). This workflow stages with `vercel deploy --prod --skip-domain --force` and forbids `--with-cache`, so the repair receives a fresh remote build while customer domains stay unchanged. This is a build-reliability control; no speed or cache-benefit measurement is claimed.
+
+The manifest pins reviewed candidate `2e4223742073f4707fc8d38e0f5ed15140813d0f` and its exact 17 changed paths. Its application changes passed independent review; complete verification on this refreshed production base must pass before staging. The candidate must be at the tip of `release/zoky-merchant-stability-20261026`, descend from the actual live source above, and contain only the specifically allowed Merchant source/test/QA records. The explicit learning/task record paths are permitted for this policy only. Package changes are restricted to Merchant test script wiring; dependency/framework and unrelated script changes fail closed.
+
+The candidate cannot alter `.github`, tools, Supabase/database files, shared auth/session modules, return-path validation, Next configuration or origin proxy. The existing excluded Food-home commits and modules remain forbidden. The old Merchant UI release workflow/manifest and general freeze remain unchanged. Existing `main` Git-deploy disablement remains in place. The new release expires on the manifest's date, initially 2026-11-30.
+
+## Controlled workflow
+
+After finalization and normal review/merge of these trusted controls, dispatch `ZOKY Merchant stability scoped release` on `main` with the exact manifest SHA and confirmation `ZOKY_MERCHANT_STABILITY_20261026`.
+
+1. The credential-free guard validates repository/main/confirmation, nonzero full SHA, release branch tip, live-source ancestry, clean checkout, exact approved paths, file modes, package wiring, frozen boundaries and expiry. Its own workflow policy and negative tests run, alongside the unchanged freeze/secret-scoping guards.
+2. Credential-free verification runs the candidate's complete web/Flutter checks and the focused compiled Merchant browser suite with synthetic public configuration. The focused suite uses the already-built production server before the legacy suite starts development mode, so development output cannot invalidate the production build. Synthetic browser evidence is the only uploaded artifact.
+3. The existing **Production** reviewer must approve staging. After that wait the candidate and expiry are checked again, before any credential is exposed. Metadata resolves every customer hostname independently to the exact recorded prior artifact/source/project. Food must still serve its existing HTTP 200 phase. Only then does the pinned CLI build/stage the reviewed production source with `--prod --skip-domain`, Merchant root enabled and Food redirect disabled. Existing public build configuration is supplied by the protected workflow without printing values or fetching `.env` files. The existing project root metadata selects the upload directory; no project configuration is changed.
+4. The staged artifact must be READY production with the reviewed SHA, correct project and its own immutable URL. Only the exact generated alias `web-warren14.vercel.app` is allowed on it; customer or unknown aliases fail. All nine customer hostnames must still resolve to the old artifact. Stage exports the metadata-inspected **URL and deployment ID**; authenticated HTTP verifies the host, login, original official logo, Flutter JavaScript, CanvasKit and 3D atlas.
+5. The reviewer must separately approve **Production** promotion. After that wait the source pin/expiry and current customer routing are revalidated, then the exact tested URL/ID pair is inspected again. The same production artifact is promoted without rebuilding. Every customer hostname and the generated alias must resolve to that exact ID/source/project, followed by public core-route and unchanged Food-phase checks.
+
+Alias metadata arrays can retain moved aliases, so they are not evidence of current routing. Every customer hostname is resolved directly before staging/promotion, and all original customer/generated hostnames after promotion. The generated default alias may move during `--skip-domain`; it is deliberately distinguished from customer origins.
+
+## Approval and recovery status
+
+No new GitHub Production review has occurred merely because the Founder authorized the work in chat or because a candidate/control PR was created. Both existing required reviews remain concrete final actions in the workflow. No required review, branch rule, credential scope or general freeze is disabled.
+
+On any failure, preserve evidence and stop. No automatic rollback is performed. If the Founder directs recovery, the recorded previous production artifact is `dpl_CACVkPQDL3MDfFSZvY64Ggpyqu8v`. Never release against a changed production base; rebase/rebuild/review a new manifest instead. Actual store-account and physical-device production acceptance must be recorded after publication and is not inferred from synthetic tests alone.
