@@ -11,7 +11,6 @@ import {
   CircleAlert,
   Clock3,
   Copy,
-  CreditCard,
   Download,
   Gift,
   Heart,
@@ -127,7 +126,6 @@ import {
   type FoodPlace,
   saveFoodCustomerAddress,
   prepareFoodManualPayment,
-  startFoodStripeCheckout,
   submitFoodPayment,
   subscribeFoodCustomerOrders,
   uploadFoodPaymentSlip,
@@ -2533,7 +2531,6 @@ function CheckoutSheet({
   const paymentMethods = [
     store.promptpay_id || store.payment_qr_path ? "สแกน QR พร้อมเพย์" : null,
     store.bank_account_number ? "โอนแล้วแนบสลิป" : null,
-    store.stripe_payments_enabled ? "บัตร" : null,
   ].filter(Boolean);
 
   const applyCoupon = () => {
@@ -2900,17 +2897,6 @@ function OrderDetailSheet({
     if (slipInputRef.current) slipInputRef.current.value = "";
   };
 
-  const payWithStripe = async () => {
-    setWorking(true);
-    try {
-      const url = await startFoodStripeCheckout(client, order.id);
-      window.location.assign(url);
-    } catch (error) {
-      onMessage(foodCustomerError(error, "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ"));
-      setWorking(false);
-    }
-  };
-
   const submitSlip = async () => {
     if (!slipFile) {
       onMessage("กรุณาเลือกรูปสลิป");
@@ -3030,18 +3016,10 @@ function OrderDetailSheet({
                   </div>
                 ) : null}
               </div>
-              <small className="fx-pay-qr-note">{orderStore?.stripe_payments_enabled ? "โอนเงินเข้าบัญชีร้านโดยตรงและแนบสลิปเป็นช่องทางสำรอง" : "โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ"}</small>
-              {orderStore && !orderStore.stripe_payments_enabled && !paymentQr && !orderStore.promptpay_id && !orderStore.bank_account_number ? <div className="fx-note fx-note--warn">ร้านยังไม่ได้ตั้งค่าช่องทางรับเงิน กรุณาติดต่อร้าน</div> : null}
+              <small className="fx-pay-qr-note">โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปให้ร้านตรวจสอบ</small>
+              {orderStore && !paymentQr && !orderStore.promptpay_id && !orderStore.bank_account_number ? <div className="fx-note fx-note--warn">ร้านยังไม่ได้ตั้งค่าช่องทางรับเงิน กรุณาติดต่อร้าน</div> : null}
               {!orderStore && !paymentQr ? <div className="fx-note fx-note--warn">เปิดหน้าร้านของออเดอร์นี้เพื่อดูข้อมูลบัญชีรับเงิน</div> : null}
             </section>
-
-            {orderStore?.stripe_payments_enabled ? (
-              <button className="fx-pay-option" type="button" disabled={combinedBusy} onClick={() => void payWithStripe()}>
-                <CreditCard size={22} />
-                <span><strong>{combinedBusy ? "กำลังเปิด Stripe…" : "จ่ายด้วยบัตร"}</strong><small>บัตร หรือพร้อมเพย์ผ่าน Stripe · ยืนยันสถานะอัตโนมัติ</small></span>
-                <ChevronRight size={18} />
-              </button>
-            ) : null}
 
             {slipFile ? (
               <div className="fx-slip">

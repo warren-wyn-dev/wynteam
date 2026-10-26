@@ -2,7 +2,7 @@
 "use client";
 
 import { FulfillmentTags, MerchantFulfillmentSettings, MerchantCancelRefund } from "@/components/merchant/merchant-fulfillment";
-import { STRIPE_SETUP_PAUSED, transitionPickupOrder } from "@/lib/food-fulfillment-merchant";
+import { transitionPickupOrder } from "@/lib/food-fulfillment-merchant";
 import {
   ArrowUpDown,
   Bell,
@@ -53,7 +53,6 @@ import { MerchantStoreTools, RefundControls } from "@/components/merchant/mercha
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { MerchantAds } from "@/components/merchant/merchant-ads";
 import { MerchantFinance } from "@/components/merchant/merchant-finance";
-import { MerchantPaymentSetup } from "@/components/merchant/merchant-payment-setup";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { useMerchantTouchDrag } from "@/components/merchant/use-touch-reorder";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
@@ -70,9 +69,7 @@ import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicato
 import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import {
   MERCHANT_NOTIFICATION_TEST_RESULT_KEY,
-  fetchMerchantStripeStatus,
   setMerchantStorePublished,
-  type MerchantStripeStatus,
 } from "@/lib/merchant-core";
 import {
   completeFoodDelivery,
@@ -1057,7 +1054,7 @@ function HomePanel({
   const filled = (value: string | null | undefined) => Boolean(value?.trim());
   const checklist = [
     { key: "info", label: "ใส่เบอร์ ที่อยู่ เวลาเปิด และพื้นที่ส่ง", done: filled(store.phone) && filled(store.address) && filled(store.business_hours) && filled(store.delivery_area), action: "แก้ไขร้าน", onGo: onEditStore },
-    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: store.stripe_payments_enabled === true || (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
+    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
     { key: "menu", label: "เปิดขายเมนูอย่างน้อย 1 รายการ", done: availableMenu > 0, action: "ไปที่เมนู", onGo: () => onOpenTab("menu") },
     { key: "publish", label: "เผยแพร่ร้านบน WYNOS Food", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
   ];
@@ -2717,7 +2714,6 @@ function StoreEditor({
   const [coverState, setCoverState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(store.cover_path ? "uploaded" : "idle");
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [stripeStatus, setStripeStatus] = useState<MerchantStripeStatus | null>(null);
   const [schedule, setSchedule] = useState<FoodBusinessSchedule>(() => {
     const current = store.business_schedule as FoodBusinessSchedule | undefined;
     return current?.weekly ? current : defaultFoodBusinessSchedule();
@@ -2753,14 +2749,6 @@ function StoreEditor({
       if (coverPreview?.startsWith("blob:")) URL.revokeObjectURL(coverPreview);
     };
   }, [logoPreview, coverPreview]);
-
-  useEffect(() => {
-    let live = true;
-    void fetchMerchantStripeStatus(client, store.id)
-      .then((status) => { if (live) setStripeStatus(status); })
-      .catch(() => { if (live) setStripeStatus(null); });
-    return () => { live = false; };
-  }, [client, store.id]);
 
   useEffect(() => {
     if (!pin) return;
@@ -3075,21 +3063,13 @@ function StoreEditor({
         <section className="wm-settings-category" id="wm-store-section-payment">
           <div className="wm-settings-category-head">
             <span className="wm-settings-category-icon"><CircleDollarSign size={20} /></span>
-            <span><strong>การรับชำระเงิน</strong><small>ลูกค้าโอนเข้าบัญชีร้านและแนบสลิป ร้านตรวจสอบเงินเข้าเอง</small></span>
+            <span><strong>การรับชำระเงิน</strong><small>ลูกค้าโอนเข้าบัญชีร้านแล้วแนบสลิป ร้านเช็กยอดเงินเข้าในแอปธนาคารก่อนกดยืนยัน</small></span>
           </div>
           <div className="wm-settings-category-body">
-            {!STRIPE_SETUP_PAUSED ? <MerchantPaymentSetup
-              client={client}
-              storeId={store.id}
-              status={stripeStatus}
-              onStatus={setStripeStatus}
-              onMessage={onMessage}
-              onReady={onSaved}
-            /> : null}
-
-            <details className="wm-payment-fallback" open={STRIPE_SETUP_PAUSED}>
-              <summary>ช่องทางรับโอนเงิน</summary>
-              <small>ลูกค้าโอนเข้าบัญชีร้านและแนบสลิป ร้านตรวจสอบเงินเข้าเอง</small>
+            {/* Founder 2026-10-26: Stripe is paused; transfer + slip is the only payment method. */}
+            <details className="wm-payment-fallback" open>
+              <summary>บัญชีรับโอน</summary>
+              <small>กรอก PromptPay หรือบัญชีธนาคารอย่างน้อย 1 ช่องทาง ลูกค้าจะเห็นข้อมูลนี้ตอนชำระเงิน</small>
               <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
               <label>ธนาคาร<input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} /></label>
               <label>ชื่อบัญชี<input value={form.bank_account_name} onChange={(e) => setForm({ ...form, bank_account_name: e.target.value })} /></label>
