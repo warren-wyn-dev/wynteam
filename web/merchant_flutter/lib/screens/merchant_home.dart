@@ -1499,7 +1499,9 @@ class _MerchantHomeState extends State<MerchantHome>
   Widget orderCard(Json o) {
     final status = o['status'] as String;
     final next = orderNextStatus(o);
-    final allowed = status == 'ready_for_delivery'
+    // Collecting a pickup order is an order-desk step, not a delivery one.
+    final allowed =
+        status == 'ready_for_delivery' && o['fulfillment_type'] != 'pickup'
         ? c.canDelivery
         : c.canOrders;
     return box(
@@ -1712,7 +1714,7 @@ class _MerchantHomeState extends State<MerchantHome>
               icon: const Icon(Icons.add_a_photo_outlined),
               label: const Text('แนบรูปและยืนยันส่งสำเร็จ'),
             ),
-          if (status == 'delivered')
+          if (status == 'delivered' && o['fulfillment_type'] != 'pickup')
             TextButton(
               onPressed: () => showEvidence(o, 'proof'),
               child: const Text('ดูหลักฐานส่งสำเร็จ'),
