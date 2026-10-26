@@ -9,6 +9,10 @@ import {
   FOOD_PAYMENT_STATUS_LABEL,
   FOOD_REFUND_STATUS_LABEL,
   fetchAdminFoodOrderDetail,
+  foodPaymentMethodLabel,
+  foodFulfillmentLabel,
+  isOverdueTransferRefund,
+  signAdminFoodRefundEvidence,
   formatBaht,
   formatThaiDate,
   signAdminFoodEvidence,
@@ -30,9 +34,10 @@ export default async function FoodOrderDetailPage({
   const detail = await fetchAdminFoodOrderDetail(id);
   if (!detail) notFound();
   const { order } = detail;
-  const [slip, proof] = await Promise.all([
+  const [slip, proof, refundSlip] = await Promise.all([
     signAdminFoodEvidence(order.payment_slip_path),
     signAdminFoodEvidence(detail.proof?.image_path),
+    signAdminFoodRefundEvidence(order),
   ]);
 
   return (
@@ -44,6 +49,8 @@ export default async function FoodOrderDetailPage({
       <section className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-xl font-semibold">ออเดอร์ #{order.order_number}</h2>
+          <Badge variant="outline">{foodFulfillmentLabel(order.fulfillment_type)}</Badge>
+          <Badge variant="outline">{foodPaymentMethodLabel(order)}</Badge>
           <Badge variant="gray-tonal">{FOOD_ORDER_STATUS_LABEL[order.status] ?? order.status}</Badge>
           <Badge variant="outline">{FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
           {order.refund_status !== "none" ? <Badge variant="destructive">{FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}</Badge> : null}
@@ -54,12 +61,23 @@ export default async function FoodOrderDetailPage({
         <p className="text-xs text-muted-foreground">การเปิดดูหน้านี้ถูกบันทึกใน Audit Log แล้ว</p>
       </section>
 
+      {order.fulfillment_type === "pickup" ? <section className="rounded-xl border p-4">
+        <h3 className="mb-2 text-sm font-semibold">รับเองที่ร้าน</h3>
+        <p>เวลานัดรับ {formatThaiDate(order.pickup_at)} · รหัสรับอาหาร <strong>{order.pickup_code ?? "—"}</strong></p>
+        {order.picked_up_at ? <p className="mt-1 text-sm text-muted-foreground">ลูกค้ารับแล้ว {formatThaiDate(order.picked_up_at)}</p> : null}
+      </section> : null}
+      {order.cancel_requested_at ? <section role="status" className="rounded-xl border p-4">
+        <h3 className="font-semibold">ลูกค้าขอยกเลิก</h3>
+        <p className="text-sm">{formatThaiDate(order.cancel_requested_at)} · {order.cancel_request_note ?? "ไม่มีหมายเหตุ"}</p>
+        <p className="text-sm text-muted-foreground">ร้านเป็นผู้อนุมัติหรือปฏิเสธ และตัดสินใจเรื่องคืนเงิน</p>
+      </section> : null}
+      {isOverdueTransferRefund(order) ? <p role="status" className="rounded-xl border border-destructive p-4 text-sm text-destructive">ร้านค้างคืนเงินเกิน 24 ชั่วโมง</p> : null}
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border p-4">
           <h3 className="mb-2 text-sm font-semibold">ลูกค้า</h3>
           <p className="font-medium">{order.recipient_name}{detail.buyer_username ? <span className="text-muted-foreground"> · @{detail.buyer_username}</span> : null}</p>
           <p className="text-sm">{order.recipient_phone}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{order.shipping_address}</p>
+          {order.fulfillment_type !== "pickup" ? <p className="mt-1 text-sm text-muted-foreground">{order.shipping_address}</p> : null}
           {order.customer_note ? <p className="mt-2 text-sm">หมายเหตุ: {order.customer_note}</p> : null}
         </div>
         <div className="rounded-xl border p-4">
@@ -104,8 +122,8 @@ export default async function FoodOrderDetailPage({
           ) : null}
         </div>
         <div className="rounded-xl border p-4">
-          <h3 className="mb-2 text-sm font-semibold">หลักฐานการจัดส่ง</h3>
-          {detail.proof ? (
+          <h3 className="mb-2 text-sm font-semibold">{order.fulfillment_type === "pickup" ? "การรับอาหาร" : "หลักฐานการจัดส่ง"}</h3>
+          {order.fulfillment_type === "pickup" ? <p className="text-sm text-muted-foreground">{order.picked_up_at ? `ลูกค้ารับแล้ว ${formatThaiDate(order.picked_up_at)}` : "รอลูกค้ารับอาหาร"}</p> : detail.proof ? (
             <>
               <p className="text-sm">{detail.proof.method === "dropoff" ? `วางไว้: ${detail.proof.location_note ?? ""}` : "ส่งถึงมือผู้รับ"} · {formatThaiDate(detail.proof.created_at)}</p>
               {proof.status === "ready" ? (
@@ -117,6 +135,13 @@ export default async function FoodOrderDetailPage({
           ) : <p className="text-sm text-muted-foreground">ยังไม่ส่ง</p>}
         </div>
       </section>
+
+      {order.refund_slip_path || order.refunded_by_store_at ? <section className="rounded-xl border p-4">
+        <h3 className="mb-2 text-sm font-semibold">สลิปโอนคืนจากร้าน</h3>
+        {order.refunded_by_store_at ? <p className="mb-2 text-sm">ร้านบันทึกการโอนคืน {formatThaiDate(order.refunded_by_store_at)}</p> : null}
+        {refundSlip.status === "ready" ? <a href={refundSlip.url} target="_blank" rel="noreferrer"><img src={refundSlip.url} alt="สลิปโอนคืนจากร้าน" className="max-h-96 rounded-lg border object-contain" /></a>
+          : refundSlip.status === "error" ? <EvidenceError label="มีสลิปโอนคืน แต่โหลดไฟล์ไม่สำเร็จ" /> : <p className="text-sm text-muted-foreground">ไม่มีสลิปโอนคืน</p>}
+      </section> : null}
 
       <section className="rounded-xl border p-4">
         <h3 className="mb-3 text-sm font-semibold">ประวัติสถานะ</h3>

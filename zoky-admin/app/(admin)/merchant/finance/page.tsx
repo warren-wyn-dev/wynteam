@@ -11,6 +11,8 @@ import {
   PAYOUT_STATUS_LABEL,
   STRIPE_STATUS_LABEL,
   fetchMerchantFinanceOverview,
+  fetchFoodFulfillmentSummary,
+  type FoodFulfillmentSummary,
   formatSatang,
   resolveFinanceRange,
   type MerchantFinanceOverview,
@@ -78,6 +80,13 @@ export default async function MerchantFinancePage({
     }
   }
 
+  let fulfillment: FoodFulfillmentSummary | null = null;
+  let fulfillmentError = false;
+  if (view === "overview") {
+    try { fulfillment = await fetchFoodFulfillmentSummary(range); }
+    catch { fulfillmentError = true; }
+  }
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
       <section className="flex flex-wrap items-start justify-between gap-3">
@@ -91,6 +100,17 @@ export default async function MerchantFinancePage({
         <RefreshButton />
       </section>
 
+      {view === "overview" ? <section className="rounded-xl border p-4">
+        <h3 className="font-semibold">ยอดขายแยกรูปแบบรับอาหารและการชำระเงิน</h3>
+        {fulfillmentError ? <p role="alert" className="text-sm text-destructive">โหลดสรุปรูปแบบรับอาหารไม่สำเร็จ กรุณาลองใหม่</p>
+          : fulfillment?.rows.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>รูปแบบ</th><th>การชำระเงิน</th><th>ออเดอร์สำเร็จ</th><th>ยอดขาย</th><th>ค้างคืนเงิน</th><th>เกิน 24 ชั่วโมง</th></tr></thead><tbody>
+            {fulfillment.rows.map(row => <tr key={`${row.fulfillment_type}:${row.payment_method}`}>
+              <td>{row.fulfillment_type === "pickup" ? "รับเองที่ร้าน" : "ร้านจัดส่งเอง"}</td>
+              <td>{row.payment_method === "cod" ? "เก็บเงินปลายทาง" : row.payment_method === "stripe" ? "Stripe เดิม" : "โอนเงิน"}</td>
+              <td>{row.orders}</td><td>{formatBaht(row.sales)}</td><td>{row.pending_refund_count}</td><td>{row.overdue_refund_count}</td>
+            </tr>)}
+          </tbody></table></div> : <p className="text-sm text-muted-foreground">ไม่มีรายการในช่วงวันที่เลือก</p>}
+      </section> : null}
       <nav aria-label="เมนูการเงินร้านค้า" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <ul className="flex w-max gap-1 border-b">
           {VIEWS.map((item) => (

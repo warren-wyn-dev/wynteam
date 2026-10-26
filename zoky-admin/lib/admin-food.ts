@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { adminCan, requireAdminRole } from "@/lib/auth";
 
 /**
  * WYN-203: WYNOS Food / Merchant operations for WYN Admin. Every call goes
@@ -79,9 +80,13 @@ export type AdminFoodOrderStatusFilter =
   | "preparing"
   | "ready_for_delivery"
   | "out_for_delivery"
+  | "ready_for_pickup"
+  | "picked_up"
   | "delivered"
   | "cancelled"
   | "refund_pending"
+  | "refund_overdue"
+  | "cancel_requested"
   | "payment_review";
 
 export type AdminFoodOrder = {
@@ -97,6 +102,18 @@ export type AdminFoodOrder = {
   total: number;
   created_at: string;
   delivered_at: string | null;
+  fulfillment_type: "delivery" | "pickup";
+  payment_method: "transfer" | "cod";
+  payment_provider: string | null;
+  pickup_at: string | null;
+  pickup_code: string | null;
+  picked_up_at: string | null;
+  cancel_requested_at: string | null;
+  cancel_request_note: string | null;
+  refund_requested_at: string | null;
+  cancelled_at: string | null;
+  refund_slip_path: string | null;
+  refunded_by_store_at: string | null;
 };
 
 export type AdminFoodOrderDetail = {
@@ -117,6 +134,18 @@ export type AdminFoodOrderDetail = {
     delivery_fee: number;
     total: number;
     created_at: string;
+    fulfillment_type: "delivery" | "pickup";
+    payment_method: "transfer" | "cod";
+    payment_provider: string | null;
+    pickup_at: string | null;
+    pickup_code: string | null;
+    picked_up_at: string | null;
+    cancel_requested_at: string | null;
+    cancel_request_note: string | null;
+    refund_requested_at: string | null;
+    cancelled_at: string | null;
+    refund_slip_path: string | null;
+    refunded_by_store_at: string | null;
   };
   store_name: string | null;
   buyer_username: string | null;
@@ -154,13 +183,17 @@ export async function fetchAdminFoodOrders(params: {
   status?: AdminFoodOrderStatusFilter;
   query?: string;
   limit?: number;
+  fulfillmentType?: "delivery" | "pickup";
+  paymentMethod?: "transfer" | "cod" | "stripe";
 }): Promise<AdminFoodOrder[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_food_orders", {
+  const { data, error } = await supabase.rpc("admin_food_orders_v2", {
     p_store_id: params.storeId ?? null,
     p_status: params.status ?? null,
     p_query: params.query?.trim() || null,
     p_limit: params.limit ?? 100,
+    p_fulfillment_type: params.fulfillmentType ?? null,
+    p_payment_method: params.paymentMethod ?? null,
   });
   if (error) throw error;
   return (data ?? []) as AdminFoodOrder[];
@@ -218,6 +251,8 @@ export const FOOD_ORDER_STATUS_LABEL: Record<string, string> = {
   preparing: "กำลังทำ",
   ready_for_delivery: "พร้อมส่ง",
   out_for_delivery: "กำลังส่ง",
+  ready_for_pickup: "พร้อมให้รับ",
+  picked_up: "ลูกค้ารับแล้ว",
   delivered: "ส่งแล้ว",
   cancelled: "ยกเลิก",
 };
@@ -267,4 +302,38 @@ export async function fetchAdminWynosPlaceForStore(storeId: string): Promise<Adm
   const { data, error } = await supabase.rpc("admin_wynos_place_for_store", { p_store_id: storeId });
   if (error) throw error;
   return (data as AdminWynosStorePlace | null) ?? null;
+}
+
+
+/** Explicit legacy Stripe label; new transfers and COD never look like automatic payments. */
+export function foodPaymentMethodLabel(order: { payment_method?: string; payment_provider?: string | null }): string {
+  if (order.payment_provider === "stripe") return "Stripe (รายการเดิม)";
+  return order.payment_method === "cod" ? "เก็บเงินปลายทาง" : "โอนเข้าร้าน";
+}
+
+export function foodFulfillmentLabel(mode: string | null | undefined): string {
+  return mode === "pickup" ? "รับเองที่ร้าน" : "ร้านจัดส่งเอง";
+}
+
+export function isOverdueTransferRefund(order: {
+  refund_status: string;
+  payment_method?: string;
+  payment_provider?: string | null;
+  refund_requested_at?: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
+}, now = Date.now()): boolean {
+  if (order.refund_status !== "pending" || order.payment_method !== "transfer" || order.payment_provider === "stripe") return false;
+  const requested = Date.parse(order.refund_requested_at ?? order.cancelled_at ?? order.created_at);
+  return Number.isFinite(requested) && now - requested > 24 * 60 * 60 * 1000;
+}
+
+/** Resolve the path from an already authorized order, never from a query-string path. */
+export async function signAdminFoodRefundEvidence(order: AdminFoodOrderDetail["order"]): Promise<AdminFoodEvidence> {
+  const ctx = await requireAdminRole();
+  if (!adminCan(ctx, "food", "edit")) return { status: "error" };
+  const path = order.refund_slip_path;
+  if (!path) return { status: "none" };
+  if (!path.startsWith(`food-refund-slips/${order.store_id}/${order.id}/`) || path.includes("..")) return { status: "error" };
+  return signAdminFoodEvidence(path);
 }

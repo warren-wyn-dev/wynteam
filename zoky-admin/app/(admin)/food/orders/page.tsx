@@ -7,6 +7,9 @@ import {
   FOOD_PAYMENT_STATUS_LABEL,
   FOOD_REFUND_STATUS_LABEL,
   fetchAdminFoodOrders,
+  foodPaymentMethodLabel,
+  foodFulfillmentLabel,
+  isOverdueTransferRefund,
   formatBaht,
   formatThaiDate,
   type AdminFoodOrderStatusFilter,
@@ -18,10 +21,14 @@ import { NoAccess } from "@/components/admin/no-access";
 const FILTERS: Array<{ value: "all" | AdminFoodOrderStatusFilter; label: string }> = [
   { value: "all", label: "ทั้งหมด" },
   { value: "active", label: "กำลังดำเนินการ" },
+  { value: "ready_for_pickup", label: "พร้อมให้รับ" },
+  { value: "picked_up", label: "ลูกค้ารับแล้ว" },
   { value: "delivered", label: "ส่งแล้ว" },
   { value: "cancelled", label: "ยกเลิก" },
   { value: "payment_review", label: "รอตรวจการชำระ" },
   { value: "refund_pending", label: "รอคืนเงิน" },
+  { value: "refund_overdue", label: "ค้างคืนเงินเกิน 24 ชั่วโมง" },
+  { value: "cancel_requested", label: "ลูกค้าขอยกเลิก" },
 ];
 const ORDER_LIMIT = 300;
 
@@ -29,7 +36,7 @@ const ORDER_LIMIT = 300;
 export default async function FoodOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; store?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; store?: string; mode?: string; payment?: string }>;
 }) {
   const ctx = await requireAdminRole();
   if (!adminCan(ctx, "food")) return <NoAccess what=" WYNOS Food" />;
@@ -41,17 +48,21 @@ export default async function FoodOrdersPage({
       </div>
     );
   }
-  const { status, q, store } = await searchParams;
+  const { status, q, store, mode, payment } = await searchParams;
+  const fulfillmentType = mode === "pickup" || mode === "delivery" ? mode : undefined;
+  const paymentMethod = payment === "transfer" || payment === "cod" || payment === "stripe" ? payment : undefined;
   const resolved = FILTERS.some((item) => item.value === status) ? (status as "all" | AdminFoodOrderStatusFilter) : "all";
   const orders = await fetchAdminFoodOrders({
     status: resolved === "all" ? undefined : resolved,
     query: q,
     storeId: store,
     limit: ORDER_LIMIT,
+    fulfillmentType,
+    paymentMethod,
   });
   const keep = (next: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
-    const merged = { status: resolved === "all" ? undefined : resolved, q, store, ...next };
+    const merged = { status: resolved === "all" ? undefined : resolved, q, store, mode: fulfillmentType, payment: paymentMethod, ...next };
     for (const [key, value] of Object.entries(merged)) if (value) params.set(key, value);
     const text = params.toString();
     return text ? `/food/orders?${text}` : "/food/orders";
@@ -67,10 +78,20 @@ export default async function FoodOrdersPage({
         <p className="text-sm text-muted-foreground">ค้นหาด้วยเลขออเดอร์ ชื่อ หรือเบอร์ลูกค้า การเปิดดูรายละเอียดจะถูกบันทึกใน Audit Log</p>
       </section>
 
-      <form className="flex w-full max-w-md gap-2" action="/food/orders">
+      <form className="flex w-full max-w-3xl flex-wrap gap-2" action="/food/orders">
         {resolved !== "all" ? <input type="hidden" name="status" value={resolved} /> : null}
         {store ? <input type="hidden" name="store" value={store} /> : null}
         <input name="q" defaultValue={q ?? ""} placeholder="เลขออเดอร์ · ชื่อ · เบอร์โทร" aria-label="ค้นหาออเดอร์" className="h-11 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" />
+        <label className="flex flex-col gap-1 text-xs text-muted-foreground">รูปแบบรับอาหาร
+          <select name="mode" defaultValue={fulfillmentType ?? ""} className="h-11 rounded-md border bg-background px-3 text-sm text-foreground">
+            <option value="">ทุกแบบ</option><option value="delivery">ร้านจัดส่งเอง</option><option value="pickup">รับเองที่ร้าน</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-muted-foreground">วิธีชำระเงิน
+          <select name="payment" defaultValue={paymentMethod ?? ""} className="h-11 rounded-md border bg-background px-3 text-sm text-foreground">
+            <option value="">ทุกวิธี</option><option value="transfer">โอนเข้าร้าน</option><option value="cod">เก็บเงินปลายทาง</option><option value="stripe">Stripe (รายการเดิม)</option>
+          </select>
+        </label>
         <button type="submit" className="h-11 rounded-md border px-4 text-sm font-medium hover:bg-accent">ค้นหา</button>
       </form>
 
@@ -101,9 +122,14 @@ export default async function FoodOrdersPage({
             <Link key={order.id} href={`/food/orders/${order.id}`} className="flex flex-col gap-2 px-4 py-3 hover:bg-accent sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="font-medium">#{order.order_number} · {order.store_name}</p>
+                {order.fulfillment_type === "pickup" ? <p className="text-sm">นัดรับ {formatThaiDate(order.pickup_at)} · รหัส {order.pickup_code ?? "—"}</p> : null}
                 <p className="text-sm text-muted-foreground">{order.recipient_name} · {order.recipient_phone} · {formatThaiDate(order.created_at)}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <Badge variant="outline">{foodFulfillmentLabel(order.fulfillment_type)}</Badge>
+                <Badge variant="outline">{foodPaymentMethodLabel(order)}</Badge>
+                {order.cancel_requested_at ? <Badge variant="destructive">ลูกค้าขอยกเลิก</Badge> : null}
+                {isOverdueTransferRefund(order) ? <Badge variant="destructive">ค้างคืนเงินเกิน 24 ชั่วโมง</Badge> : null}
                 <Badge variant="gray-tonal">{FOOD_ORDER_STATUS_LABEL[order.status] ?? order.status}</Badge>
                 <Badge variant="outline">{FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
                 {order.refund_status !== "none" ? <Badge variant="destructive">{FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}</Badge> : null}

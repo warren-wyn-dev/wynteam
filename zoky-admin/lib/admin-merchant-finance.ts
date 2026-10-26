@@ -185,3 +185,25 @@ export function formatSatang(amountSatang: number): string {
   const sign = satang < 0 && baht === 0 ? "-" : "";
   return `฿${sign}${baht.toLocaleString("th-TH")}${rest ? `.${String(rest).padStart(2, "0")}` : ""}`;
 }
+
+
+export type FoodFulfillmentSummary = {
+  from: string;
+  to: string;
+  rows: Array<{
+    fulfillment_type: "delivery" | "pickup";
+    payment_method: "transfer" | "cod" | "stripe";
+    orders: number;
+    sales: number;
+    pending_refund_count: number;
+    overdue_refund_count: number;
+  }>;
+};
+
+/** Aggregated on the server before returning results; no customer data or capped list totals. */
+export async function fetchFoodFulfillmentSummary(range: { from: string; to: string }): Promise<FoodFulfillmentSummary> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_food_fulfillment_summary", { p_from: range.from, p_to: range.to });
+  if (error) throw error;
+  return data as FoodFulfillmentSummary;
+}
