@@ -5,6 +5,8 @@
 -- audit/reconciliation (dropping them is a separate, destructive change).
 -- The food_orders.refund_awaiting_customer column is also kept (additive,
 -- default false; nothing writes it once the worker stops).
+-- The food_stripe_jobs failed_notified_at / attention_notified_at notice
+-- markers are kept too (additive, nullable).
 -- Refund jobs still queued are NOT executed after this; reconcile them with
 --   select id, order_id, kind, status, last_error_code from public.food_stripe_jobs
 --   where status in ('queued','awaiting_refund');
