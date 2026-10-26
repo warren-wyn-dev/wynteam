@@ -150,6 +150,10 @@ expect "select fulfillment_type||'|'||pickup_code||'|'||delivery_fee::int||'|'||
 P2=$(as "$BUYER2" "select public.food_create_order_v3('$STORE','ลูกค้า2','0800000001','','',$ITEMS,null,null,null,'pickup','$SLOT','transfer')")
 expect "select pickup_code from public.food_orders where id='$P2'" "P002" "pickup codes are sequential per store/day"
 expect_fail_db "update public.food_orders set pickup_code='P001' where id='$P2'" "food_orders_pickup_code_day_key" "pickup codes unique per store/day"
+db "update public.food_orders set pickup_code='P009' where id='$P2'" >/dev/null
+P0=$(as "$BUYER2" "select public.food_create_order_v3('$STORE','ลูกค้า2','0800000001','','',$ITEMS,null,null,null,'pickup','$SLOT','transfer')")
+expect "select pickup_code from public.food_orders where id='$P0'" "P010" "next code follows the highest code today"
+db "delete from public.food_order_events where order_id='$P0'; delete from public.food_order_items where order_id='$P0'; delete from public.food_orders where id='$P0'; update public.food_orders set pickup_code='P002' where id='$P2'" >/dev/null
 
 # --- pickup flow ------------------------------------------------------------
 expect_fail_as "$STAFF" "select public.food_transition_order('$P1','preparing')" "payment must be verified first" "unpaid pickup cannot be accepted"

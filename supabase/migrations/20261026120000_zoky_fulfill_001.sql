@@ -544,9 +544,10 @@ begin
 
     -- Short code shown at the counter, unique per store per Bangkok day.
     perform pg_advisory_xact_lock(hashtext('food_pickup_code:' || p_store_id::text || ':' || v_day::text));
-    select count(*) + 1 into v_seq
+    -- Highest code today + 1, so a deleted order never makes the next code collide.
+    select coalesce(max(substr(o.pickup_code, 2)::integer), 0) + 1 into v_seq
     from public.food_orders o
-    where o.store_id = p_store_id and o.fulfillment_type = 'pickup' and o.pickup_code is not null
+    where o.store_id = p_store_id and o.pickup_code ~ '^P[0-9]+$'
       and (o.created_at at time zone 'Asia/Bangkok')::date = v_day;
     v_code := 'P' || lpad(v_seq::text, 3, '0');
 
