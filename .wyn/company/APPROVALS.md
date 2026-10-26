@@ -711,3 +711,23 @@
 - Not covered: WYNOS Admin, Web, Food and Merchant stay under the freeze. Live WYNOS Admin keeps its Food/Merchant pages until the coordinated release (whose workflow now also requires ZOKY Admin to be live), so both admin surfaces work on the same data and permissions in between.
 - Risks: the HIGH privilege-delegation risk is covered by the 75-check DB test but has no staging verification; Founder accepted shipping ahead of staging for ZOKY Admin. Mitigation: no Team Lead exists until the super admin appoints one; verify login and pages right after deploy.
 - Rollback: remove the domain or promote nothing (no previous production); revert the migration with `supabase/rollbacks/20261025100000_zoky_admin_team_v1_rollback.sql` (granted permissions stay).
+
+### APPROVAL — [2026-10-26] ZOKY-FULFILL-001 pickup at store and store delivery with optional COD
+
+- Founder asked for two fulfilment types ("รับเองที่ร้าน" with a pickup time before closing, and "ร้านจัดส่งเอง"), answered the open questions, and replied "อนุมัติ" to section 4 of `.wyn/docs/product/zoky-fulfill-001-pickup-and-store-delivery.md`.
+- Decisions:
+  - Pickup is paid online; the customer picks a time today, in 15-minute slots, before closing.
+  - Delivery stays as soon as possible.
+  - Each store may enable cash on delivery, for delivery orders only.
+  - Late pickup is allowed.
+  - After the store accepts, the customer can only request cancellation. The store approves or rejects it and decides whether to refund. The store also decides refunds for no-shows.
+  - COD orders carry no GP.
+- Supersedes: the 2026-10-10 DECISION "WYNOS Food is delivery only", for pickup and same-day pickup times only. Delivery scheduling stays disabled.
+- Approved:
+  - The scope change.
+  - An additive DB migration with rollback SQL, covering fulfilment type, pickup time and code, COD, store toggles, prep minutes and the new statuses.
+  - Food, Merchant and Zoky Admin changes.
+- Boundaries: no production DB change or deployment outside the release gates. QA & Security, staging and an explicit Founder production approval are still required.
+- Separate: the Founder also wants GP replaced by a monthly store fee platform-wide. This is tracked as ZOKY-BILLING-001 and needs its own PRD and approval. Not covered here.
+- Rollback: before release nothing reaches production. After release, turn off pickup and COD per store or globally, revert the app, and roll back the migration using the rollback SQL. Existing orders keep `fulfillment_type='delivery'`.
+- Status: approved; design starting. No migration applied, no deployment performed.

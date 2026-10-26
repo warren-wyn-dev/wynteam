@@ -1,6 +1,6 @@
 # ZOKY-FULFILL-001: รับเองที่ร้าน + ร้านจัดส่งเอง (PRD draft)
 
-Status: **DRAFT รอ Founder อนุมัติ**. ยังไม่ได้อนุมัติให้ implement, migrate หรือ deploy
+Status: **APPROVED by the Founder** ("อนุมัติ", 2026-10-26, `.wyn/company/APPROVALS.md`). Production migration and deployment still go through the release gates
 Date: 2026-10-26
 Source: Founder "Zoky จะมีให้เลือกจัดส่ง 2 แบบ คือ รับเองที่ร้าน → ระบุเวลาได้ ภายในเวลาปิดร้าน, ร้านจัดส่งเอง → ร้านต้องเป็นคนจัดส่งเอง"
 
