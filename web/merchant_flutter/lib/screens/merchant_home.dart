@@ -2303,18 +2303,18 @@ class _MerchantHomeState extends State<MerchantHome>
   }
 
   Future<void> cancelOrder(Json order) async {
-    final note = await requestCancellation(
+    final decision = await requestStoreCancellation(
       context,
       order['order_number'],
       order['payment_status'] == 'paid',
     );
-    if (note == null || !mounted) return;
+    if (decision == null || !mounted) return;
     if (await c.mutate(
-      () => widget.repository.transition(
+      () => widget.repository.cancelStoreOrder(
         c.storeId!,
         order['id'],
-        'cancelled',
-        note: note,
+        decision['refund'] == true,
+        decision['note'],
       ),
     )) {
       notice('ยกเลิกออเดอร์แล้ว');

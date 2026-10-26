@@ -746,3 +746,11 @@
 - Folded into ZOKY-FULFILL-001: same migration and release, same gates (QA & Security, staging, Founder production approval).
 - Rollback: re-activate Stripe-only (`stripe_only_from`), revert the app.
 - Status: approved; no production change made yet.
+
+
+### APPROVAL — [2026-10-26] Complete remaining ZOKY-FULFILL-001 implementation and release
+
+- Founder repeatedly requested production publication ("จัดการขึ้นเว็บจริงให้หน่อย", "ขึ้นเว็บจริงให้หน่อย"), then explicitly asked "จัดการทั้งหมดให้พร้อมใช้งานได้ไหม" after being told the Merchant PRs were merged but database/RPC, integration and staging work remained.
+- Scope: finish the already approved pickup, delivery, optional COD, store-verified transfer payment, cancellation decisions and manual-refund evidence across Food/DB, Merchant and the separately deployed Zoky Admin; complete verification and the scoped release. This allows taking over the previously separated unfinished implementation, without unrelated product scope.
+- Boundaries: preserve other session changes, base web and Admin candidates on their actual production SHAs, use synthetic data for development/QA, never extract secrets or query live customer rows. Apply only the reviewed additive migration via a protected workflow; no destructive database operation or release-protection bypass. Required QA, staging and environment reviews remain in place.
+- State: implementation in progress. This record does not claim a production migration, deployment or approval of unreviewed code.

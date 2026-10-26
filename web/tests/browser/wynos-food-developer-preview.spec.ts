@@ -276,7 +276,7 @@ test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
   expect(app).not.toContain('onMessages={() => router.push("/chat")}');
 });
 
-test("Food checkout is delivery-only and immediate (Founder decision 2026-10-10)", () => {
+test("Food checkout supports same-day pickup while delivery remains immediate (Founder decision 2026-10-26)", () => {
   const data = read("lib/food-customer.ts");
   const app = read("components/food/wynos-food-developer-app.tsx");
 
@@ -286,7 +286,8 @@ test("Food checkout is delivery-only and immediate (Founder decision 2026-10-10)
   expect(app).toContain("scheduledFor: null");
   expect(app).not.toContain('useState<"asap" | "scheduled">');
   expect(app).not.toContain("สั่งล่วงหน้า");
-  expect(app).not.toContain("รับเองที่ร้าน");
+  expect(app).toContain("รับเองที่ร้าน");
+  expect(app).toContain("pickupSlots.includes(pickupAt)");
   expect(app).toContain("order.scheduled_for");
 });
 

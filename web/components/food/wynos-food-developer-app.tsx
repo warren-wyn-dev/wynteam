@@ -91,6 +91,10 @@ import {
   foodStoreTodayHoursText,
 } from "@/lib/food-store-availability";
 import {
+  FOOD_STRIPE_PAUSED,
+  requestFoodCustomerCancellation,
+  type FoodFulfillmentType,
+  type FoodPaymentMethod,
   cancelFoodCustomerOrder,
   createFoodCustomerOrder,
   deleteFoodCustomerAddress,
@@ -505,6 +509,7 @@ function FoodStoreRow({
               {store.is_ad ? <b className="zk-tag is-ad">โฆษณา</b> : null}
             </span>
           ) : null}
+          <span className="zk-store-row-tags">{store.delivery_enabled !== false ? <b className="zk-tag">ร้านส่งเอง</b> : null}{store.pickup_enabled ? <b className="zk-tag">รับเองได้</b> : null}</span>
           <span className="zk-store-row-cta">ดูเมนู<Zoky3DIcon glyph="arrowRight" size={22} /></span>
         </span>
       </button>
@@ -1435,6 +1440,7 @@ function HomePanel({
           {distanceLabel ? <><span aria-hidden="true"> · </span><ZokyScooterIcon /><span>{distanceLabel}</span></> : null}
           {etaLabel ? <><span aria-hidden="true"> · </span><span>{etaLabel}</span></> : null}
         </p>
+        <p className="fx-store-meta">{store.delivery_enabled !== false ? <span>ร้านส่งเอง</span> : null}{store.pickup_enabled ? <span> · รับเองได้</span> : null}</p>
         {open ? null : (
           <div className="fx-store-closed-box" role="status">
             <strong>ปิดรับออเดอร์ชั่วคราว</strong>
@@ -1730,8 +1736,8 @@ function OrdersPanel({
   onReorder: (order: FoodCustomerOrder) => void;
   onBrowse: () => void;
 }) {
-  const active = orders.filter((order) => !["delivered", "cancelled"].includes(order.status));
-  const history = orders.filter((order) => ["delivered", "cancelled"].includes(order.status));
+  const active = orders.filter((order) => !["delivered", "picked_up", "cancelled"].includes(order.status));
+  const history = orders.filter((order) => ["delivered", "picked_up", "cancelled"].includes(order.status));
   const [view, setView] = useState<"active" | "history">(() => (active.length || !history.length ? "active" : "history"));
   const shown = view === "active" ? active : history;
 
@@ -1752,7 +1758,7 @@ function OrdersPanel({
             <OrderCard
               key={order.id}
               order={order}
-              reviewPending={order.status === "delivered" && !reviewedOrderIds.has(order.id)}
+              reviewPending={["delivered", "picked_up"].includes(order.status) && !reviewedOrderIds.has(order.id)}
               onOpen={() => onOrder(order)}
               onReorder={() => onReorder(order)}
             />
@@ -1786,7 +1792,7 @@ function MessagesPanel() {
 
 function foodOrderTone(order: FoodCustomerOrder) {
   if (order.status === "cancelled") return "muted";
-  if (order.status === "delivered") return "success";
+  if (["delivered", "picked_up"].includes(order.status)) return "success";
   if (["pending", "issue"].includes(order.payment_status)) return "danger";
   if (order.payment_status === "submitted") return "warn";
   return "brand";
@@ -1805,11 +1811,11 @@ function OrderCard({
 }) {
   const count = order.food_order_items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const names = (order.food_order_items ?? []).map((item) => item.item_name).slice(0, 2).join(", ");
-  const awaitingPayment = order.status !== "cancelled" && ["pending", "issue"].includes(order.payment_status);
-  const label = awaitingPayment ? foodPaymentStatusLabel(order.payment_status)
+  const awaitingPayment = order.payment_method !== "cod" && order.status !== "cancelled" && ["pending", "issue"].includes(order.payment_status);
+  const label = order.payment_method === "cod" && order.payment_status !== "paid" ? "เก็บเงินปลายทาง" : awaitingPayment ? foodPaymentStatusLabel(order.payment_status)
     : order.payment_status === "submitted" && order.status === "pending_acceptance" ? foodPaymentStatusLabel(order.payment_status)
       : foodOrderStatusLabel(order.status);
-  const done = ["delivered", "cancelled"].includes(order.status);
+  const done = ["delivered", "picked_up", "cancelled"].includes(order.status);
   return (
     <article className="fx-order-card">
       <button className="fx-order-card-main" type="button" onClick={onOpen} aria-label={`ออเดอร์ #${order.order_number} ${label}`}>
@@ -1821,6 +1827,7 @@ function OrderCard({
           <strong>{names || `${count} รายการ`}{(order.food_order_items?.length ?? 0) > 2 ? " และอื่นๆ" : ""}</strong>
           <small>{count} รายการ · {foodMoney(order.total)}</small>
           <small>{formatDate(order.created_at)}</small>
+          <small>{order.fulfillment_type === "pickup" ? "รับเองที่ร้าน" : "ร้านจัดส่งเอง"}{order.pickup_at ? ` · ${formatDate(order.pickup_at)}` : ""}</small>
           {order.scheduled_for ? <small className="fx-order-scheduled"><Clock3 size={13} />นัดรับ/จัดส่ง {formatDate(order.scheduled_for)}</small> : null}
         </span>
       </button>
@@ -2397,6 +2404,8 @@ function AddressEditor({
   );
 }
 
+type FoodCheckoutSelection = { fulfillmentType: FoodFulfillmentType; paymentMethod: FoodPaymentMethod; pickupAt: string | null; recipientName: string; recipientPhone: string };
+
 function CheckoutSheet({
   client,
   store,
@@ -2420,7 +2429,7 @@ function CheckoutSheet({
   onClose: () => void;
   onAddAddress: () => void;
   onEditAddress: (address: FoodCustomerAddress) => void;
-  onSubmit: (address: FoodCustomerAddress, note: string, couponCode?: string | null) => void;
+  onSubmit: (address: FoodCustomerAddress | null, note: string, couponCode: string | null, selection: FoodCheckoutSelection) => void;
 }) {
   const initialAddressId = (
     addresses.find((address) => address.is_default && foodCustomerAddressStructuredComplete(address))
@@ -2429,6 +2438,18 @@ function CheckoutSheet({
     ?? addresses[0]
   )?.id ?? "";
   const [addressId, setAddressId] = useState(initialAddressId);
+  const [fulfillmentType, setFulfillmentType] = useState<FoodFulfillmentType>(store.delivery_enabled === false && store.pickup_enabled ? "pickup" : "delivery");
+  const [paymentMethod, setPaymentMethod] = useState<FoodPaymentMethod>("transfer");
+  const [pickupAt, setPickupAt] = useState("");
+  const [pickupName, setPickupName] = useState(addresses[0]?.recipient_name ?? "");
+  const [pickupPhone, setPickupPhone] = useState(addresses[0]?.recipient_phone ?? "");
+  const [quoteRevision, setQuoteRevision] = useState(0);
+  const pickup = fulfillmentType === "pickup";
+  useEffect(() => {
+    if (!pickup) return;
+    const timer = window.setInterval(() => setQuoteRevision(v => v + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, [pickup]);
   const [note, setNote] = useState("");
   const [couponDraft, setCouponDraft] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -2453,27 +2474,28 @@ function CheckoutSheet({
     return sum + (item ? foodCartLineUnitPrice(item, line) * line.quantity : 0);
   }, 0);
 
-  const zone = storeHasDeliveryZone(store);
-  const location = addressLocation(address);
+  const zone = !pickup && storeHasDeliveryZone(store);
+  const location = pickup ? null : addressLocation(address);
   const locationKey = location ? `${location.latitude},${location.longitude}` : "";
   const [addressQuote, setAddressQuote] = useState<{ key: string; quote: FoodOrderQuote | null; error: string } | null>(null);
 
   useEffect(() => {
     let live = true;
-    const key = `${addressId}|${locationKey}|${couponCode ?? ""}`;
+    const key = `${fulfillmentType}|${addressId}|${locationKey}|${couponCode ?? ""}|${quoteRevision}`;
     const loc = zone && locationKey
       ? { latitude: Number(locationKey.split(",")[0]), longitude: Number(locationKey.split(",")[1]) }
       : null;
-    if (!addressId || (zone && !loc)) return () => { live = false; };
-    void quoteFoodCustomerOrder(client, store.id, cart, loc, couponCode)
+    if (!pickup && (!addressId || (zone && !loc))) return () => { live = false; };
+    void quoteFoodCustomerOrder(client, store.id, cart, loc, couponCode, fulfillmentType)
       .then((next) => { if (live) setAddressQuote({ key, quote: next, error: "" }); })
       .catch((error) => { if (live) setAddressQuote({ key, quote: null, error: foodCustomerError(error) }); });
     return () => { live = false; };
-  }, [addressId, cart, client, couponCode, locationKey, store.id, zone]);
+  }, [addressId, cart, client, couponCode, locationKey, store.id, zone, fulfillmentType, pickup, quoteRevision]);
 
-  const current = addressQuote?.key === `${addressId}|${locationKey}|${couponCode ?? ""}` ? addressQuote : null;
-  const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
-  const effectiveQuote = current?.quote ?? quote;
+  const current = addressQuote?.key === `${fulfillmentType}|${addressId}|${locationKey}|${couponCode ?? ""}|${quoteRevision}` ? addressQuote : null;
+  const quoteLoading = (pickup || (Boolean(address) && (!zone || Boolean(location)))) && current === null;
+  const effectiveQuote = current?.quote ?? (pickup ? null : quote);
+  const pickupSlots = current?.quote?.pickup_slots ?? [];
 
   const checkoutQuantityByMenu = new Map<string, number>();
   for (const line of cart) {
@@ -2492,7 +2514,7 @@ function CheckoutSheet({
   const couponFailed = Boolean(couponCode && current?.error);
   const quoteError = current?.error && !couponFailed ? current.error : "";
   const quoteAddressError = /ที่อยู่|พื้นที่|ปักหมุด|ตำแหน่ง|จังหวัด/.test(quoteError);
-  const addressProblem = !address
+  const addressProblem = pickup || !address
     ? ""
     : !foodCustomerAddressStructuredComplete(address)
       ? "ที่อยู่นี้เป็นข้อมูลเก่า กรุณากดแก้ไขและกรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนสั่ง"
@@ -2501,7 +2523,9 @@ function CheckoutSheet({
         : quoteAddressError
           ? quoteError
           : "";
-  const blockedReason = addressProblem
+  const pickupProblem = pickup && !pickupSlots.includes(pickupAt) ? "กรุณาเลือกเวลารับอาหารที่ยังเปิดรับของวันนี้" : "";
+  const pickupContactProblem = pickup && (!pickupName.trim() || !/^[0-9+() -]{8,20}$/.test(pickupPhone.trim())) ? "กรุณากรอกชื่อและเบอร์โทรผู้รับอาหาร" : "";
+  const blockedReason = pickupProblem || pickupContactProblem || addressProblem
     || (quoteError && !quoteAddressError ? quoteError : "")
     || (cartUnavailable ? "มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณากลับไปปรับตะกร้า" : "")
     || (minimumMissing > 0 ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}` : "")
@@ -2514,10 +2538,10 @@ function CheckoutSheet({
   const eta = foodEstimateDeliveryRange(store, effectiveQuote?.delivery_distance_km);
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
 
-  const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason);
+  const confirmDisabled = (!pickup && !address) || busy || quoteLoading || Boolean(blockedReason);
   const confirmLabel = busy
     ? "กำลังสร้างออเดอร์…"
-    : !address
+    : !pickup && !address
       ? "เพิ่มที่อยู่ก่อนสั่ง"
       : addressProblem
         ? "เปลี่ยนที่อยู่ก่อนสั่ง"
@@ -2526,14 +2550,14 @@ function CheckoutSheet({
           : "ยืนยันคำสั่งซื้อ";
 
   const submitOrder = () => {
-    if (!address) return;
-    onSubmit(address, note, couponCode);
+    if (confirmDisabled) return;
+    onSubmit(pickup ? null : address, note, couponCode, { fulfillmentType, paymentMethod: pickup ? "transfer" : paymentMethod, pickupAt: pickup ? pickupAt : null, recipientName: pickup ? pickupName.trim() : address!.recipient_name, recipientPhone: pickup ? pickupPhone.trim() : address!.recipient_phone });
   };
 
   const paymentMethods = [
     store.promptpay_id || store.payment_qr_path ? "สแกน QR พร้อมเพย์" : null,
     store.bank_account_number ? "โอนแล้วแนบสลิป" : null,
-    store.stripe_payments_enabled ? "บัตร" : null,
+    !FOOD_STRIPE_PAUSED && store.stripe_payments_enabled ? "บัตร" : null,
   ].filter(Boolean);
 
   const applyCoupon = () => {
@@ -2565,6 +2589,19 @@ function CheckoutSheet({
       )}
     >
       <div className="fx-checkout">
+        <fieldset disabled={busy} className="fx-order-block">
+          <legend>รูปแบบรับอาหาร</legend>
+          {store.delivery_enabled !== false ? <label className="fx-toggle-row"><input type="radio" name="fulfillment" value="delivery" checked={!pickup} onChange={() => { setFulfillmentType("delivery"); setPickupAt(""); }} />ร้านจัดส่งเอง</label> : null}
+          {store.pickup_enabled ? <label className="fx-toggle-row"><input type="radio" name="fulfillment" value="pickup" checked={pickup} onChange={() => { setFulfillmentType("pickup"); setPaymentMethod("transfer"); setPickupAt(""); }} />รับเองที่ร้าน</label> : null}
+        </fieldset>
+        {pickup ? <section className="fx-order-block">
+          <h2>รับอาหารที่ร้านวันนี้</h2><p>{store.name} · {store.address}</p>
+          <label className="fx-field"><span>ชื่อผู้รับอาหาร</span><input autoComplete="name" value={pickupName} maxLength={100} onChange={e => setPickupName(e.target.value)} /></label>
+          <label className="fx-field"><span>เบอร์โทรผู้รับอาหาร</span><input type="tel" autoComplete="tel" value={pickupPhone} maxLength={20} onChange={e => setPickupPhone(e.target.value)} /></label>
+          <label className="fx-field"><span>เวลารับอาหารวันนี้</span><select disabled={busy || quoteLoading} value={pickupSlots.includes(pickupAt) ? pickupAt : ""} onChange={e => setPickupAt(e.target.value)}><option value="">เลือกเวลารับอาหาร</option>{pickupSlots.map(slot => <option key={slot} value={slot}>{formatDate(slot)}</option>)}</select></label>
+          {!quoteLoading && current?.quote && !pickupSlots.length ? <p role="alert">วันนี้ไม่มีช่วงเวลารับอาหารแล้ว</p> : null}
+          <p>โอนเงินเข้าบัญชีร้านและแนบสลิปก่อนรับอาหาร</p>
+        </section> : <>
         <div className="fx-section-head">
           <h2>ที่อยู่จัดส่ง</h2>
           <button type="button" onClick={onAddAddress}><Plus size={16} strokeWidth={2.6} /> เพิ่มที่อยู่</button>
@@ -2628,6 +2665,7 @@ function CheckoutSheet({
           </button>
         )}
 
+        </>}
         <label className="fx-field">
           <span className="fx-field-label"><strong>หมายเหตุถึงผู้จัดส่ง</strong></span>
           <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น โทรเมื่อถึง, วางไว้หน้าประตู" />
@@ -2673,16 +2711,17 @@ function CheckoutSheet({
           <div><span>ค่าจัดส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{addressProblem ? "—" : foodMoney(deliveryFee)}</b></div>
           {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "ส่วนลด · " + effectiveQuote.campaign_name : "ส่วนลดค่าอาหาร"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
           {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
-          <div className="is-eta"><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>
+          {!pickup ? <div className="is-eta"><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div> : null}
         </div>
 
-        <div className="fx-note fx-note--info" role="note">
+        {!pickup && store.cod_enabled ? <fieldset disabled={busy} className="fx-order-block"><legend>วิธีชำระเงิน</legend><label className="fx-toggle-row"><input type="radio" name="payment-method" checked={paymentMethod === "transfer"} onChange={() => setPaymentMethod("transfer")} />โอนเงินและแนบสลิป</label><label className="fx-toggle-row"><input type="radio" name="payment-method" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} />จ่ายเงินสดตอนรับของ</label></fieldset> : null}
+        {paymentMethod === "cod" && !pickup ? <div className="fx-note fx-note--info">เตรียมเงินสดตามยอดชำระให้ร้านเมื่อได้รับอาหาร</div> : <div className="fx-note fx-note--info" role="note">
           <Timer size={18} />
           <span>
             <strong>กรุณาชำระเงินหรือส่งสลิปภายใน 10 นาทีหลังยืนยันออเดอร์</strong>
             <small>{paymentMethods.length ? `${paymentMethods.join(" · ")} · ` : ""}หากยังไม่ชำระหรือไม่ส่งสลิป ระบบจะยกเลิกออเดอร์อัตโนมัติ</small>
           </span>
-        </div>
+        </div>}
 
         {blockedReason && !addressProblem ? <div className="fx-note fx-note--warn" role="alert">{blockedReason}</div> : null}
         {effectiveQuote?.campaign_name ? (
@@ -2796,6 +2835,8 @@ const FOOD_TRACK_SHORT: Record<FoodCustomerOrder["status"], string> = {
   out_for_delivery: "กำลังส่ง",
   delivered: "ส่งสำเร็จ",
   cancelled: "ยกเลิกแล้ว",
+  ready_for_pickup: "พร้อมให้รับ",
+  picked_up: "รับอาหารแล้ว",
 };
 
 const FOOD_TRACK_DETAIL: Record<FoodCustomerOrder["status"], string> = {
@@ -2805,6 +2846,8 @@ const FOOD_TRACK_DETAIL: Record<FoodCustomerOrder["status"], string> = {
   out_for_delivery: "อาหารกำลังเดินทางไปหาคุณ",
   delivered: "จัดส่งสำเร็จแล้ว",
   cancelled: "ออเดอร์ถูกยกเลิก",
+  ready_for_pickup: "อาหารพร้อมแล้ว มารับที่ร้านได้เลย",
+  picked_up: "รับอาหารเรียบร้อยแล้ว",
 };
 
 function copyText(value: string, onMessage: (message: string) => void) {
@@ -2873,7 +2916,7 @@ function OrderDetailSheet({
     const timer = window.setTimeout(() => {
       if (!live) return;
       // The QR is built server-side for this order's own store, so it is safe even when another store is open.
-      if ((orderStore && !orderStore.promptpay_id) || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
+      if (order.payment_method === "cod" || (orderStore && !orderStore.promptpay_id) || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
         setDynamicPaymentQr(null);
         return;
       }
@@ -2885,7 +2928,7 @@ function OrderDetailSheet({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [client, order.id, order.payment_status, order.status, orderStore]);
+  }, [client, order.id, order.payment_status, order.status, order.payment_method, orderStore]);
 
   const selectSlip = (file: File | null) => {
     if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
@@ -2953,13 +2996,24 @@ function OrderDetailSheet({
     }
   };
 
-  const currentIndex = TRACKING_STEPS.findIndex((step) => step.status === order.status);
+  const requestCancel = async () => {
+    const note = window.prompt("เหตุผลที่ขอยกเลิกออเดอร์");
+    if (note == null || !note.trim()) return;
+    setWorking(true);
+    try { await requestFoodCustomerCancellation(client, order.id, note); onMessage("ส่งคำขอยกเลิกแล้ว รอร้านพิจารณา"); await onReload(); }
+    catch (error) { onMessage(foodCustomerError(error)); }
+    finally { setWorking(false); }
+  };
+  const pickup = order.fulfillment_type === "pickup";
+  const trackingSteps = pickup ? [TRACKING_STEPS[0], TRACKING_STEPS[1], { status: "ready_for_pickup" as const, label: "พร้อมให้รับ" }, { status: "picked_up" as const, label: "รับอาหารแล้ว" }] : TRACKING_STEPS;
+  const currentIndex = trackingSteps.findIndex((step) => step.status === order.status);
   const isCancelled = order.status === "cancelled";
   const secondsLeft = order.payment_due_at ? Math.max(0, Math.ceil((new Date(order.payment_due_at).getTime() - clockNow) / 1000)) : null;
   const paymentExpired = secondsLeft === 0;
-  const awaitingPayment = ["pending", "issue"].includes(order.payment_status);
+  const awaitingPayment = order.payment_method !== "cod" && ["pending", "issue"].includes(order.payment_status);
   const canPay = !isCancelled && !paymentExpired && awaitingPayment;
-  const canCancel = order.status === "pending_acceptance" && awaitingPayment;
+  const canCancel = order.status === "pending_acceptance";
+  const canRequestCancel = ["preparing", "ready_for_pickup"].includes(order.status) && !order.cancel_requested_at;
   const paymentQr = dynamicPaymentQr ?? foodPublicUrl(client, orderStore?.payment_qr_path);
   const combinedBusy = busy || working;
   const slipUnderReview = !isCancelled && order.payment_status === "submitted";
@@ -2997,6 +3051,10 @@ function OrderDetailSheet({
       ) : null}
     >
       <div className="fx-order-detail">
+        <p className="fx-note fx-note--info">{pickup ? "รับเองที่ร้าน" : "ร้านจัดส่งเอง"}{order.payment_method === "cod" ? " · เก็บเงินปลายทาง" : ""}</p>
+        {pickup ? <section className="fx-order-block"><h2>รหัสรับอาหาร</h2><strong style={{ fontSize: "2rem" }}>{order.pickup_code ?? "—"}</strong><p>เวลานัดรับ: {order.pickup_at ? formatDate(order.pickup_at) : "—"}</p><p>มาช้าได้ หากไม่มารับ ร้านเป็นผู้ตัดสินใจเรื่องคืนเงิน</p></section> : null}
+        {order.cancel_requested_at ? <div className="fx-note fx-note--warn" role="status">ส่งคำขอยกเลิกแล้ว รอร้านพิจารณา</div> : null}
+        {order.refund_status === "pending" ? <div className="fx-note fx-note--warn">ร้านกำลังดำเนินการคืนเงินด้วยการโอน</div> : order.refund_status === "refunded" ? <div className="fx-note fx-note--info">ร้านยืนยันว่าโอนเงินคืนแล้ว</div> : null}
         {canPay ? (
           <>
             {countdown ? (
@@ -3030,12 +3088,12 @@ function OrderDetailSheet({
                   </div>
                 ) : null}
               </div>
-              <small className="fx-pay-qr-note">{orderStore?.stripe_payments_enabled ? "โอนเงินเข้าบัญชีร้านโดยตรงและแนบสลิปเป็นช่องทางสำรอง" : "โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ"}</small>
+              <small className="fx-pay-qr-note">{"โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ร้านตรวจสอบ"}</small>
               {orderStore && !orderStore.stripe_payments_enabled && !paymentQr && !orderStore.promptpay_id && !orderStore.bank_account_number ? <div className="fx-note fx-note--warn">ร้านยังไม่ได้ตั้งค่าช่องทางรับเงิน กรุณาติดต่อร้าน</div> : null}
               {!orderStore && !paymentQr ? <div className="fx-note fx-note--warn">เปิดหน้าร้านของออเดอร์นี้เพื่อดูข้อมูลบัญชีรับเงิน</div> : null}
             </section>
 
-            {orderStore?.stripe_payments_enabled ? (
+            {!FOOD_STRIPE_PAUSED && orderStore?.stripe_payments_enabled ? (
               <button className="fx-pay-option" type="button" disabled={combinedBusy} onClick={() => void payWithStripe()}>
                 <CreditCard size={22} />
                 <span><strong>{combinedBusy ? "กำลังเปิด Stripe…" : "จ่ายด้วยบัตร"}</strong><small>บัตร หรือพร้อมเพย์ผ่าน Stripe · ยืนยันสถานะอัตโนมัติ</small></span>
@@ -3097,12 +3155,12 @@ function OrderDetailSheet({
         ) : !canPay ? (
           <>
             <ol className="fx-track" aria-label="สถานะออเดอร์">
-              {TRACKING_STEPS.map((step, index) => {
+              {trackingSteps.map((step, index) => {
                 const done = currentIndex > index;
                 const current = currentIndex === index;
                 return (
                   <li key={step.status} className={`${done ? "is-done" : ""}${current ? " is-current" : ""}`} aria-current={current ? "step" : undefined}>
-                    <span className="fx-track-dot">{done || (current && step.status === "delivered") ? <Check size={14} strokeWidth={3} /> : null}</span>
+                    <span className="fx-track-dot">{done || (current && ["delivered", "picked_up"].includes(step.status)) ? <Check size={14} strokeWidth={3} /> : null}</span>
                     <small>{FOOD_TRACK_SHORT[step.status]}</small>
                   </li>
                 );
@@ -3131,7 +3189,7 @@ function OrderDetailSheet({
           </section>
         ) : null}
 
-        {order.status === "delivered" ? (
+        {["delivered", "picked_up"].includes(order.status) ? (
           ownReview ? (
             <section className="fx-review-done">
               <span><strong>ขอบคุณที่รีวิวร้าน</strong><small>รีวิวจากออเดอร์จริงของคุณ</small></span>
@@ -3170,14 +3228,16 @@ function OrderDetailSheet({
         </section>
 
         <section className="fx-order-block">
-          <div className="fx-section-head"><h2>จัดส่งไปที่</h2></div>
-          <div className="fx-delivery-to"><MapPin size={20} fill="currentColor" strokeWidth={0} /><div><strong>{order.recipient_name}</strong><small>{order.recipient_phone}</small><p>{order.shipping_address}</p>{order.customer_note ? <em>{order.customer_note}</em> : null}</div></div>
+          <div className="fx-section-head"><h2>{pickup ? "จุดรับอาหาร" : "จัดส่งไปที่"}</h2></div>
+          <div className="fx-delivery-to"><MapPin size={20} fill="currentColor" strokeWidth={0} /><div><strong>{order.recipient_name}</strong><small>{order.recipient_phone}</small><p>{pickup ? orderStore?.address : order.shipping_address}</p>{order.customer_note ? <em>{order.customer_note}</em> : null}</div></div>
+          {pickup && orderStore ? <><p>{orderStore.pickup_note}</p><a className="fx-btn fx-btn--outline fx-btn--block" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(orderStore.pickup_latitude != null && orderStore.pickup_longitude != null ? `${orderStore.pickup_latitude},${orderStore.pickup_longitude}` : orderStore.latitude != null && orderStore.longitude != null ? `${orderStore.latitude},${orderStore.longitude}` : orderStore.address ?? orderStore.name)}`}>นำทางไปรับอาหาร</a></> : null}
           {orderStore?.phone ? <a className="fx-btn fx-btn--outline fx-btn--block" href={`tel:${orderStore.phone}`}><Phone size={17} />ติดต่อร้าน</a> : null}
         </section>
 
-        {["delivered", "cancelled"].includes(order.status) ? (
+        {["delivered", "picked_up", "cancelled"].includes(order.status) ? (
           <button className="fx-btn fx-btn--primary fx-btn--block" type="button" onClick={onReorder}>สั่งรายการเดิมอีกครั้ง</button>
         ) : null}
+        {canRequestCancel ? <button className="fx-btn fx-btn--danger-outline fx-btn--block" type="button" disabled={combinedBusy} onClick={() => void requestCancel()}>ขอยกเลิกออเดอร์</button> : null}
         {canCancel ? <button className="fx-btn fx-btn--danger-outline fx-btn--block" type="button" disabled={combinedBusy} onClick={() => void cancel()}>ยกเลิกออเดอร์</button> : null}
       </div>
     </Sheet>
@@ -3382,7 +3442,7 @@ function FoodCustomerInner({
     }
 
     const timer = window.setTimeout(() => {
-      void quoteFoodCustomerOrder(client, snapshot.store!.id, cart)
+      void quoteFoodCustomerOrder(client, snapshot.store!.id, cart, null, null, snapshot.store!.delivery_enabled === false && snapshot.store!.pickup_enabled ? "pickup" : "delivery")
         .then((next) => { if (live) setQuote(next); })
         .catch(() => { if (live) setQuote(null); });
     }, 180);
@@ -3439,7 +3499,7 @@ function FoodCustomerInner({
     const item = itemFor(menu, line.menu_item_id);
     return sum + (item ? foodCartLineUnitPrice(item, line) * line.quantity : 0);
   }, 0);
-  const activeCount = orders.filter((order) => !["delivered", "cancelled"].includes(order.status)).length;
+  const activeCount = orders.filter((order) => !["delivered", "picked_up", "cancelled"].includes(order.status)).length;
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const homeLocationLabel = primaryAddress?.place_name || primaryAddress?.label || "เลือกที่อยู่จัดส่ง";
 
@@ -3515,26 +3575,29 @@ function FoodCustomerInner({
     }
   };
 
-  // Founder decision (2026-10-10): WYNOS Food offers delivery as soon as possible only; no scheduled orders and no pickup.
-  const createOrder = async (address: FoodCustomerAddress, note: string, couponCode?: string | null) => {
-    if (!store) return;
+  // Delivery remains ASAP; pickup uses a server-issued slot for today only.
+  const createOrder = async (address: FoodCustomerAddress | null, note: string, couponCode: string | null, selection: FoodCheckoutSelection) => {
+    if (!store || (selection.fulfillmentType === "delivery" && !address)) return;
     setBusy(true);
     try {
       const structuredAddress = [
-        address.building_name ? `อาคาร/หมู่บ้าน ${address.building_name}` : "",
-        address.floor ? `ชั้น ${address.floor}` : "",
-        address.room ? `ห้อง ${address.room}` : "",
-        address.landmark ? `จุดสังเกต ${address.landmark}` : "",
+        address?.building_name ? `อาคาร/หมู่บ้าน ${address?.building_name}` : "",
+        address?.floor ? `ชั้น ${address?.floor}` : "",
+        address?.room ? `ห้อง ${address?.room}` : "",
+        address?.landmark ? `จุดสังเกต ${address?.landmark}` : "",
       ].filter(Boolean).join(" · ");
-      const combinedNote = [structuredAddress, address.delivery_note, note.trim()].filter(Boolean).join(" · ");
+      const combinedNote = [structuredAddress, address?.delivery_note, note.trim()].filter(Boolean).join(" · ");
       const orderId = await createFoodCustomerOrder(client, store.id, {
-        recipientName: address.recipient_name,
-        recipientPhone: address.recipient_phone,
-        shippingAddress: address.address,
+        recipientName: selection.recipientName,
+        recipientPhone: selection.recipientPhone,
+        shippingAddress: selection.fulfillmentType === "pickup" ? "" : address!.address,
         customerNote: combinedNote,
         items: cart,
-        location: storeHasDeliveryZone(store) ? addressLocation(address) : null,
+        location: selection.fulfillmentType === "delivery" && storeHasDeliveryZone(store) ? addressLocation(address) : null,
         scheduledFor: null,
+        fulfillmentType: selection.fulfillmentType,
+        paymentMethod: selection.paymentMethod,
+        pickupAt: selection.pickupAt,
         couponCode: couponCode ?? null,
       });
       // Lets the store see orders that came from its shared link.
@@ -3545,7 +3608,7 @@ function FoodCustomerInner({
       const order = next?.orders.find((row) => row.id === orderId);
       if (order) setSelectedOrder(order);
       setTab("orders");
-      setMessage("สร้างออเดอร์แล้ว กรุณาชำระเงินภายใน 10 นาที");
+      setMessage(selection.paymentMethod === "cod" ? "สร้างออเดอร์แล้ว เตรียมเงินสดเมื่อได้รับอาหาร" : "สร้างออเดอร์แล้ว กรุณาชำระเงินภายใน 10 นาที");
     } catch (error) {
       setMessage(foodCustomerError(error));
     } finally {
@@ -3874,7 +3937,7 @@ function FoodCustomerInner({
             isDefault: address.is_default,
             location: addressLocation(address),
           })}
-          onSubmit={(address, note, couponCode) => void createOrder(address, note, couponCode)}
+          onSubmit={(address, note, couponCode, selection) => void createOrder(address, note, couponCode, selection)}
         />
       ) : null}
 

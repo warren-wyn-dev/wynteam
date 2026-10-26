@@ -4,7 +4,7 @@ Integration branch: `feat/zoky-fulfill-001`. It is cut from the live production 
 Every session opens PRs **into this branch**, never into `main` or the release branch.
 PRD: `.wyn/docs/product/zoky-fulfill-001-pickup-and-store-delivery.md`. Design: `zoky-fulfill-001-technical-design.md`. Approvals: `.wyn/company/APPROVALS.md` (2026-10-26 entries).
 
-Status: **v1 draft**. Names and shapes may still change after the production definitions dump. Any change is made **in this file first**, in its own commit, and the other session is told about it.
+Status: **v2 implementation contract (2026-10-26)**. Names and shapes may still change after the production definitions dump. Any change is made **in this file first**, in its own commit, and the other session is told about it.
 
 ## 1. Ownership (do not edit the other side's files)
 
@@ -41,7 +41,7 @@ refund_status  values unchanged ('none','pending','refunded','failed')
                'refunded' is set by the store with a refund slip
 ```
 
-## 4. RPCs the Merchant side calls (v1 draft signatures)
+## 4. RPCs the Merchant side calls
 
 | RPC | Purpose | Roles |
 |---|---|---|
@@ -50,7 +50,8 @@ refund_status  values unchanged ('none','pending','refunded','failed')
 | `food_complete_delivery(...)` (existing, extended) | For COD it also records the cash as received. Signature unchanged. | existing |
 | `food_set_payment_status(...)` (existing) | Store confirms or flags a slip. Unchanged. | existing |
 | `food_resolve_cancel_request(p_order_id uuid, p_approve boolean, p_refund boolean, p_note text)` | Answer a customer cancel request. | owner, admin, manager, orders |
-| `food_store_mark_refunded(p_order_id uuid, p_refund_slip_path text, p_note text)` | Store refunded the customer by transfer. The slip goes in the private bucket path `food-refund-slips/<store_id>/<order_id>/...`. | owner, admin, manager |
+| `food_store_cancel_order(p_order_id uuid, p_refund boolean, p_note text)` | Merchant-initiated cancellation, including no-show, with explicit refund decision. | owner, admin, manager, orders |
+| `food_store_mark_refunded(p_order_id uuid, p_refund_slip_path text, p_note text)` | Store refunded the customer by transfer. The slip goes in bucket `food-private`, object path `food-refund-slips/<store_id>/<order_id>/...`. Immutable uploads; server validates order ownership, uploader role and evidence object. | owner, admin, manager |
 
 Order rows returned to the Merchant side gain the §3 fields. `pickup_code` is shown to the store.
 
@@ -85,3 +86,36 @@ Order rows returned to the Merchant side gain the §3 fields. `pickup_code` is s
   - Revert `web/next-env.d.ts` and `web/AGENTS.md` if `next dev` dirtied them.
 - Every user-visible Thai string needs an English entry in `en.ts`. No duplicate keys.
 - Status words must not collide in i18n. Use distinct Thai labels, for example "พร้อมให้รับ" vs the existing "พร้อมส่ง".
+
+## 7. Customer APIs and implementation handoff (v2)
+
+The Founder asked this session to handle all remaining work through usable release,
+after explicitly authorizing production deployment. Work now covers the approved
+Food/DB, Merchant and scoped Admin implementation together, with isolated files
+and a separate Admin checkout based on its own actual production commit. Existing
+release checks, protected environment review and migration safety still apply.
+
+- `food_quote_order_v3(p_store_id uuid, p_items jsonb, p_latitude float8 = null,
+  p_longitude float8 = null, p_coupon_code text = null,
+  p_fulfillment_type text = 'delivery')`: existing quote JSON plus
+  `fulfillment_type` and `pickup_slots` (array of ISO timestamptz strings).
+- `food_create_order_v3`: existing nine v2 parameters followed by
+  `p_fulfillment_type text = 'delivery', p_pickup_at timestamptz = null,
+  p_payment_method text = 'transfer'`; returns the order UUID.
+- `food_request_cancel(p_order_id uuid, p_note text = null)`: customer-owned
+  accepted orders only. Existing direct customer cancellation remains limited
+  to pending acceptance; all accepted-order cancellations need store approval.
+- `food_store_cancel_order` covers store cancellation/no-show when no customer
+  request exists. It must enforce the same role, state, audit and refund rules
+  as approving a customer request. No automatic refund or no-show expiry.
+- Private evidence bucket is **food-private**; `food-refund-slips` is an object
+  prefix, not a second bucket. A different store or customer cannot read/upload
+  evidence under this prefix. Do not weaken existing immutable evidence rules.
+- Production baseline: approved definitions-only dump run `40318273032`.
+  The Stripe-only cutover is absent live. Pause Stripe at the application layer
+  and stop automatic slip-verification invocation; preserve in-flight legacy
+  Stripe callbacks/refunds. Do not add a new Stripe gate.
+
+These are implementation contracts, not a claim that a migration or deployment
+has occurred. Synthetic SQL, app integration, staging, reviewed migration and
+exact-artifact production promotion are separate verification stages.

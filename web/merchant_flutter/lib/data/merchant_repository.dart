@@ -66,6 +66,14 @@ abstract class MerchantRepository {
   Future<Json> campaigns(String storeId);
   Future<void> saveMenu(String storeId, Json values, {String? id});
   Future<void> saveStore(String storeId, Json values);
+  Future<void> cancelStoreOrder(
+    String storeId,
+    String orderId,
+    bool refund,
+    String note,
+  ) async => throw const MerchantException(
+    'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+  );
   Future<void> setFulfillment(String storeId, Json values) async =>
       throw const MerchantException(
         'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
@@ -180,6 +188,21 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<void> saveStore(String storeId, Json values) async {
     await call('saveStore', {'storeId': storeId, 'values': values});
+  }
+
+  @override
+  Future<void> cancelStoreOrder(
+    String storeId,
+    String orderId,
+    bool refund,
+    String note,
+  ) async {
+    await call('cancelStoreOrder', {
+      'storeId': storeId,
+      'orderId': orderId,
+      'refund': refund,
+      'note': note,
+    });
   }
 
   @override

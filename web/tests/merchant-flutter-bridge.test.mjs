@@ -356,3 +356,15 @@ test('Stripe refunds and denied roles cannot upload a store refund slip',async()
     assert.equal(h.calls.some(c=>c.name==='uploadFoodPrivateImage'),false);
   }
 });
+
+test('merchant no-show cancellation carries an explicit refund decision and checks order ownership', async()=>{
+  const h=harness();
+  const args={storeId:STORE,orderId:ORDER,refund:false,note:'ลูกค้าไม่มารับ'};
+  assert.equal((await h.request('cancelStoreOrder',{...args,storeId:OTHER})).ok,false);
+  assert.equal(h.calls.some(c=>c.name==='food_store_cancel_order'),false);
+  assert.equal((await h.request('cancelStoreOrder',args)).ok,true);
+  const call=h.calls.find(c=>c.name==='food_store_cancel_order');
+  assert.equal(call.args.p_order_id,ORDER);assert.equal(call.args.p_refund,false);assert.equal(call.args.p_note,args.note);
+  h.state.rpcError={name:'food_store_cancel_order',message:'role required'};
+  assert.equal((await h.request('cancelStoreOrder',{...args,refund:true})).ok,false);
+});

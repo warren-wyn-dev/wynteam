@@ -17,6 +17,39 @@ class PausedRepository extends FakeRepository {
 }
 
 void main() {
+  testWidgets(
+    'store no-show cancellation returns an explicit no-refund decision',
+    (tester) async {
+      Json? decision;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  decision = await requestStoreCancellation(
+                    context,
+                    'TEST-NO-SHOW',
+                    true,
+                  );
+                },
+                child: const Text('เปิด'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('เปิด'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'ลูกค้าไม่มารับ');
+      await tester.tap(find.text('คืนเงิน'));
+      await tester.pump();
+      await tester.tap(find.text('ยืนยันยกเลิก'));
+      await tester.pumpAndSettle();
+      expect(decision?['refund'], false);
+      expect(decision?['note'], 'ลูกค้าไม่มารับ');
+    },
+  );
   test('pickup and delivery follow different paths and pickup is terminal', () {
     expect(
       orderNextStatus({'fulfillment_type': 'pickup', 'status': 'preparing'}),

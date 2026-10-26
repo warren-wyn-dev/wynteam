@@ -2,7 +2,7 @@
 "use client";
 
 import { FulfillmentTags, MerchantFulfillmentSettings, MerchantCancelRefund } from "@/components/merchant/merchant-fulfillment";
-import { STRIPE_SETUP_PAUSED, transitionPickupOrder } from "@/lib/food-fulfillment-merchant";
+import { STRIPE_SETUP_PAUSED, cancelStoreOrder, transitionPickupOrder } from "@/lib/food-fulfillment-merchant";
 import {
   ArrowUpDown,
   Bell,
@@ -2251,7 +2251,11 @@ function OrderSheet({
       {!["delivered", "picked_up", "cancelled"].includes(order.status) ? (
         <button className="wm-danger-link" disabled={locked} type="button" onClick={() => {
           if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
-          void run(() => transitionFoodOrder(client, order.id, "cancelled"), "ยกเลิกออเดอร์แล้ว");
+          const note = window.prompt("เหตุผลที่ยกเลิก");
+          if (note === null) return;
+          if (note.trim().length < 3) { onMessage("กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร"); return; }
+          const refund = order.payment_status === "paid" && window.confirm("ต้องการคืนเงินหรือไม่? กดตกลงเพื่อคืนเงิน กดยกเลิกเพื่อไม่คืนเงิน");
+          void run(() => cancelStoreOrder(client, order.id, refund, note), "ยกเลิกออเดอร์แล้ว");
         }}>ยกเลิกออเดอร์</button>
       ) : null}
     </Sheet>

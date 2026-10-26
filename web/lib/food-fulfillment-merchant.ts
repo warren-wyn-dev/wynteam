@@ -42,3 +42,8 @@ export async function uploadRefundSlip(client: SupabaseClient, storeId: string, 
 export async function transitionPickupOrder(client: SupabaseClient, orderId: string, status: "ready_for_pickup" | "picked_up") {
   await rpc(client, "food_transition_order", { p_order_id: orderId, p_status: status, p_eta_minutes: null, p_note: null });
 }
+
+export async function cancelStoreOrder(client: SupabaseClient, orderId: string, refund: boolean, note: string) {
+  if (note.trim().length < 3 || note.length > 1000) throw new FulfillmentError("กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร");
+  await rpc(client, "food_store_cancel_order", { p_order_id: orderId, p_refund: refund, p_note: note.trim() });
+}

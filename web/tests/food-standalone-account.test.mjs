@@ -147,8 +147,10 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
     "ร้านอาหารทั้งหมด",
     "ร้านยอดนิยม",
   ]) assert.match(source, new RegExp(label));
-  // Founder decision (2026-10-10): delivery only — no pickup and no scheduled orders.
-  assert.doesNotMatch(source, /รับเองที่ร้าน|สั่งล่วงหน้า/);
+  // Founder 2026-10-26: same-day pickup; delivery remains immediate.
+  assert.match(source, /รับเองที่ร้าน/);
+  assert.match(source, /pickupSlots\.includes\(pickupAt\)/);
+  assert.doesNotMatch(source, /useState<"asap" \| "scheduled">/);
   assert.match(source, /scheduledFor: null/);
 
   assert.match(source, /label="ร้านโปรด"/);

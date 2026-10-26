@@ -7,6 +7,10 @@ import { sessionErrorCopy } from "@/lib/supabase/clock-skew-fetch";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 
+export const FOOD_STRIPE_PAUSED = true;
+export type FoodFulfillmentType = "delivery" | "pickup";
+export type FoodPaymentMethod = "transfer" | "cod";
+
 export type FoodCustomerStore = {
   id: string;
   slug: string;
@@ -44,6 +48,10 @@ export type FoodCustomerStore = {
   bank_account_name: string | null;
   bank_account_number: string | null;
   payment_qr_path: string | null;
+  pickup_enabled?: boolean;
+  delivery_enabled?: boolean;
+  cod_enabled?: boolean;
+  prep_minutes?: number;
   stripe_payments_enabled?: boolean;
   scheduled_orders_enabled?: boolean;
   scheduled_min_notice_minutes?: number;
@@ -123,7 +131,17 @@ export type FoodCustomerOrder = {
   store_id: string;
   buyer_id: string | null;
   source: "app" | "manual" | "social";
-  status: "pending_acceptance" | "preparing" | "ready_for_delivery" | "out_for_delivery" | "delivered" | "cancelled";
+  status: "pending_acceptance" | "preparing" | "ready_for_delivery" | "out_for_delivery" | "delivered" | "cancelled" | "ready_for_pickup" | "picked_up";
+  fulfillment_type?: FoodFulfillmentType;
+  payment_method?: FoodPaymentMethod;
+  pickup_at?: string | null;
+  pickup_code?: string | null;
+  picked_up_at?: string | null;
+  cancel_requested_at?: string | null;
+  cancel_request_note?: string | null;
+  refund_status?: "none" | "pending" | "refunded" | "failed";
+  refund_slip_path?: string | null;
+  refunded_by_store_at?: string | null;
   payment_status: "pending" | "submitted" | "paid" | "issue" | "refunded";
   recipient_name: string;
   recipient_phone: string;
@@ -332,6 +350,8 @@ export function foodMenuQuantityLimit(item: Pick<FoodCustomerMenuItem, "daily_st
 }
 
 export type FoodOrderQuote = {
+  fulfillment_type?: FoodFulfillmentType;
+  pickup_slots?: string[];
   subtotal: number;
   delivery_fee: number;
   campaign_discount: number;
@@ -599,6 +619,10 @@ export async function fetchStorePlatformCampaigns(client: SupabaseClient, storeI
 
 /** WYN-207: a store in the Food directory; is_ad = a live paid ad (shown first, labelled). */
 export type FoodDirectoryStore = {
+  pickup_enabled?: boolean;
+  delivery_enabled?: boolean;
+  cod_enabled?: boolean;
+  prep_minutes?: number;
   id: string;
   slug: string;
   name: string;
@@ -625,7 +649,7 @@ export type FoodDirectoryStore = {
 
 /** Store directory with live ads first. null = not available (older database). */
 export async function fetchFoodStoreDirectory(client: SupabaseClient, query = ""): Promise<FoodDirectoryStore[] | null> {
-  const { data, error } = await client.rpc("food_store_directory", { p_query: query.trim() || null });
+  const { data, error } = await client.rpc("food_store_directory_v2", { p_query: query.trim() || null });
   if (error || !Array.isArray(data)) return null;
   return data as FoodDirectoryStore[];
 }
@@ -641,12 +665,13 @@ export async function quoteFoodCustomerOrder(
   items: FoodCartLine[],
   location: FoodLocation | null = null,
   couponCode: string | null = null,
+  fulfillmentType?: FoodFulfillmentType,
 ): Promise<FoodOrderQuote> {
   const normalizedCode = couponCode?.trim().toUpperCase() || null;
   const params = {
     // Coordinates are sent only when there is a pin, so this also works
     // against the pre-WYN-196 RPC signature during a rollout.
-    ...pinParams(location),
+    ...pinParams(fulfillmentType === "pickup" ? null : location),
     p_store_id: storeId,
     p_items: items.map((line) => ({
       menu_item_id: line.menu_item_id,
@@ -654,12 +679,16 @@ export async function quoteFoodCustomerOrder(
       selected_options: line.selected_options ?? [],
     })),
   };
-  const { data, error } = normalizedCode
+  const { data, error } = fulfillmentType
+    ? await client.rpc("food_quote_order_v3", { p_latitude: null, p_longitude: null, ...params, p_coupon_code: normalizedCode, p_fulfillment_type: fulfillmentType })
+    : normalizedCode
     ? await client.rpc("food_quote_order_v2", { ...params, p_coupon_code: normalizedCode })
     : await client.rpc("food_quote_order", params);
   if (error) throw new Error(error.message);
   const raw = (data ?? {}) as Partial<FoodOrderQuote>;
   return {
+    fulfillment_type: raw.fulfillment_type === "pickup" ? "pickup" : "delivery",
+    pickup_slots: Array.isArray(raw.pickup_slots) ? raw.pickup_slots.filter((slot): slot is string => typeof slot === "string" && Number.isFinite(Date.parse(slot))) : [],
     subtotal: Number(raw.subtotal ?? 0),
     delivery_fee: Number(raw.delivery_fee ?? 0),
     campaign_discount: Number(raw.campaign_discount ?? 0),
@@ -690,11 +719,14 @@ export async function createFoodCustomerOrder(
     location: FoodLocation | null;
     scheduledFor?: string | null;
     couponCode?: string | null;
+    fulfillmentType?: FoodFulfillmentType;
+    pickupAt?: string | null;
+    paymentMethod?: FoodPaymentMethod;
   },
 ) {
   const couponCode = input.couponCode?.trim().toUpperCase() || null;
   const params = {
-    ...pinParams(input.location),
+    ...pinParams(input.fulfillmentType === "pickup" ? null : input.location),
     p_store_id: storeId,
     p_recipient_name: input.recipientName,
     p_recipient_phone: input.recipientPhone,
@@ -709,7 +741,9 @@ export async function createFoodCustomerOrder(
   };
   // Keep the original no-code RPC paths intact, including their browser QA
   // contracts. Coupon requests opt into v2 without changing ordinary orders.
-  const { data, error } = input.scheduledFor
+  const { data, error } = input.fulfillmentType
+    ? await client.rpc("food_create_order_v3", { p_latitude: null, p_longitude: null, ...params, p_coupon_code: couponCode, p_fulfillment_type: input.fulfillmentType, p_pickup_at: input.fulfillmentType === "pickup" ? input.pickupAt ?? null : null, p_payment_method: input.fulfillmentType === "pickup" ? "transfer" : input.paymentMethod ?? "transfer" })
+    : input.scheduledFor
     ? couponCode
       ? await client.rpc("food_create_scheduled_order_v2", { ...params, p_scheduled_for: input.scheduledFor, p_coupon_code: couponCode })
       : await client.rpc("food_create_scheduled_order", { ...params, p_scheduled_for: input.scheduledFor })
@@ -798,22 +832,10 @@ export async function submitFoodPayment(
   });
   if (error) throw new Error(error.message);
 
-  const verification = await client.functions.invoke("food-verify-slip", {
-    body: { orderId },
-  });
-  if (verification.error || !verification.data) {
-    return { status: "manual_review", provider: "manual" };
-  }
-
-  const status = verification.data.status;
-  if (status !== "auto_verified" && status !== "manual_review" && status !== "rejected") {
-    return { status: "manual_review", provider: "manual" };
-  }
-  return {
-    status,
-    provider: typeof verification.data.provider === "string" ? verification.data.provider : undefined,
-    code: typeof verification.data.code === "string" ? verification.data.code : null,
-  };
+  // New transfer orders are always reviewed by the store against its bank app.
+  // Keep Stripe's existing integration for in-flight payments, but never invoke
+  // the optional auto-verification provider for a newly submitted slip.
+  return { status: "manual_review", provider: "manual" };
 }
 
 export function foodStructuredAddressText(draft: Pick<FoodAddressDraft,
@@ -967,6 +989,11 @@ export async function cancelFoodCustomerOrder(
   if (error) throw new Error(error.message);
 }
 
+export async function requestFoodCustomerCancellation(client: SupabaseClient, orderId: string, note: string) {
+  const { error } = await client.rpc("food_request_cancel", { p_order_id: orderId, p_note: note.trim() || null });
+  if (error) throw new Error(error.message);
+}
+
 export function subscribeFoodCustomerOrders(
   client: SupabaseClient,
   userId: string,
@@ -990,6 +1017,8 @@ export function foodOrderStatusLabel(status: FoodCustomerOrder["status"]) {
     out_for_delivery: "กำลังจัดส่ง",
     delivered: "จัดส่งสำเร็จ",
     cancelled: "ยกเลิกแล้ว",
+    ready_for_pickup: "พร้อมให้รับ",
+    picked_up: "รับอาหารแล้ว",
   } satisfies Record<FoodCustomerOrder["status"], string>)[status];
 }
 

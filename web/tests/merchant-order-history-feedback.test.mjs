@@ -21,6 +21,8 @@ test("Done tab shows delivered/cancelled orders for 24h from terminal event, nev
   assert.equal(recent({ ...template, delivered_at: new Date(now - 24 * 3600000).toISOString() }, now), false);
   assert.equal(recent({ ...template, delivered_at: new Date(now + 3600000).toISOString() }, now), false);
   assert.equal(recent({ ...template, status: "cancelled", delivered_at: null, cancelled_at: new Date(now - 1000).toISOString() }, now), true);
+  assert.equal(recent({ ...template, status: "picked_up", picked_up_at: new Date(now - 1000).toISOString() }, now), true);
+  assert.equal(recent({ ...template, status: "picked_up", picked_up_at: new Date(now - 24 * 3600000).toISOString() }, now), false);
   assert.equal(recent({ ...template, status: "preparing" }, now), false);
   assert.equal(recent({ ...template, status: "cancelled", delivered_at: null, cancelled_at: null }, now), false);
   assert.match(merchant, /return isRecentCompletedOrder\(order, now\)/);
@@ -29,7 +31,7 @@ test("Done tab shows delivered/cancelled orders for 24h from terminal event, nev
 
 test("Order history is store-scoped, paginated and restricted to terminal orders", () => {
   assert.match(lib, /\.eq\("store_id", storeId\)/);
-  assert.match(lib, /\.in\("status", \["delivered", "cancelled"\]\)/);
+  assert.match(lib, /\.in\("status", \["delivered", "picked_up", "cancelled"\]\)/);
   assert.match(lib, /\.ilike\("order_number"/);
   assert.match(lib, /\.range\(offset, offset \+ limit\)/);
   assert.match(history, /fetchMerchantOrderHistoryPage/);

@@ -1,4 +1,4 @@
-import { FulfillmentError, transitionPickupOrder, setStoreFulfillment, resolveCancelRequest, markStoreRefunded, uploadRefundSlip } from "@/lib/food-fulfillment-merchant";
+import { FulfillmentError, cancelStoreOrder, transitionPickupOrder, setStoreFulfillment, resolveCancelRequest, markStoreRefunded, uploadRefundSlip } from "@/lib/food-fulfillment-merchant";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl, foodPublicUrl,
@@ -206,6 +206,13 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (error || data !== true) throw new BridgeAccessError();
         await ensureSession();
         await setStoreFulfillment(client, storeId, { pickup: bool(values.pickup), delivery: bool(values.delivery), cod: bool(values.cod), prepMinutes: Number(values.prepMinutes) });
+        return null;
+      }
+      case "cancelStoreOrder": {
+        const orderId = id(args.orderId);
+        await ownedOrder(storeId, orderId);
+        await ensureSession();
+        await cancelStoreOrder(client, orderId, bool(args.refund), text(args.note, 1000, true));
         return null;
       }
       case "resolveCancel": {

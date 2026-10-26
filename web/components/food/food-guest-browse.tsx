@@ -36,6 +36,8 @@ type GuestStore = {
   logo_path: string | null;
   delivery_fee: number | string;
   is_open: boolean;
+  pickup_enabled?: boolean;
+  delivery_enabled?: boolean;
   menu: GuestMenuItem[];
 };
 
@@ -320,6 +322,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
               <h1>{store.name}</h1>
               {store.address ? <span>· {store.address}</span> : null}
             </div>
+            <p>{store.delivery_enabled !== false ? "ร้านส่งเอง" : ""}{store.pickup_enabled ? " · รับเองได้" : ""}</p>
             {store.is_open ? null : (
               <div className="fx-store-closed-box" role="status">
                 <strong>ปิดรับออเดอร์ชั่วคราว</strong>
@@ -611,6 +614,7 @@ function GuestFoodList({
                       <span className="zk-store-row-body">
                         <strong className="zk-store-row-name">{entry.name}</strong>
                         <span className="zk-meta"><span>{entry.menu.length} เมนู</span><span>ค่าส่ง {foodMoney(entry.delivery_fee)}</span></span>
+                        <span className="zk-store-row-tags">{entry.delivery_enabled !== false ? <b className="zk-tag">ร้านส่งเอง</b> : null}{entry.pickup_enabled ? <b className="zk-tag">รับเองได้</b> : null}</span>
                         {!entry.is_open ? <span className="zk-store-row-tags"><b className="zk-tag is-closed"><Clock3 size={13} strokeWidth={2.4} />ปิดอยู่</b></span> : null}
                         <span className="zk-store-row-cta">ดูเมนู<Zoky3DIcon glyph="arrowRight" size={22} /></span>
                       </span>

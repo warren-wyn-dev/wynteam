@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "expiresUtc": "2026-11-09",
+  "repository": "warren-wyn-dev/wynteam",
+  "teamId": "team_Kamt1PUT5XKn9MWrF404re1w",
+  "productionDatabaseRef": "kqokpocajhfbidcxpvhh",
+  "migration": {
+    "path": "supabase/migrations/20261026115927_zoky_fulfillment_v1.sql",
+    "sha256": "",
+    "verifyPath": "supabase/tests/zoky_fulfillment_verify.sql",
+    "verifySha256": ""
+  },
+  "applications": {
+    "web": {
+      "branch": "feat/zoky-fulfill-001",
+      "base": "71f7fb0f95bd3495c3f9fbf733cbf697456bd58c",
+      "candidateSha": "",
+      "projectId": "prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a",
+      "rootDirectory": "web",
+      "previousDeployment": "dpl_12HuugYfCwEMwhSDssGa3N8zZe28",
+      "domains": ["merchant.wynos.online", "zoky.wynos.online", "food.wynos.online", "wynos.online", "www.wynos.online"],
+      "approvedPaths": []
+    },
+    "admin": {
+      "branch": "feat/zoky-fulfill-001-admin-complete",
+      "base": "8fab9b4b5a9c0b137184e398410234a72bd4b3de",
+      "candidateSha": "",
+      "projectId": "prj_gcMdUScNHnaUOwDWmNn3QR4uP4oN",
+      "rootDirectory": "zoky-admin",
+      "previousDeployment": "dpl_9FPcnQy6YrE96ierV4bP5G2WgeWd",
+      "domains": ["zoky-admin.wynos.online"],
+      "approvedPaths": []
+    }
+  }
+}

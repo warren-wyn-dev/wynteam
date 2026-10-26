@@ -92,6 +92,7 @@ export function MerchantOrderHistory({ client, store, onOpenOrder }: {
             <select value={status} onChange={(event) => setStatus(event.target.value as MerchantOrderHistoryFilter)}>
               <option value="all">ทั้งหมด</option>
               <option value="delivered">ส่งสำเร็จ</option>
+              <option value="picked_up">ลูกค้ารับแล้ว</option>
               <option value="cancelled">ยกเลิกแล้ว</option>
             </select>
           </label>

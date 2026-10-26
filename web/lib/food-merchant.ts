@@ -129,7 +129,7 @@ export type FoodOrder = {
   buyer_id: string | null;
   created_by: string | null;
   source: "app" | "manual" | "social";
-  status: "pending_acceptance" | "preparing" | "ready_for_delivery" | "out_for_delivery" | "delivered" | "cancelled";
+  status: "pending_acceptance" | "preparing" | "ready_for_pickup" | "picked_up" | "ready_for_delivery" | "out_for_delivery" | "delivered" | "cancelled";
   fulfillment_type?: "delivery" | "pickup";
   payment_method?: "transfer" | "cod";
   pickup_at?: string | null;
@@ -293,13 +293,14 @@ export async function fetchMerchantOrdersPage(
 /** Completed orders remain in the live "Done" tab for 24 hours after the terminal event. */
 export function isRecentCompletedOrder(order: FoodOrder, now = Date.now()): boolean {
   const terminalAt = order.status === "delivered" ? order.delivered_at
+    : order.status === "picked_up" ? order.picked_up_at
     : order.status === "cancelled" ? order.cancelled_at : null;
   if (!terminalAt) return false;
   const age = now - Date.parse(terminalAt);
   return Number.isFinite(age) && age >= 0 && age < 24 * 60 * 60 * 1000;
 }
 
-export type MerchantOrderHistoryFilter = "all" | "delivered" | "cancelled";
+export type MerchantOrderHistoryFilter = "all" | "delivered" | "picked_up" | "cancelled";
 
 /** Paginate finished orders directly in the database, not from the live orders cache. */
 export async function fetchMerchantOrderHistoryPage(
@@ -312,7 +313,7 @@ export async function fetchMerchantOrderHistoryPage(
   let query = client.from("food_orders")
     .select("*,food_order_items(*),food_delivery_proofs(*)")
     .eq("store_id", storeId)
-    .in("status", ["delivered", "cancelled"]);
+    .in("status", ["delivered", "picked_up", "cancelled"]);
   if (options.status && options.status !== "all") query = query.eq("status", options.status);
   // Strip wildcard and query syntax; users search by the visible order number.
   const search = (options.search ?? "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
@@ -442,7 +443,7 @@ export async function fetchMerchantSalesReport(client: SupabaseClient, storeId: 
       .from("food_orders")
       .select("total,created_at,food_order_items(item_name,quantity)")
       .eq("store_id", storeId)
-      .eq("status", "delivered")
+      .in("status", ["delivered", "picked_up"])
       .order("created_at", { ascending: false })
       .range(offset, offset + pageSize - 1);
     if (page.error) throw new Error(page.error.message);
@@ -739,6 +740,8 @@ export function statusLabel(status: FoodOrder["status"]) {
     preparing: "กำลังเตรียม",
     ready_for_delivery: "พร้อมจัดส่ง",
     out_for_delivery: "กำลังจัดส่ง",
+    ready_for_pickup: "พร้อมให้รับ",
+    picked_up: "ลูกค้ารับแล้ว",
     delivered: "ส่งสำเร็จ",
     cancelled: "ยกเลิกแล้ว",
   } satisfies Record<FoodOrder["status"], string>)[status];

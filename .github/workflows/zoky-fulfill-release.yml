@@ -1,0 +1,427 @@
+# Publish only this workflow, its web/scripts/zoky-fulfill-release* controls and
+# release instructions to main in a reviewed ops-only PR. Application source is
+# pinned separately, never all-main. The finalized manifest is intentionally
+# required; blank pins in a development checkout refuse every release command.
+# Baseline: web 71f7fb0f / Admin 8fab9b4b. User authorized production in the
+# current session; existing staging/production environment reviewers remain.
+# No rollback, secret extraction or protection-policy mutation is performed.
+name: ZOKY fulfillment scoped release
+'on':
+  workflow_dispatch:
+    inputs:
+      web_sha:
+        description: Full reviewed integration SHA from finalized ops manifest
+        required: true
+        type: string
+      admin_sha:
+        description: Full reviewed scoped Admin SHA from finalized ops manifest
+        required: true
+        type: string
+      confirmation:
+        description: Release only ZOKY-FULFILL-001 after all gates
+        required: true
+        type: choice
+        default: CANCEL
+        options:
+        - CANCEL
+        - ZOKY_FULFILL_001_PRODUCTION
+permissions:
+  contents: read
+concurrency:
+  group: zoky-fulfill-001-release
+  cancel-in-progress: false
+  queue: max
+jobs:
+  guard:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FULFILL_001_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        path: ops
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.web_sha }}
+        path: web
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.admin_sha }}
+        path: admin
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Release control regression tests
+      run: node --test ops/web/scripts/zoky-fulfill-release.test.mjs
+    - name: Revalidate reviewed web source and unchanged branch tip
+      env:
+        CANDIDATE_SHA: ${{ inputs.web_sha }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs guard web web
+    - name: Revalidate reviewed admin source and unchanged branch tip
+      env:
+        CANDIDATE_SHA: ${{ inputs.admin_sha }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs guard admin admin
+    - name: Preserve existing cross-system release freeze and secret scoping
+      run: |-
+        python3 ops/tools/check_wynos_release_freeze.py
+        python3 ops/tools/check_production_secret_scoping.py
+  verify:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FULFILL_001_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+    - guard
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        path: ops
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.web_sha }}
+        path: web
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.admin_sha }}
+        path: admin
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Synthetic database authorization and transition tests
+      run: bash web/supabase/tests/zoky_fulfill_001_test.sh
+    - name: Web and Flutter checks (synthetic public configuration only)
+      working-directory: web/web
+      run: |-
+        npm ci --ignore-scripts --no-audit --no-fund
+        node --test tests/*.test.mjs
+        npm run check
+    - name: Install release browsers
+      working-directory: web/web
+      run: npx playwright install --with-deps chromium webkit
+    - name: Merchant and full consumer browser QA
+      working-directory: web/web
+      run: |-
+        npm run qa:merchant-flutter
+        npm run qa:browser
+    - name: Scoped ZOKY Admin checks
+      working-directory: admin/zoky-admin
+      run: |-
+        npm ci --ignore-scripts --no-audit --no-fund
+        npm run lint
+        npx tsc --noEmit
+        npm run build
+    - name: Keep synthetic evidence
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: zoky-fulfill-synthetic-browser-evidence
+        path: web/web/test-results/
+        retention-days: 7
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://merchant-fixture.example.test
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_browser_fixture_only
+  staging-database:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FULFILL_001_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+    - guard
+    - verify
+    environment: staging
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        path: ops
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.web_sha }}
+        path: web
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Revalidate reviewed web source and unchanged branch tip
+      env:
+        CANDIDATE_SHA: ${{ inputs.web_sha }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs guard web web
+    - name: Apply to isolated production-shaped staging; reject token/snapshot drift
+      env:
+        STAGING_SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+        STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs staging-apply web web
+  apply-database:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FULFILL_001_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+    - guard
+    - verify
+    - staging-database
+    environment: production
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        path: ops
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.web_sha }}
+        path: web
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.admin_sha }}
+        path: admin
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Revalidate reviewed web source and unchanged branch tip
+      env:
+        CANDIDATE_SHA: ${{ inputs.web_sha }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs guard web web
+    - name: Revalidate reviewed admin source and unchanged branch tip
+      env:
+        CANDIDATE_SHA: ${{ inputs.admin_sha }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs guard admin admin
+    - name: Verify both live applications still match the reviewed recovery targets
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      run: |-
+        node ops/web/scripts/zoky-fulfill-release.mjs current web
+        node ops/web/scripts/zoky-fulfill-release.mjs current admin
+    - name: Apply exact baseline-guarded additive migration then catalog verification
+      env:
+        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs apply web web
+  stage-web:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FULFILL_001_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+    - apply-database
+    environment: production
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        path: ops
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.web_sha }}
+        path: web
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Revalidate reviewed web source and unchanged branch tip
+      env:
+        CANDIDATE_SHA: ${{ inputs.web_sha }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs guard web web
+    - name: Install pinned deployment CLI without credentials
+      run: npm install --global vercel@63.1.2 --no-audit --no-fund
+    - name: Stage production artifact without assigning domains
+      id: stage
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        CANDIDATE_SHA: ${{ inputs.web_sha }}
+        CANDIDATE_BRANCH: feat/zoky-fulfill-001
+      run: |-
+        set -euo pipefail
+        node ops/web/scripts/zoky-fulfill-release.mjs current web
+        cd web
+        url=$(vercel deploy --prod --skip-domain --force --yes --scope warren14 \
+          --build-env VERCEL_FORCE_NO_BUILD_CACHE=1 \
+          --env ZOKY_MERCHANT_FLUTTER_ENABLED=1 --env ZOKY_LEGACY_FOOD_REDIRECT=0 \
+          --meta githubCommitSha="$CANDIDATE_SHA" --meta githubCommitRef="$CANDIDATE_BRANCH" \
+          --meta githubRepo=wynteam --meta githubOrg=warren-wyn-dev | tail -n1)
+        cd ..
+        DEPLOYMENT_URL="$url" node ops/web/scripts/zoky-fulfill-release.mjs staged web >> "$GITHUB_OUTPUT"
+        echo "Staged immutable web production artifact; public domains unchanged." >> "$GITHUB_STEP_SUMMARY"
+    - name: Authenticated immutable artifact HTTP smoke
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
+      run: |-
+        set -euo pipefail
+        node ops/web/scripts/zoky-fulfill-release.mjs staged web
+        for path in /food /food/login /merchant/login /merchant/flutter /merchant-flutter/flutter_bootstrap.js /merchant-flutter/main.dart.js /merchant-flutter/canvaskit/canvaskit.wasm /maps; do
+          vercel curl "$path" --deployment "$DEPLOYMENT_URL" -- --fail --silent --show-error --output /dev/null
+        done
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
+    outputs:
+      url: ${{ steps.stage.outputs.url }}
+      id: ${{ steps.stage.outputs.id }}
+  promote-web:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FULFILL_001_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+    - guard
+    - verify
+    - staging-database
+    - apply-database
+    - stage-web
+    - stage-admin
+    environment: production
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        path: ops
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.web_sha }}
+        path: web
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Revalidate reviewed web source and unchanged branch tip
+      env:
+        CANDIDATE_SHA: ${{ inputs.web_sha }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs guard web web
+    - name: Install pinned deployment CLI without credentials
+      run: npm install --global vercel@63.1.2 --no-audit --no-fund
+    - name: Promote only the tested artifact after final protected review
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        DEPLOYMENT_URL: ${{ needs.stage-web.outputs.url }}
+      run: |-
+        set -euo pipefail
+        node ops/web/scripts/zoky-fulfill-release.mjs current web
+        node ops/web/scripts/zoky-fulfill-release.mjs staged web
+        vercel promote "$DEPLOYMENT_URL" --yes --scope warren14
+        node ops/web/scripts/zoky-fulfill-release.mjs promoted web
+        for url in https://merchant.wynos.online/ https://merchant.wynos.online/merchant/login https://merchant.wynos.online/merchant/flutter https://zoky.wynos.online/ https://food.wynos.online/ https://wynos.online/; do
+          curl --fail --silent --show-error --location --max-time 30 --output /dev/null "$url"
+        done
+        echo 'PASS exact tested web artifact promoted and public routes checked; no automatic rollback.' >> "$GITHUB_STEP_SUMMARY"
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
+  stage-admin:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FULFILL_001_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+    - apply-database
+    environment: production
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        path: ops
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.admin_sha }}
+        path: admin
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Revalidate reviewed admin source and unchanged branch tip
+      env:
+        CANDIDATE_SHA: ${{ inputs.admin_sha }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs guard admin admin
+    - name: Install pinned deployment CLI without credentials
+      run: npm install --global vercel@63.1.2 --no-audit --no-fund
+    - name: Stage production artifact without assigning domains
+      id: stage
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        CANDIDATE_SHA: ${{ inputs.admin_sha }}
+        CANDIDATE_BRANCH: feat/zoky-fulfill-001-admin-complete
+      run: |-
+        set -euo pipefail
+        node ops/web/scripts/zoky-fulfill-release.mjs current admin
+        cd admin
+        url=$(vercel deploy --prod --skip-domain --force --yes --scope warren14 \
+          --build-env VERCEL_FORCE_NO_BUILD_CACHE=1 \
+          --meta githubCommitSha="$CANDIDATE_SHA" --meta githubCommitRef="$CANDIDATE_BRANCH" \
+          --meta githubRepo=wynteam --meta githubOrg=warren-wyn-dev | tail -n1)
+        cd ..
+        DEPLOYMENT_URL="$url" node ops/web/scripts/zoky-fulfill-release.mjs staged admin >> "$GITHUB_OUTPUT"
+        echo "Staged immutable admin production artifact; public domains unchanged." >> "$GITHUB_STEP_SUMMARY"
+    - name: Authenticated immutable artifact HTTP smoke
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
+      run: |-
+        set -euo pipefail
+        node ops/web/scripts/zoky-fulfill-release.mjs staged admin
+        for path in /login /; do
+          vercel curl "$path" --deployment "$DEPLOYMENT_URL" -- --fail --silent --show-error --output /dev/null
+        done
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_gcMdUScNHnaUOwDWmNn3QR4uP4oN
+    outputs:
+      url: ${{ steps.stage.outputs.url }}
+      id: ${{ steps.stage.outputs.id }}
+  promote-admin:
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FULFILL_001_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+    - guard
+    - verify
+    - staging-database
+    - apply-database
+    - stage-web
+    - stage-admin
+    environment: production
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        path: ops
+        persist-credentials: false
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      with:
+        ref: ${{ inputs.admin_sha }}
+        path: admin
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22'
+    - name: Revalidate reviewed admin source and unchanged branch tip
+      env:
+        CANDIDATE_SHA: ${{ inputs.admin_sha }}
+      run: node ops/web/scripts/zoky-fulfill-release.mjs guard admin admin
+    - name: Install pinned deployment CLI without credentials
+      run: npm install --global vercel@63.1.2 --no-audit --no-fund
+    - name: Promote only the tested artifact after final protected review
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        DEPLOYMENT_URL: ${{ needs.stage-admin.outputs.url }}
+      run: |-
+        set -euo pipefail
+        node ops/web/scripts/zoky-fulfill-release.mjs current admin
+        node ops/web/scripts/zoky-fulfill-release.mjs staged admin
+        vercel promote "$DEPLOYMENT_URL" --yes --scope warren14
+        node ops/web/scripts/zoky-fulfill-release.mjs promoted admin
+        curl --fail --silent --show-error --location --max-time 30 --output /dev/null https://zoky-admin.wynos.online/
+        echo 'PASS exact tested admin artifact promoted and public routes checked; no automatic rollback.' >> "$GITHUB_STEP_SUMMARY"
+    env:
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_gcMdUScNHnaUOwDWmNn3QR4uP4oN
