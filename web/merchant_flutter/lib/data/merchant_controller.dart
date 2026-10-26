@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+
 import 'merchant_repository.dart';
 
 class MerchantController extends ChangeNotifier {
@@ -18,6 +21,8 @@ class MerchantController extends ChangeNotifier {
   DateTime? updatedAt;
   int _generation = 0;
   bool _disposed = false;
+  Future<void>? _readFuture;
+  Completer<void>? _pendingRefresh;
   Json? get store => stores.where((s) => s['id'] == storeId).firstOrNull;
   bool get writable =>
       !_disposed && !loading && !busy && error == null && store != null;
@@ -30,30 +35,12 @@ class MerchantController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _generation++;
+    _pendingRefresh?.complete();
+    _pendingRefresh = null;
     super.dispose();
   }
 
-  Future<void> initialize() async {
-    if (_disposed || loading || busy) return;
-    loading = true;
-    error = null;
-    notifyListeners();
-    final g = ++_generation;
-    try {
-      final list = await repository.stores();
-      if (_disposed || g != _generation) return;
-      stores = list;
-      storeId = list.isEmpty ? null : list.first['id'] as String;
-      if (storeId != null) await _load(g);
-    } catch (e) {
-      if (!_disposed && g == _generation) error = errorMessage(e);
-    } finally {
-      if (!_disposed && g == _generation) {
-        loading = false;
-        notifyListeners();
-      }
-    }
-  }
+  Future<void> initialize() => refresh();
 
   Future<void> selectStore(String id) async {
     if (_disposed || loading || busy || id == storeId) return;
@@ -153,17 +140,50 @@ class MerchantController extends ChangeNotifier {
     error = null;
   }
 
-  Future<void> refresh() async {
-    if (loading || busy || _disposed) return;
-    if (storeId == null) {
-      await initialize();
-      return;
+  Future<void> refresh() {
+    if (_disposed) return Future.value();
+    if (busy || _readFuture != null) {
+      // Coalesce a burst of realtime notifications into one pending refresh.
+      // In particular, do not lose an order that arrived after its page read.
+      _pendingRefresh ??= Completer<void>();
+      return _pendingRefresh!.future;
     }
+    return _startRead();
+  }
+
+  Future<void> _startRead({bool appendOrders = false}) {
+    final complete = _pendingRefresh ?? Completer<void>();
+    _pendingRefresh = null;
+    _readFuture = complete.future;
     loading = true;
     notifyListeners();
     final g = ++_generation;
+    unawaited(_read(g, complete, appendOrders: appendOrders));
+    return complete.future;
+  }
+
+  Future<void> _read(
+    int g,
+    Completer<void> complete, {
+    required bool appendOrders,
+  }) async {
     try {
-      await _load(g);
+      if (appendOrders) {
+        final rows = await repository.orders(storeId!, status, orders.length);
+        if (_disposed || g != _generation) return;
+        final ids = orders.map((e) => e['id']).toSet();
+        orders.addAll(rows.where((e) => !ids.contains(e['id'])));
+        hasMore = rows.length == MerchantRepository.pageSize;
+      } else {
+        if (storeId == null) {
+          final list = await repository.stores();
+          if (_disposed || g != _generation) return;
+          stores = list;
+          storeId = list.isEmpty ? null : list.first['id'] as String;
+          error = null;
+        }
+        if (storeId != null) await _load(g);
+      }
     } catch (e) {
       if (!_disposed && g == _generation) {
         error = errorMessage(e);
@@ -179,32 +199,40 @@ class MerchantController extends ChangeNotifier {
     } finally {
       if (!_disposed && g == _generation) {
         loading = false;
+        _readFuture = null;
         notifyListeners();
       }
+      complete.complete();
+      _drainRefresh();
     }
   }
 
-  Future<void> loadMore() async {
-    if (!writable || !hasMore) return;
-    loading = true;
-    notifyListeners();
-    try {
-      final rows = await repository.orders(storeId!, status, orders.length);
-      if (_disposed) return;
-      final ids = orders.map((e) => e['id']).toSet();
-      orders.addAll(rows.where((e) => !ids.contains(e['id'])));
-      hasMore = rows.length == MerchantRepository.pageSize;
-    } catch (e) {
-      error = errorMessage(e);
-    } finally {
-      loading = false;
-      notifyListeners();
-    }
+  void _drainRefresh() {
+    // Complete this pass first so a waiting save can take the single-write
+    // guard before the next read. A continuous realtime stream cannot extend
+    // one read future forever or starve a user's pending action.
+    scheduleMicrotask(() {
+      if (!_disposed &&
+          !busy &&
+          _readFuture == null &&
+          _pendingRefresh != null) {
+        unawaited(_startRead());
+      }
+    });
+  }
+
+  Future<void> loadMore() {
+    if (!writable || !hasMore) return Future.value();
+    return _startRead(appendOrders: true);
   }
 
   /// Successful writes are never shown optimistically. Read back server state.
   /// Failure leaves a visible error and disables writes until a refresh.
   Future<bool> mutate(Future<void> Function() operation) async {
+    if (_disposed) return false;
+    // A background poll is not a failed save. Keep the form and its draft while
+    // awaiting the active read, then recheck access and the single-write guard.
+    if (_readFuture != null) await _readFuture;
     if (!writable) return false;
     busy = true;
     notifyListeners();
@@ -215,6 +243,7 @@ class MerchantController extends ChangeNotifier {
       error = errorMessage(e);
       busy = false;
       notifyListeners();
+      _drainRefresh();
       return false;
     }
     busy = false;
