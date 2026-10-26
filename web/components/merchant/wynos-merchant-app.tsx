@@ -1819,10 +1819,10 @@ function StorePanel({
 function merchantAuditLabel(eventType: string) {
   if (eventType === "merchant_store_published") return "เผยแพร่ร้าน";
   if (eventType === "merchant_store_unpublished") return "ซ่อนร้าน";
-  if (eventType === "merchant_menu_created") return "เพิ่มเมนู";
-  if (eventType === "merchant_menu_deleted") return "ลบเมนู";
+  if (eventType === "merchant_menu_created") return "เพิ่มเมนูแล้ว";
+  if (eventType === "merchant_menu_deleted") return "ลบเมนูแล้ว";
   if (eventType === "merchant_menu_reordered") return "จัดลำดับเมนู";
-  if (eventType === "merchant_menu_updated") return "แก้ไขเมนู";
+  if (eventType === "merchant_menu_updated") return "แก้ไขเมนูแล้ว";
   return "แก้ไขข้อมูลร้าน";
 }
 

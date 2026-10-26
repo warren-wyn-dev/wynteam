@@ -156,3 +156,19 @@ test("the close button label reads Close, not the store-hours Closed", () => {
   assert.equal(translateToEnglish("ปิดทำการ"), "Closed");
   assert.equal(read("lib/i18n/en.ts").match(/^  "ปิด": /gm)?.length, 1);
 });
+
+test("no Thai key in en.ts is mapped to two different English strings", () => {
+  // A later duplicate silently overrides the first, e.g. "ยกเลิก" (Cancel) read as "Cancelled".
+  const seen = new Map();
+  const conflicts = [];
+  for (const match of read("lib/i18n/en.ts").matchAll(/^  ("(?:[^"\\]|\\.)*"): ("(?:[^"\\]|\\.)*"),?$/gm)) {
+    const [, key, value] = match;
+    if (seen.has(key) && seen.get(key) !== value) conflicts.push(`${key}: ${seen.get(key)} / ${value}`);
+    seen.set(key, value);
+  }
+  assert.deepEqual(conflicts, []);
+  assert.equal(translateToEnglish("ยกเลิก"), "Cancel");
+  assert.equal(translateToEnglish("ยกเลิกแล้ว"), "Cancelled");
+  assert.equal(translateToEnglish("เพิ่มเมนู"), "Add item");
+  assert.equal(translateToEnglish("แก้ไขเมนูแล้ว"), "Menu item edited");
+});

@@ -727,7 +727,7 @@ export function statusLabel(status: FoodOrder["status"]) {
     ready_for_delivery: "พร้อมจัดส่ง",
     out_for_delivery: "กำลังจัดส่ง",
     delivered: "ส่งสำเร็จ",
-    cancelled: "ยกเลิก",
+    cancelled: "ยกเลิกแล้ว",
   } satisfies Record<FoodOrder["status"], string>)[status];
 }
 
