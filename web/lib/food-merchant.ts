@@ -32,6 +32,7 @@ export type FoodStore = {
   delivery_enabled?: boolean;
   cod_enabled?: boolean;
   prep_minutes?: number;
+  pickup_prep_minutes?: number;
   delivery_area: string | null;
   delivery_fee: number | string;
   minimum_order: number | string;

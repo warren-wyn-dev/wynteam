@@ -150,6 +150,7 @@ test('pickup cancellation rejection refreshes the order and pickup completes wit
         case 'pushStatus':data={enabled:false,available:false};break;
         case 'resolveCancel':if(a.approve)throw new Error('expected rejection');order.cancel_requested_at=null;window.qaWrites.push('reject');break;
         case 'transition':order.status=a.status;window.qaWrites.push(a.status);break;
+        case 'completePickup':order.status='delivered';window.qaWrites.push('collected');break;
         case 'pickDeliveryPhoto':case 'completeDelivery':throw new Error('pickup must not use delivery evidence');
       }
       return JSON.stringify({ok:true,data});
@@ -167,8 +168,8 @@ test('pickup cancellation rejection refreshes the order and pickup completes wit
   await expect(page.getByRole('button', { name: 'ปฏิเสธคำขอยกเลิก', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'พร้อมให้รับ', exact: true }).click();
   await page.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
-  await page.getByRole('checkbox', { name: 'พร้อมให้รับ', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'พร้อมส่ง', exact: true }).click();
   await page.getByRole('button', { name: 'ลูกค้ารับแล้ว', exact: true }).click();
   await page.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => (window as Window & {qaWrites?: string[]}).qaWrites)).toEqual(['reject', 'ready_for_pickup', 'picked_up']);
+  await expect.poll(() => page.evaluate(() => (window as Window & {qaWrites?: string[]}).qaWrites)).toEqual(['reject', 'ready_for_delivery', 'collected']);
 });

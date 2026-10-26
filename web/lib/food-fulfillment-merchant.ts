@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uploadFoodPrivateImage } from "@/lib/food-merchant";
 
-// Cross-session contract v1. Authorization and transitions remain server-owned.
+// Cross-session contract v2.1. Authorization and transitions remain server-owned.
 export const STRIPE_SETUP_PAUSED = true;
 export class FulfillmentError extends Error {}
 export function fulfillmentError(error: unknown): string {
@@ -23,11 +23,11 @@ export async function setStoreFulfillment(client: SupabaseClient, storeId: strin
 export async function resolveCancelRequest(client: SupabaseClient, orderId: string, approve: boolean, refund: boolean, note = "") {
   await rpc(client, "food_resolve_cancel_request", { p_order_id: orderId, p_approve: approve, p_refund: approve && refund, p_note: note });
 }
-export async function markStoreRefunded(client: SupabaseClient, storeId: string, orderId: string, path: string, note = "") {
-  if (!path.startsWith(`food-refund-slips/${storeId}/${orderId}/`) || path.includes("..")) throw new FulfillmentError("สลิปคืนเงินไม่ตรงกับออเดอร์");
+export async function markStoreRefunded(client: SupabaseClient, _storeId: string, orderId: string, path: string, note = "") {
+  if (!path.startsWith(`refunds/${orderId}/`) || path.includes("..")) throw new FulfillmentError("สลิปคืนเงินไม่ตรงกับออเดอร์");
   await rpc(client, "food_store_mark_refunded", { p_order_id: orderId, p_refund_slip_path: path, p_note: note });
 }
-export async function uploadRefundSlip(client: SupabaseClient, storeId: string, orderId: string, file: File) {
+export async function uploadRefundSlip(client: SupabaseClient, _storeId: string, orderId: string, file: File) {
   if (!file.size || file.size > 8 * 1024 * 1024) throw new FulfillmentError("สลิปคืนเงินต้องเป็นรูป JPEG, PNG หรือ WebP ไม่เกิน 8 MB");
   const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
   const jpeg = file.type === "image/jpeg" && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
@@ -36,9 +36,14 @@ export async function uploadRefundSlip(client: SupabaseClient, storeId: string, 
   if (!jpeg && !png && !webp) throw new FulfillmentError("สลิปคืนเงินต้องเป็นรูป JPEG, PNG หรือ WebP ไม่เกิน 8 MB");
   // Reuse the private food-private bucket and metadata-scrubbing uploader.
   // Never use a public URL or a caller-supplied folder.
-  return uploadFoodPrivateImage(client, file, `food-refund-slips/${storeId}/${orderId}`);
+  return uploadFoodPrivateImage(client, file, `refunds/${orderId}`);
 }
 
-export async function transitionPickupOrder(client: SupabaseClient, orderId: string, status: "ready_for_pickup" | "picked_up") {
+export async function transitionPickupOrder(client: SupabaseClient, orderId: string, status: "ready_for_delivery" | "delivered") {
+  if (status === "delivered") { await rpc(client, "food_complete_pickup", { p_order_id: orderId, p_note: null }); return; }
   await rpc(client, "food_transition_order", { p_order_id: orderId, p_status: status, p_eta_minutes: null, p_note: null });
+}
+export async function cancelStoreOrder(client: SupabaseClient, orderId: string, refund: boolean, note: string) {
+  if (note.trim().length < 3 || note.length > 1000) throw new FulfillmentError("กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร");
+  await rpc(client, "food_store_cancel_order", { p_order_id: orderId, p_refund: refund, p_note: note.trim() });
 }

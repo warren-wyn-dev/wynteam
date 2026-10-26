@@ -1,7 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../data/merchant_controller.dart';
 import '../data/merchant_repository.dart';
 import '../widgets/merchant_tool_icon.dart';
@@ -13,9 +15,9 @@ const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
 String money(dynamic value) =>
     '฿${(num.tryParse('$value') ?? 0).toStringAsFixed(2)}';
 String dateLabel(dynamic value) {
-  final date = DateTime.tryParse(
-    '$value',
-  )?.toUtc().add(const Duration(hours: 7));
+  final date = DateTime.tryParse('$value')
+      ?.toUtc()
+      .add(const Duration(hours: 7));
   if (date == null) return '—';
   return '${date.day}/${date.month}/${date.year + 543} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 }
@@ -1496,7 +1498,8 @@ class _MerchantHomeState extends State<MerchantHome>
   Widget orderCard(Json o) {
     final status = o['status'] as String;
     final next = orderNextStatus(o);
-    final allowed = status == 'ready_for_delivery'
+    final allowed =
+        status == 'ready_for_delivery' && o['fulfillment_type'] != 'pickup'
         ? c.canDelivery
         : c.canOrders;
     return box(
@@ -1516,12 +1519,12 @@ class _MerchantHomeState extends State<MerchantHome>
                 ),
               ),
               Chip(
-                label: Text(orderStatuses[status] ?? status),
-                backgroundColor: ['delivered', 'picked_up'].contains(status)
+                label: Text(orderStatusLabel(o)),
+                backgroundColor: ['delivered'].contains(status)
                     ? const Color(0xFFE9F7EF)
                     : brandSoft,
                 labelStyle: TextStyle(
-                  color: ['delivered', 'picked_up'].contains(status)
+                  color: ['delivered'].contains(status)
                       ? success
                       : brand,
                   fontWeight: FontWeight.w600,
@@ -1621,7 +1624,7 @@ class _MerchantHomeState extends State<MerchantHome>
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (!['delivered', 'picked_up', 'cancelled'].contains(status) &&
+          if (!['delivered', 'cancelled'].contains(status) &&
               o['payment_method'] != 'cod' &&
               o['payment_status'] != 'paid')
             if (o['payment_provider'] == 'stripe' ||
@@ -1709,12 +1712,12 @@ class _MerchantHomeState extends State<MerchantHome>
               icon: const Icon(Icons.add_a_photo_outlined),
               label: const Text('แนบรูปและยืนยันส่งสำเร็จ'),
             ),
-          if (status == 'delivered')
+          if (status == 'delivered' && o['fulfillment_type'] != 'pickup')
             TextButton(
               onPressed: () => showEvidence(o, 'proof'),
               child: const Text('ดูหลักฐานส่งสำเร็จ'),
             ),
-          if (!['delivered', 'picked_up', 'cancelled'].contains(status) &&
+          if (!['delivered', 'cancelled'].contains(status) &&
               c.canOrders)
             TextButton(
               onPressed: c.writable ? () => cancelOrder(o) : null,
@@ -1801,12 +1804,14 @@ class _MerchantHomeState extends State<MerchantHome>
     );
     if (ok == true && mounted) {
       if (await c.mutate(
-        () => widget.repository.transition(
-          c.storeId!,
-          o['id'],
-          status,
-          etaMinutes: status == 'preparing' ? eta : null,
-        ),
+        () => o['fulfillment_type'] == 'pickup' && status == 'delivered'
+            ? widget.repository.completePickup(c.storeId!, o['id'])
+            : widget.repository.transition(
+                c.storeId!,
+                o['id'],
+                status,
+                etaMinutes: status == 'preparing' ? eta : null,
+              ),
       )) {
         notice('อัปเดตออเดอร์แล้ว');
       }
@@ -2303,18 +2308,18 @@ class _MerchantHomeState extends State<MerchantHome>
   }
 
   Future<void> cancelOrder(Json order) async {
-    final note = await requestCancellation(
+    final decision = await requestStoreCancellation(
       context,
       order['order_number'],
       order['payment_status'] == 'paid',
     );
-    if (note == null || !mounted) return;
+    if (decision == null || !mounted) return;
     if (await c.mutate(
-      () => widget.repository.transition(
+      () => widget.repository.cancelStoreOrder(
         c.storeId!,
         order['id'],
-        'cancelled',
-        note: note,
+        decision['refund'] == true,
+        decision['note'],
       ),
     )) {
       notice('ยกเลิกออเดอร์แล้ว');

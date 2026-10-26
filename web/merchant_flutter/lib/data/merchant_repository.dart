@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'bridge_transport.dart';
 
 typedef Json = Map<String, dynamic>;
@@ -7,8 +8,6 @@ const orderStatuses = {
   'preparing': 'กำลังเตรียม',
   'ready_for_delivery': 'พร้อมส่ง',
   'out_for_delivery': 'กำลังจัดส่ง',
-  'ready_for_pickup': 'พร้อมให้รับ',
-  'picked_up': 'ลูกค้ารับแล้ว',
   'delivered': 'สำเร็จ',
   'cancelled': 'ยกเลิก',
 };
@@ -40,8 +39,8 @@ class MerchantException implements Exception {
 String? orderNextStatus(Json order) => order['fulfillment_type'] == 'pickup'
     ? switch (order['status']) {
         'pending_acceptance' => 'preparing',
-        'preparing' => 'ready_for_pickup',
-        'ready_for_pickup' => 'picked_up',
+        'preparing' => 'ready_for_delivery',
+        'ready_for_delivery' => 'delivered',
         _ => null,
       }
     : nextStatuses[order['status']];
@@ -49,7 +48,7 @@ String? orderNextAction(Json order) => order['fulfillment_type'] == 'pickup'
     ? switch (order['status']) {
         'pending_acceptance' => 'รับออเดอร์',
         'preparing' => 'พร้อมให้รับ',
-        'ready_for_pickup' => 'ลูกค้ารับแล้ว',
+        'ready_for_delivery' => 'ลูกค้ารับแล้ว',
         _ => null,
       }
     : nextActions[order['status']];
@@ -66,6 +65,18 @@ abstract class MerchantRepository {
   Future<Json> campaigns(String storeId);
   Future<void> saveMenu(String storeId, Json values, {String? id});
   Future<void> saveStore(String storeId, Json values);
+  Future<void> completePickup(String storeId, String orderId) async =>
+      throw const MerchantException(
+        'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+      );
+  Future<void> cancelStoreOrder(
+    String storeId,
+    String orderId,
+    bool refund,
+    String note,
+  ) async => throw const MerchantException(
+    'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+  );
   Future<void> setFulfillment(String storeId, Json values) async =>
       throw const MerchantException(
         'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
@@ -180,6 +191,26 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<void> saveStore(String storeId, Json values) async {
     await call('saveStore', {'storeId': storeId, 'values': values});
+  }
+
+  @override
+  Future<void> completePickup(String storeId, String orderId) async {
+    await call('completePickup', {'storeId': storeId, 'orderId': orderId});
+  }
+
+  @override
+  Future<void> cancelStoreOrder(
+    String storeId,
+    String orderId,
+    bool refund,
+    String note,
+  ) async {
+    await call('cancelStoreOrder', {
+      'storeId': storeId,
+      'orderId': orderId,
+      'refund': refund,
+      'note': note,
+    });
   }
 
   @override
@@ -304,13 +335,11 @@ class BridgeMerchantRepository extends MerchantRepository {
     String storeId,
     String orderId,
     String kind,
-  ) async =>
-      await call('signedUrl', {
-            'storeId': storeId,
-            'orderId': orderId,
-            'kind': kind,
-          })
-          as String?;
+  ) async => await call('signedUrl', {
+    'storeId': storeId,
+    'orderId': orderId,
+    'kind': kind,
+  }) as String?;
   @override
   Future<void> subscribe(String storeId) async {
     await call('subscribe', {'storeId': storeId});
@@ -354,3 +383,10 @@ String errorMessage(Object e) {
   if (e is MerchantException) return e.message;
   return 'เชื่อมต่อหรือบันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง';
 }
+
+String orderStatusLabel(Json o) =>
+    o['fulfillment_type'] == 'pickup' && o['status'] == 'ready_for_delivery'
+    ? 'พร้อมให้รับ'
+    : o['fulfillment_type'] == 'pickup' && o['status'] == 'delivered'
+    ? 'ลูกค้ารับแล้ว'
+    : orderStatuses[o['status']] ?? o['status'];

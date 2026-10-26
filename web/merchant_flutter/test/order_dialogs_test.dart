@@ -135,4 +135,20 @@ void main() {
       expect(saved, 'issue');
     },
   );
+  testWidgets('paid no-show returns an explicit no-refund decision and reason', (tester) async {
+    Map<String, dynamic>? decision;
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) => Scaffold(
+      body: TextButton(onPressed: () async {
+        decision = await requestStoreCancellation(context, 'QA-1', true);
+      }, child: const Text('เปิด')),
+    ))));
+    await tester.tap(find.text('เปิด'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('คืนเงิน'));
+    await tester.enterText(find.byType(TextFormField), 'ลูกค้าไม่มารับ');
+    await tester.tap(find.text('ยืนยันยกเลิก'));
+    await tester.pumpAndSettle();
+    expect(decision, {'note': 'ลูกค้าไม่มารับ', 'refund': false});
+  });
+
 }

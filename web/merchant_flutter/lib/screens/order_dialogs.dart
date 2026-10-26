@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../data/merchant_repository.dart';
 
 class PaymentReviewDialog extends StatefulWidget {
@@ -471,10 +473,28 @@ Future<String?> requestCancellation(
   builder: (_) => _CancellationDialog(orderNumber: orderNumber, paid: paid),
 );
 
+Future<Json?> requestStoreCancellation(
+  BuildContext context,
+  String orderNumber,
+  bool paid,
+) => showDialog<Json>(
+  context: context,
+  builder: (_) => _CancellationDialog(
+    orderNumber: orderNumber,
+    paid: paid,
+    storeDecision: true,
+  ),
+);
+
 class _CancellationDialog extends StatefulWidget {
-  const _CancellationDialog({required this.orderNumber, required this.paid});
+  const _CancellationDialog({
+    required this.orderNumber,
+    required this.paid,
+    this.storeDecision = false,
+  });
   final String orderNumber;
   final bool paid;
+  final bool storeDecision;
   @override
   State<_CancellationDialog> createState() => _CancellationDialogState();
 }
@@ -482,6 +502,7 @@ class _CancellationDialog extends StatefulWidget {
 class _CancellationDialogState extends State<_CancellationDialog> {
   final note = TextEditingController();
   final form = GlobalKey<FormState>();
+  bool refund = true;
   @override
   void dispose() {
     note.dispose();
@@ -496,7 +517,14 @@ class _CancellationDialogState extends State<_CancellationDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.paid)
+          if (widget.storeDecision && widget.paid)
+            CheckboxListTile(
+              title: const Text('คืนเงิน'),
+              subtitle: const Text('ร้านเป็นผู้ตัดสินใจเรื่องคืนเงิน'),
+              value: refund,
+              onChanged: (value) => setState(() => refund = value == true),
+            ),
+          if (widget.paid && !widget.storeDecision)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: Text(
@@ -522,7 +550,15 @@ class _CancellationDialogState extends State<_CancellationDialog> {
       FilledButton(
         onPressed: () {
           if (form.currentState!.validate()) {
-            Navigator.pop(context, note.text.trim());
+            Navigator.pop(
+              context,
+              widget.storeDecision
+                  ? <String, dynamic>{
+                      'note': note.text.trim(),
+                      'refund': widget.paid && refund,
+                    }
+                  : note.text.trim(),
+            );
           }
         },
         child: const Text('ยืนยันยกเลิก'),

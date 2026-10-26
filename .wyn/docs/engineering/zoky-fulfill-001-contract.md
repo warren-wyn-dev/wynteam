@@ -113,3 +113,7 @@ Order rows returned to the Merchant side gain the §3 fields. `pickup_code` is s
   - Revert `web/next-env.d.ts` and `web/AGENTS.md` if `next dev` dirtied them.
 - Every user-visible Thai string needs an English entry in `en.ts`. No duplicate keys.
 - Status words must not collide in i18n. Use distinct Thai labels, for example "พร้อมให้รับ" vs the existing "พร้อมส่ง".
+
+### Merchant direct cancellation supplement
+
+`food_store_cancel_order(p_order_id uuid, p_refund boolean, p_note text default null)` lets an authorized order manager cancel an open order with an explicit refund/no-refund choice and a 3–1000 character reason. Refund requires a paid order. Both decisions are audited; terminal orders are refused. Apply `20261026172233_zoky_merchant_cancel_choice.sql` after the two v2 migrations. Roll back this supplement first; the decision history is retained. The accepted temporary legacy refund risk remains unchanged.

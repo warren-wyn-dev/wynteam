@@ -1,4 +1,4 @@
-import { FulfillmentError, transitionPickupOrder, setStoreFulfillment, resolveCancelRequest, markStoreRefunded, uploadRefundSlip } from "@/lib/food-fulfillment-merchant";
+import { FulfillmentError, cancelStoreOrder, transitionPickupOrder, setStoreFulfillment, resolveCancelRequest, markStoreRefunded, uploadRefundSlip } from "@/lib/food-fulfillment-merchant";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl, foodPublicUrl,
@@ -19,7 +19,7 @@ type Args = Record<string, unknown>;
 class BridgeInputError extends Error {}
 class BridgeAccessError extends Error {}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled", "ready_for_pickup", "picked_up"]);
+const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled"]);
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 function object(value: unknown): Args {
@@ -208,6 +208,16 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         await setStoreFulfillment(client, storeId, { pickup: bool(values.pickup), delivery: bool(values.delivery), cod: bool(values.cod), prepMinutes: Number(values.prepMinutes) });
         return null;
       }
+      case "completePickup": {
+        const orderId = id(args.orderId);
+        await ownedOrder(storeId, orderId); await ensureSession();
+        await transitionPickupOrder(client, orderId, "delivered"); return null;
+      }
+      case "cancelStoreOrder": {
+        const orderId = id(args.orderId);
+        await ownedOrder(storeId, orderId); await ensureSession();
+        await cancelStoreOrder(client, orderId, bool(args.refund), text(args.note, 1000, true)); return null;
+      }
       case "resolveCancel": {
         const orderId = id(args.orderId);
         await ownedOrder(storeId, orderId);
@@ -319,13 +329,10 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
       }
       case "transition": {
         const orderId = id(args.orderId), status = text(args.status, 30, true);
-        if (!["preparing", "ready_for_delivery", "out_for_delivery", "cancelled", "ready_for_pickup", "picked_up"].includes(status)) throw new BridgeInputError();
+        if (!["preparing", "ready_for_delivery", "out_for_delivery", "cancelled"].includes(status)) throw new BridgeInputError();
         if (args.etaMinutes != null && (!Number.isInteger(args.etaMinutes) || Number(args.etaMinutes) < 1 || Number(args.etaMinutes) > 240)) throw new BridgeInputError();
         await ownedOrder(storeId, orderId);
         await ensureSession();
-        if (status === "ready_for_pickup" || status === "picked_up") {
-          await transitionPickupOrder(client, orderId, status); return null;
-        }
         await transitionFoodOrder(client, orderId, status as FoodOrder["status"], args.etaMinutes == null ? undefined : Number(args.etaMinutes), text(args.note, 1000)); return null;
       }
       case "payment": {

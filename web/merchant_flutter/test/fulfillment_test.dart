@@ -1,10 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_merchant/data/merchant_controller.dart';
 import 'package:zoky_merchant/data/merchant_repository.dart';
 import 'package:zoky_merchant/screens/fulfillment_panels.dart';
 import 'package:zoky_merchant/screens/order_dialogs.dart';
+
 import 'support/fake_repository.dart';
 
 class PausedRepository extends FakeRepository {
@@ -20,24 +22,24 @@ void main() {
   test('pickup and delivery follow different paths and pickup is terminal', () {
     expect(
       orderNextStatus({'fulfillment_type': 'pickup', 'status': 'preparing'}),
-      'ready_for_pickup',
+      'ready_for_delivery',
     );
     expect(
       orderNextStatus({
         'fulfillment_type': 'pickup',
-        'status': 'ready_for_pickup',
+        'status': 'ready_for_delivery',
       }),
-      'picked_up',
+      'delivered',
     );
     expect(
-      orderNextStatus({'fulfillment_type': 'pickup', 'status': 'picked_up'}),
+      orderNextStatus({'fulfillment_type': 'pickup', 'status': 'delivered'}),
       isNull,
     );
     expect(orderNextStatus({'status': 'preparing'}), 'ready_for_delivery');
     expect(
       orderNextAction({
         'fulfillment_type': 'pickup',
-        'status': 'ready_for_pickup',
+        'status': 'ready_for_delivery',
       }),
       'ลูกค้ารับแล้ว',
     );
