@@ -1,0 +1,170 @@
+name: ZOKY Web Thai + mobile-only scoped release
+
+# Founder-approved release 2026-10-26 ("ขึ้น production เลย", "คุณจัดการทั้งหมดให้หน่อย").
+# Round 2 ("ทำทั้งหมดเลย", "แก้ทั้ง 14 คำ"): PR #1253 and PR #1254, live as
+# dpl_CACVkPQDL3MDfFSZvY64Ggpyqu8v. Round 3 ("ทำเลย", 2026-10-26): PR #1258
+# makes the capsule bottom nav compact (CSS only) on top of round 2.
+# Ships ONLY release/zoky-web-thai-mobile-20261026 = current production
+# 49e34d35 (Merchant UI release) + the two PR #1245 commits (Thai copy and
+# mobile-only layout). QA PASS on PR #1245; staging verified on the candidate.
+# Both secret-bearing jobs keep the existing `production` environment review.
+# Delete this file in a Founder-approved PR after the release (or on expiry).
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Release only the reviewed ZOKY web candidate
+        required: true
+        type: choice
+        default: CANCEL
+        options: [CANCEL, ZOKY_WEB_ROUND3_20261026]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoky-web-thai-mobile-release
+  cancel-in-progress: false
+  queue: max
+
+env:
+  RELEASE_EXPIRES_UTC: "2026-11-09"
+  RELEASE_BRANCH: release/zoky-web-thai-mobile-20261026
+  RELEASE_SHA: 71f7fb0f95bd3495c3f9fbf733cbf697456bd58c
+  PRODUCTION_BASE_SHA: b2e5c184eeaef42aeb7b94ef10e54627d5d594ab
+  ROLLBACK_DEPLOYMENT: dpl_CACVkPQDL3MDfFSZvY64Ggpyqu8v
+  ALLOWED_PATHS: >-
+    web/app/food/food-app.css
+  VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+  VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
+
+jobs:
+  guard:
+    name: Scope guards (before production review)
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_ROUND3_20261026'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          path: release
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Expiry, pinned SHA, base ancestry and path allowlist
+        working-directory: release
+        run: |
+          set -euo pipefail
+          today="$(date -u +%F)"
+          if [[ "$today" > "$RELEASE_EXPIRES_UTC" ]]; then
+            echo "::error::Release expired on $RELEASE_EXPIRES_UTC. A new Founder decision is required."; exit 1
+          fi
+          tip=$(git ls-remote origin "refs/heads/$RELEASE_BRANCH" | cut -f1)
+          [ "$tip" = "$RELEASE_SHA" ] || { echo "::error::$RELEASE_BRANCH tip $tip is not the reviewed $RELEASE_SHA"; exit 1; }
+          git merge-base --is-ancestor "$PRODUCTION_BASE_SHA" "$RELEASE_SHA" || { echo "::error::Candidate does not contain production base $PRODUCTION_BASE_SHA"; exit 1; }
+          changed=$(git diff --name-only "$PRODUCTION_BASE_SHA" "$RELEASE_SHA")
+          for path in $changed; do
+            case " $ALLOWED_PATHS " in *" $path "*) ;; *) echo "::error::$path is outside the reviewed release"; exit 1 ;; esac
+          done
+          {
+            echo '## Reviewed ZOKY web release'
+            echo "- Candidate: $RELEASE_SHA (tip of $RELEASE_BRANCH)"
+            echo "- Production base: $PRODUCTION_BASE_SHA"
+            echo "- Rollback target: $ROLLBACK_DEPLOYMENT"
+            echo "- Expires: $RELEASE_EXPIRES_UTC"
+            git diff --stat "$PRODUCTION_BASE_SHA" "$RELEASE_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  stage:
+    name: Stage production artifact (domains unchanged)
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_ROUND3_20261026'
+    needs: guard
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      url: ${{ steps.stage.outputs.url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          path: release
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm install --global vercel@63.1.2 --no-audit --no-fund
+      - name: Deploy production artifact without assigning domains
+        id: stage
+        working-directory: release/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN" || { echo '::error::VERCEL_TOKEN is empty'; exit 1; }
+          # Upload from the repo root when the project's Root Directory is web/
+          # (same rule as tools/merchant_ui_release_ops.mjs upload-root).
+          root_dir=$(curl --fail --silent --show-error -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" | jq -r '.rootDirectory // ""')
+          if [ "$root_dir" = "web" ]; then cd ..; fi
+          # Same runtime flags as the live release (dpl_CACVkPQDL3MDfFSZvY64Ggpyqu8v).
+          # A clean build: the cached Flutter SDK from the previous production
+          # build has no .git, so build_web.sh's revision check fails on it.
+          url=$(vercel deploy --prod --skip-domain --yes --scope warren14 \
+            --build-env VERCEL_FORCE_NO_BUILD_CACHE=1 \
+            --env ZOKY_MERCHANT_FLUTTER_ENABLED=1 --env ZOKY_LEGACY_FOOD_REDIRECT=0 \
+            --meta githubCommitSha="$RELEASE_SHA" --meta githubCommitRef="$RELEASE_BRANCH" \
+            --meta githubRepo=wynteam --meta githubOrg=warren-wyn-dev | tail -n1)
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Staged production artifact (customer domains unchanged): $url" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify staged artifact over authenticated HTTP
+        working-directory: release/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          STAGED_URL: ${{ steps.stage.outputs.url }}
+        run: |
+          set -euo pipefail
+          for path in /food /food/login /food/signup /merchant/login /merchant/flutter /maps; do
+            vercel curl "$path" --deployment "$STAGED_URL" -- --fail --silent --show-error --output /dev/null
+          done
+          vercel curl /merchant/flutter --deployment "$STAGED_URL" -- --fail --silent --show-error --output /tmp/merchant-host.html
+          grep -Fq '/merchant/flutter/manifest.webmanifest' /tmp/merchant-host.html
+          rm -f /tmp/merchant-host.html
+          echo '- /food, /food/login, /food/signup, /merchant/login, /merchant/flutter, /maps: PASS' >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    name: Promote the verified artifact
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_ROUND3_20261026'
+    needs: [guard, stage]
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm install --global vercel@63.1.2 --no-audit --no-fund
+      - name: Promote and smoke-check public routes
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          STAGED_URL: ${{ needs.stage.outputs.url }}
+        run: |
+          set -euo pipefail
+          # Production may have moved (e.g. another release) while this job waited for review.
+          # Promote only if every customer host still serves the reviewed rollback target.
+          for host in zoky.wynos.online merchant.wynos.online food.wynos.online wynos.online www.wynos.online; do
+            live=$(curl --fail --silent --show-error --max-time 30 -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v13/deployments/$host?teamId=$VERCEL_ORG_ID" | jq -r '.id')
+            [ "$live" = "$ROLLBACK_DEPLOYMENT" ] || { echo "::error::$host serves $live, not the reviewed base $ROLLBACK_DEPLOYMENT. Production changed while awaiting review."; exit 1; }
+          done
+          vercel promote "$STAGED_URL" --yes --scope warren14
+          for url in https://zoky.wynos.online/ https://zoky.wynos.online/food/login https://merchant.wynos.online/merchant/login https://merchant.wynos.online/merchant/flutter https://food.wynos.online/ https://wynos.online/; do
+            curl --fail --silent --show-error --location --max-time 30 --output /dev/null "$url"
+          done
+          {
+            echo '## ZOKY web production release verified'
+            echo "- Promoted artifact: $STAGED_URL"
+            echo '- Public ZOKY, Merchant, Food and Social routes: HTTP PASS'
+            echo '- No database or Edge Function deployment. No automatic rollback.'
+            echo "- On regression: Vercel Instant Rollback to $ROLLBACK_DEPLOYMENT."
+          } >> "$GITHUB_STEP_SUMMARY"
