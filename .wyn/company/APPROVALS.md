@@ -731,3 +731,18 @@
 - Separate: the Founder also wants GP replaced by a monthly store fee platform-wide. This is tracked as ZOKY-BILLING-001 and needs its own PRD and approval. Not covered here.
 - Rollback: before release nothing reaches production. After release, turn off pickup and COD per store or globally, revert the app, and roll back the migration using the rollback SQL. Existing orders keep `fulfillment_type='delivery'`.
 - Status: approved; design starting. No migration applied, no deployment performed.
+
+### APPROVAL — [2026-10-26] ZOKY payments: bank transfer + slip only, store-verified; Stripe paused
+
+- The Founder said "ตัด stripe ออกไปเลย โอนเงินเข้าร้านเท่านั้น", then "ระบบตรวจสลิป ให้ร้านค้าเป็นคนอนุมัติเอง". The Founder replied "อนุมัติทั้ง 2 ข้อ" and added "ส่วน Stripe หยุดไว้ก่อน".
+- Approved payment policy. This replaces D11, Stripe-only (2026-10-23):
+  - Customers pay only by PromptPay or bank transfer to the store, then attach a slip.
+  - The store checks its own bank app and confirms or flags the payment. There is no automatic slip verification for these orders.
+  - COD is optional per store and only for delivery orders.
+  - Refunds: the store transfers back and attaches a refund slip. Zoky Admin lists refunds pending for more than 24 hours.
+  - No GP. A monthly fee replaces it in ZOKY-BILLING-001, which is a separate item.
+- Stripe is paused, not removed. Stripe payment is no longer offered and no store needs Stripe to take orders. Stripe accounts, tables, data and code stay in place. The refund worker keeps running until in-flight Stripe payments and refunds are cleared.
+- Also approved: a read-only production dump of function, trigger and constraint definitions, through a GitHub workflow behind the protected production environment. It reads definitions only, no table data. The dump lets the ZOKY-FULFILL-001 migration build on the real production code.
+- Folded into ZOKY-FULFILL-001: same migration and release, same gates (QA & Security, staging, Founder production approval).
+- Rollback: re-activate Stripe-only (`stripe_only_from`), revert the app.
+- Status: approved; no production change made yet.
