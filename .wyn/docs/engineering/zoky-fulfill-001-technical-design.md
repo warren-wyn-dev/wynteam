@@ -3,6 +3,25 @@
 PRD: `.wyn/docs/product/zoky-fulfill-001-pickup-and-store-delivery.md` (approved 2026-10-26)
 Status: design draft for CTO review. No migration has been applied and nothing is deployed.
 
+## 0. Production baseline (read-only dump, run 40318273032, 2026-10-26)
+
+Counts: 156 Food/Merchant functions, 33 triggers, 59 constraints, 117 columns and 25 RLS policies.
+
+- **The Stripe-only cut-over was never applied to production.** None of these exist live:
+  - `food_payment_policy`
+  - `internal.food_orders_require_stripe_ready`
+  - `food_orders_payment_guard`
+  - the `food_stripe_jobs` worker
+
+  Production still runs the legacy payment model. Stores take orders without Stripe, and customers can pay by transfer and attach a slip (`food_submit_payment` sets `manual_review`). Stripe Checkout is only an extra option for stores with `stripe_payments_enabled`.
+- Consequences:
+  - Finding 1 (the Stripe-only gate) does not apply.
+  - The approved "transfer + store-verified slip, Stripe paused" policy needs **no DB change**. Two app changes are enough:
+    - hide the Stripe option;
+    - stop calling `food-verify-slip` (SlipOK auto-verify), so every slip waits for the store.
+  - Nothing new needs adding to stop the automatic Stripe refund on cancel, because that worker is not live. The `refund_status='pending'` that `food_transition_order` sets on paid cancels is handled manually by the store, which matches the approved refund policy.
+- The migration must build on these live definitions: `food_create_order`, `food_quote_order`, `food_transition_order`, `food_complete_delivery`, `food_cancel_order`, `food_set_payment_status`, `food_submit_payment` and `internal.food_set_scheduled_order`. The dump is kept outside the repo as a workflow artifact; it expires 2026-11-02.
+
 ## 1. What exists today (repo, 2026-10-26)
 
 | Area | Current behaviour | Source |
