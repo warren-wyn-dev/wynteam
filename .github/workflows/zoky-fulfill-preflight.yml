@@ -1,0 +1,84 @@
+name: ZOKY fulfil -- read-only production definitions dump
+
+# Founder approval 2026-10-26 ("อนุมัติทั้ง 2 ข้อ", .wyn/company/APPROVALS.md):
+# read-only dump of production function, trigger and constraint DEFINITIONS so
+# the ZOKY-FULFILL-001 migration is written against live code, not stale repo
+# copies (design finding 5, .wyn/docs/engineering/zoky-fulfill-001-technical-design.md).
+# Reads pg_catalog / information_schema only: no table rows, no secrets.
+# Kept behind the protected `production` environment review.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type READ-ZOKY-DEFINITIONS to confirm the read-only dump'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    environment: production
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'READ-ZOKY-DEFINITIONS'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Dump definitions
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1; }
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local out code
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+              -d "$(jq -n --arg q "$1" '{query: $q}')")
+            [ "$code" = "200" ] || [ "$code" = "201" ] || { echo "::error::HTTP $code"; cat "$out" >&2; rm -f "$out"; return 1; }
+            cat "$out"; rm -f "$out"
+          }
+          mkdir -p dump
+          # Every Food/Merchant function plus the helpers order flows call.
+          run_sql "select p.oid::regprocedure::text as signature, md5(pg_get_functiondef(p.oid)) as md5,
+                pg_get_functiondef(p.oid) as definition
+              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+              where n.nspname in ('public','internal') and p.prokind = 'f'
+                and (p.proname like 'food\_%' or p.proname like 'merchant\_%' or p.proname like 'admin\_food\_%'
+                     or p.proname like 'admin\_merchant\_%' or p.proname like 'internal\_food\_%')
+              order by 1;" > dump/functions.json
+          run_sql "select c.relname as table_name, t.tgname as trigger_name, pg_get_triggerdef(t.oid) as definition
+              from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relname like 'food\_%' and not t.tgisinternal
+              order by 1, 2;" > dump/triggers.json
+          run_sql "select c.relname as table_name, con.conname as name, pg_get_constraintdef(con.oid) as definition
+              from pg_constraint con join pg_class c on c.oid = con.conrelid join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relname in ('food_orders','food_stores','food_order_events','food_payment_policy')
+              order by 1, 2;" > dump/constraints.json
+          run_sql "select table_name, column_name, data_type, column_default, is_nullable
+              from information_schema.columns
+              where table_schema = 'public' and table_name in ('food_orders','food_stores','food_order_events','food_payment_policy')
+              order by table_name, ordinal_position;" > dump/columns.json
+          run_sql "select schemaname, tablename, policyname, cmd, roles::text, qual, with_check
+              from pg_policies where schemaname = 'public' and tablename like 'food\_%' order by 2, 3;" > dump/policies.json
+          for f in dump/*.json; do jq -e 'type == "array"' "$f" >/dev/null; done
+          {
+            echo '## ZOKY fulfil read-only dump'
+            echo "- functions: $(jq length dump/functions.json)"
+            echo "- triggers: $(jq length dump/triggers.json)"
+            echo "- constraints: $(jq length dump/constraints.json)"
+            echo "- columns: $(jq length dump/columns.json)"
+            echo "- policies: $(jq length dump/policies.json)"
+            echo '- Definitions only; nothing was changed.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zoky-fulfill-definitions
+          path: dump/
+          retention-days: 7
