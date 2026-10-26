@@ -797,23 +797,9 @@ export async function submitFoodPayment(
     p_slip_path: slipPath,
   });
   if (error) throw new Error(error.message);
-
-  const verification = await client.functions.invoke("food-verify-slip", {
-    body: { orderId },
-  });
-  if (verification.error || !verification.data) {
-    return { status: "manual_review", provider: "manual" };
-  }
-
-  const status = verification.data.status;
-  if (status !== "auto_verified" && status !== "manual_review" && status !== "rejected") {
-    return { status: "manual_review", provider: "manual" };
-  }
-  return {
-    status,
-    provider: typeof verification.data.provider === "string" ? verification.data.provider : undefined,
-    code: typeof verification.data.code === "string" ? verification.data.code : null,
-  };
+  // Founder 2026-10-26: the store checks its own bank app and confirms every
+  // slip; no automatic slip verification.
+  return { status: "manual_review", provider: "manual" };
 }
 
 export function foodStructuredAddressText(draft: Pick<FoodAddressDraft,
