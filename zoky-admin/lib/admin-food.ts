@@ -190,11 +190,18 @@ export async function fetchAdminFoodOrders(params: {
   if (!v2.error) return (v2.data ?? []) as AdminFoodOrder[];
   if (!isMissingFunction(v2.error)) throw v2.error;
   if (params.status && ADMIN_FOOD_FULFILLMENT_FILTERS.includes(params.status)) {
-    throw new Error("ตัวกรองนี้ใช้ได้หลังอัปเดตฐานข้อมูล ZOKY-FULFILL-001");
+    throw new AdminFoodFilterUnavailable();
   }
   const { data, error } = await supabase.rpc("admin_food_orders", args);
   if (error) throw error;
   return (data ?? []) as AdminFoodOrder[];
+}
+
+/** A v2-only filter was chosen before the ZOKY-FULFILL-001 admin migration is live. */
+export class AdminFoodFilterUnavailable extends Error {
+  constructor() {
+    super("ตัวกรองนี้ใช้ได้หลังอัปเดตฐานข้อมูล ZOKY-FULFILL-001");
+  }
 }
 
 /** Only "v2 is not deployed yet" falls back; any other v2 error is shown. */
