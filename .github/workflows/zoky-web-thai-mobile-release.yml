@@ -150,6 +150,13 @@ jobs:
           STAGED_URL: ${{ needs.stage.outputs.url }}
         run: |
           set -euo pipefail
+          # Production may have moved (e.g. another release) while this job waited for review.
+          # Promote only if every customer host still serves the reviewed rollback target.
+          for host in zoky.wynos.online merchant.wynos.online food.wynos.online wynos.online www.wynos.online; do
+            live=$(curl --fail --silent --show-error --max-time 30 -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v13/deployments/$host?teamId=$VERCEL_ORG_ID" | jq -r '.id')
+            [ "$live" = "$ROLLBACK_DEPLOYMENT" ] || { echo "::error::$host serves $live, not the reviewed base $ROLLBACK_DEPLOYMENT. Production changed while awaiting review."; exit 1; }
+          done
           vercel promote "$STAGED_URL" --yes --scope warren14
           for url in https://zoky.wynos.online/ https://zoky.wynos.online/food/login https://merchant.wynos.online/merchant/login https://merchant.wynos.online/merchant/flutter https://food.wynos.online/ https://wynos.online/; do
             curl --fail --silent --show-error --location --max-time 30 --output /dev/null "$url"
