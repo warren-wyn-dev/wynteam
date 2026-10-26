@@ -98,8 +98,11 @@ jobs:
           done
 
           export VERCEL_ORG_ID VERCEL_PROJECT_ID
+          # Clean build: a cached Flutter SDK without .git fails the revision
+          # check in merchant_flutter/scripts/build_web.sh.
           url=$(npx --yes vercel@latest deploy --yes \
             --token="$VERCEL_TOKEN" \
+            --build-env VERCEL_FORCE_NO_BUILD_CACHE=1 \
             --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             --build-env VERCEL_PREVIEW_FEEDBACK_ENABLED=0 \
