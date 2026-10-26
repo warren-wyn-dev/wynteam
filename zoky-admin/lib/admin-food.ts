@@ -82,7 +82,14 @@ export type AdminFoodOrderStatusFilter =
   | "delivered"
   | "cancelled"
   | "refund_pending"
-  | "payment_review";
+  | "payment_review"
+  // ZOKY-FULFILL-001 (admin_food_orders_v2 only)
+  | "pickup"
+  | "cod"
+  | "cancel_request";
+
+/** Filters that only exist in admin_food_orders_v2. */
+export const ADMIN_FOOD_FULFILLMENT_FILTERS: ReadonlyArray<AdminFoodOrderStatusFilter> = ["pickup", "cod", "cancel_request"];
 
 export type AdminFoodOrder = {
   id: string;
@@ -97,6 +104,12 @@ export type AdminFoodOrder = {
   total: number;
   created_at: string;
   delivered_at: string | null;
+  /** ZOKY-FULFILL-001: absent while only admin_food_orders (v1) exists. */
+  fulfillment_type?: "delivery" | "pickup";
+  payment_method?: "transfer" | "cod";
+  pickup_at?: string | null;
+  pickup_code?: string | null;
+  cancel_requested_at?: string | null;
 };
 
 export type AdminFoodOrderDetail = {
@@ -117,6 +130,15 @@ export type AdminFoodOrderDetail = {
     delivery_fee: number;
     total: number;
     created_at: string;
+    fulfillment_type?: "delivery" | "pickup";
+    payment_method?: "transfer" | "cod";
+    pickup_at?: string | null;
+    pickup_code?: string | null;
+    picked_up_at?: string | null;
+    cancel_requested_at?: string | null;
+    cancel_request_note?: string | null;
+    refund_slip_path?: string | null;
+    refunded_by_store_at?: string | null;
   };
   store_name: string | null;
   buyer_username: string | null;
@@ -156,14 +178,35 @@ export async function fetchAdminFoodOrders(params: {
   limit?: number;
 }): Promise<AdminFoodOrder[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_food_orders", {
+  const args = {
     p_store_id: params.storeId ?? null,
     p_status: params.status ?? null,
     p_query: params.query?.trim() || null,
     p_limit: params.limit ?? 100,
-  });
+  };
+  // v2 adds pickup / COD / cancel-request columns and filters. Until its
+  // migration is applied, fall back to v1 (without the v2-only filters).
+  const v2 = await supabase.rpc("admin_food_orders_v2", args);
+  if (!v2.error) return (v2.data ?? []) as AdminFoodOrder[];
+  if (!isMissingFunction(v2.error)) throw v2.error;
+  if (params.status && ADMIN_FOOD_FULFILLMENT_FILTERS.includes(params.status)) {
+    throw new AdminFoodFilterUnavailable();
+  }
+  const { data, error } = await supabase.rpc("admin_food_orders", args);
   if (error) throw error;
   return (data ?? []) as AdminFoodOrder[];
+}
+
+/** A v2-only filter was chosen before the ZOKY-FULFILL-001 admin migration is live. */
+export class AdminFoodFilterUnavailable extends Error {
+  constructor() {
+    super("ตัวกรองนี้ใช้ได้หลังอัปเดตฐานข้อมูล ZOKY-FULFILL-001");
+  }
+}
+
+/** Only "v2 is not deployed yet" falls back; any other v2 error is shown. */
+function isMissingFunction(error: { code?: string; message?: string }) {
+  return (error.code === "PGRST202" || error.code === "42883") && (error.message ?? "").includes("admin_food_orders_v2");
 }
 
 /** Opening an order is written to the audit log by the RPC. */
@@ -221,6 +264,32 @@ export const FOOD_ORDER_STATUS_LABEL: Record<string, string> = {
   delivered: "ส่งแล้ว",
   cancelled: "ยกเลิก",
 };
+
+/** ZOKY-FULFILL-001 order events that have no status change of their own. */
+export const FOOD_ORDER_EVENT_LABEL: Record<string, string> = {
+  pickup_scheduled: "นัดรับเองที่ร้าน",
+  picked_up: "ลูกค้ารับอาหารแล้ว",
+  cod_selected: "ลูกค้าเลือกเก็บเงินปลายทาง",
+  cod_collected: "ร้านรับเงินสดแล้ว",
+  cancel_requested: "ลูกค้าขอยกเลิก",
+  cancel_request_rejected: "ร้านไม่อนุมัติการยกเลิก",
+  cancel_request_approved_refund: "ร้านอนุมัติยกเลิก · คืนเงิน",
+  cancel_request_approved_no_refund: "ร้านอนุมัติยกเลิก · ไม่คืนเงิน",
+};
+
+/** Pickup reuses ready_for_delivery / delivered (contract v2) with its own words. */
+export function foodOrderStatusLabelFor(order: { status: string; fulfillment_type?: string | null }) {
+  if (order.fulfillment_type === "pickup") {
+    if (order.status === "ready_for_delivery") return "พร้อมให้รับ";
+    if (order.status === "delivered") return "ลูกค้ารับแล้ว";
+  }
+  return FOOD_ORDER_STATUS_LABEL[order.status] ?? order.status;
+}
+
+export function formatThaiTime(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" }).format(new Date(value));
+}
 
 export const FOOD_PAYMENT_STATUS_LABEL: Record<string, string> = {
   pending: "รอชำระ",
