@@ -695,3 +695,39 @@
 - Benefit: merchants use the approved home with actual store status, sales and readiness, plus eight working tool destinations. No fabricated weekly metrics.
 - Risks and recovery: shared web deployment needs a production-based candidate and checked origin routing. Retain `/merchant` legacy entry and the previous production deployment as the recovery target; follow the existing protected release review and monitoring gates.
 - Status: production publishing authorized; implementation and release verification in progress. This record does not claim that the live deployment has changed.
+
+### APPROVAL — [2026-10-25] ZOKY-ADMIN-001 split ZOKY Admin from WYNOS Admin
+
+- Founder replied “อนุญาต” to the four approval items in `.wyn/docs/product/zoky-admin-001-split-proposal.md` section 6: (1) a second Next.js app `zoky-admin/` taking every WYNOS Food and Merchant page out of `admin/`; (2) the ZOKY Team Lead authorization change with an additive DB migration; (3) a new Vercel project, the domain `zoky-admin.wynos.online` and a deploy workflow; (4) shipping it in the coordinated Admin/Food/Merchant release.
+- Open questions resolved by the proposal's defaults (the Founder approved without changing them): Team Leads cannot appoint other Leads; Merchant Verification (`/merchants`) moves to ZOKY Admin; sections are named "ZOKY Food" and "ZOKY Merchant".
+- Boundaries: delivered as separate PRs per the proposal plan; migrations need tests and rollback SQL and are not applied to production outside the release gates; no production deployment, domain change or production DB change without passing QA & Security, CTO review and staging. The HIGH privilege-delegation risk must be tested before release.
+- Rollback: before release nothing reaches production; after release revert the WYNOS Admin cleanup PR and redeploy the previous release SHA; the migration is additive with rollback SQL.
+- Status: approved; implementation starting with PR 1 (scaffold). No deployment performed.
+
+### APPROVAL — [2026-10-25] ZOKY Admin production ahead of the WYNOS release freeze
+
+- Founder asked "เอาให้พร้อมใช้งานนะ" and, given the open release freeze (#1142–#1151), chose "ยกเว้นให้ ZOKY Admin ขึ้นก่อน" (AskUserQuestion, 2026-10-25).
+- Approved: merge PR #1246, apply `20261025100000_zoky_admin_team_v1.sql`, create the `zoky-admin` Vercel project, deploy ZOKY Admin production and attach `zoky-admin.wynos.online`, through `deploy-zoky-admin.yml` with the `ZOKY_ADMIN_EXCEPTION_APPROVED` input and the protected production environment.
+- Not covered: WYNOS Admin, Web, Food and Merchant stay under the freeze. Live WYNOS Admin keeps its Food/Merchant pages until the coordinated release (whose workflow now also requires ZOKY Admin to be live), so both admin surfaces work on the same data and permissions in between.
+- Risks: the HIGH privilege-delegation risk is covered by the 75-check DB test but has no staging verification; Founder accepted shipping ahead of staging for ZOKY Admin. Mitigation: no Team Lead exists until the super admin appoints one; verify login and pages right after deploy.
+- Rollback: remove the domain or promote nothing (no previous production); revert the migration with `supabase/rollbacks/20261025100000_zoky_admin_team_v1_rollback.sql` (granted permissions stay).
+
+### APPROVAL — [2026-10-26] ZOKY-FULFILL-001 pickup at store and store delivery with optional COD
+
+- Founder asked for two fulfilment types ("รับเองที่ร้าน" with a pickup time before closing, and "ร้านจัดส่งเอง"), answered the open questions, and replied "อนุมัติ" to section 4 of `.wyn/docs/product/zoky-fulfill-001-pickup-and-store-delivery.md`.
+- Decisions:
+  - Pickup is paid online; the customer picks a time today, in 15-minute slots, before closing.
+  - Delivery stays as soon as possible.
+  - Each store may enable cash on delivery, for delivery orders only.
+  - Late pickup is allowed.
+  - After the store accepts, the customer can only request cancellation. The store approves or rejects it and decides whether to refund. The store also decides refunds for no-shows.
+  - COD orders carry no GP.
+- Supersedes: the 2026-10-10 DECISION "WYNOS Food is delivery only", for pickup and same-day pickup times only. Delivery scheduling stays disabled.
+- Approved:
+  - The scope change.
+  - An additive DB migration with rollback SQL, covering fulfilment type, pickup time and code, COD, store toggles, prep minutes and the new statuses.
+  - Food, Merchant and Zoky Admin changes.
+- Boundaries: no production DB change or deployment outside the release gates. QA & Security, staging and an explicit Founder production approval are still required.
+- Separate: the Founder also wants GP replaced by a monthly store fee platform-wide. This is tracked as ZOKY-BILLING-001 and needs its own PRD and approval. Not covered here.
+- Rollback: before release nothing reaches production. After release, turn off pickup and COD per store or globally, revert the app, and roll back the migration using the rollback SQL. Existing orders keep `fulfillment_type='delivery'`.
+- Status: approved; design starting. No migration applied, no deployment performed.
