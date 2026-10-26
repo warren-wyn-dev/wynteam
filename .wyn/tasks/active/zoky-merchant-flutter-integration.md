@@ -45,3 +45,9 @@ Founder explicitly requested real UX/UI implementation from the latest structure
 Founder requested “เอาขึ้นเว็บจริง” and “ต่อ”. Final home now has eight pink 3D tool shortcuts, a same-row shop/bell header, actual editable status pill, smaller baseline-aligned sales fractions and readiness, without the lower quality card. Quality remains an actionable tool showing actual all-review data. Source validation: 374 Node +27 Flutter tests and 10/10 compiled mobile/desktop browser cases passed. Evidence: `docs/qa/zoky-merchant-flutter/final-home.md`.
 
 PR #1229 merged the earlier integration, not these later UI refinements. Live Merchant shares Vercel project `web` with Food; the new scoped candidate uses actual live base `e6f577dc`, replacing the stale `0533fb` candidate. A narrow reviewed release workflow retains the production environment reviewer and the general release freeze. Source completion is not a claim that production changed.
+
+## Stability QA follow-up (2026-10-25–26)
+
+After publication the Founder reported instability and requested QA. Reproduced three issues: sign-in defaulted to the legacy dashboard, background refresh could permanently lock an open editor after Save, and realtime order changes arriving during a read could be dropped until the next poll. Scoped fixes preserve the shared session/backend, explicit return paths, other origins, permission checks and single-write guards. Evidence and remaining acceptance limits: `docs/qa/zoky-merchant-flutter/stability-2026-10-25.md`.
+
+Production remains on the previously published `49e34d35657771949e26472fa14f1f4744955af0` during QA. Source repair, code integration and production publication are separate states; the old one-off release must not be redispatched after its live-base drift guard has become stale.
