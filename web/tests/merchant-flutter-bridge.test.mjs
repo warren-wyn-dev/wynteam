@@ -310,6 +310,9 @@ test('settings roles, validation and foreign store requests fail closed',async()
   assert.equal(a.calls.some(c=>c.name==='food_resolve_cancel_request'),false);
 });
 test('pickup completes with the v2 RPC and rejects invented DB statuses',async()=>{
+  const delivery=harness();
+  assert.equal((await delivery.request('completePickup',{storeId:STORE,orderId:ORDER})).ok,false);
+  assert.equal(delivery.calls.some(c=>c.name==='food_complete_pickup'),false);
   const h=harness();h.state.order.fulfillment_type='pickup';
   assert.equal((await h.request('transition',{storeId:STORE,orderId:ORDER,status:'ready_for_delivery'})).ok,true);
   assert.equal((await h.request('completePickup',{storeId:STORE,orderId:ORDER})).ok,true);

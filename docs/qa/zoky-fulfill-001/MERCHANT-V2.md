@@ -22,7 +22,7 @@ rollback retains all recorded decisions and refund evidence.
 - ESLint: no errors (17 existing warnings).
 - Flutter analyzer: no issues. Full 35-test suite passed; added no-show dialog
   regression also passed (4 dialog tests).
-- Production Flutter build and font policy: passed.
+- Production Flutter build, font policy and full Next.js production build: passed.
 - PostgreSQL 17 canonical integration suite, including the new cancellation
   authorization/decision/audit cases, repeated migrations and rollback: passed.
 - Compiled Flutter mobile/desktop browser suite: all 18 passed, including
@@ -39,3 +39,10 @@ incorporated as an ancestry-only merge because this candidate already implements
 the same corrections with direct v2 status values and a dedicated pickup bridge
 method. This keeps one tested implementation and lets #1270 land first without
 a conflicting second migration or a stale replacement of customer changes.
+
+## External release blockers
+
+At publication, customer PR #1267 still has browser/security CI in progress.
+PR #1271 requires its own CI/review. Its Vercel preview reports the platform
+build-rate limit, with a retry after 24 hours. No quota upgrade, environment
+protection change, production migration or alias promotion was attempted.
