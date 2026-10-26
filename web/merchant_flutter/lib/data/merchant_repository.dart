@@ -7,6 +7,8 @@ const orderStatuses = {
   'preparing': 'กำลังเตรียม',
   'ready_for_delivery': 'พร้อมส่ง',
   'out_for_delivery': 'กำลังจัดส่ง',
+  'ready_for_pickup': 'พร้อมให้รับ',
+  'picked_up': 'ลูกค้ารับแล้ว',
   'delivered': 'สำเร็จ',
   'cancelled': 'ยกเลิก',
 };
@@ -35,6 +37,23 @@ class MerchantException implements Exception {
 
 /// Existing WYNOS JavaScript client owns authentication, account switching,
 /// push cleanup and API contracts. Flutter holds no credentials or tokens.
+String? orderNextStatus(Json order) => order['fulfillment_type'] == 'pickup'
+    ? switch (order['status']) {
+        'pending_acceptance' => 'preparing',
+        'preparing' => 'ready_for_pickup',
+        'ready_for_pickup' => 'picked_up',
+        _ => null,
+      }
+    : nextStatuses[order['status']];
+String? orderNextAction(Json order) => order['fulfillment_type'] == 'pickup'
+    ? switch (order['status']) {
+        'pending_acceptance' => 'รับออเดอร์',
+        'preparing' => 'พร้อมให้รับ',
+        'ready_for_pickup' => 'ลูกค้ารับแล้ว',
+        _ => null,
+      }
+    : nextActions[order['status']];
+
 abstract class MerchantRepository {
   static const pageSize = 50;
   Stream<void> get orderChanges => const Stream.empty();
@@ -47,6 +66,26 @@ abstract class MerchantRepository {
   Future<Json> campaigns(String storeId);
   Future<void> saveMenu(String storeId, Json values, {String? id});
   Future<void> saveStore(String storeId, Json values);
+  Future<void> setFulfillment(String storeId, Json values) async =>
+      throw const MerchantException(
+        'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+      );
+  Future<void> resolveCancel(
+    String storeId,
+    String orderId,
+    bool approve,
+    bool refund,
+  ) async => throw const MerchantException(
+    'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+  );
+  Future<Json?> pickRefundSlip(String storeId, String orderId) async => null;
+  Future<void> markRefunded(
+    String storeId,
+    String orderId,
+    String imagePath,
+  ) async => throw const MerchantException(
+    'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+  );
   Future<void> transition(
     String storeId,
     String orderId,
@@ -73,6 +112,7 @@ abstract class MerchantRepository {
     String method,
     String imagePath, {
     String? locationNote,
+    bool cashReceived = false,
   });
   Future<String?> signedUrl(String storeId, String orderId, String kind);
   Future<void> subscribe(String storeId);
@@ -143,6 +183,48 @@ class BridgeMerchantRepository extends MerchantRepository {
   }
 
   @override
+  Future<void> setFulfillment(String storeId, Json values) async {
+    await call('setFulfillment', {'storeId': storeId, 'values': values});
+  }
+
+  @override
+  Future<void> resolveCancel(
+    String storeId,
+    String orderId,
+    bool approve,
+    bool refund,
+  ) async {
+    await call('resolveCancel', {
+      'storeId': storeId,
+      'orderId': orderId,
+      'approve': approve,
+      'refund': refund,
+    });
+  }
+
+  @override
+  Future<Json?> pickRefundSlip(String storeId, String orderId) async {
+    final data = await call('pickRefundSlip', {
+      'storeId': storeId,
+      'orderId': orderId,
+    });
+    return data == null ? null : object(data);
+  }
+
+  @override
+  Future<void> markRefunded(
+    String storeId,
+    String orderId,
+    String imagePath,
+  ) async {
+    await call('markRefunded', {
+      'storeId': storeId,
+      'orderId': orderId,
+      'imagePath': imagePath,
+    });
+  }
+
+  @override
   Future<void> transition(
     String storeId,
     String orderId,
@@ -205,6 +287,7 @@ class BridgeMerchantRepository extends MerchantRepository {
     String method,
     String imagePath, {
     String? locationNote,
+    bool cashReceived = false,
   }) async {
     await call('completeDelivery', {
       'storeId': storeId,
@@ -212,6 +295,7 @@ class BridgeMerchantRepository extends MerchantRepository {
       'method': method,
       'imagePath': imagePath,
       'locationNote': ?locationNote,
+      'cashReceived': cashReceived,
     });
   }
 

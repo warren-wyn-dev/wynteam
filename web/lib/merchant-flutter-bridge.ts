@@ -1,3 +1,4 @@
+import { FulfillmentError, transitionPickupOrder, setStoreFulfillment, resolveCancelRequest, markStoreRefunded, uploadRefundSlip } from "@/lib/food-fulfillment-merchant";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl, foodPublicUrl,
@@ -18,7 +19,7 @@ type Args = Record<string, unknown>;
 class BridgeInputError extends Error {}
 class BridgeAccessError extends Error {}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled"]);
+const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled", "ready_for_pickup", "picked_up"]);
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 function object(value: unknown): Args {
@@ -45,6 +46,7 @@ function amount(value: unknown, max: number): number {
   return n;
 }
 function safeError(error: unknown): string {
+  if (error instanceof FulfillmentError) return error.message;
   if (error instanceof BridgeInputError) return "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่";
   if (error instanceof BridgeAccessError) return "บัญชีนี้ไม่มีสิทธิ์เข้าถึงร้านหรือออเดอร์นี้ กรุณาเข้าสู่ระบบใหม่";
   const message = error && typeof error === "object" && "message" in error ? String(error.message) : "";
@@ -95,7 +97,7 @@ async function validateImage(file: File): Promise<void> {
 }
 export function createMerchantFlutterBridge({ client, userId, signOut, onOrderChange }: BridgeOptions): MerchantFlutterBridge {
   let disposed = false;
-  type PhotoSelection = { storeId: string; orderId: string; file: File; previewUrl: string; uploadedPath?: string; completing?: Promise<void> };
+  type PhotoSelection = { storeId: string; orderId: string; file: File; kind?: "refund"; previewUrl: string; uploadedPath?: string; completing?: Promise<void> };
   const photos = new Map<string, PhotoSelection>();
   const releasePhoto = (path: string) => {
     const selection = photos.get(path);
@@ -198,6 +200,39 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     await storeAccess(storeId);
     await ensureSession();
     switch (method) {
+      case "setFulfillment": {
+        const values = object(args.values);
+        const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin"] });
+        if (error || data !== true) throw new BridgeAccessError();
+        await ensureSession();
+        await setStoreFulfillment(client, storeId, { pickup: bool(values.pickup), delivery: bool(values.delivery), cod: bool(values.cod), prepMinutes: Number(values.prepMinutes) });
+        return null;
+      }
+      case "resolveCancel": {
+        const orderId = id(args.orderId);
+        await ownedOrder(storeId, orderId);
+        await ensureSession();
+        await resolveCancelRequest(client, orderId, bool(args.approve), bool(args.refund), text(args.note, 1000));
+        return null;
+      }
+      case "markRefunded": {
+        const orderId = id(args.orderId), handle = text(args.imagePath, 250, true);
+        const selection = photos.get(handle);
+        if (!selection || selection.kind !== "refund" || selection.storeId !== storeId || selection.orderId !== orderId || selection.completing) throw new BridgeInputError();
+        const operation = async () => {
+          const order = await ownedOrder(storeId, orderId);
+          if (selection.uploadedPath && order.refund_status === "refunded" && order.refund_slip_path === selection.uploadedPath) return;
+          if (order.payment_provider === "stripe" || order.payment_method === "cod" || order.refund_status !== "pending") throw new BridgeInputError();
+          await requireManageRole(storeId);
+          selection.uploadedPath ??= await uploadRefundSlip(client, storeId, orderId, selection.file);
+          await ensureSession();
+          await markStoreRefunded(client, storeId, orderId, selection.uploadedPath, text(args.note, 1000));
+        };
+        selection.completing = operation();
+        try { await selection.completing; releasePhoto(handle); }
+        finally { selection.completing = undefined; }
+        return null;
+      }
       case "hasRole": {
         if (!Array.isArray(args.roles) || args.roles.length > 6 || !args.roles.every((r) => typeof r === "string" && ROLES.has(r))) throw new BridgeInputError();
         const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: args.roles });
@@ -284,16 +319,20 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
       }
       case "transition": {
         const orderId = id(args.orderId), status = text(args.status, 30, true);
-        if (!["preparing", "ready_for_delivery", "out_for_delivery", "cancelled"].includes(status)) throw new BridgeInputError();
+        if (!["preparing", "ready_for_delivery", "out_for_delivery", "cancelled", "ready_for_pickup", "picked_up"].includes(status)) throw new BridgeInputError();
         if (args.etaMinutes != null && (!Number.isInteger(args.etaMinutes) || Number(args.etaMinutes) < 1 || Number(args.etaMinutes) > 240)) throw new BridgeInputError();
         await ownedOrder(storeId, orderId);
         await ensureSession();
+        if (status === "ready_for_pickup" || status === "picked_up") {
+          await transitionPickupOrder(client, orderId, status); return null;
+        }
         await transitionFoodOrder(client, orderId, status as FoodOrder["status"], args.etaMinutes == null ? undefined : Number(args.etaMinutes), text(args.note, 1000)); return null;
       }
       case "payment": {
         const orderId = id(args.orderId), status = text(args.status, 20, true);
         if (!["paid", "issue"].includes(status)) throw new BridgeInputError();
         const order = await ownedOrder(storeId, orderId);
+        if (order.payment_method === "cod") throw new BridgeInputError();
         if (status === "paid" && !order.payment_slip_path && !(args.manualConfirmation === true && order.payment_status === "pending")) throw new BridgeInputError();
         if (order.payment_provider === "stripe" || (order.stripe_checkout_session_id && !order.payment_slip_path)) throw new Error("stripe payment status");
         await ensureSession();
@@ -305,21 +344,26 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         const proof = orderDeliveryProof(order);
         return foodPrivateSignedUrl(client, args.kind === "slip" ? order.payment_slip_path : proof?.image_path, 900);
       }
+      case "pickRefundSlip":
       case "pickDeliveryPhoto": {
         const order = await ownedOrder(storeId, id(args.orderId));
-        if (order.status !== "out_for_delivery") throw new Error("not out for delivery");
+        const refund = method === "pickRefundSlip";
+        if (refund) {
+          if (order.refund_status !== "pending" || order.payment_provider === "stripe" || order.payment_method === "cod") throw new BridgeInputError();
+          await requireManageRole(storeId);
+        } else if (order.status !== "out_for_delivery") throw new Error("not out for delivery");
         const file = await picked;
         if (!file) return null;
         await validateImage(file); await ensureSession();
         const handle = `pending:${crypto.randomUUID()}`;
         const previewUrl = URL.createObjectURL(file);
         for (const [path, selection] of photos) {
-          if (selection.storeId === storeId && selection.orderId === order.id) {
+          if (selection.storeId === storeId && selection.orderId === order.id && selection.kind === (refund ? "refund" : undefined)) {
             if (selection.completing) { URL.revokeObjectURL(previewUrl); throw new BridgeInputError(); }
             releasePhoto(path);
           }
         }
-        photos.set(handle, { storeId, orderId: order.id, file, previewUrl });
+        photos.set(handle, { storeId, orderId: order.id, file, previewUrl, ...(refund ? { kind: "refund" as const } : {}) });
         return { path: handle, previewUrl };
       }
       case "releaseDeliveryPhoto": {
@@ -334,13 +378,14 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (!["direct", "dropoff"].includes(method)) throw new BridgeInputError();
         const note = text(args.locationNote, 500, method === "dropoff");
         const selection = photos.get(handle);
-        if (!selection || selection.storeId !== storeId || selection.orderId !== orderId) throw new BridgeInputError();
+        if (!selection || selection.kind === "refund" || selection.storeId !== storeId || selection.orderId !== orderId) throw new BridgeInputError();
         if (selection.completing) { await selection.completing; return null; }
         const operation = async () => {
           const order = await ownedOrder(storeId, orderId);
           const proof = orderDeliveryProof(order);
           // A lost RPC response must not create another upload or undo evidence.
           if (selection.uploadedPath && order.status === "delivered" && proof?.image_path === selection.uploadedPath) return;
+          if (order.payment_method === "cod" && args.cashReceived !== true) throw new BridgeInputError();
           if (order.status !== "out_for_delivery") throw new Error("not out for delivery");
           const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin", "manager", "orders", "delivery"] });
           if (error || data !== true) throw new BridgeAccessError();
@@ -374,8 +419,8 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (disposed) throw new BridgeAccessError();
         const args = object(JSON.parse(payloadJson));
         // OS picker opens synchronously during the user's tap, before network awaits.
-        if (method === "pickDeliveryPhoto") { id(args.storeId); id(args.orderId); }
-        const picked = method === "pickDeliveryPhoto" ? pickImage() : null;
+        if (method === "pickDeliveryPhoto" || method === "pickRefundSlip") { id(args.storeId); id(args.orderId); }
+        const picked = (method === "pickDeliveryPhoto" || method === "pickRefundSlip") ? pickImage() : null;
         const permissionRequest = method === "pushEnable" ? requestPushPermissionFromGesture() : undefined;
         // Session validation may reject before the captured prompt settles.
         void permissionRequest?.catch(() => undefined);

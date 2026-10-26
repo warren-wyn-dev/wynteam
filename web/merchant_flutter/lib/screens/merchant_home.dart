@@ -6,6 +6,7 @@ import '../data/merchant_controller.dart';
 import '../data/merchant_repository.dart';
 import '../widgets/merchant_tool_icon.dart';
 import 'order_dialogs.dart';
+import 'fulfillment_panels.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -1494,7 +1495,7 @@ class _MerchantHomeState extends State<MerchantHome>
   ];
   Widget orderCard(Json o) {
     final status = o['status'] as String;
-    final next = nextStatuses[status];
+    final next = orderNextStatus(o);
     final allowed = status == 'ready_for_delivery'
         ? c.canDelivery
         : c.canOrders;
@@ -1516,11 +1517,13 @@ class _MerchantHomeState extends State<MerchantHome>
               ),
               Chip(
                 label: Text(orderStatuses[status] ?? status),
-                backgroundColor: status == 'delivered'
+                backgroundColor: ['delivered', 'picked_up'].contains(status)
                     ? const Color(0xFFE9F7EF)
                     : brandSoft,
                 labelStyle: TextStyle(
-                  color: status == 'delivered' ? success : brand,
+                  color: ['delivered', 'picked_up'].contains(status)
+                      ? success
+                      : brand,
                   fontWeight: FontWeight.w600,
                 ),
                 side: BorderSide.none,
@@ -1531,6 +1534,43 @@ class _MerchantHomeState extends State<MerchantHome>
             '${o['recipient_name']} • ${dateLabel(o['created_at'])}',
             style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
           ),
+          Chip(
+            label: Text(
+              o['fulfillment_type'] == 'pickup' ? 'รับเอง' : 'ส่งเอง',
+            ),
+          ),
+          if (o['payment_method'] == 'cod')
+            const Chip(label: Text('เก็บเงินปลายทาง')),
+          if (o['fulfillment_type'] == 'pickup') ...[
+            Text('เวลานัดรับ: ${dateLabel(o['pickup_at'])}'),
+            Text('รหัสรับอาหาร: ${o['pickup_code'] ?? '—'}'),
+          ],
+          if (o['cancel_requested_at'] != null) ...[
+            const Text(
+              'ลูกค้าขอยกเลิก',
+              style: TextStyle(
+                color: Colors.orange,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(o['cancel_request_note'] ?? ''),
+            Wrap(
+              children: [
+                TextButton(
+                  onPressed: c.writable && c.canOrders
+                      ? () => resolveCancel(o, false)
+                      : null,
+                  child: const Text('ปฏิเสธคำขอยกเลิก'),
+                ),
+                TextButton(
+                  onPressed: c.writable && c.canOrders
+                      ? () => resolveCancel(o, true)
+                      : null,
+                  child: const Text('อนุมัติคำขอยกเลิก'),
+                ),
+              ],
+            ),
+          ],
           if (o['scheduled_for'] != null)
             Text(
               'นัดส่ง: ${dateLabel(o['scheduled_for'])}',
@@ -1581,7 +1621,8 @@ class _MerchantHomeState extends State<MerchantHome>
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (!['delivered', 'cancelled'].contains(status) &&
+          if (!['delivered', 'picked_up', 'cancelled'].contains(status) &&
+              o['payment_method'] != 'cod' &&
               o['payment_status'] != 'paid')
             if (o['payment_provider'] == 'stripe' ||
                 (o['stripe_checkout_session_id'] != null &&
@@ -1608,7 +1649,8 @@ class _MerchantHomeState extends State<MerchantHome>
             ),
 
           const SizedBox(height: 12),
-          Text('จัดส่ง: ${o['shipping_address']}'),
+          if (o['fulfillment_type'] != 'pickup')
+            Text('จัดส่ง: ${o['shipping_address']}'),
           TextButton.icon(
             onPressed: () async {
               await Clipboard.setData(
@@ -1651,10 +1693,11 @@ class _MerchantHomeState extends State<MerchantHome>
                       c.writable &&
                           allowed &&
                           (status != 'pending_acceptance' ||
-                              o['payment_status'] == 'paid')
+                              o['payment_status'] == 'paid' ||
+                              o['payment_method'] == 'cod')
                       ? () => advance(o, next)
                       : null,
-                  child: Text(nextActions[status]!),
+                  child: Text(orderNextAction(o)!),
                 ),
             ],
           ),
@@ -1671,13 +1714,23 @@ class _MerchantHomeState extends State<MerchantHome>
               onPressed: () => showEvidence(o, 'proof'),
               child: const Text('ดูหลักฐานส่งสำเร็จ'),
             ),
-          if (status != 'delivered' && status != 'cancelled' && c.canOrders)
+          if (!['delivered', 'picked_up', 'cancelled'].contains(status) &&
+              c.canOrders)
             TextButton(
               onPressed: c.writable ? () => cancelOrder(o) : null,
               child: const Text(
                 'ยกเลิกออเดอร์',
                 style: TextStyle(color: Colors.red),
               ),
+            ),
+          if (o['refund_status'] == 'pending' &&
+              o['payment_provider'] != 'stripe' &&
+              o['payment_method'] != 'cod')
+            OutlinedButton(
+              onPressed: c.writable && c.canManage
+                  ? () => refundOrder(o)
+                  : null,
+              child: const Text('โอนคืนแล้ว + แนบสลิป'),
             ),
           if (o['refund_status'] == 'pending')
             const Text(
@@ -1709,7 +1762,7 @@ class _MerchantHomeState extends State<MerchantHome>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(nextActions[o['status']]!),
+        title: Text(orderNextAction(o)!),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2047,6 +2100,16 @@ class _MerchantHomeState extends State<MerchantHome>
   List<Widget> settingsPage() => [
     heading('ตั้งค่าร้าน', 'ข้อมูลที่ลูกค้าเห็นบน ZOKY'),
     box(
+      FulfillmentSettingsPanel(
+        store: c.store!,
+        enabled: c.writable && c.canConfigure,
+        save: (values) => c.mutate(
+          () => widget.repository.setFulfillment(c.storeId!, values),
+        ),
+        error: () => c.error,
+      ),
+    ),
+    box(
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2162,6 +2225,7 @@ class _MerchantHomeState extends State<MerchantHome>
         repository: widget.repository,
         storeId: id,
         orderId: order['id'],
+        cod: order['payment_method'] == 'cod',
         save: (method, path, note) async {
           // Recheck access/status before retrying the retained local photo.
           if (c.error != null) await c.refresh();
@@ -2173,6 +2237,7 @@ class _MerchantHomeState extends State<MerchantHome>
               method,
               path,
               locationNote: note,
+              cashReceived: order['payment_method'] == 'cod',
             ),
           );
         },
@@ -2180,6 +2245,61 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
     );
     if (result == true) notice('ส่งสำเร็จและแจ้งลูกค้าแล้ว');
+  }
+
+  Future<void> resolveCancel(Json order, bool approve) async {
+    final refund = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(approve ? 'อนุมัติคำขอยกเลิก' : 'ปฏิเสธคำขอยกเลิก'),
+        content: const Text('ร้านเป็นผู้ตัดสินใจเรื่องคืนเงิน'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('กลับ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(approve ? 'ไม่คืนเงิน' : 'ยืนยัน'),
+          ),
+          if (approve && order['payment_status'] == 'paid')
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('คืนเงิน'),
+            ),
+        ],
+      ),
+    );
+    if (refund == null || !mounted) return;
+    await c.mutate(
+      () => widget.repository.resolveCancel(
+        c.storeId!,
+        order['id'],
+        approve,
+        refund,
+      ),
+    );
+  }
+
+  Future<void> refundOrder(Json order) async {
+    final id = c.storeId!;
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => RefundSlipDialog(
+        repository: widget.repository,
+        storeId: id,
+        orderId: order['id'],
+        save: (path) async {
+          if (c.error != null) await c.refresh();
+          if (c.storeId != id || !c.canManage) return false;
+          return c.mutate(
+            () => widget.repository.markRefunded(id, order['id'], path),
+          );
+        },
+        error: () => c.error,
+      ),
+    );
   }
 
   Future<void> cancelOrder(Json order) async {

@@ -46,3 +46,47 @@ Open `/merchant/flutter` and use the existing WYNOS login. Do not serve the Flut
 Production release must use the repository's existing reviewed scoped release process and preserve the existing `/merchant` entry as the recovery path. Do not deploy main while its enforced cross-system acceptance freeze is active.
 
 If an upload succeeds but the final delivery RPC fails and the merchant abandons the dialog/session, an unreferenced private object can remain because current evidence Storage policy is immutable. Retry reuses the object; no delete policy or evidence immutability is weakened.
+
+## ZOKY-FULFILL-001 Merchant integration (contract v1)
+
+The Merchant bridge and both UIs implement the approved store-delivery / same-day
+pickup contract in `.wyn/docs/engineering/zoky-fulfill-001-contract.md`:
+
+- Owner/admin fulfillment settings use `food_store_set_fulfillment`. Schedule and
+  at-least-one-mode errors stay visible; local form edits are drafts until save.
+- Pickup orders show the Bangkok pickup time and code, then transition through
+  `ready_for_pickup` and `picked_up` with no delivery-photo step.
+- COD skips transfer-slip review. Delivery completion requires the merchant's
+  explicit cash-received check and still uses the existing delivery-proof RPC.
+- Customer cancellation requests call `food_resolve_cancel_request` with an
+  explicit approve/reject and refund/no-refund decision.
+- Transfer refunds require confirmation and a private slip before
+  `food_store_mark_refunded`. The uploader uses the existing `food-private`
+  bucket with prefix `food-refund-slips/<store_id>/<order_id>/`. Confirm this
+  interpretation and the Storage policies with the Food/DB session before
+  integration. Upload retries retain the same object path until the dialog is
+  closed; an abandoned upload can leave an unreferenced private object.
+- Realtime invalidations queue behind in-flight Flutter reads. Existing service
+  worker push messages invalidate the active account's data and never supply
+  order content. Listener cleanup follows host/session disposal.
+- Stripe setup prompts are paused behind `STRIPE_SETUP_PAUSED`; existing Stripe
+  code and legacy Stripe refund controls remain available. Transfer refunds use
+  the new evidence flow, not the old manual refund-status controls.
+
+The shared `food-merchant.ts` changes add fields only. Pickup transitions live in
+our wrapper until the Food/DB session updates the shared status union/labels,
+completed-order history and report aggregation to cover `picked_up`. Do not
+change shared helper implementations from the Merchant branch.
+
+Database integration is pending: tests use synthetic stores/orders and mocked
+RPCs only. No live database, actual bank transfer, OS push delivery, production
+migration or deployment is part of this verification. Before release, verify
+RPC authorization across roles/stores, Storage policies/private signed URLs,
+refund idempotency and notification triggers against the completed migration.
+
+Contract follow-up: a merchant-initiated cancellation/no-show with a deliberate
+no-refund choice is not expressible in the current transition RPC signature.
+The Food/DB session must document whether `food_resolve_cancel_request` supports
+orders without an active request, or provide an approved RPC extension. This
+branch does not invent a SQL function or silently bypass the existing refund
+behavior for direct store cancellations.

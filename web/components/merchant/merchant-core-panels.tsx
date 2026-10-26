@@ -441,7 +441,7 @@ export function RefundControls({
   const eligible = order.status === "cancelled"
     && (order.payment_status === "paid" || order.payment_status === "refunded" || status !== "none");
 
-  if (!eligible) return null;
+  if (!eligible || order.payment_provider !== "stripe") return null;
 
   const run = async (next: "pending" | "refunded" | "failed", success: string) => {
     setBusy(true);
