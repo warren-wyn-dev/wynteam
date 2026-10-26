@@ -309,11 +309,16 @@ test('settings roles, validation and foreign store requests fail closed',async()
   assert.equal((await a.request('resolveCancel',{storeId:OTHER,orderId:ORDER,approve:true,refund:true})).ok,false);
   assert.equal(a.calls.some(c=>c.name==='food_resolve_cancel_request'),false);
 });
-test('pickup statuses use the extended transition RPC, delivery completion stays separate',async()=>{
+// Contract v2: pickup reuses ready_for_delivery / delivered; collection goes through food_complete_pickup.
+test('pickup actions map to ready_for_delivery and food_complete_pickup, delivery completion stays separate',async()=>{
   const h=harness();h.state.order.fulfillment_type='pickup';
   for(const status of ['ready_for_pickup','picked_up']) assert.equal((await h.request('transition',{storeId:STORE,orderId:ORDER,status})).ok,true);
-  assert.deepEqual(h.calls.filter(c=>c.name==='food_transition_order').map(c=>c.args.p_status),['ready_for_pickup','picked_up']);
+  assert.deepEqual(h.calls.filter(c=>c.name==='food_transition_order').map(c=>c.args.p_status),['ready_for_delivery']);
+  assert.deepEqual(h.calls.filter(c=>c.name==='food_complete_pickup').map(c=>c.args.p_order_id),[ORDER]);
   assert.equal((await h.request('transition',{storeId:STORE,orderId:ORDER,status:'delivered'})).ok,false);
+  const d=harness();
+  for(const status of ['ready_for_pickup','picked_up']) assert.equal((await d.request('transition',{storeId:STORE,orderId:ORDER,status})).ok,false);
+  assert.equal(d.calls.some(c=>c.name==='food_complete_pickup'||c.name==='food_transition_order'),false);
 });
 test('cancel resolution forwards refund decision, rejection always disables refund',async()=>{
   const h=harness();
@@ -342,7 +347,7 @@ test('refund slips remain private, order-scoped, role-gated and reusable after f
   h.state.rpcError={name:'food_store_mark_refunded',message:'network failure'};
   assert.equal((await h.request('markRefunded',args)).ok,false);
   const uploads=h.calls.filter(c=>c.name==='uploadFoodPrivateImage');
-  assert.equal(uploads.length,1);assert.equal(uploads[0].args[2],`food-refund-slips/${STORE}/${ORDER}`);
+  assert.equal(uploads.length,1);assert.equal(uploads[0].args[2],`refunds/${ORDER}`);
   h.state.rpcError=null;
   assert.equal((await h.request('markRefunded',args)).ok,true);
   assert.equal(h.calls.filter(c=>c.name==='uploadFoodPrivateImage').length,1);

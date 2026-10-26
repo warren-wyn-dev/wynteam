@@ -1463,7 +1463,10 @@ class _MerchantHomeState extends State<MerchantHome>
               (e) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: Text(e.value),
+                  // Pickup orders ready for collection share this status.
+                  label: Text(
+                    e.key == 'ready_for_delivery' ? 'พร้อมส่ง/ให้รับ' : e.value,
+                  ),
                   selected: c.status == e.key,
                   onSelected: c.loading || c.busy
                       ? null
@@ -1496,7 +1499,9 @@ class _MerchantHomeState extends State<MerchantHome>
   Widget orderCard(Json o) {
     final status = o['status'] as String;
     final next = orderNextStatus(o);
-    final allowed = status == 'ready_for_delivery'
+    // Collecting a pickup order is an order-desk step, not a delivery one.
+    final allowed =
+        status == 'ready_for_delivery' && o['fulfillment_type'] != 'pickup'
         ? c.canDelivery
         : c.canOrders;
     return box(
@@ -1516,12 +1521,12 @@ class _MerchantHomeState extends State<MerchantHome>
                 ),
               ),
               Chip(
-                label: Text(orderStatuses[status] ?? status),
-                backgroundColor: ['delivered', 'picked_up'].contains(status)
+                label: Text(orderStatusLabel(o)),
+                backgroundColor: status == 'delivered'
                     ? const Color(0xFFE9F7EF)
                     : brandSoft,
                 labelStyle: TextStyle(
-                  color: ['delivered', 'picked_up'].contains(status)
+                  color: status == 'delivered'
                       ? success
                       : brand,
                   fontWeight: FontWeight.w600,
@@ -1621,7 +1626,7 @@ class _MerchantHomeState extends State<MerchantHome>
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (!['delivered', 'picked_up', 'cancelled'].contains(status) &&
+          if (!['delivered', 'cancelled'].contains(status) &&
               o['payment_method'] != 'cod' &&
               o['payment_status'] != 'paid')
             if (o['payment_provider'] == 'stripe' ||
@@ -1709,12 +1714,12 @@ class _MerchantHomeState extends State<MerchantHome>
               icon: const Icon(Icons.add_a_photo_outlined),
               label: const Text('แนบรูปและยืนยันส่งสำเร็จ'),
             ),
-          if (status == 'delivered')
+          if (status == 'delivered' && o['fulfillment_type'] != 'pickup')
             TextButton(
               onPressed: () => showEvidence(o, 'proof'),
               child: const Text('ดูหลักฐานส่งสำเร็จ'),
             ),
-          if (!['delivered', 'picked_up', 'cancelled'].contains(status) &&
+          if (!['delivered', 'cancelled'].contains(status) &&
               c.canOrders)
             TextButton(
               onPressed: c.writable ? () => cancelOrder(o) : null,

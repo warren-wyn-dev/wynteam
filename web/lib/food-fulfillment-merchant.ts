@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uploadFoodPrivateImage } from "@/lib/food-merchant";
 
-// Cross-session contract v1. Authorization and transitions remain server-owned.
+// Cross-session contract v2. Authorization and transitions remain server-owned.
+// Pickup reuses ready_for_delivery / delivered; refund slips live at
+// food-private refunds/<order_id>/<file>.
 export const STRIPE_SETUP_PAUSED = true;
 export class FulfillmentError extends Error {}
 export function fulfillmentError(error: unknown): string {
@@ -24,7 +26,7 @@ export async function resolveCancelRequest(client: SupabaseClient, orderId: stri
   await rpc(client, "food_resolve_cancel_request", { p_order_id: orderId, p_approve: approve, p_refund: approve && refund, p_note: note });
 }
 export async function markStoreRefunded(client: SupabaseClient, storeId: string, orderId: string, path: string, note = "") {
-  if (!path.startsWith(`food-refund-slips/${storeId}/${orderId}/`) || path.includes("..")) throw new FulfillmentError("สลิปคืนเงินไม่ตรงกับออเดอร์");
+  if (!path.startsWith(`refunds/${orderId}/`) || path.includes("..")) throw new FulfillmentError("สลิปคืนเงินไม่ตรงกับออเดอร์");
   await rpc(client, "food_store_mark_refunded", { p_order_id: orderId, p_refund_slip_path: path, p_note: note });
 }
 export async function uploadRefundSlip(client: SupabaseClient, storeId: string, orderId: string, file: File) {
@@ -36,9 +38,15 @@ export async function uploadRefundSlip(client: SupabaseClient, storeId: string, 
   if (!jpeg && !png && !webp) throw new FulfillmentError("สลิปคืนเงินต้องเป็นรูป JPEG, PNG หรือ WebP ไม่เกิน 8 MB");
   // Reuse the private food-private bucket and metadata-scrubbing uploader.
   // Never use a public URL or a caller-supplied folder.
-  return uploadFoodPrivateImage(client, file, `food-refund-slips/${storeId}/${orderId}`);
+  return uploadFoodPrivateImage(client, file, `refunds/${orderId}`);
 }
 
-export async function transitionPickupOrder(client: SupabaseClient, orderId: string, status: "ready_for_pickup" | "picked_up") {
-  await rpc(client, "food_transition_order", { p_order_id: orderId, p_status: status, p_eta_minutes: null, p_note: null });
+/** Pickup actions: "ready_for_pickup" stores ready_for_delivery; "picked_up" completes through food_complete_pickup. */
+export type PickupAction = "ready_for_pickup" | "picked_up";
+export async function transitionPickupOrder(client: SupabaseClient, orderId: string, action: PickupAction) {
+  if (action === "picked_up") {
+    await rpc(client, "food_complete_pickup", { p_order_id: orderId, p_note: null });
+    return;
+  }
+  await rpc(client, "food_transition_order", { p_order_id: orderId, p_status: "ready_for_delivery", p_eta_minutes: null, p_note: null });
 }

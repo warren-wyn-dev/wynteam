@@ -3127,6 +3127,7 @@ Object.assign(EN_EXACT, {
   "ส่งเอง": "Store delivery",
   "พร้อมให้รับ": "Ready for pickup",
   "ลูกค้ารับแล้ว": "Picked up",
+  "ลูกค้ารับอาหารแล้ว": "Customer collected the order",
   "ใช้ได้เฉพาะร้านจัดส่งเอง": "Available for store delivery only",
   "เวลาเตรียมอาหาร (นาที)": "Preparation time (minutes)",
   "บันทึกรูปแบบรับอาหาร": "Save fulfillment options",
