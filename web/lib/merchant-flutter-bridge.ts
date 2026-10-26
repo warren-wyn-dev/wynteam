@@ -210,7 +210,9 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
       }
       case "completePickup": {
         const orderId = id(args.orderId);
-        await ownedOrder(storeId, orderId); await ensureSession();
+        const order = await ownedOrder(storeId, orderId);
+        if (order.fulfillment_type !== "pickup") throw new BridgeInputError();
+        await ensureSession();
         await transitionPickupOrder(client, orderId, "delivered"); return null;
       }
       case "cancelStoreOrder": {

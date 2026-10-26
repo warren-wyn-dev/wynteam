@@ -25,10 +25,17 @@ rollback retains all recorded decisions and refund evidence.
 - Production Flutter build and font policy: passed.
 - PostgreSQL 17 canonical integration suite, including the new cancellation
   authorization/decision/audit cases, repeated migrations and rollback: passed.
-- Browser suite: pending; recorded after completion below.
+- Compiled Flutter mobile/desktop browser suite: all 18 passed, including
+  pickup collection without delivery evidence and cancellation-request refresh.
 
 These use synthetic accounts and an isolated local database. No production
 migration or deployment has been performed. Production requires the repository's
 review, QA, staging and protected environment gates. The older independent
 alternative backend branches must not be used: their statuses and storage paths
 are incompatible with contract v2.1.
+
+Concurrent PR #1270 independently addresses v2 compatibility. Its commit is
+incorporated as an ancestry-only merge because this candidate already implements
+the same corrections with direct v2 status values and a dedicated pickup bridge
+method. This keeps one tested implementation and lets #1270 land first without
+a conflicting second migration or a stale replacement of customer changes.
