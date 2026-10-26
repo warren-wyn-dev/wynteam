@@ -746,3 +746,16 @@
 - Folded into ZOKY-FULFILL-001: same migration and release, same gates (QA & Security, staging, Founder production approval).
 - Rollback: re-activate Stripe-only (`stripe_only_from`), revert the app.
 - Status: approved; no production change made yet.
+
+### RISK ACCEPTANCE — [2026-10-26] ZOKY-FULFILL-001 refund marked without a slip (until the new Merchant app ships)
+
+- Finding: DB QA item 4, MEDIUM, PR #1265. The legacy RPCs `merchant_set_refund_status` and `food_set_payment_status('refunded')` still let store staff mark a transfer refund as refunded without a refund slip. Only the new `food_store_mark_refunded` requires the slip.
+- Why it is not enforced now: enforcing it in the DB would break the "คืนเงินแล้ว" button in the current production Merchant app. That gap would last from the migration until the new Merchant app ships.
+- The Founder chose option "ก" (accept for now) and replied "ก".
+- Accepted until the ZOKY-FULFILL-001 Merchant app is released, which switches refunds to `food_store_mark_refunded` (slip required). The slip requirement is then enforced on the legacy paths in a follow-up migration, with its own QA.
+- Mitigation meanwhile:
+  - Pickup and COD stay off for every store until the store turns them on.
+  - Every refund status change is in `food_order_events`.
+  - Zoky Admin shows the refund status, the store refund slip when there is one, and the order history.
+- Also deferred, LOW: a COD order can still be paid through `food-stripe-checkout`. Stripe is paused, so it is not offered in the app.
+- Status: accepted; follow-up tracked under ZOKY-FULFILL-001.
