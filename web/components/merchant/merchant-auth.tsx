@@ -15,6 +15,7 @@ import {
   type MerchantBusinessType,
 } from "@/lib/merchant-application";
 import { consumeReturnPath, rememberReturnPath } from "@/lib/return-to";
+import { merchantDefaultReturnPath } from "@/lib/merchant-auth-return";
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 
 const EMPTY_DRAFT: MerchantApplicationDraft = {
@@ -74,7 +75,7 @@ export function MerchantLoginScreen() {
     void client.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
       if (!error && data.session) {
-        window.location.replace(consumeReturnPath() ?? "/merchant");
+        window.location.replace(consumeReturnPath() ?? merchantDefaultReturnPath(window.location.hostname));
         return;
       }
       setChecking(false);
@@ -102,11 +103,11 @@ export function MerchantLoginScreen() {
       const active = await client.auth.getSession();
       if (active.error) throw active.error;
       if (active.data.session) {
-        window.location.replace(consumeReturnPath() ?? "/merchant");
+        window.location.replace(consumeReturnPath() ?? merchantDefaultReturnPath(window.location.hostname));
         return;
       }
       await signInWithEmail(client, normalized, password);
-      window.location.replace(consumeReturnPath() ?? "/merchant");
+      window.location.replace(consumeReturnPath() ?? merchantDefaultReturnPath(window.location.hostname));
     } catch (error) {
       const code = (error as { code?: string })?.code;
       setMessage(code === "email_not_confirmed"

@@ -62,6 +62,60 @@ async function fakeEngine(page: Page) {
   }));
 }
 
+async function isolatedMerchantOrigin(page: Page) {
+  // The hostname exercises the production routing contract, but every request
+  // is intercepted and served from the local synthetic-fixture Next server.
+  // No request, session, credentials or data is sent to the live deployment.
+  await page.route("**/*", (route) => route.abort());
+  await page.routeWebSocket("**/*", (socket) => socket.close());
+  await page.route("https://merchant.wynos.online/**", async (route) => {
+    const url = new URL(route.request().url());
+    url.protocol = "http:";
+    url.host = new URL(test.info().project.use.baseURL ?? "http://127.0.0.1:3011").host;
+    const response = await route.fetch({
+      url: url.href,
+      headers: { ...route.request().headers(), host: "merchant.wynos.online" },
+      maxRedirects: 0,
+    });
+    await route.fulfill({ response });
+  });
+  await page.route("**/api/**", (route) => route.fulfill({ contentType: "application/json", body: "{}" }));
+  await mockAPIs(page);
+}
+
+test("Merchant root sign-in returns to the current home instead of the legacy dashboard", async ({ page }) => {
+  await isolatedMerchantOrigin(page);
+  await fakeEngine(page);
+  await page.route("**/auth/v1/token?grant_type=password", (route) => {
+    const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+    const jwt = `${btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))}.${btoa(JSON.stringify({ sub: userId, aud: "authenticated", exp: expiresAt, role: "authenticated" }))}.synthetic-signature`;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      access_token: jwt, refresh_token: "synthetic-refresh-token", token_type: "bearer",
+      expires_in: 3600, expires_at: expiresAt,
+      user: { id: userId, aud: "authenticated", role: "authenticated", email: "merchant@example.test", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z", is_anonymous: false },
+    }) });
+  });
+  await page.goto("https://merchant.wynos.online/");
+  await expect(page).toHaveURL("https://merchant.wynos.online/merchant/login", { timeout: 30_000 });
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("อีเมล", { exact: true }).fill("merchant@example.test");
+  await expect(page.getByLabel("อีเมล", { exact: true })).toHaveValue("merchant@example.test");
+  await page.getByLabel("รหัสผ่าน", { exact: true }).fill("synthetic-password-only");
+  await expect(page.getByLabel("รหัสผ่าน", { exact: true })).toHaveValue("synthetic-password-only");
+  await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
+  await expect(page).toHaveURL("https://merchant.wynos.online/");
+  await expect(page.locator("[data-synthetic-flutter-view]")).toHaveCount(1);
+});
+
+test("existing Merchant session opens the current home from direct login", async ({ page }) => {
+  await signedIn(page);
+  await isolatedMerchantOrigin(page);
+  await fakeEngine(page);
+  await page.goto("https://merchant.wynos.online/merchant/login");
+  await expect(page).toHaveURL("https://merchant.wynos.online/");
+  await expect(page.locator("[data-synthetic-flutter-view]")).toHaveCount(1);
+});
+
 test("signed-out Merchant route redirects to the existing login without starting Flutter", async ({ page }) => {
   await mockAPIs(page);
   let bootstrapRequests = 0;
