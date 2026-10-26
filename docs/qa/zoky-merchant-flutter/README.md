@@ -27,7 +27,7 @@ On prior commit `a786b01`, GitHub Consumer Web, Merchant Browser QA, Signup Secu
 
 `python tools/check_wynos_release_freeze.py`: **PASS**, coordinated freeze preserved. Staged secret-pattern scan and `git diff --check`: **PASS**.
 
-The dedicated `tests/merchant-browser` suite runs through `playwright.merchant-flutter.config.ts` after compilation; the general Next.js browser suite does not require a Flutter artifact. The focused Merchant suite starts the production server, so run `npm run check` (or `npm run build`) first with synthetic public Supabase configuration. This verifies the deployed host-routing/hydration behavior and avoids development-only cross-origin/HMR restrictions in the isolated Merchant-host login fixture. The root flag is enabled only in that local test server; all authentication/backend responses remain synthetic.
+The dedicated `tests/merchant-browser` suite runs through `playwright.merchant-flutter.config.ts` after compilation; the general Next.js browser suite does not require a Flutter artifact. The focused Merchant suite starts the production server, so run `npm run check` (or `npm run build`) first with synthetic public Supabase configuration. This verifies the deployed host-routing/hydration behavior and avoids development-only cross-origin/HMR restrictions in the isolated Merchant-host login fixture. The root flag is enabled only in that local test server; all authentication/backend responses remain synthetic. The Merchant Browser QA workflow builds both Next.js and Flutter with that synthetic configuration before starting this suite; a Flutter-only build does not create the `.next` production build required by `next start`.
 
 ## Browser evidence
 
