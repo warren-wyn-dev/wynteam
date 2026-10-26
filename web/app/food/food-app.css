@@ -1188,9 +1188,9 @@ html[data-fx-splash-ready] .fx-splash { animation: fx-splash-ready .35s ease for
   --zk-ease: cubic-bezier(.2, .8, .2, 1);
   --zk-colw: min(100vw, 480px);
   --zk-gloss-rim: inset 0 1px 0 #fff, inset 0 -1px 0 rgb(249 192 222 / 40%);
-  /* Phase 5 capsule nav: 64px high, at least 12px above the bottom edge. */
-  --fx-nav-bottom: max(env(safe-area-inset-bottom), 12px);
-  --fx-nav-height: 64px;
+  /* Capsule nav: 56px high; sits 12px into the home-indicator inset, at least 12px above the edge. */
+  --fx-nav-bottom: max(calc(env(safe-area-inset-bottom) - 12px), 12px);
+  --fx-nav-height: 56px;
   --fx-above-nav: calc(var(--fx-nav-bottom) + var(--fx-nav-height) + 10px);
   --fx-nav-space: calc(var(--fx-nav-bottom) + var(--fx-nav-height) + 8px);
 }
@@ -1582,10 +1582,10 @@ html:has(.fx-app.is-zk-home) body, html:has(.fx-app.is-zk-food) body { backgroun
   z-index: 60;
   width: calc(var(--zk-colw) - 32px);
   max-width: 448px;
-  height: 64px;
+  height: var(--fx-nav-height);
   padding: 0 6px;
   transform: translateX(-50%);
-  border-radius: 32px;
+  border-radius: 28px;
   background: #fff;
   box-shadow: 0 10px 36px rgb(59 26 41 / 14%), 0 1px 4px rgb(22 22 26 / 6%), 0 0 0 .5px rgb(22 22 26 / 8%);
   display: grid;
