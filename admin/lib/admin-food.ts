@@ -189,14 +189,17 @@ export async function fetchAdminFoodOrders(params: {
   const v2 = await supabase.rpc("admin_food_orders_v2", args);
   if (!v2.error) return (v2.data ?? []) as AdminFoodOrder[];
   if (!isMissingFunction(v2.error)) throw v2.error;
-  if (params.status && ADMIN_FOOD_FULFILLMENT_FILTERS.includes(params.status)) return [];
+  if (params.status && ADMIN_FOOD_FULFILLMENT_FILTERS.includes(params.status)) {
+    throw new Error("ตัวกรองนี้ใช้ได้หลังอัปเดตฐานข้อมูล ZOKY-FULFILL-001");
+  }
   const { data, error } = await supabase.rpc("admin_food_orders", args);
   if (error) throw error;
   return (data ?? []) as AdminFoodOrder[];
 }
 
+/** Only "v2 is not deployed yet" falls back; any other v2 error is shown. */
 function isMissingFunction(error: { code?: string; message?: string }) {
-  return error.code === "PGRST202" || error.code === "42883" || /could not find the function|does not exist/i.test(error.message ?? "");
+  return (error.code === "PGRST202" || error.code === "42883") && (error.message ?? "").includes("admin_food_orders_v2");
 }
 
 /** Opening an order is written to the audit log by the RPC. */

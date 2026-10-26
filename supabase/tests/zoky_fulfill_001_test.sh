@@ -263,6 +263,13 @@ expect_as "$ADMIN" "select count(*) = (select count(*) from public.food_orders w
 expect_as "$ADMIN" "select bool_and(payment_method='cod')::text || (count(*) > 0)::text from public.admin_food_orders_v2(null,'cod',null,300)" "truetrue" "admin COD filter"
 expect_as "$ADMIN" "select fulfillment_type||'|'||pickup_code from public.admin_food_orders_v2('$STORE',null,'p001',300)" "pickup|P001" "admin finds an order by pickup code"
 expect_fail_as "$ADMIN" "select count(*) from public.admin_food_orders_v2(null,'drone',null,10)" "Invalid order status" "unknown admin filter refused"
+expect_as "$ADMIN" "select count(*) from public.admin_food_orders_v2(null,null,'P00_',300)" "0" "pickup-code search takes no wildcards"
+db "update public.food_orders set cancel_requested_at=now() where id='$P4'" >/dev/null
+expect_as "$ADMIN" "select string_agg(pickup_code, ',') from public.admin_food_orders_v2(null,'cancel_request',null,300)" "" "cancelled orders leave the cancel-request filter"
+db "update public.food_orders set cancel_requested_at=null where id='$P4'" >/dev/null
+db "update public.food_orders set cancel_requested_at=now() where id='$P1'" >/dev/null
+expect_as "$ADMIN" "select string_agg(pickup_code, ',') from public.admin_food_orders_v2(null,'cancel_request',null,300)" "P001" "admin cancel-request filter"
+db "update public.food_orders set cancel_requested_at=null where id='$P1'" >/dev/null
 run -f "$ROOT/supabase/rollbacks/20261026130000_zoky_fulfill_001_admin_rollback.sql" >/dev/null
 expect "select count(*) from pg_proc where proname = 'admin_food_orders_v2'" "0" "admin rollback drops v2"
 

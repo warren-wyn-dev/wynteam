@@ -12,7 +12,6 @@ import {
   foodOrderStatusLabelFor,
   formatBaht,
   formatThaiDate,
-  formatThaiTime,
   signAdminFoodEvidence,
 } from "@/lib/admin-food";
 import { adminCan, requireAdminRole } from "@/lib/auth";
@@ -50,7 +49,7 @@ export default async function FoodOrderDetailPage({
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-xl font-semibold">ออเดอร์ #{order.order_number}</h2>
           <Badge variant="gray-tonal">{foodOrderStatusLabelFor(order)}</Badge>
-          <Badge variant="outline">{isCod && order.payment_status === "pending" ? "เก็บปลายทาง" : FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
+          <Badge variant="outline">{isCod && order.payment_status === "pending" ? "รอเก็บเงินสด" : FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
           <Badge variant="outline">{isPickup ? "รับเองที่ร้าน" : "ร้านจัดส่ง"}</Badge>
           {isCod ? <Badge variant="outline">เก็บเงินปลายทาง</Badge> : null}
           {order.cancel_requested_at && order.status !== "cancelled" ? <Badge variant="destructive">ลูกค้าขอยกเลิก</Badge> : null}
@@ -69,7 +68,7 @@ export default async function FoodOrderDetailPage({
           <p className="text-sm">{order.recipient_phone}</p>
           {isPickup ? (
             <p className="mt-1 text-sm">
-              {`รับเองที่ร้าน · นัด ${formatThaiTime(order.pickup_at)}`}
+              {`รับเองที่ร้าน · นัด ${formatThaiDate(order.pickup_at)}`}
               {order.pickup_code ? ` · รหัส ${order.pickup_code}` : ""}
               {order.picked_up_at ? ` · รับแล้ว ${formatThaiDate(String(order.picked_up_at))}` : ""}
             </p>

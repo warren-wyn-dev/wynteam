@@ -58,7 +58,7 @@ begin
       or o.order_number::text ilike '%' || v_query || '%'
       or o.recipient_name ilike '%' || v_query || '%'
       or o.recipient_phone ilike '%' || v_query || '%'
-      or o.pickup_code ilike v_query
+      or upper(o.pickup_code) = upper(v_query)
     )
   order by o.created_at desc
   limit greatest(1, least(coalesce(p_limit, 100), 300));

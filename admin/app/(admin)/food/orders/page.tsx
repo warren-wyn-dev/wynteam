@@ -9,7 +9,6 @@ import {
   foodOrderStatusLabelFor,
   formatBaht,
   formatThaiDate,
-  formatThaiTime,
   type AdminFoodOrderStatusFilter,
 } from "@/lib/admin-food";
 import { adminCan, requireAdminRole } from "@/lib/auth";
@@ -107,7 +106,7 @@ export default async function FoodOrdersPage({
                 <p className="font-medium">#{order.order_number} · {order.store_name}</p>
                 <p className="text-sm text-muted-foreground">{order.recipient_name} · {order.recipient_phone} · {formatThaiDate(order.created_at)}</p>
                 {order.fulfillment_type === "pickup" ? (
-                  <p className="text-sm text-muted-foreground">{`รับเองที่ร้าน ${formatThaiTime(order.pickup_at)}${order.pickup_code ? ` · รหัส ${order.pickup_code}` : ""}`}</p>
+                  <p className="text-sm text-muted-foreground">{`นัดรับ ${formatThaiDate(order.pickup_at)}${order.pickup_code ? ` · รหัส ${order.pickup_code}` : ""}`}</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -115,7 +114,7 @@ export default async function FoodOrdersPage({
                 {order.payment_method === "cod" ? <Badge variant="outline">เก็บเงินปลายทาง</Badge> : null}
                 {order.cancel_requested_at && order.status !== "cancelled" ? <Badge variant="destructive">ขอยกเลิก</Badge> : null}
                 <Badge variant="gray-tonal">{foodOrderStatusLabelFor(order)}</Badge>
-                <Badge variant="outline">{order.payment_method === "cod" && order.payment_status === "pending" ? "เก็บปลายทาง" : FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
+                <Badge variant="outline">{order.payment_method === "cod" && order.payment_status === "pending" ? "รอเก็บเงินสด" : FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
                 {order.refund_status !== "none" ? <Badge variant="destructive">{FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}</Badge> : null}
                 <span className="font-medium tabular-nums">{formatBaht(order.total)}</span>
               </div>
