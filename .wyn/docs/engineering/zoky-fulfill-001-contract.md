@@ -31,12 +31,13 @@ Status: **v2** (2026-10-26, after the production definitions dump; see §0). Ear
    - `food_complete_pickup` clears an open cancel request; collecting the order counts as the store's answer.
    - `food_pickup_slots` is empty while the store is closed now or unpublished.
    - Pickup codes are unique per store per Bangkok day (unique index `food_orders_pickup_code_day_key`).
+8. Zoky Admin reads orders through the new `admin_food_orders_v2`. It has the v1 columns plus the fulfilment, payment-method, pickup and cancel-request fields, and the filters `pickup`, `cod` and `cancel_request`. It ships in migration `20261026130000_zoky_fulfill_001_admin.sql`; v1 is unchanged.
 
 ## 1. Ownership (do not edit the other side's files)
 
 | Session | Owns |
 |---|---|
-| **Food/DB** (lead) | `supabase/**` (migration, rollback, SQL tests), `web/lib/food-customer.ts`, `web/components/food/**`, `web/app/food/**`, `zoky-admin/**`, this contract |
+| **Food/DB** (lead) | `supabase/**` (migration, rollback, SQL tests), `web/lib/food-customer.ts`, `web/components/food/**`, `web/app/food/**`, Zoky Admin (`admin/**`), this contract |
 | **Merchant** | `web/merchant_flutter/**`, `web/lib/merchant-flutter-bridge.ts`, `web/components/merchant/**`, **new** file `web/lib/food-fulfillment-merchant.ts` (merchant-side RPC wrappers), `web/tests/merchant-*` |
 | Shared, coordinate first | `web/lib/food-merchant.ts` (types only: add the new fields, no other change), `web/lib/i18n/en.ts` (add keys at the end of the Zoky section in your own PR; the duplicate-key test must stay green) |
 

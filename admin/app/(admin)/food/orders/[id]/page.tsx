@@ -5,12 +5,14 @@ import { ArrowLeft } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
-  FOOD_ORDER_STATUS_LABEL,
   FOOD_PAYMENT_STATUS_LABEL,
   FOOD_REFUND_STATUS_LABEL,
+  FOOD_ORDER_EVENT_LABEL,
   fetchAdminFoodOrderDetail,
+  foodOrderStatusLabelFor,
   formatBaht,
   formatThaiDate,
+  formatThaiTime,
   signAdminFoodEvidence,
 } from "@/lib/admin-food";
 import { adminCan, requireAdminRole } from "@/lib/auth";
@@ -30,9 +32,12 @@ export default async function FoodOrderDetailPage({
   const detail = await fetchAdminFoodOrderDetail(id);
   if (!detail) notFound();
   const { order } = detail;
-  const [slip, proof] = await Promise.all([
+  const isPickup = order.fulfillment_type === "pickup";
+  const isCod = order.payment_method === "cod";
+  const [slip, proof, refundSlip] = await Promise.all([
     signAdminFoodEvidence(order.payment_slip_path),
     signAdminFoodEvidence(detail.proof?.image_path),
+    signAdminFoodEvidence(order.refund_slip_path),
   ]);
 
   return (
@@ -44,8 +49,11 @@ export default async function FoodOrderDetailPage({
       <section className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-xl font-semibold">ออเดอร์ #{order.order_number}</h2>
-          <Badge variant="gray-tonal">{FOOD_ORDER_STATUS_LABEL[order.status] ?? order.status}</Badge>
-          <Badge variant="outline">{FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
+          <Badge variant="gray-tonal">{foodOrderStatusLabelFor(order)}</Badge>
+          <Badge variant="outline">{isCod && order.payment_status === "pending" ? "เก็บปลายทาง" : FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
+          <Badge variant="outline">{isPickup ? "รับเองที่ร้าน" : "ร้านจัดส่ง"}</Badge>
+          {isCod ? <Badge variant="outline">เก็บเงินปลายทาง</Badge> : null}
+          {order.cancel_requested_at && order.status !== "cancelled" ? <Badge variant="destructive">ลูกค้าขอยกเลิก</Badge> : null}
           {order.refund_status !== "none" ? <Badge variant="destructive">{FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}</Badge> : null}
         </div>
         <p className="text-sm text-muted-foreground">
@@ -59,8 +67,20 @@ export default async function FoodOrderDetailPage({
           <h3 className="mb-2 text-sm font-semibold">ลูกค้า</h3>
           <p className="font-medium">{order.recipient_name}{detail.buyer_username ? <span className="text-muted-foreground"> · @{detail.buyer_username}</span> : null}</p>
           <p className="text-sm">{order.recipient_phone}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{order.shipping_address}</p>
+          {isPickup ? (
+            <p className="mt-1 text-sm">
+              {`รับเองที่ร้าน · นัด ${formatThaiTime(order.pickup_at)}`}
+              {order.pickup_code ? ` · รหัส ${order.pickup_code}` : ""}
+              {order.picked_up_at ? ` · รับแล้ว ${formatThaiDate(String(order.picked_up_at))}` : ""}
+            </p>
+          ) : <p className="mt-1 text-sm text-muted-foreground">{order.shipping_address}</p>}
           {order.customer_note ? <p className="mt-2 text-sm">หมายเหตุ: {order.customer_note}</p> : null}
+          {order.cancel_requested_at ? (
+            <p className="mt-2 text-sm text-destructive">
+              {`ลูกค้าขอยกเลิกเมื่อ ${formatThaiDate(String(order.cancel_requested_at))}`}
+              {order.cancel_request_note ? ` · ${String(order.cancel_request_note)}` : ""}
+            </p>
+          ) : null}
         </div>
         <div className="rounded-xl border p-4">
           <h3 className="mb-2 text-sm font-semibold">รายการ</h3>
@@ -74,7 +94,7 @@ export default async function FoodOrderDetailPage({
           </ul>
           <div className="mt-3 border-t pt-2 text-sm">
             <div className="flex justify-between"><span>ค่าอาหาร</span><span className="tabular-nums">{formatBaht(order.subtotal)}</span></div>
-            <div className="flex justify-between"><span>ค่าส่ง</span><span className="tabular-nums">{formatBaht(order.delivery_fee)}</span></div>
+            {isPickup ? null : <div className="flex justify-between"><span>ค่าส่ง</span><span className="tabular-nums">{formatBaht(order.delivery_fee)}</span></div>}
             {Number(order.campaign_discount ?? 0) > 0 ? (
               <div className="flex justify-between"><span>{`ส่วนลด${order.campaign_name ? ` (${String(order.campaign_name)})` : ""}`}</span><span className="tabular-nums">−{formatBaht(Number(order.campaign_discount))}</span></div>
             ) : null}
@@ -88,24 +108,32 @@ export default async function FoodOrderDetailPage({
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border p-4">
-          <h3 className="mb-2 text-sm font-semibold">สลิปชำระเงิน</h3>
+          <h3 className="mb-2 text-sm font-semibold">{isCod ? "เงินสดปลายทาง" : "สลิปชำระเงิน"}</h3>
           {slip.status === "ready" ? (
             <a href={slip.url} target="_blank" rel="noreferrer"><img src={slip.url} alt="สลิปชำระเงิน" className="max-h-96 rounded-lg border object-contain" /></a>
           ) : slip.status === "error" ? (
             <EvidenceError label="มีสลิปแนบไว้ แต่โหลดไฟล์ไม่สำเร็จ" />
-          ) : <p className="text-sm text-muted-foreground">ไม่มีสลิป</p>}
+          ) : <p className="text-sm text-muted-foreground">{isCod ? "ร้านรับเงินสดตอนส่งของ ไม่มีสลิป" : "ไม่มีสลิป"}</p>}
           {order.payment_note ? <p className="mt-2 text-sm text-muted-foreground">{order.payment_note}</p> : null}
           {order.refund_status !== "none" ? (
             <p className="mt-2 text-sm">
               {FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}
               {order.refund_requested_at ? ` · ขอคืนเมื่อ ${formatThaiDate(String(order.refund_requested_at))}` : ""}
               {order.refund_note ? ` · ${String(order.refund_note)}` : ""}
+              {order.refunded_by_store_at ? ` · ร้านโอนคืนเมื่อ ${formatThaiDate(String(order.refunded_by_store_at))}` : ""}
             </p>
+          ) : null}
+          {refundSlip.status === "ready" ? (
+            <a href={refundSlip.url} target="_blank" rel="noreferrer"><img src={refundSlip.url} alt="สลิปคืนเงินจากร้าน" className="mt-2 max-h-96 rounded-lg border object-contain" /></a>
+          ) : refundSlip.status === "error" ? (
+            <EvidenceError label="มีสลิปคืนเงิน แต่โหลดไฟล์ไม่สำเร็จ" />
           ) : null}
         </div>
         <div className="rounded-xl border p-4">
-          <h3 className="mb-2 text-sm font-semibold">หลักฐานการจัดส่ง</h3>
-          {detail.proof ? (
+          <h3 className="mb-2 text-sm font-semibold">{isPickup ? "การรับอาหาร" : "หลักฐานการจัดส่ง"}</h3>
+          {isPickup ? (
+            <p className="text-sm">{order.picked_up_at ? `ลูกค้ารับที่ร้านแล้ว · ${formatThaiDate(String(order.picked_up_at))}` : "ลูกค้ายังไม่ได้รับ"}</p>
+          ) : detail.proof ? (
             <>
               <p className="text-sm">{detail.proof.method === "dropoff" ? `วางไว้: ${detail.proof.location_note ?? ""}` : "ส่งถึงมือผู้รับ"} · {formatThaiDate(detail.proof.created_at)}</p>
               {proof.status === "ready" ? (
@@ -123,7 +151,7 @@ export default async function FoodOrderDetailPage({
         <ol className="flex flex-col gap-2 text-sm">
           {detail.events.map((event, index) => (
             <li key={index} className="flex flex-col gap-0.5 border-l-2 pl-3">
-              <span className="font-medium">{event.to_status ? (FOOD_ORDER_STATUS_LABEL[event.to_status] ?? event.to_status) : event.event_type}</span>
+              <span className="font-medium">{FOOD_ORDER_EVENT_LABEL[event.event_type] ?? (event.to_status ? foodOrderStatusLabelFor({ status: event.to_status, fulfillment_type: order.fulfillment_type }) : event.event_type)}</span>
               <span className="text-muted-foreground">{formatThaiDate(event.created_at)}{event.actor_username ? ` · @${event.actor_username}` : ""}{event.note ? ` · ${event.note}` : ""}</span>
             </li>
           ))}

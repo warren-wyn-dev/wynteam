@@ -65,6 +65,9 @@ create function public.merchant_has_store_role(p_store uuid, p_roles text[]) ret
   $$ select exists(select 1 from public.test_roles r where r.store_id = p_store and r.user_id = auth.uid() and r.role = any(p_roles)) $$;
 create function public.food_has_merchant_access(p_store uuid) returns boolean language sql stable as
   $$ select exists(select 1 from public.test_roles r where r.store_id = p_store and r.user_id = auth.uid()) $$;
+create table public.test_admins(user_id uuid primary key);
+create function internal.has_admin_permission(p_area text, p_level text) returns boolean language sql stable as
+  $$ select exists(select 1 from public.test_admins a where a.user_id = auth.uid()) $$;
 create function public.food_path_uuid(p text) returns uuid language sql immutable as
   $$ select case when p ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then p::uuid end $$;
 create function internal.food_in_service_area(double precision, double precision) returns boolean language sql as $$ select true $$;
@@ -92,6 +95,8 @@ SQL
 # The migration under test, applied twice (must be idempotent).
 run -f "$ROOT/supabase/migrations/20261026120000_zoky_fulfill_001.sql" >/dev/null
 run -f "$ROOT/supabase/migrations/20261026120000_zoky_fulfill_001.sql" >/dev/null
+run -f "$ROOT/supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql" >/dev/null
+run -f "$ROOT/supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql" >/dev/null
 
 # Fixtures: a store open every day 00:00-23:59 (Bangkok) and one without a schedule.
 run >/dev/null <<SQL
@@ -249,6 +254,17 @@ expect "select refund_status from public.food_orders where id='$T1'" "pending" "
 # --- table constraints --------------------------------------------------------
 expect_fail_as "$OWNER" "update public.food_orders set payment_method='cod' where id='$P1'" "violates check constraint" "pickup+COD blocked by constraint"
 expect_fail_db "update public.food_stores set pickup_enabled=false, delivery_enabled=false where id='$STORE'" "food_stores_fulfillment_mode_check" "store must keep a mode"
+
+# --- Zoky Admin order list (v2) ----------------------------------------------
+ADMIN=00000000-0000-0000-0000-0000000000f1
+db "insert into public.test_admins values ('$ADMIN')" >/dev/null
+expect_fail_as "$OWNER" "select count(*) from public.admin_food_orders_v2(null,'pickup',null,100)" "Only admins can view Food orders" "store owner cannot use the admin list"
+expect_as "$ADMIN" "select count(*) = (select count(*) from public.food_orders where fulfillment_type='pickup') from public.admin_food_orders_v2(null,'pickup',null,300)" "t" "admin pickup filter"
+expect_as "$ADMIN" "select bool_and(payment_method='cod')::text || (count(*) > 0)::text from public.admin_food_orders_v2(null,'cod',null,300)" "truetrue" "admin COD filter"
+expect_as "$ADMIN" "select fulfillment_type||'|'||pickup_code from public.admin_food_orders_v2('$STORE',null,'p001',300)" "pickup|P001" "admin finds an order by pickup code"
+expect_fail_as "$ADMIN" "select count(*) from public.admin_food_orders_v2(null,'drone',null,10)" "Invalid order status" "unknown admin filter refused"
+run -f "$ROOT/supabase/rollbacks/20261026130000_zoky_fulfill_001_admin_rollback.sql" >/dev/null
+expect "select count(*) from pg_proc where proname = 'admin_food_orders_v2'" "0" "admin rollback drops v2"
 
 # --- rollback ------------------------------------------------------------------
 if err="$(run -f "$ROOT/supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql" 2>&1)"; then echo "FAIL: rollback ran with pickup/COD orders"; exit 1; fi
