@@ -62,6 +62,60 @@ async function fakeEngine(page: Page) {
   }));
 }
 
+async function isolatedMerchantOrigin(page: Page) {
+  // The hostname exercises the production routing contract, but every request
+  // is intercepted and served from the local synthetic-fixture Next server.
+  // No request, session, credentials or data is sent to the live deployment.
+  await page.route("**/*", (route) => route.abort());
+  await page.routeWebSocket("**/*", (socket) => socket.close());
+  await page.route("https://merchant.wynos.online/**", async (route) => {
+    const url = new URL(route.request().url());
+    url.protocol = "http:";
+    url.host = new URL(test.info().project.use.baseURL ?? "http://127.0.0.1:3011").host;
+    const response = await route.fetch({
+      url: url.href,
+      headers: { ...route.request().headers(), host: "merchant.wynos.online" },
+      maxRedirects: 0,
+    });
+    await route.fulfill({ response });
+  });
+  await page.route("**/api/**", (route) => route.fulfill({ contentType: "application/json", body: "{}" }));
+  await mockAPIs(page);
+}
+
+test("Merchant root sign-in returns to the current home instead of the legacy dashboard", async ({ page }) => {
+  await isolatedMerchantOrigin(page);
+  await fakeEngine(page);
+  await page.route("**/auth/v1/token?grant_type=password", (route) => {
+    const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+    const jwt = `${btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))}.${btoa(JSON.stringify({ sub: userId, aud: "authenticated", exp: expiresAt, role: "authenticated" }))}.synthetic-signature`;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      access_token: jwt, refresh_token: "synthetic-refresh-token", token_type: "bearer",
+      expires_in: 3600, expires_at: expiresAt,
+      user: { id: userId, aud: "authenticated", role: "authenticated", email: "merchant@example.test", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z", is_anonymous: false },
+    }) });
+  });
+  await page.goto("https://merchant.wynos.online/");
+  await expect(page).toHaveURL("https://merchant.wynos.online/merchant/login", { timeout: 30_000 });
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("อีเมล", { exact: true }).fill("merchant@example.test");
+  await expect(page.getByLabel("อีเมล", { exact: true })).toHaveValue("merchant@example.test");
+  await page.getByLabel("รหัสผ่าน", { exact: true }).fill("synthetic-password-only");
+  await expect(page.getByLabel("รหัสผ่าน", { exact: true })).toHaveValue("synthetic-password-only");
+  await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
+  await expect(page).toHaveURL("https://merchant.wynos.online/");
+  await expect(page.locator("[data-synthetic-flutter-view]")).toHaveCount(1);
+});
+
+test("existing Merchant session opens the current home from direct login", async ({ page }) => {
+  await signedIn(page);
+  await isolatedMerchantOrigin(page);
+  await fakeEngine(page);
+  await page.goto("https://merchant.wynos.online/merchant/login");
+  await expect(page).toHaveURL("https://merchant.wynos.online/");
+  await expect(page.locator("[data-synthetic-flutter-view]")).toHaveCount(1);
+});
+
 test("signed-out Merchant route redirects to the existing login without starting Flutter", async ({ page }) => {
   await mockAPIs(page);
   let bootstrapRequests = 0;
@@ -71,7 +125,11 @@ test("signed-out Merchant route redirects to the existing login without starting
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบร้านค้าของคุณ" })).toBeVisible();
   expect(bootstrapRequests).toBe(0);
   await expect(page.getByRole('img', { name: 'ZOKY Merchant', exact: true })).toBeVisible();
-  await expect.poll(() => page.locator('.wm-auth-brand img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth === 1140)).toBe(true);
+  await expect.poll(() => page.locator('.wm-auth-brand img').evaluate((img: HTMLImageElement) => {
+    const source = new URL(img.currentSrc);
+    return img.complete && img.naturalWidth > 0
+      && (source.searchParams.get('url') ?? source.pathname) === '/brand/zoky/zoky-logo-pink-transparent.png';
+  })).toBe(true);
   await expect.poll(() => page.locator('.wm-auth-brand').evaluate(element => {
     for (let current: Element | null = element; current; current = current.parentElement) {
       if (Number(getComputedStyle(current).opacity) < .999) return false;
@@ -86,6 +144,22 @@ test("signed-out Merchant route redirects to the existing login without starting
   await email.blur();
   await expect(email).toHaveCSS('border-color', 'rgb(235, 235, 239)');
   await page.screenshot({ path: test.info().outputPath('merchant-official-logo-login.png'), fullPage: true });
+});
+
+test.describe('public Merchant login preview', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('logo and empty form render before JavaScript while session-dependent controls stay disabled', async ({ page }) => {
+    await page.goto('/merchant/login');
+    await expect(page.getByRole('heading', { name: 'เข้าสู่ระบบร้านค้าของคุณ' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'ZOKY Merchant', exact: true })).toBeVisible();
+    await expect.poll(() => page.locator('.wm-auth-brand img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+    await expect(page.getByLabel('อีเมล', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('อีเมล', { exact: true })).toBeDisabled();
+    await expect(page.getByLabel('รหัสผ่าน', { exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'แสดงรหัสผ่าน', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'กำลังตรวจสอบบัญชี…', exact: true })).toBeDisabled();
+  });
 });
 
 test("authenticated wrapper mounts one removable view and exposes a token-free bridge", async ({ page }, testInfo) => {
@@ -123,4 +197,31 @@ test("bundle load failure shows recovery and a link to the working legacy route"
   await expect(page.getByRole("button", { name: "ลองโหลดใหม่" })).toBeVisible();
   await expect(page.getByRole("link", { name: "เปิดหน้าร้านเดิม" })).toHaveAttribute("href", "/merchant");
   await page.screenshot({ path: testInfo.outputPath("merchant-flutter-wrapper-error.png"), fullPage: true });
+});
+
+test("authenticated view chunk failure retains Merchant recovery before the engine starts", async ({ page }) => {
+  await signedIn(page);
+  let blockedChunks = 0;
+  let bootstrapRequests = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/merchant-flutter/flutter_bootstrap.js")) bootstrapRequests += 1;
+  });
+  await page.route("**/_next/static/chunks/*.js", async (route) => {
+    const response = await route.fetch();
+    // Identify the compiled authenticated bridge by behavior, without pinning
+    // a build-specific chunk name or interfering with shared authentication.
+    if ((await response.text()).includes("zoky-merchant-order-change")) {
+      blockedChunks += 1;
+      await route.abort("failed");
+      return;
+    }
+    await route.fulfill({ response });
+  });
+  await page.goto("/merchant/flutter");
+  await expect(page.getByRole("alert", { name: "Zoky Merchant" })).toContainText("เปิด Zoky Merchant ไม่สำเร็จ");
+  await expect(page.getByRole("button", { name: "ลองโหลดใหม่" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "เปิดหน้าร้านเดิม" })).toHaveAttribute("href", "/merchant");
+  expect(blockedChunks).toBeGreaterThan(0);
+  expect(bootstrapRequests).toBe(0);
+  expect(await page.evaluate(() => "zokyMerchant" in window)).toBe(false);
 });

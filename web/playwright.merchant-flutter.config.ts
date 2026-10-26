@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/merchant-browser",
-  testMatch: ["merchant-flutter-embedded.spec.ts", "merchant-flutter-render.spec.ts"],
+  testMatch: ["merchant-flutter-embedded.spec.ts", "merchant-flutter-render.spec.ts", "merchant-flutter-stability.spec.ts"],
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,
@@ -21,13 +21,16 @@ export default defineConfig({
     { name: "merchant-chromium-desktop", use: { ...devices["Desktop Chrome"], browserName: "chromium" } },
   ],
   webServer: {
-    command: "npm run dev -- --hostname 127.0.0.1 --port 3011",
+    // Run after npm run check/build so host routing and hydration match the
+    // deployed app, without development-only cross-origin/HMR behavior.
+    command: "npm run start -- --hostname 127.0.0.1 --port 3011",
     url: "http://127.0.0.1:3011",
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
       NEXT_PUBLIC_SUPABASE_URL: "https://merchant-fixture.example.test",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_browser_fixture_only",
+      ZOKY_MERCHANT_FLUTTER_ENABLED: "1",
     },
   },
 });

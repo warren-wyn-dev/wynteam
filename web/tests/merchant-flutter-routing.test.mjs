@@ -45,11 +45,12 @@ test("enabling Merchant Flutter does not switch Food, Social or Maps", () => {
 });
 test("the embedded page keeps the existing JS auth owner and has a working legacy fallback", () => {
   const component = readFileSync(new URL("../components/merchant/merchant-flutter-app.tsx", import.meta.url), "utf8");
+  const authenticated = readFileSync(new URL("../components/merchant/merchant-flutter-authenticated.tsx", import.meta.url), "utf8");
   assert.match(component, /DeveloperRouteGate signedOutPath="\/merchant\/login"/);
   assert.match(component, /key=\{context.userId\}/);
-  assert.match(component, /bridge\.dispose\(\)/);
-  assert.match(component, /removeView\(viewId\)/);
-  assert.match(component, /href="\/merchant"/);
+  assert.match(authenticated, /bridge\.dispose\(\)/);
+  assert.match(authenticated, /removeView\(viewId\)/);
+  assert.match(authenticated, /href="\/merchant"/);
   const bootstrap = readFileSync(new URL("../merchant_flutter/web/flutter_bootstrap.js", import.meta.url), "utf8");
   assert.doesNotMatch(bootstrap, /\.loader\.load\(|serviceWorker\.register/);
 });

@@ -62,8 +62,11 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Run Merchant browser QA
         run: npx playwright test tests/browser/wynos-merchant.spec.ts
-      - name: Build Flutter Merchant bundle
-        run: npm run build:merchant-flutter
+      - name: Build Merchant web and Flutter with synthetic configuration
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://merchant-fixture.example.test
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_browser_fixture_only
       - name: Verify embedded Flutter Merchant with synthetic shared auth
         run: npm run qa:merchant-flutter
       - name: Upload Merchant Playwright results on failure
