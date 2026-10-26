@@ -8,6 +8,16 @@ PSQL="${PSQL:-psql}"
 export PGOPTIONS="${PGOPTIONS:-} -c client_min_messages=warning"
 DB="zoky_fulfill_001_test_$$"
 
+# Pickup is offered for today only (Asia/Bangkok), so after about 23:25 there is
+# no slot left to order. When the run would cross that window, wait for the
+# new Bangkok day instead of failing on the clock (every check still runs).
+BKK_SECS=$(( 10#$(TZ=Asia/Bangkok date +%H) * 3600 + 10#$(TZ=Asia/Bangkok date +%M) * 60 + 10#$(TZ=Asia/Bangkok date +%S) ))
+if (( BKK_SECS >= 23 * 3600 + 15 * 60 )); then
+  WAIT=$(( 86400 - BKK_SECS + 30 ))
+  echo "zoky_fulfill_001: waiting ${WAIT}s for the next Bangkok day (pickup slots are same-day only)"
+  sleep "$WAIT"
+fi
+
 $PSQL -q -v ON_ERROR_STOP=1 -d postgres -c "create database $DB" >/dev/null
 trap '$PSQL -q -d postgres -c "drop database if exists $DB" >/dev/null' EXIT
 run() { $PSQL -q -X -v ON_ERROR_STOP=1 -d "$DB" "$@"; }
