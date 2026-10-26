@@ -1,6 +1,8 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
 # Founder-approved release 2026-10-26 ("ขึ้น production เลย", "คุณจัดการทั้งหมดให้หน่อย").
+# Round 2 ("ทำทั้งหมดเลย", "แก้ทั้ง 14 คำ"): PR #1253 (splash in the phone column,
+# "ปิด" read as Close) and PR #1254 (14 conflicting English keys) on top of round 1.
 # Ships ONLY release/zoky-web-thai-mobile-20261026 = current production
 # 49e34d35 (Merchant UI release) + the two PR #1245 commits (Thai copy and
 # mobile-only layout). QA PASS on PR #1245; staging verified on the candidate.
@@ -14,7 +16,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_WEB_THAI_MOBILE_20261026]
+        options: [CANCEL, ZOKY_WEB_ROUND2_20261026]
 
 permissions:
   contents: read
@@ -27,22 +29,26 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-09"
   RELEASE_BRANCH: release/zoky-web-thai-mobile-20261026
-  RELEASE_SHA: 2e53914d1ba3f3516be84e957b79861461d33ced
-  PRODUCTION_BASE_SHA: 49e34d35657771949e26472fa14f1f4744955af0
-  ROLLBACK_DEPLOYMENT: dpl_AzSiNf7cK7GfS7qboogk3YtR1q73
+  RELEASE_SHA: b2e5c184eeaef42aeb7b94ef10e54627d5d594ab
+  PRODUCTION_BASE_SHA: 2e53914d1ba3f3516be84e957b79861461d33ced
+  ROLLBACK_DEPLOYMENT: dpl_6kAE5xQKjDZrGhRjLWEqDdHhvWf5
   ALLOWED_PATHS: >-
+    .github/workflows/web-next-ci.yml
     web/app/food/food-app.css
-    web/app/food/food.css
-    web/components/food/food-auth.tsx
-    web/components/food/zoky-web-ui.tsx
+    web/components/food/wynos-food-developer-app.tsx
+    web/components/merchant/merchant-core-panels.tsx
+    web/components/merchant/merchant-order-history.tsx
+    web/components/merchant/wynos-merchant-app.tsx
+    web/lib/food-merchant.ts
     web/lib/i18n/en.ts
+    web/tests/i18n.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_THAI_MOBILE_20261026'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_ROUND2_20261026'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -77,7 +83,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_THAI_MOBILE_20261026'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_ROUND2_20261026'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -107,7 +113,7 @@ jobs:
           root_dir=$(curl --fail --silent --show-error -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" | jq -r '.rootDirectory // ""')
           if [ "$root_dir" = "web" ]; then cd ..; fi
-          # Same runtime flags as the live Merchant release (dpl_AzSiNf7cK7GfS7qboogk3YtR1q73).
+          # Same runtime flags as the live release (dpl_6kAE5xQKjDZrGhRjLWEqDdHhvWf5).
           # A clean build: the cached Flutter SDK from the previous production
           # build has no .git, so build_web.sh's revision check fails on it.
           url=$(vercel deploy --prod --skip-domain --yes --scope warren14 \
@@ -135,7 +141,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_THAI_MOBILE_20261026'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_ROUND2_20261026'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
