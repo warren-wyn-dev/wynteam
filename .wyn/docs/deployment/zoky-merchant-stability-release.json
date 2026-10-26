@@ -1,0 +1,30 @@
+{
+  "releaseSha": "2e4223742073f4707fc8d38e0f5ed15140813d0f",
+  "releaseBranch": "release/zoky-merchant-stability-20261026",
+  "productionBase": "b2e5c184eeaef42aeb7b94ef10e54627d5d594ab",
+  "rollbackDeployment": "dpl_CACVkPQDL3MDfFSZvY64Ggpyqu8v",
+  "projectId": "prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a",
+  "teamId": "team_Kamt1PUT5XKn9MWrF404re1w",
+  "expiresUtc": "2026-11-30",
+  "merchantFlutterEnabled": "1",
+  "legacyFoodRedirect": "0",
+  "approvedPaths": [
+    ".wyn/learning/LESSONS_LEARNED.md",
+    ".wyn/tasks/active/zoky-merchant-flutter-integration.md",
+    "docs/qa/zoky-merchant-flutter/README.md",
+    "docs/qa/zoky-merchant-flutter/login-speed-2026-10-26.md",
+    "docs/qa/zoky-merchant-flutter/stability-2026-10-25.md",
+    "web/components/merchant/merchant-auth.tsx",
+    "web/components/merchant/merchant-flutter-app.tsx",
+    "web/components/merchant/merchant-flutter-authenticated.tsx",
+    "web/lib/merchant-auth-return.ts",
+    "web/merchant_flutter/lib/data/merchant_controller.dart",
+    "web/merchant_flutter/test/stability_refresh_test.dart",
+    "web/package.json",
+    "web/playwright.merchant-flutter.config.ts",
+    "web/tests/merchant-auth-return.test.mjs",
+    "web/tests/merchant-browser/merchant-flutter-embedded.spec.ts",
+    "web/tests/merchant-browser/merchant-flutter-stability.spec.ts",
+    "web/tests/merchant-flutter-routing.test.mjs"
+  ]
+}
