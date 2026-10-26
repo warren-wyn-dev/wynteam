@@ -208,6 +208,7 @@ export const EN_EXACT: Record<string, string> = {
   "ตรวจสอบสลิปไม่ผ่าน กรุณาตรวจสอบและส่งใหม่": "Slip verification failed. Please check it and submit again",
   "รับสลิปแล้ว กำลังรอร้านตรวจสอบ": "Slip received. Waiting for the merchant to review it",
   "โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ": "Pay the merchant directly, then attach the slip for verification",
+  "โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปให้ร้านตรวจสอบ": "Pay the store directly, then attach the slip for the store to check",
   "โอนผ่านธนาคาร": "Bank transfer",
   "ชำระเงินกับร้าน": "Pay the merchant",
   "ซ่อนรายการที่อยู่": "Hide address list",
