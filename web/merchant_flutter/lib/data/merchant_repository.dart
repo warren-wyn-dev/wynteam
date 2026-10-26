@@ -7,8 +7,6 @@ const orderStatuses = {
   'preparing': 'กำลังเตรียม',
   'ready_for_delivery': 'พร้อมส่ง',
   'out_for_delivery': 'กำลังจัดส่ง',
-  'ready_for_pickup': 'พร้อมให้รับ',
-  'picked_up': 'ลูกค้ารับแล้ว',
   'delivered': 'สำเร็จ',
   'cancelled': 'ยกเลิก',
 };
@@ -37,11 +35,16 @@ class MerchantException implements Exception {
 
 /// Existing WYNOS JavaScript client owns authentication, account switching,
 /// push cleanup and API contracts. Flutter holds no credentials or tokens.
+///
+/// Contract v2: pickup orders reuse the stored statuses ready_for_delivery
+/// ("พร้อมให้รับ") and delivered ("ลูกค้ารับแล้ว"). The values returned for a
+/// pickup order are bridge actions, not statuses: 'ready_for_pickup' moves the
+/// order to ready_for_delivery and 'picked_up' calls food_complete_pickup.
 String? orderNextStatus(Json order) => order['fulfillment_type'] == 'pickup'
     ? switch (order['status']) {
         'pending_acceptance' => 'preparing',
         'preparing' => 'ready_for_pickup',
-        'ready_for_pickup' => 'picked_up',
+        'ready_for_delivery' => 'picked_up',
         _ => null,
       }
     : nextStatuses[order['status']];
@@ -49,10 +52,18 @@ String? orderNextAction(Json order) => order['fulfillment_type'] == 'pickup'
     ? switch (order['status']) {
         'pending_acceptance' => 'รับออเดอร์',
         'preparing' => 'พร้อมให้รับ',
-        'ready_for_pickup' => 'ลูกค้ารับแล้ว',
+        'ready_for_delivery' => 'ลูกค้ารับแล้ว',
         _ => null,
       }
     : nextActions[order['status']];
+String orderStatusLabel(Json order) {
+  final status = '${order['status']}';
+  if (order['fulfillment_type'] == 'pickup') {
+    if (status == 'ready_for_delivery') return 'พร้อมให้รับ';
+    if (status == 'delivered') return 'ลูกค้ารับแล้ว';
+  }
+  return orderStatuses[status] ?? status;
+}
 
 abstract class MerchantRepository {
   static const pageSize = 50;

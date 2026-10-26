@@ -25,22 +25,32 @@ void main() {
     expect(
       orderNextStatus({
         'fulfillment_type': 'pickup',
-        'status': 'ready_for_pickup',
+        'status': 'ready_for_delivery',
       }),
       'picked_up',
     );
     expect(
-      orderNextStatus({'fulfillment_type': 'pickup', 'status': 'picked_up'}),
+      orderNextStatus({'fulfillment_type': 'pickup', 'status': 'delivered'}),
       isNull,
     );
     expect(orderNextStatus({'status': 'preparing'}), 'ready_for_delivery');
     expect(
+      orderNextStatus({'status': 'ready_for_delivery'}),
+      'out_for_delivery',
+    );
+    expect(
       orderNextAction({
         'fulfillment_type': 'pickup',
-        'status': 'ready_for_pickup',
+        'status': 'ready_for_delivery',
       }),
       'ลูกค้ารับแล้ว',
     );
+    expect(
+      orderStatusLabel({'fulfillment_type': 'pickup', 'status': 'delivered'}),
+      'ลูกค้ารับแล้ว',
+    );
+    expect(orderStatusLabel({'status': 'ready_for_delivery'}), 'พร้อมส่ง');
+    expect(orderStatuses.containsKey('ready_for_pickup'), isFalse);
   });
   test(
     'realtime invalidation during a read queues another server refresh',

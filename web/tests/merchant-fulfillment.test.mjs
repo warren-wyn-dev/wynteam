@@ -12,7 +12,7 @@ function fixture() {
 test('refund completion rejects foreign, public or traversal evidence paths before calling RPC', async () => {
   const { api } = fixture(); let count = 0;
   const client = { rpc: async () => { count++; return { error: null }; } };
-  for (const path of ['food-refund-slips/other/order/a.jpg', 'https://public.invalid/slip.jpg', 'food-refund-slips/store/order/../other.jpg']) {
+  for (const path of ['refunds/other/a.jpg', 'food-refund-slips/store/order/a.jpg', 'https://public.invalid/slip.jpg', 'refunds/order/../other.jpg']) {
     await assert.rejects(api.markStoreRefunded(client, 'store', 'order', path));
   }
   assert.equal(count, 0);
@@ -26,7 +26,7 @@ test('legacy refund uploads validate size and file content instead of trusting M
   ]) await assert.rejects(api.uploadRefundSlip({}, 'store', 'order', file));
   assert.equal(calls.length, 0);
   const file = { size: 4, type: 'image/jpeg', slice: () => ({ arrayBuffer: async () => new Uint8Array([255,216,255,217]).buffer }) };
-  assert.equal(await api.uploadRefundSlip({}, 'store', 'order', file), 'food-refund-slips/store/order/slip.jpg');
+  assert.equal(await api.uploadRefundSlip({}, 'store', 'order', file), 'refunds/order/slip.jpg');
   assert.equal(calls.length, 1);
 });
 test('push listeners invalidate only the active account and are removed with the host', () => {

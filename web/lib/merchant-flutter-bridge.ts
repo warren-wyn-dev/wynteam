@@ -19,7 +19,7 @@ type Args = Record<string, unknown>;
 class BridgeInputError extends Error {}
 class BridgeAccessError extends Error {}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled", "ready_for_pickup", "picked_up"]);
+const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled"]);
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 function object(value: unknown): Args {
@@ -321,9 +321,12 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         const orderId = id(args.orderId), status = text(args.status, 30, true);
         if (!["preparing", "ready_for_delivery", "out_for_delivery", "cancelled", "ready_for_pickup", "picked_up"].includes(status)) throw new BridgeInputError();
         if (args.etaMinutes != null && (!Number.isInteger(args.etaMinutes) || Number(args.etaMinutes) < 1 || Number(args.etaMinutes) > 240)) throw new BridgeInputError();
-        await ownedOrder(storeId, orderId);
+        const order = await ownedOrder(storeId, orderId);
         await ensureSession();
+        // Pickup actions (contract v2): only valid on pickup orders, mapped to
+        // ready_for_delivery / food_complete_pickup by the wrapper.
         if (status === "ready_for_pickup" || status === "picked_up") {
+          if (order.fulfillment_type !== "pickup") throw new BridgeInputError();
           await transitionPickupOrder(client, orderId, status); return null;
         }
         await transitionFoodOrder(client, orderId, status as FoodOrder["status"], args.etaMinutes == null ? undefined : Number(args.etaMinutes), text(args.note, 1000)); return null;

@@ -197,12 +197,9 @@ const ORDER_FILTERS: Array<{ key: OrderFilter; label: string }> = [
 
 function orderInFilter(order: FoodOrder, filter: OrderFilter, now = Date.now()) {
   if (filter === "new") return order.status === "pending_acceptance";
-  if (filter === "cooking") return order.status === "preparing" || order.status === "ready_for_delivery" || String(order.status) === "ready_for_pickup";
+  // Contract v2: pickup orders reuse ready_for_delivery / delivered.
+  if (filter === "cooking") return order.status === "preparing" || order.status === "ready_for_delivery";
   if (filter === "delivery") return order.status === "out_for_delivery";
-  if (String(order.status) === "picked_up") {
-    const age = now - Date.parse(order.picked_up_at ?? "");
-    return Number.isFinite(age) && age >= 0 && age < 24 * 60 * 60 * 1000;
-  }
   return isRecentCompletedOrder(order, now);
 }
 
@@ -225,7 +222,7 @@ type QuickStep = "check_slip" | "accept" | "ready" | "dispatch" | "deliver";
  * need a look (the slip) or a photo (delivery) open the order instead.
  */
 function quickStep(order: FoodOrder): { step: QuickStep; label: string } | null {
-  if (order.fulfillment_type === "pickup" && ["preparing", "ready_for_pickup"].includes(order.status)) return { step: "check_slip", label: order.status === "preparing" ? "พร้อมให้รับ" : "ลูกค้ารับแล้ว" };
+  if (order.fulfillment_type === "pickup" && ["preparing", "ready_for_delivery"].includes(order.status)) return { step: "check_slip", label: order.status === "preparing" ? "พร้อมให้รับ" : "ลูกค้ารับแล้ว" };
   if (order.status === "pending_acceptance") {
     if (order.payment_status === "submitted") return { step: "check_slip", label: "ดูสลิป · รับออเดอร์" };
     if (order.payment_status === "paid" || order.payment_method === "cod") return { step: "accept", label: "รับออเดอร์" };
@@ -261,7 +258,10 @@ function OrderStatus({ order }: { order: FoodOrder }) {
           : order.status === "delivered"
             ? "done"
             : "muted";
-  return <span className={`wm-status wm-status--${tone}`}>{String(order.status) === "ready_for_pickup" ? "พร้อมให้รับ" : String(order.status) === "picked_up" ? "ลูกค้ารับแล้ว" : statusLabel(order.status)}</span>;
+  const pickupLabel = order.fulfillment_type === "pickup"
+    ? order.status === "ready_for_delivery" ? "พร้อมให้รับ" : order.status === "delivered" ? "ลูกค้ารับแล้ว" : null
+    : null;
+  return <span className={`wm-status wm-status--${tone}`}>{pickupLabel ?? statusLabel(order.status)}</span>;
 }
 
 function PaymentStatus({ order }: { order: FoodOrder }) {
@@ -637,7 +637,7 @@ function MerchantInner({
 
   // Every unfinished order counts on the "รับออเดอร์" nav badge.
   const activeOrderCount = useMemo(
-    () => orders.filter((order) => order.status !== "delivered" && String(order.status) !== "picked_up" && order.status !== "cancelled").length,
+    () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length,
     [orders],
   );
   const filteredOrders = useMemo(() => orders.filter((order) => orderInFilter(order, orderFilter, orderClock)), [orderFilter, orders, orderClock]);
@@ -2149,8 +2149,8 @@ function OrderSheet({
         <section className="wm-detail-section wm-next-step"><h3>กำลังเตรียม</h3><p>เมื่ออาหารพร้อม ให้เปลี่ยนสถานะเพื่อเข้าสู่ขั้นตอนจัดส่ง</p><button className="wm-primary wm-full" disabled={locked} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "ready_for_delivery"), "อาหารพร้อมจัดส่ง")}>อาหารพร้อมแล้ว</button></section>
       ) : null}
 
-      {order.fulfillment_type === "pickup" && ["preparing", "ready_for_pickup"].includes(order.status) ? <section className="wm-detail-section"><button className="wm-primary" disabled={locked} type="button" onClick={() => void run(() => transitionPickupOrder(client, order.id, order.status === "preparing" ? "ready_for_pickup" : "picked_up"))}>{order.status === "preparing" ? "พร้อมให้รับ" : "ลูกค้ารับแล้ว"}</button></section> : null}
-      {order.status === "ready_for_delivery" ? (
+      {order.fulfillment_type === "pickup" && ["preparing", "ready_for_delivery"].includes(order.status) ? <section className="wm-detail-section"><button className="wm-primary" disabled={locked} type="button" onClick={() => void run(() => transitionPickupOrder(client, order.id, order.status === "preparing" ? "ready_for_pickup" : "picked_up"))}>{order.status === "preparing" ? "พร้อมให้รับ" : "ลูกค้ารับแล้ว"}</button></section> : null}
+      {order.status === "ready_for_delivery" && order.fulfillment_type !== "pickup" ? (
         <section className="wm-detail-section wm-next-step"><h3>พร้อมจัดส่ง</h3><p>ส่งอาหารให้คนส่งแล้วกดเริ่มจัดส่ง เมื่อส่งถึงแล้ว ขอรูปจากคนส่งมาแนบเพื่อยืนยันกับลูกค้า</p><button className="wm-primary wm-full" disabled={locked} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "out_for_delivery"), "เริ่มจัดส่งแล้ว")}><Truck size={18} /> เริ่มจัดส่ง</button></section>
       ) : null}
 
@@ -2245,7 +2245,7 @@ function OrderSheet({
         <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
       ) : null}
 
-      {!["delivered", "picked_up", "cancelled"].includes(order.status) ? (
+      {!["delivered", "cancelled"].includes(order.status) ? (
         <button className="wm-danger-link" disabled={locked} type="button" onClick={() => {
           if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
           void run(() => transitionFoodOrder(client, order.id, "cancelled"), "ยกเลิกออเดอร์แล้ว");
