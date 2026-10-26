@@ -211,7 +211,9 @@ function orderInFilter(order: FoodOrder, filter: OrderFilter, now = Date.now()) 
 
 /** An order the store can accept now: it is new and the customer has paid or sent a slip. */
 function needsStoreNow(order: FoodOrder) {
-  return order.status === "pending_acceptance" && (order.payment_status === "submitted" || order.payment_status === "paid" || order.payment_method === "cod");
+  const transferReady = order.status === "pending_acceptance" && (order.payment_status === "submitted" || order.payment_status === "paid");
+  const cashOnDeliveryReady = order.status === "pending_acceptance" && order.payment_method === "cod";
+  return transferReady || cashOnDeliveryReady;
 }
 
 /** A new slip (new storage path) alerts again; marking it paid does not. */
@@ -2171,7 +2173,7 @@ function OrderSheet({
               <label>วางสินค้าไว้ที่ไหน?<textarea value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder="เช่น โต๊ะหน้าประตูด้านซ้าย" /></label>
             ) : null}
           </div>
-          <button className="wm-primary wm-full" disabled={locked || (order.payment_method === "cod" && !cashReceived) || !deliveryFile || (deliveryMethod === "dropoff" && !locationNote.trim())} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
+          <button className="wm-primary wm-full" disabled={locked || !deliveryFile || (order.payment_method === "cod" && !cashReceived) || (deliveryMethod === "dropoff" && !locationNote.trim())} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
         </section>
       ) : null}
 
