@@ -878,6 +878,16 @@
 .fx-segment { margin: 4px 16px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .fx-segment button { min-height: 44px; border: 1px solid var(--fx-line-strong); border-radius: 999px; background: #fff; color: var(--fx-sub); font-size: 14px; font-weight: 600; }
 .fx-segment button.is-active { border: 1.5px solid var(--fx-red); background: var(--fx-red-soft); color: var(--fx-red-text); font-weight: 700; }
+/* ZOKY-FULFILL-001: delivery / pickup switch and pickup time chips in checkout. */
+.fx-fulfill-switch { margin: 0 0 6px; }
+.fx-fulfill-switch button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.fx-pickup-slots { margin-top: 8px; }
+.fx-pickup-slots .fx-chip { min-height: 40px; padding: 0 14px; font-variant-numeric: tabular-nums; }
+.fx-form-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.fx-form-grid .fx-field { margin-top: 0; }
+.fx-pickup-code { margin: 12px 0 0; padding: 14px 16px; border: 1.5px dashed var(--fx-red); border-radius: 16px; background: var(--fx-red-soft); display: grid; gap: 2px; text-align: center; }
+.fx-pickup-code small { color: var(--fx-sub); font-size: 12.5px; }
+.fx-pickup-code b { color: var(--fx-red-text); font-size: 32px; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
 .fx-order-list { margin-top: 12px; padding: 0 16px; display: grid; gap: 12px; }
 .fx-order-card { border: 1px solid var(--fx-line); border-radius: 18px; background: #fff; overflow: hidden; }
 .fx-order-card-main { width: 100%; padding: 14px 14px 10px; border: 0; background: transparent; color: var(--fx-ink); display: grid; gap: 8px; text-align: left; }

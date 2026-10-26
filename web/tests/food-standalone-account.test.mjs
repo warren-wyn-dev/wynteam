@@ -147,9 +147,11 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
     "ร้านอาหารทั้งหมด",
     "ร้านยอดนิยม",
   ]) assert.match(source, new RegExp(label));
-  // Founder decision (2026-10-10): delivery only — no pickup and no scheduled orders.
-  assert.doesNotMatch(source, /รับเองที่ร้าน|สั่งล่วงหน้า/);
+  // Founder decision (2026-10-10): no scheduled orders. Pickup today was
+  // added by ZOKY-FULFILL-001 (approved 2026-10-26), only as a store option.
+  assert.doesNotMatch(source, /สั่งล่วงหน้า/);
   assert.match(source, /scheduledFor: null/);
+  assert.match(source, /storeFulfillmentModes\(store\)/);
 
   assert.match(source, /label="ร้านโปรด"/);
   assert.match(source, /aria-label="รายการโปรด"\s*aria-pressed=\{favorite\}/);

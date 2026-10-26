@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   BadgePercent,
+  Banknote,
   Bell,
   Bike,
   Check,
@@ -105,7 +106,6 @@ import {
   foodCustomerError,
   foodMenuQuantityLimit,
   foodMoney,
-  foodOrderStatusLabel,
   foodPaymentStatusLabel,
   foodPrivateSignedUrl,
   orderDeliveryProof,
@@ -122,6 +122,16 @@ import {
   submitFoodStoreReview,
   type FoodDirectoryStore,
   storeHasDeliveryZone,
+  storeFulfillmentModes,
+  storeHasFulfillmentOptions,
+  foodPickupTimeLabel,
+  foodMapsHref,
+  foodIsPickupOrder,
+  foodIsCodOrder,
+  foodOrderStatusLabelFor,
+  requestFoodOrderCancel,
+  type FoodFulfillmentType,
+  type FoodPaymentMethod,
   type FoodLocation,
   type FoodPlace,
   saveFoodCustomerAddress,
@@ -142,6 +152,15 @@ import {
 } from "@/lib/food-customer";
 
 type FoodTab = "home" | "orders" | "messages" | "cart" | "account";
+
+type FoodCheckoutOptions = {
+  /** null keeps the pre-ZOKY-FULFILL-001 RPCs for stores without the new columns. */
+  fulfillmentType: FoodFulfillmentType | null;
+  pickupAt: string | null;
+  paymentMethod: FoodPaymentMethod;
+  contactName?: string;
+  contactPhone?: string;
+};
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -1803,10 +1822,12 @@ function OrderCard({
 }) {
   const count = order.food_order_items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const names = (order.food_order_items ?? []).map((item) => item.item_name).slice(0, 2).join(", ");
-  const awaitingPayment = order.status !== "cancelled" && ["pending", "issue"].includes(order.payment_status);
+  // COD orders are paid in cash at the door, so they never wait on a transfer.
+  const awaitingPayment = order.status !== "cancelled" && !foodIsCodOrder(order) && ["pending", "issue"].includes(order.payment_status);
   const label = awaitingPayment ? foodPaymentStatusLabel(order.payment_status)
     : order.payment_status === "submitted" && order.status === "pending_acceptance" ? foodPaymentStatusLabel(order.payment_status)
-      : foodOrderStatusLabel(order.status);
+      : order.cancel_requested_at && order.status !== "cancelled" ? "รอร้านตอบคำขอยกเลิก"
+        : foodOrderStatusLabelFor(order);
   const done = ["delivered", "cancelled"].includes(order.status);
   return (
     <article className="fx-order-card">
@@ -1820,6 +1841,7 @@ function OrderCard({
           <small>{count} รายการ · {foodMoney(order.total)}</small>
           <small>{formatDate(order.created_at)}</small>
           {order.scheduled_for ? <small className="fx-order-scheduled"><Clock3 size={13} />นัดรับ/จัดส่ง {formatDate(order.scheduled_for)}</small> : null}
+          {foodIsPickupOrder(order) && order.pickup_at ? <small className="fx-order-scheduled"><Store size={13} />รับเองที่ร้าน {foodPickupTimeLabel(order.pickup_at)}{order.pickup_code ? ` · รหัส ${order.pickup_code}` : ""}</small> : null}
         </span>
       </button>
       <div className="fx-order-card-actions">
@@ -2418,8 +2440,26 @@ function CheckoutSheet({
   onClose: () => void;
   onAddAddress: () => void;
   onEditAddress: (address: FoodCustomerAddress) => void;
-  onSubmit: (address: FoodCustomerAddress, note: string, couponCode?: string | null) => void;
+  onSubmit: (address: FoodCustomerAddress | null, note: string, couponCode: string | null, options: FoodCheckoutOptions) => void;
 }) {
+  // ZOKY-FULFILL-001: delivery or pickup, chosen per order from what the store offers.
+  const modes = storeFulfillmentModes(store);
+  const fulfillmentAware = storeHasFulfillmentOptions(store);
+  const [mode, setMode] = useState<FoodFulfillmentType>(modes[0]);
+  const isPickup = mode === "pickup";
+  const [pickupAt, setPickupAt] = useState<string | null>(null);
+  const [payWithCod, setPayWithCod] = useState(false);
+  // null = not edited yet, so the default address fills in; "" stays empty.
+  const [pickupName, setPickupName] = useState<string | null>(null);
+  const [pickupPhone, setPickupPhone] = useState<string | null>(null);
+  // Pickup slots move with the clock: re-quote every minute so a passed slot
+  // drops out of the list instead of failing on submit.
+  const [pickupTick, setPickupTick] = useState(0);
+  useEffect(() => {
+    if (!isPickup) return;
+    const timer = window.setInterval(() => setPickupTick((tick) => tick + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, [isPickup]);
   const initialAddressId = (
     addresses.find((address) => address.is_default && foodCustomerAddressStructuredComplete(address))
     ?? addresses.find((address) => foodCustomerAddressStructuredComplete(address))
@@ -2456,22 +2496,35 @@ function CheckoutSheet({
   const locationKey = location ? `${location.latitude},${location.longitude}` : "";
   const [addressQuote, setAddressQuote] = useState<{ key: string; quote: FoodOrderQuote | null; error: string } | null>(null);
 
+  const quoteKey = isPickup ? `pickup|${pickupTick}|${couponCode ?? ""}` : `${addressId}|${locationKey}|${couponCode ?? ""}`;
   useEffect(() => {
     let live = true;
-    const key = `${addressId}|${locationKey}|${couponCode ?? ""}`;
-    const loc = zone && locationKey
+    const loc = !isPickup && zone && locationKey
       ? { latitude: Number(locationKey.split(",")[0]), longitude: Number(locationKey.split(",")[1]) }
       : null;
-    if (!addressId || (zone && !loc)) return () => { live = false; };
-    void quoteFoodCustomerOrder(client, store.id, cart, loc, couponCode)
-      .then((next) => { if (live) setAddressQuote({ key, quote: next, error: "" }); })
-      .catch((error) => { if (live) setAddressQuote({ key, quote: null, error: foodCustomerError(error) }); });
+    if (!isPickup && (!addressId || (zone && !loc))) return () => { live = false; };
+    void quoteFoodCustomerOrder(client, store.id, cart, loc, couponCode, fulfillmentAware ? mode : null)
+      .then((next) => { if (live) setAddressQuote({ key: quoteKey, quote: next, error: "" }); })
+      .catch((error) => { if (live) setAddressQuote({ key: quoteKey, quote: null, error: foodCustomerError(error) }); });
     return () => { live = false; };
-  }, [addressId, cart, client, couponCode, locationKey, store.id, zone]);
+  }, [addressId, cart, client, couponCode, fulfillmentAware, isPickup, locationKey, mode, quoteKey, store.id, zone]);
 
-  const current = addressQuote?.key === `${addressId}|${locationKey}|${couponCode ?? ""}` ? addressQuote : null;
-  const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
-  const effectiveQuote = current?.quote ?? quote;
+  // A minute-tick refresh keeps showing the previous pickup slots until the
+  // new ones arrive, so the list does not flash empty.
+  const current = addressQuote?.key === quoteKey
+    || (isPickup && addressQuote?.key.startsWith("pickup|") && addressQuote.key.endsWith(`|${couponCode ?? ""}`))
+    ? addressQuote
+    : null;
+  const quoteLoading = (isPickup || (Boolean(address) && (!zone || Boolean(location)))) && current === null;
+  const effectiveQuote = current?.quote ?? (isPickup ? null : quote);
+  const pickupSlots = isPickup ? current?.quote?.pickup_slots ?? [] : [];
+  // The first offered slot is the earliest; a slot that dropped out of the
+  // list (time passed) falls back to the earliest one still offered.
+  const chosenSlot = pickupAt && pickupSlots.includes(pickupAt) ? pickupAt : pickupSlots[0] ?? null;
+  const codAvailable = !isPickup && current?.quote?.cod_available === true;
+  const useCod = codAvailable && payWithCod;
+  const contactName = pickupName ?? address?.recipient_name ?? "";
+  const contactPhone = pickupPhone ?? address?.recipient_phone ?? "";
 
   const checkoutQuantityByMenu = new Map<string, number>();
   for (const line of cart) {
@@ -2490,7 +2543,7 @@ function CheckoutSheet({
   const couponFailed = Boolean(couponCode && current?.error);
   const quoteError = current?.error && !couponFailed ? current.error : "";
   const quoteAddressError = /ที่อยู่|พื้นที่|ปักหมุด|ตำแหน่ง|จังหวัด/.test(quoteError);
-  const addressProblem = !address
+  const addressProblem = isPickup || !address
     ? ""
     : !foodCustomerAddressStructuredComplete(address)
       ? "ที่อยู่นี้เป็นข้อมูลเก่า กรุณากดแก้ไขและกรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนสั่ง"
@@ -2499,33 +2552,56 @@ function CheckoutSheet({
         : quoteAddressError
           ? quoteError
           : "";
+  const pickupProblem = !isPickup
+    ? ""
+    : current && !current.error && !chosenSlot
+      ? "วันนี้ไม่มีเวลารับที่ว่างแล้ว ลองสั่งแบบให้ร้านจัดส่ง หรือสั่งใหม่พรุ่งนี้"
+      : !contactName.trim() || !/^[0-9+\-\s]{9,15}$/.test(contactPhone.trim())
+        ? "กรอกชื่อและเบอร์โทรผู้มารับ"
+        : "";
   const blockedReason = addressProblem
-    || (quoteError && !quoteAddressError ? quoteError : "")
+    || pickupProblem
+    || (quoteError && (isPickup || !quoteAddressError) ? quoteError : "")
     || (cartUnavailable ? "มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณากลับไปปรับตะกร้า" : "")
     || (minimumMissing > 0 ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}` : "")
     || (couponFailed ? "ลบโค้ดที่ใช้ไม่ได้ก่อนยืนยันคำสั่งซื้อ" : "");
 
-  const deliveryFee = Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
+  const deliveryFee = isPickup ? 0 : Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
   const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
   const total = effectiveQuote?.total ?? serverSubtotal + deliveryFee;
   const eta = foodEstimateDeliveryRange(store, effectiveQuote?.delivery_distance_km);
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
 
-  const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason);
+  const confirmDisabled = (!isPickup && !address) || busy || quoteLoading || Boolean(blockedReason);
   const confirmLabel = busy
     ? "กำลังสร้างออเดอร์…"
-    : !address
+    : !isPickup && !address
       ? "เพิ่มที่อยู่ก่อนสั่ง"
       : addressProblem
         ? "เปลี่ยนที่อยู่ก่อนสั่ง"
         : quoteLoading
-          ? "กำลังคำนวณค่าส่ง…"
+          ? isPickup ? "กำลังโหลดเวลารับ…" : "กำลังคำนวณค่าส่ง…"
           : "ยืนยันคำสั่งซื้อ";
 
   const submitOrder = () => {
+    if (isPickup) {
+      if (!chosenSlot) return;
+      onSubmit(address, note, couponCode, {
+        fulfillmentType: "pickup",
+        pickupAt: chosenSlot,
+        paymentMethod: "transfer",
+        contactName: contactName.trim(),
+        contactPhone: contactPhone.trim(),
+      });
+      return;
+    }
     if (!address) return;
-    onSubmit(address, note, couponCode);
+    onSubmit(address, note, couponCode, {
+      fulfillmentType: fulfillmentAware ? "delivery" : null,
+      pickupAt: null,
+      paymentMethod: useCod ? "cod" : "transfer",
+    });
   };
 
   const paymentMethods = [
@@ -2562,6 +2638,61 @@ function CheckoutSheet({
       )}
     >
       <div className="fx-checkout">
+        {modes.length > 1 ? (
+          <div className="fx-segment fx-fulfill-switch" role="radiogroup" aria-label="วิธีรับอาหาร">
+            <button type="button" role="radio" aria-checked={!isPickup} className={!isPickup ? "is-active" : ""} onClick={() => setMode("delivery")}>
+              <Bike size={16} /> ร้านจัดส่ง
+            </button>
+            <button type="button" role="radio" aria-checked={isPickup} className={isPickup ? "is-active" : ""} onClick={() => setMode("pickup")}>
+              <Store size={16} /> รับเองที่ร้าน
+            </button>
+          </div>
+        ) : null}
+
+        {isPickup ? (
+          <>
+            <div className="fx-section-head"><h2>รับเองที่ร้าน</h2></div>
+            <div className="fx-checkout-address">
+              <Store size={20} className="fx-address-pin" />
+              <div className="fx-address-copy">
+                <strong>{store.name}</strong>
+                {store.address ? <p>{store.address}</p> : null}
+                {store.pickup_note ? <small>{store.pickup_note}</small> : null}
+              </div>
+            </div>
+
+            <div className="fx-section-head"><h2>เวลารับวันนี้</h2>{quoteLoading ? <small>กำลังโหลด…</small> : null}</div>
+            {pickupSlots.length ? (
+              <div className="fx-chips fx-chips--wrap fx-pickup-slots" role="radiogroup" aria-label="เลือกเวลารับ">
+                {pickupSlots.map((slot, index) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    role="radio"
+                    aria-checked={chosenSlot === slot}
+                    className={`fx-chip fx-chip--soft${chosenSlot === slot ? " is-active" : ""}`}
+                    onClick={() => setPickupAt(slot)}
+                  >
+                    {foodPickupTimeLabel(slot)}{index === 0 ? " · เร็วสุด" : ""}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <p className="fx-server-note">ร้านจะเตรียมอาหารให้เสร็จตามเวลาที่เลือก มาช้ากว่าเวลาได้ อาหารจะรออยู่ที่ร้าน</p>
+
+            <div className="fx-form-grid">
+              <label className="fx-field">
+                <span className="fx-field-label"><strong>ชื่อผู้มารับ</strong></span>
+                <input type="text" autoComplete="name" maxLength={80} value={contactName} onChange={(event) => setPickupName(event.target.value)} />
+              </label>
+              <label className="fx-field">
+                <span className="fx-field-label"><strong>เบอร์โทร</strong></span>
+                <input type="tel" inputMode="tel" autoComplete="tel" maxLength={15} value={contactPhone} onChange={(event) => setPickupPhone(event.target.value)} />
+              </label>
+            </div>
+          </>
+        ) : (
+          <>
         <div className="fx-section-head">
           <h2>ที่อยู่จัดส่ง</h2>
           <button type="button" onClick={onAddAddress}><Plus size={16} strokeWidth={2.6} /> เพิ่มที่อยู่</button>
@@ -2624,11 +2755,29 @@ function CheckoutSheet({
             <ChevronRight size={18} />
           </button>
         )}
+          </>
+        )}
 
         <label className="fx-field">
-          <span className="fx-field-label"><strong>หมายเหตุถึงผู้จัดส่ง</strong></span>
-          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น โทรเมื่อถึง, วางไว้หน้าประตู" />
+          <span className="fx-field-label"><strong>{isPickup ? "หมายเหตุถึงร้าน" : "หมายเหตุถึงผู้จัดส่ง"}</strong></span>
+          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={isPickup ? "เช่น ไม่ใส่ผัก, ขอช้อนส้อม" : "เช่น โทรเมื่อถึง, วางไว้หน้าประตู"} />
         </label>
+
+        {codAvailable ? (
+          <section aria-label="วิธีชำระเงิน">
+            <div className="fx-section-head"><h2>วิธีชำระเงิน</h2></div>
+            <div className="fx-address-picker fx-pay-method" role="radiogroup" aria-label="วิธีชำระเงิน">
+              <button type="button" role="radio" aria-checked={!useCod} className={!useCod ? "is-active" : ""} onClick={() => setPayWithCod(false)}>
+                <i className="fx-control is-radio" aria-hidden="true" />
+                <span><strong>โอนเงินเข้าบัญชีร้าน</strong><small>โอนแล้วแนบสลิปภายใน 10 นาที</small></span>
+              </button>
+              <button type="button" role="radio" aria-checked={useCod} className={useCod ? "is-active" : ""} onClick={() => setPayWithCod(true)}>
+                <i className="fx-control is-radio" aria-hidden="true" />
+                <span><strong>เงินสดปลายทาง</strong><small>จ่ายเงินสดให้ร้านตอนรับอาหาร</small></span>
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         <section className="fx-coupon" aria-label="โค้ดส่วนลด">
           <label htmlFor="wynos-food-coupon" className="fx-field-label"><strong>โค้ดส่วนลด ZOKY</strong></label>
@@ -2667,19 +2816,31 @@ function CheckoutSheet({
 
         <div className="fx-summary">
           <div><span>ค่าอาหาร</span><b>{foodMoney(serverSubtotal)}</b></div>
-          <div><span>ค่าจัดส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{addressProblem ? "—" : foodMoney(deliveryFee)}</b></div>
+          {isPickup ? null : <div><span>ค่าจัดส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{addressProblem ? "—" : foodMoney(deliveryFee)}</b></div>}
           {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "ส่วนลด · " + effectiveQuote.campaign_name : "ส่วนลดค่าอาหาร"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
-          {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
-          <div className="is-eta"><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>
+          {deliveryDiscount > 0 && !isPickup ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
+          {isPickup
+            ? <div className="is-eta"><span>เวลารับที่ร้าน</span><b>{chosenSlot ? foodPickupTimeLabel(chosenSlot) : "—"}</b></div>
+            : <div className="is-eta"><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>}
         </div>
 
-        <div className="fx-note fx-note--info" role="note">
-          <Timer size={18} />
-          <span>
-            <strong>กรุณาชำระเงินหรือส่งสลิปภายใน 10 นาทีหลังยืนยันออเดอร์</strong>
-            <small>{paymentMethods.length ? `${paymentMethods.join(" · ")} · ` : ""}หากยังไม่ชำระหรือไม่ส่งสลิป ระบบจะยกเลิกออเดอร์อัตโนมัติ</small>
-          </span>
-        </div>
+        {useCod ? (
+          <div className="fx-note fx-note--info" role="note">
+            <Banknote size={18} />
+            <span>
+              <strong>จ่ายเงินสดให้ร้านตอนรับอาหาร</strong>
+              <small>เตรียมเงินให้พอดียอด {foodMoney(total)} ถ้าทำได้</small>
+            </span>
+          </div>
+        ) : (
+          <div className="fx-note fx-note--info" role="note">
+            <Timer size={18} />
+            <span>
+              <strong>กรุณาชำระเงินหรือส่งสลิปภายใน 10 นาทีหลังยืนยันออเดอร์</strong>
+              <small>{paymentMethods.length ? `${paymentMethods.join(" · ")} · ` : ""}หากยังไม่ชำระหรือไม่ส่งสลิป ระบบจะยกเลิกออเดอร์อัตโนมัติ</small>
+            </span>
+          </div>
+        )}
 
         {blockedReason && !addressProblem ? <div className="fx-note fx-note--warn" role="alert">{blockedReason}</div> : null}
         {effectiveQuote?.campaign_name ? (
@@ -2804,6 +2965,18 @@ const FOOD_TRACK_DETAIL: Record<FoodCustomerOrder["status"], string> = {
   cancelled: "ออเดอร์ถูกยกเลิก",
 };
 
+// Pickup reuses the delivery statuses (contract v2) but skips out_for_delivery.
+const PICKUP_TRACK_SHORT: Partial<Record<FoodCustomerOrder["status"], string>> = {
+  ready_for_delivery: "พร้อมให้รับ",
+  delivered: "รับแล้ว",
+};
+
+const PICKUP_TRACK_DETAIL: Partial<Record<FoodCustomerOrder["status"], string>> = {
+  preparing: "ร้านกำลังเตรียมอาหารให้ทันเวลารับ",
+  ready_for_delivery: "อาหารพร้อมแล้ว มารับที่ร้านได้เลย",
+  delivered: "รับอาหารเรียบร้อยแล้ว",
+};
+
 function copyText(value: string, onMessage: (message: string) => void) {
   const done = () => onMessage("คัดลอกแล้ว");
   if (navigator.clipboard?.writeText) {
@@ -2870,7 +3043,7 @@ function OrderDetailSheet({
     const timer = window.setTimeout(() => {
       if (!live) return;
       // The QR is built server-side for this order's own store, so it is safe even when another store is open.
-      if ((orderStore && !orderStore.promptpay_id) || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
+      if ((orderStore && !orderStore.promptpay_id) || order.payment_method === "cod" || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
         setDynamicPaymentQr(null);
         return;
       }
@@ -2882,7 +3055,7 @@ function OrderDetailSheet({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [client, order.id, order.payment_status, order.status, orderStore]);
+  }, [client, order.id, order.payment_method, order.payment_status, order.status, orderStore]);
 
   const selectSlip = (file: File | null) => {
     if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
@@ -2925,6 +3098,21 @@ function OrderDetailSheet({
     }
   };
 
+  const requestCancel = async () => {
+    const note = window.prompt("ขอยกเลิกออเดอร์นี้? ร้านจะเป็นผู้ตัดสินใจว่าจะยกเลิกและคืนเงินหรือไม่\nเหตุผล (ไม่บังคับ)", "");
+    if (note === null) return;
+    setWorking(true);
+    try {
+      await requestFoodOrderCancel(client, order.id, note);
+      onMessage("ส่งคำขอยกเลิกแล้ว รอร้านตัดสินใจ");
+      await onReload();
+    } catch (error) {
+      onMessage(foodCustomerError(error));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const cancel = async () => {
     if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
     setWorking(true);
@@ -2939,13 +3127,27 @@ function OrderDetailSheet({
     }
   };
 
-  const currentIndex = TRACKING_STEPS.findIndex((step) => step.status === order.status);
+  const isPickup = foodIsPickupOrder(order);
+  const isCod = foodIsCodOrder(order);
+  const trackingSteps = isPickup ? TRACKING_STEPS.filter((step) => step.status !== "out_for_delivery") : TRACKING_STEPS;
+  const currentIndex = trackingSteps.findIndex((step) => step.status === order.status);
   const isCancelled = order.status === "cancelled";
   const secondsLeft = order.payment_due_at ? Math.max(0, Math.ceil((new Date(order.payment_due_at).getTime() - clockNow) / 1000)) : null;
   const paymentExpired = secondsLeft === 0;
-  const awaitingPayment = ["pending", "issue"].includes(order.payment_status);
+  const awaitingPayment = !isCod && ["pending", "issue"].includes(order.payment_status);
   const canPay = !isCancelled && !paymentExpired && awaitingPayment;
-  const canCancel = order.status === "pending_acceptance" && awaitingPayment;
+  const canCancel = order.status === "pending_acceptance" && (awaitingPayment || (isCod && order.payment_status === "pending"));
+  // Pickup after payment or acceptance: the customer asks, the store decides (Founder 2026-10-26).
+  const cancelRequested = !isCancelled && Boolean(order.cancel_requested_at);
+  // The server allows one request per paid order (contract v2.1).
+  const canRequestCancel = isPickup && !canCancel && !cancelRequested
+    && ["pending_acceptance", "preparing", "ready_for_delivery"].includes(order.status)
+    && order.payment_status === "paid";
+  const storePinLat = orderStore?.pickup_latitude ?? orderStore?.latitude;
+  const storePinLon = orderStore?.pickup_longitude ?? orderStore?.longitude;
+  const storePin = storePinLat != null && storePinLon != null
+    ? { latitude: Number(storePinLat), longitude: Number(storePinLon) }
+    : null;
   const paymentQr = dynamicPaymentQr ?? foodPublicUrl(client, orderStore?.payment_qr_path);
   const combinedBusy = busy || working;
   const slipUnderReview = !isCancelled && order.payment_status === "submitted";
@@ -3075,21 +3277,21 @@ function OrderDetailSheet({
         ) : !canPay ? (
           <>
             <ol className="fx-track" aria-label="สถานะออเดอร์">
-              {TRACKING_STEPS.map((step, index) => {
+              {trackingSteps.map((step, index) => {
                 const done = currentIndex > index;
                 const current = currentIndex === index;
                 return (
                   <li key={step.status} className={`${done ? "is-done" : ""}${current ? " is-current" : ""}`} aria-current={current ? "step" : undefined}>
                     <span className="fx-track-dot">{done || (current && step.status === "delivered") ? <Check size={14} strokeWidth={3} /> : null}</span>
-                    <small>{FOOD_TRACK_SHORT[step.status]}</small>
+                    <small>{(isPickup ? PICKUP_TRACK_SHORT[step.status] : null) ?? FOOD_TRACK_SHORT[step.status]}</small>
                   </li>
                 );
               })}
             </ol>
             <div className="fx-track-card">
-              <span className="fx-track-card-icon">{order.status === "delivered" ? <PackageCheck size={22} /> : order.status === "out_for_delivery" ? <Bike size={22} /> : <UtensilsCrossed size={22} />}</span>
+              <span className="fx-track-card-icon">{order.status === "delivered" ? <PackageCheck size={22} /> : order.status === "out_for_delivery" ? <Bike size={22} /> : isPickup && order.status === "ready_for_delivery" ? <Store size={22} /> : <UtensilsCrossed size={22} />}</span>
               <span>
-                <strong>{FOOD_TRACK_DETAIL[order.status]}</strong>
+                <strong>{(isPickup ? PICKUP_TRACK_DETAIL[order.status] : null) ?? FOOD_TRACK_DETAIL[order.status]}</strong>
                 <small>{order.status === "preparing" && order.eta_minutes ? `คาดว่าจะเสร็จภายใน ${order.eta_minutes} นาที` : `${foodPaymentStatusLabel(order.payment_status)} · ${formatDate(order.created_at)}`}</small>
               </span>
             </div>
@@ -3098,7 +3300,33 @@ function OrderDetailSheet({
 
         {order.scheduled_for ? <div className="fx-note fx-note--info"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{formatDate(order.scheduled_for)}</small></span></div> : null}
 
-        {order.status === "delivered" ? (
+        {isPickup && !isCancelled && !awaitingPayment && order.status !== "delivered" && order.pickup_code ? (
+          <div className="fx-pickup-code" role="status">
+            <small>รหัสรับอาหาร · แจ้งร้านเมื่อมาถึง</small>
+            <b>{order.pickup_code}</b>
+            {order.pickup_at ? <small>นัดรับวันนี้ {foodPickupTimeLabel(order.pickup_at)} น. · มาช้ากว่านี้ได้</small> : null}
+          </div>
+        ) : null}
+
+        {cancelRequested ? (
+          <div className="fx-note fx-note--amber" role="status">
+            <Hourglass size={20} />
+            <span><strong>ส่งคำขอยกเลิกแล้ว</strong><small>รอร้านตัดสินใจว่าจะยกเลิกและคืนเงินหรือไม่</small></span>
+          </div>
+        ) : null}
+
+        {isCod && !isCancelled && order.status !== "delivered" ? (
+          <div className="fx-note fx-note--info" role="note">
+            <Banknote size={18} />
+            <span><strong>จ่ายเงินสดปลายทาง {foodMoney(order.total)}</strong><small>ชำระกับร้านตอนรับอาหาร</small></span>
+          </div>
+        ) : null}
+
+        {isCancelled && order.payment_status === "paid" && order.refund_status === "pending" ? (
+          <div className="fx-note fx-note--info" role="status"><Hourglass size={18} /><span><strong>ร้านจะโอนเงินคืนให้คุณ</strong><small>ร้านจะแนบสลิปเมื่อโอนคืนแล้ว</small></span></div>
+        ) : null}
+
+        {order.status === "delivered" && !isPickup ? (
           <section className="fx-proof">
             <PackageCheck size={26} />
             <div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? formatDate(order.delivered_at) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : <p>{proof?.method === "direct" ? "ส่งให้ผู้รับโดยตรง" : ""}</p>}</div>
@@ -3139,24 +3367,36 @@ function OrderDetailSheet({
           </div>
           <div className="fx-summary">
             <div><span>ค่าอาหาร</span><b>{foodMoney(order.subtotal)}</b></div>
-            <div><span>ค่าจัดส่ง</span><b>{foodMoney(order.delivery_fee)}</b></div>
+            {isPickup ? null : <div><span>ค่าจัดส่ง</span><b>{foodMoney(order.delivery_fee)}</b></div>}
             {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "ส่วนลด · " + order.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(order.campaign_discount)}</b></div> : null}
             {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(order.delivery_discount)}</b></div> : null}
             <div className="is-total"><span>ยอดรวม</span><b>{foodMoney(order.total)}</b></div>
-            <div><span>การชำระเงิน</span><b className={`fx-pay-state is-${order.payment_status}`}>{foodPaymentStatusLabel(order.payment_status)}</b></div>
+            <div><span>การชำระเงิน</span><b className={`fx-pay-state is-${order.payment_status}`}>{isCod && order.payment_status === "pending" ? "เงินสดปลายทาง" : foodPaymentStatusLabel(order.payment_status)}</b></div>
           </div>
         </section>
 
-        <section className="fx-order-block">
-          <div className="fx-section-head"><h2>จัดส่งไปที่</h2></div>
-          <div className="fx-delivery-to"><MapPin size={20} fill="currentColor" strokeWidth={0} /><div><strong>{order.recipient_name}</strong><small>{order.recipient_phone}</small><p>{order.shipping_address}</p>{order.customer_note ? <em>{order.customer_note}</em> : null}</div></div>
-          {orderStore?.phone ? <a className="fx-btn fx-btn--outline fx-btn--block" href={`tel:${orderStore.phone}`}><Phone size={17} />ติดต่อร้าน</a> : null}
-        </section>
+        {isPickup ? (
+          <section className="fx-order-block">
+            <div className="fx-section-head"><h2>รับที่ร้าน</h2></div>
+            <div className="fx-delivery-to"><Store size={20} /><div><strong>{orderStore?.name ?? "ร้านอาหาร"}</strong>{orderStore?.address ? <p>{orderStore.address}</p> : null}<small>ผู้มารับ: {order.recipient_name} · {order.recipient_phone}</small>{order.customer_note ? <em>{order.customer_note}</em> : null}</div></div>
+            {storePin || orderStore?.address ? (
+              <a className="fx-btn fx-btn--outline fx-btn--block" href={foodMapsHref(storePin, orderStore?.address ?? "")} target="_blank" rel="noreferrer"><MapPin size={17} />นำทางไปร้าน</a>
+            ) : null}
+            {orderStore?.phone ? <a className="fx-btn fx-btn--outline fx-btn--block" href={`tel:${orderStore.phone}`}><Phone size={17} />ติดต่อร้าน</a> : null}
+          </section>
+        ) : (
+          <section className="fx-order-block">
+            <div className="fx-section-head"><h2>จัดส่งไปที่</h2></div>
+            <div className="fx-delivery-to"><MapPin size={20} fill="currentColor" strokeWidth={0} /><div><strong>{order.recipient_name}</strong><small>{order.recipient_phone}</small><p>{order.shipping_address}</p>{order.customer_note ? <em>{order.customer_note}</em> : null}</div></div>
+            {orderStore?.phone ? <a className="fx-btn fx-btn--outline fx-btn--block" href={`tel:${orderStore.phone}`}><Phone size={17} />ติดต่อร้าน</a> : null}
+          </section>
+        )}
 
         {["delivered", "cancelled"].includes(order.status) ? (
           <button className="fx-btn fx-btn--primary fx-btn--block" type="button" onClick={onReorder}>สั่งรายการเดิมอีกครั้ง</button>
         ) : null}
         {canCancel ? <button className="fx-btn fx-btn--danger-outline fx-btn--block" type="button" disabled={combinedBusy} onClick={() => void cancel()}>ยกเลิกออเดอร์</button> : null}
+        {canRequestCancel ? <button className="fx-btn fx-btn--danger-outline fx-btn--block" type="button" disabled={combinedBusy} onClick={() => void requestCancel()}>ขอยกเลิกออเดอร์</button> : null}
       </div>
     </Sheet>
   );
@@ -3266,7 +3506,7 @@ function FoodCustomerInner({
       for (const order of next.orders) {
         const prior = previous.get(order.id);
         if (prior && prior !== order.status) {
-          setMessage(`ออเดอร์ #${order.order_number} · ${foodOrderStatusLabel(order.status)}`);
+          setMessage(`ออเดอร์ #${order.order_number} · ${foodOrderStatusLabelFor(order)}`);
           // The backend already emits a Food-scoped Web Push for order events.
           // Keep the in-app toast here, but do not show a second local banner.
         }
@@ -3493,27 +3733,33 @@ function FoodCustomerInner({
     }
   };
 
-  // Founder decision (2026-10-10): WYNOS Food offers delivery as soon as possible only; no scheduled orders and no pickup.
-  const createOrder = async (address: FoodCustomerAddress, note: string, couponCode?: string | null) => {
+  // Founder decisions: delivery is as soon as possible only (2026-10-10);
+  // pickup at a time today and store-enabled COD (ZOKY-FULFILL-001, 2026-10-26).
+  const createOrder = async (address: FoodCustomerAddress | null, note: string, couponCode: string | null, options: FoodCheckoutOptions) => {
     if (!store) return;
+    const isPickup = options.fulfillmentType === "pickup";
+    if (!isPickup && !address) return;
     setBusy(true);
     try {
-      const structuredAddress = [
+      const structuredAddress = !address || isPickup ? "" : [
         address.building_name ? `อาคาร/หมู่บ้าน ${address.building_name}` : "",
         address.floor ? `ชั้น ${address.floor}` : "",
         address.room ? `ห้อง ${address.room}` : "",
         address.landmark ? `จุดสังเกต ${address.landmark}` : "",
       ].filter(Boolean).join(" · ");
-      const combinedNote = [structuredAddress, address.delivery_note, note.trim()].filter(Boolean).join(" · ");
+      const combinedNote = [structuredAddress, isPickup ? null : address?.delivery_note, note.trim()].filter(Boolean).join(" · ");
       const orderId = await createFoodCustomerOrder(client, store.id, {
-        recipientName: address.recipient_name,
-        recipientPhone: address.recipient_phone,
-        shippingAddress: address.address,
+        recipientName: isPickup ? options.contactName ?? "" : address!.recipient_name,
+        recipientPhone: isPickup ? options.contactPhone ?? "" : address!.recipient_phone,
+        shippingAddress: isPickup ? "รับเองที่ร้าน" : address!.address,
         customerNote: combinedNote,
         items: cart,
-        location: storeHasDeliveryZone(store) ? addressLocation(address) : null,
+        location: !isPickup && storeHasDeliveryZone(store) ? addressLocation(address) : null,
         scheduledFor: null,
         couponCode: couponCode ?? null,
+        fulfillmentType: options.fulfillmentType,
+        pickupAt: options.pickupAt,
+        paymentMethod: options.paymentMethod,
       });
       // Lets the store see orders that came from its shared link.
       if (hasShareRef(store.id)) void markFoodOrderFromShare(client, orderId).catch(() => undefined);
@@ -3523,7 +3769,7 @@ function FoodCustomerInner({
       const order = next?.orders.find((row) => row.id === orderId);
       if (order) setSelectedOrder(order);
       setTab("orders");
-      setMessage("สร้างออเดอร์แล้ว กรุณาชำระเงินภายใน 10 นาที");
+      setMessage(options.paymentMethod === "cod" ? "สร้างออเดอร์แล้ว จ่ายเงินสดตอนรับอาหาร" : "สร้างออเดอร์แล้ว กรุณาชำระเงินภายใน 10 นาที");
     } catch (error) {
       setMessage(foodCustomerError(error));
     } finally {
@@ -3852,7 +4098,7 @@ function FoodCustomerInner({
             isDefault: address.is_default,
             location: addressLocation(address),
           })}
-          onSubmit={(address, note, couponCode) => void createOrder(address, note, couponCode)}
+          onSubmit={(address, note, couponCode, options) => void createOrder(address, note, couponCode, options)}
         />
       ) : null}
 
