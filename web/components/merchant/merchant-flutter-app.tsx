@@ -30,6 +30,12 @@ function AuthenticatedMerchantFlutter({ client, userId, signOut }: DeveloperRout
       signOut: () => latestSignOut.current(),
       onOrderChange: () => window.dispatchEvent(new Event("zoky-merchant-order-change")),
     });
+    const wake = (event: MessageEvent) => {
+      if (event.data?.kind !== "wynos:notification-push" || (event.data.recipientId && event.data.recipientId !== userId)) return;
+      // Content-free invalidation only. The bridge rechecks the current session.
+      window.dispatchEvent(new Event("zoky-merchant-order-change"));
+    };
+    navigator.serviceWorker?.addEventListener("message", wake);
     // Only the existing JS client owns the session. No token, password or
     // Supabase client reference is transferred into the Dart runtime.
     browser.zokyMerchant = bridge;
@@ -44,6 +50,7 @@ function AuthenticatedMerchantFlutter({ client, userId, signOut }: DeveloperRout
 
     return () => {
       active = false;
+      navigator.serviceWorker?.removeEventListener("message", wake);
       bridge.dispose();
       if (browser.zokyMerchant === bridge) delete browser.zokyMerchant;
       if (flutterApp && viewId !== undefined) flutterApp.removeView(viewId);

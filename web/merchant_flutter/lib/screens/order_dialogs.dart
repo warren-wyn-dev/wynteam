@@ -101,6 +101,7 @@ class _PaymentReviewDialogState extends State<PaymentReviewDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Text('เช็กยอดเงินเข้าในแอปธนาคารก่อนกดยืนยัน'),
               Text('ออเดอร์ #${widget.order['order_number']}'),
               Text(
                 'ยอดที่ต้องได้รับ ฿${(num.tryParse('${widget.order['total']}') ?? 0).toStringAsFixed(2)}',
@@ -247,11 +248,13 @@ class DeliveryProofDialog extends StatefulWidget {
     required this.repository,
     required this.storeId,
     required this.orderId,
+    this.cod = false,
     required this.save,
     required this.error,
   });
   final MerchantRepository repository;
   final String storeId, orderId;
+  final bool cod;
   final Future<bool> Function(String method, String path, String? note) save;
   final String? Function() error;
   @override
@@ -263,7 +266,7 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
   String method = 'direct';
   Json? photo;
   String? error;
-  bool selecting = false, saving = false;
+  bool selecting = false, saving = false, cashReceived = false;
   @override
   void dispose() {
     if (photo != null) {
@@ -319,7 +322,7 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
   }
 
   Future<void> save() async {
-    if (selecting || saving) return;
+    if (selecting || saving || (widget.cod && !cashReceived)) return;
     if (photo == null) {
       setState(() => error = 'กรุณาแนบรูปหลักฐานส่งสำเร็จ');
       return;
@@ -360,6 +363,14 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.cod)
+                CheckboxListTile(
+                  value: cashReceived,
+                  onChanged: saving
+                      ? null
+                      : (v) => setState(() => cashReceived = v == true),
+                  title: const Text('ได้รับเงินสดแล้ว'),
+                ),
               DropdownButtonFormField<String>(
                 initialValue: method,
                 isExpanded: true,
@@ -441,7 +452,9 @@ class _DeliveryProofDialogState extends State<DeliveryProofDialog> {
           child: const Text('ปิด'),
         ),
         FilledButton(
-          onPressed: saving || selecting ? null : save,
+          onPressed: saving || selecting || (widget.cod && !cashReceived)
+              ? null
+              : save,
           child: Text(saving ? 'กำลังบันทึก…' : 'ยืนยันส่งสำเร็จ'),
         ),
       ],

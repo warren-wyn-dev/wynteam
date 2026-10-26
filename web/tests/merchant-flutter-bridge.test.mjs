@@ -28,6 +28,7 @@ function harness() {
     auth:{getSession:async()=>{state.events.push('session');return {data:{session:state.user?{user:{id:state.user,is_anonymous:false}}:null},error:null}}},
     rpc:async(name,args)=>{
       calls.push({name,args});
+      if(state.rpcError?.name===name)return {data:null,error:{message:state.rpcError.message}};
       if(name==='merchant_store_reviews'){
         if(state.reviewHook)await state.reviewHook();
         return {data:state.reviewData??{count:0,average:0,unanswered:0,reviews:[]},error:state.reviewError??null};
@@ -85,6 +86,10 @@ function harness() {
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
       if(path==='@/lib/merchant-campaigns')return {fetchMerchantCampaigns:async()=>({can_manage:true,campaigns:[]}),saveMerchantCampaign:async(...args)=>{calls.push({name:'saveMerchantCampaign',args});},setMerchantCampaignActive:async()=>{}};
       if(path==='@/lib/push-notifications')return {getPushAvailability:async()=>({available:true}),hasActivePushSubscription:async()=>true,requestPushPermissionFromGesture:()=>{state.events.push('permission');return state.permissionRequest??Promise.resolve('granted');},subscribeToPushNotifications:async(_client,_user,options)=>{await options.permissionRequest;await options.ensureActive();state.events.push('subscribe');return {ok:true}},unsubscribeFromPushNotifications:async()=>true,pushReasonDescription:r=>r};
+      if(path==='@/lib/food-fulfillment-merchant') {
+        const code=ts.transpileModule(readFileSync(new URL('../lib/food-fulfillment-merchant.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+        const exports={};runInNewContext(code,{exports,Uint8Array,require:()=>food});return exports;
+      }
       throw new Error('Unexpected import '+path);
     },
   });
@@ -278,4 +283,76 @@ test('malformed quality aggregates and account switches cannot become successful
  h.state.reviewData={count:3,average:4,unanswered:4,reviews:[]};assert.equal((await h.request('quality',{storeId:STORE})).ok,false);
  const switched=harness();switched.state.reviewHook=async()=>{switched.state.user='merchant-b'};
  assert.equal((await switched.request('quality',{storeId:STORE})).ok,false);
+});
+
+
+test('fulfillment settings call only the contract RPC and expose schedule/mode errors safely', async()=>{
+  const h=harness();
+  const args={storeId:STORE,values:{pickup:true,delivery:false,cod:false,prepMinutes:15}};
+  assert.equal((await h.request('setFulfillment',args)).ok,true);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.calls.find(c=>c.name==='food_store_set_fulfillment').args)),{p_store_id:STORE,p_pickup:true,p_delivery:false,p_cod:false,p_prep_minutes:15});
+  assert.equal(h.calls.some(c=>c.table==='food_stores' && c.name==='update'),false);
+  for(const message of ['pickup_requires_schedule','at_least_one_mode']) {
+    h.state.rpcError={name:'food_store_set_fulfillment',message};
+    const result=await h.request('setFulfillment',args);
+    assert.equal(result.ok,false);assert.ok(result.error.includes(message));
+  }
+  h.state.rpcError={name:'food_store_set_fulfillment',message:'internal secret diagnostic'};
+  assert.equal((await h.request('setFulfillment',args)).error.includes('secret'),false);
+});
+test('settings roles, validation and foreign store requests fail closed',async()=>{
+  const h=harness();h.state.manage=false;
+  assert.equal((await h.request('setFulfillment',{storeId:STORE,values:{pickup:true,delivery:true,cod:false,prepMinutes:15}})).ok,false);
+  assert.equal(h.calls.some(c=>c.name==='food_store_set_fulfillment'),false);
+  const a=harness();
+  for(const prepMinutes of [0,121,5.5]) assert.equal((await a.request('setFulfillment',{storeId:STORE,values:{pickup:true,delivery:true,cod:false,prepMinutes}})).ok,false);
+  assert.equal((await a.request('resolveCancel',{storeId:OTHER,orderId:ORDER,approve:true,refund:true})).ok,false);
+  assert.equal(a.calls.some(c=>c.name==='food_resolve_cancel_request'),false);
+});
+test('pickup statuses use the extended transition RPC, delivery completion stays separate',async()=>{
+  const h=harness();h.state.order.fulfillment_type='pickup';
+  for(const status of ['ready_for_pickup','picked_up']) assert.equal((await h.request('transition',{storeId:STORE,orderId:ORDER,status})).ok,true);
+  assert.deepEqual(h.calls.filter(c=>c.name==='food_transition_order').map(c=>c.args.p_status),['ready_for_pickup','picked_up']);
+  assert.equal((await h.request('transition',{storeId:STORE,orderId:ORDER,status:'delivered'})).ok,false);
+});
+test('cancel resolution forwards refund decision, rejection always disables refund',async()=>{
+  const h=harness();
+  for(const approve of [false,true]) assert.equal((await h.request('resolveCancel',{storeId:STORE,orderId:ORDER,approve,refund:true})).ok,true);
+  assert.deepEqual(h.calls.filter(c=>c.name==='food_resolve_cancel_request').map(c=>c.args.p_refund),[false,true]);
+  h.state.rpcError={name:'food_resolve_cancel_request',message:'denied'};
+  assert.equal((await h.request('resolveCancel',{storeId:STORE,orderId:ORDER,approve:true,refund:true})).ok,false);
+});
+test('COD cannot be marked paid through slip review or completed without explicit cash confirmation',async()=>{
+  const h=harness();h.state.order.payment_method='cod';
+  assert.equal((await h.request('payment',{storeId:STORE,orderId:ORDER,status:'paid'})).ok,false);
+  h.setFile(jpeg());
+  const photo=await h.request('pickDeliveryPhoto',{storeId:STORE,orderId:ORDER});
+  const args={storeId:STORE,orderId:ORDER,method:'direct',imagePath:photo.data.path};
+  assert.equal((await h.request('completeDelivery',args)).ok,false);
+  assert.equal(h.calls.some(c=>c.name==='completeFoodDelivery'),false);
+  assert.equal((await h.request('completeDelivery',{...args,cashReceived:true})).ok,true);
+});
+test('refund slips remain private, order-scoped, role-gated and reusable after failed RPC',async()=>{
+  const h=harness();h.state.order.refund_status='pending';h.setFile(jpeg());
+  const photo=await h.request('pickRefundSlip',{storeId:STORE,orderId:ORDER});
+  assert.equal(photo.ok,true);
+  const args={storeId:STORE,orderId:ORDER,imagePath:photo.data.path};
+  assert.equal((await h.request('completeDelivery',{...args,method:'direct'})).ok,false);
+  assert.equal((await h.request('markRefunded',{...args,orderId:OTHER})).ok,false);
+  h.state.rpcError={name:'food_store_mark_refunded',message:'network failure'};
+  assert.equal((await h.request('markRefunded',args)).ok,false);
+  const uploads=h.calls.filter(c=>c.name==='uploadFoodPrivateImage');
+  assert.equal(uploads.length,1);assert.equal(uploads[0].args[2],`food-refund-slips/${STORE}/${ORDER}`);
+  h.state.rpcError=null;
+  assert.equal((await h.request('markRefunded',args)).ok,true);
+  assert.equal(h.calls.filter(c=>c.name==='uploadFoodPrivateImage').length,1);
+  assert.equal((await h.request('markRefunded',args)).ok,false);
+});
+test('Stripe refunds and denied roles cannot upload a store refund slip',async()=>{
+  for(const stripe of [true,false]) {
+    const h=harness();h.state.order.refund_status='pending';h.setFile(jpeg());
+    if(stripe)h.state.order.payment_provider='stripe';else h.state.manage=false;
+    assert.equal((await h.request('pickRefundSlip',{storeId:STORE,orderId:ORDER})).ok,false);
+    assert.equal(h.calls.some(c=>c.name==='uploadFoodPrivateImage'),false);
+  }
 });
