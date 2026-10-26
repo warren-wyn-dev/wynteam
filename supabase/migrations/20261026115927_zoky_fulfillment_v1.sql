@@ -8,6 +8,7 @@ do $baseline$
 declare r record;
 begin
   for r in select * from (values
+    ('internal.food_set_scheduled_order(uuid,timestamp with time zone)','fb7dd97ba95ac6b2881f9326e03c7d1c'),
     ('public.food_create_order(uuid,text,text,text,text,jsonb,double precision,double precision)','cfe2a645c82ffc1d17867032f00e7ea1'),
     ('public.food_quote_order(uuid,jsonb,double precision,double precision)','ebebd00a989bb51c69362f1a34feb870'),
     ('public.food_transition_order(uuid,text,integer,text)','0f76c766864a640bebcc543be04d755a'),
@@ -60,8 +61,24 @@ create unique index food_orders_pickup_code_unique on public.food_orders(store_i
 create index food_orders_refund_owed on public.food_orders(refund_requested_at,store_id) where refund_status='pending' and payment_method='transfer';
 create index food_orders_cancel_requested on public.food_orders(store_id,cancel_requested_at) where cancel_requested_at is not null;
 
+-- New money/state fields can only be written by trusted server RPCs/workers.
+create function internal.food_fulfillment_order_guard() returns trigger language plpgsql set search_path='' as $$
+begin
+  if current_user <> 'service_role' and not pg_has_role(current_user,(select relowner from pg_catalog.pg_class where oid='public.food_orders'::regclass),'USAGE') then
+    if tg_op='INSERT' then raise exception 'order creation requires RPC'; end if;
+    raise exception 'order state requires RPC';
+  end if;
+  return new;
+end;
+$$;
+create trigger food_fulfillment_order_guard before insert or update on public.food_orders for each row execute function internal.food_fulfillment_order_guard();
+
+-- A server-only clock boundary also permits deterministic local slot tests.
+create function internal.food_fulfillment_now() returns timestamptz language sql stable set search_path='' as $$ select now() $$;
+revoke all on function internal.food_fulfillment_now() from public,anon,authenticated;
+
 -- Same-day pickup windows use the server clock and the store's Bangkok schedule.
-create function internal.food_pickup_slots(p_store_id uuid,p_at timestamptz default now()) returns setof timestamptz
+create function internal.food_pickup_slots(p_store_id uuid,p_at timestamptz default internal.food_fulfillment_now()) returns setof timestamptz
 language plpgsql stable security definer set search_path='' as $$
 declare
   s public.food_stores%rowtype; local_now timestamp := p_at at time zone 'Asia/Bangkok';
@@ -103,7 +120,7 @@ declare s public.food_stores%rowtype;
 begin
   if not public.food_customer_access_enabled() or auth.uid() is null then raise exception 'food customer access required'; end if;
   select * into s from public.food_stores where id=p_store_id;
-  if not found or not s.is_published or not internal.food_store_effectively_open(s.id,now()) then raise exception 'store is closed'; end if;
+  if not found or not s.is_published or not internal.food_store_effectively_open(s.id,internal.food_fulfillment_now()) then raise exception 'store is closed'; end if;
   if not public.is_developer_account() and not internal.food_in_service_area(s.latitude,s.longitude) then raise exception 'store is outside the service area'; end if;
   if p_mode is null or p_mode not in ('delivery','pickup') or p_payment is null or p_payment not in ('transfer','cod') then raise exception 'invalid fulfillment'; end if;
   if p_mode='delivery' and not s.delivery_enabled then raise exception 'delivery_disabled'; end if;
@@ -920,7 +937,7 @@ begin
   where id = p_order_id
   for update;
 
-  if not found or v_order.buyer_id <> auth.uid() then
+  if not found or v_order.buyer_id is distinct from auth.uid() then
     raise exception 'order not found';
   end if;
 
@@ -960,7 +977,7 @@ begin
   if not public.food_is_permanent_account() then raise exception 'permanent account required'; end if;
 
   select * into v_order from public.food_orders where id = p_order_id for update;
-  if not found or v_order.buyer_id <> auth.uid() then raise exception 'order not found'; end if;
+  if not found or v_order.buyer_id is distinct from auth.uid() then raise exception 'order not found'; end if;
   if v_order.payment_method='cod' then raise exception 'COD does not accept slips'; end if;
   if v_order.status in ('delivered','picked_up','cancelled') then raise exception 'order is closed'; end if;
   if v_order.payment_status not in ('pending','issue') then
@@ -1004,6 +1021,7 @@ begin
   if not found or not public.merchant_has_store_role(v_order.store_id, array['owner','admin','manager','orders']) then
     raise exception 'order management role required';
   end if;
+  if v_order.payment_status='refunded' or v_order.refund_status='refunded' then raise exception 'refund evidence is final'; end if;
   if v_order.payment_method='cod' then raise exception 'cash is confirmed at delivery completion'; end if;
   if p_status='refunded' and v_order.payment_provider is distinct from 'stripe' then raise exception 'refund slip required'; end if;
   if v_order.payment_provider = 'stripe'
@@ -1104,6 +1122,7 @@ begin
   if v_order.status <> 'cancelled' then
     raise exception 'refund is available after cancellation';
   end if;
+  if v_order.refund_status='refunded' then raise exception 'refund evidence is final'; end if;
   if p_status='refunded' then raise exception 'refund slip required'; end if;
   if p_status not in ('pending','refunded','failed') then
     raise exception 'invalid refund status';
@@ -1435,5 +1454,6 @@ revoke all on function public.food_store_mark_refunded(uuid,text,text) from publ
 grant execute on function public.food_store_mark_refunded(uuid,text,text) to authenticated;
 revoke all on function public.food_store_directory_v2(text) from public,anon;
 grant execute on function public.food_store_directory_v2(text) to authenticated;
+CREATE OR REPLACE FUNCTION internal.food_set_scheduled_order(p_order_id uuid,p_scheduled_for timestamptz) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$ BEGIN RAISE EXCEPTION 'delivery scheduling is unavailable; use same-day pickup slots'; END $$;
 notify pgrst, 'reload schema';
 commit;

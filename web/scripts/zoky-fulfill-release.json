@@ -12,7 +12,7 @@
   },
   "applications": {
     "web": {
-      "branch": "feat/zoky-fulfill-001",
+      "branch": "feat/zoky-fulfill-001-complete",
       "base": "71f7fb0f95bd3495c3f9fbf733cbf697456bd58c",
       "candidateSha": "",
       "projectId": "prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a",

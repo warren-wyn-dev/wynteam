@@ -1,6 +1,8 @@
 -- Explicitly approved recovery only. Keeps old delivery orders, refuses new fulfillment/evidence data.
 begin;
 set local lock_timeout='5s';
+drop trigger food_fulfillment_order_guard on public.food_orders;
+drop function internal.food_fulfillment_order_guard();
 do $$ begin
  if exists(select 1 from public.food_orders where fulfillment_type<>'delivery' or payment_method<>'transfer' or cancel_requested_at is not null or refund_slip_path is not null)
  then raise exception 'fulfillment data exists: preserve evidence and use an approved forward fix'; end if;
@@ -1008,4 +1010,52 @@ alter table public.food_orders drop column fulfillment_type,drop column payment_
 alter table public.food_stores drop column pickup_enabled,drop column delivery_enabled,drop column cod_enabled,drop column prep_minutes;
 drop sequence public.food_pickup_code_sequence;
 notify pgrst, 'reload schema';
+CREATE OR REPLACE FUNCTION internal.food_set_scheduled_order(p_order_id uuid, p_scheduled_for timestamp with time zone)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_store public.food_stores%rowtype;
+  v_order public.food_orders%rowtype;
+  v_min timestamptz;
+  v_max timestamptz;
+begin
+  if auth.uid() is null then raise exception 'authentication required'; end if;
+  if p_scheduled_for is null then raise exception 'scheduled time is required'; end if;
+
+  select * into v_order
+  from public.food_orders
+  where id = p_order_id and buyer_id = auth.uid()
+  for update;
+  if not found then raise exception 'order not found'; end if;
+
+  select * into v_store from public.food_stores where id = v_order.store_id;
+  if not found then raise exception 'store not found'; end if;
+  if not v_store.scheduled_orders_enabled then raise exception 'scheduled orders are not enabled'; end if;
+
+  v_min := now() + make_interval(mins => v_store.scheduled_min_notice_minutes);
+  v_max := now() + make_interval(days => v_store.scheduled_max_days);
+  if p_scheduled_for < v_min then raise exception 'scheduled time is too soon'; end if;
+  if p_scheduled_for > v_max then raise exception 'scheduled time is too far'; end if;
+  if not internal.food_store_effectively_open(v_order.store_id, p_scheduled_for) then
+    raise exception 'store is closed at scheduled time';
+  end if;
+
+  update public.food_orders
+  set scheduled_for = p_scheduled_for
+  where id = v_order.id;
+
+  insert into public.food_order_events(order_id,event_type,note,actor_id)
+  values (
+    v_order.id,
+    'scheduled',
+    left('นัดรับ/จัดส่ง ' || to_char(p_scheduled_for at time zone 'Asia/Bangkok','YYYY-MM-DD HH24:MI'),1000),
+    auth.uid()
+  );
+end;
+$function$
+;
+drop function internal.food_fulfillment_now();
 commit;

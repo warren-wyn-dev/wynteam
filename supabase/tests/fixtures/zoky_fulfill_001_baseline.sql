@@ -185,7 +185,7 @@ create table public.profiles(id uuid primary key, username text, display_name te
 create table public.developer_accounts(user_id uuid primary key);
 create table public.merchant_memberships(merchant_account_id uuid, user_id uuid, role text, active boolean default true);
 create table public.food_staff(store_id uuid, user_id uuid, role text, active boolean default true);
-create table public.food_menu_items(id uuid primary key,store_id uuid,name text,description text,category text,price numeric,is_available boolean default true,options jsonb default '[]',image_path text,sort_order integer default 0,sold_out_until timestamptz,daily_stock_limit integer);
+create table public.food_menu_items(created_at timestamptz default now(),id uuid primary key,store_id uuid,name text,description text,category text,price numeric,is_available boolean default true,options jsonb default '[]',image_path text,sort_order integer default 0,sold_out_until timestamptz,daily_stock_limit integer);
 create table public.food_order_items(id uuid default gen_random_uuid(),order_id uuid,menu_item_id uuid,item_name text,unit_price numeric,quantity integer,selected_options jsonb default '[]',item_note text);
 create table public.food_campaigns(id uuid primary key,usage_count integer default 0,platform_campaign_id uuid);
 create table public.food_order_campaigns(order_id uuid,campaign_id uuid,campaign_name text,campaign_type text,campaign_discount numeric,delivery_discount numeric);
@@ -1977,3 +1977,51 @@ create function internal.food_mask_reviewer_name(text) returns text language sql
 create table public.qa_admin_permissions(user_id uuid,section text,action text);
 create function internal.has_admin_permission(text,text) returns boolean language sql stable as $$select exists(select 1 from public.qa_admin_permissions where user_id=auth.uid() and section=$1 and action=$2)$$;
 set check_function_bodies=on;
+
+CREATE OR REPLACE FUNCTION internal.food_set_scheduled_order(p_order_id uuid, p_scheduled_for timestamp with time zone)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_store public.food_stores%rowtype;
+  v_order public.food_orders%rowtype;
+  v_min timestamptz;
+  v_max timestamptz;
+begin
+  if auth.uid() is null then raise exception 'authentication required'; end if;
+  if p_scheduled_for is null then raise exception 'scheduled time is required'; end if;
+
+  select * into v_order
+  from public.food_orders
+  where id = p_order_id and buyer_id = auth.uid()
+  for update;
+  if not found then raise exception 'order not found'; end if;
+
+  select * into v_store from public.food_stores where id = v_order.store_id;
+  if not found then raise exception 'store not found'; end if;
+  if not v_store.scheduled_orders_enabled then raise exception 'scheduled orders are not enabled'; end if;
+
+  v_min := now() + make_interval(mins => v_store.scheduled_min_notice_minutes);
+  v_max := now() + make_interval(days => v_store.scheduled_max_days);
+  if p_scheduled_for < v_min then raise exception 'scheduled time is too soon'; end if;
+  if p_scheduled_for > v_max then raise exception 'scheduled time is too far'; end if;
+  if not internal.food_store_effectively_open(v_order.store_id, p_scheduled_for) then
+    raise exception 'store is closed at scheduled time';
+  end if;
+
+  update public.food_orders
+  set scheduled_for = p_scheduled_for
+  where id = v_order.id;
+
+  insert into public.food_order_events(order_id,event_type,note,actor_id)
+  values (
+    v_order.id,
+    'scheduled',
+    left('นัดรับ/จัดส่ง ' || to_char(p_scheduled_for at time zone 'Asia/Bangkok','YYYY-MM-DD HH24:MI'),1000),
+    auth.uid()
+  );
+end;
+$function$
+;

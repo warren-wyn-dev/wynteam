@@ -35,8 +35,8 @@ export function validateManifest(manifest, today = new Date().toISOString().slic
     const app = manifest.applications[name], fixed = FIXED[name];
     for (const key of ['base', 'projectId', 'rootDirectory']) requireTrue(app[key] === fixed[key], `Wrong ${name} ${key}`);
     requireTrue(SHA.test(app.candidateSha) && app.candidateSha !== app.base, `Finalize ${name} candidate SHA`);
-    requireTrue(typeof app.branch === 'string' && /^feat\/zoky-fulfill-001(?:-admin-complete)?$/.test(app.branch), 'Unexpected source branch');
-    requireTrue(app.branch === (name === 'web' ? 'feat/zoky-fulfill-001' : 'feat/zoky-fulfill-001-admin-complete'), 'Wrong application branch');
+    requireTrue(typeof app.branch === 'string' && /^feat\/zoky-fulfill-001(?:-complete|-admin-complete)$/.test(app.branch), 'Unexpected source branch');
+    requireTrue(app.branch === (name === 'web' ? 'feat/zoky-fulfill-001-complete' : 'feat/zoky-fulfill-001-admin-complete'), 'Wrong application branch');
     requireTrue(/^dpl_[A-Za-z0-9]+$/.test(app.previousDeployment), 'Missing recovery target');
     requireTrue(Array.isArray(app.approvedPaths) && app.approvedPaths.length > 0 && new Set(app.approvedPaths).size === app.approvedPaths.length, 'Finalize exact reviewed paths');
     requireTrue(app.approvedPaths.every(path => typeof path === 'string' && !path.split('/').some(part => ['', '.', '..'].includes(part))), 'Unsafe manifest path');

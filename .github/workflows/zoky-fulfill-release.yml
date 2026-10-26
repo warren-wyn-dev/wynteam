@@ -117,8 +117,9 @@ jobs:
       run: |-
         npm ci --ignore-scripts --no-audit --no-fund
         npm run lint
-        npx tsc --noEmit
+        node --test tests/fulfillment.test.mjs
         npm run build
+        npx tsc --noEmit
     - name: Keep synthetic evidence
       if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -240,7 +241,7 @@ jobs:
       env:
         VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         CANDIDATE_SHA: ${{ inputs.web_sha }}
-        CANDIDATE_BRANCH: feat/zoky-fulfill-001
+        CANDIDATE_BRANCH: feat/zoky-fulfill-001-complete
       run: |-
         set -euo pipefail
         node ops/web/scripts/zoky-fulfill-release.mjs current web

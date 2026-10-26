@@ -3013,7 +3013,7 @@ function OrderDetailSheet({
   const awaitingPayment = order.payment_method !== "cod" && ["pending", "issue"].includes(order.payment_status);
   const canPay = !isCancelled && !paymentExpired && awaitingPayment;
   const canCancel = order.status === "pending_acceptance";
-  const canRequestCancel = ["preparing", "ready_for_pickup"].includes(order.status) && !order.cancel_requested_at;
+  const canRequestCancel = ["preparing", "ready_for_pickup", "ready_for_delivery", "out_for_delivery"].includes(order.status) && !order.cancel_requested_at;
   const paymentQr = dynamicPaymentQr ?? foodPublicUrl(client, orderStore?.payment_qr_path);
   const combinedBusy = busy || working;
   const slipUnderReview = !isCancelled && order.payment_status === "submitted";

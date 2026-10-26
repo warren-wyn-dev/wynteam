@@ -47,46 +47,21 @@ Production release must use the repository's existing reviewed scoped release pr
 
 If an upload succeeds but the final delivery RPC fails and the merchant abandons the dialog/session, an unreferenced private object can remain because current evidence Storage policy is immutable. Retry reuses the object; no delete policy or evidence immutability is weakened.
 
-## ZOKY-FULFILL-001 Merchant integration (contract v1)
+## ZOKY-FULFILL-001 integrated fulfillment
 
-The Merchant bridge and both UIs implement the approved store-delivery / same-day
-pickup contract in `.wyn/docs/engineering/zoky-fulfill-001-contract.md`:
+Contract v2 in `.wyn/docs/engineering/zoky-fulfill-001-contract.md` is implemented
+by the additive migration and both clients. Owner/admin settings use the scoped
+fulfillment RPC; pickup uses server Bangkok slots and ready/picked-up transitions;
+COD requires explicit cash receipt during photo-backed delivery completion.
+Customer requests and merchant no-shows have separate cancellation RPCs with an
+explicit refund choice. Transfer refunds require an immutable private slip in
+`food-private` under `food-refund-slips/<store_id>/<order_id>/`. Retry reuses the
+uploaded path; abandoned uploads can leave unreferenced private evidence.
 
-- Owner/admin fulfillment settings use `food_store_set_fulfillment`. Schedule and
-  at-least-one-mode errors stay visible; local form edits are drafts until save.
-- Pickup orders show the Bangkok pickup time and code, then transition through
-  `ready_for_pickup` and `picked_up` with no delivery-photo step.
-- COD skips transfer-slip review. Delivery completion requires the merchant's
-  explicit cash-received check and still uses the existing delivery-proof RPC.
-- Customer cancellation requests call `food_resolve_cancel_request` with an
-  explicit approve/reject and refund/no-refund decision.
-- Transfer refunds require confirmation and a private slip before
-  `food_store_mark_refunded`. The uploader uses the existing `food-private`
-  bucket with prefix `food-refund-slips/<store_id>/<order_id>/`. Confirm this
-  interpretation and the Storage policies with the Food/DB session before
-  integration. Upload retries retain the same object path until the dialog is
-  closed; an abandoned upload can leave an unreferenced private object.
-- Realtime invalidations queue behind in-flight Flutter reads. Existing service
-  worker push messages invalidate the active account's data and never supply
-  order content. Listener cleanup follows host/session disposal.
-- Stripe setup prompts are paused behind `STRIPE_SETUP_PAUSED`; existing Stripe
-  code and legacy Stripe refund controls remain available. Transfer refunds use
-  the new evidence flow, not the old manual refund-status controls.
+The shared status/history/report helpers include picked-up orders. Realtime
+invalidations queue behind reads and service-worker push invalidates only the
+active account. Stripe setup is paused; existing Stripe code remains intact.
 
-The shared `food-merchant.ts` changes add fields only. Pickup transitions live in
-our wrapper until the Food/DB session updates the shared status union/labels,
-completed-order history and report aggregation to cover `picked_up`. Do not
-change shared helper implementations from the Merchant branch.
-
-Database integration is pending: tests use synthetic stores/orders and mocked
-RPCs only. No live database, actual bank transfer, OS push delivery, production
-migration or deployment is part of this verification. Before release, verify
-RPC authorization across roles/stores, Storage policies/private signed URLs,
-refund idempotency and notification triggers against the completed migration.
-
-Contract follow-up: a merchant-initiated cancellation/no-show with a deliberate
-no-refund choice is not expressible in the current transition RPC signature.
-The Food/DB session must document whether `food_resolve_cancel_request` supports
-orders without an active request, or provide an approved RPC extension. This
-branch does not invent a SQL function or silently bypass the existing refund
-behavior for direct store cancellations.
+Local synthetic evidence and exact remaining hosted release gates are recorded
+in `docs/qa/zoky-fulfill-001/HANDOFF.md`. A passing build or merged PR does not
+claim that the migration, staging or production deployment has occurred.

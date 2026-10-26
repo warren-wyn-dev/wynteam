@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/merchant-browser",
-  testMatch: ["merchant-flutter-embedded.spec.ts", "merchant-flutter-render.spec.ts"],
+  testMatch: ["merchant-flutter-embedded.spec.ts", "merchant-flutter-render.spec.ts", "food-fulfillment.spec.ts"],
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,
@@ -23,7 +23,7 @@ export default defineConfig({
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3011",
     url: "http://127.0.0.1:3011",
-    reuseExistingServer: false,
+    reuseExistingServer: process.env.ZOKY_FIXTURE_REUSE_SERVER === '1',
     timeout: 120_000,
     env: {
       NEXT_PUBLIC_SUPABASE_URL: "https://merchant-fixture.example.test",

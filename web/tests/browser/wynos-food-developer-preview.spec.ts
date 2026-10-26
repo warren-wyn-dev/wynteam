@@ -669,10 +669,9 @@ test("ZOKY web Home + Food follow the app design with real data only (2026-10-19
   expect(guest).toContain('if (window.history.state?.zkScreen === "basket" && !selectedId) window.history.back();');
   expect(guest).toContain('setShowBasket(state?.zkScreen === "basket");\n      setSelectedItem(null);');
   expect(app).toContain('setStorefrontOpen(screen === "store");\n      setSelectedItem(null);');
-  // Founder 2026-10-19: deals, category circles and pickup stay hidden; "ร้านอาหารแนะนำ" = real popular stores.
+  // Founder 2026-10-26 enables store-controlled pickup; deals stay hidden; "ร้านอาหารแนะนำ" = real popular stores.
   for (const source of [app, guest, ui]) {
     expect(source).not.toContain("ดีลเด็ดวันนี้");
-    expect(source).not.toContain("รับเองที่ร้าน");
     expect(source).not.toContain("ข้อมูลตัวอย่าง");
   }
   expect(app).toContain("foodPopularStores(directory.stores)");
