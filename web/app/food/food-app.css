@@ -1679,7 +1679,7 @@ html:has(.fx-app.is-zk-home) body, html:has(.fx-app.is-zk-food) body { backgroun
     margin-inline: auto;
     box-shadow: 0 0 0 1px #e9e9ee, 0 12px 40px rgb(22 22 26 / 6%);
   }
-  .wf-sheet-backdrop, .fx-sheet-backdrop, .wf-guest-overlay, .wf-map-picker, .zk-statusbar {
+  .wf-sheet-backdrop, .fx-sheet-backdrop, .wf-guest-overlay, .wf-map-picker, .zk-statusbar, .fx-splash {
     right: auto;
     left: calc(50% - var(--zk-phone) / 2);
     width: var(--zk-phone);

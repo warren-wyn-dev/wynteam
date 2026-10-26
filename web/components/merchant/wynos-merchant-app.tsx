@@ -2952,7 +2952,7 @@ function StoreEditor({
             {FOOD_DAY_KEYS.map((key) => {
               const day = schedule.weekly[key] ?? { enabled: false, open: "09:00", close: "21:00" };
               return <div className="wm-schedule-day" key={key}>
-                <label className="wm-check-row"><input type="checkbox" checked={day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, enabled: e.target.checked } } }))} /><span><strong>{FOOD_DAY_LABELS[key]}</strong><small>{day.enabled ? "เปิด" : "ปิด"}</small></span></label>
+                <label className="wm-check-row"><input type="checkbox" checked={day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, enabled: e.target.checked } } }))} /><span><strong>{FOOD_DAY_LABELS[key]}</strong><small>{day.enabled ? "เปิด" : "ปิดทำการ"}</small></span></label>
                 <input type="time" value={day.open} disabled={!day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, open: e.target.value } } }))} />
                 <span>–</span>
                 <input type="time" value={day.close} disabled={!day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, close: e.target.value } } }))} />
