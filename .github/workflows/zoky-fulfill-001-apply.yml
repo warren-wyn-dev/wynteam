@@ -134,7 +134,8 @@ jobs:
               echo "Preflight finished. Nothing was changed."
               exit 0 ;;
             apply)
-              if [ "$(applied)" != "true" ]; then
+              WAS_APPLIED=$(applied)
+              if [ "$WAS_APPLIED" != "true" ]; then
                 baseline_check || { echo "::error::live functions changed since the baseline dump; re-dump and rebuild the migration"; exit 1; }
               else
                 echo "Migration already applied once; re-running (idempotent)."
@@ -149,11 +150,16 @@ jobs:
           state
           case "$STEP" in
             apply)
-              run_sql "select
-                  (select count(*) from public.food_stores where pickup_enabled or cod_enabled or not delivery_enabled) as stores_changed,
-                  (select count(*) from public.food_orders where fulfillment_type <> 'delivery' or payment_method <> 'transfer') as orders_changed;" > smoke.json
-              jq . smoke.json
-              jq -e '.[0].stores_changed == 0 and .[0].orders_changed == 0' smoke.json >/dev/null || { echo "::error::existing stores/orders did not keep delivery + transfer"; exit 1; }
+              # On the first install every existing store and order must keep
+              # delivery + transfer. A later re-run (stores may have turned the
+              # feature on by then) only re-checks that the objects exist.
+              if [ "$WAS_APPLIED" != "true" ]; then
+                run_sql "select
+                    (select count(*) from public.food_stores where pickup_enabled or cod_enabled or not delivery_enabled) as stores_changed,
+                    (select count(*) from public.food_orders where fulfillment_type <> 'delivery' or payment_method <> 'transfer') as orders_changed;" > smoke.json
+                jq . smoke.json
+                jq -e '.[0].stores_changed == 0 and .[0].orders_changed == 0' smoke.json >/dev/null || { echo "::error::existing stores/orders did not keep delivery + transfer"; exit 1; }
+              fi
               [ "$(state | jq -r '.[0].new_functions')" = "8" ] || { echo "::error::new functions missing"; exit 1; } ;;
             apply-admin)
               [ "$(state | jq -r '.[0].admin_v2')" = "1" ] || { echo "::error::admin_food_orders_v2 missing"; exit 1; } ;;
