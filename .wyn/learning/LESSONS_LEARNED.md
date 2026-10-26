@@ -356,3 +356,10 @@
 - การนำไปใช้ในอนาคต: เวลาย้าย/rebrand domain ให้ `grep -rn "<ORIGIN_CONSTANT>" app/ lib/` แล้วตรวจทุกจุดที่เป็น
   `window.location.replace`/redirect หลัง auth ว่าใช้ helper per-host และเพิ่ม behavior test ราย host
   (Food เดิม/ใหม่, Social, localhost, preview) ไม่ใช่แค่ regex ของ source
+
+### [2026-10-25–26] Merchant background refresh ต้องไม่ทำให้ Save ล้มเหลวหรือทิ้ง realtime event
+
+- การกด Save ระหว่าง refresh เป็นการรอข้อมูล ไม่ใช่ข้อผิดพลาดถาวรของฟอร์ม ต้องรักษา draft และตรวจสิทธิ์/single-write guard อีกครั้งหลัง read จบ
+- รวม realtime events ระหว่าง read เป็น trailing refresh แต่ให้แต่ละ read future จบได้และให้ queued write ได้ทำงานก่อน อย่าต่อ while-loop ไปเรื่อย ๆ เมื่อมี event ทุก pass
+- การย้าย Merchant home ไป root ต้องตรวจ sign-in round trip และ default return ทุก origin ด้วย ไม่ใช่ตรวจเพียง guest redirect เข้า login; explicit safe return และ payment callbacks ต้องคงเดิม
+- หลักฐาน: controller/widget regression เก้ากรณี, behavioral return-path tests และ compiled Chromium/WebKit before/after ใน `docs/qa/zoky-merchant-flutter/stability-2026-10-25.md` การทดสอบ host rewrite ใช้ production build เพื่อไม่ปะปนกับข้อจำกัด dev-origin/HMR
