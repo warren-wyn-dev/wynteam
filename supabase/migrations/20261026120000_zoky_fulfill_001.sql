@@ -466,7 +466,9 @@ begin
   if p_fulfillment_type = 'pickup' then
     if not v_store.pickup_enabled then raise exception 'pickup_not_available'; end if;
     perform set_config('wyn.food_fulfillment', 'pickup', true);
-    v_quote := public.food_quote_order_v2(p_store_id, p_items, null, null, p_coupon_code);
+    -- The store's own pin keeps the quote on the fee path (which returns 0 for
+    -- pickup) instead of the "needs a location" base-fee preview.
+    v_quote := public.food_quote_order_v2(p_store_id, p_items, v_store.latitude, v_store.longitude, p_coupon_code);
     perform set_config('wyn.food_fulfillment', '', true);
   elsif p_fulfillment_type = 'delivery' then
     if not v_store.delivery_enabled then raise exception 'delivery_not_available'; end if;

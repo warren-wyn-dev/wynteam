@@ -21,6 +21,8 @@ Status: **v2** (2026-10-26, after the production definitions dump; see §0). Ear
    - **New** `food_complete_pickup(p_order_id uuid, p_note text default null)` from `ready_for_delivery`. Sets `delivered` and `picked_up_at`. Roles: owner, admin, manager, orders. No photo.
    - `food_transition_order(order, 'out_for_delivery')` is refused for pickup orders, and `food_complete_pickup` is refused for delivery orders.
 3. `payment_method` values are `'transfer'` and `'cod'`, as in v1.
+5. **Refund slip path changes** to `refunds/<order_id>/<file>` in the `food-private` bucket, the same layout as `delivery/<order_id>/`. The v1 path `food-refund-slips/<store_id>/<order_id>/...` is not used. New storage policies allow upload by owner/admin/manager of the order's store while a refund is pending, and allow reads by the store and by the order's customer. `food_store_mark_refunded` checks the path and that the object exists.
+6. New read RPC for the customer app: `food_pickup_slots(p_store_id)` returns `timestamptz[]`. Merchant does not need it.
 4. Store prep time: `food_store_set_fulfillment(... p_prep_minutes)` is unchanged and writes the new column `food_stores.pickup_prep_minutes`. (The existing `prep_time_min_minutes` / `prep_time_max_minutes` columns are the ETA range and stay as they are.)
 
 ## 1. Ownership (do not edit the other side's files)
