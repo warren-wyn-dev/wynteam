@@ -137,3 +137,9 @@ test("COD orders never show the transfer payment screen", () => {
 test("pickup tracking skips the out-for-delivery step", () => {
   assert.match(app, /TRACKING_STEPS\.filter\(\(step\) => step\.status !== "out_for_delivery"\)/);
 });
+
+test("pickup slots refresh every minute and the code waits for payment", () => {
+  assert.match(app, /setInterval\(\(\) => setPickupTick\(\(tick\) => tick \+ 1\), 60_000\)/);
+  assert.match(app, /`pickup\|\$\{pickupTick\}\|/);
+  assert.match(app, /isPickup && !isCancelled && !awaitingPayment && order\.status !== "delivered" && order\.pickup_code/);
+});

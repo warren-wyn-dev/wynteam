@@ -2449,8 +2449,17 @@ function CheckoutSheet({
   const isPickup = mode === "pickup";
   const [pickupAt, setPickupAt] = useState<string | null>(null);
   const [payWithCod, setPayWithCod] = useState(false);
-  const [pickupName, setPickupName] = useState("");
-  const [pickupPhone, setPickupPhone] = useState("");
+  // null = not edited yet, so the default address fills in; "" stays empty.
+  const [pickupName, setPickupName] = useState<string | null>(null);
+  const [pickupPhone, setPickupPhone] = useState<string | null>(null);
+  // Pickup slots move with the clock: re-quote every minute so a passed slot
+  // drops out of the list instead of failing on submit.
+  const [pickupTick, setPickupTick] = useState(0);
+  useEffect(() => {
+    if (!isPickup) return;
+    const timer = window.setInterval(() => setPickupTick((tick) => tick + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, [isPickup]);
   const initialAddressId = (
     addresses.find((address) => address.is_default && foodCustomerAddressStructuredComplete(address))
     ?? addresses.find((address) => foodCustomerAddressStructuredComplete(address))
@@ -2487,7 +2496,7 @@ function CheckoutSheet({
   const locationKey = location ? `${location.latitude},${location.longitude}` : "";
   const [addressQuote, setAddressQuote] = useState<{ key: string; quote: FoodOrderQuote | null; error: string } | null>(null);
 
-  const quoteKey = isPickup ? `pickup||${couponCode ?? ""}` : `${addressId}|${locationKey}|${couponCode ?? ""}`;
+  const quoteKey = isPickup ? `pickup|${pickupTick}|${couponCode ?? ""}` : `${addressId}|${locationKey}|${couponCode ?? ""}`;
   useEffect(() => {
     let live = true;
     const loc = !isPickup && zone && locationKey
@@ -2500,7 +2509,12 @@ function CheckoutSheet({
     return () => { live = false; };
   }, [addressId, cart, client, couponCode, fulfillmentAware, isPickup, locationKey, mode, quoteKey, store.id, zone]);
 
-  const current = addressQuote?.key === quoteKey ? addressQuote : null;
+  // A minute-tick refresh keeps showing the previous pickup slots until the
+  // new ones arrive, so the list does not flash empty.
+  const current = addressQuote?.key === quoteKey
+    || (isPickup && addressQuote?.key.startsWith("pickup|") && addressQuote.key.endsWith(`|${couponCode ?? ""}`))
+    ? addressQuote
+    : null;
   const quoteLoading = (isPickup || (Boolean(address) && (!zone || Boolean(location)))) && current === null;
   const effectiveQuote = current?.quote ?? (isPickup ? null : quote);
   const pickupSlots = isPickup ? current?.quote?.pickup_slots ?? [] : [];
@@ -2509,8 +2523,8 @@ function CheckoutSheet({
   const chosenSlot = pickupAt && pickupSlots.includes(pickupAt) ? pickupAt : pickupSlots[0] ?? null;
   const codAvailable = !isPickup && current?.quote?.cod_available === true;
   const useCod = codAvailable && payWithCod;
-  const contactName = pickupName || address?.recipient_name || "";
-  const contactPhone = pickupPhone || address?.recipient_phone || "";
+  const contactName = pickupName ?? address?.recipient_name ?? "";
+  const contactPhone = pickupPhone ?? address?.recipient_phone ?? "";
 
   const checkoutQuantityByMenu = new Map<string, number>();
   for (const line of cart) {
@@ -2625,11 +2639,11 @@ function CheckoutSheet({
     >
       <div className="fx-checkout">
         {modes.length > 1 ? (
-          <div className="fx-segment fx-fulfill-switch" role="tablist" aria-label="วิธีรับอาหาร">
-            <button type="button" role="tab" aria-selected={!isPickup} className={!isPickup ? "is-active" : ""} onClick={() => setMode("delivery")}>
+          <div className="fx-segment fx-fulfill-switch" role="radiogroup" aria-label="วิธีรับอาหาร">
+            <button type="button" role="radio" aria-checked={!isPickup} className={!isPickup ? "is-active" : ""} onClick={() => setMode("delivery")}>
               <Bike size={16} /> ร้านจัดส่ง
             </button>
-            <button type="button" role="tab" aria-selected={isPickup} className={isPickup ? "is-active" : ""} onClick={() => setMode("pickup")}>
+            <button type="button" role="radio" aria-checked={isPickup} className={isPickup ? "is-active" : ""} onClick={() => setMode("pickup")}>
               <Store size={16} /> รับเองที่ร้าน
             </button>
           </div>
@@ -3029,7 +3043,7 @@ function OrderDetailSheet({
     const timer = window.setTimeout(() => {
       if (!live) return;
       // The QR is built server-side for this order's own store, so it is safe even when another store is open.
-      if ((orderStore && !orderStore.promptpay_id) || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
+      if ((orderStore && !orderStore.promptpay_id) || order.payment_method === "cod" || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
         setDynamicPaymentQr(null);
         return;
       }
@@ -3041,7 +3055,7 @@ function OrderDetailSheet({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [client, order.id, order.payment_status, order.status, orderStore]);
+  }, [client, order.id, order.payment_method, order.payment_status, order.status, orderStore]);
 
   const selectSlip = (file: File | null) => {
     if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
@@ -3286,7 +3300,7 @@ function OrderDetailSheet({
 
         {order.scheduled_for ? <div className="fx-note fx-note--info"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{formatDate(order.scheduled_for)}</small></span></div> : null}
 
-        {isPickup && !isCancelled && order.status !== "delivered" && order.pickup_code ? (
+        {isPickup && !isCancelled && !awaitingPayment && order.status !== "delivered" && order.pickup_code ? (
           <div className="fx-pickup-code" role="status">
             <small>รหัสรับอาหาร · แจ้งร้านเมื่อมาถึง</small>
             <b>{order.pickup_code}</b>
