@@ -4,7 +4,24 @@ Integration branch: `feat/zoky-fulfill-001`. It is cut from the live production 
 Every session opens PRs **into this branch**, never into `main` or the release branch.
 PRD: `.wyn/docs/product/zoky-fulfill-001-pickup-and-store-delivery.md`. Design: `zoky-fulfill-001-technical-design.md`. Approvals: `.wyn/company/APPROVALS.md` (2026-10-26 entries).
 
-Status: **v1 draft**. Names and shapes may still change after the production definitions dump. Any change is made **in this file first**, in its own commit, and the other session is told about it.
+Status: **v2** (2026-10-26, after the production definitions dump; see §0). Earlier: v1 draft. Names and shapes may still change after the production definitions dump. Any change is made **in this file first**, in its own commit, and the other session is told about it.
+
+## 0. v2 changes (Merchant session: please update)
+
+1. **No new order statuses.** 15 live functions (sales report, finance, GP owed, reviews, admin) treat `delivered` as the completed state. Pickup orders therefore reuse the existing statuses:
+
+   | Pickup step | Stored `status` | UI label |
+   |---|---|---|
+   | ready for the customer to collect | `ready_for_delivery` | "พร้อมให้รับ" |
+   | customer collected the order | `delivered` (+ `picked_up_at`) | "ลูกค้ารับแล้ว" |
+
+   Show pickup labels when `fulfillment_type === 'pickup'`. `ready_for_pickup` and `picked_up` **do not exist** in the DB, so drop them from the status sets.
+2. Store transitions for pickup orders:
+   - `food_transition_order(order, 'ready_for_delivery')` from `preparing`.
+   - **New** `food_complete_pickup(p_order_id uuid, p_note text default null)` from `ready_for_delivery`. Sets `delivered` and `picked_up_at`. Roles: owner, admin, manager, orders. No photo.
+   - `food_transition_order(order, 'out_for_delivery')` is refused for pickup orders, and `food_complete_pickup` is refused for delivery orders.
+3. `payment_method` values are `'transfer'` and `'cod'`, as in v1.
+4. Store prep time: `food_store_set_fulfillment(... p_prep_minutes)` is unchanged and writes the new column `food_stores.pickup_prep_minutes`. (The existing `prep_time_min_minutes` / `prep_time_max_minutes` columns are the ETA range and stay as they are.)
 
 ## 1. Ownership (do not edit the other side's files)
 
@@ -29,13 +46,13 @@ Status: **v1 draft**. Names and shapes may still change after the production def
 food_stores  + pickup_enabled bool (default false)
              + delivery_enabled bool (default true)
              + cod_enabled bool (default false)
-             + prep_minutes int 5..120 (default 15)
+             + pickup_prep_minutes int 5..120 (default 15)
 food_orders  + fulfillment_type 'delivery'|'pickup' (default 'delivery')
              + payment_method  'transfer'|'cod'   (default 'transfer'; legacy Stripe rows keep payment_provider='stripe')
              + pickup_at timestamptz, pickup_code text, picked_up_at timestamptz
              + cancel_requested_at timestamptz, cancel_request_note text
              + refund_slip_path text, refunded_by_store_at timestamptz
-status       + 'ready_for_pickup', 'picked_up'
+status         unchanged (pickup reuses ready_for_delivery / delivered, §0)
 refund_status  values unchanged ('none','pending','refunded','failed')
                transfer orders: 'pending' means the store owes a refund;
                'refunded' is set by the store with a refund slip
@@ -46,7 +63,8 @@ refund_status  values unchanged ('none','pending','refunded','failed')
 | RPC | Purpose | Roles |
 |---|---|---|
 | `food_store_set_fulfillment(p_store_id uuid, p_pickup boolean, p_delivery boolean, p_cod boolean, p_prep_minutes int)` | Store settings. Raises `pickup_requires_schedule` if the store has no weekly schedule, and `at_least_one_mode` if both modes are off. | owner, admin |
-| `food_transition_order(p_order_id, p_status, p_eta_minutes, p_note)` (existing, extended) | Pickup path: `preparing → ready_for_pickup → picked_up`. Accepting a COD order while unpaid is allowed. | existing roles |
+| `food_transition_order(p_order_id, p_status, p_eta_minutes, p_note)` (existing, extended) | Pickup path: `preparing → ready_for_delivery`, then `food_complete_pickup`. Accepting a COD order while unpaid is allowed. | existing roles |
+| `food_complete_pickup(p_order_id uuid, p_note text)` (new) | Customer collected a pickup order: sets `delivered` and `picked_up_at`. | owner, admin, manager, orders |
 | `food_complete_delivery(...)` (existing, extended) | For COD it also records the cash as received. Signature unchanged. | existing |
 | `food_set_payment_status(...)` (existing) | Store confirms or flags a slip. Unchanged. | existing |
 | `food_resolve_cancel_request(p_order_id uuid, p_approve boolean, p_refund boolean, p_note text)` | Answer a customer cancel request. | owner, admin, manager, orders |
