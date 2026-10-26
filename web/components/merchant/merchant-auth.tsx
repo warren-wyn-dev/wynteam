@@ -27,7 +27,7 @@ const EMPTY_DRAFT: MerchantApplicationDraft = {
   note: "",
 };
 
-function MerchantAuthBrand() {
+function MerchantAuthBrand({ preload = false }: { preload?: boolean }) {
   return (
     <div className="wm-auth-brand" role="img" aria-label="ZOKY Merchant">
       <Image
@@ -36,8 +36,8 @@ function MerchantAuthBrand() {
         alt=""
         width={1140}
         height={664}
-        unoptimized
-        loading="eager"
+        sizes="120px"
+        preload={preload}
       />
       <b>Merchant</b>
     </div>
@@ -86,7 +86,7 @@ export function MerchantLoginScreen() {
   }, [client]);
 
   async function submit() {
-    if (loading) return;
+    if (checking || loading) return;
     setMessage("");
     const normalized = email.trim();
     if (!normalized || !password) {
@@ -118,25 +118,22 @@ export function MerchantLoginScreen() {
     }
   }
 
-  if (checking) {
-    return <MerchantAuthShell login><div className="wm-auth-loading"><div className="wm-loader" /><span>กำลังตรวจสอบบัญชี…</span></div></MerchantAuthShell>;
-  }
-
   return (
     <MerchantAuthShell login>
-      <div className="wm-auth-top wm-auth-top--brand-only"><MerchantAuthBrand /></div>
+      <div className="wm-auth-top wm-auth-top--brand-only"><MerchantAuthBrand preload /></div>
       <div className="wm-auth-hero">
         <h1>เข้าสู่ระบบร้านค้าของคุณ</h1>
       </div>
-      <form className="wm-auth-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        <label><span className="wm-login-label">อีเมล</span><input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="อีเมล" /></label>
+      <form className="wm-auth-form" aria-busy={checking || loading} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+        <label><span className="wm-login-label">อีเมล</span><input type="email" autoComplete="email" autoCapitalize="none" disabled={checking} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="อีเมล" /></label>
         <div className="wm-auth-field">
           <label className="wm-login-label" htmlFor="merchant-password">รหัสผ่าน</label>
           <span className="wm-auth-password-field">
-            <input id="merchant-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่าน" />
+            <input id="merchant-password" type={showPassword ? "text" : "password"} autoComplete="current-password" disabled={checking} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่าน" />
             <button
               className="wm-auth-password-toggle"
               type="button"
+              disabled={checking}
               aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
               aria-pressed={showPassword}
               onClick={() => setShowPassword((current) => !current)}
@@ -147,7 +144,7 @@ export function MerchantLoginScreen() {
         </div>
         <div className="wm-auth-inline"><Link href="/forgot-password">ลืมรหัสผ่าน?</Link></div>
         {message ? <p className="wm-auth-error" role="alert">{message}</p> : null}
-        <button className="wm-primary wm-full wm-auth-submit" type="submit" disabled={loading}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
+        <button className="wm-primary wm-full wm-auth-submit" type="submit" disabled={checking || loading}>{checking ? "กำลังตรวจสอบบัญชี…" : loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
       </form>
       <p className="wm-auth-switch"><Link href="/merchant/signup">สมัครเป็นร้านค้า</Link></p>
       <p className="wm-auth-footnote">ใช้บัญชี WYNOS เดิมได้</p>
