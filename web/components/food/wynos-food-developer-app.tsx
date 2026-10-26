@@ -2795,7 +2795,7 @@ const FOOD_TRACK_SHORT: Record<FoodCustomerOrder["status"], string> = {
   ready_for_delivery: "พร้อมส่ง",
   out_for_delivery: "กำลังส่ง",
   delivered: "ส่งสำเร็จ",
-  cancelled: "ยกเลิก",
+  cancelled: "ยกเลิกแล้ว",
 };
 
 const FOOD_TRACK_DETAIL: Record<FoodCustomerOrder["status"], string> = {
