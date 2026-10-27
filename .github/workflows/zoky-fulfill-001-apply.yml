@@ -11,6 +11,12 @@ name: ZOKY fulfil -- apply ZOKY-FULFILL-001 to production DB
 #                 reports whether the feature objects already exist. Counts only.
 #   apply         supabase/migrations/20261026120000_zoky_fulfill_001.sql
 #   apply-admin   supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql
+#   apply-refund-slip   supabase/migrations/20261027090000_zoky_fulfill_001_refund_slip.sql
+#                 (closes the 2026-10-26 risk acceptance: no refund without a slip)
+#   apply-finance-split supabase/migrations/20261027100000_zoky_fulfill_001_finance_split.sql
+#                 (read-only Zoky Admin RPC)
+#   rollback-finance-split / rollback-refund-slip: their rollback files
+#                 (run rollback-refund-slip before rollback)
 #   rollback-admin supabase/rollbacks/20261026130000_zoky_fulfill_001_admin_rollback.sql
 #   rollback      supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql
 #                 (refuses while any pickup/COD/cancel/refund-slip data exists;
@@ -25,10 +31,10 @@ on:
   workflow_dispatch:
     inputs:
       step:
-        description: 'preflight (read-only), apply, apply-admin, rollback-admin, rollback'
+        description: 'preflight (read-only), apply, apply-admin, apply-refund-slip, apply-finance-split, rollback-finance-split, rollback-refund-slip, rollback-admin, rollback'
         required: true
         type: choice
-        options: [preflight, apply, apply-admin, rollback-admin, rollback]
+        options: [preflight, apply, apply-admin, apply-refund-slip, apply-finance-split, rollback-finance-split, rollback-refund-slip, rollback-admin, rollback]
       confirm:
         description: 'Type APPLY-ZOKY-FULFILL-001 to confirm'
         required: true
@@ -42,7 +48,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MIGRATION_SHA: 7dd20c6d9e0315b0c837da352a07cfa395534fb6
+  MIGRATION_SHA: d8370d0638a6bc2ed670b0562b808fe4f85c76ea
 
 jobs:
   apply:
@@ -70,6 +76,10 @@ jobs:
             preflight) FILE= ; SUM= ;;
             apply) FILE=supabase/migrations/20261026120000_zoky_fulfill_001.sql; SUM=0618bee8a21f086c8caea6bf96cd0b834d2d3068af12fa26cbaab049c176a8d2 ;;
             apply-admin) FILE=supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql; SUM=7f4b6310eeeec333264db0dac141ab9ad4e778582a9750ec8d38d1bc253ca5ee ;;
+            apply-refund-slip) FILE=supabase/migrations/20261027090000_zoky_fulfill_001_refund_slip.sql; SUM=e5b2d03d683e8a4fc39868a20cf62b26483f8038b38a2be95f933912b71eabdb ;;
+            apply-finance-split) FILE=supabase/migrations/20261027100000_zoky_fulfill_001_finance_split.sql; SUM=49649ebeb949220e94735746787cdd857032e3ca6c7cb8267f0132ee5c2e0567 ;;
+            rollback-finance-split) FILE=supabase/rollbacks/20261027100000_zoky_fulfill_001_finance_split_rollback.sql; SUM=d0f343d1b4b11c4d54598f601a3b0a301c6b4c213ba477433a5325d5029c2887 ;;
+            rollback-refund-slip) FILE=supabase/rollbacks/20261027090000_zoky_fulfill_001_refund_slip_rollback.sql; SUM=3b73fa297140d2af2615f40521f760d8da6b8dfe83f87b209b3d128c4f8962a3 ;;
             rollback-admin) FILE=supabase/rollbacks/20261026130000_zoky_fulfill_001_admin_rollback.sql; SUM=919be47d9eadee687bf4be5146777e49deebcd9a470b7a59e424bfb116012130 ;;
             rollback) FILE=supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql; SUM=5698c2515c5c3bb4f9208c3b92ee70401caf815853d5913ce532512479a174a2 ;;
             *) echo "::error::unknown step"; exit 1 ;;
@@ -121,7 +131,9 @@ jobs:
                    'food_store_set_fulfillment')) as new_functions,
                 (select count(*) from pg_proc where proname = 'admin_food_orders_v2') as admin_v2,
                 (select count(*) from pg_trigger where tgname in ('food_orders_fulfillment_guard','food_stores_fulfillment_settings_guard')) as guards,
-                (select count(*) from pg_policies where schemaname='storage' and policyname like 'Food refund slip%') as refund_policies;" | jq .
+                (select count(*) from pg_policies where schemaname='storage' and policyname like 'Food refund slip%') as refund_policies,
+                (select count(*) from pg_trigger where tgname = 'food_orders_refund_slip_guard') as refund_slip_guard,
+                (select count(*) from pg_proc where proname = 'admin_food_finance_split') as finance_split;" | jq .
           }
           case "$STEP" in
             preflight)
@@ -140,8 +152,10 @@ jobs:
               else
                 echo "Migration already applied once; re-running (idempotent)."
               fi ;;
-            apply-admin)
+            apply-admin|apply-refund-slip|apply-finance-split)
               [ "$(applied)" = "true" ] || { echo "::error::run apply first"; exit 1; } ;;
+            rollback)
+              [ "$(state | jq -r '.[0].refund_slip_guard')" = "0" ] || { echo "::error::run rollback-refund-slip first"; exit 1; } ;;
           esac
           run_sql "begin;
           $(cat "$FILE")
@@ -164,5 +178,9 @@ jobs:
               [ "$(state | jq -r '.[0].new_functions')" = "9" ] || { echo "::error::new functions missing"; exit 1; } ;;
             apply-admin)
               [ "$(state | jq -r '.[0].admin_v2')" = "1" ] || { echo "::error::admin_food_orders_v2 missing"; exit 1; } ;;
+            apply-refund-slip)
+              [ "$(state | jq -r '.[0].refund_slip_guard')" = "1" ] || { echo "::error::refund slip guard missing"; exit 1; } ;;
+            apply-finance-split)
+              [ "$(state | jq -r '.[0].finance_split')" = "1" ] || { echo "::error::admin_food_finance_split missing"; exit 1; } ;;
           esac
           echo "$STEP finished."
