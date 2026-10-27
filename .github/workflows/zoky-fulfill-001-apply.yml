@@ -160,7 +160,8 @@ jobs:
                 jq . smoke.json
                 jq -e '.[0].stores_changed == 0 and .[0].orders_changed == 0' smoke.json >/dev/null || { echo "::error::existing stores/orders did not keep delivery + transfer"; exit 1; }
               fi
-              [ "$(state | jq -r '.[0].new_functions')" = "8" ] || { echo "::error::new functions missing"; exit 1; } ;;
+              # 9 = eight public RPCs plus internal.food_pickup_slots (same name).
+              [ "$(state | jq -r '.[0].new_functions')" = "9" ] || { echo "::error::new functions missing"; exit 1; } ;;
             apply-admin)
               [ "$(state | jq -r '.[0].admin_v2')" = "1" ] || { echo "::error::admin_food_orders_v2 missing"; exit 1; } ;;
           esac
