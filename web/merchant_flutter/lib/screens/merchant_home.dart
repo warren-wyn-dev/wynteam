@@ -1421,13 +1421,19 @@ class _MerchantHomeState extends State<MerchantHome>
 
   List<Widget> financePage() => [
     heading('การเงินของร้าน', 'ยอดขาย คืนเงิน และรายได้ของร้าน'),
-    box(
-      FinancePanel(
-        key: ValueKey(c.storeId),
-        repository: widget.repository,
-        storeId: c.storeId!,
-      ),
-    ),
+    // Re-checked on every refresh: losing the role removes the panel and
+    // the figures it holds.
+    if (c.canManage)
+      box(
+        FinancePanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+        ),
+      )
+    else
+      box(const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่ดูการเงินได้')),
   ];
 
   List<Widget> promotionsPage() => [

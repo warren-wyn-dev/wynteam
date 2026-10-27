@@ -83,4 +83,29 @@ void main() {
     await tester.pump();
     expect(repo.requests, ['today', 'today']);
   });
+
+  testWidgets('a page refresh reloads the figures without blanking them', (
+    tester,
+  ) async {
+    final repo = FinanceRepository();
+    Widget build(DateTime at) => MaterialApp(
+      home: Scaffold(
+        body: FinancePanel(
+          repository: repo,
+          storeId: 'store-1',
+          refreshedAt: at,
+        ),
+      ),
+    );
+    await tester.pumpWidget(build(DateTime(2026, 10, 27, 10)));
+    repo.pending['today']!.complete({'sales_net': 100, 'days': []});
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(build(DateTime(2026, 10, 27, 10, 0, 20)));
+    await tester.pump();
+    expect(repo.requests, ['today', 'today']);
+    expect(find.text('฿100.00'), findsOneWidget);
+    repo.pending['today']!.complete({'sales_net': 250, 'days': []});
+    await tester.pumpAndSettle();
+    expect(find.text('฿250.00'), findsOneWidget);
+  });
 }

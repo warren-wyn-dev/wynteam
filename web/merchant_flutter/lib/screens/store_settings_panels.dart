@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../data/merchant_repository.dart';
 
@@ -84,8 +85,10 @@ class _PaymentChannelsPanelState extends State<PaymentChannelsPanel> {
   @override
   void didUpdateWidget(covariant PaymentChannelsPanel old) {
     super.didUpdateWidget(old);
+    // Refreshes after other saves (QR, hours, open state) keep this draft;
+    // only a new store or a change to these saved fields replaces it.
     if (old.store['id'] != widget.store['id'] ||
-        old.store['updated_at'] != widget.store['updated_at']) {
+        _fields.any((key) => old.store[key] != widget.store[key])) {
       readStore();
     }
   }
@@ -253,8 +256,12 @@ class _BusinessHoursPanelState extends State<BusinessHoursPanel> {
   @override
   void didUpdateWidget(covariant BusinessHoursPanel old) {
     super.didUpdateWidget(old);
+    // Same rule as the payment panel: other saves never discard this draft.
     if (old.store['id'] != widget.store['id'] ||
-        old.store['updated_at'] != widget.store['updated_at']) {
+        jsonEncode(old.store['business_schedule']) !=
+            jsonEncode(widget.store['business_schedule']) ||
+        jsonEncode(old.store['special_closed_dates']) !=
+            jsonEncode(widget.store['special_closed_dates'])) {
       readStore();
     }
   }

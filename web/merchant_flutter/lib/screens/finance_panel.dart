@@ -19,9 +19,13 @@ class FinancePanel extends StatefulWidget {
     super.key,
     required this.repository,
     required this.storeId,
+    this.refreshedAt,
   });
   final MerchantRepository repository;
   final String storeId;
+
+  /// The page's last refresh (pull, realtime or timer); a new value reloads.
+  final DateTime? refreshedAt;
   @override
   State<FinancePanel> createState() => _FinancePanelState();
 }
@@ -42,16 +46,21 @@ class _FinancePanelState extends State<FinancePanel> {
   @override
   void didUpdateWidget(covariant FinancePanel old) {
     super.didUpdateWidget(old);
-    if (old.storeId != widget.storeId) unawaited(load());
+    if (old.storeId != widget.storeId ||
+        old.refreshedAt != widget.refreshedAt) {
+      unawaited(load(quiet: old.storeId == widget.storeId));
+    }
   }
 
-  Future<void> load() async {
+  /// [quiet]: a background refresh keeps the current figures until the new
+  /// ones arrive; a new period or store clears them first.
+  Future<void> load({bool quiet = false}) async {
     // A slower answer for an older period or store never replaces a newer one.
     final g = ++_generation;
     setState(() {
       loading = true;
       error = null;
-      data = null;
+      if (!quiet) data = null;
     });
     try {
       final result = await widget.repository.finance(widget.storeId, period);
@@ -59,7 +68,10 @@ class _FinancePanelState extends State<FinancePanel> {
       setState(() => data = result);
     } catch (e) {
       if (!mounted || g != _generation) return;
-      setState(() => error = errorMessage(e));
+      setState(() {
+        data = null;
+        error = errorMessage(e);
+      });
     } finally {
       if (mounted && g == _generation) setState(() => loading = false);
     }
