@@ -1529,9 +1529,7 @@ class _MerchantHomeState extends State<MerchantHome>
                     ? const Color(0xFFE9F7EF)
                     : brandSoft,
                 labelStyle: TextStyle(
-                  color: status == 'delivered'
-                      ? success
-                      : brand,
+                  color: status == 'delivered' ? success : brand,
                   fontWeight: FontWeight.w600,
                 ),
                 side: BorderSide.none,
@@ -1722,8 +1720,7 @@ class _MerchantHomeState extends State<MerchantHome>
               onPressed: () => showEvidence(o, 'proof'),
               child: const Text('ดูหลักฐานส่งสำเร็จ'),
             ),
-          if (!['delivered', 'cancelled'].contains(status) &&
-              c.canOrders)
+          if (!['delivered', 'cancelled'].contains(status) && c.canOrders)
             TextButton(
               onPressed: c.writable ? () => cancelOrder(o) : null,
               child: const Text(
@@ -2122,13 +2119,11 @@ class _MerchantHomeState extends State<MerchantHome>
         PaymentChannelsPanel(
           store: c.store!,
           enabled: c.writable,
-          save: (values) => c.mutate(
-            () => widget.repository.saveStore(c.storeId!, values),
-          ),
+          save: (values) =>
+              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
           // A cancelled picker uploads nothing and changes nothing.
-          pickQr: () => c.mutate(
-            () => widget.repository.pickPaymentQr(c.storeId!),
-          ),
+          pickQr: () =>
+              c.mutate(() => widget.repository.pickPaymentQr(c.storeId!)),
           error: () => c.error,
         ),
       ),
@@ -2136,9 +2131,8 @@ class _MerchantHomeState extends State<MerchantHome>
         BusinessHoursPanel(
           store: c.store!,
           enabled: c.writable,
-          save: (values) => c.mutate(
-            () => widget.repository.saveStore(c.storeId!, values),
-          ),
+          save: (values) =>
+              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
           error: () => c.error,
         ),
       ),

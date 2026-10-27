@@ -154,7 +154,14 @@ void main() {
     await tester.tap(find.byTooltip('ลบวันหยุด 2026-11-01'));
     await tester.pump();
     expect(find.text('2026-11-01'), findsNothing);
-    for (final day in ['จันทร์', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์']) {
+    for (final day in [
+      'จันทร์',
+      'พุธ',
+      'พฤหัสบดี',
+      'ศุกร์',
+      'เสาร์',
+      'อาทิตย์',
+    ]) {
       final toggle = find.widgetWithText(SwitchListTile, day);
       await tester.ensureVisible(toggle);
       await tester.tap(toggle);
@@ -165,5 +172,61 @@ void main() {
     await tester.pump();
     expect(submitted, isNull);
     expect(find.text('ต้องเปิดร้านอย่างน้อย 1 วันต่อสัปดาห์'), findsOneWidget);
+  });
+
+  testWidgets('a refresh from another save keeps unsaved drafts', (
+    tester,
+  ) async {
+    Widget build(Json store) => host(
+      Column(
+        children: [
+          PaymentChannelsPanel(
+            store: store,
+            enabled: true,
+            save: (_) async => true,
+            pickQr: () async => true,
+            error: () => null,
+          ),
+          BusinessHoursPanel(
+            store: store,
+            enabled: true,
+            save: (_) async => true,
+            error: () => null,
+          ),
+        ],
+      ),
+    );
+    final before = {
+      'id': 'store-1',
+      'promptpay_id': '0812345678',
+      'updated_at': '1',
+      'special_closed_dates': ['2026-12-31'],
+    };
+    await tester.pumpWidget(build(before));
+    await tester.enterText(
+      find.widgetWithText(TextField, 'เบอร์หรือเลข PromptPay'),
+      '0899999999',
+    );
+    await tester.ensureVisible(find.byTooltip('ลบวันหยุด 2026-12-31'));
+    await tester.tap(find.byTooltip('ลบวันหยุด 2026-12-31'));
+    await tester.pump();
+    expect(find.text('2026-12-31'), findsNothing);
+    // QR saved elsewhere: updated_at and the QR change, the draft fields do not.
+    await tester.pumpWidget(
+      build({
+        ...before,
+        'updated_at': '2',
+        'payment_qr_path': 'stores/store-1/payment/qr.png',
+      }),
+    );
+    await tester.pump();
+    expect(find.text('0899999999'), findsOneWidget);
+    expect(find.text('2026-12-31'), findsNothing);
+    // A change to the saved number itself replaces the draft.
+    await tester.pumpWidget(
+      build({...before, 'updated_at': '3', 'promptpay_id': '0811111111'}),
+    );
+    await tester.pump();
+    expect(find.text('0811111111'), findsOneWidget);
   });
 }
