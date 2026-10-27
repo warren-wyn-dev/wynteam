@@ -333,8 +333,9 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         const orderId = id(args.orderId), status = text(args.status, 30, true);
         if (!["preparing", "ready_for_delivery", "out_for_delivery", "cancelled"].includes(status)) throw new BridgeInputError();
         if (args.etaMinutes != null && (!Number.isInteger(args.etaMinutes) || Number(args.etaMinutes) < 1 || Number(args.etaMinutes) > 240)) throw new BridgeInputError();
-        await ownedOrder(storeId, orderId);
+        const order = await ownedOrder(storeId, orderId);
         await ensureSession();
+        if (status === "out_for_delivery" && order.fulfillment_type === "pickup") throw new BridgeInputError();
         await transitionFoodOrder(client, orderId, status as FoodOrder["status"], args.etaMinutes == null ? undefined : Number(args.etaMinutes), text(args.note, 1000)); return null;
       }
       case "payment": {

@@ -46,3 +46,25 @@ At publication, customer PR #1267 still has browser/security CI in progress.
 PR #1271 requires its own CI/review. Its Vercel preview reports the platform
 build-rate limit, with a retry after 24 hours. No quota upgrade, environment
 protection change, production migration or alias promotion was attempted.
+
+## Production verification — 2026-10-27
+
+The main session independently completed the core release:
+- Database apply run 40425964181: success.
+- Web stage/promotion/smoke run 40426156363: success.
+- ZOKY Admin deployment run 40427591459: success.
+- Customer and Merchant resolve to production deployment
+  `dpl_DKwg2LtAKGmVbEAn9vK4cshXzrZH`, source `9cd2dc4f`.
+- Admin resolves to production `dpl_VJvAsnYNMPJDaJX6XmsdPyFrBRBB`,
+  source `32cda86a`.
+- Public customer home, Merchant login/Flutter entry and Admin login returned 200.
+
+The earlier CI/quota notes above describe the previous publication snapshot;
+they do not mean that the core production release is still blocked. No live
+customer order or payment was submitted during this verification.
+
+PR #1271 remains a follow-up, not the deployed release: it adds the direct
+merchant cancellation decision RPC and fixes prep settings. Integration changes
+through `9cd2dc4f` are now reconciled, retaining the pickup delivery guard and
+current CI. Merchant regression tests: 84 passed; TypeScript passed after merge.
+The supplemental migration has not been applied to production.
