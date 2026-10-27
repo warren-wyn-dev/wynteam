@@ -7,6 +7,7 @@ import '../data/merchant_repository.dart';
 import '../widgets/merchant_tool_icon.dart';
 import 'order_dialogs.dart';
 import 'fulfillment_panels.dart';
+import 'store_settings_panels.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -2116,6 +2117,32 @@ class _MerchantHomeState extends State<MerchantHome>
         error: () => c.error,
       ),
     ),
+    if (c.canManage) ...[
+      box(
+        PaymentChannelsPanel(
+          store: c.store!,
+          enabled: c.writable,
+          save: (values) => c.mutate(
+            () => widget.repository.saveStore(c.storeId!, values),
+          ),
+          // A cancelled picker uploads nothing and changes nothing.
+          pickQr: () => c.mutate(
+            () => widget.repository.pickPaymentQr(c.storeId!),
+          ),
+          error: () => c.error,
+        ),
+      ),
+      box(
+        BusinessHoursPanel(
+          store: c.store!,
+          enabled: c.writable,
+          save: (values) => c.mutate(
+            () => widget.repository.saveStore(c.storeId!, values),
+          ),
+          error: () => c.error,
+        ),
+      ),
+    ],
     box(
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2176,7 +2203,7 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           const SizedBox(height: 8),
           const Text(
-            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nการเงิน คืนเงิน ทีมงาน ตั้งเวลา และตั้งค่ารับเงิน ใช้บริการเดิมของ Food',
+            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nการเงิน ทีมงาน โฆษณา และแคมเปญ ยังเปิดในหน้าร้านเดิม',
           ),
           FilledButton.icon(
             onPressed: pushBusy ? null : enablePush,

@@ -3,10 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl, foodPublicUrl,
   setFoodPaymentStatus, subscribeMerchantOrders, transitionFoodOrder, updateFoodStore,
-  uploadFoodPrivateImage, type FoodMenuItem, type FoodOrder, type FoodStore,
+  uploadFoodPrivateImage, uploadFoodPublicImage, type FoodMenuItem, type FoodOrder, type FoodStore,
 } from "@/lib/food-merchant";
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
-import { foodStoreIsEffectivelyOpen, foodStoreStatusText } from "@/lib/food-store-availability";
+import { FOOD_DAY_KEYS, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { fetchMerchantStoreReviews } from "@/lib/merchant-core";
 import { fetchMerchantCampaigns, saveMerchantCampaign, setMerchantCampaignActive } from "@/lib/merchant-campaigns";
 import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
@@ -44,6 +44,47 @@ function amount(value: unknown, max: number): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0 || n > max) throw new BridgeInputError();
   return n;
+}
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** Optional text column: blank clears it (null), like the legacy store form. */
+function optionalText(value: unknown, max: number): string | null {
+  return text(value, max) || null;
+}
+/** Digits only after removing spaces and dashes; blank clears the column. */
+function digits(value: unknown, min: number, max: number): string | null {
+  const raw = text(value, 40).replace(/[\s-]/g, "");
+  if (!raw) return null;
+  if (!/^\d+$/.test(raw) || raw.length < min || raw.length > max) throw new BridgeInputError();
+  return raw;
+}
+function schedule(value: unknown): FoodBusinessSchedule {
+  const weekly = object(object(value).weekly);
+  if (Object.keys(weekly).length !== FOOD_DAY_KEYS.length) throw new BridgeInputError();
+  return {
+    weekly: Object.fromEntries(FOOD_DAY_KEYS.map((key) => {
+      const day = object(weekly[key]);
+      if (typeof day.open !== "string" || typeof day.close !== "string" || !TIME.test(day.open) || !TIME.test(day.close)) throw new BridgeInputError();
+      return [key, { enabled: bool(day.enabled), open: day.open, close: day.close }];
+    })),
+  };
+}
+function closedDates(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > 60) throw new BridgeInputError();
+  const dates = value.map((date) => {
+    if (typeof date !== "string" || !DATE.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) throw new BridgeInputError();
+    return date;
+  });
+  return [...new Set(dates)].sort();
+}
+/** Read-back check; jsonb columns come back with their keys reordered. */
+function sameValue(actual: unknown, expected: unknown): boolean {
+  if (actual === expected) return true;
+  if (!actual || !expected || typeof actual !== "object" || typeof expected !== "object") return false;
+  if (Array.isArray(actual) !== Array.isArray(expected)) return false;
+  const a = actual as Args, e = expected as Args;
+  const keys = Object.keys(e);
+  return keys.length === Object.keys(a).length && keys.every((key) => sameValue(a[key], e[key]));
 }
 function safeError(error: unknown): string {
   if (error instanceof FulfillmentError) return error.message;
@@ -122,7 +163,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     const data = object(row);
     for (const [key, expected] of Object.entries(patch)) {
       const actual = key === "price" ? Number(data[key]) : data[key];
-      if (actual !== expected) throw new Error("write_not_applied");
+      if (!sameValue(actual, expected)) throw new Error("write_not_applied");
     }
   };
   const ownedOrder = async (storeId: string, orderId: string): Promise<FoodOrder> => {
@@ -167,6 +208,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         return {
           ...store,
           image_url: foodPublicUrl(client, store.logo_path),
+          payment_qr_url: foodPublicUrl(client, store.payment_qr_path),
           effective_open: !suspended && !unpublished && foodStoreIsEffectivelyOpen(store, at),
           status_text: suspended ? "ร้านถูกระงับ กรุณาติดต่อทีม WYNOS"
             : unpublished ? "ร้านยังไม่เผยแพร่" : foodStoreStatusText(store, at),
@@ -308,14 +350,45 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (values.phone !== undefined) patch.phone = text(values.phone, 50, true);
         if (values.address !== undefined) patch.address = text(values.address, 800, true);
         if (values.is_open !== undefined) patch.is_open = bool(values.is_open);
+        // Payment channels (customers pay the store directly) and opening hours.
+        if (values.promptpay_name !== undefined) patch.promptpay_name = optionalText(values.promptpay_name, 160);
+        if (values.promptpay_id !== undefined) {
+          // Same rule as food_stores_promptpay_id_format_check: phone (0…), citizen ID or e-wallet.
+          const promptpay = digits(values.promptpay_id, 10, 15);
+          if (promptpay && (![10, 13, 15].includes(promptpay.length) || (promptpay.length === 10 && !promptpay.startsWith("0")))) throw new BridgeInputError();
+          patch.promptpay_id = promptpay;
+        }
+        if (values.bank_name !== undefined) patch.bank_name = optionalText(values.bank_name, 120);
+        if (values.bank_account_name !== undefined) patch.bank_account_name = optionalText(values.bank_account_name, 160);
+        if (values.bank_account_number !== undefined) patch.bank_account_number = digits(values.bank_account_number, 10, 15);
+        if (values.payment_qr_path !== undefined) {
+          if (values.payment_qr_path !== null) throw new BridgeInputError(); // set only by pickPaymentQr
+          patch.payment_qr_path = null;
+        }
+        if (values.business_schedule !== undefined) patch.business_schedule = schedule(values.business_schedule);
+        if (values.special_closed_dates !== undefined) patch.special_closed_dates = closedDates(values.special_closed_dates);
         if (!Object.keys(patch).length) throw new BridgeInputError();
         await requireManageRole(storeId);
         await updateFoodStore(client, storeId, patch);
-        const { data, error } = await client.from("food_stores").select("id,name,phone,address,is_open").eq("id", storeId).single();
+        const { data, error } = await client.from("food_stores").select(`id,${Object.keys(patch).join(",")}`).eq("id", storeId).single();
         if (error) throw error;
         if (!data) throw new Error("write_not_applied");
         verifyPatch(data, patch);
         return null;
+      }
+      case "pickPaymentQr": {
+        await requireManageRole(storeId);
+        const file = await picked;
+        if (!file) return null;
+        await validateImage(file); await ensureSession();
+        const path = await uploadFoodPublicImage(client, file, `stores/${storeId}/payment`);
+        await ensureSession();
+        await updateFoodStore(client, storeId, { payment_qr_path: path });
+        const { data, error } = await client.from("food_stores").select("id,payment_qr_path").eq("id", storeId).single();
+        if (error) throw error;
+        if (!data) throw new Error("write_not_applied");
+        verifyPatch(data, { payment_qr_path: path });
+        return { path, url: foodPublicUrl(client, path) };
       }
       case "transition": {
         const orderId = id(args.orderId), status = text(args.status, 30, true);
@@ -423,8 +496,9 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (disposed) throw new BridgeAccessError();
         const args = object(JSON.parse(payloadJson));
         // OS picker opens synchronously during the user's tap, before network awaits.
-        if (method === "pickDeliveryPhoto" || method === "pickRefundSlip") { id(args.storeId); id(args.orderId); }
-        const picked = (method === "pickDeliveryPhoto" || method === "pickRefundSlip") ? pickImage() : null;
+        const picker = method === "pickDeliveryPhoto" || method === "pickRefundSlip" || method === "pickPaymentQr";
+        if (picker) { id(args.storeId); if (method !== "pickPaymentQr") id(args.orderId); }
+        const picked = picker ? pickImage() : null;
         const permissionRequest = method === "pushEnable" ? requestPushPermissionFromGesture() : undefined;
         // Session validation may reject before the captured prompt settles.
         void permissionRequest?.catch(() => undefined);

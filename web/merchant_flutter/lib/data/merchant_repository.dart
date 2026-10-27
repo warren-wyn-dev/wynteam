@@ -90,6 +90,7 @@ abstract class MerchantRepository {
     'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
   );
   Future<Json?> pickRefundSlip(String storeId, String orderId) async => null;
+  Future<Json?> pickPaymentQr(String storeId) async => null;
   Future<void> markRefunded(
     String storeId,
     String orderId,
@@ -191,6 +192,12 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<void> saveStore(String storeId, Json values) async {
     await call('saveStore', {'storeId': storeId, 'values': values});
+  }
+
+  @override
+  Future<Json?> pickPaymentQr(String storeId) async {
+    final data = await call('pickPaymentQr', {'storeId': storeId});
+    return data == null ? null : object(data);
   }
 
   @override

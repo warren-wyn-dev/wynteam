@@ -68,6 +68,7 @@ function harness() {
     foodPublicUrl:(_client,path)=>{calls.push({name:'foodPublicUrl',path});return path?'https://public.invalid/'+path:null;},
     foodPrivateSignedUrl:async(...args)=>{calls.push({name:'foodPrivateSignedUrl',args});return args[1]?'https://signed.invalid/private-image':null;},
     uploadFoodPrivateImage:async(...args)=>{calls.push({name:'uploadFoodPrivateImage',args});return `${args[2]}/photo.jpg`;},
+    uploadFoodPublicImage:async(...args)=>{calls.push({name:'uploadFoodPublicImage',args});return `${args[2]}/qr.png`;},
     subscribeMerchantOrders:(_client,_store,callback)=>{state.orderEvent=callback;return {};},
     fetchMerchantSalesReport:async()=>({today_sales:200}),
   };
@@ -360,4 +361,61 @@ test('Stripe refunds and denied roles cannot upload a store refund slip',async()
     assert.equal((await h.request('pickRefundSlip',{storeId:STORE,orderId:ORDER})).ok,false);
     assert.equal(h.calls.some(c=>c.name==='uploadFoodPrivateImage'),false);
   }
+});
+
+const PNG=()=>({size:100,type:'image/png',slice:()=>({arrayBuffer:async()=>new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,0,0,0,0,0]).buffer})});
+const WEEK=(open='09:00')=>({weekly:Object.fromEntries(['mon','tue','wed','thu','fri','sat','sun'].map(d=>[d,{enabled:d!=='sun',open,close:'21:00'}]))});
+test('payment channels and opening hours are validated, saved and read back',async()=>{
+  const h=harness();
+  const ok=await h.request('saveStore',{storeId:STORE,values:{promptpay_name:' ร้านเรา ',promptpay_id:'081-234-5678',bank_name:'กสิกร',bank_account_name:'ร้านเรา',bank_account_number:'123-4-56789-0',business_schedule:WEEK(),special_closed_dates:['2026-12-31','2026-11-01','2026-12-31']}});
+  assert.equal(ok.ok,true,ok.error);
+  const patch=h.calls.find(c=>c.name==='updateFoodStore').args[2];
+  assert.equal(patch.promptpay_id,'0812345678');assert.equal(patch.bank_account_number,'1234567890');assert.equal(patch.promptpay_name,'ร้านเรา');
+  assert.equal(JSON.stringify(patch.special_closed_dates),JSON.stringify(['2026-11-01','2026-12-31']));
+  assert.equal(patch.business_schedule.weekly.sun.enabled,false);
+  // Blank clears a channel, like the legacy form.
+  assert.equal((await h.request('saveStore',{storeId:STORE,values:{promptpay_id:'',promptpay_name:''}})).ok,true);
+  assert.equal(h.state.store.promptpay_id,null);
+});
+test('bad payment details and schedules are refused before any write',async()=>{
+  for(const values of [
+    {promptpay_id:'1812345678'},{promptpay_id:'08123'},{promptpay_id:'08x2345678'},{promptpay_id:'08123456789012'},
+    {bank_account_number:'12345'},{bank_account_number:'12345abcde'},
+    {payment_qr_path:'stores/other/payment/x.png'},
+    {business_schedule:{weekly:{mon:{enabled:true,open:'09:00',close:'21:00'}}}},
+    {business_schedule:{weekly:{...WEEK().weekly,mon:{enabled:true,open:'25:00',close:'21:00'}}}},
+    {business_schedule:{weekly:{...WEEK().weekly,mon:{enabled:'yes',open:'09:00',close:'21:00'}}}},
+    {special_closed_dates:['31/12/2026']},{special_closed_dates:'2026-12-31'},
+  ]){
+    const h=harness();
+    assert.equal((await h.request('saveStore',{storeId:STORE,values})).ok,false,JSON.stringify(values));
+    assert.equal(h.calls.some(c=>c.name==='updateFoodStore'),false,JSON.stringify(values));
+  }
+});
+test('payment and hours changes need the manage role and a read-back match',async()=>{
+  const h=harness();h.state.manage=false;
+  assert.equal((await h.request('saveStore',{storeId:STORE,values:{business_schedule:WEEK()}})).ok,false);
+  assert.equal(h.calls.some(c=>c.name==='updateFoodStore'),false);
+  const n=harness();n.state.noOp=true;
+  assert.equal((await n.request('saveStore',{storeId:STORE,values:{business_schedule:WEEK('10:00')}})).ok,false);
+});
+test('payment QR upload is store-scoped, validated and verified',async()=>{
+  const h=harness();h.setFile(PNG());
+  const result=await h.request('pickPaymentQr',{storeId:STORE});
+  assert.equal(result.ok,true,result.error);
+  assert.equal(result.data.path,`stores/${STORE}/payment/qr.png`);
+  assert.equal(h.state.store.payment_qr_path,`stores/${STORE}/payment/qr.png`);
+  const bad=harness();bad.setFile({size:100,type:'image/png',slice:()=>({arrayBuffer:async()=>new Uint8Array(16).buffer})});
+  assert.equal((await bad.request('pickPaymentQr',{storeId:STORE})).ok,false);
+  assert.equal(bad.calls.some(c=>c.name==='uploadFoodPublicImage'),false);
+  const staff=harness();staff.state.manage=false;staff.setFile(PNG());
+  assert.equal((await staff.request('pickPaymentQr',{storeId:STORE})).ok,false);
+  assert.equal(staff.calls.some(c=>c.name==='uploadFoodPublicImage'),false);
+  const other=harness();other.setFile(PNG());
+  assert.equal((await other.request('pickPaymentQr',{storeId:OTHER})).ok,false);
+  const cancel=harness();cancel.setFile(null);
+  assert.deepEqual(await cancel.request('pickPaymentQr',{storeId:STORE}),{ok:true,data:null});
+  // Removing the QR is the only direct payment_qr_path write.
+  assert.equal((await h.request('saveStore',{storeId:STORE,values:{payment_qr_path:null}})).ok,true);
+  assert.equal(h.state.store.payment_qr_path,null);
 });

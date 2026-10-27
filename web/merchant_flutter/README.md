@@ -23,11 +23,12 @@ npm run dev
 
 Open `/merchant/flutter` and use the existing WYNOS login. Do not serve the Flutter index as a standalone app: its JavaScript bridge is installed by the authenticated Next.js host. Build output goes to the ignored `public/merchant-flutter/` directory. The bootstrap does not register or replace a service worker.
 
-`ZOKY_MERCHANT_FLUTTER_ENABLED=1` enables the Merchant-origin root entry only on a reviewed deployment. The default preserves the legacy Merchant route. Food, Social and other origins remain unchanged. Advanced finance, payment-provider setup, staff and operating-hours tools remain available through `/merchant` using the same account and backend.
+`ZOKY_MERCHANT_FLUTTER_ENABLED=1` enables the Merchant-origin root entry only on a reviewed deployment. The default preserves the legacy Merchant route. Food, Social and other origins remain unchanged. Finance, staff, ads and campaigns remain available through `/merchant?legacy=1` using the same account and backend.
 
 ## Operations covered in Flutter
 
 - Store selection, menu editing/availability, store information/open state.
+- Payment channels (PromptPay, bank account, store QR upload/removal) and weekly opening hours with special closed days, for owner/admin/manager. The bridge rechecks the PromptPay format of `food_stores_promptpay_id_format_check`, 10–15 digit bank accounts, a complete 7-day schedule with HH:MM times and up to 60 closed dates, then reads the row back.
 - Status-filtered order pagination, server sales reports and store promotions.
 - Manual slip review with private signed image and image-render gate before marking paid. Pending manual payments without a slip require explicit receipt confirmation. Stripe payments remain server verified.
 - Accepted → preparing (with selected ETA) → ready → dispatch, cancellation with reason and paid-order refund-pending warning.
