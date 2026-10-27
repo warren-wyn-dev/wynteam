@@ -123,6 +123,8 @@ function safeError(error: unknown): string {
   if (message.includes("WYNOS user not found")) return "ไม่พบบัญชีนี้ กรุณาตรวจ @username อีกครั้ง";
   if (message.includes("owner role cannot be changed")) return "เปลี่ยนสิทธิ์เจ้าของร้านไม่ได้";
   if (message.includes("staff member not found")) return "ไม่พบทีมงานคนนี้ กรุณารีเฟรช";
+  if (message.includes("billing owner/admin access required")) return "เฉพาะเจ้าของร้านและแอดมินร้านที่จัดการค่าบริการได้";
+  if (message.includes("invoice is not waiting for payment")) return "ใบแจ้งหนี้นี้ไม่ได้รอชำระแล้ว กรุณารีเฟรช";
   if (message.includes("own staff access")) return "เปลี่ยนสิทธิ์ของตัวเองไม่ได้ ให้เจ้าของร้านหรือแอดมินคนอื่นเปลี่ยนให้";
   return "เชื่อมต่อหรือบันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง";
 }
@@ -361,6 +363,27 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         await requireStaffAdmin(storeId);
         await updateMerchantStaff(client, storeId, member, role as "admin", active); return null;
       }
+      case "billing": {
+        // ZOKY-BILLING-001: owner/admin only, same gate as merchant_billing.
+        await requireStaffAdmin(storeId);
+        const { data, error } = await client.rpc("merchant_billing", { p_store_id: storeId });
+        if (error) throw error;
+        return data;
+      }
+      case "pickBillingSlip": {
+        // The store transfers to ZOKY, then attaches the slip for one invoice.
+        const invoiceId = id(args.invoiceId);
+        await requireStaffAdmin(storeId);
+        const file = await picked;
+        if (!file) return null;
+        await validateImage(file); await ensureSession();
+        // The storage policy and the RPC both check the invoice belongs to this store.
+        const path = await uploadFoodPrivateImage(client, file, `billing/${storeId}/${invoiceId}`);
+        await ensureSession();
+        const { error } = await client.rpc("merchant_submit_billing_slip", { p_invoice_id: invoiceId, p_slip_path: path });
+        if (error) throw error;
+        return { submitted: true };
+      }
       case "ads": {
         await requireManageRole(storeId);
         return friendly(() => fetchMerchantAdAccount(client, storeId), merchantAdError);
@@ -594,8 +617,9 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (disposed) throw new BridgeAccessError();
         const args = object(JSON.parse(payloadJson));
         // OS picker opens synchronously during the user's tap, before network awaits.
-        const picker = method === "pickDeliveryPhoto" || method === "pickRefundSlip" || method === "pickPaymentQr" || method === "pickAdSlip";
+        const picker = method === "pickDeliveryPhoto" || method === "pickRefundSlip" || method === "pickPaymentQr" || method === "pickAdSlip" || method === "pickBillingSlip";
         if (picker) { id(args.storeId); if (method === "pickDeliveryPhoto" || method === "pickRefundSlip") id(args.orderId); }
+        if (method === "pickBillingSlip") id(args.invoiceId);
         if (method === "pickAdSlip") topupAmount(args.amount);
         const picked = picker ? pickImage() : null;
         const permissionRequest = method === "pushEnable" ? requestPushPermissionFromGesture() : undefined;
