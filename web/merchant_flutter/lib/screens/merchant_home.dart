@@ -1415,6 +1415,7 @@ class _MerchantHomeState extends State<MerchantHome>
         key: ValueKey(c.storeId),
         repository: widget.repository,
         storeId: c.storeId!,
+        refreshedAt: c.updatedAt,
       ),
     ),
   ];

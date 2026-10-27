@@ -46,6 +46,7 @@ function harness() {
         if(state.injectRead)await state.injectRead(table,filters);
         if(table==='merchant_memberships')return {data:state.memberships,error:null};
         if(table==='food_staff')return {data:state.staff,error:null};
+        if(table==='profiles')return {data:filters.id===state.user?{username:state.myUsername??'me_admin'}:null,error:null};
         if(table==='food_stores'){
           if(typeof filters.id==='string')return {data:state.store,error:null};
           if(!Array.isArray(filters.id)&&!Array.isArray(filters.merchant_account_id))throw new Error('unfiltered public catalog query');
@@ -462,6 +463,7 @@ test('adding and changing staff is owner/admin only, never the owner role or you
     ['addStaff',{username:'cook',role:'owner'}],['addStaff',{username:'a b',role:'orders'}],['addStaff',{username:'x',role:'orders'}],
     ['updateStaff',{userId:MEMBER,role:'owner',active:true}],['updateStaff',{userId:'merchant-a',role:'orders',active:true}],
     ['updateStaff',{userId:MEMBER,role:'orders',active:'yes'}],
+    ['addStaff',{username:'@Me_Admin',role:'orders'}],['addStaff',{username:'me_admin',role:'admin'}],
   ]){
     const bad=harness();
     assert.equal((await bad.request(method,{storeId:STORE,...args})).ok,false,JSON.stringify(args));
@@ -470,4 +472,13 @@ test('adding and changing staff is owner/admin only, never the owner role or you
   const manager=harness();manager.state.manage=false;
   assert.equal((await manager.request('addStaff',{storeId:STORE,username:'cook',role:'orders'})).ok,false);
   assert.equal(manager.calls.some(c=>c.name==='addMerchantStaff'),false);
+});
+
+test('your own staff access cannot be changed through add or update',async()=>{
+  const h=harness();
+  const add=await h.request('addStaff',{storeId:STORE,username:'@ME_ADMIN',role:'orders'});
+  assert.equal(add.ok,false);assert.match(add.error,/ตัวเอง/);
+  // The harness user id is not a UUID, so this is refused at input validation; real ids reach the self check.
+  assert.equal((await h.request('updateStaff',{storeId:STORE,userId:'merchant-a',role:'orders',active:false})).ok,false);
+  assert.equal(h.calls.some(c=>c.name==='addMerchantStaff'||c.name==='updateMerchantStaff'),false);
 });

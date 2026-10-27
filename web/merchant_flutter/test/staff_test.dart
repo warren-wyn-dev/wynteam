@@ -124,4 +124,28 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('a failed load offers a retry', (tester) async {
+    final repo = FlakyStaffRepository();
+    await tester.pumpWidget(host(repo));
+    await tester.pumpAndSettle();
+    expect(find.text('ออฟไลน์'), findsOneWidget);
+    expect(find.text('3 คนที่ใช้งานอยู่'), findsNothing);
+    await tester.tap(find.text('ลองอีกครั้ง'));
+    await tester.pumpAndSettle();
+    expect(find.text('3 คนที่ใช้งานอยู่'), findsOneWidget);
+    expect(find.text('ลองอีกครั้ง'), findsNothing);
+  });
+}
+
+class FlakyStaffRepository extends StaffRepository {
+  var failNext = true;
+  @override
+  Future<Json> staff(String storeId) async {
+    if (failNext) {
+      failNext = false;
+      throw const MerchantException('ออฟไลน์');
+    }
+    return super.staff(storeId);
+  }
 }

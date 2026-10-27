@@ -104,6 +104,7 @@ function safeError(error: unknown): string {
   if (message.includes("WYNOS user not found")) return "ไม่พบบัญชีนี้ กรุณาตรวจ @username อีกครั้ง";
   if (message.includes("owner role cannot be changed")) return "เปลี่ยนสิทธิ์เจ้าของร้านไม่ได้";
   if (message.includes("staff member not found")) return "ไม่พบทีมงานคนนี้ กรุณารีเฟรช";
+  if (message.includes("own staff access")) return "เปลี่ยนสิทธิ์ของตัวเองไม่ได้ ให้เจ้าของร้านหรือแอดมินคนอื่นเปลี่ยนให้";
   return "เชื่อมต่อหรือบันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง";
 }
 function pickImage(): Promise<File | null> {
@@ -326,12 +327,18 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         const username = text(args.username, 41, true), role = text(args.role, 20, true);
         if (!USERNAME.test(username) || !STAFF_ROLES.has(role)) throw new BridgeInputError();
         await requireStaffAdmin(storeId);
+        // merchant_add_staff_by_username upserts, so adding yourself would change your own role.
+        const { data: me, error: meError } = await client.from("profiles").select("username").eq("id", userId).maybeSingle();
+        if (meError) throw meError;
+        const own = typeof me?.username === "string" ? me.username.toLowerCase() : null;
+        if (own && own === username.replace(/^@/, "").toLowerCase()) throw new Error("own staff access");
         await addMerchantStaff(client, storeId, username, role as "admin"); return null;
       }
       case "updateStaff": {
         const member = id(args.userId), role = text(args.role, 20, true), active = bool(args.active);
         // Nobody edits their own access here, so an owner/admin cannot lock themselves out.
-        if (member === userId || !STAFF_ROLES.has(role)) throw new BridgeInputError();
+        if (member === userId) throw new Error("own staff access");
+        if (!STAFF_ROLES.has(role)) throw new BridgeInputError();
         await requireStaffAdmin(storeId);
         await updateMerchantStaff(client, storeId, member, role as "admin", active); return null;
       }
