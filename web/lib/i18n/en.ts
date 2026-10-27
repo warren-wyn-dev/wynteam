@@ -20,6 +20,10 @@ export const EN_EXACT: Record<string, string> = {
   "บัญชีนี้ไม่มีสิทธิ์ดำเนินการ กรุณาตรวจสอบกับเจ้าของร้าน": "This account cannot perform this action. Contact the store owner.",
   "ร้านถูกระงับ กรุณาติดต่อทีม WYNOS": "This store is suspended. Contact the WYNOS team.",
   "เชื่อมต่อหรือบันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง": "Unable to connect or save. Refresh before trying again.",
+  "ไม่พบบัญชีนี้ กรุณาตรวจ @username อีกครั้ง": "Account not found. Check the @username and try again.",
+  "เปลี่ยนสิทธิ์เจ้าของร้านไม่ได้": "The store owner's role cannot be changed.",
+  "ไม่พบทีมงานคนนี้ กรุณารีเฟรช": "This team member was not found. Refresh and try again.",
+  "เปลี่ยนสิทธิ์ของตัวเองไม่ได้ ให้เจ้าของร้านหรือแอดมินคนอื่นเปลี่ยนให้": "You cannot change your own access. Ask the owner or another admin.",
 
   "โหลดร้านอาหารไม่สำเร็จ กรุณาลองอีกครั้ง": "Unable to load restaurants. Please try again.",
   "เปลี่ยนร้านอาหารและล้างตะกร้าเดิม?": "Switch restaurants and clear your current basket?",

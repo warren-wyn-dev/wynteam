@@ -46,6 +46,7 @@ function harness() {
         if(state.injectRead)await state.injectRead(table,filters);
         if(table==='merchant_memberships')return {data:state.memberships,error:null};
         if(table==='food_staff')return {data:state.staff,error:null};
+        if(table==='profiles')return {data:filters.id===state.user?{username:state.myUsername??'me_admin'}:null,error:null};
         if(table==='food_stores'){
           if(typeof filters.id==='string')return {data:state.store,error:null};
           if(!Array.isArray(filters.id)&&!Array.isArray(filters.merchant_account_id))throw new Error('unfiltered public catalog query');
@@ -68,6 +69,7 @@ function harness() {
     foodPublicUrl:(_client,path)=>{calls.push({name:'foodPublicUrl',path});return path?'https://public.invalid/'+path:null;},
     foodPrivateSignedUrl:async(...args)=>{calls.push({name:'foodPrivateSignedUrl',args});return args[1]?'https://signed.invalid/private-image':null;},
     uploadFoodPrivateImage:async(...args)=>{calls.push({name:'uploadFoodPrivateImage',args});return `${args[2]}/photo.jpg`;},
+    uploadFoodPublicImage:async(...args)=>{calls.push({name:'uploadFoodPublicImage',args});return `${args[2]}/qr.png`;},
     subscribeMerchantOrders:(_client,_store,callback)=>{state.orderEvent=callback;return {};},
     fetchMerchantSalesReport:async()=>({today_sales:200}),
   };
@@ -82,8 +84,11 @@ function harness() {
     require(path){
       if(path==='@/lib/food-merchant')return food;
       if(path==='@/lib/food-store-availability')return availability;
-      if(path==='@/lib/merchant-core')return merchantCore;
+      if(path==='@/lib/merchant-core')return {...merchantCore,fetchMerchantStaff:async()=>state.staffMembers??[],addMerchantStaff:async(...args)=>{calls.push({name:'addMerchantStaff',args});},updateMerchantStaff:async(...args)=>{calls.push({name:'updateMerchantStaff',args});}};
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
+      if(path==='@/lib/merchant-finance')return {periodRange:(p)=>({from:'2026-10-'+(p==='month'?'01':'27'),to:'2026-10-27'}),fetchFinanceSummary:async(...args)=>{calls.push({name:'fetchFinanceSummary',args});return {sales_net:500,orders:3,days:[]};}};
+      if(path==='@/lib/merchant-ads')return {fetchMerchantAdAccount:async()=>{if(state.adError)throw new Error(state.adError);return {can_manage:true,balance:100};},requestAdTopup:async(...args)=>{calls.push({name:'requestAdTopup',args});},setAdActive:async(...args)=>{calls.push({name:'setAdActive',args});if(state.adError)throw new Error(state.adError);},merchantAdError:(e)=>{const m=e instanceof Error?e.message:'';return m.includes('top up before starting ads')?'เติมเครดิตก่อนเริ่มโฆษณา':m||'ดำเนินการไม่สำเร็จ';}};
+      if(path==='@/lib/merchant-platform-campaigns')return {fetchPlatformCampaigns:async()=>({can_manage:true,campaigns:[]}),joinPlatformCampaign:async(...args)=>{calls.push({name:'joinPlatformCampaign',args});},leavePlatformCampaign:async(...args)=>{calls.push({name:'leavePlatformCampaign',args});},platformCampaignError:(e)=>(e instanceof Error?e.message:'')||'ดำเนินการไม่สำเร็จ'};
       if(path==='@/lib/merchant-campaigns')return {fetchMerchantCampaigns:async()=>({can_manage:true,campaigns:[]}),saveMerchantCampaign:async(...args)=>{calls.push({name:'saveMerchantCampaign',args});},setMerchantCampaignActive:async()=>{}};
       if(path==='@/lib/push-notifications')return {getPushAvailability:async()=>({available:true}),hasActivePushSubscription:async()=>true,requestPushPermissionFromGesture:()=>{state.events.push('permission');return state.permissionRequest??Promise.resolve('granted');},subscribeToPushNotifications:async(_client,_user,options)=>{await options.permissionRequest;await options.ensureActive();state.events.push('subscribe');return {ok:true}},unsubscribeFromPushNotifications:async()=>true,pushReasonDescription:r=>r};
       if(path==='@/lib/food-fulfillment-merchant') {
@@ -360,4 +365,161 @@ test('Stripe refunds and denied roles cannot upload a store refund slip',async()
     assert.equal((await h.request('pickRefundSlip',{storeId:STORE,orderId:ORDER})).ok,false);
     assert.equal(h.calls.some(c=>c.name==='uploadFoodPrivateImage'),false);
   }
+});
+
+const PNG=()=>({size:100,type:'image/png',slice:()=>({arrayBuffer:async()=>new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,0,0,0,0,0]).buffer})});
+const WEEK=(open='09:00')=>({weekly:Object.fromEntries(['mon','tue','wed','thu','fri','sat','sun'].map(d=>[d,{enabled:d!=='sun',open,close:'21:00'}]))});
+test('payment channels and opening hours are validated, saved and read back',async()=>{
+  const h=harness();
+  const ok=await h.request('saveStore',{storeId:STORE,values:{promptpay_name:' ร้านเรา ',promptpay_id:'081-234-5678',bank_name:'กสิกร',bank_account_name:'ร้านเรา',bank_account_number:'123-4-56789-0',business_schedule:WEEK(),special_closed_dates:['2026-12-31','2026-11-01','2026-12-31']}});
+  assert.equal(ok.ok,true,ok.error);
+  const patch=h.calls.find(c=>c.name==='updateFoodStore').args[2];
+  assert.equal(patch.promptpay_id,'0812345678');assert.equal(patch.bank_account_number,'1234567890');assert.equal(patch.promptpay_name,'ร้านเรา');
+  assert.equal(JSON.stringify(patch.special_closed_dates),JSON.stringify(['2026-11-01','2026-12-31']));
+  assert.equal(patch.business_schedule.weekly.sun.enabled,false);
+  // Blank clears a channel, like the legacy form.
+  assert.equal((await h.request('saveStore',{storeId:STORE,values:{promptpay_id:'',promptpay_name:''}})).ok,true);
+  assert.equal(h.state.store.promptpay_id,null);
+});
+test('bad payment details and schedules are refused before any write',async()=>{
+  for(const values of [
+    {promptpay_id:'1812345678'},{promptpay_id:'08123'},{promptpay_id:'08x2345678'},{promptpay_id:'08123456789012'},
+    {bank_account_number:'12345'},{bank_account_number:'12345abcde'},
+    {payment_qr_path:'stores/other/payment/x.png'},
+    {business_schedule:{weekly:{mon:{enabled:true,open:'09:00',close:'21:00'}}}},
+    {business_schedule:{weekly:{...WEEK().weekly,mon:{enabled:true,open:'25:00',close:'21:00'}}}},
+    {business_schedule:{weekly:{...WEEK().weekly,mon:{enabled:'yes',open:'09:00',close:'21:00'}}}},
+    {special_closed_dates:['31/12/2026']},{special_closed_dates:'2026-12-31'},
+  ]){
+    const h=harness();
+    assert.equal((await h.request('saveStore',{storeId:STORE,values})).ok,false,JSON.stringify(values));
+    assert.equal(h.calls.some(c=>c.name==='updateFoodStore'),false,JSON.stringify(values));
+  }
+});
+test('payment and hours changes need the manage role and a read-back match',async()=>{
+  const h=harness();h.state.manage=false;
+  assert.equal((await h.request('saveStore',{storeId:STORE,values:{business_schedule:WEEK()}})).ok,false);
+  assert.equal(h.calls.some(c=>c.name==='updateFoodStore'),false);
+  const n=harness();n.state.noOp=true;
+  assert.equal((await n.request('saveStore',{storeId:STORE,values:{business_schedule:WEEK('10:00')}})).ok,false);
+});
+test('payment QR upload is store-scoped, validated and verified',async()=>{
+  const h=harness();h.setFile(PNG());
+  const result=await h.request('pickPaymentQr',{storeId:STORE});
+  assert.equal(result.ok,true,result.error);
+  assert.equal(result.data.path,`stores/${STORE}/payment/qr.png`);
+  assert.equal(h.state.store.payment_qr_path,`stores/${STORE}/payment/qr.png`);
+  const bad=harness();bad.setFile({size:100,type:'image/png',slice:()=>({arrayBuffer:async()=>new Uint8Array(16).buffer})});
+  assert.equal((await bad.request('pickPaymentQr',{storeId:STORE})).ok,false);
+  assert.equal(bad.calls.some(c=>c.name==='uploadFoodPublicImage'),false);
+  const staff=harness();staff.state.manage=false;staff.setFile(PNG());
+  assert.equal((await staff.request('pickPaymentQr',{storeId:STORE})).ok,false);
+  assert.equal(staff.calls.some(c=>c.name==='uploadFoodPublicImage'),false);
+  const other=harness();other.setFile(PNG());
+  assert.equal((await other.request('pickPaymentQr',{storeId:OTHER})).ok,false);
+  const cancel=harness();cancel.setFile(null);
+  assert.deepEqual(await cancel.request('pickPaymentQr',{storeId:STORE}),{ok:true,data:null});
+  // Removing the QR is the only direct payment_qr_path write.
+  assert.equal((await h.request('saveStore',{storeId:STORE,values:{payment_qr_path:null}})).ok,true);
+  assert.equal(h.state.store.payment_qr_path,null);
+});
+
+test('store finance is for managers only and only offers fixed Bangkok periods',async()=>{
+  const h=harness();
+  const result=await h.request('finance',{storeId:STORE,period:'month'});
+  assert.equal(result.ok,true,result.error);assert.equal(result.data.sales_net,500);
+  const call=h.calls.find(c=>c.name==='fetchFinanceSummary');
+  assert.equal(call.args[1],STORE);assert.equal(JSON.stringify(call.args[2]),JSON.stringify({from:'2026-10-01',to:'2026-10-27'}));
+  for(const period of ['custom','year','',null]){
+    const bad=harness();
+    assert.equal((await bad.request('finance',{storeId:STORE,period})).ok,false);
+    assert.equal(bad.calls.some(c=>c.name==='fetchFinanceSummary'),false);
+  }
+  const staff=harness();staff.state.manage=false;
+  assert.equal((await staff.request('finance',{storeId:STORE,period:'today'})).ok,false);
+  assert.equal(staff.calls.some(c=>c.name==='fetchFinanceSummary'),false);
+  const other=harness();
+  assert.equal((await other.request('finance',{storeId:OTHER,period:'today'})).ok,false);
+});
+
+const MEMBER='60000000-0000-4000-8000-000000000006';
+test('staff list marks the signed-in member and who may manage the team',async()=>{
+  const h=harness();h.state.staffMembers=[{user_id:'merchant-a',username:'me',display_name:'ฉัน',role:'admin',active:true,created_at:'',updated_at:''},{user_id:MEMBER,username:'cook',display_name:null,role:'orders',active:true,created_at:'',updated_at:''}];
+  const result=await h.request('staff',{storeId:STORE});
+  assert.equal(result.ok,true,result.error);assert.equal(result.data.canManage,true);
+  assert.deepEqual(result.data.members.map(m=>m.self),[true,false]);
+  assert.equal('created_at' in result.data.members[0],false);
+  const viewer=harness();viewer.state.staffMembers=[{user_id:'merchant-a',role:'orders',active:true}];
+  assert.equal((await viewer.request('staff',{storeId:STORE})).data.canManage,false);
+  const off=harness();off.state.staffMembers=[{user_id:'merchant-a',role:'owner',active:false}];
+  assert.equal((await off.request('staff',{storeId:STORE})).data.canManage,false);
+  assert.equal((await harness().request('staff',{storeId:OTHER})).ok,false);
+});
+test('adding and changing staff is owner/admin only, never the owner role or yourself',async()=>{
+  const h=harness();
+  assert.equal((await h.request('addStaff',{storeId:STORE,username:'@cook_1',role:'orders'})).ok,true);
+  assert.equal(h.calls.find(c=>c.name==='merchant_has_store_role').args.p_roles.join(),'owner,admin');
+  assert.equal((await h.request('updateStaff',{storeId:STORE,userId:MEMBER,role:'manager',active:false})).ok,true);
+  assert.deepEqual(h.calls.find(c=>c.name==='updateMerchantStaff').args.slice(1),[STORE,MEMBER,'manager',false]);
+  for(const [method,args] of [
+    ['addStaff',{username:'cook',role:'owner'}],['addStaff',{username:'a b',role:'orders'}],['addStaff',{username:'x',role:'orders'}],
+    ['updateStaff',{userId:MEMBER,role:'owner',active:true}],['updateStaff',{userId:'merchant-a',role:'orders',active:true}],
+    ['updateStaff',{userId:MEMBER,role:'orders',active:'yes'}],
+    ['addStaff',{username:'@Me_Admin',role:'orders'}],['addStaff',{username:'me_admin',role:'admin'}],
+  ]){
+    const bad=harness();
+    assert.equal((await bad.request(method,{storeId:STORE,...args})).ok,false,JSON.stringify(args));
+    assert.equal(bad.calls.some(c=>c.name==='addMerchantStaff'||c.name==='updateMerchantStaff'),false,JSON.stringify(args));
+  }
+  const manager=harness();manager.state.manage=false;
+  assert.equal((await manager.request('addStaff',{storeId:STORE,username:'cook',role:'orders'})).ok,false);
+  assert.equal(manager.calls.some(c=>c.name==='addMerchantStaff'),false);
+});
+
+const CAMPAIGN='70000000-0000-4000-8000-000000000007';
+test('ads are manager-only; top-up needs a whole amount and a real slip image',async()=>{
+  const h=harness();
+  assert.equal((await h.request('ads',{storeId:STORE})).data.balance,100);
+  h.setFile(PNG());
+  const result=await h.request('pickAdSlip',{storeId:STORE,amount:300});
+  assert.equal(result.ok,true,result.error);
+  h.setFile(PNG());assert.equal((await h.request('pickAdSlip',{storeId:STORE,amount:150.5})).ok,true);
+  for(const amount of [150.05,300.03,0.07]){h.setFile(PNG());assert.equal((await h.request('pickAdSlip',{storeId:STORE,amount})).ok,true,String(amount));}
+  const call=h.calls.find(c=>c.name==='requestAdTopup');assert.equal(call.args[1],STORE);assert.equal(call.args[2],300);
+  for(const amount of [0,-5,12.345,'300',100001]){
+    const bad=harness();bad.setFile(PNG());
+    assert.equal((await bad.request('pickAdSlip',{storeId:STORE,amount})).ok,false,String(amount));
+    assert.equal(bad.calls.some(c=>c.name==='requestAdTopup'),false);
+  }
+  const fake=harness();fake.setFile({size:100,type:'image/png',slice:()=>({arrayBuffer:async()=>new Uint8Array(16).buffer})});
+  assert.equal((await fake.request('pickAdSlip',{storeId:STORE,amount:300})).ok,false);
+  assert.equal(fake.calls.some(c=>c.name==='requestAdTopup'),false);
+  const staff=harness();staff.state.manage=false;staff.setFile(PNG());
+  for(const [method,args] of [['ads',{}],['pickAdSlip',{amount:300}],['setAdActive',{active:true}],['platformCampaigns',{}],['joinPlatformCampaign',{campaignId:CAMPAIGN,join:true}]]){
+    assert.equal((await staff.request(method,{storeId:STORE,...args})).ok,false,method);
+  }
+  assert.equal(staff.calls.some(c=>['requestAdTopup','setAdActive','joinPlatformCampaign'].includes(c.name)),false);
+});
+test('known ad and campaign errors are shown in Thai, unknown server text is not',async()=>{
+  const h=harness();h.state.adError='top up before starting ads';
+  assert.equal((await h.request('setAdActive',{storeId:STORE,active:true})).error,'เติมเครดิตก่อนเริ่มโฆษณา');
+  const raw=harness();raw.state.adError='relation "x" does not exist';
+  const result=await raw.request('ads',{storeId:STORE});
+  assert.equal(result.ok,false);assert.equal(result.error.includes('relation'),false);
+});
+test('joining and leaving ZOKY campaigns are store-scoped',async()=>{
+  const h=harness();
+  assert.equal((await h.request('joinPlatformCampaign',{storeId:STORE,campaignId:CAMPAIGN,join:true})).ok,true);
+  assert.equal((await h.request('joinPlatformCampaign',{storeId:STORE,campaignId:CAMPAIGN,join:false})).ok,true);
+  assert.deepEqual(h.calls.filter(c=>c.name.endsWith('PlatformCampaign')).map(c=>c.name),['joinPlatformCampaign','leavePlatformCampaign']);
+  assert.equal((await h.request('joinPlatformCampaign',{storeId:STORE,campaignId:'bad',join:true})).ok,false);
+  assert.equal((await h.request('joinPlatformCampaign',{storeId:OTHER,campaignId:CAMPAIGN,join:true})).ok,false);
+});
+test('your own staff access cannot be changed through add or update',async()=>{
+  const h=harness();
+  const add=await h.request('addStaff',{storeId:STORE,username:'@ME_ADMIN',role:'orders'});
+  assert.equal(add.ok,false);assert.match(add.error,/ตัวเอง/);
+  // The harness user id is not a UUID, so this is refused at input validation; real ids reach the self check.
+  assert.equal((await h.request('updateStaff',{storeId:STORE,userId:'merchant-a',role:'orders',active:false})).ok,false);
+  assert.equal(h.calls.some(c=>c.name==='addMerchantStaff'||c.name==='updateMerchantStaff'),false);
 });
