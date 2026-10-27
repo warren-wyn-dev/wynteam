@@ -76,6 +76,9 @@ abstract class MerchantRepository {
   Future<Json> ads(String storeId) async =>
       throw const MerchantException('ระบบโฆษณายังไม่เปิดใช้งาน');
   Future<bool> pickAdSlip(String storeId, num amount) async => false;
+  Future<Json> billing(String storeId) async =>
+      throw const MerchantException('โหลดค่าบริการไม่สำเร็จ');
+  Future<bool> pickBillingSlip(String storeId, String invoiceId) async => false;
   Future<void> setAdActive(String storeId, bool active) async =>
       throw const MerchantException('ดำเนินการไม่สำเร็จ');
   Future<Json> platformCampaigns(String storeId) async =>
@@ -211,6 +214,16 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<bool> pickAdSlip(String storeId, num amount) async =>
       await call('pickAdSlip', {'storeId': storeId, 'amount': amount}) != null;
+  @override
+  Future<Json> billing(String storeId) async =>
+      object(await call('billing', {'storeId': storeId}));
+  @override
+  Future<bool> pickBillingSlip(String storeId, String invoiceId) async =>
+      await call('pickBillingSlip', {
+        'storeId': storeId,
+        'invoiceId': invoiceId,
+      }) !=
+      null;
   @override
   Future<void> setAdActive(String storeId, bool active) async {
     await call('setAdActive', {'storeId': storeId, 'active': active});

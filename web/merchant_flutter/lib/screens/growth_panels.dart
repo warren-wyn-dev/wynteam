@@ -9,7 +9,7 @@ const _muted = TextStyle(fontSize: 12, color: Color(0xFF6B6B76));
 
 /// Shared load/write cycle: every write is followed by a fresh server read,
 /// then that write's own success or error message is shown.
-mixin _ServerPanel<T extends StatefulWidget> on State<T> {
+mixin ServerPanel<T extends StatefulWidget> on State<T> {
   Json? data;
   bool loading = false, busy = false;
   String? error, notice;
@@ -125,7 +125,7 @@ class AdsPanel extends StatefulWidget {
   State<AdsPanel> createState() => _AdsPanelState();
 }
 
-class _AdsPanelState extends State<AdsPanel> with _ServerPanel<AdsPanel> {
+class _AdsPanelState extends State<AdsPanel> with ServerPanel<AdsPanel> {
   final amount = TextEditingController();
   @override
   Future<Json> read() => widget.repository.ads(widget.storeId);
@@ -319,7 +319,7 @@ class PlatformCampaignsPanel extends StatefulWidget {
 }
 
 class _PlatformCampaignsPanelState extends State<PlatformCampaignsPanel>
-    with _ServerPanel<PlatformCampaignsPanel> {
+    with ServerPanel<PlatformCampaignsPanel> {
   @override
   Future<Json> read() => widget.repository.platformCampaigns(widget.storeId);
   @override

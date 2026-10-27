@@ -523,3 +523,42 @@ test('your own staff access cannot be changed through add or update',async()=>{
   assert.equal((await h.request('updateStaff',{storeId:STORE,userId:'merchant-a',role:'orders',active:false})).ok,false);
   assert.equal(h.calls.some(c=>c.name==='addMerchantStaff'||c.name==='updateMerchantStaff'),false);
 });
+
+const INVOICE='80000000-0000-4000-8000-000000000008';
+test('ZOKY fee: owner/admin only, slip uploaded under the store and invoice then submitted',async()=>{
+  const h=harness();
+  assert.equal((await h.request('billing',{storeId:STORE})).ok,true);
+  assert.equal(h.calls.find(c=>c.name==='merchant_has_store_role').args.p_roles.join(),'owner,admin');
+  assert.equal(JSON.stringify(h.calls.find(c=>c.name==='merchant_billing').args),JSON.stringify({p_store_id:STORE}));
+  h.setFile(PNG());
+  const result=await h.request('pickBillingSlip',{storeId:STORE,invoiceId:INVOICE});
+  assert.equal(result.ok,true,result.error);
+  const upload=h.calls.find(c=>c.name==='uploadFoodPrivateImage');
+  assert.equal(upload.args[2],`billing/${STORE}/${INVOICE}`);
+  assert.equal(JSON.stringify(h.calls.find(c=>c.name==='merchant_submit_billing_slip').args),JSON.stringify({p_invoice_id:INVOICE,p_slip_path:`billing/${STORE}/${INVOICE}/photo.jpg`}));
+  // Cancelled picker: nothing uploaded or submitted.
+  const cancel=harness();cancel.setFile(null);
+  assert.equal((await cancel.request('pickBillingSlip',{storeId:STORE,invoiceId:INVOICE})).data,null);
+  assert.equal(cancel.calls.some(c=>c.name==='uploadFoodPrivateImage'||c.name==='merchant_submit_billing_slip'),false);
+  for(const [label,setup,args] of [
+    ['manager or staff',(x)=>{x.state.manage=false;},{storeId:STORE,invoiceId:INVOICE}],
+    ['other store',()=>{},{storeId:OTHER,invoiceId:INVOICE}],
+    ['bad invoice id',()=>{},{storeId:STORE,invoiceId:'../x'}],
+    ['missing invoice id',()=>{},{storeId:STORE}],
+  ]){
+    const bad=harness();setup(bad);bad.setFile(PNG());
+    assert.equal((await bad.request('pickBillingSlip',args)).ok,false,label);
+    assert.equal(bad.calls.some(c=>c.name==='uploadFoodPrivateImage'||c.name==='merchant_submit_billing_slip'),false,label);
+  }
+  const fake=harness();fake.setFile({size:100,type:'image/png',slice:()=>({arrayBuffer:async()=>new Uint8Array(16).buffer})});
+  assert.equal((await fake.request('pickBillingSlip',{storeId:STORE,invoiceId:INVOICE})).ok,false);
+  assert.equal(fake.calls.some(c=>c.name==='uploadFoodPrivateImage'),false);
+  const staff=harness();staff.state.manage=false;
+  assert.equal((await staff.request('billing',{storeId:STORE})).ok,false);
+  assert.equal(staff.calls.some(c=>c.name==='merchant_billing'),false);
+});
+test('ZOKY fee errors are shown in Thai',async()=>{
+  const h=harness();h.setFile(PNG());h.state.rpcError={name:'merchant_submit_billing_slip',message:'invoice is not waiting for payment'};
+  const result=await h.request('pickBillingSlip',{storeId:STORE,invoiceId:INVOICE});
+  assert.equal(result.ok,false);assert.equal(result.error,'ใบแจ้งหนี้นี้ไม่ได้รอชำระแล้ว กรุณารีเฟรช');
+});

@@ -11,6 +11,7 @@ import 'store_settings_panels.dart';
 import 'finance_panel.dart';
 import 'staff_panel.dart';
 import 'growth_panels.dart';
+import 'billing_panel.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -330,6 +331,7 @@ class _MerchantHomeState extends State<MerchantHome>
                                     9 => staffPage(),
                                     10 => adsPage(),
                                     11 => zokyCampaignsPage(),
+                                    12 => billingPage(),
                                     _ => qualityPage(),
                                   },
                               ],
@@ -981,6 +983,14 @@ class _MerchantHomeState extends State<MerchantHome>
     final steps = readiness();
     final done = steps.where((step) => step.done).length;
     return [
+      if (c.canConfigure)
+        BillingDueBanner(
+          key: ValueKey('billing-${c.storeId}'),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+          onOpen: () => navigate(12),
+        ),
       homePanel(
         Row(
           children: [
@@ -1377,6 +1387,13 @@ class _MerchantHomeState extends State<MerchantHome>
           () => navigate(11),
         ),
       ],
+      if (c.canConfigure)
+        tool(
+          'ค่าบริการ ZOKY',
+          Icons.receipt_long_outlined,
+          brand,
+          () => navigate(12),
+        ),
       tool(
         'ทีมงาน',
         Icons.groups_outlined,
@@ -1458,6 +1475,31 @@ class _MerchantHomeState extends State<MerchantHome>
         const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่เข้าร่วมแคมเปญได้'),
       ),
   ];
+
+  List<Widget> billingPage() => [
+    heading('ค่าบริการ ZOKY', 'ค่าบริการรายเดือน ใบแจ้งหนี้ และใบเสร็จของร้าน'),
+    if (c.canConfigure)
+      box(
+        BillingPanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+          openReceipt: openBillingReceipt,
+        ),
+      )
+    else
+      box(const Text('เฉพาะเจ้าของร้านและแอดมินร้านที่ดูค่าบริการได้')),
+  ];
+
+  Future<void> openBillingReceipt(String invoiceId) async {
+    final url = Uri.base
+        .resolve('/merchant/billing/receipt')
+        .replace(queryParameters: {'invoice': invoiceId});
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      notice('เปิดใบเสร็จไม่สำเร็จ');
+    }
+  }
 
   List<Widget> staffPage() => [
     heading('ทีมงาน', 'คนที่เข้าจัดการร้านนี้ได้ และสิทธิ์ของแต่ละคน'),
