@@ -10,9 +10,12 @@ import {
   PAYOUT_INTERVAL_LABEL,
   PAYOUT_STATUS_LABEL,
   STRIPE_STATUS_LABEL,
+  FINANCE_SPLIT_LABEL,
+  fetchFinanceSplit,
   fetchMerchantFinanceOverview,
   formatSatang,
   resolveFinanceRange,
+  type FinanceSplitRow,
   type MerchantFinanceOverview,
 } from "@/lib/admin-merchant-finance";
 import { adminCan, requireAdminRole } from "@/lib/auth";
@@ -77,6 +80,11 @@ export default async function MerchantFinancePage({
       loadError = code === "PGRST202" || code === "42883" ? "missing" : "failed";
     }
   }
+  // The split is optional: the overview still shows when it fails or is not installed.
+  let split: FinanceSplitRow[] | null = null;
+  if (view === "overview" && data) {
+    split = await fetchFinanceSplit(range).catch(() => null);
+  }
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
@@ -131,7 +139,7 @@ export default async function MerchantFinancePage({
             </p>
           ) : data ? (
             <>
-              {view === "overview" ? <Overview data={data} href={href} /> : null}
+              {view === "overview" ? <Overview data={data} href={href} split={split} /> : null}
               {view === "stores" ? <StoresTable data={data} canOpenStores={canOpenStores} /> : null}
               {view === "owed" ? <Owed data={data} canOpenStores={canOpenStores} /> : null}
               {view === "payouts" ? <Payouts data={data} canOpenStores={canOpenStores} /> : null}
@@ -207,7 +215,15 @@ function Figure({ label, value, hint }: { label: string; value: string; hint: st
   );
 }
 
-function Overview({ data, href }: { data: MerchantFinanceOverview; href: (next: { view?: View }) => string }) {
+function Overview({
+  data,
+  href,
+  split,
+}: {
+  data: MerchantFinanceOverview;
+  href: (next: { view?: View }) => string;
+  split: FinanceSplitRow[] | null;
+}) {
   const t = data.totals;
   const failed = data.payout_status_counts.failed ?? 0;
   return (
@@ -229,6 +245,8 @@ function Overview({ data, href }: { data: MerchantFinanceOverview; href: (next: 
         <Figure label="การโอนที่ไม่สำเร็จ" value={failed.toLocaleString("th-TH")} hint="Stripe payout สถานะ failed ในช่วงนี้" />
       </section>
 
+      {split ? <FinanceSplit rows={split} /> : null}
+
       <section className="rounded-xl border bg-background p-4 text-sm">
         <p className="font-medium">วิธีคำนวณ</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
@@ -241,6 +259,45 @@ function Overview({ data, href }: { data: MerchantFinanceOverview; href: (next: 
         <Link href={href({ view: "gp" })} className="mt-3 inline-block text-sm underline">ตั้งค่า GP รายร้าน</Link>
       </section>
     </>
+  );
+}
+
+function FinanceSplit({ rows }: { rows: FinanceSplitRow[] }) {
+  return (
+    <section className="overflow-x-auto rounded-xl border bg-background">
+      <table className="w-full min-w-[560px] text-sm">
+        <caption className="px-4 pt-4 text-left font-medium">แยกตามวิธีรับอาหารและวิธีจ่าย</caption>
+        <thead>
+          <tr className="border-b text-left text-xs text-muted-foreground">
+            <th scope="col" className="px-4 py-2 font-normal">ประเภท</th>
+            <th scope="col" className="px-4 py-2 text-right font-normal">ออเดอร์ที่ชำระแล้ว</th>
+            <th scope="col" className="px-4 py-2 text-right font-normal">ยอดชำระ</th>
+            <th scope="col" className="px-4 py-2 text-right font-normal">คืนเงิน</th>
+            <th scope="col" className="px-4 py-2 text-right font-normal">ยอดขายสุทธิ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const key = `${row.fulfillment_type}/${row.payment_method}`;
+            return (
+              <tr key={key} className="border-b last:border-0">
+                <th scope="row" className="px-4 py-2 text-left font-medium">{FINANCE_SPLIT_LABEL[key] ?? key}</th>
+                <td className="px-4 py-2 text-right tabular-nums">{Number(row.orders).toLocaleString("th-TH")}</td>
+                <td className="px-4 py-2 text-right tabular-nums">{formatBaht(row.paid_total)}</td>
+                <td className="px-4 py-2 text-right tabular-nums">
+                  {formatBaht(row.refunds)}
+                  {Number(row.refund_count) > 0 ? <span className="block text-[11px] text-muted-foreground">{Number(row.refund_count).toLocaleString("th-TH")} ออเดอร์</span> : null}
+                </td>
+                <td className="px-4 py-2 text-right font-semibold tabular-nums">{formatBaht(row.sales_net)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="px-4 pb-4 text-[11px] text-muted-foreground">
+        สูตรเดียวกับยอดขายสุทธิด้านบน · เก็บเงินปลายทางนับเมื่อร้านบันทึกว่าส่งสำเร็จ · ออเดอร์เก็บเงินปลายทางไม่มี GP
+      </p>
+    </section>
   );
 }
 
