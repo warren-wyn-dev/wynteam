@@ -116,7 +116,8 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/", "/merchant", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*",
+    "/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*",
+    "/merchant",
     // Every page on the old Food host for the phase 2 redirect (build assets
     // and API calls from tabs that are already open stay where they are).
     // The matcher is fixed at build time; in phase 1 these return next().
