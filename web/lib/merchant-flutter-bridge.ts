@@ -9,6 +9,8 @@ import { orderDeliveryProof } from "@/lib/food-delivery-proof";
 import { FOOD_DAY_KEYS, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { addMerchantStaff, fetchMerchantStaff, fetchMerchantStoreReviews, updateMerchantStaff } from "@/lib/merchant-core";
 import { fetchFinanceSummary, periodRange } from "@/lib/merchant-finance";
+import { fetchMerchantAdAccount, merchantAdError, requestAdTopup, setAdActive } from "@/lib/merchant-ads";
+import { fetchPlatformCampaigns, joinPlatformCampaign, leavePlatformCampaign, platformCampaignError } from "@/lib/merchant-platform-campaigns";
 import { fetchMerchantCampaigns, saveMerchantCampaign, setMerchantCampaignActive } from "@/lib/merchant-campaigns";
 import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 
@@ -19,6 +21,17 @@ type BridgeOptions = { client: SupabaseClient; userId: string; signOut: () => Pr
 type Args = Record<string, unknown>;
 class BridgeInputError extends Error {}
 class BridgeAccessError extends Error {}
+/** A message already written for merchants by an existing helper. */
+class BridgeMessageError extends Error {}
+/** Keeps only the helper's own Thai messages; raw server text stays generic. */
+async function friendly<T>(operation: () => Promise<T>, explain: (error: unknown) => string): Promise<T> {
+  try { return await operation(); }
+  catch (error) {
+    const raw = error && typeof error === "object" && "message" in error ? String(error.message) : String(error ?? "");
+    const message = explain(error);
+    throw message && message !== raw && message !== "ดำเนินการไม่สำเร็จ" ? new BridgeMessageError(message) : error;
+  }
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled"]);
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
@@ -35,6 +48,11 @@ function text(value: unknown, max: number, required = false): string {
   if (value == null && !required) return "";
   if (typeof value !== "string" || value.length > max || (required && !value.trim())) throw new BridgeInputError();
   return value.trim();
+}
+/** Baht, up to 2 decimals; the server still applies the minimum top-up. */
+function topupAmount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value > 100_000 || Math.round(value * 100) !== value * 100) throw new BridgeInputError();
+  return value;
 }
 function bool(value: unknown): boolean {
   if (typeof value !== "boolean") throw new BridgeInputError();
@@ -90,7 +108,7 @@ function sameValue(actual: unknown, expected: unknown): boolean {
   return keys.length === Object.keys(a).length && keys.every((key) => sameValue(a[key], e[key]));
 }
 function safeError(error: unknown): string {
-  if (error instanceof FulfillmentError) return error.message;
+  if (error instanceof FulfillmentError || error instanceof BridgeMessageError) return error.message;
   if (error instanceof BridgeInputError) return "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่";
   if (error instanceof BridgeAccessError) return "บัญชีนี้ไม่มีสิทธิ์เข้าถึงร้านหรือออเดอร์นี้ กรุณาเข้าสู่ระบบใหม่";
   const message = error && typeof error === "object" && "message" in error ? String(error.message) : "";
@@ -335,6 +353,35 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         await requireStaffAdmin(storeId);
         await updateMerchantStaff(client, storeId, member, role as "admin", active); return null;
       }
+      case "ads": {
+        await requireManageRole(storeId);
+        return friendly(() => fetchMerchantAdAccount(client, storeId), merchantAdError);
+      }
+      case "pickAdSlip": {
+        // Top up ad credit: the store transfers to ZOKY's PromptPay, then attaches the slip.
+        const value = topupAmount(args.amount);
+        await requireManageRole(storeId);
+        const file = await picked;
+        if (!file) return null;
+        await validateImage(file); await ensureSession();
+        await friendly(() => requestAdTopup(client, storeId, value, file), merchantAdError);
+        return { submitted: true };
+      }
+      case "setAdActive": {
+        const active = bool(args.active);
+        await requireManageRole(storeId);
+        await friendly(() => setAdActive(client, storeId, active), merchantAdError); return null;
+      }
+      case "platformCampaigns": {
+        await requireManageRole(storeId);
+        return friendly(() => fetchPlatformCampaigns(client, storeId), platformCampaignError);
+      }
+      case "joinPlatformCampaign": {
+        const campaign = id(args.campaignId), join = bool(args.join);
+        await requireManageRole(storeId);
+        await friendly(() => join ? joinPlatformCampaign(client, storeId, campaign) : leavePlatformCampaign(client, storeId, campaign), platformCampaignError);
+        return null;
+      }
       case "finance": {
         const period = text(args.period, 12, true);
         if (!["today", "yesterday", "week", "month"].includes(period)) throw new BridgeInputError();
@@ -539,8 +586,9 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (disposed) throw new BridgeAccessError();
         const args = object(JSON.parse(payloadJson));
         // OS picker opens synchronously during the user's tap, before network awaits.
-        const picker = method === "pickDeliveryPhoto" || method === "pickRefundSlip" || method === "pickPaymentQr";
-        if (picker) { id(args.storeId); if (method !== "pickPaymentQr") id(args.orderId); }
+        const picker = method === "pickDeliveryPhoto" || method === "pickRefundSlip" || method === "pickPaymentQr" || method === "pickAdSlip";
+        if (picker) { id(args.storeId); if (method === "pickDeliveryPhoto" || method === "pickRefundSlip") id(args.orderId); }
+        if (method === "pickAdSlip") topupAmount(args.amount);
         const picked = picker ? pickImage() : null;
         const permissionRequest = method === "pushEnable" ? requestPushPermissionFromGesture() : undefined;
         // Session validation may reject before the captured prompt settles.
