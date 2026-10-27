@@ -1,7 +1,8 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder requested correction after the live Merchant screenshot showed the
-# old UI (2026-10-27). Only login/PWA entry routing changes from live 9cd2dc4f.
+# Founder asked for the new Merchant app to carry payment channels, opening
+# hours, finance, staff, ads and ZOKY campaigns (2026-10-27). Only the Flutter
+# Merchant app, its bridge and their tests change from live b6f38835.
 # Existing production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
@@ -11,7 +12,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_MERCHANT_ENTRY_20261027]
+        options: [CANCEL, ZOKY_MERCHANT_TOOLS_20261027]
 
 permissions:
   contents: read
@@ -24,12 +25,24 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-10"
   RELEASE_BRANCH: fix/zoky-merchant-entry-flutter
-  RELEASE_SHA: b6f38835bd7194c21d616f1457acb913839d0b60
-  PRODUCTION_BASE_SHA: 9cd2dc4f6e4307a1054f90bca2f4933abe5a1cb3
-  ROLLBACK_DEPLOYMENT: dpl_DKwg2LtAKGmVbEAn9vK4cshXzrZH
+  RELEASE_SHA: 93e6954563b2dcd1108e4157772231262b201b63
+  PRODUCTION_BASE_SHA: b6f38835bd7194c21d616f1457acb913839d0b60
+  ROLLBACK_DEPLOYMENT: dpl_4ofnoQr6ASuzdeguVTFbUXXx3JWx
   ALLOWED_PATHS: >-
-    web/proxy.ts
-    web/components/merchant/merchant-flutter-app.tsx
+    web/lib/i18n/en.ts
+    web/lib/merchant-flutter-bridge.ts
+    web/merchant_flutter/README.md
+    web/merchant_flutter/lib/data/merchant_repository.dart
+    web/merchant_flutter/lib/screens/finance_panel.dart
+    web/merchant_flutter/lib/screens/growth_panels.dart
+    web/merchant_flutter/lib/screens/merchant_home.dart
+    web/merchant_flutter/lib/screens/staff_panel.dart
+    web/merchant_flutter/lib/screens/store_settings_panels.dart
+    web/merchant_flutter/test/finance_test.dart
+    web/merchant_flutter/test/growth_test.dart
+    web/merchant_flutter/test/staff_test.dart
+    web/merchant_flutter/test/store_settings_test.dart
+    web/tests/merchant-flutter-bridge.test.mjs
     web/tests/merchant-flutter-routing.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
@@ -37,7 +50,7 @@ env:
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_ENTRY_20261027'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_TOOLS_20261027'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -72,7 +85,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_ENTRY_20261027'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_TOOLS_20261027'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -130,7 +143,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_ENTRY_20261027'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_TOOLS_20261027'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
