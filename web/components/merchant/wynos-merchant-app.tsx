@@ -2,7 +2,7 @@
 "use client";
 
 import { FulfillmentTags, MerchantFulfillmentSettings, MerchantCancelRefund } from "@/components/merchant/merchant-fulfillment";
-import { transitionPickupOrder } from "@/lib/food-fulfillment-merchant";
+import { transitionPickupOrder, cancelStoreOrder } from "@/lib/food-fulfillment-merchant";
 import {
   ArrowUpDown,
   Bell,
@@ -197,7 +197,6 @@ const ORDER_FILTERS: Array<{ key: OrderFilter; label: string }> = [
 
 function orderInFilter(order: FoodOrder, filter: OrderFilter, now = Date.now()) {
   if (filter === "new") return order.status === "pending_acceptance";
-  // Contract v2: pickup orders reuse ready_for_delivery / delivered.
   if (filter === "cooking") return order.status === "preparing" || order.status === "ready_for_delivery";
   if (filter === "delivery") return order.status === "out_for_delivery";
   return isRecentCompletedOrder(order, now);
@@ -258,10 +257,7 @@ function OrderStatus({ order }: { order: FoodOrder }) {
           : order.status === "delivered"
             ? "done"
             : "muted";
-  const pickupLabel = order.fulfillment_type === "pickup"
-    ? order.status === "ready_for_delivery" ? "พร้อมให้รับ" : order.status === "delivered" ? "ลูกค้ารับแล้ว" : null
-    : null;
-  return <span className={`wm-status wm-status--${tone}`}>{pickupLabel ?? statusLabel(order.status)}</span>;
+  return <span className={`wm-status wm-status--${tone}`}>{order.fulfillment_type === "pickup" && order.status === "ready_for_delivery" ? "พร้อมให้รับ" : order.fulfillment_type === "pickup" && order.status === "delivered" ? "ลูกค้ารับแล้ว" : statusLabel(order.status)}</span>;
 }
 
 function PaymentStatus({ order }: { order: FoodOrder }) {
@@ -2149,7 +2145,7 @@ function OrderSheet({
         <section className="wm-detail-section wm-next-step"><h3>กำลังเตรียม</h3><p>เมื่ออาหารพร้อม ให้เปลี่ยนสถานะเพื่อเข้าสู่ขั้นตอนจัดส่ง</p><button className="wm-primary wm-full" disabled={locked} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "ready_for_delivery"), "อาหารพร้อมจัดส่ง")}>อาหารพร้อมแล้ว</button></section>
       ) : null}
 
-      {order.fulfillment_type === "pickup" && ["preparing", "ready_for_delivery"].includes(order.status) ? <section className="wm-detail-section"><button className="wm-primary" disabled={locked} type="button" onClick={() => void run(() => transitionPickupOrder(client, order.id, order.status === "preparing" ? "ready_for_pickup" : "picked_up"))}>{order.status === "preparing" ? "พร้อมให้รับ" : "ลูกค้ารับแล้ว"}</button></section> : null}
+      {order.fulfillment_type === "pickup" && ["preparing", "ready_for_delivery"].includes(order.status) ? <section className="wm-detail-section"><button className="wm-primary" disabled={locked} type="button" onClick={() => void run(() => transitionPickupOrder(client, order.id, order.status === "preparing" ? "ready_for_delivery" : "delivered"))}>{order.status === "preparing" ? "พร้อมให้รับ" : "ลูกค้ารับแล้ว"}</button></section> : null}
       {order.status === "ready_for_delivery" && order.fulfillment_type !== "pickup" ? (
         <section className="wm-detail-section wm-next-step"><h3>พร้อมจัดส่ง</h3><p>ส่งอาหารให้คนส่งแล้วกดเริ่มจัดส่ง เมื่อส่งถึงแล้ว ขอรูปจากคนส่งมาแนบเพื่อยืนยันกับลูกค้า</p><button className="wm-primary wm-full" disabled={locked} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "out_for_delivery"), "เริ่มจัดส่งแล้ว")}><Truck size={18} /> เริ่มจัดส่ง</button></section>
       ) : null}
@@ -2242,13 +2238,15 @@ function OrderSheet({
 
 
       {order.status === "delivered" ? (
-        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>{order.fulfillment_type === "pickup" ? "ลูกค้ารับอาหารแล้ว" : "จัดส่งสำเร็จแล้ว"}</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
+        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>{order.fulfillment_type === "pickup" ? "ลูกค้ารับแล้ว" : "จัดส่งสำเร็จแล้ว"}</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
       ) : null}
 
       {!["delivered", "cancelled"].includes(order.status) ? (
         <button className="wm-danger-link" disabled={locked} type="button" onClick={() => {
           if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
-          void run(() => transitionFoodOrder(client, order.id, "cancelled"), "ยกเลิกออเดอร์แล้ว");
+          const note = window.prompt("เหตุผลที่ยกเลิก"); if (note === null) return;
+          const refund = order.payment_status === "paid" && window.confirm("ต้องการคืนเงินหรือไม่? กดตกลงเพื่อคืนเงิน กดยกเลิกเพื่อไม่คืนเงิน");
+          void run(() => cancelStoreOrder(client, order.id, refund, note), "ยกเลิกออเดอร์แล้ว");
         }}>ยกเลิกออเดอร์</button>
       ) : null}
     </Sheet>

@@ -3201,6 +3201,10 @@ Object.assign(EN_EXACT, {
   "ร้านนี้ไม่รับเงินสดปลายทางสำหรับออเดอร์นี้": "This store doesn't accept cash on delivery for this order",
   "ส่งคำขอยกเลิกไปแล้ว รอร้านตัดสินใจ": "You already asked to cancel. Waiting for the store to decide",
   "ออเดอร์นี้ขอยกเลิกไม่ได้แล้ว": "This order can no longer be cancelled",
+  // Merchant contract v2.1 cancellation choices
+  "เหตุผลที่ยกเลิก": "Cancellation reason",
+  "กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร": "Enter a reason with at least 3 characters",
+  "ต้องการคืนเงินหรือไม่? กดตกลงเพื่อคืนเงิน กดยกเลิกเพื่อไม่คืนเงิน": "Issue a refund? Select OK to refund, or Cancel for no refund",
 });
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [

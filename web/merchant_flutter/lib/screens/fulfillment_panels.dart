@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../data/merchant_repository.dart';
 
 class FulfillmentSettingsPanel extends StatefulWidget {
@@ -34,7 +36,9 @@ class _FulfillmentSettingsPanelState extends State<FulfillmentSettingsPanel> {
   void initState() {
     super.initState();
     readStore();
-    prep = TextEditingController(text: '${widget.store['prep_minutes'] ?? 15}');
+    prep = TextEditingController(
+      text: '${widget.store['pickup_prep_minutes'] ?? 15}',
+    );
   }
 
   @override
@@ -43,7 +47,7 @@ class _FulfillmentSettingsPanelState extends State<FulfillmentSettingsPanel> {
     if (old.store['id'] != widget.store['id'] ||
         old.store['updated_at'] != widget.store['updated_at']) {
       readStore();
-      prep.text = '${widget.store['prep_minutes'] ?? 15}';
+      prep.text = '${widget.store['pickup_prep_minutes'] ?? 15}';
     }
   }
 

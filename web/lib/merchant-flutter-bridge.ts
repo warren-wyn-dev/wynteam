@@ -1,4 +1,4 @@
-import { FulfillmentError, transitionPickupOrder, setStoreFulfillment, resolveCancelRequest, markStoreRefunded, uploadRefundSlip } from "@/lib/food-fulfillment-merchant";
+import { FulfillmentError, cancelStoreOrder, transitionPickupOrder, setStoreFulfillment, resolveCancelRequest, markStoreRefunded, uploadRefundSlip } from "@/lib/food-fulfillment-merchant";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl, foodPublicUrl,
@@ -208,6 +208,18 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         await setStoreFulfillment(client, storeId, { pickup: bool(values.pickup), delivery: bool(values.delivery), cod: bool(values.cod), prepMinutes: Number(values.prepMinutes) });
         return null;
       }
+      case "completePickup": {
+        const orderId = id(args.orderId);
+        const order = await ownedOrder(storeId, orderId);
+        if (order.fulfillment_type !== "pickup") throw new BridgeInputError();
+        await ensureSession();
+        await transitionPickupOrder(client, orderId, "delivered"); return null;
+      }
+      case "cancelStoreOrder": {
+        const orderId = id(args.orderId);
+        await ownedOrder(storeId, orderId); await ensureSession();
+        await cancelStoreOrder(client, orderId, bool(args.refund), text(args.note, 1000, true)); return null;
+      }
       case "resolveCancel": {
         const orderId = id(args.orderId);
         await ownedOrder(storeId, orderId);
@@ -319,16 +331,10 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
       }
       case "transition": {
         const orderId = id(args.orderId), status = text(args.status, 30, true);
-        if (!["preparing", "ready_for_delivery", "out_for_delivery", "cancelled", "ready_for_pickup", "picked_up"].includes(status)) throw new BridgeInputError();
+        if (!["preparing", "ready_for_delivery", "out_for_delivery", "cancelled"].includes(status)) throw new BridgeInputError();
         if (args.etaMinutes != null && (!Number.isInteger(args.etaMinutes) || Number(args.etaMinutes) < 1 || Number(args.etaMinutes) > 240)) throw new BridgeInputError();
         const order = await ownedOrder(storeId, orderId);
         await ensureSession();
-        // Pickup actions (contract v2): only valid on pickup orders, mapped to
-        // ready_for_delivery / food_complete_pickup by the wrapper.
-        if (status === "ready_for_pickup" || status === "picked_up") {
-          if (order.fulfillment_type !== "pickup") throw new BridgeInputError();
-          await transitionPickupOrder(client, orderId, status); return null;
-        }
         if (status === "out_for_delivery" && order.fulfillment_type === "pickup") throw new BridgeInputError();
         await transitionFoodOrder(client, orderId, status as FoodOrder["status"], args.etaMinutes == null ? undefined : Number(args.etaMinutes), text(args.note, 1000)); return null;
       }

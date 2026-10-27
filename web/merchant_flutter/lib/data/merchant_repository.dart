@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'bridge_transport.dart';
 
 typedef Json = Map<String, dynamic>;
@@ -35,16 +36,11 @@ class MerchantException implements Exception {
 
 /// Existing WYNOS JavaScript client owns authentication, account switching,
 /// push cleanup and API contracts. Flutter holds no credentials or tokens.
-///
-/// Contract v2: pickup orders reuse the stored statuses ready_for_delivery
-/// ("พร้อมให้รับ") and delivered ("ลูกค้ารับแล้ว"). The values returned for a
-/// pickup order are bridge actions, not statuses: 'ready_for_pickup' moves the
-/// order to ready_for_delivery and 'picked_up' calls food_complete_pickup.
 String? orderNextStatus(Json order) => order['fulfillment_type'] == 'pickup'
     ? switch (order['status']) {
         'pending_acceptance' => 'preparing',
-        'preparing' => 'ready_for_pickup',
-        'ready_for_delivery' => 'picked_up',
+        'preparing' => 'ready_for_delivery',
+        'ready_for_delivery' => 'delivered',
         _ => null,
       }
     : nextStatuses[order['status']];
@@ -56,14 +52,6 @@ String? orderNextAction(Json order) => order['fulfillment_type'] == 'pickup'
         _ => null,
       }
     : nextActions[order['status']];
-String orderStatusLabel(Json order) {
-  final status = '${order['status']}';
-  if (order['fulfillment_type'] == 'pickup') {
-    if (status == 'ready_for_delivery') return 'พร้อมให้รับ';
-    if (status == 'delivered') return 'ลูกค้ารับแล้ว';
-  }
-  return orderStatuses[status] ?? status;
-}
 
 abstract class MerchantRepository {
   static const pageSize = 50;
@@ -77,6 +65,18 @@ abstract class MerchantRepository {
   Future<Json> campaigns(String storeId);
   Future<void> saveMenu(String storeId, Json values, {String? id});
   Future<void> saveStore(String storeId, Json values);
+  Future<void> completePickup(String storeId, String orderId) async =>
+      throw const MerchantException(
+        'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+      );
+  Future<void> cancelStoreOrder(
+    String storeId,
+    String orderId,
+    bool refund,
+    String note,
+  ) async => throw const MerchantException(
+    'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+  );
   Future<void> setFulfillment(String storeId, Json values) async =>
       throw const MerchantException(
         'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
@@ -191,6 +191,26 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<void> saveStore(String storeId, Json values) async {
     await call('saveStore', {'storeId': storeId, 'values': values});
+  }
+
+  @override
+  Future<void> completePickup(String storeId, String orderId) async {
+    await call('completePickup', {'storeId': storeId, 'orderId': orderId});
+  }
+
+  @override
+  Future<void> cancelStoreOrder(
+    String storeId,
+    String orderId,
+    bool refund,
+    String note,
+  ) async {
+    await call('cancelStoreOrder', {
+      'storeId': storeId,
+      'orderId': orderId,
+      'refund': refund,
+      'note': note,
+    });
   }
 
   @override
@@ -315,13 +335,11 @@ class BridgeMerchantRepository extends MerchantRepository {
     String storeId,
     String orderId,
     String kind,
-  ) async =>
-      await call('signedUrl', {
-            'storeId': storeId,
-            'orderId': orderId,
-            'kind': kind,
-          })
-          as String?;
+  ) async => await call('signedUrl', {
+    'storeId': storeId,
+    'orderId': orderId,
+    'kind': kind,
+  }) as String?;
   @override
   Future<void> subscribe(String storeId) async {
     await call('subscribe', {'storeId': storeId});
@@ -365,3 +383,10 @@ String errorMessage(Object e) {
   if (e is MerchantException) return e.message;
   return 'เชื่อมต่อหรือบันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง';
 }
+
+String orderStatusLabel(Json o) =>
+    o['fulfillment_type'] == 'pickup' && o['status'] == 'ready_for_delivery'
+    ? 'พร้อมให้รับ'
+    : o['fulfillment_type'] == 'pickup' && o['status'] == 'delivered'
+    ? 'ลูกค้ารับแล้ว'
+    : orderStatuses[o['status']] ?? o['status'];

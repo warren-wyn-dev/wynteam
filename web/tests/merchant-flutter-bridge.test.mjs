@@ -309,16 +309,15 @@ test('settings roles, validation and foreign store requests fail closed',async()
   assert.equal((await a.request('resolveCancel',{storeId:OTHER,orderId:ORDER,approve:true,refund:true})).ok,false);
   assert.equal(a.calls.some(c=>c.name==='food_resolve_cancel_request'),false);
 });
-// Contract v2: pickup reuses ready_for_delivery / delivered; collection goes through food_complete_pickup.
-test('pickup actions map to ready_for_delivery and food_complete_pickup, delivery completion stays separate',async()=>{
+test('pickup completes with the v2 RPC and rejects invented DB statuses',async()=>{
+  const delivery=harness();
+  assert.equal((await delivery.request('completePickup',{storeId:STORE,orderId:ORDER})).ok,false);
+  assert.equal(delivery.calls.some(c=>c.name==='food_complete_pickup'),false);
   const h=harness();h.state.order.fulfillment_type='pickup';
-  for(const status of ['ready_for_pickup','picked_up']) assert.equal((await h.request('transition',{storeId:STORE,orderId:ORDER,status})).ok,true);
-  assert.deepEqual(h.calls.filter(c=>c.name==='food_transition_order').map(c=>c.args.p_status),['ready_for_delivery']);
-  assert.deepEqual(h.calls.filter(c=>c.name==='food_complete_pickup').map(c=>c.args.p_order_id),[ORDER]);
-  assert.equal((await h.request('transition',{storeId:STORE,orderId:ORDER,status:'delivered'})).ok,false);
-  const d=harness();
-  for(const status of ['ready_for_pickup','picked_up']) assert.equal((await d.request('transition',{storeId:STORE,orderId:ORDER,status})).ok,false);
-  assert.equal(d.calls.some(c=>c.name==='food_complete_pickup'||c.name==='food_transition_order'),false);
+  assert.equal((await h.request('transition',{storeId:STORE,orderId:ORDER,status:'ready_for_delivery'})).ok,true);
+  assert.equal((await h.request('completePickup',{storeId:STORE,orderId:ORDER})).ok,true);
+  assert.equal(h.calls.some(c=>c.name==='food_complete_pickup' && c.args.p_order_id===ORDER),true);
+  for(const status of ['ready_for_pickup','picked_up','delivered'])assert.equal((await h.request('transition',{storeId:STORE,orderId:ORDER,status})).ok,false);
 });
 test('cancel resolution forwards refund decision, rejection always disables refund',async()=>{
   const h=harness();
@@ -360,4 +359,16 @@ test('Stripe refunds and denied roles cannot upload a store refund slip',async()
     assert.equal((await h.request('pickRefundSlip',{storeId:STORE,orderId:ORDER})).ok,false);
     assert.equal(h.calls.some(c=>c.name==='uploadFoodPrivateImage'),false);
   }
+});
+
+test('merchant no-show cancellation carries an explicit refund decision and checks order ownership', async()=>{
+  const h=harness();
+  const args={storeId:STORE,orderId:ORDER,refund:false,note:'ลูกค้าไม่มารับ'};
+  assert.equal((await h.request('cancelStoreOrder',{...args,storeId:OTHER})).ok,false);
+  assert.equal(h.calls.some(c=>c.name==='food_store_cancel_order'),false);
+  assert.equal((await h.request('cancelStoreOrder',args)).ok,true);
+  const call=h.calls.find(c=>c.name==='food_store_cancel_order');
+  assert.equal(call.args.p_order_id,ORDER);assert.equal(call.args.p_refund,false);assert.equal(call.args.p_note,args.note);
+  h.state.rpcError={name:'food_store_cancel_order',message:'role required'};
+  assert.equal((await h.request('cancelStoreOrder',{...args,refund:true})).ok,false);
 });

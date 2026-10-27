@@ -11,7 +11,7 @@ export function MerchantFulfillmentSettings({ client, store, onSaved }: { client
   const [pickup, setPickup] = useState(store.pickup_enabled === true);
   const [delivery, setDelivery] = useState(store.delivery_enabled !== false);
   const [cod, setCod] = useState(store.cod_enabled === true);
-  const [prep, setPrep] = useState(String(store.prep_minutes ?? 15));
+  const [prep, setPrep] = useState(String(store.pickup_prep_minutes ?? 15));
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const save = async () => {
     setBusy(true); setError("");

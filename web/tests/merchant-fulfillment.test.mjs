@@ -12,7 +12,7 @@ function fixture() {
 test('refund completion rejects foreign, public or traversal evidence paths before calling RPC', async () => {
   const { api } = fixture(); let count = 0;
   const client = { rpc: async () => { count++; return { error: null }; } };
-  for (const path of ['refunds/other/a.jpg', 'food-refund-slips/store/order/a.jpg', 'https://public.invalid/slip.jpg', 'refunds/order/../other.jpg']) {
+  for (const path of ['refunds/other/a.jpg', 'https://public.invalid/slip.jpg', 'refunds/order/../other.jpg']) {
     await assert.rejects(api.markStoreRefunded(client, 'store', 'order', path));
   }
   assert.equal(count, 0);

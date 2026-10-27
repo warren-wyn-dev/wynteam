@@ -108,6 +108,9 @@ run -f "$ROOT/supabase/migrations/20261026120000_zoky_fulfill_001.sql" >/dev/nul
 run -f "$ROOT/supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql" >/dev/null
 run -f "$ROOT/supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql" >/dev/null
 
+run -f "$ROOT/supabase/migrations/20261026172233_zoky_merchant_cancel_choice.sql" >/dev/null
+run -f "$ROOT/supabase/migrations/20261026172233_zoky_merchant_cancel_choice.sql" >/dev/null
+
 # Fixtures: a store open every day 00:00-23:59 (Bangkok) and one without a schedule.
 run >/dev/null <<SQL
 insert into public.food_stores(id, slug, share_code, name, is_open, is_published, latitude, longitude, delivery_fee, business_schedule)
@@ -261,6 +264,23 @@ db "update public.food_orders set payment_status='paid' where id='$T1'" >/dev/nu
 as "$STAFF" "select public.food_transition_order('$T1','cancelled')" >/dev/null
 expect "select refund_status from public.food_orders where id='$T1'" "pending" "store cancel of a paid order still owes a refund"
 
+# --- direct merchant cancellation: no-show decision, role and audit -----------
+N1=$(as "00000000-0000-0000-0000-0000000000d3" "select public.food_create_order_v3('$STORE','ลูกค้า','0800000000','บ้าน','',$ITEMS,16.181,103.301,null,'delivery',null,'transfer')")
+db "update public.food_orders set payment_status='paid' where id='$N1'" >/dev/null
+expect_fail_as "$OTHER" "select public.food_store_cancel_order('$N1',false,'no show')" "order management role required" "outsider cannot cancel"
+expect_fail_as "$STAFF" "select public.food_store_cancel_order('$N1',false,'x')" "cancellation reason required" "reason required"
+expect_fail_as "$STAFF" "select public.food_store_cancel_order('$N1',null,'no show')" "refund decision required" "explicit decision required"
+as "$STAFF" "select public.food_store_cancel_order('$N1',false,'no show')" >/dev/null
+expect "select status||'|'||refund_status from public.food_orders where id='$N1'" "cancelled|none" "direct no-refund cancellation"
+expect "select count(*) from public.food_order_events where order_id='$N1' and event_type='merchant_cancelled_no_refund'" "1" "no-refund decision audited"
+expect_fail_as "$STAFF" "select public.food_store_cancel_order('$N1',true,'retry')" "order is closed" "closed order immutable"
+N2=$(as "00000000-0000-0000-0000-0000000000d3" "select public.food_create_order_v3('$STORE','ลูกค้า','0800000000','บ้าน','',$ITEMS,16.181,103.301,null,'delivery',null,'transfer')")
+expect_fail_as "$STAFF" "select public.food_store_cancel_order('$N2',true,'refund')" "only paid orders" "unpaid order cannot refund"
+db "update public.food_orders set payment_status='paid' where id='$N2'" >/dev/null
+as "$STAFF" "select public.food_store_cancel_order('$N2',true,'refund')" >/dev/null
+expect "select status||'|'||refund_status from public.food_orders where id='$N2'" "cancelled|pending" "direct refund cancellation"
+expect "select count(*) from public.food_order_events where order_id='$N2' and event_type='merchant_cancelled_refund'" "1" "refund decision audited"
+
 # --- table constraints --------------------------------------------------------
 expect_fail_as "$OWNER" "update public.food_orders set payment_method='cod' where id='$P1'" "violates check constraint" "pickup+COD blocked by constraint"
 expect_fail_db "update public.food_stores set pickup_enabled=false, delivery_enabled=false where id='$STORE'" "food_stores_fulfillment_mode_check" "store must keep a mode"
@@ -282,6 +302,9 @@ expect_as "$ADMIN" "select string_agg(pickup_code, ',') from public.admin_food_o
 db "update public.food_orders set cancel_requested_at=null where id='$P1'" >/dev/null
 run -f "$ROOT/supabase/rollbacks/20261026130000_zoky_fulfill_001_admin_rollback.sql" >/dev/null
 expect "select count(*) from pg_proc where proname = 'admin_food_orders_v2'" "0" "admin rollback drops v2"
+
+run -f "$ROOT/supabase/rollbacks/20261026172233_zoky_merchant_cancel_choice_rollback.sql" >/dev/null
+expect "select to_regprocedure('public.food_store_cancel_order(uuid,boolean,text)') is null" "t" "merchant cancellation rollback"
 
 # --- rollback ------------------------------------------------------------------
 if err="$(run -f "$ROOT/supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql" 2>&1)"; then echo "FAIL: rollback ran with pickup/COD orders"; exit 1; fi
