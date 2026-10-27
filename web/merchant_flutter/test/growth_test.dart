@@ -162,4 +162,17 @@ void main() {
     final join = find.widgetWithText(FilledButton, 'เข้าร่วมแคมเปญ');
     expect(tester.widget<FilledButton>(join).onPressed, isNull);
   });
+
+  testWidgets('ads re-read the account on a page refresh', (tester) async {
+    final repo = GrowthRepository();
+    Widget build(DateTime at) =>
+        host(AdsPanel(repository: repo, storeId: 'store-1', refreshedAt: at));
+    await tester.pumpWidget(build(DateTime(2026, 10, 27, 10)));
+    await tester.pumpAndSettle();
+    expect(find.text('฿50.00'), findsOneWidget);
+    repo.account['balance'] = 80;
+    await tester.pumpWidget(build(DateTime(2026, 10, 27, 10, 0, 20)));
+    await tester.pumpAndSettle();
+    expect(find.text('฿80.00'), findsOneWidget);
+  });
 }

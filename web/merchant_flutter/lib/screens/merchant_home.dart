@@ -1429,24 +1429,34 @@ class _MerchantHomeState extends State<MerchantHome>
 
   List<Widget> adsPage() => [
     heading('โฆษณา', 'ให้ร้านขึ้นเป็นร้านแนะนำและอยู่บนสุดตอนค้นหา'),
-    box(
-      AdsPanel(
-        key: ValueKey(c.storeId),
-        repository: widget.repository,
-        storeId: c.storeId!,
-      ),
-    ),
+    if (c.canManage)
+      box(
+        AdsPanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+        ),
+      )
+    else
+      box(const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่จัดการโฆษณาได้')),
   ];
 
   List<Widget> zokyCampaignsPage() => [
     heading('แคมเปญ ZOKY', 'แคมเปญส่วนลดที่ ZOKY ช่วยออกให้ เข้าร่วมได้เอง'),
-    box(
-      PlatformCampaignsPanel(
-        key: ValueKey(c.storeId),
-        repository: widget.repository,
-        storeId: c.storeId!,
+    if (c.canManage)
+      box(
+        PlatformCampaignsPanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+        ),
+      )
+    else
+      box(
+        const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่เข้าร่วมแคมเปญได้'),
       ),
-    ),
   ];
 
   List<Widget> staffPage() => [
@@ -1456,19 +1466,26 @@ class _MerchantHomeState extends State<MerchantHome>
         key: ValueKey(c.storeId),
         repository: widget.repository,
         storeId: c.storeId!,
+        refreshedAt: c.updatedAt,
       ),
     ),
   ];
 
   List<Widget> financePage() => [
     heading('การเงินของร้าน', 'ยอดขาย คืนเงิน และรายได้ของร้าน'),
-    box(
-      FinancePanel(
-        key: ValueKey(c.storeId),
-        repository: widget.repository,
-        storeId: c.storeId!,
-      ),
-    ),
+    // Re-checked on every refresh: losing the role removes the panel and
+    // the figures it holds.
+    if (c.canManage)
+      box(
+        FinancePanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+        ),
+      )
+    else
+      box(const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่ดูการเงินได้')),
   ];
 
   List<Widget> promotionsPage() => [

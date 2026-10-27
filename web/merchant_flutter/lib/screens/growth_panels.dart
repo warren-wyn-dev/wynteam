@@ -15,6 +15,12 @@ mixin _ServerPanel<T extends StatefulWidget> on State<T> {
   String? error, notice;
   int _generation = 0;
   Future<Json> read();
+  DateTime? get refreshedAt;
+
+  /// Re-read on every page refresh, unless a write is in flight (it reloads itself).
+  void reloadIfRefreshed(DateTime? before) {
+    if (before != refreshedAt && !busy) unawaited(load());
+  }
 
   Future<void> load() async {
     final g = ++_generation;
@@ -101,9 +107,15 @@ const _topupStatus = {
 /// Pay-per-click ads (merchant_ad_account). Credit is topped up by transfer
 /// to ZOKY's PromptPay plus a slip that ZOKY Admin reviews.
 class AdsPanel extends StatefulWidget {
-  const AdsPanel({super.key, required this.repository, required this.storeId});
+  const AdsPanel({
+    super.key,
+    required this.repository,
+    required this.storeId,
+    this.refreshedAt,
+  });
   final MerchantRepository repository;
   final String storeId;
+  final DateTime? refreshedAt;
   @override
   State<AdsPanel> createState() => _AdsPanelState();
 }
@@ -112,6 +124,13 @@ class _AdsPanelState extends State<AdsPanel> with _ServerPanel<AdsPanel> {
   final amount = TextEditingController();
   @override
   Future<Json> read() => widget.repository.ads(widget.storeId);
+  @override
+  DateTime? get refreshedAt => widget.refreshedAt;
+  @override
+  void didUpdateWidget(covariant AdsPanel old) {
+    super.didUpdateWidget(old);
+    reloadIfRefreshed(old.refreshedAt);
+  }
 
   @override
   void initState() {
@@ -285,9 +304,11 @@ class PlatformCampaignsPanel extends StatefulWidget {
     super.key,
     required this.repository,
     required this.storeId,
+    this.refreshedAt,
   });
   final MerchantRepository repository;
   final String storeId;
+  final DateTime? refreshedAt;
   @override
   State<PlatformCampaignsPanel> createState() => _PlatformCampaignsPanelState();
 }
@@ -296,6 +317,13 @@ class _PlatformCampaignsPanelState extends State<PlatformCampaignsPanel>
     with _ServerPanel<PlatformCampaignsPanel> {
   @override
   Future<Json> read() => widget.repository.platformCampaigns(widget.storeId);
+  @override
+  DateTime? get refreshedAt => widget.refreshedAt;
+  @override
+  void didUpdateWidget(covariant PlatformCampaignsPanel old) {
+    super.didUpdateWidget(old);
+    reloadIfRefreshed(old.refreshedAt);
+  }
 
   @override
   void initState() {

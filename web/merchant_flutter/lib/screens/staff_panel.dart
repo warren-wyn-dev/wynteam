@@ -19,9 +19,13 @@ class StaffPanel extends StatefulWidget {
     super.key,
     required this.repository,
     required this.storeId,
+    this.refreshedAt,
   });
   final MerchantRepository repository;
   final String storeId;
+
+  /// The page's last refresh; a new value re-reads the team.
+  final DateTime? refreshedAt;
   @override
   State<StaffPanel> createState() => _StaffPanelState();
 }
@@ -38,6 +42,12 @@ class _StaffPanelState extends State<StaffPanel> {
   void initState() {
     super.initState();
     unawaited(load());
+  }
+
+  @override
+  void didUpdateWidget(covariant StaffPanel old) {
+    super.didUpdateWidget(old);
+    if (old.refreshedAt != widget.refreshedAt && !busy) unawaited(load());
   }
 
   @override
@@ -164,6 +174,14 @@ class _StaffPanelState extends State<StaffPanel> {
           Semantics(
             liveRegion: true,
             child: Text(error!, style: const TextStyle(color: Colors.red)),
+          ),
+        if (error != null && members.isEmpty && !loading)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: load,
+              child: const Text('ลองอีกครั้ง'),
+            ),
           ),
         if (notice != null)
           Semantics(
