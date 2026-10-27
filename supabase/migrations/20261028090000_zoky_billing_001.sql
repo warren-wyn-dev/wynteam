@@ -18,6 +18,7 @@
 --   an Admin with merchant:edit approves (receipt number) or rejects it.
 -- GP is unchanged (0%, admin page kept).
 -- Rollback: supabase/rollbacks/20261028090000_zoky_billing_001_rollback.sql
+-- (the three billing audit event types are left in the allowlist; harmless)
 
 -- tables ----------------------------------------------------------------------------
 
@@ -107,6 +108,17 @@ create index if not exists food_billing_invoices_store_idx on public.food_billin
 create index if not exists food_billing_invoices_open_idx on public.food_billing_invoices(due_on)
   where status in ('unpaid', 'rejected', 'slip_submitted');
 
+-- A cycle the job saw start while the store could not sell: never billed,
+-- even if the store is unsuspended or republished within the 3-day window.
+create table if not exists public.food_billing_skipped_cycles (
+  store_id uuid not null references public.food_stores(id) on delete cascade,
+  period_start date not null,
+  reason text not null,
+  created_at timestamptz not null default now(),
+  primary key (store_id, period_start),
+  constraint food_billing_skipped_cycles_reason_check check (reason in ('unpublished', 'suspended'))
+);
+
 create table if not exists public.food_billing_reminders (
   invoice_id uuid not null references public.food_billing_invoices(id) on delete cascade,
   offset_days smallint not null,
@@ -120,6 +132,8 @@ alter table public.food_billing_price_history enable row level security;
 alter table public.food_store_billing enable row level security;
 alter table public.food_billing_invoices enable row level security;
 alter table public.food_billing_reminders enable row level security;
+alter table public.food_billing_skipped_cycles enable row level security;
+revoke all on table public.food_billing_skipped_cycles from public, anon, authenticated;
 revoke all on table public.food_billing_settings from public, anon, authenticated;
 revoke all on table public.food_billing_price_history from public, anon, authenticated;
 revoke all on table public.food_store_billing from public, anon, authenticated;
@@ -127,6 +141,50 @@ revoke all on table public.food_billing_invoices from public, anon, authenticate
 revoke all on table public.food_billing_reminders from public, anon, authenticated;
 revoke all on sequence public.food_billing_price_history_id_seq from public, anon, authenticated;
 revoke all on sequence public.food_billing_receipt_seq from public, anon, authenticated;
+
+-- Audit event types (additive; keeps every existing value, same as merchant_gp_v1).
+do $$
+declare
+  v_name text;
+  v_def text;
+  v_values text[];
+  v_new text[] := array['admin_billing_settings_updated', 'admin_billing_invoice_reviewed', 'admin_billing_invoice_waived'];
+begin
+  select c.conname, pg_get_constraintdef(c.oid)
+    into v_name, v_def
+  from pg_constraint c
+  where c.conrelid = 'public.audit_log'::regclass
+    and c.contype = 'c'
+    and pg_get_constraintdef(c.oid) like '%event_type%'
+  limit 1;
+
+  if v_def is null then
+    raise exception 'audit_log event_type check constraint not found';
+  end if;
+
+  select array_agg(distinct x.m[1] order by x.m[1])
+    into v_values
+  from regexp_matches(v_def, '''([a-z0-9_]+)''', 'g') as x(m);
+
+  if v_values is null or cardinality(v_values) < 2
+     or exists (select 1 from unnest(v_values) as v where v !~ '^[a-z0-9_]+$') then
+    raise exception 'Could not read the audit_log event types from: %', v_def;
+  end if;
+
+  if v_new <@ v_values then
+    return;
+  end if;
+
+  select array_agg(distinct v order by v) into v_values
+  from unnest(v_values || v_new) as v;
+
+  execute format('alter table public.audit_log drop constraint %I', v_name);
+  execute format(
+    'alter table public.audit_log add constraint audit_log_event_type_check check (event_type in (%s))',
+    (select string_agg(quote_literal(v), ', ') from unnest(v_values) as v)
+  );
+end
+$$;
 
 -- helpers ---------------------------------------------------------------------------
 
@@ -169,13 +227,19 @@ begin
 end;
 $$;
 
--- Notify the store's active owner/admin members.
+-- Notify the store's active owner/admin members: the Merchant inbox
+-- (merchant_notifications) and the push pipeline (notifications).
 create or replace function internal.food_billing_notify(p_store_id uuid, p_reason text)
 returns void
 language sql
 security definer
 set search_path = ''
 as $$
+  insert into public.merchant_notifications (merchant_account_id, recipient_user_id, type, reason)
+  select s.merchant_account_id, mm.user_id, 'payment', left(p_reason, 1000)
+  from public.food_stores s
+  join public.merchant_memberships mm on mm.merchant_account_id = s.merchant_account_id
+  where s.id = p_store_id and mm.active and mm.role in ('owner', 'admin');
   insert into public.notifications (recipient_id, actor_id, type, reason)
   select mm.user_id, null, 'system', left(p_reason, 500)
   from public.food_stores s
@@ -261,16 +325,27 @@ begin
   perform internal.food_billing_backfill(v_today);
 
   -- One invoice per cycle, issued while the store can sell. A late run (up to
-  -- 3 days into the cycle) still issues it; a cycle that starts while the
-  -- store is unpublished or suspended is not billed.
+  -- 3 days into the cycle) still issues it. A cycle the job saw start while
+  -- the store was unpublished or suspended is recorded and never billed.
   for v_row in
-    select b.store_id, b.cycle_anchor, s.name
+    select b.store_id, b.cycle_anchor, s.name, s.is_published, s.admin_suspended_at is not null as suspended
     from public.food_store_billing b
     join public.food_stores s on s.id = b.store_id
-    where b.cycle_anchor <= v_today and s.is_published and s.admin_suspended_at is null
+    where b.cycle_anchor <= v_today
   loop
     v_cycle := internal.food_billing_cycle_start(v_row.cycle_anchor, v_today);
     continue when v_today - v_cycle > 3;
+    continue when exists (select 1 from public.food_billing_skipped_cycles k
+      where k.store_id = v_row.store_id and k.period_start = v_cycle);
+    if not v_row.is_published or v_row.suspended then
+      if not exists (select 1 from public.food_billing_invoices i
+          where i.store_id = v_row.store_id and i.period_start = v_cycle) then
+        insert into public.food_billing_skipped_cycles (store_id, period_start, reason)
+        values (v_row.store_id, v_cycle, case when v_row.suspended then 'suspended' else 'unpublished' end)
+        on conflict do nothing;
+      end if;
+      continue;
+    end if;
     insert into public.food_billing_invoices (store_id, period_start, period_end, amount, issued_on, due_on)
     values (v_row.store_id, v_cycle, internal.food_billing_next_cycle(v_row.cycle_anchor, v_cycle) - 1,
       v_settings.monthly_fee, v_today, v_today + 7)
@@ -441,6 +516,9 @@ begin
   if p_slip_path is null or char_length(p_slip_path) > 300 or p_slip_path like '%..%'
      or p_slip_path not like 'billing/' || v_invoice.store_id::text || '/' || v_invoice.id::text || '/_%'
      or p_slip_path like 'billing/' || v_invoice.store_id::text || '/' || v_invoice.id::text || '/%/%' then
+    raise exception 'slip must be uploaded for this invoice';
+  end if;
+  if not exists (select 1 from storage.objects o where o.bucket_id = 'food-private' and o.name = p_slip_path) then
     raise exception 'slip must be uploaded for this invoice';
   end if;
   update public.food_billing_invoices

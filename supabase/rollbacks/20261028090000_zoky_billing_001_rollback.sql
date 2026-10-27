@@ -3,7 +3,8 @@
 -- food_billing_price_history and food_store_billing before running this.
 -- Turning billing off in ZOKY Admin (billing_enabled = false) already stops new
 -- invoices and reminders; use this only to remove the feature entirely.
--- Slip files under food-private/billing/ are left in storage.
+-- Slip files under food-private/billing/ are left in storage, and the three
+-- billing audit event types stay in audit_log_event_type_check (harmless).
 
 do $$
 declare v_job bigint;
@@ -37,6 +38,7 @@ drop function if exists internal.food_billing_cycle_start(date, date);
 drop function if exists internal.food_billing_today();
 
 drop table if exists public.food_billing_reminders;
+drop table if exists public.food_billing_skipped_cycles;
 drop table if exists public.food_billing_invoices;
 drop sequence if exists public.food_billing_receipt_seq;
 drop table if exists public.food_store_billing;

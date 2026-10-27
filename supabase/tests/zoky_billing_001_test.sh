@@ -49,7 +49,9 @@ run >/dev/null <<'SQL'
 create table public.notifications(recipient_id uuid, actor_id uuid, type text, reason text);
 create table public.merchant_memberships(merchant_account_id uuid, user_id uuid, role text, active boolean default true);
 create table public.test_admins(user_id uuid primary key, level text);
-create table public.audit_log(actor uuid, action text, target uuid, meta jsonb);
+create table public.audit_log(actor uuid, event_type text, target uuid, meta jsonb,
+  constraint audit_log_event_type_check check (event_type in ('admin_ad_settings_updated', 'admin_gp_rate_set')));
+create table public.merchant_notifications(merchant_account_id uuid, recipient_user_id uuid, type text check (type in ('system', 'order', 'payment', 'staff')), reason text);
 create function public.merchant_has_store_role(p_store uuid, p_roles text[]) returns boolean language sql stable security definer as
   $$ select exists(select 1 from public.food_stores s join public.merchant_memberships m on m.merchant_account_id = s.merchant_account_id
      where s.id = p_store and m.user_id = auth.uid() and m.active and m.role = any(p_roles)) $$;
@@ -66,6 +68,8 @@ SQL
 grep -q "cron.schedule('zoky-billing-daily', '5 1 \* \* \*', 'select internal.food_billing_run();')" "$MIGRATION" \
   || { echo "FAIL: daily schedule missing"; exit 1; }
 sed '/^-- schedule ---/,$d' "$MIGRATION" | run >/dev/null
+
+expect "select pg_get_constraintdef(oid) ~ 'admin_billing_invoice_waived' and pg_get_constraintdef(oid) ~ 'admin_gp_rate_set' from pg_constraint where conname = 'audit_log_event_type_check'" "t" "audit allowlist extended, existing values kept"
 
 run >/dev/null <<SQL
 insert into auth.users values ('$OWNER'), ('$SADMIN'), ('$MANAGER'), ('$OWNER2'), ('$EDITOR'), ('$VIEWER'), ('$NOBODY');
@@ -113,7 +117,7 @@ expect "select launched_on = internal.food_billing_today() from public.food_bill
 expect "select count(*) from public.food_store_billing" "2" "published stores opened at launch"
 expect "select cycle_anchor - opened_on from public.food_store_billing where store_id = '$STORE'" "30" "trial snapshot"
 expect "select count(*) from public.food_billing_price_history" "1" "price history recorded"
-expect "select count(*) from public.audit_log where action = 'admin_billing_settings_updated'" "1" "settings audited"
+expect "select count(*) from public.audit_log where event_type = 'admin_billing_settings_updated'" "1" "settings audited"
 # Re-saving keeps the launch date and does not duplicate history.
 db "update public.food_billing_settings set launched_on = '2026-01-01'" >/dev/null
 as "$EDITOR" "select public.admin_update_billing_settings($ARGS)" >/dev/null
@@ -138,11 +142,15 @@ expect "select internal.food_billing_run('2026-11-01')->>'issued'" "1" "only the
 expect "select period_start || ' ' || period_end || ' ' || amount || ' ' || issued_on || ' ' || due_on from public.food_billing_invoices where store_id = '$STORE'" \
   "2026-11-01 2026-11-30 499.00 2026-11-01 2026-11-08" "full month, due 7 days after issue"
 expect "select count(*) from public.food_billing_invoices where store_id = '$STORE2'" "0" "suspended store not billed"
-expect "select count(*) from public.notifications where reason like 'ZOKY ออกใบแจ้งค่าบริการร้าน ร้านหนึ่ง%'" "2" "issue notice to owner and admin only"
+expect "select count(*) from public.notifications where reason like 'ZOKY ออกใบแจ้งค่าบริการร้าน ร้านหนึ่ง%'" "2" "issue push notice to owner and admin only"
+expect "select count(*) || ' ' || min(type) from public.merchant_notifications where reason like 'ZOKY ออกใบแจ้งค่าบริการร้าน ร้านหนึ่ง%' and recipient_user_id in ('$OWNER', '$SADMIN')" "2 payment" "issue notice in the Merchant inbox"
 expect "select internal.food_billing_run('2026-11-01')->>'issued'" "0" "idempotent on the same day"
 expect "select count(*) from public.food_billing_invoices" "1" "no duplicate invoice"
-# Unsuspended more than 3 days into the cycle: that cycle stays unbilled.
+expect "select reason from public.food_billing_skipped_cycles where store_id = '$STORE2' and period_start = '2026-11-01'" "suspended" "suspended cycle recorded as skipped"
+# Unsuspended within the 3-day window: the cycle that started suspended stays unbilled.
 db "update public.food_stores set admin_suspended_at = null where id = '$STORE2'" >/dev/null
+expect "select internal.food_billing_run('2026-11-02')->>'issued'" "0" "unsuspend within 3 days does not bill a suspended cycle"
+# Unsuspended more than 3 days into the cycle: that cycle stays unbilled.
 expect "select internal.food_billing_run('2026-11-05')->>'issued'" "0" "late unsuspend does not bill the cycle"
 db "update public.food_stores set admin_suspended_at = now() where id = '$STORE2'" >/dev/null
 
@@ -176,7 +184,7 @@ for case in "$OWNER2|billing/$STORE/$INV/x.jpg" "$MANAGER|billing/$STORE/$INV/x.
   err="$(obj "${case%%|*}" "${case#*|}")" && { echo "FAIL: policy allowed ${case}"; exit 1; }
   [[ "$err" == *"row-level security"* ]] || { echo "FAIL: unexpected error for ${case}: $err"; exit 1; }
 done
-expect "select count(*) from (select 1 from storage.objects) o" "1" "only the owner's slip was stored"
+expect "select count(*) from storage.objects" "1" "only the owner's slip was stored"
 seen() { db "set test.uid='$1'; set role authenticated; select count(*) from storage.objects where name like 'billing/%'"; }
 [[ "$(seen "$OWNER")" == 1 && "$(seen "$SADMIN")" == 1 && "$(seen "$OWNER2")" == 0 && "$(seen "$MANAGER")" == 0 ]] \
   || { echo "FAIL: slip read policy"; exit 1; }
@@ -188,6 +196,8 @@ expect_fail_as "$OWNER" "select public.merchant_submit_billing_slip('$INV', 'bil
 expect_fail_as "$OWNER" "select public.merchant_submit_billing_slip('$INV', 'billing/$STORE/$INV/../x.jpg')" "uploaded for this invoice" "path traversal refused"
 expect_fail_as "$OWNER" "select public.merchant_submit_billing_slip('$INV', 'billing/$STORE/$INV/x/y.jpg')" "uploaded for this invoice" "nested path refused"
 expect_fail_as "$OWNER" "select public.merchant_submit_billing_slip('$INV', 'ads/$STORE/a.jpg')" "uploaded for this invoice" "other area refused"
+expect_fail_as "$OWNER" "select public.merchant_submit_billing_slip('$INV', 'billing/$STORE/$INV/a.jpg')" "uploaded for this invoice" "slip file must exist"
+db "insert into storage.objects values ('food-private', 'billing/$STORE/$INV/a.jpg'), ('food-private', 'billing/$STORE/$INV/c.jpg')" >/dev/null
 as "$OWNER" "select public.merchant_submit_billing_slip('$INV', 'billing/$STORE/$INV/a.jpg')" >/dev/null
 expect "select status from public.food_billing_invoices where id = '$INV'" "slip_submitted" "slip submitted"
 expect_fail_as "$OWNER" "select public.merchant_submit_billing_slip('$INV', 'billing/$STORE/$INV/b.jpg')" "not waiting for payment" "no second slip while in review"
@@ -210,7 +220,7 @@ expect "select status || ' ' || (receipt_no ~ '^ZK-[0-9]{6}-000001$') || ' ' || 
 expect_fail_as "$EDITOR" "select public.admin_review_billing_invoice('$INV', true)" "no slip waiting" "cannot review twice"
 expect_as "$OWNER" "select (public.merchant_billing_receipt('$INV')->'store'->>'name') || ' ' || (public.merchant_billing_receipt('$INV')->>'amount')" "ร้านหนึ่ง 499.00" "owner gets the receipt"
 expect_fail_as "$OWNER2" "select public.merchant_billing_receipt('$INV')" "billing owner/admin access required" "other store cannot read the receipt"
-expect "select count(*) from public.audit_log where action = 'admin_billing_invoice_reviewed'" "2" "reviews audited"
+expect "select count(*) from public.audit_log where event_type = 'admin_billing_invoice_reviewed'" "2" "reviews audited"
 
 # Waive.
 db "insert into public.food_billing_invoices (id, store_id, period_start, period_end, amount, issued_on, due_on)
