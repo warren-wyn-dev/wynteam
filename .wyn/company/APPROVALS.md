@@ -759,3 +759,4 @@
   - Zoky Admin shows the refund status, the store refund slip when there is one, and the order history.
 - Also deferred, LOW: a COD order can still be paid through `food-stripe-checkout`. Stripe is paused, so it is not offered in the app.
 - Status: accepted; follow-up tracked under ZOKY-FULFILL-001.
+- 2026-10-27: the Merchant app shipped in round 5 (refunds only through `food_store_mark_refunded`). The follow-up migration `supabase/migrations/20261027090000_zoky_fulfill_001_refund_slip.sql` refuses `refunded` without a refund slip on every signed-in path (Stripe and service-role jobs excepted). The acceptance closes once it is applied to production (`zoky-fulfill-001-apply.yml`, step `apply-refund-slip`).
