@@ -85,6 +85,7 @@ function harness() {
       if(path==='@/lib/food-store-availability')return availability;
       if(path==='@/lib/merchant-core')return merchantCore;
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
+      if(path==='@/lib/merchant-finance')return {periodRange:(p)=>({from:'2026-10-'+(p==='month'?'01':'27'),to:'2026-10-27'}),fetchFinanceSummary:async(...args)=>{calls.push({name:'fetchFinanceSummary',args});return {sales_net:500,orders:3,days:[]};}};
       if(path==='@/lib/merchant-campaigns')return {fetchMerchantCampaigns:async()=>({can_manage:true,campaigns:[]}),saveMerchantCampaign:async(...args)=>{calls.push({name:'saveMerchantCampaign',args});},setMerchantCampaignActive:async()=>{}};
       if(path==='@/lib/push-notifications')return {getPushAvailability:async()=>({available:true}),hasActivePushSubscription:async()=>true,requestPushPermissionFromGesture:()=>{state.events.push('permission');return state.permissionRequest??Promise.resolve('granted');},subscribeToPushNotifications:async(_client,_user,options)=>{await options.permissionRequest;await options.ensureActive();state.events.push('subscribe');return {ok:true}},unsubscribeFromPushNotifications:async()=>true,pushReasonDescription:r=>r};
       if(path==='@/lib/food-fulfillment-merchant') {
@@ -418,4 +419,22 @@ test('payment QR upload is store-scoped, validated and verified',async()=>{
   // Removing the QR is the only direct payment_qr_path write.
   assert.equal((await h.request('saveStore',{storeId:STORE,values:{payment_qr_path:null}})).ok,true);
   assert.equal(h.state.store.payment_qr_path,null);
+});
+
+test('store finance is for managers only and only offers fixed Bangkok periods',async()=>{
+  const h=harness();
+  const result=await h.request('finance',{storeId:STORE,period:'month'});
+  assert.equal(result.ok,true,result.error);assert.equal(result.data.sales_net,500);
+  const call=h.calls.find(c=>c.name==='fetchFinanceSummary');
+  assert.equal(call.args[1],STORE);assert.equal(JSON.stringify(call.args[2]),JSON.stringify({from:'2026-10-01',to:'2026-10-27'}));
+  for(const period of ['custom','year','',null]){
+    const bad=harness();
+    assert.equal((await bad.request('finance',{storeId:STORE,period})).ok,false);
+    assert.equal(bad.calls.some(c=>c.name==='fetchFinanceSummary'),false);
+  }
+  const staff=harness();staff.state.manage=false;
+  assert.equal((await staff.request('finance',{storeId:STORE,period:'today'})).ok,false);
+  assert.equal(staff.calls.some(c=>c.name==='fetchFinanceSummary'),false);
+  const other=harness();
+  assert.equal((await other.request('finance',{storeId:OTHER,period:'today'})).ok,false);
 });

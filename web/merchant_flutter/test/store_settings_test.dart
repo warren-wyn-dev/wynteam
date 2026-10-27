@@ -154,7 +154,14 @@ void main() {
     await tester.tap(find.byTooltip('ลบวันหยุด 2026-11-01'));
     await tester.pump();
     expect(find.text('2026-11-01'), findsNothing);
-    for (final day in ['จันทร์', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์']) {
+    for (final day in [
+      'จันทร์',
+      'พุธ',
+      'พฤหัสบดี',
+      'ศุกร์',
+      'เสาร์',
+      'อาทิตย์',
+    ]) {
       final toggle = find.widgetWithText(SwitchListTile, day);
       await tester.ensureVisible(toggle);
       await tester.tap(toggle);

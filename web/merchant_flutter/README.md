@@ -30,6 +30,7 @@ Open `/merchant/flutter` and use the existing WYNOS login. Do not serve the Flut
 - Store selection, menu editing/availability, store information/open state.
 - Payment channels (PromptPay, bank account, store QR upload/removal) and weekly opening hours with special closed days, for owner/admin/manager. The bridge rechecks the PromptPay format of `food_stores_promptpay_id_format_check`, 10–15 digit bank accounts, a complete 7-day schedule with HH:MM times and up to 60 closed dates, then reads the row back.
 - Status-filtered order pagination, server sales reports and store promotions.
+- Store finance for owner/admin/manager: `merchant_finance_summary` for today, yesterday, this week or this month (Bangkok calendar), the same figures as the legacy finance page.
 - Manual slip review with private signed image and image-render gate before marking paid. Pending manual payments without a slip require explicit receipt confirmation. Stripe payments remain server verified.
 - Accepted → preparing (with selected ETA) → ready → dispatch, cancellation with reason and paid-order refund-pending warning.
 - Delivery completion with mandatory private photo and dropoff note. Photo selection remains local until confirmation; replacement/close releases the local selection. A failed completion retains its uploaded path for retry.

@@ -8,6 +8,7 @@ import '../widgets/merchant_tool_icon.dart';
 import 'order_dialogs.dart';
 import 'fulfillment_panels.dart';
 import 'store_settings_panels.dart';
+import 'finance_panel.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -323,6 +324,7 @@ class _MerchantHomeState extends State<MerchantHome>
                                     4 => reportPage(),
                                     5 => settingsPage(),
                                     6 => promotionsPage(),
+                                    8 => financePage(),
                                     _ => qualityPage(),
                                   },
                               ],
@@ -1046,7 +1048,7 @@ class _MerchantHomeState extends State<MerchantHome>
             'การเงิน',
             0,
             Icons.account_balance_wallet_outlined,
-            c.canManage ? () => openTool('finance') : null,
+            c.canManage ? () => navigate(8) : null,
           ),
           homeTool(
             'โฆษณา',
@@ -1349,6 +1351,13 @@ class _MerchantHomeState extends State<MerchantHome>
               },
       ),
       tool('โปรโมชั่น', Icons.local_offer_outlined, brand, () => navigate(6)),
+      if (c.canManage)
+        tool(
+          'การเงิน',
+          Icons.account_balance_wallet_outlined,
+          success,
+          () => navigate(8),
+        ),
       tool(
         'ตั้งค่าร้าน',
         Icons.settings_outlined,
@@ -1377,9 +1386,7 @@ class _MerchantHomeState extends State<MerchantHome>
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.wallet_outlined, color: success),
             title: const Text('การเงินและเครื่องมือเพิ่มเติม'),
-            subtitle: const Text(
-              'เปิดหน้าจัดการเดิม: การเงิน แคมเปญ โฆษณา และทีมงาน',
-            ),
+            subtitle: const Text('เปิดหน้าจัดการเดิม: แคมเปญ โฆษณา และทีมงาน'),
             trailing: const Icon(Icons.open_in_new, size: 20),
             onTap: openOriginal,
           ),
@@ -1390,6 +1397,17 @@ class _MerchantHomeState extends State<MerchantHome>
       onPressed: c.busy || signingOut ? null : signOut,
       icon: const Icon(Icons.logout),
       label: const Text('ออกจากระบบ'),
+    ),
+  ];
+
+  List<Widget> financePage() => [
+    heading('การเงินของร้าน', 'ยอดขาย คืนเงิน และรายได้ของร้าน'),
+    box(
+      FinancePanel(
+        key: ValueKey(c.storeId),
+        repository: widget.repository,
+        storeId: c.storeId!,
+      ),
     ),
   ];
 
@@ -1529,9 +1547,7 @@ class _MerchantHomeState extends State<MerchantHome>
                     ? const Color(0xFFE9F7EF)
                     : brandSoft,
                 labelStyle: TextStyle(
-                  color: status == 'delivered'
-                      ? success
-                      : brand,
+                  color: status == 'delivered' ? success : brand,
                   fontWeight: FontWeight.w600,
                 ),
                 side: BorderSide.none,
@@ -1722,8 +1738,7 @@ class _MerchantHomeState extends State<MerchantHome>
               onPressed: () => showEvidence(o, 'proof'),
               child: const Text('ดูหลักฐานส่งสำเร็จ'),
             ),
-          if (!['delivered', 'cancelled'].contains(status) &&
-              c.canOrders)
+          if (!['delivered', 'cancelled'].contains(status) && c.canOrders)
             TextButton(
               onPressed: c.writable ? () => cancelOrder(o) : null,
               child: const Text(
@@ -2122,13 +2137,11 @@ class _MerchantHomeState extends State<MerchantHome>
         PaymentChannelsPanel(
           store: c.store!,
           enabled: c.writable,
-          save: (values) => c.mutate(
-            () => widget.repository.saveStore(c.storeId!, values),
-          ),
+          save: (values) =>
+              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
           // A cancelled picker uploads nothing and changes nothing.
-          pickQr: () => c.mutate(
-            () => widget.repository.pickPaymentQr(c.storeId!),
-          ),
+          pickQr: () =>
+              c.mutate(() => widget.repository.pickPaymentQr(c.storeId!)),
           error: () => c.error,
         ),
       ),
@@ -2136,9 +2149,8 @@ class _MerchantHomeState extends State<MerchantHome>
         BusinessHoursPanel(
           store: c.store!,
           enabled: c.writable,
-          save: (values) => c.mutate(
-            () => widget.repository.saveStore(c.storeId!, values),
-          ),
+          save: (values) =>
+              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
           error: () => c.error,
         ),
       ),
@@ -2203,7 +2215,7 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           const SizedBox(height: 8),
           const Text(
-            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nการเงิน ทีมงาน โฆษณา และแคมเปญ ยังเปิดในหน้าร้านเดิม',
+            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nทีมงาน โฆษณา และแคมเปญ ยังเปิดในหน้าร้านเดิม',
           ),
           FilledButton.icon(
             onPressed: pushBusy ? null : enablePush,
@@ -2218,7 +2230,7 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           TextButton(
             onPressed: openOriginal,
-            child: const Text('การเงิน ทีมงาน และเครื่องมือร้านเพิ่มเติม →'),
+            child: const Text('ทีมงาน และเครื่องมือร้านเพิ่มเติม →'),
           ),
         ],
       ),

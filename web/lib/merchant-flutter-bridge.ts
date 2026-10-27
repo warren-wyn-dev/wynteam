@@ -8,6 +8,7 @@ import {
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
 import { FOOD_DAY_KEYS, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { fetchMerchantStoreReviews } from "@/lib/merchant-core";
+import { fetchFinanceSummary, periodRange } from "@/lib/merchant-finance";
 import { fetchMerchantCampaigns, saveMerchantCampaign, setMerchantCampaignActive } from "@/lib/merchant-campaigns";
 import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 
@@ -299,6 +300,13 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         return data ?? [];
       }
       case "report": return fetchMerchantSalesReport(client, storeId);
+      case "finance": {
+        const period = text(args.period, 12, true);
+        if (!["today", "yesterday", "week", "month"].includes(period)) throw new BridgeInputError();
+        await requireManageRole(storeId);
+        // Bangkok calendar periods, same as the legacy finance page; the RPC rechecks the role.
+        return fetchFinanceSummary(client, storeId, periodRange(period as "today" | "yesterday" | "week" | "month"));
+      }
       case "quality": {
         // The existing RPC aggregates all visible store reviews independently
         // of feed length. Do not transfer customer review details into Dart.
