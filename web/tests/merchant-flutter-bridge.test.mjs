@@ -484,6 +484,7 @@ test('ads are manager-only; top-up needs a whole amount and a real slip image',a
   const result=await h.request('pickAdSlip',{storeId:STORE,amount:300});
   assert.equal(result.ok,true,result.error);
   h.setFile(PNG());assert.equal((await h.request('pickAdSlip',{storeId:STORE,amount:150.5})).ok,true);
+  for(const amount of [150.05,300.03,0.07]){h.setFile(PNG());assert.equal((await h.request('pickAdSlip',{storeId:STORE,amount})).ok,true,String(amount));}
   const call=h.calls.find(c=>c.name==='requestAdTopup');assert.equal(call.args[1],STORE);assert.equal(call.args[2],300);
   for(const amount of [0,-5,12.345,'300',100001]){
     const bad=harness();bad.setFile(PNG());

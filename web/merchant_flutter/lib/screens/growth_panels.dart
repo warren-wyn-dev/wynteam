@@ -92,12 +92,17 @@ mixin _ServerPanel<T extends StatefulWidget> on State<T> {
   ];
 }
 
-const _adStatus = {
-  'none': 'ยังไม่เริ่ม',
-  'active': 'กำลังแสดง',
-  'paused': 'หยุดชั่วคราว',
-  'stopped': 'ทีม ZOKY หยุดไว้',
-};
+/// Same order as the legacy page: `live` (server: active and enough credit)
+/// decides "showing"; `status` only drives the start/pause button.
+String adStatusLabel(Map d) {
+  final status = '${d['status'] ?? 'none'}';
+  if (status == 'stopped') return 'ทีม ZOKY หยุดไว้';
+  if (d['live'] == true) return 'กำลังแสดง';
+  if (status == 'paused') return 'หยุดชั่วคราว';
+  if (_num(d['balance']) < _num(d['cost_per_click'])) return 'เครดิตไม่พอ';
+  return 'ยังไม่เริ่ม';
+}
+
 const _topupStatus = {
   'pending': 'รอตรวจ',
   'approved': 'เติมแล้ว',
@@ -150,7 +155,7 @@ class _AdsPanelState extends State<AdsPanel> with _ServerPanel<AdsPanel> {
     if (value == null ||
         value <= 0 ||
         value > 100000 ||
-        (value * 100).round() != value * 100) {
+        ((value * 100) - (value * 100).round()).abs() > 1e-6) {
       setState(
         () => error = 'กรุณาใส่จำนวนเงินเป็นบาท (ทศนิยมไม่เกิน 2 ตำแหน่ง)',
       );
@@ -191,7 +196,7 @@ class _AdsPanelState extends State<AdsPanel> with _ServerPanel<AdsPanel> {
             ),
           const SizedBox(height: 12),
           Text(
-            'สถานะ: ${_adStatus[status] ?? status} · วันนี้ ${d['clicks_today'] ?? 0} คลิก · 7 วัน ${d['clicks_7d'] ?? 0} คลิก',
+            'สถานะ: ${adStatusLabel(d)} · วันนี้ ${d['clicks_today'] ?? 0} คลิก · 7 วัน ${d['clicks_7d'] ?? 0} คลิก',
           ),
           if (status == 'stopped')
             Text(

@@ -87,6 +87,32 @@ void main() {
     expect(campaignTerms({'campaign_type': 'free_delivery'}), 'ส่งฟรี');
   });
 
+  test('ad status follows live, not just the stored status', () {
+    expect(
+      adStatusLabel({
+        'status': 'active',
+        'live': true,
+        'balance': 10,
+        'cost_per_click': 2,
+      }),
+      'กำลังแสดง',
+    );
+    expect(
+      adStatusLabel({
+        'status': 'active',
+        'live': false,
+        'balance': 1,
+        'cost_per_click': 2,
+      }),
+      'เครดิตไม่พอ',
+    );
+    expect(adStatusLabel({'status': 'paused', 'live': false}), 'หยุดชั่วคราว');
+    expect(
+      adStatusLabel({'status': 'stopped', 'live': true}),
+      'ทีม ZOKY หยุดไว้',
+    );
+  });
+
   testWidgets(
     'ad top-up checks the minimum and a cancelled slip changes nothing',
     (tester) async {
@@ -107,10 +133,10 @@ void main() {
       expect(find.text('ยอดเติมขั้นต่ำ ฿100.00'), findsOneWidget);
 
       repo.slipPicked = false;
-      await tester.enterText(find.byType(TextField), '150.50');
+      await tester.enterText(find.byType(TextField), '150.05');
       await tester.tap(find.text('แนบสลิปและส่งให้ ZOKY ตรวจ'));
       await tester.pumpAndSettle();
-      expect(repo.topups, [150.5]);
+      expect(repo.topups, [150.05]);
       expect(find.text('ส่งสลิปแล้ว รอทีม ZOKY ตรวจ'), findsNothing);
 
       repo.slipPicked = true;

@@ -51,7 +51,8 @@ function text(value: unknown, max: number, required = false): string {
 }
 /** Baht, up to 2 decimals; the server still applies the minimum top-up. */
 function topupAmount(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value > 100_000 || Math.round(value * 100) !== value * 100) throw new BridgeInputError();
+  // Compare in satang with a tolerance: 150.05 * 100 is 15005.000000000002 in floating point.
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value > 100_000 || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6) throw new BridgeInputError();
   return value;
 }
 function bool(value: unknown): boolean {
