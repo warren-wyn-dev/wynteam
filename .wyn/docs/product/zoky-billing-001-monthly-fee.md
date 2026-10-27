@@ -1,6 +1,6 @@
-# ZOKY-BILLING-001: ค่าบริการรายเดือนของร้าน (PRD draft)
+# ZOKY-BILLING-001: ค่าบริการรายเดือนของร้าน (PRD)
 
-Status: **DRAFT — Founder ตอบ Q1–Q7 แล้ว (2026-10-27) รออนุมัติ PRD** ยังไม่มีการออกแบบระบบ โค้ด หรือ migration
+Status: **APPROVED — Founder อนุมัติ PRD (2026-10-27)** ยังไม่มีการออกแบบระบบ โค้ด หรือ migration
 Date: 2026-10-27
 Source: งานต่อจาก ZOKY-FULFILL-001 ("ZOKY-BILLING-001 (monthly fee) PRD")
 
