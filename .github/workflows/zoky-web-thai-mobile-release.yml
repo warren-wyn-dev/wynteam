@@ -1,22 +1,8 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder-approved release 2026-10-26 ("ขึ้น production เลย", "คุณจัดการทั้งหมดให้หน่อย").
-# Round 2 ("ทำทั้งหมดเลย", "แก้ทั้ง 14 คำ"): PR #1253 and PR #1254, live as
-# dpl_CACVkPQDL3MDfFSZvY64Ggpyqu8v. Round 3 ("ทำเลย", 2026-10-26): PR #1258
-# makes the capsule bottom nav compact (CSS only) on top of round 2, live as
-# dpl_12HuugYfCwEMwhSDssGa3N8zZe28. Round 4 ("แยก", 2026-10-26): PR #1263,
-# transfer + store-verified slip only, Stripe checkout paused (app only).
-# Round 4 is live as dpl_BojfzQC2pFXmeBczk9Fy472VEanb. Round 5
-# ("อนุญาตทุกอย่างคืนนี้", 2026-10-27): ZOKY-FULFILL-001 pickup, store-enabled COD and
-# cancel requests for the Zoky customer app and the Merchant apps (PRs
-# #1265-#1270, QA PASS each), from release/zoky-fulfill-001-20261027. Apply
-# the DB first with zoky-fulfill-001-apply.yml (preflight, apply, apply-admin);
-# the apps also fall back to the old RPCs while the columns are missing.
-# Earlier rounds shipped ONLY release/zoky-web-thai-mobile-20261026 = current production
-# 49e34d35 (Merchant UI release) + the two PR #1245 commits (Thai copy and
-# mobile-only layout). QA PASS on PR #1245; staging verified on the candidate.
-# Both secret-bearing jobs keep the existing `production` environment review.
-# Delete this file in a Founder-approved PR after the release (or on expiry).
+# Founder requested correction after the live Merchant screenshot showed the
+# old UI (2026-10-27). Only login/PWA entry routing changes from live 9cd2dc4f.
+# Existing production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
     inputs:
@@ -25,7 +11,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_WEB_ROUND5_20261027]
+        options: [CANCEL, ZOKY_MERCHANT_ENTRY_20261027]
 
 permissions:
   contents: read
@@ -37,60 +23,21 @@ concurrency:
 
 env:
   RELEASE_EXPIRES_UTC: "2026-11-10"
-  RELEASE_BRANCH: release/zoky-fulfill-001-20261027
-  RELEASE_SHA: 9cd2dc4f6e4307a1054f90bca2f4933abe5a1cb3
-  PRODUCTION_BASE_SHA: 1dc3f7b96c5d8f0c88b56233dfb64958757025bc
-  ROLLBACK_DEPLOYMENT: dpl_BojfzQC2pFXmeBczk9Fy472VEanb
+  RELEASE_BRANCH: fix/zoky-merchant-entry-flutter
+  RELEASE_SHA: eab49e8af20394a54a3969792bee624972bd3c2b
+  PRODUCTION_BASE_SHA: 9cd2dc4f6e4307a1054f90bca2f4933abe5a1cb3
+  ROLLBACK_DEPLOYMENT: dpl_DKwg2LtAKGmVbEAn9vK4cshXzrZH
   ALLOWED_PATHS: >-
-    .github/workflows/ci.yml
-    .wyn/company/APPROVALS.md
-    .wyn/docs/engineering/zoky-fulfill-001-contract.md
-    .wyn/docs/engineering/zoky-fulfill-001-technical-design.md
-    .wyn/docs/product/zoky-fulfill-001-pickup-and-store-delivery.md
-    admin/app/(admin)/food/orders/[id]/page.tsx
-    admin/app/(admin)/food/orders/page.tsx
-    admin/lib/admin-food.ts
-    supabase/migrations/20261026120000_zoky_fulfill_001.sql
-    supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql
-    supabase/rollbacks/20261026120000_zoky_fulfill_001_rollback.sql
-    supabase/rollbacks/20261026130000_zoky_fulfill_001_admin_rollback.sql
-    supabase/tests/fixtures/zoky_fulfill_001_prod_baseline.sql
-    supabase/tests/fixtures/zoky_fulfill_001_stub_schema.sql
-    supabase/tests/zoky_fulfill_001_test.sh
-    web/app/food/food-app.css
-    web/components/food/wynos-food-developer-app.tsx
-    web/components/merchant/merchant-core-panels.tsx
-    web/components/merchant/merchant-finance.tsx
+    web/proxy.ts
     web/components/merchant/merchant-flutter-app.tsx
-    web/components/merchant/merchant-fulfillment.tsx
-    web/components/merchant/wynos-merchant-app.tsx
-    web/lib/food-customer.ts
-    web/lib/food-fulfillment-merchant.ts
-    web/lib/food-merchant.ts
-    web/lib/i18n/en.ts
-    web/lib/merchant-flutter-bridge.ts
-    web/merchant_flutter/README.md
-    web/merchant_flutter/lib/data/merchant_controller.dart
-    web/merchant_flutter/lib/data/merchant_repository.dart
-    web/merchant_flutter/lib/screens/fulfillment_panels.dart
-    web/merchant_flutter/lib/screens/merchant_home.dart
-    web/merchant_flutter/lib/screens/order_dialogs.dart
-    web/merchant_flutter/test/fulfillment_test.dart
-    web/merchant_flutter/test/support/fake_repository.dart
-    web/tests/browser/wynos-food-developer-preview.spec.ts
-    web/tests/food-fulfillment-customer.test.mjs
-    web/tests/food-guest-browse-no-gps.test.mjs
-    web/tests/food-standalone-account.test.mjs
-    web/tests/merchant-browser/merchant-flutter-render.spec.ts
-    web/tests/merchant-flutter-bridge.test.mjs
-    web/tests/merchant-fulfillment.test.mjs
+    web/tests/merchant-flutter-routing.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_ROUND5_20261027'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_ENTRY_20261027'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -125,7 +72,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_ROUND5_20261027'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_ENTRY_20261027'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -183,7 +130,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_WEB_ROUND5_20261027'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_ENTRY_20261027'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
@@ -210,6 +157,12 @@ jobs:
           for url in https://zoky.wynos.online/ https://zoky.wynos.online/food/login https://merchant.wynos.online/merchant/login https://merchant.wynos.online/merchant/flutter https://food.wynos.online/ https://wynos.online/; do
             curl --fail --silent --show-error --location --max-time 30 --output /dev/null "$url"
           done
+          # Verify the exact entry that previously displayed the legacy UI.
+          entry_headers=$(mktemp)
+          entry_status=$(curl --silent --show-error --max-time 30 --dump-header "$entry_headers" --output /dev/null --write-out '%{http_code}' 'https://merchant.wynos.online/merchant?order=entry-probe')
+          [ "$entry_status" = "307" ] || { echo '::error::Merchant entry did not redirect to the new UI'; exit 1; }
+          tr -d '\r' < "$entry_headers" | grep -Eiq '^location: (https://merchant\.wynos\.online)?/merchant/flutter\?order=entry-probe$' || { echo '::error::Merchant entry lost its new UI destination or query'; exit 1; }
+          rm -f "$entry_headers"
           {
             echo '## ZOKY web production release verified'
             echo "- Promoted artifact: $STAGED_URL"
