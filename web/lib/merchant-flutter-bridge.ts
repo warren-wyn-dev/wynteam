@@ -3,11 +3,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl, foodPublicUrl,
   setFoodPaymentStatus, subscribeMerchantOrders, transitionFoodOrder, updateFoodStore,
-  uploadFoodPrivateImage, type FoodMenuItem, type FoodOrder, type FoodStore,
+  uploadFoodPrivateImage, uploadFoodPublicImage, type FoodMenuItem, type FoodOrder, type FoodStore,
 } from "@/lib/food-merchant";
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
-import { foodStoreIsEffectivelyOpen, foodStoreStatusText } from "@/lib/food-store-availability";
-import { fetchMerchantStoreReviews } from "@/lib/merchant-core";
+import { FOOD_DAY_KEYS, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
+import { addMerchantStaff, fetchMerchantStaff, fetchMerchantStoreReviews, updateMerchantStaff } from "@/lib/merchant-core";
+import { fetchFinanceSummary, periodRange } from "@/lib/merchant-finance";
+import { fetchMerchantAdAccount, merchantAdError, requestAdTopup, setAdActive } from "@/lib/merchant-ads";
+import { fetchPlatformCampaigns, joinPlatformCampaign, leavePlatformCampaign, platformCampaignError } from "@/lib/merchant-platform-campaigns";
 import { fetchMerchantCampaigns, saveMerchantCampaign, setMerchantCampaignActive } from "@/lib/merchant-campaigns";
 import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 
@@ -18,6 +21,17 @@ type BridgeOptions = { client: SupabaseClient; userId: string; signOut: () => Pr
 type Args = Record<string, unknown>;
 class BridgeInputError extends Error {}
 class BridgeAccessError extends Error {}
+/** A message already written for merchants by an existing helper. */
+class BridgeMessageError extends Error {}
+/** Keeps only the helper's own Thai messages; raw server text stays generic. */
+async function friendly<T>(operation: () => Promise<T>, explain: (error: unknown) => string): Promise<T> {
+  try { return await operation(); }
+  catch (error) {
+    const raw = error && typeof error === "object" && "message" in error ? String(error.message) : String(error ?? "");
+    const message = explain(error);
+    throw message && message !== raw && message !== "ดำเนินการไม่สำเร็จ" ? new BridgeMessageError(message) : error;
+  }
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled"]);
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
@@ -35,6 +49,12 @@ function text(value: unknown, max: number, required = false): string {
   if (typeof value !== "string" || value.length > max || (required && !value.trim())) throw new BridgeInputError();
   return value.trim();
 }
+/** Baht, up to 2 decimals; the server still applies the minimum top-up. */
+function topupAmount(value: unknown): number {
+  // Compare in satang with a tolerance: 150.05 * 100 is 15005.000000000002 in floating point.
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value > 100_000 || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6) throw new BridgeInputError();
+  return value;
+}
 function bool(value: unknown): boolean {
   if (typeof value !== "boolean") throw new BridgeInputError();
   return value;
@@ -45,8 +65,51 @@ function amount(value: unknown, max: number): number {
   if (!Number.isFinite(n) || n < 0 || n > max) throw new BridgeInputError();
   return n;
 }
+const STAFF_ROLES = new Set(["admin", "manager", "orders", "support", "delivery"]);
+const USERNAME = /^@?[A-Za-z0-9_.]{2,40}$/;
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** Optional text column: blank clears it (null), like the legacy store form. */
+function optionalText(value: unknown, max: number): string | null {
+  return text(value, max) || null;
+}
+/** Digits only after removing spaces and dashes; blank clears the column. */
+function digits(value: unknown, min: number, max: number): string | null {
+  const raw = text(value, 40).replace(/[\s-]/g, "");
+  if (!raw) return null;
+  if (!/^\d+$/.test(raw) || raw.length < min || raw.length > max) throw new BridgeInputError();
+  return raw;
+}
+function schedule(value: unknown): FoodBusinessSchedule {
+  const weekly = object(object(value).weekly);
+  if (Object.keys(weekly).length !== FOOD_DAY_KEYS.length) throw new BridgeInputError();
+  return {
+    weekly: Object.fromEntries(FOOD_DAY_KEYS.map((key) => {
+      const day = object(weekly[key]);
+      if (typeof day.open !== "string" || typeof day.close !== "string" || !TIME.test(day.open) || !TIME.test(day.close)) throw new BridgeInputError();
+      return [key, { enabled: bool(day.enabled), open: day.open, close: day.close }];
+    })),
+  };
+}
+function closedDates(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > 60) throw new BridgeInputError();
+  const dates = value.map((date) => {
+    if (typeof date !== "string" || !DATE.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) throw new BridgeInputError();
+    return date;
+  });
+  return [...new Set(dates)].sort();
+}
+/** Read-back check; jsonb columns come back with their keys reordered. */
+function sameValue(actual: unknown, expected: unknown): boolean {
+  if (actual === expected) return true;
+  if (!actual || !expected || typeof actual !== "object" || typeof expected !== "object") return false;
+  if (Array.isArray(actual) !== Array.isArray(expected)) return false;
+  const a = actual as Args, e = expected as Args;
+  const keys = Object.keys(e);
+  return keys.length === Object.keys(a).length && keys.every((key) => sameValue(a[key], e[key]));
+}
 function safeError(error: unknown): string {
-  if (error instanceof FulfillmentError) return error.message;
+  if (error instanceof FulfillmentError || error instanceof BridgeMessageError) return error.message;
   if (error instanceof BridgeInputError) return "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่";
   if (error instanceof BridgeAccessError) return "บัญชีนี้ไม่มีสิทธิ์เข้าถึงร้านหรือออเดอร์นี้ กรุณาเข้าสู่ระบบใหม่";
   const message = error && typeof error === "object" && "message" in error ? String(error.message) : "";
@@ -57,6 +120,10 @@ function safeError(error: unknown): string {
   if (message.includes("dropoff location is required")) return "กรุณาระบุจุดวางอาหาร";
   if (message.includes("role required") || message.includes("merchant access") || message.includes("permission denied") || message.includes("row-level security")) return "บัญชีนี้ไม่มีสิทธิ์ดำเนินการ กรุณาตรวจสอบกับเจ้าของร้าน";
   if (message.includes("store is suspended")) return "ร้านถูกระงับ กรุณาติดต่อทีม WYNOS";
+  if (message.includes("WYNOS user not found")) return "ไม่พบบัญชีนี้ กรุณาตรวจ @username อีกครั้ง";
+  if (message.includes("owner role cannot be changed")) return "เปลี่ยนสิทธิ์เจ้าของร้านไม่ได้";
+  if (message.includes("staff member not found")) return "ไม่พบทีมงานคนนี้ กรุณารีเฟรช";
+  if (message.includes("own staff access")) return "เปลี่ยนสิทธิ์ของตัวเองไม่ได้ ให้เจ้าของร้านหรือแอดมินคนอื่นเปลี่ยนให้";
   return "เชื่อมต่อหรือบันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง";
 }
 function pickImage(): Promise<File | null> {
@@ -118,11 +185,17 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     if (error || data !== true) throw new BridgeAccessError();
     await ensureSession();
   };
+  // Same gate as merchant_add_staff_by_username / merchant_update_staff_member.
+  const requireStaffAdmin = async (storeId: string) => {
+    const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin"] });
+    if (error || data !== true) throw new BridgeAccessError();
+    await ensureSession();
+  };
   const verifyPatch = (row: unknown, patch: Args) => {
     const data = object(row);
     for (const [key, expected] of Object.entries(patch)) {
       const actual = key === "price" ? Number(data[key]) : data[key];
-      if (actual !== expected) throw new Error("write_not_applied");
+      if (!sameValue(actual, expected)) throw new Error("write_not_applied");
     }
   };
   const ownedOrder = async (storeId: string, orderId: string): Promise<FoodOrder> => {
@@ -167,6 +240,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         return {
           ...store,
           image_url: foodPublicUrl(client, store.logo_path),
+          payment_qr_url: foodPublicUrl(client, store.payment_qr_path),
           effective_open: !suspended && !unpublished && foodStoreIsEffectivelyOpen(store, at),
           status_text: suspended ? "ร้านถูกระงับ กรุณาติดต่อทีม WYNOS"
             : unpublished ? "ร้านยังไม่เผยแพร่" : foodStoreStatusText(store, at),
@@ -257,6 +331,72 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         return data ?? [];
       }
       case "report": return fetchMerchantSalesReport(client, storeId);
+      case "staff": {
+        const members = await fetchMerchantStaff(client, storeId);
+        const me = members.find((m) => m.user_id === userId && m.active);
+        return {
+          canManage: me?.role === "owner" || me?.role === "admin",
+          members: members.map((m) => ({
+            user_id: m.user_id, username: m.username, display_name: m.display_name,
+            role: m.role, active: m.active === true, self: m.user_id === userId,
+          })),
+        };
+      }
+      case "addStaff": {
+        const username = text(args.username, 41, true), role = text(args.role, 20, true);
+        if (!USERNAME.test(username) || !STAFF_ROLES.has(role)) throw new BridgeInputError();
+        await requireStaffAdmin(storeId);
+        // merchant_add_staff_by_username upserts, so adding yourself would change your own role.
+        const { data: me, error: meError } = await client.from("profiles").select("username").eq("id", userId).maybeSingle();
+        if (meError) throw meError;
+        const own = typeof me?.username === "string" ? me.username.toLowerCase() : null;
+        if (own && own === username.replace(/^@/, "").toLowerCase()) throw new Error("own staff access");
+        await addMerchantStaff(client, storeId, username, role as "admin"); return null;
+      }
+      case "updateStaff": {
+        const member = id(args.userId), role = text(args.role, 20, true), active = bool(args.active);
+        // Nobody edits their own access here, so an owner/admin cannot lock themselves out.
+        if (member === userId) throw new Error("own staff access");
+        if (!STAFF_ROLES.has(role)) throw new BridgeInputError();
+        await requireStaffAdmin(storeId);
+        await updateMerchantStaff(client, storeId, member, role as "admin", active); return null;
+      }
+      case "ads": {
+        await requireManageRole(storeId);
+        return friendly(() => fetchMerchantAdAccount(client, storeId), merchantAdError);
+      }
+      case "pickAdSlip": {
+        // Top up ad credit: the store transfers to ZOKY's PromptPay, then attaches the slip.
+        const value = topupAmount(args.amount);
+        await requireManageRole(storeId);
+        const file = await picked;
+        if (!file) return null;
+        await validateImage(file); await ensureSession();
+        await friendly(() => requestAdTopup(client, storeId, value, file), merchantAdError);
+        return { submitted: true };
+      }
+      case "setAdActive": {
+        const active = bool(args.active);
+        await requireManageRole(storeId);
+        await friendly(() => setAdActive(client, storeId, active), merchantAdError); return null;
+      }
+      case "platformCampaigns": {
+        await requireManageRole(storeId);
+        return friendly(() => fetchPlatformCampaigns(client, storeId), platformCampaignError);
+      }
+      case "joinPlatformCampaign": {
+        const campaign = id(args.campaignId), join = bool(args.join);
+        await requireManageRole(storeId);
+        await friendly(() => join ? joinPlatformCampaign(client, storeId, campaign) : leavePlatformCampaign(client, storeId, campaign), platformCampaignError);
+        return null;
+      }
+      case "finance": {
+        const period = text(args.period, 12, true);
+        if (!["today", "yesterday", "week", "month"].includes(period)) throw new BridgeInputError();
+        await requireManageRole(storeId);
+        // Bangkok calendar periods, same as the legacy finance page; the RPC rechecks the role.
+        return fetchFinanceSummary(client, storeId, periodRange(period as "today" | "yesterday" | "week" | "month"));
+      }
       case "quality": {
         // The existing RPC aggregates all visible store reviews independently
         // of feed length. Do not transfer customer review details into Dart.
@@ -308,14 +448,45 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (values.phone !== undefined) patch.phone = text(values.phone, 50, true);
         if (values.address !== undefined) patch.address = text(values.address, 800, true);
         if (values.is_open !== undefined) patch.is_open = bool(values.is_open);
+        // Payment channels (customers pay the store directly) and opening hours.
+        if (values.promptpay_name !== undefined) patch.promptpay_name = optionalText(values.promptpay_name, 160);
+        if (values.promptpay_id !== undefined) {
+          // Same rule as food_stores_promptpay_id_format_check: phone (0…), citizen ID or e-wallet.
+          const promptpay = digits(values.promptpay_id, 10, 15);
+          if (promptpay && (![10, 13, 15].includes(promptpay.length) || (promptpay.length === 10 && !promptpay.startsWith("0")))) throw new BridgeInputError();
+          patch.promptpay_id = promptpay;
+        }
+        if (values.bank_name !== undefined) patch.bank_name = optionalText(values.bank_name, 120);
+        if (values.bank_account_name !== undefined) patch.bank_account_name = optionalText(values.bank_account_name, 160);
+        if (values.bank_account_number !== undefined) patch.bank_account_number = digits(values.bank_account_number, 10, 15);
+        if (values.payment_qr_path !== undefined) {
+          if (values.payment_qr_path !== null) throw new BridgeInputError(); // set only by pickPaymentQr
+          patch.payment_qr_path = null;
+        }
+        if (values.business_schedule !== undefined) patch.business_schedule = schedule(values.business_schedule);
+        if (values.special_closed_dates !== undefined) patch.special_closed_dates = closedDates(values.special_closed_dates);
         if (!Object.keys(patch).length) throw new BridgeInputError();
         await requireManageRole(storeId);
         await updateFoodStore(client, storeId, patch);
-        const { data, error } = await client.from("food_stores").select("id,name,phone,address,is_open").eq("id", storeId).single();
+        const { data, error } = await client.from("food_stores").select(`id,${Object.keys(patch).join(",")}`).eq("id", storeId).single();
         if (error) throw error;
         if (!data) throw new Error("write_not_applied");
         verifyPatch(data, patch);
         return null;
+      }
+      case "pickPaymentQr": {
+        await requireManageRole(storeId);
+        const file = await picked;
+        if (!file) return null;
+        await validateImage(file); await ensureSession();
+        const path = await uploadFoodPublicImage(client, file, `stores/${storeId}/payment`);
+        await ensureSession();
+        await updateFoodStore(client, storeId, { payment_qr_path: path });
+        const { data, error } = await client.from("food_stores").select("id,payment_qr_path").eq("id", storeId).single();
+        if (error) throw error;
+        if (!data) throw new Error("write_not_applied");
+        verifyPatch(data, { payment_qr_path: path });
+        return { path, url: foodPublicUrl(client, path) };
       }
       case "transition": {
         const orderId = id(args.orderId), status = text(args.status, 30, true);
@@ -423,8 +594,10 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (disposed) throw new BridgeAccessError();
         const args = object(JSON.parse(payloadJson));
         // OS picker opens synchronously during the user's tap, before network awaits.
-        if (method === "pickDeliveryPhoto" || method === "pickRefundSlip") { id(args.storeId); id(args.orderId); }
-        const picked = (method === "pickDeliveryPhoto" || method === "pickRefundSlip") ? pickImage() : null;
+        const picker = method === "pickDeliveryPhoto" || method === "pickRefundSlip" || method === "pickPaymentQr" || method === "pickAdSlip";
+        if (picker) { id(args.storeId); if (method === "pickDeliveryPhoto" || method === "pickRefundSlip") id(args.orderId); }
+        if (method === "pickAdSlip") topupAmount(args.amount);
+        const picked = picker ? pickImage() : null;
         const permissionRequest = method === "pushEnable" ? requestPushPermissionFromGesture() : undefined;
         // Session validation may reject before the captured prompt settles.
         void permissionRequest?.catch(() => undefined);

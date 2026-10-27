@@ -81,3 +81,11 @@ test("login returns and installed Merchant entries open Flutter with a deliberat
   assert.equal(router("0")(request("merchant.wynos.online", "/merchant")).kind, "next");
   assert.equal(proxy(request("wynos.online", "/merchant")).kind, "next");
 });
+
+test("Flutter tool and original-store links bypass the Flutter entry redirect", () => {
+  const home = readFileSync(new URL("../merchant_flutter/lib/screens/merchant_home.dart", import.meta.url), "utf8");
+  assert.match(home, /resolve\('\/merchant\?legacy=1'\)/);
+  assert.match(home, /'legacy': '1',\s*'merchant-tool': toolName/);
+  const proxy = router("1");
+  assert.equal(proxy(request("merchant.wynos.online", "/merchant?legacy=1&merchant-tool=finance&merchant-store=00000000-0000-4000-8000-000000000001")).kind, "next");
+});

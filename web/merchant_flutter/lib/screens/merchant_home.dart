@@ -7,6 +7,10 @@ import '../data/merchant_repository.dart';
 import '../widgets/merchant_tool_icon.dart';
 import 'order_dialogs.dart';
 import 'fulfillment_panels.dart';
+import 'store_settings_panels.dart';
+import 'finance_panel.dart';
+import 'staff_panel.dart';
+import 'growth_panels.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -322,6 +326,10 @@ class _MerchantHomeState extends State<MerchantHome>
                                     4 => reportPage(),
                                     5 => settingsPage(),
                                     6 => promotionsPage(),
+                                    8 => financePage(),
+                                    9 => staffPage(),
+                                    10 => adsPage(),
+                                    11 => zokyCampaignsPage(),
                                     _ => qualityPage(),
                                   },
                               ],
@@ -355,7 +363,8 @@ class _MerchantHomeState extends State<MerchantHome>
 
   Future<void> openOriginal() async {
     if (!await launchUrl(
-      Uri.base.resolve('/merchant'),
+      // legacy=1: /merchant itself now redirects back to this app.
+      Uri.base.resolve('/merchant?legacy=1'),
       mode: LaunchMode.externalApplication,
     )) {
       notice('เปิดเว็บเดิมไม่สำเร็จ');
@@ -627,6 +636,7 @@ class _MerchantHomeState extends State<MerchantHome>
         .resolve('/merchant')
         .replace(
           queryParameters: {
+            'legacy': '1',
             'merchant-tool': toolName,
             'merchant-store': storeId,
           },
@@ -1043,13 +1053,13 @@ class _MerchantHomeState extends State<MerchantHome>
             'การเงิน',
             0,
             Icons.account_balance_wallet_outlined,
-            c.canManage ? () => openTool('finance') : null,
+            c.canManage ? () => navigate(8) : null,
           ),
           homeTool(
             'โฆษณา',
             1,
             Icons.campaign_outlined,
-            c.canManage ? () => openTool('ads') : null,
+            c.canManage ? () => navigate(10) : null,
           ),
           homeTool(
             'โปรโมชั่น',
@@ -1061,7 +1071,7 @@ class _MerchantHomeState extends State<MerchantHome>
             'แคมเปญ',
             3,
             Icons.shopping_bag_outlined,
-            c.canManage ? () => openTool('campaigns') : null,
+            c.canManage ? () => navigate(11) : null,
           ),
           homeTool(
             'คุณภาพร้าน',
@@ -1346,6 +1356,33 @@ class _MerchantHomeState extends State<MerchantHome>
               },
       ),
       tool('โปรโมชั่น', Icons.local_offer_outlined, brand, () => navigate(6)),
+      if (c.canManage)
+        tool(
+          'การเงิน',
+          Icons.account_balance_wallet_outlined,
+          success,
+          () => navigate(8),
+        ),
+      if (c.canManage) ...[
+        tool(
+          'โฆษณา',
+          Icons.campaign_outlined,
+          const Color(0xFFE07A00),
+          () => navigate(10),
+        ),
+        tool(
+          'แคมเปญ ZOKY',
+          Icons.shopping_bag_outlined,
+          brand,
+          () => navigate(11),
+        ),
+      ],
+      tool(
+        'ทีมงาน',
+        Icons.groups_outlined,
+        const Color(0xFF2862A7),
+        () => navigate(9),
+      ),
       tool(
         'ตั้งค่าร้าน',
         Icons.settings_outlined,
@@ -1373,9 +1410,9 @@ class _MerchantHomeState extends State<MerchantHome>
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.wallet_outlined, color: success),
-            title: const Text('การเงินและเครื่องมือเพิ่มเติม'),
+            title: const Text('เครื่องมือเพิ่มเติม'),
             subtitle: const Text(
-              'เปิดหน้าจัดการเดิม: การเงิน แคมเปญ โฆษณา และทีมงาน',
+              'เปิดหน้าจัดการเดิม: ฟีดแบ็ก ช่วยเหลือ และเครื่องมืออื่น',
             ),
             trailing: const Icon(Icons.open_in_new, size: 20),
             onTap: openOriginal,
@@ -1388,6 +1425,67 @@ class _MerchantHomeState extends State<MerchantHome>
       icon: const Icon(Icons.logout),
       label: const Text('ออกจากระบบ'),
     ),
+  ];
+
+  List<Widget> adsPage() => [
+    heading('โฆษณา', 'ให้ร้านขึ้นเป็นร้านแนะนำและอยู่บนสุดตอนค้นหา'),
+    if (c.canManage)
+      box(
+        AdsPanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+        ),
+      )
+    else
+      box(const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่จัดการโฆษณาได้')),
+  ];
+
+  List<Widget> zokyCampaignsPage() => [
+    heading('แคมเปญ ZOKY', 'แคมเปญส่วนลดที่ ZOKY ช่วยออกให้ เข้าร่วมได้เอง'),
+    if (c.canManage)
+      box(
+        PlatformCampaignsPanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+        ),
+      )
+    else
+      box(
+        const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่เข้าร่วมแคมเปญได้'),
+      ),
+  ];
+
+  List<Widget> staffPage() => [
+    heading('ทีมงาน', 'คนที่เข้าจัดการร้านนี้ได้ และสิทธิ์ของแต่ละคน'),
+    box(
+      StaffPanel(
+        key: ValueKey(c.storeId),
+        repository: widget.repository,
+        storeId: c.storeId!,
+        refreshedAt: c.updatedAt,
+      ),
+    ),
+  ];
+
+  List<Widget> financePage() => [
+    heading('การเงินของร้าน', 'ยอดขาย คืนเงิน และรายได้ของร้าน'),
+    // Re-checked on every refresh: losing the role removes the panel and
+    // the figures it holds.
+    if (c.canManage)
+      box(
+        FinancePanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+        ),
+      )
+    else
+      box(const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่ดูการเงินได้')),
   ];
 
   List<Widget> promotionsPage() => [
@@ -1526,9 +1624,7 @@ class _MerchantHomeState extends State<MerchantHome>
                     ? const Color(0xFFE9F7EF)
                     : brandSoft,
                 labelStyle: TextStyle(
-                  color: status == 'delivered'
-                      ? success
-                      : brand,
+                  color: status == 'delivered' ? success : brand,
                   fontWeight: FontWeight.w600,
                 ),
                 side: BorderSide.none,
@@ -1719,8 +1815,7 @@ class _MerchantHomeState extends State<MerchantHome>
               onPressed: () => showEvidence(o, 'proof'),
               child: const Text('ดูหลักฐานส่งสำเร็จ'),
             ),
-          if (!['delivered', 'cancelled'].contains(status) &&
-              c.canOrders)
+          if (!['delivered', 'cancelled'].contains(status) && c.canOrders)
             TextButton(
               onPressed: c.writable ? () => cancelOrder(o) : null,
               child: const Text(
@@ -2114,6 +2209,29 @@ class _MerchantHomeState extends State<MerchantHome>
         error: () => c.error,
       ),
     ),
+    if (c.canManage) ...[
+      box(
+        PaymentChannelsPanel(
+          store: c.store!,
+          enabled: c.writable,
+          save: (values) =>
+              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
+          // A cancelled picker uploads nothing and changes nothing.
+          pickQr: () =>
+              c.mutate(() => widget.repository.pickPaymentQr(c.storeId!)),
+          error: () => c.error,
+        ),
+      ),
+      box(
+        BusinessHoursPanel(
+          store: c.store!,
+          enabled: c.writable,
+          save: (values) =>
+              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
+          error: () => c.error,
+        ),
+      ),
+    ],
     box(
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2174,7 +2292,7 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           const SizedBox(height: 8),
           const Text(
-            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nการเงิน คืนเงิน ทีมงาน ตั้งเวลา และตั้งค่ารับเงิน ใช้บริการเดิมของ Food',
+            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nฟีดแบ็กและช่วยเหลือ ยังเปิดในหน้าร้านเดิม',
           ),
           FilledButton.icon(
             onPressed: pushBusy ? null : enablePush,
@@ -2189,7 +2307,7 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           TextButton(
             onPressed: openOriginal,
-            child: const Text('การเงิน ทีมงาน และเครื่องมือร้านเพิ่มเติม →'),
+            child: const Text('เครื่องมือร้านเพิ่มเติม →'),
           ),
         ],
       ),
