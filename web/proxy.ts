@@ -80,6 +80,17 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  // Existing login returns and installed Merchant apps still enter /merchant.
+  // Keep a deliberate legacy escape hatch and the payment callback handler.
+  if (host === "merchant.wynos.online" && pathname === "/merchant"
+      && process.env.ZOKY_MERCHANT_FLUTTER_ENABLED === "1"
+      && request.nextUrl.searchParams.get("legacy") !== "1"
+      && !["return", "refresh"].includes(request.nextUrl.searchParams.get("payments") ?? "")) {
+    const target = request.nextUrl.clone();
+    target.pathname = "/merchant/flutter";
+    return NextResponse.redirect(target, 307);
+  }
+
   if (pathname !== "/") return NextResponse.next();
 
   const redirectTo = ROOT_REDIRECT_BY_HOST[host];
@@ -105,7 +116,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*",
+    "/", "/merchant", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*",
     // Every page on the old Food host for the phase 2 redirect (build assets
     // and API calls from tabs that are already open stay where they are).
     // The matcher is fixed at build time; in phase 1 these return next().

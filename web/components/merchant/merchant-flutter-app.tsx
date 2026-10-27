@@ -67,7 +67,7 @@ function AuthenticatedMerchantFlutter({ client, userId, signOut }: DeveloperRout
             <h1>เปิด Zoky Merchant ไม่สำเร็จ</h1>
             <p>กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่ หรือใช้หน้าร้านเดิมได้ทันที</p>
             <button className="route-primary" type="button" onClick={() => window.location.reload()}>ลองโหลดใหม่</button>
-            <Link href="/merchant">เปิดหน้าร้านเดิม</Link>
+            <Link href="/merchant?legacy=1">เปิดหน้าร้านเดิม</Link>
           </>}
         </div>
       )}
