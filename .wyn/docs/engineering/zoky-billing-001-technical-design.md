@@ -116,15 +116,14 @@ to `authenticated` only.
   - waive with reason.
 - **GP:** unchanged (Q6). Every store stays at 0% and the GP admin page stays.
 
-## 6. Assumptions for Founder confirmation
+## 6. Founder decisions on open points (AskUserQuestion, 2026-10-27)
 
-These follow from the PRD but were not asked explicitly:
-1. An invoice is issued only while the store is published and not suspended.
-   A suspended store is not billed for cycles that start while it is suspended.
-2. The store team also gets a notification on the day an invoice is issued, in
-   addition to the −3/0/+3/+7 reminders.
-3. Only owner/admin (not manager) see billing and pay. This matches PRD 6–7
-   ("เจ้าของร้าน") and the staff-admin gate.
+1. **No invoice while the store cannot sell:** a cycle that starts while the
+   store is unpublished or suspended is not billed.
+2. **Notify on issue:** the store team gets a notification on the day an invoice
+   is issued, in addition to the −3/0/+3/+7 reminders.
+3. **Owner/admin only:** only the owner and store admins see and pay billing.
+   Managers do not.
 
 ## 7. Security and QA plan
 
