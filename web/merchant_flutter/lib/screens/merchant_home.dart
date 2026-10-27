@@ -355,7 +355,8 @@ class _MerchantHomeState extends State<MerchantHome>
 
   Future<void> openOriginal() async {
     if (!await launchUrl(
-      Uri.base.resolve('/merchant'),
+      // legacy=1: /merchant itself now redirects back to this app.
+      Uri.base.resolve('/merchant?legacy=1'),
       mode: LaunchMode.externalApplication,
     )) {
       notice('เปิดเว็บเดิมไม่สำเร็จ');
@@ -627,6 +628,7 @@ class _MerchantHomeState extends State<MerchantHome>
         .resolve('/merchant')
         .replace(
           queryParameters: {
+            'legacy': '1',
             'merchant-tool': toolName,
             'merchant-store': storeId,
           },
