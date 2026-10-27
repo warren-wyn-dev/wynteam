@@ -9,6 +9,7 @@ import 'order_dialogs.dart';
 import 'fulfillment_panels.dart';
 import 'store_settings_panels.dart';
 import 'finance_panel.dart';
+import 'staff_panel.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -325,6 +326,7 @@ class _MerchantHomeState extends State<MerchantHome>
                                     5 => settingsPage(),
                                     6 => promotionsPage(),
                                     8 => financePage(),
+                                    9 => staffPage(),
                                     _ => qualityPage(),
                                   },
                               ],
@@ -1359,6 +1361,12 @@ class _MerchantHomeState extends State<MerchantHome>
           () => navigate(8),
         ),
       tool(
+        'ทีมงาน',
+        Icons.groups_outlined,
+        const Color(0xFF2862A7),
+        () => navigate(9),
+      ),
+      tool(
         'ตั้งค่าร้าน',
         Icons.settings_outlined,
         const Color(0xFF2862A7),
@@ -1386,7 +1394,7 @@ class _MerchantHomeState extends State<MerchantHome>
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.wallet_outlined, color: success),
             title: const Text('การเงินและเครื่องมือเพิ่มเติม'),
-            subtitle: const Text('เปิดหน้าจัดการเดิม: แคมเปญ โฆษณา และทีมงาน'),
+            subtitle: const Text('เปิดหน้าจัดการเดิม: แคมเปญ และโฆษณา'),
             trailing: const Icon(Icons.open_in_new, size: 20),
             onTap: openOriginal,
           ),
@@ -1397,6 +1405,17 @@ class _MerchantHomeState extends State<MerchantHome>
       onPressed: c.busy || signingOut ? null : signOut,
       icon: const Icon(Icons.logout),
       label: const Text('ออกจากระบบ'),
+    ),
+  ];
+
+  List<Widget> staffPage() => [
+    heading('ทีมงาน', 'คนที่เข้าจัดการร้านนี้ได้ และสิทธิ์ของแต่ละคน'),
+    box(
+      StaffPanel(
+        key: ValueKey(c.storeId),
+        repository: widget.repository,
+        storeId: c.storeId!,
+      ),
     ),
   ];
 
@@ -2215,7 +2234,7 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           const SizedBox(height: 8),
           const Text(
-            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nทีมงาน โฆษณา และแคมเปญ ยังเปิดในหน้าร้านเดิม',
+            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nโฆษณา และแคมเปญ ยังเปิดในหน้าร้านเดิม',
           ),
           FilledButton.icon(
             onPressed: pushBusy ? null : enablePush,
@@ -2230,7 +2249,7 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           TextButton(
             onPressed: openOriginal,
-            child: const Text('ทีมงาน และเครื่องมือร้านเพิ่มเติม →'),
+            child: const Text('โฆษณา แคมเปญ และเครื่องมือร้านเพิ่มเติม →'),
           ),
         ],
       ),

@@ -7,7 +7,7 @@ import {
 } from "@/lib/food-merchant";
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
 import { FOOD_DAY_KEYS, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
-import { fetchMerchantStoreReviews } from "@/lib/merchant-core";
+import { addMerchantStaff, fetchMerchantStaff, fetchMerchantStoreReviews, updateMerchantStaff } from "@/lib/merchant-core";
 import { fetchFinanceSummary, periodRange } from "@/lib/merchant-finance";
 import { fetchMerchantCampaigns, saveMerchantCampaign, setMerchantCampaignActive } from "@/lib/merchant-campaigns";
 import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
@@ -46,6 +46,8 @@ function amount(value: unknown, max: number): number {
   if (!Number.isFinite(n) || n < 0 || n > max) throw new BridgeInputError();
   return n;
 }
+const STAFF_ROLES = new Set(["admin", "manager", "orders", "support", "delivery"]);
+const USERNAME = /^@?[A-Za-z0-9_.]{2,40}$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** Optional text column: blank clears it (null), like the legacy store form. */
@@ -99,6 +101,9 @@ function safeError(error: unknown): string {
   if (message.includes("dropoff location is required")) return "กรุณาระบุจุดวางอาหาร";
   if (message.includes("role required") || message.includes("merchant access") || message.includes("permission denied") || message.includes("row-level security")) return "บัญชีนี้ไม่มีสิทธิ์ดำเนินการ กรุณาตรวจสอบกับเจ้าของร้าน";
   if (message.includes("store is suspended")) return "ร้านถูกระงับ กรุณาติดต่อทีม WYNOS";
+  if (message.includes("WYNOS user not found")) return "ไม่พบบัญชีนี้ กรุณาตรวจ @username อีกครั้ง";
+  if (message.includes("owner role cannot be changed")) return "เปลี่ยนสิทธิ์เจ้าของร้านไม่ได้";
+  if (message.includes("staff member not found")) return "ไม่พบทีมงานคนนี้ กรุณารีเฟรช";
   return "เชื่อมต่อหรือบันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง";
 }
 function pickImage(): Promise<File | null> {
@@ -157,6 +162,12 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
   };
   const requireManageRole = async (storeId: string) => {
     const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin", "manager"] });
+    if (error || data !== true) throw new BridgeAccessError();
+    await ensureSession();
+  };
+  // Same gate as merchant_add_staff_by_username / merchant_update_staff_member.
+  const requireStaffAdmin = async (storeId: string) => {
+    const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin"] });
     if (error || data !== true) throw new BridgeAccessError();
     await ensureSession();
   };
@@ -300,6 +311,30 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         return data ?? [];
       }
       case "report": return fetchMerchantSalesReport(client, storeId);
+      case "staff": {
+        const members = await fetchMerchantStaff(client, storeId);
+        const me = members.find((m) => m.user_id === userId && m.active);
+        return {
+          canManage: me?.role === "owner" || me?.role === "admin",
+          members: members.map((m) => ({
+            user_id: m.user_id, username: m.username, display_name: m.display_name,
+            role: m.role, active: m.active === true, self: m.user_id === userId,
+          })),
+        };
+      }
+      case "addStaff": {
+        const username = text(args.username, 41, true), role = text(args.role, 20, true);
+        if (!USERNAME.test(username) || !STAFF_ROLES.has(role)) throw new BridgeInputError();
+        await requireStaffAdmin(storeId);
+        await addMerchantStaff(client, storeId, username, role as "admin"); return null;
+      }
+      case "updateStaff": {
+        const member = id(args.userId), role = text(args.role, 20, true), active = bool(args.active);
+        // Nobody edits their own access here, so an owner/admin cannot lock themselves out.
+        if (member === userId || !STAFF_ROLES.has(role)) throw new BridgeInputError();
+        await requireStaffAdmin(storeId);
+        await updateMerchantStaff(client, storeId, member, role as "admin", active); return null;
+      }
       case "finance": {
         const period = text(args.period, 12, true);
         if (!["today", "yesterday", "week", "month"].includes(period)) throw new BridgeInputError();

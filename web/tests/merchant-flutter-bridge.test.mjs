@@ -83,7 +83,7 @@ function harness() {
     require(path){
       if(path==='@/lib/food-merchant')return food;
       if(path==='@/lib/food-store-availability')return availability;
-      if(path==='@/lib/merchant-core')return merchantCore;
+      if(path==='@/lib/merchant-core')return {...merchantCore,fetchMerchantStaff:async()=>state.staffMembers??[],addMerchantStaff:async(...args)=>{calls.push({name:'addMerchantStaff',args});},updateMerchantStaff:async(...args)=>{calls.push({name:'updateMerchantStaff',args});}};
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
       if(path==='@/lib/merchant-finance')return {periodRange:(p)=>({from:'2026-10-'+(p==='month'?'01':'27'),to:'2026-10-27'}),fetchFinanceSummary:async(...args)=>{calls.push({name:'fetchFinanceSummary',args});return {sales_net:500,orders:3,days:[]};}};
       if(path==='@/lib/merchant-campaigns')return {fetchMerchantCampaigns:async()=>({can_manage:true,campaigns:[]}),saveMerchantCampaign:async(...args)=>{calls.push({name:'saveMerchantCampaign',args});},setMerchantCampaignActive:async()=>{}};
@@ -437,4 +437,37 @@ test('store finance is for managers only and only offers fixed Bangkok periods',
   assert.equal(staff.calls.some(c=>c.name==='fetchFinanceSummary'),false);
   const other=harness();
   assert.equal((await other.request('finance',{storeId:OTHER,period:'today'})).ok,false);
+});
+
+const MEMBER='60000000-0000-4000-8000-000000000006';
+test('staff list marks the signed-in member and who may manage the team',async()=>{
+  const h=harness();h.state.staffMembers=[{user_id:'merchant-a',username:'me',display_name:'ฉัน',role:'admin',active:true,created_at:'',updated_at:''},{user_id:MEMBER,username:'cook',display_name:null,role:'orders',active:true,created_at:'',updated_at:''}];
+  const result=await h.request('staff',{storeId:STORE});
+  assert.equal(result.ok,true,result.error);assert.equal(result.data.canManage,true);
+  assert.deepEqual(result.data.members.map(m=>m.self),[true,false]);
+  assert.equal('created_at' in result.data.members[0],false);
+  const viewer=harness();viewer.state.staffMembers=[{user_id:'merchant-a',role:'orders',active:true}];
+  assert.equal((await viewer.request('staff',{storeId:STORE})).data.canManage,false);
+  const off=harness();off.state.staffMembers=[{user_id:'merchant-a',role:'owner',active:false}];
+  assert.equal((await off.request('staff',{storeId:STORE})).data.canManage,false);
+  assert.equal((await harness().request('staff',{storeId:OTHER})).ok,false);
+});
+test('adding and changing staff is owner/admin only, never the owner role or yourself',async()=>{
+  const h=harness();
+  assert.equal((await h.request('addStaff',{storeId:STORE,username:'@cook_1',role:'orders'})).ok,true);
+  assert.equal(h.calls.find(c=>c.name==='merchant_has_store_role').args.p_roles.join(),'owner,admin');
+  assert.equal((await h.request('updateStaff',{storeId:STORE,userId:MEMBER,role:'manager',active:false})).ok,true);
+  assert.deepEqual(h.calls.find(c=>c.name==='updateMerchantStaff').args.slice(1),[STORE,MEMBER,'manager',false]);
+  for(const [method,args] of [
+    ['addStaff',{username:'cook',role:'owner'}],['addStaff',{username:'a b',role:'orders'}],['addStaff',{username:'x',role:'orders'}],
+    ['updateStaff',{userId:MEMBER,role:'owner',active:true}],['updateStaff',{userId:'merchant-a',role:'orders',active:true}],
+    ['updateStaff',{userId:MEMBER,role:'orders',active:'yes'}],
+  ]){
+    const bad=harness();
+    assert.equal((await bad.request(method,{storeId:STORE,...args})).ok,false,JSON.stringify(args));
+    assert.equal(bad.calls.some(c=>c.name==='addMerchantStaff'||c.name==='updateMerchantStaff'),false,JSON.stringify(args));
+  }
+  const manager=harness();manager.state.manage=false;
+  assert.equal((await manager.request('addStaff',{storeId:STORE,username:'cook',role:'orders'})).ok,false);
+  assert.equal(manager.calls.some(c=>c.name==='addMerchantStaff'),false);
 });

@@ -73,6 +73,16 @@ abstract class MerchantRepository {
   Future<List<Json>> menu(String storeId);
   Future<List<Json>> orders(String storeId, String status, int offset);
   Future<Json> report(String storeId);
+  Future<Json> staff(String storeId) async =>
+      throw const MerchantException('โหลดทีมงานไม่สำเร็จ');
+  Future<void> addStaff(String storeId, String username, String role) async =>
+      throw const MerchantException('เพิ่มทีมงานไม่สำเร็จ');
+  Future<void> updateStaff(
+    String storeId,
+    String userId,
+    String role,
+    bool active,
+  ) async => throw const MerchantException('อัปเดตทีมงานไม่สำเร็จ');
   Future<Json> finance(String storeId, String period) async =>
       throw const MerchantException('ระบบการเงินยังไม่เปิดใช้งาน');
   Future<Json> quality(String storeId) async => {'available': false};
@@ -183,6 +193,33 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<Json> quality(String storeId) async =>
       object(await call('quality', {'storeId': storeId}));
+  @override
+  Future<Json> staff(String storeId) async =>
+      object(await call('staff', {'storeId': storeId}));
+  @override
+  Future<void> addStaff(String storeId, String username, String role) async {
+    await call('addStaff', {
+      'storeId': storeId,
+      'username': username,
+      'role': role,
+    });
+  }
+
+  @override
+  Future<void> updateStaff(
+    String storeId,
+    String userId,
+    String role,
+    bool active,
+  ) async {
+    await call('updateStaff', {
+      'storeId': storeId,
+      'userId': userId,
+      'role': role,
+      'active': active,
+    });
+  }
+
   @override
   Future<Json> finance(String storeId, String period) async =>
       object(await call('finance', {'storeId': storeId, 'period': period}));
