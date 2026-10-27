@@ -87,6 +87,8 @@ function harness() {
       if(path==='@/lib/merchant-core')return {...merchantCore,fetchMerchantStaff:async()=>state.staffMembers??[],addMerchantStaff:async(...args)=>{calls.push({name:'addMerchantStaff',args});},updateMerchantStaff:async(...args)=>{calls.push({name:'updateMerchantStaff',args});}};
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
       if(path==='@/lib/merchant-finance')return {periodRange:(p)=>({from:'2026-10-'+(p==='month'?'01':'27'),to:'2026-10-27'}),fetchFinanceSummary:async(...args)=>{calls.push({name:'fetchFinanceSummary',args});return {sales_net:500,orders:3,days:[]};}};
+      if(path==='@/lib/merchant-ads')return {fetchMerchantAdAccount:async()=>{if(state.adError)throw new Error(state.adError);return {can_manage:true,balance:100};},requestAdTopup:async(...args)=>{calls.push({name:'requestAdTopup',args});},setAdActive:async(...args)=>{calls.push({name:'setAdActive',args});if(state.adError)throw new Error(state.adError);},merchantAdError:(e)=>{const m=e instanceof Error?e.message:'';return m.includes('top up before starting ads')?'เติมเครดิตก่อนเริ่มโฆษณา':m||'ดำเนินการไม่สำเร็จ';}};
+      if(path==='@/lib/merchant-platform-campaigns')return {fetchPlatformCampaigns:async()=>({can_manage:true,campaigns:[]}),joinPlatformCampaign:async(...args)=>{calls.push({name:'joinPlatformCampaign',args});},leavePlatformCampaign:async(...args)=>{calls.push({name:'leavePlatformCampaign',args});},platformCampaignError:(e)=>(e instanceof Error?e.message:'')||'ดำเนินการไม่สำเร็จ'};
       if(path==='@/lib/merchant-campaigns')return {fetchMerchantCampaigns:async()=>({can_manage:true,campaigns:[]}),saveMerchantCampaign:async(...args)=>{calls.push({name:'saveMerchantCampaign',args});},setMerchantCampaignActive:async()=>{}};
       if(path==='@/lib/push-notifications')return {getPushAvailability:async()=>({available:true}),hasActivePushSubscription:async()=>true,requestPushPermissionFromGesture:()=>{state.events.push('permission');return state.permissionRequest??Promise.resolve('granted');},subscribeToPushNotifications:async(_client,_user,options)=>{await options.permissionRequest;await options.ensureActive();state.events.push('subscribe');return {ok:true}},unsubscribeFromPushNotifications:async()=>true,pushReasonDescription:r=>r};
       if(path==='@/lib/food-fulfillment-merchant') {
@@ -474,6 +476,45 @@ test('adding and changing staff is owner/admin only, never the owner role or you
   assert.equal(manager.calls.some(c=>c.name==='addMerchantStaff'),false);
 });
 
+const CAMPAIGN='70000000-0000-4000-8000-000000000007';
+test('ads are manager-only; top-up needs a whole amount and a real slip image',async()=>{
+  const h=harness();
+  assert.equal((await h.request('ads',{storeId:STORE})).data.balance,100);
+  h.setFile(PNG());
+  const result=await h.request('pickAdSlip',{storeId:STORE,amount:300});
+  assert.equal(result.ok,true,result.error);
+  h.setFile(PNG());assert.equal((await h.request('pickAdSlip',{storeId:STORE,amount:150.5})).ok,true);
+  for(const amount of [150.05,300.03,0.07]){h.setFile(PNG());assert.equal((await h.request('pickAdSlip',{storeId:STORE,amount})).ok,true,String(amount));}
+  const call=h.calls.find(c=>c.name==='requestAdTopup');assert.equal(call.args[1],STORE);assert.equal(call.args[2],300);
+  for(const amount of [0,-5,12.345,'300',100001]){
+    const bad=harness();bad.setFile(PNG());
+    assert.equal((await bad.request('pickAdSlip',{storeId:STORE,amount})).ok,false,String(amount));
+    assert.equal(bad.calls.some(c=>c.name==='requestAdTopup'),false);
+  }
+  const fake=harness();fake.setFile({size:100,type:'image/png',slice:()=>({arrayBuffer:async()=>new Uint8Array(16).buffer})});
+  assert.equal((await fake.request('pickAdSlip',{storeId:STORE,amount:300})).ok,false);
+  assert.equal(fake.calls.some(c=>c.name==='requestAdTopup'),false);
+  const staff=harness();staff.state.manage=false;staff.setFile(PNG());
+  for(const [method,args] of [['ads',{}],['pickAdSlip',{amount:300}],['setAdActive',{active:true}],['platformCampaigns',{}],['joinPlatformCampaign',{campaignId:CAMPAIGN,join:true}]]){
+    assert.equal((await staff.request(method,{storeId:STORE,...args})).ok,false,method);
+  }
+  assert.equal(staff.calls.some(c=>['requestAdTopup','setAdActive','joinPlatformCampaign'].includes(c.name)),false);
+});
+test('known ad and campaign errors are shown in Thai, unknown server text is not',async()=>{
+  const h=harness();h.state.adError='top up before starting ads';
+  assert.equal((await h.request('setAdActive',{storeId:STORE,active:true})).error,'เติมเครดิตก่อนเริ่มโฆษณา');
+  const raw=harness();raw.state.adError='relation "x" does not exist';
+  const result=await raw.request('ads',{storeId:STORE});
+  assert.equal(result.ok,false);assert.equal(result.error.includes('relation'),false);
+});
+test('joining and leaving ZOKY campaigns are store-scoped',async()=>{
+  const h=harness();
+  assert.equal((await h.request('joinPlatformCampaign',{storeId:STORE,campaignId:CAMPAIGN,join:true})).ok,true);
+  assert.equal((await h.request('joinPlatformCampaign',{storeId:STORE,campaignId:CAMPAIGN,join:false})).ok,true);
+  assert.deepEqual(h.calls.filter(c=>c.name.endsWith('PlatformCampaign')).map(c=>c.name),['joinPlatformCampaign','leavePlatformCampaign']);
+  assert.equal((await h.request('joinPlatformCampaign',{storeId:STORE,campaignId:'bad',join:true})).ok,false);
+  assert.equal((await h.request('joinPlatformCampaign',{storeId:OTHER,campaignId:CAMPAIGN,join:true})).ok,false);
+});
 test('your own staff access cannot be changed through add or update',async()=>{
   const h=harness();
   const add=await h.request('addStaff',{storeId:STORE,username:'@ME_ADMIN',role:'orders'});

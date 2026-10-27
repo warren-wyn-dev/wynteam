@@ -10,6 +10,7 @@ import 'fulfillment_panels.dart';
 import 'store_settings_panels.dart';
 import 'finance_panel.dart';
 import 'staff_panel.dart';
+import 'growth_panels.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -327,6 +328,8 @@ class _MerchantHomeState extends State<MerchantHome>
                                     6 => promotionsPage(),
                                     8 => financePage(),
                                     9 => staffPage(),
+                                    10 => adsPage(),
+                                    11 => zokyCampaignsPage(),
                                     _ => qualityPage(),
                                   },
                               ],
@@ -1056,7 +1059,7 @@ class _MerchantHomeState extends State<MerchantHome>
             'โฆษณา',
             1,
             Icons.campaign_outlined,
-            c.canManage ? () => openTool('ads') : null,
+            c.canManage ? () => navigate(10) : null,
           ),
           homeTool(
             'โปรโมชั่น',
@@ -1068,7 +1071,7 @@ class _MerchantHomeState extends State<MerchantHome>
             'แคมเปญ',
             3,
             Icons.shopping_bag_outlined,
-            c.canManage ? () => openTool('campaigns') : null,
+            c.canManage ? () => navigate(11) : null,
           ),
           homeTool(
             'คุณภาพร้าน',
@@ -1360,6 +1363,20 @@ class _MerchantHomeState extends State<MerchantHome>
           success,
           () => navigate(8),
         ),
+      if (c.canManage) ...[
+        tool(
+          'โฆษณา',
+          Icons.campaign_outlined,
+          const Color(0xFFE07A00),
+          () => navigate(10),
+        ),
+        tool(
+          'แคมเปญ ZOKY',
+          Icons.shopping_bag_outlined,
+          brand,
+          () => navigate(11),
+        ),
+      ],
       tool(
         'ทีมงาน',
         Icons.groups_outlined,
@@ -1393,8 +1410,10 @@ class _MerchantHomeState extends State<MerchantHome>
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.wallet_outlined, color: success),
-            title: const Text('การเงินและเครื่องมือเพิ่มเติม'),
-            subtitle: const Text('เปิดหน้าจัดการเดิม: แคมเปญ และโฆษณา'),
+            title: const Text('เครื่องมือเพิ่มเติม'),
+            subtitle: const Text(
+              'เปิดหน้าจัดการเดิม: ฟีดแบ็ก ช่วยเหลือ และเครื่องมืออื่น',
+            ),
             trailing: const Icon(Icons.open_in_new, size: 20),
             onTap: openOriginal,
           ),
@@ -1406,6 +1425,38 @@ class _MerchantHomeState extends State<MerchantHome>
       icon: const Icon(Icons.logout),
       label: const Text('ออกจากระบบ'),
     ),
+  ];
+
+  List<Widget> adsPage() => [
+    heading('โฆษณา', 'ให้ร้านขึ้นเป็นร้านแนะนำและอยู่บนสุดตอนค้นหา'),
+    if (c.canManage)
+      box(
+        AdsPanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+        ),
+      )
+    else
+      box(const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่จัดการโฆษณาได้')),
+  ];
+
+  List<Widget> zokyCampaignsPage() => [
+    heading('แคมเปญ ZOKY', 'แคมเปญส่วนลดที่ ZOKY ช่วยออกให้ เข้าร่วมได้เอง'),
+    if (c.canManage)
+      box(
+        PlatformCampaignsPanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: c.updatedAt,
+        ),
+      )
+    else
+      box(
+        const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่เข้าร่วมแคมเปญได้'),
+      ),
   ];
 
   List<Widget> staffPage() => [
@@ -2241,7 +2292,7 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           const SizedBox(height: 8),
           const Text(
-            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nโฆษณา และแคมเปญ ยังเปิดในหน้าร้านเดิม',
+            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nฟีดแบ็กและช่วยเหลือ ยังเปิดในหน้าร้านเดิม',
           ),
           FilledButton.icon(
             onPressed: pushBusy ? null : enablePush,
@@ -2256,7 +2307,7 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           TextButton(
             onPressed: openOriginal,
-            child: const Text('โฆษณา แคมเปญ และเครื่องมือร้านเพิ่มเติม →'),
+            child: const Text('เครื่องมือร้านเพิ่มเติม →'),
           ),
         ],
       ),
