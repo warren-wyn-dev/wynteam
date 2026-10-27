@@ -94,6 +94,34 @@ export async function fetchMerchantFinanceOverview(range: { from: string; to: st
   return data as MerchantFinanceOverview;
 }
 
+/** One row of admin_food_finance_split (ZOKY-FULFILL-001): same money lines, by mode x payment. */
+export type FinanceSplitRow = {
+  fulfillment_type: "delivery" | "pickup";
+  payment_method: "transfer" | "cod";
+  orders: number;
+  paid_total: number;
+  refund_count: number;
+  refunds: number;
+  sales_net: number;
+};
+
+export const FINANCE_SPLIT_LABEL: Record<string, string> = {
+  "delivery/transfer": "จัดส่ง · โอนเงิน",
+  "delivery/cod": "จัดส่ง · เก็บเงินปลายทาง",
+  "pickup/transfer": "รับเองที่ร้าน · โอนเงิน",
+};
+
+/** null when the RPC is not on this database yet (migration not applied). */
+export async function fetchFinanceSplit(range: { from: string; to: string }): Promise<FinanceSplitRow[] | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_food_finance_split", { p_from: range.from, p_to: range.to });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    throw error;
+  }
+  return (data ?? []) as FinanceSplitRow[];
+}
+
 // ---------------------------------------------------------------------------
 // Date range (Bangkok business days)
 // ---------------------------------------------------------------------------
