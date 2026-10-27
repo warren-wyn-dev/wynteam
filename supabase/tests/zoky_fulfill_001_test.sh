@@ -109,6 +109,8 @@ run -f "$ROOT/supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql" >/d
 run -f "$ROOT/supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql" >/dev/null
 run -f "$ROOT/supabase/migrations/20261027090000_zoky_fulfill_001_refund_slip.sql" >/dev/null
 run -f "$ROOT/supabase/migrations/20261027090000_zoky_fulfill_001_refund_slip.sql" >/dev/null
+run -f "$ROOT/supabase/migrations/20261027100000_zoky_fulfill_001_finance_split.sql" >/dev/null
+run -f "$ROOT/supabase/migrations/20261027100000_zoky_fulfill_001_finance_split.sql" >/dev/null
 
 # Fixtures: a store open every day 00:00-23:59 (Bangkok) and one without a schedule.
 run >/dev/null <<SQL
@@ -295,6 +297,17 @@ db "update public.food_orders set cancel_requested_at=null where id='$P4'" >/dev
 db "update public.food_orders set cancel_requested_at=now() where id='$P1'" >/dev/null
 expect_as "$ADMIN" "select string_agg(pickup_code, ',') from public.admin_food_orders_v2(null,'cancel_request',null,300)" "P001" "admin cancel-request filter"
 db "update public.food_orders set cancel_requested_at=null where id='$P1'" >/dev/null
+# --- Zoky Admin finance split ---------------------------------------------------
+TODAY=$(TZ=Asia/Bangkok date +%F)
+expect_fail_as "$OWNER" "select count(*) from public.admin_food_finance_split('$TODAY','$TODAY')" "Not authorized" "store owner cannot read the finance split"
+expect_fail_as "$ADMIN" "select count(*) from public.admin_food_finance_split('$TODAY','2026-01-01')" "invalid date range" "reversed range refused"
+expect_fail_as "$ADMIN" "select count(*) from public.admin_food_finance_split('2020-01-01','$TODAY')" "date range is too long" "range capped at 366 days"
+expect_as "$ADMIN" "select string_agg(fulfillment_type||'/'||payment_method, ',') from public.admin_food_finance_split('2000-01-01','2000-01-01')" "delivery/cod,delivery/transfer,pickup/transfer" "every mode listed with no sales"
+expect_as "$ADMIN" "select sum(orders) = (select count(*) from public.food_orders where payment_status in ('paid','refunded') and (coalesce(paid_at,created_at) at time zone 'Asia/Bangkok')::date = '$TODAY') from public.admin_food_finance_split('$TODAY','$TODAY')" "t" "split orders add up to paid orders"
+expect_as "$ADMIN" "select bool_and(sales_net = paid_total - refunds) from public.admin_food_finance_split('$TODAY','$TODAY')" "t" "sales_net = paid - refunds"
+expect_as "$ADMIN" "select (orders > 0)::text||'|'||(refunds > 0)::text from public.admin_food_finance_split('$TODAY','$TODAY') where fulfillment_type='pickup' and payment_method='transfer'" "true|true" "pickup sales and refunds land in the pickup row"
+run -f "$ROOT/supabase/rollbacks/20261027100000_zoky_fulfill_001_finance_split_rollback.sql" >/dev/null
+expect "select count(*) from pg_proc where proname = 'admin_food_finance_split'" "0" "finance split rollback drops the RPC"
 run -f "$ROOT/supabase/rollbacks/20261027090000_zoky_fulfill_001_refund_slip_rollback.sql" >/dev/null
 expect "select count(*) from pg_trigger where tgname = 'food_orders_refund_slip_guard'" "0" "refund-slip rollback drops the guard"
 expect "select position('perform public.merchant_set_refund_status' in pg_get_functiondef('public.food_store_mark_refunded(uuid,text,text)'::regprocedure)) < position('refund_slip_path = p_refund_slip_path' in pg_get_functiondef('public.food_store_mark_refunded(uuid,text,text)'::regprocedure))" "t" "refund-slip rollback restores mark_refunded"
