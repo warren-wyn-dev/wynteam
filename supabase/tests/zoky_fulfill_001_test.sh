@@ -107,6 +107,8 @@ run -f "$ROOT/supabase/migrations/20261026120000_zoky_fulfill_001.sql" >/dev/nul
 run -f "$ROOT/supabase/migrations/20261026120000_zoky_fulfill_001.sql" >/dev/null
 run -f "$ROOT/supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql" >/dev/null
 run -f "$ROOT/supabase/migrations/20261026130000_zoky_fulfill_001_admin.sql" >/dev/null
+run -f "$ROOT/supabase/migrations/20261027090000_zoky_fulfill_001_refund_slip.sql" >/dev/null
+run -f "$ROOT/supabase/migrations/20261027090000_zoky_fulfill_001_refund_slip.sql" >/dev/null
 
 # Fixtures: a store open every day 00:00-23:59 (Bangkok) and one without a schedule.
 run >/dev/null <<SQL
@@ -261,6 +263,19 @@ db "update public.food_orders set payment_status='paid' where id='$T1'" >/dev/nu
 as "$STAFF" "select public.food_transition_order('$T1','cancelled')" >/dev/null
 expect "select refund_status from public.food_orders where id='$T1'" "pending" "store cancel of a paid order still owes a refund"
 
+# --- refund slip on the legacy paths (risk acceptance closed) -----------------
+expect_fail_as "$OWNER" "select public.merchant_set_refund_status('$T1','refunded','โอนแล้ว')" "refund slip is required" "legacy refund RPC needs a slip"
+expect_fail_as "$OWNER" "select public.food_set_payment_status('$T1','refunded','โอนแล้ว')" "refund slip is required" "legacy payment RPC cannot mark refunded without a slip"
+as "$STAFF" "select public.merchant_set_refund_status('$T1','failed','บัญชีลูกค้าผิด')" >/dev/null
+as "$STAFF" "select public.merchant_set_refund_status('$T1','pending',null)" >/dev/null
+expect "select refund_status||'|'||payment_status from public.food_orders where id='$T1'" "pending|paid" "pending/failed refund updates still work"
+db "update public.food_orders set refund_status='refunded', payment_status='refunded' where id='$T1'" >/dev/null
+expect "select refund_status from public.food_orders where id='$T1'" "refunded" "service-role jobs are not blocked"
+db "update public.food_orders set refund_status='pending', payment_status='paid' where id='$T1'" >/dev/null
+db "insert into storage.objects values ('food-private','refunds/$T1/slip.jpg')" >/dev/null
+as "$OWNER" "select public.food_store_mark_refunded('$T1','refunds/$T1/slip.jpg','โอนคืนแล้ว')" >/dev/null
+expect "select refund_status||'|'||payment_status||'|'||refund_slip_path from public.food_orders where id='$T1'" "refunded|refunded|refunds/$T1/slip.jpg" "slip refund passes the guard"
+
 # --- table constraints --------------------------------------------------------
 expect_fail_as "$OWNER" "update public.food_orders set payment_method='cod' where id='$P1'" "violates check constraint" "pickup+COD blocked by constraint"
 expect_fail_db "update public.food_stores set pickup_enabled=false, delivery_enabled=false where id='$STORE'" "food_stores_fulfillment_mode_check" "store must keep a mode"
@@ -280,6 +295,9 @@ db "update public.food_orders set cancel_requested_at=null where id='$P4'" >/dev
 db "update public.food_orders set cancel_requested_at=now() where id='$P1'" >/dev/null
 expect_as "$ADMIN" "select string_agg(pickup_code, ',') from public.admin_food_orders_v2(null,'cancel_request',null,300)" "P001" "admin cancel-request filter"
 db "update public.food_orders set cancel_requested_at=null where id='$P1'" >/dev/null
+run -f "$ROOT/supabase/rollbacks/20261027090000_zoky_fulfill_001_refund_slip_rollback.sql" >/dev/null
+expect "select count(*) from pg_trigger where tgname = 'food_orders_refund_slip_guard'" "0" "refund-slip rollback drops the guard"
+expect "select position('perform public.merchant_set_refund_status' in pg_get_functiondef('public.food_store_mark_refunded(uuid,text,text)'::regprocedure)) < position('refund_slip_path = p_refund_slip_path' in pg_get_functiondef('public.food_store_mark_refunded(uuid,text,text)'::regprocedure))" "t" "refund-slip rollback restores mark_refunded"
 run -f "$ROOT/supabase/rollbacks/20261026130000_zoky_fulfill_001_admin_rollback.sql" >/dev/null
 expect "select count(*) from pg_proc where proname = 'admin_food_orders_v2'" "0" "admin rollback drops v2"
 
