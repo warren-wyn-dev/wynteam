@@ -1,6 +1,6 @@
 # ZOKY-BILLING-001: Technical design (monthly store fee)
 
-Status: DRAFT — for CTO/Architect review. Implements the approved PRD
+Status: IMPLEMENTED in PRs #1288 (DB), #1289 (Zoky Admin), #1290 (Merchant) — CTO review = self-review + Codex. Implements the approved PRD
 `.wyn/docs/product/zoky-billing-001-monthly-fee.md` (Founder approved 2026-10-27).
 Date: 2026-10-27
 
@@ -59,8 +59,10 @@ It does nothing while billing is off. When billing is on it:
 1. Backfills missing `food_store_billing` rows for published stores (safety net
    for the trigger).
 2. For each store whose current cycle has started, inserts that cycle's invoice
-   (`on conflict do nothing`). It only does this when the fee is > 0. Missed
-   past cycles are not back-billed.
+   (`on conflict do nothing`), but only while the store is published and not
+   suspended, and only within the first 3 days of the cycle. The window covers
+   job outages; a store unsuspended later than that is not billed for that
+   cycle. Missed past cycles are not back-billed.
 3. Sends reminders for `unpaid` and `rejected` invoices at offsets −3, 0, +3 and
    +7 days from `due_on` (Q3).
    - Reminders go out as `notifications` rows to the active owner/admin members.
