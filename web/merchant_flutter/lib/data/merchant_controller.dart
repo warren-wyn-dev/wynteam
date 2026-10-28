@@ -244,7 +244,11 @@ class MerchantController extends ChangeNotifier {
       if (!_disposed && g == _generation) {
         error = errorMessage(e);
         _needsFullRefresh = true;
-        // Never leave private customer data visible after an access failure.
+        // Fail closed on any order/access error: an access revocation must not
+        // leave even store identity or cached private rows on screen.
+        stores = [];
+        storeId = null;
+        hasMore = false;
         orders = [];
         menu = [];
         campaigns = [];
