@@ -62,10 +62,11 @@ void main() {
       repo.pause = Completer<void>();
       final first = c.refresh();
       await Future<void>.delayed(Duration.zero);
-      await c.refresh();
+      // Queued reads now return a Future that completes after the pending
+      // refresh. Release the first paused read before awaiting that Future.
+      final queued = c.refresh();
       repo.pause!.complete();
-      await first;
-      await Future<void>.delayed(Duration.zero);
+      await Future.wait([first, queued]);
       expect(repo.orderReads, before + 2);
       c.dispose();
     },
