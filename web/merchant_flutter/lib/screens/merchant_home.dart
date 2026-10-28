@@ -40,6 +40,7 @@ class _MerchantHomeState extends State<MerchantHome>
     with WidgetsBindingObserver {
   late final MerchantController c;
   Timer? timer;
+  int refreshTicks = 0;
   StreamSubscription<void>? orderSubscription;
   String? subscribedStore;
   bool pushEnabled = false, pushBusy = false;
@@ -63,12 +64,22 @@ class _MerchantHomeState extends State<MerchantHome>
     unawaited(c.initialize());
     orderSubscription = widget.repository.orderChanges.listen((_) {
       if (!mounted) return;
-      notice('มีการเปลี่ยนแปลงออเดอร์ กำลังอัปเดต');
+      // A realtime event may coincide with revoked store permissions.
+      // Refresh the grant snapshot; routine polling remains order-only.
       unawaited(c.refresh());
     });
     unawaited(readPushStatus());
+    // Reconcile missed realtime messages every 20 seconds. Recheck
+    // grants and other data every 3 minutes or on explicit/resume refresh.
     timer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (foreground) unawaited(c.refresh());
+      if (!foreground) return;
+      refreshTicks++;
+      if (refreshTicks >= 9) {
+        refreshTicks = 0;
+        unawaited(c.refresh());
+      } else {
+        unawaited(c.refreshOrders());
+      }
     });
   }
 
@@ -116,7 +127,10 @@ class _MerchantHomeState extends State<MerchantHome>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
-    if (foreground) unawaited(c.refresh());
+    if (foreground) {
+      refreshTicks = 0;
+      unawaited(c.refresh());
+    }
   }
 
   @override
