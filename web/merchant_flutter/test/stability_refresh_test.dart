@@ -433,4 +433,23 @@ void main() {
     expect(c.campaignError, isNull);
   });
 
+  test('a recovered network poll restores emptied private sections', () async {
+    final repo = _DelayedRepository();
+    final c = MerchantController(repo);
+    addTearDown(c.dispose);
+    await c.initialize();
+    expect(c.menu, isNotEmpty);
+    final reportsBefore = repo.reportReads;
+    repo.failReads = true;
+    await c.refreshOrders();
+    expect(c.error, isNotNull);
+    expect(c.menu, isEmpty);
+    repo.failReads = false;
+    await c.refreshOrders();
+    expect(c.error, isNull);
+    expect(c.menu, isNotEmpty);
+    expect(c.report, isNotEmpty);
+    expect(repo.reportReads, reportsBefore + 1);
+  });
+
 }
