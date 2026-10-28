@@ -43,7 +43,13 @@ for (const width of [320, 390, 432]) {
     await page.setViewportSize({ width, height: 600 });
     await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
 
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    // Trigger a real downward scroll after Home hydration. Jumping directly to
+    // the bottom can race the WebKit scroll controller on narrow iPhones.
+    await expect(page.locator(".wyn-home-header")).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    await page.evaluate(() => window.scrollBy(0, 400));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(112);
     await expect(page.locator("html")).toHaveClass(/wyn-home-scroll-hidden/);
     const fab = page.getByRole("button", { name: "สร้างโพสต์" });
     await expect(fab).toBeVisible();
