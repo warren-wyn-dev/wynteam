@@ -64,8 +64,9 @@ class _MerchantHomeState extends State<MerchantHome>
     unawaited(c.initialize());
     orderSubscription = widget.repository.orderChanges.listen((_) {
       if (!mounted) return;
-      // Maintain order freshness without reloading unrelated merchant panels.
-      unawaited(c.refreshOrders());
+      // A realtime event may coincide with revoked store permissions.
+      // Refresh the grant snapshot; routine polling remains order-only.
+      unawaited(c.refresh());
     });
     unawaited(readPushStatus());
     // Reconcile missed realtime messages every 20 seconds. Recheck
