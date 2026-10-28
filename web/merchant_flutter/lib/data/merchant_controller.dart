@@ -24,6 +24,7 @@ class MerchantController extends ChangeNotifier {
   Future<void>? _readFuture;
   Completer<void>? _pendingRefresh;
   bool _pendingFullRefresh = false;
+  bool _needsFullRefresh = false;
   Json? get store => stores.where((s) => s['id'] == storeId).firstOrNull;
   bool get writable =>
       !_disposed && !loading && !busy && error == null && store != null;
@@ -159,6 +160,7 @@ class MerchantController extends ChangeNotifier {
     if (_disposed || g != _generation) return;
     updatedAt = DateTime.now();
     error = null;
+    _needsFullRefresh = false;
   }
 
   Future<void> refresh() => _requestRead(ordersOnly: false);
@@ -169,6 +171,9 @@ class MerchantController extends ChangeNotifier {
 
   Future<void> _requestRead({required bool ordersOnly}) {
     if (_disposed) return Future.value();
+    // An earlier failed read discarded private data. Rehydrate it using
+    // full authorization and dashboard reads rather than leaving empty panels.
+    if (_needsFullRefresh || _pendingFullRefresh) ordersOnly = false;
     if (busy || _readFuture != null) {
       // Coalesce bursts but never downgrade a queued full security refresh.
       _pendingRefresh ??= Completer<void>();
@@ -229,12 +234,14 @@ class MerchantController extends ChangeNotifier {
           stores = initialStores;
           storeId = initialStores.isEmpty ? null : initialStores.first['id'] as String;
           error = null;
+          if (storeId == null) _needsFullRefresh = false;
         }
         if (storeId != null) await _load(g, checkedStores: initialStores);
       }
     } catch (e) {
       if (!_disposed && g == _generation) {
         error = errorMessage(e);
+        _needsFullRefresh = true;
         // Never leave private customer data visible after an access failure.
         orders = [];
         menu = [];
@@ -264,13 +271,16 @@ class MerchantController extends ChangeNotifier {
           !busy &&
           _readFuture == null &&
           _pendingRefresh != null) {
-        unawaited(_startRead(ordersOnly: !_pendingFullRefresh));
+        unawaited(_startRead(
+          ordersOnly: !_pendingFullRefresh && !_needsFullRefresh,
+        ));
       }
     });
   }
 
   Future<void> loadMore() async {
     if (_readFuture != null) await _readFuture;
+    if (_pendingFullRefresh || _needsFullRefresh) await refresh();
     if (!writable || !hasMore) return;
     await _startRead(appendOrders: true);
   }
