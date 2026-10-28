@@ -88,6 +88,8 @@ class MerchantController extends ChangeNotifier {
       qualityData = {};
       qualityError = null;
       canManage = canOrders = canDelivery = canCampaigns = false;
+      hasMore = false;
+      _needsFullRefresh = false;
       return;
     }
     final results = await Future.wait([
@@ -280,7 +282,9 @@ class MerchantController extends ChangeNotifier {
 
   Future<void> loadMore() async {
     if (_readFuture != null) await _readFuture;
-    if (_pendingFullRefresh || _needsFullRefresh) await refresh();
+    // Drain a queued invalidation before pagination, otherwise it could be
+    // consumed by loadMore and a newly arriving first-page order be missed.
+    if (_pendingRefresh != null || _needsFullRefresh) await refreshOrders();
     if (!writable || !hasMore) return;
     await _startRead(appendOrders: true);
   }
