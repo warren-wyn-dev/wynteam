@@ -40,6 +40,7 @@ class _MerchantHomeState extends State<MerchantHome>
     with WidgetsBindingObserver {
   late final MerchantController c;
   Timer? timer;
+  int refreshTicks = 0;
   StreamSubscription<void>? orderSubscription;
   String? subscribedStore;
   bool pushEnabled = false, pushBusy = false;
@@ -67,8 +68,18 @@ class _MerchantHomeState extends State<MerchantHome>
       unawaited(c.refresh());
     });
     unawaited(readPushStatus());
+    // Reconcile new orders without repeatedly loading the entire dashboard.
+    // A full grant/menu/report refresh still occurs every three minutes and
+    // on account resume or realtime invalidation.
     timer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (foreground) unawaited(c.refresh());
+      if (!foreground) return;
+      refreshTicks++;
+      if (refreshTicks >= 9) {
+        refreshTicks = 0;
+        unawaited(c.refresh());
+      } else {
+        unawaited(c.refreshOrders());
+      }
     });
   }
 
@@ -116,7 +127,10 @@ class _MerchantHomeState extends State<MerchantHome>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
-    if (foreground) unawaited(c.refresh());
+    if (foreground) {
+      refreshTicks = 0;
+      unawaited(c.refresh());
+    }
   }
 
   @override
