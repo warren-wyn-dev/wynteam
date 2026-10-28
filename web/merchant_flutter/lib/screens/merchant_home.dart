@@ -59,8 +59,10 @@ class _MerchantHomeState extends State<MerchantHome>
     unawaited(c.initialize());
     orderSubscription = widget.repository.orderChanges.listen((_) {
       if (!mounted) return;
-      // Realtime order changes must not reload unrelated reports or menu forms.
-      unawaited(c.refreshOrders());
+      // A realtime invalidation may also indicate revoked store grants.
+      // Revalidate the full store/role snapshot before retaining private UI.
+      // The inexpensive timer handles routine order-only reconciliation.
+      unawaited(c.refresh());
     });
     unawaited(readPushStatus());
     // Reconcile order changes even if a realtime notification was missed.
