@@ -136,7 +136,7 @@ grant execute on function public.zoky_line_transition_order(text,text,uuid) to s
 
 -- Queue only for stores that have explicitly opted in by linking LINE.
 -- No automatic outbound LINE call is made inside an order transaction.
-create function public.zoky_line_queue_order() returns trigger language plpgsql security invoker set search_path = ''
+create function public.zoky_line_queue_order() returns trigger language plpgsql security definer set search_path = ''
 as $$
 begin
   if new.status='pending_acceptance'
@@ -155,6 +155,7 @@ begin
   return new;
 end;
 $$;
+revoke all on function public.zoky_line_queue_order() from public,anon,authenticated;
 create trigger zoky_line_order_ready_trigger
   after insert or update of status,payment_status,payment_method
   on public.food_orders for each row execute function public.zoky_line_queue_order();
