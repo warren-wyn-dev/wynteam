@@ -32,7 +32,7 @@
     "test:food-account": "node --test tests/food-standalone-account.test.mjs tests/supabase-clock-skew-fetch.test.mjs",
     "test:stripe": "node --test tests/stripe-payment-core.test.mjs tests/food-payment-timeout.test.mjs tests/food-first-order-merchant-funded.test.mjs",
     "build:merchant-flutter": "bash merchant_flutter/scripts/build_web.sh",
-    "test:merchant-flutter": "node --test tests/merchant-tool-link.test.mjs tests/merchant-flutter-bridge.test.mjs tests/merchant-flutter-routing.test.mjs tests/merchant-flutter-loader.test.mjs tests/web-font-policy.test.mjs tests/merchant-auth-return.test.mjs tests/merchant-flutter-versioning.test.mjs tests/merchant-menu-image.test.mjs",
+    "test:merchant-flutter": "node --test tests/merchant-tool-link.test.mjs tests/merchant-flutter-bridge.test.mjs tests/merchant-flutter-routing.test.mjs tests/merchant-flutter-loader.test.mjs tests/merchant-flutter-startup.test.mjs tests/web-font-policy.test.mjs tests/merchant-auth-return.test.mjs tests/merchant-flutter-versioning.test.mjs tests/merchant-menu-image.test.mjs",
     "qa:merchant-flutter": "playwright test --config playwright.merchant-flutter.config.ts"
   },
   "dependencies": {

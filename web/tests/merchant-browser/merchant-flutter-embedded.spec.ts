@@ -32,7 +32,7 @@ async function signedIn(page: Page, expiresIn = 3600) {
     }));
   }, { userId, slot, expiresIn });
 }
-async function fakeEngine(page: Page) {
+async function fakeEngine(page: Page, autoReady = true) {
   await page.route("**/merchant-flutter/flutter_bootstrap.js", (route) => route.fulfill({
     status: 200, contentType: "text/javascript", body: `
       window.__merchantFixture = { added: [], removed: [], initialized: [] };
@@ -48,6 +48,9 @@ async function fakeEngine(page: Page) {
               view.textContent = 'Synthetic Merchant view';
               hostElement.appendChild(view);
               window.__merchantFixture.added.push(id);
+              if (${autoReady}) queueMicrotask(() => window.dispatchEvent(new CustomEvent('zoky-merchant-startup', {
+                detail: { viewId: id, phase: 'content-ready', elapsedMs: 1, fontWarmupMs: 0, fontWarmupTimedOut: false },
+              })));
               return id;
             },
             removeView: (id) => {
@@ -124,6 +127,28 @@ test("bundle load failure shows recovery and a link to the working legacy route"
   await expect(page.getByRole("button", { name: "ลองโหลดใหม่" })).toBeVisible();
   await expect(page.getByRole("link", { name: "เปิดหน้าร้านเดิม" })).toHaveAttribute("href", "/merchant?legacy=1");
   await page.screenshot({ path: testInfo.outputPath("merchant-flutter-wrapper-error.png"), fullPage: true });
+});
+
+test("the wrapper reveals only its matching content-ready view", async ({ page }) => {
+  await signedIn(page); await fakeEngine(page, false);
+  await page.goto('/merchant/flutter');
+  await expect(page.locator('[data-synthetic-flutter-view]')).toHaveCount(1);
+  const host = page.locator('[data-merchant-flutter-host]');
+  await expect(host).toHaveAttribute('aria-hidden', 'true');
+  await expect(host).toHaveAttribute('inert', '');
+  await expect(page.getByRole('status')).toBeVisible();
+  const signal = async (viewId: number) => page.evaluate(viewId => {
+    window.dispatchEvent(new CustomEvent('zoky-merchant-startup', {
+      detail: { viewId, phase: 'content-ready', elapsedMs: 12, fontWarmupMs: 10, fontWarmupTimedOut: false },
+    }));
+  }, viewId);
+  await signal(99);
+  await expect(page.getByRole('status')).toBeVisible();
+  await expect(host).toHaveAttribute('aria-hidden', 'true');
+  await signal(1);
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect(host).toHaveAttribute('aria-hidden', 'false');
+  await expect(host).not.toHaveAttribute('inert', '');
 });
 
 
