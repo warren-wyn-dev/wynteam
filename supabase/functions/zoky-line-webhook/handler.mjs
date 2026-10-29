@@ -26,6 +26,11 @@ export async function verifyLineSignature(rawBytes, signature, secret) {
   return crypto.subtle.verify('HMAC', secretKey, supplied, rawBytes);
 }
 
+/**
+ * @param {Request} request
+ * @param {string} secret
+ * @param {((event: any) => Promise<void>) | null} [eventProcessor]
+ */
 export async function handleLineWebhook(request, secret, eventProcessor = null) {
   if (request.method !== 'POST') return reply('method_not_allowed', 405);
   if (!secret) return reply('not_configured', 503);
