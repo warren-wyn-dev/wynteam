@@ -40,9 +40,9 @@ Deno.test("AccountLink event only accepts valid LINE user and nonce",async()=>{
 });
 Deno.test("Connect request issues linkToken and sends one fixed-origin reply",async()=>{
   const sent: Array<{url:string,body?:string}>=[];
-  const http=async (url: string,options: RequestInit)=>{
-    sent.push({url,body:typeof options.body==="string"?options.body:undefined});
-    if(url.includes("/linkToken")) return new Response(JSON.stringify({linkToken:"ValidTokenFromLine12345678"}),{status:200});
+  const http=async (url: string|URL|Request,options?: RequestInit): Promise<Response>=>{
+    sent.push({url:String(url),body:typeof options?.body==="string"?options.body:undefined});
+    if(String(url).includes("/linkToken")) return new Response(JSON.stringify({linkToken:"ValidTokenFromLine12345678"}),{status:200});
     return new Response(null,{status:200});
   };
   const processor=createLineEventProcessor({repository:repo(),channelToken:"test-token",http});
