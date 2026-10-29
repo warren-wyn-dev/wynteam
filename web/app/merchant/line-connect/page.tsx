@@ -14,6 +14,7 @@ function MerchantLineConnectForm({ client, userId }: { client: SupabaseClient; u
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [connected, setConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -52,6 +53,35 @@ function MerchantLineConnectForm({ client, userId }: { client: SupabaseClient; u
     return () => { mounted = false; };
   }, [client, userId]);
 
+  useEffect(() => {
+    let active = true;
+    if (!storeId) return;
+    void client.functions.invoke("zoky-line-account", {
+      body: { action: "status", storeId },
+    }).then(({ data, error }) => {
+      if (active) setConnected(!error && typeof data?.connected === "boolean" ? data.connected : null);
+    }).catch(() => { if (active) setConnected(null); });
+    return () => { active = false; };
+  }, [client, storeId]);
+
+  async function unlink() {
+    if (!storeId || !connected || busy || !window.confirm("ยกเลิกการเชื่อมบัญชี LINE ของร้านนี้?")) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const { data, error } = await client.functions.invoke("zoky-line-account", {
+        body: { action: "unlink", storeId },
+      });
+      if (error || data?.ok !== true) throw new Error("unlink_failed");
+      setConnected(false);
+      setNotice("ยกเลิกการเชื่อมบัญชี LINE แล้ว");
+    } catch {
+      setNotice("ยกเลิกการเชื่อม LINE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function beginLink() {
     if (!storeId || !token || busy) return;
     setBusy(true);
@@ -83,6 +113,13 @@ function MerchantLineConnectForm({ client, userId }: { client: SupabaseClient; u
           {stores.length ? stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>) : <option value="">ไม่มีร้านค้าที่ได้รับสิทธิ์</option>}
         </select>
         <p style={{ fontSize: 13, lineHeight: 1.7, color: "#666" }}>บัญชี LINE จะใช้รับการแจ้งเตือนออเดอร์ของร้านนี้ คุณสามารถยกเลิกการเชื่อมได้ทุกเมื่อใน Zoky Merchant</p>
+        <p role="status" style={{ fontSize: 14, color: connected === true ? "#067647" : "#666" }}>
+          {connected === true ? "เชื่อมต่อ LINE แล้ว" : connected === false ? "ยังไม่ได้เชื่อม LINE" : "กำลังตรวจสอบการเชื่อมต่อ"}
+        </p>
+        {connected === true ? <button type="button" disabled={busy} onClick={() => void unlink()}
+          style={{ background: "#fff", color: "#C62828", width: "100%", padding: 13, marginBottom: 12, border: "1px solid #ddd", borderRadius: 12 }}>
+          ยกเลิกการเชื่อม LINE
+        </button> : null}
         <button type="button" disabled={!token || !storeId || !loaded || busy} onClick={() => void beginLink()}
           style={{ background: "#F93384", color: "#fff", width: "100%", padding: 15, border: 0, borderRadius: 12, fontWeight: 650, opacity: !token || !storeId || !loaded || busy ? 0.5 : 1 }}>
           {busy ? "กำลังเชื่อมต่อ…" : "ยืนยันและเชื่อมต่อ LINE"}
