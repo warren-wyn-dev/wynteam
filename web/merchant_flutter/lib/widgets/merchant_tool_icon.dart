@@ -2,6 +2,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+const _merchantToolAtlas = AssetImage('assets/brand/merchant-tools-3d.webp');
+
 /// A cell from the shared four-column, two-row merchant tool atlas.
 class MerchantToolIcon extends StatefulWidget {
   const MerchantToolIcon({
@@ -16,14 +18,22 @@ class MerchantToolIcon extends StatefulWidget {
   final double size;
   final IconData? fallback;
 
+  /// Start the shared download/decode while authorized store reads are pending.
+  /// Decorative images never hold up usable store content, including on error.
+  static Future<void> warmup(BuildContext context) => precacheImage(
+    _merchantToolAtlas,
+    context,
+    onError: (Object error, StackTrace? stackTrace) {},
+  );
+
   @override
   State<MerchantToolIcon> createState() => _MerchantToolIconState();
 }
 
 class _MerchantToolIconState extends State<MerchantToolIcon> {
-  static const _asset = AssetImage('assets/brand/merchant-tools-3d.webp');
   ImageStream? _stream;
   ui.Image? _image;
+  bool _failed = false;
   late final ImageStreamListener _listener = ImageStreamListener(
     _onImage,
     onError: _onError,
@@ -32,9 +42,12 @@ class _MerchantToolIconState extends State<MerchantToolIcon> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final next = _asset.resolve(createLocalImageConfiguration(context));
+    final next = _merchantToolAtlas.resolve(
+      createLocalImageConfiguration(context),
+    );
     if (_stream?.key == next.key) return;
     _stream?.removeListener(_listener);
+    _failed = false;
     _stream = next;
     next.addListener(_listener);
   }
@@ -45,7 +58,10 @@ class _MerchantToolIconState extends State<MerchantToolIcon> {
       return;
     }
     final previous = _image;
-    setState(() => _image = info.image.clone());
+    setState(() {
+      _image = info.image.clone();
+      _failed = false;
+    });
     info.dispose();
     previous?.dispose();
   }
@@ -53,7 +69,10 @@ class _MerchantToolIconState extends State<MerchantToolIcon> {
   void _onError(Object error, StackTrace? stackTrace) {
     if (!mounted) return;
     final previous = _image;
-    setState(() => _image = null);
+    setState(() {
+      _image = null;
+      _failed = true;
+    });
     previous?.dispose();
   }
 
@@ -71,7 +90,20 @@ class _MerchantToolIconState extends State<MerchantToolIcon> {
       child: SizedBox.square(
         dimension: widget.size,
         child: image == null
-            ? Icon(widget.fallback ?? Icons.apps_rounded, size: widget.size)
+            ? DecoratedBox(
+                key: const ValueKey('merchant-tool-placeholder'),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEFF5),
+                  borderRadius: BorderRadius.circular(widget.size * .26),
+                ),
+                child: _failed
+                    ? Icon(
+                        widget.fallback ?? Icons.apps_rounded,
+                        color: const Color(0xFFD61256),
+                        size: widget.size * .58,
+                      )
+                    : null,
+              )
             : CustomPaint(painter: _MerchantToolPainter(image, widget.index)),
       ),
     );

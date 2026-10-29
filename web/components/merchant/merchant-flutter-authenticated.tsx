@@ -6,6 +6,7 @@ import Link from "next/link";
 import { type DeveloperRouteContext } from "@/components/developer-route-gate";
 import { createMerchantFlutterBridge } from "@/lib/merchant-flutter-bridge";
 import { loadMerchantFlutterApp, type MerchantFlutterApp } from "@/lib/merchant-flutter-loader";
+import { markMerchantFlutterStartup, observeMerchantFlutterStartup } from "@/lib/merchant-flutter-startup";
 
 type BridgeBrowser = Window & {
   zokyMerchant?: ReturnType<typeof createMerchantFlutterBridge>;
@@ -15,7 +16,14 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
   const host = useRef<HTMLDivElement>(null);
   const latestSignOut = useRef(signOut);
   useEffect(() => { latestSignOut.current = signOut; }, [signOut]);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [result, setResult] = useState<{
+    client: DeveloperRouteContext["client"];
+    userId: string;
+    phase: "ready" | "error";
+  }>();
+  // A replacement client/account must wait for its own view, even before the
+  // previous effect's cleanup runs. Do not carry a ready state across scopes.
+  const state = result?.client === client && result.userId === userId ? result.phase : "loading";
 
   useEffect(() => {
     const element = host.current;
@@ -24,6 +32,16 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
     let viewId: number | undefined;
     let flutterApp: MerchantFlutterApp | undefined;
     const browser = window as BridgeBrowser;
+    const setState = (phase: "ready" | "error") => setResult({ client, userId, phase });
+    markMerchantFlutterStartup("start");
+    const startup = observeMerchantFlutterStartup({
+      onReady: (detail) => {
+        if (!active || browser.zokyMerchant !== bridge) return;
+        markMerchantFlutterStartup("content", detail);
+        setState("ready");
+      },
+      onTimeout: () => { if (active) setState("error"); },
+    });
     const bridge = createMerchantFlutterBridge({
       client,
       userId,
@@ -43,13 +61,16 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
       if (!active || browser.zokyMerchant !== bridge) return;
       flutterApp = app;
       viewId = app.addView({ hostElement: element });
-      setState("ready");
+      markMerchantFlutterStartup("view");
+      startup.watch(viewId);
     }).catch(() => {
+      startup.dispose();
       if (active) setState("error");
     });
 
     return () => {
       active = false;
+      startup.dispose();
       navigator.serviceWorker?.removeEventListener("message", wake);
       bridge.dispose();
       if (browser.zokyMerchant === bridge) delete browser.zokyMerchant;
@@ -60,7 +81,7 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
 
   return (
     <main aria-label="Zoky Merchant" style={{ position: "relative", height: "100dvh", minHeight: 360, width: "100%", overflow: "hidden" }}>
-      <div ref={host} data-merchant-flutter-host="" style={{ height: "100%", width: "100%" }} />
+      <div ref={host} data-merchant-flutter-host="" aria-hidden={state !== "ready"} inert={state !== "ready"} style={{ height: "100%", width: "100%" }} />
       {state !== "ready" && (
         <div className="route-state" role={state === "error" ? "alert" : "status"} style={{ position: "absolute", inset: 0, background: "#fff" }}>
           {state === "loading" ? <><div className="route-system-spinner" /><p>กำลังเปิด Zoky Merchant…</p></> : <>

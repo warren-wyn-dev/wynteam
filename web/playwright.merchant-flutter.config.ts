@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/merchant-browser",
-  testMatch: ["merchant-flutter-embedded.spec.ts", "merchant-flutter-render.spec.ts"],
+  testMatch: ["merchant-flutter-embedded.spec.ts", "merchant-flutter-render.spec.ts", "merchant-flutter-startup.spec.ts"],
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,

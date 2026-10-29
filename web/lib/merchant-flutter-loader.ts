@@ -63,7 +63,11 @@ export function loadMerchantFlutterApp(): Promise<MerchantFlutterApp> {
         },
         onEntrypointLoaded: async (initializer) => {
           try {
+            performance.clearMarks("merchant:flutter:entrypoint");
+            performance.mark("merchant:flutter:entrypoint");
             const runner = await initializer.initializeEngine({ multiViewEnabled: true, assetBase, canvasKitBaseUrl: `${assetBase}canvaskit/` });
+            performance.clearMarks("merchant:flutter:engine");
+            performance.mark("merchant:flutter:engine");
             const app = await runner.runApp();
             if (typeof app.addView !== "function" || typeof app.removeView !== "function") {
               fail(); return;

@@ -1,12 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'data/bridge_transport.dart';
 import 'data/merchant_repository.dart';
 import 'screens/merchant_home.dart';
+import 'startup/startup_events.dart';
+import 'startup/text_warmup.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Runs alongside authorized data reads, before Thai text is exposed.
+  unawaited(warmMerchantThaiText());
   runWidget(const MerchantViews());
 }
 
@@ -59,6 +64,31 @@ class MerchantView extends StatefulWidget {
 class _MerchantViewState extends State<MerchantView> {
   late final transport = createBridgeTransport();
   late final repository = BridgeMerchantRepository(transport);
+  final _startup = Stopwatch()..start();
+  bool _contentReadyScheduled = false;
+
+  void _initialContentReady() {
+    if (_contentReadyScheduled) return;
+    _contentReadyScheduled = true;
+    unawaited(_reportReady());
+  }
+
+  Future<void> _reportReady() async {
+    final text = await warmMerchantThaiText();
+    if (!mounted) return;
+    // Font notifications invalidate text layout. Reveal only after a subsequent
+    // completed frame, rather than when the engine or addView merely returns.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    _startup.stop();
+    reportMerchantContentReady(
+      viewId: View.of(context).viewId,
+      elapsedMilliseconds: _startup.elapsedMilliseconds,
+      fontWarmupMilliseconds: text.elapsedMilliseconds,
+      fontWarmupTimedOut: text.timedOut,
+    );
+  }
+
   @override
   void dispose() {
     transport.dispose();
@@ -67,7 +97,11 @@ class _MerchantViewState extends State<MerchantView> {
 
   @override
   Widget build(BuildContext context) => ZokyApp(
-    home: MerchantHome(repository: repository, onSignOut: repository.signOut),
+    home: MerchantHome(
+      repository: repository,
+      onSignOut: repository.signOut,
+      onInitialContentReady: _initialContentReady,
+    ),
   );
 }
 

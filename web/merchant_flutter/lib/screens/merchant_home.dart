@@ -29,9 +29,11 @@ class MerchantHome extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onSignOut,
+    this.onInitialContentReady,
   });
   final MerchantRepository repository;
   final Future<void> Function() onSignOut;
+  final VoidCallback? onInitialContentReady;
   @override
   State<MerchantHome> createState() => _MerchantHomeState();
 }
@@ -60,6 +62,9 @@ class _MerchantHomeState extends State<MerchantHome>
   static const _cachedPanelPages = {8, 9, 10, 11};
   static const _panelFreshness = Duration(minutes: 1);
   bool foreground = true, signingOut = false;
+  bool _initialContentNotified = false;
+  bool _initialContentScheduled = false;
+  bool _toolWarmupStarted = false;
   final labels = ['หน้าหลัก', 'ออเดอร์', 'เมนูอาหาร', 'เพิ่มเติม'];
   final icons = [
     Icons.storefront_outlined,
@@ -95,6 +100,15 @@ class _MerchantHomeState extends State<MerchantHome>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_toolWarmupStarted) {
+      _toolWarmupStarted = true;
+      unawaited(MerchantToolIcon.warmup(context));
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant MerchantHome oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.repository, widget.repository)) {
@@ -105,6 +119,8 @@ class _MerchantHomeState extends State<MerchantHome>
       pushEnabled = false;
       pushBusy = false;
       signingOut = false;
+      _initialContentNotified = false;
+      _initialContentScheduled = false;
       page = 0;
       _pageScope = '';
       _visitedPanels.clear();
@@ -288,6 +304,7 @@ class _MerchantHomeState extends State<MerchantHome>
 
   @override
   Widget build(BuildContext context) {
+    _notifyInitialContentAfterPaint();
     final wide = MediaQuery.sizeOf(context).width >= 960;
     return Scaffold(
       backgroundColor: page == 0 ? const Color(0xFFF6F6F8) : Colors.white,
@@ -407,8 +424,24 @@ class _MerchantHomeState extends State<MerchantHome>
     );
   }
 
+  void _notifyInitialContentAfterPaint() {
+    if (_initialContentNotified || _initialContentScheduled || c.loading) {
+      return;
+    }
+    _initialContentScheduled = true;
+    final repository = widget.repository;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(repository, widget.repository)) return;
+      _initialContentScheduled = false;
+      if (c.loading || _initialContentNotified) return;
+      _initialContentNotified = true;
+      widget.onInitialContentReady?.call();
+    });
+  }
+
   Widget _pageView(int index, bool wide) {
     final content = <Widget>[
+      if (c.loading && c.updatedAt == null) const _MerchantLoadingSkeleton(),
       if (index != 0) ...[
         Row(
           children: [
@@ -452,7 +485,7 @@ class _MerchantHomeState extends State<MerchantHome>
             ],
           ),
         ),
-      if (c.store == null)
+      if (c.store == null && !c.loading)
         TextButton.icon(
           onPressed: c.busy || signingOut ? null : signOut,
           icon: const Icon(Icons.logout),
@@ -467,7 +500,7 @@ class _MerchantHomeState extends State<MerchantHome>
             label: const Text('เพิ่มเติม'),
           ),
         ),
-      if (c.store != null)
+      if (c.store != null && (!c.loading || c.updatedAt != null))
         ...switch (index) {
           0 => dashboard(),
           1 => orderPage(),
@@ -2238,12 +2271,16 @@ class _MerchantHomeState extends State<MerchantHome>
       fit: BoxFit.cover,
       cacheWidth: pixels,
       cacheHeight: pixels,
+      frameBuilder: (_, child, frame, synchronous) =>
+          synchronous || frame != null ? child : menuPlaceholder(),
       errorBuilder: (_, error, stack) => fallback
           ? Image.network(
               original,
               fit: BoxFit.cover,
               cacheWidth: pixels,
               cacheHeight: pixels,
+              frameBuilder: (_, child, frame, synchronous) =>
+                  synchronous || frame != null ? child : menuPlaceholder(),
               errorBuilder: (_, error, stack) => menuPlaceholder(),
             )
           : menuPlaceholder(),
@@ -2350,6 +2387,7 @@ class _MerchantHomeState extends State<MerchantHome>
   );
 
   Widget menuPlaceholder() => Container(
+    key: const ValueKey('merchant-menu-image-placeholder'),
     color: brandSoft,
     child: const Icon(Icons.restaurant, color: brand, size: 28),
   );
@@ -2810,6 +2848,51 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
     );
   }
+}
+
+/// Static shapes communicate progress without animating or inventing store data.
+class _MerchantLoadingSkeleton extends StatelessWidget {
+  const _MerchantLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    key: const ValueKey('merchant-store-loading'),
+    label: 'กำลังโหลดข้อมูลร้าน',
+    liveRegion: true,
+    child: ExcludeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'กำลังโหลดข้อมูลร้าน',
+            style: TextStyle(color: Color(0xFF6B6B76), fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          for (final height in [52.0, 116.0, 168.0])
+            Container(
+              height: height,
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              alignment: Alignment.topLeft,
+              child: FractionallySizedBox(
+                widthFactor: .56,
+                child: Container(
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: brandSoft,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class EditorField {

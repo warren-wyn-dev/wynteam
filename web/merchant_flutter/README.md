@@ -38,6 +38,28 @@ older wrappers without caching mutable URLs indefinitely. Always rebuild through
 
 `ZOKY_MERCHANT_FLUTTER_ENABLED=1` enables the Merchant-origin root entry only on a reviewed deployment. The default preserves the legacy Merchant route. Food, Social and other origins remain unchanged. Feedback, help and notification settings remain available through `/merchant?legacy=1` using the same account and backend.
 
+## Startup and visual readiness
+
+The authenticated host reveals a view after its critical store content (or an
+actionable empty/error state) has painted. The `zoky-merchant-startup` event is
+matched to that view's ID; a removed view cannot reveal a replacement account.
+Secondary summaries and decorative images do not block readiness. An independent
+20-second content timeout retains reload and legacy-route recovery.
+
+A public `TextPainter` probe starts Flutter's existing Thai fallback in parallel
+with authorized data reads. A changed Thai layout after `systemFonts` notification
+confirms preparation; a 1,200 ms bound prevents a font outage from locking the app.
+A timed-out result is unconfirmed and does not guarantee that glyphs are ready.
+This keeps the system-text-font policy and adds no font bundle or engine-private
+API. The engine shares preparation across view remounts.
+
+The shared tool atlas starts downloading/decoding during critical store reads.
+Stable pink placeholders cover pending artwork and menu pictures; menu slots
+remain 64 by 64 pixels and pictures remain lazy. Decorative failure does not
+disable actions. Local Web Inspector marks `merchant:flutter:start`, `entrypoint`,
+`engine`, `view` and `content` expose startup stages without account/store data;
+`start` is the authenticated host mount, after the existing session gate.
+
 ## Operations covered in Flutter
 
 - Store selection, menu editing/availability, store information/open state.
