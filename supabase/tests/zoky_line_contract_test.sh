@@ -34,6 +34,36 @@ create table public.food_orders(id uuid primary key,store_id uuid,order_number t
     refund_requested_at timestamptz,accepted_at timestamptz,cancelled_at timestamptz,total numeric);
 create table public.food_order_events(order_id uuid,event_type text,from_status text,
     to_status text,note text,actor_id uuid);
+-- Minimal canonical transition stand-in: repeats the role check and refund semantics
+-- so LINE must delegate instead of updating order status itself.
+create function public.food_transition_order(p_order_id uuid,p_status text,p_eta_minutes integer default null,p_note text default null)
+returns void language plpgsql security definer set search_path='public' as \$proc\$
+declare current_order public.food_orders%rowtype;
+  actor uuid := nullif(current_setting('request.jwt.claim.sub',true),'')::uuid;
+begin
+  select * into current_order from public.food_orders where id=p_order_id for update;
+  if not found or current_order.status<>'pending_acceptance' or p_status not in ('preparing','cancelled') then
+    raise exception 'invalid order transition';
+  end if;
+  if not exists (select 1 from public.food_stores s join public.merchant_memberships m
+    on m.merchant_account_id=s.merchant_account_id
+    where s.id=current_order.store_id and m.user_id=actor and m.active
+      and m.role in ('owner','admin','manager','orders')) then
+    raise exception 'canonical role check failed';
+  end if;
+  if p_status='preparing' and current_order.payment_status<>'paid' and current_order.payment_method<>'cod' then
+    raise exception 'payment must be verified first';
+  end if;
+  update public.food_orders set status=p_status,
+    accepted_at=case when p_status='preparing' then now() else accepted_at end,
+    cancelled_at=case when p_status='cancelled' then now() else cancelled_at end,
+    refund_status=case when p_status='cancelled' and current_order.payment_status='paid' then 'pending' else refund_status end,
+    refund_requested_at=case when p_status='cancelled' and current_order.payment_status='paid' then now() else refund_requested_at end
+  where id=p_order_id;
+  insert into public.food_order_events(order_id,event_type,from_status,to_status,note,actor_id)
+  values(p_order_id,'status_changed',current_order.status,p_status,p_note,actor);
+end;
+\$proc\$;
 grant usage on schema public to anon,authenticated,service_role;
 grant select on public.food_stores,public.merchant_memberships,public.food_staff,public.food_orders to service_role;
 grant update on public.food_orders to service_role;
@@ -41,8 +71,8 @@ grant insert on public.food_order_events to service_role;
 insert into public.food_stores values ('$STORE','$ACCOUNT','ร้าน Zoky ทดสอบ'),('$OTHERSTORE',null,'ร้านอื่น');
 insert into public.merchant_memberships values ('$ACCOUNT','$OWNER','owner',true);
 insert into public.food_orders(id,store_id,order_number,status,payment_status,payment_method,refund_status,total)
-values ('$ORDER1','$STORE','ZK1001','pending_acceptance','pending','stripe','none',200),
-       ('$ORDER2','$STORE','ZK1002','pending_acceptance','paid','stripe','none',150);
+values ('$ORDER1','$STORE','ZK1001','pending_acceptance','pending','transfer','none',200),
+       ('$ORDER2','$STORE','ZK1002','pending_acceptance','paid','transfer','none',150);
 SQL
 
 # Apply the candidate only to the disposable database. The production DB is untouched.
