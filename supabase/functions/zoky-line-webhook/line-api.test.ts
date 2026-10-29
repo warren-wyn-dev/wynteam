@@ -7,8 +7,8 @@ Deno.test('link token request targets LINE API, uses only server token', async (
   const issue = await issueLinkToken(lineId, 'test-server-secret', async (url, opts) => {
     called = true;
     check(url === 'https://api.line.me/v2/bot/user/' + lineId + '/linkToken', 'wrong LINE API URL');
-    check(opts.headers.Authorization === 'Bearer test-server-secret', 'auth not sent privately');
-    return { ok: true, json: async () => ({ linkToken: 'ValidLineLinkToken12345678' }) };
+    check(new Headers(opts?.headers).get('authorization') === 'Bearer test-server-secret', 'auth not sent privately');
+    return new Response(JSON.stringify({ linkToken: 'ValidLineLinkToken12345678' }), { status: 200, headers: { 'content-type': 'application/json' } });
   });
   check(called && issue === 'ValidLineLinkToken12345678', 'link not issued');
 });
@@ -20,7 +20,7 @@ Deno.test('invalid LINE user ID cannot request token', async () => {
 });
 Deno.test('LINE request failures do not expose secrets', async () => {
   let msg = '';
-  try { await issueLinkToken(lineId, 'secret-token', async () => ({ ok: false })); }
+  try { await issueLinkToken(lineId, 'secret-token', async () => new Response(null, { status: 401 })); }
   catch (e) { msg = String(e); }
   check(msg.includes('line_link_token_request_failed') && !msg.includes('secret-token'), 'secret leaked');
 });
