@@ -4,6 +4,13 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "ยกเลิกการเชื่อมบัญชี LINE ของร้านนี้?": "Disconnect this store's LINE account?",
+  "ยกเลิกการเชื่อมบัญชี LINE แล้ว": "LINE account disconnected.",
+  "ยกเลิกการเชื่อม LINE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง": "Could not disconnect LINE. Please try again.",
+  "เชื่อมต่อ LINE แล้ว": "LINE connected",
+  "ยังไม่ได้เชื่อม LINE": "LINE not connected",
+  "กำลังตรวจสอบการเชื่อมต่อ": "Checking connection",
+  "ยกเลิกการเชื่อม LINE": "Disconnect LINE",
   "โหลดรายชื่อร้านไม่ได้ กรุณาเข้าสู่ระบบร้านค้าอีกครั้ง": "Unable to load your stores. Please sign in to Zoky Merchant again.",
   "ยังเชื่อมต่อไม่ได้ กรุณาตรวจสอบสิทธิ์ร้านค้าและลิงก์ LINE หรือขอลิงก์ใหม่จาก LINE OA": "Unable to link LINE. Check store permissions and the LINE link, or request a new link from the LINE Official Account.",
   "‹ กลับไปยัง Zoky Merchant": "‹ Back to Zoky Merchant",
