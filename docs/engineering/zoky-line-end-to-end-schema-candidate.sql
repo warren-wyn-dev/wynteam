@@ -1,6 +1,16 @@
 -- REVIEWED-DESIGN CANDIDATE, NOT APPLIED. Do not run against shared production.
 -- Requires disposable Postgres RLS/concurrency and Stripe regression tests first.
 -- Zoky LINE only sends alerts for stores with an explicitly linked, active user.
+-- Explicit Zoky-only opt-in. This list is EMPTY until the owner authorizes
+-- store IDs in staging, preventing alerts for unrelated WYNOS stores.
+create table public.zoky_line_enabled_stores (
+  store_id uuid primary key references public.food_stores(id) on delete cascade,
+  enabled_at timestamptz not null default now()
+);
+alter table public.zoky_line_enabled_stores enable row level security;
+revoke all on public.zoky_line_enabled_stores from public,anon,authenticated;
+grant select,insert,update,delete on public.zoky_line_enabled_stores to service_role;
+
 create table public.zoky_line_link_requests (
   nonce_sha256 text primary key check (nonce_sha256 ~ '^[0-9a-f]{64}$'),
   store_id uuid not null references public.food_stores(id) on delete cascade,
@@ -65,7 +75,8 @@ begin
     for update;
   if not found then return false; end if;
   if not exists(
-    select 1 from public.food_stores s where s.id=pending.store_id and (
+    select 1 from public.food_stores s where s.id=pending.store_id
+      and exists(select 1 from public.zoky_line_enabled_stores z where z.store_id=s.id) and (
       exists (select 1 from public.merchant_memberships mm where mm.merchant_account_id=s.merchant_account_id
         and mm.user_id=pending.user_id and mm.active
         and mm.role in ('owner','admin','manager','orders'))
@@ -113,7 +124,8 @@ begin
         or exists (select 1 from public.food_staff fs where fs.store_id=o.store_id
           and fs.user_id=c.user_id and fs.active and fs.role in ('owner','staff')))
     order by c.linked_at asc limit 1;
-  if actor is null then return jsonb_build_object('ok',false,'reason','forbidden'); end if;
+  if actor is null or not exists(select 1 from public.zoky_line_enabled_stores z where z.store_id=o.store_id)
+    then return jsonb_build_object('ok',false,'reason','forbidden'); end if;
   -- Avoid accepting/rejecting unconfirmed bank-transfer or unpaid Stripe orders.
   if o.payment_status <> 'paid' and o.payment_method <> 'cod' then
     return jsonb_build_object('ok',false,'reason','payment_not_ready');
@@ -142,7 +154,8 @@ begin
     insert into public.zoky_line_delivery_queue(store_id,order_id,line_user_id)
       select new.store_id,new.id,c.line_user_id
       from public.zoky_line_connections c join public.food_stores s on s.id=c.store_id
-      where c.store_id=new.store_id and c.revoked_at is null and
+      where c.store_id=new.store_id and c.revoked_at is null
+        and exists(select 1 from public.zoky_line_enabled_stores z where z.store_id=new.store_id) and
         (exists(select 1 from public.merchant_memberships m
            where m.merchant_account_id=s.merchant_account_id and m.user_id=c.user_id
               and m.active and m.role in ('owner','admin','manager','orders'))
@@ -174,6 +187,7 @@ as $$
         and o.status='pending_acceptance'
         and (o.payment_status='paid' or o.payment_method='cod')
         and c.revoked_at is null
+        and exists(select 1 from public.zoky_line_enabled_stores z where z.store_id=q.store_id)
         and (exists(select 1 from public.merchant_memberships m where m.merchant_account_id=s.merchant_account_id
           and m.user_id=c.user_id and m.active and m.role in ('owner','admin','manager','orders'))
          or exists(select 1 from public.food_staff f where f.store_id=s.id and f.user_id=c.user_id
