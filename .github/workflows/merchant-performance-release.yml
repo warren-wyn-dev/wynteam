@@ -147,7 +147,9 @@ jobs:
             }
             console.log("Verified Vercel project web / warren14.");
           '
-          vercel deploy --prod --skip-domain --yes --non-interactive --json \
+          # The restored Flutter SDK cache can omit .git; rebuild its pinned clone.
+          # --force skips the old build cache; do not pair with --with-cache.
+          vercel deploy --prod --skip-domain --force --yes --non-interactive --json \
             --scope warren14 \
             --build-env ZOKY_MERCHANT_FLUTTER_ENABLED=1 \
             --env ZOKY_MERCHANT_FLUTTER_ENABLED=1 \
