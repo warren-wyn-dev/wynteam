@@ -46,7 +46,7 @@ Deno.serve(async (request: Request) => {
         headers:{
           Authorization:"Bearer "+token,
           "Content-Type":"application/json",
-          "X-Line-Retry-Key":crypto.randomUUID(),
+          "X-Line-Retry-Key":delivery.retry_key,
         },
         body:JSON.stringify({to:delivery.line_user_id,messages:[message]}),
         signal:AbortSignal.timeout(8000),
