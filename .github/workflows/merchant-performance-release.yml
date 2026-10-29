@@ -1,5 +1,5 @@
 name: Merchant performance - reviewed release staging
-run-name: Merchant stage reviewed e6621cfbdac11454dbbe314901707b6940afee59
+run-name: Merchant stage reviewed fa3dc51a6e8ea9b101d8c1f089b90c2a63b24444
 
 # Run the reviewed release operation from main to satisfy the existing Production
 # branch policy. The application is ALWAYS the fixed reviewed Merchant commit,
@@ -11,13 +11,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: merchant-performance-reviewed-e6621cf
+  group: merchant-performance-reviewed-fa3dc51
   cancel-in-progress: false
 
 env:
   # Changing this source requires another normal reviewed workflow PR.
-  RELEASE_SHA: e6621cfbdac11454dbbe314901707b6940afee59
-  RELEASE_BRANCH: perf/merchant-flutter-speed
+  RELEASE_SHA: fa3dc51a6e8ea9b101d8c1f089b90c2a63b24444
+  RELEASE_BRANCH: fix/merchant-startup-polish
 
 jobs:
   guard:
@@ -27,7 +27,7 @@ jobs:
       - name: Check out the fixed reviewed application without credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: e6621cfbdac11454dbbe314901707b6940afee59
+          ref: fa3dc51a6e8ea9b101d8c1f089b90c2a63b24444
           fetch-depth: 0
           persist-credentials: false
       - name: Validate fixed source before requesting Production review
@@ -38,7 +38,7 @@ jobs:
           set -euo pipefail
           test "$WORKFLOW_REF" = refs/heads/main
           test "$WORKFLOW_EVENT" = workflow_dispatch
-          test "$RELEASE_SHA" = e6621cfbdac11454dbbe314901707b6940afee59
+          test "$RELEASE_SHA" = fa3dc51a6e8ea9b101d8c1f089b90c2a63b24444
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git merge-base --is-ancestor 93e6954563b2dcd1108e4157772231262b201b63 "$RELEASE_SHA"
           git diff --check 93e6954563b2dcd1108e4157772231262b201b63 "$RELEASE_SHA"
@@ -69,7 +69,7 @@ jobs:
       - name: Check out the same fixed reviewed application after Production review
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: e6621cfbdac11454dbbe314901707b6940afee59
+          ref: fa3dc51a6e8ea9b101d8c1f089b90c2a63b24444
           fetch-depth: 0
           persist-credentials: false
 
@@ -81,7 +81,7 @@ jobs:
           set -euo pipefail
           test "$RELEASE_REF" = refs/heads/main
           test "$WORKFLOW_EVENT" = workflow_dispatch
-          test "$RELEASE_SHA" = e6621cfbdac11454dbbe314901707b6940afee59
+          test "$RELEASE_SHA" = fa3dc51a6e8ea9b101d8c1f089b90c2a63b24444
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git merge-base --is-ancestor 93e6954563b2dcd1108e4157772231262b201b63 "$RELEASE_SHA"
           git diff --check 93e6954563b2dcd1108e4157772231262b201b63 "$RELEASE_SHA"
@@ -129,7 +129,7 @@ jobs:
           VERCEL_TOKEN=$(node -e 'process.stdout.write((process.env.VERCEL_TOKEN || "").trim())')
           export VERCEL_TOKEN
           test -n "$VERCEL_TOKEN" || { echo '::error::Vercel authentication is not configured.'; exit 1; }
-          test "$RELEASE_SHA" = e6621cfbdac11454dbbe314901707b6940afee59
+          test "$RELEASE_SHA" = fa3dc51a6e8ea9b101d8c1f089b90c2a63b24444
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git merge-base --is-ancestor 93e6954563b2dcd1108e4157772231262b201b63 "$RELEASE_SHA"
           # Next dev changes only this generated type-import file during QA.
