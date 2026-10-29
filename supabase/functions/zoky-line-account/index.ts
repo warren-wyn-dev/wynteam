@@ -78,6 +78,9 @@ Deno.serve(async (req: Request) => {
   if (!["status", "begin", "unlink"].includes(String(action))) return json({ error: "invalid_action" }, 400, origin);
 
   const activeMember = async () => {
+    // Fail closed for unapproved stores: Zoky shares Supabase with WYNOS.
+    const optIn = await admin.from("zoky_line_enabled_stores").select("store_id").eq("store_id", storeId).maybeSingle();
+    if (optIn.error || !optIn.data) return false;
     const store = await admin.from("food_stores").select("merchant_account_id").eq("id", storeId).maybeSingle();
     if (store.error || !store.data) return false;
     const [member, staff] = await Promise.all([
