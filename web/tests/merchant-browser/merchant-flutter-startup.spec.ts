@@ -174,7 +174,23 @@ for (const scenario of ['empty', 'error'] as const) {
     if (scenario === 'empty') {
       await expect(page.getByRole('group', { name: /^ไม่พบร้านที่บัญชีนี้มีสิทธิ์จัดการ / })).toBeVisible();
     } else {
-      await expect(page.getByText('การเชื่อมต่อทดสอบขัดข้อง', { exact: true })).toBeVisible();
+      const message = 'การเชื่อมต่อทดสอบขัดข้อง';
+      // Flutter also copies live-region text into an offscreen global announcer.
+      // Keep that duplicate present to reproduce the CI timing collision without
+      // relying on the engine's transient announcement duration.
+      await page.evaluate(message => {
+        const announcement = document.createElement('flt-announcement-polite');
+        announcement.dataset.syntheticErrorAnnouncement = '';
+        announcement.setAttribute('aria-live', 'polite');
+        announcement.style.cssText = 'position:fixed;transform:translate(-99999px,-99999px);width:1px;height:1px;overflow:hidden';
+        announcement.textContent = message;
+        document.querySelector('flt-announcement-host')!.appendChild(announcement);
+      }, message);
+      await expect(page.locator('[data-synthetic-error-announcement]')).toHaveText(message);
+      const renderedError = page.locator('flt-semantics-host').getByText(message, { exact: true });
+      await expect(renderedError).toHaveCount(1);
+      await expect(renderedError).toBeVisible();
+      await expect(renderedError).toBeInViewport();
     }
     await expect(page.getByRole('button', { name: 'ออกจากระบบ', exact: true })).toBeEnabled();
   });
