@@ -36,3 +36,10 @@
 - `node --test web/tests/zoky-line-webhook.test.mjs`
 
 The PR is Draft, not production-approved. No database, LINE account or Vercel setting was modified by this branch.
+
+## Update: account-link authorization contract (not wired to production)
+
+- `link-flow.mjs`: orchestrates the merchant-side link request with a 10-minute cryptographically random nonce, stores only its SHA-256 digest, and consumes a verified LINE `accountLink` event via an injected, **atomic** repository. Its inputs **must** come from a trusted Supabase Auth user session, not user-provided user ID.
+- `web/tests/zoky-line-link-flow.test.mjs`: Node tests for first successful link, replay rejection, revoked role, and expired nonce with a test-only fake store. Tests of an in-memory fake do **not** prove PostgreSQL atomicity.
+- `docs/engineering/zoky-line-link-schema-draft.sql`: review-only private-by-default tables plus transactional RPC design; it is **NOT a migration and has NOT been executed**. Production order data is unchanged.
+- Next: review the SQL and write the actual repository adapter and Merchant callback page on this isolated branch, then run disposable-database/RLS tests before considering any staging deployment.
