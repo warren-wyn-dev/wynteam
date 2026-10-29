@@ -47,7 +47,16 @@ class _StaffPanelState extends State<StaffPanel> {
   @override
   void didUpdateWidget(covariant StaffPanel old) {
     super.didUpdateWidget(old);
-    if (old.refreshedAt != widget.refreshedAt && !busy) unawaited(load());
+    if (old.storeId != widget.storeId ||
+        !identical(old.repository, widget.repository)) {
+      members = [];
+      canManage = false;
+      username.clear();
+      notice = null;
+      unawaited(load());
+    } else if (old.refreshedAt != widget.refreshedAt && !busy) {
+      unawaited(load());
+    }
   }
 
   @override

@@ -23,6 +23,19 @@ npm run dev
 
 Open `/merchant/flutter` and use the existing WYNOS login. Do not serve the Flutter index as a standalone app: its JavaScript bridge is installed by the authenticated Next.js host. Build output goes to the ignored `public/merchant-flutter/` directory. The bootstrap does not register or replace a service worker.
 
+The pinned SDK builds with `--wasm`, producing the Wasm/Skwasm application and a
+JavaScript/CanvasKit fallback. The loader retains Flutter's browser feature
+detection and default browser allowlist, and uses single-threaded Skwasm so the
+shared origin does not need COOP/COEP headers. Both engines remain same-origin.
+
+After compilation, `scripts/version-merchant-flutter.mjs` moves the complete
+payload to `public/merchant-flutter/builds/<content-hash>/`. Its JS, Wasm, images
+and generated icon font use immutable browser caching. Stable bootstrap, HTML
+and `build-version.json` are revalidated to discover the current build. Known
+fixed legacy asset paths rewrite to that build with revalidation, preserving
+older wrappers without caching mutable URLs indefinitely. Always rebuild through
+`build:merchant-flutter` so the loader marker, cache key and legacy aliases agree.
+
 `ZOKY_MERCHANT_FLUTTER_ENABLED=1` enables the Merchant-origin root entry only on a reviewed deployment. The default preserves the legacy Merchant route. Food, Social and other origins remain unchanged. Feedback, help and notification settings remain available through `/merchant?legacy=1` using the same account and backend.
 
 ## Operations covered in Flutter

@@ -21,7 +21,7 @@ class MerchantToolIcon extends StatefulWidget {
 }
 
 class _MerchantToolIconState extends State<MerchantToolIcon> {
-  static const _asset = AssetImage('assets/brand/merchant-tools-3d.png');
+  static const _asset = AssetImage('assets/brand/merchant-tools-3d.webp');
   ImageStream? _stream;
   ui.Image? _image;
   late final ImageStreamListener _listener = ImageStreamListener(

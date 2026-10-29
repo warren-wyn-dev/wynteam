@@ -53,8 +53,13 @@ test("the embedded page keeps the existing JS auth owner and has a working legac
   const component = readFileSync(new URL("../components/merchant/merchant-flutter-app.tsx", import.meta.url), "utf8");
   assert.match(component, /DeveloperRouteGate signedOutPath="\/merchant\/login"/);
   assert.match(component, /key=\{context.userId\}/);
-  assert.match(component, /bridge\.dispose\(\)/);
-  assert.match(component, /removeView\(viewId\)/);
+  assert.match(component, /dynamic<DeveloperRouteContext>/);
+  assert.doesNotMatch(component, /import.*merchant-flutter-bridge/);
+  const authenticated = readFileSync(new URL("../components/merchant/merchant-flutter-authenticated.tsx", import.meta.url), "utf8");
+  assert.match(authenticated, /bridge\.dispose\(\)/);
+  assert.match(authenticated, /removeView\(viewId\)/);
+  assert.match(authenticated, /removeEventListener\("message", wake\)/);
+  assert.match(authenticated, /href="\/merchant\?legacy=1"/);
   assert.match(component, /href="\/merchant\?legacy=1"/);
   const bootstrap = readFileSync(new URL("../merchant_flutter/web/flutter_bootstrap.js", import.meta.url), "utf8");
   assert.doesNotMatch(bootstrap, /\.loader\.load\(|serviceWorker\.register/);

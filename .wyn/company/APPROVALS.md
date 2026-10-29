@@ -759,3 +759,11 @@
   - Zoky Admin shows the refund status, the store refund slip when there is one, and the order history.
 - Also deferred, LOW: a COD order can still be paid through `food-stripe-checkout`. Stripe is paused, so it is not offered in the app.
 - Status: accepted; follow-up tracked under ZOKY-FULFILL-001.
+
+### APPROVAL — [2026-10-27] Merchant Flutter performance improvements and scoped release
+
+- Founder instruction in the Merchant performance session: "เริ่มแก้ที่ละข้อได้เลย แก้ทุกข้อนะ อนุมัติทุกอย่าง" and "ขอให้เร็วสุดๆเท่าที่ทำได้ ด้วย Flutter"; continued on 2026-10-28 with "พัตนาให้หน่อย".
+- Authorized scope: fix background refresh blocking, repeated panel reads/remounts, eager menu/image work, login/startup payload, and Flutter asset caching; retain Flutter and the existing session/authorization/backend contracts. Commit/push and a verified Merchant production release are included in this session's authorization.
+- Release base: deployed `93e6954563b2dcd1108e4157772231262b201b63`. Use the isolated `perf/merchant-flutter-speed` branch, independent QA, a production-configured staged artifact with automatic domain assignment disabled, then assign only `merchant.wynos.online`.
+- No schema migration, customer-data export, new paid service, security policy relaxation, or unrelated main/Food/Social/Maps release is part of this change.
+- Validation, staged deployment, exact release SHA, risks and recovery mapping are recorded in `docs/qa/zoky-merchant-flutter/performance-2026-10-28.md`. Existing required reviews/protections remain in force; this approval is not a claim that QA or production deployment has completed.

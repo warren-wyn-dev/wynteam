@@ -23,11 +23,14 @@ cd "$merchant_dir"
 # Rebuild generated output so a prior SDK fallback font cannot survive a flag change.
 rm -rf -- "$web_dir/public/merchant-flutter"
 "$flutter_sdk_dir/bin/flutter" build web --release --no-pub \
-  --web-resources-cdn --no-wasm-dry-run --base-href /merchant-flutter/ \
+  --web-resources-cdn --wasm --base-href /merchant-flutter/ \
   --output "$web_dir/public/merchant-flutter"
 # Renderer stays same-origin. Text fallback is provided by Flutter itself,
 # rather than bundling a second branded/text font into the consumer web.
-if [ ! -f "$web_dir/public/merchant-flutter/canvaskit/canvaskit.js" ]; then
-  cp -R "$flutter_sdk_dir/bin/cache/flutter_web_sdk/canvaskit" "$web_dir/public/merchant-flutter/canvaskit"
+if [ ! -f "$web_dir/public/merchant-flutter/canvaskit/canvaskit.js" ] || \
+   [ ! -f "$web_dir/public/merchant-flutter/canvaskit/skwasm.js" ]; then
+  mkdir -p "$web_dir/public/merchant-flutter/canvaskit"
+  cp -R "$flutter_sdk_dir/bin/cache/flutter_web_sdk/canvaskit/." "$web_dir/public/merchant-flutter/canvaskit/"
 fi
+node "$web_dir/scripts/version-merchant-flutter.mjs" "$web_dir/public/merchant-flutter"
 node "$web_dir/scripts/check-web-fonts.mjs"

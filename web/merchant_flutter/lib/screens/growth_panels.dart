@@ -134,7 +134,15 @@ class _AdsPanelState extends State<AdsPanel> with _ServerPanel<AdsPanel> {
   @override
   void didUpdateWidget(covariant AdsPanel old) {
     super.didUpdateWidget(old);
-    reloadIfRefreshed(old.refreshedAt);
+    if (old.storeId != widget.storeId ||
+        !identical(old.repository, widget.repository)) {
+      data = null;
+      notice = null;
+      error = null;
+      unawaited(load());
+    } else {
+      reloadIfRefreshed(old.refreshedAt);
+    }
   }
 
   @override
@@ -327,7 +335,15 @@ class _PlatformCampaignsPanelState extends State<PlatformCampaignsPanel>
   @override
   void didUpdateWidget(covariant PlatformCampaignsPanel old) {
     super.didUpdateWidget(old);
-    reloadIfRefreshed(old.refreshedAt);
+    if (old.storeId != widget.storeId ||
+        !identical(old.repository, widget.repository)) {
+      data = null;
+      notice = null;
+      error = null;
+      unawaited(load());
+    } else {
+      reloadIfRefreshed(old.refreshedAt);
+    }
   }
 
   @override

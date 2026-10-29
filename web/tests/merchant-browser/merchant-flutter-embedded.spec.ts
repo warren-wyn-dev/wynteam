@@ -18,11 +18,11 @@ async function mockAPIs(page: Page) {
   });
   await page.route("**/auth/v1/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
 }
-async function signedIn(page: Page) {
+async function signedIn(page: Page, expiresIn = 3600) {
   await mockAPIs(page);
-  await page.addInitScript(({ userId, slot }) => {
+  await page.addInitScript(({ userId, slot, expiresIn }) => {
     if (sessionStorage.getItem("zoky-fixture-signout") === "1") return;
-    const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+    const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
     const jwt = `${btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))}.${btoa(JSON.stringify({ sub: userId, aud: "authenticated", exp: expiresAt, role: "authenticated" }))}.synthetic-signature`;
     localStorage.setItem("wynos.active-account-storage.v1", slot);
     localStorage.setItem(slot, JSON.stringify({
@@ -30,7 +30,7 @@ async function signedIn(page: Page) {
       expires_in: 3600, expires_at: expiresAt,
       user: { id: userId, aud: "authenticated", role: "authenticated", email: "merchant@example.test", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z", is_anonymous: false },
     }));
-  }, { userId, slot });
+  }, { userId, slot, expiresIn });
 }
 async function fakeEngine(page: Page) {
   await page.route("**/merchant-flutter/flutter_bootstrap.js", (route) => route.fulfill({
@@ -71,7 +71,7 @@ test("signed-out Merchant route redirects to the existing login without starting
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบร้านค้าของคุณ" })).toBeVisible();
   expect(bootstrapRequests).toBe(0);
   await expect(page.getByRole('img', { name: 'ZOKY Merchant', exact: true })).toBeVisible();
-  await expect.poll(() => page.locator('.wm-auth-brand img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth === 1140)).toBe(true);
+  await expect.poll(() => page.locator('.wm-auth-brand img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
   await expect.poll(() => page.locator('.wm-auth-brand').evaluate(element => {
     for (let current: Element | null = element; current; current = current.parentElement) {
       if (Number(getComputedStyle(current).opacity) < .999) return false;
@@ -95,9 +95,10 @@ test("authenticated wrapper mounts one removable view and exposes a token-free b
   await expect(page.locator("[data-synthetic-flutter-view]")).toHaveCount(1);
   await expect(page.getByRole("status")).toHaveCount(0);
   const result = await page.evaluate(async () => {
-    const browser = window as unknown as { zokyMerchant: { request: (method: string, args: string) => Promise<string> }; __merchantFixture: { initialized: unknown[] } };
-    return { keys: Object.keys(browser.zokyMerchant).sort(), stores: JSON.parse(await browser.zokyMerchant.request("stores", "{}")), initialized: browser.__merchantFixture.initialized };
+    const browser = window as unknown as { zokyMerchant: { request: (method: string, args: string) => Promise<string> }; __merchantFixture: { initialized: unknown[]; config: unknown } };
+    return { keys: Object.keys(browser.zokyMerchant).sort(), stores: JSON.parse(await browser.zokyMerchant.request("stores", "{}")), initialized: browser.__merchantFixture.initialized, config: browser.__merchantFixture.config };
   });
+  expect(result.config).toEqual({ entrypointBaseUrl: "/merchant-flutter/", assetBase: "/merchant-flutter/", canvasKitBaseUrl: "/merchant-flutter/canvaskit/", forceSingleThreadedSkwasm: true });
   expect(result.keys).toEqual(["dispose", "request"]);
   expect(result.stores).toEqual({ ok: true, data: [] });
   expect(result.initialized).toEqual([{ multiViewEnabled: true, assetBase: "/merchant-flutter/", canvasKitBaseUrl: "/merchant-flutter/canvaskit/" }]);
@@ -121,6 +122,34 @@ test("bundle load failure shows recovery and a link to the working legacy route"
   await page.goto("/merchant/flutter");
   await expect(page.getByRole("main", { name: "Zoky Merchant" }).getByRole("alert")).toContainText("เปิด Zoky Merchant ไม่สำเร็จ");
   await expect(page.getByRole("button", { name: "ลองโหลดใหม่" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "เปิดหน้าร้านเดิม" })).toHaveAttribute("href", "/merchant");
+  await expect(page.getByRole("link", { name: "เปิดหน้าร้านเดิม" })).toHaveAttribute("href", "/merchant?legacy=1");
   await page.screenshot({ path: testInfo.outputPath("merchant-flutter-wrapper-error.png"), fullPage: true });
+});
+
+
+test("login form paints during a slow session check and unlocks after it completes", async ({ page }) => {
+  await signedIn(page, -60);
+  let refreshRequests = 0;
+  let releaseRefresh!: () => void;
+  const waiting = new Promise<void>(resolve => { releaseRefresh = resolve; });
+  await page.route("**/auth/v1/token**", async route => {
+    refreshRequests++;
+    await waiting;
+    await route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "refresh_token_not_found", message: "Synthetic expired session" }) });
+  });
+  let bootstrapRequests = 0;
+  await page.route("**/merchant-flutter/flutter_bootstrap.js", route => { bootstrapRequests++; return route.abort(); });
+  try {
+    await page.goto("/merchant/login");
+    await expect(page.getByRole("heading", { name: "เข้าสู่ระบบร้านค้าของคุณ" })).toBeVisible();
+    await expect.poll(() => refreshRequests).toBeGreaterThan(0);
+    await expect(page.getByLabel("อีเมล", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("อีเมล", { exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "กำลังตรวจสอบบัญชี…", exact: true })).toBeDisabled();
+    expect(bootstrapRequests).toBe(0);
+  } finally {
+    releaseRefresh();
+  }
+  await expect(page.getByLabel("อีเมล", { exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true })).toBeEnabled();
 });

@@ -14,9 +14,10 @@ type FlutterInitializer = {
 
 type FlutterBrowser = Window & {
   _flutter?: {
+    merchantAssetBase?: string;
     loader: {
       load: (options: {
-        config: { entrypointBaseUrl: string; assetBase: string; canvasKitBaseUrl: string };
+        config: { entrypointBaseUrl: string; assetBase: string; canvasKitBaseUrl: string; forceSingleThreadedSkwasm: true };
         onEntrypointLoaded: (initializer: FlutterInitializer) => Promise<void>;
       }) => Promise<unknown>;
     };
@@ -43,15 +44,26 @@ export function loadMerchantFlutterApp(): Promise<MerchantFlutterApp> {
     script.onload = () => {
       const loader = browser._flutter?.loader;
       if (!loader) { fail(); return; }
+      // The stable bootstrap declares its matching immutable payload. Reject
+      // malformed/external paths rather than executing a different entrypoint.
+      const declaredBase = browser._flutter?.merchantAssetBase;
+      if (declaredBase !== undefined && !/^\/merchant-flutter\/builds\/[a-f0-9]{20}\/$/.test(declaredBase)) {
+        fail(); return;
+      }
+      // Compatibility with an already-open document from the previous build.
+      const assetBase = declaredBase ?? MERCHANT_FLUTTER_ASSET_BASE;
       void loader.load({
         config: {
-          entrypointBaseUrl: MERCHANT_FLUTTER_ASSET_BASE,
-          assetBase: MERCHANT_FLUTTER_ASSET_BASE,
-          canvasKitBaseUrl: `${MERCHANT_FLUTTER_ASSET_BASE}canvaskit/`,
+          entrypointBaseUrl: assetBase,
+          assetBase,
+          canvasKitBaseUrl: `${assetBase}canvaskit/`,
+          // Preserve shared-origin behavior without requiring cross-origin
+          // isolation headers. SDK feature detection chooses the JS fallback.
+          forceSingleThreadedSkwasm: true,
         },
         onEntrypointLoaded: async (initializer) => {
           try {
-            const runner = await initializer.initializeEngine({ multiViewEnabled: true, assetBase: MERCHANT_FLUTTER_ASSET_BASE, canvasKitBaseUrl: `${MERCHANT_FLUTTER_ASSET_BASE}canvaskit/` });
+            const runner = await initializer.initializeEngine({ multiViewEnabled: true, assetBase, canvasKitBaseUrl: `${assetBase}canvaskit/` });
             const app = await runner.runApp();
             if (typeof app.addView !== "function" || typeof app.removeView !== "function") {
               fail(); return;

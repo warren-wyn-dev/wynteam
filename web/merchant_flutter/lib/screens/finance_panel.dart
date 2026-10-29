@@ -24,7 +24,7 @@ class FinancePanel extends StatefulWidget {
   final MerchantRepository repository;
   final String storeId;
 
-  /// The page's last refresh (pull, realtime or timer); a new value reloads.
+  /// Explicit detail refresh; order-only polling does not reload finance.
   final DateTime? refreshedAt;
   @override
   State<FinancePanel> createState() => _FinancePanelState();
@@ -47,8 +47,15 @@ class _FinancePanelState extends State<FinancePanel> {
   void didUpdateWidget(covariant FinancePanel old) {
     super.didUpdateWidget(old);
     if (old.storeId != widget.storeId ||
+        !identical(old.repository, widget.repository) ||
         old.refreshedAt != widget.refreshedAt) {
-      unawaited(load(quiet: old.storeId == widget.storeId));
+      unawaited(
+        load(
+          quiet:
+              old.storeId == widget.storeId &&
+              identical(old.repository, widget.repository),
+        ),
+      );
     }
   }
 

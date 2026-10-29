@@ -28,6 +28,7 @@ function harness() {
     auth:{getSession:async()=>{state.events.push('session');return {data:{session:state.user?{user:{id:state.user,is_anonymous:false}}:null},error:null}}},
     rpc:async(name,args)=>{
       calls.push({name,args});
+      if(state.rpcHook)await state.rpcHook(name,args);
       if(state.rpcError?.name===name)return {data:null,error:{message:state.rpcError.message}};
       if(name==='merchant_store_reviews'){
         if(state.reviewHook)await state.reviewHook();
@@ -77,12 +78,13 @@ function harness() {
   const input={files:null,style:{},listeners:{},addEventListener(name,callback){this.listeners[name]=callback;},remove(){},click(){this.files=picked?[picked]:[];this.listeners[picked?'change':'cancel']();}};
   const exports={};
   runInNewContext(compiled,{
-    exports,Uint8Array,crypto:{randomUUID},URL:class extends URL {static createObjectURL(){const url='blob:'+randomUUID();calls.push({name:'createObjectURL',url});return url;}static revokeObjectURL(url){calls.push({name:'revokeObjectURL',url});}},Image:class {},Notification:{permission:'granted'},
+    exports,process:{env:{}},Uint8Array,crypto:{randomUUID},URL:class extends URL {static createObjectURL(){const url='blob:'+randomUUID();calls.push({name:'createObjectURL',url});return url;}static revokeObjectURL(url){calls.push({name:'revokeObjectURL',url});}},Image:class {},Notification:{permission:'granted'},
     createImageBitmap:async()=>({width:1,height:1,close(){}}),
     document:{createElement:()=>input,body:{appendChild(){}}},
     window:{addEventListener(){},removeEventListener(){},setTimeout},
     require(path){
       if(path==='@/lib/food-merchant')return food;
+      if(path==='@/lib/merchant-menu-image')return {merchantMenuThumbnailUrl:url=>url};
       if(path==='@/lib/food-store-availability')return availability;
       if(path==='@/lib/merchant-core')return {...merchantCore,fetchMerchantStaff:async()=>state.staffMembers??[],addMerchantStaff:async(...args)=>{calls.push({name:'addMerchantStaff',args});},updateMerchantStaff:async(...args)=>{calls.push({name:'updateMerchantStaff',args});}};
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
@@ -522,4 +524,42 @@ test('your own staff access cannot be changed through add or update',async()=>{
   // The harness user id is not a UUID, so this is refused at input validation; real ids reach the self check.
   assert.equal((await h.request('updateStaff',{storeId:STORE,userId:'merchant-a',role:'orders',active:false})).ok,false);
   assert.equal(h.calls.some(c=>c.name==='addMerchantStaff'||c.name==='updateMerchantStaff'),false);
+});
+
+test('parallel store reads share only an in-flight access check, later reads recheck',async()=>{
+  const h=harness();let release,started;
+  const blocked=new Promise(resolve=>{release=resolve;});
+  const entered=new Promise(resolve=>{started=resolve;});
+  h.state.rpcHook=async(name)=>{if(name==='food_has_merchant_access'){started();await blocked;}};
+  const reads=[h.request('menu',{storeId:STORE}),h.request('report',{storeId:STORE}),h.request('hasRole',{storeId:STORE,roles:['owner']})];
+  await entered;await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(h.calls.filter(c=>c.name==='food_has_merchant_access').length,1);
+  release();assert.ok((await Promise.all(reads)).every(r=>r.ok));
+  h.state.rpcHook=null;h.state.access=false;
+  assert.equal((await h.request('menu',{storeId:STORE})).ok,false);
+  assert.equal(h.calls.filter(c=>c.name==='food_has_merchant_access').length,2);
+});
+test('a write never shares a pending read access grant',async()=>{
+  const h=harness();let release,started;
+  const blocked=new Promise(resolve=>{release=resolve;});
+  const entered=new Promise(resolve=>{started=resolve;});let grants=0;
+  h.state.rpcHook=async(name)=>{if(name==='food_has_merchant_access'&&++grants===1){started();await blocked;}};
+  const read=h.request('menu',{storeId:STORE});await entered;
+  const write=await h.request('saveStore',{storeId:STORE,values:{name:'ร้านใหม่',phone:'0811111111',address:'มหาสารคาม',is_open:true}});
+  assert.equal(write.ok,true);
+  assert.equal(h.calls.filter(c=>c.name==='food_has_merchant_access').length,2);
+  release();assert.equal((await read).ok,true);
+});
+test('coalesced reads still reject a changed account and disposed bridge',async()=>{
+  for (const mode of ['account','dispose']) {
+    const h=harness();let release,started;
+    const blocked=new Promise(resolve=>{release=resolve;});
+    const entered=new Promise(resolve=>{started=resolve;});
+    h.state.rpcHook=async(name)=>{if(name==='food_has_merchant_access'){started();await blocked;}};
+    const reads=[h.request('menu',{storeId:STORE}),h.request('report',{storeId:STORE})];
+    await entered;
+    if(mode==='account')h.state.user='merchant-b';else h.bridge.dispose();
+    release();assert.ok((await Promise.all(reads)).every(r=>!r.ok));
+    assert.equal(h.calls.some(c=>c.table==='food_menu_items'),false);
+  }
 });

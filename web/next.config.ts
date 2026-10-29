@@ -1,4 +1,24 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+// Old documents may still have the previous wrapper, which requests fixed
+// Flutter asset URLs. Resolve only known payload paths to this reviewed build;
+// their original URLs remain revalidated, while new code uses the hash directly.
+const merchantFlutterLegacyRewrites = (() => {
+  try {
+    const { assetBase } = JSON.parse(readFileSync(path.join(process.cwd(), "public/merchant-flutter/build-version.json"), "utf8")) as { assetBase?: unknown };
+    if (typeof assetBase !== "string" || !/^\/merchant-flutter\/builds\/[a-f0-9]{20}\/$/.test(assetBase)) return [];
+    const files = ["main.dart.js", "main.dart.mjs", "main.dart.wasm", "flutter.js", "favicon.png", "manifest.json", "version.json"];
+    return [
+      ...files.map((file) => ({ source: `/merchant-flutter/${file}`, destination: `${assetBase}${file}` })),
+      ...["assets", "canvaskit", "icons"].map((directory) => ({ source: `/merchant-flutter/${directory}/:path*`, destination: `${assetBase}${directory}/:path*` })),
+    ];
+  } catch {
+    // Development before the first Flutter build has no generated payload yet.
+    return [];
+  }
+})();
 
 // /_next/image is a public, unauthenticated route on wynos.online, and
 // remotePatterns is the only gate on what it will fetch on a caller's
@@ -45,6 +65,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // Stable HTML/bootstrap URLs discover the current content-addressed build.
+      { source: "/merchant-flutter/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }] },
+      // This directory changes whenever any compiled app/engine/asset changes.
+      { source: "/merchant-flutter/builds/:version([a-f0-9]{20})/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       { source: "/planet/:path*", headers: mapTileHeaders },
       { source: "/sprites/:path*", headers: mapTileHeaders },
       { source: "/fonts/:path*", headers: mapTileHeaders },
@@ -71,6 +95,7 @@ const nextConfig: NextConfig = {
         { source: "/s/:code", has: [{ type: "host", value: "food.wynos.online" }], destination: "/food/s/:code" },
       ],
       afterFiles: [
+        ...merchantFlutterLegacyRewrites,
         // WYNOS tile gateway. OpenFreeMap remains the temporary upstream while
         // Thailand vector data is being moved to WYNOS-hosted storage.
         { source: "/planet/:path*", destination: "https://tiles.openfreemap.org/planet/:path*" },

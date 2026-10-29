@@ -38,7 +38,7 @@ class MerchantHome extends StatefulWidget {
 
 class _MerchantHomeState extends State<MerchantHome>
     with WidgetsBindingObserver {
-  late final MerchantController c;
+  late MerchantController c;
   Timer? timer;
   StreamSubscription<void>? orderSubscription;
   String? subscribedStore;
@@ -47,6 +47,18 @@ class _MerchantHomeState extends State<MerchantHome>
   String query = '';
   String? category;
   String menuSort = 'default';
+  // Keep only expensive panels the merchant has actually visited. Their state
+  // belongs to the current store and role snapshot, never another session.
+  final Set<int> _visitedPanels = {};
+  final Map<int, DateTime> _panelVisitedAt = {};
+  final Map<int, DateTime> _panelRefreshAt = {};
+  String _pageScope = '';
+  final Set<String> _collapsedMenuCategories = {};
+  List<Json>? _menuSource;
+  String? _menuFilter;
+  Map<String, List<Json>> _menuGroupsCache = {};
+  static const _cachedPanelPages = {8, 9, 10, 11};
+  static const _panelFreshness = Duration(minutes: 1);
   bool foreground = true, signingOut = false;
   final labels = ['หน้าหลัก', 'ออเดอร์', 'เมนูอาหาร', 'เพิ่มเติม'];
   final icons = [
@@ -59,17 +71,47 @@ class _MerchantHomeState extends State<MerchantHome>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _bindRepository();
+    timer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (foreground) {
+        unawaited(c.refreshOrders());
+        _refreshVisibleDetails();
+      }
+    });
+  }
+
+  void _bindRepository() {
     c = MerchantController(widget.repository)..addListener(changed);
     unawaited(c.initialize());
     orderSubscription = widget.repository.orderChanges.listen((_) {
       if (!mounted) return;
-      notice('มีการเปลี่ยนแปลงออเดอร์ กำลังอัปเดต');
-      unawaited(c.refresh());
+      if (!foreground) {
+        return;
+      }
+      unawaited(c.refreshOrders());
+      _refreshVisibleDetails();
     });
     unawaited(readPushStatus());
-    timer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (foreground) unawaited(c.refresh());
-    });
+  }
+
+  @override
+  void didUpdateWidget(covariant MerchantHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.repository, widget.repository)) {
+      unawaited(orderSubscription?.cancel());
+      c.removeListener(changed);
+      c.dispose();
+      subscribedStore = null;
+      pushEnabled = false;
+      pushBusy = false;
+      signingOut = false;
+      page = 0;
+      _pageScope = '';
+      _visitedPanels.clear();
+      _panelVisitedAt.clear();
+      _panelRefreshAt.clear();
+      _bindRepository();
+    }
   }
 
   void changed() {
@@ -80,23 +122,43 @@ class _MerchantHomeState extends State<MerchantHome>
         widget.repository.subscribe(c.storeId!).catchError((Object _) {}),
       );
     }
+    final scope =
+        '${c.storeId}:${c.canConfigure}:${c.canManage}:'
+        '${c.canOrders}:${c.canDelivery}:${c.error == null}';
+    if (scope != _pageScope) {
+      _pageScope = scope;
+      _visitedPanels.clear();
+      _panelVisitedAt.clear();
+      _panelRefreshAt.clear();
+      _collapsedMenuCategories.clear();
+      _menuSource = null;
+      query = '';
+      category = null;
+      if (_cachedPanelPages.contains(page)) _visitedPanels.add(page);
+    }
     setState(() {});
   }
 
   Future<void> readPushStatus() async {
+    final repository = widget.repository;
     try {
-      final value = await widget.repository.pushStatus();
-      if (mounted) setState(() => pushEnabled = value['enabled'] == true);
+      final value = await repository.pushStatus();
+      if (mounted && identical(repository, widget.repository)) {
+        setState(() => pushEnabled = value['enabled'] == true);
+      }
     } catch (_) {}
   }
 
   Future<void> enablePush() async {
     if (pushBusy) return;
+    final repository = widget.repository;
     setState(() => pushBusy = true);
     try {
-      final result = await widget.repository.pushEnable();
+      final result = await repository.pushEnable();
+      if (!mounted || !identical(repository, widget.repository)) return;
       if (result['ok'] == true) {
         await readPushStatus();
+        if (!mounted || !identical(repository, widget.repository)) return;
         notice('เปิดการแจ้งเตือนแล้ว');
       } else {
         notice(switch (result['reason']) {
@@ -107,16 +169,23 @@ class _MerchantHomeState extends State<MerchantHome>
         });
       }
     } catch (e) {
-      notice(errorMessage(e));
+      if (mounted && identical(repository, widget.repository)) {
+        notice(errorMessage(e));
+      }
     } finally {
-      if (mounted) setState(() => pushBusy = false);
+      if (mounted && identical(repository, widget.repository)) {
+        setState(() => pushBusy = false);
+      }
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
-    if (foreground) unawaited(c.refresh());
+    if (foreground) {
+      unawaited(c.refreshOrders());
+      _refreshVisibleDetails();
+    }
   }
 
   @override
@@ -137,20 +206,83 @@ class _MerchantHomeState extends State<MerchantHome>
 
   Future<void> signOut() async {
     if (c.busy || signingOut) return;
+    final repository = widget.repository;
+    final onSignOut = widget.onSignOut;
     setState(() => signingOut = true);
     try {
-      await widget.onSignOut();
+      await onSignOut();
     } catch (_) {
-      notice('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง');
+      if (mounted && identical(repository, widget.repository)) {
+        notice('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง');
+      }
     } finally {
-      if (mounted) setState(() => signingOut = false);
+      if (mounted && identical(repository, widget.repository)) {
+        setState(() => signingOut = false);
+      }
     }
   }
 
   void navigate(int index) {
-    setState(() => page = index);
+    setState(() {
+      page = index;
+      if (_cachedPanelPages.contains(index)) _visitedPanels.add(index);
+      _refreshVisiblePanelIfStale();
+    });
+    _refreshVisibleDetails();
     if (index == 0 && c.status != 'pending_acceptance') {
       unawaited(c.selectStatus('pending_acceptance'));
+    }
+  }
+
+  void _refreshVisiblePanelIfStale() {
+    if (!_cachedPanelPages.contains(page)) return;
+    final now = DateTime.now();
+    final visitedAt = _panelVisitedAt[page];
+    final detailsAt = c.detailsUpdatedAt;
+    final visited =
+        detailsAt != null && (visitedAt == null || detailsAt.isAfter(visitedAt))
+        ? detailsAt
+        : visitedAt;
+    if (visitedAt == null) {
+      _panelVisitedAt[page] = now;
+    } else if (visited != null && now.difference(visited) >= _panelFreshness) {
+      _panelRefreshAt[page] = now;
+      _panelVisitedAt[page] = now;
+    }
+  }
+
+  void _refreshVisibleDetails() {
+    if (!foreground) return;
+    if (const {0, 4, 6, 7}.contains(page)) {
+      // Keep summaries current (including Bangkok day rollover) without
+      // making historical reports part of every order poll or loading menu.
+      unawaited(c.refreshSummariesIfStale());
+    } else if (_cachedPanelPages.contains(page)) {
+      final before = _panelRefreshAt[page];
+      _refreshVisiblePanelIfStale();
+      if (_panelRefreshAt[page] != before) setState(() {});
+    }
+  }
+
+  DateTime? _panelRefresh(int index) {
+    final local = _panelRefreshAt[index];
+    final details = c.detailsUpdatedAt;
+    return local != null && (details == null || local.isAfter(details))
+        ? local
+        : details;
+  }
+
+  Future<void> _refreshPage() async {
+    if (_cachedPanelPages.contains(page)) {
+      setState(() {
+        _panelRefreshAt[page] = DateTime.now();
+        _panelVisitedAt[page] = DateTime.now();
+      });
+      // The panel performs its own authorized read; do not refetch every other
+      // tab's data just because a finance/ads screen was pulled to refresh.
+      await c.refreshOrders();
+    } else {
+      await c.refresh();
     }
   }
 
@@ -220,118 +352,32 @@ class _MerchantHomeState extends State<MerchantHome>
                 child: Column(
                   children: [
                     header(),
-                    if (c.loading || c.busy)
+                    if (c.loading || c.busy || c.refreshing || c.ordersLoading)
                       const LinearProgressIndicator(minHeight: 3),
                     Expanded(
                       child: RefreshIndicator(
-                        onRefresh: c.refresh,
+                        onRefresh: _refreshPage,
                         child: Align(
                           alignment: Alignment.topCenter,
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 1280),
-                            child: ListView(
-                              key: ValueKey(page),
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: EdgeInsets.fromLTRB(
-                                wide ? 36 : 18,
-                                16,
-                                wide ? 36 : 18,
-                                32,
-                              ),
+                            child: IndexedStack(
+                              key: ValueKey(_pageScope),
+                              index: _cachedPanelPages.contains(page)
+                                  ? 1 + _visitedPanels.toList().indexOf(page)
+                                  : 0,
+                              sizing: StackFit.expand,
                               children: [
-                                if (page != 0) ...[
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        c.error == null
-                                            ? Icons.cloud_done_outlined
-                                            : Icons.cloud_off,
-                                        color: c.error == null
-                                            ? success
-                                            : Colors.red,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          c.updatedAt == null
-                                              ? 'กำลังเชื่อมต่อร้านของคุณ'
-                                              : 'อัปเดตล่าสุด ${dateLabel(c.updatedAt!.toIso8601String())}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xFF6B6B76),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                if (_cachedPanelPages.contains(page))
+                                  const SizedBox.expand()
+                                else
+                                  _pageView(page, wide),
+                                for (final index in _visitedPanels)
+                                  TickerMode(
+                                    key: ValueKey(index),
+                                    enabled: page == index,
+                                    child: _pageView(index, wide),
                                   ),
-                                  const SizedBox(height: 16),
-                                ],
-                                if (c.error != null) errorBox(c.error!),
-                                if (c.store == null &&
-                                    !c.loading &&
-                                    c.error == null)
-                                  box(
-                                    Column(
-                                      children: [
-                                        const Icon(
-                                          Icons.storefront_outlined,
-                                          size: 52,
-                                          color: brand,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        const Text(
-                                          'ไม่พบร้านที่บัญชีนี้มีสิทธิ์จัดการ',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        const Text(
-                                          'ใช้บัญชีเจ้าของร้านเดิม หรือให้เจ้าของร้านเพิ่มคุณเป็นทีมงาน',
-                                        ),
-                                        TextButton(
-                                          onPressed: openOriginal,
-                                          child: const Text(
-                                            'เปิด WYNOS Merchant',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                if (c.store == null)
-                                  TextButton.icon(
-                                    onPressed: c.busy || signingOut
-                                        ? null
-                                        : signOut,
-                                    icon: const Icon(Icons.logout),
-                                    label: const Text('ออกจากระบบ'),
-                                  ),
-                                if (c.store != null && page > 3)
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: TextButton.icon(
-                                      onPressed: () => navigate(3),
-                                      icon: const Icon(Icons.chevron_left),
-                                      label: const Text('เพิ่มเติม'),
-                                    ),
-                                  ),
-                                if (c.store != null)
-                                  ...switch (page) {
-                                    0 => dashboard(),
-                                    1 => orderPage(),
-                                    2 => menuPage(),
-                                    3 => morePage(),
-                                    4 => reportPage(),
-                                    5 => settingsPage(),
-                                    6 => promotionsPage(),
-                                    8 => financePage(),
-                                    9 => staffPage(),
-                                    10 => adsPage(),
-                                    11 => zokyCampaignsPage(),
-                                    _ => qualityPage(),
-                                  },
                               ],
                             ),
                           ),
@@ -358,6 +404,96 @@ class _MerchantHomeState extends State<MerchantHome>
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _pageView(int index, bool wide) {
+    final content = <Widget>[
+      if (index != 0) ...[
+        Row(
+          children: [
+            Icon(
+              c.error == null ? Icons.cloud_done_outlined : Icons.cloud_off,
+              color: c.error == null ? success : Colors.red,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                c.updatedAt == null
+                    ? 'กำลังเชื่อมต่อร้านของคุณ'
+                    : 'อัปเดตล่าสุด ${dateLabel(c.updatedAt!.toIso8601String())}',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B76)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+      ],
+      if (c.error != null) errorBox(c.error!),
+      if (c.store == null && !c.loading && c.error == null)
+        box(
+          Column(
+            children: [
+              const Icon(Icons.storefront_outlined, size: 52, color: brand),
+              const SizedBox(height: 16),
+              const Text(
+                'ไม่พบร้านที่บัญชีนี้มีสิทธิ์จัดการ',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'ใช้บัญชีเจ้าของร้านเดิม หรือให้เจ้าของร้านเพิ่มคุณเป็นทีมงาน',
+              ),
+              TextButton(
+                onPressed: openOriginal,
+                child: const Text('เปิด WYNOS Merchant'),
+              ),
+            ],
+          ),
+        ),
+      if (c.store == null)
+        TextButton.icon(
+          onPressed: c.busy || signingOut ? null : signOut,
+          icon: const Icon(Icons.logout),
+          label: const Text('ออกจากระบบ'),
+        ),
+      if (c.store != null && index > 3)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => navigate(3),
+            icon: const Icon(Icons.chevron_left),
+            label: const Text('เพิ่มเติม'),
+          ),
+        ),
+      if (c.store != null)
+        ...switch (index) {
+          0 => dashboard(),
+          1 => orderPage(),
+          2 => menuPage(),
+          3 => morePage(),
+          4 => reportPage(),
+          5 => settingsPage(),
+          6 => promotionsPage(),
+          8 => financePage(),
+          9 => staffPage(),
+          10 => adsPage(),
+          11 => zokyCampaignsPage(),
+          _ => qualityPage(),
+        },
+    ];
+    return CustomScrollView(
+      key: PageStorageKey('$_pageScope:$index'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(wide ? 36 : 18, 16, wide ? 36 : 18, 0),
+          sliver: SliverList.list(children: content),
+        ),
+        if (c.store != null && index == 2) ..._menuSlivers(wide),
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+      ],
     );
   }
 
@@ -459,6 +595,9 @@ class _MerchantHomeState extends State<MerchantHome>
       ],
     ),
   );
+  bool get _reportReady => c.report.isNotEmpty && c.reportError == null;
+  bool get _reportPending => c.report.isEmpty && c.summariesLoading;
+
   Widget stats() => LayoutBuilder(
     builder: (context, size) {
       final largeText = MediaQuery.textScalerOf(context).scale(14) > 18;
@@ -468,21 +607,19 @@ class _MerchantHomeState extends State<MerchantHome>
       final data = [
         metric(
           'ยอดขายวันนี้',
-          c.updatedAt != null && c.reportError == null
-              ? money(c.report['today_sales'])
-              : '—',
+          _reportReady ? money(c.report['today_sales']) : '—',
           Icons.payments_outlined,
           'ออเดอร์สำเร็จ • เวลาไทย',
         ),
         metric(
           'สำเร็จวันนี้',
-          c.reportError == null ? '${c.report['today_orders'] ?? 0}' : '—',
+          _reportReady ? '${c.report['today_orders'] ?? 0}' : '—',
           Icons.receipt_long_outlined,
           'นับตามวันที่สั่งซื้อ',
         ),
         metric(
           'ยอดขายเดือนนี้',
-          c.reportError == null ? money(c.report['month_sales']) : '—',
+          _reportReady ? money(c.report['month_sales']) : '—',
           Icons.trending_up,
           'รวมทุกออเดอร์สำเร็จ',
         ),
@@ -535,7 +672,7 @@ class _MerchantHomeState extends State<MerchantHome>
                         ),
                       )
                       .toList(),
-                  onChanged: c.loading || c.busy
+                  onChanged: c.busy
                       ? null
                       : (id) {
                           if (id != null) unawaited(c.selectStore(id));
@@ -923,9 +1060,9 @@ class _MerchantHomeState extends State<MerchantHome>
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                c.updatedAt == null
+                _reportPending || c.updatedAt == null
                     ? 'กำลังโหลดยอดขาย'
-                    : c.reportError == null
+                    : _reportReady
                     ? '${c.report['today_orders'] ?? 0} ออเดอร์สำเร็จ'
                     : 'โหลดข้อมูลยอดขายไม่สำเร็จ',
                 style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 13),
@@ -946,7 +1083,7 @@ class _MerchantHomeState extends State<MerchantHome>
   );
 
   Widget salesAmount() {
-    if (c.updatedAt == null || c.reportError != null) {
+    if (!_reportReady) {
       return const Text('—', style: TextStyle(fontSize: 36, color: brand));
     }
     final value = (num.tryParse('${c.report['today_sales']}') ?? 0)
@@ -1244,7 +1381,8 @@ class _MerchantHomeState extends State<MerchantHome>
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(
-                  c.updatedAt == null
+                  c.updatedAt == null ||
+                          (c.qualityData.isEmpty && c.summariesLoading)
                       ? 'กำลังโหลดข้อมูลรีวิว'
                       : qualityAvailable
                       ? 'ยังไม่มีรีวิวจากลูกค้า'
@@ -1348,7 +1486,7 @@ class _MerchantHomeState extends State<MerchantHome>
         'ประวัติออเดอร์',
         Icons.history,
         brand,
-        c.loading || c.busy
+        c.busy
             ? null
             : () {
                 navigate(1);
@@ -1435,7 +1573,7 @@ class _MerchantHomeState extends State<MerchantHome>
           key: ValueKey(c.storeId),
           repository: widget.repository,
           storeId: c.storeId!,
-          refreshedAt: c.updatedAt,
+          refreshedAt: _panelRefresh(10),
         ),
       )
     else
@@ -1450,7 +1588,7 @@ class _MerchantHomeState extends State<MerchantHome>
           key: ValueKey(c.storeId),
           repository: widget.repository,
           storeId: c.storeId!,
-          refreshedAt: c.updatedAt,
+          refreshedAt: _panelRefresh(11),
         ),
       )
     else
@@ -1466,7 +1604,7 @@ class _MerchantHomeState extends State<MerchantHome>
         key: ValueKey(c.storeId),
         repository: widget.repository,
         storeId: c.storeId!,
-        refreshedAt: c.updatedAt,
+        refreshedAt: _panelRefresh(9),
       ),
     ),
   ];
@@ -1481,7 +1619,7 @@ class _MerchantHomeState extends State<MerchantHome>
           key: ValueKey(c.storeId),
           repository: widget.repository,
           storeId: c.storeId!,
-          refreshedAt: c.updatedAt,
+          refreshedAt: _panelRefresh(8),
         ),
       )
     else
@@ -1536,7 +1674,9 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
     ),
     if (c.campaigns.isEmpty && c.campaignError == null)
-      box(const Text('ยังไม่มีโปรโมชั่น')),
+      box(
+        Text(c.summariesLoading ? 'กำลังโหลดโปรโมชั่น' : 'ยังไม่มีโปรโมชั่น'),
+      ),
     if (c.canCampaigns)
       OutlinedButton.icon(
         onPressed: c.writable ? addCampaign : null,
@@ -1566,9 +1706,7 @@ class _MerchantHomeState extends State<MerchantHome>
                     e.key == 'ready_for_delivery' ? 'พร้อมส่ง/ให้รับ' : e.value,
                   ),
                   selected: c.status == e.key,
-                  onSelected: c.loading || c.busy
-                      ? null
-                      : (_) => c.selectStatus(e.key),
+                  onSelected: c.busy ? null : (_) => c.selectStatus(e.key),
                 ),
               ),
             )
@@ -1576,7 +1714,9 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
     ),
     const SizedBox(height: 20),
-    if (c.orders.isEmpty && !c.loading)
+    if (c.orders.isEmpty && (c.ordersLoading || c.refreshing))
+      const Text('กำลังโหลดออเดอร์'),
+    if (c.orders.isEmpty && !c.loading && !c.ordersLoading && !c.refreshing)
       emptyState(
         Icons.shopping_bag_outlined,
         'ไม่มีออเดอร์ในแท็บนี้',
@@ -1585,8 +1725,12 @@ class _MerchantHomeState extends State<MerchantHome>
     ...c.orders.map(orderCard),
     if (c.hasMore)
       OutlinedButton(
-        onPressed: c.writable ? c.loadMore : null,
-        child: const Text('โหลดออเดอร์เพิ่มเติม'),
+        onPressed: c.writable && !c.ordersLoading && !c.refreshing
+            ? c.loadMore
+            : null,
+        child: Text(
+          c.ordersLoading ? 'กำลังโหลดออเดอร์' : 'โหลดออเดอร์เพิ่มเติม',
+        ),
       ),
     const SizedBox(height: 12),
     const Text(
@@ -1913,19 +2057,25 @@ class _MerchantHomeState extends State<MerchantHome>
     }
   }
 
-  List<Widget> menuPage() {
-    final categories = c.menu
-        .map((m) => '${m['category'] ?? 'ทั่วไป'}')
-        .toSet()
-        .toList();
-    final selectedCategory = categories.contains(category) ? category : null;
+  Map<String, List<Json>> _menuGroups() {
+    final filter = '$query\u0000$category\u0000$menuSort';
+    if (identical(_menuSource, c.menu) && _menuFilter == filter) {
+      return _menuGroupsCache;
+    }
+    _menuSource = c.menu;
+    _menuFilter = filter;
+    final normalized = query.toLowerCase();
+    final selectedCategory =
+        c.menu.any((m) => '${m['category'] ?? 'ทั่วไป'}' == category)
+        ? category
+        : null;
     final rows = c.menu
         .where(
           (m) =>
               (selectedCategory == null ||
                   '${m['category'] ?? 'ทั่วไป'}' == selectedCategory) &&
               '${m['name']} ${m['category'] ?? ''}'.toLowerCase().contains(
-                query.toLowerCase(),
+                normalized,
               ),
         )
         .toList();
@@ -1940,6 +2090,16 @@ class _MerchantHomeState extends State<MerchantHome>
     for (final row in rows) {
       groups.putIfAbsent('${row['category'] ?? 'ทั่วไป'}', () => []).add(row);
     }
+    return _menuGroupsCache = groups;
+  }
+
+  List<Widget> menuPage() {
+    final categories = c.menu
+        .map((m) => '${m['category'] ?? 'ทั่วไป'}')
+        .toSet()
+        .toList();
+    final selectedCategory = categories.contains(category) ? category : null;
+    final groups = _menuGroups();
     return [
       heading(
         'เมนูอาหาร',
@@ -2001,41 +2161,94 @@ class _MerchantHomeState extends State<MerchantHome>
         ],
       ),
       const SizedBox(height: 16),
-      if (rows.isEmpty)
+      if (groups.isEmpty)
         emptyState(
           Icons.restaurant_menu,
           'ไม่พบเมนู',
           'ลองค้นหาด้วยชื่ออื่น หรือเพิ่มเมนูใหม่',
         ),
-      for (final group in groups.entries)
-        Card(
-          margin: const EdgeInsets.only(bottom: 18),
-          clipBehavior: Clip.antiAlias,
-          child: ExpansionTile(
-            initiallyExpanded: true,
-            shape: const Border(),
-            collapsedShape: const Border(),
-            tilePadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
-            title: Text(
-              group.key,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: Text(
-              '${group.value.length} เมนู',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
-            ),
-            children: [
-              for (var index = 0; index < group.value.length; index++) ...[
-                const Divider(height: 1),
-                menuRow(group.value[index]),
-              ],
-            ],
-          ),
-        ),
     ];
+  }
+
+  List<Widget> _menuSlivers(bool wide) {
+    // A single delegate stays lazy even for stores with many categories. One
+    // sliver per category would build each category's first image offscreen.
+    final entries = <({String category, Json? item, int count})>[];
+    for (final group in _menuGroups().entries) {
+      entries.add((category: group.key, item: null, count: group.value.length));
+      if (!_collapsedMenuCategories.contains(group.key)) {
+        for (final item in group.value) {
+          entries.add((category: group.key, item: item, count: 0));
+        }
+      }
+    }
+    return [
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: wide ? 36 : 18),
+        sliver: SliverList.builder(
+          itemCount: entries.length,
+          itemBuilder: (context, index) {
+            final entry = entries[index];
+            final item = entry.item;
+            if (item != null) {
+              return Card(
+                key: ValueKey(item['id']),
+                margin: const EdgeInsets.only(bottom: 1),
+                child: menuRow(item),
+              );
+            }
+            return Card(
+              key: ValueKey('category:${entry.category}'),
+              margin: const EdgeInsets.only(bottom: 1, top: 12),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                title: Text(
+                  entry.category,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text('${entry.count} เมนู'),
+                trailing: Icon(
+                  _collapsedMenuCategories.contains(entry.category)
+                      ? Icons.expand_more
+                      : Icons.expand_less,
+                ),
+                onTap: () => setState(() {
+                  if (!_collapsedMenuCategories.remove(entry.category)) {
+                    _collapsedMenuCategories.add(entry.category);
+                  }
+                }),
+              ),
+            );
+          },
+        ),
+      ),
+    ];
+  }
+
+  Widget _menuImage(Json item) {
+    final original = item['image_url'] as String;
+    final thumbnail = item['image_thumbnail_url'];
+    final source = thumbnail is String && thumbnail.isNotEmpty
+        ? thumbnail
+        : original;
+    final pixels = (64 * MediaQuery.devicePixelRatioOf(context).clamp(1, 3))
+        .ceil();
+    Widget image(String url, {required bool fallback}) => Image.network(
+      url,
+      fit: BoxFit.cover,
+      cacheWidth: pixels,
+      cacheHeight: pixels,
+      errorBuilder: (_, error, stack) => fallback
+          ? Image.network(
+              original,
+              fit: BoxFit.cover,
+              cacheWidth: pixels,
+              cacheHeight: pixels,
+              errorBuilder: (_, error, stack) => menuPlaceholder(),
+            )
+          : menuPlaceholder(),
+    );
+    return image(source, fallback: source != original);
   }
 
   Widget menuRow(Json item) => LayoutBuilder(
@@ -2083,12 +2296,7 @@ class _MerchantHomeState extends State<MerchantHome>
                     child:
                         item['image_url'] is String &&
                             (item['image_url'] as String).isNotEmpty
-                        ? Image.network(
-                            item['image_url'],
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, error, stack) =>
-                                menuPlaceholder(),
-                          )
+                        ? _menuImage(item)
                         : menuPlaceholder(),
                   ),
                 ),
@@ -2149,6 +2357,10 @@ class _MerchantHomeState extends State<MerchantHome>
   List<Widget> reportPage() => [
     heading('ยอดขายของร้าน', 'คำนวณจากข้อมูลทั้งหมดในระบบเดิม'),
     if (c.reportError != null) errorBox(c.reportError!),
+    if (_reportPending) ...[
+      const Text('กำลังโหลดยอดขาย'),
+      const LinearProgressIndicator(),
+    ],
     stats(),
     section('สรุปยอดขาย'),
     box(
@@ -2156,15 +2368,15 @@ class _MerchantHomeState extends State<MerchantHome>
         children: [
           summary(
             'สัปดาห์นี้',
-            c.reportError == null ? money(c.report['week_sales']) : '—',
+            _reportReady ? money(c.report['week_sales']) : '—',
           ),
           summary(
             'ยอดเฉลี่ยต่อออเดอร์',
-            c.reportError == null ? money(c.report['average_order']) : '—',
+            _reportReady ? money(c.report['average_order']) : '—',
           ),
           summary(
             'ออเดอร์สำเร็จทั้งหมด',
-            c.reportError == null ? '${c.report['total_orders'] ?? 0}' : '—',
+            _reportReady ? '${c.report['total_orders'] ?? 0}' : '—',
           ),
         ],
       ),
@@ -2174,7 +2386,9 @@ class _MerchantHomeState extends State<MerchantHome>
       Column(
         children: [
           if ((c.report['best'] as List? ?? []).isEmpty)
-            const Text('ยังไม่มีข้อมูลการขาย'),
+            Text(
+              _reportPending ? 'กำลังโหลดเมนูขายดี' : 'ยังไม่มีข้อมูลการขาย',
+            ),
           for (final m in (c.report['best'] as List? ?? []))
             summary('${m['name']}', '${m['quantity']} รายการ'),
         ],

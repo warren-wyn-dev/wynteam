@@ -18,6 +18,22 @@ test("the compiler's icon-only manifest and exact generated OTF are allowed", (t
   const f = fixture(t); f.write(asset, "OTTO-icon-data"); f.write(manifest, JSON.stringify(icons));
   assert.deepEqual(checkWebFontPolicy(f.root), []);
 });
+test("a content-addressed Flutter build permits only its independently reviewed icon manifest", (t) => {
+  const f = fixture(t);
+  const versioned = "public/merchant-flutter/builds/0123456789abcdefabcd/assets";
+  f.write(`${versioned}/fonts/MaterialIcons-Regular.otf`, "OTTO-icon-data");
+  f.write(`${versioned}/FontManifest.json`, JSON.stringify(icons));
+  assert.deepEqual(checkWebFontPolicy(f.root), []);
+  f.write(`${versioned}/fonts/unapproved.ttf`, "text-font");
+  assert.ok(checkWebFontPolicy(f.root).some((error) => error.includes("unapproved.ttf")));
+});
+test("a fixed or malformed build directory does not qualify for the versioned icon exception", (t) => {
+  const f = fixture(t);
+  const unversioned = "public/merchant-flutter/builds/current/assets";
+  f.write(`${unversioned}/fonts/MaterialIcons-Regular.otf`, "OTTO-icon-data");
+  f.write(`${unversioned}/FontManifest.json`, JSON.stringify(icons));
+  assert.ok(checkWebFontPolicy(f.root).some((error) => error.includes("system text fonts")));
+});
 test("text fonts remain rejected everywhere the original guard checked", (t) => {
   const f = fixture(t);
   for (const directory of ["app", "components", "lib", "public"]) f.write(`${directory}/custom.woff2`, "font");

@@ -12,6 +12,7 @@ import { fetchFinanceSummary, periodRange } from "@/lib/merchant-finance";
 import { fetchMerchantAdAccount, merchantAdError, requestAdTopup, setAdActive } from "@/lib/merchant-ads";
 import { fetchPlatformCampaigns, joinPlatformCampaign, leavePlatformCampaign, platformCampaignError } from "@/lib/merchant-platform-campaigns";
 import { fetchMerchantCampaigns, saveMerchantCampaign, setMerchantCampaignActive } from "@/lib/merchant-campaigns";
+import { merchantMenuThumbnailUrl } from "@/lib/merchant-menu-image";
 import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 
 // DeveloperRouteGate remains the sole auth owner. Credentials never cross Dart.
@@ -36,6 +37,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled"]);
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
 function object(value: unknown): Args {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new BridgeInputError();
   return value as Args;
@@ -176,9 +178,21 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     const { data, error } = await client.auth.getSession();
     if (error || data.session?.user.id !== userId || data.session.user.is_anonymous || disposed) throw new BridgeAccessError();
   };
-  const storeAccess = async (storeId: string) => {
+  const checkStoreAccess = async (storeId: string) => {
     const { data, error } = await client.rpc("food_has_merchant_access", { p_store_id: storeId });
     if (error || data !== true) throw new BridgeAccessError();
+  };
+  const pendingStoreReads = new Map<string, Promise<void>>();
+  const storeAccess = async (storeId: string, readOnly = false) => {
+    // Share only an in-flight read check, never a cached permission or a write grant.
+    // Every caller still checks the active session before reading and returning data.
+    if (!readOnly) return checkStoreAccess(storeId);
+    const pending = pendingStoreReads.get(storeId);
+    if (pending) return pending;
+    const check = checkStoreAccess(storeId);
+    pendingStoreReads.set(storeId, check);
+    try { await check; }
+    finally { if (pendingStoreReads.get(storeId) === check) pendingStoreReads.delete(storeId); }
   };
   const requireManageRole = async (storeId: string) => {
     const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin", "manager"] });
@@ -271,7 +285,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
       return grant.data === true ? { id: data.id, storeId: data.store_id, status: data.status } : null;
     }
     const storeId = id(args.storeId);
-    await storeAccess(storeId);
+    await storeAccess(storeId, STORE_READ_METHODS.has(method));
     await ensureSession();
     switch (method) {
       case "setFulfillment": {
@@ -321,7 +335,10 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
           const rows = (data ?? []) as FoodMenuItem[]; all.push(...rows);
           if (rows.length < 500) break;
         }
-        return all.map((item) => ({ ...item, image_url: foodPublicUrl(client, item.image_path) }));
+        return all.map((item) => {
+          const imageUrl = foodPublicUrl(client, item.image_path);
+          return { ...item, image_url: imageUrl, image_thumbnail_url: merchantMenuThumbnailUrl(imageUrl, process.env.NEXT_PUBLIC_SUPABASE_URL) };
+        });
       }
       case "orders": {
         const status = text(args.status, 30, true), offset = args.offset ?? 0;
@@ -608,6 +625,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     },
     dispose() {
       disposed = true;
+      pendingStoreReads.clear();
       for (const path of photos.keys()) releasePhoto(path);
       if (subscription) { void client.removeChannel(subscription).catch(() => undefined); subscription = null; }
     },
