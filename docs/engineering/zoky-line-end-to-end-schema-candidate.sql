@@ -93,7 +93,7 @@ create function public.zoky_line_transition_order(
 ) returns jsonb language plpgsql security invoker set search_path = ''
 as $$
 declare o public.food_orders%rowtype;
-  actor uuid; target text;
+  actor uuid; target text; old_claim text;
 begin
   if p_line_user_id is null or p_line_user_id !~ '^U[0-9a-f]{32}$'
      or p_order_id is null or p_action not in ('accept','reject') then
@@ -119,16 +119,13 @@ begin
     return jsonb_build_object('ok',false,'reason','payment_not_ready');
   end if;
   target := case when p_action='accept' then 'preparing' else 'cancelled' end;
-  update public.food_orders
-    set status=target,
-        accepted_at=case when target='preparing' then coalesce(accepted_at,now()) else accepted_at end,
-        cancelled_at=case when target='cancelled' then now() else cancelled_at end,
-        refund_status=case when target='cancelled' and o.payment_status='paid' then 'pending' else refund_status end,
-        refund_requested_at=case when target='cancelled' and o.payment_status='paid'
-           then coalesce(refund_requested_at,now()) else refund_requested_at end
-    where id=o.id;
-  insert into public.food_order_events(order_id,event_type,from_status,to_status,note,actor_id)
-    values(o.id,'status_changed',o.status,target,'LINE Merchant OA',actor);
+  -- Delegate to the canonical payment, refund, notification and audit path.
+  -- Only impersonate the *validated* active Merchant member for this transaction.
+  -- This avoids reimplementing cancellation/Stripe refund rules in LINE code.
+  old_claim := current_setting('request.jwt.claim.sub', true);
+  perform set_config('request.jwt.claim.sub', actor::text, true);
+  perform public.food_transition_order(p_order_id, target, null, 'LINE Merchant OA');
+  perform set_config('request.jwt.claim.sub', coalesce(old_claim, ''), true);
   return jsonb_build_object('ok',true,'status',target);
 end;
 $$;
