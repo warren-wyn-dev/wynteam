@@ -17,10 +17,10 @@ function MerchantLineConnectForm({ client, userId }: { client: SupabaseClient; u
 
   useEffect(() => {
     let mounted = true;
-    const tokenInUrl = new URL(window.location.href).searchParams.get("linkToken") ?? "";
-    setToken(/^[A-Za-z0-9_-]{16,255}$/.test(tokenInUrl) ? tokenInUrl : "");
     void (async () => {
       try {
+        const tokenInUrl = new URL(window.location.href).searchParams.get("linkToken") ?? "";
+        if (mounted) setToken(/^[A-Za-z0-9_-]{16,255}$/.test(tokenInUrl) ? tokenInUrl : "");
         // Fetch only grants for the signed-in account. Store membership is
         // rechecked inside the server Edge Function before saving nonce.
         const [memberships, staff] = await Promise.all([
