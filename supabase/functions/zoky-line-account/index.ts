@@ -94,7 +94,11 @@ Deno.serve(async (req: Request) => {
     return !member.error && !staff.error && Boolean((member.data?.length ?? 0) + (staff.data?.length ?? 0));
   };
   if (action === "unlink") {
-    // The owner of their own link can revoke even after being removed as staff.
+    // Invalidate outstanding pending link tokens before revoking this account.
+    // The owner can revoke their own link even after losing store staff status.
+    const pending = await admin.from("zoky_line_link_requests").delete()
+      .eq("store_id", storeId).eq("user_id", user.id).is("consumed_at", null);
+    if (pending.error) return json({ error: "unlink_failed" }, 503, origin);
     const result = await admin.from("zoky_line_connections")
       .update({ revoked_at: new Date().toISOString() })
       .eq("store_id", storeId).eq("user_id", user.id).is("revoked_at", null);
