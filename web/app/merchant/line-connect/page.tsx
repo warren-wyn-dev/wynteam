@@ -20,7 +20,11 @@ function MerchantLineConnectForm({ client, userId }: { client: SupabaseClient; u
     let mounted = true;
     void (async () => {
       try {
-        const tokenInUrl = new URL(window.location.href).searchParams.get("linkToken") ?? "";
+        const currentUrl = new URL(window.location.href);
+        const tokenInUrl = currentUrl.searchParams.get("linkToken") ?? "";
+        // Remove the one-time LINE token from history and shared URLs immediately.
+        currentUrl.searchParams.delete("linkToken");
+        window.history.replaceState(window.history.state, "", currentUrl.pathname + currentUrl.search + currentUrl.hash);
         if (mounted) setToken(/^[A-Za-z0-9_-]{16,255}$/.test(tokenInUrl) ? tokenInUrl : "");
         // Fetch only grants for the signed-in account. Store membership is
         // rechecked inside the server Edge Function before saving nonce.
