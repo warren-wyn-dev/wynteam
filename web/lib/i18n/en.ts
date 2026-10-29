@@ -4,6 +4,17 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "โหลดรายชื่อร้านไม่ได้ กรุณาเข้าสู่ระบบร้านค้าอีกครั้ง": "Unable to load your stores. Please sign in to Zoky Merchant again.",
+  "ยังเชื่อมต่อไม่ได้ กรุณาตรวจสอบสิทธิ์ร้านค้าและลิงก์ LINE หรือขอลิงก์ใหม่จาก LINE OA": "Unable to link LINE. Check store permissions and the LINE link, or request a new link from the LINE Official Account.",
+  "‹ กลับไปยัง Zoky Merchant": "‹ Back to Zoky Merchant",
+  "เชื่อมบัญชี LINE": "Link LINE account",
+  "เลือกบัญชีร้านค้าที่ต้องการรับแจ้งเตือนออเดอร์ผ่าน LINE ของคุณ": "Select the store that should send order notifications to your LINE account.",
+  "ไม่พบลิงก์เชื่อมบัญชีที่ถูกต้อง โปรดพิมพ์ “เชื่อมบัญชี” ในแชต Zoky Merchant OA เพื่อรับลิงก์ใหม่": "No valid linking URL was found. Send “เชื่อมบัญชี” to Zoky Merchant OA to receive another link.",
+  "บัญชีร้านค้า": "Merchant account",
+  "ไม่มีร้านค้าที่ได้รับสิทธิ์": "No authorized stores available",
+  "บัญชี LINE จะใช้รับการแจ้งเตือนออเดอร์ของร้านนี้ คุณสามารถยกเลิกการเชื่อมได้ทุกเมื่อใน Zoky Merchant": "Your LINE account will receive order alerts for this store. You can unlink it in Zoky Merchant at any time.",
+  "กำลังเชื่อมต่อ…": "Connecting…",
+  "ยืนยันและเชื่อมต่อ LINE": "Confirm and link LINE",
   "Zoky Merchant | จัดการร้านของคุณ": "Zoky Merchant | Manage your store",
   "กำลังเปิด Zoky Merchant…": "Opening Zoky Merchant\u2026",
   "เปิด Zoky Merchant ไม่สำเร็จ": "Unable to open Zoky Merchant",
