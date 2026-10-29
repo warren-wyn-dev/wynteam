@@ -26,7 +26,7 @@ create table public.zoky_line_delivery_queue (
   id bigint generated always as identity primary key,
   store_id uuid not null references public.food_stores(id) on delete cascade,
   order_id uuid not null references public.food_orders(id) on delete cascade,
-  line_user_id text not null check (line_user_id ~ '^U[0-9a-f]{32} not null default 'order_ready' check (event_type='order_ready'),
+  line_user_id text not null check (line_user_id ~ '^U[0-9a-f]{32}
   state text not null default 'pending' check (state in ('pending','claimed','delivered','failed')),
   attempts integer not null default 0 check (attempts between 0 and 10),
   next_attempt_at timestamptz not null default now(),
@@ -194,8 +194,6 @@ $$;
 revoke all on function public.zoky_line_claim_deliveries(integer) from public,anon,authenticated;
 grant execute on function public.zoky_line_claim_deliveries(integer) to service_role;
 
--- NOT included in this candidate: worker scheduling / outbox replay audit,
--- refund regression tests / rollout gate and rollback. Keep on Draft PR.
 ),
   retry_key uuid not null default gen_random_uuid(),
   event_type text not null default 'order_ready' check (event_type='order_ready'),
@@ -333,7 +331,7 @@ create trigger zoky_line_order_ready_trigger
 
 -- Revoke functions so browser auth cannot claim/confirm queue messages.
 create function public.zoky_line_claim_deliveries(p_limit integer default 20)
-returns table(id bigint,line_user_id text,order_id uuid,order_number text,store_name text,total numeric)
+returns table(id bigint,line_user_id text,order_id uuid,order_number text,store_name text,total numeric,retry_key uuid)
 language sql security invoker set search_path = ''
 as $$
   with eligible as (
@@ -359,12 +357,11 @@ as $$
           next_attempt_at=now()+interval '2 minutes'
       from eligible e where q.id=e.id returning q.*
   )
-  select c.id,c.line_user_id,c.order_id,o.order_number::text,s.name::text,o.total
+  select c.id,c.line_user_id,c.order_id,o.order_number::text,s.name::text,o.total,c.retry_key
     from claimed c join public.food_orders o on o.id=c.order_id
       join public.food_stores s on s.id=c.store_id;
 $$;
 revoke all on function public.zoky_line_claim_deliveries(integer) from public,anon,authenticated;
 grant execute on function public.zoky_line_claim_deliveries(integer) to service_role;
 
--- NOT included in this candidate: worker scheduling / outbox replay audit,
--- refund regression tests / rollout gate and rollback. Keep on Draft PR.
+-- This SQL is a staging candidate; do not run it on the shared production database.\n
