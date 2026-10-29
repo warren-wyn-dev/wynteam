@@ -40,3 +40,11 @@ verify_jwt = false
 # Never enable event handling until staging tests and explicit owner approval.
 [functions.zoky-line-webhook]
 verify_jwt = false
+
+# Authenticated Merchant user's own JWT is required and reverified with getUser().
+[functions.zoky-line-account]
+verify_jwt = true
+
+# Internal cron-only delivery worker with dedicated x-zoky-line-worker-key.
+[functions.zoky-line-notify]
+verify_jwt = false
