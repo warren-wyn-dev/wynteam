@@ -79,6 +79,7 @@ SQL
 sql -f "$ROOT/docs/engineering/zoky-line-end-to-end-schema-candidate.sql" >/dev/null
 
 sql >/dev/null <<SQL
+insert into public.zoky_line_enabled_stores(store_id) values('$STORE');
 insert into public.zoky_line_link_requests(nonce_sha256,store_id,user_id,expires_at)
 values('$NONCE','$STORE','$OWNER',now()+interval '10 minutes');
 SQL
