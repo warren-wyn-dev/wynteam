@@ -26,7 +26,7 @@ export async function verifyLineSignature(rawBytes, signature, secret) {
   return crypto.subtle.verify('HMAC', secretKey, supplied, rawBytes);
 }
 
-export async function handleLineWebhook(request, secret) {
+export async function handleLineWebhook(request, secret, eventProcessor = null) {
   if (request.method !== 'POST') return reply('method_not_allowed', 405);
   if (!secret) return reply('not_configured', 503);
   const signature = request.headers.get('x-line-signature');
@@ -58,8 +58,13 @@ export async function handleLineWebhook(request, secret) {
   // LINE Developers' Verify action sends events: []. No order mutation.
   if (payload.events.length === 0) return reply('verified', 200);
 
-  // This scaffold MUST NOT process or acknowledge real LINE events yet.
-  // A future implementation must verify tenant ownership, atomically
-  // persist event IDs, and dispatch only to an authorized order transition.
-  return reply('event_processing_not_enabled', 503);
+  // Without a fully configured processing adapter, never falsely acknowledge events.
+  if (typeof eventProcessor !== 'function') return reply('event_processing_not_enabled', 503);
+  try {
+    for (const event of payload.events) await eventProcessor(event);
+    return reply('processed', 200);
+  } catch {
+    // LINE retries transient errors; never log signed payloads, LINE IDs or secrets.
+    return reply('processing_failed', 503);
+  }
 }
