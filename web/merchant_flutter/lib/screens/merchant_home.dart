@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/merchant_controller.dart';
 import '../data/merchant_repository.dart';
 import '../widgets/merchant_tool_icon.dart';
+import '../widgets/retained_page.dart';
 import 'order_dialogs.dart';
 import 'fulfillment_panels.dart';
 import 'store_settings_panels.dart';
@@ -49,12 +50,13 @@ class _MerchantHomeState extends State<MerchantHome>
   String query = '';
   String? category;
   String menuSort = 'default';
-  // Keep only expensive panels the merchant has actually visited. Their state
-  // belongs to the current store and role snapshot, never another session.
-  final Set<int> _visitedPanels = {};
+  // Retain only pages the merchant has visited. Hidden widget snapshots avoid
+  // unrelated rebuilds and preserve drafts within the store/role/session scope.
+  final Set<int> _visitedPages = {0};
   final Map<int, DateTime> _panelVisitedAt = {};
   final Map<int, DateTime> _panelRefreshAt = {};
   String _pageScope = '';
+  int _repositoryGeneration = 0;
   final Set<String> _collapsedMenuCategories = {};
   List<Json>? _menuSource;
   String? _menuFilter;
@@ -112,6 +114,7 @@ class _MerchantHomeState extends State<MerchantHome>
   void didUpdateWidget(covariant MerchantHome oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.repository, widget.repository)) {
+      _repositoryGeneration++;
       unawaited(orderSubscription?.cancel());
       c.removeListener(changed);
       c.dispose();
@@ -123,7 +126,9 @@ class _MerchantHomeState extends State<MerchantHome>
       _initialContentScheduled = false;
       page = 0;
       _pageScope = '';
-      _visitedPanels.clear();
+      _visitedPages
+        ..clear()
+        ..add(0);
       _panelVisitedAt.clear();
       _panelRefreshAt.clear();
       _bindRepository();
@@ -139,18 +144,19 @@ class _MerchantHomeState extends State<MerchantHome>
       );
     }
     final scope =
-        '${c.storeId}:${c.canConfigure}:${c.canManage}:'
+        '$_repositoryGeneration:${c.storeId}:${c.canConfigure}:${c.canManage}:'
         '${c.canOrders}:${c.canDelivery}:${c.error == null}';
     if (scope != _pageScope) {
       _pageScope = scope;
-      _visitedPanels.clear();
+      _visitedPages
+        ..clear()
+        ..add(page);
       _panelVisitedAt.clear();
       _panelRefreshAt.clear();
       _collapsedMenuCategories.clear();
       _menuSource = null;
       query = '';
       category = null;
-      if (_cachedPanelPages.contains(page)) _visitedPanels.add(page);
     }
     setState(() {});
   }
@@ -239,9 +245,15 @@ class _MerchantHomeState extends State<MerchantHome>
   }
 
   void navigate(int index) {
+    if (page == index) {
+      if (index == 0 && c.status != 'pending_acceptance') {
+        unawaited(c.selectStatus('pending_acceptance'));
+      }
+      return;
+    }
     setState(() {
       page = index;
-      if (_cachedPanelPages.contains(index)) _visitedPanels.add(index);
+      _visitedPages.add(index);
       _refreshVisiblePanelIfStale();
     });
     _refreshVisibleDetails();
@@ -368,7 +380,7 @@ class _MerchantHomeState extends State<MerchantHome>
               Expanded(
                 child: Column(
                   children: [
-                    header(),
+                    RepaintBoundary(child: header()),
                     if (c.loading || c.busy || c.refreshing || c.ordersLoading)
                       const LinearProgressIndicator(minHeight: 3),
                     Expanded(
@@ -378,22 +390,15 @@ class _MerchantHomeState extends State<MerchantHome>
                           alignment: Alignment.topCenter,
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 1280),
-                            child: IndexedStack(
+                            child: Stack(
                               key: ValueKey(_pageScope),
-                              index: _cachedPanelPages.contains(page)
-                                  ? 1 + _visitedPanels.toList().indexOf(page)
-                                  : 0,
-                              sizing: StackFit.expand,
+                              fit: StackFit.expand,
                               children: [
-                                if (_cachedPanelPages.contains(page))
-                                  const SizedBox.expand()
-                                else
-                                  _pageView(page, wide),
-                                for (final index in _visitedPanels)
-                                  TickerMode(
+                                for (final index in _visitedPages)
+                                  RetainedMerchantPage(
                                     key: ValueKey(index),
-                                    enabled: page == index,
-                                    child: _pageView(index, wide),
+                                    active: page == index,
+                                    builder: (_) => _pageView(index, wide),
                                   ),
                               ],
                             ),
@@ -411,6 +416,7 @@ class _MerchantHomeState extends State<MerchantHome>
       bottomNavigationBar: wide
           ? null
           : NavigationBar(
+              animationDuration: Duration.zero,
               selectedIndex: page >= 3 ? 3 : page,
               onDestinationSelected: navigate,
               destinations: List.generate(

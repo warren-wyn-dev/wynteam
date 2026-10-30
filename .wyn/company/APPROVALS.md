@@ -767,3 +767,10 @@
 - Release base: deployed `93e6954563b2dcd1108e4157772231262b201b63`. Use the isolated `perf/merchant-flutter-speed` branch, independent QA, a production-configured staged artifact with automatic domain assignment disabled, then assign only `merchant.wynos.online`.
 - No schema migration, customer-data export, new paid service, security policy relaxation, or unrelated main/Food/Social/Maps release is part of this change.
 - Validation, staged deployment, exact release SHA, risks and recovery mapping are recorded in `docs/qa/zoky-merchant-flutter/performance-2026-10-28.md`. Existing required reviews/protections remain in force; this approval is not a claim that QA or production deployment has completed.
+
+### APPROVAL CONTINUATION — [2026-10-30] Merchant tab responsiveness and app behavior
+
+- After reviewing the measured deployed behavior, the Founder requested: "แก้ไขให้เร็วที่สุด และ เหมือนแอปจริงที่สุด". The earlier explicit authorization for all Merchant performance fixes and a verified Merchant-only release remains applicable; no new production authorization is inferred from a read-only inspection.
+- Continue on isolated branch `perf/merchant-native-response` from the released `ddc1fc2bab58c39800db5766fe1970d1c46e3ebf`. Scope: retain main-tab state within account/store/role boundaries, avoid unrelated hidden-page rebuilds, shorten navigation feedback, overlap already-authorized engine/chunk loading, and contain Merchant gestures/document overscroll.
+- Preserve session/mutation authorization, backend contracts, version, existing PWA identity and other project aliases. No new dependency, paid service, schema change, private-data persistence, framework replacement or shared authentication redesign is authorized by this continuation.
+- Require independent review, regression checks, controlled performance observations and staged verification before assigning only `merchant.wynos.online`. Preserve the existing protected workflow, reviewer and branch checks. Details and evidence: `docs/qa/zoky-merchant-flutter/native-response-2026-10-30.md`.

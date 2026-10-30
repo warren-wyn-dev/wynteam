@@ -80,7 +80,7 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
   }, [client, userId]);
 
   return (
-    <main aria-label="Zoky Merchant" style={{ position: "relative", height: "100dvh", minHeight: 360, width: "100%", overflow: "hidden" }}>
+    <main aria-label="Zoky Merchant" data-wyn-swipe-back="ignore" style={{ position: "relative", height: "100dvh", minHeight: 360, width: "100%", overflow: "hidden" }}>
       <div ref={host} data-merchant-flutter-host="" aria-hidden={state !== "ready"} inert={state !== "ready"} style={{ height: "100%", width: "100%" }} />
       {state !== "ready" && (
         <div className="route-state" role={state === "error" ? "alert" : "status"} style={{ position: "absolute", inset: 0, background: "#fff" }}>
