@@ -711,3 +711,13 @@
 - Not covered: WYNOS Admin, Web, Food and Merchant stay under the freeze. Live WYNOS Admin keeps its Food/Merchant pages until the coordinated release (whose workflow now also requires ZOKY Admin to be live), so both admin surfaces work on the same data and permissions in between.
 - Risks: the HIGH privilege-delegation risk is covered by the 75-check DB test but has no staging verification; Founder accepted shipping ahead of staging for ZOKY Admin. Mitigation: no Team Lead exists until the super admin appoints one; verify login and pages right after deploy.
 - Rollback: remove the domain or promote nothing (no previous production); revert the migration with `supabase/rollbacks/20261025100000_zoky_admin_team_v1_rollback.sql` (granted permissions stay).
+
+### APPROVAL_REQUIRED — [2026-10-27] ZOKY-BILLING-001 monthly store fee (DB, ZOKY Admin, Merchant)
+- Proposed change: fixed monthly store fee paid by transfer + slip. DB migration `20261028090000_zoky_billing_001.sql` (PR #1288, applied by `zoky-billing-001-apply.yml`), ZOKY Admin page `/merchant/billing` (PR #1289), Merchant app page "ค่าบริการ ZOKY" and receipt page (PR #1290).
+- Reason: Founder decisions 2026-10-27 (AskUserQuestion): fixed monthly fee only; transfer + slip; overdue → notify, Admin suspends manually; price and trial set by the Founder in Admin; Q1–Q7 answered and PRD approved ("อนุมัติ"); no invoice while unpublished/suspended, notify on issue, owner/admin only.
+- Benefits: revenue without per-order GP (GP stays 0%); reuses the ad top-up slip pattern; billing is OFF until the Founder sets the fee/account and switches it on.
+- Risks: invoices are financial records (rollback refuses once any exists); the receipt is a plain receipt, not a tax invoice (Q5). Codex findings (Merchant inbox, audit allowlist, slip file check, skipped cycles) fixed in fc07b4da; synthetic SQL test covers permissions, storage RLS, cycles and rollback.
+- Files affected: `supabase/migrations/20261028090000_zoky_billing_001.sql`, its rollback and test; `.github/workflows/zoky-billing-001-apply.yml`; `zoky-admin/` billing page; `web/lib/merchant-flutter-bridge.ts`, `web/merchant_flutter/`, `web/app/merchant/billing/receipt/`.
+- Recommendation: apply the DB (preflight → apply), deploy ZOKY Admin, then release the Merchant app, each through the `production` environment review.
+- สถานะ: PRD อนุมัติแล้ว; production apply/deploy รออนุมัติผ่าน GitHub `production` environment ทีละขั้น
+- วันที่ตัดสินใจ: 2026-10-27 (PRD)

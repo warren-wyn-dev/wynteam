@@ -1,0 +1,152 @@
+name: ZOKY billing -- apply ZOKY-BILLING-001 to production DB
+
+# ZOKY-BILLING-001 (fixed monthly store fee, transfer + slip). PRD approved by
+# the Founder 2026-10-27 (.wyn/docs/product/zoky-billing-001-monthly-fee.md).
+# Every write step needs the GitHub `production` environment review.
+#
+# One step per run, the file in one transaction:
+#   preflight  READ-ONLY. Checks the objects the migration relies on exist
+#              (pg_cron, role/permission/audit helpers, notification tables,
+#              the audit event_type constraint) and whether billing is already
+#              installed. Counts only.
+#   apply      supabase/migrations/20261028090000_zoky_billing_001.sql
+#              Additive. Billing stays OFF (billing_enabled = false) until an
+#              Admin sets the fee/account and switches it on in ZOKY Admin, so
+#              stores and customers see no change on apply.
+#   rollback   supabase/rollbacks/20261028090000_zoky_billing_001_rollback.sql
+#              Refuses while any invoice exists (financial records: export and
+#              decide first; switching billing off already stops everything).
+# The SQL comes from a pinned commit of feat/zoky-billing-001-db (PR #1288) and
+# each file is checked against its pinned SHA-256 before it runs.
+# Test: supabase/tests/zoky_billing_001_test.sh
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'preflight (read-only), apply, rollback'
+        required: true
+        type: choice
+        options: [preflight, apply, rollback]
+      confirm:
+        description: 'Type APPLY-ZOKY-BILLING-001 to confirm'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoky-billing-001-apply
+  cancel-in-progress: false
+
+env:
+  MIGRATION_SHA: fc07b4da61f32fb9fb987e747ce7dc74c8e1c8fe
+
+jobs:
+  apply:
+    environment: production
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-ZOKY-BILLING-001'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      STEP: ${{ github.event.inputs.step }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MIGRATION_SHA }}
+          persist-credentials: false
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1; }
+          [ "$(git rev-parse HEAD)" = "$MIGRATION_SHA" ] || { echo "::error::checkout is not the pinned migration commit"; exit 1; }
+          case "$STEP" in
+            preflight) FILE= ; SUM= ;;
+            apply) FILE=supabase/migrations/20261028090000_zoky_billing_001.sql; SUM=fe01e4562f1b791c15d736a6ef952ace7f969a81588e38b80027aa7a2b6d2034 ;;
+            rollback) FILE=supabase/rollbacks/20261028090000_zoky_billing_001_rollback.sql; SUM=b168ba68fee71b212efd2089dfda08a46e925bb88c9defbec0442b8a76431dc7 ;;
+            *) echo "::error::unknown step"; exit 1 ;;
+          esac
+          if [ -n "$FILE" ]; then
+            echo "$SUM  $FILE" | sha256sum -c - || { echo "::error::$FILE does not match its pinned SHA-256"; exit 1; }
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local out code
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+              -d "$(jq -n --arg q "$1" '{query: $q}')")
+            [ "$code" = "200" ] || [ "$code" = "201" ] || { echo "::error::HTTP $code"; cat "$out" >&2; rm -f "$out"; return 1; }
+            cat "$out"; rm -f "$out"
+          }
+          prerequisites() {
+            run_sql "select
+                exists (select 1 from pg_extension where extname = 'pg_cron') as pg_cron,
+                to_regprocedure('public.merchant_has_store_role(uuid,text[])') is not null as store_role,
+                to_regprocedure('public.food_path_uuid(text)') is not null as path_uuid,
+                to_regprocedure('internal.has_admin_permission(text,text)') is not null as admin_permission,
+                to_regprocedure('internal.log_audit_event(uuid,text,uuid,jsonb)') is not null as audit_event,
+                to_regclass('public.merchant_notifications') is not null as merchant_notifications,
+                exists (select 1 from information_schema.columns where table_schema = 'public'
+                  and table_name = 'merchant_memberships' and column_name = 'role') as membership_role,
+                exists (select 1 from pg_constraint where conrelid = 'public.audit_log'::regclass and contype = 'c'
+                  and pg_get_constraintdef(oid) like '%event_type%') as audit_constraint;" > pre.json
+            jq . pre.json
+            jq -e '.[0] | to_entries | all(.value == true)' pre.json >/dev/null
+          }
+          state() {
+            run_sql "select
+                (select count(*) from information_schema.tables where table_schema = 'public' and table_name in
+                  ('food_billing_settings','food_billing_price_history','food_store_billing','food_billing_invoices',
+                   'food_billing_reminders','food_billing_skipped_cycles')) as tables,
+                (select count(*) from pg_proc where proname in ('merchant_billing','merchant_submit_billing_slip',
+                  'merchant_billing_receipt','admin_billing_overview','admin_update_billing_settings',
+                  'admin_review_billing_invoice','admin_waive_billing_invoice','food_billing_slip_upload_allowed')) as rpcs,
+                (select count(*) from pg_policies where schemaname = 'storage' and policyname like 'Food billing slips%') as policies,
+                (select count(*) from pg_trigger where tgname = 'food_stores_billing_published') as trigger,
+                (select count(*) from cron.job where jobname = 'zoky-billing-daily') as cron_job,
+                (select coalesce(bool_or(billing_enabled), false) from public.food_billing_settings) as billing_enabled,
+                (select count(*) from public.food_billing_invoices) as invoices;" 2>/dev/null | jq . \
+              || run_sql "select to_regclass('public.food_billing_settings') is not null as installed;" | jq .
+          }
+          case "$STEP" in
+            preflight)
+              echo "== Prerequisites"
+              if prerequisites; then echo "Prerequisites: OK"; else echo "Prerequisites: MISSING (see above)"; fi
+              echo "== Billing objects already present"
+              state
+              run_sql "select (select count(*) from public.food_stores where is_published) as published_stores;" | jq .
+              echo "Preflight finished. Nothing was changed."
+              exit 0 ;;
+            apply)
+              prerequisites || { echo "::error::a prerequisite is missing"; exit 1; } ;;
+            rollback)
+              n=$(run_sql "select count(*) as n from public.food_billing_invoices;" | jq -r '.[0].n')
+              [ "$n" = "0" ] || { echo "::error::$n invoices exist. Export them and get a Founder decision before removing billing; switch billing off in ZOKY Admin instead."; exit 1; } ;;
+          esac
+          run_sql "begin;
+          $(cat "$FILE")
+          commit;" >/dev/null
+          echo "== After $STEP"
+          case "$STEP" in
+            apply)
+              state | tee after.json
+              jq -e '.[0].tables == 6 and .[0].rpcs == 8 and .[0].policies == 2 and .[0].trigger == 1
+                and .[0].cron_job == 1 and .[0].billing_enabled == false' after.json >/dev/null \
+                || { echo "::error::billing objects missing, or billing is not off after apply"; exit 1; }
+              run_sql "select (select count(*) from pg_constraint where conname = 'audit_log_event_type_check'
+                  and pg_get_constraintdef(oid) like '%admin_billing_invoice_waived%') as audit_types,
+                (select count(*) from public.food_store_billing) as store_rows;" > smoke.json
+              jq . smoke.json
+              jq -e '.[0].audit_types == 1 and .[0].store_rows == 0' smoke.json >/dev/null \
+                || { echo "::error::audit types missing, or stores were opened before billing was switched on"; exit 1; } ;;
+            rollback)
+              run_sql "select to_regclass('public.food_billing_settings') is null as removed,
+                (select count(*) from cron.job where jobname = 'zoky-billing-daily') as cron_job;" | jq . ;;
+          esac
+          echo "$STEP finished."
