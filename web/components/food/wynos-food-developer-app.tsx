@@ -82,6 +82,7 @@ import {
   pushReasonDescription,
   subscribeToPushNotifications,
 } from "@/lib/push-notifications";
+import { lineLinkPath } from "@/lib/line-liff";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   foodEstimateDeliveryRange,
@@ -1957,6 +1958,9 @@ function AccountPanel({
         <button type="button" onClick={onNotifications}>
           <Bell size={21} /><span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดแล้วสำหรับอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span><ChevronRight size={18} />
         </button>
+        <a href={lineLinkPath("food")}>
+          <MessageCircle size={21} /><span><strong>รับแจ้งเตือนทาง LINE</strong><small>แจ้งสถานะออเดอร์ผ่าน LINE OA ของ ZOKY</small></span><ChevronRight size={18} />
+        </a>
         {installPrompt ? (
           <button type="button" onClick={onInstall}>
             <Download size={21} /><span><strong>ติดตั้ง ZOKY</strong><small>เพิ่ม ZOKY ไว้บนหน้าจอหลัก</small></span><ChevronRight size={18} />
