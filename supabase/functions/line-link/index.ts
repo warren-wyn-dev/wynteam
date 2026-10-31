@@ -21,6 +21,9 @@ function oaEnv(audience: LineAudience) {
   return {
     accessToken: Deno.env.get(`${prefix}_CHANNEL_ACCESS_TOKEN`)?.trim() ?? "",
     addFriendUrl: addFriendUrl(Deno.env.get(`${prefix}_OA_BASIC_ID`)),
+    // LINE userIds are per Provider: each OA's Provider has its own LINE
+    // Login channel (LIFF). LINE_LOGIN_CHANNEL_ID remains a shared fallback.
+    loginChannelId: (Deno.env.get(`${prefix}_LOGIN_CHANNEL_ID`) ?? Deno.env.get("LINE_LOGIN_CHANNEL_ID") ?? "").trim(),
   };
 }
 
@@ -83,7 +86,7 @@ Deno.serve(async (req) => {
       return json({ linked: false, friendStatus: null, addFriendUrl: oa.addFriendUrl });
     }
 
-    const channelId = Deno.env.get("LINE_LOGIN_CHANNEL_ID")?.trim() ?? "";
+    const channelId = oa.loginChannelId;
     if (!/^\d{6,12}$/.test(channelId)) return json({ error: "line_not_configured" }, 503);
     const lineUserId = await verifiedLineUserId(fetch, request.idToken, channelId, Date.now());
     if (!lineUserId) return json({ error: "invalid_line_token" }, 401);

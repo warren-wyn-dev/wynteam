@@ -110,11 +110,11 @@ Founder อนุมัติ D1–D6 → Architect/CTO review design → Databa
 ### Configuration (Founder ตั้งเอง — ห้าม commit/ส่งในแชท)
 
 Supabase Edge Function secrets:
-`LINE_NOTIFICATIONS_ENABLED=1` (สวิตช์หลัก/rollback), `LINE_LOGIN_CHANNEL_ID`, `LINE_FOOD_CHANNEL_ACCESS_TOKEN`, `LINE_FOOD_CHANNEL_SECRET`, `LINE_FOOD_OA_BASIC_ID` (เช่น `@xxxx`), `LINE_FOOD_LIFF_ID`, `LINE_MERCHANT_CHANNEL_ACCESS_TOKEN`, `LINE_MERCHANT_CHANNEL_SECRET`, `LINE_MERCHANT_OA_BASIC_ID`, `LINE_MERCHANT_LIFF_ID`; optional `LINE_LINK_EXTRA_ORIGINS` (staging preview origin)
+`LINE_NOTIFICATIONS_ENABLED=1` (สวิตช์หลัก/rollback), `LINE_FOOD_LOGIN_CHANNEL_ID` + `LINE_MERCHANT_LOGIN_CHANNEL_ID` (LINE Login channel ใน Provider เดียวกับ OA ของแต่ละฝั่ง — LINE userId ผูกกับ Provider; `LINE_LOGIN_CHANNEL_ID` เป็นค่า fallback เมื่อทั้งสอง OA อยู่ Provider เดียว), `LINE_FOOD_CHANNEL_ACCESS_TOKEN`, `LINE_FOOD_CHANNEL_SECRET`, `LINE_FOOD_OA_BASIC_ID` (เช่น `@xxxx`), `LINE_FOOD_LIFF_ID`, `LINE_MERCHANT_CHANNEL_ACCESS_TOKEN`, `LINE_MERCHANT_CHANNEL_SECRET`, `LINE_MERCHANT_OA_BASIC_ID`, `LINE_MERCHANT_LIFF_ID`; optional `LINE_LINK_EXTRA_ORIGINS` (staging preview origin)
 
 Vercel project `web` (public, build-time): `NEXT_PUBLIC_LIFF_ID_FOOD`, `NEXT_PUBLIC_LIFF_ID_MERCHANT`
 
-LIFF apps (ใน LINE Login channel เดียว, provider เดียวกับทั้ง 2 OA): endpoint `https://food.wynos.online/line` และ `https://merchant.wynos.online/line`, scopes `openid` + `profile`, size Full, Add friend option = On (ชี้ไป OA ของแต่ละฝั่ง)
+LIFF apps (แต่ละตัวอยู่ใน LINE Login channel ของ Provider เดียวกับ OA ฝั่งนั้น — Founder ใช้ 2 Providers: "Zoky • สั่งอาหาร" และ "Zoky Merchant OA"): endpoint `https://food.wynos.online/line` และ `https://merchant.wynos.online/line`, scopes `openid` + `profile`, size Full, Add friend option = On (ชี้ไป OA ของแต่ละฝั่ง)
 
 ### Verification (local, synthetic only)
 
