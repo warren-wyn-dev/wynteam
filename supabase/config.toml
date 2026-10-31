@@ -34,3 +34,17 @@ verify_jwt = false
 # would turn JWT verification on and break guest geocoding.
 [functions.wynos-maps-geocode]
 verify_jwt = false
+
+# Only the external LINE webhook is publicly reachable; the handler validates
+# the exact raw-body x-line-signature using the private Channel Secret.
+# Never enable event handling until staging tests and explicit owner approval.
+[functions.zoky-line-webhook]
+verify_jwt = false
+
+# Authenticated Merchant user's own JWT is required and reverified with getUser().
+[functions.zoky-line-account]
+verify_jwt = true
+
+# Internal cron-only delivery worker with dedicated x-zoky-line-worker-key.
+[functions.zoky-line-notify]
+verify_jwt = false

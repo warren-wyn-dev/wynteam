@@ -120,6 +120,37 @@ jobs:
       - name: Freeze guard rejects a loosened ZOKY exception workflow
         run: python3 tools/test_check_wynos_release_freeze.py
 
+  zoky-line-contract:
+    name: Zoky LINE isolated Postgres + Node contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run Zoky LINE isolated schema contract (not Production)
+        run: bash supabase/tests/zoky_line_contract_test.sh
+      - name: Run Zoky LINE Node mocks
+        run: node --test web/tests/zoky-line-webhook.test.mjs web/tests/zoky-line-link-flow.test.mjs
+
   # BUG-004: execute every maintained PostgreSQL/RLS integration script.
   # WYN-038 is intentionally quarantined because its own header marks its
   # assertions stale after the Founder-approved WYN-083 view-count behavior

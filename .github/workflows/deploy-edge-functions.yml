@@ -46,6 +46,10 @@ on:
           # with verify_jwt = false, matching the live setting (Founder F2,
           # 2026-10-18; zoky-web-release-plan.md section 4).
           - wynos-maps-geocode
+          # Zoky LINE integration: only after staging gates and owner production approval.
+          - zoky-line-webhook
+          - zoky-line-account
+          - zoky-line-notify
 
 jobs:
   deploy:
