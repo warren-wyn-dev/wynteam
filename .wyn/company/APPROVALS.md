@@ -711,3 +711,11 @@
 - Not covered: WYNOS Admin, Web, Food and Merchant stay under the freeze. Live WYNOS Admin keeps its Food/Merchant pages until the coordinated release (whose workflow now also requires ZOKY Admin to be live), so both admin surfaces work on the same data and permissions in between.
 - Risks: the HIGH privilege-delegation risk is covered by the 75-check DB test but has no staging verification; Founder accepted shipping ahead of staging for ZOKY Admin. Mitigation: no Team Lead exists until the super admin appoints one; verify login and pages right after deploy.
 - Rollback: remove the domain or promote nothing (no previous production); revert the migration with `supabase/rollbacks/20261025100000_zoky_admin_team_v1_rollback.sql` (granted permissions stay).
+
+### APPROVAL — [2026-10-31] ZOKY-LINE-001 LINE OA notifications and LIFF entry
+
+- Founder asked to connect LINE for ZOKY customers and Merchant, chose "แจ้งเตือนผ่าน LINE OA" + "เปิดใน LINE (LIFF)" (not LINE Login as a sign-in method, not a store chat button), confirmed a LINE Developers/OA account exists, then replied "อนุญาต" to decisions D1–D6 in `.wyn/tasks/approved/ZOKY-LINE-001-line-oa-notifications-liff.md` as proposed.
+- Approved: additive migration `20261031120000_zoky_line_links.sql`; Edge Functions `line-link` and `line-webhook`; LINE delivery inside `send-push-notification` behind `LINE_NOTIFICATIONS_ENABLED`; `/line` LIFF page and settings entries; dependency `@line/liff` (official LINE SDK, pinned); two OAs (customer, Merchant); LINE OA message cost per the OA plan the Founder chooses.
+- Boundaries: no auth-architecture change (Supabase session stays the only ZOKY login); no secrets in the repo or chat; migration/Edge Function/web release only through the existing protected workflows after QA & Security, staging and a separate Founder production approval.
+- Rollback: unset `LINE_NOTIFICATIONS_ENABLED` (stops all LINE sends and links immediately); the migration is additive with `supabase/rollbacks/20261031120000_zoky_line_links_rollback.sql`.
+- Status: source implemented on `claude/zoky-web-readiness-6isvk4`; nothing applied or deployed.
