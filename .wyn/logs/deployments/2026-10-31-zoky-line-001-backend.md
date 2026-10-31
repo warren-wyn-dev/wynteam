@@ -34,3 +34,11 @@ Functions are inert without secrets. Table rollback (destructive, Founder approv
 - Founder chose **ข**: deploy `send-push-notification` as live `741c6717` + LINE only. Source `release/zoky-line-push-20261101` @ `47a58c8a` (deno check + 73 tests pass); deployed by `zoky-line-push-deploy.yml` (main-only, typed confirmation, production review, path allowlist against `741c6717`).
 - Founder chose to **cancel** the pending Merchant staging run 41154897642 (`94c8d62`) and fold it into the LINE web release. Candidate `release/zoky-line-web-20261101` @ `7543acce` = `94c8d62` + web part of #1304 only. History is linear (`93e6954` ⊂ `ddc1fc2` ⊂ `94c8d62`) and everything after `93e6954` is Merchant-scoped, so one artifact serves all customer hosts. Local verification: lint, typecheck, `next build`, line 8/8, i18n 48/48, merchant-flutter 101/101, notifications 60/60, push-toggle 35/35, share-links 19/19.
 - `zoky-web-thai-mobile-release.yml` retargeted to that candidate (confirmation `ZOKY_LINE_WEB_20261101`, expires 2026-11-14), with per-host drift check (Merchant `dpl_HRTFBBHb…`, others `dpl_2muRGSzQ…`) and `/line` added to staged and public smoke checks.
+
+## Production release — 2026-10-31 18:43–18:49 UTC
+
+- `send-push-notification` LINE-only build deployed: run [41229070763](https://github.com/warren-wyn-dev/wynteam/actions/runs/41229070763) (source `47a58c8a` on live `741c6717`), success after Founder approval.
+- Web release: run [41229073133](https://github.com/warren-wyn-dev/wynteam/actions/runs/41229073133) — guard, stage (authenticated checks incl. `/line`) and promote (per-host drift check, public smoke incl. `/line`, Merchant entry 307) all succeeded after both Founder approvals.
+- All customer hosts now serve `dpl_Gd5Ydswjt3YS3umxkxpGP4SmQhKT` (verified `food.wynos.online`, `merchant.wynos.online` aliases). Independent HTTP check: `/line` on Food and Merchant, Food/ZOKY/WYNOS roots, Merchant root and login → 200; `/merchant?order=…` → 307 `/merchant/flutter?order=…`. Vercel runtime errors (1h): none.
+- Rollback: Vercel Instant Rollback to `dpl_2muRGSzQwa7qxcHjYAApkbxBbJuJ` (Food/ZOKY/WYNOS) / `dpl_HRTFBBHb6s6wpQZ69J1fgEERW5yP` (Merchant); LINE delivery: unset `LINE_NOTIFICATIONS_ENABLED`.
+- Remaining: Founder sets `LINE_NOTIFICATIONS_ENABLED=1` and performs the real-account link + test notification.
