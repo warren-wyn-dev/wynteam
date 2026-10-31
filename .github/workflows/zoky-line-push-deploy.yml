@@ -1,0 +1,80 @@
+name: ZOKY LINE -- deploy send-push-notification (LINE only)
+
+# ZOKY-LINE-001 (Founder 2026-11-01, option ข): deploy send-push-notification
+# as the live 2026-10-05 version (741c6717) plus ONLY the LINE delivery
+# changes, so this does not ship the separate, never-deployed push changes
+# on main. The source is the pinned tip of release/zoky-line-push-20261101.
+# Main-only, typed confirmation, production environment review.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY-ZOKY-LINE-PUSH to deploy the pinned LINE-only send-push-notification'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_BRANCH: release/zoky-line-push-20261101
+  RELEASE_SHA: 47a58c8ae2d794e19547e32e6d4c47ccb76bfeda
+  LIVE_BASE_SHA: 741c6717dbd701b14c7c609714c0d0a1421b3e05
+
+jobs:
+  deploy:
+    environment: production
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && github.event.inputs.confirm == 'DEPLOY-ZOKY-LINE-PUSH'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pinned source and LINE-only scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git merge-base --is-ancestor "$LIVE_BASE_SHA" "$RELEASE_SHA"
+          allowed=" supabase/functions/send-push-notification/index.ts supabase/functions/send-push-notification/_line.ts supabase/functions/send-push-notification/_line.test.ts "
+          for path in $(git diff --name-only "$LIVE_BASE_SHA" "$RELEASE_SHA"); do
+            case "$allowed" in *" $path "*) ;; *) echo "::error::$path is outside the LINE-only change"; exit 1 ;; esac
+          done
+          {
+            echo '## LINE-only send-push-notification'
+            echo "- Source: $RELEASE_SHA ($RELEASE_BRANCH)"
+            echo "- Live base: $LIVE_BASE_SHA"
+            git diff --stat "$LIVE_BASE_SHA" "$RELEASE_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Verify the function before shipping it
+        working-directory: supabase/functions/send-push-notification
+        run: |
+          deno check index.ts
+          deno test --allow-read=.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.120.0
+      - name: Deploy
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          CLEAN_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          CLEAN_URL=$(clean "$SUPABASE_URL")
+          test -n "$CLEAN_TOKEN" || { echo "::error::SUPABASE_ACCESS_TOKEN is empty"; exit 1; }
+          PROJECT_REF=$(printf '%s' "$CLEAN_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          if [ -z "$PROJECT_REF" ] || [ "$PROJECT_REF" = "$CLEAN_URL" ]; then
+            echo "::error::Could not derive the project ref from SUPABASE_URL"; exit 1
+          fi
+          # verify_jwt for send-push-notification comes from supabase/config.toml
+          # (no entry -> default true), unchanged from the live deploy.
+          SUPABASE_ACCESS_TOKEN="$CLEAN_TOKEN" \
+            supabase functions deploy send-push-notification --project-ref "$PROJECT_REF"
+          echo "Deployed LINE-only send-push-notification ($RELEASE_SHA). LINE stays off until LINE_NOTIFICATIONS_ENABLED=1." >> "$GITHUB_STEP_SUMMARY"

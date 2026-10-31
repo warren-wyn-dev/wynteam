@@ -1,8 +1,11 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder asked for the new Merchant app to carry payment channels, opening
-# hours, finance, staff, ads and ZOKY campaigns (2026-10-27). Only the Flutter
-# Merchant app, its bridge and their tests change from live b6f38835.
+# ZOKY-LINE-001 (Founder 2026-11-01): ship the LINE OA entry (/line, Food
+# menu entry, Merchant notification card) together with the reviewed
+# Merchant native-response revision 94c8d62, which the Founder chose to fold
+# into this release instead of staging it separately. Candidate = 94c8d62 +
+# the web part of #1304 only. One artifact then serves every customer host,
+# reuniting Food/ZOKY (live 93e6954, an ancestor) and Merchant (live ddc1fc2).
 # Existing production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
@@ -12,7 +15,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_MERCHANT_TOOLS_20261027]
+        options: [CANCEL, ZOKY_LINE_WEB_20261101]
 
 permissions:
   contents: read
@@ -23,34 +26,41 @@ concurrency:
   queue: max
 
 env:
-  RELEASE_EXPIRES_UTC: "2026-11-10"
-  RELEASE_BRANCH: fix/zoky-merchant-entry-flutter
-  RELEASE_SHA: 93e6954563b2dcd1108e4157772231262b201b63
-  PRODUCTION_BASE_SHA: b6f38835bd7194c21d616f1457acb913839d0b60
-  ROLLBACK_DEPLOYMENT: dpl_4ofnoQr6ASuzdeguVTFbUXXx3JWx
+  RELEASE_EXPIRES_UTC: "2026-11-14"
+  RELEASE_BRANCH: release/zoky-line-web-20261101
+  RELEASE_SHA: 7543acceeb0042ce51e3e60fd98f4dbcbb39ba7b
+  PRODUCTION_BASE_SHA: ddc1fc2bab58c39800db5766fe1970d1c46e3ebf
+  # Live per host on 2026-11-01: Merchant serves ddc1fc2, the rest 93e6954.
+  ROLLBACK_DEPLOYMENT: dpl_2muRGSzQwa7qxcHjYAApkbxBbJuJ
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_HRTFBBHb6s6wpQZ69J1fgEERW5yP
   ALLOWED_PATHS: >-
+    .wyn/company/APPROVALS.md
+    docs/qa/zoky-merchant-flutter/native-response-2026-10-30.md
+    web/app/line/line.css
+    web/app/line/page.tsx
+    web/app/merchant/merchant.css
+    web/components/food/wynos-food-developer-app.tsx
+    web/components/line/line-entry.tsx
+    web/components/merchant/merchant-flutter-app.tsx
+    web/components/merchant/merchant-flutter-authenticated.tsx
+    web/components/merchant/merchant-notification-settings.tsx
     web/lib/i18n/en.ts
-    web/lib/merchant-flutter-bridge.ts
-    web/merchant_flutter/README.md
-    web/merchant_flutter/lib/data/merchant_repository.dart
-    web/merchant_flutter/lib/screens/finance_panel.dart
-    web/merchant_flutter/lib/screens/growth_panels.dart
+    web/lib/line-liff.ts
     web/merchant_flutter/lib/screens/merchant_home.dart
-    web/merchant_flutter/lib/screens/staff_panel.dart
-    web/merchant_flutter/lib/screens/store_settings_panels.dart
-    web/merchant_flutter/test/finance_test.dart
-    web/merchant_flutter/test/growth_test.dart
-    web/merchant_flutter/test/staff_test.dart
-    web/merchant_flutter/test/store_settings_test.dart
-    web/tests/merchant-flutter-bridge.test.mjs
-    web/tests/merchant-flutter-routing.test.mjs
+    web/merchant_flutter/lib/widgets/retained_page.dart
+    web/merchant_flutter/test/navigation_performance_test.dart
+    web/merchant_flutter/test/retained_page_test.dart
+    web/package-lock.json
+    web/package.json
+    web/tests/line-liff.test.mjs
+    web/tests/merchant-browser/merchant-flutter-embedded.spec.ts
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_TOOLS_20261027'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_WEB_20261101'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -85,7 +95,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_TOOLS_20261027'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_WEB_20261101'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -133,17 +143,17 @@ jobs:
           STAGED_URL: ${{ steps.stage.outputs.url }}
         run: |
           set -euo pipefail
-          for path in /food /food/login /food/signup /merchant/login /merchant/flutter /maps; do
+          for path in /food /food/login /food/signup /merchant/login /merchant/flutter /maps /line; do
             vercel curl "$path" --deployment "$STAGED_URL" -- --fail --silent --show-error --output /dev/null
           done
           vercel curl /merchant/flutter --deployment "$STAGED_URL" -- --fail --silent --show-error --output /tmp/merchant-host.html
           grep -Fq '/merchant/flutter/manifest.webmanifest' /tmp/merchant-host.html
           rm -f /tmp/merchant-host.html
-          echo '- /food, /food/login, /food/signup, /merchant/login, /merchant/flutter, /maps: PASS' >> "$GITHUB_STEP_SUMMARY"
+          echo '- /food, /food/login, /food/signup, /merchant/login, /merchant/flutter, /maps, /line: PASS' >> "$GITHUB_STEP_SUMMARY"
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_TOOLS_20261027'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_WEB_20261101'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
@@ -162,12 +172,14 @@ jobs:
           # Production may have moved (e.g. another release) while this job waited for review.
           # Promote only if every customer host still serves the reviewed rollback target.
           for host in zoky.wynos.online merchant.wynos.online food.wynos.online wynos.online www.wynos.online; do
+            expected="$ROLLBACK_DEPLOYMENT"
+            [ "$host" = merchant.wynos.online ] && expected="$ROLLBACK_MERCHANT_DEPLOYMENT"
             live=$(curl --fail --silent --show-error --max-time 30 -H "Authorization: Bearer $VERCEL_TOKEN" \
               "https://api.vercel.com/v13/deployments/$host?teamId=$VERCEL_ORG_ID" | jq -r '.id')
-            [ "$live" = "$ROLLBACK_DEPLOYMENT" ] || { echo "::error::$host serves $live, not the reviewed base $ROLLBACK_DEPLOYMENT. Production changed while awaiting review."; exit 1; }
+            [ "$live" = "$expected" ] || { echo "::error::$host serves $live, not the reviewed base $expected. Production changed while awaiting review."; exit 1; }
           done
           vercel promote "$STAGED_URL" --yes --scope warren14
-          for url in https://zoky.wynos.online/ https://zoky.wynos.online/food/login https://merchant.wynos.online/merchant/login https://merchant.wynos.online/merchant/flutter https://food.wynos.online/ https://wynos.online/; do
+          for url in https://zoky.wynos.online/ https://zoky.wynos.online/food/login https://merchant.wynos.online/merchant/login https://merchant.wynos.online/merchant/flutter https://food.wynos.online/ https://wynos.online/ https://food.wynos.online/line https://merchant.wynos.online/line; do
             curl --fail --silent --show-error --location --max-time 30 --output /dev/null "$url"
           done
           # Verify the exact entry that previously displayed the legacy UI.
@@ -179,7 +191,7 @@ jobs:
           {
             echo '## ZOKY web production release verified'
             echo "- Promoted artifact: $STAGED_URL"
-            echo '- Public ZOKY, Merchant, Food and Social routes: HTTP PASS'
+            echo '- Public ZOKY, Merchant, Food, Social and /line routes: HTTP PASS'
             echo '- No database or Edge Function deployment. No automatic rollback.'
-            echo "- On regression: Vercel Instant Rollback to $ROLLBACK_DEPLOYMENT."
+            echo "- On regression: Vercel Instant Rollback to $ROLLBACK_DEPLOYMENT (Merchant previously $ROLLBACK_MERCHANT_DEPLOYMENT)."
           } >> "$GITHUB_STEP_SUMMARY"
