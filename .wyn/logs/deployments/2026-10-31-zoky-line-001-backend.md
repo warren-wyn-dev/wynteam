@@ -42,3 +42,7 @@ Functions are inert without secrets. Table rollback (destructive, Founder approv
 - All customer hosts now serve `dpl_Gd5Ydswjt3YS3umxkxpGP4SmQhKT` (verified `food.wynos.online`, `merchant.wynos.online` aliases). Independent HTTP check: `/line` on Food and Merchant, Food/ZOKY/WYNOS roots, Merchant root and login → 200; `/merchant?order=…` → 307 `/merchant/flutter?order=…`. Vercel runtime errors (1h): none.
 - Rollback: Vercel Instant Rollback to `dpl_2muRGSzQwa7qxcHjYAApkbxBbJuJ` (Food/ZOKY/WYNOS) / `dpl_HRTFBBHb6s6wpQZ69J1fgEERW5yP` (Merchant); LINE delivery: unset `LINE_NOTIFICATIONS_ENABLED`.
 - Remaining: Founder sets `LINE_NOTIFICATIONS_ENABLED=1` and performs the real-account link + test notification.
+
+## Founder real-account acceptance — 2026-11-01 02:04 (Asia/Bangkok)
+
+Founder set `LINE_NOTIFICATIONS_ENABLED=1`, linked the Merchant store account at `/line?mode=link&oa=merchant`, and sent the Merchant notification test. The message "ทดสอบการแจ้งเตือน" with the "เปิดดู" button arrived in the Zoky Merchant OA chat (Founder screenshot). Merchant LINE delivery: **PASS** end to end on production. Customer (food) link/test not yet performed.
