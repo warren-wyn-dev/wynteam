@@ -46,6 +46,8 @@ on:
           # with verify_jwt = false, matching the live setting (Founder F2,
           # 2026-10-18; zoky-web-release-plan.md section 4).
           - wynos-maps-geocode
+          - line-link
+          - line-webhook
 
 jobs:
   deploy:

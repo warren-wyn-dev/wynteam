@@ -34,3 +34,12 @@ verify_jwt = false
 # would turn JWT verification on and break guest geocoding.
 [functions.wynos-maps-geocode]
 verify_jwt = false
+
+[functions.line-link]
+# ZOKY-LINE-001: browser call with the user's Supabase JWT.
+verify_jwt = true
+
+[functions.line-webhook]
+# ZOKY-LINE-001: LINE cannot send a Supabase JWT. Every request is
+# authenticated by X-Line-Signature (HMAC-SHA256 with the OA channel secret).
+verify_jwt = false

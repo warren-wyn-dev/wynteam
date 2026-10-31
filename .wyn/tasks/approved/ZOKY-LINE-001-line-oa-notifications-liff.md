@@ -1,6 +1,6 @@
 # ZOKY-LINE-001 — แจ้งเตือนผ่าน LINE OA และเปิด ZOKY/Merchant ใน LINE (LIFF)
 
-Status: **Proposal — รอ Founder อนุมัติ decisions D1–D6 ก่อน implementation**
+Status: **Approved (Founder "อนุญาต" D1–D6 ตามข้อเสนอ, 2026-10-31) — source implemented, ยังไม่ apply/deploy** (ดูหัวข้อ 9)
 Requested: Founder, 2026-10-31 ("เชื่อมไลน์ zoky ผู้ใช้ กับ merchant") — เลือก "แจ้งเตือนผ่าน LINE OA" + "เปิดใน LINE (LIFF)" และยืนยันว่ามี LINE Developers / LINE Official Account แล้ว
 Scope note: ไม่รวม "เข้าสู่ระบบด้วย LINE" (LINE Login เป็น auth method) และไม่รวมปุ่มแชท LINE ของร้าน — Founder ไม่ได้เลือก
 
@@ -23,7 +23,7 @@ Web Push เดิมต้องทำงานเหมือนเดิม �
 ## 3. User stories & acceptance criteria (P0)
 
 **US-1 เชื่อมบัญชี** — ในฐานะลูกค้า/ร้านที่ login ZOKY อยู่ ฉันกด "รับแจ้งเตือนทาง LINE" แล้วเชื่อม LINE ของฉันได้
-- AC1 การเชื่อมเกิดเฉพาะเมื่อ server พิสูจน์ได้ทั้ง (a) Supabase user จาก JWT และ (b) LINE userId จาก LINE ID token ที่ verify กับ LINE ฝั่ง server (`aud` = channel ID ของเรา, ไม่หมดอายุ, nonce ตรง) — ห้ามเชื่อ `userId` ที่ client ส่งมา
+- AC1 การเชื่อมเกิดเฉพาะเมื่อ server พิสูจน์ได้ทั้ง (a) Supabase user จาก JWT และ (b) LINE userId จาก LINE ID token ที่ verify กับ LINE ฝั่ง server (`iss`, `aud` = channel ID ของเรา, ไม่หมดอายุ) — ห้ามเชื่อ `userId` ที่ client ส่งมา (LIFF ไม่ให้แอปกำหนด nonce เอง จึงใช้อายุสั้นของ ID token + ต้องมี Supabase JWT คู่กันแทน)
 - AC2 1 LINE userId ผูกได้กับ 1 ZOKY account ต่อครั้ง; เชื่อมซ้ำไปบัญชีอื่นต้องยืนยันและตัดของเดิม
 - AC3 ผู้ใช้เห็นสถานะ "เชื่อมแล้ว / ยังไม่ได้เพิ่มเพื่อน OA / บล็อก OA" และกดยกเลิกการเชื่อมได้เอง (ลบข้อมูลทันที)
 - AC4 ถ้ายังไม่ได้เป็นเพื่อนกับ OA ให้พาไปเพิ่มเพื่อน (LINE ส่ง push ไม่ได้ถ้าไม่ได้เป็นเพื่อน/ถูกบล็อก)
@@ -56,7 +56,7 @@ notifications INSERT ─► send-push-notification (เดิม) ─► FCM/Web
                                    └─► (ใหม่) LINE Messaging API push ถ้า app ∈ {food, merchant} และมี link active
 ```
 
-- **DB (migration ใหม่, additive เท่านั้น):** `public.line_links(user_id uuid pk → auth.users on delete cascade, line_user_id text unique not null, friend_status text check in ('unknown','friend','blocked'), linked_at, updated_at)`; RLS: owner `select`/`delete` เท่านั้น, ไม่มี insert/update จาก client (เขียนผ่าน service role ใน Edge Function), deny by default. ตาราง nonce ชั่วคราวสำหรับกัน replay (หมดอายุ 10 นาที)
+- **DB (migration ใหม่, additive เท่านั้น):** `public.line_links(user_id uuid pk → auth.users on delete cascade, line_user_id text unique not null, friend_status text check in ('unknown','friend','blocked'), linked_at, updated_at)`; RLS: owner `select` (ไม่รวม `line_user_id`)/`delete` เท่านั้น, ไม่มี insert/update จาก client (เขียนผ่าน service role ใน Edge Function), deny by default
 - **Edge Functions ใหม่:** `line-link` (link/unlink/status), `line-webhook` (verify signature ด้วย constant-time compare; ตอบ 200 เร็ว; อัปเดต friend_status)
 - **แก้ของเดิม:** `send-push-notification` เพิ่ม branch ส่ง LINE หลัง Web Push โดยใช้ `pushAppForNotification`/`pushMessageForApp`/preferences เดิม — ไม่เปลี่ยน contract เดิม พร้อม unit tests
 - **Frontend:** หน้า `/line` (LIFF endpoint) บน `web` + ปุ่มเชื่อม/ยกเลิกในหน้าตั้งค่าแจ้งเตือนของ ZOKY และ Merchant (Flutter bridge เพิ่ม method `lineLinkStatus/link/unlink` ผ่าน bridge เดิม ไม่ส่ง token เข้า Dart)
@@ -95,3 +95,38 @@ Feature flag ปิดการส่ง LINE ได้ทันทีใน `se
 ## Handoff
 
 Founder อนุมัติ D1–D6 → Architect/CTO review design → Database (migration) + UI/UX (ปุ่มเชื่อม, หน้า `/line`) → Full-Stack → QA & Security → staging → Founder approval → scoped production release
+
+## 9. Implementation (2026-10-31, branch `claude/zoky-web-readiness-6isvk4`)
+
+| ส่วน | ไฟล์ |
+|---|---|
+| DB | `supabase/migrations/20261031120000_zoky_line_links.sql`, rollback `supabase/rollbacks/20261031120000_zoky_line_links_rollback.sql`, test `supabase/tests/zoky_line_links_test.sh` |
+| Link API | `supabase/functions/line-link/` (verify_jwt = true) |
+| Webhook | `supabase/functions/line-webhook/` (verify_jwt = false, X-Line-Signature) — URL: `https://<project>.supabase.co/functions/v1/line-webhook?oa=food` และ `?oa=merchant` |
+| ส่งข้อความ | `supabase/functions/send-push-notification/_line.ts` + `index.ts` (หลัง Web Push เดิม, ใช้ preferences/Quiet Hours เดิม, `X-Line-Retry-Key` = notification id กันส่งซ้ำ) |
+| Web | `/line` (`web/app/line/`, `web/components/line/line-entry.tsx`, `web/lib/line-liff.ts`), เมนู Food "รับแจ้งเตือนทาง LINE", การ์ด Merchant ในหน้าแจ้งเตือน (Flutter เข้าผ่าน tool `notifications` เดิม) |
+| Deploy | `deploy-edge-functions.yml` เพิ่ม `line-link`, `line-webhook`; `supabase/config.toml` |
+
+### Configuration (Founder ตั้งเอง — ห้าม commit/ส่งในแชท)
+
+Supabase Edge Function secrets:
+`LINE_NOTIFICATIONS_ENABLED=1` (สวิตช์หลัก/rollback), `LINE_LOGIN_CHANNEL_ID`, `LINE_FOOD_CHANNEL_ACCESS_TOKEN`, `LINE_FOOD_CHANNEL_SECRET`, `LINE_FOOD_OA_BASIC_ID` (เช่น `@xxxx`), `LINE_FOOD_LIFF_ID`, `LINE_MERCHANT_CHANNEL_ACCESS_TOKEN`, `LINE_MERCHANT_CHANNEL_SECRET`, `LINE_MERCHANT_OA_BASIC_ID`, `LINE_MERCHANT_LIFF_ID`; optional `LINE_LINK_EXTRA_ORIGINS` (staging preview origin)
+
+Vercel project `web` (public, build-time): `NEXT_PUBLIC_LIFF_ID_FOOD`, `NEXT_PUBLIC_LIFF_ID_MERCHANT`
+
+LIFF apps (ใน LINE Login channel เดียว, provider เดียวกับทั้ง 2 OA): endpoint `https://food.wynos.online/line` และ `https://merchant.wynos.online/line`, scopes `openid` + `profile`, size Full, Add friend option = On (ชี้ไป OA ของแต่ละฝั่ง)
+
+### Verification (local, synthetic only)
+
+- Deno: `deno check` ทุก function ผ่าน; `deno test --allow-read supabase/functions/` 179 passed (ใหม่: `_line` 11, `line-link` 10, `line-webhook` 5)
+- DB: `zoky_line_links_test.sh` 13/13 บน PostgreSQL 16 local (RLS own-only, client insert/update denied, `line_user_id` ไม่ให้ client อ่าน, anon denied, unique ต่อ OA, cascade)
+- Web: lint/typecheck ผ่าน, `next build` ผ่าน, `test:line` 8/8, `test:i18n` 46/46, `test:notifications` 55/55, `test:merchant-flutter` 60/60, `test:push-toggle` 35/35
+- Browser (Chromium, external network blocked): `/line?mode=link` signed-out ที่ 320/390/1440 — ไม่มี JS error, ไม่มี horizontal overflow; `?to=https://evil.test` และ `//evil.test` ลงที่ `/food`, `?to=/food?order=WF0015` ลงที่ order
+
+### ยังไม่ได้ตรวจ / ความเสี่ยงที่เหลือ
+
+- ยังไม่ได้ทดสอบกับ LINE จริง (ต้องมี channel/secrets) — LIFF login redirect, ID token verify, push, webhook ต้องตรวจบน staging กับ OA ทดสอบ
+- `/line` ใน in-app browser ของ LINE: ผู้ใช้ Google ต้องเปิดในเบราว์เซอร์ (D1); Food login ยังไม่พากลับมาที่ `/line` อัตโนมัติหลังเข้าสู่ระบบ (Merchant กลับมาได้)
+- iOS Home Screen PWA: LINE Login redirect อาจเปิดออกนอก PWA — ตรวจบนเครื่องจริง
+- Privacy policy ยังเป็น placeholder — ต้องเพิ่มเรื่อง LINE userId ก่อนเปิดใช้งานทั่วไป
+- ไม่มี delivery log ราย LINE message (log เฉพาะ error code ไม่มี PII)

@@ -1,0 +1,104 @@
+/* ZOKY-LINE-001: /line entry. White surface, ZOKY pink/berry accents only. */
+.zl-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: #fff;
+  color: #1f1a1d;
+}
+
+.zl-card {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.zl-badge {
+  justify-self: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #06c755;
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.zl-card h1 {
+  margin: 4px 0 0;
+  font-size: 1.375rem;
+}
+
+.zl-sub,
+.zl-note {
+  margin: 0;
+  color: #6b5f66;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.zl-note {
+  font-size: 0.8125rem;
+}
+
+.zl-status {
+  margin: 8px 0 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fbf3f7;
+  font-weight: 600;
+}
+
+.zl-status.is-on {
+  background: #ebfaf1;
+  color: #05753a;
+}
+
+.zl-status.is-error {
+  background: #fdecee;
+  color: #b4233a;
+}
+
+.zl-primary,
+.zl-secondary {
+  display: block;
+  min-height: 48px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.zl-primary {
+  border: 0;
+  background: linear-gradient(135deg, #ff4f9a, #c2185b);
+  color: #fff;
+}
+
+.zl-secondary {
+  border: 1px solid #ecd9e3;
+  background: #fff;
+  color: #a3154f;
+}
+
+.zl-primary:disabled,
+.zl-secondary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.zl-primary:focus-visible,
+.zl-secondary:focus-visible,
+.zl-back:focus-visible {
+  outline: 3px solid #ff8fc0;
+  outline-offset: 2px;
+}
+
+.zl-back {
+  margin-top: 4px;
+  color: #6b5f66;
+  font-size: 0.875rem;
+}

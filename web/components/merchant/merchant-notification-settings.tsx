@@ -1,6 +1,6 @@
 "use client";
 
-import { BellRing, Clock3, Download, Radio, Smartphone, Volume2, Vibrate } from "lucide-react";
+import { BellRing, Clock3, Download, MessageCircle, Radio, Smartphone, Volume2, Vibrate } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 
@@ -8,6 +8,7 @@ import { MerchantNotificationTest } from "@/components/merchant/merchant-notific
 import { MerchantOrderScreenCard } from "@/components/merchant/merchant-order-screen";
 import { MERCHANT_ORDER_SOUND_URL, previewMerchantOrderSound } from "@/components/merchant/merchant-order-alert";
 import type { FoodStore } from "@/lib/food-merchant";
+import { lineLinkPath } from "@/lib/line-liff";
 import {
   readMerchantAlertPreferences,
   saveMerchantAlertPreferences,
@@ -142,6 +143,16 @@ export function MerchantNotificationSettings({
       </section>
 
       <MerchantOrderScreenCard onMessage={onMessage} />
+
+      <section className="wm-notification-card" aria-label="รับแจ้งเตือนทาง LINE">
+        <div className="wm-notification-card-head">
+          <span className="wm-notification-card-icon"><MessageCircle size={21} /></span>
+          <span><strong>รับแจ้งเตือนทาง LINE</strong><small>ออเดอร์ใหม่ ลูกค้ายกเลิก และเงินเข้า ส่งถึง LINE ของคุณผ่าน LINE OA ของ ZOKY Merchant · Web Push ยังทำงานตามเดิม</small></span>
+        </div>
+        <a className="wm-secondary wm-full" href={lineLinkPath("merchant")}>
+          <MessageCircle size={18} /> ตั้งค่า LINE
+        </a>
+      </section>
 
       <section className="wm-notification-card" aria-label="ไม่พลาดออเดอร์">
         <div className="wm-notification-card-head">

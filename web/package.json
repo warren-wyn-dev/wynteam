@@ -12,7 +12,7 @@
     "test:account-password": "node --test tests/account-password.test.mjs",
     "test:google-pwa-oauth": "node --test tests/google-pwa-oauth.test.mjs",
     "test:follow": "node --test tests/follow-mutation.test.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run test:account-cache-isolation && npm run test:account-switch && npm run test:app-performance && npm run test:search && npm run test:notifications && npm run test:playwright-gates && npm run test:push-offline-logout && npm run test:push-toggle && npm run test:club-announcements && npm run test:club-chat-actions && npm run test:share-links && npm run test:android-asset-links && npm run test:image-location && npm run test:maps && npm run test:stripe && npm run test:i18n && npm run test:merchant-flutter && npm run build",
+    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run test:account-cache-isolation && npm run test:account-switch && npm run test:app-performance && npm run test:search && npm run test:notifications && npm run test:playwright-gates && npm run test:push-offline-logout && npm run test:push-toggle && npm run test:club-announcements && npm run test:club-chat-actions && npm run test:share-links && npm run test:android-asset-links && npm run test:image-location && npm run test:maps && npm run test:stripe && npm run test:i18n && npm run test:merchant-flutter && npm run test:line && npm run build",
     "test:image-location": "node --test tests/image-location.test.mjs tests/upload-image.test.mjs",
     "test:maps": "node --test tests/maps-rate-limit.test.mjs tests/maps-host-redirect.test.mjs tests/maps-places.test.mjs tests/maps-routing.test.mjs tests/maps-ors.test.mjs tests/maps-big-app-experience.test.mjs tests/maps-saved-places.test.mjs tests/maps-place-photos.test.mjs",
     "test:android-asset-links": "node --test tests/android-asset-links.test.mjs",
@@ -31,11 +31,13 @@
     "test:share-links": "node --test tests/share-links.test.mjs tests/food-share-links.test.mjs",
     "test:food-account": "node --test tests/food-standalone-account.test.mjs tests/supabase-clock-skew-fetch.test.mjs",
     "test:stripe": "node --test tests/stripe-payment-core.test.mjs tests/food-payment-timeout.test.mjs tests/food-first-order-merchant-funded.test.mjs",
+    "test:line": "node --test tests/line-liff.test.mjs",
     "build:merchant-flutter": "bash merchant_flutter/scripts/build_web.sh",
     "test:merchant-flutter": "node --test tests/merchant-auth-return.test.mjs tests/merchant-tool-link.test.mjs tests/merchant-flutter-bridge.test.mjs tests/merchant-flutter-routing.test.mjs tests/merchant-flutter-loader.test.mjs tests/web-font-policy.test.mjs",
     "qa:merchant-flutter": "playwright test --config playwright.merchant-flutter.config.ts"
   },
   "dependencies": {
+    "@line/liff": "2.31.2",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "@tanstack/query-sync-storage-persister": "^5.102.8",
