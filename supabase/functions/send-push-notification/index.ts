@@ -16,6 +16,7 @@ import {
   isRetryableFcmStatus,
   type FcmServiceAccount,
   messageFor,
+  orderNumberInReason,
   pushAppForNotification,
   pushMessageForApp,
   pushPreferenceCategory,
@@ -28,6 +29,14 @@ import {
   type WebhookPayload,
   webPushTopic,
 } from "./_lib.ts";
+import {
+  type LineAudience,
+  lineConfigFor,
+  lineDestination,
+  lineMessagesFor,
+  type LineSendOutcome,
+  sendLinePush,
+} from "./_line.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -53,6 +62,17 @@ async function pushTokensFor(recipientId: string): Promise<unknown[]> {
   });
   if (response.ok) return await response.json();
   return await supabaseRestGet(base);
+}
+
+// ZOKY-LINE-001: the recipient's linked LINE userId for this OA. Links known
+// to have left the OA are skipped; any read failure means no LINE delivery.
+async function lineRecipientFor(recipientId: string, audience: LineAudience): Promise<string | null> {
+  const rows = await supabaseRestGet(
+    `line_links?user_id=eq.${encodeURIComponent(recipientId)}&audience=eq.${audience}` +
+      "&friend_status=neq.not_friend&select=line_user_id",
+  );
+  const id = (rows[0] as { line_user_id?: unknown } | undefined)?.line_user_id;
+  return typeof id === "string" && /^U[0-9a-f]{32}$/.test(id) ? id : null;
 }
 
 async function supabaseRestWrite(
@@ -234,28 +254,31 @@ async function handleWebhook(req: Request): Promise<Response> {
     return new Response("Notification not found", { status: 403 });
   }
 
-  const serviceAccountRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
-  if (!serviceAccountRaw) {
-    return new Response("FCM not configured", { status: 200 });
-  }
-  const serviceAccount: FcmServiceAccount = JSON.parse(serviceAccountRaw);
-
-  const [actorRows, tokenRows, lang, webPolicy] = await Promise.all([
-    row.actor_id
-      ? supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`)
-      : Promise.resolve([]),
-    pushTokensFor(row.recipient_id),
-    recipientLanguage(row.recipient_id),
-    webPushPolicy(row),
-  ]);
   // Send only to the app this notification belongs to (Social, Food or
   // Merchant), so one order event is not repeated in every installed app.
   const app = pushAppForNotification(row);
+  // ZOKY-LINE-001: Food/Merchant notifications also go to a linked LINE OA.
+  const line = lineConfigFor(app, (name) => Deno.env.get(name));
+
+  const serviceAccountRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
+  if (!serviceAccountRaw && !line) {
+    return new Response("FCM not configured", { status: 200 });
+  }
+
+  const [actorRows, tokenRows, lang, webPolicy, lineUserId] = await Promise.all([
+    row.actor_id
+      ? supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`)
+      : Promise.resolve([]),
+    serviceAccountRaw ? pushTokensFor(row.recipient_id) : Promise.resolve([]),
+    recipientLanguage(row.recipient_id),
+    webPushPolicy(row),
+    line ? lineRecipientFor(row.recipient_id, line.audience) : Promise.resolve(null),
+  ]);
   const typedTokens = tokensForApp(
     tokenRows as { id: string; token: string; platform: string; app?: string | null }[],
     app,
   );
-  if (typedTokens.length === 0) {
+  if (typedTokens.length === 0 && !lineUserId) {
     return new Response("No registered devices", { status: 200 });
   }
 
@@ -283,6 +306,32 @@ async function handleWebhook(req: Request): Promise<Response> {
   const { title, body: pushBody } = pushMessageForApp(app, body, actorName);
   const data = buildDataPayload(row);
   const collapseKey = collapseKeyFor(row);
+
+  // LINE follows the same category/Quiet Hours preferences as Web Push and
+  // runs alongside FCM. sendLinePush never throws.
+  const lineOutcome: Promise<LineSendOutcome | null> = line && lineUserId
+    ? webPolicy.allowed
+      ? sendLinePush(
+          fetch,
+          line,
+          lineUserId,
+          lineMessagesFor(title, pushBody, lineDestination(line, orderNumberInReason(row.reason)), lang),
+          row.id,
+        )
+      : Promise.resolve("line_skipped")
+    : Promise.resolve(null);
+  const withLine = async (summary: string) => {
+    const outcome = await lineOutcome;
+    if (outcome && outcome !== "line_sent" && outcome !== "line_skipped") {
+      console.error("send-push-notification LINE delivery:", outcome);
+    }
+    return outcome ? `${summary} ${outcome}` : summary;
+  };
+
+  if (!serviceAccountRaw || typedTokens.length === 0) {
+    return new Response(await withLine("OK sent=0"), { status: 200 });
+  }
+  const serviceAccount: FcmServiceAccount = JSON.parse(serviceAccountRaw);
 
   const accessToken = await fetchFcmAccessToken(serviceAccount);
   const fcmUrl =
@@ -381,7 +430,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     }),
   );
 
-  return new Response(summariseOutcomes(outcomes), { status: 200 });
+  return new Response(await withLine(summariseOutcomes(outcomes)), { status: 200 });
 }
 
 Deno.serve(async (req) => {
