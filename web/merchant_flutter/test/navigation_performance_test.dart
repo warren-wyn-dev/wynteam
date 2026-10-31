@@ -71,6 +71,63 @@ Future<void> unmount(
 }
 
 void main() {
+  testWidgets(
+    'replacement account discards the same-store primary page state',
+    (tester) async {
+      final before = NavigationRepository();
+      await mount(tester, before);
+      final oldScroll = tester.state<ScrollableState>(
+        find.byType(Scrollable).first,
+      );
+      final after = NavigationRepository();
+      await tester.pumpWidget(
+        ZokyApp(
+          home: MerchantHome(repository: after, onSignOut: () async {}),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.state<ScrollableState>(find.byType(Scrollable).first),
+        isNot(same(oldScroll)),
+      );
+      expect(oldScroll.mounted, isFalse);
+      expect(tester.takeException(), isNull);
+      await unmount(tester, after);
+      await before.events.close();
+    },
+  );
+
+  testWidgets('primary tabs retain menu draft and discard it for a new scope', (
+    tester,
+  ) async {
+    final repo = NavigationRepository();
+    repo.storeRows.add({'id': 'store-2', 'name': 'ร้านสอง'});
+    await mount(tester, repo);
+    await navigate(tester, 2);
+    await tester.enterText(find.byType(TextField), 'กะเพรา');
+    await tester.pumpAndSettle();
+    final field = tester.state<EditableTextState>(find.byType(EditableText));
+    await navigate(tester, 0);
+    expect(find.byType(TextField), findsNothing);
+    await navigate(tester, 2);
+    expect(find.text('กะเพรา'), findsOneWidget);
+    expect(
+      tester.state<EditableTextState>(find.byType(EditableText)),
+      same(field),
+    );
+    final dynamic state = tester.state(find.byType(MerchantHome));
+    await state.c.selectStore('store-2');
+    await tester.pumpAndSettle();
+    expect(find.text('กะเพรา'), findsNothing);
+    expect(
+      tester.state<EditableTextState>(find.byType(EditableText)),
+      isNot(same(field)),
+    );
+    expect(repo.menuReads, 2);
+    expect(tester.takeException(), isNull);
+    await unmount(tester, repo);
+  });
+
   testWidgets('pending reports do not display final zero sales or block menu', (
     tester,
   ) async {

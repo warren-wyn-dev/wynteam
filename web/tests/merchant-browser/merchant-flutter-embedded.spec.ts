@@ -119,6 +119,81 @@ test("authenticated wrapper mounts one removable view and exposes a token-free b
   expect(exceptions).toEqual([]);
 });
 
+test("Flutter keeps edge swipes and document scrolling within its own view", async ({ page }, testInfo) => {
+  await signedIn(page); await fakeEngine(page);
+  await page.goto("/merchant/flutter");
+  const view = page.locator("[data-synthetic-flutter-view]");
+  await expect(view).toHaveCount(1);
+  await expect(page.locator("html")).toHaveCSS("overflow-y", "hidden");
+  await expect(page.locator("body")).toHaveCSS("overscroll-behavior-y", "none");
+  await page.screenshot({ path: testInfo.outputPath("merchant-viewport-contained.png"), fullPage: true });
+  const backCalls = await view.evaluate((element) => {
+    const original = window.history.back;
+    let calls = 0;
+    window.history.back = () => { calls++; };
+    try {
+      const touch = (clientX: number) => new Touch({ identifier: 1, target: element, clientX, clientY: 200 });
+      element.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [touch(8)] }));
+      element.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, touches: [touch(130)] }));
+      element.dispatchEvent(new TouchEvent("touchend", { bubbles: true, touches: [], changedTouches: [touch(130)] }));
+      return calls;
+    } finally {
+      window.history.back = original;
+    }
+  });
+  expect(backCalls).toBe(0);
+  // Guests must regain normal document scrolling after the Flutter host leaves.
+  await page.evaluate((slot) => {
+    sessionStorage.setItem("zoky-fixture-signout", "1");
+    localStorage.removeItem(slot);
+  }, slot);
+  await page.goto("/merchant/login");
+  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบร้านค้าของคุณ" })).toBeVisible();
+  await expect(page.locator("[data-merchant-flutter-host]")).toHaveCount(0);
+  await expect(page.locator("body")).not.toHaveCSS("overflow-y", "hidden");
+  await expect(page.locator("body")).not.toHaveCSS("overscroll-behavior-y", "none");
+  await page.screenshot({ path: testInfo.outputPath("merchant-guest-scroll-restored.png"), fullPage: true });
+});
+
+test("an authorized engine starts while its bridge chunk is still downloading", async ({ page }) => {
+  await signedIn(page);
+  await fakeEngine(page);
+  let bridgeChunks = 0;
+  let releaseBridge!: () => void;
+  const bridgePending = new Promise<void>(resolve => { releaseBridge = resolve; });
+  // Turbopack's named async-loader stub is an initial hydration prerequisite.
+  // Release that stub, but hold its declared payload chunks to delay the actual
+  // bridge download without blocking the independent authorized parent itself.
+  await page.route("**/*merchant-flutter-authenticated*.js", async route => {
+    const response = await route.fetch();
+    const source = await response.text();
+    const chunks = [...source.matchAll(/"(static\/chunks\/[^"\n]+\.js)"/g)].map(match => match[1]);
+    expect(chunks.length).toBeGreaterThan(0);
+    for (const chunk of chunks) {
+      await page.route(`**/_next/${chunk}`, async payload => {
+        bridgeChunks++;
+        await bridgePending;
+        await payload.continue();
+      });
+    }
+    await route.fulfill({ response, body: source });
+  });
+  try {
+    await page.goto("/merchant/flutter", { waitUntil: "domcontentloaded" });
+    await expect.poll(() => bridgeChunks).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => {
+      const browser = window as unknown as { __merchantFixture?: { initialized: unknown[] } };
+      return browser.__merchantFixture?.initialized.length ?? 0;
+    })).toBe(1);
+    expect(await page.evaluate(() => "zokyMerchant" in window)).toBe(false);
+    await expect(page.locator("[data-synthetic-flutter-view]")).toHaveCount(0);
+  } finally {
+    releaseBridge();
+  }
+  await expect(page.locator("[data-synthetic-flutter-view]")).toHaveCount(1);
+  await expect(page.getByRole("status")).toHaveCount(0);
+});
+
 test("bundle load failure shows recovery and a link to the working legacy route", async ({ page }, testInfo) => {
   await signedIn(page);
   await page.route("**/merchant-flutter/flutter_bootstrap.js", (route) => route.fulfill({ status: 404, contentType: "text/plain", body: "missing fixture bundle" }));
