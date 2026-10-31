@@ -46,3 +46,5 @@ Functions are inert without secrets. Table rollback (destructive, Founder approv
 ## Founder real-account acceptance — 2026-11-01 02:04 (Asia/Bangkok)
 
 Founder set `LINE_NOTIFICATIONS_ENABLED=1`, linked the Merchant store account at `/line?mode=link&oa=merchant`, and sent the Merchant notification test. The message "ทดสอบการแจ้งเตือน" with the "เปิดดู" button arrived in the Zoky Merchant OA chat (Founder screenshot). Merchant LINE delivery: **PASS** end to end on production. Customer (food) link/test not yet performed.
+
+Customer (food) link: first attempt returned `invalid_line_token` because `LINE_FOOD_LOGIN_CHANNEL_ID` did not match the channel holding the food LIFF (Provider "Zoky • สั่งอาหาร" has both a LINE Login and a LINE MINI App channel named "Zoky"). Founder corrected the secret to that channel's ID; link then succeeded (no redeploy). Customer LINE message delivery on a real order not yet observed.
