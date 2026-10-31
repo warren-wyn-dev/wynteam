@@ -27,3 +27,10 @@ LINE delivery is off: `LINE_NOTIFICATIONS_ENABLED` and LINE secrets are not set;
 ## Rollback
 
 Functions are inert without secrets. Table rollback (destructive, Founder approval): `supabase/rollbacks/20261031120000_zoky_line_links_rollback.sql`.
+
+## Follow-up 2026-11-01 — Founder decisions and release plan
+
+- Founder configured both LINE Providers ("Zoky • สั่งอาหาร" for customers, "Zoky Merchant OA" for stores), the Supabase LINE secrets (per-provider Login channel IDs, #1305 / `line-link` redeployed), both webhooks (Verify passed) and the Vercel `NEXT_PUBLIC_LIFF_ID_*` values. `LINE_NOTIFICATIONS_ENABLED` is still unset.
+- Founder chose **ข**: deploy `send-push-notification` as live `741c6717` + LINE only. Source `release/zoky-line-push-20261101` @ `47a58c8a` (deno check + 73 tests pass); deployed by `zoky-line-push-deploy.yml` (main-only, typed confirmation, production review, path allowlist against `741c6717`).
+- Founder chose to **cancel** the pending Merchant staging run 41154897642 (`94c8d62`) and fold it into the LINE web release. Candidate `release/zoky-line-web-20261101` @ `7543acce` = `94c8d62` + web part of #1304 only. History is linear (`93e6954` ⊂ `ddc1fc2` ⊂ `94c8d62`) and everything after `93e6954` is Merchant-scoped, so one artifact serves all customer hosts. Local verification: lint, typecheck, `next build`, line 8/8, i18n 48/48, merchant-flutter 101/101, notifications 60/60, push-toggle 35/35, share-links 19/19.
+- `zoky-web-thai-mobile-release.yml` retargeted to that candidate (confirmation `ZOKY_LINE_WEB_20261101`, expires 2026-11-14), with per-host drift check (Merchant `dpl_HRTFBBHb…`, others `dpl_2muRGSzQ…`) and `/line` added to staged and public smoke checks.
