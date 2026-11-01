@@ -93,7 +93,14 @@ export function lineEventFor(app: LineAudience, text: string): LineEvent {
  * card was already sent. When the order cannot be read, the message is sent:
  * never silently drop an order.
  */
-export function shouldSendLine(app: LineAudience, event: LineEvent, order: LineOrder | null): boolean {
+export function shouldSendLine(
+  app: LineAudience,
+  event: LineEvent,
+  order: LineOrder | null,
+  earlierReminder = false,
+): boolean {
+  // Web Push repeats the reminder up to five times; LINE sends only the first.
+  if (app === "merchant" && event.kind === "reminder" && earlierReminder) return false;
   if (app !== "merchant" || !order) return true;
   if (event.stage === "created") {
     const knownUnpaidTransfer = order.paymentMethod !== "cod" && order.paymentMethod !== null &&
@@ -132,9 +139,9 @@ function headline(event: LineEvent, order: LineOrder | null, lang: Lang): string
     case "new_order":
       if (cod) return en ? "🆕 New order · Cash on delivery" : "🆕 ออเดอร์ใหม่ · เก็บเงินปลายทาง";
       if (event.stage === "slip" || (event.stage !== "paid" && order?.paymentStatus === "submitted")) {
-        return en ? "🆕 New order · Check the slip, then accept" : "🆕 ออเดอร์ใหม่ · ตรวจสลิปแล้วกดรับ";
+        return en ? "🆕 New order · Check slip" : "🆕 ออเดอร์ใหม่ · ตรวจสลิป";
       }
-      return en ? "🆕 New order · Paid, ready to accept" : "🆕 ออเดอร์ใหม่ · ชำระแล้ว พร้อมรับ";
+      return en ? "🆕 New order · Paid" : "🆕 ออเดอร์ใหม่ · ชำระแล้ว";
     case "reminder": {
       const slip = order?.paymentStatus === "submitted" ? (en ? " · check the slip" : " · รอตรวจสลิป") : "";
       return event.minutes != null
@@ -262,7 +269,7 @@ export function lineCardMessages(
     altText,
     contents: {
       type: "bubble",
-      size: "kilo",
+      size: "mega",
       header: {
         type: "box",
         layout: "vertical",

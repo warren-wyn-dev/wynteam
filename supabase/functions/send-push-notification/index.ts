@@ -96,6 +96,18 @@ async function lineOrderFor(orderNumber: string): Promise<LineOrder | null> {
   return null;
 }
 
+// LINE gets only the first "รอรับ" reminder of an order; Web Push keeps all.
+// Any read failure counts as "no earlier reminder" so the alert still goes out.
+async function earlierReminderFor(row: NotificationRow, orderNumber: string): Promise<boolean> {
+  const prefix = `WYNOS Merchant · ออเดอร์ #${orderNumber} รอรับ `;
+  const rows = await supabaseRestGet(
+    `notifications?recipient_id=eq.${encodeURIComponent(row.recipient_id)}` +
+      `&reason=like.${encodeURIComponent(`${prefix}*`)}` +
+      `&id=neq.${encodeURIComponent(row.id)}&select=id&limit=1`,
+  );
+  return rows.length > 0;
+}
+
 async function deliverLine(
   line: LineConfig,
   lineUserId: string,
@@ -107,7 +119,10 @@ async function deliverLine(
     const event = lineEventFor(line.audience, text);
     const orderNumber = event.orderNumber ?? orderNumberInReason(row.reason);
     const order = orderNumber ? await lineOrderFor(orderNumber) : null;
-    if (!shouldSendLine(line.audience, event, order)) return "line_filtered";
+    const earlier = event.kind === "reminder" && orderNumber
+      ? await earlierReminderFor(row, orderNumber)
+      : false;
+    if (!shouldSendLine(line.audience, event, order, earlier)) return "line_filtered";
     const url = lineDestination(line, orderNumber);
     return await sendLinePush(fetch, line, lineUserId, lineCardMessages(line.audience, event, order, url, lang), row.id);
   } catch {
