@@ -112,3 +112,10 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Scope: readiness checklist, store status sheet and header bell stay in Flutter; full store editor (images, profile, delivery, GPS pins with service-area check, temporary closure, scheduled orders, tax invoice, publish with readiness gate). Bridge validates every field (manage role) and reads it back.
 - Live `dpl_2iVwx34njwqKa4biniz612RmynvQ`; `/merchant/flutter` 200, editor strings present, engine cached (`2ae0779baf21c297069c`), no runtime errors.
 - Rollback: `dpl_9YrwL9aoUMhMkreXBJoCnzyyCr4r`. Follow-up option: drag-to-place map pin.
+
+## 2026-11-01 — Merchant map pin picker
+
+- Candidate `04234e53` (base `783e99d2`), PR #1316, run 41334363392; Founder approved both reviews.
+- Scope: "เลือกบนแผนที่" for store and pickup pins; host opens the shared ZOKY map picker (search, drag pin, GPS) over the Flutter view via bridge `pickMapLocation` (manage role, coordinates validated, no write until บันทึกข้อมูลร้าน).
+- Live `dpl_AZHBwtFSUY5AJZnneGRYRc7YFRaJ`; `/merchant/flutter` 200, new button in `main.dart.js`, engine cached, no runtime errors.
+- Rollback: `dpl_2iVwx34njwqKa4biniz612RmynvQ`.

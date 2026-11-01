@@ -1,10 +1,12 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-01: drag the store and pickup pins on the shared ZOKY map.
-# The host page opens the existing map picker over the Flutter view via a new
-# bridge method (manage role, both coordinates validated, nothing saved until
-# บันทึกข้อมูลร้าน). Base is the live store editor release (783e99d2 on
-# dpl_2iVwx34njwqKa4biniz612RmynvQ). Production reviewers and
+# Founder 2026-11-01 ("ให้มันเร็วๆมากๆ"): earlier engine load for returning
+# merchants, store reads overlapped with the access revalidation (nothing
+# published unless the store is still listed; every bridge read keeps its
+# server-side check), and an instant reopen from a per-account store snapshot
+# (no orders or customer data; cleared on sign-out; read-only until live).
+# Base is the live map pin release (04234e53 on
+# dpl_AZHBwtFSUY5AJZnneGRYRc7YFRaJ). Production reviewers and
 # stage-before-promotion remain required.
 on:
   workflow_dispatch:
@@ -14,7 +16,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_MERCHANT_MAP_PIN_20261101]
+        options: [CANCEL, ZOKY_MERCHANT_FAST_20261101]
 
 permissions:
   contents: read
@@ -27,19 +29,18 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: 04234e53ba59e01fade6789db023d712dc8960f2
-  PRODUCTION_BASE_SHA: 783e99d22bf61150078d6e8c0aa52cd9aa2ff018
-  # Live on every customer host since the 2026-11-01 store editor release (783e99d2).
-  ROLLBACK_DEPLOYMENT: dpl_2iVwx34njwqKa4biniz612RmynvQ
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_2iVwx34njwqKa4biniz612RmynvQ
+  RELEASE_SHA: 1dbe68ae5265cdd1436b66e697adb67f6427827c
+  PRODUCTION_BASE_SHA: 04234e53ba59e01fade6789db023d712dc8960f2
+  # Live on every customer host since the 2026-11-01 map pin release (04234e53).
+  ROLLBACK_DEPLOYMENT: dpl_AZHBwtFSUY5AJZnneGRYRc7YFRaJ
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_AZHBwtFSUY5AJZnneGRYRc7YFRaJ
   ALLOWED_PATHS: >-
+    web/components/merchant/merchant-flutter-app.tsx
     web/components/merchant/merchant-flutter-authenticated.tsx
-    web/lib/i18n/en.ts
     web/lib/merchant-flutter-bridge.ts
+    web/merchant_flutter/lib/data/merchant_controller.dart
     web/merchant_flutter/lib/data/merchant_repository.dart
-    web/merchant_flutter/lib/screens/merchant_home.dart
-    web/merchant_flutter/lib/screens/store_profile_panel.dart
-    web/merchant_flutter/test/merchant_test.dart
+    web/merchant_flutter/test/controller_performance_test.dart
     web/tests/merchant-flutter-bridge.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
@@ -47,7 +48,7 @@ env:
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_MAP_PIN_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_FAST_20261101'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -82,7 +83,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_MAP_PIN_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_FAST_20261101'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -140,7 +141,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_MAP_PIN_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_FAST_20261101'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
