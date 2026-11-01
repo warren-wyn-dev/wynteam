@@ -56,3 +56,8 @@ Founder-approved redesign (#1307): Flex cards with status colour, order details 
 ## Merchant order tabs — prepared 2026-11-01
 
 Founder request: order tabs "ใหม่ · กำลังเตรียม · จัดส่ง · เสร็จ · ยกเลิก". Candidate `release/zoky-line-web-20261101` @ `98ec4b2b` = live `7543acce` + tab UI (`orderTabs`), bridge `delivering` tab reading `ready_for_delivery` + `out_for_delivery` (own-key allowlist; `constructor`/`__proto__`/unknown rejected), updated browser fixtures. Local verification: Flutter analyze clean, 96 Flutter tests, release web build, Next build, bridge 49/49, Merchant Node 101/101, Merchant browser QA 48/48 (Chromium mobile + desktop, incl. delivery and pickup flows through the "จัดส่ง" tab). LINE v2 push fixes (#1308) dispatched as run 41272674550.
+
+## Production — 2026-11-01 (Asia/Bangkok 11:20–11:36)
+
+- LINE push fixes (#1308: slip card, one orange reminder, fulfilment/payment line, one-line headlines): run [41272674550](https://github.com/warren-wyn-dev/wynteam/actions/runs/41272674550), success 04:20 UTC, source `release/zoky-line-push-20261101` @ `8725ac45`.
+- Merchant order tabs (#1309): run [41273249812](https://github.com/warren-wyn-dev/wynteam/actions/runs/41273249812) guard, stage and promote all succeeded (promoted 04:36 UTC) after both Founder approvals. Customer hosts now serve `dpl_q64ggYo5yRQFMtwBCd5bG4HfEQDK` (source `98ec4b2b`). Independent check: Merchant root/flutter/`/line`, Food root/`/line`, ZOKY and WYNOS roots → 200; live Flutter build `406687c9aff379f75da3` contains the `delivering` tab; Vercel runtime errors (1h): none. Rollback: Instant Rollback to `dpl_Gd5Ydswjt3YS3umxkxpGP4SmQhKT`.
