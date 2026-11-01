@@ -117,7 +117,7 @@ type Lang = "th" | "en";
 
 const COLORS: Record<LineKind, string> = {
   new_order: "#E2246F",
-  reminder: "#E2246F",
+  reminder: "#F57C00",
   preparing: "#E2246F",
   paid: "#0A9F55",
   ready_pickup: "#0A9F55",
@@ -188,6 +188,28 @@ function detailLine(event: LineEvent): string | null {
   return text && text.length > 2 ? text : null;
 }
 
+/** "🛵 ส่งถึงบ้าน · ชำระแล้ว" — how the food leaves the store and how it is paid. */
+export function fulfilmentLine(order: LineOrder | null, lang: Lang): string | null {
+  if (!order) return null;
+  const en = lang === "en";
+  const how = order.fulfillmentType === "pickup"
+    ? (en ? "🛍️ Pickup at store" : "🛍️ รับที่ร้าน")
+    : order.fulfillmentType === "delivery"
+    ? (en ? "🛵 Delivery" : "🛵 ส่งถึงบ้าน")
+    : null;
+  const pay = order.paymentMethod === "cod"
+    ? (en ? "💵 Cash on delivery" : "💵 เก็บเงินปลายทาง")
+    : order.paymentStatus === "paid"
+    ? (en ? "Paid" : "ชำระแล้ว")
+    : order.paymentStatus === "submitted"
+    ? (en ? "Slip to check" : "รอตรวจสลิป")
+    : order.paymentStatus === "pending"
+    ? (en ? "Not paid yet" : "ยังไม่ชำระ")
+    : null;
+  const parts = [how, pay].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 function clip(text: string, max: number): string {
   const chars = Array.from(text.replace(/\s+/g, " ").trim());
   return chars.length <= max ? chars.join("") : `${chars.slice(0, max - 1).join("")}…`;
@@ -229,6 +251,11 @@ export function lineCardMessages(
   const orderLine = [orderNumber ? `#${orderNumber}` : null, order?.storeName ? clip(order.storeName, 40) : null]
     .filter(Boolean).join(" · ");
   if (orderLine) body.push(text(orderLine, { weight: "bold", size: "md", color: "#1F1A1D" }));
+
+  const how = app === "merchant" && ["new_order", "reminder", "cancel_request"].includes(event.kind)
+    ? fulfilmentLine(order, lang)
+    : null;
+  if (how) body.push(text(how, { size: "sm", color: "#3B2F35", weight: "bold" }));
 
   const detail = detailLine(event);
   if (detail) body.push(text(clip(detail, 160), { size: "sm", color: "#6B5F66" }));
