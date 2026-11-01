@@ -36,15 +36,14 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   await page.locator('flutter-view').waitFor({timeout:45000});
   await expect(page.getByText('ร้าน QA',{exact:true}).first()).toBeVisible({timeout:30000});
   await page.getByRole('tab',{name:'ออเดอร์',exact:true}).or(page.getByRole('button',{name:'ออเดอร์',exact:true})).first().click();
-  await page.getByRole('button',{name:'ตรวจการชำระเงิน',exact:true}).click();
+  // One action checks the payment and accepts with the ETA chosen on the card.
+  await page.getByRole('button',{name:manualPayment ? 'ตรวจเงินเข้า · รับออเดอร์' : 'ตรวจสลิป · รับออเดอร์',exact:true}).click();
   if (manualPayment) {
     await expect(page.getByRole('button',{name:'ยืนยันว่ารับเงินแล้ว',exact:true})).toBeDisabled();
     await page.getByRole('checkbox',{name:'ตรวจสอบแล้วว่าได้รับเงินครบตามยอด',exact:true}).click();
   }
   await expect(page.getByRole('button',{name:'ยืนยันว่ารับเงินแล้ว',exact:true})).toBeEnabled();
   await page.getByRole('button',{name:'ยืนยันว่ารับเงินแล้ว',exact:true}).click();
-  await page.getByRole('button',{name:'รับออเดอร์',exact:true}).click();
-  await page.getByRole('button',{name:'ยืนยัน',exact:true}).click();
   await page.getByRole('checkbox',{name:'กำลังเตรียม',exact:true}).click();
   await page.getByRole('button',{name:'อาหารพร้อมแล้ว',exact:true}).click();
   await page.getByRole('button',{name:'ยืนยัน',exact:true}).click();

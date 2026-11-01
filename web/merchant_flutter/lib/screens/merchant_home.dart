@@ -42,6 +42,8 @@ class MerchantHome extends StatefulWidget {
 class _MerchantHomeState extends State<MerchantHome>
     with WidgetsBindingObserver {
   late MerchantController c;
+  /// Preparation time picked on each pending order card, by order id.
+  final Map<String, int> _etaChoice = {};
   Timer? timer;
   StreamSubscription<void>? orderSubscription;
   String? subscribedStore;
@@ -1775,252 +1777,389 @@ class _MerchantHomeState extends State<MerchantHome>
       style: TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
     ),
   ];
+  /// "2 นาทีที่แล้ว" for recent orders; older ones keep the full date.
+  String agoLabel(dynamic value) {
+    final at = DateTime.tryParse('$value')?.toLocal();
+    if (at == null) return dateLabel(value);
+    final minutes = DateTime.now().difference(at).inMinutes;
+    if (minutes < 1) return 'เมื่อสักครู่';
+    if (minutes < 60) return '$minutes นาทีที่แล้ว';
+    if (minutes < 360) return '${minutes ~/ 60} ชม.ที่แล้ว';
+    return dateLabel(value);
+  }
+
+  int defaultEta(Json o) =>
+      (num.tryParse(
+                '${o['eta_minutes'] ?? c.store?['prep_time_max_minutes'] ?? 30}',
+              )?.toInt() ??
+              30)
+          .clamp(1, 240);
+
+  /// Payment still needs the store's check before the order can be accepted.
+  bool needsPaymentReview(Json o) =>
+      o['payment_method'] != 'cod' &&
+      o['payment_status'] != 'paid' &&
+      !stripeWaiting(o) &&
+      (o['payment_slip_path'] != null || o['payment_status'] == 'pending');
+
+  bool stripeWaiting(Json o) =>
+      o['payment_method'] != 'cod' &&
+      o['payment_status'] != 'paid' &&
+      (o['payment_provider'] == 'stripe' ||
+          (o['stripe_checkout_session_id'] != null &&
+              o['payment_slip_path'] == null));
+
+  Widget pill(String text, Color fg, Color bg) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w600),
+    ),
+  );
+
+  Widget orderPill(Json o) {
+    final status = '${o['status']}';
+    if (status == 'pending_acceptance') {
+      if (o['payment_method'] == 'cod') {
+        return pill('เก็บเงินปลายทาง', const Color(0xFF7A4B00), const Color(0xFFFFF1DC));
+      }
+      if (o['payment_status'] == 'paid') {
+        return pill('ชำระแล้ว', const Color(0xFF0A6B3B), const Color(0xFFEAF8F0));
+      }
+      if (o['payment_status'] == 'issue') {
+        return pill('สลิปมีปัญหา', const Color(0xFFB0174F), brandSoft);
+      }
+      return pill(
+        stripeWaiting(o) ? 'รอยืนยันชำระ' : 'ตรวจสลิป',
+        const Color(0xFF7A4B00),
+        const Color(0xFFFFF1DC),
+      );
+    }
+    if (status == 'delivered') {
+      return pill(orderStatusLabel(o), const Color(0xFF0A6B3B), const Color(0xFFEAF8F0));
+    }
+    if (status == 'cancelled') {
+      return pill(orderStatusLabel(o), const Color(0xFF5C5157), const Color(0xFFF1EDEF));
+    }
+    if (status == 'preparing' && o['eta_minutes'] != null) {
+      return pill('ทำ ${o['eta_minutes']} นาที', const Color(0xFF9C1149), brandSoft);
+    }
+    return pill(orderStatusLabel(o), const Color(0xFF9C1149), brandSoft);
+  }
+
   Widget orderCard(Json o) {
     final status = o['status'] as String;
     final next = orderNextStatus(o);
+    final pickup = o['fulfillment_type'] == 'pickup';
     // Collecting a pickup order is an order-desk step, not a delivery one.
-    final allowed =
-        status == 'ready_for_delivery' && o['fulfillment_type'] != 'pickup'
+    final allowed = status == 'ready_for_delivery' && !pickup
         ? c.canDelivery
         : c.canOrders;
-    return box(
-      Column(
+    final id = '${o['id']}';
+    final eta = _etaChoice[id] ?? defaultEta(o);
+    final etaOptions = ({15, 30, 45, defaultEta(o)}.toList()..sort());
+    final items = (o['food_order_items'] as List? ?? []);
+    const muted = Color(0xFF6B5F66);
+    final canAccept = status == 'pending_acceptance' && c.writable && c.canOrders;
+    final discount =
+        (num.tryParse('${o['campaign_discount']}') ?? 0) +
+        (num.tryParse('${o['delivery_discount']}') ?? 0);
+
+    Widget primary(String label, VoidCallback? onPressed, {Color? color}) =>
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: color,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            onPressed: onPressed,
+            child: Text(label),
+          ),
+        );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEEE7EB)),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '#${o['order_number']}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '#${o['order_number']}',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${agoLabel(o['created_at'])} · ${pickup ? '🛍️ รับที่ร้าน' : '🛵 ส่งถึงบ้าน'}'
+                      '${o['payment_method'] == 'cod' ? ' · 💵 เก็บเงินปลายทาง' : ''}',
+                      style: const TextStyle(color: muted, fontSize: 13),
+                    ),
+                  ],
                 ),
               ),
-              Chip(
-                label: Text(orderStatusLabel(o)),
-                backgroundColor: status == 'delivered'
-                    ? const Color(0xFFE9F7EF)
-                    : brandSoft,
-                labelStyle: TextStyle(
-                  color: status == 'delivered' ? success : brand,
-                  fontWeight: FontWeight.w600,
-                ),
-                side: BorderSide.none,
-              ),
+              orderPill(o),
             ],
           ),
-          Text(
-            '${o['recipient_name']} • ${dateLabel(o['created_at'])}',
-            style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
-          ),
-          Chip(
-            label: Text(
-              o['fulfillment_type'] == 'pickup' ? 'รับเอง' : 'ส่งเอง',
-            ),
-          ),
-          if (o['payment_method'] == 'cod')
-            const Chip(label: Text('เก็บเงินปลายทาง')),
-          if (o['fulfillment_type'] == 'pickup') ...[
-            Text('เวลานัดรับ: ${dateLabel(o['pickup_at'])}'),
-            Text('รหัสรับอาหาร: ${o['pickup_code'] ?? '—'}'),
-          ],
-          if (o['cancel_requested_at'] != null) ...[
-            const Text(
-              'ลูกค้าขอยกเลิก',
-              style: TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(o['cancel_request_note'] ?? ''),
-            Wrap(
-              children: [
-                TextButton(
-                  onPressed: c.writable && c.canOrders
-                      ? () => resolveCancel(o, false)
-                      : null,
-                  child: const Text('ปฏิเสธคำขอยกเลิก'),
-                ),
-                TextButton(
-                  onPressed: c.writable && c.canOrders
-                      ? () => resolveCancel(o, true)
-                      : null,
-                  child: const Text('อนุมัติคำขอยกเลิก'),
-                ),
-              ],
+          if (pickup) ...[
+            const SizedBox(height: 8),
+            Text(
+              'นัดรับ ${dateLabel(o['pickup_at'])} · รหัส ${o['pickup_code'] ?? '—'}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ],
-          if (o['scheduled_for'] != null)
+          if (o['scheduled_for'] != null) ...[
+            const SizedBox(height: 6),
             Text(
               'นัดส่ง: ${dateLabel(o['scheduled_for'])}',
-              style: const TextStyle(color: brand),
+              style: const TextStyle(color: brand, fontWeight: FontWeight.w600),
             ),
-          const Divider(height: 28),
-          for (final item in (o['food_order_items'] as List? ?? []))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+          ],
+          if (o['cancel_requested_at'] != null)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${item['item_name']} × ${item['quantity']}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  const Text(
+                    'ลูกค้าขอยกเลิก',
+                    style: TextStyle(color: Color(0xFF8A4A00), fontWeight: FontWeight.bold),
+                  ),
+                  if ('${o['cancel_request_note'] ?? ''}'.isNotEmpty)
+                    Text('${o['cancel_request_note']}'),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      TextButton(
+                        onPressed: c.writable && c.canOrders ? () => resolveCancel(o, false) : null,
+                        child: const Text('ปฏิเสธคำขอยกเลิก'),
+                      ),
+                      TextButton(
+                        onPressed: c.writable && c.canOrders ? () => resolveCancel(o, true) : null,
+                        child: const Text('อนุมัติคำขอยกเลิก'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
+          for (final item in items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${item['quantity']}× ${item['item_name']}',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      if (num.tryParse('${item['unit_price']}') != null)
+                        Text(
+                          money((num.tryParse('${item['unit_price']}') ?? 0) *
+                              (num.tryParse('${item['quantity']}') ?? 1)),
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                    ],
                   ),
                   if (item['selected_options'] is List &&
                       (item['selected_options'] as List).isNotEmpty)
                     Text(
                       optionLabel(item['selected_options'] as List),
-                      style: const TextStyle(
-                        color: Color(0xFF6B6B76),
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: muted, fontSize: 13),
                     ),
                   if ((item['item_note'] ?? '').toString().isNotEmpty)
                     Text(
                       'หมายเหตุเมนู: ${item['item_note']}',
-                      style: const TextStyle(color: Color(0xFFAD7016)),
+                      style: const TextStyle(color: Color(0xFF8A4A00), fontSize: 13),
                     ),
                 ],
               ),
             ),
           if ((o['customer_note'] ?? '').toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 4, bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Text(
                 'หมายเหตุลูกค้า: ${o['customer_note']}',
-                style: const TextStyle(color: Color(0xFFAD7016)),
+                style: const TextStyle(color: Color(0xFF6A3A00)),
               ),
             ),
-          Text(
-            paymentStatuses[o['payment_status']] ?? o['payment_status'],
-            style: TextStyle(
-              color: o['payment_status'] == 'paid'
-                  ? success
-                  : Colors.orange.shade800,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          if (!['delivered', 'cancelled'].contains(status) &&
-              o['payment_method'] != 'cod' &&
-              o['payment_status'] != 'paid')
-            if (o['payment_provider'] == 'stripe' ||
-                (o['stripe_checkout_session_id'] != null &&
-                    o['payment_slip_path'] == null))
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'รอระบบยืนยันการชำระเงินอัตโนมัติ',
-                  style: TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
-                ),
-              )
-            else if (o['payment_slip_path'] != null ||
-                o['payment_status'] == 'pending')
-              TextButton(
-                onPressed: c.writable && c.canOrders
-                    ? () => reviewPayment(o)
-                    : null,
-                child: const Text('ตรวจการชำระเงิน'),
-              ),
-          if (o['payment_slip_path'] != null && o['payment_status'] == 'paid')
-            TextButton(
-              onPressed: () => showEvidence(o, 'slip'),
-              child: const Text('ดูสลิปการชำระเงิน'),
-            ),
-
-          const SizedBox(height: 12),
-          if (o['fulfillment_type'] != 'pickup')
-            Text('จัดส่ง: ${o['shipping_address']}'),
-          TextButton.icon(
-            onPressed: () async {
-              await Clipboard.setData(
-                ClipboardData(text: '${o['recipient_phone']}'),
-              );
-              notice('คัดลอกเบอร์โทรแล้ว');
-            },
-            icon: const Icon(Icons.copy_outlined, size: 16),
-            label: Text('${o['recipient_phone']}'),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'อาหาร ${money(o['subtotal'])} • ค่าส่ง ${money(o['delivery_fee'])}',
-            style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
-          ),
-          if ((num.tryParse('${o['campaign_discount']}') ?? 0) +
-                  (num.tryParse('${o['delivery_discount']}') ?? 0) >
-              0)
+          const Divider(height: 24, color: Color(0xFFF1EBEE)),
+          if (!pickup)
             Text(
-              'ส่วนลด ${money((num.tryParse('${o['campaign_discount']}') ?? 0) + (num.tryParse('${o['delivery_discount']}') ?? 0))}',
-              style: const TextStyle(fontSize: 12, color: brand),
+              '📍 ${o['shipping_address']}',
+              style: const TextStyle(fontSize: 14),
             ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 20,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
             children: [
+              TextButton.icon(
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: '${o['recipient_phone']}'));
+                  notice('คัดลอกเบอร์โทรแล้ว');
+                },
+                icon: const Icon(Icons.copy_outlined, size: 16),
+                label: Text('${o['recipient_name']} · ${o['recipient_phone']}'),
+              ),
+            ],
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Text(
+                  'อาหาร ${money(o['subtotal'])} · ค่าส่ง ${money(o['delivery_fee'])}'
+                  '${discount > 0 ? ' · ส่วนลด ${money(discount)}' : ''}',
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
+              ),
               Text(
                 money(o['total']),
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: ink,
-                ),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: ink),
               ),
-              if (next != null)
-                FilledButton(
-                  onPressed:
-                      c.writable &&
-                          allowed &&
-                          (status != 'pending_acceptance' ||
-                              o['payment_status'] == 'paid' ||
-                              o['payment_method'] == 'cod')
-                      ? () => advance(o, next)
-                      : null,
-                  child: Text(orderNextAction(o)!),
+            ],
+          ),
+          if (status == 'pending_acceptance' && !stripeWaiting(o)) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('พร้อมใน', style: TextStyle(color: muted)),
+                for (final minutes in etaOptions)
+                  ChoiceChip(
+                    label: Text('$minutes นาที'),
+                    selected: eta == minutes,
+                    onSelected: canAccept
+                        ? (_) => setState(() => _etaChoice[id] = minutes)
+                        : null,
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (status == 'pending_acceptance')
+            if (stripeWaiting(o))
+              primary('รอระบบยืนยันการชำระเงินอัตโนมัติ', null)
+            else if (needsPaymentReview(o))
+              primary(
+                o['payment_slip_path'] != null
+                    ? 'ตรวจสลิป · รับออเดอร์'
+                    : 'ตรวจเงินเข้า · รับออเดอร์',
+                canAccept ? () => reviewAndAccept(o, eta) : null,
+              )
+            else
+              primary(
+                'รับออเดอร์ · $eta นาที',
+                canAccept && (o['payment_status'] == 'paid' || o['payment_method'] == 'cod')
+                    ? () => accept(o, eta)
+                    : null,
+              )
+          else if (status == 'out_for_delivery')
+            primary(
+              'แนบรูปและยืนยันส่งสำเร็จ',
+              c.writable && c.canDelivery ? () => finishDelivery(o) : null,
+              color: success,
+            )
+          else if (next != null)
+            primary(
+              orderNextAction(o)!,
+              c.writable && allowed ? () => advance(o, next) : null,
+              color: ink,
+            ),
+          Wrap(
+            spacing: 4,
+            children: [
+              if (o['payment_slip_path'] != null &&
+                  (o['payment_status'] == 'paid' || status != 'pending_acceptance'))
+                TextButton(
+                  onPressed: () => showEvidence(o, 'slip'),
+                  child: const Text('ดูสลิปการชำระเงิน'),
+                ),
+              if (status == 'delivered' && !pickup)
+                TextButton(
+                  onPressed: () => showEvidence(o, 'proof'),
+                  child: const Text('ดูหลักฐานส่งสำเร็จ'),
+                ),
+              if (!['delivered', 'cancelled'].contains(status) && c.canOrders)
+                TextButton(
+                  onPressed: c.writable ? () => cancelOrder(o) : null,
+                  child: const Text('ยกเลิกออเดอร์', style: TextStyle(color: Color(0xFFB0174F))),
+                ),
+              if (o['refund_status'] == 'pending' &&
+                  o['payment_provider'] != 'stripe' &&
+                  o['payment_method'] != 'cod')
+                OutlinedButton(
+                  onPressed: c.writable && c.canManage ? () => refundOrder(o) : null,
+                  child: const Text('โอนคืนแล้ว + แนบสลิป'),
                 ),
             ],
           ),
-          if (status == 'out_for_delivery')
-            FilledButton.icon(
-              onPressed: c.writable && c.canDelivery
-                  ? () => finishDelivery(o)
-                  : null,
-              icon: const Icon(Icons.add_a_photo_outlined),
-              label: const Text('แนบรูปและยืนยันส่งสำเร็จ'),
-            ),
-          if (status == 'delivered' && o['fulfillment_type'] != 'pickup')
-            TextButton(
-              onPressed: () => showEvidence(o, 'proof'),
-              child: const Text('ดูหลักฐานส่งสำเร็จ'),
-            ),
-          if (!['delivered', 'cancelled'].contains(status) && c.canOrders)
-            TextButton(
-              onPressed: c.writable ? () => cancelOrder(o) : null,
-              child: const Text(
-                'ยกเลิกออเดอร์',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          if (o['refund_status'] == 'pending' &&
-              o['payment_provider'] != 'stripe' &&
-              o['payment_method'] != 'cod')
-            OutlinedButton(
-              onPressed: c.writable && c.canManage
-                  ? () => refundOrder(o)
-                  : null,
-              child: const Text('โอนคืนแล้ว + แนบสลิป'),
-            ),
           if (o['refund_status'] == 'pending')
             const Text(
               'รอคืนเงิน • จัดการคืนเงินผ่านหน้าการเงินร้าน',
-              style: TextStyle(color: Colors.orange),
+              style: TextStyle(color: Color(0xFF8A4A00)),
             ),
         ],
       ),
     );
+  }
+
+  /// Payment check, then acceptance with the ETA chosen on the card:
+  /// the existing review dialog and both server checks stay in place.
+  Future<void> reviewAndAccept(Json o, int eta) async {
+    if (!await reviewPayment(o) || !mounted) return;
+    await accept(o, eta);
+  }
+
+  Future<void> accept(Json o, int eta) async {
+    if (await c.mutate(
+      () => widget.repository.transition(
+        c.storeId!,
+        o['id'],
+        'preparing',
+        etaMinutes: eta,
+      ),
+    )) {
+      _etaChoice.remove('${o['id']}');
+      notice('รับออเดอร์แล้ว · แจ้งลูกค้าว่าพร้อมใน $eta นาที');
+    }
   }
 
   String optionLabel(List options) => options
@@ -2570,7 +2709,7 @@ class _MerchantHomeState extends State<MerchantHome>
     ),
   ];
 
-  Future<void> reviewPayment(Json order) async {
+  Future<bool> reviewPayment(Json order) async {
     final id = c.storeId!;
     final result = await showDialog<bool>(
       context: context,
@@ -2593,6 +2732,9 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
     );
     if (result == true) notice('บันทึกการตรวจชำระเงินแล้ว');
+    // Accept only after the payment was confirmed as received.
+    return result == true &&
+        c.orders.any((x) => x['id'] == order['id'] && x['payment_status'] == 'paid');
   }
 
   Future<void> finishDelivery(Json order) async {
