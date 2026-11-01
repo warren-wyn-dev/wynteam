@@ -46,36 +46,7 @@ export function lineDestination(config: LineConfig, orderNumber: string | null):
     : `${ORIGIN[config.audience]}${path}`;
 }
 
-function clip(text: string, max: number): string {
-  const chars = Array.from(text.replace(/\s+/g, " ").trim());
-  return chars.length <= max ? chars.join("") : `${chars.slice(0, max - 1).join("")}…`;
-}
-
-/**
- * One buttons-template message (text ≤160, altText ≤400, label ≤20). The OA
- * already names the sender, so only the event text is sent: Food Push puts it
- * in the body under a generic app title, Merchant Push in the title.
- */
-export function lineMessagesFor(
-  pushTitle: string,
-  pushBody: string,
-  url: string,
-  lang: "th" | "en",
-): unknown[] {
-  const content = (pushBody.trim() || pushTitle.trim());
-  const text = clip(content || "ZOKY", 160);
-  return [{
-    type: "template",
-    altText: clip(content || "ZOKY", 400),
-    template: {
-      type: "buttons",
-      text,
-      actions: [{ type: "uri", label: lang === "en" ? "Open" : "เปิดดู", uri: url }],
-    },
-  }];
-}
-
-export type LineSendOutcome = "line_sent" | "line_skipped" | `line_failed_${number}` | "line_error";
+export type LineSendOutcome = "line_sent" | "line_skipped" | "line_filtered" | `line_failed_${number}` | "line_error";
 
 /**
  * Push one notification. The notification id is the retry key, so a webhook
