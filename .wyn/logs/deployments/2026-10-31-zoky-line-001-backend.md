@@ -52,3 +52,7 @@ Customer (food) link: first attempt returned `invalid_line_token` because `LINE_
 ## v2 LINE cards — 2026-11-01 03:00 UTC
 
 Founder-approved redesign (#1307): Flex cards with status colour, order details (items, store-only note, total), fewer store messages (slip-submitted and unpaid new-order skipped; COD/paid/unreadable always sent), friendlier wording, no customer name/phone/address. Deployed by run [41266443505](https://github.com/warren-wyn-dev/wynteam/actions/runs/41266443505) from `release/zoky-line-push-20261101` @ `8f4e0557` (live `741c6717` + LINE only): scope guard, deno check and 88 tests passed. Awaiting Founder real-order check.
+
+## Merchant order tabs — prepared 2026-11-01
+
+Founder request: order tabs "ใหม่ · กำลังเตรียม · จัดส่ง · เสร็จ · ยกเลิก". Candidate `release/zoky-line-web-20261101` @ `98ec4b2b` = live `7543acce` + tab UI (`orderTabs`), bridge `delivering` tab reading `ready_for_delivery` + `out_for_delivery` (own-key allowlist; `constructor`/`__proto__`/unknown rejected), updated browser fixtures. Local verification: Flutter analyze clean, 96 Flutter tests, release web build, Next build, bridge 49/49, Merchant Node 101/101, Merchant browser QA 48/48 (Chromium mobile + desktop, incl. delivery and pickup flows through the "จัดส่ง" tab). LINE v2 push fixes (#1308) dispatched as run 41272674550.

@@ -1,12 +1,10 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# ZOKY-LINE-001 (Founder 2026-11-01): ship the LINE OA entry (/line, Food
-# menu entry, Merchant notification card) together with the reviewed
-# Merchant native-response revision 94c8d62, which the Founder chose to fold
-# into this release instead of staging it separately. Candidate = 94c8d62 +
-# the web part of #1304 only. One artifact then serves every customer host,
-# reuniting Food/ZOKY (live 93e6954, an ancestor) and Merchant (live ddc1fc2).
-# Existing production reviewers and stage-before-promotion remain required.
+# Founder 2026-11-01: Merchant order tabs ใหม่ · กำลังเตรียม · จัดส่ง · เสร็จ ·
+# ยกเลิก on top of the live LINE release (7543acce, all customer hosts on
+# dpl_Gd5Ydswjt3YS3umxkxpGP4SmQhKT). Only the Merchant tab UI, its bridge
+# read and their tests change. Production reviewers and stage-before-promotion
+# remain required.
 on:
   workflow_dispatch:
     inputs:
@@ -15,7 +13,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_LINE_WEB_20261101]
+        options: [CANCEL, ZOKY_MERCHANT_TABS_20261101]
 
 permissions:
   contents: read
@@ -28,39 +26,24 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: 7543acceeb0042ce51e3e60fd98f4dbcbb39ba7b
-  PRODUCTION_BASE_SHA: ddc1fc2bab58c39800db5766fe1970d1c46e3ebf
-  # Live per host on 2026-11-01: Merchant serves ddc1fc2, the rest 93e6954.
-  ROLLBACK_DEPLOYMENT: dpl_2muRGSzQwa7qxcHjYAApkbxBbJuJ
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_HRTFBBHb6s6wpQZ69J1fgEERW5yP
+  RELEASE_SHA: 98ec4b2bce67ea5f26657cfb2048a1d7c9b3e562
+  PRODUCTION_BASE_SHA: 7543acceeb0042ce51e3e60fd98f4dbcbb39ba7b
+  # Live on every customer host since the 2026-10-31 LINE release.
+  ROLLBACK_DEPLOYMENT: dpl_Gd5Ydswjt3YS3umxkxpGP4SmQhKT
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_Gd5Ydswjt3YS3umxkxpGP4SmQhKT
   ALLOWED_PATHS: >-
-    .wyn/company/APPROVALS.md
-    docs/qa/zoky-merchant-flutter/native-response-2026-10-30.md
-    web/app/line/line.css
-    web/app/line/page.tsx
-    web/app/merchant/merchant.css
-    web/components/food/wynos-food-developer-app.tsx
-    web/components/line/line-entry.tsx
-    web/components/merchant/merchant-flutter-app.tsx
-    web/components/merchant/merchant-flutter-authenticated.tsx
-    web/components/merchant/merchant-notification-settings.tsx
-    web/lib/i18n/en.ts
-    web/lib/line-liff.ts
+    web/lib/merchant-flutter-bridge.ts
+    web/merchant_flutter/lib/data/merchant_repository.dart
     web/merchant_flutter/lib/screens/merchant_home.dart
-    web/merchant_flutter/lib/widgets/retained_page.dart
-    web/merchant_flutter/test/navigation_performance_test.dart
-    web/merchant_flutter/test/retained_page_test.dart
-    web/package-lock.json
-    web/package.json
-    web/tests/line-liff.test.mjs
-    web/tests/merchant-browser/merchant-flutter-embedded.spec.ts
+    web/tests/merchant-browser/merchant-flutter-render.spec.ts
+    web/tests/merchant-flutter-bridge.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_WEB_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_TABS_20261101'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -95,7 +78,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_WEB_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_TABS_20261101'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -153,7 +136,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_WEB_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_TABS_20261101'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
