@@ -16,13 +16,19 @@ class MerchantTextWarmupResult {
 
 Future<MerchantTextWarmupResult>? _engineTextWarmup;
 
+/// The app theme uses the bundled NotoSansThai family (see pubspec.yaml).
+const bundledThaiFont = true;
+
 /// Ask Flutter for its existing Thai fallback before the first visible view.
 ///
 /// This deliberately uses the public text/layout and system-font notifications,
 /// not a second text font or engine-private API. The result is shared by views
 /// in this engine: removing a view never delays the next account's view again.
 Future<MerchantTextWarmupResult> warmMerchantThaiText() {
-  if (!kIsWeb) {
+  // Founder 2026-11-01: the Thai font is bundled and loaded with the engine's
+  // font manifest, so there is no runtime fallback to wait for. Waiting here
+  // only added up to 1.2s before the first reveal.
+  if (!kIsWeb || bundledThaiFont) {
     return Future.value(
       const MerchantTextWarmupResult(elapsedMilliseconds: 0, timedOut: false),
     );

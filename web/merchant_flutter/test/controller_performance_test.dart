@@ -93,6 +93,37 @@ Future<void> turn() => Future<void>.delayed(Duration.zero);
 
 void main() {
   test(
+    'a visited order tab shows its last rows at once while it refreshes, and a store change clears them',
+    () async {
+      final repo = ControlledRepository();
+      final c = MerchantController(repo);
+      addTearDown(c.dispose);
+      await c.initialize();
+      final pending = c.orders.map((o) => o['id']).toList();
+      expect(pending, isNotEmpty);
+      await c.selectStatus('preparing');
+      expect(c.orders, isEmpty);
+
+      repo.orderGate = Completer<void>();
+      final back = c.selectStatus('pending_acceptance');
+      // Shown before the server read finishes.
+      expect(c.orders.map((o) => o['id']).toList(), pending);
+      expect(c.ordersLoading, isTrue);
+      repo.orderGate!.complete();
+      await back;
+      expect(c.orders.map((o) => o['id']).toList(), pending);
+
+      await c.selectStatus('preparing');
+      await c.selectStore('store-2');
+      repo.orderGate = Completer<void>();
+      final fresh = c.selectStatus('preparing');
+      expect(c.orders, isEmpty);
+      repo.orderGate!.complete();
+      await fresh;
+    },
+  );
+
+  test(
     'authorized critical content publishes before three parallel summaries',
     () async {
       final repo = ControlledRepository()..summaryGate = Completer<void>();

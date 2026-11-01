@@ -33,6 +33,11 @@ class MerchantController extends ChangeNotifier {
       _activeFull = false;
   Future<void>? _readFuture, _summaryFuture;
 
+  /// Last server rows per order tab for the current store and roles. A tab
+  /// shows them at once and is replaced by the background read (Founder
+  /// 2026-11-01: switching tabs felt slow). Never shared across scopes.
+  final Map<String, ({List<Json> rows, bool hasMore})> _tabCache = {};
+
   Json? get store => stores.where((s) => s['id'] == storeId).firstOrNull;
   // Background reads do not turn every switch and editor into a disabled form.
   // A write waits for the active critical read and checks this state again.
@@ -72,6 +77,7 @@ class MerchantController extends ChangeNotifier {
     _scopeGeneration++;
     _countsGeneration++;
     orderCounts = {};
+    _tabCache.clear();
     menu = [];
     orders = [];
     canConfigure = canManage = canOrders = canDelivery = canCampaigns = false;
@@ -94,8 +100,9 @@ class MerchantController extends ChangeNotifier {
     if (_disposed || busy || storeId == null || status == value) return;
     _scopeGeneration++;
     status = value;
-    orders = [];
-    hasMore = false;
+    final cached = _tabCache[value];
+    orders = cached?.rows ?? [];
+    hasMore = cached?.hasMore ?? false;
     final full = _activeFull || _pendingFull || updatedAt == null;
     _pendingFull = _pendingOrders = false;
     await _startRead(full: full);
@@ -200,9 +207,11 @@ class MerchantController extends ChangeNotifier {
         // A result started under the old role must not refill private panels.
         _clearSummaries();
         _scopeGeneration++;
+        _tabCache.clear();
       }
       if (!canManage) canCampaigns = false;
       hasMore = rows.length == MerchantRepository.pageSize;
+      _tabCache[readStatus] = (rows: orders, hasMore: hasMore);
       updatedAt = _now();
       if (full) detailsUpdatedAt = updatedAt;
       error = null;

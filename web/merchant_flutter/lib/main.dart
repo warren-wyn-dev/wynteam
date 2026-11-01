@@ -117,6 +117,8 @@ class ZokyApp extends StatelessWidget {
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     theme: ThemeData(
       useMaterial3: true,
+      // Bundled (pubspec fonts) so Thai text never waits for a web fallback.
+      fontFamily: 'NotoSansThai',
       scaffoldBackgroundColor: Colors.white,
       colorScheme: ColorScheme.fromSeed(
         seedColor: const Color(0xFFD61256),

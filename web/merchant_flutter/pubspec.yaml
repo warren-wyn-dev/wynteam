@@ -20,3 +20,15 @@ flutter:
   assets:
     - assets/brand/zoky-logo-pink-transparent.png
     - assets/brand/merchant-tools-3d.webp
+  # Founder 2026-11-01: bundle the Thai text font so startup does not wait for
+  # a runtime Google Fonts fallback. SIL OFL 1.1, see assets/fonts/NotoSansThai-OFL.txt.
+  fonts:
+    - family: NotoSansThai
+      fonts:
+        - asset: assets/fonts/NotoSansThai-Regular.ttf
+        - asset: assets/fonts/NotoSansThai-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSansThai-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSansThai-Bold.ttf
+          weight: 700

@@ -15,6 +15,7 @@ type FlutterInitializer = {
 type FlutterBrowser = Window & {
   _flutter?: {
     merchantAssetBase?: string;
+    merchantCanvasKitBase?: string;
     loader: {
       load: (options: {
         config: { entrypointBaseUrl: string; assetBase: string; canvasKitBaseUrl: string; forceSingleThreadedSkwasm: true };
@@ -50,13 +51,18 @@ export function loadMerchantFlutterApp(): Promise<MerchantFlutterApp> {
       if (declaredBase !== undefined && !/^\/merchant-flutter\/builds\/[a-f0-9]{20}\/$/.test(declaredBase)) {
         fail(); return;
       }
+      const declaredEngine = browser._flutter?.merchantCanvasKitBase;
+      if (declaredEngine !== undefined && !/^\/merchant-flutter\/builds\/[a-f0-9]{20}\/canvaskit\/$/.test(declaredEngine)) {
+        fail(); return;
+      }
       // Compatibility with an already-open document from the previous build.
       const assetBase = declaredBase ?? MERCHANT_FLUTTER_ASSET_BASE;
+      const canvasKitBaseUrl = declaredEngine ?? `${assetBase}canvaskit/`;
       void loader.load({
         config: {
           entrypointBaseUrl: assetBase,
           assetBase,
-          canvasKitBaseUrl: `${assetBase}canvaskit/`,
+          canvasKitBaseUrl,
           // Preserve shared-origin behavior without requiring cross-origin
           // isolation headers. SDK feature detection chooses the JS fallback.
           forceSingleThreadedSkwasm: true,
@@ -65,7 +71,7 @@ export function loadMerchantFlutterApp(): Promise<MerchantFlutterApp> {
           try {
             performance.clearMarks("merchant:flutter:entrypoint");
             performance.mark("merchant:flutter:entrypoint");
-            const runner = await initializer.initializeEngine({ multiViewEnabled: true, assetBase, canvasKitBaseUrl: `${assetBase}canvaskit/` });
+            const runner = await initializer.initializeEngine({ multiViewEnabled: true, assetBase, canvasKitBaseUrl });
             performance.clearMarks("merchant:flutter:engine");
             performance.mark("merchant:flutter:engine");
             const app = await runner.runApp();

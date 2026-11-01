@@ -7,12 +7,15 @@ import path from "node:path";
 // their original URLs remain revalidated, while new code uses the hash directly.
 const merchantFlutterLegacyRewrites = (() => {
   try {
-    const { assetBase } = JSON.parse(readFileSync(path.join(process.cwd(), "public/merchant-flutter/build-version.json"), "utf8")) as { assetBase?: unknown };
+    const { assetBase, canvasKitBase } = JSON.parse(readFileSync(path.join(process.cwd(), "public/merchant-flutter/build-version.json"), "utf8")) as { assetBase?: unknown; canvasKitBase?: unknown };
     if (typeof assetBase !== "string" || !/^\/merchant-flutter\/builds\/[a-f0-9]{20}\/$/.test(assetBase)) return [];
+    const engineBase = typeof canvasKitBase === "string" && /^\/merchant-flutter\/builds\/[a-f0-9]{20}\/canvaskit\/$/.test(canvasKitBase)
+      ? canvasKitBase : `${assetBase}canvaskit/`;
     const files = ["main.dart.js", "main.dart.mjs", "main.dart.wasm", "flutter.js", "favicon.png", "manifest.json", "version.json"];
     return [
       ...files.map((file) => ({ source: `/merchant-flutter/${file}`, destination: `${assetBase}${file}` })),
-      ...["assets", "canvaskit", "icons"].map((directory) => ({ source: `/merchant-flutter/${directory}/:path*`, destination: `${assetBase}${directory}/:path*` })),
+      ...["assets", "icons"].map((directory) => ({ source: `/merchant-flutter/${directory}/:path*`, destination: `${assetBase}${directory}/:path*` })),
+      { source: "/merchant-flutter/canvaskit/:path*", destination: `${engineBase}:path*` },
     ];
   } catch {
     // Development before the first Flutter build has no generated payload yet.

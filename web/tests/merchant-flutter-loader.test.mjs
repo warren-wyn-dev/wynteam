@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 let sequence = 0;
-function browser(t, { failScript = false, assetBase } = {}) {
+function browser(t, { failScript = false, assetBase, canvasKitBase } = {}) {
   const previousWindow = globalThis.window, previousDocument = globalThis.document;
   const scripts = [], configurations = [], initializations = [];
   const app = { addView() { return 7; }, removeView() {} };
   globalThis.window = {
     setTimeout, clearTimeout,
-    _flutter: { merchantAssetBase: assetBase, loader: { async load(options) {
+    _flutter: { merchantAssetBase: assetBase, merchantCanvasKitBase: canvasKitBase, loader: { async load(options) {
       configurations.push(options.config);
       await options.onEntrypointLoaded({ async initializeEngine(options) {
         initializations.push(options); return { async runApp() { return app; } };
@@ -38,6 +38,21 @@ test("the matching content-addressed build is used for the app, engine and asset
   await loadMerchantFlutterApp();
   assert.deepEqual(b.configurations, [{ entrypointBaseUrl: assetBase, assetBase, canvasKitBaseUrl: `${assetBase}canvaskit/`, forceSingleThreadedSkwasm: true }]);
   assert.deepEqual(b.initializations, [{ multiViewEnabled: true, assetBase, canvasKitBaseUrl: `${assetBase}canvaskit/` }]);
+});
+test("a separately addressed engine stays cached across app releases (Founder 2026-11-01)", async (t) => {
+  const assetBase = "/merchant-flutter/builds/0123456789abcdefabcd/", canvasKitBase = "/merchant-flutter/builds/fedcba9876543210fedc/canvaskit/";
+  const b = browser(t, { assetBase, canvasKitBase }); const { loadMerchantFlutterApp } = await loader();
+  await loadMerchantFlutterApp();
+  assert.deepEqual(b.configurations, [{ entrypointBaseUrl: assetBase, assetBase, canvasKitBaseUrl: canvasKitBase, forceSingleThreadedSkwasm: true }]);
+  assert.deepEqual(b.initializations, [{ multiViewEnabled: true, assetBase, canvasKitBaseUrl: canvasKitBase }]);
+});
+test("a malformed or external engine base fails before executing the entrypoint", async (t) => {
+  const assetBase = "/merchant-flutter/builds/0123456789abcdefabcd/";
+  for (const canvasKitBase of ["https://outside.example/canvaskit/", "/merchant-flutter/builds/../canvaskit/", "/merchant-flutter/canvaskit/", "/merchant-flutter/builds/fedcba9876543210fedc/", ""]) {
+    const b = browser(t, { assetBase, canvasKitBase }); const { loadMerchantFlutterApp } = await loader();
+    await assert.rejects(loadMerchantFlutterApp(), /merchant_flutter_load_failed/);
+    assert.equal(b.configurations.length, 0);
+  }
 });
 test("a malformed or external bootstrap asset base fails before executing the entrypoint", async (t) => {
   for (const assetBase of ["https://outside.example/", "//outside.example/", "/merchant-flutter/builds/../", "/merchant-flutter/builds/not-a-hash/", ""]) {
