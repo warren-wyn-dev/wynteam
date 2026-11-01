@@ -84,7 +84,7 @@ Deno.test("automatic payment without a slip: one card when paid", () => {
 
 Deno.test("the slip card asks the store to check the slip", () => {
   const bubble = card(lineCardMessages("merchant", lineEventFor("merchant", "WYNOS Merchant · ลูกค้าส่งสลิป #WF0034"), order({ paymentStatus: "submitted", hasSlip: true }), URL, "th"));
-  assertEquals(bubble.contents.header.contents[0].text, "🆕 ออเดอร์ใหม่ · ตรวจสลิปแล้วกดรับ");
+  assertEquals(bubble.contents.header.contents[0].text, "🆕 ออเดอร์ใหม่ · ตรวจสลิป");
   assert(allText(bubble).includes("1× น้ำเปล่า"));
 });
 
@@ -123,14 +123,14 @@ Deno.test("cancellations, refunds, reminders and customer events are always sent
 
 Deno.test("the paid card shows status bar, store, items, note, total and one button", () => {
   const bubble = card(lineCardMessages("merchant", lineEventFor("merchant", "WYNOS Merchant · ชำระเงินแล้ว #WF0033"), order(), URL, "th"));
-  assertEquals(bubble.contents.header.contents[0].text, "🆕 ออเดอร์ใหม่ · ชำระแล้ว พร้อมรับ");
+  assertEquals(bubble.contents.header.contents[0].text, "🆕 ออเดอร์ใหม่ · ชำระแล้ว");
   assertEquals(bubble.contents.header.backgroundColor, "#E2246F");
   const body = allText(bubble);
   for (const expected of ["#WF0033 · ร้านป้าแดง", "2× ข้าวมันไก่", "฿60.00", "1× น้ำเปล่า", "📝 ไม่ใส่ผักชี", "ยอดรวม", "฿70.00"]) {
     assert(body.includes(expected), expected);
   }
   assertEquals(bubble.contents.footer.contents[0].action, { type: "uri", label: "ดูออเดอร์", uri: URL });
-  assertEquals(bubble.altText, "🆕 ออเดอร์ใหม่ · ชำระแล้ว พร้อมรับ · #WF0033 · ฿70.00");
+  assertEquals(bubble.altText, "🆕 ออเดอร์ใหม่ · ชำระแล้ว · #WF0033 · ฿70.00");
 });
 
 Deno.test("COD new order says cash on delivery", () => {
@@ -202,4 +202,13 @@ Deno.test("order rows are parsed defensively", () => {
   assertEquals(parsed.hasSlip, false);
   assertEquals(lineOrderFrom({ order_number: "WF1", payment_slip_path: "food-private/x.jpg" })!.hasSlip, true);
   assertEquals(baht(1234.5), "฿1,234.50");
+});
+
+Deno.test("LINE sends only the first reminder of an order", () => {
+  const event = lineEventFor("merchant", "WYNOS Merchant · ออเดอร์ #WF0034 รอรับ 2 นาทีแล้ว");
+  assertEquals(shouldSendLine("merchant", event, order(), false), true);
+  assertEquals(shouldSendLine("merchant", event, order(), true), false);
+  assertEquals(shouldSendLine("merchant", event, null, true), false);
+  // Other events ignore the reminder flag.
+  assertEquals(shouldSendLine("merchant", lineEventFor("merchant", "WYNOS Merchant · ลูกค้ายกเลิกออเดอร์ #WF0034"), order(), true), true);
 });
