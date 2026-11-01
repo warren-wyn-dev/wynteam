@@ -19,7 +19,7 @@ permissions:
 
 env:
   RELEASE_BRANCH: release/zoky-line-push-20261101
-  RELEASE_SHA: 8f4e0557d8ac190f903206907335fed61c411e3b
+  RELEASE_SHA: 5abfb698dc22c509ba52acc9f9e26ad9bc3159fa
   LIVE_BASE_SHA: 741c6717dbd701b14c7c609714c0d0a1421b3e05
 
 jobs:
