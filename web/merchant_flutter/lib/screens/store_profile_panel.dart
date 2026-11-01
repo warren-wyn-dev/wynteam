@@ -19,6 +19,7 @@ class StoreProfilePanel extends StatefulWidget {
     required this.pickImage,
     required this.setPublished,
     required this.locate,
+    required this.pickOnMap,
     required this.checkArea,
     required this.error,
   });
@@ -28,6 +29,9 @@ class StoreProfilePanel extends StatefulWidget {
   final Future<bool> Function(String kind) pickImage;
   final Future<bool> Function(bool published) setPublished;
   final Future<Json> Function() locate;
+
+  /// Shared ZOKY map with search and a draggable pin; null when cancelled.
+  final Future<Json?> Function(String kind, num? lat, num? lng) pickOnMap;
   final Future<bool?> Function(num lat, num lng) checkArea;
   final String? Function() error;
   @override
@@ -201,6 +205,40 @@ class _StoreProfilePanelState extends State<StoreProfilePanel> {
     }
   }
 
+  Future<void> pickMap({required bool pickup}) async {
+    try {
+      final p = await widget.pickOnMap(
+        pickup ? 'pickup' : 'store',
+        pickup ? pickupLat : lat,
+        pickup ? pickupLng : lng,
+      );
+      if (p == null || !mounted) return;
+      final la = _num(p['latitude']), lo = _num(p['longitude']);
+      if (la == null || lo == null) return;
+      setState(() {
+        if (pickup) {
+          pickupLat = la;
+          pickupLng = lo;
+        } else {
+          lat = la;
+          lng = lo;
+          insideArea = null;
+          final address = '${p['address'] ?? ''}'.trim();
+          if (t('address').isEmpty && address.isNotEmpty) {
+            c['address']!.text = address;
+          }
+        }
+        message = 'ปักหมุดแล้ว อย่าลืมกดบันทึก';
+      });
+      if (!pickup) {
+        final inside = await widget.checkArea(la, lo);
+        if (mounted) setState(() => insideArea = inside);
+      }
+    } catch (e) {
+      if (mounted) setState(() => message = errorMessage(e));
+    }
+  }
+
   Widget numberField(
     String key,
     String label, {
@@ -325,6 +363,13 @@ class _StoreProfilePanelState extends State<StoreProfilePanel> {
       Wrap(
         spacing: 8,
         children: [
+          FilledButton.tonalIcon(
+            onPressed: widget.enabled && !saving
+                ? () => pickMap(pickup: pickup)
+                : null,
+            icon: const Icon(Icons.map_outlined, size: 18),
+            label: const Text('เลือกบนแผนที่'),
+          ),
           OutlinedButton.icon(
             onPressed: widget.enabled && !saving
                 ? () => locate(pickup: pickup)
@@ -477,22 +522,27 @@ class _StoreProfilePanelState extends State<StoreProfilePanel> {
               suffix: '฿',
             ),
           ]),
-          section('ตำแหน่งร้าน', [
-            pin('ตำแหน่งร้าน (ใช้คิดระยะส่ง)', lat, lng, pickup: false),
-            if (insideArea == false)
-              const Text(
-                'ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY',
-                style: TextStyle(color: Color(0xFF9A2525)),
-              ),
-            if (insideArea == true)
-              const Text(
-                'อยู่ในพื้นที่ให้บริการ ✓',
-                style: TextStyle(color: Color(0xFF1F8A4C)),
-              ),
-            const SizedBox(height: 8),
-            pin('จุดให้ลูกค้ามารับเอง', pickupLat, pickupLng, pickup: true),
-            textField('pickup_note', 'คำแนะนำจุดรับ', max: 300),
-          ], hint: 'ยืนที่ร้านแล้วกด "ใช้ตำแหน่งปัจจุบัน"'),
+          section(
+            'ตำแหน่งร้าน',
+            [
+              pin('ตำแหน่งร้าน (ใช้คิดระยะส่ง)', lat, lng, pickup: false),
+              if (insideArea == false)
+                const Text(
+                  'ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY',
+                  style: TextStyle(color: Color(0xFF9A2525)),
+                ),
+              if (insideArea == true)
+                const Text(
+                  'อยู่ในพื้นที่ให้บริการ ✓',
+                  style: TextStyle(color: Color(0xFF1F8A4C)),
+                ),
+              const SizedBox(height: 8),
+              pin('จุดให้ลูกค้ามารับเอง', pickupLat, pickupLng, pickup: true),
+              textField('pickup_note', 'คำแนะนำจุดรับ', max: 300),
+            ],
+            hint:
+                'ค้นหาแล้วลากหมุดบนแผนที่ หรือยืนที่ร้านแล้วกด "ใช้ตำแหน่งปัจจุบัน"',
+          ),
           section('พักร้านชั่วคราว', [
             Text(
               closedUntil == null

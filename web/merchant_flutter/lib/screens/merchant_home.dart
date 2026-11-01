@@ -3045,6 +3045,8 @@ class _MerchantHomeState extends State<MerchantHome>
             () => widget.repository.setPublished(c.storeId!, published),
           ),
           locate: widget.repository.currentLocation,
+          pickOnMap: (kind, lat, lng) =>
+              widget.repository.pickMapLocation(c.storeId!, kind, lat, lng),
           checkArea: (lat, lng) async {
             try {
               final r = await widget.repository.checkLocation(

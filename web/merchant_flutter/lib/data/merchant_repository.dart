@@ -146,6 +146,14 @@ abstract class MerchantRepository {
   Future<Json> currentLocation() async =>
       throw const MerchantException('หาตำแหน่งไม่สำเร็จ');
   Future<Json> checkLocation(String storeId, num lat, num lng) async => {};
+
+  /// Opens the shared ZOKY map (search + drag pin); null when cancelled.
+  Future<Json?> pickMapLocation(
+    String storeId,
+    String kind,
+    num? lat,
+    num? lng,
+  ) async => null;
   Future<void> markRefunded(
     String storeId,
     String orderId,
@@ -341,6 +349,22 @@ class BridgeMerchantRepository extends MerchantRepository {
 
   @override
   Future<Json> currentLocation() async => object(await call('currentLocation'));
+
+  @override
+  Future<Json?> pickMapLocation(
+    String storeId,
+    String kind,
+    num? lat,
+    num? lng,
+  ) async {
+    final data = await call('pickMapLocation', {
+      'storeId': storeId,
+      'kind': kind,
+      if (lat != null && lng != null) 'latitude': lat,
+      if (lat != null && lng != null) 'longitude': lng,
+    });
+    return data == null ? null : object(data);
+  }
 
   @override
   Future<Json> checkLocation(String storeId, num lat, num lng) async => object(

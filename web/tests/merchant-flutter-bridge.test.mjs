@@ -104,7 +104,7 @@ function harness() {
     },
   });
   let changed=0;
-  const bridge=exports.createMerchantFlutterBridge({client,userId:'merchant-a',signOut:async()=>{state.user=null;},onOrderChange:()=>{changed++;}});
+  const bridge=exports.createMerchantFlutterBridge({client,userId:'merchant-a',signOut:async()=>{state.user=null;},onOrderChange:()=>{changed++;},pickLocation:async(request)=>{state.mapRequests=[...(state.mapRequests??[]),request];return state.mapResult??null;}});
   return {calls,state,bridge,menu,setFile(file){picked=file;},get changed(){return changed;},request:async(method,args={})=>JSON.parse(await bridge.request(method,JSON.stringify(args)))};
 }
 
@@ -660,4 +660,25 @@ test('store images accept only logo or cover and a manage role',async()=>{
   h.state.manage=false;
   assert.equal((await h.request('pickStoreImage',{storeId:STORE,kind:'logo'})).ok,false);
   assert.equal(h.calls.some(c=>c.name==='uploadFoodPublicImage'),false);
+});
+
+test('the store map picker needs a manage role, validates both ends and never saves by itself',async()=>{
+  const h=harness();
+  h.state.mapResult={latitude:16.18,longitude:103.3,address:'ถนนนครสวรรค์'};
+  const picked=await h.request('pickMapLocation',{storeId:STORE,kind:'store',latitude:16.1,longitude:103.2});
+  assert.deepEqual(picked,{ok:true,data:{latitude:16.18,longitude:103.3,address:'ถนนนครสวรรค์'}});
+  assert.equal(JSON.stringify(h.state.mapRequests[0]),JSON.stringify({kind:'store',initial:{latitude:16.1,longitude:103.2}}));
+  assert.equal(h.calls.some(c=>c.name==='updateFoodStore'),false);
+  assert.deepEqual((await h.request('pickMapLocation',{storeId:STORE,kind:'pickup'})).data.latitude,16.18);
+  assert.equal(h.state.mapRequests[1].initial,null);
+  h.state.mapResult=null;
+  assert.deepEqual(await h.request('pickMapLocation',{storeId:STORE,kind:'store'}),{ok:true,data:null});
+  h.state.mapResult={latitude:999,longitude:0};
+  assert.equal((await h.request('pickMapLocation',{storeId:STORE,kind:'store'})).ok,false);
+  for(const kind of ['home','',null])assert.equal((await h.request('pickMapLocation',{storeId:STORE,kind})).ok,false);
+  const before=h.state.mapRequests.length;
+  h.state.manage=false;
+  assert.equal((await h.request('pickMapLocation',{storeId:STORE,kind:'store'})).ok,false);
+  assert.equal(h.state.mapRequests.length,before);
+  assert.equal((await harness().request('pickMapLocation',{storeId:OTHER,kind:'store'})).ok,false);
 });

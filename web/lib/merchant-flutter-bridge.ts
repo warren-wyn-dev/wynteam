@@ -18,7 +18,11 @@ import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSub
 // DeveloperRouteGate remains the sole auth owner. Credentials never cross Dart.
 // Every operation still uses existing RPCs and row/storage authorization.
 export type MerchantFlutterBridge = { request: (method: string, payloadJson: string) => Promise<string>; dispose: () => void };
-type BridgeOptions = { client: SupabaseClient; userId: string; signOut: () => Promise<void>; onOrderChange?: () => void };
+/** Founder 2026-11-01: the shared ZOKY map picker (search + drag pin), shown by the host page. */
+export type MerchantMapRequest = { kind: "store" | "pickup"; initial: { latitude: number; longitude: number } | null };
+export type MerchantMapResult = { latitude: number; longitude: number; address?: string | null } | null;
+type BridgeOptions = { client: SupabaseClient; userId: string; signOut: () => Promise<void>; onOrderChange?: () => void;
+  pickLocation?: (request: MerchantMapRequest) => Promise<MerchantMapResult> };
 type Args = Record<string, unknown>;
 class BridgeInputError extends Error {}
 class BridgeAccessError extends Error {}
@@ -184,7 +188,7 @@ async function validateImage(file: File): Promise<void> {
     } finally { URL.revokeObjectURL(url); }
   }
 }
-export function createMerchantFlutterBridge({ client, userId, signOut, onOrderChange }: BridgeOptions): MerchantFlutterBridge {
+export function createMerchantFlutterBridge({ client, userId, signOut, onOrderChange, pickLocation }: BridgeOptions): MerchantFlutterBridge {
   let disposed = false;
   type PhotoSelection = { storeId: string; orderId: string; file: File; kind?: "refund"; previewUrl: string; uploadedPath?: string; completing?: Promise<void> };
   const photos = new Map<string, PhotoSelection>();
@@ -635,6 +639,19 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (error) throw error;
         verifyPatch(data, { is_published: published });
         return null;
+      }
+      case "pickMapLocation": {
+        const kind = text(args.kind, 10, true);
+        if (kind !== "store" && kind !== "pickup") throw new BridgeInputError();
+        await requireManageRole(storeId);
+        if (!pickLocation) throw new BridgeMessageError("แผนที่ยังไม่พร้อมใช้งาน");
+        const hasInitial = args.latitude != null || args.longitude != null;
+        const [lat, lng] = hasInitial ? coordinates(args.latitude, args.longitude) : [null, null];
+        const picked = await pickLocation({ kind, initial: lat === null || lng === null ? null : { latitude: lat, longitude: lng } });
+        if (!picked || disposed) return null;
+        const [pickedLat, pickedLng] = coordinates(picked.latitude, picked.longitude);
+        // Nothing is saved here; the store editor sends it with saveStore.
+        return { latitude: pickedLat, longitude: pickedLng, address: typeof picked.address === "string" ? picked.address.slice(0, 800) : null };
       }
       case "checkLocation": {
         const [lat, lng] = coordinates(args.latitude, args.longitude);

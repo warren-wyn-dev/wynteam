@@ -63,6 +63,19 @@ class _ProfileRepository extends FakeRepository {
   }
 
   @override
+  Future<Json?> pickMapLocation(
+    String storeId,
+    String kind,
+    num? lat,
+    num? lng,
+  ) async => {'latitude': 16.18, 'longitude': 103.3, 'address': 'ถนนนครสวรรค์'};
+
+  @override
+  Future<Json> checkLocation(String storeId, num lat, num lng) async => {
+    'inside': true,
+  };
+
+  @override
   Future<void> setPublished(String storeId, bool value) async {
     published.add(value);
     storeRows.first['is_published'] = value;
@@ -220,12 +233,19 @@ void main() {
       await tester.enterText(area, 'ในเมืองมหาสารคาม');
       final fee = find.widgetWithText(TextFormField, 'ค่าส่งเริ่มต้น');
       await tester.enterText(fee, '25');
+      final map = find.text('เลือกบนแผนที่').first;
+      await tester.ensureVisible(map);
+      await tester.tap(map);
+      await tester.pumpAndSettle();
+      expect(find.text('อยู่ในพื้นที่ให้บริการ ✓'), findsOneWidget);
       await tester.ensureVisible(find.text('บันทึกข้อมูลร้าน'));
       await tester.tap(find.text('บันทึกข้อมูลร้าน'));
       await tester.pumpAndSettle();
       expect(repo.saved.last['delivery_area'], 'ในเมืองมหาสารคาม');
       expect(repo.saved.last['delivery_fee'], 25);
       expect(repo.saved.last['name'], 'ร้านทดสอบ');
+      expect(repo.saved.last['latitude'], 16.18);
+      expect(repo.saved.last['longitude'], 103.3);
       expect(find.text('บันทึกข้อมูลร้านแล้ว'), findsOneWidget);
 
       final publish = find.widgetWithText(SwitchListTile, 'เผยแพร่ร้านบน ZOKY');

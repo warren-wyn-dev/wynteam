@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 
 import { type DeveloperRouteContext } from "@/components/developer-route-gate";
-import { createMerchantFlutterBridge } from "@/lib/merchant-flutter-bridge";
+import { createMerchantFlutterBridge, type MerchantMapRequest, type MerchantMapResult } from "@/lib/merchant-flutter-bridge";
+
+// Loaded only when a merchant opens the map (Founder 2026-11-01: drag the store pin).
+const FoodDeliveryMapPicker = dynamic(
+  () => import("@/components/food/food-delivery-map-picker").then((m) => m.FoodDeliveryMapPicker),
+  { ssr: false },
+);
+type MapOverlay = MerchantMapRequest & { resolve: (value: MerchantMapResult) => void };
 import { loadMerchantFlutterApp, type MerchantFlutterApp } from "@/lib/merchant-flutter-loader";
 import { markMerchantFlutterStartup, observeMerchantFlutterStartup } from "@/lib/merchant-flutter-startup";
 
@@ -15,6 +23,7 @@ type BridgeBrowser = Window & {
 export function AuthenticatedMerchantFlutter({ client, userId, signOut }: DeveloperRouteContext) {
   const host = useRef<HTMLDivElement>(null);
   const latestSignOut = useRef(signOut);
+  const [mapOverlay, setMapOverlay] = useState<MapOverlay | null>(null);
   useEffect(() => { latestSignOut.current = signOut; }, [signOut]);
   const [result, setResult] = useState<{
     client: DeveloperRouteContext["client"];
@@ -48,6 +57,13 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
       userId,
       signOut: () => latestSignOut.current(),
       onOrderChange: () => window.dispatchEvent(new Event("zoky-merchant-order-change")),
+      pickLocation: (request) => new Promise<MerchantMapResult>((resolve) => {
+        if (!active) { resolve(null); return; }
+        setMapOverlay((current) => {
+          current?.resolve(null);
+          return { ...request, resolve };
+        });
+      }),
     });
     const wake = (event: MessageEvent) => {
       if (event.data?.kind !== "wynos:notification-push" || (event.data.recipientId && event.data.recipientId !== userId)) return;
@@ -71,6 +87,7 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
 
     return () => {
       active = false;
+      setMapOverlay((current) => { current?.resolve(null); return null; });
       startup.dispose();
       navigator.serviceWorker?.removeEventListener("message", wake);
       bridge.dispose();
@@ -82,7 +99,22 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
 
   return (
     <main aria-label="Zoky Merchant" data-wyn-swipe-back="ignore" style={{ position: "relative", height: "100dvh", minHeight: 360, width: "100%", overflow: "hidden" }}>
-      <div ref={host} data-merchant-flutter-host="" aria-hidden={state !== "ready"} inert={state !== "ready"} style={{ height: "100%", width: "100%" }} />
+      <div ref={host} data-merchant-flutter-host="" aria-hidden={state !== "ready" || mapOverlay !== null} inert={state !== "ready" || mapOverlay !== null} style={{ height: "100%", width: "100%" }} />
+      {mapOverlay ? (
+        <FoodDeliveryMapPicker
+          client={client}
+          storeId={null}
+          initialLocation={mapOverlay.initial}
+          title={mapOverlay.kind === "store" ? "ตำแหน่งร้าน" : "จุดรับอาหาร / ทางเข้าร้าน"}
+          subtitle={mapOverlay.kind === "store" ? "ค้นหาแล้วเลื่อนหมุดให้ตรงหน้าร้านจริง" : "กำหนดจุดที่ไรเดอร์ควรมารับอาหาร"}
+          confirmLabel={mapOverlay.kind === "store" ? "ใช้เป็นตำแหน่งร้าน" : "ใช้เป็นจุดรับอาหาร"}
+          onClose={() => { mapOverlay.resolve(null); setMapOverlay(null); }}
+          onConfirm={(location, place) => {
+            mapOverlay.resolve({ latitude: location.latitude, longitude: location.longitude, address: place?.address ?? null });
+            setMapOverlay(null);
+          }}
+        />
+      ) : null}
       {state !== "ready" && (
         <div className="route-state" role={state === "error" ? "alert" : "status"} style={{ position: "absolute", inset: 0, background: "#fff" }}>
           {state === "loading" ? <><div className="route-system-spinner" /><p>กำลังเปิด Zoky Merchant…</p></> : state === "slow" ? <>
