@@ -190,6 +190,44 @@ async function validateImage(file: File): Promise<void> {
 }
 export function createMerchantFlutterBridge({ client, userId, signOut, onOrderChange, pickLocation }: BridgeOptions): MerchantFlutterBridge {
   let disposed = false;
+  // Founder 2026-11-01 (speed): the last authorized store data, per account,
+  // so a reopened Merchant paints at once and then refreshes. Store business
+  // data only: never orders, customers, staff or finance. Cleared on sign-out.
+  const SNAPSHOT_METHODS = new Set(["stores", "menu", "report", "orderCounts"]);
+  const snapshotKey = (part: string) => `zoky-merchant-snapshot:${userId}:${part}`;
+  const storage = () => { try { return typeof localStorage === "undefined" ? null : localStorage; } catch { return null; } };
+  const remember = (method: string, args: Args, data: unknown) => {
+    const store = storage();
+    if (!store || disposed) return;
+    try {
+      const json = JSON.stringify({ at: Date.now(), data });
+      if (json.length > 400_000) return;
+      if (method === "stores") store.setItem(snapshotKey("stores"), json);
+      else if (typeof args.storeId === "string" && UUID.test(args.storeId)) {
+        store.setItem(snapshotKey(`${method}:${args.storeId}`), json);
+        if (method === "menu") store.setItem(snapshotKey("last"), JSON.stringify({ at: Date.now(), data: args.storeId }));
+      }
+    } catch { /* quota or private mode: speed hint only */ }
+  };
+  const recall = (part: string, maxAgeMs = 7 * 86_400_000): unknown => {
+    try {
+      const raw = storage()?.getItem(snapshotKey(part));
+      if (!raw) return undefined;
+      const value = JSON.parse(raw) as { at?: unknown; data?: unknown };
+      return typeof value.at === "number" && Date.now() - value.at < maxAgeMs ? value.data : undefined;
+    } catch { return undefined; }
+  };
+  const forgetSnapshots = () => {
+    const store = storage();
+    if (!store) return;
+    try {
+      const prefix = `zoky-merchant-snapshot:${userId}:`;
+      for (let i = store.length - 1; i >= 0; i--) {
+        const key = store.key(i);
+        if (key?.startsWith(prefix)) store.removeItem(key);
+      }
+    } catch { /* nothing to clear */ }
+  };
   type PhotoSelection = { storeId: string; orderId: string; file: File; kind?: "refund"; previewUrl: string; uploadedPath?: string; completing?: Promise<void> };
   const photos = new Map<string, PhotoSelection>();
   const releasePhoto = (path: string) => {
@@ -291,7 +329,18 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
   };
   const execute = async (method: string, args: Args, picked: Promise<File | null> | null, permissionRequest?: Promise<NotificationPermission>): Promise<unknown> => {
     await ensureSession();
-    if (method === "signOut") { await signOut(); return null; }
+    if (method === "signOut") { forgetSnapshots(); await signOut(); return null; }
+    if (method === "snapshot") {
+      // Cached display data only; the live read that follows rechecks access.
+      const stores = recall("stores");
+      if (!Array.isArray(stores) || !stores.length) return null;
+      const last = recall("last");
+      const storeId = typeof last === "string" && stores.some((s) => (s as Args)?.id === last) ? last : (stores[0] as Args)?.id;
+      if (typeof storeId !== "string" || !UUID.test(storeId)) return null;
+      const menu = recall(`menu:${storeId}`);
+      if (!Array.isArray(menu)) return null;
+      return { stores, storeId, menu, report: recall(`report:${storeId}`) ?? null, orderCounts: recall(`orderCounts:${storeId}`, 3_600_000) ?? null };
+    }
     if (method === "stores") return listStores();
     if (method === "pushStatus") return { enabled: await hasActivePushSubscription() === true, permission: typeof Notification === "undefined" ? "unsupported" : Notification.permission, ...(await getPushAvailability()) };
     if (method === "pushEnable") {
@@ -788,6 +837,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         void permissionRequest?.catch(() => undefined);
         const data = await execute(method, args, picked, permissionRequest);
         if (method !== "signOut") await ensureSession();
+        if (SNAPSHOT_METHODS.has(method)) remember(method, args, data);
         return JSON.stringify({ ok: true, data: data ?? null });
       } catch (error) { return JSON.stringify({ ok: false, error: safeError(error) }); }
     },

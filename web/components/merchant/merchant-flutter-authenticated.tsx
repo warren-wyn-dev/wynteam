@@ -55,7 +55,10 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
     const bridge = createMerchantFlutterBridge({
       client,
       userId,
-      signOut: () => latestSignOut.current(),
+      signOut: () => {
+        try { window.localStorage.removeItem("zoky-merchant-flutter-seen"); } catch { /* optional speed hint */ }
+        return latestSignOut.current();
+      },
       onOrderChange: () => window.dispatchEvent(new Event("zoky-merchant-order-change")),
       pickLocation: (request) => new Promise<MerchantMapResult>((resolve) => {
         if (!active) { resolve(null); return; }
@@ -74,6 +77,7 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
     // Only the existing JS client owns the session. No token, password or
     // Supabase client reference is transferred into the Dart runtime.
     browser.zokyMerchant = bridge;
+    try { window.localStorage.setItem("zoky-merchant-flutter-seen", "1"); } catch { /* optional speed hint */ }
     void loadMerchantFlutterApp().then((app) => {
       if (!active || browser.zokyMerchant !== bridge) return;
       flutterApp = app;

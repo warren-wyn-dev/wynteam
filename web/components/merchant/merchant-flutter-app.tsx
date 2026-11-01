@@ -6,6 +6,21 @@ import Link from "next/link";
 import { DeveloperRouteGate, type DeveloperRouteContext } from "@/components/developer-route-gate";
 import { loadMerchantFlutterApp } from "@/lib/merchant-flutter-loader";
 
+/** Set after a merchant view opened on this device; cleared on sign-out. */
+export const MERCHANT_FLUTTER_SEEN_KEY = "zoky-merchant-flutter-seen";
+
+// Founder 2026-11-01 ("ให้มันเร็วๆมากๆ"): a returning merchant's engine
+// download and start overlap the session check instead of waiting for it.
+// It only fetches the reviewed same-origin build; no store view or bridge
+// exists until the gate authorizes this account.
+if (typeof window !== "undefined") {
+  try {
+    if (window.localStorage.getItem(MERCHANT_FLUTTER_SEEN_KEY) === "1") void loadMerchantFlutterApp().catch(() => {});
+  } catch {
+    // Storage may be unavailable (private mode); the gate path still loads it.
+  }
+}
+
 function MerchantFlutterLoadError() {
   return (
     <main aria-label="Zoky Merchant" className="route-state" role="alert" style={{ height: "100dvh", minHeight: 360, width: "100%", background: "#fff" }}>

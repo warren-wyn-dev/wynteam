@@ -91,7 +91,82 @@ class ControlledRepository extends FakeRepository {
 
 Future<void> turn() => Future<void>.delayed(Duration.zero);
 
+class SnapshotRepository extends ControlledRepository {
+  Json? snap;
+  @override
+  Future<Json?> snapshot() async => snap;
+}
+
 void main() {
+  test(
+    'a reopen paints the last snapshot at once but stays read-only until the live read, which replaces it',
+    () async {
+      final repo = SnapshotRepository()
+        ..snap = {
+          'stores': [
+            {'id': 'store-1', 'name': 'ร้านจากเครื่อง', 'is_open': true},
+          ],
+          'storeId': 'store-1',
+          'menu': [
+            {'id': 'm1', 'name': 'เมนูเดิม', 'price': 50, 'is_available': true},
+          ],
+          'report': {'today_sales': 99},
+          'orderCounts': {'pending': 1},
+        };
+      final c = MerchantController(repo);
+      addTearDown(c.dispose);
+      repo.storeGate = Completer<void>();
+      final start = c.initialize();
+      await turn();
+      expect(c.store?['name'], 'ร้านจากเครื่อง');
+      expect(c.menu.single['name'], 'เมนูเดิม');
+      expect(c.loading, isFalse);
+      expect(c.writable, isFalse);
+      repo.storeGate!.complete();
+      await start;
+      expect(c.store?['name'], 'ร้านทดสอบ');
+      expect(c.writable, isTrue);
+
+      final revoked = SnapshotRepository()..snap = repo.snap;
+      revoked.storeRows.clear();
+      final d = MerchantController(revoked);
+      addTearDown(d.dispose);
+      await d.initialize();
+      expect(d.store, isNull);
+      expect(d.menu, isEmpty);
+      expect(d.report, isEmpty);
+    },
+  );
+
+  test(
+    'a known store reads orders while access is revalidated, and a revoked store publishes nothing',
+    () async {
+      final repo = ControlledRepository();
+      final c = MerchantController(repo);
+      addTearDown(c.dispose);
+      await c.initialize();
+      final before = repo.orderReads;
+      repo.storeGate = Completer<void>();
+      final refresh = c.refreshOrders();
+      await turn();
+      // Orders started before the stores revalidation finished.
+      expect(repo.orderReads, before + 1);
+      repo.storeGate!.complete();
+      await refresh;
+      expect(c.orders, isNotEmpty);
+
+      repo.storeGate = Completer<void>();
+      final revoked = c.refreshOrders();
+      await turn();
+      repo.storeRows.clear();
+      repo.storeGate!.complete();
+      await revoked;
+      expect(c.store, isNull);
+      expect(c.orders, isEmpty);
+      expect(c.error, isNull);
+    },
+  );
+
   test(
     'a visited order tab shows its last rows at once while it refreshes, and a store change clears them',
     () async {

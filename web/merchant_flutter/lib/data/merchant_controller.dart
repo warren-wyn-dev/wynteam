@@ -21,7 +21,10 @@ class MerchantController extends ChangeNotifier {
       canManage = false,
       canOrders = false,
       canDelivery = false,
-      canCampaigns = false;
+      canCampaigns = false,
+          // Showing the last authorized snapshot until the first live read.
+          fromSnapshot =
+          false;
   DateTime? updatedAt, detailsUpdatedAt, summariesUpdatedAt;
   int _generation = 0,
       _summaryGeneration = 0,
@@ -42,7 +45,12 @@ class MerchantController extends ChangeNotifier {
   // Background reads do not turn every switch and editor into a disabled form.
   // A write waits for the active critical read and checks this state again.
   bool get writable =>
-      !_disposed && !loading && !busy && error == null && store != null;
+      !_disposed &&
+      !loading &&
+      !busy &&
+      !fromSnapshot &&
+      error == null &&
+      store != null;
 
   @override
   void notifyListeners() {
@@ -58,7 +66,41 @@ class MerchantController extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> initialize() => refresh();
+  /// Paint the last authorized snapshot (Founder 2026-11-01: instant reopen),
+  /// then run the normal live read, which replaces or clears it. Nothing is
+  /// writable until that live read succeeds.
+  Future<void> initialize() async {
+    // Startup stays "loading" (no early ready signal) while the snapshot is read.
+    if (store == null && updatedAt == null) loading = true;
+    try {
+      final snap = await repository.snapshot();
+      final rows = snap?['stores'];
+      final id = snap?['storeId'];
+      if (!_disposed &&
+          storeId == null &&
+          updatedAt == null &&
+          rows is List &&
+          id is String &&
+          rows.any((s) => s is Map && s['id'] == id)) {
+        stores = rows.whereType<Map>().map(Json.from).toList();
+        storeId = id;
+        menu = (snap!['menu'] as List? ?? [])
+            .whereType<Map>()
+            .map(Json.from)
+            .toList();
+        if (snap['report'] is Map) report = Json.from(snap['report'] as Map);
+        if (snap['orderCounts'] is Map) {
+          orderCounts = Json.from(snap['orderCounts'] as Map);
+        }
+        fromSnapshot = true;
+        loading = false;
+        notifyListeners();
+      }
+    } catch (_) {
+      // A missing or unreadable snapshot only means a normal first load.
+    }
+    await refresh();
+  }
 
   void _clearSummaries() {
     _summaryGeneration++;
@@ -78,6 +120,7 @@ class MerchantController extends ChangeNotifier {
     _countsGeneration++;
     orderCounts = {};
     _tabCache.clear();
+    fromSnapshot = false;
     menu = [];
     orders = [];
     canConfigure = canManage = canOrders = canDelivery = canCampaigns = false;
@@ -135,7 +178,7 @@ class MerchantController extends ChangeNotifier {
     final generation = ++_generation;
     _readFuture = complete.future;
     _activeFull = full;
-    loading = store == null || updatedAt == null;
+    loading = store == null || (updatedAt == null && !fromSnapshot);
     refreshing = !loading;
     ordersLoading = !full || append;
     notifyListeners();
@@ -154,19 +197,13 @@ class MerchantController extends ChangeNotifier {
     Future<void>? summaries;
     try {
       // One stores read serves both initial selection and access revalidation.
-      final allowed = await repository.stores();
-      if (_disposed || generation != _generation) return;
-      stores = allowed;
-      storeId ??= allowed.isEmpty ? null : allowed.first['id'] as String;
-      final id = storeId;
-      if (id == null || !allowed.any((s) => s['id'] == id)) {
-        _clearPrivateData();
-        storeId = null;
-        error = null;
-        return;
-      }
+      // Founder 2026-11-01 (speed): once a store is selected, its reads start
+      // together with the access revalidation instead of after it. Nothing is
+      // published unless the same stores read still lists this store, and
+      // every bridge read keeps its own server-side access check.
+      final known = storeId;
       final readStatus = status;
-      final results = await Future.wait([
+      Future<List<Object>> storeReads(String id) => Future.wait<Object>([
         repository.hasRole(id, ['owner', 'admin']),
         if (full) repository.menu(id),
         repository.orders(id, readStatus, append ? orders.length : 0),
@@ -180,6 +217,26 @@ class MerchantController extends ChangeNotifier {
           'delivery',
         ]),
       ], eagerError: true);
+      final early = known != null && stores.any((s) => s['id'] == known)
+          ? storeReads(known)
+          : null;
+      // A revoked store's early reads may fail; that outcome is decided by
+      // the stores read below, never surfaced on its own.
+      early?.ignore();
+      final allowed = await repository.stores();
+      if (_disposed || generation != _generation) return;
+      stores = allowed;
+      storeId ??= allowed.isEmpty ? null : allowed.first['id'] as String;
+      final id = storeId;
+      if (id == null || !allowed.any((s) => s['id'] == id)) {
+        _clearPrivateData();
+        storeId = null;
+        error = null;
+        return;
+      }
+      final results = await (id == known && early != null
+          ? early
+          : storeReads(id));
       if (!_current(generation, id) || status != readStatus) return;
       final previousRoles = [canConfigure, canManage, canOrders, canDelivery];
       var index = 0;
@@ -213,6 +270,7 @@ class MerchantController extends ChangeNotifier {
       hasMore = rows.length == MerchantRepository.pageSize;
       _tabCache[readStatus] = (rows: orders, hasMore: hasMore);
       updatedAt = _now();
+      fromSnapshot = false;
       if (full) detailsUpdatedAt = updatedAt;
       error = null;
       loading = false;

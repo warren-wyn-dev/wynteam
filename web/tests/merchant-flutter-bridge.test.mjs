@@ -20,7 +20,7 @@ function moduleExports(path) {
 const availability=moduleExports('../lib/food-store-availability.ts');
 const merchantCore=moduleExports('../lib/merchant-core.ts');
 
-function harness() {
+function harness(options={}) {
   const calls=[];
   const state={events:[],memberships:[{merchant_account_id:ACCOUNT}],staff:[],completeFailures:0,user:'merchant-a',access:true,manage:true,noOp:false,store:{id:STORE,merchant_account_id:ACCOUNT,is_published:true,name:'ร้านเรา',phone:'0811111111',address:'มหาสารคาม',is_open:true},order:{id:ORDER,store_id:STORE,status:'out_for_delivery',payment_provider:null,payment_slip_path:'buyer/slips/slip.jpg'}, disposedChannels:0, orderEvent:null, injectRead:null};
   const menu={id:ITEM,name:'เดิม',category:'อาหาร',description:null,price:60,image_path:'stores/store/menu/original.jpg',is_available:true,options:[{id:'spicy',name:'ความเผ็ด',choices:[{id:'mild',name:'น้อย',price:0}]}],daily_stock_limit:20,sold_out_until:'2026-10-22T00:00:00Z'};
@@ -85,6 +85,7 @@ function harness() {
     createImageBitmap:async()=>({width:1,height:1,close(){}}),
     document:{createElement:()=>input,body:{appendChild(){}}},
     window:{addEventListener(){},removeEventListener(){},setTimeout},
+    localStorage:options.localStorage,
     require(path){
       if(path==='@/lib/food-merchant')return food;
       if(path==='@/lib/merchant-menu-image')return {merchantMenuThumbnailUrl:url=>url};
@@ -681,4 +682,30 @@ test('the store map picker needs a manage role, validates both ends and never sa
   assert.equal((await h.request('pickMapLocation',{storeId:STORE,kind:'store'})).ok,false);
   assert.equal(h.state.mapRequests.length,before);
   assert.equal((await harness().request('pickMapLocation',{storeId:OTHER,kind:'store'})).ok,false);
+});
+
+function memoryStorage(){
+  const map=new Map();
+  return {map,get length(){return map.size;},key:i=>[...map.keys()][i]??null,getItem:k=>map.has(k)?map.get(k):null,setItem:(k,v)=>map.set(k,String(v)),removeItem:k=>map.delete(k)};
+}
+
+test('the reopen snapshot keeps only store display data per account and is cleared on sign-out (Founder 2026-11-01)',async()=>{
+  const localStorage=memoryStorage();
+  const h=harness({localStorage});
+  assert.equal((await h.request('snapshot')).data,null);
+  await h.request('stores');
+  await h.request('menu',{storeId:STORE});
+  await h.request('report',{storeId:STORE});
+  await h.request('orders',{storeId:STORE,status:'pending_acceptance',offset:0});
+  assert.ok([...localStorage.map.keys()].every(k=>k.startsWith('zoky-merchant-snapshot:merchant-a:')));
+  assert.equal([...localStorage.map.keys()].some(k=>k.includes('orders')),false);
+  const snap=(await h.request('snapshot')).data;
+  assert.equal(snap.storeId,STORE);assert.equal(snap.menu[0].name,'เดิม');assert.equal(snap.report.today_sales,200);
+  assert.equal(JSON.stringify(snap).includes('recipient'),false);
+  // Another account on the same device sees nothing.
+  const other=harness({localStorage});other.state.user='merchant-b';
+  const b=other.bridge;
+  assert.equal(JSON.parse(await b.request('snapshot','{}')).ok,false);
+  await h.request('signOut');
+  assert.equal(localStorage.map.size,0);
 });
