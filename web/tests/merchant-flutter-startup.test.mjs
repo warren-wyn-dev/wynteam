@@ -73,3 +73,55 @@ test("local timing marks stay bounded and contain performance values only", () =
   assert.deepEqual(marks[0].detail, { elapsedMs: 410, fontWarmupMs: 120, fontWarmupTimedOut: false });
   performance.clearMarks("merchant:flutter:content");
 });
+
+test("a slow start keeps loading and a late signal still reveals the view (Founder 2026-11-01)", t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const target = new EventTarget(), ready = [], timeouts = [], slow = [];
+  const monitor = observeMerchantFlutterStartup({ target, onReady: v => ready.push(v), onTimeout: () => timeouts.push(true), onSlow: () => slow.push(true) });
+  t.after(() => monitor.dispose());
+  monitor.watch(7);
+  t.mock.timers.tick(20_000);
+  assert.deepEqual(slow, [true]);
+  assert.deepEqual(timeouts, []);
+  target.dispatchEvent(new CustomEvent(MERCHANT_FLUTTER_STARTUP_EVENT, { detail: detail() }));
+  assert.deepEqual(ready, [detail()]);
+  t.mock.timers.tick(200_000);
+  assert.deepEqual(timeouts, []);
+});
+
+test("a slow start still fails after the hard limit and a later signal cannot reopen it", t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const target = new EventTarget(), ready = [], timeouts = [], slow = [];
+  const monitor = observeMerchantFlutterStartup({ target, onReady: v => ready.push(v), onTimeout: () => timeouts.push(true), onSlow: () => slow.push(true) });
+  t.after(() => monitor.dispose());
+  monitor.watch(7);
+  t.mock.timers.tick(20_000);
+  assert.deepEqual(slow, [true]);
+  t.mock.timers.tick(69_999);
+  assert.deepEqual(timeouts, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(timeouts, [true]);
+  target.dispatchEvent(new CustomEvent(MERCHANT_FLUTTER_STARTUP_EVENT, { detail: detail() }));
+  assert.deepEqual(ready, []);
+});
+
+test("time while the page is hidden does not count toward the startup timeout", t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const doc = new EventTarget();
+  doc.visibilityState = "hidden";
+  const previous = globalThis.document;
+  globalThis.document = doc;
+  t.after(() => { globalThis.document = previous; });
+  const target = new EventTarget(), timeouts = [];
+  const monitor = observeMerchantFlutterStartup({ target, onReady: () => {}, onTimeout: () => timeouts.push(true) });
+  t.after(() => monitor.dispose());
+  monitor.watch(7);
+  t.mock.timers.tick(60_000);
+  assert.deepEqual(timeouts, []);
+  doc.visibilityState = "visible";
+  doc.dispatchEvent(new Event("visibilitychange"));
+  t.mock.timers.tick(19_999);
+  assert.deepEqual(timeouts, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(timeouts, [true]);
+});

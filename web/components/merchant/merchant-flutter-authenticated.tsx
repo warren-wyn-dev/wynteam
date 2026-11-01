@@ -19,7 +19,7 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
   const [result, setResult] = useState<{
     client: DeveloperRouteContext["client"];
     userId: string;
-    phase: "ready" | "error";
+    phase: "ready" | "slow" | "error";
   }>();
   // A replacement client/account must wait for its own view, even before the
   // previous effect's cleanup runs. Do not carry a ready state across scopes.
@@ -32,7 +32,7 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
     let viewId: number | undefined;
     let flutterApp: MerchantFlutterApp | undefined;
     const browser = window as BridgeBrowser;
-    const setState = (phase: "ready" | "error") => setResult({ client, userId, phase });
+    const setState = (phase: "ready" | "slow" | "error") => setResult({ client, userId, phase });
     markMerchantFlutterStartup("start");
     const startup = observeMerchantFlutterStartup({
       onReady: (detail) => {
@@ -41,6 +41,7 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
         setState("ready");
       },
       onTimeout: () => { if (active) setState("error"); },
+      onSlow: () => { if (active) setState("slow"); },
     });
     const bridge = createMerchantFlutterBridge({
       client,
@@ -84,7 +85,12 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
       <div ref={host} data-merchant-flutter-host="" aria-hidden={state !== "ready"} inert={state !== "ready"} style={{ height: "100%", width: "100%" }} />
       {state !== "ready" && (
         <div className="route-state" role={state === "error" ? "alert" : "status"} style={{ position: "absolute", inset: 0, background: "#fff" }}>
-          {state === "loading" ? <><div className="route-system-spinner" /><p>กำลังเปิด Zoky Merchant…</p></> : <>
+          {state === "loading" ? <><div className="route-system-spinner" /><p>กำลังเปิด Zoky Merchant…</p></> : state === "slow" ? <>
+            <div className="route-system-spinner" />
+            <p>ยังกำลังเปิด Zoky Merchant… อินเทอร์เน็ตอาจช้ากว่าปกติ</p>
+            <button className="route-primary" type="button" onClick={() => window.location.reload()}>ลองโหลดใหม่</button>
+            <Link href="/merchant?legacy=1">เปิดหน้าร้านเดิม</Link>
+          </> : <>
             <h1>เปิด Zoky Merchant ไม่สำเร็จ</h1>
             <p>กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่ หรือใช้หน้าร้านเดิมได้ทันที</p>
             <button className="route-primary" type="button" onClick={() => window.location.reload()}>ลองโหลดใหม่</button>

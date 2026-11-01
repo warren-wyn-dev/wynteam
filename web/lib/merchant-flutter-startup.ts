@@ -22,13 +22,22 @@ function startupDetail(value: unknown): MerchantFlutterStartup | undefined {
 export function observeMerchantFlutterStartup({
   onReady,
   onTimeout,
+  onSlow,
   target = window,
   timeoutMs = 20_000,
+  failAfterMs = 90_000,
 }: {
   onReady: (detail: MerchantFlutterStartup) => void;
   onTimeout: () => void;
+  /**
+   * When given, the first timeout is not fatal: the view keeps loading and a
+   * late ready signal still reveals it (slow mobile networks, Founder
+   * 2026-11-01). onTimeout then fires only after failAfterMs.
+   */
+  onSlow?: () => void;
   target?: EventTarget;
   timeoutMs?: number;
+  failAfterMs?: number;
 }) {
   let viewId: number | undefined;
   let disposed = false;
@@ -65,7 +74,26 @@ export function observeMerchantFlutterStartup({
       early.clear();
       if (pending) { finish(pending); return; }
       // Engine initialization has its own timeout. This bounds store/font startup.
-      timer = setTimeout(() => { dispose(); onTimeout(); }, timeoutMs);
+      // A hidden page does not paint frames, so its time does not count.
+      const doc = typeof document === "undefined" ? undefined : document;
+      const arm = (ms: number, fire: () => void) => {
+        timer = setTimeout(() => {
+          if (disposed) return;
+          if (doc?.visibilityState === "hidden") {
+            const resume = () => {
+              if (doc.visibilityState === "hidden") return;
+              doc.removeEventListener("visibilitychange", resume);
+              if (!disposed) arm(ms, fire);
+            };
+            doc.addEventListener("visibilitychange", resume);
+            return;
+          }
+          fire();
+        }, ms);
+      };
+      const fail = () => { dispose(); onTimeout(); };
+      if (onSlow) arm(timeoutMs, () => { onSlow(); arm(Math.max(0, failAfterMs - timeoutMs), fail); });
+      else arm(timeoutMs, fail);
     },
     dispose,
   };
