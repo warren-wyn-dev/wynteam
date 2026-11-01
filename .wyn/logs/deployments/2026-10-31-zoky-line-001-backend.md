@@ -89,3 +89,11 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - ~15:14Z Founder confirmed customers were also affected (system-wide). Founder restarted the Supabase project; sign-in recovered for Merchant and customers. Root cause: Supabase Auth/database clock skew (PGRST303), resolved by the restart.
 - 15:29Z Re-release via PR #1312, run 41320562488 (Founder approved both reviews): round 2 + non-fatal slow startup + fresh-token resend for "JWT issued at future" (`ca492fe9`). Live `dpl_DBAanMCH8h91AEoodQcdCZkN7rKn`; `/merchant/flutter` 200, round-2 bundle live, no runtime errors. Rollback: `dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT`.
 - Follow-up: if PGRST303 recurs for more than a few minutes, restart the Supabase project and open a Supabase support ticket.
+
+## 2026-11-01 — Merchant speed release (Founder: "Merchant แอบช้า")
+
+- Candidate `0f450a9d` (base `ca492fe9`), PR #1313, run 41324810629; guard, stage and promote green, Founder approved both reviews.
+- Scope: instant order tabs (per-scope tab cache), CanvasKit content-addressed separately (`builds/2ae0779baf21c297069c/canvaskit/`, immutable) so app-only releases keep the engine cached, bundled NotoSansThai (SIL OFL, SHA-256 pinned in the font policy; Founder-approved policy change).
+- Live `dpl_J4VVC9TZbQ5EXENZNXMCaW5zfJRi`: `/merchant/flutter` 200, FontManifest lists MaterialIcons + NotoSansThai, engine served immutable, no runtime errors.
+- Simulated 4G (live bundle, synthetic data): no Google font request; app content 0.6s after view (was 1.4s) and font warmup 0ms (was ~1.5s, timed out). Cold first load is still bound by the one-time ~4 MB download.
+- Rollback: `dpl_DBAanMCH8h91AEoodQcdCZkN7rKn`.
