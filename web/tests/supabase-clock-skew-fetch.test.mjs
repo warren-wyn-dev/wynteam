@@ -55,3 +55,42 @@ test("returns the skew 401 once retries are exhausted, and the copy is Thai", as
   assert.equal(sessionErrorCopy("JWT expired"), "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง");
   assert.equal(sessionErrorCopy("store is closed"), null);
 });
+
+test("a token still rejected after two tries is resent once with a freshly issued token", async () => {
+  const seen = [];
+  let refreshes = 0;
+  const retryFetch = createClockSkewRetryFetch(
+    async (_url, init) => { const auth = new Headers(init?.headers).get("Authorization"); seen.push(auth); return auth === "Bearer fresh" ? ok() : skew(); },
+    async () => { refreshes += 1; return "fresh"; },
+  );
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const pending = retryFetch("https://example.test/rest/v1/x", { headers: { Authorization: "Bearer stale", apikey: "k" } });
+    for (let i = 0; i < 3; i += 1) { await new Promise((r) => setImmediate(r)); mock.timers.tick(5000); }
+    const response = await pending;
+    assert.equal(response.status, 200);
+  } finally {
+    mock.timers.reset();
+  }
+  assert.equal(refreshes, 1);
+  assert.deepEqual(seen, ["Bearer stale", "Bearer stale", "Bearer fresh"]);
+});
+
+test("a request without a bearer token keeps its headers when a refresh is offered", async () => {
+  const seen = [];
+  const retryFetch = createClockSkewRetryFetch(async (_url, init) => { seen.push(new Headers(init?.headers).get("Authorization")); return ok(); }, async () => "fresh");
+  await retryFetch("https://example.test/rest/v1/x", { headers: { apikey: "k" } });
+  assert.deepEqual(seen, [null]);
+});
+
+test("concurrent rejected requests share one refresh within the cooldown", async () => {
+  const { createSharedTokenRefresher } = await import("../lib/supabase/clock-skew-fetch.ts");
+  let calls = 0, clock = 0;
+  const refresh = createSharedTokenRefresher(async () => { calls += 1; return "t" + calls; }, 30_000, () => clock);
+  assert.deepEqual(await Promise.all([refresh(), refresh(), refresh()]), ["t1", "t1", "t1"]);
+  clock = 10_000;
+  assert.equal(await refresh(), "t1");
+  clock = 40_000;
+  assert.equal(await refresh(), "t2");
+  assert.equal(calls, 2);
+});

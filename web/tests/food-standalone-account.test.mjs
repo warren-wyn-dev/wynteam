@@ -243,7 +243,11 @@ test("Supabase browser clients retry a just-issued session the database sees as 
   for (const file of ["lib/food-customer.ts", "lib/food-merchant.ts"]) {
     assert.match(await read(file), /const sessionCopy = sessionErrorCopy\(message\);\n  if \(sessionCopy\) return sessionCopy;/, file);
   }
+  // Founder 2026-11-01: a still-rejected token is replaced once by a fresh one.
   for (const file of ["lib/supabase/browser.ts", "lib/supabase/merchant-browser.ts"]) {
-    assert.match(await read(file), /global: \{ fetch: createClockSkewRetryFetch\(\) \}/, file);
+    const source = await read(file);
+    assert.match(source, /createClockSkewRetryFetch\(undefined, refresh\)/, file);
+    assert.match(source, /createSharedTokenRefresher\(/, file);
   }
+  assert.match(await read("lib/supabase/browser.ts"), /global: \{ fetch: skewFetch \}[\s\S]*global: \{ fetch: skewFetch \}/);
 });
