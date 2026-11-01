@@ -35,6 +35,8 @@ async function friendly<T>(operation: () => Promise<T>, explain: (error: unknown
 }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery", "out_for_delivery", "delivered", "cancelled"]);
+// Order-list tabs that read several statuses (Founder 2026-11-01: "จัดส่ง").
+const ORDER_TAB_STATUSES: Record<string, string[]> = { delivering: ["ready_for_delivery", "out_for_delivery"] };
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
@@ -342,8 +344,9 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
       }
       case "orders": {
         const status = text(args.status, 30, true), offset = args.offset ?? 0;
-        if (!STATUSES.has(status) || !Number.isSafeInteger(offset) || Number(offset) < 0 || Number(offset) > 1_000_000) throw new BridgeInputError();
-        const { data, error } = await client.from("food_orders").select("*,food_order_items(*),food_delivery_proofs(*)").eq("store_id", storeId).eq("status", status).order("created_at", { ascending: !["delivered", "cancelled"].includes(status) }).order("id").range(Number(offset), Number(offset) + 49);
+        if ((!STATUSES.has(status) && !Object.hasOwn(ORDER_TAB_STATUSES, status)) || !Number.isSafeInteger(offset) || Number(offset) < 0 || Number(offset) > 1_000_000) throw new BridgeInputError();
+        const statuses = Object.hasOwn(ORDER_TAB_STATUSES, status) ? ORDER_TAB_STATUSES[status] : [status];
+        const { data, error } = await client.from("food_orders").select("*,food_order_items(*),food_delivery_proofs(*)").eq("store_id", storeId).in("status", statuses).order("created_at", { ascending: !["delivered", "cancelled"].includes(status) }).order("id").range(Number(offset), Number(offset) + 49);
         if (error) throw error;
         return data ?? [];
       }

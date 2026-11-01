@@ -10,6 +10,16 @@ const orderStatuses = {
   'delivered': 'สำเร็จ',
   'cancelled': 'ยกเลิก',
 };
+/// Order list tabs (Founder 2026-11-01): ใหม่ · กำลังเตรียม · จัดส่ง · เสร็จ ·
+/// ยกเลิก. "delivering" is a tab only: the bridge reads both ready and
+/// out-for-delivery orders for it. Per-order labels still use orderStatuses.
+const orderTabs = {
+  'pending_acceptance': 'ใหม่',
+  'preparing': 'กำลังเตรียม',
+  'delivering': 'จัดส่ง',
+  'delivered': 'เสร็จ',
+  'cancelled': 'ยกเลิก',
+};
 const paymentStatuses = {
   'pending': 'รอชำระเงิน',
   'submitted': 'รอตรวจสลิป',

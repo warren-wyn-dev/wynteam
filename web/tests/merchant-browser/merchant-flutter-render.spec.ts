@@ -11,14 +11,14 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   await page.route('**/merchant-flutter-qa', route => route.fulfill({contentType:'text/html; charset=utf-8',body:`<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body,#host{margin:0;width:100%;height:100%;overflow:hidden}</style></head><body><div id="host"></div><script>
     const store={id:'store-1',name:'ร้าน QA',is_open:true,is_published:true,phone:'0811111111',address:'ที่อยู่ทดสอบ',business_hours:'09:00–22:00',delivery_area:'พื้นที่ทดสอบ',effective_open:true,status_text:'เปิดรับออเดอร์'};
     const order={id:'order-1',order_number:'QA-001',status:'pending_acceptance',payment_status:'${manualPayment ? 'pending' : 'submitted'}',payment_slip_path:${manualPayment ? 'null' : "'slips/order-1/slip.png'"},recipient_name:'ลูกค้าทดสอบ',recipient_phone:'0811111111',shipping_address:'ที่อยู่ทดสอบ',total:75,subtotal:75,delivery_fee:0,created_at:'2026-10-21T03:00:00Z',food_order_items:[{item_name:'ข้าวกะเพรา',quantity:1}]};
-    window.qaWrites=[];
+    window.qaWrites=[];const orderTab=s=>s==='ready_for_delivery'||s==='out_for_delivery'?'delivering':s;
     window.zokyMerchant={request:async(method,raw)=>{
       const a=JSON.parse(raw);let data=null;
       switch(method){
         case 'stores':data=[store];break;
         case 'hasRole':data=true;break;
         case 'menu':data=[{id:'menu-1',name:'ข้าวกะเพรา',price:75,category:'อาหาร',is_available:true}];break;
-        case 'orders':data=order.status===a.status?[order]:[];break;
+        case 'orders':data=orderTab(order.status)===a.status?[order]:[];break;
         case 'report':data={today_sales:order.status==='delivered'?75:0,today_orders:order.status==='delivered'?1:0,month_sales:order.status==='delivered'?75:0,total_orders:order.status==='delivered'?1:0,best:[]};break;
         case 'quality':data={available:true,count:12,average:4.8,unanswered:2};break;
         case 'campaigns':data={can_manage:true,campaigns:[]};break;
@@ -48,16 +48,16 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
   await page.getByRole('checkbox',{name:'กำลังเตรียม',exact:true}).click();
   await page.getByRole('button',{name:'อาหารพร้อมแล้ว',exact:true}).click();
   await page.getByRole('button',{name:'ยืนยัน',exact:true}).click();
-  await page.getByRole('checkbox',{name:'พร้อมส่ง/ให้รับ',exact:true}).click();
+  await page.getByRole('checkbox',{name:'จัดส่ง',exact:true}).click();
   await page.getByRole('button',{name:'เริ่มจัดส่ง',exact:true}).click();
   await page.getByRole('button',{name:'ยืนยัน',exact:true}).click();
-  await page.getByRole('checkbox',{name:'กำลังจัดส่ง',exact:true}).click();
+  // Ready and out-for-delivery orders share the "จัดส่ง" tab.
   await page.getByRole('button',{name:'แนบรูปและยืนยันส่งสำเร็จ',exact:true}).click();
   await page.getByRole('button',{name:'ยืนยันส่งสำเร็จ',exact:true}).click();
   await expect(page.getByRole('alertdialog').getByText('กรุณาแนบรูปหลักฐานส่งสำเร็จ',{exact:true}).first()).toBeVisible();
   await page.getByRole('button',{name:'แนบรูปหลักฐาน (จำเป็น)',exact:true}).click();
   await page.getByRole('button',{name:'ยืนยันส่งสำเร็จ',exact:true}).click();
-  await page.getByRole('checkbox',{name:'สำเร็จ',exact:true}).click();
+  await page.getByRole('checkbox',{name:'เสร็จ',exact:true}).click();
   await expect(page.getByRole('group',{name:/#QA-001/}).first()).toBeVisible();
   await expect.poll(()=>page.evaluate(()=> (window as Window & {qaWrites?: string[]}).qaWrites)).toEqual(['payment','preparing','ready_for_delivery','out_for_delivery','delivered']);
   expect(errors).toEqual([]);
@@ -136,13 +136,13 @@ test('pickup cancellation rejection refreshes the order and pickup completes wit
   await page.route('**/merchant-fulfillment-qa', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body,#host{margin:0;width:100%;height:100%;overflow:hidden}</style></head><body><div id="host"></div><script>
     const store={id:'store-1',name:'ร้านรับเอง QA',is_open:true,is_published:true,effective_open:true};
     const order={id:'order-1',order_number:'PICKUP-01',status:'preparing',fulfillment_type:'pickup',payment_method:'transfer',payment_status:'paid',pickup_at:'2026-10-26T05:00:00Z',pickup_code:'A23',cancel_requested_at:'2026-10-26T04:00:00Z',cancel_request_note:'ขอเปลี่ยนแผน',recipient_name:'ลูกค้าทดสอบ',recipient_phone:'0811111111',total:75,subtotal:75,delivery_fee:0,created_at:'2026-10-26T03:00:00Z',food_order_items:[]};
-    window.qaWrites=[];
+    window.qaWrites=[];const orderTab=s=>s==='ready_for_delivery'||s==='out_for_delivery'?'delivering':s;
     window.zokyMerchant={request:async(method,raw)=>{
       const a=JSON.parse(raw);let data=null;
       switch(method){
         case 'stores':data=[store];break;
         case 'hasRole':data=true;break;
-        case 'orders':data=a.status===order.status?[order]:[];break;
+        case 'orders':data=a.status===orderTab(order.status)?[order]:[];break;
         case 'menu':data=[];break;
         case 'report':data={today_sales:0,today_orders:0,month_sales:0,total_orders:0,best:[]};break;
         case 'quality':data={available:false};break;
@@ -168,7 +168,7 @@ test('pickup cancellation rejection refreshes the order and pickup completes wit
   await expect(page.getByRole('button', { name: 'ปฏิเสธคำขอยกเลิก', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'พร้อมให้รับ', exact: true }).click();
   await page.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
-  await page.getByRole('checkbox', { name: 'พร้อมส่ง/ให้รับ', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'จัดส่ง', exact: true }).click();
   await page.getByRole('button', { name: 'ลูกค้ารับแล้ว', exact: true }).click();
   await page.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as Window & {qaWrites?: string[]}).qaWrites)).toEqual(['reject', 'ready_for_pickup', 'picked_up']);
@@ -177,7 +177,7 @@ test('pickup cancellation rejection refreshes the order and pickup completes wit
 async function performanceHost(page: import('@playwright/test').Page, holdSummaries = false, renderer?: 'canvaskit') {
   await page.route('**/merchant-performance-qa', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body,#host{margin:0;width:100%;height:100%;overflow:hidden}</style></head><body><div id="host"></div><script>
     const stores=[{id:'store-a',name:'ร้าน QA A',is_open:true,is_published:true,effective_open:true},{id:'store-b',name:'ร้าน QA B',is_open:true,is_published:true,effective_open:true}];
-    window.qaCounts={};window.qaWrites=[];window.qaBlockOrders=false;window.qaAllowed=true;
+    window.qaCounts={};window.qaWrites=[];const orderTab=s=>s==='ready_for_delivery'||s==='out_for_delivery'?'delivering':s;window.qaBlockOrders=false;window.qaAllowed=true;
     const summaries=new Promise(resolve=>window.qaReleaseSummaries=resolve);
     const waitingOrders=[];window.qaReleaseOrders=()=>{window.qaBlockOrders=false;waitingOrders.splice(0).forEach(resolve=>resolve());};
     window.zokyMerchant={request:async(method,raw)=>{

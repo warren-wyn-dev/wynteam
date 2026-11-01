@@ -1735,15 +1735,13 @@ class _MerchantHomeState extends State<MerchantHome>
     SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: orderStatuses.entries
+        children: orderTabs.entries
             .map(
               (e) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  // Pickup orders ready for collection share this status.
-                  label: Text(
-                    e.key == 'ready_for_delivery' ? 'พร้อมส่ง/ให้รับ' : e.value,
-                  ),
+                  // "จัดส่ง" also lists pickup orders ready for collection.
+                  label: Text(e.value),
                   selected: c.status == e.key,
                   onSelected: c.busy ? null : (_) => c.selectStatus(e.key),
                 ),

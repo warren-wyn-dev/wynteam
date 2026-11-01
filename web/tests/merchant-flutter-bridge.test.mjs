@@ -563,3 +563,13 @@ test('coalesced reads still reject a changed account and disposed bridge',async(
     assert.equal(h.calls.some(c=>c.table==='food_menu_items'),false);
   }
 });
+
+test('the จัดส่ง tab reads ready and out-for-delivery orders; unknown tabs are rejected',async()=>{
+  const h=harness();
+  assert.equal((await h.request('orders',{storeId:STORE,status:'delivering',offset:0})).ok,true);
+  const read=h.calls.filter(c=>c.table==='food_orders'&&c.name==='in').at(-1);
+  assert.equal(JSON.stringify(read),JSON.stringify({table:'food_orders',name:'in',key:'status',values:['ready_for_delivery','out_for_delivery']}));
+  assert.equal((await h.request('orders',{storeId:STORE,status:'preparing',offset:0})).ok,true);
+  assert.equal(JSON.stringify(h.calls.filter(c=>c.table==='food_orders'&&c.name==='in').at(-1).values),'["preparing"]');
+  for(const status of ['constructor','__proto__','toString','shipping'])assert.equal((await h.request('orders',{storeId:STORE,status,offset:0})).ok,false,status);
+});
