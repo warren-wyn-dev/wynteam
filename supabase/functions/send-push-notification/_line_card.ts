@@ -29,6 +29,8 @@ export type LineEvent = {
   pickupCode: string | null;
   /** Merchant "ออเดอร์ใหม่" before payment: decided once the order is known. */
   newOrderBeforePayment: boolean;
+  /** Merchant: which payment step produced this new-order card. */
+  stage: "created" | "slip" | "paid" | null;
 };
 
 export type LineOrder = {
@@ -39,6 +41,8 @@ export type LineOrder = {
   paymentMethod: string | null;
   fulfillmentType: string | null;
   customerNote: string | null;
+  /** A transfer slip was uploaded (the store usually checks it by hand). */
+  hasSlip: boolean;
   items: { name: string; quantity: number; unitPrice: number | null }[];
 };
 
@@ -52,14 +56,14 @@ export function lineEventFor(app: LineAudience, text: string): LineEvent {
   const minutesMatch = /(\d{1,3})\s*นาที/.exec(content);
   const minutes = minutesMatch ? Number(minutesMatch[1]) : null;
   const pickupCode = /รหัสรับอาหาร\s*([A-Za-z0-9-]{3,12})/.exec(content)?.[1] ?? null;
-  const base = { orderNumber, content, minutes, pickupCode, newOrderBeforePayment: false };
+  const base = { orderNumber, content, minutes, pickupCode, newOrderBeforePayment: false, stage: null };
   const is = (pattern: RegExp) => pattern.test(content);
 
   if (app === "merchant") {
     if (is(/^ทดสอบการแจ้งเตือน/)) return { ...base, kind: "test" };
-    if (is(/^ออเดอร์ใหม่ #/)) return { ...base, kind: "new_order", newOrderBeforePayment: true };
-    if (is(/^ลูกค้าส่งสลิป #/)) return { ...base, kind: "info" };
-    if (is(/^ชำระเงินแล้ว #/)) return { ...base, kind: "new_order" };
+    if (is(/^ออเดอร์ใหม่ #/)) return { ...base, kind: "new_order", newOrderBeforePayment: true, stage: "created" };
+    if (is(/^ลูกค้าส่งสลิป #/)) return { ...base, kind: "new_order", stage: "slip" };
+    if (is(/^ชำระเงินแล้ว #/)) return { ...base, kind: "new_order", stage: "paid" };
     if (is(/^ลูกค้าขอยกเลิก/)) return { ...base, kind: "cancel_request" };
     if (is(/ยกเลิก/) && !is(/คืนเงิน|ได้รับเงิน/)) return { ...base, kind: "cancelled" };
     if (is(/คืนเงิน|ได้รับเงินออเดอร์/)) return { ...base, kind: "refund" };
@@ -79,18 +83,33 @@ export function lineEventFor(app: LineAudience, text: string): LineEvent {
 }
 
 /**
- * Fewer LINE messages (Web Push still gets all of them):
- *  - Merchant "ลูกค้าส่งสลิป" is skipped: the slip is checked automatically and
- *    "ชำระเงินแล้ว" follows as the single "new order, paid" card.
- *  - Merchant "ออเดอร์ใหม่" is skipped while a transfer order is still unpaid;
- *    COD orders (and anything already paid) are sent at once. When the order
- *    cannot be read, the message is sent: never silently drop an order.
+ * Fewer LINE messages, one card per order for the store (Web Push still gets
+ * all of them). The card goes out at the first moment the store can act:
+ *  - COD, or already paid when created: the "ออเดอร์ใหม่" event.
+ *  - Transfer slip: the "ลูกค้าส่งสลิป" event — stores usually check slips by
+ *    hand, so waiting for "ชำระเงินแล้ว" could leave them unaware of the order.
+ *  - Paid without a slip (automatic payment): the "ชำระเงินแล้ว" event.
+ * Skipped: an unpaid transfer "ออเดอร์ใหม่", and "ชำระเงินแล้ว" after a slip
+ * card was already sent. When the order cannot be read, the message is sent:
+ * never silently drop an order.
  */
-export function shouldSendLine(app: LineAudience, event: LineEvent, order: LineOrder | null): boolean {
-  if (app === "merchant" && /^ลูกค้าส่งสลิป #/.test(event.content)) return false;
-  if (event.newOrderBeforePayment && order) {
-    return order.paymentMethod === "cod" || order.paymentStatus === "paid";
+export function shouldSendLine(
+  app: LineAudience,
+  event: LineEvent,
+  order: LineOrder | null,
+  earlierReminder = false,
+): boolean {
+  // Web Push repeats the reminder up to five times; LINE sends only the first.
+  if (app === "merchant" && event.kind === "reminder" && earlierReminder) return false;
+  if (app !== "merchant" || !order) return true;
+  if (event.stage === "created") {
+    const knownUnpaidTransfer = order.paymentMethod !== "cod" && order.paymentMethod !== null &&
+      order.paymentStatus !== "paid";
+    // Without payment_method (older schema) only an unpaid, slip-less order is skipped.
+    const legacyUnpaid = order.paymentMethod === null && order.paymentStatus === "pending";
+    return !(knownUnpaidTransfer || legacyUnpaid);
   }
+  if (event.stage === "paid") return !order.hasSlip;
   return true;
 }
 
@@ -98,7 +117,7 @@ type Lang = "th" | "en";
 
 const COLORS: Record<LineKind, string> = {
   new_order: "#E2246F",
-  reminder: "#E2246F",
+  reminder: "#F57C00",
   preparing: "#E2246F",
   paid: "#0A9F55",
   ready_pickup: "#0A9F55",
@@ -119,11 +138,16 @@ function headline(event: LineEvent, order: LineOrder | null, lang: Lang): string
   switch (event.kind) {
     case "new_order":
       if (cod) return en ? "🆕 New order · Cash on delivery" : "🆕 ออเดอร์ใหม่ · เก็บเงินปลายทาง";
-      return en ? "🆕 New order · Paid, ready to accept" : "🆕 ออเดอร์ใหม่ · ชำระแล้ว พร้อมรับ";
-    case "reminder":
+      if (event.stage === "slip" || (event.stage !== "paid" && order?.paymentStatus === "submitted")) {
+        return en ? "🆕 New order · Check slip" : "🆕 ออเดอร์ใหม่ · ตรวจสลิป";
+      }
+      return en ? "🆕 New order · Paid" : "🆕 ออเดอร์ใหม่ · ชำระแล้ว";
+    case "reminder": {
+      const slip = order?.paymentStatus === "submitted" ? (en ? " · check the slip" : " · รอตรวจสลิป") : "";
       return event.minutes != null
-        ? (en ? `⏰ Waiting ${event.minutes} min to be accepted` : `⏰ ออเดอร์รอรับ ${event.minutes} นาทีแล้ว`)
-        : (en ? "⏰ Order waiting to be accepted" : "⏰ ออเดอร์รอรับ");
+        ? (en ? `⏰ Waiting ${event.minutes} min${slip}` : `⏰ ออเดอร์รอรับ ${event.minutes} นาทีแล้ว${slip}`)
+        : (en ? `⏰ Order waiting to be accepted${slip}` : `⏰ ออเดอร์รอรับ${slip}`);
+    }
     case "paid":
       return en ? "✅ Payment received · waiting for the store" : "✅ ชำระเงินสำเร็จ · รอร้านรับออเดอร์";
     case "preparing":
@@ -162,6 +186,28 @@ function detailLine(event: LineEvent): string | null {
   // Drop the "ออเดอร์ #WFxxxx" lead-in already shown as the order line.
   const text = event.content.replace(/^(ออเดอร์|ชำระเงินออเดอร์|สลิปออเดอร์)\s*#WF\d+\s*/, "").trim();
   return text && text.length > 2 ? text : null;
+}
+
+/** "🛵 ส่งถึงบ้าน · ชำระแล้ว" — how the food leaves the store and how it is paid. */
+export function fulfilmentLine(order: LineOrder | null, lang: Lang): string | null {
+  if (!order) return null;
+  const en = lang === "en";
+  const how = order.fulfillmentType === "pickup"
+    ? (en ? "🛍️ Pickup at store" : "🛍️ รับที่ร้าน")
+    : order.fulfillmentType === "delivery"
+    ? (en ? "🛵 Delivery" : "🛵 ส่งถึงบ้าน")
+    : null;
+  const pay = order.paymentMethod === "cod"
+    ? (en ? "💵 Cash on delivery" : "💵 เก็บเงินปลายทาง")
+    : order.paymentStatus === "paid"
+    ? (en ? "Paid" : "ชำระแล้ว")
+    : order.paymentStatus === "submitted"
+    ? (en ? "Slip to check" : "รอตรวจสลิป")
+    : order.paymentStatus === "pending"
+    ? (en ? "Not paid yet" : "ยังไม่ชำระ")
+    : null;
+  const parts = [how, pay].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
 }
 
 function clip(text: string, max: number): string {
@@ -206,6 +252,11 @@ export function lineCardMessages(
     .filter(Boolean).join(" · ");
   if (orderLine) body.push(text(orderLine, { weight: "bold", size: "md", color: "#1F1A1D" }));
 
+  const how = app === "merchant" && ["new_order", "reminder", "cancel_request"].includes(event.kind)
+    ? fulfilmentLine(order, lang)
+    : null;
+  if (how) body.push(text(how, { size: "sm", color: "#3B2F35", weight: "bold" }));
+
   const detail = detailLine(event);
   if (detail) body.push(text(clip(detail, 160), { size: "sm", color: "#6B5F66" }));
 
@@ -245,7 +296,7 @@ export function lineCardMessages(
     altText,
     contents: {
       type: "bubble",
-      size: "kilo",
+      size: "mega",
       header: {
         type: "box",
         layout: "vertical",
@@ -287,6 +338,7 @@ export function lineOrderFrom(row: unknown): LineOrder | null {
     paymentMethod: str(r.payment_method),
     fulfillmentType: str(r.fulfillment_type),
     customerNote: str(r.customer_note),
+    hasSlip: typeof r.payment_slip_path === "string" && r.payment_slip_path.length > 0,
     items: items.flatMap((item) => {
       const i = item as Record<string, unknown>;
       const name = str(i.item_name);

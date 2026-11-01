@@ -80,7 +80,7 @@ async function lineRecipientFor(recipientId: string, audience: LineAudience): Pr
 // customer's name, phone or address. A missing ZOKY-FULFILL-001 column or any
 // read failure falls back to fewer details, never to no message.
 async function lineOrderFor(orderNumber: string): Promise<LineOrder | null> {
-  const base = "order_number,total,payment_status,customer_note,food_stores(name),food_order_items(item_name,quantity,unit_price)";
+  const base = "order_number,total,payment_status,payment_slip_path,customer_note,food_stores(name),food_order_items(item_name,quantity,unit_price)";
   for (const select of [`${base},payment_method,fulfillment_type`, base]) {
     const response = await fetch(
       `${SUPABASE_URL}/rest/v1/food_orders?order_number=eq.${encodeURIComponent(orderNumber)}&select=${select}&limit=1`,
@@ -96,6 +96,18 @@ async function lineOrderFor(orderNumber: string): Promise<LineOrder | null> {
   return null;
 }
 
+// LINE gets only the first "รอรับ" reminder of an order; Web Push keeps all.
+// Any read failure counts as "no earlier reminder" so the alert still goes out.
+async function earlierReminderFor(row: NotificationRow, orderNumber: string): Promise<boolean> {
+  const prefix = `WYNOS Merchant · ออเดอร์ #${orderNumber} รอรับ `;
+  const rows = await supabaseRestGet(
+    `notifications?recipient_id=eq.${encodeURIComponent(row.recipient_id)}` +
+      `&reason=like.${encodeURIComponent(`${prefix}*`)}` +
+      `&id=neq.${encodeURIComponent(row.id)}&select=id&limit=1`,
+  );
+  return rows.length > 0;
+}
+
 async function deliverLine(
   line: LineConfig,
   lineUserId: string,
@@ -107,7 +119,10 @@ async function deliverLine(
     const event = lineEventFor(line.audience, text);
     const orderNumber = event.orderNumber ?? orderNumberInReason(row.reason);
     const order = orderNumber ? await lineOrderFor(orderNumber) : null;
-    if (!shouldSendLine(line.audience, event, order)) return "line_filtered";
+    const earlier = event.kind === "reminder" && orderNumber
+      ? await earlierReminderFor(row, orderNumber)
+      : false;
+    if (!shouldSendLine(line.audience, event, order, earlier)) return "line_filtered";
     const url = lineDestination(line, orderNumber);
     return await sendLinePush(fetch, line, lineUserId, lineCardMessages(line.audience, event, order, url, lang), row.id);
   } catch {
