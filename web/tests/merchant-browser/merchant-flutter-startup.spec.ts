@@ -63,7 +63,7 @@ async function startupHost(page: Page, {
       }};
       window.qaMountApp=async(initializer)=>{
         const base=_flutter.merchantAssetBase||'/merchant-flutter/';
-        const runner=await initializer.initializeEngine({multiViewEnabled:true,assetBase:base,canvasKitBaseUrl:base+'canvaskit/'});
+        const runner=await initializer.initializeEngine({multiViewEnabled:true,assetBase:base,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||base+'canvaskit/')});
         const app=await runner.runApp();
         window.qaCurrentView=app.addView({hostElement:document.querySelector('#host')});
         window.qaRemount=async()=>{
@@ -76,7 +76,7 @@ async function startupHost(page: Page, {
           return {previous,current:window.qaCurrentView};
         };
       };
-    </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const base=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:base,assetBase:base,canvasKitBaseUrl:base+'canvaskit/',forceSingleThreadedSkwasm:true,renderer:${renderer === 'canvaskit' ? "'canvaskit'" : 'null'}},onEntrypointLoaded:window.qaMountApp});})()"></script></body></html>`,
+    </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const base=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:base,assetBase:base,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||base+'canvaskit/'),forceSingleThreadedSkwasm:true,renderer:${renderer === 'canvaskit' ? "'canvaskit'" : 'null'}},onEntrypointLoaded:window.qaMountApp});})()"></script></body></html>`,
   }));
   await page.goto('/merchant-startup-qa', { waitUntil: 'domcontentloaded' });
   await page.locator('flutter-view').waitFor({ timeout: 45_000 });

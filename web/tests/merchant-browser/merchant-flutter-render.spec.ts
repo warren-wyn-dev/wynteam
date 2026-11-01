@@ -31,7 +31,7 @@ test(`Flutter merchant processes ${manualPayment ? 'manual no-slip payment' : 's
       }
       return JSON.stringify({ok:true,data});
     }};
-    </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const b=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:b,assetBase:b,canvasKitBaseUrl:b+'canvaskit/',forceSingleThreadedSkwasm:true},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:b,canvasKitBaseUrl:b+'canvaskit/'});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})})()"></script></body></html>`}));
+    </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const b=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:b,assetBase:b,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||b+'canvaskit/'),forceSingleThreadedSkwasm:true},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:b,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||b+'canvaskit/')});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})})()"></script></body></html>`}));
   await page.goto('/merchant-flutter-qa');
   await page.locator('flutter-view').waitFor({timeout:45000});
   await expect(page.getByText('ร้าน QA',{exact:true}).first()).toBeVisible({timeout:30000});
@@ -111,7 +111,7 @@ for (const scenario of ['empty', 'offline', 'revoked'] as const) {
         }
         return JSON.stringify({ok:true,data});
       }};
-      </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const b=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:b,assetBase:b,canvasKitBaseUrl:b+'canvaskit/',forceSingleThreadedSkwasm:true},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:b,canvasKitBaseUrl:b+'canvaskit/'});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})})()"></script></body></html>`}));
+      </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const b=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:b,assetBase:b,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||b+'canvaskit/'),forceSingleThreadedSkwasm:true},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:b,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||b+'canvaskit/')});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})})()"></script></body></html>`}));
     await page.goto('/merchant-account-exit-qa');
     await page.locator('flutter-view').waitFor({timeout:45000});
     if (scenario === 'revoked') {
@@ -154,7 +154,7 @@ test('pickup cancellation rejection refreshes the order and pickup completes wit
       }
       return JSON.stringify({ok:true,data});
     }};
-    </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const b=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:b,assetBase:b,canvasKitBaseUrl:b+'canvaskit/',forceSingleThreadedSkwasm:true},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:b,canvasKitBaseUrl:b+'canvaskit/'});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})})()"></script></body></html>` }));
+    </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const b=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:b,assetBase:b,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||b+'canvaskit/'),forceSingleThreadedSkwasm:true},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:b,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||b+'canvaskit/')});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})})()"></script></body></html>` }));
   await page.goto('/merchant-fulfillment-qa');
   await expect(page.getByText('ร้านรับเอง QA', { exact: true }).first()).toBeVisible({ timeout: 45000 });
   await page.getByRole('tab', { name: 'ออเดอร์', exact: true }).or(page.getByRole('button', { name: 'ออเดอร์', exact: true })).first().click();
@@ -198,7 +198,7 @@ async function performanceHost(page: import('@playwright/test').Page, holdSummar
       }
       return JSON.stringify({ok:true,data});
     }};
-    </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const b=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:b,assetBase:b,canvasKitBaseUrl:b+'canvaskit/',forceSingleThreadedSkwasm:true,renderer:${renderer === 'canvaskit' ? "'canvaskit'" : 'null'}},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:b,canvasKitBaseUrl:b+'canvaskit/'});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})})()"></script></body></html>` }));
+    </script><script src="/merchant-flutter/flutter_bootstrap.js" onload="(()=>{const b=_flutter.merchantAssetBase||'/merchant-flutter/';_flutter.loader.load({config:{entrypointBaseUrl:b,assetBase:b,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||b+'canvaskit/'),forceSingleThreadedSkwasm:true,renderer:${renderer === 'canvaskit' ? "'canvaskit'" : 'null'}},onEntrypointLoaded:async(i)=>{const r=await i.initializeEngine({multiViewEnabled:true,assetBase:b,canvasKitBaseUrl:(_flutter.merchantCanvasKitBase||b+'canvaskit/')});const app=await r.runApp();app.addView({hostElement:document.querySelector('#host')});}})})()"></script></body></html>` }));
   await page.goto('/merchant-performance-qa');
   expect(await page.evaluate(() => (window as Window & { _flutter?: { merchantAssetBase?: string } })._flutter?.merchantAssetBase)).toMatch(/^\/merchant-flutter\/builds\/[a-f0-9]{20}\/$/);
   await expect(page.getByText('ร้าน QA A', { exact: true }).first()).toBeVisible({ timeout: 45000 });
