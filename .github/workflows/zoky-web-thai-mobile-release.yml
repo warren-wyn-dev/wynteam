@@ -1,10 +1,11 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-01: ฟีดแบ็ก and ช่วยเหลือ open inside the new Merchant
-# instead of jumping to the legacy page. New bridge store read "reviews"
-# (whitelisted fields, existing review RPC) and write "replyReview" (manage
-# role + review must belong to the store; the RPC re-checks the role). Base
-# is the live speed release (0f450a9d on dpl_J4VVC9TZbQ5EXENZNXMCaW5zfJRi).
+# Founder 2026-11-01: no more legacy jumps. The readiness checklist, store
+# status sheet and header bell stay in Flutter; settings gains the full store
+# editor (images, profile, delivery, pins with service-area check, temporary
+# closure, scheduled orders, tax invoice, publish with the readiness gate).
+# Bridge validates every field with a manage role and reads it back. Base is
+# the live feedback/help release (d8ec38dc on dpl_9YrwL9aoUMhMkreXBJoCnzyyCr4r).
 # Production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
@@ -14,7 +15,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_MERCHANT_FEEDBACK_20261101]
+        options: [CANCEL, ZOKY_MERCHANT_STORE_EDITOR_20261101]
 
 permissions:
   contents: read
@@ -27,25 +28,27 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: d8ec38dc14b66ad4f833d02bca2e4fd9e2b65f51
-  PRODUCTION_BASE_SHA: 0f450a9ddf3fcda8c868c138b992ad3fa074b012
-  # Live on every customer host since the 2026-11-01 speed release (0f450a9d).
-  ROLLBACK_DEPLOYMENT: dpl_J4VVC9TZbQ5EXENZNXMCaW5zfJRi
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_J4VVC9TZbQ5EXENZNXMCaW5zfJRi
+  RELEASE_SHA: 783e99d22bf61150078d6e8c0aa52cd9aa2ff018
+  PRODUCTION_BASE_SHA: d8ec38dc14b66ad4f833d02bca2e4fd9e2b65f51
+  # Live on every customer host since the 2026-11-01 feedback/help release (d8ec38dc).
+  ROLLBACK_DEPLOYMENT: dpl_9YrwL9aoUMhMkreXBJoCnzyyCr4r
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_9YrwL9aoUMhMkreXBJoCnzyyCr4r
   ALLOWED_PATHS: >-
+    web/lib/i18n/en.ts
     web/lib/merchant-flutter-bridge.ts
     web/merchant_flutter/lib/data/merchant_repository.dart
-    web/merchant_flutter/lib/screens/growth_panels.dart
     web/merchant_flutter/lib/screens/merchant_home.dart
+    web/merchant_flutter/lib/screens/store_profile_panel.dart
     web/merchant_flutter/test/merchant_test.dart
     web/tests/merchant-flutter-bridge.test.mjs
+    web/tests/merchant-flutter-routing.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_FEEDBACK_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_STORE_EDITOR_20261101'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -80,7 +83,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_FEEDBACK_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_STORE_EDITOR_20261101'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -138,7 +141,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_FEEDBACK_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_STORE_EDITOR_20261101'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
