@@ -7,7 +7,7 @@ import {
 } from "@/lib/food-merchant";
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
 import { FOOD_DAY_KEYS, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
-import { addMerchantStaff, fetchMerchantStaff, fetchMerchantStoreReviews, updateMerchantStaff } from "@/lib/merchant-core";
+import { addMerchantStaff, fetchMerchantStaff, fetchMerchantStoreReviews, replyMerchantStoreReview, updateMerchantStaff } from "@/lib/merchant-core";
 import { fetchFinanceSummary, periodRange } from "@/lib/merchant-finance";
 import { fetchMerchantAdAccount, merchantAdError, requestAdTopup, setAdActive } from "@/lib/merchant-ads";
 import { fetchPlatformCampaigns, joinPlatformCampaign, leavePlatformCampaign, platformCampaignError } from "@/lib/merchant-platform-campaigns";
@@ -39,7 +39,7 @@ const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery
 const ORDER_TAB_STATUSES: Record<string, string[]> = { delivering: ["ready_for_delivery", "out_for_delivery"] };
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "orderCounts", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
+const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "orderCounts", "reviews", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
 function object(value: unknown): Args {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new BridgeInputError();
   return value as Args;
@@ -443,6 +443,34 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (!Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(unanswered) || unanswered < 0 || unanswered > count ||
             (count > 0 && (!Number.isFinite(average) || average < 1 || average > 5))) throw new Error("invalid_review_summary");
         return { available: true, count, average: count === 0 ? null : average, unanswered };
+      }
+      case "reviews": {
+        // Founder 2026-11-01: the Flutter "ฟีดแบ็ก" screen. Same RPC, store
+        // access and fields the legacy feedback screen already shows; only
+        // whitelisted review fields cross into Dart.
+        const feed = await fetchMerchantStoreReviews(client, storeId, 100);
+        if (!feed) return { available: false, can_reply: false, count: 0, average: null, unanswered: 0, reviews: [] };
+        const { data: canReply, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin", "manager"] });
+        if (error) throw error;
+        return {
+          available: true, can_reply: canReply === true, count: feed.count,
+          average: feed.count === 0 ? null : feed.average, unanswered: feed.unanswered,
+          reviews: feed.reviews.map((r) => ({
+            id: r.id, rating: r.rating, review_text: r.review_text, tags: r.tags, reviewer_label: r.reviewer_label,
+            created_at: r.created_at, merchant_reply: r.merchant_reply, merchant_replied_at: r.merchant_replied_at,
+          })),
+        };
+      }
+      case "replyReview": {
+        const reviewId = id(args.reviewId), reply = text(args.reply, 500, true);
+        await requireManageRole(storeId);
+        // The RPC re-checks the role on the review's own store; this keeps the
+        // reply inside the selected store as well.
+        const feed = await fetchMerchantStoreReviews(client, storeId, 100);
+        if (!feed?.reviews.some((r) => r.id === reviewId)) throw new BridgeInputError();
+        await ensureSession();
+        await replyMerchantStoreReview(client, reviewId, reply);
+        return null;
       }
       case "campaigns": return fetchMerchantCampaigns(client, storeId);
       case "saveMenu": {

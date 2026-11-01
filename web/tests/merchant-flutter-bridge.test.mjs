@@ -585,3 +585,32 @@ test('home order counts stay store-scoped and count only unpaid non-COD, non-Str
   assert.equal(JSON.stringify(reads.filter(c=>c.name==='in').map(c=>c.values)),JSON.stringify([['pending_acceptance'],['preparing'],['ready_for_delivery','out_for_delivery']]));
   assert.equal((await h.request('orderCounts',{storeId:OTHER})).ok,false);
 });
+
+test('feedback reviews expose only whitelisted fields and the reply permission (Founder 2026-11-01)',async()=>{
+  const h=harness();
+  h.state.reviewData={count:2,average:4.5,unanswered:1,reviews:[{id:ORDER,rating:5,review_text:'อร่อย',tags:['รสชาติดี'],reviewer_label:'ลูกค้า WYNOS Food',created_at:'2026-11-01T00:00:00Z',merchant_reply:null,merchant_replied_at:null,customer_user_id:'secret-user',order_id:'secret-order'}]};
+  const result=await h.request('reviews',{storeId:STORE});
+  assert.equal(result.ok,true);
+  assert.equal(result.data.can_reply,true);
+  assert.equal(result.data.count,2);
+  assert.deepEqual(Object.keys(result.data.reviews[0]).sort(),['created_at','id','merchant_replied_at','merchant_reply','rating','review_text','reviewer_label','tags']);
+  assert.equal(JSON.stringify(result).includes('secret'),false);
+  assert.equal(h.calls.find(c=>c.name==='merchant_store_reviews').args.p_store_id,STORE);
+  h.state.manage=false;
+  assert.equal((await h.request('reviews',{storeId:STORE})).data.can_reply,false);
+  assert.equal((await harness().request('reviews',{storeId:OTHER})).ok,false);
+});
+
+test('a review reply needs a manage role, a review from this store and a bounded non-empty text',async()=>{
+  const h=harness();
+  h.state.reviewData={count:1,average:5,unanswered:1,reviews:[{id:ORDER,rating:5}]};
+  assert.equal((await h.request('replyReview',{storeId:STORE,reviewId:ORDER,reply:' ขอบคุณครับ '})).ok,true);
+  const call=h.calls.find(c=>c.name==='food_reply_store_review');
+  assert.equal(call.args.p_review_id,ORDER);assert.equal(call.args.p_reply,'ขอบคุณครับ');
+  const before=h.calls.filter(c=>c.name==='food_reply_store_review').length;
+  assert.equal((await h.request('replyReview',{storeId:STORE,reviewId:ITEM,reply:'x'})).ok,false);
+  for(const reply of ['', '   ', 'x'.repeat(501), 5])assert.equal((await h.request('replyReview',{storeId:STORE,reviewId:ORDER,reply})).ok,false);
+  h.state.manage=false;
+  assert.equal((await h.request('replyReview',{storeId:STORE,reviewId:ORDER,reply:'ok'})).ok,false);
+  assert.equal(h.calls.filter(c=>c.name==='food_reply_store_review').length,before);
+});

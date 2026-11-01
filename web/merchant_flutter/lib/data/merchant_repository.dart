@@ -87,6 +87,15 @@ abstract class MerchantRepository {
 
   /// Home "ต้องทำตอนนี้" counts; an empty map means unknown (shown as —).
   Future<Json> orderCounts(String storeId) async => {};
+
+  /// Customer reviews for the "ฟีดแบ็ก" screen.
+  Future<Json> reviews(String storeId) async =>
+      throw const MerchantException('โหลดฟีดแบ็กไม่สำเร็จ');
+  Future<void> replyReview(
+    String storeId,
+    String reviewId,
+    String reply,
+  ) async => throw const MerchantException('ส่งคำตอบไม่สำเร็จ');
   Future<Json> ads(String storeId) async =>
       throw const MerchantException('ระบบโฆษณายังไม่เปิดใช้งาน');
   Future<bool> pickAdSlip(String storeId, num amount) async => false;
@@ -219,6 +228,22 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<Json> orderCounts(String storeId) async =>
       object(await call('orderCounts', {'storeId': storeId}));
+  @override
+  Future<Json> reviews(String storeId) async =>
+      object(await call('reviews', {'storeId': storeId}));
+  @override
+  Future<void> replyReview(
+    String storeId,
+    String reviewId,
+    String reply,
+  ) async {
+    await call('replyReview', {
+      'storeId': storeId,
+      'reviewId': reviewId,
+      'reply': reply,
+    });
+  }
+
   @override
   Future<Json> quality(String storeId) async =>
       object(await call('quality', {'storeId': storeId}));

@@ -457,3 +457,273 @@ class _PlatformCampaignsPanelState extends State<PlatformCampaignsPanel>
     );
   }
 }
+
+String _reviewDate(dynamic value) {
+  final d = DateTime.tryParse('$value')?.toLocal();
+  if (d == null) return '';
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.day}/${d.month}/${d.year + 543} ${two(d.hour)}:${two(d.minute)}';
+}
+
+/// Founder 2026-11-01: customer reviews and replies inside the new Merchant,
+/// instead of jumping to the legacy page. The server re-checks every reply.
+class FeedbackPanel extends StatefulWidget {
+  const FeedbackPanel({
+    super.key,
+    required this.repository,
+    required this.storeId,
+    this.refreshedAt,
+  });
+  final MerchantRepository repository;
+  final String storeId;
+  final DateTime? refreshedAt;
+  @override
+  State<FeedbackPanel> createState() => _FeedbackPanelState();
+}
+
+class _FeedbackPanelState extends State<FeedbackPanel>
+    with _ServerPanel<FeedbackPanel> {
+  bool onlyUnanswered = false;
+
+  @override
+  Future<Json> read() => widget.repository.reviews(widget.storeId);
+  @override
+  DateTime? get refreshedAt => widget.refreshedAt;
+  @override
+  void didUpdateWidget(covariant FeedbackPanel old) {
+    super.didUpdateWidget(old);
+    if (old.storeId != widget.storeId ||
+        !identical(old.repository, widget.repository)) {
+      data = null;
+      notice = null;
+      error = null;
+      unawaited(load());
+    } else {
+      reloadIfRefreshed(old.refreshedAt);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(load());
+  }
+
+  Future<void> reply(Map r) async {
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => _ReplyDialog(
+        initial: r['merchant_reply'] is String ? r['merchant_reply'] : '',
+        editing: r['merchant_reply'] != null,
+      ),
+    );
+    if (text == null || text.isEmpty || !mounted) return;
+    await write(() async {
+      await widget.repository.replyReview(widget.storeId, '${r['id']}', text);
+      return true;
+    }, r['merchant_reply'] == null ? 'ตอบกลับลูกค้าแล้ว' : 'แก้ไขคำตอบแล้ว');
+  }
+
+  Widget stat(String value, String label) => Expanded(
+    child: Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+        ),
+        Text(label, textAlign: TextAlign.center, style: _muted),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final d = data;
+    final available = d?['available'] == true;
+    final canReply = !busy && d?['can_reply'] == true;
+    final all = (d?['reviews'] as List? ?? []).whereType<Map>().toList();
+    final shown = onlyUnanswered
+        ? all.where((r) => r['merchant_reply'] == null).toList()
+        : all;
+    final count = _num(d?['count']).toInt();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...messages(),
+        if (d != null && !available)
+          const Text('ระบบรีวิวของร้านยังไม่พร้อมใช้งาน', style: _muted),
+        if (available) ...[
+          Row(
+            children: [
+              stat('$count', 'รีวิวทั้งหมด'),
+              stat(
+                d?['average'] is num
+                    ? (d!['average'] as num).toStringAsFixed(1)
+                    : '—',
+                'คะแนนเฉลี่ย / 5',
+              ),
+              stat('${_num(d?['unanswered']).toInt()}', 'รอตอบกลับ'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('ทั้งหมด'),
+                selected: !onlyUnanswered,
+                showCheckmark: false,
+                onSelected: (_) => setState(() => onlyUnanswered = false),
+              ),
+              ChoiceChip(
+                label: const Text('รอตอบ'),
+                selected: onlyUnanswered,
+                showCheckmark: false,
+                onSelected: (_) => setState(() => onlyUnanswered = true),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (shown.isEmpty && !loading)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                onlyUnanswered ? 'ไม่มีรีวิวรอตอบ' : 'ยังไม่มีรีวิวจากลูกค้า',
+                textAlign: TextAlign.center,
+                style: _muted,
+              ),
+            ),
+          for (final r in shown)
+            Card(
+              margin: const EdgeInsets.only(top: 10),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${r['reviewer_label'] ?? 'ลูกค้า WYNOS Food'}',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Semantics(
+                          label: '${_num(r['rating']).toInt()} จาก 5 ดาว',
+                          excludeSemantics: true,
+                          child: Text(
+                            '★' * _num(r['rating']).round().clamp(0, 5) +
+                                '☆' *
+                                    (5 - _num(r['rating']).round().clamp(0, 5)),
+                            style: const TextStyle(color: Color(0xFFE0A100)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(_reviewDate(r['created_at']), style: _muted),
+                    if ('${r['review_text'] ?? ''}'.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text('${r['review_text']}'),
+                    ],
+                    if ((r['tags'] as List? ?? []).isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          for (final t in r['tags'] as List)
+                            Chip(
+                              label: Text('$t'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                        ],
+                      ),
+                    ],
+                    if (r['merchant_reply'] != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF6F6F8),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text('คำตอบของร้าน: ${r['merchant_reply']}'),
+                      ),
+                    ],
+                    if (d?['can_reply'] == true)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: canReply ? () => reply(r) : null,
+                          child: Text(
+                            r['merchant_reply'] == null
+                                ? 'ตอบกลับรีวิว'
+                                : 'แก้ไขคำตอบ',
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          if (count > all.length)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                'แสดงรีวิวล่าสุด ${all.length} จาก $count รายการ',
+                style: _muted,
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Owns its text controller so it is disposed after the dialog's exit
+/// animation, not while the closing route still renders the field.
+class _ReplyDialog extends StatefulWidget {
+  const _ReplyDialog({required this.initial, required this.editing});
+  final String initial;
+  final bool editing;
+  @override
+  State<_ReplyDialog> createState() => _ReplyDialogState();
+}
+
+class _ReplyDialogState extends State<_ReplyDialog> {
+  late final controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.editing ? 'แก้ไขคำตอบ' : 'ตอบกลับรีวิว'),
+    content: TextField(
+      controller: controller,
+      autofocus: true,
+      maxLength: 500,
+      minLines: 3,
+      maxLines: 6,
+      decoration: const InputDecoration(
+        labelText: 'คำตอบของร้าน',
+        hintText: 'ขอบคุณลูกค้า หรือชี้แจงอย่างสุภาพ',
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('ยกเลิก'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, controller.text.trim()),
+        child: const Text('บันทึกคำตอบ'),
+      ),
+    ],
+  );
+}

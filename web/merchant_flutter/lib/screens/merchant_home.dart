@@ -65,7 +65,7 @@ class _MerchantHomeState extends State<MerchantHome>
   List<Json>? _menuSource;
   String? _menuFilter;
   Map<String, List<Json>> _menuGroupsCache = {};
-  static const _cachedPanelPages = {8, 9, 10, 11};
+  static const _cachedPanelPages = {8, 9, 10, 11, 12};
   static const _panelFreshness = Duration(minutes: 1);
   bool foreground = true, signingOut = false;
   bool _initialContentNotified = false;
@@ -523,6 +523,8 @@ class _MerchantHomeState extends State<MerchantHome>
           9 => staffPage(),
           10 => adsPage(),
           11 => zokyCampaignsPage(),
+          12 => feedbackPage(),
+          13 => helpPage(),
           _ => qualityPage(),
         },
     ];
@@ -1359,18 +1361,8 @@ class _MerchantHomeState extends State<MerchantHome>
             Icons.verified_user_outlined,
             () => navigate(7),
           ),
-          homeTool(
-            'ฟีดแบ็ก',
-            5,
-            Icons.chat_bubble_outline,
-            () => openTool('feedback'),
-          ),
-          homeTool(
-            'ช่วยเหลือ',
-            6,
-            Icons.support_outlined,
-            () => openTool('help'),
-          ),
+          homeTool('ฟีดแบ็ก', 5, Icons.chat_bubble_outline, () => navigate(12)),
+          homeTool('ช่วยเหลือ', 6, Icons.support_outlined, () => navigate(13)),
           homeTool('การตั้งค่า', 7, Icons.settings_outlined, () => navigate(5)),
         ], compact: true),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -1540,7 +1532,7 @@ class _MerchantHomeState extends State<MerchantHome>
         ),
       ),
       FilledButton.icon(
-        onPressed: () => openTool('feedback'),
+        onPressed: () => navigate(12),
         icon: const Icon(Icons.chat_bubble_outline),
         label: const Text('ดูรีวิวและตอบกลับ'),
       ),
@@ -1822,7 +1814,7 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
       moreRow(
         'ฟีดแบ็ก',
-        () => openTool('feedback'),
+        () => navigate(12),
         icon3d: 5,
         icon: Icons.chat_bubble_outline,
       ),
@@ -1840,7 +1832,7 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
       moreRow(
         'ช่วยเหลือ',
-        () => openTool('help'),
+        () => navigate(13),
         icon3d: 6,
         icon: Icons.support_outlined,
       ),
@@ -1864,6 +1856,108 @@ class _MerchantHomeState extends State<MerchantHome>
       label: const Text('ออกจากระบบ'),
     ),
   ];
+
+  /// Founder 2026-11-01: reviews inside the new Merchant (was the legacy page).
+  List<Widget> feedbackPage() => [
+    heading('ฟีดแบ็ก', 'ความคิดเห็นจากลูกค้า ZOKY ที่สั่งจริง'),
+    box(
+      FeedbackPanel(
+        key: ValueKey(c.storeId),
+        repository: widget.repository,
+        storeId: c.storeId!,
+        refreshedAt: _panelRefresh(12),
+      ),
+    ),
+  ];
+
+  Future<void> copyStoreDiagnostics() async {
+    final store = c.store!;
+    final detail = [
+      'ZOKY Merchant',
+      'ร้าน: ${store['name']}',
+      'Store ID: ${store['id']}',
+      'สถานะ: ${store['is_open'] == true ? 'เปิดร้าน' : 'ปิดร้าน'} / ${store['is_published'] == true ? 'เผยแพร่แล้ว' : 'ยังไม่เผยแพร่'}',
+      'เวลา: ${DateTime.now().toUtc().toIso8601String()}',
+    ].join('\n');
+    try {
+      await Clipboard.setData(ClipboardData(text: detail));
+      notice('คัดลอกข้อมูลสำหรับแจ้งปัญหาแล้ว');
+    } catch (_) {
+      notice('คัดลอกไม่สำเร็จ กรุณาจด Store ID จากหน้านี้');
+    }
+  }
+
+  /// Founder 2026-11-01: help inside the new Merchant (was the legacy page).
+  List<Widget> helpPage() {
+    Widget tip(String title, String body) => ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(body),
+    );
+    return [
+      heading('ช่วยเหลือ', 'ศูนย์ช่วยเหลือร้านค้า'),
+      box(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ต้องการความช่วยเหลือ?',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'ติดต่อบัญชี Official @wynos_s ใน WYNOS พร้อมส่งชื่อร้านและ Store ID เพื่อให้ทีมตรวจสอบได้เร็วขึ้น',
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                FilledButton(
+                  onPressed: () => launchUrl(
+                    Uri.parse('https://wynos.online'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  child: const Text('เปิด WYNOS'),
+                ),
+                OutlinedButton(
+                  onPressed: copyStoreDiagnostics,
+                  child: const Text('คัดลอกข้อมูลร้าน'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              'Store ID: ${c.store!['id']}',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
+            ),
+          ],
+        ),
+      ),
+      box(
+        Column(
+          children: [
+            tip(
+              'ออเดอร์ไม่ดัง',
+              'ตรวจว่าเปิดการแจ้งเตือน (เพิ่มเติม → การแจ้งเตือน) หรือ LINE และมือถือไม่ได้ปิดเสียง',
+            ),
+            tip(
+              'สลิปไม่ขึ้น',
+              'ปิดออเดอร์แล้วเปิดใหม่ หากยังไม่ขึ้นให้คัดลอกข้อมูลร้านส่งทีม',
+            ),
+            tip(
+              'ร้านไม่ขึ้นบน ZOKY',
+              'ตรวจความพร้อมร้าน ช่องทางรับเงิน เมนู ตำแหน่ง และสถานะเผยแพร่',
+            ),
+            tip(
+              'ยอดขายหรือการเงินไม่ตรง',
+              'ใช้หน้า “การเงิน” เลือกช่วงวันที่เพื่อตรวจรายการ',
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
 
   List<Widget> adsPage() => [
     heading('โฆษณา', 'ให้ร้านขึ้นเป็นร้านแนะนำและอยู่บนสุดตอนค้นหา'),

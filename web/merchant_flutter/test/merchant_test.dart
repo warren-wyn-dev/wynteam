@@ -22,6 +22,36 @@ class _QualityRepository extends FakeRepository {
   }
 }
 
+class _ReviewsRepository extends FakeRepository {
+  final replies = <String>[];
+  String? reply;
+  @override
+  Future<Map<String, dynamic>> reviews(String id) async => {
+    'available': true,
+    'can_reply': true,
+    'count': 1,
+    'average': 5,
+    'unanswered': reply == null ? 1 : 0,
+    'reviews': [
+      {
+        'id': 'review-1',
+        'rating': 5,
+        'review_text': 'อร่อยมาก',
+        'tags': ['รสชาติดี'],
+        'reviewer_label': 'ลูกค้า ZOKY',
+        'created_at': '2026-11-01T00:00:00Z',
+        'merchant_reply': reply,
+        'merchant_replied_at': null,
+      },
+    ],
+  };
+  @override
+  Future<void> replyReview(String storeId, String reviewId, String text) async {
+    replies.add('$storeId/$reviewId/$text');
+    reply = text;
+  }
+}
+
 class _CountsRepository extends FakeRepository {
   @override
   Future<Map<String, dynamic>> orderCounts(String id) async => {
@@ -114,6 +144,36 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ข้าวกะเพรา'), findsNothing);
       expect(find.text('ชาเย็น'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'feedback and help open inside the new Merchant and a reply is sent to the server',
+    (tester) async {
+      final repo = _ReviewsRepository();
+      await mount(tester, repo, width: 390);
+      await tester.tap(find.text('เพิ่มเติม').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.bySemanticsLabel('ฟีดแบ็ก'));
+      await tester.tap(find.bySemanticsLabel('ฟีดแบ็ก'));
+      await tester.pumpAndSettle();
+      expect(find.text('อร่อยมาก'), findsOneWidget);
+      await tester.tap(find.text('ตอบกลับรีวิว'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'ขอบคุณครับ');
+      await tester.tap(find.text('บันทึกคำตอบ'));
+      await tester.pumpAndSettle();
+      expect(repo.replies, ['store-1/review-1/ขอบคุณครับ']);
+      expect(find.text('คำตอบของร้าน: ขอบคุณครับ'), findsOneWidget);
+
+      await tester.tap(find.text('เพิ่มเติม').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.bySemanticsLabel('ช่วยเหลือ'));
+      await tester.tap(find.bySemanticsLabel('ช่วยเหลือ'));
+      await tester.pumpAndSettle();
+      expect(find.text('ต้องการความช่วยเหลือ?'), findsOneWidget);
+      expect(find.text('Store ID: store-1'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
