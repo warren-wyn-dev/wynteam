@@ -119,3 +119,10 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Scope: "เลือกบนแผนที่" for store and pickup pins; host opens the shared ZOKY map picker (search, drag pin, GPS) over the Flutter view via bridge `pickMapLocation` (manage role, coordinates validated, no write until บันทึกข้อมูลร้าน).
 - Live `dpl_AZHBwtFSUY5AJZnneGRYRc7YFRaJ`; `/merchant/flutter` 200, new button in `main.dart.js`, engine cached, no runtime errors.
 - Rollback: `dpl_2iVwx34njwqKa4biniz612RmynvQ`.
+
+## 2026-11-01 — Merchant speed round 2
+
+- Candidate `1dbe68ae` (base `04234e53`), PR #1317, run 41337082376; Founder approved both reviews.
+- Scope: early engine load for returning merchants; store reads overlapped with the stores access revalidation (publish only if still listed); instant reopen from a per-account store snapshot (no orders/customers; cleared on sign-out; read-only until live).
+- Live `dpl_57fwHSLJhRAKEpVVfdTFXr1BvP7e`; `/merchant/flutter` 200, engine base unchanged (cached), no runtime errors.
+- Rollback: `dpl_AZHBwtFSUY5AJZnneGRYRc7YFRaJ`.
