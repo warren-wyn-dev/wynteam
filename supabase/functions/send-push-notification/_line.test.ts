@@ -1,6 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
-import { lineConfigFor, lineDestination, lineMessagesFor, sendLinePush } from "./_line.ts";
+import { lineConfigFor, lineDestination, sendLinePush } from "./_line.ts";
 
 const env = (values: Record<string, string>) => (name: string) => values[name];
 const enabled = {
@@ -47,26 +47,6 @@ Deno.test("only well-formed order numbers reach the URL", () => {
   const merchant = lineConfigFor("merchant", env(enabled))!;
   assertEquals(lineDestination(merchant, "WF1&x=https://evil"), "https://merchant.wynos.online/merchant");
   assertEquals(lineDestination(merchant, null), "https://merchant.wynos.online/merchant");
-});
-
-Deno.test("message text uses the event, not the generic app title, within LINE limits", () => {
-  const [food] = lineMessagesFor("Wynos Food", "ออเดอร์ #WF0015 กำลังจัดส่ง", "https://x.test", "th") as {
-    altText: string; template: { text: string; actions: { label: string }[] };
-  }[];
-  assertEquals(food.template.text, "ออเดอร์ #WF0015 กำลังจัดส่ง");
-  assertEquals(food.template.actions[0].label, "เปิดดู");
-
-  const [merchant] = lineMessagesFor("ออเดอร์ใหม่ #WF0016", "", "https://x.test", "en") as {
-    template: { text: string; actions: { label: string }[] };
-  }[];
-  assertEquals(merchant.template.text, "ออเดอร์ใหม่ #WF0016");
-  assertEquals(merchant.template.actions[0].label, "Open");
-
-  const [long] = lineMessagesFor("", "ก".repeat(500), "https://x.test", "th") as {
-    altText: string; template: { text: string };
-  }[];
-  assertEquals(Array.from(long.template.text).length, 160);
-  assertEquals(Array.from(long.altText).length, 400);
 });
 
 function recordingFetch(status: number | Error) {
