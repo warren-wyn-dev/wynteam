@@ -97,3 +97,11 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Live `dpl_J4VVC9TZbQ5EXENZNXMCaW5zfJRi`: `/merchant/flutter` 200, FontManifest lists MaterialIcons + NotoSansThai, engine served immutable, no runtime errors.
 - Simulated 4G (live bundle, synthetic data): no Google font request; app content 0.6s after view (was 1.4s) and font warmup 0ms (was ~1.5s, timed out). Cold first load is still bound by the one-time ~4 MB download.
 - Rollback: `dpl_DBAanMCH8h91AEoodQcdCZkN7rKn`.
+
+## 2026-11-01 — Merchant in-app feedback and help
+
+- Candidate `d8ec38dc` (base `0f450a9d`), PR #1314, run 41327955996; Founder approved both reviews.
+- Scope: ฟีดแบ็ก and ช่วยเหลือ open inside the Flutter Merchant (no legacy jump). New bridge read `reviews` (whitelisted fields) and write `replyReview` (manage role + review in store; RPC re-checks).
+- Live `dpl_9YrwL9aoUMhMkreXBJoCnzyyCr4r`; `/merchant/flutter` 200, new screens present in `main.dart.js`, engine base unchanged (`2ae0779baf21c297069c`, stays cached).
+- Rollback: `dpl_J4VVC9TZbQ5EXENZNXMCaW5zfJRi`.
+- Remaining legacy jumps: readiness checklist tools and "เครื่องมือเพิ่มเติม" (intentional escape hatch).
