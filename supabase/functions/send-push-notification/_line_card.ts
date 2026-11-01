@@ -29,6 +29,8 @@ export type LineEvent = {
   pickupCode: string | null;
   /** Merchant "ออเดอร์ใหม่" before payment: decided once the order is known. */
   newOrderBeforePayment: boolean;
+  /** Merchant: which payment step produced this new-order card. */
+  stage: "created" | "slip" | "paid" | null;
 };
 
 export type LineOrder = {
@@ -39,6 +41,8 @@ export type LineOrder = {
   paymentMethod: string | null;
   fulfillmentType: string | null;
   customerNote: string | null;
+  /** A transfer slip was uploaded (the store usually checks it by hand). */
+  hasSlip: boolean;
   items: { name: string; quantity: number; unitPrice: number | null }[];
 };
 
@@ -52,14 +56,14 @@ export function lineEventFor(app: LineAudience, text: string): LineEvent {
   const minutesMatch = /(\d{1,3})\s*นาที/.exec(content);
   const minutes = minutesMatch ? Number(minutesMatch[1]) : null;
   const pickupCode = /รหัสรับอาหาร\s*([A-Za-z0-9-]{3,12})/.exec(content)?.[1] ?? null;
-  const base = { orderNumber, content, minutes, pickupCode, newOrderBeforePayment: false };
+  const base = { orderNumber, content, minutes, pickupCode, newOrderBeforePayment: false, stage: null };
   const is = (pattern: RegExp) => pattern.test(content);
 
   if (app === "merchant") {
     if (is(/^ทดสอบการแจ้งเตือน/)) return { ...base, kind: "test" };
-    if (is(/^ออเดอร์ใหม่ #/)) return { ...base, kind: "new_order", newOrderBeforePayment: true };
-    if (is(/^ลูกค้าส่งสลิป #/)) return { ...base, kind: "info" };
-    if (is(/^ชำระเงินแล้ว #/)) return { ...base, kind: "new_order" };
+    if (is(/^ออเดอร์ใหม่ #/)) return { ...base, kind: "new_order", newOrderBeforePayment: true, stage: "created" };
+    if (is(/^ลูกค้าส่งสลิป #/)) return { ...base, kind: "new_order", stage: "slip" };
+    if (is(/^ชำระเงินแล้ว #/)) return { ...base, kind: "new_order", stage: "paid" };
     if (is(/^ลูกค้าขอยกเลิก/)) return { ...base, kind: "cancel_request" };
     if (is(/ยกเลิก/) && !is(/คืนเงิน|ได้รับเงิน/)) return { ...base, kind: "cancelled" };
     if (is(/คืนเงิน|ได้รับเงินออเดอร์/)) return { ...base, kind: "refund" };
@@ -79,18 +83,26 @@ export function lineEventFor(app: LineAudience, text: string): LineEvent {
 }
 
 /**
- * Fewer LINE messages (Web Push still gets all of them):
- *  - Merchant "ลูกค้าส่งสลิป" is skipped: the slip is checked automatically and
- *    "ชำระเงินแล้ว" follows as the single "new order, paid" card.
- *  - Merchant "ออเดอร์ใหม่" is skipped while a transfer order is still unpaid;
- *    COD orders (and anything already paid) are sent at once. When the order
- *    cannot be read, the message is sent: never silently drop an order.
+ * Fewer LINE messages, one card per order for the store (Web Push still gets
+ * all of them). The card goes out at the first moment the store can act:
+ *  - COD, or already paid when created: the "ออเดอร์ใหม่" event.
+ *  - Transfer slip: the "ลูกค้าส่งสลิป" event — stores usually check slips by
+ *    hand, so waiting for "ชำระเงินแล้ว" could leave them unaware of the order.
+ *  - Paid without a slip (automatic payment): the "ชำระเงินแล้ว" event.
+ * Skipped: an unpaid transfer "ออเดอร์ใหม่", and "ชำระเงินแล้ว" after a slip
+ * card was already sent. When the order cannot be read, the message is sent:
+ * never silently drop an order.
  */
 export function shouldSendLine(app: LineAudience, event: LineEvent, order: LineOrder | null): boolean {
-  if (app === "merchant" && /^ลูกค้าส่งสลิป #/.test(event.content)) return false;
-  if (event.newOrderBeforePayment && order) {
-    return order.paymentMethod === "cod" || order.paymentStatus === "paid";
+  if (app !== "merchant" || !order) return true;
+  if (event.stage === "created") {
+    const knownUnpaidTransfer = order.paymentMethod !== "cod" && order.paymentMethod !== null &&
+      order.paymentStatus !== "paid";
+    // Without payment_method (older schema) only an unpaid, slip-less order is skipped.
+    const legacyUnpaid = order.paymentMethod === null && order.paymentStatus === "pending";
+    return !(knownUnpaidTransfer || legacyUnpaid);
   }
+  if (event.stage === "paid") return !order.hasSlip;
   return true;
 }
 
@@ -119,11 +131,16 @@ function headline(event: LineEvent, order: LineOrder | null, lang: Lang): string
   switch (event.kind) {
     case "new_order":
       if (cod) return en ? "🆕 New order · Cash on delivery" : "🆕 ออเดอร์ใหม่ · เก็บเงินปลายทาง";
+      if (event.stage === "slip" || (event.stage !== "paid" && order?.paymentStatus === "submitted")) {
+        return en ? "🆕 New order · Check the slip, then accept" : "🆕 ออเดอร์ใหม่ · ตรวจสลิปแล้วกดรับ";
+      }
       return en ? "🆕 New order · Paid, ready to accept" : "🆕 ออเดอร์ใหม่ · ชำระแล้ว พร้อมรับ";
-    case "reminder":
+    case "reminder": {
+      const slip = order?.paymentStatus === "submitted" ? (en ? " · check the slip" : " · รอตรวจสลิป") : "";
       return event.minutes != null
-        ? (en ? `⏰ Waiting ${event.minutes} min to be accepted` : `⏰ ออเดอร์รอรับ ${event.minutes} นาทีแล้ว`)
-        : (en ? "⏰ Order waiting to be accepted" : "⏰ ออเดอร์รอรับ");
+        ? (en ? `⏰ Waiting ${event.minutes} min${slip}` : `⏰ ออเดอร์รอรับ ${event.minutes} นาทีแล้ว${slip}`)
+        : (en ? `⏰ Order waiting to be accepted${slip}` : `⏰ ออเดอร์รอรับ${slip}`);
+    }
     case "paid":
       return en ? "✅ Payment received · waiting for the store" : "✅ ชำระเงินสำเร็จ · รอร้านรับออเดอร์";
     case "preparing":
@@ -287,6 +304,7 @@ export function lineOrderFrom(row: unknown): LineOrder | null {
     paymentMethod: str(r.payment_method),
     fulfillmentType: str(r.fulfillment_type),
     customerNote: str(r.customer_note),
+    hasSlip: typeof r.payment_slip_path === "string" && r.payment_slip_path.length > 0,
     items: items.flatMap((item) => {
       const i = item as Record<string, unknown>;
       const name = str(i.item_name);

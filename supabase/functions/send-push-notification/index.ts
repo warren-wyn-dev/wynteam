@@ -80,7 +80,7 @@ async function lineRecipientFor(recipientId: string, audience: LineAudience): Pr
 // customer's name, phone or address. A missing ZOKY-FULFILL-001 column or any
 // read failure falls back to fewer details, never to no message.
 async function lineOrderFor(orderNumber: string): Promise<LineOrder | null> {
-  const base = "order_number,total,payment_status,customer_note,food_stores(name),food_order_items(item_name,quantity,unit_price)";
+  const base = "order_number,total,payment_status,payment_slip_path,customer_note,food_stores(name),food_order_items(item_name,quantity,unit_price)";
   for (const select of [`${base},payment_method,fulfillment_type`, base]) {
     const response = await fetch(
       `${SUPABASE_URL}/rest/v1/food_orders?order_number=eq.${encodeURIComponent(orderNumber)}&select=${select}&limit=1`,

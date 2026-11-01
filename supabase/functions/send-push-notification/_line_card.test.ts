@@ -12,6 +12,7 @@ const order = (overrides: Partial<LineOrder> = {}): LineOrder => ({
   paymentMethod: "transfer",
   fulfillmentType: "delivery",
   customerNote: "ไม่ใส่ผักชี",
+  hasSlip: false,
   items: [
     { name: "ข้าวมันไก่", quantity: 2, unitPrice: 30 },
     { name: "น้ำเปล่า", quantity: 1, unitPrice: 10 },
@@ -68,11 +69,34 @@ Deno.test("ETA minutes and pickup code are read from the event text", () => {
   assertEquals(lineEventFor("merchant", "WYNOS Merchant · ชำระเงินแล้ว #WF0033").orderNumber, "WF0033");
 });
 
-Deno.test("store gets one card per normal transfer order (slip and unpaid new order skipped)", () => {
-  const unpaid = order({ paymentStatus: "pending" });
-  assertEquals(shouldSendLine("merchant", lineEventFor("merchant", "WYNOS Merchant · ออเดอร์ใหม่ #WF0033 · ฿70.00"), unpaid), false);
-  assertEquals(shouldSendLine("merchant", lineEventFor("merchant", "WYNOS Merchant · ลูกค้าส่งสลิป #WF0033"), unpaid), false);
-  assertEquals(shouldSendLine("merchant", lineEventFor("merchant", "WYNOS Merchant · ชำระเงินแล้ว #WF0033"), order()), true);
+Deno.test("slip transfer order: one card when the slip arrives, none on create or after confirm", () => {
+  const send = (text: string, o: LineOrder) => shouldSendLine("merchant", lineEventFor("merchant", text), o);
+  assertEquals(send("WYNOS Merchant · ออเดอร์ใหม่ #WF0034 · ฿60.00", order({ paymentStatus: "pending" })), false);
+  assertEquals(send("WYNOS Merchant · ลูกค้าส่งสลิป #WF0034", order({ paymentStatus: "submitted", hasSlip: true })), true);
+  assertEquals(send("WYNOS Merchant · ชำระเงินแล้ว #WF0034", order({ paymentStatus: "paid", hasSlip: true })), false);
+});
+
+Deno.test("automatic payment without a slip: one card when paid", () => {
+  const send = (text: string, o: LineOrder) => shouldSendLine("merchant", lineEventFor("merchant", text), o);
+  assertEquals(send("WYNOS Merchant · ออเดอร์ใหม่ #WF0035 · ฿60.00", order({ paymentStatus: "pending" })), false);
+  assertEquals(send("WYNOS Merchant · ชำระเงินแล้ว #WF0035", order({ paymentStatus: "paid", hasSlip: false })), true);
+});
+
+Deno.test("the slip card asks the store to check the slip", () => {
+  const bubble = card(lineCardMessages("merchant", lineEventFor("merchant", "WYNOS Merchant · ลูกค้าส่งสลิป #WF0034"), order({ paymentStatus: "submitted", hasSlip: true }), URL, "th"));
+  assertEquals(bubble.contents.header.contents[0].text, "🆕 ออเดอร์ใหม่ · ตรวจสลิปแล้วกดรับ");
+  assert(allText(bubble).includes("1× น้ำเปล่า"));
+});
+
+Deno.test("a reminder for an unchecked slip says so", () => {
+  const bubble = card(lineCardMessages("merchant", lineEventFor("merchant", "WYNOS Merchant · ออเดอร์ #WF0034 รอรับ 1 นาทีแล้ว"), order({ paymentStatus: "submitted", hasSlip: true }), URL, "th"));
+  assertEquals(bubble.contents.header.contents[0].text, "⏰ ออเดอร์รอรับ 1 นาทีแล้ว · รอตรวจสลิป");
+});
+
+Deno.test("without payment_method (older schema) only an unpaid order is skipped", () => {
+  const event = lineEventFor("merchant", "WYNOS Merchant · ออเดอร์ใหม่ #WF0036 · ฿60.00");
+  assertEquals(shouldSendLine("merchant", event, order({ paymentMethod: null, paymentStatus: "pending" })), false);
+  assertEquals(shouldSendLine("merchant", event, order({ paymentMethod: null, paymentStatus: "paid" })), true);
 });
 
 Deno.test("COD and already-paid new orders are sent at once", () => {
@@ -175,5 +199,7 @@ Deno.test("order rows are parsed defensively", () => {
   assertEquals(parsed.total, 70.5);
   assertEquals(parsed.items, [{ name: "x", quantity: 2, unitPrice: null }]);
   assertEquals(parsed.paymentMethod, null);
+  assertEquals(parsed.hasSlip, false);
+  assertEquals(lineOrderFrom({ order_number: "WF1", payment_slip_path: "food-private/x.jpg" })!.hasSlip, true);
   assertEquals(baht(1234.5), "฿1,234.50");
 });
