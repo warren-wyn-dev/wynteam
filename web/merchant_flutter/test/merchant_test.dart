@@ -104,21 +104,15 @@ void main() {
       await mount(tester, repo);
       await tester.tap(find.text('ออเดอร์').first);
       await tester.pumpAndSettle();
-      final buttons = tester
-          .widgetList<FilledButton>(
-            find.widgetWithText(FilledButton, 'รับออเดอร์'),
-          )
-          .toList();
-      expect(buttons.where((b) => b.onPressed != null).length, 1);
-      expect(buttons.where((b) => b.onPressed == null).length, 1);
-      await tester.tap(find.widgetWithText(FilledButton, 'รับออเดอร์').first);
+      // Paid order: direct accept. Unpaid order: no direct accept, only the
+      // payment review (the server gate is unchanged).
+      expect(find.widgetWithText(FilledButton, 'รับออเดอร์ · 30 นาที'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'ตรวจเงินเข้า · รับออเดอร์'), findsOneWidget);
+      expect(repo.writes, 0);
+      await tester.tap(find.widgetWithText(ChoiceChip, '45 นาที').first);
       await tester.pumpAndSettle();
       expect(repo.writes, 0);
-      await tester.tap(find.byType(DropdownButtonFormField<int>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('45 นาที').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ยืนยัน'));
+      await tester.tap(find.widgetWithText(FilledButton, 'รับออเดอร์ · 45 นาที'));
       await tester.pumpAndSettle();
       expect(repo.writes, 1);
       expect(repo.orderRows.first['status'], 'preparing');
