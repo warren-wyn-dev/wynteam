@@ -210,25 +210,22 @@ test('removing a pending view prevents its late ready event from reaching a new 
   expect((await readyEvents(page)).map(event => event.viewId)).toEqual([views.current]);
 });
 
-test('unavailable fallback fonts have a bounded startup result', async ({ page }) => {
+test('a held Google Thai fallback font does not delay startup (bundled font, Founder 2026-11-01)', async ({ page }) => {
   let releaseFonts!: () => void;
   const fontsReady = new Promise<void>(resolve => { releaseFonts = resolve; });
-  let fallbackRequests = 0;
-  // Roboto may be an engine-initialization prerequisite; hold only the Thai
-  // fallback whose readiness the Merchant warmup bounds after main starts.
+  // The app theme uses the bundled NotoSansThai, so readiness must not wait
+  // for the engine's runtime fallback even when that request never answers.
   await page.route('https://fonts.gstatic.com/s/notosansthai/**', async route => {
-    fallbackRequests++;
     await fontsReady;
     await route.abort();
   });
   try {
     await startupHost(page);
     await expect.poll(async () => (await readyEvents(page)).length).toBe(1);
-    await expect.poll(() => fallbackRequests).toBeGreaterThan(0);
     const event = (await readyEvents(page))[0];
-    expect(event.fontWarmupTimedOut).toBe(true);
-    expect(event.fontWarmupMs).toBeGreaterThanOrEqual(1_100);
-    expect(event.fontWarmupMs).toBeLessThan(10_000);
+    expect(event.fontWarmupTimedOut).toBe(false);
+    expect(event.fontWarmupMs).toBeLessThan(1_000);
+    await expect(page.getByText('ร้านเริ่มต้น QA', { exact: true }).first()).toBeVisible();
   } finally {
     releaseFonts();
   }
