@@ -25,3 +25,7 @@ https://claude.ai/artifact/8EDw34ZpwmnserTfmq2hbZ (private to the Founder; 390×
 - Missing 3D icons (store, orders, menu, report, team, bell): Founder may supply the LINE rich-menu 3D artwork; Claude cannot render new 3D art.
 - Combined "verify payment + accept" must keep the existing server checks (payment verification RPC, then transition) and the manual-confirmation checkbox semantics for slip-less pending orders — design review before implementation.
 - Performance work (critical-first loading, instant tap feedback) is implementation-side.
+
+## Status 2026-11-01
+- Round 1 (order cards + atlas shrink) live on `dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT`.
+- Remaining: Home, Menu, More screens.

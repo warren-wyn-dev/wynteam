@@ -61,3 +61,12 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 
 - LINE push fixes (#1308: slip card, one orange reminder, fulfilment/payment line, one-line headlines): run [41272674550](https://github.com/warren-wyn-dev/wynteam/actions/runs/41272674550), success 04:20 UTC, source `release/zoky-line-push-20261101` @ `8725ac45`.
 - Merchant order tabs (#1309): run [41273249812](https://github.com/warren-wyn-dev/wynteam/actions/runs/41273249812) guard, stage and promote all succeeded (promoted 04:36 UTC) after both Founder approvals. Customer hosts now serve `dpl_q64ggYo5yRQFMtwBCd5bG4HfEQDK` (source `98ec4b2b`). Independent check: Merchant root/flutter/`/line`, Food root/`/line`, ZOKY and WYNOS roots → 200; live Flutter build `406687c9aff379f75da3` contains the `delivering` tab; Vercel runtime errors (1h): none. Rollback: Instant Rollback to `dpl_Gd5Ydswjt3YS3umxkxpGP4SmQhKT`.
+
+## 2026-11-01 — Merchant UX redesign round 1 (ZOKY-MERCHANT-UX-002)
+
+- Candidate: `release/zoky-line-web-20261101` @ `301785b8` (base `98ec4b2b`), released via PR #1310 and run 41299720769 (guard, stage and promote all green; Founder approved both Production reviews).
+- Scope: redesigned order cards (one-step "ตรวจสลิป/ตรวจเงินเข้า · รับออเดอร์" with server payment check unchanged, ETA chips, items/note/address on card) and 3D tools atlas 652,796 → 72,968 bytes.
+- Pre-release QA: Flutter analyze + 96 tests, `next build`, `qa:merchant-flutter` 48/48. One regression (pickup code label shortened) caught and fixed before release.
+- Live: `dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT` on merchant.wynos.online and customer hosts; `/merchant/flutter` 200, atlas 72,968 bytes, new strings in `main.dart.js`, no runtime errors.
+- Rollback: Vercel Instant Rollback to `dpl_q64ggYo5yRQFMtwBCd5bG4HfEQDK`.
+- Next: rounds 2+ (หน้าหลัก, เมนูอาหาร, เพิ่มเติม) per the approved prototype.
