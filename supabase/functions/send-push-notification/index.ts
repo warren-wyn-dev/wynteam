@@ -31,12 +31,13 @@ import {
 } from "./_lib.ts";
 import {
   type LineAudience,
+  type LineConfig,
   lineConfigFor,
   lineDestination,
-  lineMessagesFor,
   type LineSendOutcome,
   sendLinePush,
 } from "./_line.ts";
+import { lineCardMessages, lineEventFor, type LineOrder, lineOrderFrom, shouldSendLine } from "./_line_card.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -73,6 +74,45 @@ async function lineRecipientFor(recipientId: string, audience: LineAudience): Pr
   );
   const id = (rows[0] as { line_user_id?: unknown } | undefined)?.line_user_id;
   return typeof id === "string" && /^U[0-9a-f]{32}$/.test(id) ? id : null;
+}
+
+// ZOKY-LINE-001 v2: order details for the LINE card. Never selects the
+// customer's name, phone or address. A missing ZOKY-FULFILL-001 column or any
+// read failure falls back to fewer details, never to no message.
+async function lineOrderFor(orderNumber: string): Promise<LineOrder | null> {
+  const base = "order_number,total,payment_status,customer_note,food_stores(name),food_order_items(item_name,quantity,unit_price)";
+  for (const select of [`${base},payment_method,fulfillment_type`, base]) {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/food_orders?order_number=eq.${encodeURIComponent(orderNumber)}&select=${select}&limit=1`,
+      { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` } },
+    ).catch(() => null);
+    if (!response?.ok) {
+      await response?.body?.cancel();
+      continue;
+    }
+    const rows = await response.json().catch(() => []);
+    return lineOrderFrom(Array.isArray(rows) ? rows[0] : null);
+  }
+  return null;
+}
+
+async function deliverLine(
+  line: LineConfig,
+  lineUserId: string,
+  row: NotificationRow,
+  text: string,
+  lang: PushLanguage,
+): Promise<LineSendOutcome> {
+  try {
+    const event = lineEventFor(line.audience, text);
+    const orderNumber = event.orderNumber ?? orderNumberInReason(row.reason);
+    const order = orderNumber ? await lineOrderFor(orderNumber) : null;
+    if (!shouldSendLine(line.audience, event, order)) return "line_filtered";
+    const url = lineDestination(line, orderNumber);
+    return await sendLinePush(fetch, line, lineUserId, lineCardMessages(line.audience, event, order, url, lang), row.id);
+  } catch {
+    return "line_error";
+  }
 }
 
 async function supabaseRestWrite(
@@ -311,18 +351,12 @@ async function handleWebhook(req: Request): Promise<Response> {
   // runs alongside FCM. sendLinePush never throws.
   const lineOutcome: Promise<LineSendOutcome | null> = line && lineUserId
     ? webPolicy.allowed
-      ? sendLinePush(
-          fetch,
-          line,
-          lineUserId,
-          lineMessagesFor(title, pushBody, lineDestination(line, orderNumberInReason(row.reason)), lang),
-          row.id,
-        )
+      ? deliverLine(line, lineUserId, row, pushBody.trim() || title.trim(), lang)
       : Promise.resolve("line_skipped")
     : Promise.resolve(null);
   const withLine = async (summary: string) => {
     const outcome = await lineOutcome;
-    if (outcome && outcome !== "line_sent" && outcome !== "line_skipped") {
+    if (outcome && outcome !== "line_sent" && outcome !== "line_skipped" && outcome !== "line_filtered") {
       console.error("send-push-notification LINE delivery:", outcome);
     }
     return outcome ? `${summary} ${outcome}` : summary;
