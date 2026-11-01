@@ -677,10 +677,10 @@ test("WYN-207 pay-per-click ads: Admin-controlled, charged on the server, labell
 test("WYN-209 Merchant app icon: complete PNGs at every size, separate maskable art", () => {
   const layout = read("app/merchant/layout.tsx");
   const manifest = read("app/merchant/manifest.ts");
-  expect(layout).toContain('const MERCHANT_ICON_180 = "/icons/merchant/v15-180.png";');
-  expect(manifest).toContain('{ src: "/icons/merchant/v15-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }');
+  expect(layout).toContain('const MERCHANT_ICON_180 = "/icons/merchant/v16-180.png";');
+  expect(manifest).toContain('{ src: "/icons/merchant/v16-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }');
   // v14-512 shipped truncated; every published icon must be a whole PNG of the stated size.
-  for (const [file, size] of [["v15-180", 180], ["v15-192", 192], ["v15-512", 512], ["v15-maskable-512", 512]] as const) {
+  for (const [file, size] of [["v16-180", 180], ["v16-192", 192], ["v16-512", 512], ["v16-maskable-512", 512]] as const) {
     const png = readFileSync(join(process.cwd(), `public/icons/merchant/${file}.png`));
     expect(png.subarray(1, 4).toString("latin1")).toBe("PNG");
     expect(png.readUInt32BE(16)).toBe(size);
