@@ -1923,7 +1923,7 @@ class _MerchantHomeState extends State<MerchantHome>
           if (pickup) ...[
             const SizedBox(height: 8),
             Text(
-              'นัดรับ ${dateLabel(o['pickup_at'])} · รหัส ${o['pickup_code'] ?? '—'}',
+              'นัดรับ ${dateLabel(o['pickup_at'])} · รหัสรับอาหาร: ${o['pickup_code'] ?? '—'}',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ],
