@@ -1,13 +1,13 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-01: re-release Merchant UX round 2 (rolled back while a
-# sign-in issue was investigated; cause was Supabase "JWT issued at future",
-# not round 2) together with a non-fatal slow-startup state: the 20s content
-# timeout no longer fails a still-loading app, hidden-page time is not
-# counted, and hard failure moves to 90s. A token still rejected as "from
-# the future" is replaced once by a freshly refreshed one (shared clients). Base is round 1 (301785b8, all
-# customer hosts on dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT after the rollback).
-# Production reviewers and stage-before-promotion remain required.
+# Founder 2026-11-01: Merchant speed (approved: all three). Order tabs show
+# their last server rows at once and refresh in the background (per store and
+# role scope); CanvasKit gets its own content address so app-only releases
+# keep the ~3 MB engine cached; NotoSansThai (SIL OFL) is bundled and pinned
+# by SHA-256 in the font policy, so startup no longer waits for a Google
+# fallback font. Base is the live re-release (ca492fe9 on
+# dpl_DBAanMCH8h91AEoodQcdCZkN7rKn). Production reviewers and
+# stage-before-promotion remain required.
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +16,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_MERCHANT_UX_R2B_20261101]
+        options: [CANCEL, ZOKY_MERCHANT_SPEED_20261101]
 
 permissions:
   contents: read
@@ -29,35 +29,39 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: ca492fe99a749b512946a9a629773081fa1a9574
-  PRODUCTION_BASE_SHA: 301785b8775ae4f500faf3acf72f3aa988fa5f80
-  # Live on every customer host again since the 2026-11-01 rollback to Merchant UX round 1.
-  ROLLBACK_DEPLOYMENT: dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT
+  RELEASE_SHA: 0f450a9ddf3fcda8c868c138b992ad3fa074b012
+  PRODUCTION_BASE_SHA: ca492fe99a749b512946a9a629773081fa1a9574
+  # Live on every customer host since the 2026-11-01 re-release (ca492fe9).
+  ROLLBACK_DEPLOYMENT: dpl_DBAanMCH8h91AEoodQcdCZkN7rKn
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_DBAanMCH8h91AEoodQcdCZkN7rKn
   ALLOWED_PATHS: >-
-    web/components/merchant/merchant-flutter-authenticated.tsx
-    web/lib/i18n/en.ts
-    web/lib/merchant-flutter-bridge.ts
-    web/lib/merchant-flutter-startup.ts
-    web/lib/supabase/browser.ts
-    web/lib/supabase/clock-skew-fetch.ts
-    web/lib/supabase/merchant-browser.ts
+    web/lib/merchant-flutter-loader.ts
+    web/merchant_flutter/assets/fonts/NotoSansThai-Bold.ttf
+    web/merchant_flutter/assets/fonts/NotoSansThai-Medium.ttf
+    web/merchant_flutter/assets/fonts/NotoSansThai-OFL.txt
+    web/merchant_flutter/assets/fonts/NotoSansThai-Regular.ttf
+    web/merchant_flutter/assets/fonts/NotoSansThai-SemiBold.ttf
     web/merchant_flutter/lib/data/merchant_controller.dart
-    web/merchant_flutter/lib/data/merchant_repository.dart
-    web/merchant_flutter/lib/screens/merchant_home.dart
-    web/merchant_flutter/test/merchant_test.dart
-    web/merchant_flutter/test/startup_visual_test.dart
-    web/tests/food-standalone-account.test.mjs
-    web/tests/merchant-flutter-bridge.test.mjs
-    web/tests/merchant-flutter-startup.test.mjs
-    web/tests/supabase-clock-skew-fetch.test.mjs
+    web/merchant_flutter/lib/main.dart
+    web/merchant_flutter/lib/startup/text_warmup.dart
+    web/merchant_flutter/pubspec.yaml
+    web/merchant_flutter/test/controller_performance_test.dart
+    web/merchant_flutter/web/flutter_bootstrap.js
+    web/next.config.ts
+    web/scripts/check-web-fonts.mjs
+    web/scripts/version-merchant-flutter.mjs
+    web/tests/merchant-browser/merchant-flutter-render.spec.ts
+    web/tests/merchant-browser/merchant-flutter-startup.spec.ts
+    web/tests/merchant-flutter-loader.test.mjs
+    web/tests/merchant-flutter-versioning.test.mjs
+    web/tests/web-font-policy.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UX_R2B_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_SPEED_20261101'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -92,7 +96,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UX_R2B_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_SPEED_20261101'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -150,7 +154,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UX_R2B_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_SPEED_20261101'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest

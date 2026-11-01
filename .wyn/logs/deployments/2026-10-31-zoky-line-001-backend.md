@@ -86,3 +86,6 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - ~14:57Z Vercel Instant Rollback to round 1 `dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT` (approved rollback plan).
 - ~14:59Z The legacy Merchant on the same phone showed "กำลังยืนยันการเข้าสู่ระบบ…", i.e. PostgREST 401 "JWT issued at future" outliving the 45s clock-skew retries: Supabase Auth issued a token ahead of the database clock. Not caused by round 2; affects old and new Merchant alike.
 - Fix prepared (`b50c0ccd`): the Flutter 20s timeout becomes a non-fatal "slow" state that still reveals the app; hidden-page time is not counted; hard failure at 90s. Re-release of round 2 + fix pending Founder approval.
+- ~15:14Z Founder confirmed customers were also affected (system-wide). Founder restarted the Supabase project; sign-in recovered for Merchant and customers. Root cause: Supabase Auth/database clock skew (PGRST303), resolved by the restart.
+- 15:29Z Re-release via PR #1312, run 41320562488 (Founder approved both reviews): round 2 + non-fatal slow startup + fresh-token resend for "JWT issued at future" (`ca492fe9`). Live `dpl_DBAanMCH8h91AEoodQcdCZkN7rKn`; `/merchant/flutter` 200, round-2 bundle live, no runtime errors. Rollback: `dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT`.
+- Follow-up: if PGRST303 recurs for more than a few minutes, restart the Supabase project and open a Supabase support ticket.
