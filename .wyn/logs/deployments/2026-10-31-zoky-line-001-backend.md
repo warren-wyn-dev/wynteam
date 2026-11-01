@@ -70,3 +70,19 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Live: `dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT` on merchant.wynos.online and customer hosts; `/merchant/flutter` 200, atlas 72,968 bytes, new strings in `main.dart.js`, no runtime errors.
 - Rollback: Vercel Instant Rollback to `dpl_q64ggYo5yRQFMtwBCd5bG4HfEQDK`.
 - Next: rounds 2+ (หน้าหลัก, เมนูอาหาร, เพิ่มเติม) per the approved prototype.
+
+## 2026-11-01 — Merchant UX redesign round 2 (ZOKY-MERCHANT-UX-002)
+
+- Candidate: `release/zoky-line-web-20261101` @ `a3f38406` (base `301785b8`), released via PR #1311 and run 41303233421 (guard, stage and promote green; Founder approved both Production reviews).
+- Scope: Home one-tap open/close switch and "ต้องทำตอนนี้" counts (new store-scoped `orderCounts` bridge read behind `storeAccess` + RLS, counts only), Menu category/sold-out chips with "N เมนู · หมด X", grouped More rows with 3D icons.
+- Pre-release QA: Flutter analyze + 97 tests, bridge node tests 103, `next build`, `qa:merchant-flutter` 48/48.
+- Live: `dpl_38dkGyWCexrTsByZdoo6LXjeEQ9d` on merchant.wynos.online and customer hosts; `/merchant/flutter` 200, round-2 strings present in `main.dart.js`, no runtime errors.
+- Rollback: Vercel Instant Rollback to `dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT`.
+
+## 2026-11-01 — Incident: Merchant failed to open on Founder's iPhone (rolled back)
+
+- ~14:47Z Founder saw "เปิด Zoky Merchant ไม่สำเร็จ" (20s content timeout) on round 2 (`dpl_38dkGyWCexrTsByZdoo6LXjeEQ9d`).
+- Live assets were all served (200); the live round-2 bundle with a synthetic bridge reached content-ready in ~6s in headless Chromium.
+- ~14:57Z Vercel Instant Rollback to round 1 `dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT` (approved rollback plan).
+- ~14:59Z The legacy Merchant on the same phone showed "กำลังยืนยันการเข้าสู่ระบบ…", i.e. PostgREST 401 "JWT issued at future" outliving the 45s clock-skew retries: Supabase Auth issued a token ahead of the database clock. Not caused by round 2; affects old and new Merchant alike.
+- Fix prepared (`b50c0ccd`): the Flutter 20s timeout becomes a non-fatal "slow" state that still reveals the app; hidden-page time is not counted; hard failure at 90s. Re-release of round 2 + fix pending Founder approval.

@@ -29,3 +29,5 @@ https://claude.ai/artifact/8EDw34ZpwmnserTfmq2hbZ (private to the Founder; 390×
 ## Status 2026-11-01
 - Round 1 (order cards + atlas shrink) live on `dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT`.
 - Remaining: Home, Menu, More screens.
+- Round 2 (Home, Menu, More) live on `dpl_38dkGyWCexrTsByZdoo6LXjeEQ9d`. All four main screens redesigned.
+- Remaining optional: dedicated 3D icons for store/orders/menu/report/team/bell (Founder may supply art).
