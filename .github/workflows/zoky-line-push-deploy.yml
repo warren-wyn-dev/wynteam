@@ -4,6 +4,7 @@ name: ZOKY LINE -- deploy send-push-notification (LINE only)
 # as the live 2026-10-05 version (741c6717) plus ONLY the LINE delivery
 # changes, so this does not ship the separate, never-deployed push changes
 # on main. The source is the pinned tip of release/zoky-line-push-20261101.
+# v2 (2026-11-01): LINE cards with order details and fewer messages.
 # Main-only, typed confirmation, production environment review.
 on:
   workflow_dispatch:
@@ -18,7 +19,7 @@ permissions:
 
 env:
   RELEASE_BRANCH: release/zoky-line-push-20261101
-  RELEASE_SHA: 47a58c8ae2d794e19547e32e6d4c47ccb76bfeda
+  RELEASE_SHA: 8f4e0557d8ac190f903206907335fed61c411e3b
   LIVE_BASE_SHA: 741c6717dbd701b14c7c609714c0d0a1421b3e05
 
 jobs:
@@ -38,7 +39,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git merge-base --is-ancestor "$LIVE_BASE_SHA" "$RELEASE_SHA"
-          allowed=" supabase/functions/send-push-notification/index.ts supabase/functions/send-push-notification/_line.ts supabase/functions/send-push-notification/_line.test.ts "
+          allowed=" supabase/functions/send-push-notification/index.ts supabase/functions/send-push-notification/_line.ts supabase/functions/send-push-notification/_line.test.ts supabase/functions/send-push-notification/_line_card.ts supabase/functions/send-push-notification/_line_card.test.ts "
           for path in $(git diff --name-only "$LIVE_BASE_SHA" "$RELEASE_SHA"); do
             case "$allowed" in *" $path "*) ;; *) echo "::error::$path is outside the LINE-only change"; exit 1 ;; esac
           done
