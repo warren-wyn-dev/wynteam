@@ -87,10 +87,11 @@ test("login returns and installed Merchant entries open Flutter with a deliberat
   assert.equal(proxy(request("wynos.online", "/merchant")).kind, "next");
 });
 
-test("Flutter tool and original-store links bypass the Flutter entry redirect", () => {
+test("the original-store escape link bypasses the Flutter entry redirect; store tools stay in Flutter", () => {
   const home = readFileSync(new URL("../merchant_flutter/lib/screens/merchant_home.dart", import.meta.url), "utf8");
   assert.match(home, /resolve\('\/merchant\?legacy=1'\)/);
-  assert.match(home, /'legacy': '1',\s*'merchant-tool': toolName/);
+  // Founder 2026-11-01: feedback, help, store settings and notifications no longer jump to legacy tools.
+  assert.doesNotMatch(home, /merchant-tool/);
   const proxy = router("1");
   assert.equal(proxy(request("merchant.wynos.online", "/merchant?legacy=1&merchant-tool=finance&merchant-store=00000000-0000-4000-8000-000000000001")).kind, "next");
 });

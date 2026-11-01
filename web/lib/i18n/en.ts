@@ -33,6 +33,8 @@ export const EN_EXACT: Record<string, string> = {
   "Zoky Merchant | จัดการร้านของคุณ": "Zoky Merchant | Manage your store",
   "กำลังเปิด Zoky Merchant…": "Opening Zoky Merchant\u2026",
   "ยังกำลังเปิด Zoky Merchant… อินเทอร์เน็ตอาจช้ากว่าปกติ": "Still opening Zoky Merchant\u2026 your connection may be slower than usual",
+  "กรุณาอนุญาตการเข้าถึงตำแหน่งในเบราว์เซอร์": "Please allow location access in your browser",
+  "หาตำแหน่งไม่สำเร็จ ลองอีกครั้งในที่โล่ง": "Could not find your location. Try again in an open area",
   "เปิด Zoky Merchant ไม่สำเร็จ": "Unable to open Zoky Merchant",
   "กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่ หรือใช้หน้าร้านเดิมได้ทันที": "Check your connection and try again, or open the existing merchant page.",
   "ลองโหลดใหม่": "Reload",
