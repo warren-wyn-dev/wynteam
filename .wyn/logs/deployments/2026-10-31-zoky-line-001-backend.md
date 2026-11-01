@@ -105,3 +105,10 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Live `dpl_9YrwL9aoUMhMkreXBJoCnzyyCr4r`; `/merchant/flutter` 200, new screens present in `main.dart.js`, engine base unchanged (`2ae0779baf21c297069c`, stays cached).
 - Rollback: `dpl_J4VVC9TZbQ5EXENZNXMCaW5zfJRi`.
 - Remaining legacy jumps: readiness checklist tools and "เครื่องมือเพิ่มเติม" (intentional escape hatch).
+
+## 2026-11-01 — Merchant store editor in the new app (no legacy jumps)
+
+- Candidate `783e99d2` (base `d8ec38dc`), PR #1315, run 41330703727; Founder approved both reviews.
+- Scope: readiness checklist, store status sheet and header bell stay in Flutter; full store editor (images, profile, delivery, GPS pins with service-area check, temporary closure, scheduled orders, tax invoice, publish with readiness gate). Bridge validates every field (manage role) and reads it back.
+- Live `dpl_2iVwx34njwqKa4biniz612RmynvQ`; `/merchant/flutter` 200, editor strings present, engine cached (`2ae0779baf21c297069c`), no runtime errors.
+- Rollback: `dpl_9YrwL9aoUMhMkreXBJoCnzyyCr4r`. Follow-up option: drag-to-place map pin.
