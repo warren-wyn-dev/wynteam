@@ -22,6 +22,16 @@ class _QualityRepository extends FakeRepository {
   }
 }
 
+class _CountsRepository extends FakeRepository {
+  @override
+  Future<Map<String, dynamic>> orderCounts(String id) async => {
+    'pending': 2,
+    'review': 1,
+    'preparing': 3,
+    'delivering': 0,
+  };
+}
+
 void main() {
   Future<void> mount(
     WidgetTester tester,
@@ -70,6 +80,44 @@ void main() {
     );
   }
 
+  testWidgets(
+    'home to-do counts open the matching tab and menu filters sold-out items',
+    (tester) async {
+      final repo = _CountsRepository();
+      repo.menuRows.add({
+        'id': 'menu-2',
+        'name': 'ชาเย็น',
+        'price': 35,
+        'category': 'เครื่องดื่ม',
+        'description': '',
+        'is_available': false,
+      });
+      await mount(tester, repo, width: 390);
+      expect(find.text('ต้องทำตอนนี้'), findsOneWidget);
+      expect(find.bySemanticsLabel('ออเดอร์ใหม่ 2 รายการ'), findsOneWidget);
+      expect(find.bySemanticsLabel('ตรวจสลิป 1 รายการ'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('กำลังเตรียม 3 รายการ'));
+      await tester.pumpAndSettle();
+      final preparing = tester.widget<ChoiceChip>(
+        find.widgetWithText(ChoiceChip, 'กำลังเตรียม'),
+      );
+      expect(preparing.selected, isTrue);
+
+      await tester.tap(find.text('เมนูอาหาร').last);
+      await tester.pumpAndSettle();
+      expect(find.text('2 เมนู · หมด 1'), findsOneWidget);
+      expect(find.text('ข้าวกะเพรา'), findsOneWidget);
+      final soldOut = find.widgetWithText(ChoiceChip, 'หมดอยู่ 1');
+      await tester.ensureVisible(soldOut);
+      await tester.pumpAndSettle();
+      await tester.tap(soldOut);
+      await tester.pumpAndSettle();
+      expect(find.text('ข้าวกะเพรา'), findsNothing);
+      expect(find.text('ชาเย็น'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets('losing the final store preserves an account exit', (
     tester,
   ) async {
@@ -106,13 +154,21 @@ void main() {
       await tester.pumpAndSettle();
       // Paid order: direct accept. Unpaid order: no direct accept, only the
       // payment review (the server gate is unchanged).
-      expect(find.widgetWithText(FilledButton, 'รับออเดอร์ · 30 นาที'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'ตรวจเงินเข้า · รับออเดอร์'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'รับออเดอร์ · 30 นาที'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(FilledButton, 'ตรวจเงินเข้า · รับออเดอร์'),
+        findsOneWidget,
+      );
       expect(repo.writes, 0);
       await tester.tap(find.widgetWithText(ChoiceChip, '45 นาที').first);
       await tester.pumpAndSettle();
       expect(repo.writes, 0);
-      await tester.tap(find.widgetWithText(FilledButton, 'รับออเดอร์ · 45 นาที'));
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'รับออเดอร์ · 45 นาที'),
+      );
       await tester.pumpAndSettle();
       expect(repo.writes, 1);
       expect(repo.orderRows.first['status'], 'preparing');
@@ -182,7 +238,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('เพิ่มเติม').last);
       await tester.pumpAndSettle();
-      expect(find.text('เครื่องมือร้าน'), findsOneWidget);
+      expect(find.text('ขายและเงิน'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

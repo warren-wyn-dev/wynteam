@@ -8,7 +8,7 @@ class MerchantController extends ChangeNotifier {
   final MerchantRepository repository;
   final DateTime Function() _now;
   List<Json> stores = [], menu = [], orders = [], campaigns = [];
-  Json report = {}, qualityData = {};
+  Json report = {}, qualityData = {}, orderCounts = {};
   String? storeId, error, reportError, campaignError, qualityError;
   String status = 'pending_acceptance';
   bool loading = false,
@@ -23,7 +23,10 @@ class MerchantController extends ChangeNotifier {
       canDelivery = false,
       canCampaigns = false;
   DateTime? updatedAt, detailsUpdatedAt, summariesUpdatedAt;
-  int _generation = 0, _summaryGeneration = 0, _scopeGeneration = 0;
+  int _generation = 0,
+      _summaryGeneration = 0,
+      _scopeGeneration = 0,
+      _countsGeneration = 0;
   bool _disposed = false,
       _pendingFull = false,
       _pendingOrders = false,
@@ -67,6 +70,8 @@ class MerchantController extends ChangeNotifier {
   void _clearPrivateData() {
     _clearSummaries();
     _scopeGeneration++;
+    _countsGeneration++;
+    orderCounts = {};
     menu = [];
     orders = [];
     canConfigure = canManage = canOrders = canDelivery = canCampaigns = false;
@@ -204,6 +209,7 @@ class MerchantController extends ChangeNotifier {
       loading = false;
       // The initial store, menu, orders and permissions can paint immediately.
       notifyListeners();
+      unawaited(_loadCounts(id));
       if (full || rolesChanged) summaries = refreshSummaries();
     } catch (e) {
       if (!_disposed && generation == _generation) {
@@ -224,6 +230,22 @@ class MerchantController extends ChangeNotifier {
       scheduleMicrotask(_drainRefresh);
     }
     if (summaries != null) await summaries;
+  }
+
+  /// Counts never block the critical read; a failure only hides the numbers.
+  Future<void> _loadCounts(String id) async {
+    final generation = ++_countsGeneration;
+    bool current() =>
+        !_disposed && generation == _countsGeneration && storeId == id;
+    try {
+      final value = await repository.orderCounts(id);
+      if (!current()) return;
+      orderCounts = value;
+    } catch (_) {
+      if (!current()) return;
+      orderCounts = {};
+    }
+    notifyListeners();
   }
 
   void _drainRefresh() {

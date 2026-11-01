@@ -573,3 +573,15 @@ test('the จัดส่ง tab reads ready and out-for-delivery orders; unknow
   assert.equal(JSON.stringify(h.calls.filter(c=>c.table==='food_orders'&&c.name==='in').at(-1).values),'["preparing"]');
   for(const status of ['constructor','__proto__','toString','shipping'])assert.equal((await h.request('orders',{storeId:STORE,status,offset:0})).ok,false,status);
 });
+
+test('home order counts stay store-scoped and count only unpaid non-COD, non-Stripe orders for review',async()=>{
+  const h=harness();h.state.order={id:ORDER,store_id:STORE,status:'pending_acceptance',payment_method:'transfer',payment_status:'pending',payment_provider:null};
+  const result=await h.request('orderCounts',{storeId:STORE});
+  assert.equal(result.ok,true);
+  assert.equal(JSON.stringify(result.data),JSON.stringify({pending:0,review:0,preparing:0,delivering:0}));
+  const reads=h.calls.filter(c=>c.table==='food_orders');
+  assert.equal(reads.filter(c=>c.name==='eq'&&c.key==='store_id').length,3);
+  assert.ok(reads.every(c=>c.name!=='eq'||c.key!=='store_id'||c.value===STORE));
+  assert.equal(JSON.stringify(reads.filter(c=>c.name==='in').map(c=>c.values)),JSON.stringify([['pending_acceptance'],['preparing'],['ready_for_delivery','out_for_delivery']]));
+  assert.equal((await h.request('orderCounts',{storeId:OTHER})).ok,false);
+});

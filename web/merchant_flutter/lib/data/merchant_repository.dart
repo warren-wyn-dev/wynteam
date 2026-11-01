@@ -10,6 +10,7 @@ const orderStatuses = {
   'delivered': 'สำเร็จ',
   'cancelled': 'ยกเลิก',
 };
+
 /// Order list tabs (Founder 2026-11-01): ใหม่ · กำลังเตรียม · จัดส่ง · เสร็จ ·
 /// ยกเลิก. "delivering" is a tab only: the bridge reads both ready and
 /// out-for-delivery orders for it. Per-order labels still use orderStatuses.
@@ -83,6 +84,9 @@ abstract class MerchantRepository {
   Future<List<Json>> menu(String storeId);
   Future<List<Json>> orders(String storeId, String status, int offset);
   Future<Json> report(String storeId);
+
+  /// Home "ต้องทำตอนนี้" counts; an empty map means unknown (shown as —).
+  Future<Json> orderCounts(String storeId) async => {};
   Future<Json> ads(String storeId) async =>
       throw const MerchantException('ระบบโฆษณายังไม่เปิดใช้งาน');
   Future<bool> pickAdSlip(String storeId, num amount) async => false;
@@ -212,6 +216,9 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<Json> report(String storeId) async =>
       object(await call('report', {'storeId': storeId}));
+  @override
+  Future<Json> orderCounts(String storeId) async =>
+      object(await call('orderCounts', {'storeId': storeId}));
   @override
   Future<Json> quality(String storeId) async =>
       object(await call('quality', {'storeId': storeId}));

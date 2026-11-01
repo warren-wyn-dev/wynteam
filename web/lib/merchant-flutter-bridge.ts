@@ -39,7 +39,7 @@ const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery
 const ORDER_TAB_STATUSES: Record<string, string[]> = { delivering: ["ready_for_delivery", "out_for_delivery"] };
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
+const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "orderCounts", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
 function object(value: unknown): Args {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new BridgeInputError();
   return value as Args;
@@ -351,6 +351,23 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         return data ?? [];
       }
       case "report": return fetchMerchantSalesReport(client, storeId);
+      case "orderCounts": {
+        // Home "ต้องทำตอนนี้" (Founder 2026-11-01). Same store access and RLS as "orders".
+        const count = async (statuses: string[]) => {
+          const { count, error } = await client.from("food_orders").select("id", { count: "exact", head: true }).eq("store_id", storeId).in("status", statuses);
+          if (error) throw error;
+          return typeof count === "number" ? count : 0;
+        };
+        const [pending, preparing, delivering] = await Promise.all([
+          client.from("food_orders").select("payment_method,payment_status,payment_provider").eq("store_id", storeId).in("status", ["pending_acceptance"]).range(0, 199),
+          count(["preparing"]),
+          count(ORDER_TAB_STATUSES.delivering),
+        ]);
+        if (pending.error) throw pending.error;
+        const rows = (Array.isArray(pending.data) ? pending.data : []) as { payment_method?: string; payment_status?: string; payment_provider?: string | null }[];
+        const review = rows.filter((o) => o.payment_method !== "cod" && o.payment_status !== "paid" && o.payment_provider !== "stripe").length;
+        return { pending: rows.length, review, preparing, delivering };
+      }
       case "staff": {
         const members = await fetchMerchantStaff(client, storeId);
         const me = members.find((m) => m.user_id === userId && m.active);

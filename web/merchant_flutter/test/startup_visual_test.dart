@@ -197,6 +197,9 @@ void main() {
   testWidgets('atlas warms while store is pending and failure stays usable', (
     tester,
   ) async {
+    // The home tools sit below the open switch and "ต้องทำตอนนี้".
+    await tester.binding.setSurfaceSize(const Size(800, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bundle = _HeldAtlasBundle();
     final repository = _HeldRepository();
     var ready = 0;
