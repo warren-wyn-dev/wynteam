@@ -7,7 +7,7 @@ import {
 } from "@/lib/food-merchant";
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
 import { FOOD_DAY_KEYS, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
-import { addMerchantStaff, fetchMerchantStaff, fetchMerchantStoreReviews, replyMerchantStoreReview, updateMerchantStaff } from "@/lib/merchant-core";
+import { addMerchantStaff, fetchMerchantStaff, fetchMerchantStoreReviews, replyMerchantStoreReview, setMerchantStorePublished, updateMerchantStaff } from "@/lib/merchant-core";
 import { fetchFinanceSummary, periodRange } from "@/lib/merchant-finance";
 import { fetchMerchantAdAccount, merchantAdError, requestAdTopup, setAdActive } from "@/lib/merchant-ads";
 import { fetchPlatformCampaigns, joinPlatformCampaign, leavePlatformCampaign, platformCampaignError } from "@/lib/merchant-platform-campaigns";
@@ -39,7 +39,7 @@ const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery
 const ORDER_TAB_STATUSES: Record<string, string[]> = { delivering: ["ready_for_delivery", "out_for_delivery"] };
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "orderCounts", "reviews", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
+const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "orderCounts", "reviews", "checkLocation", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
 function object(value: unknown): Args {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new BridgeInputError();
   return value as Args;
@@ -102,6 +102,24 @@ function closedDates(value: unknown): string[] {
     return date;
   });
   return [...new Set(dates)].sort();
+}
+const NUMERIC_KEYS = new Set(["price", "delivery_fee", "minimum_order", "delivery_radius_km", "delivery_base_km", "delivery_fee_per_km",
+  "latitude", "longitude", "pickup_latitude", "pickup_longitude"]);
+function decimal(value: unknown, min: number, max: number): number {
+  const n = amount(value, max);
+  if (n < min) throw new BridgeInputError();
+  return Math.round(n * 100) / 100;
+}
+function wholeNumber(value: unknown, min: number, max: number): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) throw new BridgeInputError();
+  return value;
+}
+/** A lat/lng pair is set or cleared together, inside the database checks. */
+function coordinates(lat: unknown, lng: unknown): [number | null, number | null] {
+  if (lat === null && lng === null) return [null, null];
+  if (typeof lat !== "number" || typeof lng !== "number" || !Number.isFinite(lat) || !Number.isFinite(lng) ||
+      lat < -90 || lat > 90 || lng < -180 || lng > 180) throw new BridgeInputError();
+  return [lat, lng];
 }
 /** Read-back check; jsonb columns come back with their keys reordered. */
 function sameValue(actual: unknown, expected: unknown): boolean {
@@ -210,7 +228,10 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
   const verifyPatch = (row: unknown, patch: Args) => {
     const data = object(row);
     for (const [key, expected] of Object.entries(patch)) {
-      const actual = key === "price" ? Number(data[key]) : data[key];
+      // numeric columns may come back as strings; timestamps with another offset format.
+      const actual = NUMERIC_KEYS.has(key) && data[key] != null ? Number(data[key])
+        : key === "temporary_closed_until" && typeof data[key] === "string" ? new Date(data[key] as string).toISOString()
+        : data[key];
       if (!sameValue(actual, expected)) throw new Error("write_not_applied");
     }
   };
@@ -256,6 +277,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         return {
           ...store,
           image_url: foodPublicUrl(client, store.logo_path),
+          cover_url: foodPublicUrl(client, store.cover_path),
           payment_qr_url: foodPublicUrl(client, store.payment_qr_path),
           effective_open: !suspended && !unpublished && foodStoreIsEffectivelyOpen(store, at),
           status_text: suspended ? "ร้านถูกระงับ กรุณาติดต่อทีม WYNOS"
@@ -271,6 +293,15 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     if (method === "pushEnable") {
       const result = await subscribeToPushNotifications(client, userId, { permissionRequest, ensureActive: ensureSession });
       return result.ok ? { ok: true, enabled: true } : { ok: false, enabled: false, reason: result.reason, message: pushReasonDescription(result.reason) };
+    }
+    if (method === "currentLocation") {
+      // The phone's own GPS for the store pin; nothing is saved until saveStore.
+      if (typeof navigator === "undefined" || !navigator.geolocation) throw new BridgeMessageError("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง");
+      return await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(
+        (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy }),
+        (failure) => reject(new BridgeMessageError(failure.code === 1 ? "กรุณาอนุญาตการเข้าถึงตำแหน่งในเบราว์เซอร์" : "หาตำแหน่งไม่สำเร็จ ลองอีกครั้งในที่โล่ง")),
+        { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 },
+      ));
     }
     if (method === "pushDisable") {
       if (!await unsubscribeFromPushNotifications(client)) throw new Error("unsubscribe_failed");
@@ -530,6 +561,45 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         }
         if (values.business_schedule !== undefined) patch.business_schedule = schedule(values.business_schedule);
         if (values.special_closed_dates !== undefined) patch.special_closed_dates = closedDates(values.special_closed_dates);
+        // Founder 2026-11-01: the full legacy store editor inside the new Merchant.
+        if (values.description !== undefined) patch.description = optionalText(values.description, 1000);
+        if (values.business_hours !== undefined) patch.business_hours = optionalText(values.business_hours, 200);
+        if (values.delivery_area !== undefined) patch.delivery_area = optionalText(values.delivery_area, 500);
+        if (values.delivery_fee !== undefined) patch.delivery_fee = decimal(values.delivery_fee, 0, 9999);
+        if (values.minimum_order !== undefined) patch.minimum_order = decimal(values.minimum_order, 0, 99999);
+        if (values.delivery_radius_km !== undefined) patch.delivery_radius_km = decimal(values.delivery_radius_km, 0.5, 100);
+        if (values.delivery_base_km !== undefined) patch.delivery_base_km = decimal(values.delivery_base_km, 0, 100);
+        if (values.delivery_fee_per_km !== undefined) patch.delivery_fee_per_km = decimal(values.delivery_fee_per_km, 0, 999);
+        if (values.temporary_closed_until !== undefined) {
+          if (values.temporary_closed_until === null) patch.temporary_closed_until = null;
+          else {
+            const until = Date.parse(text(values.temporary_closed_until, 40, true));
+            if (!Number.isFinite(until) || until <= Date.now() || until > Date.now() + 366 * 86_400_000) throw new BridgeInputError();
+            patch.temporary_closed_until = new Date(until).toISOString();
+          }
+        }
+        if (values.temporary_closed_reason !== undefined) patch.temporary_closed_reason = optionalText(values.temporary_closed_reason, 200);
+        if (values.latitude !== undefined || values.longitude !== undefined) {
+          [patch.latitude, patch.longitude] = coordinates(values.latitude, values.longitude);
+        }
+        if (values.pickup_latitude !== undefined || values.pickup_longitude !== undefined) {
+          [patch.pickup_latitude, patch.pickup_longitude] = coordinates(values.pickup_latitude, values.pickup_longitude);
+        }
+        if (values.pickup_note !== undefined) patch.pickup_note = optionalText(values.pickup_note, 300);
+        if (values.scheduled_orders_enabled !== undefined) patch.scheduled_orders_enabled = bool(values.scheduled_orders_enabled);
+        if (values.scheduled_min_notice_minutes !== undefined) patch.scheduled_min_notice_minutes = wholeNumber(values.scheduled_min_notice_minutes, 15, 1440);
+        if (values.scheduled_max_days !== undefined) patch.scheduled_max_days = wholeNumber(values.scheduled_max_days, 1, 30);
+        if (values.tax_invoice_enabled !== undefined) patch.tax_invoice_enabled = bool(values.tax_invoice_enabled);
+        if (values.tax_legal_name !== undefined) patch.tax_legal_name = optionalText(values.tax_legal_name, 200);
+        if (values.tax_id !== undefined) patch.tax_id = digits(values.tax_id, 13, 13);
+        if (values.tax_branch !== undefined) patch.tax_branch = optionalText(values.tax_branch, 60);
+        if (values.tax_address !== undefined) patch.tax_address = optionalText(values.tax_address, 500);
+        for (const key of ["logo_path", "cover_path"] as const) {
+          if (values[key] !== undefined) {
+            if (values[key] !== null) throw new BridgeInputError(); // set only by pickStoreImage
+            patch[key] = null;
+          }
+        }
         if (!Object.keys(patch).length) throw new BridgeInputError();
         await requireManageRole(storeId);
         await updateFoodStore(client, storeId, patch);
@@ -538,6 +608,39 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (!data) throw new Error("write_not_applied");
         verifyPatch(data, patch);
         return null;
+      }
+      case "pickStoreImage": {
+        const kind = text(args.kind, 10, true);
+        if (kind !== "logo" && kind !== "cover") throw new BridgeInputError();
+        await requireManageRole(storeId);
+        const file = await picked;
+        if (!file) return null;
+        await validateImage(file); await ensureSession();
+        const path = await uploadFoodPublicImage(client, file, `stores/${storeId}/${kind === "logo" ? "profile" : "cover"}`);
+        await ensureSession();
+        const column = kind === "logo" ? "logo_path" : "cover_path";
+        await updateFoodStore(client, storeId, { [column]: path });
+        const { data, error } = await client.from("food_stores").select(`id,${column}`).eq("id", storeId).single();
+        if (error) throw error;
+        if (!data) throw new Error("write_not_applied");
+        verifyPatch(data, { [column]: path });
+        return { path, url: foodPublicUrl(client, path) };
+      }
+      case "setPublished": {
+        const published = bool(args.published);
+        await requireManageRole(storeId);
+        // Same readiness gate as the legacy store screen; RLS still applies.
+        await setMerchantStorePublished(client, storeId, published);
+        const { data, error } = await client.from("food_stores").select("id,is_published").eq("id", storeId).single();
+        if (error) throw error;
+        verifyPatch(data, { is_published: published });
+        return null;
+      }
+      case "checkLocation": {
+        const [lat, lng] = coordinates(args.latitude, args.longitude);
+        if (lat === null || lng === null) throw new BridgeInputError();
+        const { data, error } = await client.rpc("food_service_area_check", { p_latitude: lat, p_longitude: lng });
+        return { inside: error ? null : data === true };
       }
       case "pickPaymentQr": {
         await requireManageRole(storeId);
@@ -659,7 +762,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (disposed) throw new BridgeAccessError();
         const args = object(JSON.parse(payloadJson));
         // OS picker opens synchronously during the user's tap, before network awaits.
-        const picker = method === "pickDeliveryPhoto" || method === "pickRefundSlip" || method === "pickPaymentQr" || method === "pickAdSlip";
+        const picker = method === "pickDeliveryPhoto" || method === "pickRefundSlip" || method === "pickPaymentQr" || method === "pickStoreImage" || method === "pickAdSlip";
         if (picker) { id(args.storeId); if (method === "pickDeliveryPhoto" || method === "pickRefundSlip") id(args.orderId); }
         if (method === "pickAdSlip") topupAmount(args.amount);
         const picked = picker ? pickImage() : null;

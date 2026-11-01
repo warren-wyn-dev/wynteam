@@ -138,6 +138,14 @@ abstract class MerchantRepository {
   );
   Future<Json?> pickRefundSlip(String storeId, String orderId) async => null;
   Future<Json?> pickPaymentQr(String storeId) async => null;
+
+  /// kind is 'logo' or 'cover'; a cancelled picker returns null.
+  Future<Json?> pickStoreImage(String storeId, String kind) async => null;
+  Future<void> setPublished(String storeId, bool published) async =>
+      throw const MerchantException('ดำเนินการไม่สำเร็จ');
+  Future<Json> currentLocation() async =>
+      throw const MerchantException('หาตำแหน่งไม่สำเร็จ');
+  Future<Json> checkLocation(String storeId, num lat, num lng) async => {};
   Future<void> markRefunded(
     String storeId,
     String orderId,
@@ -316,6 +324,32 @@ class BridgeMerchantRepository extends MerchantRepository {
   Future<void> saveStore(String storeId, Json values) async {
     await call('saveStore', {'storeId': storeId, 'values': values});
   }
+
+  @override
+  Future<Json?> pickStoreImage(String storeId, String kind) async {
+    final data = await call('pickStoreImage', {
+      'storeId': storeId,
+      'kind': kind,
+    });
+    return data == null ? null : object(data);
+  }
+
+  @override
+  Future<void> setPublished(String storeId, bool published) async {
+    await call('setPublished', {'storeId': storeId, 'published': published});
+  }
+
+  @override
+  Future<Json> currentLocation() async => object(await call('currentLocation'));
+
+  @override
+  Future<Json> checkLocation(String storeId, num lat, num lng) async => object(
+    await call('checkLocation', {
+      'storeId': storeId,
+      'latitude': lat,
+      'longitude': lng,
+    }),
+  );
 
   @override
   Future<Json?> pickPaymentQr(String storeId) async {

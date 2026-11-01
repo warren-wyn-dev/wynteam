@@ -12,6 +12,7 @@ import 'store_settings_panels.dart';
 import 'finance_panel.dart';
 import 'staff_panel.dart';
 import 'growth_panels.dart';
+import 'store_profile_panel.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -736,7 +737,7 @@ class _MerchantHomeState extends State<MerchantHome>
         ),
         IconButton(
           tooltip: 'การแจ้งเตือน',
-          onPressed: () => openTool('notifications'),
+          onPressed: pushBusy ? null : enablePush,
           icon: Icon(
             pushEnabled
                 ? Icons.notifications_active_outlined
@@ -810,23 +811,6 @@ class _MerchantHomeState extends State<MerchantHome>
       );
     },
   );
-
-  Future<void> openTool(String toolName) async {
-    final storeId = c.storeId;
-    if (storeId == null) return;
-    final url = Uri.base
-        .resolve('/merchant')
-        .replace(
-          queryParameters: {
-            'legacy': '1',
-            'merchant-tool': toolName,
-            'merchant-store': storeId,
-          },
-        );
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      notice('เปิดเครื่องมือร้านไม่สำเร็จ กรุณาลองอีกครั้ง');
-    }
-  }
 
   Widget homePanel(
     Widget child, {
@@ -968,7 +952,7 @@ class _MerchantHomeState extends State<MerchantHome>
                     OutlinedButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        unawaited(openTool('store'));
+                        navigate(5);
                       },
                       icon: const Icon(Icons.schedule),
                       label: const Text('ตั้งเวลาเปิดร้านและวันหยุด'),
@@ -1059,11 +1043,7 @@ class _MerchantHomeState extends State<MerchantHome>
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       Navigator.pop(ctx);
-                      if (item.destination != null) {
-                        navigate(item.destination!);
-                      } else {
-                        unawaited(openTool(item.tool!));
-                      }
+                      navigate(item.destination ?? 5);
                     },
                   ),
               ],
@@ -1835,13 +1815,6 @@ class _MerchantHomeState extends State<MerchantHome>
         () => navigate(13),
         icon3d: 6,
         icon: Icons.support_outlined,
-      ),
-      moreRow(
-        'เครื่องมือเพิ่มเติม',
-        openOriginal,
-        icon: Icons.open_in_new,
-        hint: 'เปิดหน้าจัดการเดิม',
-        trailing: Icons.open_in_new,
       ),
     ]),
     OutlinedButton.icon(
@@ -3056,6 +3029,37 @@ class _MerchantHomeState extends State<MerchantHome>
         ),
       ),
     ],
+    if (c.canManage)
+      box(
+        StoreProfilePanel(
+          key: ValueKey('profile:${c.storeId}'),
+          store: c.store!,
+          enabled: c.writable,
+          save: (values) =>
+              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
+          // A cancelled picker uploads nothing and changes nothing.
+          pickImage: (kind) => c.mutate(
+            () => widget.repository.pickStoreImage(c.storeId!, kind),
+          ),
+          setPublished: (published) => c.mutate(
+            () => widget.repository.setPublished(c.storeId!, published),
+          ),
+          locate: widget.repository.currentLocation,
+          checkArea: (lat, lng) async {
+            try {
+              final r = await widget.repository.checkLocation(
+                c.storeId!,
+                lat,
+                lng,
+              );
+              return r['inside'] is bool ? r['inside'] as bool : null;
+            } catch (_) {
+              return null;
+            }
+          },
+          error: () => c.error,
+        ),
+      ),
     box(
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3097,12 +3101,6 @@ class _MerchantHomeState extends State<MerchantHome>
                   )
                 : null,
           ),
-          if (c.canManage)
-            OutlinedButton.icon(
-              onPressed: c.writable ? editStore : null,
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('แก้ไขข้อมูลร้าน'),
-            ),
         ],
       ),
     ),
@@ -3115,9 +3113,7 @@ class _MerchantHomeState extends State<MerchantHome>
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nฟีดแบ็กและช่วยเหลือ ยังเปิดในหน้าร้านเดิม',
-          ),
+          const Text('อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที'),
           FilledButton.icon(
             onPressed: pushBusy ? null : enablePush,
             icon: const Icon(Icons.notifications_active_outlined),
@@ -3128,10 +3124,6 @@ class _MerchantHomeState extends State<MerchantHome>
                   ? 'ตรวจการแจ้งเตือนอีกครั้ง'
                   : 'เปิดแจ้งเตือนออเดอร์',
             ),
-          ),
-          TextButton(
-            onPressed: openOriginal,
-            child: const Text('เครื่องมือร้านเพิ่มเติม →'),
           ),
         ],
       ),
@@ -3353,40 +3345,6 @@ class _MerchantHomeState extends State<MerchantHome>
             'price': double.parse(values['price']!),
           }, id: item?['id']),
         ),
-        error: () => c.error,
-      ),
-    );
-  }
-
-  Future<void> editStore() async {
-    final store = c.store!;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => EditorDialog(
-        title: 'แก้ไขข้อมูลร้าน',
-        fields: [
-          EditorField(
-            'name',
-            'ชื่อร้าน',
-            initial: store['name'],
-            maxLength: 120,
-          ),
-          EditorField(
-            'phone',
-            'เบอร์โทร',
-            initial: store['phone'] ?? '',
-            maxLength: 50,
-          ),
-          EditorField(
-            'address',
-            'ที่อยู่ร้าน',
-            initial: store['address'] ?? '',
-            maxLength: 800,
-          ),
-        ],
-        save: (values) =>
-            c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
         error: () => c.error,
       ),
     );

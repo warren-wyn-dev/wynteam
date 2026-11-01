@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_merchant/main.dart';
 import 'package:zoky_merchant/screens/merchant_home.dart';
 import 'package:zoky_merchant/data/merchant_controller.dart';
+import 'package:zoky_merchant/data/merchant_repository.dart';
 import 'support/fake_repository.dart';
 
 class _LargeSalesRepository extends FakeRepository {
@@ -49,6 +50,22 @@ class _ReviewsRepository extends FakeRepository {
   Future<void> replyReview(String storeId, String reviewId, String text) async {
     replies.add('$storeId/$reviewId/$text');
     reply = text;
+  }
+}
+
+class _ProfileRepository extends FakeRepository {
+  final saved = <Json>[];
+  final published = <bool>[];
+  @override
+  Future<void> saveStore(String id, Json values) async {
+    saved.add(Json.from(values));
+    await super.saveStore(id, values);
+  }
+
+  @override
+  Future<void> setPublished(String storeId, bool value) async {
+    published.add(value);
+    storeRows.first['is_published'] = value;
   }
 }
 
@@ -174,6 +191,58 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ต้องการความช่วยเหลือ?'), findsOneWidget);
       expect(find.text('Store ID: store-1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'readiness opens the in-app store editor, which saves the full profile and publish state',
+    (tester) async {
+      final repo = _ProfileRepository();
+      repo.storeRows.first['is_published'] = false;
+      await mount(tester, repo, width: 390);
+      await tester.ensureVisible(find.text('เตรียมร้านให้พร้อม'));
+      await tester.tap(find.text('เตรียมร้านให้พร้อม'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ข้อมูลติดต่อ เวลาเปิด และพื้นที่จัดส่ง'));
+      await tester.pumpAndSettle();
+      expect(find.text('ตั้งค่าร้าน'), findsWidgets);
+      final page = find.byType(Scrollable).hitTestable().first;
+      await tester.scrollUntilVisible(
+        find.text('บันทึกข้อมูลร้าน'),
+        400,
+        scrollable: page,
+      );
+      expect(find.text('บันทึกข้อมูลร้าน'), findsOneWidget);
+
+      final area = find.widgetWithText(TextFormField, 'พื้นที่จัดส่ง');
+      await tester.ensureVisible(area);
+      await tester.enterText(area, 'ในเมืองมหาสารคาม');
+      final fee = find.widgetWithText(TextFormField, 'ค่าส่งเริ่มต้น');
+      await tester.enterText(fee, '25');
+      await tester.ensureVisible(find.text('บันทึกข้อมูลร้าน'));
+      await tester.tap(find.text('บันทึกข้อมูลร้าน'));
+      await tester.pumpAndSettle();
+      expect(repo.saved.last['delivery_area'], 'ในเมืองมหาสารคาม');
+      expect(repo.saved.last['delivery_fee'], 25);
+      expect(repo.saved.last['name'], 'ร้านทดสอบ');
+      expect(find.text('บันทึกข้อมูลร้านแล้ว'), findsOneWidget);
+
+      final publish = find.widgetWithText(SwitchListTile, 'เผยแพร่ร้านบน ZOKY');
+      await tester.scrollUntilVisible(publish, -400, scrollable: page);
+      await tester.pumpAndSettle();
+      await tester.tap(publish);
+      await tester.pumpAndSettle();
+      expect(repo.published, [true]);
+
+      final badFee = find.widgetWithText(TextFormField, 'ค่าส่งเริ่มต้น');
+      await tester.ensureVisible(badFee);
+      await tester.enterText(badFee, '-5');
+      final writes = repo.saved.length;
+      await tester.ensureVisible(find.text('บันทึกข้อมูลร้าน'));
+      await tester.tap(find.text('บันทึกข้อมูลร้าน'));
+      await tester.pumpAndSettle();
+      expect(repo.saved.length, writes);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

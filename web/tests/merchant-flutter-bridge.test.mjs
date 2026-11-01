@@ -34,6 +34,8 @@ function harness() {
         if(state.reviewHook)await state.reviewHook();
         return {data:state.reviewData??{count:0,average:0,unanswered:0,reviews:[]},error:state.reviewError??null};
       }
+      if(name==='merchant_store_readiness')return {data:state.readiness??{ready:true,missing:[]},error:null};
+      if(name==='food_service_area_check')return {data:state.insideArea??true,error:null};
       return {data:name==='food_has_merchant_access'?state.access && args.p_store_id!==OTHER:name==='merchant_has_store_role'?state.manage:true,error:null};
     },
     from:(table)=>{
@@ -49,6 +51,7 @@ function harness() {
         if(table==='food_staff')return {data:state.staff,error:null};
         if(table==='profiles')return {data:filters.id===state.user?{username:state.myUsername??'me_admin'}:null,error:null};
         if(table==='food_stores'){
+          if(update&&typeof filters.id==='string'){if(!state.noOp)Object.assign(state.store,update);return {data:null,error:null};}
           if(typeof filters.id==='string')return {data:state.store,error:null};
           if(!Array.isArray(filters.id)&&!Array.isArray(filters.merchant_account_id))throw new Error('unfiltered public catalog query');
           return {data:[state.store,{id:OTHER,merchant_account_id:OTHER,name:'ร้านอื่น'}].filter(row=>Array.isArray(filters.id)?filters.id.includes(row.id):filters.merchant_account_id.includes(row.merchant_account_id)),error:null};
@@ -613,4 +616,48 @@ test('a review reply needs a manage role, a review from this store and a bounded
   h.state.manage=false;
   assert.equal((await h.request('replyReview',{storeId:STORE,reviewId:ORDER,reply:'ok'})).ok,false);
   assert.equal(h.calls.filter(c=>c.name==='food_reply_store_review').length,before);
+});
+
+test('the full store editor fields are validated, saved and read back (Founder 2026-11-01)',async()=>{
+  const h=harness();
+  const future=new Date(Date.now()+3*86400000).toISOString();
+  const values={description:' ส้มตำรสเด็ด ',business_hours:'10:00-20:00',delivery_area:'ในเมือง',delivery_fee:'25',minimum_order:100,delivery_radius_km:6.5,delivery_base_km:2,delivery_fee_per_km:7,
+    temporary_closed_until:future,temporary_closed_reason:'พักร้อน',latitude:16.18,longitude:103.3,pickup_latitude:null,pickup_longitude:null,pickup_note:'หน้าร้าน',
+    scheduled_orders_enabled:true,scheduled_min_notice_minutes:30,scheduled_max_days:7,tax_invoice_enabled:true,tax_legal_name:'บริษัท',tax_id:'1234567890123',tax_branch:'สำนักงานใหญ่',tax_address:'มหาสารคาม',logo_path:null};
+  const result=await h.request('saveStore',{storeId:STORE,values});
+  assert.equal(result.ok,true,JSON.stringify(result));
+  const saved=h.calls.find(c=>c.name==='updateFoodStore').args[2];
+  assert.equal(saved.description,'ส้มตำรสเด็ด');assert.equal(saved.delivery_fee,25);assert.equal(saved.logo_path,null);assert.equal(saved.latitude,16.18);assert.equal(saved.pickup_latitude,null);
+  for(const bad of [{delivery_fee:-1},{delivery_radius_km:0.1},{latitude:91,longitude:0},{latitude:16},{scheduled_max_days:31},{scheduled_min_notice_minutes:10},{tax_id:'123'},
+    {temporary_closed_until:'2000-01-01T00:00:00Z'},{logo_path:'stores/other/x.png'},{cover_path:'x'},{description:'x'.repeat(1001)}]){
+    assert.equal((await h.request('saveStore',{storeId:STORE,values:bad})).ok,false,JSON.stringify(bad));
+  }
+  h.state.manage=false;
+  assert.equal((await h.request('saveStore',{storeId:STORE,values:{description:'x'}})).ok,false);
+});
+
+test('publishing uses the readiness gate and a manage role; location checks are store-scoped',async()=>{
+  const h=harness();h.state.store.is_published=false;
+  h.state.readiness={ready:false,missing:['เมนู']};
+  const blocked=await h.request('setPublished',{storeId:STORE,published:true});
+  assert.equal(blocked.ok,false);assert.equal(h.state.store.is_published,false);
+  h.state.readiness={ready:true,missing:[]};
+  assert.equal((await h.request('setPublished',{storeId:STORE,published:true})).ok,true);assert.equal(h.state.store.is_published,true);
+  assert.equal((await h.request('setPublished',{storeId:STORE,published:'yes'})).ok,false);
+  h.state.manage=false;
+  assert.equal((await h.request('setPublished',{storeId:STORE,published:false})).ok,false);assert.equal(h.state.store.is_published,true);
+  const g=harness();
+  assert.deepEqual((await g.request('checkLocation',{storeId:STORE,latitude:16.18,longitude:103.3})).data,{inside:true});
+  g.state.insideArea=false;
+  assert.deepEqual((await g.request('checkLocation',{storeId:STORE,latitude:16.18,longitude:103.3})).data,{inside:false});
+  assert.equal((await g.request('checkLocation',{storeId:STORE,latitude:200,longitude:0})).ok,false);
+  assert.equal((await harness().request('checkLocation',{storeId:OTHER,latitude:1,longitude:1})).ok,false);
+});
+
+test('store images accept only logo or cover and a manage role',async()=>{
+  const h=harness();
+  for(const kind of ['banner','',null])assert.equal((await h.request('pickStoreImage',{storeId:STORE,kind})).ok,false);
+  h.state.manage=false;
+  assert.equal((await h.request('pickStoreImage',{storeId:STORE,kind:'logo'})).ok,false);
+  assert.equal(h.calls.some(c=>c.name==='uploadFoodPublicImage'),false);
 });
