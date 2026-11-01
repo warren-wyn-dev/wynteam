@@ -1,11 +1,12 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-01: Merchant UX redesign round 2 (ZOKY-MERCHANT-UX-002) —
-# Home open/close switch and "ต้องทำตอนนี้" counts (new store-scoped
-# orderCounts read), Menu category/sold-out chips, grouped More with 3D icons,
-# on top of the live round-1 release (301785b8, all customer hosts on
-# dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT). Production reviewers and
-# stage-before-promotion remain required.
+# Founder 2026-11-01: re-release Merchant UX round 2 (rolled back while a
+# sign-in issue was investigated; cause was Supabase "JWT issued at future",
+# not round 2) together with a non-fatal slow-startup state: the 20s content
+# timeout no longer fails a still-loading app, hidden-page time is not
+# counted, and hard failure moves to 90s. Base is round 1 (301785b8, all
+# customer hosts on dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT after the rollback).
+# Production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
     inputs:
@@ -14,7 +15,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_MERCHANT_UX_R2_20261101]
+        options: [CANCEL, ZOKY_MERCHANT_UX_R2B_20261101]
 
 permissions:
   contents: read
@@ -27,26 +28,29 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: a3f384065a74c5a00a8206f5d5bf3f359e8f1996
+  RELEASE_SHA: b50c0ccddd8207f9a966ea6deac201184fda8623
   PRODUCTION_BASE_SHA: 301785b8775ae4f500faf3acf72f3aa988fa5f80
-  # Live on every customer host since the 2026-11-01 Merchant UX round-1 release.
+  # Live on every customer host again since the 2026-11-01 rollback to Merchant UX round 1.
   ROLLBACK_DEPLOYMENT: dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT
   ROLLBACK_MERCHANT_DEPLOYMENT: dpl_3NeC39MgBUY5frNZ2UtgQ635u4cT
   ALLOWED_PATHS: >-
+    web/components/merchant/merchant-flutter-authenticated.tsx
     web/lib/merchant-flutter-bridge.ts
+    web/lib/merchant-flutter-startup.ts
     web/merchant_flutter/lib/data/merchant_controller.dart
     web/merchant_flutter/lib/data/merchant_repository.dart
     web/merchant_flutter/lib/screens/merchant_home.dart
     web/merchant_flutter/test/merchant_test.dart
     web/merchant_flutter/test/startup_visual_test.dart
     web/tests/merchant-flutter-bridge.test.mjs
+    web/tests/merchant-flutter-startup.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UX_R2_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UX_R2B_20261101'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -81,7 +85,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UX_R2_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UX_R2B_20261101'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -139,7 +143,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UX_R2_20261101'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_UX_R2B_20261101'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
