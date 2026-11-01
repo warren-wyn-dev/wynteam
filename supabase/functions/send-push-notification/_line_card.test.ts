@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-import { baht, lineCardMessages, lineEventFor, type LineOrder, lineOrderFrom, shouldSendLine } from "./_line_card.ts";
+import { baht, fulfilmentLine, lineCardMessages, lineEventFor, type LineOrder, lineOrderFrom, shouldSendLine } from "./_line_card.ts";
 
 const URL = "https://liff.line.me/1234567890-AbCdEfGh?to=%2Fmerchant%3Forder%3DWF0033";
 
@@ -211,4 +211,24 @@ Deno.test("LINE sends only the first reminder of an order", () => {
   assertEquals(shouldSendLine("merchant", event, null, true), false);
   // Other events ignore the reminder flag.
   assertEquals(shouldSendLine("merchant", lineEventFor("merchant", "WYNOS Merchant · ลูกค้ายกเลิกออเดอร์ #WF0034"), order(), true), true);
+});
+
+Deno.test("store cards show how the order is fulfilled and paid", () => {
+  assertEquals(fulfilmentLine(order(), "th"), "🛵 ส่งถึงบ้าน · ชำระแล้ว");
+  assertEquals(fulfilmentLine(order({ paymentMethod: "cod", paymentStatus: "pending" }), "th"), "🛵 ส่งถึงบ้าน · 💵 เก็บเงินปลายทาง");
+  assertEquals(fulfilmentLine(order({ fulfillmentType: "pickup", paymentStatus: "submitted" }), "th"), "🛍️ รับที่ร้าน · รอตรวจสลิป");
+  assertEquals(fulfilmentLine(order({ fulfillmentType: null, paymentMethod: null, paymentStatus: null }), "th"), null);
+  assertEquals(fulfilmentLine(order({ fulfillmentType: "pickup" }), "en"), "🛍️ Pickup at store · Paid");
+
+  const merchant = card(lineCardMessages("merchant", lineEventFor("merchant", "WYNOS Merchant · ชำระเงินแล้ว #WF0033"), order(), URL, "th"));
+  assert(allText(merchant).includes("🛵 ส่งถึงบ้าน · ชำระแล้ว"));
+  const customer = card(lineCardMessages("food", lineEventFor("food", "ชำระเงินออเดอร์ #WF0033 สำเร็จแล้ว"), order(), URL, "th"));
+  assert(!allText(customer).includes("🛵 ส่งถึงบ้าน"));
+});
+
+Deno.test("reminder cards are orange so they stand out from new orders", () => {
+  const reminder = card(lineCardMessages("merchant", lineEventFor("merchant", "WYNOS Merchant · ออเดอร์ #WF0034 รอรับ 1 นาทีแล้ว"), order(), URL, "th"));
+  const fresh = card(lineCardMessages("merchant", lineEventFor("merchant", "WYNOS Merchant · ชำระเงินแล้ว #WF0034"), order(), URL, "th"));
+  assertEquals(reminder.contents.header.backgroundColor, "#F57C00");
+  assertEquals(fresh.contents.header.backgroundColor, "#E2246F");
 });
