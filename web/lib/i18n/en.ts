@@ -2573,6 +2573,7 @@ Object.assign(EN_EXACT, {
   "ตอนนี้ WYNOS Food ให้บริการในจังหวัดมหาสารคาม": "WYNOS Food is currently available in Maha Sarakham province",
   "ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ": "Unavailable · Outside service area",
   "มหาสารคาม": "Maha Sarakham",
+  "ประเทศไทย": "Thailand",
   "ร้านนี้ยังไม่พร้อมรับการจัดส่ง": "This store is not ready for delivery",
   "กรุณาตรวจสอบตำแหน่งจัดส่ง": "Please check the delivery location",
   "อาคาร/หมู่บ้าน": "Building / village",
@@ -3145,6 +3146,10 @@ Object.assign(EN_EXACT, {
   "ผู้ใช้ ZOKY": "ZOKY customer",
   "Stripe ยังไม่ได้เปิดใช้งานบน ZOKY": "Stripe is not enabled on ZOKY yet",
   "ตอนนี้ ZOKY ส่งได้เฉพาะในจังหวัดมหาสารคาม": "ZOKY currently delivers only within Maha Sarakham",
+  "เช่น กรุงเทพมหานคร": "For example: Bangkok",
+  "ปักหมุดร้านในประเทศไทย": "Pin the store inside Thailand",
+  "ตอนนี้ ZOKY ให้บริการในประเทศไทย": "ZOKY is currently available in Thailand",
+  "ตอนนี้ ZOKY ส่งได้เฉพาะในประเทศไทย": "ZOKY currently delivers only within Thailand",
   "เมื่อเปิดใน Safari แล้ว ให้เพิ่ม ZOKY ลงหน้าจอหลักใหม่เพื่อให้ล็อกอินและเซสชันอยู่บนโดเมน ZOKY โดยตรง": "After it opens in Safari, add ZOKY to your Home Screen again so sign-in and your session stay on the ZOKY domain",
   // ZOKY-FULFILL-001 Merchant (contract v1)
   "สลิปคืนเงินต้องเป็นรูป JPEG, PNG หรือ WebP ไม่เกิน 8 MB": "The refund slip must be a JPEG, PNG or WebP image up to 8 MB",

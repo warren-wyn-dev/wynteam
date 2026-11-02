@@ -1106,7 +1106,7 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";
   if (message.includes("store is outside the service area")) return "ร้านนี้ยังไม่เปิดให้บริการในพื้นที่";
-  if (message.includes("outside service area")) return "ตอนนี้ ZOKY ส่งได้เฉพาะในจังหวัดมหาสารคาม";
+  if (message.includes("outside service area")) return "ตอนนี้ ZOKY ส่งได้เฉพาะในประเทศไทย";
   if (message.includes("outside delivery area")) return "ที่อยู่นี้อยู่นอกพื้นที่จัดส่งของร้าน";
   if (message.includes("delivery location required")) return "กรุณาปักหมุดตำแหน่งที่อยู่จัดส่งก่อนสั่ง";
   if (message.includes("invalid delivery location")) return "ตำแหน่งที่อยู่ไม่ถูกต้อง ลองปักหมุดใหม่";

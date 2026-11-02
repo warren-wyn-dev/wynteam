@@ -156,7 +156,7 @@ const MAPLIBRE_JS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/mapl
 const MAPLIBRE_CSS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
 const MAP_STYLE = "/maps/wynos-green.json";
 const MAP_STYLE_DARK = "/maps/wynos-dark.json";
-const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";
+const SERVICE_AREA_URL = "/maps/food-service-area-thailand.json";
 const SERVICE_AREA_SOURCE = "wynos-food-service-area";
 const SERVICE_AREA_FILL_LAYER = "wynos-food-service-area-fill";
 const SERVICE_AREA_LINE_LAYER = "wynos-food-service-area-line";
@@ -1953,7 +1953,7 @@ export function FoodDeliveryMapPicker({
                   ? "นอกพื้นที่ให้บริการ"
                   : "พื้นที่ให้บริการ ZOKY"}
             </strong>
-            <small>มหาสารคาม</small>
+            <small>ประเทศไทย</small>
           </div>
         ) : null}
         <div className="wf-map-attribution">
@@ -2287,7 +2287,7 @@ export function FoodDeliveryMapPicker({
             <MapPin size={18} />
             <div>
               <strong>นอกพื้นที่ให้บริการ</strong>
-              <span>ตอนนี้ ZOKY ให้บริการในจังหวัดมหาสารคาม</span>
+              <span>ตอนนี้ ZOKY ให้บริการในประเทศไทย</span>
             </div>
           </div>
         ) : null}

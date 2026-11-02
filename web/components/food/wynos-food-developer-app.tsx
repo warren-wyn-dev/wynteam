@@ -2377,7 +2377,7 @@ function AddressEditor({
           <label>ถนน<input value={form.road} onChange={(event) => setForm({ ...form, road: event.target.value })} placeholder="เช่น ถนนนครสวรรค์" /></label>
         </div>
         <label>จังหวัด <b>*</b>
-          <input autoComplete="address-level1" value={form.province} onChange={(event) => setForm({ ...form, province: event.target.value })} placeholder="เช่น มหาสารคาม" />
+          <input autoComplete="address-level1" value={form.province} onChange={(event) => setForm({ ...form, province: event.target.value })} placeholder="เช่น กรุงเทพมหานคร" />
         </label>
         <div className="wf-form-grid">
           <label>อำเภอ / เขต <b>*</b>
