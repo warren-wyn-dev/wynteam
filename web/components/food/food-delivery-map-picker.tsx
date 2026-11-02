@@ -79,6 +79,9 @@ type ServiceAreaFeature = {
   };
 };
 
+/** The open ZOKY service areas (Admin-chosen country or provinces). */
+type ServiceAreaCollection = { type: "FeatureCollection"; features: ServiceAreaFeature[] };
+
 type RouteLineFeature = {
   type: "Feature";
   properties: {
@@ -113,7 +116,7 @@ type MapInstance = {
   setLayerZoomRange: (layerId: string, minzoom: number, maxzoom: number) => void;
   getSource: (id: string) => unknown;
   getLayer: (id: string) => unknown;
-  addSource: (id: string, source: { type: "geojson"; data: ServiceAreaFeature | RouteLineFeature }) => void;
+  addSource: (id: string, source: { type: "geojson"; data: ServiceAreaCollection | RouteLineFeature }) => void;
   removeLayer: (id: string) => void;
   removeSource: (id: string) => void;
   addLayer: (layer: {
@@ -258,6 +261,25 @@ function isServiceAreaFeature(value: unknown): value is ServiceAreaFeature {
     && feature.geometry?.type === "Polygon"
     && Array.isArray(feature.geometry.coordinates?.[0])
     && feature.geometry.coordinates[0].length >= 3;
+}
+
+function serviceAreaCollection(value: unknown): ServiceAreaCollection | null {
+  if (isServiceAreaFeature(value)) return { type: "FeatureCollection", features: [value] };
+  if (!value || typeof value !== "object" || (value as { type?: unknown }).type !== "FeatureCollection") return null;
+  const raw = (value as { features?: unknown }).features;
+  const features = Array.isArray(raw) ? raw.filter(isServiceAreaFeature) : [];
+  return features.length ? { type: "FeatureCollection", features } : null;
+}
+
+/** Thai label for the open areas: the single area's name, or a province count. */
+function serviceAreaLabel(areas: ServiceAreaCollection) {
+  const [first] = areas.features;
+  if (areas.features.length === 1) return first?.properties.name ?? "พื้นที่ให้บริการ";
+  return `${areas.features.length} จังหวัด`;
+}
+
+function pointInServiceAreas(location: FoodLocation, areas: ServiceAreaCollection) {
+  return areas.features.some((feature) => pointInServiceArea(location, feature));
 }
 
 function pointInServiceArea(location: FoodLocation, feature: ServiceAreaFeature) {
@@ -550,7 +572,7 @@ export function FoodDeliveryMapPicker({
   const [userLocation, setUserLocation] = useState<FoodLocation | null>(null);
   const [mapDragging, setMapDragging] = useState(false);
   const [mapStyleRevision, setMapStyleRevision] = useState(0);
-  const [serviceAreaBoundary, setServiceAreaBoundary] = useState<ServiceAreaFeature | null>(null);
+  const [serviceAreaBoundary, setServiceAreaBoundary] = useState<ServiceAreaCollection | null>(null);
   const [directionsTarget, setDirectionsTarget] = useState<RouteTarget | null>(null);
   const [routeMode, setRouteMode] = useState<MapsTravelMode>("motorcycle");
   const [route, setRoute] = useState<MapsRoute | null>(null);
@@ -565,7 +587,7 @@ export function FoodDeliveryMapPicker({
   const [navigationOffRouteDistance, setNavigationOffRouteDistance] = useState<number | null>(null);
 
   const serviceAreaState = standalone && location && serviceAreaBoundary
-    ? (pointInServiceArea(location, serviceAreaBoundary) ? "inside" : "outside")
+    ? (pointInServiceAreas(location, serviceAreaBoundary) ? "inside" : "outside")
     : "unknown";
 
   const reverse = useCallback(async (next: FoodLocation) => {
@@ -936,13 +958,17 @@ export function FoodDeliveryMapPicker({
   useEffect(() => {
     if (!standalone) return;
     let live = true;
-    void fetch(SERVICE_AREA_URL, { cache: "force-cache" })
-      .then((response) => {
-        if (!response.ok) throw new Error("service area unavailable");
-        return response.json() as Promise<unknown>;
-      })
+    // The areas the ZOKY super admin opened (Founder 2026-11-02). Before that
+    // RPC exists, the bundled Thailand outline is the same open area.
+    const bundled = () => fetch(SERVICE_AREA_URL, { cache: "force-cache" }).then((response) => {
+      if (!response.ok) throw new Error("service area unavailable");
+      return response.json() as Promise<unknown>;
+    });
+    void Promise.resolve(client.rpc("food_service_area_boundaries"))
+      .then(({ data, error }) => (error ? bundled() : data as unknown))
+      .catch(bundled)
       .then((value) => {
-        if (live && isServiceAreaFeature(value)) setServiceAreaBoundary(value);
+        if (live) setServiceAreaBoundary(serviceAreaCollection(value));
       })
       .catch(() => {
         if (live) setServiceAreaBoundary(null);
@@ -950,7 +976,7 @@ export function FoodDeliveryMapPicker({
     return () => {
       live = false;
     };
-  }, [standalone]);
+  }, [client, standalone]);
 
   useEffect(() => {
     let live = true;
@@ -1125,8 +1151,11 @@ export function FoodDeliveryMapPicker({
     const map = mapRef.current;
     if (!standalone || !mapReady || !map || !serviceAreaBoundary) return;
     try {
-      if (!map.getSource(SERVICE_AREA_SOURCE)) {
+      const source = map.getSource(SERVICE_AREA_SOURCE) as { setData?: (data: ServiceAreaCollection) => void } | undefined;
+      if (!source) {
         map.addSource(SERVICE_AREA_SOURCE, { type: "geojson", data: serviceAreaBoundary });
+      } else {
+        source.setData?.(serviceAreaBoundary);
       }
       if (!map.getLayer(SERVICE_AREA_FILL_LAYER)) {
         map.addLayer({
@@ -1953,7 +1982,7 @@ export function FoodDeliveryMapPicker({
                   ? "นอกพื้นที่ให้บริการ"
                   : "พื้นที่ให้บริการ ZOKY"}
             </strong>
-            <small>ประเทศไทย</small>
+            <small>{serviceAreaLabel(serviceAreaBoundary)}</small>
           </div>
         ) : null}
         <div className="wf-map-attribution">
@@ -2287,7 +2316,7 @@ export function FoodDeliveryMapPicker({
             <MapPin size={18} />
             <div>
               <strong>นอกพื้นที่ให้บริการ</strong>
-              <span>ตอนนี้ ZOKY ให้บริการในประเทศไทย</span>
+              <span>{serviceAreaBoundary ? `ตอนนี้ ZOKY ให้บริการใน${serviceAreaLabel(serviceAreaBoundary)}` : "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY"}</span>
             </div>
           </div>
         ) : null}

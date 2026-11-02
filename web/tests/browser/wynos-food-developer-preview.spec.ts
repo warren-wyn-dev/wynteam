@@ -111,7 +111,8 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(mapsV2Css).toContain(".wf-map-user-location");
 
   expect(map).toContain('const SERVICE_AREA_URL = "/maps/food-service-area-thailand.json";');
-  expect(map).toContain("pointInServiceArea(location, serviceAreaBoundary)");
+  expect(map).toContain("pointInServiceAreas(location, serviceAreaBoundary)");
+  expect(map).toContain('client.rpc("food_service_area_boundaries")');
   expect(map).toContain("map.addSource(SERVICE_AREA_SOURCE");
   expect(map).toContain("SERVICE_AREA_FILL_LAYER");
   expect(map).toContain("SERVICE_AREA_LINE_LAYER");
@@ -507,8 +508,8 @@ test("WYN-211 WYNOS Food is open to everyone; ordering only in Maha Sarakham", (
   // Web (PR #1075): browsing is no longer GPS-gated; the server still rejects
   // out-of-area orders at checkout and the app shows the province message.
   expect(app).not.toContain('area !== "inside"');
-  expect(lib).toContain('if (message.includes("outside service area")) return "ตอนนี้ ZOKY ส่งได้เฉพาะในประเทศไทย";');
-  expect(panels).toContain('service_area: "ปักหมุดร้านในประเทศไทย",');
+  expect(lib).toContain('if (message.includes("outside service area")) return "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY";');
+  expect(panels).toContain('service_area: "ปักหมุดร้านในพื้นที่ให้บริการ",');
   expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-211'");
 });
 

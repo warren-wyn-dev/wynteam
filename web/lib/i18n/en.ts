@@ -3149,6 +3149,8 @@ Object.assign(EN_EXACT, {
   "เช่น กรุงเทพมหานคร": "For example: Bangkok",
   "ปักหมุดร้านในประเทศไทย": "Pin the store inside Thailand",
   "ตอนนี้ ZOKY ให้บริการในประเทศไทย": "ZOKY is currently available in Thailand",
+  "ปักหมุดร้านในพื้นที่ให้บริการ": "Pin the store inside the service area",
+  "พื้นที่ให้บริการ": "Service area",
   "ตอนนี้ ZOKY ส่งได้เฉพาะในประเทศไทย": "ZOKY currently delivers only within Thailand",
   "เมื่อเปิดใน Safari แล้ว ให้เพิ่ม ZOKY ลงหน้าจอหลักใหม่เพื่อให้ล็อกอินและเซสชันอยู่บนโดเมน ZOKY โดยตรง": "After it opens in Safari, add ZOKY to your Home Screen again so sign-in and your session stay on the ZOKY domain",
   // ZOKY-FULFILL-001 Merchant (contract v1)
@@ -3243,6 +3245,8 @@ Object.assign(EN_EXACT, {
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["เวลานัดรับ: {0}", "Pickup time: {0}"],
+  ["ตอนนี้ ZOKY ให้บริการใน{0}", "ZOKY is currently available in {0}"],
+  ["{0} จังหวัด", "{0} provinces"],
   ["รหัสรับอาหาร: {0}", "Pickup code: {0}"],
   ["เพิ่มลงตะกร้า · {0}", "Add to cart · {0}"],
   ["{0} ข้อความใหม่", "{0} new messages"],
