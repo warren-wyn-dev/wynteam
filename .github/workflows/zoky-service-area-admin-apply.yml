@@ -43,21 +43,29 @@ jobs:
           fi
           PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
           API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
-          run_sql() {
+          # The migration is ~340 KB, too big for a command-line argument:
+          # the SQL and the request body go through files.
+          run_sql_file() {
             local body out code
-            body=$(jq -n --arg q "$1" '{query: $q}')
-            out=$(mktemp)
+            body=$(mktemp); out=$(mktemp)
+            jq -n --rawfile q "$1" '{query: $q}' > "$body"
             code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-              -H "Content-Type: application/json" -d "$body")
+              -H "Content-Type: application/json" --data-binary @"$body")
+            rm -f "$body"
             if [ "$code" != "200" ] && [ "$code" != "201" ]; then
               echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
             fi
             cat "$out"; rm -f "$out"
           }
-          run_sql "begin;
-          $(cat supabase/migrations/20261103100000_zoky_service_area_admin.sql)
-          commit;" >/dev/null
+          run_sql() {
+            local sql; sql=$(mktemp); printf '%s' "$1" > "$sql"
+            run_sql_file "$sql"; local rc=$?; rm -f "$sql"; return $rc
+          }
+          apply_sql=$(mktemp)
+          { echo "begin;"; cat supabase/migrations/20261103100000_zoky_service_area_admin.sql; echo; echo "commit;"; } > "$apply_sql"
+          run_sql_file "$apply_sql" >/dev/null
+          rm -f "$apply_sql"
           # Definitions, grants, counts and fixed coordinates only; no personal data is read.
           run_sql "select
               (select count(distinct group_code) from public.food_service_areas where kind = 'province') as provinces,
