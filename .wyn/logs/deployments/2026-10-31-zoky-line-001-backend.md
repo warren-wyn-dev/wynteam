@@ -147,3 +147,10 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Scope: bridge `prefetch()` starts stores, roles, menu, pending orders and counts while the engine boots (same session/store-access checks, one-shot, 15s expiry, dropped by any write or dispose; one orders catch-up after subscribe). Returning merchants also fetch the bridge chunk early. Flutter build unchanged (caches stay warm).
 - Live `dpl_6n5JyhrW4dGcVzkPXKX8E1WiDAMC` (alias `merchant.wynos.online`); `/merchant/flutter` 200, no runtime errors in the first hour.
 - Rollback: `dpl_BpZFxr4Jkw8GQN578azxE8pFwrD7`.
+
+## 2026-11-02 — Remove the Maha Sarakham label from guest Food
+
+- Candidate `1c2deae3` (base `fac7967c`), PR #1321, run 41447728754; Founder approved both reviews.
+- Scope: removed "ให้บริการในพื้นที่มหาสารคาม" from the guest Food home and store list (label only; Founder chose "ลบแค่ข้อความก่อน"). Ordering and store-pin service-area rules unchanged.
+- Live `dpl_2zFF3cWXz4PsokMJ4cskc64jkD9q` (alias `zoky.wynos.online`); browser check on mobile: label absent on home and list, store list renders, no page errors, no runtime errors.
+- Rollback: `dpl_6n5JyhrW4dGcVzkPXKX8E1WiDAMC`.

@@ -1,11 +1,10 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-02 ("เอาคำว่าให้บริการพื้นที่มหาสารคามออก"): remove the
-# Maha Sarakham service-area label from the guest Food home and store list.
-# Label only; ordering and store-pin service-area rules are unchanged
-# (Founder chose "ลบแค่ข้อความก่อน"). Base is the live startup-prefetch
-# release (fac7967c on dpl_6n5JyhrW4dGcVzkPXKX8E1WiDAMC). Production reviewers
-# and stage-before-promotion remain required.
+# Founder 2026-11-02 ("เปิดใช้ทั่วประเทศไทย"): ZOKY wording and the map
+# boundary say Thailand instead of Maha Sarakham. Ship after
+# zoky-service-area-thailand-apply.yml has opened the server area. Base is
+# the live label-removal release (1c2deae3 on dpl_2zFF3cWXz4PsokMJ4cskc64jkD9q).
+# Production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
     inputs:
@@ -14,7 +13,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_FOOD_AREA_LABEL_20261102]
+        options: [CANCEL, ZOKY_THAILAND_AREA_20261102]
 
 permissions:
   contents: read
@@ -27,22 +26,27 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: 1c2deae367c64a7899addb5949a4a0112e05ddd5
-  PRODUCTION_BASE_SHA: fac7967cccc254bf1c4fec443da002b01ba814b3
-  # Live on every customer host since the 2026-11-02 startup-prefetch release (fac7967c).
-  ROLLBACK_DEPLOYMENT: dpl_6n5JyhrW4dGcVzkPXKX8E1WiDAMC
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_6n5JyhrW4dGcVzkPXKX8E1WiDAMC
+  RELEASE_SHA: 652caf61782b2c5a53e1fa52fe2fffa43b564cc2
+  PRODUCTION_BASE_SHA: 1c2deae367c64a7899addb5949a4a0112e05ddd5
+  # Live on every customer host since the 2026-11-02 label-removal release (1c2deae3).
+  ROLLBACK_DEPLOYMENT: dpl_2zFF3cWXz4PsokMJ4cskc64jkD9q
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_2zFF3cWXz4PsokMJ4cskc64jkD9q
   ALLOWED_PATHS: >-
-    web/app/food/food-app.css
-    web/components/food/food-guest-browse.tsx
+    web/components/food/food-delivery-map-picker.tsx
+    web/components/food/wynos-food-developer-app.tsx
+    web/components/merchant/merchant-core-panels.tsx
+    web/lib/food-customer.ts
     web/lib/i18n/en.ts
+    web/public/maps/food-service-area-maha-sarakham.json
+    web/public/maps/food-service-area-thailand.json
+    web/tests/browser/wynos-food-developer-preview.spec.ts
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FOOD_AREA_LABEL_20261102'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_THAILAND_AREA_20261102'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -77,7 +81,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FOOD_AREA_LABEL_20261102'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_THAILAND_AREA_20261102'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -135,7 +139,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_FOOD_AREA_LABEL_20261102'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_THAILAND_AREA_20261102'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
