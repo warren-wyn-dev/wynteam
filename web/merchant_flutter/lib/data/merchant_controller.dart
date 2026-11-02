@@ -2,6 +2,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'merchant_repository.dart';
 
+/// What a successful write must read back (Founder 2026-11-01: faster saves).
+/// [orders]: orders, store rows and roles (order actions, store settings).
+/// [menu]: the same plus the menu. [full]: everything, including summaries.
+enum MutationReload { orders, menu, full }
+
 class MerchantController extends ChangeNotifier {
   MerchantController(this.repository, {DateTime Function()? now})
     : _now = now ?? DateTime.now;
@@ -30,6 +35,7 @@ class MerchantController extends ChangeNotifier {
       _summaryGeneration = 0,
       _scopeGeneration = 0,
       _countsGeneration = 0;
+  bool _skipSummaries = false;
   bool _disposed = false,
       _pendingFull = false,
       _pendingOrders = false,
@@ -277,7 +283,9 @@ class MerchantController extends ChangeNotifier {
       // The initial store, menu, orders and permissions can paint immediately.
       notifyListeners();
       unawaited(_loadCounts(id));
-      if (full || rolesChanged) summaries = refreshSummaries();
+      final skip = _skipSummaries;
+      _skipSummaries = false;
+      if ((full && !skip) || rolesChanged) summaries = refreshSummaries();
     } catch (e) {
       if (!_disposed && generation == _generation) {
         error = errorMessage(e);
@@ -417,7 +425,10 @@ class MerchantController extends ChangeNotifier {
 
   /// Recheck the captured scope after a background read. Successful writes are
   /// read back from the server; they never claim optimistic success.
-  Future<bool> mutate(Future<void> Function() operation) async {
+  Future<bool> mutate(
+    Future<void> Function() operation, {
+    MutationReload reload = MutationReload.full,
+  }) async {
     if (!writable) return false;
     final id = storeId, readStatus = status;
     final scope = _scopeGeneration;
@@ -442,9 +453,12 @@ class MerchantController extends ChangeNotifier {
       return false;
     }
     busy = false;
-    // This full read already covers invalidations received during the write.
+    // The read-back covers invalidations received during the write; a lighter
+    // one skips data this write cannot have changed. Every write is still
+    // verified by the bridge and read back here before it is reported.
     _pendingFull = _pendingOrders = false;
-    unawaited(refresh());
+    _skipSummaries = reload != MutationReload.full;
+    unawaited(_startRead(full: reload != MutationReload.orders));
     final readBack = _readFuture;
     if (readBack != null) await readBack;
     return !_disposed && id == storeId && error == null;

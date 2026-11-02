@@ -756,6 +756,7 @@ class _MerchantHomeState extends State<MerchantHome>
         c.writable && c.canManage && c.store!['admin_suspended_at'] == null
         ? (value) => c.mutate(
             () => widget.repository.saveStore(c.storeId!, {'is_open': value}),
+            reload: MutationReload.orders,
           )
         : null,
   );
@@ -2539,6 +2540,7 @@ class _MerchantHomeState extends State<MerchantHome>
         'preparing',
         etaMinutes: eta,
       ),
+      reload: MutationReload.orders,
     )) {
       _etaChoice.remove('${o['id']}');
       notice('รับออเดอร์แล้ว · แจ้งลูกค้าว่าพร้อมใน $eta นาที');
@@ -2610,6 +2612,7 @@ class _MerchantHomeState extends State<MerchantHome>
           status,
           etaMinutes: status == 'preparing' ? eta : null,
         ),
+        reload: MutationReload.orders,
       )) {
         notice('อัปเดตออเดอร์แล้ว');
       }
@@ -2852,6 +2855,7 @@ class _MerchantHomeState extends State<MerchantHome>
                       () => widget.repository.saveMenu(c.storeId!, {
                         'is_available': value,
                       }, id: item['id']),
+                      reload: MutationReload.menu,
                     )
                   : null,
             ),
@@ -3011,11 +3015,15 @@ class _MerchantHomeState extends State<MerchantHome>
         PaymentChannelsPanel(
           store: c.store!,
           enabled: c.writable,
-          save: (values) =>
-              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
+          save: (values) => c.mutate(
+            () => widget.repository.saveStore(c.storeId!, values),
+            reload: MutationReload.orders,
+          ),
           // A cancelled picker uploads nothing and changes nothing.
-          pickQr: () =>
-              c.mutate(() => widget.repository.pickPaymentQr(c.storeId!)),
+          pickQr: () => c.mutate(
+            () => widget.repository.pickPaymentQr(c.storeId!),
+            reload: MutationReload.orders,
+          ),
           error: () => c.error,
         ),
       ),
@@ -3023,8 +3031,10 @@ class _MerchantHomeState extends State<MerchantHome>
         BusinessHoursPanel(
           store: c.store!,
           enabled: c.writable,
-          save: (values) =>
-              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
+          save: (values) => c.mutate(
+            () => widget.repository.saveStore(c.storeId!, values),
+            reload: MutationReload.orders,
+          ),
           error: () => c.error,
         ),
       ),
@@ -3035,14 +3045,18 @@ class _MerchantHomeState extends State<MerchantHome>
           key: ValueKey('profile:${c.storeId}'),
           store: c.store!,
           enabled: c.writable,
-          save: (values) =>
-              c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
+          save: (values) => c.mutate(
+            () => widget.repository.saveStore(c.storeId!, values),
+            reload: MutationReload.orders,
+          ),
           // A cancelled picker uploads nothing and changes nothing.
           pickImage: (kind) => c.mutate(
             () => widget.repository.pickStoreImage(c.storeId!, kind),
+            reload: MutationReload.orders,
           ),
           setPublished: (published) => c.mutate(
             () => widget.repository.setPublished(c.storeId!, published),
+            reload: MutationReload.orders,
           ),
           locate: widget.repository.currentLocation,
           pickOnMap: (kind, lat, lng) =>
@@ -3100,6 +3114,7 @@ class _MerchantHomeState extends State<MerchantHome>
                 ? (v) => c.mutate(
                     () =>
                         widget.repository.saveStore(c.storeId!, {'is_open': v}),
+                    reload: MutationReload.orders,
                   )
                 : null,
           ),
@@ -3150,6 +3165,7 @@ class _MerchantHomeState extends State<MerchantHome>
             note: note,
             manualConfirmation: manualConfirmation,
           ),
+          reload: MutationReload.orders,
         ),
         error: () => c.error,
       ),
@@ -3185,6 +3201,7 @@ class _MerchantHomeState extends State<MerchantHome>
               locationNote: note,
               cashReceived: order['payment_method'] == 'cod',
             ),
+            reload: MutationReload.orders,
           );
         },
         error: () => c.error,
@@ -3224,6 +3241,7 @@ class _MerchantHomeState extends State<MerchantHome>
         approve,
         refund,
       ),
+      reload: MutationReload.orders,
     );
   }
 
@@ -3241,6 +3259,7 @@ class _MerchantHomeState extends State<MerchantHome>
           if (c.storeId != id || !c.canManage) return false;
           return c.mutate(
             () => widget.repository.markRefunded(id, order['id'], path),
+            reload: MutationReload.orders,
           );
         },
         error: () => c.error,
@@ -3262,6 +3281,7 @@ class _MerchantHomeState extends State<MerchantHome>
         'cancelled',
         note: note,
       ),
+      reload: MutationReload.orders,
     )) {
       notice('ยกเลิกออเดอร์แล้ว');
     }

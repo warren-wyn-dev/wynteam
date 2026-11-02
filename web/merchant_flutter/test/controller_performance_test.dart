@@ -99,6 +99,38 @@ class SnapshotRepository extends ControlledRepository {
 
 void main() {
   test(
+    'an order action reads back orders and store rows without reloading the menu or summaries',
+    () async {
+      final repo = ControlledRepository();
+      final c = MerchantController(repo);
+      addTearDown(c.dispose);
+      await c.initialize();
+      await turn();
+      final menu = repo.menuReads, report = repo.reportReads;
+      final stores = repo.storeReads, orders = repo.orderReads;
+      final ok = await c.mutate(
+        () => repo.transition('store-1', 'order-1', 'preparing'),
+        reload: MutationReload.orders,
+      );
+      await turn();
+      expect(ok, isTrue);
+      expect(repo.storeReads, stores + 1);
+      expect(repo.orderReads, orders + 1);
+      expect(repo.menuReads, menu);
+      expect(repo.reportReads, report);
+
+      final menuWrite = await c.mutate(
+        () => repo.saveMenu('store-1', {'is_available': false}, id: 'menu-1'),
+        reload: MutationReload.menu,
+      );
+      await turn();
+      expect(menuWrite, isTrue);
+      expect(repo.menuReads, menu + 1);
+      expect(repo.reportReads, report);
+      expect(c.menu.first['is_available'], isFalse);
+    },
+  );
+  test(
     'a reopen paints the last snapshot at once but stays read-only until the live read, which replaces it',
     () async {
       final repo = SnapshotRepository()
