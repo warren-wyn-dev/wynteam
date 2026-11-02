@@ -154,3 +154,11 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Scope: removed "ให้บริการในพื้นที่มหาสารคาม" from the guest Food home and store list (label only; Founder chose "ลบแค่ข้อความก่อน"). Ordering and store-pin service-area rules unchanged.
 - Live `dpl_2zFF3cWXz4PsokMJ4cskc64jkD9q` (alias `zoky.wynos.online`); browser check on mobile: label absent on home and list, store list renders, no page errors, no runtime errors.
 - Rollback: `dpl_6n5JyhrW4dGcVzkPXKX8E1WiDAMC`.
+
+## 2026-11-02 — ZOKY ordering open to all of Thailand
+
+- Founder: "เปิดใช้ทั่วประเทศไทย". PR #1322 (approval in `.wyn/company/APPROVALS.md`).
+- DB: `20261102140000_zoky_service_area_thailand.sql` via `zoky-service-area-thailand-apply.yml` run 41467621238 (first run 41451719454 failed with HTTP 401 before any SQL; Founder rotated `SUPABASE_ACCESS_TOKEN`). Verified: thailand + maha_sarakham active; Bangkok, Chiang Mai, Phuket, Ko Tao, Maha Sarakham inside; Vientiane, Phnom Penh outside; store radius still checked; 1 published store, 0 outside.
+- Web: candidate `652caf61` (base `1c2deae3`), run 41467993367; Founder approved both reviews. Live `dpl_7P6sWFUbysXGCQL3dDJszxhz7YPw`; `/maps/food-service-area-thailand.json` 200, old Maha Sarakham file 404, new "ส่งได้เฉพาะในประเทศไทย" message in the bundle, guest Food renders with no page or runtime errors.
+- Rollback: `supabase/rollbacks/20261102140000_zoky_service_area_thailand_rollback.sql` (Maha Sarakham-only again) and web `dpl_2zFF3cWXz4PsokMJ4cskc64jkD9q`.
+- Follow-up: WYNOS/ZOKY Admin store page still labels the area "อยู่ในเขตมหาสารคาม".
