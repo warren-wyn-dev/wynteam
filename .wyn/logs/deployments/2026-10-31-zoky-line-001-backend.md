@@ -140,3 +140,10 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Scope: writes re-read only what they touch (orders/stores/roles; menu for menu edits); summaries no longer reload on every action. Bridge verification and read-back unchanged.
 - Live `dpl_BpZFxr4Jkw8GQN578azxE8pFwrD7` (alias `merchant.wynos.online`); `/merchant/flutter` 200 with v16 icons, no runtime errors.
 - Rollback: `dpl_5Pk8xu5aNnMgqwHnPjF274hZJLDt`.
+
+## 2026-11-02 — Merchant first-screen reads during engine boot
+
+- Candidate `fac7967c` (base `c955dccf`), PR #1320, run 41412324980; Founder approved both reviews.
+- Scope: bridge `prefetch()` starts stores, roles, menu, pending orders and counts while the engine boots (same session/store-access checks, one-shot, 15s expiry, dropped by any write or dispose; one orders catch-up after subscribe). Returning merchants also fetch the bridge chunk early. Flutter build unchanged (caches stay warm).
+- Live `dpl_6n5JyhrW4dGcVzkPXKX8E1WiDAMC` (alias `merchant.wynos.online`); `/merchant/flutter` 200, no runtime errors in the first hour.
+- Rollback: `dpl_BpZFxr4Jkw8GQN578azxE8pFwrD7`.
