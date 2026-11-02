@@ -719,3 +719,12 @@
 - Boundaries: no auth-architecture change (Supabase session stays the only ZOKY login); no secrets in the repo or chat; migration/Edge Function/web release only through the existing protected workflows after QA & Security, staging and a separate Founder production approval.
 - Rollback: unset `LINE_NOTIFICATIONS_ENABLED` (stops all LINE sends and links immediately); the migration is additive with `supabase/rollbacks/20261031120000_zoky_line_links_rollback.sql`.
 - Status: backend live and inert (PR #1304, `line_links` applied, `line-link`/`line-webhook` deployed 2026-10-31; see `.wyn/logs/deployments/2026-10-31-zoky-line-001-backend.md`). `send-push-notification` and web release pending LINE secrets and Founder decisions.
+
+### APPROVAL — [2026-11-02] ZOKY ordering open to all of Thailand
+
+- Founder: "เอาคำว่าให้บริการพื้นที่มหาสารคามออก เพราะขายทั่วไทย" (label removed and live, PR #1321), then "เปิดใช้ทั่วประเทศไทย" after being told ordering and store pins were still limited to Maha Sarakham.
+- Approved: data-only migration `20261102140000_zoky_service_area_thailand.sql` (one active `thailand` row in `public.food_service_areas`, OpenStreetMap relation 2067731, ODbL) applied through `zoky-service-area-thailand-apply.yml` (production environment review), plus a web release that replaces the Maha Sarakham wording and map boundary with Thailand.
+- Unchanged: every server check still goes through `internal.food_in_service_area`; each store's delivery radius and fee rules still apply, so stores only deliver near themselves; developer bypass unchanged; no function, policy or grant change.
+- Risks: a store pinned near a border is judged against a boundary simplified to about 330 m; points outside Thailand stay blocked. Wider ordering means more stores and customers outside the original pilot area (support, payment and delivery operations).
+- Rollback: `supabase/rollbacks/20261102140000_zoky_service_area_thailand_rollback.sql` (sets the row inactive: Maha Sarakham-only again) and Vercel rollback of the web release.
+- Status: approved; migration, test and workflow prepared. Not yet applied.
