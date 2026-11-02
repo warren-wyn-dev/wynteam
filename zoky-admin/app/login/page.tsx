@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { LoginForm } from "./login-form";
@@ -6,7 +8,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-[400px]">
-        <CardHeader>
+        <CardHeader className="items-center text-center">
+          <Image src="/brand/zoky-admin-logo.png" alt="" width={88} height={88} className="mb-1 size-22 rounded-[22%]" priority />
           <CardTitle className="text-xl">ZOKY Admin</CardTitle>
           <CardDescription>
             สำหรับทีม ZOKY ที่ได้รับสิทธิ์ Food หรือ Merchant เท่านั้น

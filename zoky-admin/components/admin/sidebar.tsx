@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -78,9 +79,8 @@ export function AdminSidebar({ role, access }: { role: AdminRole; access: AdminS
 function Brand() {
   return (
     <div className="flex h-16 shrink-0 items-center gap-3 px-5">
-      <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-primary text-base font-bold text-primary-foreground">
-        Z
-      </span>
+      {/* Founder 2026-11-02: the ZOKY Admin mark (Zoky pin + shield). */}
+      <Image src="/brand/zoky-admin-mark.png" alt="" width={32} height={32} className="size-8 rounded-lg" priority />
       <span className="text-base font-semibold tracking-tight">ZOKY Admin</span>
     </div>
   );
