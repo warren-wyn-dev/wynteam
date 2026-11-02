@@ -728,3 +728,13 @@
 - Risks: a store pinned near a border is judged against a boundary simplified to about 330 m; points outside Thailand stay blocked. Wider ordering means more stores and customers outside the original pilot area (support, payment and delivery operations).
 - Rollback: `supabase/rollbacks/20261102140000_zoky_service_area_thailand_rollback.sql` (sets the row inactive: Maha Sarakham-only again) and Vercel rollback of the web release.
 - Status: approved and live 2026-11-02 (DB run 41467621238, web run 41467993367).
+
+### APPROVAL — [2026-11-02] ZOKY Admin chooses the service areas
+
+- Founder: "เอาแบบนี้ไหม ให้ Admin เลือกได้ว่าจะเปิดให้บริการที่ไหนบ้าง", then chose (AskUserQuestion) "รายจังหวัด + ทั้งประเทศ", "ZOKY Admin", "Super admin เท่านั้น".
+- Approved: migration `20261103100000_zoky_service_area_admin.sql` (area grouping columns, 76 province rows off by default, super-admin-only audited `admin_zoky_set_service_area`, `admin_zoky_service_areas`, public `food_service_area_overview` / `food_service_area_boundaries`) via `zoky-service-area-admin-apply.yml`; ZOKY Admin page `/food/service-areas`; web release whose map and wording follow the open areas.
+- Unchanged: `internal.food_in_service_area` and every order/quote/readiness check; store delivery radius; live areas at apply time (Thailand + Maha Sarakham stay on).
+- Safeguards: changes need `internal.is_super_admin()`; every change writes `zoky_service_area_changed` to the audit log; the last open area cannot be turned off; direct table writes stay revoked.
+- Risks: closing an area immediately stops new orders and store publishing there (existing orders unaffected); province borders simplified to about 330 m.
+- Rollback: `supabase/rollbacks/20261103100000_zoky_service_area_admin_rollback.sql`, previous ZOKY Admin and web deployments.
+- Status: approved; implementation and tests prepared. Not yet applied.

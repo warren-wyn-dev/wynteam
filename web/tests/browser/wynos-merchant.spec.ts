@@ -784,7 +784,7 @@ test("WYN-214 Admin merchant polish: service area, order money, refunds, safe ap
 
   expect(sql).toContain("'in_service_area', internal.food_in_service_area(v_store.latitude, v_store.longitude),");
   expect(sql).toContain("or (p_status = 'refund_pending' and o.refund_status in ('pending', 'failed'))");
-  expect(store).toContain('{store.in_service_area ? "อยู่ในเขตมหาสารคาม" : "อยู่นอกเขต / ยังไม่ปักหมุด"}');
+  expect(store).toContain('{store.in_service_area ? "อยู่ในพื้นที่ให้บริการ" : "อยู่นอกพื้นที่ให้บริการ / ยังไม่ปักหมุด"}');
   expect(orders).toContain('{ value: "refund_pending", label: "รอคืนเงิน" },');
   expect(orders).toContain("orders.length >= ORDER_LIMIT");
   // The breakdown now adds up: discounts are shown.
