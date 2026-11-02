@@ -727,4 +727,4 @@
 - Unchanged: every server check still goes through `internal.food_in_service_area`; each store's delivery radius and fee rules still apply, so stores only deliver near themselves; developer bypass unchanged; no function, policy or grant change.
 - Risks: a store pinned near a border is judged against a boundary simplified to about 330 m; points outside Thailand stay blocked. Wider ordering means more stores and customers outside the original pilot area (support, payment and delivery operations).
 - Rollback: `supabase/rollbacks/20261102140000_zoky_service_area_thailand_rollback.sql` (sets the row inactive: Maha Sarakham-only again) and Vercel rollback of the web release.
-- Status: approved; migration, test and workflow prepared. Not yet applied.
+- Status: approved and live 2026-11-02 (DB run 41467621238, web run 41467993367).
