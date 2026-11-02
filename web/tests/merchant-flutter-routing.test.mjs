@@ -57,6 +57,9 @@ test("the embedded page keeps the existing JS auth owner and has a working legac
   assert.doesNotMatch(component, /import.*merchant-flutter-bridge/);
   const authenticated = readFileSync(new URL("../components/merchant/merchant-flutter-authenticated.tsx", import.meta.url), "utf8");
   assert.match(authenticated, /bridge\.dispose\(\)/);
+  // Founder 2026-11-02: first-screen reads start with the engine, after the gate.
+  assert.match(authenticated, /browser\.zokyMerchant = bridge;\s*\/\/[^\n]*\n\s*bridge\.prefetch\(\);/);
+  assert.match(component, /getItem\(MERCHANT_FLUTTER_SEEN_KEY\) === "1"\) \{[\s\S]*?import\("@\/components\/merchant\/merchant-flutter-authenticated"\)/);
   assert.match(authenticated, /removeView\(viewId\)/);
   assert.match(authenticated, /removeEventListener\("message", wake\)/);
   assert.match(authenticated, /href="\/merchant\?legacy=1"/);

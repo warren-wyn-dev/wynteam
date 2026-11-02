@@ -77,6 +77,8 @@ export function AuthenticatedMerchantFlutter({ client, userId, signOut }: Develo
     // Only the existing JS client owns the session. No token, password or
     // Supabase client reference is transferred into the Dart runtime.
     browser.zokyMerchant = bridge;
+    // Founder 2026-11-02: the first screen's reads overlap the engine boot.
+    bridge.prefetch();
     try { window.localStorage.setItem("zoky-merchant-flutter-seen", "1"); } catch { /* optional speed hint */ }
     void loadMerchantFlutterApp().then((app) => {
       if (!active || browser.zokyMerchant !== bridge) return;

@@ -709,3 +709,78 @@ test('the reopen snapshot keeps only store display data per account and is clear
   await h.request('signOut');
   assert.equal(localStorage.map.size,0);
 });
+
+// Founder 2026-11-02 ("ยังช้าอยู่ ตอนเปิดแอป"): startup reads overlap the engine boot.
+const STARTUP_ROLES=[['owner','admin'],['owner','admin','manager'],['owner','admin','manager','orders'],['owner','admin','manager','orders','delivery']];
+const startupRequests=(h,storeId=STORE)=>Promise.all([
+  h.request('stores'),
+  ...STARTUP_ROLES.map(roles=>h.request('hasRole',{storeId,roles})),
+  h.request('menu',{storeId}),
+  h.request('orders',{storeId,status:'pending_acceptance',offset:0}),
+  h.request('orderCounts',{storeId}),
+]);
+const reads=(h,table)=>h.calls.filter(c=>c.table===table&&c.name==='select').length;
+const settle=()=>new Promise(resolve=>setTimeout(resolve,0));
+
+test('prefetched startup reads are served once with the same checks, then reads go live again',async()=>{
+  const localStorage=memoryStorage();
+  const seed=harness({localStorage});
+  await seed.request('stores');await seed.request('menu',{storeId:STORE});
+  const h=harness({localStorage});
+  h.bridge.prefetch();h.bridge.prefetch();
+  await settle();await settle();
+  const before={menu:reads(h,'food_menu_items'),orders:reads(h,'food_orders'),stores:reads(h,'food_stores')};
+  assert.equal(before.menu,1);assert.equal(before.stores,1);
+  assert.ok(h.calls.some(c=>c.name==='food_has_merchant_access'&&c.args.p_store_id===STORE));
+  const results=await startupRequests(h);
+  assert.ok(results.every(r=>r.ok));
+  assert.deepEqual(results[0].data.map(s=>s.id),[STORE]);assert.equal(results[5].data[0].name,'เดิม');
+  assert.equal(reads(h,'food_menu_items'),before.menu);assert.equal(reads(h,'food_stores'),before.stores);
+  // One-shot: the next identical read is a live read.
+  await h.request('menu',{storeId:STORE});
+  assert.equal(reads(h,'food_menu_items'),before.menu+1);
+});
+
+test('without a snapshot the prefetch follows the first live store',async()=>{
+  const h=harness({localStorage:memoryStorage()});
+  h.bridge.prefetch();
+  for(let i=0;i<10;i++)await settle();
+  assert.equal(reads(h,'food_menu_items'),1);
+  const menuReads=reads(h,'food_menu_items');
+  const results=await startupRequests(h);
+  assert.ok(results.every(r=>r.ok));assert.equal(reads(h,'food_menu_items'),menuReads);
+});
+
+test('a prefetched result is never returned to another account or after access is lost',async()=>{
+  const localStorage=memoryStorage();
+  const seed=harness({localStorage});await seed.request('stores');await seed.request('menu',{storeId:STORE});
+  const h=harness({localStorage});h.bridge.prefetch();
+  for(let i=0;i<10;i++)await settle();
+  h.state.user='merchant-b';
+  assert.equal((await h.request('menu',{storeId:STORE})).ok,false);
+  const revoked=harness({localStorage});revoked.state.access=false;revoked.bridge.prefetch();
+  for(let i=0;i<10;i++)await settle();
+  assert.equal((await revoked.request('menu',{storeId:STORE})).ok,false);
+  // Dispose drops everything.
+  const d=harness({localStorage});d.bridge.prefetch();d.bridge.dispose();
+  assert.equal((await d.request('stores')).ok,false);
+});
+
+test('a write drops unused prefetches, and prefetched orders get one catch-up refresh after subscribe',async()=>{
+  const localStorage=memoryStorage();
+  const seed=harness({localStorage});await seed.request('stores');await seed.request('menu',{storeId:STORE});
+  const h=harness({localStorage});h.bridge.prefetch();
+  for(let i=0;i<10;i++)await settle();
+  const menuReads=reads(h,'food_menu_items');
+  await h.request('setPublished',{storeId:STORE,published:true});
+  await h.request('menu',{storeId:STORE});
+  assert.ok(reads(h,'food_menu_items')>menuReads);
+  const o=harness({localStorage});o.bridge.prefetch();
+  for(let i=0;i<10;i++)await settle();
+  assert.equal((await o.request('orders',{storeId:STORE,status:'pending_acceptance',offset:0})).ok,true);
+  assert.equal(o.changed,0);
+  await o.request('subscribe',{storeId:STORE});await settle();
+  assert.equal(o.changed,1);
+  await o.request('subscribe',{storeId:STORE});await settle();
+  assert.equal(o.changed,1);
+});

@@ -17,7 +17,7 @@ import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSub
 
 // DeveloperRouteGate remains the sole auth owner. Credentials never cross Dart.
 // Every operation still uses existing RPCs and row/storage authorization.
-export type MerchantFlutterBridge = { request: (method: string, payloadJson: string) => Promise<string>; dispose: () => void };
+export type MerchantFlutterBridge = { request: (method: string, payloadJson: string) => Promise<string>; prefetch: () => void; dispose: () => void };
 /** Founder 2026-11-01: the shared ZOKY map picker (search + drag pin), shown by the host page. */
 export type MerchantMapRequest = { kind: "store" | "pickup"; initial: { latitude: number; longitude: number } | null };
 export type MerchantMapResult = { latitude: number; longitude: number; address?: string | null } | null;
@@ -44,6 +44,15 @@ const ORDER_TAB_STATUSES: Record<string, string[]> = { delivering: ["ready_for_d
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "orderCounts", "reviews", "checkLocation", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
+// Founder 2026-11-02 ("ยังช้าอยู่ ตอนเปิดแอป"): the first screen's reads start
+// while the engine boots. Exactly the requests the Flutter controller makes
+// first (merchant_controller.dart _read), in the same argument shape.
+const STARTUP_ROLE_SETS = [["owner", "admin"], ["owner", "admin", "manager"], ["owner", "admin", "manager", "orders"], ["owner", "admin", "manager", "orders", "delivery"]];
+const STARTUP_ORDER_STATUS = "pending_acceptance";
+const PREFETCH_TTL_MS = 15_000;
+// Requests that cannot change server data; anything else drops unused prefetches.
+const PREFETCH_KEEP_METHODS = new Set(["stores", "snapshot", "pushStatus", "subscribe", "requestedOrder", "signedUrl", "currentLocation", ...STORE_READ_METHODS]);
+const prefetchKey = (method: string, args: Args) => `${method}:${JSON.stringify(Object.keys(args).sort().map((key) => [key, args[key]]))}`;
 function object(value: unknown): Args {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new BridgeInputError();
   return value as Args;
@@ -235,6 +244,12 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     if (selection) { URL.revokeObjectURL(selection.previewUrl); photos.delete(path); }
   };
   let subscription: ReturnType<typeof subscribeMerchantOrders> | null = null;
+  // One-shot results started by prefetch(). Each was produced by execute(),
+  // so it passed the same session and store-access checks as a live request;
+  // request() still rechecks the session before returning it.
+  const prefetched = new Map<string, { at: number; result: Promise<unknown> }>();
+  const PREFETCH_MISS = Symbol("prefetch-miss");
+  let ordersFromPrefetch = new Set<string>();
   const ensureSession = async () => {
     if (disposed) throw new BridgeAccessError();
     const { data, error } = await client.auth.getSession();
@@ -327,20 +342,21 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         };
       });
   };
+  const readSnapshot = () => {
+    // Cached display data only; the live read that follows rechecks access.
+    const stores = recall("stores");
+    if (!Array.isArray(stores) || !stores.length) return null;
+    const last = recall("last");
+    const storeId = typeof last === "string" && stores.some((s) => (s as Args)?.id === last) ? last : (stores[0] as Args)?.id;
+    if (typeof storeId !== "string" || !UUID.test(storeId)) return null;
+    const menu = recall(`menu:${storeId}`);
+    if (!Array.isArray(menu)) return null;
+    return { stores, storeId, menu, report: recall(`report:${storeId}`) ?? null, orderCounts: recall(`orderCounts:${storeId}`, 3_600_000) ?? null };
+  };
   const execute = async (method: string, args: Args, picked: Promise<File | null> | null, permissionRequest?: Promise<NotificationPermission>): Promise<unknown> => {
     await ensureSession();
     if (method === "signOut") { forgetSnapshots(); await signOut(); return null; }
-    if (method === "snapshot") {
-      // Cached display data only; the live read that follows rechecks access.
-      const stores = recall("stores");
-      if (!Array.isArray(stores) || !stores.length) return null;
-      const last = recall("last");
-      const storeId = typeof last === "string" && stores.some((s) => (s as Args)?.id === last) ? last : (stores[0] as Args)?.id;
-      if (typeof storeId !== "string" || !UUID.test(storeId)) return null;
-      const menu = recall(`menu:${storeId}`);
-      if (!Array.isArray(menu)) return null;
-      return { stores, storeId, menu, report: recall(`report:${storeId}`) ?? null, orderCounts: recall(`orderCounts:${storeId}`, 3_600_000) ?? null };
-    }
+    if (method === "snapshot") return readSnapshot();
     if (method === "stores") return listStores();
     if (method === "pushStatus") return { enabled: await hasActivePushSubscription() === true, permission: typeof Notification === "undefined" ? "unsupported" : Notification.permission, ...(await getPushAvailability()) };
     if (method === "pushEnable") {
@@ -817,7 +833,11 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
       case "subscribe":
         if (subscription) await client.removeChannel(subscription);
         await ensureSession();
-        subscription = subscribeMerchantOrders(client, storeId, () => { if (!disposed) onOrderChange?.(); }); return null;
+        subscription = subscribeMerchantOrders(client, storeId, () => { if (!disposed) onOrderChange?.(); });
+        // Orders served from a prefetch predate this subscription. One
+        // orders-only refresh covers anything that arrived in between.
+        if (ordersFromPrefetch.delete(storeId)) void Promise.resolve().then(() => { if (!disposed) onOrderChange?.(); });
+        return null;
       default: throw new BridgeInputError();
     }
   };
@@ -835,14 +855,44 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         const permissionRequest = method === "pushEnable" ? requestPushPermissionFromGesture() : undefined;
         // Session validation may reject before the captured prompt settles.
         void permissionRequest?.catch(() => undefined);
-        const data = await execute(method, args, picked, permissionRequest);
+        const key = prefetchKey(method, args);
+        const early = picker ? undefined : prefetched.get(key);
+        if (early) prefetched.delete(key);
+        if (!PREFETCH_KEEP_METHODS.has(method)) prefetched.clear();
+        let data: unknown = PREFETCH_MISS;
+        if (early && Date.now() - early.at < PREFETCH_TTL_MS) data = await early.result.catch(() => PREFETCH_MISS);
+        if (data === PREFETCH_MISS) data = await execute(method, args, picked, permissionRequest);
+        else if (method === "orders" && typeof args.storeId === "string") ordersFromPrefetch.add(args.storeId);
         if (method !== "signOut") await ensureSession();
         if (SNAPSHOT_METHODS.has(method)) remember(method, args, data);
         return JSON.stringify({ ok: true, data: data ?? null });
       } catch (error) { return JSON.stringify({ ok: false, error: safeError(error) }); }
     },
+    prefetch() {
+      if (disposed || prefetched.size) return;
+      const start = (method: string, args: Args) => {
+        const result = execute(method, args, null);
+        result.catch(() => undefined);
+        prefetched.set(prefetchKey(method, args), { at: Date.now(), result });
+        return result;
+      };
+      const storeReads = (storeId: unknown) => {
+        if (disposed || typeof storeId !== "string" || !UUID.test(storeId)) return;
+        for (const roles of STARTUP_ROLE_SETS) start("hasRole", { storeId, roles });
+        start("menu", { storeId });
+        start("orders", { storeId, status: STARTUP_ORDER_STATUS, offset: 0 });
+        start("orderCounts", { storeId });
+      };
+      const stores = start("stores", {});
+      // The controller opens the snapshot's store, else the first live store.
+      const snapshot = readSnapshot();
+      if (snapshot) storeReads(snapshot.storeId);
+      else void stores.then((rows) => { if (Array.isArray(rows)) storeReads((rows[0] as Args | undefined)?.id); }).catch(() => undefined);
+    },
     dispose() {
       disposed = true;
+      prefetched.clear();
+      ordersFromPrefetch = new Set();
       pendingStoreReads.clear();
       for (const path of photos.keys()) releasePhoto(path);
       if (subscription) { void client.removeChannel(subscription).catch(() => undefined); subscription = null; }

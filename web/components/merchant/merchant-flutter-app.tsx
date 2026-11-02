@@ -15,7 +15,12 @@ export const MERCHANT_FLUTTER_SEEN_KEY = "zoky-merchant-flutter-seen";
 // exists until the gate authorizes this account.
 if (typeof window !== "undefined") {
   try {
-    if (window.localStorage.getItem(MERCHANT_FLUTTER_SEEN_KEY) === "1") void loadMerchantFlutterApp().catch(() => {});
+    if (window.localStorage.getItem(MERCHANT_FLUTTER_SEEN_KEY) === "1") {
+      void loadMerchantFlutterApp().catch(() => {});
+      // Founder 2026-11-02: also fetch the bridge code now, so its first-screen
+      // reads can start the moment the session gate authorizes this account.
+      void import("@/components/merchant/merchant-flutter-authenticated").catch(() => {});
+    }
   } catch {
     // Storage may be unavailable (private mode); the gate path still loads it.
   }
