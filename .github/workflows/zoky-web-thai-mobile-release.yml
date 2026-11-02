@@ -1,11 +1,11 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-02: lighter read-back after saves (order actions and store
-# settings re-read orders, store rows and roles; menu edits add the menu;
-# summaries are not reloaded by writes). Every write is still verified by the
-# bridge and read back. Base is the live icon release (d31bd9df on
-# dpl_5Pk8xu5aNnMgqwHnPjF274hZJLDt). Production reviewers and
-# stage-before-promotion remain required.
+# Founder 2026-11-02 ("ยังช้าอยู่ ตอนเปิดแอป"): the first screen's reads start
+# while the Flutter engine boots, and returning merchants fetch the bridge code
+# early. Prefetched reads run the same session and store-access checks, are
+# one-shot, expire after 15s and are dropped by any write. Base is the live
+# save read-back release (c955dccf on dpl_BpZFxr4Jkw8GQN578azxE8pFwrD7).
+# Production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
     inputs:
@@ -14,7 +14,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_MERCHANT_SAVES_20261102]
+        options: [CANCEL, ZOKY_MERCHANT_OPEN_20261102]
 
 permissions:
   contents: read
@@ -27,22 +27,24 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: c955dccf6d130d10e6ab3c96999a7e4c50954d31
-  PRODUCTION_BASE_SHA: d31bd9df7cd0ffee246e3f40e8052b10ee8d2552
-  # Live on every customer host since the 2026-11-02 icon release (d31bd9df).
-  ROLLBACK_DEPLOYMENT: dpl_5Pk8xu5aNnMgqwHnPjF274hZJLDt
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_5Pk8xu5aNnMgqwHnPjF274hZJLDt
+  RELEASE_SHA: fac7967cccc254bf1c4fec443da002b01ba814b3
+  PRODUCTION_BASE_SHA: c955dccf6d130d10e6ab3c96999a7e4c50954d31
+  # Live on every customer host since the 2026-11-02 save read-back release (c955dccf).
+  ROLLBACK_DEPLOYMENT: dpl_BpZFxr4Jkw8GQN578azxE8pFwrD7
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_BpZFxr4Jkw8GQN578azxE8pFwrD7
   ALLOWED_PATHS: >-
-    web/merchant_flutter/lib/data/merchant_controller.dart
-    web/merchant_flutter/lib/screens/merchant_home.dart
-    web/merchant_flutter/test/controller_performance_test.dart
+    web/components/merchant/merchant-flutter-app.tsx
+    web/components/merchant/merchant-flutter-authenticated.tsx
+    web/lib/merchant-flutter-bridge.ts
+    web/tests/merchant-flutter-bridge.test.mjs
+    web/tests/merchant-flutter-routing.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_SAVES_20261102'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_OPEN_20261102'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -77,7 +79,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_SAVES_20261102'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_OPEN_20261102'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -135,7 +137,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_SAVES_20261102'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_OPEN_20261102'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest

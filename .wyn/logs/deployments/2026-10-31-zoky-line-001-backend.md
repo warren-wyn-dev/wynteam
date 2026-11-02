@@ -126,3 +126,17 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Scope: early engine load for returning merchants; store reads overlapped with the stores access revalidation (publish only if still listed); instant reopen from a per-account store snapshot (no orders/customers; cleared on sign-out; read-only until live).
 - Live `dpl_57fwHSLJhRAKEpVVfdTFXr1BvP7e`; `/merchant/flutter` 200, engine base unchanged (cached), no runtime errors.
 - Rollback: `dpl_AZHBwtFSUY5AJZnneGRYRc7YFRaJ`.
+
+## 2026-11-01 — Zoky Merchant logo as the app icon
+
+- Candidate `d31bd9df`, PR #1318, run 41338842923; Founder approved both reviews.
+- Scope: Merchant icons v16 (180/192/512/1024/maskable) from the Founder's Zoky Merchant logo; manifest, layout and Flutter `appleWebApp` title "Zoky Merchant".
+- Live `dpl_5Pk8xu5aNnMgqwHnPjF274hZJLDt`; Flutter manifest and HTML serve v16. Main `/merchant/manifest.webmanifest` still served v15 from edge cache at check time.
+- Rollback: `dpl_57fwHSLJhRAKEpVVfdTFXr1BvP7e`.
+
+## 2026-11-02 — Merchant lighter read-back after saves
+
+- Candidate `c955dccf` (base `d31bd9df`), PR #1319, run 41376985356; Founder approved both reviews.
+- Scope: writes re-read only what they touch (orders/stores/roles; menu for menu edits); summaries no longer reload on every action. Bridge verification and read-back unchanged.
+- Live `dpl_BpZFxr4Jkw8GQN578azxE8pFwrD7` (alias `merchant.wynos.online`); `/merchant/flutter` 200 with v16 icons, no runtime errors.
+- Rollback: `dpl_5Pk8xu5aNnMgqwHnPjF274hZJLDt`.
