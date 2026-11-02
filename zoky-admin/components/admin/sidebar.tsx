@@ -78,7 +78,7 @@ export function AdminSidebar({ role, access }: { role: AdminRole; access: AdminS
 function Brand() {
   return (
     <div className="flex h-16 shrink-0 items-center gap-3 px-5">
-      <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-foreground text-base font-bold text-background">
+      <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-primary text-base font-bold text-primary-foreground">
         Z
       </span>
       <span className="text-base font-semibold tracking-tight">ZOKY Admin</span>
@@ -189,11 +189,9 @@ function NavEntry({
       className={cn(
         base,
         "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        // Per wyn-admin-design-system.md section 6.8/3.3: active state is
-        // conveyed by neutral weight/contrast alone (`bg-muted` +
-        // `text-foreground`), which stays dark-mode-safe.
+        // Founder 2026-11-02: the active item carries the ZOKY pink.
         active
-          ? "bg-muted font-semibold text-foreground"
+          ? "bg-brand-soft font-semibold text-primary"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
       )}
     >

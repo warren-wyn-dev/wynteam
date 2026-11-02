@@ -4,12 +4,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
- * Trend badge for a "_today" metric vs the same metric yesterday.
- * Deliberately grayscale-only (▲/▼ glyph + weight, no green/red hue) --
- * wyn-admin-design-system.md section 3.3 reserves color for exactly 3
- * cases (destructive action, active critical alert, primary button);
- * "growth is good" is not one of them, so direction is conveyed by the
- * glyph, not a hue.
+ * Trend badge for a "_today" metric vs the same metric yesterday: the
+ * ▲/▼ glyph carries the direction, colour reinforces it.
  */
 function TrendBadge({ deltaPct }: { deltaPct: number | null }) {
   if (deltaPct === null) {
@@ -19,8 +15,9 @@ function TrendBadge({ deltaPct }: { deltaPct: number | null }) {
     return <span className="text-xs font-medium text-muted-foreground">เท่ากับเมื่อวาน</span>;
   }
   const isUp = deltaPct > 0;
+  // Founder 2026-11-02: green for up, red for down (the glyph still says it).
   return (
-    <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-foreground">
+    <span className={cn("inline-flex items-center gap-0.5 text-xs font-semibold", isUp ? "text-success" : "text-destructive")}>
       {isUp ? "▲" : "▼"} {Math.abs(deltaPct).toLocaleString("th-TH")}%
       <span className="font-normal text-muted-foreground">จากเมื่อวาน</span>
     </span>
@@ -58,11 +55,10 @@ export function StatCard({
     <Card aria-label={ariaLabel}>
       <CardHeader className="flex-row items-start justify-between space-y-0">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
-        {/* Per wyn-admin-design-system.md section 3.3/6.7: this icon is
-            decoration only, not a signal -- was `text-primary` (cyan),
-            now the doc's "gray-400" neutral-scale token (zinc-400 is the
-            exact hex match, see section 3.1's Zinc-based scale). */}
-        <Icon className="size-4 text-zinc-400" aria-hidden="true" />
+        {/* Founder 2026-11-02: a soft ZOKY pink chip marks each metric. */}
+        <span className="grid size-8 place-items-center rounded-full bg-brand-soft text-primary">
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline gap-3">

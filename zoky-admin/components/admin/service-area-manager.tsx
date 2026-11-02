@@ -127,10 +127,9 @@ export function ServiceAreaManager({ initial }: { initial: ServiceAreaData }) {
         {visible.length ? (
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((area) => {
-              const effective = area.active || nationwide;
               return (
                 <li key={area.group_code} className={`flex items-center gap-3 rounded-xl border p-3 ${area.active ? "border-primary/40 bg-primary/5" : ""}`}>
-                  <MapPin className={`size-4 shrink-0 ${effective ? "text-primary" : "text-muted-foreground"}`} aria-hidden="true" />
+                  <MapPin className={`size-4 shrink-0 ${area.active ? "text-primary" : "text-muted-foreground"}`} aria-hidden="true" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{area.name}</p>
                     <p className={`truncate text-xs ${area.active ? "font-medium text-primary" : "text-muted-foreground"}`}>
