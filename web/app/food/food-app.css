@@ -1377,7 +1377,6 @@ html:has(.fx-app.is-zk-home) body, html:has(.fx-app.is-zk-food) body { backgroun
 .zk-hero-search > span { flex: 1; min-width: 0; }
 .zk-hero-search > svg { flex: 0 0 auto; }
 .zk-hero:active .zk-hero-search { transform: scale(.97); }
-.zk-service-area { margin-top: 16px !important; padding: 0 16px; display: flex; align-items: center; gap: 6px; color: var(--zk-text-secondary); font-size: 13px; line-height: 1.45; }
 
 /* ---------- Home sections ---------- */
 .zk-section { margin-top: 22px; }
@@ -1442,8 +1441,6 @@ html:has(.fx-app.is-zk-home) body, html:has(.fx-app.is-zk-food) body { backgroun
 .zk-address strong { min-width: 0; display: flex; align-items: center; gap: 2px; font-size: 17px; font-weight: 700; line-height: 1.3; }
 .zk-address strong span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zk-address strong svg { flex: 0 0 auto; color: var(--zk-brand-deep); }
-.zk-guest-area { flex: 1; min-width: 0; padding: 0 4px; display: flex; align-items: center; gap: 6px; color: var(--zk-ink); font-size: 15px; font-weight: 600; line-height: 1.35; }
-.zk-guest-area svg { color: var(--zk-brand-deep); flex: 0 0 auto; }
 .zk-food-search {
   position: sticky;
   top: env(safe-area-inset-top);

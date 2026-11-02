@@ -62,7 +62,6 @@ export const EN_EXACT: Record<string, string> = {
   "ค้นหาร้านหรือชื่ออาหาร": "Search restaurants or dishes",
   "(จำเป็น)": "(Required)",
   "ตะกร้าอาหาร": "Food basket",
-  "ให้บริการในพื้นที่มหาสารคาม": "Serving Maha Sarakham",
   "เลือกอาหารที่อยากกินได้เลย": "Find something delicious",
   "ดูร้านและเมนูได้ทันที ไม่ต้องล็อกอินหรือเปิด GPS ตรวจสอบพื้นที่จัดส่งเมื่อสั่งซื้อจริง": "Browse restaurants and menus without signing in or enabling GPS. Delivery availability is checked at checkout.",
   "ดูร้านทั้งหมด": "Browse all restaurants",

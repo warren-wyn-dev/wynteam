@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, Clock3, Info, MapPin, Minus, Plus, Search, ShoppingBag, Store, Trash2, UtensilsCrossed, X } from "lucide-react";
+import { ArrowLeft, Check, Clock3, Info, Minus, Plus, Search, ShoppingBag, Store, Trash2, UtensilsCrossed, X } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -383,7 +383,6 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
             )}
           />
           <ZokyFoodHeroCard onOpen={openFood} />
-          <p className="zk-col zk-service-area"><MapPin size={16} aria-hidden="true" />ให้บริการในพื้นที่มหาสารคาม</p>
         </div>
       ) : (
         <GuestFoodList
@@ -561,7 +560,6 @@ function GuestFoodList({
       <div className="zk-food-top">
         <div className="zk-col zk-food-toprow">
           <button className="zk-back" type="button" aria-label="กลับ" onClick={onBack}><ArrowLeft size={24} strokeWidth={2.1} /></button>
-          <p className="zk-guest-area"><MapPin size={18} aria-hidden="true" />ให้บริการในพื้นที่มหาสารคาม</p>
         </div>
       </div>
       <div className="zk-food-search">
