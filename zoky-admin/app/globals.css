@@ -36,14 +36,21 @@
  */
 :root {
   --radius: 0.625rem;
+  /* Founder 2026-11-02 ("ใส่สีนิดหน่อย มันขาวดำเกิน"): ZOKY pink on the
+     important spots only -- primary buttons, the active menu item, focus
+     rings, status badges and stat icons. Surfaces stay white/neutral.
+     #d61256 is ZOKY brand-deep (web --zk-brand-deep); white text on it
+     is about 5:1 (WCAG AA). */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.145 0 0);
+  --primary: #d61256;
   --primary-foreground: oklch(1 0 0);
+  --brand-soft: #fff0f6;
+  --success: #15803d;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -54,7 +61,7 @@
   --destructive-foreground: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.145 0 0);
+  --ring: #d61256;
 }
 
 .dark {
@@ -64,8 +71,10 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(1 0 0);
-  --primary-foreground: oklch(0.145 0 0);
+  --primary: #f4368d;
+  --primary-foreground: #16161a;
+  --brand-soft: rgb(244 54 141 / 14%);
+  --success: #4ade80;
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -76,7 +85,7 @@
   --destructive-foreground: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(1 0 0);
+  --ring: #f4368d;
 }
 
 /*
@@ -99,8 +108,10 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(1 0 0);
-    --primary-foreground: oklch(0.145 0 0);
+    --primary: #f4368d;
+    --primary-foreground: #16161a;
+    --brand-soft: rgb(244 54 141 / 14%);
+    --success: #4ade80;
     --secondary: oklch(0.269 0 0);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
@@ -111,7 +122,7 @@
     --destructive-foreground: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(1 0 0);
+    --ring: #f4368d;
   }
 }
 
@@ -128,6 +139,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-success: var(--success);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -139,6 +152,17 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+}
+
+/* Tailwind v4 borders default to currentColor (near-black here); shadcn's
+   base layer sets them to the soft --border token. Founder 2026-11-02: the
+   admin looked too black-and-white. */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
 }
 
 body {

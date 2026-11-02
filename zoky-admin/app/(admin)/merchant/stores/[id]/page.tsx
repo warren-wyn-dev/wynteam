@@ -201,7 +201,7 @@ async function InfoTab({ store, canEditFood }: { store: AdminFoodStoreDetail; ca
       <section className="rounded-xl border bg-background p-4 text-sm">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-medium">พื้นที่ให้บริการ</p>
-          <Badge variant={store.in_service_area ? "ink-solid" : "destructive"}>{store.in_service_area ? "อยู่ในเขตมหาสารคาม" : "อยู่นอกเขต / ยังไม่ปักหมุด"}</Badge>
+          <Badge variant={store.in_service_area ? "ink-solid" : "destructive"}>{store.in_service_area ? "อยู่ในพื้นที่ให้บริการ" : "อยู่นอกพื้นที่ให้บริการ / ยังไม่ปักหมุด"}</Badge>
         </div>
         {store.latitude != null && store.longitude != null ? (
           <p className="mt-1 text-muted-foreground">

@@ -18,6 +18,7 @@ import {
   Clock3,
   SlidersHorizontal,
   Images,
+  MapPinned,
   UserCog,
   type LucideIcon,
 } from "lucide-react";
@@ -84,6 +85,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { id: "food-banners", href: "/food/banners", label: "แบนเนอร์หน้าแรก Food", icon: Images, group: "food", requires: { systems: ["food"] } },
   { id: "food-reviews", href: "/food/reviews", label: "ตรวจสอบรีวิว Food", icon: MessageCircle, group: "food", requires: { systems: ["food"] } },
   { id: "food-featured", href: "/food/featured", label: "ร้านแนะนำ Food", icon: Store, group: "food", requires: { systems: ["food"] } },
+  { id: "food-service-areas", href: "/food/service-areas", label: "พื้นที่ให้บริการ", icon: MapPinned, group: "food", requires: { systems: ["food"] } },
   { id: "food-orders", href: "/food/orders", label: "Orders", icon: ShoppingBag, group: "food", requires: { systems: ["food"], level: "edit" } },
   { id: "food-customers", label: "Customers", icon: Users, group: "food", requires: { systems: ["food"] } },
   { id: "food-payments", label: "Payments & Refunds", icon: CreditCard, group: "food", requires: { systems: ["food"] } },
