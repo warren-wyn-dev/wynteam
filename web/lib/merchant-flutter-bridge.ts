@@ -841,8 +841,8 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
       default: throw new BridgeInputError();
     }
   };
-  return {
-    async request(method, payloadJson) {
+  const bridge = {
+    async request(method: string, payloadJson: string) {
       try {
         if (typeof method !== "string" || typeof payloadJson !== "string" || payloadJson.length > 16_384) throw new BridgeInputError();
         if (disposed) throw new BridgeAccessError();
@@ -868,27 +868,6 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         return JSON.stringify({ ok: true, data: data ?? null });
       } catch (error) { return JSON.stringify({ ok: false, error: safeError(error) }); }
     },
-    prefetch() {
-      if (disposed || prefetched.size) return;
-      const start = (method: string, args: Args) => {
-        const result = execute(method, args, null);
-        result.catch(() => undefined);
-        prefetched.set(prefetchKey(method, args), { at: Date.now(), result });
-        return result;
-      };
-      const storeReads = (storeId: unknown) => {
-        if (disposed || typeof storeId !== "string" || !UUID.test(storeId)) return;
-        for (const roles of STARTUP_ROLE_SETS) start("hasRole", { storeId, roles });
-        start("menu", { storeId });
-        start("orders", { storeId, status: STARTUP_ORDER_STATUS, offset: 0 });
-        start("orderCounts", { storeId });
-      };
-      const stores = start("stores", {});
-      // The controller opens the snapshot's store, else the first live store.
-      const snapshot = readSnapshot();
-      if (snapshot) storeReads(snapshot.storeId);
-      else void stores.then((rows) => { if (Array.isArray(rows)) storeReads((rows[0] as Args | undefined)?.id); }).catch(() => undefined);
-    },
     dispose() {
       disposed = true;
       prefetched.clear();
@@ -898,4 +877,27 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
       if (subscription) { void client.removeChannel(subscription).catch(() => undefined); subscription = null; }
     },
   };
+  // Host-only: kept off the enumerable surface that the Dart runtime sees.
+  const prefetch = () => {
+    if (disposed || prefetched.size) return;
+    const start = (method: string, args: Args) => {
+      const result = execute(method, args, null);
+      result.catch(() => undefined);
+      prefetched.set(prefetchKey(method, args), { at: Date.now(), result });
+      return result;
+    };
+    const storeReads = (storeId: unknown) => {
+      if (disposed || typeof storeId !== "string" || !UUID.test(storeId)) return;
+      for (const roles of STARTUP_ROLE_SETS) start("hasRole", { storeId, roles });
+      start("menu", { storeId });
+      start("orders", { storeId, status: STARTUP_ORDER_STATUS, offset: 0 });
+      start("orderCounts", { storeId });
+    };
+    const stores = start("stores", {});
+    // The controller opens the snapshot's store, else the first live store.
+    const snapshot = readSnapshot();
+    if (snapshot) storeReads(snapshot.storeId);
+    else void stores.then((rows) => { if (Array.isArray(rows)) storeReads((rows[0] as Args | undefined)?.id); }).catch(() => undefined);
+  };
+  return Object.defineProperty(bridge, "prefetch", { value: prefetch, enumerable: false }) as MerchantFlutterBridge;
 }
