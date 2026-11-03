@@ -47,7 +47,7 @@ export type LineOrder = {
 };
 
 const MERCHANT_PREFIX = "WYNOS Merchant · ";
-const ORDER_NUMBER = /#(WF\d{4,9})\b/;
+const ORDER_NUMBER = /#(WF\d{4,9}|ZF-\d{4,9})(?![\w-])/;
 
 /** What a notification is, from the text its database trigger wrote. */
 export function lineEventFor(app: LineAudience, text: string): LineEvent {
@@ -67,7 +67,7 @@ export function lineEventFor(app: LineAudience, text: string): LineEvent {
     if (is(/^ลูกค้าขอยกเลิก/)) return { ...base, kind: "cancel_request" };
     if (is(/ยกเลิก/) && !is(/คืนเงิน|ได้รับเงิน/)) return { ...base, kind: "cancelled" };
     if (is(/คืนเงิน|ได้รับเงินออเดอร์/)) return { ...base, kind: "refund" };
-    if (is(/^ออเดอร์ #WF\d+ รอรับ/)) return { ...base, kind: "reminder" };
+    if (is(/^ออเดอร์ #(?:WF\d+|ZF-\d+) รอรับ/)) return { ...base, kind: "reminder" };
     return { ...base, kind: "info" };
   }
 
@@ -184,7 +184,7 @@ function detailLine(event: LineEvent): string | null {
     return null;
   }
   // Drop the "ออเดอร์ #WFxxxx" lead-in already shown as the order line.
-  const text = event.content.replace(/^(ออเดอร์|ชำระเงินออเดอร์|สลิปออเดอร์)\s*#WF\d+\s*/, "").trim();
+  const text = event.content.replace(/^(ออเดอร์|ชำระเงินออเดอร์|สลิปออเดอร์)\s*#(?:WF\d+|ZF-\d+)\s*/, "").trim();
   return text && text.length > 2 ? text : null;
 }
 

@@ -424,7 +424,9 @@ const MERCHANT_REASONS = [
   /^WYNOS (เติมเครดิตโฆษณาร้าน|ไม่อนุมัติการเติมเครดิตโฆษณาร้าน|หยุดโฆษณาร้าน|เปิดให้ร้าน|โอนส่วนลดแคมเปญคืนร้าน) /,
   /^ร้าน .+ (ถูกระงับชั่วคราวโดยทีม WYNOS|ยกเลิกการระงับแล้ว)/,
 ];
-const FOOD_REASONS = [/^(ชำระเงินออเดอร์|สลิปออเดอร์|คืนเงินออเดอร์|ออเดอร์) #WF\d+/];
+/** Food order numbers: legacy WF0035 and ZOKY ZF-0036 (Founder 2026-11-04). */
+export const FOOD_ORDER_NUMBER_SOURCE = String.raw`(?:WF\d{4,9}|ZF-\d{4,9})`;
+const FOOD_REASONS = [new RegExp(`^(ชำระเงินออเดอร์|สลิปออเดอร์|คืนเงินออเดอร์|ออเดอร์) #${FOOD_ORDER_NUMBER_SOURCE}`)];
 
 export function pushAppForNotification(row: Pick<NotificationRow, "type" | "reason">): PushApp {
   if (row.type !== "system") return "social";
@@ -436,7 +438,7 @@ export function pushAppForNotification(row: Pick<NotificationRow, "type" | "reas
 
 export const PUSH_APP_TITLES: Record<PushApp, string> = {
   social: "Wynos",
-  food: "Wynos Food",
+  food: "ZOKY",
   merchant: "WYNOS Merchant",
 };
 
@@ -450,6 +452,9 @@ export function pushMessageForApp(
     const split = splitPushMessage(message, actorName);
     return split.title === "WYN" ? { title: PUSH_APP_TITLES.social, body: split.body } : split;
   }
+  // Founder 2026-11-04: ZOKY customer pushes carry no "Wynos Food" line;
+  // iOS already adds "from ZOKY", so the event itself is the title.
+  if (app === "food") return { title: message, body: "" };
   // The title already names the app; drop the "WYNOS Merchant · " prefix.
   const body = message.startsWith(MERCHANT_REASON_PREFIX)
     ? message.slice(MERCHANT_REASON_PREFIX.length)
@@ -482,9 +487,9 @@ export function safeErrorMessage(err: unknown): string {
   return `${name}: ${scrubbed}`.slice(0, 300);
 }
 
-/** The Food order number (WF0015) a Food or Merchant notification is about. */
+/** The Food order number (WF0015 or ZF-0036) a Food or Merchant notification is about. */
 export function orderNumberInReason(reason: string | null): string | null {
-  const match = /#(WF\d{4,9})\b/.exec(reason ?? "");
+  const match = new RegExp(`#(${FOOD_ORDER_NUMBER_SOURCE})(?![\\w-])`).exec(reason ?? "");
   return match ? match[1] : null;
 }
 

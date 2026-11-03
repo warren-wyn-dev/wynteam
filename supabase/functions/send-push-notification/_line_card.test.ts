@@ -43,6 +43,7 @@ Deno.test("merchant events are classified from their trigger text", () => {
   assertEquals(kind("WYNOS Merchant · คืนเงินอัตโนมัติออเดอร์ #WF0033"), "refund");
   assertEquals(kind("WYNOS Merchant · ได้รับเงินออเดอร์ #WF0033 หลังยกเลิก ระบบกำลังคืนเงินลูกค้าอัตโนมัติ"), "refund");
   assertEquals(kind("WYNOS Merchant · ออเดอร์ #WF0033 รอรับ 3 นาทีแล้ว"), "reminder");
+  assertEquals(kind("WYNOS Merchant · ออเดอร์ #ZF-0036 รอรับ 3 นาทีแล้ว"), "reminder");
   assertEquals(kind("WYNOS Merchant · ทดสอบการแจ้งเตือน"), "test");
   assertEquals(kind("ร้าน ป้าแดง ถูกระงับชั่วคราวโดยทีม WYNOS"), "info");
 });

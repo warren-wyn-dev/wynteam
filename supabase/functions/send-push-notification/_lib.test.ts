@@ -648,7 +648,11 @@ Deno.test("pushAppForNotification sends customer order notifications to Wynos Fo
     "สลิปออเดอร์ #WF0015 ต้องตรวจสอบอีกครั้ง",
     "คืนเงินออเดอร์ #WF0015 แล้ว",
     "ออเดอร์ #WF0015 ส่งถึงแล้ว · ดูรูปยืนยันการจัดส่งได้ในหน้าออเดอร์",
+    // Founder 2026-11-04: new ZOKY order numbers.
+    "ชำระเงินออเดอร์ #ZF-0036 สำเร็จแล้ว",
+    "ออเดอร์ #ZF-0036 กำลังจัดส่ง · เตรียมรับอาหารได้เลย",
   ]) assertEquals(pushAppForNotification(sys(reason)), "food", reason);
+  assertEquals(pushAppForNotification(sys("ออเดอร์ #ZF0036 กำลังจัดส่ง")), "social");
 });
 
 Deno.test("pushAppForNotification keeps everything else in Wynos", () => {
@@ -666,7 +670,7 @@ Deno.test("pushMessageForApp titles each app and drops the Merchant prefix", () 
   );
   assertEquals(
     pushMessageForApp("food", "ชำระเงินออเดอร์ #WF0015 สำเร็จแล้ว", "มีคน"),
-    { title: "Wynos Food", body: "ชำระเงินออเดอร์ #WF0015 สำเร็จแล้ว" },
+    { title: "ชำระเงินออเดอร์ #WF0015 สำเร็จแล้ว", body: "" },
   );
   assertEquals(
     pushMessageForApp("social", "แอปจะปิดปรับปรุงคืนนี้", "มีคน"),
@@ -730,4 +734,8 @@ Deno.test("Food and Merchant pushes carry the order number so a tap opens that o
   assertEquals(food.order_number, "WF0015");
   const social = buildDataPayload({ ...base, reason: "ประกาศ #WF0015" });
   assertEquals(social.order_number, undefined);
+  assertEquals(orderNumberInReason("ออเดอร์ #ZF-0036 กำลังจัดส่ง"), "ZF-0036");
+  assertEquals(orderNumberInReason("WYNOS Merchant · ออเดอร์ใหม่ #ZF-10000 · ฿120.00"), "ZF-10000");
+  assertEquals(orderNumberInReason("ออเดอร์ #ZF-0036-x"), null);
+  assertEquals(buildDataPayload({ ...base, reason: "ออเดอร์ #ZF-0036 กำลังจัดส่ง" }).order_number, "ZF-0036");
 });

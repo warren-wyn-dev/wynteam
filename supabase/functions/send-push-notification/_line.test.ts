@@ -41,12 +41,14 @@ Deno.test("the button opens the order through LIFF, same path as Web Push", () =
   );
   const merchant = lineConfigFor("merchant", env(enabled))!;
   assertEquals(lineDestination(merchant, "WF123456"), "https://merchant.wynos.online/merchant?order=WF123456");
+  assertEquals(lineDestination(merchant, "ZF-0036"), "https://merchant.wynos.online/merchant?order=ZF-0036");
 });
 
 Deno.test("only well-formed order numbers reach the URL", () => {
   const merchant = lineConfigFor("merchant", env(enabled))!;
   assertEquals(lineDestination(merchant, "WF1&x=https://evil"), "https://merchant.wynos.online/merchant");
   assertEquals(lineDestination(merchant, null), "https://merchant.wynos.online/merchant");
+  assertEquals(lineDestination(merchant, "ZF-1&x=https://evil"), "https://merchant.wynos.online/merchant");
 });
 
 function recordingFetch(status: number | Error) {

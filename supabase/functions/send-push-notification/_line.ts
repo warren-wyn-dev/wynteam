@@ -15,7 +15,7 @@ export type LineConfig = {
 type Env = (name: string) => string | undefined;
 
 const LIFF_ID = /^\d{10}-[A-Za-z0-9]{8}$/;
-const ORDER = /^WF\d{4,9}$/;
+const ORDER = /^(?:WF\d{4,9}|ZF-\d{4,9})$/;
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
 /** LINE delivery for this app, or null when it is off or not configured. */
