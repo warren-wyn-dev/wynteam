@@ -182,7 +182,7 @@ private fun Banner(club: Club, onBack: () -> Unit) {
             Text("CLUB", color = Color.White.copy(alpha = 0.72f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.8.sp)
             Spacer(Modifier.height(4.dp))
             Text(
-                club.name, color = Color.White, fontSize = 22.sp, lineHeight = 24.6.sp, fontWeight = FontWeight.Bold,
+                club.name, color = Color.White, fontSize = 20.sp, lineHeight = 24.6.sp, fontWeight = FontWeight.Bold,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth(0.9f),
             )
         }
@@ -215,7 +215,7 @@ private fun Meta(vm: ClubViewModel, club: Club, onShare: () -> Unit) {
                 }
             }
             Text(
-                club.name, color = c.text, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                club.name, color = c.text, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(top = 5.dp),
             )
             RoundButton(WynIcons.Share, stringResource(R.string.share), onShare)
@@ -249,14 +249,14 @@ private fun Meta(vm: ClubViewModel, club: Club, onShare: () -> Unit) {
             }
         }
         club.description?.takeIf { it.isNotEmpty() }?.let {
-            Text(it, color = c.text, fontSize = 15.sp, lineHeight = 21.75.sp, modifier = Modifier.padding(top = 12.dp))
+            Text(it, color = c.text, fontSize = 14.5.sp, lineHeight = 21.75.sp, modifier = Modifier.padding(top = 12.dp))
         }
         if (membership == null) {
             Box(
                 Modifier.padding(top = 16.dp).fillMaxWidth().height(44.dp).clip(RoundedCornerShape(999.dp)).background(c.text)
                     .clickable(enabled = !vm.busy, role = Role.Button, onClick = vm::onMembershipTap),
                 contentAlignment = Alignment.Center,
-            ) { Text(status, color = c.bg, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
+            ) { Text(status, color = c.bg, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold) }
         }
         ErrorText(vm.error.text())
     }
@@ -437,7 +437,7 @@ private fun ChatComposer(chat: ClubChat) {
                 value = chat.draft,
                 onValueChange = chat::updateDraft,
                 singleLine = true,
-                textStyle = TextStyle(color = c.text, fontSize = 16.sp),
+                textStyle = TextStyle(color = c.text, fontSize = 15.sp),
                 cursorBrush = SolidColor(c.text),
                 modifier = Modifier.weight(1f).semantics { contentDescription = hint },
                 decorationBox = { inner ->
@@ -446,7 +446,7 @@ private fun ChatComposer(chat: ClubChat) {
                             .background(c.surface).padding(horizontal = 14.dp),
                         contentAlignment = Alignment.CenterStart,
                     ) {
-                        if (chat.draft.isEmpty()) Text(hint, color = c.textMuted, fontSize = 16.sp, maxLines = 1)
+                        if (chat.draft.isEmpty()) Text(hint, color = c.textMuted, fontSize = 15.sp, maxLines = 1)
                         inner()
                     }
                 },
@@ -538,7 +538,7 @@ private fun AboutTabs(about: ClubAbout, tabs: List<AboutTab>) {
 private fun Details(club: Club) {
     val c = Wyn.colors
     Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 28.dp)) {
-        Text(stringResource(R.string.about_details), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 7.dp))
+        Text(stringResource(R.string.about_details), color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 7.dp))
         Text(club.description?.takeIf { it.isNotEmpty() } ?: stringResource(R.string.about_no_description), color = c.textSecondary, fontSize = 13.5.sp, lineHeight = 20.sp)
         Column(Modifier.padding(vertical = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, c.border, RoundedCornerShape(14.dp))) {
             DetailRow(stringResource(R.string.create_club_category), club.category?.takeIf { it.isNotEmpty() } ?: "—")
@@ -547,7 +547,7 @@ private fun Details(club: Club) {
             HorizontalDivider(color = c.border, thickness = 1.dp)
             DetailRow(stringResource(R.string.about_members), memberCount(club.memberCount))
         }
-        Text(stringResource(R.string.about_rules), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 7.dp))
+        Text(stringResource(R.string.about_rules), color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 7.dp))
         Text(club.rules?.takeIf { it.isNotEmpty() } ?: stringResource(R.string.about_no_rules), color = c.textSecondary, fontSize = 13.5.sp, lineHeight = 20.sp)
     }
 }
@@ -605,7 +605,7 @@ private fun Insights(values: List<Pair<String, String>>?) {
                         verticalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(insightLabel(key), color = c.textSecondary, fontSize = 11.sp)
-                        Text(value, color = c.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text(value, color = c.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))

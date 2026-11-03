@@ -3,6 +3,29 @@
 Founder approved starting M8 on 2026-09-28. Each Play track still needs its own Founder approval:
 **internal testing → closed testing → production**. Staging or internal approval is not production approval.
 
+## Beta 1 development resumed (2026-10-13)
+
+Founder explicitly resumed **WYNOS Android v1.0.0 Beta 1** development on GitHub. This does **not** authorize an
+Android Play release, merge to `main`, or a production web deployment. `versionName` remains `1.0.0-beta1` and
+`applicationId` remains `io.wyn.wyn`.
+
+- **Play API compliance**: for new Android phone apps as of 2026-08-31, Google Play requires target API 36 (Android 16).
+  Use `compileSdk = 36` and `targetSdk = 36`; `minSdk = 26` is unchanged. AGP 8.10.1 supports API 36.
+  References: https://support.google.com/googleplay/android-developer/answer/11926878 and
+  https://developer.android.com/build/releases/agp-8-10-0-release-notes.
+- **PR verification**: `.github/workflows/android.yml` runs `assembleDebug testDebugUnitTest lintDebug bundleRelease`.
+  This `bundleRelease` is **unsigned and unconfigured** in CI, intended only to catch R8/release build regressions;
+  it is not a Play-uploadable artifact. For a signed AAB use the separate, manual `android-release.yml` after approval.
+- **Real-device QA required**: on Android 16 check system Back/predictive Back, edge-to-edge insets, keyboard,
+  bottom navigation, compose/photo upload, notifications, deep links and account switching. Repeat smoke checks on
+  Android 8, 13, 14 and 15 where possible. A passing CI build alone is not a Play release gate.
+- **Unresolved launch gates**: Google sign-in OAuth signing SHA-1, Firebase client values, upload key/Play App Signing,
+  privacy-policy legal content, thorough deletion of uploaded user media (or accurate reviewed retention disclosure),
+  data-safety form, real-device QA, and required tester track. Do not claim these complete until verified.
+- **Rollback / containment**: keep work on its own PR branch; revert the scoped commit if QA fails. Do not change
+  production backend, web, or Play tracks while preparing this patch.
+
+
 ## What the repository now has
 
 | Item | Where |

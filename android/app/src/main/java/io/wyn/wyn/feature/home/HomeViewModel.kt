@@ -78,6 +78,14 @@ open class FeedViewModel<K : Any>(
     var busy by mutableStateOf(false); private set
     private val inFlight = mutableSetOf<String>()
     private var loadJob: Job? = null
+    // A slow page request must never replace a newer refresh/load of the same tab.
+    private val requestVersions = mutableMapOf<K, Long>()
+    private fun nextRequest(target: K): Long {
+        val next = (requestVersions[target] ?: 0L) + 1L
+        requestVersions[target] = next
+        return next
+    }
+    private fun isCurrentRequest(target: K, version: Long) = requestVersions[target] == version
 
     /** Quote cards: their own likes, saves, reposts, menu and the quote composer. */
     val quote: QuoteController? = quotes?.let { QuoteController(viewModelScope, it, userId, onToast = { text -> toast = Toast(text) }) }
@@ -101,6 +109,7 @@ open class FeedViewModel<K : Any>(
         val cached = cache[next]
         if (cached != null) {
             snapshot = cached
+            loading = false
             error = null
         } else {
             load(next)
@@ -121,18 +130,21 @@ open class FeedViewModel<K : Any>(
     /** web ProfileFeed "ดูเพิ่มเติม": the next page, appended. */
     fun loadMore() {
         val current = snapshot ?: return
-        if (!current.hasMore || loadingMore) return
+        if (!current.hasMore || loadingMore || loading || refreshing) return
         val target = mode
+        val version = nextRequest(target)
         loadingMore = true
         viewModelScope.launch {
             try {
                 val next = fetch(target, current.page + 1, current.rows)
-                cache[target] = next
-                if (mode == target) snapshot = next
+                if (isCurrentRequest(target, version)) {
+                    cache[target] = next
+                    if (mode == target) snapshot = next
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                toast = Toast(UiText(R.string.feed_load_failed))
+                if (isCurrentRequest(target, version)) toast = Toast(UiText(R.string.feed_load_failed))
             } finally {
                 loadingMore = false
             }
@@ -140,6 +152,7 @@ open class FeedViewModel<K : Any>(
     }
 
     fun load(target: K = mode) {
+        val version = nextRequest(target)
         loadJob?.cancel()
         loading = cache[target] == null
         error = null
@@ -147,14 +160,16 @@ open class FeedViewModel<K : Any>(
         loadJob = viewModelScope.launch {
             try {
                 val next = fetch(target)
-                cache[target] = next
-                if (mode == target) snapshot = next
+                if (isCurrentRequest(target, version)) {
+                    cache[target] = next
+                    if (mode == target) snapshot = next
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (mode == target) error = UiText(R.string.feed_load_failed)
+                if (isCurrentRequest(target, version) && mode == target) error = UiText(R.string.feed_load_failed)
             } finally {
-                if (mode == target) loading = false
+                if (isCurrentRequest(target, version) && mode == target) loading = false
             }
         }
     }
@@ -162,19 +177,22 @@ open class FeedViewModel<K : Any>(
     fun refresh() {
         if (refreshing) return
         val target = mode
+        val version = nextRequest(target)
         refreshing = true
         viewModelScope.launch {
             try {
                 val next = fetch(target)
-                cache[target] = next
-                if (mode == target) {
-                    snapshot = next
-                    error = null
+                if (isCurrentRequest(target, version)) {
+                    cache[target] = next
+                    if (mode == target) {
+                        snapshot = next
+                        error = null
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (mode == target) error = UiText(R.string.feed_refresh_failed)
+                if (isCurrentRequest(target, version) && mode == target) error = UiText(R.string.feed_refresh_failed)
             } finally {
                 refreshing = false
             }

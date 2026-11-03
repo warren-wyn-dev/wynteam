@@ -21,7 +21,7 @@ fun config(name: String): String =
 
 android {
     namespace = "io.wyn.wyn"
-    compileSdk = 35
+    compileSdk = 36
 
     // Settings > Language can show English on a Thai phone (and the reverse),
     // so every install keeps both string sets instead of only the phone's.
@@ -34,7 +34,7 @@ android {
     defaultConfig {
         applicationId = "io.wyn.wyn"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // Raised for every Play upload (the release workflow passes its run number).
         versionCode = config("WYNOS_VERSION_CODE").toIntOrNull() ?: 1
         versionName = "1.0.0-beta1"

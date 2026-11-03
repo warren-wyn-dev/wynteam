@@ -30,7 +30,7 @@ fun WynPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Mod
         colors = ButtonDefaults.buttonColors(containerColor = c.text, contentColor = c.bg),
         modifier = modifier.fillMaxWidth().height(50.dp),
     ) {
-        Text(text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -53,7 +53,7 @@ fun WynOutlineButton(
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             leading?.invoke()
-            Text(text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }

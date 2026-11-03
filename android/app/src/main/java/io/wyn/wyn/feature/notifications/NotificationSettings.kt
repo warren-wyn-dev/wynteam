@@ -189,7 +189,7 @@ fun NotificationSettingsScreen(vm: NotificationSettingsViewModel, push: PushCont
                 WynIcons.Back, contentDescription = back, tint = c.text,
                 modifier = Modifier.align(Alignment.CenterStart).size(44.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = back, onClick = onBack).padding(10.dp),
             )
-            Text(stringResource(R.string.notifications_title), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+            Text(stringResource(R.string.notifications_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             SettingsSectionTitle(stringResource(R.string.settings_this_device))
@@ -261,7 +261,7 @@ fun SettingsSwitchRow(title: String, description: String?, checked: Boolean, ena
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(title, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Medium)
             if (description != null) Text(description, color = c.textSecondary, fontSize = 12.sp, lineHeight = 16.sp)
         }
         Spacer(Modifier.width(10.dp))
@@ -311,7 +311,7 @@ fun PushPromptCard(push: PushController, userId: String, onDone: () -> Unit) {
                 Icon(WynIcons.Bell, contentDescription = null, tint = c.text, modifier = Modifier.size(22.dp))
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(label, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(label, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.push_prompt_body), color = c.textSecondary, fontSize = 13.sp, lineHeight = 18.sp)
             }
             val close = stringResource(R.string.close)

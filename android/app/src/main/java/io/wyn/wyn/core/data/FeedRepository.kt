@@ -195,10 +195,24 @@ class SupabaseFeedRepository(
         return ViewerState(liked, saved, redropped, following, requested, privateAuthors)
     }
 
-    override suspend fun fetchIdentity(userId: String): HomeIdentity? =
-        client.from("profiles").select(Columns.list("username", "display_name", "avatar_url")) { filter { eq("id", userId) } }
-            .decodeList<JsonObject>().firstOrNull()
-            ?.let { HomeIdentity(it.text("username"), it.text("display_name"), it.text("avatar_url")) }
+    override suspend fun fetchIdentity(userId: String): HomeIdentity? {
+        val profile = client.from("profiles").select(Columns.list("username", "display_name", "avatar_url")) {
+            filter { eq("id", userId) }
+        }.decodeList<JsonObject>().firstOrNull() ?: return null
+        // Same author + non-deleted filter as web/lib/home-parity-data.ts.
+        // Keep the profile usable if just this optional prompt-state lookup fails.
+        val hasPublished = try {
+            client.from("drops").select(Columns.list("id")) {
+                filter { eq("author_id", userId); exact("deleted_at", null) }
+                limit(1L)
+            }.decodeList<JsonObject>().isNotEmpty()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+        return HomeIdentity(profile.text("username"), profile.text("display_name"), profile.text("avatar_url"), hasPublished)
+    }
 
     override suspend fun setLiked(userId: String, dropId: String, liked: Boolean) {
         if (liked) {

@@ -132,7 +132,13 @@ data class ViewerState(
 )
 
 /** The signed-in person's own summary for the header and quick compose. */
-data class HomeIdentity(val username: String?, val displayName: String?, val avatarUrl: String?)
+data class HomeIdentity(
+    val username: String?,
+    val displayName: String?,
+    val avatarUrl: String?,
+    /** Null when publication state could not be checked; avoid falsely calling it a first post. */
+    val hasPublishedPost: Boolean? = null,
+)
 
 enum class FollowState { Following, Requested, None }
 

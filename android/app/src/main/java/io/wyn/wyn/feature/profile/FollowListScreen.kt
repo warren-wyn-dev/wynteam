@@ -61,14 +61,14 @@ fun FollowListScreen(vm: FollowListViewModel, onBack: () -> Unit, onOpenProfile:
             )
             Text(
                 stringResource(if (vm.kind == FollowKind.Followers) R.string.profile_followers else R.string.tab_following),
-                color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center),
+                color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center),
             )
         }
         Row(Modifier.fillMaxWidth().height(48.dp)) {
             listOf(FollowKind.Following to R.string.tab_following, FollowKind.Followers to R.string.profile_followers).forEach { (kind, label) ->
                 val active = kind == vm.kind
                 Box(Modifier.weight(1f).fillMaxSize().selectable(active, role = Role.Tab) { vm.select(kind) }, contentAlignment = Alignment.Center) {
-                    Text(stringResource(label), color = if (active) c.text else Color(0xFF72798A), fontSize = 15.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold)
+                    Text(stringResource(label), color = if (active) c.text else Color(0xFF72798A), fontSize = 14.5.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold)
                     if (active) Box(Modifier.align(Alignment.BottomCenter).size(120.dp, 2.dp).background(c.text))
                 }
             }
@@ -99,7 +99,7 @@ fun FollowListScreen(vm: FollowListViewModel, onBack: () -> Unit, onOpenProfile:
         AlertDialog(
             onDismissRequest = vm::dismissConfirm,
             containerColor = c.bg,
-            title = { Text(stringResource(R.string.follow_cancel_confirm, person.username), color = c.text, fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+            title = { Text(stringResource(R.string.follow_cancel_confirm, person.username), color = c.text, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             confirmButton = { TextButton(onClick = { vm.follow(person, confirmed = true) }) { Text(stringResource(R.string.follow_cancel), color = Color(0xFFE0203D), fontWeight = FontWeight.Bold) } },
             dismissButton = { TextButton(onClick = vm::dismissConfirm) { Text(stringResource(R.string.cancel), color = c.textSecondary) } },
         )
@@ -124,7 +124,7 @@ fun PersonRow(
             WynAvatar(person.avatarUrl, 44)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(person.label, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Text(person.label, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (person.isVerified) {
                         Box(Modifier.width(4.dp))
                         VerifiedBadge(14, label = stringResource(R.string.verified))

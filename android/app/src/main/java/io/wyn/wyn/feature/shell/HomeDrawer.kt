@@ -205,7 +205,7 @@ private fun MenuRow(icon: ImageVector, label: String, first: Boolean = false, on
         Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(c.surface), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = c.text, modifier = Modifier.size(22.dp))
         }
-        Text(label, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(label, color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         Icon(WynIcons.ChevronRight, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(20.dp))
     }
 }
@@ -237,28 +237,28 @@ private fun Panel(panel: DrawerPanel, onBack: () -> Unit, onSettings: () -> Unit
                 WynIcons.Back, contentDescription = back, tint = c.text,
                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(999.dp)).clickable(role = Role.Button, onClickLabel = back, onClick = onBack).padding(10.dp),
             )
-            Text(stringResource(if (panel == DrawerPanel.Help) R.string.drawer_help else R.string.drawer_feedback), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(if (panel == DrawerPanel.Help) R.string.drawer_help else R.string.drawer_feedback), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         HorizontalDivider(color = c.border, thickness = 1.dp)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (panel == DrawerPanel.Help) {
-                Text(stringResource(R.string.help_faq), color = c.text, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.help_faq), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 HelpItem(stringResource(R.string.help_what_q), stringResource(R.string.help_what_a))
                 HelpItem(stringResource(R.string.help_terms_q), stringResource(R.string.help_terms_a), stringResource(R.string.help_terms_action), onSettings)
             } else {
-                Text(stringResource(R.string.feedback_title), color = c.text, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.feedback_title), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.feedback_body), color = c.textSecondary, fontSize = 13.sp, lineHeight = 20.8.sp)
                 Text(stringResource(R.string.feedback_label), color = c.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 val hint = stringResource(R.string.feedback_hint)
                 BasicTextField(
                     value = feedback,
                     onValueChange = { feedback = it.take(FEEDBACK_MAX); status = null },
-                    textStyle = TextStyle(color = c.text, fontSize = 16.sp),
+                    textStyle = TextStyle(color = c.text, fontSize = 15.sp),
                     cursorBrush = SolidColor(c.text),
                     modifier = Modifier.fillMaxWidth().semantics { contentDescription = hint },
                     decorationBox = { inner ->
                         Box(Modifier.fillMaxWidth().heightIn(min = 130.dp).clip(RoundedCornerShape(13.dp)).border(1.dp, c.border, RoundedCornerShape(13.dp)).padding(12.dp)) {
-                            if (feedback.isEmpty()) Text(hint, color = c.textMuted, fontSize = 16.sp)
+                            if (feedback.isEmpty()) Text(hint, color = c.textMuted, fontSize = 15.sp)
                             inner()
                         }
                     },

@@ -1,6 +1,7 @@
 package io.wyn.wyn.feature.welcome
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -30,6 +31,14 @@ class WelcomeScreenshotTest {
     fun thaiLight() {
         render(ThemeChoice.Light, "th-light")
         compose.onNodeWithText("สร้างบัญชีใหม่").assertExists()
+    }
+
+    @Test @Config(qualifiers = "th-w393dp-h851dp-xxhdpi")
+    fun pixel5CompactWelcomeAndGoogleDisabled() {
+        render(ThemeChoice.Light, "th-pixel5-compact")
+        compose.onNodeWithText("ทุกเรื่องราว มีจุดเริ่มต้น").assertExists()
+        compose.onNodeWithText("เข้าสู่ระบบ").assertExists()
+        compose.onNodeWithText("เข้าสู่ระบบด้วย Google").assertIsNotEnabled()
     }
 
     @Test @Config(qualifiers = "en-w411dp-h914dp-night-xxhdpi")

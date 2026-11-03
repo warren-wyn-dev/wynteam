@@ -93,7 +93,7 @@ fun ProfileSheets(vm: ProfileViewModel, accounts: AccountSwitcher?, onShare: () 
         when (sheet) {
             ProfileSheet.Menu -> Column(Modifier.padding(bottom = 12.dp)) {
                 Text(
-                    stringResource(R.string.profile_options), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                    stringResource(R.string.profile_options), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 6.dp),
                 )
                 val summary = vm.summary
@@ -124,7 +124,7 @@ private fun MenuRow(icon: ImageVector, label: String, danger: Boolean = false, e
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(14.dp))
-        Text(label, color = tint, fontSize = 15.sp)
+        Text(label, color = tint, fontSize = 14.5.sp)
     }
 }
 
@@ -135,7 +135,7 @@ private fun ReportUser(vm: ProfileViewModel) {
         Modifier.verticalScroll(rememberScrollState()).padding(start = 18.dp, end = 18.dp, bottom = 14.dp, top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(stringResource(R.string.profile_report_title), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        Text(stringResource(R.string.profile_report_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         Column(Modifier.border(1.dp, c.border, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp))) {
             ReportCategories.forEachIndexed { index, key ->
                 if (index > 0) HorizontalDivider(color = c.border, thickness = 1.dp)
@@ -165,7 +165,7 @@ private fun AccountsSheet(switcher: AccountSwitcher, onClose: () -> Unit) {
     Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.accounts_switch_title), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.accounts_switch_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.accounts_count, switcher.accounts.size, MAX_SAVED_ACCOUNTS), color = c.textSecondary, fontSize = 12.sp)
             }
             val close = stringResource(R.string.close)
@@ -187,7 +187,7 @@ private fun AccountsSheet(switcher: AccountSwitcher, onClose: () -> Unit) {
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(
                         account.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: account.username ?: stringResource(R.string.member),
-                        color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     account.username?.let { Text("@$it", color = c.textSecondary, fontSize = 13.sp, maxLines = 1) }
                 }
@@ -225,7 +225,7 @@ fun ProfileConfirmDialog(vm: ProfileViewModel) {
     AlertDialog(
         onDismissRequest = vm::dismissConfirm,
         containerColor = c.bg,
-        title = { Text(title, color = c.text, fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+        title = { Text(title, color = c.text, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
         confirmButton = {
             TextButton(onClick = {
                 when (question) {

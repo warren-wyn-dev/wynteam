@@ -116,7 +116,7 @@ fun NotificationsScreen(vm: NotificationsViewModel, onBack: () -> Unit, onOpen: 
                 modifier = Modifier.size(36.dp, 44.dp).clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button, onClickLabel = back, onClick = onBack).padding(horizontal = 4.dp, vertical = 8.dp),
             )
             Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.notifications_title), color = c.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.notifications_title), color = c.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         vm.error?.let { error ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -204,7 +204,7 @@ private fun NotificationRow(group: NotificationGroup, unread: Boolean, english: 
                     }
                     if (more != null) withStyle(SpanStyle(color = c.textSecondary, fontStyle = FontStyle.Normal)) { append(" $more") }
                 },
-                color = ink, fontSize = 15.sp, lineHeight = 20.sp,
+                color = ink, fontSize = 14.5.sp, lineHeight = 20.sp,
             )
             row.contentPreview?.takeIf { it.isNotBlank() }?.let {
                 Text("“$it”", color = c.textSecondary, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

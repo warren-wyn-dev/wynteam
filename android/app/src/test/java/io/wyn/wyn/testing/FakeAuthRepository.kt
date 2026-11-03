@@ -24,6 +24,8 @@ class FakeAuthRepository : AuthRepository {
     var requireConfirmation = false
     var failUsernameCheck = false
     var failRestore = false
+    var failSignOut = false
+    var failDetach = false
 
     override fun currentUserId() = active
     override suspend fun restoreSession(): Boolean {
@@ -77,11 +79,13 @@ class FakeAuthRepository : AuthRepository {
         profiles[userId]?.let { AccountSummary(userId, it.username, it.displayName, null) }
 
     override suspend fun signOut() {
+        if (failSignOut) error("sign out unavailable")
         active?.let { revoked += it }
         active = null
     }
 
     override suspend fun detachSession(): SavedSession? {
+        if (failDetach) error("local session cannot be cleared")
         val id = active ?: return null
         active = null
         return SavedSession("session:$id")

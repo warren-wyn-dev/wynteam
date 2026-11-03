@@ -149,7 +149,7 @@ fun ConversationScreen(
                         if (online) OnlineDot(11.dp, Modifier.align(Alignment.BottomEnd).offset(1.dp, 1.dp))
                     }
                     Column(Modifier.padding(start = 10.dp)) {
-                        Text(person.label, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(person.label, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         // web conversation header: "online" takes the @username's place while they are online.
                         if (online) {
                             Text(stringResource(R.string.chat_online), color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -213,7 +213,7 @@ fun ConversationScreen(
         AlertDialog(
             onDismissRequest = vm::dismissConfirm,
             containerColor = c.bg,
-            title = { Text(title, color = c.text, fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+            title = { Text(title, color = c.text, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             confirmButton = { TextButton(onClick = vm::confirmNow) { Text(action, color = c.accent, fontWeight = FontWeight.Bold) } },
             dismissButton = { TextButton(onClick = vm::dismissConfirm) { Text(stringResource(R.string.cancel), color = c.textSecondary) } },
         )
@@ -234,8 +234,8 @@ private fun ProfileHero(vm: ConversationViewModel, onOpenProfile: (String) -> Un
         Column(Modifier.clip(RoundedCornerShape(16.dp)).clickable(role = Role.Button) { onOpenProfile(person.id) }.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             WynAvatar(person.avatarUrl, 112)
             Spacer(Modifier.height(14.dp))
-            Text(person.label, color = c.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text("@${person.username}", color = c.textSecondary, fontSize = 16.sp)
+            Text(person.label, color = c.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("@${person.username}", color = c.textSecondary, fontSize = 15.sp)
         }
         Spacer(Modifier.height(24.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -286,7 +286,7 @@ private fun MessageRow(vm: ConversationViewModel, chat: ChatRepository, message:
                     .padding(horizontal = 15.dp, vertical = 10.dp),
             ) {
                 if (message.deletedAt != null) {
-                    Text(stringResource(R.string.chat_preview_deleted), color = ink.copy(alpha = 0.7f), fontSize = 15.sp, fontStyle = FontStyle.Italic)
+                    Text(stringResource(R.string.chat_preview_deleted), color = ink.copy(alpha = 0.7f), fontSize = 14.5.sp, fontStyle = FontStyle.Italic)
                 } else {
                     if (message.replyToId != null) {
                         Text(
@@ -300,7 +300,7 @@ private fun MessageRow(vm: ConversationViewModel, chat: ChatRepository, message:
                             modifier = Modifier.padding(bottom = 6.dp).clip(RoundedCornerShape(8.dp)).background(ink.copy(alpha = 0.08f)).padding(8.dp),
                         )
                     }
-                    message.text?.let { Text(it, color = ink, fontSize = 16.sp, lineHeight = 22.sp) }
+                    message.text?.let { Text(it, color = ink, fontSize = 15.sp, lineHeight = 21.sp) }
                     message.imagePath?.let { path -> ChatImage(chat, path) }
                 }
             }
@@ -379,10 +379,10 @@ private fun Composer(vm: ConversationViewModel, onPick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.weight(1f).padding(vertical = 8.dp)) {
-                    if (vm.draft.isEmpty()) Text(stringResource(R.string.chat_placeholder), color = c.textSecondary, fontSize = 16.sp)
+                    if (vm.draft.isEmpty()) Text(stringResource(R.string.chat_placeholder), color = c.textSecondary, fontSize = 15.sp)
                     BasicTextField(
                         vm.draft, vm::updateDraft, enabled = !vm.sending, maxLines = 6,
-                        textStyle = TextStyle(color = c.text, fontSize = 16.sp, lineHeight = 22.sp),
+                        textStyle = TextStyle(color = c.text, fontSize = 15.sp, lineHeight = 21.sp),
                         cursorBrush = SolidColor(c.text), modifier = Modifier.fillMaxWidth(),
                     )
                 }

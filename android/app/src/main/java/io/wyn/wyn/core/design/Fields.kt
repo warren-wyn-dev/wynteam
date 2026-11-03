@@ -78,7 +78,7 @@ fun WynTextField(
             onValueChange = onValueChange,
             enabled = enabled,
             singleLine = singleLine,
-            textStyle = TextStyle(color = c.text, fontSize = 16.sp),
+            textStyle = TextStyle(color = c.text, fontSize = 15.sp),
             cursorBrush = SolidColor(c.text),
             visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
             keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboardType),
@@ -93,9 +93,9 @@ fun WynTextField(
                         .background(c.bg, FieldShape)
                         .padding(horizontal = 18.dp, vertical = if (singleLine) 0.dp else 10.dp),
                 ) {
-                    if (prefix != null) Text(prefix, color = c.textMuted, fontSize = 16.sp)
+                    if (prefix != null) Text(prefix, color = c.textMuted, fontSize = 15.sp)
                     Box(Modifier.weight(1f)) {
-                        if (value.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 16.sp)
+                        if (value.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 15.sp)
                         inner()
                     }
                 }
@@ -131,7 +131,7 @@ fun <T> WynSelect(
         ) {
             Text(
                 selected?.let(optionLabel) ?: placeholder,
-                color = c.text, fontSize = 15.sp, maxLines = 1, modifier = Modifier.weight(1f),
+                color = c.text, fontSize = 14.5.sp, maxLines = 1, modifier = Modifier.weight(1f),
             )
             Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(18.dp))
         }
@@ -168,7 +168,7 @@ fun ErrorText(text: String?) {
 @Composable
 fun ScreenTitle(title: String, subtitle: String? = null) {
     val c = Wyn.colors
-    Text(title, color = c.text, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.6).sp)
+    Text(title, color = c.text, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.6).sp)
     if (subtitle != null) {
         Spacer(Modifier.height(6.dp))
         Text(subtitle, color = c.textSecondary, fontSize = 13.sp, lineHeight = 19.sp)

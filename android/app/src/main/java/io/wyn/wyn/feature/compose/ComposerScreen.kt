@@ -137,8 +137,18 @@ fun ComposerScreen(vm: ComposerViewModel) {
                     Column(Modifier.weight(1f)) {
                         Text(
                             vm.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: vm.identity?.username ?: "WYNOS",
-                            color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                            color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold,
                         )
+                        if (!vm.promptText.isNullOrBlank()) {
+                            val english = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+                            Column(
+                                Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
+                                    .clip(RoundedCornerShape(12.dp)).background(c.surface).padding(12.dp),
+                            ) {
+                                Text(if (english) "Conversation prompt" else "หัวข้อชวนคุย", color = c.textSecondary, fontSize = 12.sp)
+                                Text(vm.promptText.orEmpty(), color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                         CaptionField(vm)
                         vm.uploadProgress?.let { (done, total) -> UploadProgress(done, total) }
                         if (vm.mode == ComposeMode.Image) Photos(vm) else PollEditor(vm)
@@ -179,11 +189,11 @@ private fun Header(vm: ComposerViewModel) {
     val c = Wyn.colors
     Box(Modifier.fillMaxWidth().height(76.dp).padding(horizontal = 20.dp)) {
         Text(
-            stringResource(R.string.cancel), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+            stringResource(R.string.cancel), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterStart).heightIn(min = 44.dp).clickable(role = Role.Button) { vm.requestClose() }.padding(vertical = 12.dp),
         )
         Text(
-            stringResource(R.string.drafts_title), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold,
+            stringResource(R.string.drafts_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.align(Alignment.Center).clickable(role = Role.Button) { vm.requestClose(toDrafts = true) }.padding(12.dp),
         )
         val enabled = vm.canPublish
@@ -196,7 +206,7 @@ private fun Header(vm: ComposerViewModel) {
             if (vm.busy) {
                 CircularProgressIndicator(color = c.bg, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
             } else {
-                Text(stringResource(R.string.publish), color = if (enabled) c.bg else c.textMuted, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.publish), color = if (enabled) c.bg else c.textMuted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -212,13 +222,13 @@ private fun CaptionField(vm: ComposerViewModel) {
         value = vm.caption,
         onValueChange = vm::updateCaption,
         enabled = !vm.busy,
-        textStyle = TextStyle(color = c.text, fontSize = 16.sp, lineHeight = 22.sp),
+        textStyle = TextStyle(color = c.text, fontSize = 15.sp, lineHeight = 21.sp),
         cursorBrush = SolidColor(c.text),
         modifier = Modifier.fillMaxWidth().padding(top = 2.dp).heightIn(min = 28.dp, max = 168.dp).focusRequester(focus)
             .semantics { contentDescription = placeholder },
         decorationBox = { inner ->
             Box {
-                if (vm.caption.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 16.sp, lineHeight = 22.sp)
+                if (vm.caption.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 15.sp, lineHeight = 21.sp)
                 inner()
             }
         },
@@ -312,9 +322,9 @@ private fun PollEditor(vm: ComposerViewModel) {
                 val placeholder = stringResource(R.string.poll_option_placeholder, index + 1)
                 BasicTextField(
                     value = value, onValueChange = { vm.updatePollOption(index, it) }, singleLine = true, enabled = !vm.busy,
-                    textStyle = TextStyle(color = c.text, fontSize = 16.sp), cursorBrush = SolidColor(c.text),
+                    textStyle = TextStyle(color = c.text, fontSize = 15.sp), cursorBrush = SolidColor(c.text),
                     modifier = Modifier.weight(1f).semantics { contentDescription = placeholder },
-                    decorationBox = { inner -> Box { if (value.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 16.sp); inner() } },
+                    decorationBox = { inner -> Box { if (value.isEmpty()) Text(placeholder, color = c.textMuted, fontSize = 15.sp); inner() } },
                 )
                 if (index >= 2) {
                     val remove = stringResource(R.string.remove_poll_option, index + 1)
@@ -333,7 +343,7 @@ private fun PollEditor(vm: ComposerViewModel) {
             ) {
                 Icon(WynIcons.Plus, contentDescription = null, tint = c.text, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.add_poll_option), color = c.text, fontSize = 15.sp)
+                Text(stringResource(R.string.add_poll_option), color = c.text, fontSize = 14.5.sp)
             }
         }
     }
@@ -400,7 +410,7 @@ private fun AudienceSheet(vm: ComposerViewModel) {
     ) {
         Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)) {
-                Text(stringResource(R.string.audience_title), color = c.text, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.audience_title), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                 Box(Modifier.size(38.dp).clip(CircleShape).background(c.surface).clickable { vm.openAudience(false) }, contentAlignment = Alignment.Center) {
                     Icon(WynIcons.Close, contentDescription = stringResource(R.string.close), tint = c.text, modifier = Modifier.size(20.dp))
                 }
@@ -422,7 +432,7 @@ private fun AudienceSheet(vm: ComposerViewModel) {
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(audienceLabel(value)), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(audienceLabel(value)), color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
                         Text(stringResource(description), color = c.textSecondary, fontSize = 13.sp)
                     }
                     Box(
@@ -441,7 +451,7 @@ private fun ClosePrompt(vm: ComposerViewModel) {
     AlertDialog(
         onDismissRequest = vm::dismissClosePrompt,
         containerColor = c.bg,
-        title = { Text(stringResource(R.string.save_draft_prompt), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.save_draft_prompt), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
         text = vm.draftError?.let { { ErrorText(it.text()) } },
         confirmButton = {
             TextButton(onClick = vm::saveDraftAndClose, enabled = !vm.savingDraft) {

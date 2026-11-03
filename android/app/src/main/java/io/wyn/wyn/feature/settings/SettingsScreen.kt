@@ -135,7 +135,7 @@ fun SettingsScreen(vm: SettingsViewModel, actions: SettingsActions, versionLabel
                 modifier = Modifier.align(Alignment.CenterStart).size(44.dp).clip(CircleShape)
                     .clickable(role = Role.Button, onClickLabel = back) { if (!vm.back()) actions.onClose() }.padding(10.dp),
             )
-            Text(title, color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+            Text(title, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 30.dp).navigationBarsPadding()) {
             vm.error?.let { Text(it.text().orEmpty(), color = Danger, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) }
@@ -176,7 +176,7 @@ fun SettingsScreen(vm: SettingsViewModel, actions: SettingsActions, versionLabel
         AlertDialog(
             onDismissRequest = { vm.ask(null) },
             containerColor = c.bg,
-            title = { Text(text, color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold) },
+            title = { Text(text, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
             confirmButton = {
                 TextButton(onClick = {
                     if (question == SettingsConfirm.SignOut) { vm.ask(null); actions.onSignOut() } else vm.confirmNow()
@@ -292,7 +292,7 @@ private fun LoadState(vm: SettingsViewModel) {
         if (vm.loading) {
             io.wyn.wyn.feature.clubs.ClubLoading()
         } else {
-            Text(stringResource(R.string.settings_load_failed), color = c.textSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+            Text(stringResource(R.string.settings_load_failed), color = c.textSecondary, fontSize = 14.5.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(12.dp))
             PillButton(stringResource(R.string.retry), filled = false, outlined = true, onClick = vm::load)
         }
@@ -383,7 +383,7 @@ private fun Password(vm: SettingsViewModel, actions: SettingsActions) {
     val shape = RoundedCornerShape(18.dp)
     if (vm.passwordSaved) {
         Column(Modifier.padding(vertical = 8.dp).fillMaxWidth().clip(shape).border(1.dp, c.border, shape).padding(horizontal = 16.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(R.string.password_saved_title), color = c.text, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.password_saved_title), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Text(stringResource(R.string.password_saved_body), color = c.textSecondary, fontSize = 12.sp, lineHeight = 19.sp)
             SubmitButton(stringResource(R.string.password_back_to_account), true) { vm.back() }
         }
@@ -412,7 +412,7 @@ private fun PasswordField(label: String, value: String, onChange: (String) -> Un
     Text(label, color = c.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
     BasicTextField(
         value = value, onValueChange = onChange, enabled = enabled, singleLine = true,
-        textStyle = TextStyle(color = c.text, fontSize = 16.sp),
+        textStyle = TextStyle(color = c.text, fontSize = 15.sp),
         cursorBrush = SolidColor(c.text),
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
@@ -485,12 +485,12 @@ private fun LegalDialog(title: String, version: String, content: String, english
     AlertDialog(
         onDismissRequest = onClose,
         containerColor = c.bg,
-        title = { Text(title, color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold) },
+        title = { Text(title, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.legal_version, version), color = c.textSecondary, fontSize = 12.sp)
                 if (english) Text("This document is currently available in Thai only.", color = c.textSecondary, fontSize = 12.sp)
-                Text(content, color = c.text, fontSize = 14.sp, lineHeight = 21.sp)
+                Text(content, color = c.text, fontSize = 14.sp, lineHeight = 20.sp)
             }
         },
         confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.close), color = c.text, fontWeight = FontWeight.Bold) } },

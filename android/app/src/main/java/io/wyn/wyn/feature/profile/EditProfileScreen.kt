@@ -122,7 +122,7 @@ fun EditProfileScreen(vm: EditProfileViewModel, onClose: () -> Unit) {
                 modifier = Modifier.align(Alignment.CenterStart).size(44.dp).clip(CircleShape)
                     .clickable(enabled = !vm.saving, role = Role.Button, onClickLabel = back, onClick = onClose).padding(10.dp),
             )
-            Text(stringResource(R.string.profile_edit), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
+            Text(stringResource(R.string.profile_edit), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Box(
@@ -137,12 +137,12 @@ fun EditProfileScreen(vm: EditProfileViewModel, onClose: () -> Unit) {
                     CameraButton(stringResource(R.string.profile_change_avatar), 18, !vm.saving, Modifier.align(Alignment.BottomEnd)) { vm.openPhotoMenu(ProfileImage.Avatar) }
                 }
                 Column(Modifier.padding(start = 14.dp)) {
-                    Text(stringResource(R.string.profile_avatar), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.profile_avatar), color = c.text, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
                     Text(stringResource(R.string.profile_avatar_hint), color = c.textSecondary, fontSize = 12.sp)
                 }
             }
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.profile_info), color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.profile_info), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 WynTextField(stringResource(R.string.display_name), vm.displayName, vm::updateDisplayName, stringResource(R.string.display_name), enabled = !vm.saving)
                 WynTextField(stringResource(R.string.username), vm.username, vm::updateUsername, "username", prefix = "@", keyboardType = KeyboardType.Ascii, enabled = !vm.saving)
                 Column {
@@ -170,7 +170,7 @@ fun EditProfileScreen(vm: EditProfileViewModel, onClose: () -> Unit) {
             Column(Modifier.padding(bottom = 12.dp)) {
                 Text(
                     stringResource(if (kind == ProfileImage.Avatar) R.string.profile_avatar else R.string.profile_cover),
-                    color = c.text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, bottom = 6.dp),
+                    color = c.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, bottom = 6.dp),
                 )
                 fun choose(action: () -> Unit) { target = kind; vm.openPhotoMenu(null); action() }
                 SourceRow(WynIcons.Image, stringResource(R.string.photo_library)) {
@@ -198,7 +198,7 @@ fun EditProfileScreen(vm: EditProfileViewModel, onClose: () -> Unit) {
         AlertDialog(
             onDismissRequest = vm::dismissRemove,
             containerColor = c.bg,
-            title = { Text(stringResource(if (kind == ProfileImage.Avatar) R.string.profile_remove_avatar_confirm else R.string.profile_remove_cover_confirm), color = c.text, fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+            title = { Text(stringResource(if (kind == ProfileImage.Avatar) R.string.profile_remove_avatar_confirm else R.string.profile_remove_cover_confirm), color = c.text, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             confirmButton = { TextButton(onClick = vm::removePhoto) { Text(stringResource(R.string.remove), color = Danger, fontWeight = FontWeight.Bold) } },
             dismissButton = { TextButton(onClick = vm::dismissRemove) { Text(stringResource(R.string.cancel), color = c.textSecondary) } },
         )
@@ -238,6 +238,6 @@ private fun SourceRow(icon: ImageVector?, label: String, danger: Boolean = false
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(14.dp))
         }
-        Text(label, color = tint, fontSize = 15.sp, fontWeight = if (icon == null) FontWeight.SemiBold else FontWeight.Normal)
+        Text(label, color = tint, fontSize = 14.5.sp, fontWeight = if (icon == null) FontWeight.SemiBold else FontWeight.Normal)
     }
 }
