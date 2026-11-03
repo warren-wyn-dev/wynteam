@@ -738,3 +738,13 @@
 - Risks: closing an area immediately stops new orders and store publishing there (existing orders unaffected); province borders simplified to about 330 m.
 - Rollback: `supabase/rollbacks/20261103100000_zoky_service_area_admin_rollback.sql`, previous ZOKY Admin and web deployments.
 - Status: approved and live 2026-11-03 (DB run 41548061488, ZOKY Admin run 41496300741, web run 41496305705).
+
+### APPROVAL — [2026-11-03] ZOKY Merchant UX polish, "หมดวันนี้" and busy mode
+
+- Founder: "Zoky Merchant ออกแบบ ทุกอย่าง ลงตัวยัง" → review found 5 UI issues; "ไปเรียนรู้ UX UI แอปใหญ่ๆก่อน" → comparison with Uber Eats, DoorDash, Grab and Bolt merchant apps; then "ทำ ก กับ ข" (group A UI fixes + group B features).
+- Approved (A, UI only): order card shows one suggested time with "เปลี่ยนเวลา"; one compact row per dish with the switch beside the price; one icon style on the More list; spacing on the pickup settings; light search outline.
+- Approved (B): switching a dish off asks "หมดวันนี้" (existing `food_menu_items.sold_out_until`, next Bangkok midnight; no schema change) or "ปิดขายจนกว่าจะเปิดเอง"; busy mode = migration `20261104100000_zoky_merchant_busy_mode.sql` (`food_stores.busy_extra_minutes` / `busy_until`, RPC `food_store_set_busy` for owner/admin/manager/orders, guard trigger, pickup slots wait for the busy minutes) via `zoky-merchant-busy-mode-apply.yml`, and a web release (Merchant app + customer store page shows the longer wait).
+- Unchanged: order, payment and acceptance rules; the server still refuses sold-out items; no auth or policy change.
+- Risks: busy mode lengthens customer estimates and the earliest pickup time while on (max +60 minutes for max 4 hours, then off by itself); the store directory list does not show busy minutes (store page and checkout do).
+- Rollback: `supabase/rollbacks/20261104100000_zoky_merchant_busy_mode_rollback.sql` and Vercel rollback of the web release.
+- Status: approved; production apply and release pending Founder approval in the GitHub production environment.

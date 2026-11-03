@@ -177,3 +177,10 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Candidate `a3c510d8` (base `fabf1bb3`), run 41645518741; Founder approved both reviews. Live `dpl_HwCQqAF3195jDCqBFxM2cirFNwjm` (alias `zoky.wynos.online`); bundle contains the `food_active_featured_stores` read and the new section; no runtime errors in the first hour.
 - Behaviour: ZOKY Admin featured stores first (priority order), then open stores by delivered orders/rating, closed last; max 10; shows with one store.
 - Rollback: `dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr`.
+
+## 2026-11-03 — ZOKY Admin ร้านแนะนำ Food form on phones
+
+- Founder screenshot: save button grey with no reason shown, date fields overflowing. PR #1326 (UI only).
+- Change: reason hint `(n/5)`, pink save button, date/time inputs fit the phone width.
+- Run 41650812340, Founder approved. Live `dpl_78B5pyet8nnQiA3RS5VGnnkDLkRz` on `zoky-admin.wynos.online`; no runtime errors.
+- Rollback: previous ZOKY Admin deployment `dpl_4hH5jT8t2gspjEp7ZokQJRfyNfTw`.
