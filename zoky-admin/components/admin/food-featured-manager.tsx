@@ -84,15 +84,15 @@ export function FoodFeaturedManager({
    {row?`มีการตั้งค่าร้านนี้แล้ว · เวอร์ชัน ${row.version}`:"ยังไม่ได้ตั้งค่าร้านนี้ · บันทึกเพื่อเพิ่มรายการใหม่"}
   </p>
   <div className="grid gap-4 sm:grid-cols-2">
-   <label className="block text-sm font-medium">เริ่มแสดง (เวลาท้องถิ่น)
+   <label className="block min-w-0 text-sm font-medium">เริ่มแสดง (เวลาท้องถิ่น)
     <input type="datetime-local" value={startsAt} disabled={!canEdit||pending}
       onChange={e=>setStartsAt(e.target.value)}
-      className="mt-2 h-11 w-full rounded-lg border bg-background px-3 text-sm"/>
+      className="mt-2 block h-11 w-full min-w-0 max-w-full appearance-none rounded-lg border bg-background px-3 text-sm"/>
    </label>
-   <label className="block text-sm font-medium">หยุดแสดง (ไม่กำหนดได้)
+   <label className="block min-w-0 text-sm font-medium">หยุดแสดง (ไม่กำหนดได้)
     <input type="datetime-local" value={endsAt} disabled={!canEdit||pending}
       onChange={e=>setEndsAt(e.target.value)}
-      className="mt-2 h-11 w-full rounded-lg border bg-background px-3 text-sm"/>
+      className="mt-2 block h-11 w-full min-w-0 max-w-full appearance-none rounded-lg border bg-background px-3 text-sm"/>
    </label>
   </div>
   <label className="flex items-center gap-3 text-sm font-medium">
@@ -102,12 +102,16 @@ export function FoodFeaturedManager({
   </label>
   {canEdit?<><label className="block text-sm font-medium">เหตุผลการเปลี่ยนแปลง
    <textarea rows={2} maxLength={300} value={reason} disabled={pending}
-    onChange={e=>setReason(e.target.value)}
+    onChange={e=>setReason(e.target.value)} placeholder="เช่น ร้านเปิดตัวใหม่ แนะนำสัปดาห์นี้"
     className="mt-2 block w-full rounded-lg border bg-background p-3 text-sm"/>
+   {/* Founder 2026-11-03: say why the save button is not yet available. */}
+   <span className={`mt-1 block text-xs font-normal ${reason.trim().length>=5?"text-muted-foreground":"text-primary"}`}>
+    {reason.trim().length>=5?"บันทึกไว้ในประวัติการเปลี่ยนแปลง":`ใส่เหตุผลอย่างน้อย 5 ตัวอักษรเพื่อบันทึก (${reason.trim().length}/5)`}
+   </span>
   </label>
   <div className="flex flex-wrap gap-2">
    <button type="button" disabled={!valid||pending} onClick={save}
-    className="min-h-11 rounded-lg bg-foreground px-5 text-sm font-semibold text-background disabled:opacity-40">
+    className="min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-40">
     {pending?"กำลังบันทึก…":"ตรวจและยืนยันบันทึกจริง"}
    </button>
    <button type="button" disabled={pending} onClick={()=>startTransition(async()=>{
