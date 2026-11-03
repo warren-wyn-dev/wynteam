@@ -1,0 +1,91 @@
+name: ZOKY -- Merchant busy mode
+
+# Founder 2026-11-03: "ทำ ก กับ ข" (Merchant UX fixes + "หมดวันนี้" + โหมดยุ่ง;
+# .wyn/company/APPROVALS.md). Applies 20261104100000_zoky_merchant_busy_mode.sql:
+# busy_extra_minutes / busy_until on food_stores (off for every store), the
+# order-staff RPC food_store_set_busy, a guard so the columns change only
+# through it, and pickup slots that wait for the busy minutes.
+# Also confirms (read-only) that the server already refuses menu items marked
+# sold out until a later time, which "หมดวันนี้" in the Merchant app relies on.
+# Verifies definitions and grants only; no personal data is read. Re-runnable.
+# Test: supabase/tests/zoky_merchant_busy_mode_test.sh
+# Rollback: supabase/rollbacks/20261104100000_zoky_merchant_busy_mode_rollback.sql
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-ZOKY-MERCHANT-BUSY-MODE to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    environment: production
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-ZOKY-MERCHANT-BUSY-MODE'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          # The SQL and the request body go through files.
+          run_sql_file() {
+            local body out code
+            body=$(mktemp); out=$(mktemp)
+            jq -n --rawfile q "$1" '{query: $q}' > "$body"
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" --data-binary @"$body")
+            rm -f "$body"
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql() {
+            local sql; sql=$(mktemp); printf '%s' "$1" > "$sql"
+            run_sql_file "$sql"; local rc=$?; rm -f "$sql"; return $rc
+          }
+          apply_sql=$(mktemp)
+          { echo "begin;"; cat supabase/migrations/20261104100000_zoky_merchant_busy_mode.sql; echo; echo "commit;"; } > "$apply_sql"
+          run_sql_file "$apply_sql" >/dev/null
+          rm -f "$apply_sql"
+          # Definitions, grants and counts only; no personal data is read.
+          run_sql "select
+              (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'food_stores'
+                 and column_name in ('busy_extra_minutes', 'busy_until')) as busy_columns,
+              (select count(*) from public.food_stores where busy_until is not null or busy_extra_minutes <> 0) as busy_stores,
+              has_function_privilege('anon', 'public.food_store_set_busy(uuid,integer,integer)', 'execute') as anon_can_set,
+              has_function_privilege('authenticated', 'public.food_store_set_busy(uuid,integer,integer)', 'execute') as members_can_call,
+              (select pg_get_functiondef('public.food_store_set_busy(uuid,integer,integer)'::regprocedure)
+                 like '%merchant_has_store_role%') as role_checked,
+              (select count(*) from pg_trigger where tgname = 'food_stores_busy_guard' and not tgisinternal) as guard_trigger,
+              (select pg_get_functiondef('internal.food_pickup_slots(uuid,timestamptz)'::regprocedure)
+                 like '%food_store_busy_extra%') as slots_follow_busy,
+              (select count(*) from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+                 where t.tgrelid = 'public.food_order_items'::regclass and not t.tgisinternal
+                   and p.prosrc like '%sold_out_until%') as sold_out_enforced;" \
+            | tee result.json | jq .
+          jq -e '.[0].busy_columns == 2 and .[0].anon_can_set == false
+                 and .[0].members_can_call == true and .[0].role_checked == true and .[0].guard_trigger == 1
+                 and .[0].slots_follow_busy == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          jq -e '.[0].sold_out_enforced >= 1' result.json >/dev/null \
+            || echo "::warning::No food_order_items trigger mentions sold_out_until; check how the server refuses sold-out items"
+          echo "Busy mode is available to ZOKY Merchant order staff. Every store starts with it off."
