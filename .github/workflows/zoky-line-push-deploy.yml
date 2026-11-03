@@ -5,6 +5,9 @@ name: ZOKY LINE -- deploy send-push-notification (LINE only)
 # changes, so this does not ship the separate, never-deployed push changes
 # on main. The source is the pinned tip of release/zoky-line-push-20261101.
 # v2 (2026-11-01): LINE cards with order details and fewer messages.
+# v3 (2026-11-04, Founder "เอาคำว่า WYNOS FOOD ออก" / "เลขออเดอร์ คือ ZF-0000"):
+# ZOKY customer pushes have no "Wynos Food" title line; routing, tap targets
+# and LINE cards accept ZF-0036 as well as WF0035 (_lib.ts, tests).
 # Main-only, typed confirmation, production environment review.
 on:
   workflow_dispatch:
@@ -19,7 +22,7 @@ permissions:
 
 env:
   RELEASE_BRANCH: release/zoky-line-push-20261101
-  RELEASE_SHA: 8725ac456adb14fa286b3047b9a716aed046bc1b
+  RELEASE_SHA: 3cb8563e41b7ab7588db6c224e7a1f2b1a229ca5
   LIVE_BASE_SHA: 741c6717dbd701b14c7c609714c0d0a1421b3e05
 
 jobs:
@@ -39,9 +42,9 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git merge-base --is-ancestor "$LIVE_BASE_SHA" "$RELEASE_SHA"
-          allowed=" supabase/functions/send-push-notification/index.ts supabase/functions/send-push-notification/_line.ts supabase/functions/send-push-notification/_line.test.ts supabase/functions/send-push-notification/_line_card.ts supabase/functions/send-push-notification/_line_card.test.ts "
+          allowed=" supabase/functions/send-push-notification/index.ts supabase/functions/send-push-notification/_lib.ts supabase/functions/send-push-notification/_lib.test.ts supabase/functions/send-push-notification/_line.ts supabase/functions/send-push-notification/_line.test.ts supabase/functions/send-push-notification/_line_card.ts supabase/functions/send-push-notification/_line_card.test.ts "
           for path in $(git diff --name-only "$LIVE_BASE_SHA" "$RELEASE_SHA"); do
-            case "$allowed" in *" $path "*) ;; *) echo "::error::$path is outside the LINE-only change"; exit 1 ;; esac
+            case "$allowed" in *" $path "*) ;; *) echo "::error::$path is outside the reviewed change"; exit 1 ;; esac
           done
           {
             echo '## LINE-only send-push-notification'

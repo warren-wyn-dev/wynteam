@@ -184,3 +184,10 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Change: reason hint `(n/5)`, pink save button, date/time inputs fit the phone width.
 - Run 41650812340, Founder approved. Live `dpl_78B5pyet8nnQiA3RS5VGnnkDLkRz` on `zoky-admin.wynos.online`; no runtime errors.
 - Rollback: previous ZOKY Admin deployment `dpl_4hH5jT8t2gspjEp7ZokQJRfyNfTw`.
+
+## 2026-11-03 — Merchant busy mode, "หมดวันนี้" and UX polish
+
+- Founder: "Zoky Merchant ออกแบบ ทุกอย่าง ลงตัวยัง" → "ไปเรียนรู้ UX UI แอปใหญ่ๆก่อน" → "ทำ ก กับ ข". PR #1327.
+- DB: `20261104100000_zoky_merchant_busy_mode.sql`, run 41671166129, Founder approved. Verified: 2 busy columns, 0 busy stores, anon cannot call `food_store_set_busy`, role-checked, guard trigger present, pickup slots follow busy minutes, server refuses sold-out items (order-item trigger checks `sold_out_until`).
+- Web: candidate `c5a3ffa7` (base `a3c510d8`), run 41719476448, Founder approved both reviews. Live `dpl_2XcAyEVpxhkBdwZ8RdfVeJY3FHEb` on `zoky.wynos.online` and `merchant.wynos.online`; Merchant Flutter build `d424b257da6447b4c1cc` contains `setBusy`; no runtime errors.
+- Rollback: web `dpl_HwCQqAF3195jDCqBFxM2cirFNwjm`; DB `supabase/rollbacks/20261104100000_zoky_merchant_busy_mode_rollback.sql`.
