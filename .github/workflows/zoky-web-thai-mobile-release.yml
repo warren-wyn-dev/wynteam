@@ -1,10 +1,9 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-02 ("ให้ Admin เลือกได้ว่าจะเปิดให้บริการที่ไหนบ้าง"): the
-# customer map outline, its label and the out-of-area wording follow the areas
-# the ZOKY super admin opens (food_service_area_boundaries; falls back to the
-# bundled Thailand outline until that RPC exists). Base is the live Thailand
-# release (652caf61 on dpl_7P6sWFUbysXGCQL3dDJszxhz7YPw).
+# Founder 2026-11-03 ("เพิ่ม ร้านแนะนำ"): a "ร้านแนะนำ" row on the signed-in
+# Food home: stores pinned in ZOKY Admin (food_active_featured_stores) first,
+# then open stores filled in automatically. Base is the live service-area
+# release (fabf1bb3 on dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr).
 # Production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
@@ -14,7 +13,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_ADMIN_AREAS_20261103]
+        options: [CANCEL, ZOKY_RECOMMENDED_20261103]
 
 permissions:
   contents: read
@@ -27,24 +26,22 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: fabf1bb321e86da024e73417d9de7a00722e1ceb
-  PRODUCTION_BASE_SHA: 652caf61782b2c5a53e1fa52fe2fffa43b564cc2
-  # Live on every customer host since the 2026-11-02 Thailand release (652caf61).
-  ROLLBACK_DEPLOYMENT: dpl_7P6sWFUbysXGCQL3dDJszxhz7YPw
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_7P6sWFUbysXGCQL3dDJszxhz7YPw
+  RELEASE_SHA: a3c510d8f2d29b5ace696acc17b3de5df9d5be27
+  PRODUCTION_BASE_SHA: fabf1bb321e86da024e73417d9de7a00722e1ceb
+  # Live on every customer host since the 2026-11-02 service-area release (fabf1bb3).
+  ROLLBACK_DEPLOYMENT: dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr
   ALLOWED_PATHS: >-
-    web/components/food/food-delivery-map-picker.tsx
-    web/components/merchant/merchant-core-panels.tsx
-    web/lib/food-customer.ts
+    web/components/food/wynos-food-developer-app.tsx
     web/lib/i18n/en.ts
-    web/tests/browser/wynos-food-developer-preview.spec.ts
+    web/tests/food-standalone-account.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_ADMIN_AREAS_20261103'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_RECOMMENDED_20261103'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -79,7 +76,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_ADMIN_AREAS_20261103'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_RECOMMENDED_20261103'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -137,7 +134,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_ADMIN_AREAS_20261103'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_RECOMMENDED_20261103'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
