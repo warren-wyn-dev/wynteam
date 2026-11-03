@@ -2529,6 +2529,7 @@ function CheckoutSheet({
   )?.id ?? "";
   const [addressId, setAddressId] = useState(initialAddressId);
   const [note, setNote] = useState("");
+  const [couponOpen, setCouponOpen] = useState(false);
   const [couponDraft, setCouponDraft] = useState(() => {
     if (typeof window === "undefined") return "";
     const fromLink = new URLSearchParams(window.location.search).get("promo");
@@ -2678,6 +2679,7 @@ function CheckoutSheet({
   const removeCoupon = () => {
     setCouponCode(null);
     setCouponDraft("");
+    setCouponOpen(false);
     try { localStorage.removeItem("wynos-food-promo-code-v1"); } catch { /* private mode */ }
   };
 
@@ -2840,22 +2842,6 @@ function CheckoutSheet({
           </section>
         ) : null}
 
-        <section className="fx-coupon" aria-label="โค้ดส่วนลด">
-          <label htmlFor="wynos-food-coupon" className="fx-field-label"><strong>โค้ดส่วนลด ZOKY</strong></label>
-          <div className="fx-coupon-row">
-            <input id="wynos-food-coupon" type="text" autoCapitalize="characters" maxLength={24}
-              placeholder="เช่น FOOD50" value={couponDraft}
-              onChange={(event) => setCouponDraft(event.target.value.toUpperCase())} />
-            {couponCode ? (
-              <button type="button" className="fx-btn fx-btn--outline-neutral fx-btn--sm" onClick={removeCoupon}>ลบ</button>
-            ) : (
-              <button type="button" className="fx-btn fx-btn--outline fx-btn--sm" onClick={applyCoupon} disabled={busy || !couponDraft.trim()}>ใช้โค้ด</button>
-            )}
-          </div>
-          {couponCode && current?.quote?.coupon_applied ? <p role="status" className="fx-coupon-ok"><Check size={15} strokeWidth={3} />ใช้โค้ด {couponCode} สำเร็จ · ยอดสุทธิคำนวณโดยระบบแล้ว</p> : null}
-          {couponFailed ? <p role="alert" className="fx-coupon-error">ใช้โค้ดนี้ไม่ได้: {current?.error} · ลบโค้ดเพื่อใช้โปรโมชันปกติ</p> : null}
-        </section>
-
         <div className="fx-section-head"><h2>สรุปคำสั่งซื้อ</h2><small>{itemCount} รายการ</small></div>
         <div className="fx-checkout-items">
           {cart.map((line) => {
@@ -2874,6 +2860,37 @@ function CheckoutSheet({
             );
           })}
         </div>
+
+        {/* Founder 2026-11-04: one row above the price summary, like the big
+            delivery apps; the field opens only when the customer has a code. */}
+        <section className="fx-coupon" aria-label="โค้ดส่วนลด">
+          {couponCode && !couponFailed ? (
+            <div className="fx-coupon-applied" role="status">
+              <Ticket size={18} />
+              <span><strong>{couponCode}</strong><small>{current?.quote?.coupon_applied ? "ใช้โค้ดแล้ว · ยอดสุทธิคำนวณโดยระบบ" : "กำลังตรวจโค้ด"}</small></span>
+              <button type="button" className="fx-coupon-remove" aria-label={`ยกเลิกโค้ด ${couponCode}`} onClick={removeCoupon}><X size={18} /></button>
+            </div>
+          ) : couponOpen || couponCode ? (
+            <>
+              <label htmlFor="wynos-food-coupon" className="fx-field-label"><strong>โค้ดส่วนลด ZOKY</strong></label>
+              <div className="fx-coupon-row">
+                <input id="wynos-food-coupon" type="text" autoCapitalize="characters" maxLength={24} autoFocus={!couponCode}
+                  placeholder="เช่น FOOD50" value={couponDraft}
+                  onChange={(event) => setCouponDraft(event.target.value.toUpperCase())} />
+                {couponCode ? (
+                  <button type="button" className="fx-btn fx-btn--outline-neutral fx-btn--sm" onClick={removeCoupon}>ลบ</button>
+                ) : (
+                  <button type="button" className="fx-btn fx-btn--outline fx-btn--sm" onClick={applyCoupon} disabled={busy || !couponDraft.trim()}>ใช้โค้ด</button>
+                )}
+              </div>
+              {couponFailed ? <p role="alert" className="fx-coupon-error">ใช้โค้ดนี้ไม่ได้: {current?.error} · ลบโค้ดเพื่อใช้โปรโมชันปกติ</p> : null}
+            </>
+          ) : (
+            <button type="button" className="fx-coupon-open" onClick={() => setCouponOpen(true)}>
+              <Ticket size={18} /><span>ใช้โค้ดส่วนลด</span><ChevronRight size={18} />
+            </button>
+          )}
+        </section>
 
         <div className="fx-summary">
           <div><span>ค่าอาหาร</span><b>{foodMoney(serverSubtotal)}</b></div>

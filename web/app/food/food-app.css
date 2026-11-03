@@ -865,6 +865,16 @@
 .fx-coupon-row .fx-btn { min-height: 46px; }
 .fx-coupon-ok { display: flex; align-items: center; gap: 6px; color: var(--fx-green); font-size: 13px; font-weight: 600; }
 .fx-coupon-error { color: var(--fx-red-text); font-size: 13px; font-weight: 600; }
+.fx-coupon-open, .fx-coupon-applied { box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 14px; border: 1px solid var(--fx-line, #ececf0); border-radius: 14px; background: #fff; color: var(--fx-ink, #16161a); font: inherit; text-align: left; }
+.fx-coupon-open { cursor: pointer; }
+.fx-coupon-open > svg:first-child, .fx-coupon-applied > svg:first-child { color: var(--fx-red); flex: none; }
+.fx-coupon-open span { flex: 1; font-weight: 600; font-size: 15px; }
+.fx-coupon-open > svg:last-child { color: var(--fx-sub); }
+.fx-coupon-applied { border-color: rgb(21 128 61 / 30%); background: #f0fdf4; }
+.fx-coupon-applied span { flex: 1; display: grid; gap: 1px; min-width: 0; }
+.fx-coupon-applied strong { font-size: 15px; letter-spacing: .02em; }
+.fx-coupon-applied small { color: var(--fx-green); font-size: 12px; font-weight: 600; }
+.fx-coupon-remove { display: grid; place-items: center; width: 40px; height: 40px; margin-right: -8px; border: 0; border-radius: 999px; background: transparent; color: var(--fx-sub); cursor: pointer; }
 .fx-checkout-items { display: grid; }
 .fx-checkout-item { padding: 10px 0; border-bottom: 1px solid #f3f3f6; display: flex; align-items: center; gap: 12px; }
 .fx-checkout-thumb { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 10px; }

@@ -100,6 +100,9 @@ export const EN_EXACT: Record<string, string> = {
   "โค้ดส่วนลด WYNOS Food": "WYNOS Food coupon code",
   "เช่น FOOD50": "e.g. FOOD50",
   "ใช้โค้ด": "Apply code",
+  "ใช้โค้ดแล้ว · ยอดสุทธิคำนวณโดยระบบ": "Code applied · the total is worked out by the system",
+  "กำลังตรวจโค้ด": "Checking the code",
+  "ใช้โค้ดส่วนลด": "Use a discount code",
   "สำเร็จ · ยอดสุทธิคำนวณโดยระบบแล้ว": "applied · Your total was calculated securely",
   "ใช้โค้ดนี้ไม่ได้:": "Cannot use this coupon:",
   "· ลบโค้ดเพื่อใช้โปรโมชันปกติ": "· Remove this code to use the regular promotion",
@@ -3246,6 +3249,7 @@ Object.assign(EN_EXACT, {
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["เวลานัดรับ: {0}", "Pickup time: {0}"],
+  ["ยกเลิกโค้ด {0}", "Remove code {0}"],
   ["ร้านกำลังยุ่ง อาจรอนานขึ้นประมาณ {0} นาที", "The store is busy. It may take about {0} minutes longer"],
   ["ตอนนี้ ZOKY ให้บริการใน{0}", "ZOKY is currently available in {0}"],
   ["{0} จังหวัด", "{0} provinces"],
