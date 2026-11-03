@@ -3086,7 +3086,7 @@ Object.assign(EN_EXACT, {
   "รายการ จากทั้งหมด": "reviews of",
   "โหลดประวัติออเดอร์ไม่สำเร็จ": "Couldn't load order history",
   "รายการที่สิ้นสุดแล้ว ไม่ถูกลบจากระบบ": "Completed orders stay safely stored",
-  "ค้นหาเลขออเดอร์ เช่น WF0032": "Search order number, e.g. WF0032",
+  "ค้นหาเลขออเดอร์ เช่น ZF-0032": "Search order number, e.g. ZF-0032",
   "ค้นหาออเดอร์ที่ส่งสำเร็จหรือยกเลิก รวมถึงรายการที่ซ่อนจากแท็บ “เสร็จแล้ว” หลัง 24 ชั่วโมง": "Find delivered and cancelled orders, including orders hidden from Done after 24 hours",
   "สั่งเมื่อ": "Ordered",
   "(ยังมีรายการเก่า)": "(more orders available)",

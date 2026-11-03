@@ -30,7 +30,7 @@ export function configuredLiffIds(): { food?: string; merchant?: string } {
   };
 }
 
-const ORDER_QUERY = /^\?order=WF\d{4,9}$/;
+const ORDER_QUERY = /^\?order=(?:WF\d{4,9}|ZF-\d{4,9})$/;
 
 /**
  * Where a LINE message button may send the user: only that audience's app

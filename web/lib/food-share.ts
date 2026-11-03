@@ -118,7 +118,8 @@ export function hasShareRef(storeId: string): boolean {
   }
 }
 
-const ORDER_NUMBER = /^WF\d{4,9}$/;
+// Legacy WF0035 and ZOKY ZF-0036 (Founder 2026-11-04).
+const ORDER_NUMBER = /^(?:WF\d{4,9}|ZF-\d{4,9})$/;
 
 /** The order a notification tap asked to open (?order=WF0015), or null. */
 export function requestedOrderNumber(search: string): string | null {

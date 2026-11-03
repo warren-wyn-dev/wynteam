@@ -30,6 +30,7 @@ test("only well-formed LIFF IDs are used", () => {
 test("LINE buttons open only that app's home or one of its orders", () => {
   assert.equal(safeLineDestination("food", "/food?order=WF0015"), "/food?order=WF0015");
   assert.equal(safeLineDestination("merchant", "/merchant?order=WF123456"), "/merchant?order=WF123456");
+  assert.equal(safeLineDestination("food", "/food?order=ZF-0036"), "/food?order=ZF-0036");
   assert.equal(safeLineDestination("merchant", "/merchant"), "/merchant");
   assert.equal(safeLineDestination("food", null), "/food");
 });

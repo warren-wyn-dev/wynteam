@@ -69,7 +69,7 @@ function pushTarget(data) {
   if (data?.merchant_test === "1") return "/merchant?notification-test=1";
   // Food and Merchant notifications open their own app (Founder, 2026-10-05).
   // ...and the order the notification is about.
-  const order = typeof data?.order_number === "string" && /^WF\d{4,9}$/.test(data.order_number)
+  const order = typeof data?.order_number === "string" && /^(?:WF\d{4,9}|ZF-\d{4,9})$/.test(data.order_number)
     ? `?order=${data.order_number}`
     : "";
   // Promotions must stay within Food, and can prefill the code in checkout.

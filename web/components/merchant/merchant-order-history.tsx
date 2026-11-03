@@ -84,7 +84,7 @@ export function MerchantOrderHistory({ client, store, onOpenOrder }: {
       <section className="wm-history-controls" aria-label="ค้นหาประวัติออเดอร์">
         <form className="wm-history-search" onSubmit={(event) => { event.preventDefault(); setSearch(searchInput); }}>
           <Search size={18} aria-hidden="true" />
-          <input aria-label="ค้นหาเลขออเดอร์" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="ค้นหาเลขออเดอร์ เช่น WF0032" />
+          <input aria-label="ค้นหาเลขออเดอร์" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="ค้นหาเลขออเดอร์ เช่น ZF-0032" />
           <button type="submit">ค้นหา</button>
         </form>
         <div className="wm-history-selects">

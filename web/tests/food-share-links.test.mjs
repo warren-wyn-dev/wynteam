@@ -128,6 +128,10 @@ test("a tapped order notification opens only a well-formed order number", () => 
   const { requestedOrderNumber } = load();
   assert.equal(requestedOrderNumber("?order=WF0015"), "WF0015");
   assert.equal(requestedOrderNumber("?order=wf10000"), "WF10000");
+  // Founder 2026-11-04: ZOKY order numbers.
+  assert.equal(requestedOrderNumber("?order=ZF-0036"), "ZF-0036");
+  assert.equal(requestedOrderNumber("?order=zf-0036"), "ZF-0036");
+  for (const bad of ["?order=ZF0036", "?order=ZF-36", "?order=ZF-0036-1"]) assert.equal(requestedOrderNumber(bad), null, bad);
   for (const bad of ["", "?order=", "?order=WF15", "?order=WF0015x", "?order=<script>", "?order=../x"]) assert.equal(requestedOrderNumber(bad), null, bad);
 });
 
@@ -151,7 +155,7 @@ test("order pushes deep link, opens are counted for people, and stores see share
   const card = read("../components/merchant/merchant-share-card.tsx");
   const route = read("../app/food/s/[code]/route.ts");
   const preview = read("../lib/food-share-preview.ts");
-  assert.match(worker, /\/\^WF\\d\{4,9\}\$\/\.test\(data\.order_number\)/);
+  assert.match(worker, /\/\^\(\?:WF\\d\{4,9\}\|ZF-\\d\{4,9\}\)\$\/\.test\(data\.order_number\)/);
   assert.match(worker, /return `\/merchant\$\{order\}`/);
   assert.match(worker, /return `\/food\$\{order\}`/);
   assert.match(food, /requestedOrderNumber\(window\.location\.search\)/);
