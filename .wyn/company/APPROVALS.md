@@ -756,4 +756,4 @@
 - Order: push function first, then the migration, then the web release, so a ZF- order push is never routed to the wrong app.
 - Unchanged: past orders keep their WF numbers; order creation, payment and grants; Merchant push titles.
 - Rollback: `supabase/rollbacks/20261104120000_zoky_order_number_zf_rollback.sql` (new orders WF again; ZF- orders keep their numbers), redeploy the previous `send-push-notification` (8725ac45), Vercel rollback.
-- Status: approved; production deploy and apply pending Founder approval in the GitHub production environment.
+- Status: approved and live 2026-11-04 (push run 41727010938, DB run 41728493822, web run 41728753704, `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`).
