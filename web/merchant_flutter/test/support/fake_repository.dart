@@ -111,8 +111,35 @@ class FakeRepository extends MerchantRepository {
     if (id == null) {
       menuRows.add({'id': 'new-menu', ...values, 'is_available': true});
     } else {
-      menuRows.firstWhere((m) => m['id'] == id).addAll(values);
+      final row = menuRows.firstWhere((m) => m['id'] == id);
+      final soldOutToday = values['sold_out_today'];
+      row.addAll(Map.of(values)..remove('sold_out_today'));
+      if (soldOutToday != null) {
+        row['sold_out_until'] = soldOutToday == true
+            ? DateTime.now().add(const Duration(hours: 6)).toIso8601String()
+            : null;
+      }
     }
+  }
+
+  final busyCalls = <List<Object?>>[];
+  @override
+  Future<void> setBusy(
+    String storeId,
+    int extraMinutes,
+    int? durationMinutes,
+  ) async {
+    write();
+    busyCalls.add([extraMinutes, durationMinutes]);
+    storeRows.firstWhere((s) => s['id'] == storeId).addAll({
+      'busy_extra_minutes': extraMinutes,
+      'busy_until': extraMinutes == 0
+          ? null
+          : DateTime.now()
+                .add(Duration(minutes: durationMinutes!))
+                .toUtc()
+                .toIso8601String(),
+    });
   }
 
   @override

@@ -515,6 +515,7 @@
 .fx-store-closed-box strong { color: var(--fx-red-text); font-size: 14.5px; }
 .fx-store-closed-box span { color: var(--fx-sub); font-size: 13px; }
 .fx-store-min { color: var(--fx-sub); font-size: 13px; }
+.fx-store-busy { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 0; padding: 6px 12px; border-radius: 999px; background: #fff4e0; color: #92400e; font-size: 13px; font-weight: 600; }
 .fx-store-campaigns { display: grid; gap: 6px; margin-top: 6px; }
 .fx-store-campaigns span { min-height: 44px; padding: 0 14px; border-radius: 12px; background: var(--fx-red-soft); color: var(--fx-red-text); display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
 

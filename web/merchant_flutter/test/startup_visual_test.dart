@@ -257,7 +257,7 @@ void main() {
         const ValueKey('merchant-menu-image-placeholder'),
       );
       expect(placeholder, findsOneWidget);
-      expect(tester.getSize(placeholder), const Size(64, 64));
+      expect(tester.getSize(placeholder), const Size(56, 56));
       expect(client.requested.map((uri) => uri.path), ['/food-thumbnail.png']);
 
       client.responses.values.first.complete(

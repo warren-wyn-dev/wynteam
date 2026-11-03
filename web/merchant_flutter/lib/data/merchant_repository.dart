@@ -131,6 +131,15 @@ abstract class MerchantRepository {
       throw const MerchantException(
         'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
       );
+
+  /// Busy mode: [extraMinutes] 0 turns it off.
+  Future<void> setBusy(
+    String storeId,
+    int extraMinutes,
+    int? durationMinutes,
+  ) async => throw const MerchantException(
+    'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+  );
   Future<void> resolveCancel(
     String storeId,
     String orderId,
@@ -393,6 +402,19 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<void> setFulfillment(String storeId, Json values) async {
     await call('setFulfillment', {'storeId': storeId, 'values': values});
+  }
+
+  @override
+  Future<void> setBusy(
+    String storeId,
+    int extraMinutes,
+    int? durationMinutes,
+  ) async {
+    await call('setBusy', {
+      'storeId': storeId,
+      'extraMinutes': extraMinutes,
+      'durationMinutes': ?durationMinutes,
+    });
   }
 
   @override

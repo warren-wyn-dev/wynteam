@@ -105,6 +105,7 @@ class _FulfillmentSettingsPanelState extends State<FulfillmentSettingsPanel> {
               ? (v) => setState(() => cod = v)
               : null,
         ),
+        const SizedBox(height: 20),
         TextField(
           controller: prep,
           enabled: enabled,
@@ -114,7 +115,11 @@ class _FulfillmentSettingsPanelState extends State<FulfillmentSettingsPanel> {
           ),
         ),
         if (error != null)
-          Text(error!, style: const TextStyle(color: Colors.red)),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(error!, style: const TextStyle(color: Colors.red)),
+          ),
+        const SizedBox(height: 16),
         FilledButton(
           onPressed: enabled ? save : null,
           child: const Text('บันทึกรูปแบบรับอาหาร'),

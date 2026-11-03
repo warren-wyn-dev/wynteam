@@ -25,6 +25,8 @@ export type FoodCustomerStore = {
   temporary_closed_reason?: string | null;
   prep_time_min_minutes?: number;
   prep_time_max_minutes?: number;
+  busy_extra_minutes?: number | null;
+  busy_until?: string | null;
   menu_category_order?: string[];
   delivery_area: string | null;
   delivery_fee: number | string;
@@ -662,6 +664,8 @@ export type FoodDirectoryStore = {
   longitude?: number | null;
   prep_time_min_minutes?: number | null;
   prep_time_max_minutes?: number | null;
+  busy_extra_minutes?: number | null;
+  busy_until?: string | null;
   categories?: string[] | null;
   rating_average?: number | string | null;
   rating_count?: number | string | null;

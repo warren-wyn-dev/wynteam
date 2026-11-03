@@ -312,6 +312,10 @@ void main() {
         findsOneWidget,
       );
       expect(repo.writes, 0);
+      // The time is one suggestion; "เปลี่ยนเวลา" opens the choices.
+      expect(find.widgetWithText(ChoiceChip, '45 นาที'), findsNothing);
+      await tester.tap(find.widgetWithText(TextButton, 'เปลี่ยนเวลา').first);
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ChoiceChip, '45 นาที').first);
       await tester.pumpAndSettle();
       expect(repo.writes, 0);
@@ -351,6 +355,69 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+  testWidgets('switching a dish off offers sold out today or off', (
+    tester,
+  ) async {
+    final repo = FakeRepository();
+    await mount(tester, repo);
+    await tester.tap(find.text('เมนูอาหาร').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    expect(find.text('หมดวันนี้'), findsOneWidget);
+    expect(repo.writes, 0);
+    await tester.tap(find.text('หมดวันนี้'));
+    await tester.pumpAndSettle();
+    expect(repo.writes, 1);
+    // Still switched on in the data, but customers cannot order it today.
+    expect(repo.menuRows.first['is_available'], true);
+    expect(repo.menuRows.first['sold_out_until'], isNotNull);
+    expect(find.text('หมดวันนี้ · กลับมาขายพรุ่งนี้'), findsOneWidget);
+    expect(tester.widget<Switch>(find.byType(Switch).first).value, false);
+    // Switching it back on clears both.
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    expect(repo.menuRows.first['sold_out_until'], isNull);
+    expect(repo.menuRows.first['is_available'], true);
+    expect(tester.widget<Switch>(find.byType(Switch).first).value, true);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('busy mode adds minutes to the suggested time and turns off', (
+    tester,
+  ) async {
+    final repo = FakeRepository();
+    repo.storeRows.first['effective_open'] = true;
+    await mount(tester, repo);
+    expect(find.text('ร้านยุ่งอยู่ไหม'), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'โหมดยุ่ง'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, '+30 นาที'));
+    await tester.tap(find.widgetWithText(ChoiceChip, '2 ชั่วโมง'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'เปิดโหมดยุ่ง'));
+    await tester.pumpAndSettle();
+    expect(repo.busyCalls, [
+      [30, 120],
+    ]);
+    expect(find.text('โหมดยุ่ง · +30 นาที'), findsOneWidget);
+    // A new order now suggests 30 + 30 minutes.
+    await tester.tap(find.text('ออเดอร์').first);
+    await tester.pumpAndSettle();
+    expect(
+      find.widgetWithText(FilledButton, 'รับออเดอร์ · 60 นาที'),
+      findsOneWidget,
+    );
+    await tester.tap(find.widgetWithText(TextButton, 'ปิดโหมดยุ่ง').first);
+    await tester.pumpAndSettle();
+    expect(repo.busyCalls.last, [0, null]);
+    expect(
+      find.widgetWithText(FilledButton, 'รับออเดอร์ · 30 นาที'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('failed writes stay visible and do not alter server menu', (
     tester,
   ) async {
@@ -359,6 +426,9 @@ void main() {
     await tester.tap(find.text('เมนูอาหาร').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    // Switching off asks how long first.
+    await tester.tap(find.text('ปิดขายจนกว่าจะเปิดเอง'));
     await tester.pumpAndSettle();
     expect(repo.menuRows.first['is_available'], true);
     expect(find.textContaining('บัญชีนี้ไม่มีสิทธิ์'), findsOneWidget);

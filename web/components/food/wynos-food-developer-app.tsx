@@ -86,6 +86,7 @@ import { lineLinkPath } from "@/lib/line-liff";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   foodEstimateDeliveryRange,
+  foodStoreBusyExtraMinutes,
   foodMenuIsEffectivelyAvailable,
   foodStoreIsEffectivelyOpen,
   foodStoreStatusText,
@@ -448,7 +449,7 @@ function foodDistanceLabel(distance: number | null) {
 }
 
 /** W6 (zoky-web-home-food-spec): an ETA only when the store set real preparation times. */
-function foodStoreEtaLabel(store: Pick<FoodDirectoryStore, "prep_time_min_minutes" | "prep_time_max_minutes">, distance: number | null) {
+function foodStoreEtaLabel(store: Pick<FoodDirectoryStore, "prep_time_min_minutes" | "prep_time_max_minutes" | "busy_extra_minutes" | "busy_until">, distance: number | null) {
   if (store.prep_time_min_minutes == null || store.prep_time_max_minutes == null) return null;
   const eta = foodEstimateDeliveryRange(store, distance);
   return eta.min === eta.max ? `${eta.min} นาที` : `${eta.min}–${eta.max} นาที`;
@@ -1437,6 +1438,7 @@ function HomePanel({
   const distanceLabel = foodDistanceLabel(distance);
   // Delivery minutes = prep time + ride time, so only with both a pin and prep times.
   const etaLabel = distance != null ? foodStoreEtaLabel(store, distance) : null;
+  const busyExtra = foodStoreBusyExtraMinutes(store);
   const hasRating = reviewSummary.storeId === store.id && reviewSummary.count > 0;
   const recommended = category === "ทั้งหมด" ? menu.filter(isOrderable).slice(0, 6) : [];
   const toggleFavorite = () => {
@@ -1505,6 +1507,9 @@ function HomePanel({
           {distanceLabel ? <><span aria-hidden="true"> · </span><ZokyScooterIcon /><span>{distanceLabel}</span></> : null}
           {etaLabel ? <><span aria-hidden="true"> · </span><span>{etaLabel}</span></> : null}
         </p>
+        {open && busyExtra > 0 ? (
+          <p className="fx-store-busy" role="status"><Timer size={16} strokeWidth={2.4} />{`ร้านกำลังยุ่ง อาจรอนานขึ้นประมาณ ${busyExtra} นาที`}</p>
+        ) : null}
         {open ? null : (
           <div className="fx-store-closed-box" role="status">
             <strong>ปิดรับออเดอร์ชั่วคราว</strong>
@@ -1533,7 +1538,7 @@ function HomePanel({
           {store.address ? <div><MapPin size={19} /><span><small>ที่อยู่ร้าน</small><strong>{store.address}</strong></span></div> : null}
           {store.phone ? <a href={`tel:${store.phone}`}><Phone size={19} /><span><small>เบอร์ติดต่อ</small><strong>{store.phone}</strong></span></a> : null}
           {hoursText ? <div><Clock3 size={19} /><span><small>เวลาเปิด–ปิด</small><strong>{hoursText}</strong></span></div> : null}
-          <div><Timer size={19} /><span><small>เวลาเตรียมอาหาร</small><strong>ประมาณ {Number(store.prep_time_min_minutes ?? 15)}–{Number(store.prep_time_max_minutes ?? 30)} นาที</strong></span></div>
+          <div><Timer size={19} /><span><small>เวลาเตรียมอาหาร</small><strong>ประมาณ {Number(store.prep_time_min_minutes ?? 15) + busyExtra}–{Number(store.prep_time_max_minutes ?? 30) + busyExtra} นาที</strong></span></div>
           {store.delivery_area ? <div><Bike size={19} /><span><small>พื้นที่จัดส่ง</small><strong>{store.delivery_area}</strong></span></div> : null}
         </section>
       ) : null}

@@ -3246,6 +3246,7 @@ Object.assign(EN_EXACT, {
 
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["เวลานัดรับ: {0}", "Pickup time: {0}"],
+  ["ร้านกำลังยุ่ง อาจรอนานขึ้นประมาณ {0} นาที", "The store is busy. It may take about {0} minutes longer"],
   ["ตอนนี้ ZOKY ให้บริการใน{0}", "ZOKY is currently available in {0}"],
   ["{0} จังหวัด", "{0} provinces"],
   ["รหัสรับอาหาร: {0}", "Pickup code: {0}"],

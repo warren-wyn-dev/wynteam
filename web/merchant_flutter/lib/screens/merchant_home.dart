@@ -671,7 +671,7 @@ class _MerchantHomeState extends State<MerchantHome>
         ),
         metric(
           'เมนูเปิดขาย',
-          '${c.menu.where((f) => f['is_available'] == true).length}',
+          '${c.menu.where(menuOnSale).length}',
           Icons.restaurant_menu,
           'จาก ${c.menu.length} เมนู',
         ),
@@ -1307,6 +1307,7 @@ class _MerchantHomeState extends State<MerchantHome>
     final done = steps.where((step) => step.done).length;
     return [
       storeOpenPanel(store, effectiveOpen),
+      if (c.canOrders && (effectiveOpen || busyExtra() > 0)) busyPanel(),
       todoPanel(),
       if (c.reportError != null) errorBox(c.reportError!),
       salesSummary(),
@@ -1576,7 +1577,6 @@ class _MerchantHomeState extends State<MerchantHome>
   Widget moreRow(
     String label,
     VoidCallback? onTap, {
-    int? icon3d,
     IconData icon = Icons.chevron_right,
     String? hint,
     Color? hintColor,
@@ -1597,17 +1597,17 @@ class _MerchantHomeState extends State<MerchantHome>
             children: [
               Opacity(
                 opacity: onTap == null ? .4 : 1,
-                child: icon3d != null
-                    ? MerchantToolIcon(index: icon3d, size: 40, fallback: icon)
-                    : Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: brandSoft,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(icon, color: brand, size: 22),
-                      ),
+                // One flat style for every row; the 3D set stays on the home
+                // shortcuts, where every tool has one.
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: brandSoft,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: brand, size: 22),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1737,7 +1737,6 @@ class _MerchantHomeState extends State<MerchantHome>
         moreRow(
           'การเงิน',
           () => navigate(8),
-          icon3d: 0,
           icon: Icons.account_balance_wallet_outlined,
           hint: 'ยอดเงินเข้าบัญชีร้าน',
         ),
@@ -1751,7 +1750,6 @@ class _MerchantHomeState extends State<MerchantHome>
       moreRow(
         'ตั้งค่าร้าน',
         () => navigate(5),
-        icon3d: 7,
         icon: Icons.settings_outlined,
         hint: 'ชื่อ รูป ที่อยู่ พื้นที่ส่ง ช่องทางรับเงิน',
       ),
@@ -1765,40 +1763,23 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
     ]),
     moreGroup('การตลาดและคุณภาพ', [
-      moreRow(
-        'โปรโมชั่น',
-        () => navigate(6),
-        icon3d: 2,
-        icon: Icons.local_offer_outlined,
-      ),
+      moreRow('โปรโมชั่น', () => navigate(6), icon: Icons.local_offer_outlined),
       if (c.canManage) ...[
         moreRow(
           'แคมเปญ ZOKY',
           () => navigate(11),
-          icon3d: 3,
           icon: Icons.shopping_bag_outlined,
           hint: 'ZOKY ช่วยออกส่วนลด',
         ),
-        moreRow(
-          'โฆษณา',
-          () => navigate(10),
-          icon3d: 1,
-          icon: Icons.campaign_outlined,
-        ),
+        moreRow('โฆษณา', () => navigate(10), icon: Icons.campaign_outlined),
       ],
       moreRow(
         'คุณภาพร้าน',
         () => navigate(7),
-        icon3d: 4,
         icon: Icons.verified_user_outlined,
         hint: 'คะแนนและรีวิวจากลูกค้า',
       ),
-      moreRow(
-        'ฟีดแบ็ก',
-        () => navigate(12),
-        icon3d: 5,
-        icon: Icons.chat_bubble_outline,
-      ),
+      moreRow('ฟีดแบ็ก', () => navigate(12), icon: Icons.chat_bubble_outline),
     ]),
     moreGroup('ทีมและการแจ้งเตือน', [
       moreRow('ทีมงาน', () => navigate(9), icon: Icons.groups_outlined),
@@ -1811,12 +1792,7 @@ class _MerchantHomeState extends State<MerchantHome>
             : 'รับการแจ้งเตือนเมื่อมีออเดอร์ใหม่',
         hintColor: pushEnabled ? success : null,
       ),
-      moreRow(
-        'ช่วยเหลือ',
-        () => navigate(13),
-        icon3d: 6,
-        icon: Icons.support_outlined,
-      ),
+      moreRow('ช่วยเหลือ', () => navigate(13), icon: Icons.support_outlined),
     ]),
     OutlinedButton.icon(
       onPressed: c.busy || signingOut ? null : signOut,
@@ -2061,6 +2037,7 @@ class _MerchantHomeState extends State<MerchantHome>
   };
   List<Widget> orderPage() => [
     heading('ออเดอร์', 'ตรวจชำระเงินก่อนรับ และเริ่มจัดส่งเมื่อพร้อม'),
+    if (busyExtra() > 0 && c.canOrders) busyPanel(),
     SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -2116,12 +2093,177 @@ class _MerchantHomeState extends State<MerchantHome>
     return dateLabel(value);
   }
 
-  int defaultEta(Json o) =>
-      (num.tryParse(
-                '${o['eta_minutes'] ?? c.store?['prep_time_max_minutes'] ?? 30}',
-              )?.toInt() ??
-              30)
-          .clamp(1, 240);
+  int defaultEta(Json o) {
+    final saved = num.tryParse('${o['eta_minutes'] ?? ''}')?.toInt();
+    if (saved != null) return saved.clamp(1, 240);
+    final prep =
+        num.tryParse('${c.store?['prep_time_max_minutes'] ?? 30}')?.toInt() ??
+        30;
+    return (prep + busyExtra()).clamp(1, 240);
+  }
+
+  /// Busy-mode minutes in effect now (0 when off or expired).
+  int busyExtra() {
+    final store = c.store;
+    if (store == null) return 0;
+    final until = DateTime.tryParse('${store['busy_until'] ?? ''}');
+    if (until == null || !until.isAfter(DateTime.now())) return 0;
+    return (num.tryParse('${store['busy_extra_minutes'] ?? 0}') ?? 0).toInt();
+  }
+
+  String clockLabel(dynamic value) {
+    final at = DateTime.tryParse(
+      '$value',
+    )?.toUtc().add(const Duration(hours: 7));
+    if (at == null) return '—';
+    return '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Founder 2026-11-03 (after studying the big delivery apps): a rush adds
+  /// preparation minutes for a while; customers see the longer wait.
+  Future<void> openBusyMode() async {
+    var extra = 20, duration = 60;
+    final picked = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'โหมดยุ่ง',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'เพิ่มเวลาเตรียมอาหารชั่วคราว ลูกค้าจะเห็นเวลารอที่นานขึ้น',
+                  style: TextStyle(color: Color(0xFF6B6B76)),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'เพิ่มเวลา',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final m in const [10, 20, 30])
+                      ChoiceChip(
+                        label: Text('+$m นาที'),
+                        selected: extra == m,
+                        onSelected: (_) => setSheet(() => extra = m),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'นานเท่าไร',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final e in const {
+                      30: '30 นาที',
+                      60: '1 ชั่วโมง',
+                      120: '2 ชั่วโมง',
+                    }.entries)
+                      ChoiceChip(
+                        label: Text(e.value),
+                        selected: duration == e.key,
+                        onSelected: (_) => setSheet(() => duration = e.key),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('เปิดโหมดยุ่ง'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (picked != true || !mounted) return;
+    if (await c.mutate(
+      () => widget.repository.setBusy(c.storeId!, extra, duration),
+    )) {
+      notice('เปิดโหมดยุ่งแล้ว · เพิ่มเวลา $extra นาที');
+    }
+  }
+
+  Future<void> stopBusyMode() async {
+    if (await c.mutate(() => widget.repository.setBusy(c.storeId!, 0, null))) {
+      notice('ปิดโหมดยุ่งแล้ว');
+    }
+  }
+
+  /// Busy mode row: an offer when off, an amber status with "ปิด" when on.
+  Widget busyPanel() {
+    final extra = busyExtra();
+    final allowed = c.writable && c.canOrders && !c.busy;
+    final active = extra > 0;
+    return homePanel(
+      Row(
+        children: [
+          Icon(
+            active ? Icons.local_fire_department : Icons.timer_outlined,
+            color: active ? const Color(0xFFB45309) : brand,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  active ? 'โหมดยุ่ง · +$extra นาที' : 'ร้านยุ่งอยู่ไหม',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: active ? const Color(0xFF92400E) : ink,
+                  ),
+                ),
+                Text(
+                  active
+                      ? 'ถึง ${clockLabel(c.store!['busy_until'])} น. · ลูกค้าเห็นเวลารอนานขึ้น'
+                      : 'เพิ่มเวลาเตรียมอาหารชั่วคราว',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B6B76),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (active)
+            TextButton(
+              onPressed: allowed ? stopBusyMode : null,
+              child: const Text('ปิดโหมดยุ่ง'),
+            )
+          else
+            OutlinedButton(
+              onPressed: allowed ? openBusyMode : null,
+              child: const Text('โหมดยุ่ง'),
+            ),
+        ],
+      ),
+      radius: 20,
+      padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+      gradient: active
+          ? const LinearGradient(colors: [Color(0xFFFFF4E0), Colors.white])
+          : null,
+    );
+  }
 
   /// Payment still needs the store's check before the order can be accepted.
   bool needsPaymentReview(Json o) =>
@@ -2199,6 +2341,47 @@ class _MerchantHomeState extends State<MerchantHome>
     return pill(orderStatusLabel(o), const Color(0xFF9C1149), brandSoft);
   }
 
+  Future<void> pickEta(String id, int current, List<int> options) async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'อาหารจะพร้อมในกี่นาที',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'ลูกค้าจะเห็นเวลานี้หลังร้านรับออเดอร์',
+                style: TextStyle(color: Color(0xFF6B6B76)),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final minutes in options)
+                    ChoiceChip(
+                      label: Text('$minutes นาที'),
+                      selected: current == minutes,
+                      onSelected: (_) => Navigator.pop(context, minutes),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _etaChoice[id] = picked);
+  }
+
   Widget orderCard(Json o) {
     final status = o['status'] as String;
     final next = orderNextStatus(o);
@@ -2209,7 +2392,8 @@ class _MerchantHomeState extends State<MerchantHome>
         : c.canOrders;
     final id = '${o['id']}';
     final eta = _etaChoice[id] ?? defaultEta(o);
-    final etaOptions = ({15, 30, 45, defaultEta(o)}.toList()..sort());
+    final etaOptions = ({10, 15, 20, 30, 45, 60, defaultEta(o)}.toList()
+      ..sort());
     final items = (o['food_order_items'] as List? ?? []);
     const muted = Color(0xFF6B5F66);
     final canAccept =
@@ -2432,20 +2616,35 @@ class _MerchantHomeState extends State<MerchantHome>
           ),
           if (status == 'pending_acceptance' && !stripeWaiting(o)) ...[
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            // One suggested time with a quiet "change" link, instead of a
+            // row of chips that wraps on phones.
+            Row(
               children: [
-                const Text('พร้อมใน', style: TextStyle(color: muted)),
-                for (final minutes in etaOptions)
-                  ChoiceChip(
-                    label: Text('$minutes นาที'),
-                    selected: eta == minutes,
-                    onSelected: canAccept
-                        ? (_) => setState(() => _etaChoice[id] = minutes)
-                        : null,
+                const Icon(Icons.timer_outlined, size: 20, color: muted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'พร้อมในประมาณ ',
+                      style: const TextStyle(color: muted),
+                      children: [
+                        TextSpan(
+                          text: '$eta นาที',
+                          style: const TextStyle(
+                            color: ink,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+                TextButton(
+                  onPressed: canAccept
+                      ? () => pickEta(id, eta, etaOptions)
+                      : null,
+                  child: const Text('เปลี่ยนเวลา'),
+                ),
               ],
             ),
           ],
@@ -2634,7 +2833,7 @@ class _MerchantHomeState extends State<MerchantHome>
     final rows = c.menu
         .where(
           (m) =>
-              (!soldOutOnly || m['is_available'] != true) &&
+              (!soldOutOnly || !menuOnSale(m)) &&
               (selectedCategory == null ||
                   '${m['category'] ?? 'ทั่วไป'}' == selectedCategory) &&
               '${m['name']} ${m['category'] ?? ''}'.toLowerCase().contains(
@@ -2663,7 +2862,7 @@ class _MerchantHomeState extends State<MerchantHome>
         .toList();
     final selectedCategory = categories.contains(category) ? category : null;
     final groups = _menuGroups();
-    final soldOut = c.menu.where((m) => m['is_available'] != true).length;
+    final soldOut = c.menu.where((m) => !menuOnSale(m)).length;
     Widget filterChip(String label, bool selected, VoidCallback onTap) =>
         Padding(
           padding: const EdgeInsets.only(right: 8),
@@ -2691,9 +2890,18 @@ class _MerchantHomeState extends State<MerchantHome>
         decoration: InputDecoration(
           hintText: 'ค้นหาเมนูหรือหมวดหมู่',
           prefixIcon: const Icon(Icons.search),
+          // Same light outline as the rest of the app; pink only on focus.
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(32),
             borderSide: const BorderSide(color: Color(0xFFEBEBEF)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(32),
+            borderSide: const BorderSide(color: Color(0xFFEBEBEF)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(32),
+            borderSide: const BorderSide(color: brand, width: 1.5),
           ),
         ),
       ),
@@ -2812,7 +3020,7 @@ class _MerchantHomeState extends State<MerchantHome>
     final source = thumbnail is String && thumbnail.isNotEmpty
         ? thumbnail
         : original;
-    final pixels = (64 * MediaQuery.devicePixelRatioOf(context).clamp(1, 3))
+    final pixels = (56 * MediaQuery.devicePixelRatioOf(context).clamp(1, 3))
         .ceil();
     Widget image(String url, {required bool fallback}) => Image.network(
       url,
@@ -2836,11 +3044,90 @@ class _MerchantHomeState extends State<MerchantHome>
     return image(source, fallback: source != original);
   }
 
+  /// Customers can order it now: switched on and not sold out until later.
+  bool menuOnSale(Json m) {
+    if (m['is_available'] != true) return false;
+    final until = DateTime.tryParse('${m['sold_out_until'] ?? ''}');
+    return until == null || !until.isAfter(DateTime.now());
+  }
+
+  /// "หมดวันนี้" ends at the next Bangkok midnight.
+  bool menuSoldOutToday(Json m) {
+    final until = DateTime.tryParse('${m['sold_out_until'] ?? ''}');
+    if (m['is_available'] != true || until == null) return false;
+    return until.isAfter(DateTime.now());
+  }
+
+  /// Switching a dish off asks how long, like the big delivery apps: sold out
+  /// for today (back on sale automatically tomorrow) or off until turned on.
+  Future<void> setMenuOnSale(Json item, bool value) async {
+    Map<String, dynamic>? values;
+    if (value) {
+      values = {'is_available': true, 'sold_out_today': false};
+    } else {
+      final choice = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'ปิดขาย ${item['name']}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'ลูกค้าจะสั่งเมนูนี้ไม่ได้จนกว่าจะกลับมาขาย',
+                  style: TextStyle(color: Color(0xFF6B6B76)),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.today_outlined, color: brand),
+                  title: const Text('หมดวันนี้'),
+                  subtitle: const Text('กลับมาขายเองพรุ่งนี้ตอนเที่ยงคืน'),
+                  onTap: () => Navigator.pop(context, 'today'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.block, color: Color(0xFF6B6B76)),
+                  title: const Text('ปิดขายจนกว่าจะเปิดเอง'),
+                  subtitle: const Text('เช่น เมนูตามฤดูกาล'),
+                  onTap: () => Navigator.pop(context, 'off'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (choice == 'today') {
+        values = {'sold_out_today': true};
+      } else if (choice == 'off') {
+        values = {'is_available': false, 'sold_out_today': false};
+      }
+    }
+    if (values == null || !mounted) return;
+    await c.mutate(
+      () => widget.repository.saveMenu(c.storeId!, values!, id: item['id']),
+      reload: MutationReload.menu,
+    );
+  }
+
   Widget menuRow(Json item) => LayoutBuilder(
     builder: (context, size) {
+      // One compact row like the big delivery apps; controls drop below only
+      // on very narrow screens or very large text.
       final compact =
-          size.maxWidth < 380 ||
+          size.maxWidth < 300 ||
           MediaQuery.textScalerOf(context).scale(14) > 19;
+      final onSale = menuOnSale(item);
+      final soldOutToday = menuSoldOutToday(item);
+      final options = (item['options'] as List? ?? []).length;
       final controls = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -2848,15 +3135,10 @@ class _MerchantHomeState extends State<MerchantHome>
             container: true,
             label: 'เปิดขาย ${item['name']}',
             child: Switch.adaptive(
-              value: item['is_available'] == true,
+              value: onSale,
               activeTrackColor: success,
               onChanged: c.writable && c.canManage
-                  ? (value) => c.mutate(
-                      () => widget.repository.saveMenu(c.storeId!, {
-                        'is_available': value,
-                      }, id: item['id']),
-                      reload: MutationReload.menu,
-                    )
+                  ? (value) => setMenuOnSale(item, value)
                   : null,
             ),
           ),
@@ -2868,22 +3150,33 @@ class _MerchantHomeState extends State<MerchantHome>
             ),
         ],
       );
+      final String? status = soldOutToday
+          ? (DateTime.tryParse(
+                      '${item['sold_out_until']}',
+                    )!.toUtc().difference(DateTime.now().toUtc()).inHours <
+                    24
+                ? 'หมดวันนี้ · กลับมาขายพรุ่งนี้'
+                : 'หมดถึง ${dateLabel(item['sold_out_until'])}')
+          : (!onSale ? 'ปิดขายอยู่' : null);
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           children: [
             Row(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   child: SizedBox(
-                    width: 64,
-                    height: 64,
-                    child:
-                        item['image_url'] is String &&
-                            (item['image_url'] as String).isNotEmpty
-                        ? _menuImage(item)
-                        : menuPlaceholder(),
+                    width: 56,
+                    height: 56,
+                    child: Opacity(
+                      opacity: onSale ? 1 : .5,
+                      child:
+                          item['image_url'] is String &&
+                              (item['image_url'] as String).isNotEmpty
+                          ? _menuImage(item)
+                          : menuPlaceholder(),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2893,34 +3186,35 @@ class _MerchantHomeState extends State<MerchantHome>
                     children: [
                       Text(
                         item['name'],
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
-                        (item['options'] as List? ?? []).isEmpty
-                            ? 'ไม่มีตัวเลือกเสริม'
-                            : '${(item['options'] as List).length} กลุ่มตัวเลือกเสริม',
+                        options == 0
+                            ? money(item['price'])
+                            : '${money(item['price'])} · ตัวเลือกเสริม $options กลุ่ม',
                         style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6B6B76),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Color(0xFF4A4A55),
                         ),
                       ),
-                      if (item['sold_out_until'] != null)
+                      if (status != null)
                         Text(
-                          'หมดชั่วคราวถึง ${dateLabel(item['sold_out_until'])}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF9A5800),
+                          status,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: soldOutToday
+                                ? const Color(0xFF9A5800)
+                                : const Color(0xFF6B6B76),
                           ),
                         ),
-                      const SizedBox(height: 3),
-                      Text(
-                        money(item['price']),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
                     ],
                   ),
                 ),

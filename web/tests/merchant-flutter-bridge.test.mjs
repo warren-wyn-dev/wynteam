@@ -784,3 +784,43 @@ test('a write drops unused prefetches, and prefetched orders get one catch-up re
   await o.request('subscribe',{storeId:STORE});await settle();
   assert.equal(o.changed,1);
 });
+
+// Founder 2026-11-03 ("ทำ ก กับ ข"): sold out today and busy mode.
+test('sold out today sets the next Bangkok midnight and clearing removes it',async()=>{
+  const h=harness();
+  assert.equal((await h.request('saveMenu',{storeId:STORE,id:ITEM,values:{sold_out_today:true}})).ok,true);
+  const write=h.calls.find(c=>c.table==='food_menu_items'&&c.name==='update');
+  assert.deepEqual(Object.keys(write.patch),['sold_out_until']);
+  assert.equal(write.patch.sold_out_until,availability.foodSoldOutUntilTomorrowBangkok());
+  assert.match(write.patch.sold_out_until,/T17:00:00\.000Z$/);
+  assert.equal((await h.request('saveMenu',{storeId:STORE,id:ITEM,values:{is_available:true,sold_out_today:false}})).ok,true);
+  assert.equal(h.menu.sold_out_until,null);assert.equal(h.menu.is_available,true);
+  // Only for an existing dish.
+  assert.equal((await h.request('saveMenu',{storeId:STORE,values:{name:'ใหม่',price:50,sold_out_today:true}})).ok,false);
+});
+test('busy mode calls only the RPC, needs an order role and bounded minutes',async()=>{
+  const h=harness();
+  assert.equal((await h.request('setBusy',{storeId:STORE,extraMinutes:20,durationMinutes:60})).ok,true);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.calls.find(c=>c.name==='food_store_set_busy').args)),{p_store_id:STORE,p_extra_minutes:20,p_duration_minutes:60});
+  const role=h.calls.find(c=>c.name==='merchant_has_store_role');
+  assert.deepEqual(JSON.parse(JSON.stringify(role.args.p_roles)),['owner','admin','manager','orders']);
+  assert.equal(h.calls.some(c=>c.table==='food_stores'&&c.name==='update'),false);
+  assert.equal((await h.request('setBusy',{storeId:STORE,extraMinutes:0})).ok,true);
+  assert.equal(h.calls.filter(c=>c.name==='food_store_set_busy').at(-1).args.p_duration_minutes,null);
+  const bad=harness();
+  for(const args of [{extraMinutes:90,durationMinutes:60},{extraMinutes:3,durationMinutes:60},{extraMinutes:20,durationMinutes:5},{extraMinutes:20,durationMinutes:600},{extraMinutes:20},{extraMinutes:2.5,durationMinutes:60}])
+    assert.equal((await bad.request('setBusy',{storeId:STORE,...args})).ok,false);
+  assert.equal(bad.calls.some(c=>c.name==='food_store_set_busy'),false);
+  const viewer=harness();viewer.state.manage=false;
+  assert.equal((await viewer.request('setBusy',{storeId:STORE,extraMinutes:20,durationMinutes:60})).ok,false);
+  assert.equal(viewer.calls.some(c=>c.name==='food_store_set_busy'),false);
+  h.state.rpcError={name:'food_store_set_busy',message:'internal secret diagnostic'};
+  assert.equal((await h.request('setBusy',{storeId:STORE,extraMinutes:20,durationMinutes:60})).error.includes('secret'),false);
+});
+test('customer delivery estimate adds busy minutes only while busy mode lasts',()=>{
+  const base={prep_time_min_minutes:15,prep_time_max_minutes:30};
+  const later=new Date(Date.now()+3600e3).toISOString(),earlier=new Date(Date.now()-60e3).toISOString();
+  assert.deepEqual(JSON.parse(JSON.stringify(availability.foodEstimateDeliveryRange({...base,busy_extra_minutes:20,busy_until:later},0))),{min:35,max:50});
+  assert.deepEqual(JSON.parse(JSON.stringify(availability.foodEstimateDeliveryRange({...base,busy_extra_minutes:20,busy_until:earlier},0))),{min:15,max:30});
+  assert.deepEqual(JSON.parse(JSON.stringify(availability.foodEstimateDeliveryRange(base,0))),{min:15,max:30});
+});

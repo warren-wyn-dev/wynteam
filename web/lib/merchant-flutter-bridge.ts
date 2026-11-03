@@ -6,7 +6,7 @@ import {
   uploadFoodPrivateImage, uploadFoodPublicImage, type FoodMenuItem, type FoodOrder, type FoodStore,
 } from "@/lib/food-merchant";
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
-import { FOOD_DAY_KEYS, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
+import { FOOD_DAY_KEYS, foodSoldOutUntilTomorrowBangkok, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { addMerchantStaff, fetchMerchantStaff, fetchMerchantStoreReviews, replyMerchantStoreReview, setMerchantStorePublished, updateMerchantStaff } from "@/lib/merchant-core";
 import { fetchFinanceSummary, periodRange } from "@/lib/merchant-finance";
 import { fetchMerchantAdAccount, merchantAdError, requestAdTopup, setAdActive } from "@/lib/merchant-ads";
@@ -287,7 +287,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     for (const [key, expected] of Object.entries(patch)) {
       // numeric columns may come back as strings; timestamps with another offset format.
       const actual = NUMERIC_KEYS.has(key) && data[key] != null ? Number(data[key])
-        : key === "temporary_closed_until" && typeof data[key] === "string" ? new Date(data[key] as string).toISOString()
+        : (key === "temporary_closed_until" || key === "sold_out_until") && typeof data[key] === "string" ? new Date(data[key] as string).toISOString()
         : data[key];
       if (!sameValue(actual, expected)) throw new Error("write_not_applied");
     }
@@ -390,6 +390,19 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     await storeAccess(storeId, STORE_READ_METHODS.has(method));
     await ensureSession();
     switch (method) {
+      case "setBusy": {
+        // Founder 2026-11-03 busy mode: order staff add 5-60 minutes for
+        // 15-240 minutes, or turn it off (0). food_store_set_busy re-checks.
+        const extra = Number(args.extraMinutes), duration = args.durationMinutes == null ? null : Number(args.durationMinutes);
+        if (!Number.isInteger(extra) || extra < 0 || extra > 60 || (extra > 0 && extra < 5)) throw new BridgeInputError();
+        if (extra > 0 && (duration == null || !Number.isInteger(duration) || duration < 15 || duration > 240)) throw new BridgeInputError();
+        const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin", "manager", "orders"] });
+        if (error || data !== true) throw new BridgeAccessError();
+        await ensureSession();
+        const result = await client.rpc("food_store_set_busy", { p_store_id: storeId, p_extra_minutes: extra, p_duration_minutes: extra > 0 ? duration : null });
+        if (result.error) throw new Error(result.error.message);
+        return null;
+      }
       case "setFulfillment": {
         const values = object(args.values);
         const { data, error } = await client.rpc("merchant_has_store_role", { p_store_id: storeId, p_roles: ["owner", "admin"] });
@@ -582,6 +595,12 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (values.description !== undefined) patch.description = text(values.description, 1000) || null;
         if (values.price !== undefined) patch.price = amount(values.price, 999999);
         if (values.is_available !== undefined) patch.is_available = bool(values.is_available);
+        // Founder 2026-11-03: "หมดวันนี้" sells again at the next Bangkok midnight.
+        // The order-item guard on the server refuses it until then.
+        if (values.sold_out_today !== undefined) {
+          if (!itemId) throw new BridgeInputError();
+          patch.sold_out_until = bool(values.sold_out_today) ? foodSoldOutUntilTomorrowBangkok() : null;
+        }
         if (!Object.keys(patch).length) throw new BridgeInputError();
         if (itemId) {
           // Patch only edited fields. Rewriting an old options/image/stock
