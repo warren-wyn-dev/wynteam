@@ -737,4 +737,4 @@
 - Safeguards: changes need `internal.is_super_admin()`; every change writes `zoky_service_area_changed` to the audit log; the last open area cannot be turned off; direct table writes stay revoked.
 - Risks: closing an area immediately stops new orders and store publishing there (existing orders unaffected); province borders simplified to about 330 m.
 - Rollback: `supabase/rollbacks/20261103100000_zoky_service_area_admin_rollback.sql`, previous ZOKY Admin and web deployments.
-- Status: approved; implementation and tests prepared. Not yet applied.
+- Status: approved and live 2026-11-03 (DB run 41548061488, ZOKY Admin run 41496300741, web run 41496305705).

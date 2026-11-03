@@ -162,3 +162,11 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Web: candidate `652caf61` (base `1c2deae3`), run 41467993367; Founder approved both reviews. Live `dpl_7P6sWFUbysXGCQL3dDJszxhz7YPw`; `/maps/food-service-area-thailand.json` 200, old Maha Sarakham file 404, new "ส่งได้เฉพาะในประเทศไทย" message in the bundle, guest Food renders with no page or runtime errors.
 - Rollback: `supabase/rollbacks/20261102140000_zoky_service_area_thailand_rollback.sql` (Maha Sarakham-only again) and web `dpl_2zFF3cWXz4PsokMJ4cskc64jkD9q`.
 - Follow-up: WYNOS/ZOKY Admin store page still labels the area "อยู่ในเขตมหาสารคาม".
+
+## 2026-11-02/03 — ZOKY Admin chooses service areas, ZOKY pink and the B logo
+
+- Founder: "ให้ Admin เลือกได้ว่าจะเปิดให้บริการที่ไหนบ้าง" (country + 77 provinces, ZOKY Admin, super admin only), "ใส่สีนิดหน่อย มันขาวดำเกิน", logo option B. PR #1323, apply fix PR #1324.
+- ZOKY Admin: run 41496300741, live `dpl_4hH5jT8t2gspjEp7ZokQJRfyNfTw` on `zoky-admin.wynos.online` (`/login` 200, B logo, `/icon.png` and `/brand/*` served).
+- Web: candidate `fabf1bb3` (base `652caf61`), run 41496305705, live `dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr`; map and wording follow the open areas; no runtime errors in the first hour. Rollback `dpl_7P6sWFUbysXGCQL3dDJszxhz7YPw`.
+- DB: `20261103100000_zoky_service_area_admin.sql`. Run 41496296443 failed before any SQL ("Argument list too long" for the 340 KB migration); after PR #1324 run 41548061488 applied and verified: 77 provinces, 1 country, 0 ungrouped, an area open; Bangkok TH-10, Ko Tao TH-84, Maha Sarakham TH-44; anon cannot list or set; set is super-admin only; members cannot update the table; audit event allowed. Live areas unchanged (Thailand + Maha Sarakham on).
+- Rollback: `supabase/rollbacks/20261103100000_zoky_service_area_admin_rollback.sql`, previous ZOKY Admin deployment, web `dpl_7P6sWFUbysXGCQL3dDJszxhz7YPw`.
