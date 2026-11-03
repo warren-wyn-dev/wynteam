@@ -170,3 +170,10 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Web: candidate `fabf1bb3` (base `652caf61`), run 41496305705, live `dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr`; map and wording follow the open areas; no runtime errors in the first hour. Rollback `dpl_7P6sWFUbysXGCQL3dDJszxhz7YPw`.
 - DB: `20261103100000_zoky_service_area_admin.sql`. Run 41496296443 failed before any SQL ("Argument list too long" for the 340 KB migration); after PR #1324 run 41548061488 applied and verified: 77 provinces, 1 country, 0 ungrouped, an area open; Bangkok TH-10, Ko Tao TH-84, Maha Sarakham TH-44; anon cannot list or set; set is super-admin only; members cannot update the table; audit event allowed. Live areas unchanged (Thailand + Maha Sarakham on).
 - Rollback: `supabase/rollbacks/20261103100000_zoky_service_area_admin_rollback.sql`, previous ZOKY Admin deployment, web `dpl_7P6sWFUbysXGCQL3dDJszxhz7YPw`.
+
+## 2026-11-03 — ร้านแนะนำ on the ZOKY Food home
+
+- Founder: "หน้านี้ เพิ่ม ร้านแนะนำ" → chose "Admin เลือก + เติมอัตโนมัติ" and "การ์ดเลื่อนซ้าย-ขวา". PR #1325.
+- Candidate `a3c510d8` (base `fabf1bb3`), run 41645518741; Founder approved both reviews. Live `dpl_HwCQqAF3195jDCqBFxM2cirFNwjm` (alias `zoky.wynos.online`); bundle contains the `food_active_featured_stores` read and the new section; no runtime errors in the first hour.
+- Behaviour: ZOKY Admin featured stores first (priority order), then open stores by delivered orders/rating, closed last; max 10; shows with one store.
+- Rollback: `dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr`.
