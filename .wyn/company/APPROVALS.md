@@ -748,3 +748,12 @@
 - Risks: busy mode lengthens customer estimates and the earliest pickup time while on (max +60 minutes for max 4 hours, then off by itself); the store directory list does not show busy minutes (store page and checkout do).
 - Rollback: `supabase/rollbacks/20261104100000_zoky_merchant_busy_mode_rollback.sql` and Vercel rollback of the web release.
 - Status: approved and live 2026-11-03 (DB run 41671166129, web run 41719476448, `dpl_2XcAyEVpxhkBdwZ8RdfVeJY3FHEb`).
+
+### APPROVAL — [2026-11-04] ZOKY order numbers ZF-0000 and pushes without "Wynos Food"
+
+- Founder (screenshot of ZOKY pushes): "การแจ้งเตือน เอาคำว่า WYNOS FOOD ออก" and "เลขออเดอร์ คือ ZF-0000".
+- Approved: `send-push-notification` v3 (release/zoky-line-push-20261101): ZOKY customer pushes put the event in the title (no "Wynos Food" line), routing/tap/LINE accept `ZF-0036` and `WF0035`; migration `20261104120000_zoky_order_number_zf.sql` (new orders `ZF-` + same sequence, 4+ digits) via `zoky-order-number-zf-apply.yml`; web release accepting both formats.
+- Order: push function first, then the migration, then the web release, so a ZF- order push is never routed to the wrong app.
+- Unchanged: past orders keep their WF numbers; order creation, payment and grants; Merchant push titles.
+- Rollback: `supabase/rollbacks/20261104120000_zoky_order_number_zf_rollback.sql` (new orders WF again; ZF- orders keep their numbers), redeploy the previous `send-push-notification` (8725ac45), Vercel rollback.
+- Status: approved; production deploy and apply pending Founder approval in the GitHub production environment.
