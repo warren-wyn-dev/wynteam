@@ -3,7 +3,8 @@ name: ZOKY Web Thai + mobile-only scoped release
 # Founder 2026-11-04 ("โค้ดส่วนลด ควรอยู่ล่างสุดมั้ย" → "แก้เลย"): the
 # checkout discount code becomes one row right above the price summary; it
 # opens the field on tap and shows the applied code with a remove button.
-# Discount maths and server checks are unchanged. Base is the live Merchant
+# Discount maths and server checks are unchanged. Also ("เอาตรงที่วงออก"):
+# no WYNOS "add to home screen" card in ZOKY or ZOKY Merchant. Base is the live Merchant
 # busy-mode release (c5a3ffa7 on dpl_2XcAyEVpxhkBdwZ8RdfVeJY3FHEb).
 # Production reviewers and stage-before-promotion remain required.
 on:
@@ -14,7 +15,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_COUPON_ROW_20261104]
+        options: [CANCEL, ZOKY_COUPON_INSTALL_20261104]
 
 permissions:
   contents: read
@@ -27,7 +28,7 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: a08ac950e228238899ed6c107410e8bd9035f708
+  RELEASE_SHA: f6f40f31a9e72e1eddc8439f9e1f4ad62ef575a6
   PRODUCTION_BASE_SHA: c5a3ffa7169c2cddeaa03261f7b2cdfb2347ff2e
   # Live on every customer host since the 2026-11-03 Merchant busy-mode release (c5a3ffa7).
   ROLLBACK_DEPLOYMENT: dpl_2XcAyEVpxhkBdwZ8RdfVeJY3FHEb
@@ -35,14 +36,16 @@ env:
   ALLOWED_PATHS: >-
     web/app/food/food-app.css
     web/components/food/wynos-food-developer-app.tsx
+    web/components/install-prompt-banner.tsx
     web/lib/i18n/en.ts
+    web/tests/browser/pwa-install.spec.ts
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_COUPON_ROW_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_COUPON_INSTALL_20261104'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -77,7 +80,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_COUPON_ROW_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_COUPON_INSTALL_20261104'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -135,7 +138,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_COUPON_ROW_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_COUPON_INSTALL_20261104'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
