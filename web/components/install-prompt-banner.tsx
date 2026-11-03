@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { WynosIcon } from "@/components/ui/wynos-icon";
+import { isFoodAppHost } from "@/lib/food-origin";
 
 const DISMISS_KEY = "wyn-install-prompt-dismissed-at";
 const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -48,13 +50,23 @@ function writeDismissedAt() {
   }
 }
 
+/** Founder 2026-11-04: the WYNOS "add to home screen" card never shows in
+ *  ZOKY (customer) or ZOKY Merchant, on their own hosts or under their paths. */
+export function isZokyInstallExcluded(hostname: string, pathname: string) {
+  const host = hostname.toLowerCase();
+  if (isFoodAppHost(host) || host === "merchant.wynos.online") return true;
+  return /^\/(food|merchant)(\/|$)/.test(pathname);
+}
+
 export function InstallPromptBanner() {
+  const pathname = usePathname() ?? "";
   const [deferredEvent, setDeferredEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [platform, setPlatform] = useState<"android" | "ios" | null>(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (isStandalone()) return;
+    // Initial route only; later navigation is covered by the render check.
+    if (isStandalone() || isZokyInstallExcluded(window.location.hostname, window.location.pathname)) return;
 
     const dismissedAt = readDismissedAt();
     const mayAutoShow = !dismissedAt || Date.now() - dismissedAt >= DISMISS_COOLDOWN_MS;
@@ -135,6 +147,7 @@ export function InstallPromptBanner() {
   };
 
   if (!visible || !platform) return null;
+  if (isZokyInstallExcluded(window.location.hostname, pathname)) return null;
 
   return (
     <div className="install-prompt-banner" role="dialog" aria-label="เพิ่ม WYNOS ไว้ที่หน้าจอหลัก">
