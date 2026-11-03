@@ -1,9 +1,12 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-03 ("เพิ่ม ร้านแนะนำ"): a "ร้านแนะนำ" row on the signed-in
-# Food home: stores pinned in ZOKY Admin (food_active_featured_stores) first,
-# then open stores filled in automatically. Base is the live service-area
-# release (fabf1bb3 on dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr).
+# Founder 2026-11-03 ("ทำ ก กับ ข", after the big-app UX review): Zoky
+# Merchant polish (one suggested prep time with "เปลี่ยนเวลา", compact menu
+# rows, one icon style, settings spacing, light search outline), "หมดวันนี้"
+# (sold_out_until, back at the next Bangkok midnight) and busy mode (needs
+# zoky-merchant-busy-mode-apply.yml first); the customer store page and
+# estimates add busy minutes. Base is the live recommended-stores release
+# (a3c510d8 on dpl_HwCQqAF3195jDCqBFxM2cirFNwjm).
 # Production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
@@ -13,7 +16,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_RECOMMENDED_20261103]
+        options: [CANCEL, ZOKY_MERCHANT_BUSY_20261104]
 
 permissions:
   contents: read
@@ -26,22 +29,32 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: a3c510d8f2d29b5ace696acc17b3de5df9d5be27
-  PRODUCTION_BASE_SHA: fabf1bb321e86da024e73417d9de7a00722e1ceb
-  # Live on every customer host since the 2026-11-02 service-area release (fabf1bb3).
-  ROLLBACK_DEPLOYMENT: dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_4gCVRWYDiBsSNkn5tDCnBTgAEbwr
+  RELEASE_SHA: c5a3ffa7169c2cddeaa03261f7b2cdfb2347ff2e
+  PRODUCTION_BASE_SHA: a3c510d8f2d29b5ace696acc17b3de5df9d5be27
+  # Live on every customer host since the 2026-11-03 recommended-stores release (a3c510d8).
+  ROLLBACK_DEPLOYMENT: dpl_HwCQqAF3195jDCqBFxM2cirFNwjm
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_HwCQqAF3195jDCqBFxM2cirFNwjm
   ALLOWED_PATHS: >-
+    web/app/food/food-app.css
     web/components/food/wynos-food-developer-app.tsx
+    web/lib/food-customer.ts
+    web/lib/food-store-availability.ts
     web/lib/i18n/en.ts
-    web/tests/food-standalone-account.test.mjs
+    web/lib/merchant-flutter-bridge.ts
+    web/merchant_flutter/lib/data/merchant_repository.dart
+    web/merchant_flutter/lib/screens/fulfillment_panels.dart
+    web/merchant_flutter/lib/screens/merchant_home.dart
+    web/merchant_flutter/test/merchant_test.dart
+    web/merchant_flutter/test/startup_visual_test.dart
+    web/merchant_flutter/test/support/fake_repository.dart
+    web/tests/merchant-flutter-bridge.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_RECOMMENDED_20261103'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_BUSY_20261104'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -76,7 +89,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_RECOMMENDED_20261103'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_BUSY_20261104'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -134,7 +147,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_RECOMMENDED_20261103'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_MERCHANT_BUSY_20261104'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
