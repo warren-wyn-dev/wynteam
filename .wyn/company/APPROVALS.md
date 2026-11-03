@@ -747,4 +747,4 @@
 - Unchanged: order, payment and acceptance rules; the server still refuses sold-out items; no auth or policy change.
 - Risks: busy mode lengthens customer estimates and the earliest pickup time while on (max +60 minutes for max 4 hours, then off by itself); the store directory list does not show busy minutes (store page and checkout do).
 - Rollback: `supabase/rollbacks/20261104100000_zoky_merchant_busy_mode_rollback.sql` and Vercel rollback of the web release.
-- Status: approved; production apply and release pending Founder approval in the GitHub production environment.
+- Status: approved and live 2026-11-03 (DB run 41671166129, web run 41719476448, `dpl_2XcAyEVpxhkBdwZ8RdfVeJY3FHEb`).
