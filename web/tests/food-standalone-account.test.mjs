@@ -146,7 +146,11 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
     "สั่งอีกครั้ง",
     "ร้านอาหารทั้งหมด",
     "ร้านยอดนิยม",
+    "ร้านแนะนำ",
   ]) assert.match(source, new RegExp(label));
+  // Founder 2026-11-03: ร้านแนะนำ = ZOKY Admin featured stores first, then auto-filled.
+  assert.match(source, /client\.rpc\("food_active_featured_stores"\)/);
+  assert.match(source, /function foodRecommendedStores\(/);
   // Founder decision (2026-10-10): no scheduled orders. Pickup today was
   // added by ZOKY-FULFILL-001 (approved 2026-10-26), only as a store option.
   assert.doesNotMatch(source, /สั่งล่วงหน้า/);

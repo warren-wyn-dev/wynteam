@@ -2816,6 +2816,7 @@ Object.assign(EN_EXACT, {
   "คูปองส่วนลด": "Discount coupons",
   "ยังไม่มีโค้ดส่วนลด": "No discount codes yet",
   "กำลังโหลดร้านยอดนิยม": "Loading popular restaurants",
+  "กำลังโหลดร้านแนะนำ": "Loading recommended restaurants",
   "อยากกินอะไรวันนี้?": "What do you feel like eating today?",
   "อยากกินอะไร": "What do you feel like",
   "วันนี้?": "eating today?",

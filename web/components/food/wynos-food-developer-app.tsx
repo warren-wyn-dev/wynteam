@@ -614,6 +614,34 @@ function foodPopularStores(stores: FoodDirectoryStore[]) {
   });
 }
 
+/**
+ * Founder 2026-11-03 ("เพิ่ม ร้านแนะนำ"): stores the ZOKY team pins in
+ * ZOKY Admin (food_active_featured_stores, by priority) come first, then the
+ * remaining open stores fill in automatically (open first, then popularity).
+ */
+function foodRecommendedStores(stores: FoodDirectoryStore[], featuredIds: string[], limit = 10) {
+  const byId = new Map(stores.map((store) => [store.id, store]));
+  const featured = featuredIds.map((id) => byId.get(id)).filter((store): store is FoodDirectoryStore => Boolean(store));
+  const picked = new Set(featured.map((store) => store.id));
+  const rest = foodPopularStores(stores.filter((store) => !picked.has(store.id)))
+    .sort((a, b) => Number(b.is_open) - Number(a.is_open));
+  return [...featured, ...rest].slice(0, limit);
+}
+
+/** Admin-pinned store ids, in priority order. Empty when none or unavailable. */
+function useFoodFeaturedStoreIds(client: SupabaseClient) {
+  const [ids, setIds] = useState<string[]>([]);
+  useEffect(() => {
+    let live = true;
+    void Promise.resolve(client.rpc("food_active_featured_stores")).then(({ data, error }) => {
+      if (!live || error || !Array.isArray(data)) return;
+      setIds(data.map((row: { store_id?: unknown }) => row?.store_id).filter((id): id is string => typeof id === "string"));
+    }).catch(() => undefined);
+    return () => { live = false; };
+  }, [client]);
+  return ids;
+}
+
 function FoodRowSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className="zk-row-skeletons" aria-hidden="true">
@@ -959,11 +987,14 @@ function FoodHomeScreen({
   onPick: (store: FoodDirectoryStore, placement: "home" | "search") => void;
 }) {
   const [allPopular, setAllPopular] = useState(false);
+  const [allRecommended, setAllRecommended] = useState(false);
+  const featuredIds = useFoodFeaturedStoreIds(client);
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const customerLocation = addressLocation(primaryAddress);
   const distanceFor = (store: FoodDirectoryStore) => foodDistanceKm(customerLocation, store);
   // Founder 2026-10-19 Q2: "ร้านอาหารแนะนำ" uses the real popular order (delivered orders).
   const popularStores = directory.status === "ready" ? foodPopularStores(directory.stores) : [];
+  const recommendedStores = directory.status === "ready" ? foodRecommendedStores(directory.stores, featuredIds) : [];
   return (
     <div className="zk-home">
       <ZokyHomeHeader
@@ -982,11 +1013,22 @@ function FoodHomeScreen({
       <div className="zk-col zk-home-promos"><FoodPromotionCenter client={client} userId={userId} /></div>
 
       {directory.status === "loading" ? (
-        <section className="zk-col zk-section" aria-busy="true" aria-label="กำลังโหลดร้านยอดนิยม">
-          <ZokySectionHeader title="ร้านยอดนิยม" />
+        <section className="zk-col zk-section" aria-busy="true" aria-label="กำลังโหลดร้านแนะนำ">
+          <ZokySectionHeader title="ร้านแนะนำ" />
           <div className="zk-pop-row" aria-hidden="true">{[0, 1, 2].map((index) => <div key={index} className="fx-skel zk-skel-pop" />)}</div>
         </section>
-      ) : popularStores.length > 1 ? (
+      ) : recommendedStores.length ? (
+        <section className="zk-col zk-section">
+          <ZokySectionHeader title="ร้านแนะนำ" onAll={popularStores.length > 3 ? () => setAllRecommended(true) : undefined} />
+          <div className="zk-pop-row">
+            {recommendedStores.map((store) => (
+              <FoodPopularStoreCard key={store.id} client={client} store={store} distance={distanceFor(store)} onPick={() => onPick(store, "home")} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {directory.status === "ready" && popularStores.length > 1 ? (
         <section className="zk-col zk-section">
           <ZokySectionHeader title="ร้านยอดนิยม" onAll={() => setAllPopular(true)} />
           <div className="zk-pop-row">
@@ -1007,6 +1049,16 @@ function FoodHomeScreen({
           <ChevronRight size={18} />
         </a>
       </div>
+
+      {allRecommended ? (
+        <Sheet title="ร้านแนะนำ" onClose={() => setAllRecommended(false)}>
+          <ul className="zk-store-list">
+            {foodRecommendedStores(directory.status === "ready" ? directory.stores : [], featuredIds, 100).map((store) => (
+              <FoodStoreRow key={store.id} client={client} store={store} distance={distanceFor(store)} onPick={() => { setAllRecommended(false); onPick(store, "home"); }} />
+            ))}
+          </ul>
+        </Sheet>
+      ) : null}
 
       {allPopular ? (
         <Sheet title="ร้านยอดนิยม" onClose={() => setAllPopular(false)}>
