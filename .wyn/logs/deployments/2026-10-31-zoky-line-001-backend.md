@@ -191,3 +191,11 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - DB: `20261104100000_zoky_merchant_busy_mode.sql`, run 41671166129, Founder approved. Verified: 2 busy columns, 0 busy stores, anon cannot call `food_store_set_busy`, role-checked, guard trigger present, pickup slots follow busy minutes, server refuses sold-out items (order-item trigger checks `sold_out_until`).
 - Web: candidate `c5a3ffa7` (base `a3c510d8`), run 41719476448, Founder approved both reviews. Live `dpl_2XcAyEVpxhkBdwZ8RdfVeJY3FHEb` on `zoky.wynos.online` and `merchant.wynos.online`; Merchant Flutter build `d424b257da6447b4c1cc` contains `setBusy`; no runtime errors.
 - Rollback: web `dpl_HwCQqAF3195jDCqBFxM2cirFNwjm`; DB `supabase/rollbacks/20261104100000_zoky_merchant_busy_mode_rollback.sql`.
+
+## 2026-11-04 — WYNOS Maps renamed to Wyn Maps
+
+- Founder: "เปลี่ยนชื่อเป็น Wyn Maps", then "อนุมัติ". PR #1329 (main), release PR #1330.
+- Web: candidate `4b49ac38` on `release/wyn-maps-rename-20261104` (base `c4a12167`), run 41780019370, Founder approved both reviews. Live `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W` on `zoky.wynos.online` and the other customer hosts; `<title>Wyn Maps</title>` on `wynos.online/maps` and `zoky.wynos.online/maps`, no "WYNOS Maps" left on the page; `/maps`, Food, Merchant login and ZOKY home 200; no runtime errors in the first minutes.
+- ZOKY Admin: run 41780027832 (main `06cb1c1f`, only the rename since the live build), Founder approved. Live `dpl_6n77m3EgNMMhtNwDwvskduA62b4o` on `zoky-admin.wynos.online`; `/login` 200; no runtime errors.
+- Not released: WYNOS Admin labels (release freeze) and `tiles/index.html` (no deploy workflow).
+- Rollback: web `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`; ZOKY Admin `dpl_78B5pyet8nnQiA3RS5VGnnkDLkRz`.
