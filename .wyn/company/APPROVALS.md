@@ -774,3 +774,12 @@
 - Approved (web release only, no DB change): Merchant "QR ร้าน" page (ZOKY poster, save/share, 7-day share stats from the existing `food_share_stats`); customer store share sheet with the QR, share link, copy link and save QR. The QR opens `https://liff.line.me/<ZOKY LIFF>?to=/s/<code>`; `safeLineDestination` allows only `/s/<6-char code>` and `/food?store=<uuid>` for the customer audience. The text share link stays the web link.
 - Rollback: Vercel rollback to `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W`.
 - Status: approved and live 2026-11-04 (run 41795038134, `dpl_3aodG5McYMqh6v3xVgVX3K13VLym`).
+
+### APPROVAL — [2026-11-04] Automatic LINE notification link for customers who open ZOKY in LINE
+
+- Founder (asked whether scanning adds the LINE OA; told that linking still needs a tap): "ทำแจ้งเตือนอัตโนมัติ".
+- Approved (web release only): on the `/line` LIFF entry inside the LINE app, a signed-in customer (audience food) who is not linked yet is linked through the existing `line-link` Edge Function with LINE's ID token (server-verified, same as the "เชื่อม LINE" button). If not signed in yet, the destination is remembered for 30 minutes on the device and the signed-in app returns to `/line` once to finish. Merchant linking is unchanged.
+- Unchanged: auth (ZOKY session stays the only login), `line-link` and its checks, Web Push; the customer can unlink in settings at any time.
+- Founder action outside code (LINE Developers): link the Zoky • สั่งอาหาร OA to the LIFF channel and set LIFF "Add friend option" so scanners are asked to add the OA.
+- Rollback: Vercel rollback to `dpl_3aodG5McYMqh6v3xVgVX3K13VLym`.
+- Status: approved; release pending Founder approval in the GitHub production environment.
