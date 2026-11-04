@@ -1249,7 +1249,7 @@ async function searchWynosMapsApi(query: string): Promise<FoodPlace[] | null> {
       cache: "no-store",
     });
     if (response.status === 503) return null;
-    if (!response.ok) throw new Error("WYNOS Maps search unavailable");
+    if (!response.ok) throw new Error("Wyn Maps search unavailable");
     return parseMapPlaces(await response.json(), "geo");
   } catch {
     return null;
@@ -1263,7 +1263,7 @@ async function reverseWynosMapsApi(location: FoodLocation): Promise<FoodPlace[] 
       { headers: { Accept: "application/json" }, cache: "no-store" },
     );
     if (response.status === 503) return null;
-    if (!response.ok) throw new Error("WYNOS Maps reverse unavailable");
+    if (!response.ok) throw new Error("Wyn Maps reverse unavailable");
     return parseMapPlaces(await response.json(), "geo");
   } catch {
     return null;

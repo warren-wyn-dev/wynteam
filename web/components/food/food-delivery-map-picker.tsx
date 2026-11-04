@@ -730,7 +730,7 @@ export function FoodDeliveryMapPicker({
           ? String((payload as { error?: unknown }).error ?? "")
           : "";
         if (response.status === 503 || error === "WYNOS_ROUTING_NOT_CONFIGURED") {
-          throw new Error("ระบบเส้นทางของ WYNOS Maps ยังไม่พร้อมใช้งาน");
+          throw new Error("ระบบเส้นทางของ Wyn Maps ยังไม่พร้อมใช้งาน");
         }
         if (response.status === 429 || error === "WYNOS_ROUTING_QUOTA_REACHED") {
           throw new Error("โควตาเส้นทางฟรีถึงขีดจำกัดแล้ว กรุณาลองใหม่ภายหลัง");
@@ -1614,7 +1614,7 @@ export function FoodDeliveryMapPicker({
 
   const sharePlace = async (target: { name?: string | null; latitude: number; longitude: number }) => {
     const url = mapsShareUrl(window.location.origin, target.latitude, target.longitude);
-    const title = target.name?.trim() || "ตำแหน่งบน WYNOS Maps";
+    const title = target.name?.trim() || "ตำแหน่งบน Wyn Maps";
     try {
       if (navigator.share) {
         await navigator.share({ title, text: title, url });
@@ -1669,7 +1669,7 @@ export function FoodDeliveryMapPicker({
             }
           }}
           placeholder={standalone ? "ค้นหาสถานที่ ร้านอาหาร ปั๊มน้ำมัน..." : "ค้นหาสถานที่ ถนน หมู่บ้าน หอพัก"}
-          aria-label={standalone ? "ค้นหาใน WYNOS Maps" : "ค้นหาสถานที่หรือที่อยู่"}
+          aria-label={standalone ? "ค้นหาใน Wyn Maps" : "ค้นหาสถานที่หรือที่อยู่"}
           autoComplete="off"
         />
         {!standalone ? (
@@ -1860,14 +1860,14 @@ export function FoodDeliveryMapPicker({
       className={navigating ? "wf-map-picker is-navigating" : "wf-map-picker"}
       role={standalone ? "region" : "dialog"}
       aria-modal={standalone ? undefined : true}
-      aria-label={standalone ? "WYNOS Maps" : "ปักหมุดตำแหน่งจัดส่ง"}
+      aria-label={standalone ? "Wyn Maps" : "ปักหมุดตำแหน่งจัดส่ง"}
     >
       <header className="wf-map-picker-head">
         <button type="button" aria-label={standalone ? "ย้อนกลับ" : "ปิดแผนที่"} onClick={onClose}>
           {standalone ? <ArrowLeft size={22} /> : <X size={22} />}
         </button>
         <div>
-          <strong>{title ?? (standalone ? "WYNOS Maps" : "ปักหมุดตำแหน่งจัดส่ง")}</strong>
+          <strong>{title ?? (standalone ? "Wyn Maps" : "ปักหมุดตำแหน่งจัดส่ง")}</strong>
           <small>{subtitle ?? (standalone ? "ค้นหา สำรวจ และเลือกตำแหน่ง" : "เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร")}</small>
         </div>
         <span />
@@ -1879,7 +1879,7 @@ export function FoodDeliveryMapPicker({
         <div ref={mapNode} className="wf-map-canvas" />
         {standalone && !navigating ? (
           <>
-            <div className="wf-map-brand-chip"><Sun size={18} aria-hidden="true" /><span>WYNOS Maps</span></div>
+            <div className="wf-map-brand-chip"><Sun size={18} aria-hidden="true" /><span>Wyn Maps</span></div>
             <button type="button" className="wf-map-layers" aria-label="เปลี่ยนรูปแบบแผนที่" aria-expanded={showLayers} onClick={() => { setShowLayers((value) => !value); setShowMoreCategories(false); }}><Layers size={22} /></button>
             {showLayers ? (
               <div className="wf-map-layers-panel" role="group" aria-label="รูปแบบแผนที่">
