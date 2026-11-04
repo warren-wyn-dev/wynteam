@@ -766,4 +766,4 @@
 - Not in this web release: WYNOS Admin and ZOKY Admin labels and `tiles/index.html` (merged on main; they ship with their own deploys).
 - Risks: text only; none to data or auth.
 - Rollback: Vercel Instant Rollback to `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`.
-- Status: web approved and live 2026-11-04 (run 41780019370, `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W`); ZOKY Admin run 41780027832 awaiting approval.
+- Status: web approved and live 2026-11-04 (run 41780019370, `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W`); ZOKY Admin live (run 41780027832, `dpl_6n77m3EgNMMhtNwDwvskduA62b4o`).

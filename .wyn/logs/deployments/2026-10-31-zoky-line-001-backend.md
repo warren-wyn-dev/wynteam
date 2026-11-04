@@ -196,6 +196,6 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 
 - Founder: "เปลี่ยนชื่อเป็น Wyn Maps", then "อนุมัติ". PR #1329 (main), release PR #1330.
 - Web: candidate `4b49ac38` on `release/wyn-maps-rename-20261104` (base `c4a12167`), run 41780019370, Founder approved both reviews. Live `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W` on `zoky.wynos.online` and the other customer hosts; `<title>Wyn Maps</title>` on `wynos.online/maps` and `zoky.wynos.online/maps`, no "WYNOS Maps" left on the page; `/maps`, Food, Merchant login and ZOKY home 200; no runtime errors in the first minutes.
-- ZOKY Admin: run 41780027832 (main `06cb1c1f`, only the rename since the live build), waiting for Founder approval at the time of this entry.
+- ZOKY Admin: run 41780027832 (main `06cb1c1f`, only the rename since the live build), Founder approved. Live `dpl_6n77m3EgNMMhtNwDwvskduA62b4o` on `zoky-admin.wynos.online`; `/login` 200; no runtime errors.
 - Not released: WYNOS Admin labels (release freeze) and `tiles/index.html` (no deploy workflow).
-- Rollback: web `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`.
+- Rollback: web `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`; ZOKY Admin `dpl_78B5pyet8nnQiA3RS5VGnnkDLkRz`.
