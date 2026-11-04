@@ -756,4 +756,25 @@
 - Order: push function first, then the migration, then the web release, so a ZF- order push is never routed to the wrong app.
 - Unchanged: past orders keep their WF numbers; order creation, payment and grants; Merchant push titles.
 - Rollback: `supabase/rollbacks/20261104120000_zoky_order_number_zf_rollback.sql` (new orders WF again; ZF- orders keep their numbers), redeploy the previous `send-push-notification` (8725ac45), Vercel rollback.
+<<<<<<< HEAD
 - Status: approved and live 2026-11-04 (push run 41727010938, DB run 41728493822, web run 41728753704, `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`).
+=======
+- Status: approved and live 2026-11-04 (DB run 41728493822, web run 41728753704, `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`).
+
+### APPROVAL — [2026-11-04] WYNOS Maps renamed to Wyn Maps
+
+- Founder: "เปลี่ยนชื่อเป็น Wyn Maps", "จัดการให้เรียบร้อยเลย", then "อนุมัติ" for production.
+- Approved: user-facing text "WYNOS Maps" → "Wyn Maps" (PR #1329). Web release candidate `4b49ac38` on `release/wyn-maps-rename-20261104` (base `c4a12167`): `/maps` title and description, map picker labels, Merchant pin messages, English strings.
+- Unchanged: health service names (`WYNOS Maps Core`/`Tiles`, checked by deploy workflows), `X-WYNOS-Maps-*` headers, routes, `maps.wynos.online`, database, Edge Functions.
+- Not in this web release: WYNOS Admin and ZOKY Admin labels and `tiles/index.html` (merged on main; they ship with their own deploys).
+- Risks: text only; none to data or auth.
+- Rollback: Vercel Instant Rollback to `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`.
+- Status: web approved and live 2026-11-04 (run 41780019370, `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W`); ZOKY Admin live (run 41780027832, `dpl_6n77m3EgNMMhtNwDwvskduA62b4o`).
+>>>>>>> origin/main
+
+### APPROVAL — [2026-11-04] ZOKY store QR that opens the store in LINE
+
+- Founder: "อยากให้เพิ่ม ตอนแชร์ ร้าน อยากให้ทำเป็น QR ด้วย มีแนะนำไหม" → mockups → "ทำ ก+ข", then "สแกนแล้ว ต้องเด้ง สั่งในไลน์".
+- Approved (web release only, no DB change): Merchant "QR ร้าน" page (ZOKY poster, save/share, 7-day share stats from the existing `food_share_stats`); customer store share sheet with the QR, share link, copy link and save QR. The QR opens `https://liff.line.me/<ZOKY LIFF>?to=/s/<code>`; `safeLineDestination` allows only `/s/<6-char code>` and `/food?store=<uuid>` for the customer audience. The text share link stays the web link.
+- Rollback: Vercel rollback of the web release.
+- Status: approved; release pending Founder approval in the GitHub production environment.

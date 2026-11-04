@@ -1189,7 +1189,7 @@ function MorePanel({
         </section>
       ) : (
         <section className="wm-store-location-missing">
-          <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น WYNOS Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={() => onOpenTab("store")}>เพิ่มตำแหน่ง</button>
+          <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น Wyn Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={() => onOpenTab("store")}>เพิ่มตำแหน่ง</button>
         </section>
       )}
       <section className="wm-settings-list">
@@ -1783,7 +1783,7 @@ function StorePanel({
         </section>
       ) : (
         <section className="wm-store-location-missing">
-          <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น WYNOS Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={onEdit}>เพิ่มตำแหน่ง</button>
+          <MapPin size={20} /><span><strong>ยังไม่ได้ปักหมุดร้าน</strong><small>เพิ่มตำแหน่งเพื่อให้ร้านขึ้น Wyn Maps และคำนวณระยะจัดส่ง</small></span><button type="button" onClick={onEdit}>เพิ่มตำแหน่ง</button>
         </section>
       )}
 
@@ -3004,7 +3004,7 @@ function StoreEditor({
         <div className="wm-form-grid"><label>ค่าส่งเริ่มต้น<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label><label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label></div>
         {zoneReady ? <div className="wm-zone">
           <strong>ตำแหน่งร้านและระยะส่ง</strong>
-          <small>{pin ? "ตำแหน่งร้านถูกปักหมุดแล้ว สามารถค้นหา เลื่อนแผนที่ และปรับหมุดให้ตรงจุดจริงได้" : "ยังไม่ปักหมุด: ร้านจะยังไม่ขึ้น WYNOS Maps"}</small>
+          <small>{pin ? "ตำแหน่งร้านถูกปักหมุดแล้ว สามารถค้นหา เลื่อนแผนที่ และปรับหมุดให้ตรงจุดจริงได้" : "ยังไม่ปักหมุด: ร้านจะยังไม่ขึ้น Wyn Maps"}</small>
           {pin ? <FoodLocationMapPreview location={pin} label={pinPlace?.name || store.name} /> : null}
           {pinPlace?.address ? <div className="wm-location-address"><MapPin size={15} /><span><strong>{pinPlace.name}</strong><small>{pinPlace.address}</small></span></div> : null}
           <div className="wm-two-actions">
