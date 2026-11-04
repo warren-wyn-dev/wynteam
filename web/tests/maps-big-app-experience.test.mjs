@@ -6,7 +6,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("standalone Maps uses floating search and expanded category shortcuts", () => {
   const map = read("../components/food/food-delivery-map-picker.tsx");
-  const css = read("../app/maps/maps-v4.css");
+  const css = read("../app/maps/maps.css");
   for (const category of ["ร้านอาหาร", "คาเฟ่", "หอพัก", "ร้านค้า", "โรงพยาบาล", "ปั๊มน้ำมัน", "ATM"]) {
     assert.ok(map.includes(category), `missing quick category: ${category}`);
   }
@@ -29,7 +29,7 @@ test("Maps requests and renders route alternatives without changing quota-safe m
 
 test("Maps has full-screen navigation camera and WYNOS Food place integration", () => {
   const map = read("../components/food/food-delivery-map-picker.tsx");
-  const css = read("../app/maps/maps-v4.css");
+  const css = read("../app/maps/maps.css");
   assert.ok(map.includes("position.coords.heading"));
   assert.ok(map.includes("pitch: 46"));
   assert.ok(map.includes("wf-map-navigation-top"));
