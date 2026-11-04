@@ -83,7 +83,7 @@ import {
   pushReasonDescription,
   subscribeToPushNotifications,
 } from "@/lib/push-notifications";
-import { lineLinkPath } from "@/lib/line-liff";
+import { isLineInAppBrowser, lineLinkPath, takeLineAutoLink } from "@/lib/line-liff";
 import { foodStoreQrTarget, renderZokyQr, renderZokyStorePoster, zokyQrFileName } from "@/lib/zoky-store-qr";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
@@ -3620,6 +3620,13 @@ function FoodCustomerInner({
   const [selectedOrder, setSelectedOrder] = useState<FoodCustomerOrder | null>(null);
   // A tapped order notification (?order=WF0015) opens that order once loaded.
   const requestedOrderRef = useRef<string | null>(typeof window === "undefined" ? null : requestedOrderNumber(window.location.search));
+  // Founder 2026-11-04: signed in after opening ZOKY from LINE -> finish the
+  // automatic LINE notification link once (via the /line LIFF endpoint).
+  useEffect(() => {
+    if (!isLineInAppBrowser(navigator.userAgent)) return;
+    const destination = takeLineAutoLink();
+    if (destination) window.location.replace(`/line?to=${encodeURIComponent(destination)}`);
+  }, [userId]);
   const [reviewOrder, setReviewOrder] = useState<FoodCustomerOrder | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quote, setQuote] = useState<FoodOrderQuote | null>(null);

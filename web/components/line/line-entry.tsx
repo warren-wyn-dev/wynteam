@@ -16,6 +16,7 @@ import {
   lineLinkStatusFrom,
   lineStatusText,
   liffIdFor,
+  rememberLineAutoLink,
   safeLineDestination,
   type LineAudience,
   type LineLinkStatus,
@@ -136,9 +137,26 @@ export function LineEntry() {
       if (params.get("mode") !== "link") {
         // LINE message button. liff.init finishes LIFF's own liff.state
         // redirect; afterwards only an allowlisted in-app path is opened.
-        try { await loadLiff(liffId); } catch { /* still open the page */ }
+        let liff: Liff | null = null;
+        try { liff = await loadLiff(liffId); } catch { /* still open the page */ }
         if (params.has("liff.state")) return;
-        window.location.replace(safeLineDestination(audience, params.get("to")));
+        const destination = safeLineDestination(audience, params.get("to"));
+        // Founder 2026-11-04: customers opening ZOKY inside LINE get LINE
+        // notifications without a tap. Best effort, never blocks the page.
+        if (audience === "food" && liff?.isInClient() && liff.isLoggedIn()) {
+          const client = getSupabaseBrowserClient();
+          const { data } = client ? await client.auth.getSession() : { data: { session: null } };
+          if (!data.session) rememberLineAutoLink(destination);
+          else {
+            const idToken = liff.getIDToken();
+            const attempt = (async () => {
+              const status = await callLineLink({ action: "status", audience });
+              if (!status.linked && idToken) await callLineLink({ action: "link", audience, idToken });
+            })().catch(() => undefined);
+            await Promise.race([attempt, new Promise((resolve) => window.setTimeout(resolve, 4000))]);
+          }
+        }
+        window.location.replace(destination);
         return;
       }
 

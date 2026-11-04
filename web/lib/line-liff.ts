@@ -72,3 +72,35 @@ export function lineStatusText(status: LineLinkStatus | null): string {
   if (status.friendStatus === "not_friend") return "เชื่อมแล้ว แต่ยังไม่ได้เพิ่มเพื่อน LINE OA — ยังไม่ได้รับข้อความ";
   return "เชื่อม LINE แล้ว รับแจ้งเตือนทาง LINE";
 }
+
+// Founder 2026-11-04 ("ทำแจ้งเตือนอัตโนมัติ"): a customer who opens ZOKY from
+// LINE gets LINE notifications without tapping "เชื่อม LINE". If they still
+// have to sign in, this remembers where they were going so the signed-in
+// app returns to /line once to finish the link.
+const AUTO_LINK_KEY = "zoky.line-autolink.v1";
+const AUTO_LINK_MAX_AGE_MS = 30 * 60 * 1000;
+
+/** LINE's in-app browser (also the LIFF browser). */
+export function isLineInAppBrowser(userAgent: string): boolean {
+  return /\bLine\/\d/i.test(userAgent);
+}
+
+export function rememberLineAutoLink(destination: string): void {
+  try {
+    window.localStorage.setItem(AUTO_LINK_KEY, JSON.stringify({ at: Date.now(), to: safeLineDestination("food", destination) }));
+  } catch { /* storage unavailable */ }
+}
+
+/** The pending destination, once; null when none or older than 30 minutes. */
+export function takeLineAutoLink(now = Date.now()): string | null {
+  try {
+    const raw = window.localStorage.getItem(AUTO_LINK_KEY);
+    window.localStorage.removeItem(AUTO_LINK_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as { at?: unknown; to?: unknown };
+    if (typeof value.at !== "number" || now - value.at > AUTO_LINK_MAX_AGE_MS || typeof value.to !== "string") return null;
+    return safeLineDestination("food", value.to);
+  } catch {
+    return null;
+  }
+}

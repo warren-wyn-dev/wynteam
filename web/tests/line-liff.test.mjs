@@ -7,8 +7,11 @@ import {
   lineLinkPath,
   lineLinkStatusFrom,
   lineStatusText,
+  isLineInAppBrowser,
   liffIdFor,
+  rememberLineAutoLink,
   safeLineDestination,
+  takeLineAutoLink,
 } from "../lib/line-liff.ts";
 
 test("audience follows the Merchant origin unless a known OA is requested", () => {
@@ -84,4 +87,27 @@ test("the LIFF page never sends a client-chosen LINE userId", () => {
   const source = readFileSync(new URL("../components/line/line-entry.tsx", import.meta.url), "utf8");
   assert.match(source, /getIDToken\(\)/);
   assert.doesNotMatch(source, /getProfile\(|lineUserId|userId:/);
+});
+
+// Founder 2026-11-04 ("ทำแจ้งเตือนอัตโนมัติ").
+test("automatic LINE link: LINE browser detection and a one-shot, safe pending destination", () => {
+  assert.equal(isLineInAppBrowser("Mozilla/5.0 (iPhone) AppleWebKit Line/14.19.0"), true);
+  assert.equal(isLineInAppBrowser("Mozilla/5.0 (iPhone) Safari/604.1"), false);
+  const store = new Map();
+  globalThis.window = { localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) } };
+  try {
+    rememberLineAutoLink("/s/kbs7xa");
+    assert.equal(takeLineAutoLink(), "/s/kbs7xa");
+    assert.equal(takeLineAutoLink(), null);
+    rememberLineAutoLink("https://evil.test/x");
+    assert.equal(takeLineAutoLink(), "/food");
+    rememberLineAutoLink("/s/kbs7xa");
+    assert.equal(takeLineAutoLink(Date.now() + 31 * 60 * 1000), null);
+  } finally {
+    delete globalThis.window;
+  }
+  const entry = readFileSync(new URL("../components/line/line-entry.tsx", import.meta.url), "utf8");
+  assert.match(entry, /audience === "food" && liff\?\.isInClient\(\) && liff\.isLoggedIn\(\)/);
+  assert.match(entry, /action: "status", audience/);
+  assert.match(entry, /if \(!status\.linked && idToken\) await callLineLink\(\{ action: "link", audience, idToken \}\)/);
 });
