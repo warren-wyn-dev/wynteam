@@ -782,4 +782,4 @@
 - Unchanged: auth (ZOKY session stays the only login), `line-link` and its checks, Web Push; the customer can unlink in settings at any time.
 - Founder action outside code (LINE Developers): link the Zoky • สั่งอาหาร OA to the LIFF channel and set LIFF "Add friend option" so scanners are asked to add the OA.
 - Rollback: Vercel rollback to `dpl_3aodG5McYMqh6v3xVgVX3K13VLym`.
-- Status: approved; release pending Founder approval in the GitHub production environment.
+- Status: approved and live 2026-11-04 (run 41800793897, `dpl_J6cmTuDhoWXWr6ks3UuYaT9mPJWK`).

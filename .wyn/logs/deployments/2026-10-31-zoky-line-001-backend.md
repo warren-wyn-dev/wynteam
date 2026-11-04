@@ -213,3 +213,10 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Founder: "อยากให้ทำเป็น QR ด้วย" → mockups → "ทำ ก+ข", "สแกนแล้ว ต้องเด้ง สั่งในไลน์". PR #1333.
 - Web: candidate `b110ee01` (store QR + the live Wyn Maps rename, base `4b49ac38`), run 41795038134, Founder approved both reviews. Live `dpl_3aodG5McYMqh6v3xVgVX3K13VLym` on `zoky.wynos.online` and `merchant.wynos.online`; Merchant Flutter build contains `storeQr`; `/line` 200; no runtime errors. No database change.
 - Rollback: `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W`.
+
+## 2026-11-04 — Automatic LINE notification link for customers in LINE
+
+- Founder: "ทำแจ้งเตือนอัตโนมัติ". PR #1334.
+- Web: candidate `81b6a3a3` (base `b110ee01`), run 41800793897, Founder approved both reviews. Live `dpl_J6cmTuDhoWXWr6ks3UuYaT9mPJWK` on `zoky.wynos.online` and `merchant.wynos.online`; `/line` 200; no runtime errors. No database or Edge Function change.
+- Founder action pending outside code: LINE Developers — link the Zoky • สั่งอาหาร OA to the LIFF channel and set LIFF "Add friend option".
+- Rollback: `dpl_3aodG5McYMqh6v3xVgVX3K13VLym`.
