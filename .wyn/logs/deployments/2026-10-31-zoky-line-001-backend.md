@@ -192,7 +192,6 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - Web: candidate `c5a3ffa7` (base `a3c510d8`), run 41719476448, Founder approved both reviews. Live `dpl_2XcAyEVpxhkBdwZ8RdfVeJY3FHEb` on `zoky.wynos.online` and `merchant.wynos.online`; Merchant Flutter build `d424b257da6447b4c1cc` contains `setBusy`; no runtime errors.
 - Rollback: web `dpl_HwCQqAF3195jDCqBFxM2cirFNwjm`; DB `supabase/rollbacks/20261104100000_zoky_merchant_busy_mode_rollback.sql`.
 
-<<<<<<< HEAD
 ## 2026-11-04 — Coupon row, no WYNOS install card, ZF-0000 order numbers, ZOKY push titles
 
 - Founder: "โค้ดส่วนลด ควรอยู่ล่างสุดมั้ย" → "แก้เลย"; "เอาตรงที่วงออกจาก ZOKY กับ Merchant"; "การแจ้งเตือน เอาคำว่า WYNOS FOOD ออก" / "เลขออเดอร์ คือ ZF-0000". PR #1328.
@@ -200,7 +199,7 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - DB: `20261104120000_zoky_order_number_zf.sql`, run 41728493822: `food_next_order_number` uses `ZF-`, same sequence, no grants to anon/authenticated. Past orders keep WF numbers.
 - Web: candidate `c4a12167` (base `c5a3ffa7`), run 41728753704, Founder approved both reviews. Live `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN` on `zoky.wynos.online` and `merchant.wynos.online`; live `sw.js` accepts ZF-; no runtime errors.
 - Rollback: web `dpl_2XcAyEVpxhkBdwZ8RdfVeJY3FHEb`; DB `supabase/rollbacks/20261104120000_zoky_order_number_zf_rollback.sql`; push function redeploy `8725ac45`.
-=======
+
 ## 2026-11-04 — WYNOS Maps renamed to Wyn Maps
 
 - Founder: "เปลี่ยนชื่อเป็น Wyn Maps", then "อนุมัติ". PR #1329 (main), release PR #1330.
@@ -208,4 +207,3 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - ZOKY Admin: run 41780027832 (main `06cb1c1f`, only the rename since the live build), Founder approved. Live `dpl_6n77m3EgNMMhtNwDwvskduA62b4o` on `zoky-admin.wynos.online`; `/login` 200; no runtime errors.
 - Not released: WYNOS Admin labels (release freeze) and `tiles/index.html` (no deploy workflow).
 - Rollback: web `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`; ZOKY Admin `dpl_78B5pyet8nnQiA3RS5VGnnkDLkRz`.
->>>>>>> origin/main
