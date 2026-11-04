@@ -1,10 +1,11 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-04 ("เปลี่ยนชื่อเป็น Wyn Maps" → "อนุมัติ"): user-facing
-# "WYNOS Maps" becomes "Wyn Maps" on /maps, the shared map picker, Merchant
-# pin messages and English strings (PR #1329). Text only; health service
-# names, headers, routes and data are unchanged. Base is the live ZOKY
-# coupon/ZF release (c4a12167 on dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN).
+# Founder 2026-11-04 ("อยากให้ทำเป็น QR ด้วย" -> "ทำ ก+ข", "สแกนแล้ว ต้องเด้ง
+# สั่งในไลน์"): a ZOKY store QR that opens the store in LINE (ZOKY LIFF,
+# to=/s/<code>): Merchant "QR ร้าน" poster page and the customer share sheet.
+# No database change. The candidate also carries the live Wyn Maps rename
+# (merged from release/wyn-maps-rename-20261104). Base is that live release
+# (4b49ac38 on dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W).
 # Production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
@@ -14,7 +15,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, WYN_MAPS_RENAME_20261104]
+        options: [CANCEL, ZOKY_STORE_QR_20261104]
 
 permissions:
   contents: read
@@ -26,28 +27,33 @@ concurrency:
 
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
-  RELEASE_BRANCH: release/wyn-maps-rename-20261104
-  RELEASE_SHA: 4b49ac38a735c423fcef48492f28d731cce1646f
-  PRODUCTION_BASE_SHA: c4a12167ac92d329cc93de97910a161c18f5569d
-  # Live on every customer host since the 2026-11-04 ZOKY coupon/ZF release (c4a12167).
-  ROLLBACK_DEPLOYMENT: dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN
+  RELEASE_BRANCH: release/zoky-line-web-20261101
+  RELEASE_SHA: b110ee01af89da0050b841e79ab01020122f6824
+  PRODUCTION_BASE_SHA: 4b49ac38a735c423fcef48492f28d731cce1646f
+  # Live on every customer host since the 2026-11-04 Wyn Maps rename release (4b49ac38).
+  ROLLBACK_DEPLOYMENT: dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W
   ALLOWED_PATHS: >-
-    web/app/maps/layout.tsx
-    web/app/maps/wynos-maps-address-picker.tsx
-    web/components/food/food-delivery-map-picker.tsx
-    web/components/merchant/wynos-merchant-app.tsx
-    web/lib/food-customer.ts
+    web/app/food/food-app.css
+    web/components/food/wynos-food-developer-app.tsx
     web/lib/i18n/en.ts
-    web/tests/browser/wynos-food-developer-preview.spec.ts
-    web/tests/maps-host-redirect.test.mjs
+    web/lib/line-liff.ts
+    web/lib/merchant-flutter-bridge.ts
+    web/lib/zoky-store-qr.ts
+    web/merchant_flutter/lib/data/merchant_repository.dart
+    web/merchant_flutter/lib/screens/merchant_home.dart
+    web/merchant_flutter/lib/screens/store_qr_panel.dart
+    web/merchant_flutter/test/merchant_test.dart
+    web/merchant_flutter/test/support/fake_repository.dart
+    web/tests/line-liff.test.mjs
+    web/tests/merchant-flutter-bridge.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'WYN_MAPS_RENAME_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_STORE_QR_20261104'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -82,7 +88,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'WYN_MAPS_RENAME_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_STORE_QR_20261104'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -140,7 +146,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'WYN_MAPS_RENAME_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_STORE_QR_20261104'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
