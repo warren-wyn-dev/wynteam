@@ -23,7 +23,7 @@ test("food.wynos.online/login and /signup open Food's own auth pages, only on th
 });
 
 test("Maps markers keep MapLibre's absolute positioning", () => {
-  const css = readFileSync(new URL("../app/maps/maps-v3.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/maps/maps.css", import.meta.url), "utf8");
   assert.match(css, /\.wynos-maps-page \.maplibregl-marker\.wf-map-user-location,\s*\.wynos-maps-page \.maplibregl-marker\.wf-map-place-marker \{\s*position: absolute;/);
 });
 
@@ -56,7 +56,7 @@ test("standalone Maps never overlays its destination pin on the current GPS dot"
 
 test("Maps launch UI has clear saved places, distinctive POI markers and readable near labels", () => {
   const map = readFileSync(new URL("../components/food/food-delivery-map-picker.tsx", import.meta.url), "utf8");
-  const css = readFileSync(new URL("../app/maps/maps-v6.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/maps/maps.css", import.meta.url), "utf8");
   assert.match(map, /className="wf-map-saved-shortcut" aria-label="สถานที่ที่บันทึก"/);
   assert.match(map, /<Bookmark size=\{21\}/);
   assert.doesNotMatch(map, /<span>W<\/span>/);
@@ -68,7 +68,7 @@ test("Maps launch UI has clear saved places, distinctive POI markers and readabl
 
 test("Maps reports the browser GPS accuracy without showing a red selection pin over the blue dot", () => {
   const source = readFileSync(new URL("../components/food/food-delivery-map-picker.tsx", import.meta.url), "utf8");
-  const css = readFileSync(new URL("../app/maps/maps-v6.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/maps/maps.css", import.meta.url), "utf8");
   assert.match(source, /const \[gpsAccuracyMeters, setGpsAccuracyMeters\] = useState<number \| null>\(null\)/);
   assert.match(source, /setGpsAccuracyMeters\(Math\.ceil\(fix\.accuracyMeters\)\)/);
   assert.match(source, /currentLocationSelected && gpsAccuracyMeters !== null/);
