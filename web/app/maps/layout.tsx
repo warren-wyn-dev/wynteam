@@ -10,9 +10,9 @@ import "./maps-v5.css";
 import "./maps-v6.css";
 
 export const metadata: Metadata = {
-  title: "WYNOS Maps",
-  applicationName: "WYNOS Maps",
-  description: "ค้นหา สำรวจ และเลือกตำแหน่งบน WYNOS Maps",
+  title: "Wyn Maps",
+  applicationName: "Wyn Maps",
+  description: "ค้นหา สำรวจ และเลือกตำแหน่งบน Wyn Maps",
   robots: { index: false, follow: false },
 };
 
