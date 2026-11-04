@@ -418,6 +418,31 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('QR ร้าน shows the LINE poster, stats, save and share', (
+    tester,
+  ) async {
+    final repo = FakeRepository();
+    await mount(tester, repo);
+    await tester.tap(find.text('เพิ่มเติม').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('QR ร้าน'), 200);
+    await tester.tap(find.text('QR ร้าน'));
+    await tester.pumpAndSettle();
+    expect(repo.qrCalls, ['storeQr']);
+    expect(
+      find.text('ลูกค้าสแกนแล้วเปิดร้านคุณใน LINE สั่งได้ทันที'),
+      findsOneWidget,
+    );
+    expect(find.text('128'), findsOneWidget);
+    expect(find.text('฿2870'), findsOneWidget);
+    await tester.tap(find.text('บันทึกรูป'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('แชร์ลิงก์'));
+    await tester.pumpAndSettle();
+    expect(repo.qrCalls, ['storeQr', 'save', 'share']);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('failed writes stay visible and do not alter server menu', (
     tester,
   ) async {

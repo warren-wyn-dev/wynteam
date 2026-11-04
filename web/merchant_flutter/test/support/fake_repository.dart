@@ -122,6 +122,33 @@ class FakeRepository extends MerchantRepository {
     }
   }
 
+  final qrCalls = <String>[];
+  @override
+  Future<Json> storeQr(String storeId) async {
+    qrCalls.add('storeQr');
+    return {
+      // 1x1 transparent PNG.
+      'image':
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+      'linkUrl': 'https://zoky.wynos.online/s/kbs7xa',
+      'opensInLine': true,
+      'published': true,
+      'stats': {'opens': 128, 'orders': 23, 'sales': 2870},
+    };
+  }
+
+  @override
+  Future<String> saveStoreQr(String storeId) async {
+    qrCalls.add('save');
+    return 'downloaded';
+  }
+
+  @override
+  Future<String> shareStoreLink(String storeId) async {
+    qrCalls.add('share');
+    return 'copied';
+  }
+
   final busyCalls = <List<Object?>>[];
   @override
   Future<void> setBusy(

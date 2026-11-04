@@ -1707,3 +1707,12 @@ html:has(.fx-app.is-zk-home) body, html:has(.fx-app.is-zk-food) body { backgroun
   .wf-nav { max-width: var(--zk-phone); }
   .wf-toast, .wf-store-cart-bar, .wf-guest-cartbar, .fx-nav, .fx-cart-bar, .fx-toast { max-width: calc(var(--zk-phone) - 32px); }
 }
+
+/* Founder 2026-11-04: store share sheet with a QR that opens the store in LINE. */
+.fx-share-qr { display: grid; justify-items: center; gap: 12px; padding: 4px 0 8px; text-align: center; }
+.fx-share-qr > strong { font-size: 18px; font-weight: 700; }
+.fx-share-qr img, .fx-share-qr-loading { width: min(280px, 72vw); height: auto; aspect-ratio: 1; border: 1px solid var(--fx-line); border-radius: 20px; padding: 10px; background: #fff; box-sizing: border-box; }
+.fx-share-qr-loading { display: grid; place-items: center; color: var(--fx-muted); }
+.fx-share-qr > small { color: var(--fx-sub); font-size: 13px; }
+.fx-share-qr .fx-btn { gap: 8px; }
+.fx-share-qr-row { display: flex; gap: 8px; width: 100%; }

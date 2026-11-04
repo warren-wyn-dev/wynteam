@@ -13,6 +13,7 @@ import 'finance_panel.dart';
 import 'staff_panel.dart';
 import 'growth_panels.dart';
 import 'store_profile_panel.dart';
+import 'store_qr_panel.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -526,6 +527,7 @@ class _MerchantHomeState extends State<MerchantHome>
           11 => zokyCampaignsPage(),
           12 => feedbackPage(),
           13 => helpPage(),
+          14 => storeQrPage(),
           _ => qualityPage(),
         },
     ];
@@ -1754,6 +1756,12 @@ class _MerchantHomeState extends State<MerchantHome>
         hint: 'ชื่อ รูป ที่อยู่ พื้นที่ส่ง ช่องทางรับเงิน',
       ),
       moreRow(
+        'QR ร้าน',
+        () => navigate(14),
+        icon: Icons.qr_code_2,
+        hint: 'ลูกค้าสแกนแล้วสั่งผ่าน LINE',
+      ),
+      moreRow(
         'เวลาเปิด-ปิด',
         showStoreStatus,
         icon: Icons.schedule,
@@ -1808,6 +1816,18 @@ class _MerchantHomeState extends State<MerchantHome>
   ];
 
   /// Founder 2026-11-01: reviews inside the new Merchant (was the legacy page).
+  List<Widget> storeQrPage() => [
+    heading('QR ร้าน', 'พิมพ์แปะหน้าร้าน หรือส่งให้ลูกค้าสแกนสั่งผ่าน LINE'),
+    box(
+      StoreQrPanel(
+        key: ValueKey(c.storeId),
+        repository: widget.repository,
+        storeId: c.storeId!,
+        onNotice: notice,
+      ),
+    ),
+  ];
+
   List<Widget> feedbackPage() => [
     heading('ฟีดแบ็ก', 'ความคิดเห็นจากลูกค้า ZOKY ที่สั่งจริง'),
     box(

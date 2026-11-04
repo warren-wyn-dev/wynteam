@@ -132,6 +132,16 @@ abstract class MerchantRepository {
         'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
       );
 
+  /// ZOKY store QR poster (data URL), link, whether it opens in LINE, stats.
+  Future<Json> storeQr(String storeId) async =>
+      throw const MerchantException('สร้าง QR ไม่สำเร็จ');
+
+  /// Saves or shares the last poster; returns shared/downloaded/cancelled/not_ready.
+  Future<String> saveStoreQr(String storeId) async => 'not_ready';
+
+  /// Shares (or copies) the store link; returns shared/copied/failed.
+  Future<String> shareStoreLink(String storeId) async => 'failed';
+
   /// Busy mode: [extraMinutes] 0 turns it off.
   Future<void> setBusy(
     String storeId,
@@ -403,6 +413,18 @@ class BridgeMerchantRepository extends MerchantRepository {
   Future<void> setFulfillment(String storeId, Json values) async {
     await call('setFulfillment', {'storeId': storeId, 'values': values});
   }
+
+  @override
+  Future<Json> storeQr(String storeId) async =>
+      object(await call('storeQr', {'storeId': storeId}));
+
+  @override
+  Future<String> saveStoreQr(String storeId) async =>
+      '${await call('saveStoreQr', {'storeId': storeId})}';
+
+  @override
+  Future<String> shareStoreLink(String storeId) async =>
+      '${await call('shareStoreLink', {'storeId': storeId})}';
 
   @override
   Future<void> setBusy(

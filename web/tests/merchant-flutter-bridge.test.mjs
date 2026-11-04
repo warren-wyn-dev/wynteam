@@ -85,11 +85,15 @@ function harness(options={}) {
     createImageBitmap:async()=>({width:1,height:1,close(){}}),
     document:{createElement:()=>input,body:{appendChild(){}}},
     window:{addEventListener(){},removeEventListener(){},setTimeout},
+    Blob,File,FileReader:class {readAsDataURL(){this.result='data:image/png;base64,cG5n';queueMicrotask(()=>this.onload());}},
+    navigator:options.navigator??{},DOMException,
     localStorage:options.localStorage,
     require(path){
       if(path==='@/lib/food-merchant')return food;
       if(path==='@/lib/merchant-menu-image')return {merchantMenuThumbnailUrl:url=>url};
       if(path==='@/lib/food-store-availability')return availability;
+      if(path==='@/lib/food-share')return {foodStoreShareData:(store)=>({title:store.name+' | ZOKY',text:'สั่ง',url:'https://zoky.wynos.online/s/'+(store.share_code??'abcdef')})};
+      if(path==='@/lib/zoky-store-qr')return {foodStoreQrTarget:(store)=>'https://liff.line.me/1234567890-AbCdEfGh?to=%2Fs%2F'+store.share_code,renderZokyStorePoster:async(store,url)=>{calls.push({name:'renderZokyStorePoster',store,url});return new Blob(['png'],{type:'image/png'});},zokyQrFileName:()=>'zoky-qr.png'};
       if(path==='@/lib/merchant-core')return {...merchantCore,fetchMerchantStaff:async()=>state.staffMembers??[],addMerchantStaff:async(...args)=>{calls.push({name:'addMerchantStaff',args});},updateMerchantStaff:async(...args)=>{calls.push({name:'updateMerchantStaff',args});}};
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
       if(path==='@/lib/merchant-finance')return {periodRange:(p)=>({from:'2026-10-'+(p==='month'?'01':'27'),to:'2026-10-27'}),fetchFinanceSummary:async(...args)=>{calls.push({name:'fetchFinanceSummary',args});return {sales_net:500,orders:3,days:[]};}};
@@ -823,4 +827,27 @@ test('customer delivery estimate adds busy minutes only while busy mode lasts',(
   assert.deepEqual(JSON.parse(JSON.stringify(availability.foodEstimateDeliveryRange({...base,busy_extra_minutes:20,busy_until:later},0))),{min:35,max:50});
   assert.deepEqual(JSON.parse(JSON.stringify(availability.foodEstimateDeliveryRange({...base,busy_extra_minutes:20,busy_until:earlier},0))),{min:15,max:30});
   assert.deepEqual(JSON.parse(JSON.stringify(availability.foodEstimateDeliveryRange(base,0))),{min:15,max:30});
+});
+
+// Founder 2026-11-04 "QR ร้าน" (opens the store in LINE).
+test('store QR renders the ZOKY poster for an accessible store and shares inside the tap',async()=>{
+  const shared=[];
+  const navigator={canShare:()=>true,share:async(data)=>{shared.push(data);},clipboard:{writeText:async()=>{}}};
+  const h=harness({navigator});
+  assert.equal(JSON.parse(await h.bridge.request('saveStoreQr',JSON.stringify({storeId:STORE}))).data,'not_ready');
+  h.state.store.share_code='kbs7xa';
+  const qr=await h.request('storeQr',{storeId:STORE});
+  assert.equal(qr.ok,true);
+  assert.equal(qr.data.image,'data:image/png;base64,cG5n');
+  assert.equal(qr.data.linkUrl,'https://zoky.wynos.online/s/kbs7xa');
+  assert.equal(qr.data.opensInLine,true);
+  assert.equal(h.calls.find(c=>c.name==='renderZokyStorePoster').url,'https://liff.line.me/1234567890-AbCdEfGh?to=%2Fs%2Fkbs7xa');
+  assert.ok(h.calls.some(c=>c.name==='food_share_stats'&&c.args.p_store_id===STORE));
+  assert.equal((await h.request('saveStoreQr',{storeId:STORE})).data,'shared');
+  assert.equal(shared[0].files.length,1);
+  assert.equal((await h.request('shareStoreLink',{storeId:STORE})).data,'shared');
+  assert.equal(shared[1].url,'https://zoky.wynos.online/s/kbs7xa');
+  const other=harness({navigator});
+  assert.equal((await other.request('storeQr',{storeId:OTHER})).ok,false);
+  assert.equal(other.calls.some(c=>c.name==='renderZokyStorePoster'),false);
 });

@@ -13,6 +13,8 @@ import { fetchMerchantAdAccount, merchantAdError, requestAdTopup, setAdActive } 
 import { fetchPlatformCampaigns, joinPlatformCampaign, leavePlatformCampaign, platformCampaignError } from "@/lib/merchant-platform-campaigns";
 import { fetchMerchantCampaigns, saveMerchantCampaign, setMerchantCampaignActive } from "@/lib/merchant-campaigns";
 import { merchantMenuThumbnailUrl } from "@/lib/merchant-menu-image";
+import { foodStoreShareData } from "@/lib/food-share";
+import { foodStoreQrTarget, renderZokyStorePoster, zokyQrFileName } from "@/lib/zoky-store-qr";
 import { getPushAvailability, requestPushPermissionFromGesture, hasActivePushSubscription, pushReasonDescription, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 
 // DeveloperRouteGate remains the sole auth owner. Credentials never cross Dart.
@@ -43,7 +45,7 @@ const STATUSES = new Set(["pending_acceptance", "preparing", "ready_for_delivery
 const ORDER_TAB_STATUSES: Record<string, string[]> = { delivering: ["ready_for_delivery", "out_for_delivery"] };
 const ROLES = new Set(["owner", "admin", "manager", "orders", "support", "delivery"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-const STORE_READ_METHODS = new Set(["hasRole", "menu", "orders", "report", "orderCounts", "reviews", "checkLocation", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
+const STORE_READ_METHODS = new Set(["storeQr", "hasRole", "menu", "orders", "report", "orderCounts", "reviews", "checkLocation", "staff", "finance", "quality", "campaigns", "ads", "platformCampaigns"]);
 // Founder 2026-11-02 ("ยังช้าอยู่ ตอนเปิดแอป"): the first screen's reads start
 // while the engine boots. Exactly the requests the Flutter controller makes
 // first (merchant_controller.dart _read), in the same argument shape.
@@ -353,7 +355,31 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     if (!Array.isArray(menu)) return null;
     return { stores, storeId, menu, report: recall(`report:${storeId}`) ?? null, orderCounts: recall(`orderCounts:${storeId}`, 3_600_000) ?? null };
   };
-  const execute = async (method: string, args: Args, picked: Promise<File | null> | null, permissionRequest?: Promise<NotificationPermission>): Promise<unknown> => {
+  // Founder 2026-11-04 "QR ร้าน": the last rendered poster per store, so the
+  // share sheet can open synchronously inside the user's tap.
+  const qrPosters = new Map<string, { file: File; share: { title: string; text: string; url: string } }>();
+  const startStoreShare = (method: string, storeId: string): Promise<string> => {
+    const cached = qrPosters.get(storeId);
+    if (!cached) return Promise.resolve("not_ready");
+    if (method === "shareStoreLink") {
+      const copy = () => navigator.clipboard.writeText(cached.share.url).then(() => "copied", () => "failed");
+      if (typeof navigator.share !== "function") return copy();
+      return navigator.share(cached.share).then(() => "shared", (error) => (error instanceof DOMException && error.name === "AbortError" ? copy() : "failed"));
+    }
+    if (navigator.canShare?.({ files: [cached.file] })) {
+      return navigator.share({ files: [cached.file], title: cached.share.title }).then(() => "shared", (error) => (error instanceof DOMException && error.name === "AbortError" ? "cancelled" : "failed"));
+    }
+    const url = URL.createObjectURL(cached.file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = cached.file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    return Promise.resolve("downloaded");
+  };
+  const execute = async (method: string, args: Args, picked: Promise<File | null> | null, permissionRequest?: Promise<NotificationPermission>, storeShare?: Promise<string>): Promise<unknown> => {
     await ensureSession();
     if (method === "signOut") { forgetSnapshots(); await signOut(); return null; }
     if (method === "snapshot") return readSnapshot();
@@ -390,6 +416,30 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     await storeAccess(storeId, STORE_READ_METHODS.has(method));
     await ensureSession();
     switch (method) {
+      case "storeQr": {
+        const { data, error } = await client.from("food_stores").select("id,name,share_code,delivery_enabled,pickup_enabled,is_published").eq("id", storeId).single();
+        if (error || !data) throw error ?? new BridgeAccessError();
+        const store = data as { id: string; name: string; share_code: string | null; delivery_enabled: boolean | null; pickup_enabled: boolean | null; is_published: boolean };
+        const qrUrl = foodStoreQrTarget(store);
+        const blob = await renderZokyStorePoster(store, qrUrl);
+        const share = foodStoreShareData(store);
+        qrPosters.set(storeId, { file: new File([blob], zokyQrFileName(store), { type: "image/png" }), share });
+        const image = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error("poster_failed"));
+          reader.readAsDataURL(blob);
+        });
+        const stats = await client.rpc("food_share_stats", { p_store_id: storeId, p_days: 7 });
+        const row = !stats.error && Array.isArray(stats.data) ? stats.data[0] : null;
+        return {
+          image, linkUrl: share.url, opensInLine: qrUrl.startsWith("https://liff.line.me/"), published: store.is_published === true,
+          stats: row ? { opens: Number(row.opens ?? 0), orders: Number(row.orders ?? 0), sales: Number(row.sales ?? 0) } : null,
+        };
+      }
+      case "saveStoreQr":
+      case "shareStoreLink":
+        return await (storeShare ?? Promise.resolve("not_ready"));
       case "setBusy": {
         // Founder 2026-11-03 busy mode: order staff add 5-60 minutes for
         // 15-240 minutes, or turn it off (0). food_store_set_busy re-checks.
@@ -872,6 +922,9 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (method === "pickAdSlip") topupAmount(args.amount);
         const picked = picker ? pickImage() : null;
         const permissionRequest = method === "pushEnable" ? requestPushPermissionFromGesture() : undefined;
+        // The share sheet / download also has to start inside the tap.
+        const storeShare = method === "saveStoreQr" || method === "shareStoreLink" ? startStoreShare(method, id(args.storeId)) : undefined;
+        void storeShare?.catch(() => undefined);
         // Session validation may reject before the captured prompt settles.
         void permissionRequest?.catch(() => undefined);
         const key = prefetchKey(method, args);
@@ -880,7 +933,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (!PREFETCH_KEEP_METHODS.has(method)) prefetched.clear();
         let data: unknown = PREFETCH_MISS;
         if (early && Date.now() - early.at < PREFETCH_TTL_MS) data = await early.result.catch(() => PREFETCH_MISS);
-        if (data === PREFETCH_MISS) data = await execute(method, args, picked, permissionRequest);
+        if (data === PREFETCH_MISS) data = await execute(method, args, picked, permissionRequest, storeShare);
         else if (method === "orders" && typeof args.storeId === "string") ordersFromPrefetch.add(args.storeId);
         if (method !== "signOut") await ensureSession();
         if (SNAPSHOT_METHODS.has(method)) remember(method, args, data);

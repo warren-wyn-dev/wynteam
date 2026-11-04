@@ -31,6 +31,11 @@ test("LINE buttons open only that app's home or one of its orders", () => {
   assert.equal(safeLineDestination("food", "/food?order=WF0015"), "/food?order=WF0015");
   assert.equal(safeLineDestination("merchant", "/merchant?order=WF123456"), "/merchant?order=WF123456");
   assert.equal(safeLineDestination("food", "/food?order=ZF-0036"), "/food?order=ZF-0036");
+  // Founder 2026-11-04: a store QR opens the store in LINE.
+  assert.equal(safeLineDestination("food", "/s/kbs7xa"), "/s/kbs7xa");
+  assert.equal(safeLineDestination("food", "/food?store=1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"), "/food?store=1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed");
+  for (const bad of ["/s/kbs7xa?next=https://evil.test", "/s/KBS7XA", "/s/kbs7x", "//evil.test/s/kbs7xa", "/food?store=x"]) assert.equal(safeLineDestination("food", bad), "/food", bad);
+  assert.equal(safeLineDestination("merchant", "/s/kbs7xa"), "/merchant");
   assert.equal(safeLineDestination("merchant", "/merchant"), "/merchant");
   assert.equal(safeLineDestination("food", null), "/food");
 });

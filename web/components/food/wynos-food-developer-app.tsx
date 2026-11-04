@@ -27,6 +27,7 @@ import {
   ReceiptText,
   RefreshCw,
   Search,
+  QrCode,
   Share2,
   ShoppingBag,
   SlidersHorizontal,
@@ -83,6 +84,7 @@ import {
   subscribeToPushNotifications,
 } from "@/lib/push-notifications";
 import { lineLinkPath } from "@/lib/line-liff";
+import { foodStoreQrTarget, renderZokyQr, renderZokyStorePoster, zokyQrFileName } from "@/lib/zoky-store-qr";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   foodEstimateDeliveryRange,
@@ -2075,6 +2077,70 @@ function Sheet({
   );
 }
 
+/** The store's QR (opens the store in LINE) with share, copy and save. */
+function StoreShareSheet({
+  store,
+  onClose,
+  onMessage,
+}: {
+  store: FoodCustomerStore;
+  onClose: () => void;
+  onMessage: (message: string) => void;
+}) {
+  const [qr, setQr] = useState<string | null>(null);
+  const [poster, setPoster] = useState<File | null>(null);
+  const share = foodStoreShareData(store);
+  useEffect(() => {
+    let live = true;
+    const target = foodStoreQrTarget(store);
+    void renderZokyQr(target, 560).then((canvas) => { if (live) setQr(canvas.toDataURL("image/png")); }).catch(() => undefined);
+    void renderZokyStorePoster(store, target)
+      .then((blob) => { if (live) setPoster(new File([blob], zokyQrFileName(store), { type: "image/png" })); })
+      .catch(() => undefined);
+    return () => { live = false; };
+  }, [store]);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(share.url);
+      onMessage("คัดลอกลิงก์แล้ว");
+    } catch {
+      onMessage("คัดลอกไม่สำเร็จ");
+    }
+  };
+  const save = () => {
+    if (!poster) return;
+    if (navigator.canShare?.({ files: [poster] })) {
+      void navigator.share({ files: [poster], title: share.title }).catch(() => undefined);
+      return;
+    }
+    const url = URL.createObjectURL(poster);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = poster.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  };
+  return (
+    <Sheet title="แชร์ร้านนี้" variant="sheet" onClose={onClose}>
+      <div className="fx-share-qr">
+        <strong>{store.name}</strong>
+        {qr
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={qr} alt={`QR ร้าน ${store.name}`} width={280} height={280} />
+          : <span className="fx-share-qr-loading" aria-label="กำลังสร้าง QR"><QrCode size={40} /></span>}
+        <small>ให้เพื่อนสแกนจากหน้าจอนี้ได้เลย เปิดร้านใน LINE</small>
+        <button type="button" className="fx-btn fx-btn--primary fx-btn--block" onClick={() => void shareOrCopyLink(share, onMessage)}><Share2 size={18} />แชร์ลิงก์</button>
+        <div className="fx-share-qr-row">
+          <button type="button" className="fx-btn fx-btn--outline-neutral fx-btn--grow" onClick={() => void copy()}><Copy size={18} />คัดลอกลิงก์</button>
+          <button type="button" className="fx-btn fx-btn--outline-neutral fx-btn--grow" disabled={!poster} onClick={save}><Download size={18} />บันทึกรูป QR</button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
 function ItemSheet({
   client,
   item,
@@ -3885,9 +3951,10 @@ function FoodCustomerInner({
       if (nextSnapshot?.store?.id === next.id) setStorefrontOpen(true);
     });
   };
+  // Founder 2026-11-04: sharing a store shows its QR (opens in LINE) first.
+  const [shareOpen, setShareOpen] = useState(false);
   const shareStore = () => {
-    if (!store) return;
-    void shareOrCopyLink(foodStoreShareData(store), setMessage);
+    if (store) setShareOpen(true);
   };
   // Rebuilds the cart from a past order. Prices, stock and options are checked again in the cart and on the server.
   const reorder = (order: FoodCustomerOrder) => {
@@ -4127,6 +4194,8 @@ function FoodCustomerInner({
           }}
         />
       ) : null}
+
+      {shareOpen && store ? <StoreShareSheet store={store} onClose={() => setShareOpen(false)} onMessage={setMessage} /> : null}
 
       {selectedItem && store ? (
         <ItemSheet

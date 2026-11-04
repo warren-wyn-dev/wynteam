@@ -31,10 +31,12 @@ export function configuredLiffIds(): { food?: string; merchant?: string } {
 }
 
 const ORDER_QUERY = /^\?order=(?:WF\d{4,9}|ZF-\d{4,9})$/;
+// Founder 2026-11-04: a store QR opens that store in LINE (share code or id).
+const FOOD_STORE_PATH = /^(?:\/s\/[a-hjkmnp-z2-9]{6}|\/food\?store=[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
 
 /**
  * Where a LINE message button may send the user: only that audience's app
- * home or one of its orders. Anything else (other paths, origins, schemes)
+ * home, one of its orders, or (customer) a store share link. Anything else (other paths, origins, schemes)
  * falls back to the app home, so /line can never be an open redirect.
  */
 export function safeLineDestination(audience: LineAudience, to: string | null): string {
@@ -42,6 +44,7 @@ export function safeLineDestination(audience: LineAudience, to: string | null): 
   if (!to || to.length > 64) return home;
   if (to === home) return home;
   if (to.startsWith(home) && ORDER_QUERY.test(to.slice(home.length))) return to;
+  if (audience === "food" && FOOD_STORE_PATH.test(to)) return to;
   return home;
 }
 
