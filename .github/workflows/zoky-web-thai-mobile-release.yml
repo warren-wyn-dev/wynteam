@@ -1,11 +1,11 @@
 name: ZOKY Web Thai + mobile-only scoped release
 
-# Founder 2026-11-04 ("อยากให้ทำเป็น QR ด้วย" -> "ทำ ก+ข", "สแกนแล้ว ต้องเด้ง
-# สั่งในไลน์"): a ZOKY store QR that opens the store in LINE (ZOKY LIFF,
-# to=/s/<code>): Merchant "QR ร้าน" poster page and the customer share sheet.
-# No database change. The candidate also carries the live Wyn Maps rename
-# (merged from release/wyn-maps-rename-20261104). Base is that live release
-# (4b49ac38 on dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W).
+# Founder 2026-11-04 ("ทำแจ้งเตือนอัตโนมัติ"): a customer who opens ZOKY
+# inside LINE (LIFF /line entry) and is signed in is linked for LINE
+# notifications automatically (line-link verifies LINE's ID token); not
+# signed in yet: finished once after sign-in. No database or Edge Function
+# change. Base is the live store-QR release (b110ee01 on
+# dpl_3aodG5McYMqh6v3xVgVX3K13VLym).
 # Production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_STORE_QR_20261104]
+        options: [CANCEL, ZOKY_LINE_AUTOLINK_20261104]
 
 permissions:
   contents: read
@@ -28,32 +28,23 @@ concurrency:
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
   RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: b110ee01af89da0050b841e79ab01020122f6824
-  PRODUCTION_BASE_SHA: 4b49ac38a735c423fcef48492f28d731cce1646f
-  # Live on every customer host since the 2026-11-04 Wyn Maps rename release (4b49ac38).
-  ROLLBACK_DEPLOYMENT: dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W
+  RELEASE_SHA: 81b6a3a33a6fb716aa3a670beae9cf327fca220c
+  PRODUCTION_BASE_SHA: b110ee01af89da0050b841e79ab01020122f6824
+  # Live on every customer host since the 2026-11-04 store-QR release (b110ee01).
+  ROLLBACK_DEPLOYMENT: dpl_3aodG5McYMqh6v3xVgVX3K13VLym
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_3aodG5McYMqh6v3xVgVX3K13VLym
   ALLOWED_PATHS: >-
-    web/app/food/food-app.css
     web/components/food/wynos-food-developer-app.tsx
-    web/lib/i18n/en.ts
+    web/components/line/line-entry.tsx
     web/lib/line-liff.ts
-    web/lib/merchant-flutter-bridge.ts
-    web/lib/zoky-store-qr.ts
-    web/merchant_flutter/lib/data/merchant_repository.dart
-    web/merchant_flutter/lib/screens/merchant_home.dart
-    web/merchant_flutter/lib/screens/store_qr_panel.dart
-    web/merchant_flutter/test/merchant_test.dart
-    web/merchant_flutter/test/support/fake_repository.dart
     web/tests/line-liff.test.mjs
-    web/tests/merchant-flutter-bridge.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
 
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_STORE_QR_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_AUTOLINK_20261104'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -88,7 +79,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_STORE_QR_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_AUTOLINK_20261104'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -146,7 +137,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_STORE_QR_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_AUTOLINK_20261104'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest

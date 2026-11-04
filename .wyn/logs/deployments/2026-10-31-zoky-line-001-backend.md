@@ -207,3 +207,9 @@ Founder request: order tabs "ใหม่ · กำลังเตรียม �
 - ZOKY Admin: run 41780027832 (main `06cb1c1f`, only the rename since the live build), Founder approved. Live `dpl_6n77m3EgNMMhtNwDwvskduA62b4o` on `zoky-admin.wynos.online`; `/login` 200; no runtime errors.
 - Not released: WYNOS Admin labels (release freeze) and `tiles/index.html` (no deploy workflow).
 - Rollback: web `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`; ZOKY Admin `dpl_78B5pyet8nnQiA3RS5VGnnkDLkRz`.
+
+## 2026-11-04 — ZOKY store QR that opens the store in LINE
+
+- Founder: "อยากให้ทำเป็น QR ด้วย" → mockups → "ทำ ก+ข", "สแกนแล้ว ต้องเด้ง สั่งในไลน์". PR #1333.
+- Web: candidate `b110ee01` (store QR + the live Wyn Maps rename, base `4b49ac38`), run 41795038134, Founder approved both reviews. Live `dpl_3aodG5McYMqh6v3xVgVX3K13VLym` on `zoky.wynos.online` and `merchant.wynos.online`; Merchant Flutter build contains `storeQr`; `/line` 200; no runtime errors. No database change.
+- Rollback: `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W`.
