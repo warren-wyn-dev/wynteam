@@ -49,6 +49,8 @@ Official API: https://developers.line.biz/en/reference/liff/#request-friendship
   fixed-OA fallback and stalled lookup with no late prompt.
 - `npm run typecheck`: pass.
 - Focused ESLint on the three changed source/test files: pass.
+- English fallback copy: all five new phrases translated; `npm run test:i18n`
+  passes 51/51 and focused translation-file ESLint passes.
 - `npx next build`: pass, including TypeScript and static page generation.
   This checks the Next.js application; the unrelated Flutter build was not run.
 - `npm run test:share-links`: 19/19 pass. The pre-existing source-regex test
