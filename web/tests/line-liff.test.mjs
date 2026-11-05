@@ -10,9 +10,80 @@ import {
   isLineInAppBrowser,
   liffIdFor,
   rememberLineAutoLink,
+  requestStoreLineFriendship,
   safeLineDestination,
   takeLineAutoLink,
 } from "../lib/line-liff.ts";
+
+test("store scanners see the native friend prompt before continuing, including guests", async () => {
+  const calls = [];
+  let dismiss;
+  const liff = {
+    isApiAvailable: (api) => { calls.push(api); return true; },
+    getFriendship: async () => { calls.push("friendship"); return { friendFlag: false }; },
+    requestFriendship: () => { calls.push("prompt"); return new Promise((resolve) => { dismiss = resolve; }); },
+  };
+  let continued = false;
+  const pending = requestStoreLineFriendship("/s/kbs7xa", liff).then(() => { continued = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, ["requestFriendship", "friendship", "prompt"]);
+  assert.equal(continued, false);
+  dismiss();
+  await pending;
+  assert.equal(continued, true);
+
+  const entry = readFileSync(new URL("../components/line/line-entry.tsx", import.meta.url), "utf8");
+  const prompt = entry.indexOf("await friendshipPrompt.current");
+  assert.ok(prompt > 0 && prompt < entry.indexOf("if (!data.session) rememberLineAutoLink"));
+});
+
+test("existing friends and unrelated destinations do not get prompted", async () => {
+  const calls = [];
+  const liff = {
+    isApiAvailable: () => true,
+    getFriendship: async () => ({ friendFlag: true }),
+    requestFriendship: async () => { calls.push("prompt"); },
+  };
+  await requestStoreLineFriendship("/s/kbs7xa", liff);
+  await requestStoreLineFriendship("/food?store=1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed", liff);
+  liff.getFriendship = async () => { throw new Error("unrelated destination queried"); };
+  for (const destination of ["/food", "/food?order=ZF-0036", "/merchant", "/s/kbs7xa?next=https://evil.test"]) {
+    await requestStoreLineFriendship(destination, { ...liff, isApiAvailable: () => { calls.push("unexpected"); return true; } });
+  }
+  assert.deepEqual(calls, []);
+});
+
+test("unsupported clients, unlinked OA, and prompt dismissal errors still allow ordering", async () => {
+  for (const failure of ["unsupported", "friendship", "prompt"]) {
+    const calls = [];
+    await requestStoreLineFriendship("/s/kbs7xa", {
+      isApiAvailable: () => failure !== "unsupported",
+      getFriendship: async () => {
+        calls.push("friendship");
+        if (failure === "friendship") throw new Error("OA not linked");
+        return { friendFlag: false };
+      },
+      requestFriendship: async () => { calls.push("prompt"); throw new Error("prompt unavailable"); },
+    });
+    assert.deepEqual(calls, failure === "unsupported" ? [] : failure === "friendship" ? ["friendship"] : ["friendship", "prompt"]);
+  }
+});
+
+test("a stalled friendship lookup times out without showing a late prompt", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let finishLookup;
+  let prompted = false;
+  const pending = requestStoreLineFriendship("/s/kbs7xa", {
+    isApiAvailable: () => true,
+    getFriendship: () => new Promise((resolve) => { finishLookup = resolve; }),
+    requestFriendship: async () => { prompted = true; },
+  });
+  t.mock.timers.tick(4000);
+  await pending;
+  finishLookup({ friendFlag: false });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(prompted, false);
+});
 
 test("audience follows the Merchant origin unless a known OA is requested", () => {
   assert.equal(lineAudienceFor("merchant.wynos.online", null), "merchant");

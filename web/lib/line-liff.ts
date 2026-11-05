@@ -1,5 +1,6 @@
-// ZOKY-LINE-001: pure helpers for the /line LIFF entry and the
+// ZOKY-LINE-001: helpers for the /line LIFF entry and the
 // "รับแจ้งเตือนทาง LINE" cards. No secrets: LIFF IDs are public identifiers.
+import type { Liff } from "@line/liff";
 
 export type LineAudience = "food" | "merchant";
 
@@ -46,6 +47,27 @@ export function safeLineDestination(audience: LineAudience, to: string | null): 
   if (to.startsWith(home) && ORDER_QUERY.test(to.slice(home.length))) return to;
   if (audience === "food" && FOOD_STORE_PATH.test(to)) return to;
   return home;
+}
+
+/** Ask scanners to add/unblock the linked OA before opening their store. */
+export async function requestStoreLineFriendship(
+  destination: string,
+  liff: Pick<Liff, "isApiAvailable" | "getFriendship" | "requestFriendship">,
+): Promise<void> {
+  if (!FOOD_STORE_PATH.test(destination)) return;
+  try {
+    if (!liff.isApiAvailable("requestFriendship")) return;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const friendship = await Promise.race([
+      liff.getFriendship(),
+      new Promise<null>((resolve) => { timeout = setTimeout(() => resolve(null), 4000); }),
+    ]).finally(() => clearTimeout(timeout));
+    // Only the lookup is bounded; let the user finish the visible prompt.
+    if (friendship?.friendFlag === false) await liff.requestFriendship();
+  } catch {
+    // An unsupported client or missing linked OA must not prevent ordering.
+    // LINE Developers needs the linked customer OA, profile scope and Full size.
+  }
 }
 
 /** The same-browser link flow, started from the settings cards. */

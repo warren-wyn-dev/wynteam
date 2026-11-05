@@ -17,6 +17,7 @@ import {
   lineStatusText,
   liffIdFor,
   rememberLineAutoLink,
+  requestStoreLineFriendship,
   safeLineDestination,
   type LineAudience,
   type LineLinkStatus,
@@ -68,6 +69,7 @@ export function LineEntry() {
   const [busy, setBusy] = useState(false);
   const [audience, setAudience] = useState<LineAudience>("food");
   const context = useRef<{ audience: LineAudience; liffId: string } | null>(null);
+  const friendshipPrompt = useRef<Promise<void> | null>(null);
 
   const callLineLink = useCallback(async (body: Record<string, unknown>): Promise<LineLinkStatus> => {
     const client = getSupabaseBrowserClient();
@@ -144,6 +146,11 @@ export function LineEntry() {
         // Founder 2026-11-04: customers opening ZOKY inside LINE get LINE
         // notifications without a tap. Best effort, never blocks the page.
         if (audience === "food" && liff?.isInClient() && liff.isLoggedIn()) {
+          // Show LINE's native add-friend prompt even for a guest who has
+          // already authorized LIFF. Wait for dismissal before leaving.
+          friendshipPrompt.current ??= requestStoreLineFriendship(destination, liff);
+          await friendshipPrompt.current;
+          if (!live) return;
           const client = getSupabaseBrowserClient();
           const { data } = client ? await client.auth.getSession() : { data: { session: null } };
           if (!data.session) rememberLineAutoLink(destination);
