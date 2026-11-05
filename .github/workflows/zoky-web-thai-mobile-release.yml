@@ -1,11 +1,13 @@
-name: ZOKY Web Thai + mobile-only scoped release
+name: ZOKY store QR LINE add-friend scoped release
 
-# Founder 2026-11-04 ("ทำแจ้งเตือนอัตโนมัติ"): a customer who opens ZOKY
-# inside LINE (LIFF /line entry) and is signed in is linked for LINE
-# notifications automatically (line-link verifies LINE's ID token); not
-# signed in yet: finished once after sign-in. No database or Edge Function
-# change. Base is the live store-QR release (b110ee01 on
-# dpl_3aodG5McYMqh6v3xVgVX3K13VLym).
+# Founder 2026-11-05 ("จัดการให้สำเร็จ พร้อมใช้งานเลย"): store QR visitors
+# who are not friends see LINE's native add/unblock prompt before opening
+# their store, including guests who have not signed in to ZOKY. When native
+# friendship is unavailable (including a missing linked OA), the reviewed
+# fallback opens the user-approved @732igmun profile and keeps the original
+# store available. No database, Edge Function, dependency or authentication
+# change. Base is the live
+# automatic-link release (81b6a3a on dpl_J6cmTuDhoWXWr6ks3UuYaT9mPJWK).
 # Production reviewers and stage-before-promotion remain required.
 on:
   workflow_dispatch:
@@ -15,7 +17,7 @@ on:
         required: true
         type: choice
         default: CANCEL
-        options: [CANCEL, ZOKY_LINE_AUTOLINK_20261104]
+        options: [CANCEL, ZOKY_QR_LINE_FRIENDSHIP_20261105]
 
 permissions:
   contents: read
@@ -27,16 +29,18 @@ concurrency:
 
 env:
   RELEASE_EXPIRES_UTC: "2026-11-14"
-  RELEASE_BRANCH: release/zoky-line-web-20261101
-  RELEASE_SHA: 81b6a3a33a6fb716aa3a670beae9cf327fca220c
-  PRODUCTION_BASE_SHA: b110ee01af89da0050b841e79ab01020122f6824
-  # Live on every customer host since the 2026-11-04 store-QR release (b110ee01).
-  ROLLBACK_DEPLOYMENT: dpl_3aodG5McYMqh6v3xVgVX3K13VLym
-  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_3aodG5McYMqh6v3xVgVX3K13VLym
+  RELEASE_BRANCH: fix/zoky-qr-line-entry-20261105
+  RELEASE_SHA: ec3f5f2a5453dd67cb004ee625e2f74177b5d9c2
+  PRODUCTION_BASE_SHA: 81b6a3a33a6fb716aa3a670beae9cf327fca220c
+  # Confirmed live on all five customer hosts before this release.
+  ROLLBACK_DEPLOYMENT: dpl_J6cmTuDhoWXWr6ks3UuYaT9mPJWK
+  ROLLBACK_MERCHANT_DEPLOYMENT: dpl_J6cmTuDhoWXWr6ks3UuYaT9mPJWK
   ALLOWED_PATHS: >-
-    web/components/food/wynos-food-developer-app.tsx
+    docs/qa/zoky-store-qr-line-friendship-20261105.md
     web/components/line/line-entry.tsx
+    web/lib/i18n/en.ts
     web/lib/line-liff.ts
+    web/tests/food-share-links.test.mjs
     web/tests/line-liff.test.mjs
   VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
   VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
@@ -44,7 +48,7 @@ env:
 jobs:
   guard:
     name: Scope guards (before production review)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_AUTOLINK_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_QR_LINE_FRIENDSHIP_20261105'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -79,7 +83,7 @@ jobs:
 
   stage:
     name: Stage production artifact (domains unchanged)
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_AUTOLINK_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_QR_LINE_FRIENDSHIP_20261105'
     needs: guard
     environment: production
     runs-on: ubuntu-latest
@@ -109,7 +113,7 @@ jobs:
           root_dir=$(curl --fail --silent --show-error -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" | jq -r '.rootDirectory // ""')
           if [ "$root_dir" = "web" ]; then cd ..; fi
-          # Same runtime flags as the live release (dpl_12HuugYfCwEMwhSDssGa3N8zZe28).
+          # Same runtime flags as the live automatic-link release.
           # A clean build: the cached Flutter SDK from the previous production
           # build has no .git, so build_web.sh's revision check fails on it.
           url=$(vercel deploy --prod --skip-domain --yes --scope warren14 \
@@ -130,6 +134,42 @@ jobs:
           for path in /food /food/login /food/signup /merchant/login /merchant/flutter /maps /line; do
             vercel curl "$path" --deployment "$STAGED_URL" -- --fail --silent --show-error --output /dev/null
           done
+          line_assets_dir=$(mktemp -d)
+          trap 'rm -rf "$line_assets_dir"' EXIT
+          vercel curl /line --deployment "$STAGED_URL" -- --fail --silent --show-error --max-time 30 --output "$line_assets_dir/line.html"
+          python3 - "$line_assets_dir" <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path, PurePosixPath
+          import re
+          import sys
+
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.paths = set()
+
+              def handle_starttag(self, tag, attrs):
+                  src = dict(attrs).get("src") or ""
+                  if tag == "script" and re.fullmatch(r"/_next/[A-Za-z0-9_./-]+\.js", src) and ".." not in PurePosixPath(src).parts:
+                      self.paths.add(src)
+
+          directory = Path(sys.argv[1])
+          parser = Scripts()
+          parser.feed((directory / "line.html").read_text())
+          if not 1 <= len(parser.paths) <= 64:
+              raise SystemExit("::error::Staged /line has no bounded local Next.js script list.")
+          (directory / "paths.txt").write_text("\n".join(sorted(parser.paths)) + "\n")
+          PY
+          line_fallback_found=0
+          while IFS= read -r chunk; do
+            vercel curl "$chunk" --deployment "$STAGED_URL" -- --fail --silent --show-error --max-time 30 --output "$line_assets_dir/chunk.js"
+            if grep -Fq 'https://line.me/R/ti/p/%40732igmun' "$line_assets_dir/chunk.js"; then
+              line_fallback_found=1
+              break
+            fi
+          done < "$line_assets_dir/paths.txt"
+          [ "$line_fallback_found" = 1 ] || { echo '::error::Staged /line does not contain the approved customer OA fallback'; exit 1; }
+          echo '- Staged /line includes the approved @732igmun fallback: PASS' >> "$GITHUB_STEP_SUMMARY"
           vercel curl /merchant/flutter --deployment "$STAGED_URL" -- --fail --silent --show-error --output /tmp/merchant-host.html
           grep -Fq '/merchant/flutter/manifest.webmanifest' /tmp/merchant-host.html
           rm -f /tmp/merchant-host.html
@@ -137,7 +177,7 @@ jobs:
 
   promote:
     name: Promote the verified artifact
-    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_LINE_AUTOLINK_20261104'
+    if: github.ref == 'refs/heads/main' && github.repository == 'warren-wyn-dev/wynteam' && inputs.confirmation == 'ZOKY_QR_LINE_FRIENDSHIP_20261105'
     needs: [guard, stage]
     environment: production
     runs-on: ubuntu-latest
@@ -147,6 +187,57 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --global vercel@63.1.2 --no-audit --no-fund
+      - name: Require customer LINE OA configuration before promotion
+        run: |
+          python3 - <<'PY'
+          import base64
+          import json
+          import sys
+          import urllib.request
+
+          liff_id = "2012311758-OEhTuU5V"
+          customer_oa_url = "https://line.me/R/ti/p/%40732igmun"
+          request = urllib.request.Request(
+              f"https://api.line.me/liff/v2/apps/{liff_id}/contextToken",
+              headers={"Accept": "application/json", "Content-Type": "application/json", "Origin": "https://zoky.wynos.online"},
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  token = json.load(response)["contextToken"]
+              # Public LIFF configuration only; never log the envelope or token.
+              parts = token.split(".")
+              if len(parts) != 3:
+                  raise ValueError("invalid context token")
+              payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+              if payload.get("liffId") != liff_id:
+                  raise ValueError("unexpected LIFF app")
+              endpoint = payload.get("endpointUrl")
+              if endpoint not in ("https://food.wynos.online/line", "https://zoky.wynos.online/line"):
+                  raise ValueError("unexpected LIFF endpoint")
+              scope = payload.get("scope")
+              if not isinstance(scope, list) or not all(isinstance(item, str) for item in scope):
+                  raise ValueError("invalid scope")
+          except Exception:
+              print("::error::Could not verify customer LINE public configuration. Production domains were not changed.")
+              sys.exit(1)
+
+          if "profile" not in scope:
+              print("::error::Customer LIFF app requires profile scope before promotion.")
+              sys.exit(1)
+          try:
+              with urllib.request.urlopen(urllib.request.Request(customer_oa_url, headers={"Accept": "text/html"}), timeout=20) as response:
+                  if response.status != 200:
+                      raise ValueError("customer OA URL unavailable")
+          except Exception:
+              print("::error::Could not verify the approved customer LINE OA URL. Production domains were not changed.")
+              sys.exit(1)
+
+          print(json.dumps({"liffId": liff_id, "endpointUrl": endpoint, "hasLinkedBot": payload.get("hasLinkedBot") is True, "scope": scope, "customerOaUrl": customer_oa_url}))
+          if payload.get("hasLinkedBot") is not True:
+              print("::warning::Customer LINE Login channel has no linked OA. The reviewed @732igmun profile fallback will be used.")
+          # External bootstrap does not expose viewType; Full size needs separate verification.
+          print("Customer LIFF identity, endpoint, profile scope and approved OA URL: PASS. LIFF Full size is not verified by this check.")
+          PY
       - name: Promote and smoke-check public routes
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
