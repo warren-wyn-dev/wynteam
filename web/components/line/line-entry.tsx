@@ -10,6 +10,7 @@ import type { Liff } from "@line/liff";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
+  CUSTOMER_LINE_ADD_FRIEND_URL,
   configuredLiffIds,
   lineAudienceFor,
   lineLinkPath,
@@ -17,9 +18,11 @@ import {
   lineStatusText,
   liffIdFor,
   rememberLineAutoLink,
+  requestStoreLineFriendship,
   safeLineDestination,
   type LineAudience,
   type LineLinkStatus,
+  type StoreLineFriendship,
 } from "@/lib/line-liff";
 import { rememberReturnPath } from "@/lib/return-to";
 
@@ -27,6 +30,7 @@ type View =
   | { kind: "loading" }
   | { kind: "not_configured" }
   | { kind: "need_signin"; inLine: boolean }
+  | { kind: "store_friendship"; destination: string }
   | { kind: "ready"; status: LineLinkStatus }
   | { kind: "error"; message: string };
 
@@ -68,6 +72,8 @@ export function LineEntry() {
   const [busy, setBusy] = useState(false);
   const [audience, setAudience] = useState<LineAudience>("food");
   const context = useRef<{ audience: LineAudience; liffId: string } | null>(null);
+  const friendshipPrompt = useRef<Promise<StoreLineFriendship> | null>(null);
+  const friendshipFallback = useRef<Promise<void> | null>(null);
 
   const callLineLink = useCallback(async (body: Record<string, unknown>): Promise<LineLinkStatus> => {
     const client = getSupabaseBrowserClient();
@@ -144,16 +150,32 @@ export function LineEntry() {
         // Founder 2026-11-04: customers opening ZOKY inside LINE get LINE
         // notifications without a tap. Best effort, never blocks the page.
         if (audience === "food" && liff?.isInClient() && liff.isLoggedIn()) {
-          const client = getSupabaseBrowserClient();
-          const { data } = client ? await client.auth.getSession() : { data: { session: null } };
-          if (!data.session) rememberLineAutoLink(destination);
-          else {
-            const idToken = liff.getIDToken();
-            const attempt = (async () => {
+          // Show LINE's native add-friend prompt even for a guest who has
+          // already authorized LIFF. Wait for dismissal before leaving.
+          friendshipPrompt.current ??= requestStoreLineFriendship(destination, liff);
+          const friendship = await friendshipPrompt.current;
+          if (!live) return;
+          const attempt = (async () => {
+            const client = getSupabaseBrowserClient();
+            const { data } = client ? await client.auth.getSession() : { data: { session: null } };
+            if (!data.session) rememberLineAutoLink(destination);
+            else {
+              const idToken = liff.getIDToken();
               const status = await callLineLink({ action: "status", audience });
               if (!status.linked && idToken) await callLineLink({ action: "link", audience, idToken });
-            })().catch(() => undefined);
-            await Promise.race([attempt, new Promise((resolve) => window.setTimeout(resolve, 4000))]);
+            }
+          })().catch(() => undefined);
+          await Promise.race([attempt, new Promise((resolve) => window.setTimeout(resolve, 4000))]);
+          if (!live) return;
+          if (friendship === "unavailable") {
+            setView({ kind: "store_friendship", destination });
+            // A native LINE window preserves this entry and its exact store.
+            // Share one attempt across StrictMode effects; the link stays usable
+            // when this SDK/client cannot open the window automatically.
+            friendshipFallback.current ??= Promise.resolve()
+              .then(() => liff.openWindow({ url: CUSTOMER_LINE_ADD_FRIEND_URL, external: false }))
+              .catch(() => undefined);
+            return;
           }
         }
         window.location.replace(destination);
@@ -195,9 +217,11 @@ export function LineEntry() {
     <main className="zl-page">
       <section className="zl-card" aria-live="polite">
         <span className="zl-badge" aria-hidden="true">LINE</span>
-        <h1>รับแจ้งเตือนทาง LINE</h1>
+        <h1>{view.kind === "store_friendship" ? "เพิ่มเพื่อน LINE ของ ZOKY" : "รับแจ้งเตือนทาง LINE"}</h1>
         <p className="zl-sub">
-          {audience === "merchant"
+          {view.kind === "store_friendship"
+            ? "เพิ่มเพื่อน ZOKY แล้วกลับมาหน้านี้เพื่อไปหน้าร้าน"
+            : audience === "merchant"
             ? "ร้านได้รับแจ้งออเดอร์ใหม่ ลูกค้ายกเลิก และเงินเข้า ผ่าน LINE OA ของ ZOKY Merchant"
             : "รับแจ้งสถานะออเดอร์ การชำระเงิน และการคืนเงิน ผ่าน LINE OA ของ ZOKY"}
         </p>
@@ -205,6 +229,15 @@ export function LineEntry() {
         {view.kind === "loading" ? <p className="zl-status">กำลังโหลด…</p> : null}
 
         {view.kind === "not_configured" ? <p className="zl-status">การแจ้งเตือนทาง LINE ยังไม่เปิดใช้งาน</p> : null}
+
+        {view.kind === "store_friendship" ? (
+          <>
+            <p className="zl-status">หากหน้าเพิ่มเพื่อนยังไม่เปิด กดปุ่มด้านล่าง</p>
+            <a className="zl-primary" href={CUSTOMER_LINE_ADD_FRIEND_URL} target="_blank" rel="noreferrer">เพิ่มเพื่อน LINE OA</a>
+            <a className="zl-secondary" href={view.destination}>ไปหน้าร้าน</a>
+            <p className="zl-note">ไปหน้าร้านได้ทันที โดยไม่ต้องเพิ่มเพื่อน</p>
+          </>
+        ) : null}
 
         {view.kind === "need_signin" ? (
           <>
@@ -255,7 +288,7 @@ export function LineEntry() {
           </>
         ) : null}
 
-        <a className="zl-back" href={backHref}>กลับไป {appName}</a>
+        {view.kind !== "store_friendship" ? <a className="zl-back" href={backHref}>กลับไป {appName}</a> : null}
       </section>
     </main>
   );

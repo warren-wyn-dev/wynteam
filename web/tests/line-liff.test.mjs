@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  CUSTOMER_LINE_ADD_FRIEND_URL,
   lineAudienceFor,
   lineLinkPath,
   lineLinkStatusFrom,
@@ -10,9 +11,105 @@ import {
   isLineInAppBrowser,
   liffIdFor,
   rememberLineAutoLink,
+  requestStoreLineFriendship,
   safeLineDestination,
   takeLineAutoLink,
 } from "../lib/line-liff.ts";
+
+test("store scanners see the native friend prompt before continuing, including guests", async () => {
+  const calls = [];
+  let dismiss;
+  const liff = {
+    isApiAvailable: (api) => { calls.push(api); return true; },
+    getFriendship: async () => { calls.push("friendship"); return { friendFlag: false }; },
+    requestFriendship: () => { calls.push("prompt"); return new Promise((resolve) => { dismiss = resolve; }); },
+  };
+  let continued = false;
+  const pending = requestStoreLineFriendship("/s/kbs7xa", liff).then((outcome) => { continued = true; return outcome; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, ["friendship", "requestFriendship", "prompt"]);
+  assert.equal(continued, false);
+  dismiss();
+  assert.equal(await pending, "prompted");
+  assert.equal(continued, true);
+
+  const entry = readFileSync(new URL("../components/line/line-entry.tsx", import.meta.url), "utf8");
+  const prompt = entry.indexOf("await friendshipPrompt.current");
+  assert.ok(prompt > 0 && prompt < entry.indexOf("if (!data.session) rememberLineAutoLink"));
+});
+
+test("existing friends and unrelated destinations do not get prompted", async () => {
+  const calls = [];
+  const liff = {
+    isApiAvailable: () => { calls.push("unexpected"); return false; },
+    getFriendship: async () => ({ friendFlag: true }),
+    requestFriendship: async () => { calls.push("prompt"); },
+  };
+  assert.equal(await requestStoreLineFriendship("/s/kbs7xa", liff), "friend");
+  assert.equal(await requestStoreLineFriendship("/food?store=1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed", liff), "friend");
+  liff.getFriendship = async () => { throw new Error("unrelated destination queried"); };
+  for (const destination of ["/food", "/food?order=ZF-0036", "/merchant", "/s/kbs7xa?next=https://evil.test"]) {
+    assert.equal(await requestStoreLineFriendship(destination, liff), "not_store");
+  }
+  assert.deepEqual(calls, []);
+});
+
+test("unsupported clients, unlinked OA, and failed native prompts request the public-link fallback", async () => {
+  for (const failure of ["unsupported", "friendship", "prompt"]) {
+    const calls = [];
+    const outcome = await requestStoreLineFriendship("/s/kbs7xa", {
+      isApiAvailable: () => failure !== "unsupported",
+      getFriendship: async () => {
+        calls.push("friendship");
+        if (failure === "friendship") throw new Error("OA not linked");
+        return { friendFlag: false };
+      },
+      requestFriendship: async () => { calls.push("prompt"); throw new Error("prompt unavailable"); },
+    });
+    assert.equal(outcome, "unavailable");
+    assert.deepEqual(calls, failure === "prompt" ? ["friendship", "prompt"] : ["friendship"]);
+  }
+});
+
+test("native cancellation is respected without opening a second add-friend flow", async () => {
+  assert.equal(await requestStoreLineFriendship("/s/kbs7xa", {
+    isApiAvailable: () => true,
+    getFriendship: async () => ({ friendFlag: false }),
+    requestFriendship: async () => {
+      throw Object.assign(new Error("user didn't complete the friend request"), { code: "UNAUTHORIZED" });
+    },
+  }), "cancelled");
+});
+
+test("a stalled friendship lookup times out without showing a late prompt", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let finishLookup;
+  let prompted = false;
+  const pending = requestStoreLineFriendship("/s/kbs7xa", {
+    isApiAvailable: () => true,
+    getFriendship: () => new Promise((resolve) => { finishLookup = resolve; }),
+    requestFriendship: async () => { prompted = true; },
+  });
+  t.mock.timers.tick(4000);
+  assert.equal(await pending, "unavailable");
+  finishLookup({ friendFlag: false });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(prompted, false);
+});
+
+test("store fallback keeps the approved customer OA and the exact safe store destination", () => {
+  assert.equal(CUSTOMER_LINE_ADD_FRIEND_URL, "https://line.me/R/ti/p/%40732igmun");
+  const entry = readFileSync(new URL("../components/line/line-entry.tsx", import.meta.url), "utf8");
+  assert.match(entry, /if \(friendship === "unavailable"\) \{\s*setView\(\{ kind: "store_friendship", destination \}\)/);
+  assert.match(entry, /href=\{CUSTOMER_LINE_ADD_FRIEND_URL\} target="_blank" rel="noreferrer">เพิ่มเพื่อน LINE OA/);
+  assert.match(entry, /href=\{view\.destination\}>ไปหน้าร้าน/);
+  assert.match(entry, /friendshipPrompt\.current \?\?= requestStoreLineFriendship\(destination, liff\)/);
+  assert.match(entry, /friendshipFallback\.current \?\?= Promise\.resolve\(\)[\s\S]*?\.openWindow\(\{ url: CUSTOMER_LINE_ADD_FRIEND_URL, external: false \}\)/);
+  const fallback = entry.indexOf('if (friendship === "unavailable")');
+  const navigation = entry.indexOf("window.location.replace(destination)");
+  assert.ok(entry.indexOf("if (!data.session) rememberLineAutoLink") < fallback);
+  assert.ok(entry.indexOf("return;", fallback) < navigation, "the fallback screen must remain until the user continues");
+});
 
 test("audience follows the Merchant origin unless a known OA is requested", () => {
   assert.equal(lineAudienceFor("merchant.wynos.online", null), "merchant");

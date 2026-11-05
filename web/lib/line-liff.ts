@@ -1,5 +1,6 @@
-// ZOKY-LINE-001: pure helpers for the /line LIFF entry and the
+// ZOKY-LINE-001: helpers for the /line LIFF entry and the
 // "รับแจ้งเตือนทาง LINE" cards. No secrets: LIFF IDs are public identifiers.
+import type { Liff } from "@line/liff";
 
 export type LineAudience = "food" | "merchant";
 
@@ -46,6 +47,43 @@ export function safeLineDestination(audience: LineAudience, to: string | null): 
   if (to.startsWith(home) && ORDER_QUERY.test(to.slice(home.length))) return to;
   if (audience === "food" && FOOD_STORE_PATH.test(to)) return to;
   return home;
+}
+
+// Founder-confirmed customer OA (2026-11-05). Keep store entry independent of
+// LINE Developers' linked-bot setting, which is not available on every LIFF.
+export const CUSTOMER_LINE_ADD_FRIEND_URL = "https://line.me/R/ti/p/%40732igmun";
+
+export type StoreLineFriendship = "not_store" | "friend" | "prompted" | "cancelled" | "unavailable";
+
+/** Ask scanners to add/unblock the linked OA before opening their store. */
+export async function requestStoreLineFriendship(
+  destination: string,
+  liff: Pick<Liff, "isApiAvailable" | "getFriendship" | "requestFriendship">,
+): Promise<StoreLineFriendship> {
+  if (!FOOD_STORE_PATH.test(destination)) return "not_store";
+  try {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const friendship = await Promise.race([
+      liff.getFriendship(),
+      new Promise<null>((resolve) => { timeout = setTimeout(() => resolve(null), 4000); }),
+    ]).finally(() => clearTimeout(timeout));
+    if (friendship?.friendFlag === true) return "friend";
+    if (friendship?.friendFlag !== false || !liff.isApiAvailable("requestFriendship")) return "unavailable";
+    // Only the lookup is bounded; let the user finish the visible prompt.
+    try {
+      await liff.requestFriendship();
+      return "prompted";
+    } catch (error) {
+      // LIFF 2.31 reports the user's Cancel action with this exact error.
+      // Respect it: do not immediately open another add-friend screen.
+      const failure = error as { code?: unknown; message?: unknown } | null;
+      if (failure?.code === "UNAUTHORIZED" && failure.message === "user didn't complete the friend request") return "cancelled";
+      return "unavailable";
+    }
+  } catch {
+    // Unsupported clients and LIFFs without a linked OA need the public link.
+    return "unavailable";
+  }
 }
 
 /** The same-browser link flow, started from the settings cards. */
