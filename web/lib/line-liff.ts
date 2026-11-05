@@ -49,24 +49,40 @@ export function safeLineDestination(audience: LineAudience, to: string | null): 
   return home;
 }
 
+// Founder-confirmed customer OA (2026-11-05). Keep store entry independent of
+// LINE Developers' linked-bot setting, which is not available on every LIFF.
+export const CUSTOMER_LINE_ADD_FRIEND_URL = "https://line.me/R/ti/p/%40732igmun";
+
+export type StoreLineFriendship = "not_store" | "friend" | "prompted" | "cancelled" | "unavailable";
+
 /** Ask scanners to add/unblock the linked OA before opening their store. */
 export async function requestStoreLineFriendship(
   destination: string,
   liff: Pick<Liff, "isApiAvailable" | "getFriendship" | "requestFriendship">,
-): Promise<void> {
-  if (!FOOD_STORE_PATH.test(destination)) return;
+): Promise<StoreLineFriendship> {
+  if (!FOOD_STORE_PATH.test(destination)) return "not_store";
   try {
-    if (!liff.isApiAvailable("requestFriendship")) return;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const friendship = await Promise.race([
       liff.getFriendship(),
       new Promise<null>((resolve) => { timeout = setTimeout(() => resolve(null), 4000); }),
     ]).finally(() => clearTimeout(timeout));
+    if (friendship?.friendFlag === true) return "friend";
+    if (friendship?.friendFlag !== false || !liff.isApiAvailable("requestFriendship")) return "unavailable";
     // Only the lookup is bounded; let the user finish the visible prompt.
-    if (friendship?.friendFlag === false) await liff.requestFriendship();
+    try {
+      await liff.requestFriendship();
+      return "prompted";
+    } catch (error) {
+      // LIFF 2.31 reports the user's Cancel action with this exact error.
+      // Respect it: do not immediately open another add-friend screen.
+      const failure = error as { code?: unknown; message?: unknown } | null;
+      if (failure?.code === "UNAUTHORIZED" && failure.message === "user didn't complete the friend request") return "cancelled";
+      return "unavailable";
+    }
   } catch {
-    // An unsupported client or missing linked OA must not prevent ordering.
-    // LINE Developers needs the linked customer OA, profile scope and Full size.
+    // Unsupported clients and LIFFs without a linked OA need the public link.
+    return "unavailable";
   }
 }
 
