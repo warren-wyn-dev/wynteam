@@ -41,10 +41,11 @@ Official API: https://developers.line.biz/en/reference/liff/#request-friendship
 - Focused ESLint on the three changed source/test files: pass.
 - `npx next build`: pass, including TypeScript and static page generation.
   This checks the Next.js application; the unrelated Flutter build was not run.
-- `npm run test:share-links`: 18/19 pass. The pre-existing source-regex test
-  `Food and Merchant are wired to the share link` expects the old direct share
-  handler removed by the QR share sheet. The identical failure was reproduced in
-  a separate unchanged worktree at the candidate base; left outside this fix.
+- `npm run test:share-links`: 19/19 pass. The pre-existing source-regex test
+  expected the old direct share handler removed by the QR share sheet. The
+  identical failure was reproduced at the unchanged base and in the first PR CI
+  run. Updated it to check the current sheet's store data and share handler;
+  retained sign-in return checks and the Merchant publication guard.
 - Independent review found no blocker; its network-stall finding was addressed
   with a bounded friendship lookup and a regression test.
 
@@ -69,3 +70,13 @@ The printed QR and the production LIFF ID still open the production LIFF endpoin
 A preview alone cannot prove native LINE behavior: end-to-end scanning needs a
 separate staging LIFF with its endpoint set to the preview `/line`. Browser mocks
 can verify the candidate's SDK calls without connecting to customer data.
+
+PR: https://github.com/warren-wyn-dev/wynteam/pull/1335
+
+The first preview (`dpl_5azEJYbWif4VN6GsTCSn3UiupzRp`, candidate `9295499`)
+remained queued with no build events. The authenticated fetch connector returned
+`deployment_authentication_required`: its temporary share link was not accepted
+by Vercel SSO. CLI fallback (`vercel@65.11.0 whoami --non-interactive`) reports
+`Logged out`. No login, protection change or production deployment was performed.
+Preview readiness, hosted smoke tests, native LINE verification and subsequent
+CI status are not implied by passing local checks.

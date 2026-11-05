@@ -68,14 +68,22 @@ test("a shared store is kept across sign-in and expires", () => {
   assert.equal(s.pendingSharedFoodStore(), null, "tampered storage is rejected");
 });
 
-test("Food and Merchant are wired to the share link", () => {
+test("Food and Merchant are wired to the store share flow", () => {
   const food = read("../components/food/wynos-food-developer-app.tsx");
   const merchant = read("../components/merchant/wynos-merchant-app.tsx");
   // Remembered before the sign-in redirect (layout effect) and opened after it.
   assert.match(food, /useLayoutEffect\(\(\) => \{\s*const shared = sharedFoodStoreId\(window\.location\.search\);\s*if \(shared\) rememberSharedFoodStore\(shared\);/);
   assert.match(food, /sharedFoodStoreId\(window\.location\.search\) \?\? pendingSharedFoodStore\(\)/);
   assert.match(food, /clearSharedFoodStore\(\);/);
-  assert.match(food, /shareOrCopyLink\(foodStoreShareData\(store\), setMessage\)/);
+  // Food opens the QR sheet first, which shares this store's data and reports
+  // the result through the same toast callback as the previous direct button.
+  assert.match(food, /shareOpen && store \? <StoreShareSheet store=\{store\} onClose=\{\(\) => setShareOpen\(false\)\} onMessage=\{setMessage\}/);
+  const source = ts.createSourceFile("food.tsx", food, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const sheet = source.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "StoreShareSheet");
+  assert.ok(sheet, "Food's QR share sheet must exist");
+  const shareSheet = sheet.getText(source);
+  assert.match(shareSheet, /const share = foodStoreShareData\(store\);/);
+  assert.match(shareSheet, /onClick=\{\(\) => void shareOrCopyLink\(share, onMessage\)\}/);
   // Merchants can share only a store customers can actually see.
   assert.match(merchant, /store\.is_published && !store\.admin_suspended_at \? \([\s\S]*?shareOrCopyLink\(foodStoreShareData\(store\), onMessage\)/);
 });
