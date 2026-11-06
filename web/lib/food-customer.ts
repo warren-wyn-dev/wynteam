@@ -1007,6 +1007,16 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   const message = error instanceof Error ? error.message : String(error ?? "");
   const sessionCopy = sessionErrorCopy(message);
   if (sessionCopy) return sessionCopy;
+  if (
+    message.includes("food_customer_addresses_user_id_fkey")
+    || message.includes("food_orders_buyer_id_fkey")
+    || message.includes("food_orders_created_by_fkey")
+    || message.includes("food_order_events_actor_id_fkey")
+  ) return "บัญชี ZOKY กำลังซิงก์ข้อมูล กรุณาลองอีกครั้ง";
+  if (message.includes("invalid postal code")) return "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก";
+  if (message.includes("structured address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";
+  if (message.includes("address not found")) return "ไม่พบข้อมูลที่อยู่นี้ กรุณาโหลดใหม่แล้วลองอีกครั้ง";
+  if (message.includes("food customer access required")) return "บัญชีนี้ยังไม่สามารถใช้งาน ZOKY ได้ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง";
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
   if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";
