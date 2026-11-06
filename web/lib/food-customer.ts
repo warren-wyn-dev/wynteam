@@ -1086,6 +1086,12 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   const message = error instanceof Error ? error.message : String(error ?? "");
   const sessionCopy = sessionErrorCopy(message);
   if (sessionCopy) return sessionCopy;
+  if (
+    message.includes("food_customer_addresses_user_id_fkey")
+    || message.includes("food_orders_buyer_id_fkey")
+    || message.includes("food_orders_created_by_fkey")
+    || message.includes("food_order_events_actor_id_fkey")
+  ) return "บัญชี ZOKY กำลังซิงก์ข้อมูล กรุณาลองอีกครั้ง";
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
   if (message.includes("pickup_not_available")) return "ร้านนี้ยังไม่เปิดให้รับเองที่ร้าน";
   if (message.includes("delivery_not_available")) return "ร้านนี้ไม่ได้เปิดจัดส่ง เลือกรับเองที่ร้านแทน";
