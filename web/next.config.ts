@@ -54,6 +54,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        // Browser/crawler asset requests must never fall through to the
+        // dynamic /[profileSlug] route and trigger unrelated application work.
+        { source: "/og-image.png", destination: "/icons/icon-512.png" },
+        { source: "/favicon.ico", destination: "/icons/icon-192.png" },
         // Host-specific WYNOS Maps routes must run before filesystem routes
         // such as the Social /search page.
         { source: "/", has: [{ type: "host", value: "maps.wynos.online" }], destination: "/maps" },
