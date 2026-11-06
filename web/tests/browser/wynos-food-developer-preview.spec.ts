@@ -179,7 +179,7 @@ test("WYNOS Food upgrades legacy addresses before checkout", () => {
   expect(app).toContain("addresses.find((address) => address.is_default && foodCustomerAddressStructuredComplete(address))");
 });
 
-test("Wyn Maps Places enriches saved addresses without exposing customer homes", () => {
+test("Norswor Maps Places enriches saved addresses without exposing customer homes", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
   const data = read("lib/food-customer.ts");
   const sql = read("../supabase/migrations_wynos_maps_places_saved_addresses_v1.sql");
@@ -446,7 +446,7 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
   expect(app).toContain("const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason);");
   expect(app).toContain("disabled={confirmDisabled}");
-  expect(map).toContain('aria-label={standalone ? "ค้นหาใน Wyn Maps" : "ค้นหาสถานที่หรือที่อยู่"}');
+  expect(map).toContain('aria-label={standalone ? "ค้นหาใน Norswor Maps" : "ค้นหาสถานที่หรือที่อยู่"}');
   expect(merchant).toContain("Math.ceil(");
   expect(app).toContain("<DeliveryPinPicker");
   expect(merchant).toContain("delivery_fee_per_km: Number(form.delivery_fee_per_km || 0)");
@@ -623,7 +623,7 @@ test("WYNOS Food item sheet matches the approved native ordering layout", () => 
 });
 
 
-test("standalone Wyn Maps stays independent from Food-only chrome and service-area blocking", () => {
+test("standalone Norswor Maps stays independent from Food-only chrome and service-area blocking", () => {
   const shell = read("app/maps/wynos-maps-address-picker.tsx");
   const map = read("components/food/food-delivery-map-picker.tsx");
   const polish = read("app/maps/maps.css");

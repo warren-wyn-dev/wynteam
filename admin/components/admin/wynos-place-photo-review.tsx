@@ -15,7 +15,7 @@ export function WynosPlacePhotoReview({ photos }: { photos: AdminWynosPlacePhoto
   const review = (photo: AdminWynosPlacePhoto, approve: boolean) => startTransition(async () => {
     try {
       await reviewWynosPlacePhoto(photo.id, photo.storage_path, approve);
-      setMessage(approve ? "อนุมัติรูปแล้ว รูปจะขึ้นบน Wyn Maps" : "ปฏิเสธและลบรูปแล้ว");
+      setMessage(approve ? "อนุมัติรูปแล้ว รูปจะขึ้นบน Norswor Maps" : "ปฏิเสธและลบรูปแล้ว");
       router.refresh();
     } catch (error) {
       const text = error instanceof Error ? error.message : "";
@@ -29,7 +29,7 @@ export function WynosPlacePhotoReview({ photos }: { photos: AdminWynosPlacePhoto
         <ImageIcon className="size-4" />
         <div>
           <h3 className="font-semibold">รูปสถานที่รอตรวจ</h3>
-          <p className="text-xs text-muted-foreground">รูปจากผู้ใช้ Wyn Maps จะไม่ขึ้นให้คนอื่นเห็นจนกว่า Admin อนุมัติ · ปฏิเสธแล้วไฟล์จะถูกลบ</p>
+          <p className="text-xs text-muted-foreground">รูปจากผู้ใช้ Norswor Maps จะไม่ขึ้นให้คนอื่นเห็นจนกว่า Admin อนุมัติ · ปฏิเสธแล้วไฟล์จะถูกลบ</p>
         </div>
       </div>
       {message ? (
