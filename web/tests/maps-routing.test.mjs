@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(read("../lib/maps-routing.ts"), {
 }).outputText;
 const mod = { exports: {} };
 runInNewContext(compiled, { module: mod, exports: mod.exports, Number, Math, Array, Object });
-const { decodeValhallaPolyline, parseWynosRoute, parseWynosRoutes, nearestRoutePosition, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, nextRouteStep, formatRouteDuration, formatRouteDistance } = mod.exports;
+const { decodeValhallaPolyline, parseWynosRoute, parseWynosRoutes, nearestRoutePosition, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, nextRouteStep, formatRouteDuration, formatRouteDistance, formatRouteArrivalTime } = mod.exports;
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -202,4 +202,26 @@ test("route labels are concise in Thai", () => {
   assert.equal(formatRouteDuration(3900), "1 ชม. 5 นาที");
   assert.equal(formatRouteDistance(0.34), "340 ม.");
   assert.equal(formatRouteDistance(8.26), "8.3 กม.");
+});
+
+test("Norswor Maps arrival clock uses local time, includes midnight, and fails closed", () => {
+  const late = new Date(2026, 10, 6, 23, 58, 0).getTime();
+  assert.equal(formatRouteArrivalTime(120, late), "00:00 น.");
+  assert.equal(formatRouteArrivalTime(0, late), "23:58 น.");
+  assert.equal(formatRouteArrivalTime(61, late), "00:00 น.");
+  const partialMinute = new Date(2026, 10, 6, 12, 0, 45).getTime();
+  assert.equal(formatRouteArrivalTime(30, partialMinute), "12:02 น.");
+  assert.equal(formatRouteArrivalTime(-1, late), "");
+  assert.equal(formatRouteArrivalTime(Number.NaN, late), "");
+  assert.equal(formatRouteArrivalTime(Number.POSITIVE_INFINITY, late), "");
+  assert.equal(formatRouteArrivalTime(60, Number.NaN), "");
+});
+
+test("Norswor Maps ETA is visible before and during navigation without traffic claims", () => {
+  const map = read("../components/food/food-delivery-map-picker.tsx");
+  assert.ok(map.includes("formatRouteArrivalTime(route.durationSeconds, clockNow)"));
+  assert.ok(map.includes("formatRouteArrivalTime(navigationRemainingSeconds, clockNow)"));
+  assert.ok(map.includes("ไม่รวมข้อมูลจราจรสด"));
+  assert.ok(map.includes("window.setInterval(() => setClockNow(Date.now()), 30_000)"));
+  assert.ok(!map.includes("เวลาโดยประมาณจาก WYNOS Routing"));
 });
