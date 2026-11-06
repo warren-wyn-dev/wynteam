@@ -354,6 +354,18 @@ export function formatRouteDuration(seconds: number) {
   return remainder ? `${hours} ชม. ${remainder} นาที` : `${hours} ชม.`;
 }
 
+/** Estimated local arrival clock time; never claims live-traffic accuracy. */
+export function formatRouteArrivalTime(seconds: number, nowMs: number) {
+  if (!Number.isFinite(seconds) || seconds < 0 || !Number.isFinite(nowMs)) return "";
+  const arrivalMs = nowMs + seconds * 1000;
+  if (!Number.isFinite(arrivalMs)) return "";
+  const arrival = new Date(Math.ceil(arrivalMs / 60_000) * 60_000);
+  if (!Number.isFinite(arrival.getTime())) return "";
+  const hour = String(arrival.getHours()).padStart(2, "0");
+  const minute = String(arrival.getMinutes()).padStart(2, "0");
+  return `${hour}:${minute} น.`;
+}
+
 export function formatRouteDistance(km: number) {
   if (!Number.isFinite(km) || km < 0) return "";
   if (km < 1) return `${Math.max(10, Math.round((km * 1000) / 10) * 10)} ม.`;
