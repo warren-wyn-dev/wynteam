@@ -56,7 +56,7 @@ export function WynosMapsAddressPicker() {
     return (
       <main className="wynos-maps-page wynos-maps-error">
         <MapPin size={36} />
-        <strong>เปิด WynMaps ไม่สำเร็จ</strong>
+        <strong>เปิด Norswor Maps ไม่สำเร็จ</strong>
         <span>ระบบแผนที่ยังเชื่อมต่อบริการตำแหน่งไม่ได้</span>
         <button type="button" onClick={close}>กลับ WYNOS</button>
       </main>
