@@ -5,9 +5,9 @@ import "../food/food.css";
 import "./maps.css";
 
 export const metadata: Metadata = {
-  title: "Wyn Maps",
-  applicationName: "Wyn Maps",
-  description: "ค้นหา สำรวจ และเลือกตำแหน่งบน Wyn Maps",
+  title: "WynMaps",
+  applicationName: "WynMaps",
+  description: "ค้นหา สำรวจ และเลือกตำแหน่งบน WynMaps",
   robots: { index: false, follow: false },
 };
 
