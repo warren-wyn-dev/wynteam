@@ -1092,6 +1092,10 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
     || message.includes("food_orders_created_by_fkey")
     || message.includes("food_order_events_actor_id_fkey")
   ) return "บัญชี ZOKY กำลังซิงก์ข้อมูล กรุณาลองอีกครั้ง";
+  if (message.includes("invalid postal code")) return "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก";
+  if (message.includes("structured address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";
+  if (message.includes("address not found")) return "ไม่พบข้อมูลที่อยู่นี้ กรุณาโหลดใหม่แล้วลองอีกครั้ง";
+  if (message.includes("food customer access required")) return "บัญชีนี้ยังไม่สามารถใช้งาน ZOKY ได้ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง";
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
   if (message.includes("pickup_not_available")) return "ร้านนี้ยังไม่เปิดให้รับเองที่ร้าน";
   if (message.includes("delivery_not_available")) return "ร้านนี้ไม่ได้เปิดจัดส่ง เลือกรับเองที่ร้านแทน";
