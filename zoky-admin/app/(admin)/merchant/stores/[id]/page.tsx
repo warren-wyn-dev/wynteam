@@ -159,7 +159,7 @@ function OverviewTab({ store }: { store: AdminFoodStoreDetail }) {
 }
 
 async function InfoTab({ store, canEditFood }: { store: AdminFoodStoreDetail; canEditFood: boolean }) {
-  // WYN-219: the store's map pin comes from a Wyn Maps RPC (maps:view).
+  // WYN-219: the store's map pin comes from a WynMaps RPC (maps:view).
   const canSeeMaps = hasSystemAccess(await fetchAdminAccess(), "maps") !== false;
   const mapPlace = canSeeMaps ? await fetchAdminWynosPlaceForStore(store.id) : null;
   const owner = store.team.find((member) => member.role === "owner" && member.active);
@@ -181,9 +181,9 @@ async function InfoTab({ store, canEditFood }: { store: AdminFoodStoreDetail; ca
       <section className="rounded-xl border bg-background p-4 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="font-medium">Wyn Maps</p>
+            <p className="font-medium">WynMaps</p>
             {!canSeeMaps ? (
-              <p className="mt-1 text-muted-foreground">ต้องมีสิทธิ์ Wyn Maps เพื่อดูหมุดของร้านนี้</p>
+              <p className="mt-1 text-muted-foreground">ต้องมีสิทธิ์ WynMaps เพื่อดูหมุดของร้านนี้</p>
             ) : mapPlace ? (
               <p className="mt-1 text-muted-foreground">
                 {mapPlace.id} · {mapPlace.latitude.toFixed(5)}, {mapPlace.longitude.toFixed(5)} · {mapPlace.is_active ? "แสดงบนแผนที่" : "ยังไม่แสดง"}
