@@ -42,7 +42,7 @@ import {
   rememberRecentPlace,
   type MapsRecentPlace,
 } from "@/lib/maps-places";
-import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoutes, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
+import { distanceToRouteCoordinateMeters, formatRouteArrivalTime, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoutes, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -558,6 +558,7 @@ export function FoodDeliveryMapPicker({
   const [routeProvider, setRouteProvider] = useState<string | null>(null);
   const [routeWorking, setRouteWorking] = useState(false);
   const [routeStatus, setRouteStatus] = useState("");
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [navigating, setNavigating] = useState(false);
   const [navigationStatus, setNavigationStatus] = useState("");
   const [navigationProgress, setNavigationProgress] = useState(0);
@@ -566,6 +567,13 @@ export function FoodDeliveryMapPicker({
   const serviceAreaState = standalone && location && serviceAreaBoundary
     ? (pointInServiceArea(location, serviceAreaBoundary) ? "inside" : "outside")
     : "unknown";
+
+  // Refresh the arrival clock without a routing request or GPS access.
+  useEffect(() => {
+    if (!standalone || !route) return;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [route, standalone]);
 
   const reverse = useCallback(async (next: FoodLocation) => {
     const requestId = ++reverseRequestRef.current;
@@ -747,6 +755,7 @@ export function FoodDeliveryMapPicker({
       setRouteAlternatives(parsedRoutes);
       setActiveRouteIndex(0);
       setRoute(parsed);
+      setClockNow(Date.now());
       setRouteProvider(provider);
       setActiveNearbyPlace(null);
       if (options?.keepNavigating) {
@@ -1901,7 +1910,7 @@ export function FoodDeliveryMapPicker({
               <div>
                 <strong>{formatRouteDuration(navigationRemainingSeconds)}</strong>
                 <span>{formatRouteDistance(navigationRemainingMeters / 1000)}</span>
-                <small>เหลือถึง {directionsTarget?.name ?? "จุดหมาย"}</small>
+                <small>ถึงประมาณ {formatRouteArrivalTime(navigationRemainingSeconds, clockNow)} · {directionsTarget?.name ?? "จุดหมาย"}</small>
               </div>
               {navigationOffRouteDistance != null ? (
                 <button
@@ -2108,6 +2117,7 @@ export function FoodDeliveryMapPicker({
                         onClick={() => {
                           setActiveRouteIndex(index);
                           setRoute(candidate);
+                          setClockNow(Date.now());
                           navigationRouteRef.current = candidate;
                           navigationProgressRef.current = 0;
                           setNavigationProgress(0);
@@ -2122,7 +2132,7 @@ export function FoodDeliveryMapPicker({
                 <div className="wf-map-route-summary">
                   <strong>{formatRouteDuration(route.durationSeconds)}</strong>
                   <span>{formatRouteDistance(route.distanceKm)}</span>
-                  <small>เวลาโดยประมาณจาก WYNOS Routing</small>
+                  <small>ถึงประมาณ {formatRouteArrivalTime(route.durationSeconds, clockNow)} · ไม่รวมข้อมูลจราจรสด</small>
                 </div>
                 {routeProvider === "openrouteservice" ? (
                   <small className="wf-map-route-attribution">
