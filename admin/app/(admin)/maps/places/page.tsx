@@ -13,12 +13,12 @@ export default async function WynosPlacesPage({
   searchParams: Promise<{ q?: string; category?: string; status?: string }>;
 }) {
   await requireAdminRole();
-  // WYN-219: WynMaps admin access is per-system (maps:view / maps:edit).
+  // WYN-219: Norswor Maps admin access is per-system (maps:view / maps:edit).
   if (hasSystemAccess(await fetchAdminAccess(), "maps") === false) {
     return (
       <div className="p-6">
         <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-          คุณยังไม่มีสิทธิ์ WynMaps ติดต่อ super admin เพื่อขอสิทธิ์
+          คุณยังไม่มีสิทธิ์ Norswor Maps ติดต่อ super admin เพื่อขอสิทธิ์
         </p>
       </div>
     );
@@ -42,7 +42,7 @@ export default async function WynosPlacesPage({
           <MapPinned className="size-5" />
           <h2 className="text-xl font-semibold">WYNOS Places Manager</h2>
         </div>
-        <p className="text-sm text-muted-foreground">จัดการสถานที่สาธารณะ, Merchant Places, Verification และข้อมูลนำเข้าสำหรับ WynMaps</p>
+        <p className="text-sm text-muted-foreground">จัดการสถานที่สาธารณะ, Merchant Places, Verification และข้อมูลนำเข้าสำหรับ Norswor Maps</p>
       </section>
 
       <form action="/maps/places" className="grid gap-2 rounded-xl border p-4 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
