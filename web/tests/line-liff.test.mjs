@@ -116,7 +116,7 @@ test("LINE guidance is detected synchronously and keeps readable, stable layout"
   assert.match(css, /\.wf-auth-note\.wf-auth-note--line span \{ font-size: 14px;/);
   // The fallback slot is a div: ".wf-auth-note--line p { flex: 1 1 0 }" must not squeeze it into a column.
   assert.doesNotMatch(guidance, /<p className="wf-auth-line-slot"/);
-  assert.match(css, /\.wf-auth-line-slot \{[^}]*min-height: 100px/);
+  assert.match(css, /\.wf-auth-line-slot \{[^}]*min-height: 124px/);
   const en = readFileSync(new URL("../lib/i18n/en.ts", import.meta.url), "utf8");
   for (const thai of ["เปิดใน LINE อยู่", "ถ้าเห็นหน้าปฏิเสธจาก Google ให้ใช้อีเมลและรหัสผ่าน หรือเปิดในเบราว์เซอร์"]) {
     assert.ok(en.includes(`"${thai}":`), thai);

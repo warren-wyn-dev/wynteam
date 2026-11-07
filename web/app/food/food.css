@@ -174,7 +174,7 @@
 .wf-auth-note.wf-auth-note--line span { font-size: 14px; line-height: 1.5; }
 .wf-auth-note--line > .wf-auth-error { flex: 1 1 100%; font-size: 14px; }
 /* Same height for pending/ready/unavailable so the Google button never moves when LIFF resolves. */
-.wf-auth-line-slot { flex: 1 1 100%; min-height: 100px; display: grid; align-content: start; gap: 8px; }
+.wf-auth-line-slot { flex: 1 1 100%; min-height: 124px; display: grid; align-content: start; gap: 8px; }
 .wf-auth-line-open {
   width: 100%;
   min-height: 48px;
