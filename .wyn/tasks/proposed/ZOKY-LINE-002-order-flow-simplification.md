@@ -10,6 +10,7 @@ Status: **Proposed — Founder ตอบ decisions รอบแรกแล้�
 - D-5 ขอบเขต: **เฉพาะลูกค้า (food) ไม่รวม Merchant**
 - D-6 ตะกร้าฝั่ง server: **เลือกทำ** แต่เป็นข้อมูล/DB ใหม่ ต้องมี design + migration ที่ผ่าน review และ Founder gate แยกก่อน apply
 - Baseline usability test: **ทำก่อนแก้**
+- **อัปเดต 2026-11-07:** Founder สั่งเริ่มข้อ 2 (ข้อความแนะนำเปิดเบราว์เซอร์ที่ /food/login) และ **อนุมัติข้อ 3 (LINE Login, design A ใน docs/architecture/zoky-line-002-line-login-and-server-cart.md)** ตามเงื่อนไขเดิม: ยังไม่เริ่ม implement จนกว่าจะวัด baseline usability test และ CTO/QA review design แล้ว; design B (ตาราง cart handoff) **ยังไม่ได้อนุมัติ**
 - ยังไม่ได้ตอบ: D-7 (ผู้ดำเนิน test/ผู้ร่วมทดสอบ/OA ทดสอบ), baseline branch/commit, privacy policy
 Requested: Founder, 2026-11-07 — แจ้งว่า flow "ลูกค้ากดแอด LINE OA แล้วเข้ามาสั่งใน LINE Mini App/LIFF" ใช้ยาก; Founder เลือกขอบเขต 4 ข้อตามที่ AI เสนอ
 Author: AI Product Manager (เอกสารนี้นิยาม WHAT เท่านั้น ไม่มีการแก้ source code)
