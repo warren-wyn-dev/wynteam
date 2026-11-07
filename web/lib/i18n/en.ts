@@ -4,6 +4,14 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  // ZOKY-LINE-002 F
+  "เปิดใน LINE อยู่": "You're in the LINE app",
+  "Google ไม่อนุญาตให้เข้าสู่ระบบในแอป LINE ใช้อีเมลและรหัสผ่านต่อได้เลย ตะกร้าของคุณยังอยู่ หรือเปิดในเบราว์เซอร์ของเครื่องเพื่อเข้าสู่ระบบด้วย Google": "Google doesn't allow sign-in inside the LINE app. You can keep going with email and password and your basket will stay, or open this page in your phone's browser to sign in with Google.",
+  "เปิดเบราว์เซอร์จากที่นี่ไม่ได้ เปิดหน้านี้ในเบราว์เซอร์ของเครื่อง หรือใช้อีเมลและรหัสผ่านต่อได้เลย": "Can't open the browser from here. Open this page in your phone's browser, or keep going with email and password.",
+  "ถ้าเปิดในเบราว์เซอร์ ตะกร้าจะไม่ถูกย้ายไปด้วย ต้องเลือกเมนูใหม่อีกครั้ง": "If you open it in the browser, your basket won't come with you and you'll need to pick your items again.",
+  "เปิดหน้าเข้าสู่ระบบในเบราว์เซอร์ของเครื่อง ตะกร้าจะไม่ถูกย้ายไปด้วย": "Open the sign-in page in your phone's browser. Your basket won't come with you.",
+  "เปิดเบราว์เซอร์ไม่สำเร็จ ลองกดอีกครั้ง หรือใช้อีเมลและรหัสผ่านต่อได้เลย ตะกร้ายังอยู่": "Couldn't open the browser. Try again, or keep going with email and password. Your basket is still here.",
+  "ถ้าเห็นหน้าปฏิเสธจาก Google ให้ใช้อีเมลและรหัสผ่าน หรือเปิดในเบราว์เซอร์": "If Google shows a denied page, use email and password, or open this page in the browser.",
   // ZOKY-LINE-001
   "รับแจ้งเตือนทาง LINE — ZOKY": "LINE notifications — ZOKY",
   "รับแจ้งเตือนทาง LINE": "LINE notifications",
