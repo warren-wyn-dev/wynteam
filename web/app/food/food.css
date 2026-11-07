@@ -170,10 +170,11 @@
 .wf-auth-note--line { margin: 0 0 8px; flex-wrap: wrap; }
 .wf-auth-note--line p { flex: 1 1 0; min-width: 0; }
 .wf-auth-note--line strong { font-size: 14px; }
-.wf-auth-note--line span { font-size: 14px; line-height: 1.5; }
-.wf-auth-note--line .wf-auth-line-warning { font-size: 12.5px; }
+/* Double class beats the late ".wf-auth-note span" polish rule (12px). */
+.wf-auth-note.wf-auth-note--line span { font-size: 14px; line-height: 1.5; }
 .wf-auth-note--line > .wf-auth-error { flex: 1 1 100%; font-size: 14px; }
-.wf-auth-line-slot { flex: 1 1 100%; min-height: 48px; display: grid; gap: 8px; }
+/* Same height for pending/ready/unavailable so the Google button never moves when LIFF resolves. */
+.wf-auth-line-slot { flex: 1 1 100%; min-height: 100px; display: grid; align-content: start; gap: 8px; }
 .wf-auth-line-open {
   width: 100%;
   min-height: 48px;

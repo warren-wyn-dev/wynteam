@@ -105,3 +105,20 @@ test("LINE login guidance never redirects, hides Google or touches the guest bas
   assert.match(auth, /<LineLoginGuidance \/>\s*<button className="wf-auth-google"/);
   assert.match(auth, /disabled=\{loading \|\| googleLoading\} onClick=\{\(\) => void google\(\)\}/);
 });
+
+test("LINE guidance is detected synchronously and keeps readable, stable layout", () => {
+  const guidance = readFileSync(new URL("../components/food/line-login-guidance.tsx", import.meta.url), "utf8");
+  // UA is read in the first client render (no post-mount setState that shifts the Google button).
+  assert.match(guidance, /useSyncExternalStore\(noopSubscribe, readInLine, \(\) => false\)/);
+  assert.doesNotMatch(guidance, /setInLine/);
+  const css = readFileSync(new URL("../app/food/food.css", import.meta.url), "utf8");
+  // Beats the late ".wf-auth-note span" polish rule so body text stays 14px.
+  assert.match(css, /\.wf-auth-note\.wf-auth-note--line span \{ font-size: 14px;/);
+  // The fallback slot is a div: ".wf-auth-note--line p { flex: 1 1 0 }" must not squeeze it into a column.
+  assert.doesNotMatch(guidance, /<p className="wf-auth-line-slot"/);
+  assert.match(css, /\.wf-auth-line-slot \{[^}]*min-height: 100px/);
+  const en = readFileSync(new URL("../lib/i18n/en.ts", import.meta.url), "utf8");
+  for (const thai of ["เปิดใน LINE อยู่", "ถ้าเห็นหน้าปฏิเสธจาก Google ให้ใช้อีเมลและรหัสผ่าน หรือเปิดในเบราว์เซอร์"]) {
+    assert.ok(en.includes(`"${thai}":`), thai);
+  }
+});
