@@ -1,6 +1,16 @@
 # ZOKY-LINE-002 — ทำให้ flow "แอด LINE OA แล้วสั่งอาหารใน LIFF" ใช้ง่ายขึ้น
 
-Status: **Proposed — รอ Founder อนุมัติ (ยังไม่เริ่ม implement)**
+Status: **Proposed — Founder ตอบ decisions รอบแรกแล้ว (2026-11-07) แต่ยังไม่เริ่ม implement**
+
+## Founder decisions (2026-11-07)
+
+- D-3 LINE Login: **อนุมัติแบบมีเงื่อนไข** — เริ่มหลังวัด baseline usability test และหลัง Architect/CTO ออก design แล้วต้องส่งให้ Founder อนุมัติ design อีกรอบก่อนลงมือ implement
+- D-4 บัญชี Google เดิม: **ไม่ auto-merge** ด้วยอีเมล
+- D-2 Guest checkout: **ตะกร้าก่อน ล็อกอินตอนสั่ง**
+- D-5 ขอบเขต: **เฉพาะลูกค้า (food) ไม่รวม Merchant**
+- D-6 ตะกร้าฝั่ง server: **เลือกทำ** แต่เป็นข้อมูล/DB ใหม่ ต้องมี design + migration ที่ผ่าน review และ Founder gate แยกก่อน apply
+- Baseline usability test: **ทำก่อนแก้**
+- ยังไม่ได้ตอบ: D-7 (ผู้ดำเนิน test/ผู้ร่วมทดสอบ/OA ทดสอบ), baseline branch/commit, privacy policy
 Requested: Founder, 2026-11-07 — แจ้งว่า flow "ลูกค้ากดแอด LINE OA แล้วเข้ามาสั่งใน LINE Mini App/LIFF" ใช้ยาก; Founder เลือกขอบเขต 4 ข้อตามที่ AI เสนอ
 Author: AI Product Manager (เอกสารนี้นิยาม WHAT เท่านั้น ไม่มีการแก้ source code)
 Related: `.wyn/tasks/approved/ZOKY-LINE-001-line-oa-notifications-liff.md`, APPROVALS.md (หัวข้อ ZOKY-LINE-001, ZOKY store QR, Automatic LINE notification link, Store QR prompts LINE friendship)
