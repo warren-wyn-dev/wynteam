@@ -30,6 +30,16 @@ export function configuredLiffIds(): { food?: string; merchant?: string } {
   };
 }
 
+/** LINE's in-app browser puts "Line/<version>" in its user agent. */
+export function isLineUserAgent(userAgent: string | null | undefined): boolean {
+  return /\bLine\//i.test(userAgent ?? "");
+}
+
+/** ZOKY-LINE-002 F: the only URL opened externally. No query, hash, token or basket. */
+export function foodLoginExternalUrl(origin: string): string {
+  return `${origin}/food/login`;
+}
+
 const ORDER_QUERY = /^\?order=WF\d{4,9}$/;
 
 /**

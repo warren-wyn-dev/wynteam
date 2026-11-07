@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  foodLoginExternalUrl,
+  isLineUserAgent,
   lineAudienceFor,
   lineLinkPath,
   lineLinkStatusFrom,
@@ -78,4 +80,28 @@ test("the LIFF page never sends a client-chosen LINE userId", () => {
   const source = readFileSync(new URL("../components/line/line-entry.tsx", import.meta.url), "utf8");
   assert.match(source, /getIDToken\(\)/);
   assert.doesNotMatch(source, /getProfile\(|lineUserId|userId:/);
+});
+
+test("LINE in-app browser is recognised by user agent only", () => {
+  assert.equal(isLineUserAgent("Mozilla/5.0 (iPhone) AppleWebKit Mobile Safari Line/13.1.0"), true);
+  assert.equal(isLineUserAgent("Mozilla/5.0 (Linux; Android 14) Chrome/120 Mobile Safari/537.36 Line/14.0.0"), true);
+  assert.equal(isLineUserAgent("Mozilla/5.0 (iPhone) Safari/604.1"), false);
+  assert.equal(isLineUserAgent("Mozilla/5.0 Baseline/1.0"), false);
+  assert.equal(isLineUserAgent(""), false);
+  assert.equal(isLineUserAgent(null), false);
+});
+
+test("the external login URL carries no query, hash, token or basket", () => {
+  assert.equal(foodLoginExternalUrl("https://food.wynos.online"), "https://food.wynos.online/food/login");
+});
+
+test("LINE login guidance never redirects, hides Google or touches the guest basket", () => {
+  const guidance = readFileSync(new URL("../components/food/line-login-guidance.tsx", import.meta.url), "utf8");
+  assert.match(guidance, /external: true/);
+  assert.match(guidance, /foodLoginExternalUrl\(window\.location\.origin\)/);
+  assert.doesNotMatch(guidance, /location\.(replace|assign|href\s*=)|sessionStorage|localStorage|GUEST_BASKET|removeItem|\.clear\(/);
+  assert.match(guidance, /ตะกร้าจะไม่ถูกย้ายไปด้วย/);
+  const auth = readFileSync(new URL("../components/food/food-auth.tsx", import.meta.url), "utf8");
+  assert.match(auth, /<LineLoginGuidance \/>\s*<button className="wf-auth-google"/);
+  assert.match(auth, /disabled=\{loading \|\| googleLoading\} onClick=\{\(\) => void google\(\)\}/);
 });

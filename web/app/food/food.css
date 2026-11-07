@@ -167,6 +167,26 @@
 .wf-auth-note p { margin: 0; display: grid; gap: 2px; }
 .wf-auth-note strong { font-size: 11px; }
 .wf-auth-note span { color: var(--wf-secondary); font-size: 10px; line-height: 1.4; }
+.wf-auth-note--line { margin: 0 0 8px; flex-wrap: wrap; }
+.wf-auth-note--line p { flex: 1 1 0; min-width: 0; }
+.wf-auth-note--line strong { font-size: 14px; }
+.wf-auth-note--line span { font-size: 14px; line-height: 1.5; }
+.wf-auth-note--line .wf-auth-line-warning { font-size: 12.5px; }
+.wf-auth-note--line > .wf-auth-error { flex: 1 1 100%; font-size: 14px; }
+.wf-auth-line-slot { flex: 1 1 100%; min-height: 48px; display: grid; gap: 8px; }
+.wf-auth-line-open {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--wf-border);
+  border-radius: 13px;
+  background: #fff;
+  color: var(--wf-text);
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.wf-auth-line-open:focus-visible { outline: 3px solid var(--wf-red); outline-offset: 2px; }
+.wf-auth-line-open:disabled { opacity: .58; cursor: not-allowed; }
 .wf-auth-terms { margin: 15px 2px 0; color: var(--wf-secondary); text-align: center; font-size: 9.5px; line-height: 1.5; }
 .wf-auth-confirm, .wf-auth-state { text-align: center; }
 .wf-auth-confirm > span {
