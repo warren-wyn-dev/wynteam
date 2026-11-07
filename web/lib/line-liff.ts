@@ -123,6 +123,11 @@ export function isLineInAppBrowser(userAgent: string): boolean {
   return /\bLine\/\d/i.test(userAgent);
 }
 
+/** ZOKY-LINE-002 F: the only URL opened externally. No query, hash, token or basket. */
+export function foodLoginExternalUrl(origin: string): string {
+  return `${origin}/food/login`;
+}
+
 export function rememberLineAutoLink(destination: string): void {
   try {
     window.localStorage.setItem(AUTO_LINK_KEY, JSON.stringify({ at: Date.now(), to: safeLineDestination("food", destination) }));

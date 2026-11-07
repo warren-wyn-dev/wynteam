@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { GoogleGlyph } from "@/components/auth-flow/screens";
+import { LineLoginGuidance, withLineGoogleHint } from "@/components/food/line-login-guidance";
 import { markFoodSplashReady } from "@/lib/food-splash";
 
 import {
@@ -265,7 +266,7 @@ export function FoodLoginScreen() {
       if (!result.started) {
         googlePwaPending.current = false;
         googlePwaPopup.current = null;
-        setMessage(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
+        setMessage(withLineGoogleHint(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่"));
         setGoogleLoading(false);
       } else if (installedIos) {
         googlePwaPopup.current = result.popup ?? null;
@@ -273,7 +274,7 @@ export function FoodLoginScreen() {
     } catch {
       googlePwaPending.current = false;
       googlePwaPopup.current = null;
-      setMessage("เปิด Google ไม่สำเร็จ กรุณาลองใหม่");
+      setMessage(withLineGoogleHint("เปิด Google ไม่สำเร็จ กรุณาลองใหม่"));
       setGoogleLoading(false);
     }
   }
@@ -331,6 +332,7 @@ export function FoodLoginScreen() {
         <h1>เข้าสู่ระบบ ZOKY</h1>
         <p>สั่งอาหารและติดตามออเดอร์ด้วย WYNOS Account ของคุณ</p>
       </div>
+      <LineLoginGuidance />
       <button className="wf-auth-google" type="button" disabled={loading || googleLoading} onClick={() => void google()}>
         {googleLoading ? <span className="wf-mini-loader" aria-hidden="true" /> : <GoogleGlyph />}
         {googleLoading ? "กำลังเชื่อมต่อ Google…" : "เข้าสู่ระบบด้วย Google"}
