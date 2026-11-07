@@ -2,6 +2,10 @@
 
 สถานะ: **ยังไม่อนุมัติ ยังไม่ deploy** — Founder Gate ตาม AGENTS.md
 
+> **ข้อควรระวัง (พบ 2026-11-07): baseline ผิด — ห้ามใช้เอกสารนี้ขออนุมัติตามเดิม**
+> zoky.wynos.online ในโปรดักชันแสดงแบรนด์ ZOKY (title "เข้าสู่ระบบ — ZOKY") แต่โค้ด ZOKY UI อยู่ใน `release/zoky-web-20261018` (นำหน้า `main` 3640 commit, `main` มีของที่ release ไม่มี 112 commit) ไม่ใช่ใน `main`
+> งานข้อ F ถูกสร้างและ QA/staging บน `main` จึงไม่ได้ทดสอบกับ UI ที่ ZOKY ใช้จริง ต้องย้ายการเปลี่ยนแปลงไป release branch แล้ว QA + staging ใหม่ (workflow staging มี input `zoky_release_sha` สำหรับกรณีนี้) ก่อนขออนุมัติ
+
 ## สิ่งที่จะขึ้น
 กล่องแนะนำบน /food/login เมื่อเปิดใน LINE in-app browser (ข้อความ + ปุ่ม "เปิดในเบราว์เซอร์") เพื่อลดปัญหา Google ปฏิเสธ login ใน LINE
 ไม่เปลี่ยน auth, DB, Merchant; ไม่มี migration; ไม่เพิ่ม dependency
