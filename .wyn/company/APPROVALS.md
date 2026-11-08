@@ -795,3 +795,20 @@
 - Unchanged: database, Edge Functions, authentication, Web Push, dependencies, infrastructure plans and customer choices. The existing printed QR remains valid. Native subwindow support requires a linked OA, `profile` and Full size; the reviewed profile-link screen handles the missing binding.
 - Recovery: on regression, stop promotion and investigate; a post-promotion rollback remains an explicit Founder action to `dpl_J6cmTuDhoWXWr6ks3UuYaT9mPJWK`. No automatic rollback.
 - Status: approved for controlled staging and production; release evidence pending.
+
+### APPROVAL — [2026-11-08] ZOKY-LINE-002: LINE in-app login guidance + LIFF redirect skip (production release)
+
+- Founder (explicit, in session): release items (1) LINE login guidance at /food/login and (2) next.config redirect skips the LIFF browser; commit `53f9e494` (branch `claude/zoky-line-002-release-candidate`), then a separate approval to switch domains ("สลับโดเมนเลย").
+- Executed: one-off workflow `zoky-line-002-production-build.yml` (`vercel deploy --prod --skip-domain --force`, GitHub run 42448696128) → deployment `dpl_7B62FanBFc9pmqqzH2sK4xcDZuVa`, promoted to the 9 production domains.
+- Rollback: Vercel Instant Rollback / promote `dpl_Aoc6Vet9q4XDEXRC3SUywHEwjFWe`. No migration.
+- Not verified: real LIFF user agents on iOS/Android; Playwright WebKit specs.
+- Status: live 2026-11-08. Record: `.wyn/logs/deployments/2026-11-08-zoky-line-002-production.md`.
+
+### APPROVAL — [2026-11-08] LINE Login for ZOKY customers (design A, T1 adjusted) — implementation and staging only
+
+- Founder: approved implementing design A as adjusted by `docs/architecture/zoky-line-login-design-review.md` (Supabase custom OIDC provider `custom:line`, no email scope, no automatic account merge, no migration, flag off by default); waived the "baseline usability test first" condition; **design B (server cart table) NOT approved**.
+- Founder also approved: fixing `line-link` so a LINE userId held by another account is never moved silently (branch `claude/line-link-guard`, commit `65355cb3`) before enabling; using the existing LINE Login channel that owns the customer LIFF (Channel ID matches customer LIFF channel `2012311758`); accepting that the Supabase provider is project-level and staging shares the production project (provider `custom:line` was created and enabled by the Founder 2026-11-08; the app button stays off while `NEXT_PUBLIC_ZOKY_LINE_LOGIN_ENABLED` is unset).
+- Code: branch `claude/zoky-line-login-impl` (flag `1` = LIFF only; `test` = staging-only button in normal browsers). QA offline PASS; staging run 42460206050 PASS (commit `87dd546a`).
+- NOT yet approved: setting the flag on Production, deploying the `line-link` Edge Function, publishing the LINE Login channel, privacy policy update. Each needs a separate Founder approval.
+- Rollback: unset the flag and redeploy / Vercel rollback; emergency only: disable provider `custom:line` in Supabase (locks LINE-only users out).
+- Temporary exposure to remove after testing: GitHub `production` environment deployment-branch rules for `claude/great-cori-5zsvjp`, `claude/zoky-line-002-login-guidance-prod`, `claude/zoky-line-002-release-candidate`, `claude/zoky-line-login-impl`; Supabase Redirect URL for the staging preview callback; Vercel Preview variable value `test`.
