@@ -96,10 +96,11 @@ test("link preview uses the store's name, description and cover from the public 
   const withCover = foodStorePreviewContent({ ...base, description: "ส้มตำ", logo_path: "l.png", cover_path: "c.jpg" }, supa);
   assert.equal(withCover.title, "มะละป๊อกป๊อก | ZOKY");
   assert.equal(withCover.description, "ส้มตำ");
-  assert.match(withCover.imageUrl, /food-public\/c\.jpg$/);
+  // og:image goes through this site's /_next/image (w=1200, default quality), not the full-size original.
+  assert.equal(withCover.imageUrl, "https://zoky.wynos.online/_next/image?url=" + encodeURIComponent("https://abc.supabase.co/storage/v1/object/public/food-public/c.jpg") + "&w=1200&q=75");
   assert.equal(withCover.largeImage, true);
   const logoOnly = foodStorePreviewContent({ ...base, logo_path: "l.png" }, supa);
-  assert.match(logoOnly.imageUrl, /food-public\/l\.png$/);
+  assert.match(logoOnly.imageUrl, /^https:\/\/zoky\.wynos\.online\/_next\/image\?url=https%3A%2F%2Fabc\.supabase\.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Ffood-public%2Fl\.png&w=1200&q=75$/);
   assert.equal(logoOnly.largeImage, false);
   assert.match(logoOnly.description, /มะละป๊อกป๊อก/);
   assert.equal(foodStorePreviewContent(base, supa).imageUrl, null);

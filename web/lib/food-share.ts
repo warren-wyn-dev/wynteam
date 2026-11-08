@@ -86,13 +86,23 @@ export function foodPublicFileUrl(supabaseUrl: string, path: string): string {
   return `${supabaseUrl.replace(/\/+$/, "")}/storage/v1/object/public/food-public/${encoded}`;
 }
 
+/**
+ * Resized copy of a public file for link previews, served by this site's
+ * /_next/image (same project-only remotePatterns as the Flutter merchant
+ * thumbnails) so crawlers do not pull the full-size original from Storage.
+ * 1200 is one of Next's default widths; quality 75 is its default.
+ */
+export function foodPreviewImageUrl(supabaseUrl: string, path: string): string {
+  return `${FOOD_SITE_URL}/_next/image?url=${encodeURIComponent(foodPublicFileUrl(supabaseUrl, path))}&w=1200&q=75`;
+}
+
 /** Link-preview title, text and image for a shared store. */
 export function foodStorePreviewContent(store: FoodStoreSharePreview, supabaseUrl: string) {
   const image = store.cover_path ?? store.logo_path;
   return {
     title: `${store.name} | ZOKY`,
     description: store.description ?? `สั่งอาหารร้าน ${store.name} ผ่าน ZOKY`,
-    imageUrl: image ? foodPublicFileUrl(supabaseUrl, image) : null,
+    imageUrl: image ? foodPreviewImageUrl(supabaseUrl, image) : null,
     largeImage: Boolean(store.cover_path),
   };
 }
