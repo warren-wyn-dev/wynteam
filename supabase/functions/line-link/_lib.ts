@@ -107,3 +107,48 @@ export function corsHeaders(origin: string | null, extra: string[] = []): Record
   if (origin && (ALLOWED_ORIGINS.has(origin) || extra.includes(origin))) headers["Access-Control-Allow-Origin"] = origin;
   return headers;
 }
+
+/** Masked id for logs: never write a full LINE userId or token. */
+export function maskLineUserId(id: string): string {
+  return id.length > 6 ? `${id.slice(0, 1)}***${id.slice(-4)}` : "***";
+}
+
+export type LinkStore = {
+  /** user_id currently holding this LINE userId for the audience, if any. */
+  ownerOf(audience: LineAudience, lineUserId: string): Promise<string | null>;
+  /** Insert or replace the caller's own link; returns the DB error code, if any. */
+  upsert(row: {
+    user_id: string;
+    audience: LineAudience;
+    line_user_id: string;
+    friend_status: FriendStatus;
+    linked_at: string;
+    updated_at: string;
+  }): Promise<{ code?: string } | null>;
+};
+
+export type LinkOutcome = "linked" | "already_linked_elsewhere" | "link_failed";
+
+/**
+ * Link a verified LINE userId to the caller. A LINE userId held by another
+ * ZOKY account is never moved or deleted here: the caller is refused so the
+ * other account keeps its notifications. The unique (audience, line_user_id)
+ * index backstops a concurrent claim (Postgres 23505).
+ */
+export async function linkLineUser(
+  store: LinkStore,
+  args: { userId: string; audience: LineAudience; lineUserId: string; friendStatus: FriendStatus; now: string },
+): Promise<LinkOutcome> {
+  const owner = await store.ownerOf(args.audience, args.lineUserId);
+  if (owner && owner !== args.userId) return "already_linked_elsewhere";
+  const error = await store.upsert({
+    user_id: args.userId,
+    audience: args.audience,
+    line_user_id: args.lineUserId,
+    friend_status: args.friendStatus,
+    linked_at: args.now,
+    updated_at: args.now,
+  });
+  if (!error) return "linked";
+  return error.code === "23505" ? "already_linked_elsewhere" : "link_failed";
+}

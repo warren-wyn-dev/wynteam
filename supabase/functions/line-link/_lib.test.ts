@@ -5,6 +5,9 @@ import {
   corsHeaders,
   extraOrigins,
   lineFriendStatus,
+  type LinkStore,
+  linkLineUser,
+  maskLineUserId,
   parseLinkRequest,
   verifiedLineUserId,
 } from "./_lib.ts";
@@ -104,4 +107,56 @@ Deno.test("CORS allows ZOKY origins and configured staging origins only", () => 
   const extra = extraOrigins("https://web-abc-warren14.vercel.app, http://insecure.test, javascript:x");
   assertEquals(extra, ["https://web-abc-warren14.vercel.app"]);
   assertEquals(corsHeaders("https://web-abc-warren14.vercel.app", extra)["Access-Control-Allow-Origin"], "https://web-abc-warren14.vercel.app");
+});
+
+// In-memory stand-in for public.line_links (unique user_id+audience and audience+line_user_id).
+function memoryStore(failWith?: string) {
+  const rows = new Map<string, { user_id: string; line_user_id: string }>(); // key: user_id|audience
+  const store: LinkStore = {
+    ownerOf: (audience, id) => {
+      for (const [key, row] of rows) if (key.endsWith(`|${audience}`) && row.line_user_id === id) return Promise.resolve(row.user_id);
+      return Promise.resolve(null);
+    },
+    upsert: (row) => {
+      if (failWith) return Promise.resolve({ code: failWith });
+      rows.set(`${row.user_id}|${row.audience}`, { user_id: row.user_id, line_user_id: row.line_user_id });
+      return Promise.resolve(null);
+    },
+  };
+  return { rows, store };
+}
+const link = (store: LinkStore, userId: string) =>
+  linkLineUser(store, { userId, audience: "food", lineUserId: USER, friendStatus: "friend", now: "2026-11-08T00:00:00Z" });
+
+Deno.test("first link succeeds and re-link by the same account is idempotent", async () => {
+  const { rows, store } = memoryStore();
+  assertEquals(await link(store, "acct-a"), "linked");
+  assertEquals(await link(store, "acct-a"), "linked");
+  assertEquals(rows.size, 1);
+});
+
+Deno.test("another account claiming a held LINE userId is refused and the owner keeps the link (T-A6)", async () => {
+  const { rows, store } = memoryStore();
+  await link(store, "acct-a");
+  assertEquals(await link(store, "acct-b"), "already_linked_elsewhere");
+  assertEquals([...rows.keys()], ["acct-a|food"]);
+  assertEquals(rows.get("acct-a|food")?.line_user_id, USER);
+});
+
+Deno.test("losing a concurrent claim (unique violation) is the same polite refusal (T-A6b)", async () => {
+  assertEquals(await link(memoryStore("23505").store, "acct-b"), "already_linked_elsewhere");
+  assertEquals(await link(memoryStore("XX000").store, "acct-b"), "link_failed");
+});
+
+Deno.test("after the owner unlinks, another account can link", async () => {
+  const { rows, store } = memoryStore();
+  await link(store, "acct-a");
+  rows.delete("acct-a|food"); // unlink only ever deletes the caller's own row
+  assertEquals(await link(store, "acct-b"), "linked");
+});
+
+Deno.test("logs mask the LINE userId", () => {
+  const masked = maskLineUserId(USER);
+  assertEquals(masked.includes(USER), false);
+  assertEquals(masked, "U***cdef");
 });

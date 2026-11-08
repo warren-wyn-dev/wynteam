@@ -12,6 +12,8 @@ import {
   type FriendStatus,
   type LineAudience,
   lineFriendStatus,
+  linkLineUser,
+  maskLineUserId,
   parseLinkRequest,
   verifiedLineUserId,
 } from "./_lib.ts";
@@ -91,23 +93,26 @@ Deno.serve(async (req) => {
     const lineUserId = await verifiedLineUserId(fetch, request.idToken, channelId, Date.now());
     if (!lineUserId) return json({ error: "invalid_line_token" }, 401);
 
-    // Whoever proves control of this LINE account moves it to their ZOKY
-    // account; the previous account stops receiving its messages.
-    const moved = await table().delete()
-      .eq("audience", request.audience).eq("line_user_id", lineUserId).neq("user_id", user.id);
-    if (moved.error) return json({ error: "link_failed" }, 500);
-
+    // A LINE account already linked to another ZOKY account is never moved
+    // silently: refuse, and let the owner unlink it from their own account.
     const friendStatus = await lineFriendStatus(fetch, oa.accessToken, lineUserId);
     const now = new Date().toISOString();
-    const { error } = await table().upsert({
-      user_id: user.id,
-      audience: request.audience,
-      line_user_id: lineUserId,
-      friend_status: friendStatus,
-      linked_at: now,
-      updated_at: now,
-    }, { onConflict: "user_id,audience" });
-    if (error) return json({ error: "link_failed" }, 409);
+    const outcome = await linkLineUser({
+      ownerOf: async (audience, id) => {
+        const { data, error } = await table().select("user_id").eq("audience", audience).eq("line_user_id", id).maybeSingle();
+        if (error) throw new Error("line_links read failed");
+        return (data?.user_id as string | undefined) ?? null;
+      },
+      upsert: async (row) => {
+        const { error } = await table().upsert(row, { onConflict: "user_id,audience" });
+        return error ? { code: error.code } : null;
+      },
+    }, { userId: user.id, audience: request.audience, lineUserId, friendStatus, now });
+    if (outcome === "already_linked_elsewhere") {
+      console.warn(JSON.stringify({ event: "line_link_conflict", audience: request.audience, line: maskLineUserId(lineUserId) }));
+      return json({ error: "already_linked_elsewhere" }, 409);
+    }
+    if (outcome !== "linked") return json({ error: "link_failed" }, 500);
     return json({ linked: true, friendStatus, linkedAt: now, addFriendUrl: oa.addFriendUrl });
   } catch {
     return json({ error: "internal_error" }, 500);

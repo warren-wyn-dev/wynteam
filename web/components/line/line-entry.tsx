@@ -60,6 +60,8 @@ const ERRORS: Record<string, string> = {
   line_disabled: "การแจ้งเตือนทาง LINE ยังไม่เปิดใช้งาน",
   line_not_configured: "การแจ้งเตือนทาง LINE ยังไม่เปิดใช้งาน",
   unauthorized: "กรุณาเข้าสู่ระบบ ZOKY ใหม่อีกครั้ง",
+  already_linked_elsewhere:
+    "บัญชี LINE นี้ผูกกับบัญชี ZOKY อื่นอยู่แล้ว กรุณาเข้าสู่ระบบด้วยบัญชีนั้นและยกเลิกการผูกก่อน จึงจะผูกกับบัญชีนี้ได้",
 };
 
 export function LineEntry() {
