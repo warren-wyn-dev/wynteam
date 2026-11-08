@@ -160,7 +160,16 @@ export const LINE_LOGIN_PROVIDER = "custom:line" as const;
  * Next.js inlines it at build time. `value` exists for tests only.
  */
 export function isLineLoginEnabled(value: string | undefined = process.env.NEXT_PUBLIC_ZOKY_LINE_LOGIN_ENABLED): boolean {
-  return value === "1";
+  return value === "1" || value === "test";
+}
+
+/**
+ * Founder-approved staging test mode (2026-11-08): exactly "test" also shows the
+ * button in a normal browser (no LIFF / LINE client), to exercise the OIDC flow
+ * on Safari. "1" stays LIFF-only. Same literal-env rule as above.
+ */
+export function isLineLoginTestMode(value: string | undefined = process.env.NEXT_PUBLIC_ZOKY_LINE_LOGIN_ENABLED): boolean {
+  return value === "test";
 }
 
 /**

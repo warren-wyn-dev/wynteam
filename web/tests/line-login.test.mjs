@@ -11,6 +11,7 @@ import ts from "typescript";
 import {
   LINE_OAUTH,
   isLineLoginEnabled,
+  isLineLoginTestMode,
   rememberLineAutoLink,
   safeLineDestination,
   takeLineAutoLink,
@@ -55,6 +56,29 @@ test("T-A18 flag is strict: only \"1\" enables LINE Login", () => {
     assert.equal(isLineLoginEnabled(v), false, String(v));
   }
   assert.equal(isLineLoginEnabled("1"), true);
+});
+
+test("staging test mode: \"1\" is LIFF-only, only exact \"test\" shows outside LIFF", () => {
+  assert.equal(isLineLoginEnabled("1"), true);
+  assert.equal(isLineLoginTestMode("1"), false);
+  assert.equal(isLineLoginEnabled("test"), true);
+  assert.equal(isLineLoginTestMode("test"), true);
+  for (const v of [undefined, "", "TEST", "Test", "true", "yes", " test", "test ", "0"]) {
+    assert.equal(isLineLoginEnabled(v), false, String(v));
+    assert.equal(isLineLoginTestMode(v), false, String(v));
+  }
+  // Button: test mode bypasses only the LINE-client/LIFF gate, never the iOS PWA refusal or busy state.
+  assert.match(button, /testMode \? \(iosPwa \? "unavailable" : "ready"\) : slot/);
+  assert.match(button, /if \(!inLine && !testMode\) return null/);
+  assert.match(button, /liff\.isInClient\(\) \? "ready" : "unavailable"/);
+  assert.match(button, /testMode \? <p className="wf-auth-line-test-badge">/);
+  assert.match(button, /disabled=\{busy\}/);
+  // Handler is unchanged: canonical callback without query, iOS PWA refused, no prompt/scopes.
+  const handler = code(lineHandlerSource());
+  assert.match(handler, /new URL\("\/food\/auth\/callback", canonicalOrigin\)/);
+  assert.match(handler, /isInstalledIosWebApp\(\)/);
+  assert.doesNotMatch(handler, /prompt|scopes|queryParams|isLineLoginTestMode/);
+  assert.ok(read("lib/i18n/en.ts").includes('"โหมดทดสอบ (staging) — ไม่ใช่ปุ่มสำหรับผู้ใช้จริง":'));
 });
 
 test("T-A18 flag off: the button is not rendered and line() refuses before touching Supabase", () => {
@@ -238,7 +262,7 @@ test("button shows only inside the LINE client, with a stable reserved slot and 
   assert.match(button, /useSyncExternalStore\(noopSubscribe, readInLine, \(\) => false\)/);
   assert.match(button, /liff\.isInClient\(\) \? "ready" : "unavailable"/);
   assert.match(button, /isInstalledIosWebApp\(\)/);
-  assert.match(button, /if \(!inLine\) return null/);
+  assert.match(button, /if \(!inLine && !testMode\) return null/);
   assert.match(button, /aria-busy=\{loading\}/);
   assert.match(button, /disabled=\{busy\}/);
   assert.match(button, /role="alert"/);

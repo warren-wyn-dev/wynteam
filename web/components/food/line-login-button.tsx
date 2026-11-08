@@ -11,7 +11,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { loadLiff } from "@/components/food/line-login-guidance";
 import { isInstalledIosWebApp } from "@/lib/google-pwa-oauth";
-import { configuredLiffIds, isLineInAppBrowser, liffIdFor } from "@/lib/line-liff";
+import { configuredLiffIds, isLineInAppBrowser, isLineLoginTestMode, liffIdFor } from "@/lib/line-liff";
 
 const noopSubscribe = () => () => {};
 const readInLine = () => isLineInAppBrowser(navigator.userAgent);
@@ -33,9 +33,12 @@ export function LineLoginButton({
   // hydration stays consistent) which reserves the space in the first render.
   const inLine = useSyncExternalStore(noopSubscribe, readInLine, () => false);
   const [slot, setSlot] = useState<Slot>("pending");
+  // Staging test mode ("test"): plain browsers too; the iOS PWA is still refused.
+  const testMode = isLineLoginTestMode();
+  const iosPwa = useSyncExternalStore(noopSubscribe, isInstalledIosWebApp, () => true);
 
   useEffect(() => {
-    if (!inLine) return;
+    if (testMode || !inLine) return;
     let live = true;
     void (async () => {
       const liffId = liffIdFor("food", configuredLiffIds());
@@ -48,12 +51,13 @@ export function LineLoginButton({
       }
     })();
     return () => { live = false; };
-  }, [inLine]);
+  }, [inLine, testMode]);
 
-  if (!inLine) return null;
+  if (!inLine && !testMode) return null;
+  const shown = testMode ? (iosPwa ? "unavailable" : "ready") : slot;
   return (
     <div className="wf-auth-line-login">
-      {slot === "ready" ? (
+      {shown === "ready" ? (
         <>
           <button
             className="wf-auth-line-signin"
@@ -66,6 +70,7 @@ export function LineLoginButton({
             {loading ? <span className="wf-mini-loader" aria-hidden="true" /> : <MessageCircle size={18} aria-hidden="true" />}
             {loading ? "กำลังเชื่อมต่อ LINE…" : "เข้าสู่ระบบด้วย LINE"}
           </button>
+          {testMode ? <p className="wf-auth-line-test-badge">โหมดทดสอบ (staging) — ไม่ใช่ปุ่มสำหรับผู้ใช้จริง</p> : null}
           <p className="wf-auth-line-login-note" id="wf-auth-line-login-note">
             LINE จะสร้างบัญชี ZOKY ใหม่ ถ้าเคยใช้ Google หรืออีเมลมาก่อน ให้เข้าด้วยวิธีเดิมเพื่อใช้บัญชีเดิมและประวัติออเดอร์
             {" "}

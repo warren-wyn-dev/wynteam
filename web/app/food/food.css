@@ -211,6 +211,7 @@
 .wf-auth-line-signin:focus-visible { outline: 3px solid var(--wf-red); outline-offset: 2px; }
 .wf-auth-line-signin:disabled { opacity: .58; cursor: not-allowed; }
 .wf-auth-line-signin .wf-mini-loader { width: 18px; height: 18px; }
+.wf-auth-line-test-badge { margin: 0; padding: 4px 8px; justify-self: start; border: 1px dashed #b45309; border-radius: 8px; background: #fffbeb; color: #92400e; font-size: 12px; font-weight: 600; }
 .wf-auth-line-login-note { margin: 0; color: var(--wf-secondary); font-size: 12px; line-height: 1.45; }
 .wf-auth-terms { margin: 15px 2px 0; color: var(--wf-secondary); text-align: center; font-size: 9.5px; line-height: 1.5; }
 .wf-auth-confirm, .wf-auth-state { text-align: center; }

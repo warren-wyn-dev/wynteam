@@ -11,6 +11,7 @@ export const EN_EXACT: Record<string, string> = {
   "กำลังเข้าสู่ระบบ LINE — WYNOS": "Signing in with LINE — WYNOS",
   "กำลังเชื่อมต่อ LINE…": "Connecting to LINE…",
   "เข้าสู่ระบบด้วย LINE": "Sign in with LINE",
+  "โหมดทดสอบ (staging) — ไม่ใช่ปุ่มสำหรับผู้ใช้จริง": "Test mode (staging) — not for real users",
   "LINE จะสร้างบัญชี ZOKY ใหม่ ถ้าเคยใช้ Google หรืออีเมลมาก่อน ให้เข้าด้วยวิธีเดิมเพื่อใช้บัญชีเดิมและประวัติออเดอร์": "LINE creates a new ZOKY account. If you've used Google or email before, sign in that way to keep your existing account and order history.",
   "ZOKY ไม่ขออีเมลของคุณจาก LINE": "ZOKY doesn't ask LINE for your email.",
   "เข้าสู่ระบบไม่สำเร็จ กรุณากลับไปหน้า ZOKY แล้วลองใหม่": "Couldn't sign in. Return to ZOKY and try again",
