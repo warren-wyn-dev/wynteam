@@ -6,14 +6,23 @@ name: ZOKY LINE-002 production build (no domain switch)
 # separate, explicitly approved step (Vercel promote) after the build is checked.
 # - Only runs from branch claude/zoky-line-002-release-candidate.
 # - App code must be identical to commit 53f9e494 (only .github/ may differ).
-# - Needs the typed confirmation below and the `production` environment approval.
+# - Needs the `production` environment approval (and the typed confirmation if dispatched).
 # - Secrets (VERCEL_*) come from the `production` environment; never printed.
 on:
+  # GitHub only accepts API dispatch for workflows already on the default
+  # branch, and this one-off must NOT be added to main. A push that touches
+  # this file therefore starts it; the `production` environment approval is
+  # the human gate. workflow_dispatch is kept for completeness.
+  push:
+    branches:
+      - claude/zoky-line-002-release-candidate
+    paths:
+      - '.github/workflows/zoky-line-002-production-build.yml'
   workflow_dispatch:
     inputs:
       confirm:
         description: 'Type BUILD-ZOKY-LINE-002-NO-DOMAIN to confirm'
-        required: true
+        required: false
         type: string
 
 permissions:
@@ -27,7 +36,8 @@ jobs:
   build:
     if: >-
       github.ref == 'refs/heads/claude/zoky-line-002-release-candidate' &&
-      github.event.inputs.confirm == 'BUILD-ZOKY-LINE-002-NO-DOMAIN'
+      (github.event_name == 'push' ||
+       github.event.inputs.confirm == 'BUILD-ZOKY-LINE-002-NO-DOMAIN')
     environment: production
     runs-on: ubuntu-latest
     defaults:
