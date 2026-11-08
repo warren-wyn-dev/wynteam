@@ -1,11 +1,11 @@
-name: ZOKY LINE-002 production build (no domain switch)
+name: ZOKY image-egress production build (no domain switch)
 
 # One-off, Founder-approved (2026-11-08) path for building the ZOKY-LINE-002
 # release candidate for production with the Vercel production environment,
 # WITHOUT moving any production domain (--skip-domain). Switching domains is a
 # separate, explicitly approved step (Vercel promote) after the build is checked.
-# - Only runs from branch claude/zoky-line-002-release-candidate.
-# - App code must be identical to commit 53f9e494 (only .github/ may differ).
+# - Only runs from branch claude/zoky-egress-release.
+# - App code must be identical to commit 7bbdf500 (only .github/ may differ).
 # - Needs the `production` environment approval (and the typed confirmation if dispatched).
 # - Secrets (VERCEL_*) come from the `production` environment; never printed.
 on:
@@ -15,7 +15,7 @@ on:
   # the human gate. workflow_dispatch is kept for completeness.
   push:
     branches:
-      - claude/zoky-line-002-release-candidate
+      - claude/zoky-egress-release
     paths:
       - '.github/workflows/zoky-line-002-production-build.yml'
   workflow_dispatch:
@@ -35,7 +35,7 @@ concurrency:
 jobs:
   build:
     if: >-
-      github.ref == 'refs/heads/claude/zoky-line-002-release-candidate' &&
+      github.ref == 'refs/heads/claude/zoky-egress-release' &&
       (github.event_name == 'push' ||
        github.event.inputs.confirm == 'BUILD-ZOKY-LINE-002-NO-DOMAIN')
     environment: production
@@ -53,11 +53,11 @@ jobs:
         with:
           node-version: '22'
 
-      - name: App code must equal the approved commit 53f9e494
+      - name: App code must equal the approved commit 7bbdf500
         working-directory: .
         run: |
           set -euo pipefail
-          approved=53f9e494f2aaf7e64f07571ae881d8143de25657
+          approved=7bbdf5002280936a1c95fef0a87c16eb30a433e2
           git cat-file -e "$approved^{commit}"
           if ! git diff --quiet "$approved" HEAD -- . ':(exclude).github'; then
             echo "::error::Files outside .github differ from the approved commit"
@@ -90,7 +90,7 @@ jobs:
           test -n "$url"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           {
-            echo "## ZOKY LINE-002 production build (no domain switch)"
+            echo "## ZOKY image-egress production build (no domain switch)"
             echo
             echo "Deployment URL: $url"
             echo
