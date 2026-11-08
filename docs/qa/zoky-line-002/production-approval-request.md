@@ -35,3 +35,14 @@ Vercel Instant Rollback ไปยัง production deployment ก่อนหน
 - [ ] ผลทดสอบบน LINE จริงผ่าน
 - [ ] ยืนยัน baseline ของ production (หัวข้อ "ยังไม่ได้ตรวจ")
 - [ ] อนุมัติ merge/deploy production อย่างชัดเจน (ระบุเวลา)
+
+
+---
+## อัปเดต 2026-11-08: Release candidate บน baseline production
+
+- Branch `claude/zoky-line-002-release-candidate` (commit `53f9e494`) = production baseline `a70cbb03` + cherry-pick 2 commit: (1) กล่องแนะนำที่ /food/login (2) กฎ redirect ข้าม LIFF browser **ไม่รวม** การแก้ workflow `--force` (ใช้เฉพาะ staging)
+- ตรวจแล้ว: test:line 19/19, test:share-links 20/20, test:i18n 51/51, tsc ไม่มี error; QA ผ่านทั้งสองส่วนบน commit ต้นทาง (รวม 2 test WebKit ที่รันไม่ได้เพราะเครื่องไม่มีเบราว์เซอร์)
+- Staging #2104 ผ่านกับ commit ที่มีข้อ (1) เท่านั้น ข้อ (2) ยังไม่ผ่าน staging
+- ความเสี่ยงที่เหลือ (MEDIUM): รูปแบบ UA จริงของ LIFF บนเครื่องจริงยังไม่ได้ยืนยัน (fail-safe = พฤติกรรมเดิม)
+- วิธี release: workflow production ในรีโปจำกัดเฉพาะ `main` (`wyn-158-production-deploy.yml`, `web-next-phase5-production.yml`) แต่ production ปัจจุบัน deploy จาก `fix/zoky-qr-line-entry-20261105` (Vercel source=redeploy) จึง **ต้องให้ Founder ระบุวิธี release** ผมไม่เดาและไม่ promote preview (build ด้วย env ของ preview อาจต่างจาก production)
+- ห้าม merge เข้า `main`: ประวัติของ `main` กับสาย ZOKY ไม่มี merge base ร่วมกัน
