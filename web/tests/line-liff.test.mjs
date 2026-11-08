@@ -10,6 +10,9 @@ import {
   lineLinkStatusFrom,
   lineStatusText,
   isLineInAppBrowser,
+  isLineLoginEnabled,
+  LINE_LOGIN_PROVIDER,
+  LINE_OAUTH,
   liffIdFor,
   rememberLineAutoLink,
   requestStoreLineFriendship,
@@ -243,4 +246,22 @@ test("LINE guidance is detected synchronously and keeps readable, stable layout"
   for (const thai of ["เปิดใน LINE อยู่", "ถ้าเห็นหน้าปฏิเสธจาก Google ให้ใช้อีเมลและรหัสผ่าน หรือเปิดในเบราว์เซอร์"]) {
     assert.ok(en.includes(`"${thai}":`), thai);
   }
+});
+
+test("LINE Login flag is off unless it is exactly \"1\"", () => {
+  assert.equal(isLineLoginEnabled(undefined), false);
+  for (const value of ["", "0", "true", "TRUE", "yes", "on", " 1", "1 ", "01", "1.0", "11"]) {
+    assert.equal(isLineLoginEnabled(value), false, JSON.stringify(value));
+  }
+  assert.equal(isLineLoginEnabled("1"), true);
+  const source = readFileSync(new URL("../lib/line-liff.ts", import.meta.url), "utf8");
+  assert.match(source, /process\.env\.NEXT_PUBLIC_ZOKY_LINE_LOGIN_ENABLED/);
+});
+
+test("LINE OAuth config uses custom:line with no Google prompt and no client-chosen scopes", () => {
+  assert.equal(LINE_LOGIN_PROVIDER, "custom:line");
+  assert.equal(LINE_OAUTH.provider, "custom:line");
+  assert.equal(LINE_OAUTH.queryParams, undefined);
+  assert.equal("scopes" in LINE_OAUTH, false);
+  assert.match(LINE_OAUTH.messages.failed, /LINE/);
 });

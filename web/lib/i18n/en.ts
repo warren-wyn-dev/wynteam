@@ -4,6 +4,12 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  // ZOKY-LINE-002 LINE Login (design A)
+  "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณาลองใหม่": "Couldn't sign in with LINE. Please try again",
+  "iPhone บล็อกหน้าต่าง LINE กรุณาอนุญาตหน้าต่างใหม่แล้วลองอีกครั้ง": "iPhone blocked the LINE window. Allow new windows and try again",
+  "เปิด LINE ภายใน WYNOS ไม่สำเร็จ กรุณาลองใหม่": "Couldn't open LINE inside WYNOS. Please try again",
+  "กำลังเข้าสู่ระบบ LINE — WYNOS": "Signing in with LINE — WYNOS",
+  "กำลังเชื่อมต่อ LINE…": "Connecting to LINE…",
   // ZOKY-LINE-002 F
   "เปิดใน LINE อยู่": "You're in the LINE app",
   "Google ไม่อนุญาตให้เข้าสู่ระบบในแอป LINE ใช้อีเมลและรหัสผ่านต่อได้เลย ตะกร้าของคุณยังอยู่ หรือเปิดในเบราว์เซอร์ของเครื่องเพื่อเข้าสู่ระบบด้วย Google": "Google doesn't allow sign-in inside the LINE app. You can keep going with email and password and your basket will stay, or open this page in your phone's browser to sign in with Google.",

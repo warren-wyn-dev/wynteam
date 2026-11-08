@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(source, {
 }).outputText;
 const compiledModule = { exports: {} };
 new Function("module", "exports", "process", compiled)(compiledModule, compiledModule.exports, process);
-const { isInstalledIosWebApp, startGoogleOAuth, consumeGooglePwaPopupMarker, announceGooglePwaCompletion, announceGooglePwaCode, GOOGLE_PWA_POPUP_MARKER, GOOGLE_PWA_CODE_MESSAGE } = compiledModule.exports;
+const { isInstalledIosWebApp, startGoogleOAuth, startOAuth, GOOGLE_OAUTH, consumeGooglePwaPopupMarker, announceGooglePwaCompletion, announceGooglePwaCode, GOOGLE_PWA_POPUP_MARKER, GOOGLE_PWA_CODE_MESSAGE } = compiledModule.exports;
 const AUTH_URL = "https://test.supabase.co/auth/v1/authorize?provider=google";
 
 function setup({ installed = true, blocked = false, origin = "https://wynos.online" } = {}) {
@@ -191,4 +191,43 @@ test("installed iOS Google loading has a bounded watchdog in Food and Social",()
     assert.match(body,/window\.setTimeout/);
     assert.match(body,/setGoogleLoading\(false\)/);
   }
+});
+
+test("Google keeps provider google and prompt select_account (flag-independent regression)", async () => {
+  const f = setup({ installed: false }); try {
+    const seen = [];
+    const client = { auth: { signInWithOAuth: async (args) => { seen.push(args); return { data: { url: AUTH_URL }, error: null }; } } };
+    assert.equal((await startGoogleOAuth(client, "https://zoky.wynos.online/food/auth/callback")).started, true);
+    assert.deepEqual(seen[0], {
+      provider: "google",
+      options: { redirectTo: "https://zoky.wynos.online/food/auth/callback", queryParams: { prompt: "select_account" } },
+    });
+    assert.equal(GOOGLE_OAUTH.provider, "google");
+  } finally { f.restore(); }
+});
+
+test("startOAuth for a non-Google provider never sends Google's select_account prompt", async () => {
+  const f = setup({ installed: false }); try {
+    const seen = [];
+    const client = { auth: { signInWithOAuth: async (args) => { seen.push(args); return { data: { url: AUTH_URL }, error: null }; } } };
+    const config = { provider: "custom:line", messages: { failed: "LINE failed", popupBlocked: "b", popupFailed: "p", popupTitle: "t", popupBody: "o" } };
+    assert.equal((await startOAuth(client, "https://zoky.wynos.online/food/auth/callback", config)).started, true);
+    assert.deepEqual(seen[0], { provider: "custom:line", options: { redirectTo: "https://zoky.wynos.online/food/auth/callback" } });
+    assert.equal(JSON.stringify(seen[0]).includes("select_account"), false);
+    const failing = { auth: { signInWithOAuth: async () => ({ data: null, error: new Error("x") }) } };
+    assert.deepEqual(await startOAuth(failing, "https://zoky.wynos.online/food/auth/callback", config), { started: false, error: "LINE failed" });
+  } finally { f.restore(); }
+});
+
+test("startOAuth iOS popup path also omits select_account for non-Google providers", async () => {
+  const f = setup(); try {
+    const seen = [];
+    const client = { auth: { signInWithOAuth: async (args) => { seen.push(args); return { data: { url: AUTH_URL }, error: null }; } } };
+    const config = { provider: "custom:line", messages: { failed: "f", popupBlocked: "b", popupFailed: "p", popupTitle: "t", popupBody: "o" } };
+    const result = await startOAuth(client, "https://wynos.online/food/auth/callback", config);
+    assert.equal(result.started, true);
+    assert.equal(seen[0].provider, "custom:line");
+    assert.equal(seen[0].options.queryParams, undefined);
+    assert.equal(seen[0].options.redirectTo, "https://wynos.online/food/auth/callback");
+  } finally { f.restore(); }
 });

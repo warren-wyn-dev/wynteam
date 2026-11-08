@@ -2,6 +2,8 @@
 // "รับแจ้งเตือนทาง LINE" cards. No secrets: LIFF IDs are public identifiers.
 import type { Liff } from "@line/liff";
 
+import type { OAuthProviderConfig } from "@/lib/google-pwa-oauth";
+
 export type LineAudience = "food" | "merchant";
 
 export type LineLinkStatus = {
@@ -147,3 +149,33 @@ export function takeLineAutoLink(now = Date.now()): string | null {
     return null;
   }
 }
+
+// ZOKY-LINE-002 (design A, T1): LINE Login through Supabase custom OIDC.
+// Off by default; only the exact string "1" enables it. This is a UI rollout
+// switch, NOT a security control: the provider itself is project-wide.
+export const LINE_LOGIN_PROVIDER = "custom:line" as const;
+
+/**
+ * Must reference process.env.NEXT_PUBLIC_ZOKY_LINE_LOGIN_ENABLED literally so
+ * Next.js inlines it at build time. `value` exists for tests only.
+ */
+export function isLineLoginEnabled(value: string | undefined = process.env.NEXT_PUBLIC_ZOKY_LINE_LOGIN_ENABLED): boolean {
+  return value === "1";
+}
+
+/**
+ * Provider settings for startOAuth(). Deliberately no `queryParams` (LINE does
+ * not support Google's `prompt=select_account`) and no `scopes`: the provider
+ * is configured server-side with `openid profile` and `email_optional`, so the
+ * client can never ask for the email scope that would enable email auto-link.
+ */
+export const LINE_OAUTH: OAuthProviderConfig = {
+  provider: LINE_LOGIN_PROVIDER,
+  messages: {
+    failed: "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณาลองใหม่",
+    popupBlocked: "iPhone บล็อกหน้าต่าง LINE กรุณาอนุญาตหน้าต่างใหม่แล้วลองอีกครั้ง",
+    popupFailed: "เปิด LINE ภายใน WYNOS ไม่สำเร็จ กรุณาลองใหม่",
+    popupTitle: "กำลังเข้าสู่ระบบ LINE — WYNOS",
+    popupBody: "กำลังเชื่อมต่อ LINE…",
+  },
+};

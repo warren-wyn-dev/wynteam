@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Provider, SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * iOS Home Screen PWAs do not share their auth storage with Safari. Starting
@@ -70,18 +70,57 @@ export function announceGooglePwaCompletion(): void {
   }
 }
 
-export async function startGoogleOAuth(
+/**
+ * Per-provider OAuth settings. Only the provider id, its provider-specific
+ * authorize params and the user-facing copy differ; the redirect, iOS popup and
+ * Auth-origin checks are shared. Never put `prompt: select_account` on a
+ * non-Google provider: LINE does not support that value.
+ */
+export type OAuthProviderConfig = {
+  provider: Provider;
+  queryParams?: Record<string, string>;
+  messages: {
+    failed: string;
+    popupBlocked: string;
+    popupFailed: string;
+    popupTitle: string;
+    popupBody: string;
+  };
+};
+
+export const GOOGLE_OAUTH: OAuthProviderConfig = {
+  provider: "google",
+  queryParams: { prompt: "select_account" },
+  messages: {
+    failed: "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่",
+    popupBlocked: "iPhone บล็อกหน้าต่าง Google กรุณาอนุญาตหน้าต่างใหม่แล้วลองอีกครั้ง",
+    popupFailed: "เปิด Google ภายใน WYNOS ไม่สำเร็จ กรุณาลองใหม่ หรือเข้าใช้งานผ่าน Safari ชั่วคราว",
+    popupTitle: "กำลังเข้าสู่ระบบ Google — WYNOS",
+    popupBody: "กำลังเชื่อมต่อ Google…",
+  },
+};
+
+export function startGoogleOAuth(
   client: SupabaseClient,
   browserRedirect: string,
 ): Promise<{ started: boolean; error?: string; popup?: Window }> {
+  return startOAuth(client, browserRedirect, GOOGLE_OAUTH);
+}
+
+export async function startOAuth(
+  client: SupabaseClient,
+  browserRedirect: string,
+  config: OAuthProviderConfig,
+): Promise<{ started: boolean; error?: string; popup?: Window }> {
+  const { provider, messages } = config;
   const options = {
     redirectTo: browserRedirect,
-    queryParams: { prompt: "select_account" },
+    ...(config.queryParams ? { queryParams: config.queryParams } : {}),
   };
   if (!isInstalledIosWebApp()) {
-    const { error } = await client.auth.signInWithOAuth({ provider: "google", options });
+    const { error } = await client.auth.signInWithOAuth({ provider, options });
     return error
-      ? { started: false, error: "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่" }
+      ? { started: false, error: messages.failed }
       : { started: true };
   }
 
@@ -94,15 +133,15 @@ export async function startGoogleOAuth(
     // Some browser privacy settings throw instead of returning null.
   }
   if (!popup) {
-    return { started: false, error: "iPhone บล็อกหน้าต่าง Google กรุณาอนุญาตหน้าต่างใหม่แล้วลองอีกครั้ง" };
+    return { started: false, error: messages.popupBlocked };
   }
 
   try {
     popup.sessionStorage.setItem(GOOGLE_PWA_POPUP_MARKER, String(Date.now()));
-    popup.document.title = "กำลังเข้าสู่ระบบ Google — WYNOS";
-    if (popup.document.body) popup.document.body.textContent = "กำลังเชื่อมต่อ Google…";
+    popup.document.title = messages.popupTitle;
+    if (popup.document.body) popup.document.body.textContent = messages.popupBody;
     const { data, error } = await client.auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: {
         ...options,
         // The OAuth verifier is stored in THIS installed app, so an iOS
@@ -140,7 +179,7 @@ export async function startGoogleOAuth(
     try { popup.close(); } catch { /* The popup may already be gone. */ }
     return {
       started: false,
-      error: "เปิด Google ภายใน WYNOS ไม่สำเร็จ กรุณาลองใหม่ หรือเข้าใช้งานผ่าน Safari ชั่วคราว",
+      error: messages.popupFailed,
     };
   }
 }
