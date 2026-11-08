@@ -74,7 +74,7 @@ jobs:
           done
 
           export VERCEL_ORG_ID VERCEL_PROJECT_ID
-          url=$(npx --yes vercel@latest deploy --yes \
+          url=$(npx --yes vercel@latest deploy --yes --force \
             --token="$VERCEL_TOKEN" \
             --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
