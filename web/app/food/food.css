@@ -188,6 +188,30 @@
 }
 .wf-auth-line-open:focus-visible { outline: 3px solid var(--wf-red); outline-offset: 2px; }
 .wf-auth-line-open:disabled { opacity: .58; cursor: not-allowed; }
+/* LINE Login: space is reserved from the first client render inside LINE so nothing shifts when LIFF resolves. */
+.wf-auth-line-login { min-height: 132px; margin: 0 0 8px; display: grid; align-content: start; gap: 8px; }
+.wf-auth-line-signin {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1.5px solid #06c755;
+  border-radius: 13px;
+  background: #fff;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.wf-auth-line-signin svg { color: #06c755; }
+.wf-auth-line-signin:active { background: #f4fbf7; transform: scale(.985); }
+.wf-auth-line-signin:focus-visible { outline: 3px solid var(--wf-red); outline-offset: 2px; }
+.wf-auth-line-signin:disabled { opacity: .58; cursor: not-allowed; }
+.wf-auth-line-signin .wf-mini-loader { width: 18px; height: 18px; }
+.wf-auth-line-login-note { margin: 0; color: var(--wf-secondary); font-size: 12px; line-height: 1.45; }
 .wf-auth-terms { margin: 15px 2px 0; color: var(--wf-secondary); text-align: center; font-size: 9.5px; line-height: 1.5; }
 .wf-auth-confirm, .wf-auth-state { text-align: center; }
 .wf-auth-confirm > span {

@@ -230,8 +230,9 @@ test("LINE login guidance never redirects, hides Google or touches the guest bas
   assert.doesNotMatch(guidance, /location\.(replace|assign|href\s*=)|sessionStorage|localStorage|GUEST_BASKET|removeItem|\.clear\(/);
   assert.match(guidance, /ตะกร้าจะไม่ถูกย้ายไปด้วย/);
   const auth = readFileSync(new URL("../components/food/food-auth.tsx", import.meta.url), "utf8");
-  assert.match(auth, /<LineLoginGuidance \/>\s*<button className="wf-auth-google"/);
-  assert.match(auth, /disabled=\{loading \|\| googleLoading\} onClick=\{\(\) => void google\(\)\}/);
+  // The Google button still follows the guidance (the LINE button is an optional, flag-gated slot between them).
+  assert.match(auth, /<LineLoginGuidance \/>\s*\{isLineLoginEnabled\(\) \? \([\s\S]*?\) : null\}\s*<button className="wf-auth-google"/);
+  assert.match(auth, /disabled=\{loading \|\| googleLoading \|\| lineLoading\} onClick=\{\(\) => void google\(\)\}/);
 });
 
 test("LINE guidance is detected synchronously and keeps readable, stable layout", () => {

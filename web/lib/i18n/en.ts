@@ -10,6 +10,10 @@ export const EN_EXACT: Record<string, string> = {
   "เปิด LINE ภายใน WYNOS ไม่สำเร็จ กรุณาลองใหม่": "Couldn't open LINE inside WYNOS. Please try again",
   "กำลังเข้าสู่ระบบ LINE — WYNOS": "Signing in with LINE — WYNOS",
   "กำลังเชื่อมต่อ LINE…": "Connecting to LINE…",
+  "เข้าสู่ระบบด้วย LINE": "Sign in with LINE",
+  "LINE จะสร้างบัญชี ZOKY ใหม่ ถ้าเคยใช้ Google หรืออีเมลมาก่อน ให้เข้าด้วยวิธีเดิมเพื่อใช้บัญชีเดิมและประวัติออเดอร์": "LINE creates a new ZOKY account. If you've used Google or email before, sign in that way to keep your existing account and order history.",
+  "ZOKY ไม่ขออีเมลของคุณจาก LINE": "ZOKY doesn't ask LINE for your email.",
+  "เข้าสู่ระบบไม่สำเร็จ กรุณากลับไปหน้า ZOKY แล้วลองใหม่": "Couldn't sign in. Return to ZOKY and try again",
   // ZOKY-LINE-002 F
   "เปิดใน LINE อยู่": "You're in the LINE app",
   "Google ไม่อนุญาตให้เข้าสู่ระบบในแอป LINE ใช้อีเมลและรหัสผ่านต่อได้เลย ตะกร้าของคุณยังอยู่ หรือเปิดในเบราว์เซอร์ของเครื่องเพื่อเข้าสู่ระบบด้วย Google": "Google doesn't allow sign-in inside the LINE app. You can keep going with email and password and your basket will stay, or open this page in your phone's browser to sign in with Google.",

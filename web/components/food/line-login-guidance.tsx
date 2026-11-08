@@ -28,10 +28,21 @@ const readInLine = () => isLineInAppBrowser(navigator.userAgent);
 type Liff = typeof import("@line/liff").default;
 type Slot = "pending" | "ready" | "unavailable";
 
-async function loadLiff(liffId: string): Promise<Liff> {
-  const { default: liff } = await import("@line/liff");
-  await liff.init({ liffId });
-  return liff;
+// Shared with LineLoginButton: init once per LIFF id so two components never race liff.init.
+const liffLoads = new Map<string, Promise<Liff>>();
+
+export function loadLiff(liffId: string): Promise<Liff> {
+  const cached = liffLoads.get(liffId);
+  if (cached) return cached;
+  const load = (async () => {
+    const { default: liff } = await import("@line/liff");
+    await liff.init({ liffId });
+    return liff;
+  })();
+  liffLoads.set(liffId, load);
+  // A failed init must be retryable, not cached forever.
+  load.catch(() => { if (liffLoads.get(liffId) === load) liffLoads.delete(liffId); });
+  return load;
 }
 
 export function LineLoginGuidance() {

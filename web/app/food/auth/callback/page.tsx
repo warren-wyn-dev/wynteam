@@ -26,7 +26,7 @@ export default function FoodGoogleCallbackPage() {
       const pwaPopup = consumeGooglePwaPopupMarker();
 
       try {
-        if (params.has("error")) throw new Error("Google authentication failed");
+        if (params.has("error")) throw new Error("OAuth authentication failed");
         const client = getSupabaseBrowserClient();
         if (!client) throw new Error("Supabase browser client unavailable");
 
@@ -52,11 +52,11 @@ export default function FoodGoogleCallbackPage() {
           if (exchanged.error) throw exchanged.error;
           session = exchanged.data.session;
         }
-        if (!session) throw new Error("No authenticated session after Google callback");
+        if (!session) throw new Error("No authenticated session after OAuth callback");
 
         const confirmed = await client.auth.getUser();
         if (confirmed.error || !confirmed.data.user) {
-          throw confirmed.error ?? new Error("Unable to confirm Google session");
+          throw confirmed.error ?? new Error("Unable to confirm OAuth session");
         }
 
         await registerCurrentAccount(client).catch(() => false);
@@ -78,7 +78,7 @@ export default function FoodGoogleCallbackPage() {
         window.location.replace(foodHomeUrl());
       } catch {
         window.history.replaceState(null, "", "/food/auth/callback");
-        setError("เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณากลับไปหน้า ZOKY แล้วลองใหม่");
+        setError("เข้าสู่ระบบไม่สำเร็จ กรุณากลับไปหน้า ZOKY แล้วลองใหม่");
       }
     })();
   }, []);

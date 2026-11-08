@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { GoogleGlyph } from "@/components/auth-flow/screens";
+import { LineLoginButton } from "@/components/food/line-login-button";
 import { LineLoginGuidance, withLineGoogleHint } from "@/components/food/line-login-guidance";
 import { markFoodSplashReady } from "@/lib/food-splash";
 
@@ -16,8 +17,9 @@ import {
   signUpWithEmail,
 } from "@/lib/auth-repository";
 import { registerCurrentAccount } from "@/lib/account-registry";
-import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_TIMEOUT_MS, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
+import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_TIMEOUT_MS, isInstalledIosWebApp, startGoogleOAuth, startOAuth } from "@/lib/google-pwa-oauth";
 import { FOOD_PRODUCTION_ORIGIN, foodAuthOriginFor } from "@/lib/food-origin";
+import { LINE_OAUTH, isLineLoginEnabled } from "@/lib/line-liff";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 
@@ -78,6 +80,8 @@ export function FoodLoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [lineLoading, setLineLoading] = useState(false);
+  const [lineError, setLineError] = useState("");
   const [message, setMessage] = useState("");
   const googlePwaPending = useRef(false);
   const googlePwaPopup = useRef<Window | null>(null);
@@ -88,6 +92,13 @@ export function FoodLoginScreen() {
   }, []);
 
   useEffect(() => { if (!checking) markFoodSplashReady(); }, [checking]);
+
+  // Back/forward cache can restore this page after the LINE redirect started.
+  useEffect(() => {
+    const reset = (event: PageTransitionEvent) => { if (event.persisted) setLineLoading(false); };
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -228,7 +239,7 @@ export function FoodLoginScreen() {
   }, [client]);
 
   async function google() {
-    if (!client || loading || googleLoading) {
+    if (!client || loading || googleLoading || lineLoading) {
       if (!client) setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ ZOKY");
       return;
     }
@@ -279,8 +290,36 @@ export function FoodLoginScreen() {
     }
   }
 
+  // LINE Login (design A, T1): full-page redirect through Supabase custom OIDC
+  // `custom:line`. Fixed callback (no query, no client-controlled redirect_to);
+  // the post-login destination is restored by the existing takeLineAutoLink()
+  // flow, which this function deliberately never reads or clears.
+  async function line() {
+    if (!isLineLoginEnabled() || !client || loading || googleLoading || lineLoading) return;
+    const failed = LINE_OAUTH.messages.failed;
+    const canonicalOrigin = foodAuthOrigin();
+    if (window.location.origin !== canonicalOrigin || isInstalledIosWebApp()) {
+      setLineError(failed);
+      return;
+    }
+    setLineError("");
+    setMessage("");
+    setLineLoading(true);
+    try {
+      const callback = new URL("/food/auth/callback", canonicalOrigin);
+      const result = await startOAuth(client, callback.href, LINE_OAUTH);
+      if (!result.started) {
+        setLineError(result.error ?? failed);
+        setLineLoading(false);
+      }
+    } catch {
+      setLineError(failed);
+      setLineLoading(false);
+    }
+  }
+
   async function submit() {
-    if (loading || googleLoading) return;
+    if (loading || googleLoading || lineLoading) return;
     setMessage("");
     const normalized = email.trim();
     if (!normalized || !password) {
@@ -333,7 +372,10 @@ export function FoodLoginScreen() {
         <p>สั่งอาหารและติดตามออเดอร์ด้วย WYNOS Account ของคุณ</p>
       </div>
       <LineLoginGuidance />
-      <button className="wf-auth-google" type="button" disabled={loading || googleLoading} onClick={() => void google()}>
+      {isLineLoginEnabled() ? (
+        <LineLoginButton busy={loading || googleLoading || lineLoading} loading={lineLoading} error={lineError} onStart={() => void line()} />
+      ) : null}
+      <button className="wf-auth-google" type="button" disabled={loading || googleLoading || lineLoading} onClick={() => void google()}>
         {googleLoading ? <span className="wf-mini-loader" aria-hidden="true" /> : <GoogleGlyph />}
         {googleLoading ? "กำลังเชื่อมต่อ Google…" : "เข้าสู่ระบบด้วย Google"}
       </button>
@@ -343,7 +385,7 @@ export function FoodLoginScreen() {
         <label><span><LockKeyhole size={16} /> รหัสผ่าน</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" /></label>
         <div className="wf-auth-inline"><Link href="/forgot-password?returnTo=%2Ffood%2Flogin">ลืมรหัสผ่าน?</Link></div>
         {message ? <p className="wf-auth-error" role="alert">{message}</p> : null}
-        <button className="wf-auth-primary" type="button" disabled={loading || googleLoading} onClick={() => void submit()}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
+        <button className="wf-auth-primary" type="button" disabled={loading || googleLoading || lineLoading} onClick={() => void submit()}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
       </div>
       <p className="wf-auth-switch">ยังไม่มีบัญชี? <Link href="/food/signup">สมัคร ZOKY</Link></p>
       <div className="wf-auth-note">
