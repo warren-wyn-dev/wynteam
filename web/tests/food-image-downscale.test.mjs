@@ -11,7 +11,7 @@ const transpile = (path) => ts.transpileModule(read(path), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
-function loadCompress({ width, height, encodedType, encodedSize, decodeFails = false }) {
+function loadCompress({ width, height, encodedType, encodedSize, decodeFails = false, probe = null }) {
   const calls = { draw: null, canvas: null, encode: null };
   const canvas = {
     width: 0, height: 0,
@@ -26,9 +26,15 @@ function loadCompress({ width, height, encodedType, encodedSize, decodeFails = f
   runInNewContext(transpile("../lib/compress-image.ts"), {
     module: mod, exports: mod.exports, Math, Number, Error, Promise,
     require: () => ({ IMAGE_MAX_BYTES: 1, imageUploadType() {} }),
-    createImageBitmap: async () => { if (decodeFails) throw new Error("no"); return { width, height, close() {} }; },
+    createImageBitmap: async () => { calls.decoded = true; if (decodeFails) throw new Error("no"); return { width, height, close() {} }; },
     document: { createElement: () => canvas },
+    Uint8Array,
+    ...(probe ? {
+      URL: { createObjectURL: () => "blob:x", revokeObjectURL() {} },
+      Image: class { set src(_v) { queueMicrotask(() => { this.naturalWidth = probe[0]; this.naturalHeight = probe[1]; this.onload(); }); } },
+    } : {}),
   });
+  calls.decoded = false;
   return { ...mod.exports, calls };
 }
 const file = (size) => ({ size, name: "a.png", type: "image/png" });
@@ -73,4 +79,34 @@ test("uploadFoodPublicImage shrinks photos but never payment QR codes or private
   assert.match(app, /uploadFoodPublicImage\(client, qrFile, `stores\/\$\{store\.id\}\/payment`\)/);
   const bridge = read("../lib/merchant-flutter-bridge.ts");
   assert.match(bridge, /uploadFoodPublicImage\(client, file, `stores\/\$\{storeId\}\/payment`\)/);
+});
+
+const webpFile = (bytes, size = 5_000_000) => ({
+  size, name: "a.webp", type: "image/webp",
+  slice: () => ({ arrayBuffer: async () => new Uint8Array(bytes).buffer }),
+});
+const ascii = (t) => [...t].map((c) => c.charCodeAt(0));
+const riff = (...chunks) => [...ascii("RIFF"), 0, 0, 0, 0, ...ascii("WEBP"), ...chunks.flat()];
+
+test("animated WebP keeps its original (no decode, no re-encode)", async () => {
+  const flags = [...ascii("VP8X"), 10, 0, 0, 0, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  for (const bytes of [riff(flags), riff([...ascii("VP8X"), 10, 0, 0, 0, 0, 0, 0, 0], ascii("ANIM"))]) {
+    const c = loadCompress({ width: 4000, height: 3000, encodedSize: 1 });
+    assert.equal(await c.downscalePhoto(webpFile(bytes), "image/webp"), null);
+    assert.equal(c.calls.decoded, false);
+    assert.equal(c.calls.draw, null);
+  }
+  // a still WebP is still shrunk
+  const still = loadCompress({ width: 4000, height: 3000, encodedSize: 1 });
+  const bytes = riff([...ascii("VP8X"), 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.equal((await still.downscalePhoto(webpFile(bytes), "image/webp")).type, "image/webp");
+});
+
+test("huge-dimension images above the decode ceiling keep their original without decoding", async () => {
+  const c = loadCompress({ width: 20000, height: 20000, encodedSize: 1, probe: [20000, 20000] });
+  assert.equal(await c.downscalePhoto(file(50_000), "image/png"), null);
+  assert.equal(c.calls.decoded, false);
+  const ok = loadCompress({ width: 4000, height: 3000, encodedSize: 1, probe: [4000, 3000] });
+  assert.ok(await ok.downscalePhoto(file(5e6), "image/png"));
+  assert.equal(ok.calls.decoded, true);
 });
