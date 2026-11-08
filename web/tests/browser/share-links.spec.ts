@@ -69,6 +69,13 @@ test("a link opened inside LINE is sent on to Safari/Chrome, once", async ({ raw
   }
 });
 
+test("the LIFF browser is never bounced out, plain LINE links still are", async ({ rawRequest }) => {
+  for (const ua of [`${LINE_UA} LIFF/2.24.0`, `${LINE_UA.replace("Line/14.16.0", "Line/14.1.0 LIFF/2.24.0")}`, `${LINE_UA} LIFF/SubWindow`]) {
+    expect((await rawRequest.get("/@warren", { headers: { "user-agent": ua }, maxRedirects: 0 })).status(), ua).not.toBe(307);
+  }
+  expect((await rawRequest.get("/@warren", { headers: { "user-agent": LINE_UA.replace("14.16.0", "14.1.0") }, maxRedirects: 0 })).status()).toBe(307);
+});
+
 test("other browsers and link-preview bots are never redirected", async ({ rawRequest }) => {
   for (const ua of [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1",

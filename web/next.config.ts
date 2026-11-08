@@ -121,7 +121,10 @@ const nextConfig: NextConfig = {
   // (the flag is then present, so this cannot loop). Other query values and
   // the #fragment are kept. Skipped: API/asset/file requests, the OAuth
   // callback and any `?code=` return (the PKCE verifier lives in this
-  // browser's storage, so the exchange must finish here).
+  // browser's storage, so the exchange must finish here) and the LIFF
+  // browser (UA "Line/<x.y.z> LIFF..." or "LIFF/SubWindow", as the LIFF SDK
+  // detects it): LIFF pages must stay in the webview where liff.init() and
+  // the LINE login context work, so only plain LINE chat links are bounced.
   async redirects() {
     return [
       {
@@ -130,6 +133,7 @@ const nextConfig: NextConfig = {
         missing: [
           { type: "query", key: "openExternalBrowser" },
           { type: "query", key: "code" },
+          { type: "header", key: "user-agent", value: ".*(?:Line/\\d+\\.\\d+\\.\\d+ LIFF|LIFF/SubWindow).*" },
         ],
         destination: "/:path?openExternalBrowser=1",
         permanent: false,
