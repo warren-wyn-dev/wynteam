@@ -75,6 +75,32 @@ export async function compressPhoto(file: File): Promise<CompressedPhoto> {
 }
 
 const FOOD_QUALITY = 0.82;
+// A small file can still expand to a huge bitmap (decompression bomb); decoding
+// it would spike memory, so anything above this keeps the original untouched.
+export const MAX_DECODE_PIXELS = 100_000_000;
+
+/** True for a WebP with the animation flag (VP8X) or an ANIM chunk in its header. */
+export async function isAnimatedWebp(file: Blob): Promise<boolean> {
+  if (typeof file.slice !== "function") return false;
+  const head = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+  const tag = (offset: number, text: string) => [...text].every((ch, i) => head[offset + i] === ch.charCodeAt(0));
+  if (!tag(0, "RIFF") || !tag(8, "WEBP")) return false;
+  if (tag(12, "VP8X") && head.length > 20 && (head[20] & 0x02) !== 0) return true;
+  for (let i = 12; i + 4 <= head.length; i++) if (tag(i, "ANIM")) return true;
+  return false;
+}
+
+/** Reads width x height from the header without decoding the pixels; null if unknown. */
+function probeDimensions(file: File): Promise<{ width: number; height: number } | null> {
+  if (typeof Image === "undefined" || typeof URL === "undefined") return Promise.resolve(null);
+  const url = URL.createObjectURL(file);
+  return new Promise<{ width: number; height: number } | null>((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    image.onerror = () => resolve(null);
+    image.src = url;
+  }).finally(() => URL.revokeObjectURL(url));
+}
 
 /**
  * Downscales a Food photo so its longest side is at most PHOTO_MAX_SIDE, keeping the
@@ -85,6 +111,10 @@ const FOOD_QUALITY = 0.82;
  */
 export async function downscalePhoto(file: File, contentType: string): Promise<Blob | null> {
   try {
+    // A canvas keeps only the first frame, so animated WebP keeps its original.
+    if (await isAnimatedWebp(file)) return null;
+    const probe = await probeDimensions(file);
+    if (probe && probe.width * probe.height > MAX_DECODE_PIXELS) return null;
     const source = await decode(file);
     const sourceWidth = "naturalWidth" in source ? source.naturalWidth : source.width;
     const sourceHeight = "naturalHeight" in source ? source.naturalHeight : source.height;
