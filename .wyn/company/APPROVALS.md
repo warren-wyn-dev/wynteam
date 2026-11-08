@@ -812,3 +812,9 @@
 - NOT yet approved: setting the flag on Production, deploying the `line-link` Edge Function, publishing the LINE Login channel, privacy policy update. Each needs a separate Founder approval.
 - Rollback: unset the flag and redeploy / Vercel rollback; emergency only: disable provider `custom:line` in Supabase (locks LINE-only users out).
 - Temporary exposure to remove after testing: GitHub `production` environment deployment-branch rules for `claude/great-cori-5zsvjp`, `claude/zoky-line-002-login-guidance-prod`, `claude/zoky-line-002-release-candidate`, `claude/zoky-line-login-impl`; Supabase Redirect URL for the staging preview callback; Vercel Preview variable value `test`.
+
+### RECORD — [2026-11-08] Cleanup of temporary LINE Login test exposure
+
+- Founder reported done (not independently verified by the agent): Supabase custom provider `custom:line` disabled/removed; staging preview Redirect URL removed; GitHub `production` environment deployment-branch rules for the four temporary `claude/*` branches removed; Vercel Preview variable `NEXT_PUBLIC_ZOKY_LINE_LOGIN_ENABLED` removed.
+- LINE Developers Callback URL left in place (inert while the provider is off).
+- LINE Login (T1 redirect) is parked: it failed on iOS (PKCE verifier lost across browser contexts). Branches kept for reuse: `claude/zoky-line-login-impl`, `claude/line-link-guard`. Alternative design (LIFF ID token) is drafted and awaiting Founder decision; nothing approved for production.
