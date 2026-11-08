@@ -85,5 +85,20 @@ test("LINE's browser is bounced to Safari/Chrome once, never on API, assets or t
   assert.match(config, /value: "\.\* Line\/\.\*"/);
   assert.match(config, /\{ type: "query", key: "openExternalBrowser" \}/);
   assert.match(config, /\{ type: "query", key: "code" \}/);
+  assert.match(config, /key: "user-agent", value: "\.\*\(\?:Line\/\\\\d\+\\\\\.\\\\d\+\\\\\.\\\\d\+ LIFF\|LIFF\/SubWindow\)\.\*"/);
   assert.match(config, /destination: "\/:path\?openExternalBrowser=1",\n\s+permanent: false/);
+});
+
+test("the LIFF-browser skip matches LIFF webviews only, not plain LINE in-app links", () => {
+  const config = read("../next.config.ts");
+  const literal = config.match(/key: "user-agent", value: ("\.\*\(\?:Line[^\n]*?)\s*\}/)[1];
+  // Next evaluates has/missing header values as ^value$ against the header.
+  const liff = new RegExp(`^${JSON.parse(literal)}$`);
+  const base = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Safari/604.1";
+  assert.ok(liff.test(`${base} Line/14.1.0 LIFF/2.24.0`));
+  assert.ok(liff.test(`${base} Line/14.1.0 LIFF`));
+  assert.ok(liff.test(`${base} Line/14.1.0 LIFF/SubWindow`));
+  assert.ok(!liff.test(`${base} Line/14.1.0`));
+  assert.ok(!liff.test(`${base} Line/14.16.0/IAB`));
+  assert.ok(!liff.test(base));
 });
