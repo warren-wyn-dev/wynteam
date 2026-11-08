@@ -291,7 +291,7 @@ export function FoodLoginScreen() {
   }
 
   // LINE Login (design A, T1): full-page redirect through Supabase custom OIDC
-  // `custom:line`. Fixed callback (no query, no client-controlled redirect_to);
+  // `custom:line`. Fixed callback (no query, no client-controlled redirect target);
   // the post-login destination is restored by the existing takeLineAutoLink()
   // flow, which this function deliberately never reads or clears.
   async function line() {
