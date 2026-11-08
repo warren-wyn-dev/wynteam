@@ -19,7 +19,7 @@ export function fitWithin(width: number, height: number, maxSide = PHOTO_MAX_SID
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
 }
 
-async function decode(file: File): Promise<ImageBitmap | HTMLImageElement> {
+export async function decode(file: File): Promise<ImageBitmap | HTMLImageElement> {
   if (typeof createImageBitmap === "function") {
     try {
       return await createImageBitmap(file, { imageOrientation: "from-image" });
@@ -72,4 +72,39 @@ export async function compressPhoto(file: File): Promise<CompressedPhoto> {
   }
   if (!blob) throw new Error("บีบรูปไม่สำเร็จ");
   return { blob, width: size.width, height: size.height };
+}
+
+const FOOD_QUALITY = 0.82;
+
+/**
+ * Downscales a Food photo so its longest side is at most PHOTO_MAX_SIDE, keeping the
+ * file type (PNG/WebP transparency survives). Re-encoding through a canvas writes a
+ * fresh file, so EXIF/GPS is dropped. Returns null when the original should be
+ * uploaded as is: already small enough, the browser cannot decode/encode this
+ * type, or the result is not smaller. Never throws.
+ */
+export async function downscalePhoto(file: File, contentType: string): Promise<Blob | null> {
+  try {
+    const source = await decode(file);
+    const sourceWidth = "naturalWidth" in source ? source.naturalWidth : source.width;
+    const sourceHeight = "naturalHeight" in source ? source.naturalHeight : source.height;
+    const size = fitWithin(sourceWidth, sourceHeight);
+    if (size.width >= sourceWidth && size.height >= sourceHeight) {
+      if ("close" in source) source.close();
+      return null;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = size.width;
+    canvas.height = size.height;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.drawImage(source, 0, 0, size.width, size.height);
+    if ("close" in source) source.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, contentType, FOOD_QUALITY));
+    // Browsers that cannot encode the type (e.g. WebP) silently return PNG.
+    if (!blob || blob.type !== contentType || blob.size >= file.size) return null;
+    return blob;
+  } catch {
+    return null;
+  }
 }

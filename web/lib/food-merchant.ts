@@ -1,5 +1,6 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
+import { downscalePhoto } from "@/lib/compress-image";
 import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
@@ -651,16 +652,19 @@ export async function setMenuAvailability(client: SupabaseClient, storeId: strin
   if (error) throw new Error(error.message);
 }
 
-async function foodImageBlob(file: File) {
+async function foodImageBlob(file: File, downscale = false) {
   const { contentType, extension } = imageUploadType(file, 8 * 1024 * 1024);
   if (!SUPPORTED_FOOD_IMAGE_TYPES.has(contentType)) {
     throw new Error("WYNOS Merchant รองรับรูป JPG, PNG และ WebP");
   }
-  return { contentType, extension, blob: await withoutLocation(file, contentType) };
+  // Falls back to the original (location stripped) when the browser cannot shrink it.
+  const blob = (downscale ? await downscalePhoto(file, contentType) : null) ?? await withoutLocation(file, contentType);
+  return { contentType, extension, blob };
 }
 
 export async function uploadFoodPublicImage(client: SupabaseClient, file: File, folder: string) {
-  const { contentType, extension, blob } = await foodImageBlob(file);
+  // Payment QR codes (".../payment") are uploaded untouched: shrinking could make them unscannable.
+  const { contentType, extension, blob } = await foodImageBlob(file, !/(?:^|\/)payment$/.test(folder));
   const path = `${folder}/${crypto.randomUUID()}.${extension}`;
   const { error } = await client.storage.from(FOOD_PUBLIC).upload(path, blob, {
     upsert: false,
