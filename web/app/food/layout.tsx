@@ -3,6 +3,8 @@ import Image from "next/image";
 import { Anuphan } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { WynChatReady } from "@/components/food/wynchat-ready";
+
 import "./food.css";
 import "./food-app.css";
 
@@ -144,6 +146,7 @@ export default function FoodLayout({ children }: { children: ReactNode }) {
           <Image className="fx-splash-logo" src={FOOD_ICON_512} width={96} height={96} alt="" priority />
           <span className="fx-splash-name">WYNOS <b>Food</b></span>
         </div>
+        <WynChatReady />
         {children}
       </div>
     </>
