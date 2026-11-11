@@ -3,6 +3,8 @@ import Image from "next/image";
 import { Anuphan } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { WynChatReady } from "@/components/food/wynchat-ready";
+
 import "./food.css";
 import "./food-app.css";
 
@@ -154,6 +156,7 @@ export default function FoodLayout({ children }: { children: ReactNode }) {
         <div className="fx-splash" aria-hidden="true">
           <Image className="fx-splash-wordmark" src={FOOD_SPLASH_WORDMARK} width={200} height={110} alt="" priority />
         </div>
+        <WynChatReady />
         {children}
       </div>
     </>
