@@ -33,6 +33,18 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
 ];
 
+// Zoky mini app inside WynChat (Founder approved 2026-11-11): WynChat opens zoky.wynos.online in a sandboxed iframe
+// (like a Telegram/LINE mini app). On THIS host only, the one allowed ancestor is WynChat. Every other site, and every other
+// host (wynos.online, food., merchant., ...), keeps DENY / 'none'. X-Frame-Options cannot express an allow-list, so it is
+// not sent on the Zoky host; the CSP frame-ancestors below is what browsers enforce there.
+const ZOKY_HOST = "zoky\\.wynos\\.online";
+const WYNCHAT_ORIGIN = "https://wynchat.wynos.online";
+const zokyFrameHeaders = [
+  { key: "Content-Security-Policy", value: `frame-ancestors ${WYNCHAT_ORIGIN}` },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+];
+
 const mapTileHeaders = [
   { key: "Access-Control-Allow-Origin", value: "*" },
   { key: "Access-Control-Allow-Methods", value: "GET, HEAD, OPTIONS" },
@@ -44,7 +56,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   async headers() {
     return [
-      { source: "/:path*", headers: securityHeaders },
+      { source: "/:path*", missing: [{ type: "host" as const, value: ZOKY_HOST }], headers: securityHeaders },
+      { source: "/:path*", has: [{ type: "host" as const, value: ZOKY_HOST }], headers: zokyFrameHeaders },
       { source: "/planet/:path*", headers: mapTileHeaders },
       { source: "/sprites/:path*", headers: mapTileHeaders },
       { source: "/fonts/:path*", headers: mapTileHeaders },
