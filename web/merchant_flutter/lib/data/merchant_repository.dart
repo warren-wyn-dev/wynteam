@@ -132,7 +132,7 @@ abstract class MerchantRepository {
         'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
       );
 
-  /// ZOKY store QR poster (data URL), link, whether it opens in LINE, stats.
+  /// ZOKY store QR poster (data URL), link, stats.
   Future<Json> storeQr(String storeId) async =>
       throw const MerchantException('สร้าง QR ไม่สำเร็จ');
 

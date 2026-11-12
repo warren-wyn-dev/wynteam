@@ -433,7 +433,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         const stats = await client.rpc("food_share_stats", { p_store_id: storeId, p_days: 7 });
         const row = !stats.error && Array.isArray(stats.data) ? stats.data[0] : null;
         return {
-          image, linkUrl: share.url, opensInLine: qrUrl.startsWith("https://liff.line.me/"), published: store.is_published === true,
+          image, linkUrl: share.url, published: store.is_published === true,
           stats: row ? { opens: Number(row.opens ?? 0), orders: Number(row.orders ?? 0), sales: Number(row.sales ?? 0) } : null,
         };
       }

@@ -167,9 +167,8 @@ test("WYNOS Food profile is delivery-specific and separate from Social profile",
   expect(app).toContain("ที่อยู่หลัก");
   expect(app).toContain("ได้ตำแหน่งแล้ว");
   expect(app).toContain("รายละเอียดเพิ่มเติม");
-  expect(app).toContain("ขายอาหารบน ZOKY");
-  expect(app).toContain("สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi");
-  expect(app).toContain('href="https://lin.ee/SKQAOtm"');
+  expect(app).not.toContain("352lvyoi");
+  expect(app).not.toContain("lin.ee");
   expect(app).toContain("ข้อมูลนี้เป็นของ ZOKY เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS");
   expect(app).toContain("showPin={true}");
   expect(app).not.toContain('href="/profile/');

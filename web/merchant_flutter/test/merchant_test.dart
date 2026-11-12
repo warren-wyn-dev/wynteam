@@ -418,7 +418,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('QR ร้าน shows the LINE poster, stats, save and share', (
+  testWidgets('QR ร้าน shows the poster, stats, save and share', (
     tester,
   ) async {
     final repo = FakeRepository();
@@ -430,7 +430,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.qrCalls, ['storeQr']);
     expect(
-      find.text('ลูกค้าสแกนแล้วเปิดร้านคุณใน LINE สั่งได้ทันที'),
+      find.text('ลูกค้าสแกนแล้วเปิดร้านคุณใน ZOKY สั่งได้ทันที'),
       findsOneWidget,
     );
     expect(find.text('128'), findsOneWidget);
