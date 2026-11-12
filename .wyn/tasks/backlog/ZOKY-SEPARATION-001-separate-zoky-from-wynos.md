@@ -69,3 +69,31 @@ Change-control triggers: major architecture change, cloud/infra cost, production
 ## 8. สิ่งที่ยังไม่ได้ตรวจ
 
 ค่าตั้ง Vercel (รายการโดเมน, env, แพ็กเกจ), ค่าตั้ง Supabase/Firebase, จำนวนผู้ใช้/ข้อมูลจริง, การใช้งาน cookie ข้าม subdomain
+
+## 9. คำตัดสินของ Founder (2026-11-12)
+
+| # | คำตอบ | ผลต่องาน |
+|---|---|---|
+| D1 ระดับ 1 | **อนุมัติให้เตรียมแผนลงมือ** | เขียน runbook (หัวข้อ 10) — ยังไม่สร้าง project ไม่ย้ายโดเมน ต้องขออนุมัติอีกครั้งก่อนลงมือจริง |
+| D2 ค่าใช้จ่าย | **ต้องรู้ตัวเลขก่อน** | ดึงจาก Vercel API ไม่ได้ (billing 404, ไม่เห็นแพ็กเกจ) → Founder เปิด Dashboard → Settings → Billing ดูแพ็กเกจและราคาต่อ project/seat ปัจจุบัน แล้วยืนยันงบ ห้ามเริ่มระดับ 1 ก่อนยืนยัน |
+| D3 ระดับ 2 | **รอระดับ 1 เสร็จก่อน** | ไม่เริ่ม dependency map/architecture review จนกว่าระดับ 1 เสถียร |
+| D4 ระดับ 3 | **แยกข้อมูลตามกฎหมาย/ความปลอดภัย** | ต้องมี (1) ระบุข้อกำหนดที่ต้องปฏิบัติตาม (เช่น PDPA — Founder/ที่ปรึกษากฎหมายยืนยัน) (2) แผนย้ายข้อมูลที่ Database Engineer เขียน + QA & Security ตรวจ (3) อัปเดต privacy policy (ตอนนี้เป็น placeholder) (4) ยังไม่มี task implement จนกว่าจะอนุมัติแยก |
+
+ข้อสังเกตด้านแพ็กเกจ (ต้องตรวจจริง ไม่ใช่ข้อเท็จจริงที่ยืนยันแล้ว): ถ้าทีม `warren14` อยู่แพ็กเกจ Hobby เงื่อนไขของแพ็กเกจนั้นห้ามใช้เชิงพาณิชย์ ซึ่ง Zoky รับชำระเงินอยู่ — Founder ควรตรวจหน้า Billing และเงื่อนไขการใช้งานปัจจุบัน
+
+## 10. Runbook ระดับ 1 (ร่าง — ยังไม่ได้ลงมือ)
+
+**ก่อนเริ่ม (gate):** D2 ยืนยันงบแล้ว + Founder อนุมัติ "ลงมือ" อีกครั้ง + ไม่มี release ค้างระหว่างทาง
+
+1. **ตรวจเตรียม (อ่านอย่างเดียว):** รายการโดเมนปัจจุบันของ project `web` (9 โดเมน: `wynos.online`, `www.`, `zoky.`, `food.`, `merchant.`, `maps.`, `tiles.`, `geo.`, `routing.`), env vars ที่ตั้งไว้, deploy workflow ที่ผูกกับ project (`deploy-web.yml`, `zoky-*.yml`, `wyn-158-production-deploy.yml`)
+2. **จัดกลุ่มโดเมน:**
+   - Zoky project ใหม่: `zoky.`, `food.`, `merchant.`
+   - project เดิม (WYNOS): `wynos.online`, `www.`, `maps.`, `tiles.`, `geo.`, `routing.` (Maps เป็นของ WYNOS — ยืนยันกับ Founder ก่อน)
+3. **env vars (ชื่อที่โค้ดอ้างถึง ไม่ใช่ค่า):** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_URL`, `NEXT_PUBLIC_FIREBASE_*` (API_KEY, APP_ID, MESSAGING_SENDER_ID, PROJECT_ID, AUTH_DOMAIN, STORAGE_BUCKET, VAPID_KEY), `NEXT_PUBLIC_LIFF_ID_FOOD`, `NEXT_PUBLIC_LIFF_ID_MERCHANT`, `ZOKY_MERCHANT_FLUTTER_ENABLED`, `ZOKY_LEGACY_FOOD_REDIRECT`; ฝั่ง Maps (`WYNOS_GEO_ORIGIN`, `WYNOS_ROUTING_ORIGIN`, `WYNOS_ORS_API_KEY`, `WYNOS_MAPS_UPSTREAM_TOKEN`) ใช้กับ `/maps` ซึ่ง Zoky เรียกผ่าน `lib/maps-*` — ต้องตัดสินว่า Zoky project ต้องมีด้วยหรือไม่ ค่าที่เป็น secret ให้ Founder ตั้งใน Dashboard เอง ห้ามส่งในแชท/commit
+4. **สร้าง project + build ทดสอบ:** ไม่ผูกโดเมน, build เป็น preview/`--skip-domain`, ตรวจ `/`, `/food`, `/merchant`, `/line`, `/api/push-config` ด้วยโฮสต์จริงผ่าน header/bypass ที่ Founder อนุมัติ
+5. **ปรับ workflow:** แยก workflow deploy ต่อ project (ห้ามให้ workflow เดียว deploy ทั้งสองโดยไม่ตั้งใจ) และอัปเดต environment protection ของ GitHub ให้ครอบทั้งสอง project
+6. **ย้ายโดเมน (หน้าต่างบำรุงรักษาที่ Founder เลือก):** ทีละโดเมน เริ่มจาก `food.` (ความเสี่ยงต่ำสุด) ตรวจ 200/redirect/header ทุกโดเมนหลังย้าย
+7. **หลังย้าย:** ตรวจ push (ส่งแจ้งเตือนทดสอบ), LINE LIFF endpoint, Stripe return URL, OAuth redirect (Google) และแอปที่ติดตั้งแล้ว (origin เดิม ไม่ควรหลุด); เฝ้า runtime errors 24 ชม.
+8. **Rollback:** ย้ายโดเมนกลับ project เดิม (คง project เดิม + deployment ล่าสุดไว้ ไม่ลบ); deployment อ้างอิงปัจจุบัน `dpl_5Z1Uk1fNNG1dBcJDN5ZzWWsnTGUv` (build PWA ที่ promote 2026-11-12), ก่อนหน้า `dpl_7B62FanBFc9pmqqzH2sK4xcDZuVa`
+
+**จุดเสี่ยงที่ต้องตรวจก่อนลงมือ:** OAuth redirect URI / Supabase Auth Site URL ที่ผูกกับโดเมน, LINE LIFF endpoint, Stripe webhook/return URL, Firebase authorized domains (ค่าเหล่านี้ผูกกับโดเมน ไม่ใช่ project — ถ้าไม่เปลี่ยนโดเมนก็ไม่ควรกระทบ แต่ยังไม่ได้ยืนยันกับการตั้งค่าจริง)
