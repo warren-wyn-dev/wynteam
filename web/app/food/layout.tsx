@@ -4,6 +4,7 @@ import { Anuphan } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { WynChatReady } from "@/components/food/wynchat-ready";
+import { ZokyInstallBanner } from "@/components/food/zoky-install-banner";
 
 import "./food.css";
 import "./food-app.css";
@@ -157,6 +158,7 @@ export default function FoodLayout({ children }: { children: ReactNode }) {
           <Image className="fx-splash-wordmark" src={FOOD_SPLASH_WORDMARK} width={200} height={110} alt="" priority />
         </div>
         <WynChatReady />
+        <ZokyInstallBanner />
         {children}
       </div>
     </>

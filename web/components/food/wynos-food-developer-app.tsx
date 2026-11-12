@@ -81,8 +81,11 @@ import { shareOrCopyLink } from "@/lib/share";
 import {
   isCurrentDevicePushEnabled,
   pushReasonDescription,
+  setPushChosen,
   subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
 } from "@/lib/push-notifications";
+import { isEmbeddedFrame } from "@/lib/zoky-pwa";
 import { isLineInAppBrowser, lineLinkPath, takeLineAutoLink } from "@/lib/line-liff";
 import { foodStoreQrTarget, renderZokyQr, renderZokyStorePoster, zokyQrFileName } from "@/lib/zoky-store-qr";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
@@ -2015,7 +2018,7 @@ function AccountPanel({
           <ReceiptText size={21} /><span><strong>ประวัติการสั่งอาหาร</strong></span><ChevronRight size={18} />
         </button>
         <button type="button" onClick={onNotifications}>
-          <Bell size={21} /><span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดแล้วสำหรับอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span><ChevronRight size={18} />
+          <Bell size={21} /><span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดอยู่ · แตะเพื่อปิดบนอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span><ChevronRight size={18} />
         </button>
         <a href={lineLinkPath("food")}>
           <MessageCircle size={21} /><span><strong>รับแจ้งเตือนทาง LINE</strong><small>แจ้งสถานะออเดอร์ผ่าน LINE OA ของ ZOKY</small></span><ChevronRight size={18} />
@@ -3928,8 +3931,25 @@ function FoodCustomerInner({
     }
   };
 
+  // Settings row toggles Push: on needs a tap (OS permission), off removes this device's token.
   const requestNotifications = async () => {
+    if (isEmbeddedFrame(window)) {
+      setMessage("หน้าต่างนี้เปิดการแจ้งเตือนไม่ได้ กรุณาเปิด ZOKY ในเบราว์เซอร์");
+      return;
+    }
+    if (notificationsEnabled) {
+      const ok = await unsubscribeFromPushNotifications(client);
+      if (!ok) {
+        setMessage("ปิดการแจ้งเตือนไม่สำเร็จ กรุณาลองอีกครั้ง");
+        return;
+      }
+      setPushChosen(userId, false);
+      setNotificationsEnabled(false);
+      setMessage("ปิดการแจ้งเตือน ZOKY บนอุปกรณ์นี้แล้ว");
+      return;
+    }
     const result = await subscribeToPushNotifications(client, userId);
+    if (result.ok) setPushChosen(userId, true);
     setNotificationsEnabled(result.ok);
     setMessage(result.ok ? "เปิดการแจ้งเตือน ZOKY แล้ว" : pushReasonDescription(result.reason));
   };
