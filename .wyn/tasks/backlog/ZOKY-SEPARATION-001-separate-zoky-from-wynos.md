@@ -97,3 +97,8 @@ Change-control triggers: major architecture change, cloud/infra cost, production
 8. **Rollback:** ย้ายโดเมนกลับ project เดิม (คง project เดิม + deployment ล่าสุดไว้ ไม่ลบ); deployment อ้างอิงปัจจุบัน `dpl_5Z1Uk1fNNG1dBcJDN5ZzWWsnTGUv` (build PWA ที่ promote 2026-11-12), ก่อนหน้า `dpl_7B62FanBFc9pmqqzH2sK4xcDZuVa`
 
 **จุดเสี่ยงที่ต้องตรวจก่อนลงมือ:** OAuth redirect URI / Supabase Auth Site URL ที่ผูกกับโดเมน, LINE LIFF endpoint, Stripe webhook/return URL, Firebase authorized domains (ค่าเหล่านี้ผูกกับโดเมน ไม่ใช่ project — ถ้าไม่เปลี่ยนโดเมนก็ไม่ควรกระทบ แต่ยังไม่ได้ยืนยันกับการตั้งค่าจริง)
+
+## 11. คำตัดสินเพิ่มเติม (2026-11-12)
+
+- **โดเมน Maps อยู่ฝั่ง WYNOS ตามร่าง:** `maps.`, `tiles.`, `geo.`, `routing.` (รวม `wynos.online`, `www.`) อยู่ project เดิม; Zoky project ใหม่ได้ `zoky.`, `food.`, `merchant.`
+- **ประเด็นที่ยังเปิดอยู่ (ต้องตัดสินก่อนลงมือระดับ 1):** `components/food/food-delivery-map-picker.tsx:735` เรียก `/api/maps/route` แบบ relative บน origin ของตัวเอง ดังนั้นถ้าแยก project แล้ว Zoky project ต้องยังให้บริการ `/api/maps/*` (ซึ่งใช้ `WYNOS_ORS_API_KEY`, `WYNOS_GEO_ORIGIN`, `WYNOS_ROUTING_ORIGIN`, `WYNOS_MAPS_UPSTREAM_TOKEN`) หรือต้องแก้โค้ดให้ชี้ไป origin ฝั่ง WYNOS ตัวเลือก: (ก) ให้ Zoky project มี env ฝั่ง Maps ด้วย (เร็วสุด แต่ secret ซ้ำสองที่) (ข) เพิ่ม rewrite ใน Zoky project ส่ง `/api/maps/*` ไป WYNOS (secret อยู่ที่เดียว ต้องตรวจ rate limit/โฮสต์) (ค) แก้โค้ดเรียก origin WYNOS (ต้อง CORS + allowlist) — แนะนำ (ข) แต่ยังไม่ได้ออกแบบละเอียด
