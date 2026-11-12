@@ -134,10 +134,13 @@ test("standalone Maps hides manual zoom controls but retains pinch-to-zoom", () 
 
 test("standalone Maps requests a fresh high-accuracy GPS fix and reports coarse fixes", () => {
   const map = readFileSync(new URL("../components/food/food-delivery-map-picker.tsx", import.meta.url), "utf8");
-  assert.match(map, /function freshMapsGpsLocation\(/);
-  assert.match(map, /watchPosition\(/);
-  assert.match(map, /enableHighAccuracy: true, maximumAge: 0/);
-  assert.match(map, /freshMapsGpsLocation\(\)/);
+  // The GPS helper lives in lib/food-gps.ts so delivery addresses can share it.
+  const gps = readFileSync(new URL("../lib/food-gps.ts", import.meta.url), "utf8");
+  assert.match(gps, /export function freshGpsLocation\(/);
+  assert.match(gps, /watchPosition\(/);
+  assert.match(gps, /enableHighAccuracy: true, maximumAge: 0/);
+  assert.match(map, /import \{ freshGpsLocation \} from "@\/lib\/food-gps"/);
+  assert.match(map, /freshGpsLocation\(\)/);
   assert.match(map, /setGpsMessage\(/);
   assert.match(map, /setUserLocation\(next\);[\s\S]*?moveTo\(next\);/);
 });

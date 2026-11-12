@@ -16,6 +16,7 @@ import {
   Gift,
   Heart,
   Hourglass,
+  LocateFixed,
   LogOut,
   MapPin,
   MessageCircle,
@@ -51,7 +52,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodGuestBrowse, readGuestFoodBasket, clearGuestFoodBasket } from "@/components/food/food-guest-browse";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { markFoodSplashReady } from "@/lib/food-splash";
-import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
+import { freshGpsLocation } from "@/lib/food-gps";
 import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import {
@@ -139,6 +140,8 @@ import {
   requestFoodOrderCancel,
   type FoodFulfillmentType,
   type FoodPaymentMethod,
+  reverseFoodPlace,
+  searchFoodPlaces,
   type FoodLocation,
   type FoodPlace,
   saveFoodCustomerAddress,
@@ -1971,7 +1974,7 @@ function AccountPanel({
           <span className="fx-avatar" aria-hidden="true"><UserRound size={24} /></span>
           <span className="fx-profile-copy">
             <strong>ตั้งค่าโปรไฟล์ก่อนสั่งอาหาร</strong>
-            <small>กรอกชื่อผู้รับ เบอร์โทร ที่อยู่ และปักหมุด</small>
+            <small>กรอกชื่อผู้รับ เบอร์โทร ที่อยู่ และตำแหน่งจัดส่ง</small>
           </span>
           <button className="fx-btn fx-btn--primary fx-btn--sm" type="button" onClick={onAddAddress}>ตั้งค่า</button>
         </div>
@@ -1999,7 +2002,7 @@ function AccountPanel({
                     {extra ? <small>{extra}</small> : null}
                     {address.delivery_note ? <small>รายละเอียดเพิ่มเติม · {address.delivery_note}</small> : null}
                     <small className={complete && located ? "is-ready" : "is-missing"}>
-                      {!complete ? "ต้องอัปเดตข้อมูลที่อยู่" : located ? "ปักหมุดแล้ว" : "ยังไม่ได้ปักหมุดโลเคชั่น"}
+                      {!complete ? "ต้องอัปเดตข้อมูลที่อยู่" : located ? "ได้ตำแหน่งแล้ว" : "ยังไม่ได้ระบุตำแหน่ง"}
                     </small>
                   </div>
                   <div className="fx-address-actions">
@@ -2329,50 +2332,108 @@ function ItemSheet({
   );
 }
 
+/** A GPS fix worse than this is still usable, but the customer is warned. */
+const GPS_ACCURACY_WARN_METERS = 100;
+
 /**
- * Delivery coordinates are chosen on an interactive map. Search uses the
- * server-side LocationIQ proxy; map rendering uses MapLibre + OpenFreeMap.
+ * Delivery coordinates come from the device GPS ("use my current location").
+ * When GPS is denied or unavailable, the customer searches for a place instead.
  */
-function DeliveryPinPicker({
+function DeliveryLocationPicker({
   client,
-  storeId,
   location,
   onChange,
 }: {
   client: SupabaseClient;
-  storeId: string | null;
   location: FoodLocation | null;
   onChange: (location: FoodLocation | null, place?: FoodPlace) => void;
 }) {
-  const [mapOpen, setMapOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [message, setMessage] = useState("");
+  const [accuracyMeters, setAccuracyMeters] = useState<number | null>(null);
+  const [fromGps, setFromGps] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<FoodPlace[] | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  const requestCurrentLocation = async () => {
+    setLocating(true);
+    setMessage("");
+    try {
+      const fix = await freshGpsLocation();
+      const place = await reverseFoodPlace(client, fix.location).catch(() => null);
+      setFromGps(true);
+      setAccuracyMeters(Number.isFinite(fix.accuracyMeters) ? Math.round(fix.accuracyMeters) : null);
+      onChange(fix.location, place ?? undefined);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "หาตำแหน่งปัจจุบันไม่สำเร็จ กรุณาลองอีกครั้ง");
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const search = async () => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    setSearching(true);
+    setMessage("");
+    try {
+      setResults((await searchFoodPlaces(client, trimmed, location)).slice(0, 6));
+    } catch {
+      setMessage("ค้นหาสถานที่ไม่สำเร็จ กรุณาลองอีกครั้ง");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const choosePlace = (place: FoodPlace) => {
+    setFromGps(false);
+    setAccuracyMeters(null);
+    setResults(null);
+    setQuery("");
+    onChange({ latitude: place.latitude, longitude: place.longitude }, place);
+  };
+
+  const weakGps = Boolean(location) && fromGps && (accuracyMeters === null || accuracyMeters > GPS_ACCURACY_WARN_METERS);
 
   return (
-    <div className="wf-pin wf-pin--map">
+    <div className="wf-pin">
       <div className="wf-pin-summary">
         <span className={location ? "is-ready" : ""}><MapPin size={18} /></span>
         <div>
-          <strong>{location ? "ปักหมุดแล้ว" : "ยังไม่ได้ปักหมุด"}</strong>
-          <small>{location ? "ตำแหน่งนี้จะใช้คำนวณระยะทางและส่งอาหาร" : "ค้นหาที่อยู่แล้วเลื่อนแผนที่ให้ตรงจุดรับอาหาร"}</small>
-          {location ? <em data-i18n-skip="">{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</em> : null}
+          <strong>{location ? "ได้ตำแหน่งแล้ว" : "ยังไม่ได้ระบุตำแหน่ง"}</strong>
+          <small>{location ? "ตำแหน่งนี้จะใช้คำนวณระยะทางและส่งอาหาร" : "กดใช้ตำแหน่งปัจจุบันตอนอยู่ที่จุดรับอาหาร หรือค้นหาสถานที่"}</small>
+          {location && fromGps && accuracyMeters !== null ? <em data-i18n-skip="">± {accuracyMeters} m</em> : null}
         </div>
       </div>
-      <button className="wf-secondary wf-full" type="button" onClick={() => setMapOpen(true)}>
-        <MapPin size={17} /> {location ? "แก้ไขหมุดบนแผนที่" : "ค้นหาและปักหมุดบนแผนที่"}
+      <button className="wf-secondary wf-full" type="button" disabled={locating} onClick={() => void requestCurrentLocation()}>
+        <LocateFixed size={17} /> {locating ? "กำลังหาตำแหน่ง…" : location ? "ใช้ตำแหน่งปัจจุบันอีกครั้ง" : "ใช้ตำแหน่งปัจจุบัน"}
       </button>
-      {location ? <button className="wf-pin-clear" type="button" onClick={() => onChange(null)}>ล้างตำแหน่ง</button> : null}
+      {weakGps ? <div className="wf-inline-warning" role="status">GPS คลาดเคลื่อนมาก ย้ายไปที่โล่ง กดลองอีกครั้ง หรือค้นหาสถานที่แทน</div> : null}
+      {message ? <div className="wf-inline-warning" role="alert">{message}</div> : null}
 
-      {mapOpen ? (
-        <FoodDeliveryMapPicker
-          client={client}
-          storeId={storeId}
-          initialLocation={location}
-          onClose={() => setMapOpen(false)}
-          onConfirm={(next, place) => {
-            onChange(next, place);
-            setMapOpen(false);
-          }}
+      <form className="wf-pin-search" onSubmit={(event) => { event.preventDefault(); void search(); }}>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="หรือค้นหาสถานที่ เช่น หมู่บ้าน อาคาร ร้านค้า"
+          aria-label="ค้นหาสถานที่"
+          enterKeyHint="search"
         />
+        <button type="submit" disabled={searching || !query.trim()} aria-label="ค้นหา"><Search size={18} /></button>
+      </form>
+      {results && results.length === 0 ? <small className="wf-pin-status">ไม่พบสถานที่ ลองคำค้นอื่น</small> : null}
+      {results && results.length > 0 ? (
+        <div className="wf-pin-results">
+          {results.map((place) => (
+            <button key={`${place.placeId ?? place.name}-${place.latitude}-${place.longitude}`} type="button" onClick={() => choosePlace(place)}>
+              <strong>{place.name}</strong>
+              {place.address ? <small>{place.address}</small> : null}
+            </button>
+          ))}
+        </div>
       ) : null}
+      {location ? <button className="wf-pin-clear" type="button" onClick={() => { setFromGps(false); setAccuracyMeters(null); onChange(null); }}>ล้างตำแหน่ง</button> : null}
     </div>
   );
 }
@@ -2453,11 +2514,10 @@ function AddressEditor({
 
         <div className="wf-address-form-section">
           <strong>ตำแหน่งจัดส่ง</strong>
-          <small>ปักหมุดก่อน ระบบจะช่วยเติมจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์เมื่อข้อมูลแผนที่รองรับ</small>
+          <small>ใช้ตำแหน่งปัจจุบันหรือค้นหาสถานที่ ระบบจะช่วยเติมจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์เมื่อข้อมูลรองรับ</small>
         </div>
-        {showPin || form.location ? <DeliveryPinPicker
+        {showPin || form.location ? <DeliveryLocationPicker
           client={client}
-          storeId={storeId}
           location={form.location}
           onChange={(location, place) => setForm((current) => {
             const parts = structuredAddressPartsFromPlace(place);
@@ -2535,7 +2595,7 @@ function AddressEditor({
           <span><strong>ใช้เป็นที่อยู่หลัก</strong><small>ZOKY จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span>
         </label>
 
-        {!form.location ? <div className="wf-inline-warning">กรุณาปักหมุดโลเคชั่นก่อนบันทึก เพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</div> : null}
+        {!form.location ? <div className="wf-inline-warning">กรุณาเลือกตำแหน่งจัดส่งก่อนบันทึก เพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</div> : null}
         {form.location && (!form.subdistrict.trim() || !form.district.trim() || !form.province.trim() || !/^\d{5}$/.test(form.postalCode.trim())) ? (
           <div className="wf-inline-warning">กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก</div>
         ) : null}
@@ -2673,13 +2733,13 @@ function CheckoutSheet({
   const minimumMissing = Math.max(0, minimum - serverSubtotal);
   const couponFailed = Boolean(couponCode && current?.error);
   const quoteError = current?.error && !couponFailed ? current.error : "";
-  const quoteAddressError = /ที่อยู่|พื้นที่|ปักหมุด|ตำแหน่ง|จังหวัด/.test(quoteError);
+  const quoteAddressError = /ที่อยู่|พื้นที่|ตำแหน่ง|จังหวัด/.test(quoteError);
   const addressProblem = isPickup || !address
     ? ""
     : !foodCustomerAddressStructuredComplete(address)
       ? "ที่อยู่นี้เป็นข้อมูลเก่า กรุณากดแก้ไขและกรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนสั่ง"
       : zone && !location
-        ? "ที่อยู่นี้ยังไม่ได้ปักหมุดตำแหน่ง แก้ไขที่อยู่เพื่อปักหมุดก่อนสั่ง"
+        ? "ที่อยู่นี้ยังไม่ได้ระบุตำแหน่ง แก้ไขที่อยู่เพื่อเลือกตำแหน่งก่อนสั่ง"
         : quoteAddressError
           ? quoteError
           : "";
@@ -2851,7 +2911,7 @@ function CheckoutSheet({
               </div>
             </div>
             {addressProblem ? (
-              <div className="fx-note fx-note--danger" role="alert"><CircleAlert size={18} /><span><strong>{addressProblem}</strong><small>เลือกที่อยู่อื่น หรือแก้ไขแล้วปักหมุดใหม่</small></span></div>
+              <div className="fx-note fx-note--danger" role="alert"><CircleAlert size={18} /><span><strong>{addressProblem}</strong><small>เลือกที่อยู่อื่น หรือแก้ไขแล้วเลือกตำแหน่งใหม่</small></span></div>
             ) : null}
 
             {showAddressPicker ? (

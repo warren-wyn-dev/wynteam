@@ -73,13 +73,21 @@ test("WYNOS Food hides the persistent Social bottom navigation", () => {
   expect(host).toContain("if (hideForFood || !navState?.visible || !navState.userId) return null;");
 });
 
-test("WYNOS Food delivery address uses an interactive map pin flow", () => {
+test("WYNOS Food delivery address uses GPS with a place-search fallback and no map pin", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
   const map = read("components/food/food-delivery-map-picker.tsx");
   const data = read("lib/food-customer.ts");
 
-  expect(app).toContain("ค้นหาและปักหมุดบนแผนที่");
-  expect(app).toContain("<FoodDeliveryMapPicker");
+  // ZOKY delivery addresses no longer open the pin map (Founder, 2026-11-12).
+  // The map picker module itself stays: Wyn Maps still uses it.
+  expect(app).toContain("ใช้ตำแหน่งปัจจุบัน");
+  expect(app).toContain("freshGpsLocation()");
+  expect(app).toContain("GPS_ACCURACY_WARN_METERS = 100");
+  expect(app).toContain("searchFoodPlaces(client, trimmed, location)");
+  expect(app).toContain("กรุณาเลือกตำแหน่งจัดส่งก่อนบันทึก");
+  expect(app).not.toContain("<FoodDeliveryMapPicker");
+  expect(app).not.toContain("ค้นหาและปักหมุดบนแผนที่");
+  expect(app).not.toContain("ปักหมุด");
   const css = read("app/food/food.css");
   const mapsCss = read("app/maps/maps.css");
   const mapsV2Css = read("app/maps/maps-v2.css");
