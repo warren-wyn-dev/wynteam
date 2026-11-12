@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Preview-only escape hatch. The Vercel build container runs out of memory in
+# this script (analyze + test + wasm build), and the same checks already run in
+# GitHub CI. When ZOKY_SKIP_MERCHANT_FLUTTER=1 (set only on Vercel Preview), the
+# Merchant Flutter app is not built, so Merchant routes do not work in that
+# preview but the consumer web does. Unset everywhere else, including production.
+if [ "${ZOKY_SKIP_MERCHANT_FLUTTER:-}" = "1" ]; then
+  echo "ZOKY_SKIP_MERCHANT_FLUTTER=1: skipping the Merchant Flutter build (preview only)."
+  exit 0
+fi
+
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 merchant_dir="$(dirname "$script_dir")"
 web_dir="$(dirname "$merchant_dir")"
