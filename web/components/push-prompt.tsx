@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { isFoodAppHost } from "@/lib/food-origin";
+import { isEmbeddedFrame } from "@/lib/zoky-pwa";
 import {
   getPushAvailability,
   isPushPromptPath,
@@ -66,7 +67,9 @@ export function PushPrompt() {
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
+    // Push permission cannot be granted inside another page's frame (the
+    // WynChat mini app); the ZOKY card offers "open in browser" there.
+    if (!userId || isEmbeddedFrame(window)) return;
     let cancelled = false;
     const delay = /^\/(chat|notifications)(\/|$)/.test(promptPath)
       ? HIGH_INTENT_SHOW_DELAY_MS
