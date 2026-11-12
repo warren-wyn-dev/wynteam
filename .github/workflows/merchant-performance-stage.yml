@@ -1,0 +1,144 @@
+name: Merchant performance - stage production without aliases
+
+# This branch contains only the reviewed Merchant fix based on the live release.
+# Staging uses production configuration; root assigns the Merchant alias only
+# after verifying this staged deployment. Never promote the whole web project.
+on:
+  push:
+    branches:
+      - perf/merchant-flutter-speed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: merchant-performance-stage
+  cancel-in-progress: true
+
+jobs:
+  stage:
+    if: github.repository == 'warren-wyn-dev/wynteam' && github.ref == 'refs/heads/perf/merchant-flutter-speed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Preserve any required production reviewers and deployment protections.
+    environment: production
+    defaults:
+      run:
+        working-directory: web
+    env:
+      VERCEL_CLI_VERSION: 65.4.0
+      VERCEL_ORG_ID: team_Kamt1PUT5XKn9MWrF404re1w
+      VERCEL_PROJECT_ID: prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a
+
+    steps:
+      - name: Check out the exact pushed revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify release provenance
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          test "$RELEASE_REF" = refs/heads/perf/merchant-flutter-speed
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git merge-base --is-ancestor 93e6954563b2dcd1108e4157772231262b201b63 "$RELEASE_SHA"
+          git diff --check 93e6954563b2dcd1108e4157772231262b201b63 "$RELEASE_SHA"
+          {
+            echo '## Merchant performance staging'
+            echo
+            echo "Reviewed branch revision: $RELEASE_SHA"
+            echo 'Target: existing web project, production environment, automatic domain assignment disabled.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install locked application dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run checks and build the complete Merchant artifact
+        # Synthetic configuration prevents this local QA build using live data.
+        # The later remote production build uses Vercel's existing prod variables.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://merchant-fixture.example.test
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_browser_fixture_only
+          ZOKY_MERCHANT_FLUTTER_ENABLED: '1'
+        run: npm run check
+
+      - name: Install the synthetic browser QA runtime
+        run: npx --no-install playwright install --with-deps chromium
+
+      - name: Verify the embedded host and compiled Flutter flows
+        run: npm run qa:merchant-flutter
+
+      - name: Install the pinned Vercel CLI
+        run: npm install --global "vercel@$VERCEL_CLI_VERSION" --no-audit --no-fund
+
+      - name: Stage production with automatic domain assignment disabled
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERCEL_TOKEN=$(node -e 'process.stdout.write((process.env.VERCEL_TOKEN || "").trim())')
+          export VERCEL_TOKEN
+          test -n "$VERCEL_TOKEN" || { echo '::error::Vercel authentication is not configured.'; exit 1; }
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          # Next dev changes only this generated type-import file during QA.
+          git restore -- next-env.d.ts
+          git diff --exit-code
+          # Establish the known project link without pulling environment files.
+          mkdir -p .vercel
+          node -e 'require("fs").writeFileSync(".vercel/project.json", JSON.stringify({projectId:process.env.VERCEL_PROJECT_ID,orgId:process.env.VERCEL_ORG_ID,projectName:"web"}))'
+          vercel project inspect --scope warren14 --non-interactive --json > .vercel/merchant-release-project.json
+          node -e '
+            const project = JSON.parse(require("fs").readFileSync(".vercel/merchant-release-project.json", "utf8"));
+            if (project.id !== process.env.VERCEL_PROJECT_ID || project.name !== "web" || project.owner?.slug !== "warren14") {
+              console.error("Vercel project or team mismatch; no deployment was created.");
+              process.exit(1);
+            }
+            console.log("Verified Vercel project web / warren14.");
+          '
+          vercel deploy --prod --skip-domain --yes --non-interactive --json \
+            --scope warren14 \
+            --build-env ZOKY_MERCHANT_FLUTTER_ENABLED=1 \
+            --env ZOKY_MERCHANT_FLUTTER_ENABLED=1 \
+            --meta "githubCommitSha=$RELEASE_SHA" \
+            --meta "githubCommitRef=$RELEASE_BRANCH" \
+            --meta githubOrg=warren-wyn-dev \
+            --meta githubRepo=wynteam \
+            --meta releaseScope=merchant-performance > .vercel/merchant-stage-result.json
+          # CLI 65.4 emits a JSON envelope in non-interactive mode, not a URL.
+          deployment_url=$(node -e '
+            const result = JSON.parse(require("fs").readFileSync(".vercel/merchant-stage-result.json", "utf8"));
+            const deployment = result.deployment;
+            if (result.status !== "ok" || !deployment || deployment.target !== "production" || deployment.readyState !== "READY" || !/^dpl_[A-Za-z0-9]+$/.test(deployment.id)) {
+              console.error("Production staging did not return a ready deployment; no alias was assigned.");
+              process.exit(1);
+            }
+            const url = new URL(deployment.url);
+            if (url.protocol !== "https:" || url.username || url.password || !/^web-[a-z0-9-]+-warren14\.vercel\.app$/.test(url.hostname) || url.pathname !== "/" || url.search || url.hash) {
+              console.error("Unexpected staging URL; no alias was assigned.");
+              process.exit(1);
+            }
+            process.stdout.write(url.origin);
+          ')
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "Staged Merchant deployment: $deployment_url"
+          {
+            echo
+            echo "Staged production URL: $deployment_url"
+            echo "Source revision: $RELEASE_SHA"
+            echo 'No alias or promotion command was run. Verify this artifact before assigning merchant.wynos.online only.'
+          } >> "$GITHUB_STEP_SUMMARY"

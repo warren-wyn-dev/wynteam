@@ -65,7 +65,7 @@ test("Not now waits seven days", () => {
 
 test("Food subdomain root maps to the Food push prompt path", () => {
   const source = readFileSync(new URL("../components/push-prompt.tsx", import.meta.url), "utf8");
-  assert.match(source, /window\.location\.hostname\.toLowerCase\(\) === "food\.wynos\.online"/);
+  assert.match(source, /isFoodAppHost\(window\.location\.hostname\)/);
   assert.match(source, /\? "\/food"/);
 });
 

@@ -1,4 +1,27 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+// Old documents may still have the previous wrapper, which requests fixed
+// Flutter asset URLs. Resolve only known payload paths to this reviewed build;
+// their original URLs remain revalidated, while new code uses the hash directly.
+const merchantFlutterLegacyRewrites = (() => {
+  try {
+    const { assetBase, canvasKitBase } = JSON.parse(readFileSync(path.join(process.cwd(), "public/merchant-flutter/build-version.json"), "utf8")) as { assetBase?: unknown; canvasKitBase?: unknown };
+    if (typeof assetBase !== "string" || !/^\/merchant-flutter\/builds\/[a-f0-9]{20}\/$/.test(assetBase)) return [];
+    const engineBase = typeof canvasKitBase === "string" && /^\/merchant-flutter\/builds\/[a-f0-9]{20}\/canvaskit\/$/.test(canvasKitBase)
+      ? canvasKitBase : `${assetBase}canvaskit/`;
+    const files = ["main.dart.js", "main.dart.mjs", "main.dart.wasm", "flutter.js", "favicon.png", "manifest.json", "version.json"];
+    return [
+      ...files.map((file) => ({ source: `/merchant-flutter/${file}`, destination: `${assetBase}${file}` })),
+      ...["assets", "icons"].map((directory) => ({ source: `/merchant-flutter/${directory}/:path*`, destination: `${assetBase}${directory}/:path*` })),
+      { source: "/merchant-flutter/canvaskit/:path*", destination: `${engineBase}:path*` },
+    ];
+  } catch {
+    // Development before the first Flutter build has no generated payload yet.
+    return [];
+  }
+})();
 
 // /_next/image is a public, unauthenticated route on wynos.online, and
 // remotePatterns is the only gate on what it will fetch on a caller's
@@ -58,6 +81,10 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", missing: [{ type: "host" as const, value: ZOKY_HOST }], headers: securityHeaders },
       { source: "/:path*", has: [{ type: "host" as const, value: ZOKY_HOST }], headers: zokyFrameHeaders },
+      // Stable HTML/bootstrap URLs discover the current content-addressed build.
+      { source: "/merchant-flutter/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }] },
+      // This directory changes whenever any compiled app/engine/asset changes.
+      { source: "/merchant-flutter/builds/:version([a-f0-9]{20})/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       { source: "/planet/:path*", headers: mapTileHeaders },
       { source: "/sprites/:path*", headers: mapTileHeaders },
       { source: "/fonts/:path*", headers: mapTileHeaders },
@@ -67,8 +94,9 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
-        // Browser/crawler asset requests must never fall through to the
-        // dynamic /[profileSlug] route and trigger unrelated application work.
+        // Runtime hardening: crawler/browser asset requests must never fall
+        // through to the dynamic /[profileSlug] page and trigger unrelated
+        // application data work.
         { source: "/og-image.png", destination: "/icons/icon-512.png" },
         { source: "/favicon.ico", destination: "/icons/icon-192.png" },
         // Host-specific WYNOS Maps routes must run before filesystem routes
@@ -81,10 +109,14 @@ const nextConfig: NextConfig = {
         { source: "/", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/health" },
         { source: "/health", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/health" },
         { source: "/route", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/route" },
-        // WYNOS Food short share links: food.wynos.online/s/<code>.
+        // ZOKY (Food) short share links: zoky.wynos.online/s/<code>. Old
+        // food.wynos.online/s/<code> links work here in phase 1 and are
+        // redirected to ZOKY by proxy.ts in phase 2 (ZOKY_LEGACY_FOOD_REDIRECT).
+        { source: "/s/:code", has: [{ type: "host", value: "zoky.wynos.online" }], destination: "/food/s/:code" },
         { source: "/s/:code", has: [{ type: "host", value: "food.wynos.online" }], destination: "/food/s/:code" },
       ],
       afterFiles: [
+        ...merchantFlutterLegacyRewrites,
         // WYNOS tile gateway. OpenFreeMap remains the temporary upstream while
         // Thailand vector data is being moved to WYNOS-hosted storage.
         { source: "/planet/:path*", destination: "https://tiles.openfreemap.org/planet/:path*" },
@@ -102,7 +134,10 @@ const nextConfig: NextConfig = {
   // (the flag is then present, so this cannot loop). Other query values and
   // the #fragment are kept. Skipped: API/asset/file requests, the OAuth
   // callback and any `?code=` return (the PKCE verifier lives in this
-  // browser's storage, so the exchange must finish here).
+  // browser's storage, so the exchange must finish here) and the LIFF
+  // browser (UA "Line/<x.y.z> LIFF..." or "LIFF/SubWindow", as the LIFF SDK
+  // detects it): LIFF pages must stay in the webview where liff.init() and
+  // the LINE login context work, so only plain LINE chat links are bounced.
   async redirects() {
     return [
       {
@@ -111,6 +146,7 @@ const nextConfig: NextConfig = {
         missing: [
           { type: "query", key: "openExternalBrowser" },
           { type: "query", key: "code" },
+          { type: "header", key: "user-agent", value: ".*(?:Line/\\d+\\.\\d+\\.\\d+ LIFF|LIFF/SubWindow).*" },
         ],
         destination: "/:path?openExternalBrowser=1",
         permanent: false,

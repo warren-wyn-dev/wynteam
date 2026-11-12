@@ -158,7 +158,7 @@ export type PushApp = "social" | "food" | "merchant";
 export function pushAppFor(hostname: string, path: string, standalone: boolean): PushApp {
   const host = hostname.toLowerCase();
   if (host === "merchant.wynos.online") return "merchant";
-  if (host === "food.wynos.online") return "food";
+  if (host === "zoky.wynos.online" || host === "food.wynos.online") return "food";
   if (standalone) {
     if (/^\/merchant(\/|$)/.test(path)) return "merchant";
     if (/^\/food(\/|$)/.test(path)) return "food";

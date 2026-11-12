@@ -7,6 +7,12 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { announceGooglePwaCode, announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 import { isSafeReturnPath } from "@/lib/return-to";
+import { foodHomeUrlFor } from "@/lib/food-origin";
+
+/** Food home on the Food origin this callback runs on (food stays food, zoky stays zoky; Social hands off to ZOKY). */
+function foodHome(): string {
+  return foodHomeUrlFor(window.location.hostname, window.location.origin);
+}
 
 /**
  * Email confirmation and installed-iOS Google popup both exchange their
@@ -92,12 +98,12 @@ export default function EmailConfirmationCallbackPage() {
               window.setTimeout(() => {
                 try { window.close(); } catch { /* iOS may keep the popup open. */ }
                 window.setTimeout(() => {
-                  if (!window.closed) window.location.replace("https://food.wynos.online/");
+                  if (!window.closed) window.location.replace(foodHome());
                 }, 250);
               }, 250);
               return;
             }
-            window.location.replace("https://food.wynos.online/");
+            window.location.replace(foodHome());
             return;
           }
           // A script-opened window may close itself; if iOS declines, the
@@ -116,7 +122,7 @@ export default function EmailConfirmationCallbackPage() {
           ? requestedNext
           : "/signup/step-1";
         if (destination === "/food") {
-          window.location.replace("https://food.wynos.online/");
+          window.location.replace(foodHome());
           return;
         }
         router.replace(destination);

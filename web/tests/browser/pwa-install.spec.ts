@@ -60,3 +60,19 @@ test("appinstalled hides install UI for the rest of the current browser session"
   await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
   await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toHaveCount(0);
 });
+
+// Founder 2026-11-04: the WYNOS install card never shows in ZOKY or ZOKY Merchant.
+test("ZOKY and Merchant never show the WYNOS install card", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-android", "one browser is enough");
+  for (const path of ["/merchant/login", "/food"]) {
+    await page.goto(path, { waitUntil: "networkidle" });
+    await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
+    await page.waitForTimeout(300);
+    await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toHaveCount(0);
+  }
+  // The WYNOS app itself keeps it.
+  await page.goto("/welcome", { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.documentElement.dataset.wynosInstallReady === "true");
+  await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
+  await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toBeVisible();
+});

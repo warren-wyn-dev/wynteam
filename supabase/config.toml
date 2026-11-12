@@ -6,11 +6,6 @@ verify_jwt = false
 # verified against a service-role-only RPC. Browser calls always return 401.
 verify_jwt = false
 
-[functions.food-stripe-refund-worker]
-# Internal pg_cron caller is authenticated by a Vault-backed x-wynos-cron-key,
-# verified against a service-role-only RPC. Browser calls always return 401.
-verify_jwt = false
-
 [functions.food-stripe-checkout]
 verify_jwt = true
 
@@ -33,13 +28,4 @@ verify_jwt = false
 # OFF, read by the Founder on 2026-10-18); without this entry a CLI deploy
 # would turn JWT verification on and break guest geocoding.
 [functions.wynos-maps-geocode]
-verify_jwt = false
-
-[functions.line-link]
-# ZOKY-LINE-001: browser call with the user's Supabase JWT.
-verify_jwt = true
-
-[functions.line-webhook]
-# ZOKY-LINE-001: LINE cannot send a Supabase JWT. Every request is
-# authenticated by X-Line-Signature (HMAC-SHA256 with the OA channel secret).
 verify_jwt = false

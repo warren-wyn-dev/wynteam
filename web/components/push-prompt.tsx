@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { WynosIcon } from "@/components/ui/wynos-icon";
+import { isFoodAppHost } from "@/lib/food-origin";
 import {
   getPushAvailability,
   isPushPromptPath,
@@ -44,7 +45,7 @@ function writeDismissedAt() {
  */
 export function PushPrompt() {
   const pathname = usePathname() ?? "";
-  const promptPath = typeof window !== "undefined" && window.location.hostname.toLowerCase() === "food.wynos.online"
+  const promptPath = typeof window !== "undefined" && isFoodAppHost(window.location.hostname)
     ? "/food"
     : pathname;
   const foodPrompt = promptPath === "/food";
@@ -135,23 +136,23 @@ export function PushPrompt() {
   };
 
   return (
-    <div className="install-prompt-banner push-prompt-banner" role="dialog" aria-label={foodPrompt ? "เปิดการแจ้งเตือน WYNOS Food" : "เปิดการแจ้งเตือน"}>
+    <div className="install-prompt-banner push-prompt-banner" role="dialog" aria-label={foodPrompt ? "เปิดการแจ้งเตือน ZOKY" : "เปิดการแจ้งเตือน"}>
       <div className="install-prompt-row">
         <span className="push-prompt-icon" aria-hidden="true"><WynosIcon name="notifications" size={22} strokeWidth={2} /></span>
         <div className="install-prompt-copy">
           <strong>{kind === "settings"
-            ? (foodPrompt ? "เปิดการแจ้งเตือน WYNOS Food อีกครั้ง" : "เปิดการแจ้งเตือนอีกครั้ง")
-            : (foodPrompt ? "เปิดการแจ้งเตือน WYNOS Food" : "เปิดการแจ้งเตือน")}</strong>
+            ? (foodPrompt ? "เปิดการแจ้งเตือน ZOKY อีกครั้ง" : "เปิดการแจ้งเตือนอีกครั้ง")
+            : (foodPrompt ? "เปิดการแจ้งเตือน ZOKY" : "เปิดการแจ้งเตือน")}</strong>
           <small>{kind === "install" ?
             (foodPrompt
-              ? "บน iPhone/iPad ต้องเพิ่ม WYNOS Food ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้"
+              ? "บน iPhone/iPad ต้องเพิ่ม ZOKY ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้"
               : "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้") :
             kind === "settings" ?
               (foodPrompt
                 ? "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ เปิดสิทธิ์เพื่อไม่พลาดสถานะออเดอร์และการจัดส่ง"
                 : "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ เปิดสิทธิ์ให้ WYNOS เพื่อไม่พลาดข้อความและการตอบกลับ") :
               (foodPrompt
-                ? "รับสถานะคำสั่งซื้อ การรับออเดอร์ การเตรียมอาหาร และการจัดส่งจาก WYNOS Food"
+                ? "รับสถานะคำสั่งซื้อ การรับออเดอร์ การเตรียมอาหาร และการจัดส่งจาก ZOKY"
                 : "รู้ทันทีเมื่อมีข้อความ การตอบกลับ และกิจกรรมสำคัญใน WYNOS")}</small>
         </div>
         <button type="button" className="install-prompt-close" aria-label="ปิด" onClick={dismiss}>

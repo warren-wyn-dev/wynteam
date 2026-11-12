@@ -16,6 +16,8 @@ export type FoodAvailabilityStore = {
   temporary_closed_reason?: string | null;
   prep_time_min_minutes?: number | null;
   prep_time_max_minutes?: number | null;
+  busy_extra_minutes?: number | null;
+  busy_until?: string | null;
 };
 
 export type FoodAvailabilityMenuItem = {
@@ -159,12 +161,24 @@ export function foodSoldOutUntilTomorrowBangkok(at = new Date()) {
   return new Date(Date.UTC(bkk.year, bkk.month - 1, bkk.day + 1, -7, 0, 0)).toISOString();
 }
 
+/** Founder 2026-11-03: busy-mode minutes the store added, while they last. */
+export function foodStoreBusyExtraMinutes(
+  store: Pick<FoodAvailabilityStore, "busy_extra_minutes" | "busy_until">,
+  at = new Date(),
+) {
+  const until = store.busy_until ? Date.parse(store.busy_until) : NaN;
+  if (!Number.isFinite(until) || until <= at.getTime()) return 0;
+  const extra = Number(store.busy_extra_minutes ?? 0);
+  return Number.isFinite(extra) && extra > 0 ? Math.min(60, Math.round(extra)) : 0;
+}
+
 export function foodEstimateDeliveryRange(
-  store: Pick<FoodAvailabilityStore, "prep_time_min_minutes" | "prep_time_max_minutes">,
+  store: Pick<FoodAvailabilityStore, "prep_time_min_minutes" | "prep_time_max_minutes" | "busy_extra_minutes" | "busy_until">,
   distanceKm: number | null | undefined,
 ) {
-  const prepMin = Math.max(1, Number(store.prep_time_min_minutes ?? 15));
-  const prepMax = Math.max(prepMin, Number(store.prep_time_max_minutes ?? 30));
+  const busy = foodStoreBusyExtraMinutes(store);
+  const prepMin = Math.max(1, Number(store.prep_time_min_minutes ?? 15)) + busy;
+  const prepMax = Math.max(prepMin, Number(store.prep_time_max_minutes ?? 30) + busy);
   const distance = Math.max(0, Number(distanceKm ?? 0));
   // City delivery planning assumption: ~22 km/h plus five minutes handoff.
   const travel = distance > 0 ? Math.ceil((distance / 22) * 60) + 5 : 0;

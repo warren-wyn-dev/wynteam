@@ -84,7 +84,7 @@ export function MerchantOrderHistory({ client, store, onOpenOrder }: {
       <section className="wm-history-controls" aria-label="ค้นหาประวัติออเดอร์">
         <form className="wm-history-search" onSubmit={(event) => { event.preventDefault(); setSearch(searchInput); }}>
           <Search size={18} aria-hidden="true" />
-          <input aria-label="ค้นหาเลขออเดอร์" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="ค้นหาเลขออเดอร์ เช่น WF0032" />
+          <input aria-label="ค้นหาเลขออเดอร์" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="ค้นหาเลขออเดอร์ เช่น ZF-0032" />
           <button type="submit">ค้นหา</button>
         </form>
         <div className="wm-history-selects">
@@ -92,7 +92,7 @@ export function MerchantOrderHistory({ client, store, onOpenOrder }: {
             <select value={status} onChange={(event) => setStatus(event.target.value as MerchantOrderHistoryFilter)}>
               <option value="all">ทั้งหมด</option>
               <option value="delivered">ส่งสำเร็จ</option>
-              <option value="cancelled">ยกเลิก</option>
+              <option value="cancelled">ยกเลิกแล้ว</option>
             </select>
           </label>
           <label><CalendarDays size={15} /> วันที่สั่ง

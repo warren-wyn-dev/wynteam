@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { money, type FoodStore } from "@/lib/food-merchant";
+import { STRIPE_SETUP_PAUSED } from "@/lib/food-fulfillment-merchant";
 import { fetchMerchantStripeFinance, type MerchantStripeFinance } from "@/lib/merchant-core";
 import {
   addDays,
@@ -218,6 +219,7 @@ function FinanceLine({ label, value, positive, total }: { label: string; value: 
 }
 
 function PaymentChannels({ paymentStatus, onEditStore }: { paymentStatus: MerchantStripeFinance | null; onEditStore: () => void }) {
+  if (STRIPE_SETUP_PAUSED) return <section className="wm-section"><h2>ช่องทางรับโอนเงิน</h2><p>ลูกค้าโอนเข้าบัญชีร้านและแนบสลิป ร้านตรวจสอบเงินเข้าเอง</p><button type="button" onClick={onEditStore}>ตั้งค่า</button></section>;
   const payoutSchedule = paymentStatus?.payout_interval === "daily"
     ? "อัตโนมัติ · ทุกวัน"
     : paymentStatus?.payout_interval === "weekly"

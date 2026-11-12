@@ -2,7 +2,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { getActiveAccountStorageKey } from "@/lib/account-registry";
-import { createClockSkewRetryFetch } from "@/lib/supabase/clock-skew-fetch";
+import { createClockSkewRetryFetch, createSharedTokenRefresher } from "@/lib/supabase/clock-skew-fetch";
 
 let client: SupabaseClient | null | undefined;
 
@@ -24,6 +24,13 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
   }
 
   const accountStorageKey = getActiveAccountStorageKey();
+  // The fetch is built before the client, so the refresher binds it lazily.
+  let created: SupabaseClient | null = null;
+  const refresh = createSharedTokenRefresher(async () => {
+    const { data, error } = await created!.auth.refreshSession();
+    return error ? null : data.session?.access_token ?? null;
+  });
+  const skewFetch = createClockSkewRetryFetch(undefined, refresh);
   client = accountStorageKey
     ? createClient(url, publishableKey, {
         auth: {
@@ -35,9 +42,10 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
           // otherwise a logout-created slot silently falls back to implicit OAuth.
           flowType: "pkce",
         },
-        global: { fetch: createClockSkewRetryFetch() },
+        global: { fetch: skewFetch },
       })
-    : createBrowserClient(url, publishableKey, { global: { fetch: createClockSkewRetryFetch() } });
+    : createBrowserClient(url, publishableKey, { global: { fetch: skewFetch } });
+  created = client;
   return client;
 }
 

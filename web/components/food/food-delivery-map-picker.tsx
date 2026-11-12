@@ -43,6 +43,7 @@ import {
   type MapsRecentPlace,
 } from "@/lib/maps-places";
 import { distanceToRouteCoordinateMeters, formatRouteDistance, formatRouteDuration, nearestRoutePosition, nextRouteStep, parseWynosRoutes, routeRemainingDistanceMeters, routeSegmentBoundsForDistance, type MapsRoute, type MapsTravelMode } from "@/lib/maps-routing";
+import { FOOD_SITE_URL } from "@/lib/food-share";
 
 type MapCenter = { lat: number; lng: number };
 type MapPoint = { x: number; y: number };
@@ -78,6 +79,9 @@ type ServiceAreaFeature = {
   };
 };
 
+/** The open ZOKY service areas (Admin-chosen country or provinces). */
+type ServiceAreaCollection = { type: "FeatureCollection"; features: ServiceAreaFeature[] };
+
 type RouteLineFeature = {
   type: "Feature";
   properties: {
@@ -112,7 +116,7 @@ type MapInstance = {
   setLayerZoomRange: (layerId: string, minzoom: number, maxzoom: number) => void;
   getSource: (id: string) => unknown;
   getLayer: (id: string) => unknown;
-  addSource: (id: string, source: { type: "geojson"; data: ServiceAreaFeature | RouteLineFeature }) => void;
+  addSource: (id: string, source: { type: "geojson"; data: ServiceAreaCollection | RouteLineFeature }) => void;
   removeLayer: (id: string) => void;
   removeSource: (id: string) => void;
   addLayer: (layer: {
@@ -155,7 +159,7 @@ const MAPLIBRE_JS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/mapl
 const MAPLIBRE_CSS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
 const MAP_STYLE = "/maps/wynos-green.json";
 const MAP_STYLE_DARK = "/maps/wynos-dark.json";
-const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";
+const SERVICE_AREA_URL = "/maps/food-service-area-thailand.json";
 const SERVICE_AREA_SOURCE = "wynos-food-service-area";
 const SERVICE_AREA_FILL_LAYER = "wynos-food-service-area-fill";
 const SERVICE_AREA_LINE_LAYER = "wynos-food-service-area-line";
@@ -257,6 +261,25 @@ function isServiceAreaFeature(value: unknown): value is ServiceAreaFeature {
     && feature.geometry?.type === "Polygon"
     && Array.isArray(feature.geometry.coordinates?.[0])
     && feature.geometry.coordinates[0].length >= 3;
+}
+
+function serviceAreaCollection(value: unknown): ServiceAreaCollection | null {
+  if (isServiceAreaFeature(value)) return { type: "FeatureCollection", features: [value] };
+  if (!value || typeof value !== "object" || (value as { type?: unknown }).type !== "FeatureCollection") return null;
+  const raw = (value as { features?: unknown }).features;
+  const features = Array.isArray(raw) ? raw.filter(isServiceAreaFeature) : [];
+  return features.length ? { type: "FeatureCollection", features } : null;
+}
+
+/** Thai label for the open areas: the single area's name, or a province count. */
+function serviceAreaLabel(areas: ServiceAreaCollection) {
+  const [first] = areas.features;
+  if (areas.features.length === 1) return first?.properties.name ?? "พื้นที่ให้บริการ";
+  return `${areas.features.length} จังหวัด`;
+}
+
+function pointInServiceAreas(location: FoodLocation, areas: ServiceAreaCollection) {
+  return areas.features.some((feature) => pointInServiceArea(location, feature));
 }
 
 function pointInServiceArea(location: FoodLocation, feature: ServiceAreaFeature) {
@@ -549,7 +572,7 @@ export function FoodDeliveryMapPicker({
   const [userLocation, setUserLocation] = useState<FoodLocation | null>(null);
   const [mapDragging, setMapDragging] = useState(false);
   const [mapStyleRevision, setMapStyleRevision] = useState(0);
-  const [serviceAreaBoundary, setServiceAreaBoundary] = useState<ServiceAreaFeature | null>(null);
+  const [serviceAreaBoundary, setServiceAreaBoundary] = useState<ServiceAreaCollection | null>(null);
   const [directionsTarget, setDirectionsTarget] = useState<RouteTarget | null>(null);
   const [routeMode, setRouteMode] = useState<MapsTravelMode>("motorcycle");
   const [route, setRoute] = useState<MapsRoute | null>(null);
@@ -564,7 +587,7 @@ export function FoodDeliveryMapPicker({
   const [navigationOffRouteDistance, setNavigationOffRouteDistance] = useState<number | null>(null);
 
   const serviceAreaState = standalone && location && serviceAreaBoundary
-    ? (pointInServiceArea(location, serviceAreaBoundary) ? "inside" : "outside")
+    ? (pointInServiceAreas(location, serviceAreaBoundary) ? "inside" : "outside")
     : "unknown";
 
   const reverse = useCallback(async (next: FoodLocation) => {
@@ -935,13 +958,17 @@ export function FoodDeliveryMapPicker({
   useEffect(() => {
     if (!standalone) return;
     let live = true;
-    void fetch(SERVICE_AREA_URL, { cache: "force-cache" })
-      .then((response) => {
-        if (!response.ok) throw new Error("service area unavailable");
-        return response.json() as Promise<unknown>;
-      })
+    // The areas the ZOKY super admin opened (Founder 2026-11-02). Before that
+    // RPC exists, the bundled Thailand outline is the same open area.
+    const bundled = () => fetch(SERVICE_AREA_URL, { cache: "force-cache" }).then((response) => {
+      if (!response.ok) throw new Error("service area unavailable");
+      return response.json() as Promise<unknown>;
+    });
+    void Promise.resolve(client.rpc("food_service_area_boundaries"))
+      .then(({ data, error }) => (error ? bundled() : data as unknown))
+      .catch(bundled)
       .then((value) => {
-        if (live && isServiceAreaFeature(value)) setServiceAreaBoundary(value);
+        if (live) setServiceAreaBoundary(serviceAreaCollection(value));
       })
       .catch(() => {
         if (live) setServiceAreaBoundary(null);
@@ -949,7 +976,7 @@ export function FoodDeliveryMapPicker({
     return () => {
       live = false;
     };
-  }, [standalone]);
+  }, [client, standalone]);
 
   useEffect(() => {
     let live = true;
@@ -1124,8 +1151,11 @@ export function FoodDeliveryMapPicker({
     const map = mapRef.current;
     if (!standalone || !mapReady || !map || !serviceAreaBoundary) return;
     try {
-      if (!map.getSource(SERVICE_AREA_SOURCE)) {
+      const source = map.getSource(SERVICE_AREA_SOURCE) as { setData?: (data: ServiceAreaCollection) => void } | undefined;
+      if (!source) {
         map.addSource(SERVICE_AREA_SOURCE, { type: "geojson", data: serviceAreaBoundary });
+      } else {
+        source.setData?.(serviceAreaBoundary);
       }
       if (!map.getLayer(SERVICE_AREA_FILL_LAYER)) {
         map.addLayer({
@@ -1950,9 +1980,9 @@ export function FoodDeliveryMapPicker({
                 ? "อยู่ในพื้นที่ให้บริการ"
                 : serviceAreaState === "outside"
                   ? "นอกพื้นที่ให้บริการ"
-                  : "พื้นที่ให้บริการ WYNOS Food"}
+                  : "พื้นที่ให้บริการ ZOKY"}
             </strong>
-            <small>มหาสารคาม</small>
+            <small>{serviceAreaLabel(serviceAreaBoundary)}</small>
           </div>
         ) : null}
         <div className="wf-map-attribution">
@@ -2177,7 +2207,7 @@ export function FoodDeliveryMapPicker({
               {activeNearbyPlace.address ? <p>{activeNearbyPlace.address}</p> : null}
               {activeNearbyPlace.distanceKm != null ? <em>{activeNearbyPlace.distanceKm.toFixed(1)} กม. จากกลางแผนที่</em> : null}
               {activeNearbyPlace.merchantStoreId ? (
-                <span className="wf-map-food-badge"><Utensils size={13} /> สั่งอาหารได้ใน WYNOS Food</span>
+                <span className="wf-map-food-badge"><Utensils size={13} /> สั่งอาหารได้ใน ZOKY</span>
               ) : null}
               {activeNearbyPlace.merchantStoreId ? (
                 <div className="wf-map-place-delivery">
@@ -2275,7 +2305,7 @@ export function FoodDeliveryMapPicker({
                 </button>
               ) : null}
               {activeNearbyPlace.merchantStoreId ? (
-                <a className="wf-map-food-action" href={`https://food.wynos.online/?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}><Utensils size={15} /> สั่งอาหาร</a>
+                <a className="wf-map-food-action" href={`${FOOD_SITE_URL}/?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}><Utensils size={15} /> สั่งอาหาร</a>
               ) : null}
             </div>
           </article>
@@ -2286,7 +2316,7 @@ export function FoodDeliveryMapPicker({
             <MapPin size={18} />
             <div>
               <strong>นอกพื้นที่ให้บริการ</strong>
-              <span>ตอนนี้ WYNOS Food ให้บริการในจังหวัดมหาสารคาม</span>
+              <span>{serviceAreaBoundary ? `ตอนนี้ ZOKY ให้บริการใน${serviceAreaLabel(serviceAreaBoundary)}` : "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY"}</span>
             </div>
           </div>
         ) : null}

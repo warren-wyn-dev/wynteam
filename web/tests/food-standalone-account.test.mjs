@@ -44,14 +44,14 @@ test("Food Google login uses a dedicated exact callback and never falls into Soc
   const foodCallback = await read("app/food/auth/callback/page.tsx");
   const sharedCallback = await read("app/auth/callback/page.tsx");
 
-  assert.match(foodAuth, /FOOD_PRODUCTION_ORIGIN = "https:\/\/food\.wynos\.online"/);
+  assert.match(foodAuth, /foodAuthOriginFor\(window\.location\.hostname, window\.location\.origin\)/);
   assert.match(foodAuth, /redirectFoodAuthToCanonicalOrigin\("\/food\/login"\)/);
   assert.match(foodAuth, /new URL\("\/food\/auth\/callback", canonicalOrigin\)/);
   assert.doesNotMatch(foodAuth, /callback\.searchParams\.set\("next", "\/food"\)/);
   assert.match(foodAuth, /startGoogleOAuth\(client, callback\.href\)/);
   assert.match(foodAuth, /window\.location\.origin !== canonicalOrigin/);
   assert.match(foodAuth, /isLegacyInstalledFoodOrigin\(\)/);
-  assert.match(foodAuth, /เปิด WYNOS Food ที่ food\.wynos\.online/);
+  assert.match(foodAuth, /เปิด ZOKY ที่ zoky\.wynos\.online/);
   assert.match(foodAuth, /เข้าสู่ระบบด้วย Google/);
   assert.match(foodAuth, /GOOGLE_PWA_COMPLETED_CHANNEL/);
 
@@ -61,7 +61,8 @@ test("Food Google login uses a dedicated exact callback and never falls into Soc
   assert.doesNotMatch(foodCallback, /signup\/step-1/);
 
   assert.match(sharedCallback, /legacyFoodReturn = requestedNext === "\/food"/);
-  assert.match(sharedCallback, /window\.location\.replace\("https:\/\/food\.wynos\.online\/"\)/);
+  // ZOKY-139: return to the Food origin this callback runs on, not a hardcoded ZOKY origin.
+  assert.match(sharedCallback, /window\.location\.replace\(foodHome\(\)\)/);
 });
 
 test("Food password recovery returns to the Food login flow", async () => {
@@ -90,11 +91,13 @@ test("Food Home removes preview UI, promotes Social and hides the back button", 
   assert.doesNotMatch(source, /Developer Preview เท่านั้น/);
   assert.match(source, /className="fx-social-promo" href="https:\/\/wynos\.online\/" aria-label="เปิด WYNOS Social"/);
   assert.match(source, /โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos\.online/);
-  // Brand header only on the Home directory; inner pages use FoodPageHeader with a back button.
-  assert.match(source, /\{tab === "home" && !storefrontOpen \? \(/);
-  assert.match(source, /aria-label="กลับหน้าหลัก WYNOS Food" onClick=\{onBackStorefront\}/);
+  // ZOKY web (2026-10-19): Home and Food discovery only while no storefront is open;
+  // inner pages use FoodPageHeader with a back button.
+  assert.match(source, /const discovery = tab === "home" && !storefrontOpen \? \(/);
+  assert.match(source, /<ZokyHomeHeader/);
+  assert.match(source, /aria-label="กลับหน้าหลัก ZOKY" onClick=\{onBackStorefront\}/);
   assert.match(source, /setStorefrontOpen\(false\)/);
-  assert.match(css, /\.fx-header\s*\{/);
+  assert.match(css, /\.zk-home-header\s*\{/);
 });
 
 test("Food Public Beta has no user-facing Developer Preview copy", async () => {
@@ -102,10 +105,10 @@ test("Food Public Beta has no user-facing Developer Preview copy", async () => {
   const manifest = await read("app/food/manifest.ts");
   const staticManifest = await read("public/food/manifest.webmanifest");
   assert.doesNotMatch(source, /Developer Preview|ก่อนเริ่มทดสอบฝั่งลูกค้า/);
-  assert.match(source, /เพิ่ม WYNOS Food ไว้บนหน้าจอหลัก/);
-  assert.match(source, /เพื่อเริ่มขายบน WYNOS Food/);
-  assert.match(manifest, /description: "WYNOS Food Public Beta"/);
-  assert.match(staticManifest, /"description": "WYNOS Food Public Beta"/);
+  assert.match(source, /เพิ่ม ZOKY ไว้บนหน้าจอหลัก/);
+  assert.match(source, /เพื่อเริ่มขายบน ZOKY/);
+  assert.match(manifest, /description: "ZOKY สั่งอาหาร \(Public Beta\)"/);
+  assert.match(staticManifest, /"description": "ZOKY สั่งอาหาร \(Public Beta\)"/);
   assert.doesNotMatch(manifest + staticManifest, /Developer Preview/);
 });
 
@@ -114,7 +117,7 @@ test("Food reviews are verified, masked and use yellow five-star UI", async () =
   const data = await read("lib/food-customer.ts");
   const css = await read("app/food/food.css");
   const migration = await read("../supabase/migrations_wynos_food_store_reviews_v1.sql");
-  assert.match(source, /สั่งจริงกับ WYNOS Food/);
+  assert.match(source, /สั่งจริงกับ ZOKY/);
   assert.match(source, /อาหารเป็นอย่างไรบ้าง\?/);
   assert.match(source, /FOOD_REVIEW_TAGS/);
   assert.match(source, /submitFoodStoreReview/);
@@ -135,24 +138,37 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
   const data = await read("lib/food-customer.ts");
   const migration = await read("../supabase/migrations_wynos_food_home_directory_v2.sql");
 
+  // ZOKY web Home + Food (2026-10-19): the nearby list became "ร้านอาหารทั้งหมด" (open first, then nearest).
   for (const label of [
-    "ค้นหาร้านหรือเมนูอาหาร",
+    "ค้นหาร้านอาหารหรือเมนู",
     "รวมโค้ดลดเพิ่ม",
+    "โค้ดลดเพิ่มสำหรับคุณ",
     "สั่งอีกครั้ง",
-    "ร้านใกล้คุณ",
+    "ร้านอาหารทั้งหมด",
     "ร้านยอดนิยม",
+    "ร้านแนะนำ",
   ]) assert.match(source, new RegExp(label));
-  // Founder decision (2026-10-10): delivery only — no pickup and no scheduled orders.
-  assert.doesNotMatch(source, /รับเองที่ร้าน|สั่งล่วงหน้า/);
+  // Founder 2026-11-03: ร้านแนะนำ = ZOKY Admin featured stores first, then auto-filled.
+  assert.match(source, /client\.rpc\("food_active_featured_stores"\)/);
+  assert.match(source, /function foodRecommendedStores\(/);
+  // Founder decision (2026-10-10): no scheduled orders. Pickup today was
+  // added by ZOKY-FULFILL-001 (approved 2026-10-26), only as a store option.
+  assert.doesNotMatch(source, /สั่งล่วงหน้า/);
   assert.match(source, /scheduledFor: null/);
+  assert.match(source, /storeFulfillmentModes\(store\)/);
 
-  assert.match(source, /aria-label="ร้านโปรด"/);
+  assert.match(source, /label="ร้านโปรด"/);
   assert.match(source, /aria-label="รายการโปรด"\s*aria-pressed=\{favorite\}/);
-  const homeRows = source.slice(source.indexOf("function FoodDirectoryStoreCard"), source.indexOf("function FoodHomeSectionHeader"));
+  const homeRows = source.slice(source.indexOf("function FoodStoreRow"), source.indexOf("function FoodRecentStoreTile"));
   assert.ok(homeRows.length > 0);
   assert.doesNotMatch(homeRows, /<Heart\b/);
 
-  assert.match(css, /\.fx-store-card-photo\s*\{[\s\S]*?aspect-ratio:/);
+  // Store photos are 1:1 (Founder rule) in the Food rows and the Home popular cards.
+  assert.match(css, /\.zk-store-row-photo \{[^}]*aspect-ratio: 1;/);
+  assert.match(css, /\.zk-pop-card-photo \{[^}]*aspect-ratio: 1;/);
+  // Ratings only with real reviews; ETA only with real preparation times.
+  assert.match(source, /return rating > 0 && count > 0 \? rating : null;/);
+  assert.match(source, /if \(store\.prep_time_min_minutes == null \|\| store\.prep_time_max_minutes == null\) return null;/);
   assert.match(source, /distance < 0\.1\) return "ใกล้คุณ"/);
   assert.doesNotMatch(source, /🛵/);
   assert.match(data, /rating_average\?: number \| string \| null/);
@@ -166,7 +182,7 @@ test("Food Home v2 matches the approved discovery layout and keeps favorite togg
 
 test("Food framed photos fill their frame on iOS Safari (absolute fill, not grid-centered height:100%)", async () => {
   const css = await read("app/food/food-app.css");
-  for (const frame of [".fx-store-cover", ".fx-store-card-photo", ".fx-menu-image", ".fx-item-photo", ".fx-recent-store", ".fx-cart-store-logo"]) {
+  for (const frame of [".fx-store-cover", ".fx-store-card-photo", ".zk-store-row-photo", ".zk-pop-card-photo", ".fx-menu-image", ".fx-item-photo", ".fx-recent-store", ".fx-cart-store-logo"]) {
     const escaped = frame.replace(/[.]/g, "\\.");
     assert.match(css, new RegExp(`${escaped} img \\{ position: absolute; inset: 0; width: 100%; height: 100%;`), `${frame} img must be absolutely filled`);
   }
@@ -190,21 +206,24 @@ test("Food iOS launch has no white flash and the status bar matches the splash",
   const layout = await read("app/food/layout.tsx");
   // iOS ignores the manifest background; it needs apple-touch-startup-image per screen size.
   assert.match(layout, /startupImage: FOOD_IOS_LAUNCH_IMAGES/);
-  assert.match(layout, /\/icons\/food\/splash\/launch-\$\{width \* ratio\}x\$\{height \* ratio\}\.png\?v=\$\{FOOD_IOS_LAUNCH_VERSION\}/);
-  assert.match(layout, /const FOOD_IOS_LAUNCH_VERSION = 2;/);
+  assert.match(layout, /\/icons\/zoky\/splash\/launch-\$\{width \* ratio\}x\$\{height \* ratio\}\.png\?v=\$\{FOOD_IOS_LAUNCH_VERSION\}/);
+  assert.match(layout, /const FOOD_IOS_LAUNCH_VERSION = 1;/);
   for (const size of ["1290x2796", "1179x2556", "1170x2532", "1080x2340", "750x1334", "2048x2732", "1668x2388", "1640x2360", "1620x2160", "1488x2266"]) {
-    assert.ok(existsSync(new URL(`../public/icons/food/splash/launch-${size}.png`, import.meta.url)), `missing launch image ${size}`);
+    assert.ok(existsSync(new URL(`../public/icons/zoky/splash/launch-${size}.png`, import.meta.url)), `missing launch image ${size}`);
   }
-  // Temporary pink theme-color while the splash shows, removed when it fades.
-  assert.match(layout, /m\.content='#ff7aa6'/);
+  // Temporary pink theme-color while the splash shows, switched off when it fades.
+  assert.match(layout, /m\.content='#f93384'/);
   // iOS 26 colours the status bar from the fixed splash's background-color, so it must be the top pink.
-  assert.match(await read("app/food/food-app.css"), /background-color: #ff7aa6;/);
+  assert.match(await read("app/food/food-app.css"), /background-color: #f93384;/);
   assert.match(layout, /\[360, 780, 3\]/); // iPhone 12/13 mini
   assert.match(layout, /\[1024, 1366, 2\], \[834, 1194, 2\], \[820, 1180, 2\], \[810, 1080, 2\], \[744, 1133, 2\]/); // iPad
   assert.match(layout, /document\.head\.prepend\(m\)/);
   // Theme sync must not repaint the splash's temporary status-bar color.
   assert.match(await read("lib/theme-preference.ts"), /meta\[name="theme-color"\]:not\(\[data-fx-splash-theme\]\)/);
-  assert.match(layout, /d\.setAttribute\('data-fx-splash-ready',''\);setTimeout\(function\(\)\{m\.remove\(\)\},350\)/);
+  // ZOKY-145: switch the meta off instead of removing it; removing a <head> node React owns
+  // crashes the next client navigation (guest → /food/login showed a dead page).
+  assert.match(layout, /d\.setAttribute\('data-fx-splash-ready',''\);setTimeout\(function\(\)\{m\.removeAttribute\('name'\)\},350\)/);
+  assert.doesNotMatch(layout, /m\.remove\(\)/);
 });
 
 test("Food splash stays until the screen has data (min 1 s, max ~4 s)", async () => {
@@ -228,7 +247,11 @@ test("Supabase browser clients retry a just-issued session the database sees as 
   for (const file of ["lib/food-customer.ts", "lib/food-merchant.ts"]) {
     assert.match(await read(file), /const sessionCopy = sessionErrorCopy\(message\);\n  if \(sessionCopy\) return sessionCopy;/, file);
   }
+  // Founder 2026-11-01: a still-rejected token is replaced once by a fresh one.
   for (const file of ["lib/supabase/browser.ts", "lib/supabase/merchant-browser.ts"]) {
-    assert.match(await read(file), /global: \{ fetch: createClockSkewRetryFetch\(\) \}/, file);
+    const source = await read(file);
+    assert.match(source, /createClockSkewRetryFetch\(undefined, refresh\)/, file);
+    assert.match(source, /createSharedTokenRefresher\(/, file);
   }
+  assert.match(await read("lib/supabase/browser.ts"), /global: \{ fetch: skewFetch \}[\s\S]*global: \{ fetch: skewFetch \}/);
 });

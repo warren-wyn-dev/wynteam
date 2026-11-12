@@ -111,8 +111,62 @@ class FakeRepository extends MerchantRepository {
     if (id == null) {
       menuRows.add({'id': 'new-menu', ...values, 'is_available': true});
     } else {
-      menuRows.firstWhere((m) => m['id'] == id).addAll(values);
+      final row = menuRows.firstWhere((m) => m['id'] == id);
+      final soldOutToday = values['sold_out_today'];
+      row.addAll(Map.of(values)..remove('sold_out_today'));
+      if (soldOutToday != null) {
+        row['sold_out_until'] = soldOutToday == true
+            ? DateTime.now().add(const Duration(hours: 6)).toIso8601String()
+            : null;
+      }
     }
+  }
+
+  final qrCalls = <String>[];
+  @override
+  Future<Json> storeQr(String storeId) async {
+    qrCalls.add('storeQr');
+    return {
+      // 1x1 transparent PNG.
+      'image':
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+      'linkUrl': 'https://zoky.wynos.online/s/kbs7xa',
+      'opensInLine': true,
+      'published': true,
+      'stats': {'opens': 128, 'orders': 23, 'sales': 2870},
+    };
+  }
+
+  @override
+  Future<String> saveStoreQr(String storeId) async {
+    qrCalls.add('save');
+    return 'downloaded';
+  }
+
+  @override
+  Future<String> shareStoreLink(String storeId) async {
+    qrCalls.add('share');
+    return 'copied';
+  }
+
+  final busyCalls = <List<Object?>>[];
+  @override
+  Future<void> setBusy(
+    String storeId,
+    int extraMinutes,
+    int? durationMinutes,
+  ) async {
+    write();
+    busyCalls.add([extraMinutes, durationMinutes]);
+    storeRows.firstWhere((s) => s['id'] == storeId).addAll({
+      'busy_extra_minutes': extraMinutes,
+      'busy_until': extraMinutes == 0
+          ? null
+          : DateTime.now()
+                .add(Duration(minutes: durationMinutes!))
+                .toUtc()
+                .toIso8601String(),
+    });
   }
 
   @override
@@ -173,6 +227,7 @@ class FakeRepository extends MerchantRepository {
     String method,
     String imagePath, {
     String? locationNote,
+    bool cashReceived = false,
   }) async {
     write();
     orderRows.firstWhere((o) => o['id'] == orderId)['status'] = 'delivered';

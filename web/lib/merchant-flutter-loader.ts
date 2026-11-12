@@ -14,9 +14,11 @@ type FlutterInitializer = {
 
 type FlutterBrowser = Window & {
   _flutter?: {
+    merchantAssetBase?: string;
+    merchantCanvasKitBase?: string;
     loader: {
       load: (options: {
-        config: { entrypointBaseUrl: string; assetBase: string; canvasKitBaseUrl: string };
+        config: { entrypointBaseUrl: string; assetBase: string; canvasKitBaseUrl: string; forceSingleThreadedSkwasm: true };
         onEntrypointLoaded: (initializer: FlutterInitializer) => Promise<void>;
       }) => Promise<unknown>;
     };
@@ -43,15 +45,35 @@ export function loadMerchantFlutterApp(): Promise<MerchantFlutterApp> {
     script.onload = () => {
       const loader = browser._flutter?.loader;
       if (!loader) { fail(); return; }
+      // The stable bootstrap declares its matching immutable payload. Reject
+      // malformed/external paths rather than executing a different entrypoint.
+      const declaredBase = browser._flutter?.merchantAssetBase;
+      if (declaredBase !== undefined && !/^\/merchant-flutter\/builds\/[a-f0-9]{20}\/$/.test(declaredBase)) {
+        fail(); return;
+      }
+      const declaredEngine = browser._flutter?.merchantCanvasKitBase;
+      if (declaredEngine !== undefined && !/^\/merchant-flutter\/builds\/[a-f0-9]{20}\/canvaskit\/$/.test(declaredEngine)) {
+        fail(); return;
+      }
+      // Compatibility with an already-open document from the previous build.
+      const assetBase = declaredBase ?? MERCHANT_FLUTTER_ASSET_BASE;
+      const canvasKitBaseUrl = declaredEngine ?? `${assetBase}canvaskit/`;
       void loader.load({
         config: {
-          entrypointBaseUrl: MERCHANT_FLUTTER_ASSET_BASE,
-          assetBase: MERCHANT_FLUTTER_ASSET_BASE,
-          canvasKitBaseUrl: `${MERCHANT_FLUTTER_ASSET_BASE}canvaskit/`,
+          entrypointBaseUrl: assetBase,
+          assetBase,
+          canvasKitBaseUrl,
+          // Preserve shared-origin behavior without requiring cross-origin
+          // isolation headers. SDK feature detection chooses the JS fallback.
+          forceSingleThreadedSkwasm: true,
         },
         onEntrypointLoaded: async (initializer) => {
           try {
-            const runner = await initializer.initializeEngine({ multiViewEnabled: true, assetBase: MERCHANT_FLUTTER_ASSET_BASE, canvasKitBaseUrl: `${MERCHANT_FLUTTER_ASSET_BASE}canvaskit/` });
+            performance.clearMarks("merchant:flutter:entrypoint");
+            performance.mark("merchant:flutter:entrypoint");
+            const runner = await initializer.initializeEngine({ multiViewEnabled: true, assetBase, canvasKitBaseUrl });
+            performance.clearMarks("merchant:flutter:engine");
+            performance.mark("merchant:flutter:engine");
             const app = await runner.runApp();
             if (typeof app.addView !== "function" || typeof app.removeView !== "function") {
               fail(); return;

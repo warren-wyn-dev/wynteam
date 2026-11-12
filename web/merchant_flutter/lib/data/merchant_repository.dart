@@ -10,6 +10,17 @@ const orderStatuses = {
   'delivered': 'สำเร็จ',
   'cancelled': 'ยกเลิก',
 };
+
+/// Order list tabs (Founder 2026-11-01): ใหม่ · กำลังเตรียม · จัดส่ง · เสร็จ ·
+/// ยกเลิก. "delivering" is a tab only: the bridge reads both ready and
+/// out-for-delivery orders for it. Per-order labels still use orderStatuses.
+const orderTabs = {
+  'pending_acceptance': 'ใหม่',
+  'preparing': 'กำลังเตรียม',
+  'delivering': 'จัดส่ง',
+  'delivered': 'เสร็จ',
+  'cancelled': 'ยกเลิก',
+};
 const paymentStatuses = {
   'pending': 'รอชำระเงิน',
   'submitted': 'รอตรวจสลิป',
@@ -35,6 +46,36 @@ class MerchantException implements Exception {
 
 /// Existing WYNOS JavaScript client owns authentication, account switching,
 /// push cleanup and API contracts. Flutter holds no credentials or tokens.
+///
+/// Contract v2: pickup orders reuse the stored statuses ready_for_delivery
+/// ("พร้อมให้รับ") and delivered ("ลูกค้ารับแล้ว"). The values returned for a
+/// pickup order are bridge actions, not statuses: 'ready_for_pickup' moves the
+/// order to ready_for_delivery and 'picked_up' calls food_complete_pickup.
+String? orderNextStatus(Json order) => order['fulfillment_type'] == 'pickup'
+    ? switch (order['status']) {
+        'pending_acceptance' => 'preparing',
+        'preparing' => 'ready_for_pickup',
+        'ready_for_delivery' => 'picked_up',
+        _ => null,
+      }
+    : nextStatuses[order['status']];
+String? orderNextAction(Json order) => order['fulfillment_type'] == 'pickup'
+    ? switch (order['status']) {
+        'pending_acceptance' => 'รับออเดอร์',
+        'preparing' => 'พร้อมให้รับ',
+        'ready_for_delivery' => 'ลูกค้ารับแล้ว',
+        _ => null,
+      }
+    : nextActions[order['status']];
+String orderStatusLabel(Json order) {
+  final status = '${order['status']}';
+  if (order['fulfillment_type'] == 'pickup') {
+    if (status == 'ready_for_delivery') return 'พร้อมให้รับ';
+    if (status == 'delivered') return 'ลูกค้ารับแล้ว';
+  }
+  return orderStatuses[status] ?? status;
+}
+
 abstract class MerchantRepository {
   static const pageSize = 50;
   Stream<void> get orderChanges => const Stream.empty();
@@ -43,10 +84,105 @@ abstract class MerchantRepository {
   Future<List<Json>> menu(String storeId);
   Future<List<Json>> orders(String storeId, String status, int offset);
   Future<Json> report(String storeId);
+
+  /// Home "ต้องทำตอนนี้" counts; an empty map means unknown (shown as —).
+  Future<Json> orderCounts(String storeId) async => {};
+
+  /// Last authorized store display data for an instant reopen; null if none.
+  Future<Json?> snapshot() async => null;
+
+  /// Customer reviews for the "ฟีดแบ็ก" screen.
+  Future<Json> reviews(String storeId) async =>
+      throw const MerchantException('โหลดฟีดแบ็กไม่สำเร็จ');
+  Future<void> replyReview(
+    String storeId,
+    String reviewId,
+    String reply,
+  ) async => throw const MerchantException('ส่งคำตอบไม่สำเร็จ');
+  Future<Json> ads(String storeId) async =>
+      throw const MerchantException('ระบบโฆษณายังไม่เปิดใช้งาน');
+  Future<bool> pickAdSlip(String storeId, num amount) async => false;
+  Future<void> setAdActive(String storeId, bool active) async =>
+      throw const MerchantException('ดำเนินการไม่สำเร็จ');
+  Future<Json> platformCampaigns(String storeId) async =>
+      throw const MerchantException('ระบบแคมเปญยังไม่เปิดใช้งาน');
+  Future<void> joinPlatformCampaign(
+    String storeId,
+    String campaignId,
+    bool join,
+  ) async => throw const MerchantException('ดำเนินการไม่สำเร็จ');
+  Future<Json> staff(String storeId) async =>
+      throw const MerchantException('โหลดทีมงานไม่สำเร็จ');
+  Future<void> addStaff(String storeId, String username, String role) async =>
+      throw const MerchantException('เพิ่มทีมงานไม่สำเร็จ');
+  Future<void> updateStaff(
+    String storeId,
+    String userId,
+    String role,
+    bool active,
+  ) async => throw const MerchantException('อัปเดตทีมงานไม่สำเร็จ');
+  Future<Json> finance(String storeId, String period) async =>
+      throw const MerchantException('ระบบการเงินยังไม่เปิดใช้งาน');
   Future<Json> quality(String storeId) async => {'available': false};
   Future<Json> campaigns(String storeId);
   Future<void> saveMenu(String storeId, Json values, {String? id});
   Future<void> saveStore(String storeId, Json values);
+  Future<void> setFulfillment(String storeId, Json values) async =>
+      throw const MerchantException(
+        'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+      );
+
+  /// ZOKY store QR poster (data URL), link, whether it opens in LINE, stats.
+  Future<Json> storeQr(String storeId) async =>
+      throw const MerchantException('สร้าง QR ไม่สำเร็จ');
+
+  /// Saves or shares the last poster; returns shared/downloaded/cancelled/not_ready.
+  Future<String> saveStoreQr(String storeId) async => 'not_ready';
+
+  /// Shares (or copies) the store link; returns shared/copied/failed.
+  Future<String> shareStoreLink(String storeId) async => 'failed';
+
+  /// Busy mode: [extraMinutes] 0 turns it off.
+  Future<void> setBusy(
+    String storeId,
+    int extraMinutes,
+    int? durationMinutes,
+  ) async => throw const MerchantException(
+    'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+  );
+  Future<void> resolveCancel(
+    String storeId,
+    String orderId,
+    bool approve,
+    bool refund,
+  ) async => throw const MerchantException(
+    'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+  );
+  Future<Json?> pickRefundSlip(String storeId, String orderId) async => null;
+  Future<Json?> pickPaymentQr(String storeId) async => null;
+
+  /// kind is 'logo' or 'cover'; a cancelled picker returns null.
+  Future<Json?> pickStoreImage(String storeId, String kind) async => null;
+  Future<void> setPublished(String storeId, bool published) async =>
+      throw const MerchantException('ดำเนินการไม่สำเร็จ');
+  Future<Json> currentLocation() async =>
+      throw const MerchantException('หาตำแหน่งไม่สำเร็จ');
+  Future<Json> checkLocation(String storeId, num lat, num lng) async => {};
+
+  /// Opens the shared ZOKY map (search + drag pin); null when cancelled.
+  Future<Json?> pickMapLocation(
+    String storeId,
+    String kind,
+    num? lat,
+    num? lng,
+  ) async => null;
+  Future<void> markRefunded(
+    String storeId,
+    String orderId,
+    String imagePath,
+  ) async => throw const MerchantException(
+    'บันทึกไม่สำเร็จ กรุณารีเฟรชข้อมูลก่อนลองอีกครั้ง',
+  );
   Future<void> transition(
     String storeId,
     String orderId,
@@ -73,6 +209,7 @@ abstract class MerchantRepository {
     String method,
     String imagePath, {
     String? locationNote,
+    bool cashReceived = false,
   });
   Future<String?> signedUrl(String storeId, String orderId, String kind);
   Future<void> subscribe(String storeId);
@@ -127,8 +264,90 @@ class BridgeMerchantRepository extends MerchantRepository {
   Future<Json> report(String storeId) async =>
       object(await call('report', {'storeId': storeId}));
   @override
+  Future<Json?> snapshot() async {
+    final data = await call('snapshot');
+    return data == null ? null : object(data);
+  }
+
+  @override
+  Future<Json> orderCounts(String storeId) async =>
+      object(await call('orderCounts', {'storeId': storeId}));
+  @override
+  Future<Json> reviews(String storeId) async =>
+      object(await call('reviews', {'storeId': storeId}));
+  @override
+  Future<void> replyReview(
+    String storeId,
+    String reviewId,
+    String reply,
+  ) async {
+    await call('replyReview', {
+      'storeId': storeId,
+      'reviewId': reviewId,
+      'reply': reply,
+    });
+  }
+
+  @override
   Future<Json> quality(String storeId) async =>
       object(await call('quality', {'storeId': storeId}));
+  @override
+  Future<Json> ads(String storeId) async =>
+      object(await call('ads', {'storeId': storeId}));
+  @override
+  Future<bool> pickAdSlip(String storeId, num amount) async =>
+      await call('pickAdSlip', {'storeId': storeId, 'amount': amount}) != null;
+  @override
+  Future<void> setAdActive(String storeId, bool active) async {
+    await call('setAdActive', {'storeId': storeId, 'active': active});
+  }
+
+  @override
+  Future<Json> platformCampaigns(String storeId) async =>
+      object(await call('platformCampaigns', {'storeId': storeId}));
+  @override
+  Future<void> joinPlatformCampaign(
+    String storeId,
+    String campaignId,
+    bool join,
+  ) async {
+    await call('joinPlatformCampaign', {
+      'storeId': storeId,
+      'campaignId': campaignId,
+      'join': join,
+    });
+  }
+
+  @override
+  Future<Json> staff(String storeId) async =>
+      object(await call('staff', {'storeId': storeId}));
+  @override
+  Future<void> addStaff(String storeId, String username, String role) async {
+    await call('addStaff', {
+      'storeId': storeId,
+      'username': username,
+      'role': role,
+    });
+  }
+
+  @override
+  Future<void> updateStaff(
+    String storeId,
+    String userId,
+    String role,
+    bool active,
+  ) async {
+    await call('updateStaff', {
+      'storeId': storeId,
+      'userId': userId,
+      'role': role,
+      'active': active,
+    });
+  }
+
+  @override
+  Future<Json> finance(String storeId, String period) async =>
+      object(await call('finance', {'storeId': storeId, 'period': period}));
   @override
   Future<Json> campaigns(String storeId) async =>
       object(await call('campaigns', {'storeId': storeId}));
@@ -140,6 +359,121 @@ class BridgeMerchantRepository extends MerchantRepository {
   @override
   Future<void> saveStore(String storeId, Json values) async {
     await call('saveStore', {'storeId': storeId, 'values': values});
+  }
+
+  @override
+  Future<Json?> pickStoreImage(String storeId, String kind) async {
+    final data = await call('pickStoreImage', {
+      'storeId': storeId,
+      'kind': kind,
+    });
+    return data == null ? null : object(data);
+  }
+
+  @override
+  Future<void> setPublished(String storeId, bool published) async {
+    await call('setPublished', {'storeId': storeId, 'published': published});
+  }
+
+  @override
+  Future<Json> currentLocation() async => object(await call('currentLocation'));
+
+  @override
+  Future<Json?> pickMapLocation(
+    String storeId,
+    String kind,
+    num? lat,
+    num? lng,
+  ) async {
+    final data = await call('pickMapLocation', {
+      'storeId': storeId,
+      'kind': kind,
+      if (lat != null && lng != null) 'latitude': lat,
+      if (lat != null && lng != null) 'longitude': lng,
+    });
+    return data == null ? null : object(data);
+  }
+
+  @override
+  Future<Json> checkLocation(String storeId, num lat, num lng) async => object(
+    await call('checkLocation', {
+      'storeId': storeId,
+      'latitude': lat,
+      'longitude': lng,
+    }),
+  );
+
+  @override
+  Future<Json?> pickPaymentQr(String storeId) async {
+    final data = await call('pickPaymentQr', {'storeId': storeId});
+    return data == null ? null : object(data);
+  }
+
+  @override
+  Future<void> setFulfillment(String storeId, Json values) async {
+    await call('setFulfillment', {'storeId': storeId, 'values': values});
+  }
+
+  @override
+  Future<Json> storeQr(String storeId) async =>
+      object(await call('storeQr', {'storeId': storeId}));
+
+  @override
+  Future<String> saveStoreQr(String storeId) async =>
+      '${await call('saveStoreQr', {'storeId': storeId})}';
+
+  @override
+  Future<String> shareStoreLink(String storeId) async =>
+      '${await call('shareStoreLink', {'storeId': storeId})}';
+
+  @override
+  Future<void> setBusy(
+    String storeId,
+    int extraMinutes,
+    int? durationMinutes,
+  ) async {
+    await call('setBusy', {
+      'storeId': storeId,
+      'extraMinutes': extraMinutes,
+      'durationMinutes': ?durationMinutes,
+    });
+  }
+
+  @override
+  Future<void> resolveCancel(
+    String storeId,
+    String orderId,
+    bool approve,
+    bool refund,
+  ) async {
+    await call('resolveCancel', {
+      'storeId': storeId,
+      'orderId': orderId,
+      'approve': approve,
+      'refund': refund,
+    });
+  }
+
+  @override
+  Future<Json?> pickRefundSlip(String storeId, String orderId) async {
+    final data = await call('pickRefundSlip', {
+      'storeId': storeId,
+      'orderId': orderId,
+    });
+    return data == null ? null : object(data);
+  }
+
+  @override
+  Future<void> markRefunded(
+    String storeId,
+    String orderId,
+    String imagePath,
+  ) async {
+    await call('markRefunded', {
+      'storeId': storeId,
+      'orderId': orderId,
+      'imagePath': imagePath,
+    });
   }
 
   @override
@@ -205,6 +539,7 @@ class BridgeMerchantRepository extends MerchantRepository {
     String method,
     String imagePath, {
     String? locationNote,
+    bool cashReceived = false,
   }) async {
     await call('completeDelivery', {
       'storeId': storeId,
@@ -212,6 +547,7 @@ class BridgeMerchantRepository extends MerchantRepository {
       'method': method,
       'imagePath': imagePath,
       'locationNote': ?locationNote,
+      'cashReceived': cashReceived,
     });
   }
 

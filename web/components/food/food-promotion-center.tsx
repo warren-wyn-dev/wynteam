@@ -72,9 +72,9 @@ export function FoodPromotionCenter({ client, userId }: { client: SupabaseClient
     await markRead(n);
   };
 
-  return <section className="fx-promo-center" aria-label="โปรโมชัน WYNOS Food">
+  return <section className="fx-promo-center" aria-label="โปรโมชัน ZOKY">
     <button type="button" className="fx-promo-center-toggle" onClick={() => setOpen(p => !p)} aria-expanded={open}>
-      {unread ? <BellRing size={20} /> : <Bell size={20} />}
+      {unread ? <BellRing size={22} /> : <Bell size={22} />}
       <span>โปรโมชันและข่าวสาร</span>
       {unread > 0 ? <i aria-label={`${unread} ข้อความใหม่`}>{unread}</i> : null}
       <small>{open ? "ปิด" : "ดูทั้งหมด"}</small>
@@ -93,7 +93,7 @@ export function FoodPromotionCenter({ client, userId }: { client: SupabaseClient
       <div className="fx-promo-settings">
         <strong>ตั้งค่าการรับโปรโมชัน</strong>
         <label>
-          ข่าวสารภายใน WYNOS Food
+          ข่าวสารภายใน ZOKY
           <input type="checkbox" disabled={busy} checked={inAppMarketing}
             onChange={e => void preferences(pushMarketing,e.target.checked)} />
         </label>

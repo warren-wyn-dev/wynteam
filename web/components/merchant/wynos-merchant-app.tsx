@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import { FulfillmentTags, MerchantFulfillmentSettings, MerchantCancelRefund } from "@/components/merchant/merchant-fulfillment";
+import { transitionPickupOrder } from "@/lib/food-fulfillment-merchant";
 import {
   ArrowUpDown,
   Bell,
@@ -51,7 +53,6 @@ import { MerchantStoreTools, RefundControls } from "@/components/merchant/mercha
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { MerchantAds } from "@/components/merchant/merchant-ads";
 import { MerchantFinance } from "@/components/merchant/merchant-finance";
-import { MerchantPaymentSetup } from "@/components/merchant/merchant-payment-setup";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { useMerchantTouchDrag } from "@/components/merchant/use-touch-reorder";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
@@ -68,9 +69,7 @@ import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicato
 import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import {
   MERCHANT_NOTIFICATION_TEST_RESULT_KEY,
-  fetchMerchantStripeStatus,
   setMerchantStorePublished,
-  type MerchantStripeStatus,
 } from "@/lib/merchant-core";
 import {
   completeFoodDelivery,
@@ -198,6 +197,7 @@ const ORDER_FILTERS: Array<{ key: OrderFilter; label: string }> = [
 
 function orderInFilter(order: FoodOrder, filter: OrderFilter, now = Date.now()) {
   if (filter === "new") return order.status === "pending_acceptance";
+  // Contract v2: pickup orders reuse ready_for_delivery / delivered.
   if (filter === "cooking") return order.status === "preparing" || order.status === "ready_for_delivery";
   if (filter === "delivery") return order.status === "out_for_delivery";
   return isRecentCompletedOrder(order, now);
@@ -205,7 +205,9 @@ function orderInFilter(order: FoodOrder, filter: OrderFilter, now = Date.now()) 
 
 /** An order the store can accept now: it is new and the customer has paid or sent a slip. */
 function needsStoreNow(order: FoodOrder) {
-  return order.status === "pending_acceptance" && (order.payment_status === "submitted" || order.payment_status === "paid");
+  const transferReady = order.status === "pending_acceptance" && (order.payment_status === "submitted" || order.payment_status === "paid");
+  const cashOnDeliveryReady = order.status === "pending_acceptance" && order.payment_method === "cod";
+  return transferReady || cashOnDeliveryReady;
 }
 
 /** A new slip (new storage path) alerts again; marking it paid does not. */
@@ -220,9 +222,10 @@ type QuickStep = "check_slip" | "accept" | "ready" | "dispatch" | "deliver";
  * need a look (the slip) or a photo (delivery) open the order instead.
  */
 function quickStep(order: FoodOrder): { step: QuickStep; label: string } | null {
+  if (order.fulfillment_type === "pickup" && ["preparing", "ready_for_delivery"].includes(order.status)) return { step: "check_slip", label: order.status === "preparing" ? "พร้อมให้รับ" : "ลูกค้ารับแล้ว" };
   if (order.status === "pending_acceptance") {
     if (order.payment_status === "submitted") return { step: "check_slip", label: "ดูสลิป · รับออเดอร์" };
-    if (order.payment_status === "paid") return { step: "accept", label: "รับออเดอร์" };
+    if (order.payment_status === "paid" || order.payment_method === "cod") return { step: "accept", label: "รับออเดอร์" };
     return null;
   }
   if (order.status === "preparing") return { step: "ready", label: "อาหารพร้อมแล้ว" };
@@ -233,6 +236,7 @@ function quickStep(order: FoodOrder): { step: QuickStep; label: string } | null 
 
 function waitingNote(order: FoodOrder) {
   if (order.status !== "pending_acceptance") return null;
+  if (order.payment_method === "cod") return "เก็บเงินปลายทาง";
   if (order.payment_status === "pending") return "รอลูกค้าโอนเงิน";
   if (order.payment_status === "issue") return "รอลูกค้าส่งสลิปใหม่";
   return null;
@@ -254,7 +258,10 @@ function OrderStatus({ order }: { order: FoodOrder }) {
           : order.status === "delivered"
             ? "done"
             : "muted";
-  return <span className={`wm-status wm-status--${tone}`}>{statusLabel(order.status)}</span>;
+  const pickupLabel = order.fulfillment_type === "pickup"
+    ? order.status === "ready_for_delivery" ? "พร้อมให้รับ" : order.status === "delivered" ? "ลูกค้ารับแล้ว" : null
+    : null;
+  return <span className={`wm-status wm-status--${tone}`}>{pickupLabel ?? statusLabel(order.status)}</span>;
 }
 
 function PaymentStatus({ order }: { order: FoodOrder }) {
@@ -329,7 +336,7 @@ function OrderCard({
         <small>{order.food_order_items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0} รายการ</small>
       </div>
       <div className="wm-order-card-footer">
-        <OrderStatus order={order} />
+        <FulfillmentTags order={order} /><OrderStatus order={order} />
         <PaymentStatus order={order} />
         <ChevronRight size={18} strokeWidth={1.8} />
       </div>
@@ -493,6 +500,14 @@ function MerchantInner({
       });
     return () => { live = false; };
   }, [client, store?.id, dataRevision]);
+
+  useEffect(() => {
+    const wake = (event: MessageEvent) => {
+      if (event.data?.kind === "wynos:notification-push" && (!event.data.recipientId || event.data.recipientId === userId)) void loadRef.current?.(true);
+    };
+    navigator.serviceWorker?.addEventListener("message", wake);
+    return () => navigator.serviceWorker?.removeEventListener("message", wake);
+  }, [userId]);
 
   const currentSalesReport = store
     && salesReportState?.storeId === store.id
@@ -1039,7 +1054,7 @@ function HomePanel({
   const filled = (value: string | null | undefined) => Boolean(value?.trim());
   const checklist = [
     { key: "info", label: "ใส่เบอร์ ที่อยู่ เวลาเปิด และพื้นที่ส่ง", done: filled(store.phone) && filled(store.address) && filled(store.business_hours) && filled(store.delivery_area), action: "แก้ไขร้าน", onGo: onEditStore },
-    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: store.stripe_payments_enabled === true || (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
+    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
     { key: "menu", label: "เปิดขายเมนูอย่างน้อย 1 รายการ", done: availableMenu > 0, action: "ไปที่เมนู", onGo: () => onOpenTab("menu") },
     { key: "publish", label: "เผยแพร่ร้านบน WYNOS Food", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
   ];
@@ -1819,10 +1834,10 @@ function StorePanel({
 function merchantAuditLabel(eventType: string) {
   if (eventType === "merchant_store_published") return "เผยแพร่ร้าน";
   if (eventType === "merchant_store_unpublished") return "ซ่อนร้าน";
-  if (eventType === "merchant_menu_created") return "เพิ่มเมนู";
-  if (eventType === "merchant_menu_deleted") return "ลบเมนู";
+  if (eventType === "merchant_menu_created") return "เพิ่มเมนูแล้ว";
+  if (eventType === "merchant_menu_deleted") return "ลบเมนูแล้ว";
   if (eventType === "merchant_menu_reordered") return "จัดลำดับเมนู";
-  if (eventType === "merchant_menu_updated") return "แก้ไขเมนู";
+  if (eventType === "merchant_menu_updated") return "แก้ไขเมนูแล้ว";
   return "แก้ไขข้อมูลร้าน";
 }
 
@@ -1926,6 +1941,7 @@ function OrderSheet({
   // The signed slip URL for a given slip path; null url = it failed to load.
   const [slip, setSlip] = useState<{ path: string | null; url: string | null } | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [cashReceived, setCashReceived] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<"direct" | "dropoff">("direct");
   const [locationNote, setLocationNote] = useState("");
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
@@ -1974,6 +1990,7 @@ function OrderSheet({
 
   const complete = async () => {
     await run(async () => {
+      if (order.payment_method === "cod" && !cashReceived) throw new Error("กรุณายืนยันว่าได้รับเงินสดแล้ว");
       if (!deliveryFile) throw new Error("กรุณาแนบรูปยืนยันการจัดส่งจากคนส่ง");
       if (deliveryMethod === "dropoff" && !locationNote.trim()) throw new Error("กรุณาระบุว่าวางสินค้าไว้ที่ไหน");
       const path = await uploadFoodPrivateImage(client, deliveryFile, `delivery/${order.id}`);
@@ -2043,6 +2060,8 @@ function OrderSheet({
 
   return (
     <Sheet title={`ออเดอร์ #${order.order_number}`} onClose={onClose} wide>
+      {order.fulfillment_type === "pickup" ? <section className="wm-detail-section"><h3>รับเองที่ร้าน</h3><p>เวลานัดรับ: {order.pickup_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" }).format(new Date(order.pickup_at)) : "—"}</p><p>รหัสรับอาหาร: {order.pickup_code ?? "—"}</p></section> : null}
+      <MerchantCancelRefund key={order.id + order.updated_at} client={client} store={store} order={order} locked={locked} onReload={onReload} />
       {printMode === "receipt" ? (
         <section className="wm-print-document wm-print-document--receipt" aria-hidden="true">
           <div className="wm-print-brand"><strong>{store.name}</strong><small>{receiptLegalName ? "ใบเสร็จรับเงิน / ข้อมูลภาษี" : "ใบออเดอร์ / ใบเสร็จอย่างย่อ"}</small></div>
@@ -2074,7 +2093,7 @@ function OrderSheet({
         </section>
       )}
       <div className="wm-order-detail-head">
-        <div><OrderStatus order={order} /><PaymentStatus order={order} /></div>
+        <div><FulfillmentTags order={order} /><OrderStatus order={order} /><PaymentStatus order={order} /></div>
         <strong>{money(order.total)}</strong>
         <small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</small>
         <button className="wm-secondary wm-print-order" type="button" onClick={() => printAfterRender("receipt")}><Printer size={17} /> พิมพ์ใบออเดอร์ / ใบเสร็จ</button>
@@ -2102,13 +2121,14 @@ function OrderSheet({
               ) : null}
             </>
           ) : null}
-          {order.payment_status === "pending" ? <p>รอลูกค้าโอนเงิน ถ้าได้รับเงินช่องทางอื่นแล้ว กด “ทำเครื่องหมายว่าชำระแล้ว” ด้านล่าง</p> : null}
+          {order.payment_status === "pending" && order.payment_method !== "cod" ? <p>รอลูกค้าโอนเงิน ถ้าได้รับเงินช่องทางอื่นแล้ว กด “ทำเครื่องหมายว่าชำระแล้ว” ด้านล่าง</p> : null}
           {order.payment_status === "issue" ? <p>แจ้งลูกค้าแล้วว่าสลิปมีปัญหา รอลูกค้าส่งสลิปใหม่</p> : null}
-          {order.payment_status === "submitted" || order.payment_status === "paid" ? (
+          {order.payment_status === "submitted" || order.payment_status === "paid" || order.payment_method === "cod" ? (
             <>
               <label>เวลาทำโดยประมาณ<select value={eta} onChange={(e) => setEta(Number(e.target.value))}><option value={15}>15 นาที</option><option value={30}>30 นาที</option><option value={45}>45 นาที</option><option value={60}>60 นาที</option></select></label>
               {order.payment_status === "submitted" ? (
                 <>
+                  <p>เช็กยอดเงินเข้าในแอปธนาคารก่อนกดยืนยัน</p>
                   {/* WYN-198: one button confirms the payment and accepts the order. */}
                   {/* The store must see the slip before it can confirm the payment. */}
                   <button className="wm-primary wm-full" disabled={locked || !slipShown} type="button" onClick={() => void run(async () => {
@@ -2125,17 +2145,18 @@ function OrderSheet({
         </section>
       ) : null}
 
-      {order.status === "preparing" ? (
+      {order.status === "preparing" && order.fulfillment_type !== "pickup" ? (
         <section className="wm-detail-section wm-next-step"><h3>กำลังเตรียม</h3><p>เมื่ออาหารพร้อม ให้เปลี่ยนสถานะเพื่อเข้าสู่ขั้นตอนจัดส่ง</p><button className="wm-primary wm-full" disabled={locked} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "ready_for_delivery"), "อาหารพร้อมจัดส่ง")}>อาหารพร้อมแล้ว</button></section>
       ) : null}
 
-      {order.status === "ready_for_delivery" ? (
+      {order.fulfillment_type === "pickup" && ["preparing", "ready_for_delivery"].includes(order.status) ? <section className="wm-detail-section"><button className="wm-primary" disabled={locked} type="button" onClick={() => void run(() => transitionPickupOrder(client, order.id, order.status === "preparing" ? "ready_for_pickup" : "picked_up"))}>{order.status === "preparing" ? "พร้อมให้รับ" : "ลูกค้ารับแล้ว"}</button></section> : null}
+      {order.status === "ready_for_delivery" && order.fulfillment_type !== "pickup" ? (
         <section className="wm-detail-section wm-next-step"><h3>พร้อมจัดส่ง</h3><p>ส่งอาหารให้คนส่งแล้วกดเริ่มจัดส่ง เมื่อส่งถึงแล้ว ขอรูปจากคนส่งมาแนบเพื่อยืนยันกับลูกค้า</p><button className="wm-primary wm-full" disabled={locked} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "out_for_delivery"), "เริ่มจัดส่งแล้ว")}><Truck size={18} /> เริ่มจัดส่ง</button></section>
       ) : null}
 
       {order.status === "out_for_delivery" ? (
         <section className="wm-detail-section wm-next-step">
-          <h3>Delivery Mode</h3>
+          <h3>Delivery Mode</h3>{order.payment_method === "cod" ? <label><input type="checkbox" checked={cashReceived} disabled={locked} onChange={e => setCashReceived(e.target.checked)} />ได้รับเงินสดแล้ว</label> : null}
           <div className="wm-delivery-methods">
             <button className={deliveryMethod === "direct" ? "is-active" : ""} type="button" onClick={() => setDeliveryMethod("direct")}><PackageCheck size={20} /><span><strong>ส่งให้ลูกค้า</strong><small>ส่งถึงมือผู้รับ · ต้องมีรูป</small></span></button>
             <button className={deliveryMethod === "dropoff" ? "is-active" : ""} type="button" onClick={() => setDeliveryMethod("dropoff")}><ImagePlus size={20} /><span><strong>วางสินค้าไว้</strong><small>ต้องมีรูปและจุดที่วาง</small></span></button>
@@ -2149,7 +2170,7 @@ function OrderSheet({
               <label>วางสินค้าไว้ที่ไหน?<textarea value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder="เช่น โต๊ะหน้าประตูด้านซ้าย" /></label>
             ) : null}
           </div>
-          <button className="wm-primary wm-full" disabled={locked || !deliveryFile || (deliveryMethod === "dropoff" && !locationNote.trim())} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
+          <button className="wm-primary wm-full" disabled={locked || !deliveryFile || (order.payment_method === "cod" && !cashReceived) || (deliveryMethod === "dropoff" && !locationNote.trim())} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
         </section>
       ) : null}
 
@@ -2172,7 +2193,7 @@ function OrderSheet({
 
       <section className="wm-detail-section">
         <h3>การชำระเงิน</h3>
-        <div className="wm-payment-box">
+        <div className="wm-payment-box"><p>เช็กยอดเงินเข้าในแอปธนาคารก่อนกดยืนยัน</p>
           <PaymentStatus order={order} />
           {slipUrl && !(order.status === "pending_acceptance" && order.payment_status === "submitted") ? <a href={slipUrl} target="_blank" rel="noreferrer"><img src={slipUrl} alt="สลิปชำระเงิน" /></a> : null}
           {order.payment_note ? <p>{order.payment_note}</p> : null}
@@ -2181,7 +2202,7 @@ function OrderSheet({
           {order.payment_verification_status === "manual_verified" ? <p>ร้านยืนยันการชำระเงินแล้ว</p> : null}
           {order.payment_verification_status === "rejected" && order.payment_verification_note ? <p>{order.payment_verification_note}</p> : null}
           {order.status === "pending_acceptance" ? (
-            order.payment_status === "pending" ? (
+            order.payment_status === "pending" && order.payment_method !== "cod" ? (
               <button className="wm-secondary wm-full" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "บันทึกว่าชำระแล้ว")}>ทำเครื่องหมายว่าชำระแล้ว</button>
             ) : null
           ) : order.payment_status === "submitted" ? (
@@ -2189,7 +2210,7 @@ function OrderSheet({
               <button className="wm-primary" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "ยืนยันเงินเข้าแล้ว")}>ยืนยันเงินเข้า</button>
               <button className="wm-secondary" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "issue", "กรุณาตรวจสอบหรือส่งสลิปใหม่"))}>มีปัญหา</button>
             </div>
-          ) : order.payment_status === "pending" ? (
+          ) : order.payment_status === "pending" && order.payment_method !== "cod" ? (
             <button className="wm-secondary wm-full" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "บันทึกว่าชำระแล้ว")}>ทำเครื่องหมายว่าชำระแล้ว</button>
           ) : null}
         </div>
@@ -2221,7 +2242,7 @@ function OrderSheet({
 
 
       {order.status === "delivered" ? (
-        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
+        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>{order.fulfillment_type === "pickup" ? "ลูกค้ารับอาหารแล้ว" : "จัดส่งสำเร็จแล้ว"}</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
       ) : null}
 
       {!["delivered", "cancelled"].includes(order.status) ? (
@@ -2693,7 +2714,6 @@ function StoreEditor({
   const [coverState, setCoverState] = useState<"idle" | "selected" | "uploading" | "uploaded" | "error">(store.cover_path ? "uploaded" : "idle");
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const [stripeStatus, setStripeStatus] = useState<MerchantStripeStatus | null>(null);
   const [schedule, setSchedule] = useState<FoodBusinessSchedule>(() => {
     const current = store.business_schedule as FoodBusinessSchedule | undefined;
     return current?.weekly ? current : defaultFoodBusinessSchedule();
@@ -2729,14 +2749,6 @@ function StoreEditor({
       if (coverPreview?.startsWith("blob:")) URL.revokeObjectURL(coverPreview);
     };
   }, [logoPreview, coverPreview]);
-
-  useEffect(() => {
-    let live = true;
-    void fetchMerchantStripeStatus(client, store.id)
-      .then((status) => { if (live) setStripeStatus(status); })
-      .catch(() => { if (live) setStripeStatus(null); });
-    return () => { live = false; };
-  }, [client, store.id]);
 
   useEffect(() => {
     if (!pin) return;
@@ -2952,7 +2964,7 @@ function StoreEditor({
             {FOOD_DAY_KEYS.map((key) => {
               const day = schedule.weekly[key] ?? { enabled: false, open: "09:00", close: "21:00" };
               return <div className="wm-schedule-day" key={key}>
-                <label className="wm-check-row"><input type="checkbox" checked={day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, enabled: e.target.checked } } }))} /><span><strong>{FOOD_DAY_LABELS[key]}</strong><small>{day.enabled ? "เปิด" : "ปิด"}</small></span></label>
+                <label className="wm-check-row"><input type="checkbox" checked={day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, enabled: e.target.checked } } }))} /><span><strong>{FOOD_DAY_LABELS[key]}</strong><small>{day.enabled ? "เปิด" : "ปิดทำการ"}</small></span></label>
                 <input type="time" value={day.open} disabled={!day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, open: e.target.value } } }))} />
                 <span>–</span>
                 <input type="time" value={day.close} disabled={!day.enabled} onChange={(e) => setSchedule((current) => ({ ...current, weekly: { ...current.weekly, [key]: { ...day, close: e.target.value } } }))} />
@@ -3047,24 +3059,17 @@ function StoreEditor({
           </div>
         </section>
 
+        <MerchantFulfillmentSettings key={store.id} client={client} store={store} onSaved={onSaved} />
         <section className="wm-settings-category" id="wm-store-section-payment">
           <div className="wm-settings-category-head">
             <span className="wm-settings-category-icon"><CircleDollarSign size={20} /></span>
-            <span><strong>การรับชำระเงิน</strong><small>รับเงินจากลูกค้าผ่านบัตรและ PromptPay เงินจะโอนเข้าบัญชีธนาคารของร้านอัตโนมัติ</small></span>
+            <span><strong>การรับชำระเงิน</strong><small>ลูกค้าโอนเข้าบัญชีร้านแล้วแนบสลิป ร้านเช็กยอดเงินเข้าในแอปธนาคารก่อนกดยืนยัน</small></span>
           </div>
           <div className="wm-settings-category-body">
-            <MerchantPaymentSetup
-              client={client}
-              storeId={store.id}
-              status={stripeStatus}
-              onStatus={setStripeStatus}
-              onMessage={onMessage}
-              onReady={onSaved}
-            />
-
-            <details className="wm-payment-fallback">
-              <summary>ช่องทางโอนเงินสำรอง</summary>
-              <small>ใช้เฉพาะกรณีที่ร้านต้องการรับโอนและตรวจสลิปเอง</small>
+            {/* Founder 2026-10-26: Stripe is paused; transfer + slip is the only payment method. */}
+            <details className="wm-payment-fallback" open>
+              <summary>บัญชีรับโอน</summary>
+              <small>กรอก PromptPay หรือบัญชีธนาคารอย่างน้อย 1 ช่องทาง ลูกค้าจะเห็นข้อมูลนี้ตอนชำระเงิน</small>
               <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
               <label>ธนาคาร<input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} /></label>
               <label>ชื่อบัญชี<input value={form.bank_account_name} onChange={(e) => setForm({ ...form, bank_account_name: e.target.value })} /></label>

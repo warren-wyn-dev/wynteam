@@ -1,6 +1,6 @@
--- Keep permanent Auth users aligned with public.profiles so Food foreign keys
--- cannot fail for a valid signed-in customer. Anonymous users are intentionally
--- left without profiles until they are upgraded to permanent accounts.
+-- WYNOS / ZOKY profile integrity for Food customer foreign keys.
+-- Permanent Auth users must always have a matching public.profiles row.
+-- Anonymous users intentionally remain without profiles until upgraded.
 
 create schema if not exists private;
 

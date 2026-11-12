@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { createClockSkewRetryFetch } from "@/lib/supabase/clock-skew-fetch";
+import { createClockSkewRetryFetch, createSharedTokenRefresher } from "@/lib/supabase/clock-skew-fetch";
 
 export const MERCHANT_AUTH_STORAGE_KEY = "wynos-merchant-auth-v1";
 
@@ -23,6 +23,12 @@ export function getMerchantSupabaseBrowserClient(): SupabaseClient | null {
     return merchantClient;
   }
 
+  // The fetch is built before the client, so the refresher binds it lazily.
+  let created: SupabaseClient | null = null;
+  const refresh = createSharedTokenRefresher(async () => {
+    const { data, error } = await created!.auth.refreshSession();
+    return error ? null : data.session?.access_token ?? null;
+  });
   merchantClient = createClient(url, key, {
     auth: {
       storageKey: MERCHANT_AUTH_STORAGE_KEY,
@@ -31,7 +37,8 @@ export function getMerchantSupabaseBrowserClient(): SupabaseClient | null {
       detectSessionInUrl: true,
       flowType: "pkce",
     },
-    global: { fetch: createClockSkewRetryFetch() },
+    global: { fetch: createClockSkewRetryFetch(undefined, refresh) },
   });
+  created = merchantClient;
   return merchantClient;
 }

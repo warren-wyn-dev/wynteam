@@ -45,7 +45,7 @@ const READINESS_LABELS: Record<string, string> = {
   address: "ที่อยู่ร้าน",
   business_hours: "เวลาเปิด–ปิด",
   delivery_area: "พื้นที่จัดส่ง",
-  service_area: "ปักหมุดร้านในจังหวัดมหาสารคาม",
+  service_area: "ปักหมุดร้านในพื้นที่ให้บริการ",
   payment: "ช่องทางรับเงิน",
   menu: "เมนูที่เปิดขาย",
 };
@@ -66,9 +66,9 @@ const ACTION_LABELS: Record<string, string> = {
   store_publish_changed: "เปลี่ยนสถานะเผยแพร่ร้าน",
   store_open_changed: "เปลี่ยนสถานะเปิดร้าน",
   store_updated: "แก้ไขข้อมูลร้าน",
-  menu_created: "เพิ่มเมนู",
-  menu_deleted: "ลบเมนู",
-  menu_updated: "แก้ไขเมนู",
+  menu_created: "เพิ่มเมนูแล้ว",
+  menu_deleted: "ลบเมนูแล้ว",
+  menu_updated: "แก้ไขเมนูแล้ว",
   menu_price_changed: "เปลี่ยนราคาเมนู",
   menu_availability_changed: "เปลี่ยนสถานะขายเมนู",
   order_status_changed: "เปลี่ยนสถานะออเดอร์",
@@ -441,7 +441,7 @@ export function RefundControls({
   const eligible = order.status === "cancelled"
     && (order.payment_status === "paid" || order.payment_status === "refunded" || status !== "none");
 
-  if (!eligible) return null;
+  if (!eligible || order.payment_provider !== "stripe") return null;
 
   const run = async (next: "pending" | "refunded" | "failed", success: string) => {
     setBusy(true);
