@@ -182,5 +182,9 @@ jobs:
           # Stripe webhooks and Vault-scheduled background jobs cannot send a
           # Supabase user JWT; the listed functions instead authenticate at
           # the application layer using Stripe-Signature or a dedicated Vault key.
+          # --yes: newer Supabase CLI versions ask "Deploy 1 Function?" and fail
+          # in CI because stdout is not a terminal. The target is already pinned
+          # to one function and one project ref above, behind the production
+          # environment review.
           SUPABASE_ACCESS_TOKEN="$CLEAN_TOKEN" \
-            supabase functions deploy "${{ inputs.function }}" --project-ref "$PROJECT_REF"
+            supabase functions deploy "${{ inputs.function }}" --project-ref "$PROJECT_REF" --yes
