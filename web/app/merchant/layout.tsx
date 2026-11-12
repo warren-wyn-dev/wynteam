@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 import "../food/food.css";
 import "./merchant.css";
 
-const MERCHANT_ICON_180 = "/icons/merchant/v15-180.png";
-const MERCHANT_ICON_192 = "/icons/merchant/v15-192.png";
-const MERCHANT_ICON_512 = "/icons/merchant/v15-512.png";
+const MERCHANT_ICON_180 = "/icons/merchant/v16-180.png";
+const MERCHANT_ICON_192 = "/icons/merchant/v16-192.png";
+const MERCHANT_ICON_512 = "/icons/merchant/v16-512.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://merchant.wynos.online"),
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     title: "WYNOS Merchant | ระบบร้านอาหาร WYNOS",
     description: "ระบบสำหรับร้านอาหารและ Merchant ของ WYNOS ที่ merchant.wynos.online",
   },
-  manifest: "/merchant/manifest.webmanifest?v=15",
+  manifest: "/merchant/manifest.webmanifest?v=16",
   icons: {
     icon: [
       { url: MERCHANT_ICON_192, sizes: "192x192", type: "image/png" },

@@ -22,32 +22,33 @@ test("WYNOS Food is a separate product surface with its own PWA shell", () => {
   expect(layout).toContain("follow: true");
   expect(manifest).toContain('start_url: "/"');
   expect(manifest).toContain('scope: "/"');
-  expect(manifest).toContain('theme_color: "#e32636"');
-  expect(manifest).toContain('description: "WYNOS Food Public Beta"');
+  expect(manifest).toContain('theme_color: "#f93384"');
+  expect(manifest).toContain('description: "ZOKY สั่งอาหาร (Public Beta)"');
   const proxy = read("proxy.ts");
-  expect(proxy).toContain('new URL("https://food.wynos.online")');
-  expect(proxy).toContain('matcher: ["/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*"]');
+  expect(proxy).toContain("new URL(FOOD_PRODUCTION_ORIGIN)");
+  expect(proxy).toContain('"/", "/food", "/food/:path*", "/login", "/signup", "/signup/:path*",');
 });
 
-test("WYNOS Food approved glossy pink-red shadow-free icon is static, consistent and cache-busted", () => {
+test("ZOKY approved icon is static, consistent and cache-busted", () => {
   const layout = read("app/food/layout.tsx");
   const manifest = read("app/food/manifest.ts");
   const publicManifest = read("public/food/manifest.webmanifest");
   const auth = read("components/food/food-auth.tsx");
-  const app = read("components/food/wynos-food-developer-app.tsx");
 
-  expect(layout).toContain("/icons/food/icon-32-v12.png");
-  expect(layout).toContain("/icons/food/icon-192-v12.png");
-  expect(layout).toContain("/icons/food/icon-512-v12.png");
-  expect(layout).toContain("manifest.webmanifest?v=20261009-13");
-  expect(manifest).toContain("/icons/food/icon-192-v12.png");
-  expect(manifest).toContain("/icons/food/icon-512-v12.png");
-  expect(publicManifest).toContain("/icons/food/icon-192-v12.png");
-  expect(publicManifest).toContain("/icons/food/icon-512-v12.png");
-  expect(manifest).toContain("/icons/food/icon-512-maskable-v12.png");
-  expect(publicManifest).toContain("/icons/food/icon-512-maskable-v12.png");
-  expect(auth).toContain('src="/icons/food/icon-192-v12.png"');
-  expect(app).toContain('className="wf-brand-logo"');
+  expect(layout).toContain("/icons/zoky/icon-32-v1.png");
+  expect(layout).toContain("/icons/zoky/icon-192-v1.png");
+  expect(layout).toContain("/icons/zoky/icon-512-v1.png");
+  expect(layout).toContain("/icons/zoky/apple-touch-icon-180-v1.png");
+  expect(layout).toContain("manifest.webmanifest?v=20261018-zoky1");
+  expect(manifest).toContain("/icons/zoky/icon-192-v1.png");
+  expect(manifest).toContain("/icons/zoky/icon-512-v1.png");
+  expect(publicManifest).toContain("/icons/zoky/icon-192-v1.png");
+  expect(publicManifest).toContain("/icons/zoky/icon-512-v1.png");
+  expect(manifest).toContain("/icons/zoky/icon-512-maskable-v1.png");
+  expect(publicManifest).toContain("/icons/zoky/icon-512-maskable-v1.png");
+  expect(auth).toContain('src="/icons/zoky/icon-192-v1.png"');
+  // ZOKY web Home header uses the approved white wordmark (versioned static asset).
+  expect(read("components/food/zoky-web-ui.tsx")).toContain('src="/icons/zoky/wordmark-white-v1.png"');
   for (const size of [32, 192, 512]) {
     const png = readFileSync(join(process.cwd(), `public/icons/food/icon-${size}-v12.png`));
     expect(png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))).toBe(true);
@@ -81,9 +82,9 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(app).toContain("<FoodDeliveryMapPicker");
   const css = read("app/food/food.css");
   const mapsCss = read("app/maps/maps.css");
-  const mapsV2Css = read("app/maps/maps.css");
-  const mapsV4Css = read("app/maps/maps.css");
-  const serviceArea = JSON.parse(read("public/maps/food-service-area-maha-sarakham.json")) as {
+  const mapsV2Css = read("app/maps/maps-v2.css");
+  const mapsV4Css = read("app/maps/maps-v4.css");
+  const serviceArea = JSON.parse(read("public/maps/food-service-area-thailand.json")) as {
     geometry?: { coordinates?: number[][][] };
   };
 
@@ -109,8 +110,9 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(mapsV2Css).toContain(".wf-map-place-marker.is-cafe");
   expect(mapsV2Css).toContain(".wf-map-user-location");
 
-  expect(map).toContain('const SERVICE_AREA_URL = "/maps/food-service-area-maha-sarakham.json";');
-  expect(map).toContain("pointInServiceArea(location, serviceAreaBoundary)");
+  expect(map).toContain('const SERVICE_AREA_URL = "/maps/food-service-area-thailand.json";');
+  expect(map).toContain("pointInServiceAreas(location, serviceAreaBoundary)");
+  expect(map).toContain('client.rpc("food_service_area_boundaries")');
   expect(map).toContain("map.addSource(SERVICE_AREA_SOURCE");
   expect(map).toContain("SERVICE_AREA_FILL_LAYER");
   expect(map).toContain("SERVICE_AREA_LINE_LAYER");
@@ -150,17 +152,17 @@ test("WYNOS Food profile is delivery-specific and separate from Social profile",
   const app = read("components/food/wynos-food-developer-app.tsx");
   const data = read("lib/food-customer.ts");
 
-  expect(app).toContain("โปรไฟล์ WYNOS Food");
+  expect(app).toContain("โปรไฟล์ ZOKY");
   expect(app).toContain("ข้อมูลสำหรับการสั่งและจัดส่งอาหารเท่านั้น");
   expect(app).toContain("ชื่อผู้รับ");
   expect(app).toContain("เบอร์โทร");
   expect(app).toContain("ที่อยู่หลัก");
   expect(app).toContain("โลเคชั่น");
   expect(app).toContain("รายละเอียดเพิ่มเติม");
-  expect(app).toContain("ขายอาหารบน WYNOS Food");
+  expect(app).toContain("ขายอาหารบน ZOKY");
   expect(app).toContain("สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi");
   expect(app).toContain('href="https://lin.ee/SKQAOtm"');
-  expect(app).toContain("ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS");
+  expect(app).toContain("ข้อมูลนี้เป็นของ ZOKY เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS");
   expect(app).toContain("showPin={true}");
   expect(app).not.toContain('href="/profile/');
   expect(data).toContain('.from("food_customer_addresses")');
@@ -239,8 +241,8 @@ test("Wyn Maps Places enriches saved addresses without exposing customer homes",
   expect(map).toContain('wf-map-confirm-tool-label">เส้นทาง');
   expect(map).toContain('wf-map-confirm-tool-label">บันทึก');
   expect(map).toContain('wf-map-confirm-tool-label">แชร์');
-  expect(read("app/maps/maps.css")).toContain("v5.3 — match the approved premium-minimal Maps visual direction");
-  expect(read("app/maps/maps.css")).toContain("background: rgb(255 59 48 / 10%)");
+  expect(read("app/maps/maps-v5.css")).toContain("v5.3 — match the approved premium-minimal Maps visual direction");
+  expect(read("app/maps/maps-v5.css")).toContain("background: rgb(255 59 48 / 10%)");
   expect(map).toContain("เพิ่มสถานที่ที่หายไป");
   expect(map).toContain("submitWynosPlaceSuggestion");
   expect(data).toContain('client.rpc("submit_wynos_place_suggestion"');
@@ -251,14 +253,14 @@ test("Wyn Maps Places enriches saved addresses without exposing customer homes",
   expect(overtureWorkflow).toContain("activate_confidence");
   expect(overtureImporter).toContain("source_ref");
   expect(overtureImporter).toContain("activate-confidence");
-  expect(map).toContain("สั่งอาหารได้ใน WYNOS Food");
+  expect(map).toContain("สั่งอาหารได้ใน ZOKY");
   expect(map).toContain("wf-map-food-action");
   expect(map).toContain("> สั่งอาหาร</a>");
-  expect(map).toContain("https://food.wynos.online/?store=");
+  expect(map).toContain("${FOOD_SITE_URL}/?store=");
   expect(app).toContain("sharedFoodStoreId(window.location.search)");
   expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
   expect(app).toContain("หมายเหตุถึงผู้จัดส่ง");
-  expect(app).toContain("WYNOS Place ·");
+  expect(app).toContain("สถานที่ ·");
   expect(app).toContain('const WYNOS_MAPS_PIN_STORAGE_KEY = "wynos:maps:last-pin";');
   expect(app).toContain("draftWithLastWynosMapsPin");
 });
@@ -268,13 +270,16 @@ test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
 
   expect(app).toContain('type FoodTab = "home" | "orders" | "messages" | "cart" | "account"');
   expect(app).toContain('{ key: "messages", label: "ข้อความ"');
-  expect(app).toContain("onClick={() => onTab(item.key)}");
+  // ZOKY capsule nav (2026-10-19) keeps the same Food-only tab handler.
+  expect(app).toContain("onSelect={(key) => onTab(key)}");
   expect(app).toContain('tab === "messages" ? <MessagesPanel /> : null');
-  expect(app).toContain("แชท WYNOS Food แยกจากแชท WYNOS");
+  expect(app).toContain("แชท ZOKY แยกจากแชท WYNOS");
   expect(app).not.toContain('onMessages={() => router.push("/chat")}');
 });
 
-test("Food checkout is delivery-only and immediate (Founder decision 2026-10-10)", () => {
+// Founder 2026-10-10: no scheduled orders. ZOKY-FULFILL-001 (approved 2026-10-26)
+// added pickup today, offered only when the store turns it on.
+test("Food checkout is immediate; pickup only when the store offers it (ZOKY-FULFILL-001)", () => {
   const data = read("lib/food-customer.ts");
   const app = read("components/food/wynos-food-developer-app.tsx");
 
@@ -284,7 +289,8 @@ test("Food checkout is delivery-only and immediate (Founder decision 2026-10-10)
   expect(app).toContain("scheduledFor: null");
   expect(app).not.toContain('useState<"asap" | "scheduled">');
   expect(app).not.toContain("สั่งล่วงหน้า");
-  expect(app).not.toContain("รับเองที่ร้าน");
+  expect(app).toContain("const modes = storeFulfillmentModes(store);");
+  expect(data).toContain('if (!store || typeof store.pickup_enabled !== "boolean") return ["delivery"];');
   expect(app).toContain("order.scheduled_for");
 });
 
@@ -443,8 +449,8 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   // Client sends the pin; checkout blocks unpinned or out-of-range addresses.
   expect(lib).toContain("return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};");
   expect(lib).toContain('client.functions.invoke("location-search"');
-  expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
-  expect(app).toContain("const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason);");
+  expect(app).toContain("location: !isPickup && storeHasDeliveryZone(store) ? addressLocation(address) : null");
+  expect(app).toContain("const confirmDisabled = (!isPickup && !address) || busy || quoteLoading || Boolean(blockedReason);");
   expect(app).toContain("disabled={confirmDisabled}");
   expect(map).toContain('aria-label={standalone ? "ค้นหาใน Wyn Maps" : "ค้นหาสถานที่หรือที่อยู่"}');
   expect(merchant).toContain("Math.ceil(");
@@ -502,8 +508,8 @@ test("WYN-211 WYNOS Food is open to everyone; ordering only in Maha Sarakham", (
   // Web (PR #1075): browsing is no longer GPS-gated; the server still rejects
   // out-of-area orders at checkout and the app shows the province message.
   expect(app).not.toContain('area !== "inside"');
-  expect(lib).toContain('if (message.includes("outside service area")) return "ตอนนี้ WYNOS Food ส่งได้เฉพาะในจังหวัดมหาสารคาม";');
-  expect(panels).toContain('service_area: "ปักหมุดร้านในจังหวัดมหาสารคาม",');
+  expect(lib).toContain('if (message.includes("outside service area")) return "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY";');
+  expect(panels).toContain('service_area: "ปักหมุดร้านในพื้นที่ให้บริการ",');
   expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-211'");
 });
 
@@ -555,7 +561,7 @@ test("WYNOS Food storefront uses compact search and keeps favorite off the categ
   expect(app).toContain('aria-pressed={favorite}');
   expect(app).toContain('<Sheet title="ค้นหาเมนูอาหาร"');
   expect(app).not.toContain('>ร้านโปรด</button>');
-  expect(app).toContain('aria-label="กลับหน้าหลัก WYNOS Food" onClick={onBackStorefront}');
+  expect(app).toContain('aria-label="กลับหน้าหลัก ZOKY" onClick={onBackStorefront}');
   expect(app).toContain('className="fx-store-menu"');
   expect(app).toContain('loading="lazy" decoding="async"');
   expect(app).toContain('" has-cart-bar"');
@@ -626,7 +632,7 @@ test("WYNOS Food item sheet matches the approved native ordering layout", () => 
 test("standalone Wyn Maps stays independent from Food-only chrome and service-area blocking", () => {
   const shell = read("app/maps/wynos-maps-address-picker.tsx");
   const map = read("components/food/food-delivery-map-picker.tsx");
-  const polish = read("app/maps/maps.css");
+  const polish = read("app/maps/maps-v5.css");
 
   expect(shell).not.toContain("wynos-maps-brand-rail");
   expect(shell).not.toContain('router.push("/food")');
@@ -638,4 +644,69 @@ test("standalone Wyn Maps stays independent from Food-only chrome and service-ar
   expect(polish).toContain(".wf-map-sheet.is-half .wf-map-place-card");
   expect(polish).toContain(":has(.wf-map-place-card) .wf-map-confirm-copy");
   expect(polish).toContain(":has(.wf-map-directions) .wf-map-confirm-copy");
+});
+
+test("ZOKY web Home + Food follow the app design with real data only (2026-10-19)", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const guest = read("components/food/food-guest-browse.tsx");
+  const ui = read("components/food/zoky-web-ui.tsx");
+  const css = read("app/food/food-app.css");
+
+  // Directory load: a failed fetch is an error state with retry, never an endless skeleton.
+  expect(app).toContain("fetchFoodStoreDirectory(client).catch(() => null)");
+  expect(app).toContain('setDirectory((current) => current.status === "ready" ? current : { status: "error" });');
+  expect(app).toContain("<FoodDirectoryError onRetry={onRetry} />");
+  // Home ↔ Food is a history entry (?view=food) so browser back returns Home.
+  expect(app).toContain('url.searchParams.set("view", "food")');
+  expect(app).toContain('window.history.state?.zkView === "food"');
+  expect(guest).toContain('url.searchParams.set("view", "food")');
+  // ZOKY-140: leaving Food for a store or tab pushes an entry without ?view=food,
+  // and popstate restores that screen, so back returns to Food and reload does not.
+  expect(app).toContain('window.history.pushState({ zkScreen: screen }, "", `${url.pathname}${url.search}${url.hash}`);');
+  expect(app).toContain('setTab(screen && screen !== "store" ? screen : "home");');
+  expect(app).toContain('setStorefrontOpen(screen === "store");');
+  // ZOKY-143: the signed-out Food list does the same for a store or the basket.
+  expect(guest).toContain('window.history.pushState({ zkScreen: screen, zkStore: selectedId }, "", `${url.pathname}${url.search}${url.hash}`);');
+  expect(guest).toContain('setSelectedId(state?.zkScreen ? state.zkStore ?? null : null);');
+  // ZOKY-144: closing a basket opened from the list goes back; back never leaves an item sheet open.
+  expect(guest).toContain('if (window.history.state?.zkScreen === "basket" && !selectedId) window.history.back();');
+  expect(guest).toContain('setShowBasket(state?.zkScreen === "basket");\n      setSelectedItem(null);');
+  expect(app).toContain('setStorefrontOpen(screen === "store");\n      setSelectedItem(null);');
+  // Founder 2026-10-19: deals, category circles and pickup stay hidden on Home; "ร้านอาหารแนะนำ" = real popular stores.
+  // ZOKY-FULFILL-001 (2026-10-26) puts pickup in checkout and orders only, never on Home.
+  for (const source of [app, guest, ui]) {
+    expect(source).not.toContain("ดีลเด็ดวันนี้");
+    expect(source).not.toContain("ข้อมูลตัวอย่าง");
+  }
+  for (const source of [guest, ui]) expect(source).not.toContain("รับเองที่ร้าน");
+  const homeStart = app.indexOf("\nfunction FoodHomeScreen(");
+  const home = app.slice(homeStart, app.indexOf("\nfunction ", homeStart + 1));
+  expect(home.length).toBeGreaterThan(0);
+  expect(home).not.toContain("รับเองที่ร้าน");
+  expect(app).toContain("foodPopularStores(directory.stores)");
+  expect(app).toContain('title="ร้านยอดนิยม"');
+  // No fake ratings or ETAs.
+  expect(app).toContain("return rating > 0 && count > 0 ? rating : null;");
+  expect(app).toContain("if (store.prep_time_min_minutes == null || store.prep_time_max_minutes == null) return null;");
+  // Bottom nav is hidden on the Food page; the floating cart takes its place.
+  expect(app).toContain('{discoveryView !== "food" ? (');
+  expect(app).toContain("<ZokyFoodCartButton");
+  // Inline SVG 3D icons, unique ids per instance; bento is a versioned static SVG.
+  expect(ui).toContain("useId()");
+  expect(ui).toContain('src="/icons/zoky/bento-v1.svg"');
+  expect(read("public/icons/zoky/bento-v1.svg")).toContain("<svg");
+  // Founder 2026-10-22: storefront header = name · address, then rating, distance (ZOKY scooter icon) and
+  // delivery minutes; no menu count, delivery fee or "open" line. Minutes only with a pin and prep times.
+  expect(app).toContain('const etaLabel = distance != null ? foodStoreEtaLabel(store, distance) : null;');
+  expect(app).toContain("<ZokyScooterIcon />");
+  for (const source of [app, guest]) {
+    expect(source).toContain('<div className="fx-store-title">');
+    expect(source).not.toContain("ค่าส่งเริ่มต้น");
+    expect(source).not.toContain("เปิดรับออเดอร์</p>");
+  }
+  // The guest header no longer repeats the store description (Founder 2026-10-22: it duplicated the address).
+  expect(guest).not.toContain('{store.description ? <p className="fx-store-min">{store.description}</p> : null}');
+  // Centred 480px column; tap targets of at least 44px.
+  expect(css).toContain(".zk-col { width: 100%; max-width: 480px; margin-inline: auto; }");
+  expect(css).toContain(".zk-glossy-btn.is-sm { width: 44px; height: 44px;");
 });

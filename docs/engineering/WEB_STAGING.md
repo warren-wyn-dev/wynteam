@@ -17,7 +17,7 @@ For each push to such a PR the workflow:
 
 - Open the staging URL from the PR comment on a phone or desktop. It is protected by Vercel Deployment Protection, so sign in to Vercel first.
 - Staging verification means the workflow above is green and, for user-facing changes, the change was tried on the staging URL.
-- Merging the PR to `main` still deploys production automatically (`wyn-158-production-deploy.yml`, Founder choice). Staging therefore happens **before merge**. Do not merge a user-facing web PR whose staging job is red or has not run.
+- Merging the PR to `main` does **not** deploy production. Production is a manual, gated run of `wyn-158-production-deploy.yml` (`workflow_dispatch` only): it must run from `main` with `release_confirmation = RELEASE_ALL_APPROVED`, pass the GitHub Environment `production` reviewer approval, and the coordinated-release acceptance issues must all be closed. It deploys the whole of `main`. Staging still happens **before merge**. Do not merge a user-facing web PR whose staging job is red or has not run.
 
 ## Limits (accepted by the Founder)
 

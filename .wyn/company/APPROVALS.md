@@ -712,86 +712,65 @@
 - Risks: the HIGH privilege-delegation risk is covered by the 75-check DB test but has no staging verification; Founder accepted shipping ahead of staging for ZOKY Admin. Mitigation: no Team Lead exists until the super admin appoints one; verify login and pages right after deploy.
 - Rollback: remove the domain or promote nothing (no previous production); revert the migration with `supabase/rollbacks/20261025100000_zoky_admin_team_v1_rollback.sql` (granted permissions stay).
 
-### APPROVAL — [2026-10-31] ZOKY-LINE-001 LINE OA notifications and LIFF entry
+### APPROVAL — [2026-10-26] ZOKY-FULFILL-001 pickup at store and store delivery with optional COD
 
-- Founder asked to connect LINE for ZOKY customers and Merchant, chose "แจ้งเตือนผ่าน LINE OA" + "เปิดใน LINE (LIFF)" (not LINE Login as a sign-in method, not a store chat button), confirmed a LINE Developers/OA account exists, then replied "อนุญาต" to decisions D1–D6 in `.wyn/tasks/approved/ZOKY-LINE-001-line-oa-notifications-liff.md` as proposed.
-- Approved: additive migration `20261031120000_zoky_line_links.sql`; Edge Functions `line-link` and `line-webhook`; LINE delivery inside `send-push-notification` behind `LINE_NOTIFICATIONS_ENABLED`; `/line` LIFF page and settings entries; dependency `@line/liff` (official LINE SDK, pinned); two OAs (customer, Merchant); LINE OA message cost per the OA plan the Founder chooses.
-- Boundaries: no auth-architecture change (Supabase session stays the only ZOKY login); no secrets in the repo or chat; migration/Edge Function/web release only through the existing protected workflows after QA & Security, staging and a separate Founder production approval.
-- Rollback: unset `LINE_NOTIFICATIONS_ENABLED` (stops all LINE sends and links immediately); the migration is additive with `supabase/rollbacks/20261031120000_zoky_line_links_rollback.sql`.
-- Status: backend live and inert (PR #1304, `line_links` applied, `line-link`/`line-webhook` deployed 2026-10-31; see `.wyn/logs/deployments/2026-10-31-zoky-line-001-backend.md`). `send-push-notification` and web release pending LINE secrets and Founder decisions.
+- Founder asked for two fulfilment types ("รับเองที่ร้าน" with a pickup time before closing, and "ร้านจัดส่งเอง"), answered the open questions, and replied "อนุมัติ" to section 4 of `.wyn/docs/product/zoky-fulfill-001-pickup-and-store-delivery.md`.
+- Decisions:
+  - Pickup is paid online; the customer picks a time today, in 15-minute slots, before closing.
+  - Delivery stays as soon as possible.
+  - Each store may enable cash on delivery, for delivery orders only.
+  - Late pickup is allowed.
+  - After the store accepts, the customer can only request cancellation. The store approves or rejects it and decides whether to refund. The store also decides refunds for no-shows.
+  - COD orders carry no GP.
+- Supersedes: the 2026-10-10 DECISION "WYNOS Food is delivery only", for pickup and same-day pickup times only. Delivery scheduling stays disabled.
+- Approved:
+  - The scope change.
+  - An additive DB migration with rollback SQL, covering fulfilment type, pickup time and code, COD, store toggles, prep minutes and the new statuses.
+  - Food, Merchant and Zoky Admin changes.
+- Boundaries: no production DB change or deployment outside the release gates. QA & Security, staging and an explicit Founder production approval are still required.
+- Separate: the Founder also wants GP replaced by a monthly store fee platform-wide. This is tracked as ZOKY-BILLING-001 and needs its own PRD and approval. Not covered here.
+- Rollback: before release nothing reaches production. After release, turn off pickup and COD per store or globally, revert the app, and roll back the migration using the rollback SQL. Existing orders keep `fulfillment_type='delivery'`.
+- Status: approved; design starting. No migration applied, no deployment performed.
 
-### APPROVAL — [2026-11-02] ZOKY ordering open to all of Thailand
+### APPROVAL — [2026-10-26] ZOKY payments: bank transfer + slip only, store-verified; Stripe paused
 
-- Founder: "เอาคำว่าให้บริการพื้นที่มหาสารคามออก เพราะขายทั่วไทย" (label removed and live, PR #1321), then "เปิดใช้ทั่วประเทศไทย" after being told ordering and store pins were still limited to Maha Sarakham.
-- Approved: data-only migration `20261102140000_zoky_service_area_thailand.sql` (one active `thailand` row in `public.food_service_areas`, OpenStreetMap relation 2067731, ODbL) applied through `zoky-service-area-thailand-apply.yml` (production environment review), plus a web release that replaces the Maha Sarakham wording and map boundary with Thailand.
-- Unchanged: every server check still goes through `internal.food_in_service_area`; each store's delivery radius and fee rules still apply, so stores only deliver near themselves; developer bypass unchanged; no function, policy or grant change.
-- Risks: a store pinned near a border is judged against a boundary simplified to about 330 m; points outside Thailand stay blocked. Wider ordering means more stores and customers outside the original pilot area (support, payment and delivery operations).
-- Rollback: `supabase/rollbacks/20261102140000_zoky_service_area_thailand_rollback.sql` (sets the row inactive: Maha Sarakham-only again) and Vercel rollback of the web release.
-- Status: approved and live 2026-11-02 (DB run 41467621238, web run 41467993367).
+- The Founder said "ตัด stripe ออกไปเลย โอนเงินเข้าร้านเท่านั้น", then "ระบบตรวจสลิป ให้ร้านค้าเป็นคนอนุมัติเอง". The Founder replied "อนุมัติทั้ง 2 ข้อ" and added "ส่วน Stripe หยุดไว้ก่อน".
+- Approved payment policy. This replaces D11, Stripe-only (2026-10-23):
+  - Customers pay only by PromptPay or bank transfer to the store, then attach a slip.
+  - The store checks its own bank app and confirms or flags the payment. There is no automatic slip verification for these orders.
+  - COD is optional per store and only for delivery orders.
+  - Refunds: the store transfers back and attaches a refund slip. Zoky Admin lists refunds pending for more than 24 hours.
+  - No GP. A monthly fee replaces it in ZOKY-BILLING-001, which is a separate item.
+- Stripe is paused, not removed. Stripe payment is no longer offered and no store needs Stripe to take orders. Stripe accounts, tables, data and code stay in place. The refund worker keeps running until in-flight Stripe payments and refunds are cleared.
+- Also approved: a read-only production dump of function, trigger and constraint definitions, through a GitHub workflow behind the protected production environment. It reads definitions only, no table data. The dump lets the ZOKY-FULFILL-001 migration build on the real production code.
+- Folded into ZOKY-FULFILL-001: same migration and release, same gates (QA & Security, staging, Founder production approval).
+- Rollback: re-activate Stripe-only (`stripe_only_from`), revert the app.
+- Status: approved; no production change made yet.
 
-### APPROVAL — [2026-11-02] ZOKY Admin chooses the service areas
+### RISK ACCEPTANCE — [2026-10-26] ZOKY-FULFILL-001 refund marked without a slip (until the new Merchant app ships)
 
-- Founder: "เอาแบบนี้ไหม ให้ Admin เลือกได้ว่าจะเปิดให้บริการที่ไหนบ้าง", then chose (AskUserQuestion) "รายจังหวัด + ทั้งประเทศ", "ZOKY Admin", "Super admin เท่านั้น".
-- Approved: migration `20261103100000_zoky_service_area_admin.sql` (area grouping columns, 76 province rows off by default, super-admin-only audited `admin_zoky_set_service_area`, `admin_zoky_service_areas`, public `food_service_area_overview` / `food_service_area_boundaries`) via `zoky-service-area-admin-apply.yml`; ZOKY Admin page `/food/service-areas`; web release whose map and wording follow the open areas.
-- Unchanged: `internal.food_in_service_area` and every order/quote/readiness check; store delivery radius; live areas at apply time (Thailand + Maha Sarakham stay on).
-- Safeguards: changes need `internal.is_super_admin()`; every change writes `zoky_service_area_changed` to the audit log; the last open area cannot be turned off; direct table writes stay revoked.
-- Risks: closing an area immediately stops new orders and store publishing there (existing orders unaffected); province borders simplified to about 330 m.
-- Rollback: `supabase/rollbacks/20261103100000_zoky_service_area_admin_rollback.sql`, previous ZOKY Admin and web deployments.
-- Status: approved and live 2026-11-03 (DB run 41548061488, ZOKY Admin run 41496300741, web run 41496305705).
+- Finding: DB QA item 4, MEDIUM, PR #1265. The legacy RPCs `merchant_set_refund_status` and `food_set_payment_status('refunded')` still let store staff mark a transfer refund as refunded without a refund slip. Only the new `food_store_mark_refunded` requires the slip.
+- Why it is not enforced now: enforcing it in the DB would break the "คืนเงินแล้ว" button in the current production Merchant app. That gap would last from the migration until the new Merchant app ships.
+- The Founder chose option "ก" (accept for now) and replied "ก".
+- Accepted until the ZOKY-FULFILL-001 Merchant app is released, which switches refunds to `food_store_mark_refunded` (slip required). The slip requirement is then enforced on the legacy paths in a follow-up migration, with its own QA.
+- Mitigation meanwhile:
+  - Pickup and COD stay off for every store until the store turns them on.
+  - Every refund status change is in `food_order_events`.
+  - Zoky Admin shows the refund status, the store refund slip when there is one, and the order history.
+- Also deferred, LOW: a COD order can still be paid through `food-stripe-checkout`. Stripe is paused, so it is not offered in the app.
+- Status: accepted; follow-up tracked under ZOKY-FULFILL-001.
 
-### APPROVAL — [2026-11-03] ZOKY Merchant UX polish, "หมดวันนี้" and busy mode
+### APPROVAL — [2026-10-27] Merchant Flutter performance improvements and scoped release
 
-- Founder: "Zoky Merchant ออกแบบ ทุกอย่าง ลงตัวยัง" → review found 5 UI issues; "ไปเรียนรู้ UX UI แอปใหญ่ๆก่อน" → comparison with Uber Eats, DoorDash, Grab and Bolt merchant apps; then "ทำ ก กับ ข" (group A UI fixes + group B features).
-- Approved (A, UI only): order card shows one suggested time with "เปลี่ยนเวลา"; one compact row per dish with the switch beside the price; one icon style on the More list; spacing on the pickup settings; light search outline.
-- Approved (B): switching a dish off asks "หมดวันนี้" (existing `food_menu_items.sold_out_until`, next Bangkok midnight; no schema change) or "ปิดขายจนกว่าจะเปิดเอง"; busy mode = migration `20261104100000_zoky_merchant_busy_mode.sql` (`food_stores.busy_extra_minutes` / `busy_until`, RPC `food_store_set_busy` for owner/admin/manager/orders, guard trigger, pickup slots wait for the busy minutes) via `zoky-merchant-busy-mode-apply.yml`, and a web release (Merchant app + customer store page shows the longer wait).
-- Unchanged: order, payment and acceptance rules; the server still refuses sold-out items; no auth or policy change.
-- Risks: busy mode lengthens customer estimates and the earliest pickup time while on (max +60 minutes for max 4 hours, then off by itself); the store directory list does not show busy minutes (store page and checkout do).
-- Rollback: `supabase/rollbacks/20261104100000_zoky_merchant_busy_mode_rollback.sql` and Vercel rollback of the web release.
-- Status: approved and live 2026-11-03 (DB run 41671166129, web run 41719476448, `dpl_2XcAyEVpxhkBdwZ8RdfVeJY3FHEb`).
+- Founder instruction in the Merchant performance session: "เริ่มแก้ที่ละข้อได้เลย แก้ทุกข้อนะ อนุมัติทุกอย่าง" and "ขอให้เร็วสุดๆเท่าที่ทำได้ ด้วย Flutter"; continued on 2026-10-28 with "พัตนาให้หน่อย".
+- Authorized scope: fix background refresh blocking, repeated panel reads/remounts, eager menu/image work, login/startup payload, and Flutter asset caching; retain Flutter and the existing session/authorization/backend contracts. Commit/push and a verified Merchant production release are included in this session's authorization.
+- Release base: deployed `93e6954563b2dcd1108e4157772231262b201b63`. Use the isolated `perf/merchant-flutter-speed` branch, independent QA, a production-configured staged artifact with automatic domain assignment disabled, then assign only `merchant.wynos.online`.
+- No schema migration, customer-data export, new paid service, security policy relaxation, or unrelated main/Food/Social/Maps release is part of this change.
+- Validation, staged deployment, exact release SHA, risks and recovery mapping are recorded in `docs/qa/zoky-merchant-flutter/performance-2026-10-28.md`. Existing required reviews/protections remain in force; this approval is not a claim that QA or production deployment has completed.
 
-### APPROVAL — [2026-11-04] ZOKY order numbers ZF-0000 and pushes without "Wynos Food"
+### APPROVAL CONTINUATION — [2026-10-30] Merchant tab responsiveness and app behavior
 
-- Founder (screenshot of ZOKY pushes): "การแจ้งเตือน เอาคำว่า WYNOS FOOD ออก" and "เลขออเดอร์ คือ ZF-0000".
-- Approved: `send-push-notification` v3 (release/zoky-line-push-20261101): ZOKY customer pushes put the event in the title (no "Wynos Food" line), routing/tap/LINE accept `ZF-0036` and `WF0035`; migration `20261104120000_zoky_order_number_zf.sql` (new orders `ZF-` + same sequence, 4+ digits) via `zoky-order-number-zf-apply.yml`; web release accepting both formats.
-- Order: push function first, then the migration, then the web release, so a ZF- order push is never routed to the wrong app.
-- Unchanged: past orders keep their WF numbers; order creation, payment and grants; Merchant push titles.
-- Rollback: `supabase/rollbacks/20261104120000_zoky_order_number_zf_rollback.sql` (new orders WF again; ZF- orders keep their numbers), redeploy the previous `send-push-notification` (8725ac45), Vercel rollback.
-- Status: approved and live 2026-11-04 (push run 41727010938, DB run 41728493822, web run 41728753704, `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`).
-
-### APPROVAL — [2026-11-04] WYNOS Maps renamed to Wyn Maps
-
-- Founder: "เปลี่ยนชื่อเป็น Wyn Maps", "จัดการให้เรียบร้อยเลย", then "อนุมัติ" for production.
-- Approved: user-facing text "WYNOS Maps" → "Wyn Maps" (PR #1329). Web release candidate `4b49ac38` on `release/wyn-maps-rename-20261104` (base `c4a12167`): `/maps` title and description, map picker labels, Merchant pin messages, English strings.
-- Unchanged: health service names (`WYNOS Maps Core`/`Tiles`, checked by deploy workflows), `X-WYNOS-Maps-*` headers, routes, `maps.wynos.online`, database, Edge Functions.
-- Not in this web release: WYNOS Admin and ZOKY Admin labels and `tiles/index.html` (merged on main; they ship with their own deploys).
-- Risks: text only; none to data or auth.
-- Rollback: Vercel Instant Rollback to `dpl_JBSprWfoUPNgFvRgqF2DoP8G49EN`.
-- Status: web approved and live 2026-11-04 (run 41780019370, `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W`); ZOKY Admin live (run 41780027832, `dpl_6n77m3EgNMMhtNwDwvskduA62b4o`).
-
-### APPROVAL — [2026-11-04] ZOKY store QR that opens the store in LINE
-
-- Founder: "อยากให้เพิ่ม ตอนแชร์ ร้าน อยากให้ทำเป็น QR ด้วย มีแนะนำไหม" → mockups → "ทำ ก+ข", then "สแกนแล้ว ต้องเด้ง สั่งในไลน์".
-- Approved (web release only, no DB change): Merchant "QR ร้าน" page (ZOKY poster, save/share, 7-day share stats from the existing `food_share_stats`); customer store share sheet with the QR, share link, copy link and save QR. The QR opens `https://liff.line.me/<ZOKY LIFF>?to=/s/<code>`; `safeLineDestination` allows only `/s/<6-char code>` and `/food?store=<uuid>` for the customer audience. The text share link stays the web link.
-- Rollback: Vercel rollback to `dpl_C4THRx8hMkZv6H5WeVmTSyeUru4W`.
-- Status: approved and live 2026-11-04 (run 41795038134, `dpl_3aodG5McYMqh6v3xVgVX3K13VLym`).
-
-### APPROVAL — [2026-11-04] Automatic LINE notification link for customers who open ZOKY in LINE
-
-- Founder (asked whether scanning adds the LINE OA; told that linking still needs a tap): "ทำแจ้งเตือนอัตโนมัติ".
-- Approved (web release only): on the `/line` LIFF entry inside the LINE app, a signed-in customer (audience food) who is not linked yet is linked through the existing `line-link` Edge Function with LINE's ID token (server-verified, same as the "เชื่อม LINE" button). If not signed in yet, the destination is remembered for 30 minutes on the device and the signed-in app returns to `/line` once to finish. Merchant linking is unchanged.
-- Unchanged: auth (ZOKY session stays the only login), `line-link` and its checks, Web Push; the customer can unlink in settings at any time.
-- Founder action outside code (LINE Developers): link the Zoky • สั่งอาหาร OA to the LIFF channel and set LIFF "Add friend option" so scanners are asked to add the OA.
-- Rollback: Vercel rollback to `dpl_3aodG5McYMqh6v3xVgVX3K13VLym`.
-- Status: approved; release pending Founder approval in the GitHub production environment.
-
-### APPROVAL — [2026-11-05] Store QR prompts LINE friendship before opening the store
-
-- Founder reported that scanning did not open the LINE add-friend screen, authorized commit/push and staging, then explicitly instructed: "จัดการให้สำเร็จ พร้อมใช้งานเลย". This authorizes completing the reviewed fix, its scoped release workflow, normal environment approvals, and production rollout after verification.
-- Candidate: `ec3f5f2a5453dd67cb004ee625e2f74177b5d9c2` on `fix/zoky-qr-line-entry-20261105`, PR #1335. The customer LIFF store entry checks friendship before the ZOKY session and awaits LINE's native add/unblock prompt for a non-friend. Confirmed friends and native cancellation continue to the same store. Four-second lookup/session bounds preserve ordering; customer choice in the native prompt has no timeout.
-- Founder confirmed the customer OA as `@732igmun`. Anonymous public LIFF bootstrap verifies customer `2012311758-OEhTuU5V`, `openid`/`profile`, endpoint `https://food.wynos.online/line`, and `hasLinkedBot:false`. The reviewed fallback opens the official `https://line.me/R/ti/p/%40732igmun` profile once, retains the exact safe store, and leaves manual add-friend and store actions. No LINE management settings were changed; Full size is not publicly verifiable. The fallback does not require a linked OA or force friendship.
-- Production baseline verified on all five customer domains: commit `81b6a3a33a6fb716aa3a670beae9cf327fca220c`, deployment `dpl_J6cmTuDhoWXWr6ks3UuYaT9mPJWK`. Release only the six candidate diff paths allowlisted in `zoky-web-thai-mobile-release.yml`; do not release `main` application source.
-- Verification before release: LINE 15/15, share-link 19/19 and i18n 51/51 tests pass; independent code review, typecheck, focused lint and Next.js build pass. Actual React component browser QA in Chromium StrictMode passes 17/17, with mobile visual review and no uncaught browser errors. CI for the preceding candidate passed Consumer Web (including Flutter/Next.js build), general CI, signup security and public smoke; current candidate CI and authenticated staging are checked separately. Physical LINE device UI was not exercised; do not equate browser mocks or HTTP checks with native display.
-- Release path: the existing guarded GitHub workflow uploads files with Vercel CLI to stage the production artifact with `--skip-domain`, verifies it, then promotes that exact artifact. Keep expiry, pinned SHA/tip/ancestry/path checks, required production environment reviews and the live-base equality check. Direct Vercel Git deployment failed `git_info_fail`; no Git integration or protection policy change is authorized or needed.
-- Unchanged: database, Edge Functions, authentication, Web Push, dependencies, infrastructure plans and customer choices. The existing printed QR remains valid. Native subwindow support requires a linked OA, `profile` and Full size; the reviewed profile-link screen handles the missing binding.
-- Recovery: on regression, stop promotion and investigate; a post-promotion rollback remains an explicit Founder action to `dpl_J6cmTuDhoWXWr6ks3UuYaT9mPJWK`. No automatic rollback.
-- Status: approved for controlled staging and production; release evidence pending.
+- After reviewing the measured deployed behavior, the Founder requested: "แก้ไขให้เร็วที่สุด และ เหมือนแอปจริงที่สุด". The earlier explicit authorization for all Merchant performance fixes and a verified Merchant-only release remains applicable; no new production authorization is inferred from a read-only inspection.
+- Continue on isolated branch `perf/merchant-native-response` from the released `ddc1fc2bab58c39800db5766fe1970d1c46e3ebf`. Scope: retain main-tab state within account/store/role boundaries, avoid unrelated hidden-page rebuilds, shorten navigation feedback, overlap already-authorized engine/chunk loading, and contain Merchant gestures/document overscroll.
+- Preserve session/mutation authorization, backend contracts, version, existing PWA identity and other project aliases. No new dependency, paid service, schema change, private-data persistence, framework replacement or shared authentication redesign is authorized by this continuation.
+- Require independent review, regression checks, controlled performance observations and staged verification before assigning only `merchant.wynos.online`. Preserve the existing protected workflow, reviewer and branch checks. Details and evidence: `docs/qa/zoky-merchant-flutter/native-response-2026-10-30.md`.

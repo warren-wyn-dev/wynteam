@@ -1,0 +1,98 @@
+name: ZOKY LINE-002 production build (no domain switch)
+
+# One-off, Founder-approved (2026-11-08) path for building the ZOKY-LINE-002
+# release candidate for production with the Vercel production environment,
+# WITHOUT moving any production domain (--skip-domain). Switching domains is a
+# separate, explicitly approved step (Vercel promote) after the build is checked.
+# - Only runs from branch claude/zoky-line-002-release-candidate.
+# - App code must be identical to commit 53f9e494 (only .github/ may differ).
+# - Needs the `production` environment approval (and the typed confirmation if dispatched).
+# - Secrets (VERCEL_*) come from the `production` environment; never printed.
+on:
+  # GitHub only accepts API dispatch for workflows already on the default
+  # branch, and this one-off must NOT be added to main. A push that touches
+  # this file therefore starts it; the `production` environment approval is
+  # the human gate. workflow_dispatch is kept for completeness.
+  push:
+    branches:
+      - claude/zoky-line-002-release-candidate
+    paths:
+      - '.github/workflows/zoky-line-002-production-build.yml'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type BUILD-ZOKY-LINE-002-NO-DOMAIN to confirm'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoky-line-002-production-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.ref == 'refs/heads/claude/zoky-line-002-release-candidate' &&
+      (github.event_name == 'push' ||
+       github.event.inputs.confirm == 'BUILD-ZOKY-LINE-002-NO-DOMAIN')
+    environment: production
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: App code must equal the approved commit 53f9e494
+        working-directory: .
+        run: |
+          set -euo pipefail
+          approved=53f9e494f2aaf7e64f07571ae881d8143de25657
+          git cat-file -e "$approved^{commit}"
+          if ! git diff --quiet "$approved" HEAD -- . ':(exclude).github'; then
+            echo "::error::Files outside .github differ from the approved commit"
+            git diff --stat "$approved" HEAD -- . ':(exclude).github'
+            exit 1
+          fi
+          echo "App code identical to $approved"
+
+      - name: Build production deployment without moving domains
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
+          VERCEL_ORG_ID=$(clean "$VERCEL_ORG_ID")
+          VERCEL_PROJECT_ID=$(clean "$VERCEL_PROJECT_ID")
+          for value in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            test -n "$(eval echo \"\$$value\")" || { echo "::error::$value is empty"; exit 1; }
+          done
+          export VERCEL_ORG_ID VERCEL_PROJECT_ID
+          # --force skips the restored build cache (its Flutter SDK dir has no .git
+          # and fails the pinned-revision check). --skip-domain: production build,
+          # production env, but no production domain is reassigned.
+          url=$(npx --yes vercel@65.12.1 deploy --prod --skip-domain --force --yes \
+            --token="$VERCEL_TOKEN" | tail -n 1)
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "## ZOKY LINE-002 production build (no domain switch)"
+            echo
+            echo "Deployment URL: $url"
+            echo
+            echo "Production domains were NOT moved. Verify this build, then promote it separately after Founder approval."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -24,6 +24,14 @@
 }
 html:has(.wm-force-light),
 html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
+/* The embedded Flutter view owns scrolling and pull-to-refresh. Keep the
+   surrounding document still instead of bouncing/reloading the whole app.
+   Scope by the mounted host so login and legacy Merchant pages scroll normally. */
+html:has([data-merchant-flutter-host]),
+html:has([data-merchant-flutter-host]) body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
 .wyn-merchant {
   --wm-red: #e32636;
   --wm-red-strong: #c91d2c;

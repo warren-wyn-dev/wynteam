@@ -3,7 +3,6 @@ import { ArrowLeft } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
-  AdminFoodFilterUnavailable,
   FOOD_PAYMENT_STATUS_LABEL,
   FOOD_REFUND_STATUS_LABEL,
   fetchAdminFoodOrders,
@@ -47,19 +46,12 @@ export default async function FoodOrdersPage({
   }
   const { status, q, store } = await searchParams;
   const resolved = FILTERS.some((item) => item.value === status) ? (status as "all" | AdminFoodOrderStatusFilter) : "all";
-  // A v2-only filter before the DB update shows a note, not the error page,
-  // so the other filters stay reachable.
-  const result = await fetchAdminFoodOrders({
+  const orders = await fetchAdminFoodOrders({
     status: resolved === "all" ? undefined : resolved,
     query: q,
     storeId: store,
     limit: ORDER_LIMIT,
-  }).then((rows) => ({ rows, filterUnavailable: false }), (error: unknown) => {
-    if (!(error instanceof AdminFoodFilterUnavailable)) throw error;
-    return { rows: [], filterUnavailable: true };
   });
-  const orders = result.rows;
-  const filterUnavailable = result.filterUnavailable;
   const keep = (next: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
     const merged = { status: resolved === "all" ? undefined : resolved, q, store, ...next };
@@ -70,7 +62,7 @@ export default async function FoodOrdersPage({
 
   return (
     <div className="flex flex-col gap-5 p-6">
-      <Link href="/merchant/stores" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/food" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> ร้านค้าทั้งหมด
       </Link>
       <section className="flex flex-col gap-1">
@@ -105,7 +97,7 @@ export default async function FoodOrdersPage({
         <p className="text-sm text-muted-foreground">{`แสดง ${ORDER_LIMIT} รายการล่าสุด ใช้ตัวกรองหรือค้นหาเพื่อดูรายการที่เก่ากว่า`}</p>
       ) : null}
       {orders.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">{filterUnavailable ? "ตัวกรองนี้ใช้ได้หลังอัปเดตฐานข้อมูล ZOKY-FULFILL-001" : "ไม่พบออเดอร์"}</div>
+        <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่พบออเดอร์</div>
       ) : (
         <div className="flex flex-col divide-y rounded-xl border">
           {orders.map((order) => (

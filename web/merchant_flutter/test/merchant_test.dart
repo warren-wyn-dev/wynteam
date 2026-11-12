@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zoky_merchant/main.dart';
 import 'package:zoky_merchant/screens/merchant_home.dart';
 import 'package:zoky_merchant/data/merchant_controller.dart';
+import 'package:zoky_merchant/data/merchant_repository.dart';
 import 'support/fake_repository.dart';
 
 class _LargeSalesRepository extends FakeRepository {
@@ -20,6 +21,75 @@ class _QualityRepository extends FakeRepository {
     if (failQuality) throw Exception('โหลดรีวิวไม่สำเร็จ');
     return {'available': true, 'count': 12, 'average': 4.8, 'unanswered': 2};
   }
+}
+
+class _ReviewsRepository extends FakeRepository {
+  final replies = <String>[];
+  String? reply;
+  @override
+  Future<Map<String, dynamic>> reviews(String id) async => {
+    'available': true,
+    'can_reply': true,
+    'count': 1,
+    'average': 5,
+    'unanswered': reply == null ? 1 : 0,
+    'reviews': [
+      {
+        'id': 'review-1',
+        'rating': 5,
+        'review_text': 'อร่อยมาก',
+        'tags': ['รสชาติดี'],
+        'reviewer_label': 'ลูกค้า ZOKY',
+        'created_at': '2026-11-01T00:00:00Z',
+        'merchant_reply': reply,
+        'merchant_replied_at': null,
+      },
+    ],
+  };
+  @override
+  Future<void> replyReview(String storeId, String reviewId, String text) async {
+    replies.add('$storeId/$reviewId/$text');
+    reply = text;
+  }
+}
+
+class _ProfileRepository extends FakeRepository {
+  final saved = <Json>[];
+  final published = <bool>[];
+  @override
+  Future<void> saveStore(String id, Json values) async {
+    saved.add(Json.from(values));
+    await super.saveStore(id, values);
+  }
+
+  @override
+  Future<Json?> pickMapLocation(
+    String storeId,
+    String kind,
+    num? lat,
+    num? lng,
+  ) async => {'latitude': 16.18, 'longitude': 103.3, 'address': 'ถนนนครสวรรค์'};
+
+  @override
+  Future<Json> checkLocation(String storeId, num lat, num lng) async => {
+    'inside': true,
+  };
+
+  @override
+  Future<void> setPublished(String storeId, bool value) async {
+    published.add(value);
+    storeRows.first['is_published'] = value;
+  }
+}
+
+class _CountsRepository extends FakeRepository {
+  @override
+  Future<Map<String, dynamic>> orderCounts(String id) async => {
+    'pending': 2,
+    'review': 1,
+    'preparing': 3,
+    'delivering': 0,
+  };
 }
 
 void main() {
@@ -70,6 +140,133 @@ void main() {
     );
   }
 
+  testWidgets(
+    'home to-do counts open the matching tab and menu filters sold-out items',
+    (tester) async {
+      final repo = _CountsRepository();
+      repo.menuRows.add({
+        'id': 'menu-2',
+        'name': 'ชาเย็น',
+        'price': 35,
+        'category': 'เครื่องดื่ม',
+        'description': '',
+        'is_available': false,
+      });
+      await mount(tester, repo, width: 390);
+      expect(find.text('ต้องทำตอนนี้'), findsOneWidget);
+      expect(find.bySemanticsLabel('ออเดอร์ใหม่ 2 รายการ'), findsOneWidget);
+      expect(find.bySemanticsLabel('ตรวจสลิป 1 รายการ'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('กำลังเตรียม 3 รายการ'));
+      await tester.pumpAndSettle();
+      final preparing = tester.widget<ChoiceChip>(
+        find.widgetWithText(ChoiceChip, 'กำลังเตรียม'),
+      );
+      expect(preparing.selected, isTrue);
+
+      await tester.tap(find.text('เมนูอาหาร').last);
+      await tester.pumpAndSettle();
+      expect(find.text('2 เมนู · หมด 1'), findsOneWidget);
+      expect(find.text('ข้าวกะเพรา'), findsOneWidget);
+      final soldOut = find.widgetWithText(ChoiceChip, 'หมดอยู่ 1');
+      await tester.ensureVisible(soldOut);
+      await tester.pumpAndSettle();
+      await tester.tap(soldOut);
+      await tester.pumpAndSettle();
+      expect(find.text('ข้าวกะเพรา'), findsNothing);
+      expect(find.text('ชาเย็น'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'feedback and help open inside the new Merchant and a reply is sent to the server',
+    (tester) async {
+      final repo = _ReviewsRepository();
+      await mount(tester, repo, width: 390);
+      await tester.tap(find.text('เพิ่มเติม').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.bySemanticsLabel('ฟีดแบ็ก'));
+      await tester.tap(find.bySemanticsLabel('ฟีดแบ็ก'));
+      await tester.pumpAndSettle();
+      expect(find.text('อร่อยมาก'), findsOneWidget);
+      await tester.tap(find.text('ตอบกลับรีวิว'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'ขอบคุณครับ');
+      await tester.tap(find.text('บันทึกคำตอบ'));
+      await tester.pumpAndSettle();
+      expect(repo.replies, ['store-1/review-1/ขอบคุณครับ']);
+      expect(find.text('คำตอบของร้าน: ขอบคุณครับ'), findsOneWidget);
+
+      await tester.tap(find.text('เพิ่มเติม').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.bySemanticsLabel('ช่วยเหลือ'));
+      await tester.tap(find.bySemanticsLabel('ช่วยเหลือ'));
+      await tester.pumpAndSettle();
+      expect(find.text('ต้องการความช่วยเหลือ?'), findsOneWidget);
+      expect(find.text('Store ID: store-1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'readiness opens the in-app store editor, which saves the full profile and publish state',
+    (tester) async {
+      final repo = _ProfileRepository();
+      repo.storeRows.first['is_published'] = false;
+      await mount(tester, repo, width: 390);
+      await tester.ensureVisible(find.text('เตรียมร้านให้พร้อม'));
+      await tester.tap(find.text('เตรียมร้านให้พร้อม'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ข้อมูลติดต่อ เวลาเปิด และพื้นที่จัดส่ง'));
+      await tester.pumpAndSettle();
+      expect(find.text('ตั้งค่าร้าน'), findsWidgets);
+      final page = find.byType(Scrollable).hitTestable().first;
+      await tester.scrollUntilVisible(
+        find.text('บันทึกข้อมูลร้าน'),
+        400,
+        scrollable: page,
+      );
+      expect(find.text('บันทึกข้อมูลร้าน'), findsOneWidget);
+
+      final area = find.widgetWithText(TextFormField, 'พื้นที่จัดส่ง');
+      await tester.ensureVisible(area);
+      await tester.enterText(area, 'ในเมืองมหาสารคาม');
+      final fee = find.widgetWithText(TextFormField, 'ค่าส่งเริ่มต้น');
+      await tester.enterText(fee, '25');
+      final map = find.text('เลือกบนแผนที่').first;
+      await tester.ensureVisible(map);
+      await tester.tap(map);
+      await tester.pumpAndSettle();
+      expect(find.text('อยู่ในพื้นที่ให้บริการ ✓'), findsOneWidget);
+      await tester.ensureVisible(find.text('บันทึกข้อมูลร้าน'));
+      await tester.tap(find.text('บันทึกข้อมูลร้าน'));
+      await tester.pumpAndSettle();
+      expect(repo.saved.last['delivery_area'], 'ในเมืองมหาสารคาม');
+      expect(repo.saved.last['delivery_fee'], 25);
+      expect(repo.saved.last['name'], 'ร้านทดสอบ');
+      expect(repo.saved.last['latitude'], 16.18);
+      expect(repo.saved.last['longitude'], 103.3);
+      expect(find.text('บันทึกข้อมูลร้านแล้ว'), findsOneWidget);
+
+      final publish = find.widgetWithText(SwitchListTile, 'เผยแพร่ร้านบน ZOKY');
+      await tester.scrollUntilVisible(publish, -400, scrollable: page);
+      await tester.pumpAndSettle();
+      await tester.tap(publish);
+      await tester.pumpAndSettle();
+      expect(repo.published, [true]);
+
+      final badFee = find.widgetWithText(TextFormField, 'ค่าส่งเริ่มต้น');
+      await tester.ensureVisible(badFee);
+      await tester.enterText(badFee, '-5');
+      final writes = repo.saved.length;
+      await tester.ensureVisible(find.text('บันทึกข้อมูลร้าน'));
+      await tester.tap(find.text('บันทึกข้อมูลร้าน'));
+      await tester.pumpAndSettle();
+      expect(repo.saved.length, writes);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets('losing the final store preserves an account exit', (
     tester,
   ) async {
@@ -104,21 +301,27 @@ void main() {
       await mount(tester, repo);
       await tester.tap(find.text('ออเดอร์').first);
       await tester.pumpAndSettle();
-      final buttons = tester
-          .widgetList<FilledButton>(
-            find.widgetWithText(FilledButton, 'รับออเดอร์'),
-          )
-          .toList();
-      expect(buttons.where((b) => b.onPressed != null).length, 1);
-      expect(buttons.where((b) => b.onPressed == null).length, 1);
-      await tester.tap(find.widgetWithText(FilledButton, 'รับออเดอร์').first);
+      // Paid order: direct accept. Unpaid order: no direct accept, only the
+      // payment review (the server gate is unchanged).
+      expect(
+        find.widgetWithText(FilledButton, 'รับออเดอร์ · 30 นาที'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(FilledButton, 'ตรวจเงินเข้า · รับออเดอร์'),
+        findsOneWidget,
+      );
+      expect(repo.writes, 0);
+      // The time is one suggestion; "เปลี่ยนเวลา" opens the choices.
+      expect(find.widgetWithText(ChoiceChip, '45 นาที'), findsNothing);
+      await tester.tap(find.widgetWithText(TextButton, 'เปลี่ยนเวลา').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, '45 นาที').first);
       await tester.pumpAndSettle();
       expect(repo.writes, 0);
-      await tester.tap(find.byType(DropdownButtonFormField<int>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('45 นาที').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ยืนยัน'));
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'รับออเดอร์ · 45 นาที'),
+      );
       await tester.pumpAndSettle();
       expect(repo.writes, 1);
       expect(repo.orderRows.first['status'], 'preparing');
@@ -152,6 +355,94 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+  testWidgets('switching a dish off offers sold out today or off', (
+    tester,
+  ) async {
+    final repo = FakeRepository();
+    await mount(tester, repo);
+    await tester.tap(find.text('เมนูอาหาร').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    expect(find.text('หมดวันนี้'), findsOneWidget);
+    expect(repo.writes, 0);
+    await tester.tap(find.text('หมดวันนี้'));
+    await tester.pumpAndSettle();
+    expect(repo.writes, 1);
+    // Still switched on in the data, but customers cannot order it today.
+    expect(repo.menuRows.first['is_available'], true);
+    expect(repo.menuRows.first['sold_out_until'], isNotNull);
+    expect(find.text('หมดวันนี้ · กลับมาขายพรุ่งนี้'), findsOneWidget);
+    expect(tester.widget<Switch>(find.byType(Switch).first).value, false);
+    // Switching it back on clears both.
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    expect(repo.menuRows.first['sold_out_until'], isNull);
+    expect(repo.menuRows.first['is_available'], true);
+    expect(tester.widget<Switch>(find.byType(Switch).first).value, true);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('busy mode adds minutes to the suggested time and turns off', (
+    tester,
+  ) async {
+    final repo = FakeRepository();
+    repo.storeRows.first['effective_open'] = true;
+    await mount(tester, repo);
+    expect(find.text('ร้านยุ่งอยู่ไหม'), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'โหมดยุ่ง'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, '+30 นาที'));
+    await tester.tap(find.widgetWithText(ChoiceChip, '2 ชั่วโมง'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'เปิดโหมดยุ่ง'));
+    await tester.pumpAndSettle();
+    expect(repo.busyCalls, [
+      [30, 120],
+    ]);
+    expect(find.text('โหมดยุ่ง · +30 นาที'), findsOneWidget);
+    // A new order now suggests 30 + 30 minutes.
+    await tester.tap(find.text('ออเดอร์').first);
+    await tester.pumpAndSettle();
+    expect(
+      find.widgetWithText(FilledButton, 'รับออเดอร์ · 60 นาที'),
+      findsOneWidget,
+    );
+    await tester.tap(find.widgetWithText(TextButton, 'ปิดโหมดยุ่ง').first);
+    await tester.pumpAndSettle();
+    expect(repo.busyCalls.last, [0, null]);
+    expect(
+      find.widgetWithText(FilledButton, 'รับออเดอร์ · 30 นาที'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('QR ร้าน shows the LINE poster, stats, save and share', (
+    tester,
+  ) async {
+    final repo = FakeRepository();
+    await mount(tester, repo);
+    await tester.tap(find.text('เพิ่มเติม').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('QR ร้าน'), 200);
+    await tester.tap(find.text('QR ร้าน'));
+    await tester.pumpAndSettle();
+    expect(repo.qrCalls, ['storeQr']);
+    expect(
+      find.text('ลูกค้าสแกนแล้วเปิดร้านคุณใน LINE สั่งได้ทันที'),
+      findsOneWidget,
+    );
+    expect(find.text('128'), findsOneWidget);
+    expect(find.text('฿2870'), findsOneWidget);
+    await tester.tap(find.text('บันทึกรูป'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('แชร์ลิงก์'));
+    await tester.pumpAndSettle();
+    expect(repo.qrCalls, ['storeQr', 'save', 'share']);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('failed writes stay visible and do not alter server menu', (
     tester,
   ) async {
@@ -160,6 +451,9 @@ void main() {
     await tester.tap(find.text('เมนูอาหาร').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    // Switching off asks how long first.
+    await tester.tap(find.text('ปิดขายจนกว่าจะเปิดเอง'));
     await tester.pumpAndSettle();
     expect(repo.menuRows.first['is_available'], true);
     expect(find.textContaining('บัญชีนี้ไม่มีสิทธิ์'), findsOneWidget);
@@ -188,7 +482,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('เพิ่มเติม').last);
       await tester.pumpAndSettle();
-      expect(find.text('เครื่องมือร้าน'), findsOneWidget);
+      expect(find.text('ขายและเงิน'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

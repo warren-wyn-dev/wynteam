@@ -345,31 +345,14 @@
   suite ที่มีอยู่แล้ว) จริงก่อนส่ง QA เสมอ ไม่ใช่แค่ `npm run check` — สอดคล้องกับ pattern เดียวกับ WYN-176
   batch 6 (test coverage gap ที่หลุดเพราะไม่ cross-check ชุด assertion เดิม/ใหม่ให้ครบก่อน commit)
 
-### [2026-10-23] ZOKY-147..151 — สถานะคืนเงินต้องยึดคำตอบจาก Stripe เท่านั้น ไม่ใช่ flag ใน DB หรือเวลาที่ "ส่งคำขอ"
-- บริบท: worker คืนเงินอัตโนมัติปิด job เป็น "คืนเงินแล้ว" ทันทีเมื่อ `food_orders` ถูก webhook ตั้งเป็น refunded
-  และ `food_stripe_job_fail` ข้ามออเดอร์ที่ไม่ใช่ `paid` ทำให้ refund พร้อมเพย์ที่รอลูกค้ากรอกบัญชี (Stripe ส่งอีเมล)
-  แล้วล้มเหลวทีหลังเงียบหาย ลูกค้าเห็น "คืนเงินแล้ว" ทั้งที่เงินยังอยู่ในบัญชี Stripe ของร้าน และ GP ถูกบันทึกว่าคืนแล้วตั้งแต่ตอนส่งคำขอ
-- บทเรียน: (1) state machine เงินต้องมีแหล่งความจริงเดียว — refund จบเมื่อ Stripe ตอบ `succeeded` เท่านั้น
-  ตัวที่สร้าง refund ต้อง poll refund ของตัวเองจนถึงสถานะสุดท้ายเสมอ แม้ flag อื่นจะบอกว่าจบแล้ว
-  (2) ทุกเส้นทางล้มเหลวต้องครอบคลุมสถานะที่ "ถูกตั้งก่อนเวลา" ด้วย (refunded → กลับเป็น paid/failed + แจ้งเตือน)
-  (3) วิธีชำระเงินแต่ละแบบมีพฤติกรรม refund ต่างกัน (บัตร = อัตโนมัติ, พร้อมเพย์ = ต้องให้ลูกค้ากรอกบัญชี) ต้องอ่าน docs
-  ของ provider ก่อนออกแบบ copy และ state (4) guard ระดับ trigger ป้องกันได้ทุก version ของ RPC ที่ซ้ำกันใน repo
-  ดีกว่าการแก้ RPC ทีละตัว (5) gate แบบ deny-by-default (`source is distinct from 'manual'`) ปลอดภัยกว่า allow-list (`= 'app'`)
-- การนำไปใช้ในอนาคต: งานเงินทุกงานต้องมี test ลำดับเหตุการณ์ที่ webhook มาก่อน/หลัง worker และกรณี refund ล้มเหลว
-  หลังถูกตั้งเป็น refunded แล้ว; harness ของ QA ที่โหลด body ของ RPC จริง (`scratchpad/qa/sql`) ควรรันซ้ำทุกครั้งที่แก้ migration
-
-### [2026-10-23] ZOKY-156 — สถานะ "รอคนตรวจ" (needs_attention) ต้องมีทางกลับเข้าระบบเมื่อ Stripe เปลี่ยนสถานะ
-- บริบท: Codex review (PR #1231, P2 x2) พบว่า job ที่ถูก park เป็น `needs_attention` (partial refund / ชำระซ้ำ) ไม่มีวันปิด
-  แม้ operator คืนเงินครบใน Stripe ตาม runbook แล้ว เพราะ webhook บันทึกเป็น noop (ถูกต้องตาม ZOKY-153/154) และ worker ไม่ claim
-  `needs_attention` — ส่วน DB path เดิมที่ปิด job ชำระซ้ำ (guard + foreign-PI flag) ไม่มี caller จริงอีกต่อไปหลัง commit 0b1cbafc
-- บทเรียน: (1) ทุกสถานะ "รอมนุษย์" ต้องตอบได้ว่า "หลังมนุษย์ทำตาม runbook แล้ว อะไรปิดมัน" และต้องมี test end-to-end ของคำตอบนั้น
-  (2) เมื่อเปลี่ยน mapper ให้ส่ง noop แทน state เดิม ต้อง grep หา DB branch ที่พึ่ง state เดิม (dead path) ในรอบเดียวกัน
-  (3) ทางแก้ที่ปลอดภัยคือ requeue ให้ worker อ่าน refund list จาก Stripe อีกครั้ง (Stripe เป็นความจริง) แทนการให้ webhook ตัดสินจาก event เดียว
-- การนำไปใช้ในอนาคต: review state machine เงินต้องมีตาราง "สถานะ → เหตุการณ์ที่ออกจากสถานะ" ครบทุกสถานะ รวมถึง needs_attention/failed
-
-### [2026-10-25–26] Merchant background refresh ต้องไม่ทำให้ Save ล้มเหลวหรือทิ้ง realtime event
-
-- การกด Save ระหว่าง refresh เป็นการรอข้อมูล ไม่ใช่ข้อผิดพลาดถาวรของฟอร์ม ต้องรักษา draft และตรวจสิทธิ์/single-write guard อีกครั้งหลัง read จบ
-- รวม realtime events ระหว่าง read เป็น trailing refresh แต่ให้แต่ละ read future จบได้และให้ queued write ได้ทำงานก่อน อย่าต่อ while-loop ไปเรื่อย ๆ เมื่อมี event ทุก pass
-- การย้าย Merchant home ไป root ต้องตรวจ sign-in round trip และ default return ทุก origin ด้วย ไม่ใช่ตรวจเพียง guest redirect เข้า login; explicit safe return และ payment callbacks ต้องคงเดิม
-- หลักฐาน: controller/widget regression เก้ากรณี, behavioral return-path tests และ compiled Chromium/WebKit before/after ใน `docs/qa/zoky-merchant-flutter/stability-2026-10-25.md` การทดสอบ host rewrite ใช้ production build เพื่อไม่ปะปนกับข้อจำกัด dev-origin/HMR
+### [2026-10-18] เปลี่ยน hardcoded production origin เป็นค่าคงที่ใหม่ ต้องคงกฎ "อยู่บน origin เดิม" ของ auth ด้วย
+- บริบท: ZOKY-139 — rebrand ZOKY แทน `https://food.wynos.online/` ใน `web/app/auth/callback/page.tsx` ด้วย
+  `${FOOD_PRODUCTION_ORIGIN}/` (zoky) ตรงๆ ทำให้คนยืนยันอีเมลบน food.wynos.online (phase 1) ถูกส่งไป zoky ซึ่งไม่มี
+  session (cookie/session อยู่ต่อ origin) จึงหลุดออกจากระบบ ทั้งที่ `foodHomeUrlFor` ใน `web/lib/food-origin.ts`
+  มีกฎ "Food origin อยู่ origin เดิม, Social ส่งต่อไป ZOKY" อยู่แล้ว
+- บทเรียน: redirect หลัง auth (callback, email confirm, OAuth return) ต้องคำนวณจาก origin ที่กำลังรันอยู่ผ่าน helper
+  กลางเสมอ ห้าม search-replace domain เดิมเป็นค่าคงที่ canonical ใหม่ เพราะ session ไม่ข้าม origin; และ source
+  assertion ที่ pin ค่า hardcoded (`food-standalone-account.test.mjs`) จะ "ล็อกบั๊ก" ไว้แทนที่จะจับมัน
+- การนำไปใช้ในอนาคต: เวลาย้าย/rebrand domain ให้ `grep -rn "<ORIGIN_CONSTANT>" app/ lib/` แล้วตรวจทุกจุดที่เป็น
+  `window.location.replace`/redirect หลัง auth ว่าใช้ helper per-host และเพิ่ม behavior test ราย host
+  (Food เดิม/ใหม่, Social, localhost, preview) ไม่ใช่แค่ regex ของ source

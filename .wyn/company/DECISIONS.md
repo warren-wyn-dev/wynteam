@@ -2273,3 +2273,7 @@ reconciliation นี้ต้องอ่านจาก Stripe (`application_f
 ## [2026-10-21] Zoky Merchant Flutter belongs to the existing Food system
 
 Founder explicitly clarified “มันคือระบบเดียวกับ food ไง” and requested “จัดการให้เรียบร้อยทั้งหมด พร้อมใช้งานเลยได้มั้ย”. Merchant remains in `wynteam`, uses the existing Food stores/orders/menu/payment backend and shared WYNOS account. Implement the Flutter user interface inside the current web deployment; do not create a separate repository/database or auth system. Preserve existing server authorization, payment verification, private delivery evidence and controlled release gates. Work item: `.wyn/tasks/active/zoky-merchant-flutter-integration.md`.
+
+## [2026-10-27] Merchant performance — retain Flutter
+
+Founder requested all diagnosed Merchant performance fixes and said "ขอให้เร็วสุดๆเท่าที่ทำได้ ด้วย Flutter". Keep Flutter as the Merchant application UI while improving scoped refresh, navigation reuse, lazy menu rendering, startup and safe versioned caching. Preserve existing authentication, authorization and backend contracts. Release authorization and exact scope are recorded in `APPROVALS.md` under Merchant Flutter performance improvements.

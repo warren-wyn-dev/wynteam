@@ -146,6 +146,7 @@ test("pushAppFor: subdomains, installed Food/Merchant apps, and browser tabs", (
   const { pushAppFor } = fixture().exports;
   assert.equal(pushAppFor("merchant.wynos.online", "/", false), "merchant");
   assert.equal(pushAppFor("food.wynos.online", "/", false), "food");
+  assert.equal(pushAppFor("zoky.wynos.online", "/", false), "food");
   assert.equal(pushAppFor("wynos.online", "/merchant", true), "merchant");
   assert.equal(pushAppFor("wynos.online", "/food/orders", true), "food");
   assert.equal(pushAppFor("wynos.online", "/foodie", true), "social");

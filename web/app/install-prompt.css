@@ -240,3 +240,15 @@ html[data-wynos-push-prompt] .install-prompt-banner:not(.push-prompt-banner) {
 .install-prompt-primary:disabled {
   opacity: 0.6;
 }
+
+/* ZOKY install card: sits above ZOKY's own bottom tab bar, and the link
+   variant ("open in browser") looks like the button variant. */
+.zoky-install-banner {
+  bottom: calc(var(--fx-above-nav, 82px) + 8px);
+}
+
+a.install-prompt-primary {
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}

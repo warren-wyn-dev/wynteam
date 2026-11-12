@@ -575,7 +575,7 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   expect(app).toContain("badge={activeOrderCount}");
   expect(app).not.toContain("<h2>ต้องจัดการตอนนี้</h2>");
   // Readiness uses the publish rules (paired payment fields).
-  expect(app).toContain("done: store.stripe_payments_enabled === true || (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
+  expect(app).toContain("done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
   expect(app).toContain("{nextStep && !store.admin_suspended_at ? (");
   // Four bottom tabs; reports, store settings and campaigns live under "เพิ่มเติม".
   expect(app).toContain('label="รับออเดอร์"');
@@ -636,7 +636,7 @@ test("WYN-206 WYNOS campaigns: Admin designs, stores join, hybrid funding is sho
   expect(page).toContain("`ทุกออเดอร์ที่ใช้แคมเปญนี้ WYNOS ออกส่วนลดให้ ${Number(confirming.platform_share_percent)}% ร้านออก ${100 - Number(confirming.platform_share_percent)}%`");
   expect(page).toContain("WYNOS จะโอนคืนร้าน");
   // Customers see the campaign on the store.
-  expect(food).toContain("{`แคมเปญ WYNOS · ${name}`}");
+  expect(food).toContain("{`แคมเปญ ZOKY · ${name}`}");
 });
 
 test("WYN-205 Wynos red leads on every Merchant page", () => {
@@ -669,17 +669,18 @@ test("WYN-207 pay-per-click ads: Admin-controlled, charged on the server, labell
   expect(app).toContain("<MerchantAds client={client} store={store} onMessage={setMessage} />");
   expect(ads).toContain("ส่งสลิปให้ WYNOS ตรวจ");
   // Food: ads first, always labelled; opening one reports the click.
-  expect(food).toContain('{store.is_ad ? <b className="fx-ad-label">โฆษณา</b> : null}');
+  // ZOKY web store rows and popular cards (2026-10-19) keep the paid label.
+  expect(food).toContain('{store.is_ad ? <b className="zk-tag is-ad">โฆษณา</b> : null}');
   expect(food).toContain("if (next.is_ad) void recordFoodAdClick(client, next.id, placement)");
 });
 
 test("WYN-209 Merchant app icon: complete PNGs at every size, separate maskable art", () => {
   const layout = read("app/merchant/layout.tsx");
   const manifest = read("app/merchant/manifest.ts");
-  expect(layout).toContain('const MERCHANT_ICON_180 = "/icons/merchant/v15-180.png";');
-  expect(manifest).toContain('{ src: "/icons/merchant/v15-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }');
+  expect(layout).toContain('const MERCHANT_ICON_180 = "/icons/merchant/v16-180.png";');
+  expect(manifest).toContain('{ src: "/icons/merchant/v16-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }');
   // v14-512 shipped truncated; every published icon must be a whole PNG of the stated size.
-  for (const [file, size] of [["v15-180", 180], ["v15-192", 192], ["v15-512", 512], ["v15-maskable-512", 512]] as const) {
+  for (const [file, size] of [["v16-180", 180], ["v16-192", 192], ["v16-512", 512], ["v16-maskable-512", 512]] as const) {
     const png = readFileSync(join(process.cwd(), `public/icons/merchant/${file}.png`));
     expect(png.subarray(1, 4).toString("latin1")).toBe("PNG");
     expect(png.readUInt32BE(16)).toBe(size);

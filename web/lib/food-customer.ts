@@ -10,7 +10,7 @@ export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 export type FoodCustomerStore = {
   id: string;
   slug: string;
-  /** Short share-link code (food.wynos.online/s/<code>); null before that migration. */
+  /** Short share-link code (zoky.wynos.online/s/<code>); null before that migration. */
   share_code?: string | null;
   name: string;
   description: string | null;
@@ -25,6 +25,8 @@ export type FoodCustomerStore = {
   temporary_closed_reason?: string | null;
   prep_time_min_minutes?: number;
   prep_time_max_minutes?: number;
+  busy_extra_minutes?: number | null;
+  busy_until?: string | null;
   menu_category_order?: string[];
   delivery_area: string | null;
   delivery_fee: number | string;
@@ -50,9 +52,17 @@ export type FoodCustomerStore = {
   scheduled_max_days?: number;
   is_open: boolean;
   is_published: boolean;
+  /** ZOKY-FULFILL-001. Undefined until that migration is live. */
+  pickup_enabled?: boolean;
+  delivery_enabled?: boolean;
+  cod_enabled?: boolean;
+  pickup_prep_minutes?: number;
   created_at: string;
   updated_at: string;
 };
+
+export type FoodFulfillmentType = "delivery" | "pickup";
+export type FoodPaymentMethod = "transfer" | "cod";
 
 export type FoodMenuOptionChoice = {
   id: string;
@@ -162,6 +172,14 @@ export type FoodCustomerOrder = {
   receipt_tax_id?: string | null;
   receipt_tax_branch?: string | null;
   receipt_tax_address?: string | null;
+  /** ZOKY-FULFILL-001. Pickup reuses ready_for_delivery / delivered. */
+  fulfillment_type?: FoodFulfillmentType;
+  payment_method?: FoodPaymentMethod;
+  pickup_at?: string | null;
+  pickup_code?: string | null;
+  picked_up_at?: string | null;
+  cancel_requested_at?: string | null;
+  refund_status?: "none" | "pending" | "refunded" | "failed" | null;
   created_at: string;
   updated_at: string;
   food_order_items?: FoodCustomerOrderItem[];
@@ -232,6 +250,37 @@ export type FoodLocation = { latitude: number; longitude: number };
 
 function pinParams(location: FoodLocation | null | undefined) {
   return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};
+}
+
+/** True once the ZOKY-FULFILL-001 columns exist on the store row. */
+export function storeHasFulfillmentOptions(store: Pick<FoodCustomerStore, "pickup_enabled"> | null | undefined) {
+  return typeof store?.pickup_enabled === "boolean";
+}
+
+export function storeFulfillmentModes(
+  store: Pick<FoodCustomerStore, "pickup_enabled" | "delivery_enabled"> | null | undefined,
+): FoodFulfillmentType[] {
+  if (!store || typeof store.pickup_enabled !== "boolean") return ["delivery"];
+  const modes: FoodFulfillmentType[] = [];
+  if (store.delivery_enabled !== false) modes.push("delivery");
+  if (store.pickup_enabled) modes.push("pickup");
+  return modes.length ? modes : ["delivery"];
+}
+
+export function foodIsPickupOrder(order: Pick<FoodCustomerOrder, "fulfillment_type"> | null | undefined) {
+  return order?.fulfillment_type === "pickup";
+}
+
+export function foodIsCodOrder(order: Pick<FoodCustomerOrder, "payment_method"> | null | undefined) {
+  return order?.payment_method === "cod";
+}
+
+/** "14:30" in Asia/Bangkok, the store's clock. */
+export function foodPickupTimeLabel(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" }).format(date);
 }
 
 export function addressLocation(address: Pick<FoodCustomerAddress, "latitude" | "longitude"> | null | undefined): FoodLocation | null {
@@ -345,6 +394,10 @@ export type FoodOrderQuote = {
   delivery_distance_km: number | null;
   delivery_radius_km: number | null;
   delivery_needs_location: boolean;
+  fulfillment_type?: FoodFulfillmentType;
+  /** Pickup times the server will accept, today only (ISO timestamps). */
+  pickup_slots?: string[];
+  cod_available?: boolean;
 };
 
 export type FoodCustomerSnapshot = {
@@ -519,7 +572,7 @@ export async function fetchFoodCustomerSnapshot(
 
 export function maskFoodReviewerName(name: string) {
   const firstWord = name.trim().split(/\s+/)[0] ?? "";
-  if (!firstWord) return "ผู้ใช้ WYNOS Food";
+  if (!firstWord) return "ผู้ใช้ ZOKY";
   const segments = typeof Intl.Segmenter === "function"
     ? Array.from(new Intl.Segmenter("th", { granularity: "grapheme" }).segment(firstWord), (part) => part.segment)
     : Array.from(firstWord);
@@ -549,7 +602,7 @@ export async function fetchFoodStoreReviewFeed(
           rating: Number(review.rating ?? 0),
           review_text: typeof review.review_text === "string" ? review.review_text : null,
           tags: Array.isArray(review.tags) ? review.tags.map(String) : [],
-          reviewer_label: typeof review.reviewer_label === "string" ? review.reviewer_label : "ผู้ใช้ WYNOS Food",
+          reviewer_label: typeof review.reviewer_label === "string" ? review.reviewer_label : "ผู้ใช้ ZOKY",
           verified_order: review.verified_order === true,
           created_at: typeof review.created_at === "string" ? review.created_at : new Date(0).toISOString(),
           merchant_reply: typeof review.merchant_reply === "string" ? review.merchant_reply : null,
@@ -611,6 +664,8 @@ export type FoodDirectoryStore = {
   longitude?: number | null;
   prep_time_min_minutes?: number | null;
   prep_time_max_minutes?: number | null;
+  busy_extra_minutes?: number | null;
+  busy_until?: string | null;
   categories?: string[] | null;
   rating_average?: number | string | null;
   rating_count?: number | string | null;
@@ -641,6 +696,7 @@ export async function quoteFoodCustomerOrder(
   items: FoodCartLine[],
   location: FoodLocation | null = null,
   couponCode: string | null = null,
+  fulfillmentType: FoodFulfillmentType | null = null,
 ): Promise<FoodOrderQuote> {
   const normalizedCode = couponCode?.trim().toUpperCase() || null;
   const params = {
@@ -654,9 +710,13 @@ export async function quoteFoodCustomerOrder(
       selected_options: line.selected_options ?? [],
     })),
   };
-  const { data, error } = normalizedCode
-    ? await client.rpc("food_quote_order_v2", { ...params, p_coupon_code: normalizedCode })
-    : await client.rpc("food_quote_order", params);
+  // v3 is only called when the store row already carries the
+  // ZOKY-FULFILL-001 columns, so older databases keep the v1/v2 paths.
+  const { data, error } = fulfillmentType
+    ? await client.rpc("food_quote_order_v3", { ...params, p_coupon_code: normalizedCode, p_fulfillment_type: fulfillmentType })
+    : normalizedCode
+      ? await client.rpc("food_quote_order_v2", { ...params, p_coupon_code: normalizedCode })
+      : await client.rpc("food_quote_order", params);
   if (error) throw new Error(error.message);
   const raw = (data ?? {}) as Partial<FoodOrderQuote>;
   return {
@@ -675,6 +735,9 @@ export async function quoteFoodCustomerOrder(
     delivery_distance_km: raw.delivery_distance_km == null ? null : Number(raw.delivery_distance_km),
     delivery_radius_km: raw.delivery_radius_km == null ? null : Number(raw.delivery_radius_km),
     delivery_needs_location: raw.delivery_needs_location === true,
+    fulfillment_type: raw.fulfillment_type === "pickup" ? "pickup" : raw.fulfillment_type === "delivery" ? "delivery" : undefined,
+    pickup_slots: Array.isArray(raw.pickup_slots) ? raw.pickup_slots.map(String) : [],
+    cod_available: raw.cod_available === true,
   };
 }
 
@@ -690,6 +753,10 @@ export async function createFoodCustomerOrder(
     location: FoodLocation | null;
     scheduledFor?: string | null;
     couponCode?: string | null;
+    /** Set only for stores with the ZOKY-FULFILL-001 columns (uses v3). */
+    fulfillmentType?: FoodFulfillmentType | null;
+    pickupAt?: string | null;
+    paymentMethod?: FoodPaymentMethod;
   },
 ) {
   const couponCode = input.couponCode?.trim().toUpperCase() || null;
@@ -709,7 +776,15 @@ export async function createFoodCustomerOrder(
   };
   // Keep the original no-code RPC paths intact, including their browser QA
   // contracts. Coupon requests opt into v2 without changing ordinary orders.
-  const { data, error } = input.scheduledFor
+  const { data, error } = input.fulfillmentType
+    ? await client.rpc("food_create_order_v3", {
+      ...params,
+      p_coupon_code: couponCode,
+      p_fulfillment_type: input.fulfillmentType,
+      p_pickup_at: input.fulfillmentType === "pickup" ? input.pickupAt ?? null : null,
+      p_payment_method: input.paymentMethod ?? "transfer",
+    })
+    : input.scheduledFor
     ? couponCode
       ? await client.rpc("food_create_scheduled_order_v2", { ...params, p_scheduled_for: input.scheduledFor, p_coupon_code: couponCode })
       : await client.rpc("food_create_scheduled_order", { ...params, p_scheduled_for: input.scheduledFor })
@@ -756,7 +831,7 @@ export async function startFoodStripeCheckout(client: SupabaseClient, orderId: s
   if (!payload || typeof payload.url !== "string") {
     const code = typeof payload?.error === "string" ? payload.error : "";
     if (code === "stripe_not_ready") throw new Error("ร้านยังไม่พร้อมรับชำระผ่าน Stripe");
-    if (code === "stripe_not_configured") throw new Error("Stripe ยังไม่ได้เปิดใช้งานบน WYNOS");
+    if (code === "stripe_not_configured") throw new Error("Stripe ยังไม่ได้เปิดใช้งานบน ZOKY");
     if (code === "order_not_payable") throw new Error("ออเดอร์นี้ไม่อยู่ในสถานะที่ชำระผ่าน Stripe ได้");
     throw new Error(typeof payload?.message === "string" ? payload.message : "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ");
   }
@@ -797,23 +872,9 @@ export async function submitFoodPayment(
     p_slip_path: slipPath,
   });
   if (error) throw new Error(error.message);
-
-  const verification = await client.functions.invoke("food-verify-slip", {
-    body: { orderId },
-  });
-  if (verification.error || !verification.data) {
-    return { status: "manual_review", provider: "manual" };
-  }
-
-  const status = verification.data.status;
-  if (status !== "auto_verified" && status !== "manual_review" && status !== "rejected") {
-    return { status: "manual_review", provider: "manual" };
-  }
-  return {
-    status,
-    provider: typeof verification.data.provider === "string" ? verification.data.provider : undefined,
-    code: typeof verification.data.code === "string" ? verification.data.code : null,
-  };
+  // Founder 2026-10-26: the store checks its own bank app and confirms every
+  // slip; no automatic slip verification.
+  return { status: "manual_review", provider: "manual" };
 }
 
 export function foodStructuredAddressText(draft: Pick<FoodAddressDraft,
@@ -967,6 +1028,15 @@ export async function cancelFoodCustomerOrder(
   if (error) throw new Error(error.message);
 }
 
+/** Pickup orders only: after payment or acceptance the store decides. */
+export async function requestFoodOrderCancel(client: SupabaseClient, orderId: string, note: string) {
+  const { error } = await client.rpc("food_request_cancel", {
+    p_order_id: orderId,
+    p_note: note.trim() || null,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export function subscribeFoodCustomerOrders(
   client: SupabaseClient,
   userId: string,
@@ -991,6 +1061,15 @@ export function foodOrderStatusLabel(status: FoodCustomerOrder["status"]) {
     delivered: "จัดส่งสำเร็จ",
     cancelled: "ยกเลิกแล้ว",
   } satisfies Record<FoodCustomerOrder["status"], string>)[status];
+}
+
+/** Pickup reuses the delivery statuses (contract v2) with its own words. */
+export function foodOrderStatusLabelFor(order: Pick<FoodCustomerOrder, "status" | "fulfillment_type">) {
+  if (order.fulfillment_type === "pickup") {
+    if (order.status === "ready_for_delivery") return "พร้อมให้รับที่ร้าน";
+    if (order.status === "delivered") return "รับอาหารแล้ว";
+  }
+  return foodOrderStatusLabel(order.status);
 }
 
 export function foodPaymentStatusLabel(status: FoodCustomerOrder["payment_status"]) {
@@ -1018,6 +1097,12 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("address not found")) return "ไม่พบข้อมูลที่อยู่นี้ กรุณาโหลดใหม่แล้วลองอีกครั้ง";
   if (message.includes("food customer access required")) return "บัญชีนี้ยังไม่สามารถใช้งาน ZOKY ได้ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง";
   if (message.includes("store is not accepting orders")) return "ร้านยังไม่เปิดรับออเดอร์";
+  if (message.includes("pickup_not_available")) return "ร้านนี้ยังไม่เปิดให้รับเองที่ร้าน";
+  if (message.includes("delivery_not_available")) return "ร้านนี้ไม่ได้เปิดจัดส่ง เลือกรับเองที่ร้านแทน";
+  if (message.includes("invalid_pickup_time")) return "เวลารับที่เลือกใช้ไม่ได้แล้ว กรุณาเลือกเวลาใหม่";
+  if (message.includes("cod_not_available") || message.includes("cod_delivery_only")) return "ร้านนี้ไม่รับเงินสดปลายทางสำหรับออเดอร์นี้";
+  if (message.includes("cancel already requested")) return "ส่งคำขอยกเลิกไปแล้ว รอร้านตัดสินใจ";
+  if (message.includes("cancel request not available") || message.includes("cancel request is for pickup orders")) return "ออเดอร์นี้ขอยกเลิกไม่ได้แล้ว";
   if (message.includes("store is closed")) return "ร้านปิดตามเวลา หรือปิดชั่วคราวในขณะนี้";
   if (message.includes("minimum order not met")) return "ยอดอาหารยังไม่ถึงขั้นต่ำของร้าน";
   if (message.includes("menu item is unavailable")) return "มีเมนูที่ไม่พร้อมขาย กรุณาตรวจตะกร้าอีกครั้ง";
@@ -1035,7 +1120,7 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";
   if (message.includes("store is outside the service area")) return "ร้านนี้ยังไม่เปิดให้บริการในพื้นที่";
-  if (message.includes("outside service area")) return "ตอนนี้ WYNOS Food ส่งได้เฉพาะในจังหวัดมหาสารคาม";
+  if (message.includes("outside service area")) return "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY";
   if (message.includes("outside delivery area")) return "ที่อยู่นี้อยู่นอกพื้นที่จัดส่งของร้าน";
   if (message.includes("delivery location required")) return "กรุณาปักหมุดตำแหน่งที่อยู่จัดส่งก่อนสั่ง";
   if (message.includes("invalid delivery location")) return "ตำแหน่งที่อยู่ไม่ถูกต้อง ลองปักหมุดใหม่";

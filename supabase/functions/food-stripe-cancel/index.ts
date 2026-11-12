@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
+import { isFoodWebOrigin } from "../food-stripe-checkout/_lib.ts";
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -68,7 +70,7 @@ Deno.serve(async (req: Request) => {
   if (!stripeSecret) return json({ error: "stripe_not_configured" }, 503);
   const stripeLiveMode = stripeLivemode(stripeSecret);
   if (stripeLiveMode == null) return json({ error: "stripe_key_mode_unknown" }, 503);
-  if (stripeLiveMode && req.headers.get("origin") !== "https://food.wynos.online") {
+  if (stripeLiveMode && !isFoodWebOrigin(req.headers.get("origin"))) {
     return json({ error: "live_stripe_origin_required" }, 403);
   }
 

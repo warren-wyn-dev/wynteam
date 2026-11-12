@@ -76,7 +76,7 @@ export async function recordFoodShareOpen(code: string, userAgent: string | null
   }
 }
 
-/** Metadata for /?store=<id>; null keeps the generic WYNOS Food preview. */
+/** Metadata for /?store=<id>; null keeps the generic ZOKY preview. */
 export async function foodStoreShareMetadata(requested: string | string[] | undefined): Promise<Metadata | null> {
   const storeId = typeof requested === "string" ? requested.trim() : "";
   if (!isFoodStoreId(storeId)) return null;
@@ -85,11 +85,11 @@ export async function foodStoreShareMetadata(requested: string | string[] | unde
   if (!store || !supabaseUrl) return null;
   const { title, description, imageUrl, largeImage } = foodStorePreviewContent(store, supabaseUrl);
   const shareUrl = foodStoreShareUrl(store);
-  const images = imageUrl ? [{ url: imageUrl, alt: store.name }] : [{ url: `${FOOD_SITE_URL}/icons/food/icon-512.png`, width: 512, height: 512, alt: "WYNOS Food" }];
+  const images = imageUrl ? [{ url: imageUrl, alt: store.name }] : [{ url: `${FOOD_SITE_URL}/icons/zoky/icon-512-v1.png`, width: 512, height: 512, alt: "ZOKY" }];
   return {
     title,
     description,
-    openGraph: { type: "website", url: shareUrl, siteName: "WYNOS Food", locale: "th_TH", title, description, images },
+    openGraph: { type: "website", url: shareUrl, siteName: "ZOKY", locale: "th_TH", title, description, images },
     twitter: { card: largeImage ? "summary_large_image" : "summary", title, description, images: images.map((image) => image.url) },
   };
 }

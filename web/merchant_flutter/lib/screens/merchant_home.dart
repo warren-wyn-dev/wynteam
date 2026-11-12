@@ -5,7 +5,15 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/merchant_controller.dart';
 import '../data/merchant_repository.dart';
 import '../widgets/merchant_tool_icon.dart';
+import '../widgets/retained_page.dart';
 import 'order_dialogs.dart';
+import 'fulfillment_panels.dart';
+import 'store_settings_panels.dart';
+import 'finance_panel.dart';
+import 'staff_panel.dart';
+import 'growth_panels.dart';
+import 'store_profile_panel.dart';
+import 'store_qr_panel.dart';
 
 const brand = Color(0xFFD61256), ink = Color(0xFF16161A);
 const success = Color(0xFF1F8A4C), brandSoft = Color(0xFFFFEFF5);
@@ -24,16 +32,21 @@ class MerchantHome extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onSignOut,
+    this.onInitialContentReady,
   });
   final MerchantRepository repository;
   final Future<void> Function() onSignOut;
+  final VoidCallback? onInitialContentReady;
   @override
   State<MerchantHome> createState() => _MerchantHomeState();
 }
 
 class _MerchantHomeState extends State<MerchantHome>
     with WidgetsBindingObserver {
-  late final MerchantController c;
+  late MerchantController c;
+
+  /// Preparation time picked on each pending order card, by order id.
+  final Map<String, int> _etaChoice = {};
   Timer? timer;
   StreamSubscription<void>? orderSubscription;
   String? subscribedStore;
@@ -41,8 +54,25 @@ class _MerchantHomeState extends State<MerchantHome>
   int page = 0;
   String query = '';
   String? category;
+  bool soldOutOnly = false;
   String menuSort = 'default';
+  // Retain only pages the merchant has visited. Hidden widget snapshots avoid
+  // unrelated rebuilds and preserve drafts within the store/role/session scope.
+  final Set<int> _visitedPages = {0};
+  final Map<int, DateTime> _panelVisitedAt = {};
+  final Map<int, DateTime> _panelRefreshAt = {};
+  String _pageScope = '';
+  int _repositoryGeneration = 0;
+  final Set<String> _collapsedMenuCategories = {};
+  List<Json>? _menuSource;
+  String? _menuFilter;
+  Map<String, List<Json>> _menuGroupsCache = {};
+  static const _cachedPanelPages = {8, 9, 10, 11, 12};
+  static const _panelFreshness = Duration(minutes: 1);
   bool foreground = true, signingOut = false;
+  bool _initialContentNotified = false;
+  bool _initialContentScheduled = false;
+  bool _toolWarmupStarted = false;
   final labels = ['หน้าหลัก', 'ออเดอร์', 'เมนูอาหาร', 'เพิ่มเติม'];
   final icons = [
     Icons.storefront_outlined,
@@ -54,17 +84,61 @@ class _MerchantHomeState extends State<MerchantHome>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _bindRepository();
+    timer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (foreground) {
+        unawaited(c.refreshOrders());
+        _refreshVisibleDetails();
+      }
+    });
+  }
+
+  void _bindRepository() {
     c = MerchantController(widget.repository)..addListener(changed);
     unawaited(c.initialize());
     orderSubscription = widget.repository.orderChanges.listen((_) {
       if (!mounted) return;
-      notice('มีการเปลี่ยนแปลงออเดอร์ กำลังอัปเดต');
-      unawaited(c.refresh());
+      if (!foreground) {
+        return;
+      }
+      unawaited(c.refreshOrders());
+      _refreshVisibleDetails();
     });
     unawaited(readPushStatus());
-    timer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (foreground) unawaited(c.refresh());
-    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_toolWarmupStarted) {
+      _toolWarmupStarted = true;
+      unawaited(MerchantToolIcon.warmup(context));
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MerchantHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.repository, widget.repository)) {
+      _repositoryGeneration++;
+      unawaited(orderSubscription?.cancel());
+      c.removeListener(changed);
+      c.dispose();
+      subscribedStore = null;
+      pushEnabled = false;
+      pushBusy = false;
+      signingOut = false;
+      _initialContentNotified = false;
+      _initialContentScheduled = false;
+      page = 0;
+      _pageScope = '';
+      _visitedPages
+        ..clear()
+        ..add(0);
+      _panelVisitedAt.clear();
+      _panelRefreshAt.clear();
+      _bindRepository();
+    }
   }
 
   void changed() {
@@ -75,23 +149,44 @@ class _MerchantHomeState extends State<MerchantHome>
         widget.repository.subscribe(c.storeId!).catchError((Object _) {}),
       );
     }
+    final scope =
+        '$_repositoryGeneration:${c.storeId}:${c.canConfigure}:${c.canManage}:'
+        '${c.canOrders}:${c.canDelivery}:${c.error == null}';
+    if (scope != _pageScope) {
+      _pageScope = scope;
+      _visitedPages
+        ..clear()
+        ..add(page);
+      _panelVisitedAt.clear();
+      _panelRefreshAt.clear();
+      _collapsedMenuCategories.clear();
+      _menuSource = null;
+      query = '';
+      category = null;
+    }
     setState(() {});
   }
 
   Future<void> readPushStatus() async {
+    final repository = widget.repository;
     try {
-      final value = await widget.repository.pushStatus();
-      if (mounted) setState(() => pushEnabled = value['enabled'] == true);
+      final value = await repository.pushStatus();
+      if (mounted && identical(repository, widget.repository)) {
+        setState(() => pushEnabled = value['enabled'] == true);
+      }
     } catch (_) {}
   }
 
   Future<void> enablePush() async {
     if (pushBusy) return;
+    final repository = widget.repository;
     setState(() => pushBusy = true);
     try {
-      final result = await widget.repository.pushEnable();
+      final result = await repository.pushEnable();
+      if (!mounted || !identical(repository, widget.repository)) return;
       if (result['ok'] == true) {
         await readPushStatus();
+        if (!mounted || !identical(repository, widget.repository)) return;
         notice('เปิดการแจ้งเตือนแล้ว');
       } else {
         notice(switch (result['reason']) {
@@ -102,16 +197,23 @@ class _MerchantHomeState extends State<MerchantHome>
         });
       }
     } catch (e) {
-      notice(errorMessage(e));
+      if (mounted && identical(repository, widget.repository)) {
+        notice(errorMessage(e));
+      }
     } finally {
-      if (mounted) setState(() => pushBusy = false);
+      if (mounted && identical(repository, widget.repository)) {
+        setState(() => pushBusy = false);
+      }
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
-    if (foreground) unawaited(c.refresh());
+    if (foreground) {
+      unawaited(c.refreshOrders());
+      _refreshVisibleDetails();
+    }
   }
 
   @override
@@ -132,25 +234,95 @@ class _MerchantHomeState extends State<MerchantHome>
 
   Future<void> signOut() async {
     if (c.busy || signingOut) return;
+    final repository = widget.repository;
+    final onSignOut = widget.onSignOut;
     setState(() => signingOut = true);
     try {
-      await widget.onSignOut();
+      await onSignOut();
     } catch (_) {
-      notice('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง');
+      if (mounted && identical(repository, widget.repository)) {
+        notice('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง');
+      }
     } finally {
-      if (mounted) setState(() => signingOut = false);
+      if (mounted && identical(repository, widget.repository)) {
+        setState(() => signingOut = false);
+      }
     }
   }
 
   void navigate(int index) {
-    setState(() => page = index);
+    if (page == index) {
+      if (index == 0 && c.status != 'pending_acceptance') {
+        unawaited(c.selectStatus('pending_acceptance'));
+      }
+      return;
+    }
+    setState(() {
+      page = index;
+      _visitedPages.add(index);
+      _refreshVisiblePanelIfStale();
+    });
+    _refreshVisibleDetails();
     if (index == 0 && c.status != 'pending_acceptance') {
       unawaited(c.selectStatus('pending_acceptance'));
     }
   }
 
+  void _refreshVisiblePanelIfStale() {
+    if (!_cachedPanelPages.contains(page)) return;
+    final now = DateTime.now();
+    final visitedAt = _panelVisitedAt[page];
+    final detailsAt = c.detailsUpdatedAt;
+    final visited =
+        detailsAt != null && (visitedAt == null || detailsAt.isAfter(visitedAt))
+        ? detailsAt
+        : visitedAt;
+    if (visitedAt == null) {
+      _panelVisitedAt[page] = now;
+    } else if (visited != null && now.difference(visited) >= _panelFreshness) {
+      _panelRefreshAt[page] = now;
+      _panelVisitedAt[page] = now;
+    }
+  }
+
+  void _refreshVisibleDetails() {
+    if (!foreground) return;
+    if (const {0, 4, 6, 7}.contains(page)) {
+      // Keep summaries current (including Bangkok day rollover) without
+      // making historical reports part of every order poll or loading menu.
+      unawaited(c.refreshSummariesIfStale());
+    } else if (_cachedPanelPages.contains(page)) {
+      final before = _panelRefreshAt[page];
+      _refreshVisiblePanelIfStale();
+      if (_panelRefreshAt[page] != before) setState(() {});
+    }
+  }
+
+  DateTime? _panelRefresh(int index) {
+    final local = _panelRefreshAt[index];
+    final details = c.detailsUpdatedAt;
+    return local != null && (details == null || local.isAfter(details))
+        ? local
+        : details;
+  }
+
+  Future<void> _refreshPage() async {
+    if (_cachedPanelPages.contains(page)) {
+      setState(() {
+        _panelRefreshAt[page] = DateTime.now();
+        _panelVisitedAt[page] = DateTime.now();
+      });
+      // The panel performs its own authorized read; do not refetch every other
+      // tab's data just because a finance/ads screen was pulled to refresh.
+      await c.refreshOrders();
+    } else {
+      await c.refresh();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    _notifyInitialContentAfterPaint();
     final wide = MediaQuery.sizeOf(context).width >= 960;
     return Scaffold(
       backgroundColor: page == 0 ? const Color(0xFFF6F6F8) : Colors.white,
@@ -214,115 +386,26 @@ class _MerchantHomeState extends State<MerchantHome>
               Expanded(
                 child: Column(
                   children: [
-                    header(),
-                    if (c.loading || c.busy)
+                    RepaintBoundary(child: header()),
+                    if (c.loading || c.busy || c.refreshing || c.ordersLoading)
                       const LinearProgressIndicator(minHeight: 3),
                     Expanded(
                       child: RefreshIndicator(
-                        onRefresh: c.refresh,
+                        onRefresh: _refreshPage,
                         child: Align(
                           alignment: Alignment.topCenter,
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 1280),
-                            child: ListView(
-                              key: ValueKey(page),
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: EdgeInsets.fromLTRB(
-                                wide ? 36 : 18,
-                                16,
-                                wide ? 36 : 18,
-                                32,
-                              ),
+                            child: Stack(
+                              key: ValueKey(_pageScope),
+                              fit: StackFit.expand,
                               children: [
-                                if (page != 0) ...[
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        c.error == null
-                                            ? Icons.cloud_done_outlined
-                                            : Icons.cloud_off,
-                                        color: c.error == null
-                                            ? success
-                                            : Colors.red,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          c.updatedAt == null
-                                              ? 'กำลังเชื่อมต่อร้านของคุณ'
-                                              : 'อัปเดตล่าสุด ${dateLabel(c.updatedAt!.toIso8601String())}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xFF6B6B76),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                for (final index in _visitedPages)
+                                  RetainedMerchantPage(
+                                    key: ValueKey(index),
+                                    active: page == index,
+                                    builder: (_) => _pageView(index, wide),
                                   ),
-                                  const SizedBox(height: 16),
-                                ],
-                                if (c.error != null) errorBox(c.error!),
-                                if (c.store == null &&
-                                    !c.loading &&
-                                    c.error == null)
-                                  box(
-                                    Column(
-                                      children: [
-                                        const Icon(
-                                          Icons.storefront_outlined,
-                                          size: 52,
-                                          color: brand,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        const Text(
-                                          'ไม่พบร้านที่บัญชีนี้มีสิทธิ์จัดการ',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        const Text(
-                                          'ใช้บัญชีเจ้าของร้านเดิม หรือให้เจ้าของร้านเพิ่มคุณเป็นทีมงาน',
-                                        ),
-                                        TextButton(
-                                          onPressed: openOriginal,
-                                          child: const Text(
-                                            'เปิด WYNOS Merchant',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                if (c.store == null)
-                                  TextButton.icon(
-                                    onPressed: c.busy || signingOut
-                                        ? null
-                                        : signOut,
-                                    icon: const Icon(Icons.logout),
-                                    label: const Text('ออกจากระบบ'),
-                                  ),
-                                if (c.store != null && page > 3)
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: TextButton.icon(
-                                      onPressed: () => navigate(3),
-                                      icon: const Icon(Icons.chevron_left),
-                                      label: const Text('เพิ่มเติม'),
-                                    ),
-                                  ),
-                                if (c.store != null)
-                                  ...switch (page) {
-                                    0 => dashboard(),
-                                    1 => orderPage(),
-                                    2 => menuPage(),
-                                    3 => morePage(),
-                                    4 => reportPage(),
-                                    5 => settingsPage(),
-                                    6 => promotionsPage(),
-                                    _ => qualityPage(),
-                                  },
                               ],
                             ),
                           ),
@@ -339,6 +422,7 @@ class _MerchantHomeState extends State<MerchantHome>
       bottomNavigationBar: wide
           ? null
           : NavigationBar(
+              animationDuration: Duration.zero,
               selectedIndex: page >= 3 ? 3 : page,
               onDestinationSelected: navigate,
               destinations: List.generate(
@@ -352,9 +436,119 @@ class _MerchantHomeState extends State<MerchantHome>
     );
   }
 
+  void _notifyInitialContentAfterPaint() {
+    if (_initialContentNotified || _initialContentScheduled || c.loading) {
+      return;
+    }
+    _initialContentScheduled = true;
+    final repository = widget.repository;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(repository, widget.repository)) return;
+      _initialContentScheduled = false;
+      if (c.loading || _initialContentNotified) return;
+      _initialContentNotified = true;
+      widget.onInitialContentReady?.call();
+    });
+  }
+
+  Widget _pageView(int index, bool wide) {
+    final content = <Widget>[
+      if (c.loading && c.updatedAt == null) const _MerchantLoadingSkeleton(),
+      if (index != 0) ...[
+        Row(
+          children: [
+            Icon(
+              c.error == null ? Icons.cloud_done_outlined : Icons.cloud_off,
+              color: c.error == null ? success : Colors.red,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                c.updatedAt == null
+                    ? 'กำลังเชื่อมต่อร้านของคุณ'
+                    : 'อัปเดตล่าสุด ${dateLabel(c.updatedAt!.toIso8601String())}',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B76)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+      ],
+      if (c.error != null) errorBox(c.error!),
+      if (c.store == null && !c.loading && c.error == null)
+        box(
+          Column(
+            children: [
+              const Icon(Icons.storefront_outlined, size: 52, color: brand),
+              const SizedBox(height: 16),
+              const Text(
+                'ไม่พบร้านที่บัญชีนี้มีสิทธิ์จัดการ',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'ใช้บัญชีเจ้าของร้านเดิม หรือให้เจ้าของร้านเพิ่มคุณเป็นทีมงาน',
+              ),
+              TextButton(
+                onPressed: openOriginal,
+                child: const Text('เปิด WYNOS Merchant'),
+              ),
+            ],
+          ),
+        ),
+      if (c.store == null && !c.loading)
+        TextButton.icon(
+          onPressed: c.busy || signingOut ? null : signOut,
+          icon: const Icon(Icons.logout),
+          label: const Text('ออกจากระบบ'),
+        ),
+      if (c.store != null && index > 3)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => navigate(3),
+            icon: const Icon(Icons.chevron_left),
+            label: const Text('เพิ่มเติม'),
+          ),
+        ),
+      if (c.store != null && (!c.loading || c.updatedAt != null))
+        ...switch (index) {
+          0 => dashboard(),
+          1 => orderPage(),
+          2 => menuPage(),
+          3 => morePage(),
+          4 => reportPage(),
+          5 => settingsPage(),
+          6 => promotionsPage(),
+          8 => financePage(),
+          9 => staffPage(),
+          10 => adsPage(),
+          11 => zokyCampaignsPage(),
+          12 => feedbackPage(),
+          13 => helpPage(),
+          14 => storeQrPage(),
+          _ => qualityPage(),
+        },
+    ];
+    return CustomScrollView(
+      key: PageStorageKey('$_pageScope:$index'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(wide ? 36 : 18, 16, wide ? 36 : 18, 0),
+          sliver: SliverList.list(children: content),
+        ),
+        if (c.store != null && index == 2) ..._menuSlivers(wide),
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+      ],
+    );
+  }
+
   Future<void> openOriginal() async {
     if (!await launchUrl(
-      Uri.base.resolve('/merchant'),
+      // legacy=1: /merchant itself now redirects back to this app.
+      Uri.base.resolve('/merchant?legacy=1'),
       mode: LaunchMode.externalApplication,
     )) {
       notice('เปิดเว็บเดิมไม่สำเร็จ');
@@ -449,6 +643,9 @@ class _MerchantHomeState extends State<MerchantHome>
       ],
     ),
   );
+  bool get _reportReady => c.report.isNotEmpty && c.reportError == null;
+  bool get _reportPending => c.report.isEmpty && c.summariesLoading;
+
   Widget stats() => LayoutBuilder(
     builder: (context, size) {
       final largeText = MediaQuery.textScalerOf(context).scale(14) > 18;
@@ -458,27 +655,25 @@ class _MerchantHomeState extends State<MerchantHome>
       final data = [
         metric(
           'ยอดขายวันนี้',
-          c.updatedAt != null && c.reportError == null
-              ? money(c.report['today_sales'])
-              : '—',
+          _reportReady ? money(c.report['today_sales']) : '—',
           Icons.payments_outlined,
           'ออเดอร์สำเร็จ • เวลาไทย',
         ),
         metric(
           'สำเร็จวันนี้',
-          c.reportError == null ? '${c.report['today_orders'] ?? 0}' : '—',
+          _reportReady ? '${c.report['today_orders'] ?? 0}' : '—',
           Icons.receipt_long_outlined,
           'นับตามวันที่สั่งซื้อ',
         ),
         metric(
           'ยอดขายเดือนนี้',
-          c.reportError == null ? money(c.report['month_sales']) : '—',
+          _reportReady ? money(c.report['month_sales']) : '—',
           Icons.trending_up,
           'รวมทุกออเดอร์สำเร็จ',
         ),
         metric(
           'เมนูเปิดขาย',
-          '${c.menu.where((f) => f['is_available'] == true).length}',
+          '${c.menu.where(menuOnSale).length}',
           Icons.restaurant_menu,
           'จาก ${c.menu.length} เมนู',
         ),
@@ -525,7 +720,7 @@ class _MerchantHomeState extends State<MerchantHome>
                         ),
                       )
                       .toList(),
-                  onChanged: c.loading || c.busy
+                  onChanged: c.busy
                       ? null
                       : (id) {
                           if (id != null) unawaited(c.selectStore(id));
@@ -544,7 +739,7 @@ class _MerchantHomeState extends State<MerchantHome>
         ),
         IconButton(
           tooltip: 'การแจ้งเตือน',
-          onPressed: () => openTool('notifications'),
+          onPressed: pushBusy ? null : enablePush,
           icon: Icon(
             pushEnabled
                 ? Icons.notifications_active_outlined
@@ -563,6 +758,7 @@ class _MerchantHomeState extends State<MerchantHome>
         c.writable && c.canManage && c.store!['admin_suspended_at'] == null
         ? (value) => c.mutate(
             () => widget.repository.saveStore(c.storeId!, {'is_open': value}),
+            reload: MutationReload.orders,
           )
         : null,
   );
@@ -618,22 +814,6 @@ class _MerchantHomeState extends State<MerchantHome>
       );
     },
   );
-
-  Future<void> openTool(String toolName) async {
-    final storeId = c.storeId;
-    if (storeId == null) return;
-    final url = Uri.base
-        .resolve('/merchant')
-        .replace(
-          queryParameters: {
-            'merchant-tool': toolName,
-            'merchant-store': storeId,
-          },
-        );
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      notice('เปิดเครื่องมือร้านไม่สำเร็จ กรุณาลองอีกครั้ง');
-    }
-  }
 
   Widget homePanel(
     Widget child, {
@@ -775,7 +955,7 @@ class _MerchantHomeState extends State<MerchantHome>
                     OutlinedButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        unawaited(openTool('store'));
+                        navigate(5);
                       },
                       icon: const Icon(Icons.schedule),
                       label: const Text('ตั้งเวลาเปิดร้านและวันหยุด'),
@@ -866,11 +1046,7 @@ class _MerchantHomeState extends State<MerchantHome>
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       Navigator.pop(ctx);
-                      if (item.destination != null) {
-                        navigate(item.destination!);
-                      } else {
-                        unawaited(openTool(item.tool!));
-                      }
+                      navigate(item.destination ?? 5);
                     },
                   ),
               ],
@@ -912,9 +1088,9 @@ class _MerchantHomeState extends State<MerchantHome>
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                c.updatedAt == null
+                _reportPending || c.updatedAt == null
                     ? 'กำลังโหลดยอดขาย'
-                    : c.reportError == null
+                    : _reportReady
                     ? '${c.report['today_orders'] ?? 0} ออเดอร์สำเร็จ'
                     : 'โหลดข้อมูลยอดขายไม่สำเร็จ',
                 style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 13),
@@ -935,7 +1111,7 @@ class _MerchantHomeState extends State<MerchantHome>
   );
 
   Widget salesAmount() {
-    if (c.updatedAt == null || c.reportError != null) {
+    if (!_reportReady) {
       return const Text('—', style: TextStyle(fontSize: 36, color: brand));
     }
     final value = (num.tryParse('${c.report['today_sales']}') ?? 0)
@@ -964,76 +1140,177 @@ class _MerchantHomeState extends State<MerchantHome>
     );
   }
 
+  void openOrders(String status) {
+    navigate(1);
+    if (!c.busy && c.status != status) unawaited(c.selectStatus(status));
+  }
+
+  /// Founder 2026-11-01: open/close in one tap on the home screen. The switch
+  /// keeps the server-side suspension and role checks of storeSwitch().
+  Widget storeOpenPanel(Json store, bool effectiveOpen) {
+    final open = store['is_open'] == true;
+    final hours = '${store['business_hours'] ?? ''}'.trim();
+    final subtitle = open
+        ? (effectiveOpen ? 'ลูกค้าสั่งได้ตอนนี้' : 'นอกเวลาเปิดร้าน')
+        : 'ลูกค้ายังสั่งไม่ได้';
+    return homePanel(
+      Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: effectiveOpen ? success : const Color(0xFF8A8A94),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  store['status_text'] ??
+                      (open ? 'เปิดรับออเดอร์' : 'ปิดรับออเดอร์'),
+                  style: TextStyle(
+                    color: effectiveOpen ? success : ink,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hours.isEmpty ? subtitle : '$subtitle · $hours',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B6B76),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Semantics(
+            container: true,
+            label: open ? 'ปิดรับออเดอร์ชั่วคราว' : 'เปิดรับออเดอร์',
+            child: storeSwitch(),
+          ),
+        ],
+      ),
+      onTap: showStoreStatus,
+      label: 'แก้ไขสถานะร้าน',
+      radius: 20,
+      padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+      gradient: LinearGradient(
+        colors: effectiveOpen
+            ? const [Color(0xFFEAF8F0), Colors.white]
+            : const [Color(0xFFF3EFF1), Colors.white],
+      ),
+    );
+  }
+
+  /// "ต้องทำตอนนี้": live counts from the orderCounts read; — while unknown.
+  Widget todoPanel() {
+    final counts = c.orderCounts;
+    String value(String key) =>
+        counts[key] is num ? '${(counts[key] as num).toInt()}' : '—';
+    Widget cell(String key, String label, String status, Color fg, Color bg) =>
+        Expanded(
+          child: Semantics(
+            button: true,
+            label: '$label ${value(key)} รายการ',
+            onTap: () => openOrders(status),
+            excludeSemantics: true,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => openOrders(status),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      value(key),
+                      style: TextStyle(
+                        color: fg,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12, color: ink),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+    return homePanel(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'ต้องทำตอนนี้',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              cell(
+                'pending',
+                'ออเดอร์ใหม่',
+                'pending_acceptance',
+                brand,
+                brandSoft,
+              ),
+              const SizedBox(width: 8),
+              cell(
+                'review',
+                'ตรวจสลิป',
+                'pending_acceptance',
+                const Color(0xFFB45309),
+                const Color(0xFFFFF4E5),
+              ),
+              const SizedBox(width: 8),
+              cell(
+                'preparing',
+                'กำลังเตรียม',
+                'preparing',
+                const Color(0xFF2862A7),
+                const Color(0xFFEAF2FC),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () => openOrders('pending_acceptance'),
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('ไปที่ออเดอร์'),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> dashboard() {
     final store = c.store!;
     final effectiveOpen = store['effective_open'] == true;
     final steps = readiness();
     final done = steps.where((step) => step.done).length;
     return [
-      homePanel(
-        Row(
-          children: [
-            Container(
-              width: 11,
-              height: 11,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: effectiveOpen ? success : const Color(0xFF8A8A94),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 2,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    store['status_text'] ??
-                        (store['is_open'] == true
-                            ? 'เปิดรับออเดอร์'
-                            : 'ปิดรับออเดอร์'),
-                    style: TextStyle(
-                      color: effectiveOpen ? success : ink,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                  if ((store['business_hours'] ?? '')
-                      .toString()
-                      .trim()
-                      .isNotEmpty)
-                    Text(
-                      '(${store['business_hours']})',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF6B6B76),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                color: brand,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.edit_outlined,
-                color: Colors.white,
-                size: 21,
-              ),
-            ),
-          ],
-        ),
-        onTap: showStoreStatus,
-        label: 'แก้ไขสถานะร้าน',
-        radius: 40,
-        padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
-      ),
+      storeOpenPanel(store, effectiveOpen),
+      if (c.canOrders && (effectiveOpen || busyExtra() > 0)) busyPanel(),
+      todoPanel(),
       if (c.reportError != null) errorBox(c.reportError!),
       salesSummary(),
       homePanel(
@@ -1042,13 +1319,13 @@ class _MerchantHomeState extends State<MerchantHome>
             'การเงิน',
             0,
             Icons.account_balance_wallet_outlined,
-            c.canManage ? () => openTool('finance') : null,
+            c.canManage ? () => navigate(8) : null,
           ),
           homeTool(
             'โฆษณา',
             1,
             Icons.campaign_outlined,
-            c.canManage ? () => openTool('ads') : null,
+            c.canManage ? () => navigate(10) : null,
           ),
           homeTool(
             'โปรโมชั่น',
@@ -1060,7 +1337,7 @@ class _MerchantHomeState extends State<MerchantHome>
             'แคมเปญ',
             3,
             Icons.shopping_bag_outlined,
-            c.canManage ? () => openTool('campaigns') : null,
+            c.canManage ? () => navigate(11) : null,
           ),
           homeTool(
             'คุณภาพร้าน',
@@ -1068,18 +1345,8 @@ class _MerchantHomeState extends State<MerchantHome>
             Icons.verified_user_outlined,
             () => navigate(7),
           ),
-          homeTool(
-            'ฟีดแบ็ก',
-            5,
-            Icons.chat_bubble_outline,
-            () => openTool('feedback'),
-          ),
-          homeTool(
-            'ช่วยเหลือ',
-            6,
-            Icons.support_outlined,
-            () => openTool('help'),
-          ),
+          homeTool('ฟีดแบ็ก', 5, Icons.chat_bubble_outline, () => navigate(12)),
+          homeTool('ช่วยเหลือ', 6, Icons.support_outlined, () => navigate(13)),
           homeTool('การตั้งค่า', 7, Icons.settings_outlined, () => navigate(5)),
         ], compact: true),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -1233,7 +1500,8 @@ class _MerchantHomeState extends State<MerchantHome>
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(
-                  c.updatedAt == null
+                  c.updatedAt == null ||
+                          (c.qualityData.isEmpty && c.summariesLoading)
                       ? 'กำลังโหลดข้อมูลรีวิว'
                       : qualityAvailable
                       ? 'ยังไม่มีรีวิวจากลูกค้า'
@@ -1248,7 +1516,7 @@ class _MerchantHomeState extends State<MerchantHome>
         ),
       ),
       FilledButton.icon(
-        onPressed: () => openTool('feedback'),
+        onPressed: () => navigate(12),
         icon: const Icon(Icons.chat_bubble_outline),
         label: const Text('ดูรีวิวและตอบกลับ'),
       ),
@@ -1306,87 +1574,420 @@ class _MerchantHomeState extends State<MerchantHome>
     ),
   );
 
+  /// One row of the grouped "เพิ่มเติม" list. The accessible name is the label
+  /// alone so screen readers and tests find each tool by its plain name.
+  Widget moreRow(
+    String label,
+    VoidCallback? onTap, {
+    IconData icon = Icons.chevron_right,
+    String? hint,
+    Color? hintColor,
+    IconData trailing = Icons.chevron_right,
+  }) => Semantics(
+    button: true,
+    enabled: onTap != null,
+    label: label,
+    onTap: onTap,
+    excludeSemantics: true,
+    child: InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 60),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            children: [
+              Opacity(
+                opacity: onTap == null ? .4 : 1,
+                // One flat style for every row; the 3D set stays on the home
+                // shortcuts, where every tool has one.
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: brandSoft,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: brand, size: 22),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: onTap == null ? const Color(0xFF8A8A94) : ink,
+                      ),
+                    ),
+                    if (hint != null)
+                      Text(
+                        hint,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: hintColor ?? const Color(0xFF6B6B76),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Icon(trailing, size: 20, color: const Color(0xFF8A7F85)),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget moreGroup(String title, List<Widget> rows) => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF5C5157),
+            ),
+          ),
+        ),
+        Card(
+          margin: EdgeInsets.zero,
+          color: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: Color(0xFFEEE7EB)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0)
+                  const Divider(
+                    height: 1,
+                    indent: 66,
+                    color: Color(0xFFF1EBEE),
+                  ),
+                rows[i],
+              ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  /// Founder 2026-11-01 (ZOKY-MERCHANT-UX-002): grouped tools with 3D icons.
   List<Widget> morePage() => [
-    heading('เพิ่มเติม', 'เครื่องมือสำหรับร้านของคุณ'),
-    box(
+    homePanel(
       ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.storefront_outlined, color: brand, size: 36),
+        leading: Container(
+          width: 52,
+          height: 52,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: brand,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(
+            '${c.store!['name'] ?? ''}'.characters.firstOrNull ?? '',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
         title: Text(
           c.store!['name'],
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
         ),
         subtitle: Text(
           c.store!['is_published'] == true
               ? 'เผยแพร่บน ZOKY แล้ว'
               : 'ร้านยังไม่เผยแพร่',
+          style: TextStyle(
+            color: c.store!['is_published'] == true
+                ? success
+                : const Color(0xFF9A5800),
+          ),
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => navigate(5),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     ),
-    section('เครื่องมือร้าน'),
-    tools([
-      tool(
+    moreGroup('ขายและเงิน', [
+      moreRow(
         'รายงานยอดขาย',
-        Icons.bar_chart_rounded,
-        const Color(0xFF8256CF),
         () => navigate(4),
+        icon: Icons.bar_chart_rounded,
+        hint: 'ยอดขายและเมนูขายดี',
       ),
-      tool(
+      if (c.canManage)
+        moreRow(
+          'การเงิน',
+          () => navigate(8),
+          icon: Icons.account_balance_wallet_outlined,
+          hint: 'ยอดเงินเข้าบัญชีร้าน',
+        ),
+      moreRow(
         'ประวัติออเดอร์',
-        Icons.history,
-        brand,
-        c.loading || c.busy
-            ? null
-            : () {
-                navigate(1);
-                unawaited(c.selectStatus('delivered'));
-              },
-      ),
-      tool('โปรโมชั่น', Icons.local_offer_outlined, brand, () => navigate(6)),
-      tool(
-        'ตั้งค่าร้าน',
-        Icons.settings_outlined,
-        const Color(0xFF2862A7),
-        () => navigate(5),
+        c.busy ? null : () => openOrders('delivered'),
+        icon: Icons.history,
       ),
     ]),
-    const SizedBox(height: 18),
-    box(
-      Column(
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.notifications_outlined, color: brand),
-            title: const Text('การแจ้งเตือน'),
-            subtitle: Text(
-              pushEnabled
-                  ? 'เปิดแจ้งเตือนออเดอร์แล้ว'
-                  : 'รับการแจ้งเตือนเมื่อมีออเดอร์ใหม่',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: pushBusy ? null : enablePush,
-          ),
-          const Divider(),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.wallet_outlined, color: success),
-            title: const Text('การเงินและเครื่องมือเพิ่มเติม'),
-            subtitle: const Text(
-              'เปิดหน้าจัดการเดิม: การเงิน แคมเปญ โฆษณา และทีมงาน',
-            ),
-            trailing: const Icon(Icons.open_in_new, size: 20),
-            onTap: openOriginal,
-          ),
-        ],
+    moreGroup('ร้านค้า', [
+      moreRow(
+        'ตั้งค่าร้าน',
+        () => navigate(5),
+        icon: Icons.settings_outlined,
+        hint: 'ชื่อ รูป ที่อยู่ พื้นที่ส่ง ช่องทางรับเงิน',
       ),
-    ),
-    TextButton.icon(
+      moreRow(
+        'QR ร้าน',
+        () => navigate(14),
+        icon: Icons.qr_code_2,
+        hint: 'ลูกค้าสแกนแล้วสั่งผ่าน LINE',
+      ),
+      moreRow(
+        'เวลาเปิด-ปิด',
+        showStoreStatus,
+        icon: Icons.schedule,
+        hint: c.store!['is_open'] == true
+            ? 'เปิดรับออเดอร์อยู่'
+            : 'ปิดรับออเดอร์อยู่',
+      ),
+    ]),
+    moreGroup('การตลาดและคุณภาพ', [
+      moreRow('โปรโมชั่น', () => navigate(6), icon: Icons.local_offer_outlined),
+      if (c.canManage) ...[
+        moreRow(
+          'แคมเปญ ZOKY',
+          () => navigate(11),
+          icon: Icons.shopping_bag_outlined,
+          hint: 'ZOKY ช่วยออกส่วนลด',
+        ),
+        moreRow('โฆษณา', () => navigate(10), icon: Icons.campaign_outlined),
+      ],
+      moreRow(
+        'คุณภาพร้าน',
+        () => navigate(7),
+        icon: Icons.verified_user_outlined,
+        hint: 'คะแนนและรีวิวจากลูกค้า',
+      ),
+      moreRow('ฟีดแบ็ก', () => navigate(12), icon: Icons.chat_bubble_outline),
+    ]),
+    moreGroup('ทีมและการแจ้งเตือน', [
+      moreRow('ทีมงาน', () => navigate(9), icon: Icons.groups_outlined),
+      moreRow(
+        'การแจ้งเตือน',
+        pushBusy ? null : enablePush,
+        icon: Icons.notifications_outlined,
+        hint: pushEnabled
+            ? 'เปิดแจ้งเตือนออเดอร์แล้ว'
+            : 'รับการแจ้งเตือนเมื่อมีออเดอร์ใหม่',
+        hintColor: pushEnabled ? success : null,
+      ),
+      moreRow('ช่วยเหลือ', () => navigate(13), icon: Icons.support_outlined),
+    ]),
+    OutlinedButton.icon(
       onPressed: c.busy || signingOut ? null : signOut,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFFB0174F),
+        side: const BorderSide(color: Color(0xFFF3C9D9)),
+        minimumSize: const Size.fromHeight(52),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
       icon: const Icon(Icons.logout),
       label: const Text('ออกจากระบบ'),
     ),
+  ];
+
+  /// Founder 2026-11-01: reviews inside the new Merchant (was the legacy page).
+  List<Widget> storeQrPage() => [
+    heading('QR ร้าน', 'พิมพ์แปะหน้าร้าน หรือส่งให้ลูกค้าสแกนสั่งผ่าน LINE'),
+    box(
+      StoreQrPanel(
+        key: ValueKey(c.storeId),
+        repository: widget.repository,
+        storeId: c.storeId!,
+        onNotice: notice,
+      ),
+    ),
+  ];
+
+  List<Widget> feedbackPage() => [
+    heading('ฟีดแบ็ก', 'ความคิดเห็นจากลูกค้า ZOKY ที่สั่งจริง'),
+    box(
+      FeedbackPanel(
+        key: ValueKey(c.storeId),
+        repository: widget.repository,
+        storeId: c.storeId!,
+        refreshedAt: _panelRefresh(12),
+      ),
+    ),
+  ];
+
+  Future<void> copyStoreDiagnostics() async {
+    final store = c.store!;
+    final detail = [
+      'ZOKY Merchant',
+      'ร้าน: ${store['name']}',
+      'Store ID: ${store['id']}',
+      'สถานะ: ${store['is_open'] == true ? 'เปิดร้าน' : 'ปิดร้าน'} / ${store['is_published'] == true ? 'เผยแพร่แล้ว' : 'ยังไม่เผยแพร่'}',
+      'เวลา: ${DateTime.now().toUtc().toIso8601String()}',
+    ].join('\n');
+    try {
+      await Clipboard.setData(ClipboardData(text: detail));
+      notice('คัดลอกข้อมูลสำหรับแจ้งปัญหาแล้ว');
+    } catch (_) {
+      notice('คัดลอกไม่สำเร็จ กรุณาจด Store ID จากหน้านี้');
+    }
+  }
+
+  /// Founder 2026-11-01: help inside the new Merchant (was the legacy page).
+  List<Widget> helpPage() {
+    Widget tip(String title, String body) => ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(body),
+    );
+    return [
+      heading('ช่วยเหลือ', 'ศูนย์ช่วยเหลือร้านค้า'),
+      box(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ต้องการความช่วยเหลือ?',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'ติดต่อบัญชี Official @wynos_s ใน WYNOS พร้อมส่งชื่อร้านและ Store ID เพื่อให้ทีมตรวจสอบได้เร็วขึ้น',
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                FilledButton(
+                  onPressed: () => launchUrl(
+                    Uri.parse('https://wynos.online'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  child: const Text('เปิด WYNOS'),
+                ),
+                OutlinedButton(
+                  onPressed: copyStoreDiagnostics,
+                  child: const Text('คัดลอกข้อมูลร้าน'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              'Store ID: ${c.store!['id']}',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
+            ),
+          ],
+        ),
+      ),
+      box(
+        Column(
+          children: [
+            tip(
+              'ออเดอร์ไม่ดัง',
+              'ตรวจว่าเปิดการแจ้งเตือน (เพิ่มเติม → การแจ้งเตือน) หรือ LINE และมือถือไม่ได้ปิดเสียง',
+            ),
+            tip(
+              'สลิปไม่ขึ้น',
+              'ปิดออเดอร์แล้วเปิดใหม่ หากยังไม่ขึ้นให้คัดลอกข้อมูลร้านส่งทีม',
+            ),
+            tip(
+              'ร้านไม่ขึ้นบน ZOKY',
+              'ตรวจความพร้อมร้าน ช่องทางรับเงิน เมนู ตำแหน่ง และสถานะเผยแพร่',
+            ),
+            tip(
+              'ยอดขายหรือการเงินไม่ตรง',
+              'ใช้หน้า “การเงิน” เลือกช่วงวันที่เพื่อตรวจรายการ',
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> adsPage() => [
+    heading('โฆษณา', 'ให้ร้านขึ้นเป็นร้านแนะนำและอยู่บนสุดตอนค้นหา'),
+    if (c.canManage)
+      box(
+        AdsPanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: _panelRefresh(10),
+        ),
+      )
+    else
+      box(const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่จัดการโฆษณาได้')),
+  ];
+
+  List<Widget> zokyCampaignsPage() => [
+    heading('แคมเปญ ZOKY', 'แคมเปญส่วนลดที่ ZOKY ช่วยออกให้ เข้าร่วมได้เอง'),
+    if (c.canManage)
+      box(
+        PlatformCampaignsPanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: _panelRefresh(11),
+        ),
+      )
+    else
+      box(
+        const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่เข้าร่วมแคมเปญได้'),
+      ),
+  ];
+
+  List<Widget> staffPage() => [
+    heading('ทีมงาน', 'คนที่เข้าจัดการร้านนี้ได้ และสิทธิ์ของแต่ละคน'),
+    box(
+      StaffPanel(
+        key: ValueKey(c.storeId),
+        repository: widget.repository,
+        storeId: c.storeId!,
+        refreshedAt: _panelRefresh(9),
+      ),
+    ),
+  ];
+
+  List<Widget> financePage() => [
+    heading('การเงินของร้าน', 'ยอดขาย คืนเงิน และรายได้ของร้าน'),
+    // Re-checked on every refresh: losing the role removes the panel and
+    // the figures it holds.
+    if (c.canManage)
+      box(
+        FinancePanel(
+          key: ValueKey(c.storeId),
+          repository: widget.repository,
+          storeId: c.storeId!,
+          refreshedAt: _panelRefresh(8),
+        ),
+      )
+    else
+      box(const Text('เฉพาะเจ้าของ แอดมิน หรือผู้จัดการร้านที่ดูการเงินได้')),
   ];
 
   List<Widget> promotionsPage() => [
@@ -1437,7 +2038,9 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
     ),
     if (c.campaigns.isEmpty && c.campaignError == null)
-      box(const Text('ยังไม่มีโปรโมชั่น')),
+      box(
+        Text(c.summariesLoading ? 'กำลังโหลดโปรโมชั่น' : 'ยังไม่มีโปรโมชั่น'),
+      ),
     if (c.canCampaigns)
       OutlinedButton.icon(
         onPressed: c.writable ? addCampaign : null,
@@ -1454,19 +2057,19 @@ class _MerchantHomeState extends State<MerchantHome>
   };
   List<Widget> orderPage() => [
     heading('ออเดอร์', 'ตรวจชำระเงินก่อนรับ และเริ่มจัดส่งเมื่อพร้อม'),
+    if (busyExtra() > 0 && c.canOrders) busyPanel(),
     SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: orderStatuses.entries
+        children: orderTabs.entries
             .map(
               (e) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
+                  // "จัดส่ง" also lists pickup orders ready for collection.
                   label: Text(e.value),
                   selected: c.status == e.key,
-                  onSelected: c.loading || c.busy
-                      ? null
-                      : (_) => c.selectStatus(e.key),
+                  onSelected: c.busy ? null : (_) => c.selectStatus(e.key),
                 ),
               ),
             )
@@ -1474,7 +2077,9 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
     ),
     const SizedBox(height: 20),
-    if (c.orders.isEmpty && !c.loading)
+    if (c.orders.isEmpty && (c.ordersLoading || c.refreshing))
+      const Text('กำลังโหลดออเดอร์'),
+    if (c.orders.isEmpty && !c.loading && !c.ordersLoading && !c.refreshing)
       emptyState(
         Icons.shopping_bag_outlined,
         'ไม่มีออเดอร์ในแท็บนี้',
@@ -1483,8 +2088,12 @@ class _MerchantHomeState extends State<MerchantHome>
     ...c.orders.map(orderCard),
     if (c.hasMore)
       OutlinedButton(
-        onPressed: c.writable ? c.loadMore : null,
-        child: const Text('โหลดออเดอร์เพิ่มเติม'),
+        onPressed: c.writable && !c.ordersLoading && !c.refreshing
+            ? c.loadMore
+            : null,
+        child: Text(
+          c.ordersLoading ? 'กำลังโหลดออเดอร์' : 'โหลดออเดอร์เพิ่มเติม',
+        ),
       ),
     const SizedBox(height: 12),
     const Text(
@@ -1492,201 +2101,669 @@ class _MerchantHomeState extends State<MerchantHome>
       style: TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
     ),
   ];
-  Widget orderCard(Json o) {
-    final status = o['status'] as String;
-    final next = nextStatuses[status];
-    final allowed = status == 'ready_for_delivery'
-        ? c.canDelivery
-        : c.canOrders;
-    return box(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+
+  /// "2 นาทีที่แล้ว" for recent orders; older ones keep the full date.
+  String agoLabel(dynamic value) {
+    final at = DateTime.tryParse('$value')?.toLocal();
+    if (at == null) return dateLabel(value);
+    final minutes = DateTime.now().difference(at).inMinutes;
+    if (minutes < 1) return 'เมื่อสักครู่';
+    if (minutes < 60) return '$minutes นาทีที่แล้ว';
+    if (minutes < 360) return '${minutes ~/ 60} ชม.ที่แล้ว';
+    return dateLabel(value);
+  }
+
+  int defaultEta(Json o) {
+    final saved = num.tryParse('${o['eta_minutes'] ?? ''}')?.toInt();
+    if (saved != null) return saved.clamp(1, 240);
+    final prep =
+        num.tryParse('${c.store?['prep_time_max_minutes'] ?? 30}')?.toInt() ??
+        30;
+    return (prep + busyExtra()).clamp(1, 240);
+  }
+
+  /// Busy-mode minutes in effect now (0 when off or expired).
+  int busyExtra() {
+    final store = c.store;
+    if (store == null) return 0;
+    final until = DateTime.tryParse('${store['busy_until'] ?? ''}');
+    if (until == null || !until.isAfter(DateTime.now())) return 0;
+    return (num.tryParse('${store['busy_extra_minutes'] ?? 0}') ?? 0).toInt();
+  }
+
+  String clockLabel(dynamic value) {
+    final at = DateTime.tryParse(
+      '$value',
+    )?.toUtc().add(const Duration(hours: 7));
+    if (at == null) return '—';
+    return '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Founder 2026-11-03 (after studying the big delivery apps): a rush adds
+  /// preparation minutes for a while; customers see the longer wait.
+  Future<void> openBusyMode() async {
+    var extra = 20, duration = 60;
+    final picked = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'โหมดยุ่ง',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'เพิ่มเวลาเตรียมอาหารชั่วคราว ลูกค้าจะเห็นเวลารอที่นานขึ้น',
+                  style: TextStyle(color: Color(0xFF6B6B76)),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'เพิ่มเวลา',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final m in const [10, 20, 30])
+                      ChoiceChip(
+                        label: Text('+$m นาที'),
+                        selected: extra == m,
+                        onSelected: (_) => setSheet(() => extra = m),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'นานเท่าไร',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final e in const {
+                      30: '30 นาที',
+                      60: '1 ชั่วโมง',
+                      120: '2 ชั่วโมง',
+                    }.entries)
+                      ChoiceChip(
+                        label: Text(e.value),
+                        selected: duration == e.key,
+                        onSelected: (_) => setSheet(() => duration = e.key),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('เปิดโหมดยุ่ง'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (picked != true || !mounted) return;
+    if (await c.mutate(
+      () => widget.repository.setBusy(c.storeId!, extra, duration),
+    )) {
+      notice('เปิดโหมดยุ่งแล้ว · เพิ่มเวลา $extra นาที');
+    }
+  }
+
+  Future<void> stopBusyMode() async {
+    if (await c.mutate(() => widget.repository.setBusy(c.storeId!, 0, null))) {
+      notice('ปิดโหมดยุ่งแล้ว');
+    }
+  }
+
+  /// Busy mode row: an offer when off, an amber status with "ปิด" when on.
+  Widget busyPanel() {
+    final extra = busyExtra();
+    final allowed = c.writable && c.canOrders && !c.busy;
+    final active = extra > 0;
+    return homePanel(
+      Row(
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Icon(
+            active ? Icons.local_fire_department : Icons.timer_outlined,
+            color: active ? const Color(0xFFB45309) : brand,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  active ? 'โหมดยุ่ง · +$extra นาที' : 'ร้านยุ่งอยู่ไหม',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: active ? const Color(0xFF92400E) : ink,
+                  ),
+                ),
+                Text(
+                  active
+                      ? 'ถึง ${clockLabel(c.store!['busy_until'])} น. · ลูกค้าเห็นเวลารอนานขึ้น'
+                      : 'เพิ่มเวลาเตรียมอาหารชั่วคราว',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B6B76),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (active)
+            TextButton(
+              onPressed: allowed ? stopBusyMode : null,
+              child: const Text('ปิดโหมดยุ่ง'),
+            )
+          else
+            OutlinedButton(
+              onPressed: allowed ? openBusyMode : null,
+              child: const Text('โหมดยุ่ง'),
+            ),
+        ],
+      ),
+      radius: 20,
+      padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+      gradient: active
+          ? const LinearGradient(colors: [Color(0xFFFFF4E0), Colors.white])
+          : null,
+    );
+  }
+
+  /// Payment still needs the store's check before the order can be accepted.
+  bool needsPaymentReview(Json o) =>
+      o['payment_method'] != 'cod' &&
+      o['payment_status'] != 'paid' &&
+      !stripeWaiting(o) &&
+      (o['payment_slip_path'] != null || o['payment_status'] == 'pending');
+
+  bool stripeWaiting(Json o) =>
+      o['payment_method'] != 'cod' &&
+      o['payment_status'] != 'paid' &&
+      (o['payment_provider'] == 'stripe' ||
+          (o['stripe_checkout_session_id'] != null &&
+              o['payment_slip_path'] == null));
+
+  Widget pill(String text, Color fg, Color bg) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w600),
+    ),
+  );
+
+  Widget orderPill(Json o) {
+    final status = '${o['status']}';
+    if (status == 'pending_acceptance') {
+      if (o['payment_method'] == 'cod') {
+        return pill(
+          'เก็บเงินปลายทาง',
+          const Color(0xFF7A4B00),
+          const Color(0xFFFFF1DC),
+        );
+      }
+      if (o['payment_status'] == 'paid') {
+        return pill(
+          'ชำระแล้ว',
+          const Color(0xFF0A6B3B),
+          const Color(0xFFEAF8F0),
+        );
+      }
+      if (o['payment_status'] == 'issue') {
+        return pill('สลิปมีปัญหา', const Color(0xFFB0174F), brandSoft);
+      }
+      return pill(
+        stripeWaiting(o) ? 'รอยืนยันชำระ' : 'ตรวจสลิป',
+        const Color(0xFF7A4B00),
+        const Color(0xFFFFF1DC),
+      );
+    }
+    if (status == 'delivered') {
+      return pill(
+        orderStatusLabel(o),
+        const Color(0xFF0A6B3B),
+        const Color(0xFFEAF8F0),
+      );
+    }
+    if (status == 'cancelled') {
+      return pill(
+        orderStatusLabel(o),
+        const Color(0xFF5C5157),
+        const Color(0xFFF1EDEF),
+      );
+    }
+    if (status == 'preparing' && o['eta_minutes'] != null) {
+      return pill(
+        'ทำ ${o['eta_minutes']} นาที',
+        const Color(0xFF9C1149),
+        brandSoft,
+      );
+    }
+    return pill(orderStatusLabel(o), const Color(0xFF9C1149), brandSoft);
+  }
+
+  Future<void> pickEta(String id, int current, List<int> options) async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                '#${o['order_number']}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              const Text(
+                'อาหารจะพร้อมในกี่นาที',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
-              Chip(
-                label: Text(orderStatuses[status] ?? status),
-                backgroundColor: status == 'delivered'
-                    ? const Color(0xFFE9F7EF)
-                    : brandSoft,
-                labelStyle: TextStyle(
-                  color: status == 'delivered' ? success : brand,
-                  fontWeight: FontWeight.w600,
-                ),
-                side: BorderSide.none,
+              const SizedBox(height: 4),
+              const Text(
+                'ลูกค้าจะเห็นเวลานี้หลังร้านรับออเดอร์',
+                style: TextStyle(color: Color(0xFF6B6B76)),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final minutes in options)
+                    ChoiceChip(
+                      label: Text('$minutes นาที'),
+                      selected: current == minutes,
+                      onSelected: (_) => Navigator.pop(context, minutes),
+                    ),
+                ],
               ),
             ],
           ),
-          Text(
-            '${o['recipient_name']} • ${dateLabel(o['created_at'])}',
-            style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
+        ),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _etaChoice[id] = picked);
+  }
+
+  Widget orderCard(Json o) {
+    final status = o['status'] as String;
+    final next = orderNextStatus(o);
+    final pickup = o['fulfillment_type'] == 'pickup';
+    // Collecting a pickup order is an order-desk step, not a delivery one.
+    final allowed = status == 'ready_for_delivery' && !pickup
+        ? c.canDelivery
+        : c.canOrders;
+    final id = '${o['id']}';
+    final eta = _etaChoice[id] ?? defaultEta(o);
+    final etaOptions = ({10, 15, 20, 30, 45, 60, defaultEta(o)}.toList()
+      ..sort());
+    final items = (o['food_order_items'] as List? ?? []);
+    const muted = Color(0xFF6B5F66);
+    final canAccept =
+        status == 'pending_acceptance' && c.writable && c.canOrders;
+    final discount =
+        (num.tryParse('${o['campaign_discount']}') ?? 0) +
+        (num.tryParse('${o['delivery_discount']}') ?? 0);
+
+    Widget primary(String label, VoidCallback? onPressed, {Color? color}) =>
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: color,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            onPressed: onPressed,
+            child: Text(label),
           ),
-          if (o['scheduled_for'] != null)
+        );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEEE7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '#${o['order_number']}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${agoLabel(o['created_at'])} · ${pickup ? '🛍️ รับที่ร้าน' : '🛵 ส่งถึงบ้าน'}'
+                      '${o['payment_method'] == 'cod' ? ' · 💵 เก็บเงินปลายทาง' : ''}',
+                      style: const TextStyle(color: muted, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              orderPill(o),
+            ],
+          ),
+          if (pickup) ...[
+            const SizedBox(height: 8),
+            Text(
+              'นัดรับ ${dateLabel(o['pickup_at'])} · รหัสรับอาหาร: ${o['pickup_code'] ?? '—'}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+          if (o['scheduled_for'] != null) ...[
+            const SizedBox(height: 6),
             Text(
               'นัดส่ง: ${dateLabel(o['scheduled_for'])}',
-              style: const TextStyle(color: brand),
+              style: const TextStyle(color: brand, fontWeight: FontWeight.w600),
             ),
-          const Divider(height: 28),
-          for (final item in (o['food_order_items'] as List? ?? []))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+          ],
+          if (o['cancel_requested_at'] != null)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${item['item_name']} × ${item['quantity']}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  const Text(
+                    'ลูกค้าขอยกเลิก',
+                    style: TextStyle(
+                      color: Color(0xFF8A4A00),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if ('${o['cancel_request_note'] ?? ''}'.isNotEmpty)
+                    Text('${o['cancel_request_note']}'),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      TextButton(
+                        onPressed: c.writable && c.canOrders
+                            ? () => resolveCancel(o, false)
+                            : null,
+                        child: const Text('ปฏิเสธคำขอยกเลิก'),
+                      ),
+                      TextButton(
+                        onPressed: c.writable && c.canOrders
+                            ? () => resolveCancel(o, true)
+                            : null,
+                        child: const Text('อนุมัติคำขอยกเลิก'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
+          for (final item in items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${item['quantity']}× ${item['item_name']}',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (num.tryParse('${item['unit_price']}') != null)
+                        Text(
+                          money(
+                            (num.tryParse('${item['unit_price']}') ?? 0) *
+                                (num.tryParse('${item['quantity']}') ?? 1),
+                          ),
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                    ],
                   ),
                   if (item['selected_options'] is List &&
                       (item['selected_options'] as List).isNotEmpty)
                     Text(
                       optionLabel(item['selected_options'] as List),
-                      style: const TextStyle(
-                        color: Color(0xFF6B6B76),
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: muted, fontSize: 13),
                     ),
                   if ((item['item_note'] ?? '').toString().isNotEmpty)
                     Text(
                       'หมายเหตุเมนู: ${item['item_note']}',
-                      style: const TextStyle(color: Color(0xFFAD7016)),
+                      style: const TextStyle(
+                        color: Color(0xFF8A4A00),
+                        fontSize: 13,
+                      ),
                     ),
                 ],
               ),
             ),
           if ((o['customer_note'] ?? '').toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 4, bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Text(
                 'หมายเหตุลูกค้า: ${o['customer_note']}',
-                style: const TextStyle(color: Color(0xFFAD7016)),
+                style: const TextStyle(color: Color(0xFF6A3A00)),
               ),
             ),
-          Text(
-            paymentStatuses[o['payment_status']] ?? o['payment_status'],
-            style: TextStyle(
-              color: o['payment_status'] == 'paid'
-                  ? success
-                  : Colors.orange.shade800,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          if (!['delivered', 'cancelled'].contains(status) &&
-              o['payment_status'] != 'paid')
-            if (o['payment_provider'] == 'stripe' ||
-                (o['stripe_checkout_session_id'] != null &&
-                    o['payment_slip_path'] == null))
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'รอระบบยืนยันการชำระเงินอัตโนมัติ',
-                  style: TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
-                ),
-              )
-            else if (o['payment_slip_path'] != null ||
-                o['payment_status'] == 'pending')
-              TextButton(
-                onPressed: c.writable && c.canOrders
-                    ? () => reviewPayment(o)
-                    : null,
-                child: const Text('ตรวจการชำระเงิน'),
-              ),
-          if (o['payment_slip_path'] != null && o['payment_status'] == 'paid')
-            TextButton(
-              onPressed: () => showEvidence(o, 'slip'),
-              child: const Text('ดูสลิปการชำระเงิน'),
-            ),
-
-          const SizedBox(height: 12),
-          Text('จัดส่ง: ${o['shipping_address']}'),
-          TextButton.icon(
-            onPressed: () async {
-              await Clipboard.setData(
-                ClipboardData(text: '${o['recipient_phone']}'),
-              );
-              notice('คัดลอกเบอร์โทรแล้ว');
-            },
-            icon: const Icon(Icons.copy_outlined, size: 16),
-            label: Text('${o['recipient_phone']}'),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'อาหาร ${money(o['subtotal'])} • ค่าส่ง ${money(o['delivery_fee'])}',
-            style: const TextStyle(color: Color(0xFF6B6B76), fontSize: 12),
-          ),
-          if ((num.tryParse('${o['campaign_discount']}') ?? 0) +
-                  (num.tryParse('${o['delivery_discount']}') ?? 0) >
-              0)
+          const Divider(height: 24, color: Color(0xFFF1EBEE)),
+          if (!pickup)
             Text(
-              'ส่วนลด ${money((num.tryParse('${o['campaign_discount']}') ?? 0) + (num.tryParse('${o['delivery_discount']}') ?? 0))}',
-              style: const TextStyle(fontSize: 12, color: brand),
+              '📍 ${o['shipping_address']}',
+              style: const TextStyle(fontSize: 14),
             ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 20,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
             children: [
+              TextButton.icon(
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                onPressed: () async {
+                  await Clipboard.setData(
+                    ClipboardData(text: '${o['recipient_phone']}'),
+                  );
+                  notice('คัดลอกเบอร์โทรแล้ว');
+                },
+                icon: const Icon(Icons.copy_outlined, size: 16),
+                label: Text('${o['recipient_name']} · ${o['recipient_phone']}'),
+              ),
+            ],
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Text(
+                  'อาหาร ${money(o['subtotal'])} · ค่าส่ง ${money(o['delivery_fee'])}'
+                  '${discount > 0 ? ' · ส่วนลด ${money(discount)}' : ''}',
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
+              ),
               Text(
                 money(o['total']),
                 style: const TextStyle(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: ink,
                 ),
               ),
-              if (next != null)
-                FilledButton(
-                  onPressed:
-                      c.writable &&
-                          allowed &&
-                          (status != 'pending_acceptance' ||
-                              o['payment_status'] == 'paid')
-                      ? () => advance(o, next)
+            ],
+          ),
+          if (status == 'pending_acceptance' && !stripeWaiting(o)) ...[
+            const SizedBox(height: 12),
+            // One suggested time with a quiet "change" link, instead of a
+            // row of chips that wraps on phones.
+            Row(
+              children: [
+                const Icon(Icons.timer_outlined, size: 20, color: muted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'พร้อมในประมาณ ',
+                      style: const TextStyle(color: muted),
+                      children: [
+                        TextSpan(
+                          text: '$eta นาที',
+                          style: const TextStyle(
+                            color: ink,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: canAccept
+                      ? () => pickEta(id, eta, etaOptions)
                       : null,
-                  child: Text(nextActions[status]!),
+                  child: const Text('เปลี่ยนเวลา'),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (status == 'pending_acceptance')
+            if (stripeWaiting(o))
+              primary('รอระบบยืนยันการชำระเงินอัตโนมัติ', null)
+            else if (needsPaymentReview(o))
+              primary(
+                o['payment_slip_path'] != null
+                    ? 'ตรวจสลิป · รับออเดอร์'
+                    : 'ตรวจเงินเข้า · รับออเดอร์',
+                canAccept ? () => reviewAndAccept(o, eta) : null,
+              )
+            else
+              primary(
+                'รับออเดอร์ · $eta นาที',
+                canAccept &&
+                        (o['payment_status'] == 'paid' ||
+                            o['payment_method'] == 'cod')
+                    ? () => accept(o, eta)
+                    : null,
+              )
+          else if (status == 'out_for_delivery')
+            primary(
+              'แนบรูปและยืนยันส่งสำเร็จ',
+              c.writable && c.canDelivery ? () => finishDelivery(o) : null,
+              color: success,
+            )
+          else if (next != null)
+            primary(
+              orderNextAction(o)!,
+              c.writable && allowed ? () => advance(o, next) : null,
+              color: ink,
+            ),
+          Wrap(
+            spacing: 4,
+            children: [
+              if (o['payment_slip_path'] != null &&
+                  (o['payment_status'] == 'paid' ||
+                      status != 'pending_acceptance'))
+                TextButton(
+                  onPressed: () => showEvidence(o, 'slip'),
+                  child: const Text('ดูสลิปการชำระเงิน'),
+                ),
+              if (status == 'delivered' && !pickup)
+                TextButton(
+                  onPressed: () => showEvidence(o, 'proof'),
+                  child: const Text('ดูหลักฐานส่งสำเร็จ'),
+                ),
+              if (!['delivered', 'cancelled'].contains(status) && c.canOrders)
+                TextButton(
+                  onPressed: c.writable ? () => cancelOrder(o) : null,
+                  child: const Text(
+                    'ยกเลิกออเดอร์',
+                    style: TextStyle(color: Color(0xFFB0174F)),
+                  ),
+                ),
+              if (o['refund_status'] == 'pending' &&
+                  o['payment_provider'] != 'stripe' &&
+                  o['payment_method'] != 'cod')
+                OutlinedButton(
+                  onPressed: c.writable && c.canManage
+                      ? () => refundOrder(o)
+                      : null,
+                  child: const Text('โอนคืนแล้ว + แนบสลิป'),
                 ),
             ],
           ),
-          if (status == 'out_for_delivery')
-            FilledButton.icon(
-              onPressed: c.writable && c.canDelivery
-                  ? () => finishDelivery(o)
-                  : null,
-              icon: const Icon(Icons.add_a_photo_outlined),
-              label: const Text('แนบรูปและยืนยันส่งสำเร็จ'),
-            ),
-          if (status == 'delivered')
-            TextButton(
-              onPressed: () => showEvidence(o, 'proof'),
-              child: const Text('ดูหลักฐานส่งสำเร็จ'),
-            ),
-          if (status != 'delivered' && status != 'cancelled' && c.canOrders)
-            TextButton(
-              onPressed: c.writable ? () => cancelOrder(o) : null,
-              child: const Text(
-                'ยกเลิกออเดอร์',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
           if (o['refund_status'] == 'pending')
             const Text(
               'รอคืนเงิน • จัดการคืนเงินผ่านหน้าการเงินร้าน',
-              style: TextStyle(color: Colors.orange),
+              style: TextStyle(color: Color(0xFF8A4A00)),
             ),
         ],
       ),
     );
+  }
+
+  /// Payment check, then acceptance with the ETA chosen on the card:
+  /// the existing review dialog and both server checks stay in place.
+  Future<void> reviewAndAccept(Json o, int eta) async {
+    if (!await reviewPayment(o) || !mounted) return;
+    await accept(o, eta);
+  }
+
+  Future<void> accept(Json o, int eta) async {
+    if (await c.mutate(
+      () => widget.repository.transition(
+        c.storeId!,
+        o['id'],
+        'preparing',
+        etaMinutes: eta,
+      ),
+      reload: MutationReload.orders,
+    )) {
+      _etaChoice.remove('${o['id']}');
+      notice('รับออเดอร์แล้ว · แจ้งลูกค้าว่าพร้อมใน $eta นาที');
+    }
   }
 
   String optionLabel(List options) => options
@@ -1709,7 +2786,7 @@ class _MerchantHomeState extends State<MerchantHome>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(nextActions[o['status']]!),
+        title: Text(orderNextAction(o)!),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1754,25 +2831,33 @@ class _MerchantHomeState extends State<MerchantHome>
           status,
           etaMinutes: status == 'preparing' ? eta : null,
         ),
+        reload: MutationReload.orders,
       )) {
         notice('อัปเดตออเดอร์แล้ว');
       }
     }
   }
 
-  List<Widget> menuPage() {
-    final categories = c.menu
-        .map((m) => '${m['category'] ?? 'ทั่วไป'}')
-        .toSet()
-        .toList();
-    final selectedCategory = categories.contains(category) ? category : null;
+  Map<String, List<Json>> _menuGroups() {
+    final filter = '$query\u0000$category\u0000$menuSort\u0000$soldOutOnly';
+    if (identical(_menuSource, c.menu) && _menuFilter == filter) {
+      return _menuGroupsCache;
+    }
+    _menuSource = c.menu;
+    _menuFilter = filter;
+    final normalized = query.toLowerCase();
+    final selectedCategory =
+        c.menu.any((m) => '${m['category'] ?? 'ทั่วไป'}' == category)
+        ? category
+        : null;
     final rows = c.menu
         .where(
           (m) =>
+              (!soldOutOnly || !menuOnSale(m)) &&
               (selectedCategory == null ||
                   '${m['category'] ?? 'ทั่วไป'}' == selectedCategory) &&
               '${m['name']} ${m['category'] ?? ''}'.toLowerCase().contains(
-                query.toLowerCase(),
+                normalized,
               ),
         )
         .toList();
@@ -1787,10 +2872,31 @@ class _MerchantHomeState extends State<MerchantHome>
     for (final row in rows) {
       groups.putIfAbsent('${row['category'] ?? 'ทั่วไป'}', () => []).add(row);
     }
+    return _menuGroupsCache = groups;
+  }
+
+  List<Widget> menuPage() {
+    final categories = c.menu
+        .map((m) => '${m['category'] ?? 'ทั่วไป'}')
+        .toSet()
+        .toList();
+    final selectedCategory = categories.contains(category) ? category : null;
+    final groups = _menuGroups();
+    final soldOut = c.menu.where((m) => !menuOnSale(m)).length;
+    Widget filterChip(String label, bool selected, VoidCallback onTap) =>
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(
+            label: Text(label),
+            selected: selected,
+            showCheckmark: false,
+            onSelected: (_) => onTap(),
+          ),
+        );
     return [
       heading(
         'เมนูอาหาร',
-        'จัดการเมนูที่ลูกค้าเห็น',
+        '${c.menu.length} เมนู · หมด $soldOut',
         action: c.canManage
             ? FilledButton.icon(
                 onPressed: c.writable ? () => editMenu() : null,
@@ -1804,92 +2910,244 @@ class _MerchantHomeState extends State<MerchantHome>
         decoration: InputDecoration(
           hintText: 'ค้นหาเมนูหรือหมวดหมู่',
           prefixIcon: const Icon(Icons.search),
+          // Same light outline as the rest of the app; pink only on focus.
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(32),
             borderSide: const BorderSide(color: Color(0xFFEBEBEF)),
           ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(32),
+            borderSide: const BorderSide(color: Color(0xFFEBEBEF)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(32),
+            borderSide: const BorderSide(color: brand, width: 1.5),
+          ),
         ),
       ),
       const SizedBox(height: 12),
-      Wrap(
-        spacing: 10,
-        runSpacing: 8,
-        children: [
-          PopupMenuButton<String>(
-            initialValue: menuSort,
-            tooltip: 'จัดลำดับเมนู',
-            onSelected: (value) => setState(() => menuSort = value),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'default', child: Text('ลำดับร้าน')),
-              PopupMenuItem(value: 'name', child: Text('ชื่อเมนู')),
-              PopupMenuItem(value: 'price', child: Text('ราคาน้อยไปมาก')),
-            ],
-            child: const Chip(
-              avatar: Icon(Icons.swap_vert, size: 18),
-              label: Text('จัดลำดับ'),
-              deleteIcon: Icon(Icons.expand_more),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            filterChip(
+              'ทั้งหมด',
+              selectedCategory == null && !soldOutOnly,
+              () => setState(() {
+                category = null;
+                soldOutOnly = false;
+              }),
             ),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'เลือกหมวดหมู่',
-            onSelected: (value) =>
-                setState(() => category = value == '' ? null : value),
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: '', child: Text('ทุกหมวดหมู่')),
-              ...categories.map(
-                (name) => PopupMenuItem(value: name, child: Text(name)),
+            filterChip(
+              'หมดอยู่ $soldOut',
+              soldOutOnly,
+              () => setState(() => soldOutOnly = !soldOutOnly),
+            ),
+            for (final name in categories)
+              filterChip(
+                name,
+                selectedCategory == name,
+                () => setState(
+                  () => category = selectedCategory == name ? null : name,
+                ),
               ),
-            ],
-            child: Chip(
-              avatar: const Icon(Icons.grid_view_outlined, size: 18),
-              label: Text(selectedCategory ?? 'ทุกหมวดหมู่'),
+            PopupMenuButton<String>(
+              initialValue: menuSort,
+              tooltip: 'จัดลำดับเมนู',
+              onSelected: (value) => setState(() => menuSort = value),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'default', child: Text('ลำดับร้าน')),
+                PopupMenuItem(value: 'name', child: Text('ชื่อเมนู')),
+                PopupMenuItem(value: 'price', child: Text('ราคาน้อยไปมาก')),
+              ],
+              child: const Chip(
+                avatar: Icon(Icons.swap_vert, size: 18),
+                label: Text('จัดลำดับ'),
+                deleteIcon: Icon(Icons.expand_more),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       const SizedBox(height: 16),
-      if (rows.isEmpty)
+      if (groups.isEmpty)
         emptyState(
           Icons.restaurant_menu,
           'ไม่พบเมนู',
           'ลองค้นหาด้วยชื่ออื่น หรือเพิ่มเมนูใหม่',
         ),
-      for (final group in groups.entries)
-        Card(
-          margin: const EdgeInsets.only(bottom: 18),
-          clipBehavior: Clip.antiAlias,
-          child: ExpansionTile(
-            initiallyExpanded: true,
-            shape: const Border(),
-            collapsedShape: const Border(),
-            tilePadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
-            title: Text(
-              group.key,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: Text(
-              '${group.value.length} เมนู',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B76)),
-            ),
-            children: [
-              for (var index = 0; index < group.value.length; index++) ...[
-                const Divider(height: 1),
-                menuRow(group.value[index]),
+    ];
+  }
+
+  List<Widget> _menuSlivers(bool wide) {
+    // A single delegate stays lazy even for stores with many categories. One
+    // sliver per category would build each category's first image offscreen.
+    final entries = <({String category, Json? item, int count})>[];
+    for (final group in _menuGroups().entries) {
+      entries.add((category: group.key, item: null, count: group.value.length));
+      if (!_collapsedMenuCategories.contains(group.key)) {
+        for (final item in group.value) {
+          entries.add((category: group.key, item: item, count: 0));
+        }
+      }
+    }
+    return [
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: wide ? 36 : 18),
+        sliver: SliverList.builder(
+          itemCount: entries.length,
+          itemBuilder: (context, index) {
+            final entry = entries[index];
+            final item = entry.item;
+            if (item != null) {
+              return Card(
+                key: ValueKey(item['id']),
+                margin: const EdgeInsets.only(bottom: 1),
+                child: menuRow(item),
+              );
+            }
+            return Card(
+              key: ValueKey('category:${entry.category}'),
+              margin: const EdgeInsets.only(bottom: 1, top: 12),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                title: Text(
+                  entry.category,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text('${entry.count} เมนู'),
+                trailing: Icon(
+                  _collapsedMenuCategories.contains(entry.category)
+                      ? Icons.expand_more
+                      : Icons.expand_less,
+                ),
+                onTap: () => setState(() {
+                  if (!_collapsedMenuCategories.remove(entry.category)) {
+                    _collapsedMenuCategories.add(entry.category);
+                  }
+                }),
+              ),
+            );
+          },
+        ),
+      ),
+    ];
+  }
+
+  Widget _menuImage(Json item) {
+    final original = item['image_url'] as String;
+    final thumbnail = item['image_thumbnail_url'];
+    final source = thumbnail is String && thumbnail.isNotEmpty
+        ? thumbnail
+        : original;
+    final pixels = (56 * MediaQuery.devicePixelRatioOf(context).clamp(1, 3))
+        .ceil();
+    Widget image(String url, {required bool fallback}) => Image.network(
+      url,
+      fit: BoxFit.cover,
+      cacheWidth: pixels,
+      cacheHeight: pixels,
+      frameBuilder: (_, child, frame, synchronous) =>
+          synchronous || frame != null ? child : menuPlaceholder(),
+      errorBuilder: (_, error, stack) => fallback
+          ? Image.network(
+              original,
+              fit: BoxFit.cover,
+              cacheWidth: pixels,
+              cacheHeight: pixels,
+              frameBuilder: (_, child, frame, synchronous) =>
+                  synchronous || frame != null ? child : menuPlaceholder(),
+              errorBuilder: (_, error, stack) => menuPlaceholder(),
+            )
+          : menuPlaceholder(),
+    );
+    return image(source, fallback: source != original);
+  }
+
+  /// Customers can order it now: switched on and not sold out until later.
+  bool menuOnSale(Json m) {
+    if (m['is_available'] != true) return false;
+    final until = DateTime.tryParse('${m['sold_out_until'] ?? ''}');
+    return until == null || !until.isAfter(DateTime.now());
+  }
+
+  /// "หมดวันนี้" ends at the next Bangkok midnight.
+  bool menuSoldOutToday(Json m) {
+    final until = DateTime.tryParse('${m['sold_out_until'] ?? ''}');
+    if (m['is_available'] != true || until == null) return false;
+    return until.isAfter(DateTime.now());
+  }
+
+  /// Switching a dish off asks how long, like the big delivery apps: sold out
+  /// for today (back on sale automatically tomorrow) or off until turned on.
+  Future<void> setMenuOnSale(Json item, bool value) async {
+    Map<String, dynamic>? values;
+    if (value) {
+      values = {'is_available': true, 'sold_out_today': false};
+    } else {
+      final choice = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'ปิดขาย ${item['name']}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'ลูกค้าจะสั่งเมนูนี้ไม่ได้จนกว่าจะกลับมาขาย',
+                  style: TextStyle(color: Color(0xFF6B6B76)),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.today_outlined, color: brand),
+                  title: const Text('หมดวันนี้'),
+                  subtitle: const Text('กลับมาขายเองพรุ่งนี้ตอนเที่ยงคืน'),
+                  onTap: () => Navigator.pop(context, 'today'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.block, color: Color(0xFF6B6B76)),
+                  title: const Text('ปิดขายจนกว่าจะเปิดเอง'),
+                  subtitle: const Text('เช่น เมนูตามฤดูกาล'),
+                  onTap: () => Navigator.pop(context, 'off'),
+                ),
               ],
-            ],
+            ),
           ),
         ),
-    ];
+      );
+      if (choice == 'today') {
+        values = {'sold_out_today': true};
+      } else if (choice == 'off') {
+        values = {'is_available': false, 'sold_out_today': false};
+      }
+    }
+    if (values == null || !mounted) return;
+    await c.mutate(
+      () => widget.repository.saveMenu(c.storeId!, values!, id: item['id']),
+      reload: MutationReload.menu,
+    );
   }
 
   Widget menuRow(Json item) => LayoutBuilder(
     builder: (context, size) {
+      // One compact row like the big delivery apps; controls drop below only
+      // on very narrow screens or very large text.
       final compact =
-          size.maxWidth < 380 ||
+          size.maxWidth < 300 ||
           MediaQuery.textScalerOf(context).scale(14) > 19;
+      final onSale = menuOnSale(item);
+      final soldOutToday = menuSoldOutToday(item);
+      final options = (item['options'] as List? ?? []).length;
       final controls = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1897,14 +3155,10 @@ class _MerchantHomeState extends State<MerchantHome>
             container: true,
             label: 'เปิดขาย ${item['name']}',
             child: Switch.adaptive(
-              value: item['is_available'] == true,
+              value: onSale,
               activeTrackColor: success,
               onChanged: c.writable && c.canManage
-                  ? (value) => c.mutate(
-                      () => widget.repository.saveMenu(c.storeId!, {
-                        'is_available': value,
-                      }, id: item['id']),
-                    )
+                  ? (value) => setMenuOnSale(item, value)
                   : null,
             ),
           ),
@@ -1916,27 +3170,33 @@ class _MerchantHomeState extends State<MerchantHome>
             ),
         ],
       );
+      final String? status = soldOutToday
+          ? (DateTime.tryParse(
+                      '${item['sold_out_until']}',
+                    )!.toUtc().difference(DateTime.now().toUtc()).inHours <
+                    24
+                ? 'หมดวันนี้ · กลับมาขายพรุ่งนี้'
+                : 'หมดถึง ${dateLabel(item['sold_out_until'])}')
+          : (!onSale ? 'ปิดขายอยู่' : null);
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           children: [
             Row(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   child: SizedBox(
-                    width: 64,
-                    height: 64,
-                    child:
-                        item['image_url'] is String &&
-                            (item['image_url'] as String).isNotEmpty
-                        ? Image.network(
-                            item['image_url'],
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, error, stack) =>
-                                menuPlaceholder(),
-                          )
-                        : menuPlaceholder(),
+                    width: 56,
+                    height: 56,
+                    child: Opacity(
+                      opacity: onSale ? 1 : .5,
+                      child:
+                          item['image_url'] is String &&
+                              (item['image_url'] as String).isNotEmpty
+                          ? _menuImage(item)
+                          : menuPlaceholder(),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1946,34 +3206,35 @@ class _MerchantHomeState extends State<MerchantHome>
                     children: [
                       Text(
                         item['name'],
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
-                        (item['options'] as List? ?? []).isEmpty
-                            ? 'ไม่มีตัวเลือกเสริม'
-                            : '${(item['options'] as List).length} กลุ่มตัวเลือกเสริม',
+                        options == 0
+                            ? money(item['price'])
+                            : '${money(item['price'])} · ตัวเลือกเสริม $options กลุ่ม',
                         style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6B6B76),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Color(0xFF4A4A55),
                         ),
                       ),
-                      if (item['sold_out_until'] != null)
+                      if (status != null)
                         Text(
-                          'หมดชั่วคราวถึง ${dateLabel(item['sold_out_until'])}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF9A5800),
+                          status,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: soldOutToday
+                                ? const Color(0xFF9A5800)
+                                : const Color(0xFF6B6B76),
                           ),
                         ),
-                      const SizedBox(height: 3),
-                      Text(
-                        money(item['price']),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
                     ],
                   ),
                 ),
@@ -1989,6 +3250,7 @@ class _MerchantHomeState extends State<MerchantHome>
   );
 
   Widget menuPlaceholder() => Container(
+    key: const ValueKey('merchant-menu-image-placeholder'),
     color: brandSoft,
     child: const Icon(Icons.restaurant, color: brand, size: 28),
   );
@@ -1996,6 +3258,10 @@ class _MerchantHomeState extends State<MerchantHome>
   List<Widget> reportPage() => [
     heading('ยอดขายของร้าน', 'คำนวณจากข้อมูลทั้งหมดในระบบเดิม'),
     if (c.reportError != null) errorBox(c.reportError!),
+    if (_reportPending) ...[
+      const Text('กำลังโหลดยอดขาย'),
+      const LinearProgressIndicator(),
+    ],
     stats(),
     section('สรุปยอดขาย'),
     box(
@@ -2003,15 +3269,15 @@ class _MerchantHomeState extends State<MerchantHome>
         children: [
           summary(
             'สัปดาห์นี้',
-            c.reportError == null ? money(c.report['week_sales']) : '—',
+            _reportReady ? money(c.report['week_sales']) : '—',
           ),
           summary(
             'ยอดเฉลี่ยต่อออเดอร์',
-            c.reportError == null ? money(c.report['average_order']) : '—',
+            _reportReady ? money(c.report['average_order']) : '—',
           ),
           summary(
             'ออเดอร์สำเร็จทั้งหมด',
-            c.reportError == null ? '${c.report['total_orders'] ?? 0}' : '—',
+            _reportReady ? '${c.report['total_orders'] ?? 0}' : '—',
           ),
         ],
       ),
@@ -2021,7 +3287,9 @@ class _MerchantHomeState extends State<MerchantHome>
       Column(
         children: [
           if ((c.report['best'] as List? ?? []).isEmpty)
-            const Text('ยังไม่มีข้อมูลการขาย'),
+            Text(
+              _reportPending ? 'กำลังโหลดเมนูขายดี' : 'ยังไม่มีข้อมูลการขาย',
+            ),
           for (final m in (c.report['best'] as List? ?? []))
             summary('${m['name']}', '${m['quantity']} รายการ'),
         ],
@@ -2046,6 +3314,82 @@ class _MerchantHomeState extends State<MerchantHome>
   );
   List<Widget> settingsPage() => [
     heading('ตั้งค่าร้าน', 'ข้อมูลที่ลูกค้าเห็นบน ZOKY'),
+    box(
+      FulfillmentSettingsPanel(
+        store: c.store!,
+        enabled: c.writable && c.canConfigure,
+        save: (values) => c.mutate(
+          () => widget.repository.setFulfillment(c.storeId!, values),
+        ),
+        error: () => c.error,
+      ),
+    ),
+    if (c.canManage) ...[
+      box(
+        PaymentChannelsPanel(
+          store: c.store!,
+          enabled: c.writable,
+          save: (values) => c.mutate(
+            () => widget.repository.saveStore(c.storeId!, values),
+            reload: MutationReload.orders,
+          ),
+          // A cancelled picker uploads nothing and changes nothing.
+          pickQr: () => c.mutate(
+            () => widget.repository.pickPaymentQr(c.storeId!),
+            reload: MutationReload.orders,
+          ),
+          error: () => c.error,
+        ),
+      ),
+      box(
+        BusinessHoursPanel(
+          store: c.store!,
+          enabled: c.writable,
+          save: (values) => c.mutate(
+            () => widget.repository.saveStore(c.storeId!, values),
+            reload: MutationReload.orders,
+          ),
+          error: () => c.error,
+        ),
+      ),
+    ],
+    if (c.canManage)
+      box(
+        StoreProfilePanel(
+          key: ValueKey('profile:${c.storeId}'),
+          store: c.store!,
+          enabled: c.writable,
+          save: (values) => c.mutate(
+            () => widget.repository.saveStore(c.storeId!, values),
+            reload: MutationReload.orders,
+          ),
+          // A cancelled picker uploads nothing and changes nothing.
+          pickImage: (kind) => c.mutate(
+            () => widget.repository.pickStoreImage(c.storeId!, kind),
+            reload: MutationReload.orders,
+          ),
+          setPublished: (published) => c.mutate(
+            () => widget.repository.setPublished(c.storeId!, published),
+            reload: MutationReload.orders,
+          ),
+          locate: widget.repository.currentLocation,
+          pickOnMap: (kind, lat, lng) =>
+              widget.repository.pickMapLocation(c.storeId!, kind, lat, lng),
+          checkArea: (lat, lng) async {
+            try {
+              final r = await widget.repository.checkLocation(
+                c.storeId!,
+                lat,
+                lng,
+              );
+              return r['inside'] is bool ? r['inside'] as bool : null;
+            } catch (_) {
+              return null;
+            }
+          },
+          error: () => c.error,
+        ),
+      ),
     box(
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2084,15 +3428,10 @@ class _MerchantHomeState extends State<MerchantHome>
                 ? (v) => c.mutate(
                     () =>
                         widget.repository.saveStore(c.storeId!, {'is_open': v}),
+                    reload: MutationReload.orders,
                   )
                 : null,
           ),
-          if (c.canManage)
-            OutlinedButton.icon(
-              onPressed: c.writable ? editStore : null,
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('แก้ไขข้อมูลร้าน'),
-            ),
         ],
       ),
     ),
@@ -2105,9 +3444,7 @@ class _MerchantHomeState extends State<MerchantHome>
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที\nการเงิน คืนเงิน ทีมงาน ตั้งเวลา และตั้งค่ารับเงิน ใช้บริการเดิมของ Food',
-          ),
+          const Text('อัปเดตออเดอร์ผ่าน Realtime และตรวจซ้ำทุก 20 วินาที'),
           FilledButton.icon(
             onPressed: pushBusy ? null : enablePush,
             icon: const Icon(Icons.notifications_active_outlined),
@@ -2119,16 +3456,12 @@ class _MerchantHomeState extends State<MerchantHome>
                   : 'เปิดแจ้งเตือนออเดอร์',
             ),
           ),
-          TextButton(
-            onPressed: openOriginal,
-            child: const Text('การเงิน ทีมงาน และเครื่องมือร้านเพิ่มเติม →'),
-          ),
         ],
       ),
     ),
   ];
 
-  Future<void> reviewPayment(Json order) async {
+  Future<bool> reviewPayment(Json order) async {
     final id = c.storeId!;
     final result = await showDialog<bool>(
       context: context,
@@ -2146,11 +3479,17 @@ class _MerchantHomeState extends State<MerchantHome>
             note: note,
             manualConfirmation: manualConfirmation,
           ),
+          reload: MutationReload.orders,
         ),
         error: () => c.error,
       ),
     );
     if (result == true) notice('บันทึกการตรวจชำระเงินแล้ว');
+    // Accept only after the payment was confirmed as received.
+    return result == true &&
+        c.orders.any(
+          (x) => x['id'] == order['id'] && x['payment_status'] == 'paid',
+        );
   }
 
   Future<void> finishDelivery(Json order) async {
@@ -2162,6 +3501,7 @@ class _MerchantHomeState extends State<MerchantHome>
         repository: widget.repository,
         storeId: id,
         orderId: order['id'],
+        cod: order['payment_method'] == 'cod',
         save: (method, path, note) async {
           // Recheck access/status before retrying the retained local photo.
           if (c.error != null) await c.refresh();
@@ -2173,13 +3513,72 @@ class _MerchantHomeState extends State<MerchantHome>
               method,
               path,
               locationNote: note,
+              cashReceived: order['payment_method'] == 'cod',
             ),
+            reload: MutationReload.orders,
           );
         },
         error: () => c.error,
       ),
     );
     if (result == true) notice('ส่งสำเร็จและแจ้งลูกค้าแล้ว');
+  }
+
+  Future<void> resolveCancel(Json order, bool approve) async {
+    final refund = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(approve ? 'อนุมัติคำขอยกเลิก' : 'ปฏิเสธคำขอยกเลิก'),
+        content: const Text('ร้านเป็นผู้ตัดสินใจเรื่องคืนเงิน'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('กลับ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(approve ? 'ไม่คืนเงิน' : 'ยืนยัน'),
+          ),
+          if (approve && order['payment_status'] == 'paid')
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('คืนเงิน'),
+            ),
+        ],
+      ),
+    );
+    if (refund == null || !mounted) return;
+    await c.mutate(
+      () => widget.repository.resolveCancel(
+        c.storeId!,
+        order['id'],
+        approve,
+        refund,
+      ),
+      reload: MutationReload.orders,
+    );
+  }
+
+  Future<void> refundOrder(Json order) async {
+    final id = c.storeId!;
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => RefundSlipDialog(
+        repository: widget.repository,
+        storeId: id,
+        orderId: order['id'],
+        save: (path) async {
+          if (c.error != null) await c.refresh();
+          if (c.storeId != id || !c.canManage) return false;
+          return c.mutate(
+            () => widget.repository.markRefunded(id, order['id'], path),
+            reload: MutationReload.orders,
+          );
+        },
+        error: () => c.error,
+      ),
+    );
   }
 
   Future<void> cancelOrder(Json order) async {
@@ -2196,6 +3595,7 @@ class _MerchantHomeState extends State<MerchantHome>
         'cancelled',
         note: note,
       ),
+      reload: MutationReload.orders,
     )) {
       notice('ยกเลิกออเดอร์แล้ว');
     }
@@ -2286,40 +3686,6 @@ class _MerchantHomeState extends State<MerchantHome>
     );
   }
 
-  Future<void> editStore() async {
-    final store = c.store!;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => EditorDialog(
-        title: 'แก้ไขข้อมูลร้าน',
-        fields: [
-          EditorField(
-            'name',
-            'ชื่อร้าน',
-            initial: store['name'],
-            maxLength: 120,
-          ),
-          EditorField(
-            'phone',
-            'เบอร์โทร',
-            initial: store['phone'] ?? '',
-            maxLength: 50,
-          ),
-          EditorField(
-            'address',
-            'ที่อยู่ร้าน',
-            initial: store['address'] ?? '',
-            maxLength: 800,
-          ),
-        ],
-        save: (values) =>
-            c.mutate(() => widget.repository.saveStore(c.storeId!, values)),
-        error: () => c.error,
-      ),
-    );
-  }
-
   Future<void> addCampaign() async {
     await showDialog<void>(
       context: context,
@@ -2353,6 +3719,51 @@ class _MerchantHomeState extends State<MerchantHome>
       ),
     );
   }
+}
+
+/// Static shapes communicate progress without animating or inventing store data.
+class _MerchantLoadingSkeleton extends StatelessWidget {
+  const _MerchantLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    key: const ValueKey('merchant-store-loading'),
+    label: 'กำลังโหลดข้อมูลร้าน',
+    liveRegion: true,
+    child: ExcludeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'กำลังโหลดข้อมูลร้าน',
+            style: TextStyle(color: Color(0xFF6B6B76), fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          for (final height in [52.0, 116.0, 168.0])
+            Container(
+              height: height,
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              alignment: Alignment.topLeft,
+              child: FractionallySizedBox(
+                widthFactor: .56,
+                child: Container(
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: brandSoft,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class EditorField {

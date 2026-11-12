@@ -23,6 +23,7 @@ const ALLOWED_ORIGINS = new Set([
   "https://wynos.online",
   "https://www.wynos.online",
   "https://maps.wynos.online",
+  "https://zoky.wynos.online",
   "https://food.wynos.online",
   "https://merchant.wynos.online",
   "http://localhost:3000",

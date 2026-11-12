@@ -39,7 +39,8 @@ test("authenticated Food no longer blocks catalog behind GPS; checkout still che
   assert.match(app, /readGuestFoodBasket\(\)/);
   assert.match(app, /clearGuestFoodBasket\(\)/);
   assert.match(app, /checkFoodDeliveryAvailability\(client, storeId, point\)/);
-  assert.match(app, /location: storeHasDeliveryZone\(store\) \? addressLocation\(address\) : null/);
+  // Pickup orders (ZOKY-FULFILL-001) send no customer pin.
+  assert.match(app, /location: !isPickup && storeHasDeliveryZone\(store\) \? addressLocation\(address\) : null/);
   assert.match(area, /client\.rpc\("food_create_order/);
   assert.match(app, /DeveloperRouteGate signedOutPath="\/food\/login"/);
 });

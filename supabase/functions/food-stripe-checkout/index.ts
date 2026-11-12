@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
 
-import { applicationFeeSatang } from "./_lib.ts";
+import { applicationFeeSatang, foodReturnOrigin, isFoodWebOrigin } from "./_lib.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -66,7 +66,8 @@ Deno.serve(async (req: Request) => {
   if (!stripeSecret) return json({ error: "stripe_not_configured" }, 503);
   const stripeLiveMode = stripeLivemode(stripeSecret);
   if (stripeLiveMode == null) return json({ error: "stripe_key_mode_unknown" }, 503);
-  if (stripeLiveMode && req.headers.get("origin") !== "https://food.wynos.online") {
+  const requestOrigin = req.headers.get("origin");
+  if (stripeLiveMode && !isFoodWebOrigin(requestOrigin)) {
     return json({ error: "live_stripe_origin_required" }, 403);
   }
 
@@ -149,10 +150,12 @@ Deno.serve(async (req: Request) => {
   const params = new URLSearchParams();
   params.set("mode", "payment");
   params.set("client_reference_id", order.id);
-  params.set("success_url", `https://food.wynos.online/?order=${encodeURIComponent(order.order_number)}&stripe=success`);
-  params.set("cancel_url", `https://food.wynos.online/?order=${encodeURIComponent(order.order_number)}&stripe=cancelled`);
+  // Return to the allowlisted origin the customer paid from (ZOKY by default).
+  const returnOrigin = foodReturnOrigin(requestOrigin);
+  params.set("success_url", `${returnOrigin}/?order=${encodeURIComponent(order.order_number)}&stripe=success`);
+  params.set("cancel_url", `${returnOrigin}/?order=${encodeURIComponent(order.order_number)}&stripe=cancelled`);
   params.set("line_items[0][price_data][currency]", "thb");
-  params.set("line_items[0][price_data][product_data][name]", `WYNOS Food #${order.order_number}`);
+  params.set("line_items[0][price_data][product_data][name]", `ZOKY #${order.order_number}`);
   params.set("line_items[0][price_data][unit_amount]", String(amountSatang));
   params.set("line_items[0][quantity]", "1");
   // Stripe Checkout uses the connected account's active payment-method

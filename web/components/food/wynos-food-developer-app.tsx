@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   BadgePercent,
+  Banknote,
   Bell,
   Bike,
   Check,
@@ -11,12 +12,10 @@ import {
   CircleAlert,
   Clock3,
   Copy,
-  CreditCard,
   Download,
   Gift,
   Heart,
   Hourglass,
-  House,
   LogOut,
   MapPin,
   MessageCircle,
@@ -28,8 +27,10 @@ import {
   ReceiptText,
   RefreshCw,
   Search,
+  QrCode,
   Share2,
   ShoppingBag,
+  SlidersHorizontal,
   Star,
   Store,
   Ticket,
@@ -44,18 +45,27 @@ import {
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import Image from "next/image";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodGuestBrowse, readGuestFoodBasket, clearGuestFoodBasket } from "@/components/food/food-guest-browse";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { fetchFoodHomeBanners, foodHomeBannerImage, type FoodHomeBanner } from "@/lib/food-home-banners";
-import { fetchFoodFeaturedStores, type FoodFeaturedPlacement } from "@/lib/food-featured-stores";
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { FoodPromotionCenter } from "@/components/food/food-promotion-center";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import {
+  Zoky3DIcon,
+  ZokyBottomNav,
+  ZokyFoodCartButton,
+  ZokyScooterIcon,
+  ZokyFoodHeroCard,
+  ZokyGlossyIconButton,
+  ZokyHomeHeader,
+  ZokySectionHeader,
+  type ZokyNavItem,
+  useZokyThemeColor,
+} from "@/components/food/zoky-web-ui";
 import {
   clearRequestedOrder,
   clearSharedFoodStore,
@@ -71,12 +81,17 @@ import { shareOrCopyLink } from "@/lib/share";
 import {
   isCurrentDevicePushEnabled,
   pushReasonDescription,
+  setPushChosen,
   subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
 } from "@/lib/push-notifications";
-import { lineLinkPath } from "@/lib/line-liff";
+import { isEmbeddedFrame } from "@/lib/zoky-pwa";
+import { isLineInAppBrowser, lineLinkPath, takeLineAutoLink } from "@/lib/line-liff";
+import { foodStoreQrTarget, renderZokyQr, renderZokyStorePoster, zokyQrFileName } from "@/lib/zoky-store-qr";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   foodEstimateDeliveryRange,
+  foodStoreBusyExtraMinutes,
   foodMenuIsEffectivelyAvailable,
   foodStoreIsEffectivelyOpen,
   foodStoreStatusText,
@@ -98,7 +113,6 @@ import {
   foodCustomerError,
   foodMenuQuantityLimit,
   foodMoney,
-  foodOrderStatusLabel,
   foodPaymentStatusLabel,
   foodPrivateSignedUrl,
   orderDeliveryProof,
@@ -115,11 +129,20 @@ import {
   submitFoodStoreReview,
   type FoodDirectoryStore,
   storeHasDeliveryZone,
+  storeFulfillmentModes,
+  storeHasFulfillmentOptions,
+  foodPickupTimeLabel,
+  foodMapsHref,
+  foodIsPickupOrder,
+  foodIsCodOrder,
+  foodOrderStatusLabelFor,
+  requestFoodOrderCancel,
+  type FoodFulfillmentType,
+  type FoodPaymentMethod,
   type FoodLocation,
   type FoodPlace,
   saveFoodCustomerAddress,
   prepareFoodManualPayment,
-  startFoodStripeCheckout,
   submitFoodPayment,
   subscribeFoodCustomerOrders,
   uploadFoodPaymentSlip,
@@ -136,6 +159,15 @@ import {
 } from "@/lib/food-customer";
 
 type FoodTab = "home" | "orders" | "messages" | "cart" | "account";
+
+type FoodCheckoutOptions = {
+  /** null keeps the pre-ZOKY-FULFILL-001 RPCs for stores without the new columns. */
+  fulfillmentType: FoodFulfillmentType | null;
+  pickupAt: string | null;
+  paymentMethod: FoodPaymentMethod;
+  contactName?: string;
+  contactPhone?: string;
+};
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -253,20 +285,12 @@ function itemFor(menu: FoodCustomerMenuItem[], id: string) {
 
 function FoodLoading() {
   return (
-    <main className="wyn-food fx-app fx-loading" aria-busy="true" aria-label="กำลังโหลด WYNOS Food">
-      <div className="fx-brand fx-loading-brand">
-        <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
-        <span>WYNOS <b>Food</b></span>
-      </div>
-      <div className="fx-skel fx-skel--line" style={{ width: 180 }} />
-      <div className="fx-skel fx-skel--pill" />
-      <div className="fx-skel fx-skel--banner" />
-      <div className="fx-skel-row">
-        <div className="fx-skel fx-skel--chip" /><div className="fx-skel fx-skel--chip" /><div className="fx-skel fx-skel--chip" />
-      </div>
-      <div className="fx-skel-grid">
-        <div><div className="fx-skel fx-skel--card" /><div className="fx-skel fx-skel--line" /></div>
-        <div><div className="fx-skel fx-skel--card" /><div className="fx-skel fx-skel--line" /></div>
+    <main className="wyn-food fx-app zk-loading is-zk-home" aria-busy="true" aria-label="กำลังโหลด ZOKY">
+      <ZokyHomeHeader actions={null} />
+      <div className="zk-col zk-hero-wrap" aria-hidden="true"><div className="fx-skel zk-skel-hero" /></div>
+      <div className="zk-col zk-section" aria-hidden="true">
+        <div className="fx-skel zk-skel-title" />
+        <div className="zk-pop-row">{[0, 1, 2].map((index) => <div key={index} className="fx-skel zk-skel-pop" />)}</div>
       </div>
     </main>
   );
@@ -304,11 +328,11 @@ function FoodDenied() {
     <main className="wyn-food fx-app fx-app--bare">
       <FoodStateScreen
         icon={<UtensilsCrossed size={46} strokeWidth={1.6} />}
-        title="ยังเข้าใช้ WYNOS Food ไม่ได้"
-        action={<Link className="fx-btn fx-btn--primary" href="/food/login">เข้าสู่ระบบ WYNOS Food</Link>}
+        title="ยังเข้าใช้ ZOKY ไม่ได้"
+        action={<Link className="fx-btn fx-btn--primary" href="/food/login">เข้าสู่ระบบ ZOKY</Link>}
         secondary={<a className="fx-link-muted" href="https://wynos.online/">กลับ WYNOS</a>}
       >
-        <p>บัญชีนี้ยังไม่ผ่านเงื่อนไขการใช้งาน WYNOS Food หรือเซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง</p>
+        <p>บัญชีนี้ยังไม่ผ่านเงื่อนไขการใช้งาน ZOKY หรือเซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง</p>
       </FoodStateScreen>
     </main>
   );
@@ -322,56 +346,13 @@ function FoodLoadError({ message, onRetry }: { message: string; onRetry: () => v
       <FoodStateScreen
         role="alert"
         icon={offline ? <WifiOff size={46} strokeWidth={1.6} /> : <CircleAlert size={46} strokeWidth={1.6} />}
-        title={offline ? "เชื่อมต่อไม่ได้" : "โหลด WYNOS Food ไม่สำเร็จ"}
+        title={offline ? "เชื่อมต่อไม่ได้" : "โหลด ZOKY ไม่สำเร็จ"}
         action={<button className="fx-btn fx-btn--primary" type="button" onClick={onRetry}><RefreshCw size={18} />ลองอีกครั้ง</button>}
         secondary={<a className="fx-link-muted" href="https://wynos.online/">กลับ WYNOS</a>}
       >
         <p>{offline ? "ตรวจสอบ Wi-Fi หรือเน็ตมือถือ แล้วลองอีกครั้ง ตะกร้าของคุณยังอยู่" : message}</p>
       </FoodStateScreen>
     </main>
-  );
-}
-
-function FoodHeader({
-  cartCount,
-  homeLocationLabel,
-  onCart,
-  onLocation,
-  onFavorites,
-}: {
-  cartCount: number;
-  homeLocationLabel?: string;
-  onCart: () => void;
-  onLocation?: () => void;
-  onFavorites?: () => void;
-}) {
-  return (
-    <header className="fx-header">
-      <div className="fx-header-top">
-        <div className="fx-brand">
-          <Image className="wf-brand-logo" src="/icons/food/icon-192-v12.png" width={32} height={32} alt="" />
-          <span>WYNOS <b>Food</b></span>
-        </div>
-        <div className="fx-header-actions">
-          {onFavorites ? (
-            <button className="fx-icon-btn" type="button" aria-label="ร้านโปรด" onClick={onFavorites}>
-              <Heart size={22} strokeWidth={1.9} />
-            </button>
-          ) : null}
-          <button className="fx-icon-btn" type="button" aria-label={cartCount ? `ตะกร้า ${cartCount} รายการ` : "ตะกร้า"} onClick={onCart}>
-            <ShoppingBag size={22} strokeWidth={1.9} />
-            {cartCount ? <i className="fx-badge">{cartCount > 9 ? "9+" : cartCount}</i> : null}
-          </button>
-        </div>
-      </div>
-      <button className="fx-location" type="button" onClick={onLocation} aria-label="เลือกที่อยู่จัดส่ง">
-        <MapPin size={20} fill="currentColor" strokeWidth={0} />
-        <span>
-          <small>ส่งถึง</small>
-          <strong>{homeLocationLabel || "เลือกที่อยู่จัดส่ง"}<ChevronDown size={16} strokeWidth={2.4} /></strong>
-        </span>
-      </button>
-    </header>
   );
 }
 
@@ -408,33 +389,14 @@ function FoodNav({
   activeCount: number;
   onTab: (tab: FoodTab) => void;
 }) {
-  const items: Array<{ key: FoodTab; label: string; icon: React.ReactNode }> = [
-    { key: "home", label: "หน้าหลัก", icon: <House size={20} strokeWidth={tab === "home" ? 2.3 : 1.9} fill={tab === "home" ? "currentColor" : "none"} /> },
-    { key: "orders", label: "ออเดอร์", icon: <ReceiptText size={20} strokeWidth={tab === "orders" ? 2.3 : 1.9} /> },
-    { key: "messages", label: "ข้อความ", icon: <MessageCircle size={20} strokeWidth={tab === "messages" ? 2.3 : 1.9} /> },
-    { key: "account", label: "บัญชี", icon: <UserRound size={20} strokeWidth={tab === "account" ? 2.3 : 1.9} /> },
+  // ZOKY capsule nav (Phase 5): same tabs, order, aria-current and order badge as before.
+  const items: Array<ZokyNavItem<FoodTab>> = [
+    { key: "home", label: "หน้าหลัก", glyph: "home" },
+    { key: "orders", label: "ออเดอร์", glyph: "orders", badge: activeCount, badgeLabel: `${activeCount} ออเดอร์ที่กำลังดำเนินการ` },
+    { key: "messages", label: "ข้อความ", glyph: "messages" },
+    { key: "account", label: "บัญชี", glyph: "account" },
   ];
-  return (
-    <nav className="fx-nav" aria-label="WYNOS Food">
-      {items.map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          className={tab === item.key ? "is-active" : ""}
-          aria-current={tab === item.key ? "page" : undefined}
-          onClick={() => onTab(item.key)}
-        >
-          <span className="fx-nav-pill">
-            {item.icon}
-            {item.key === "orders" && activeCount ? (
-              <i className="fx-badge" aria-label={`${activeCount} ออเดอร์ที่กำลังดำเนินการ`}>{activeCount > 9 ? "9+" : activeCount}</i>
-            ) : null}
-          </span>
-          <small>{item.label}</small>
-        </button>
-      ))}
-    </nav>
-  );
+  return <ZokyBottomNav items={items} current={items.some((item) => item.key === tab) ? tab : null} onSelect={(key) => onTab(key)} />;
 }
 
 function MenuImage({
@@ -491,7 +453,34 @@ function foodDistanceLabel(distance: number | null) {
   return `${distance < 10 ? distance.toFixed(1) : Math.round(distance)} กม.`;
 }
 
-function FoodDirectoryStoreCard({
+/** W6 (zoky-web-home-food-spec): an ETA only when the store set real preparation times. */
+function foodStoreEtaLabel(store: Pick<FoodDirectoryStore, "prep_time_min_minutes" | "prep_time_max_minutes" | "busy_extra_minutes" | "busy_until">, distance: number | null) {
+  if (store.prep_time_min_minutes == null || store.prep_time_max_minutes == null) return null;
+  const eta = foodEstimateDeliveryRange(store, distance);
+  return eta.min === eta.max ? `${eta.min} นาที` : `${eta.min}–${eta.max} นาที`;
+}
+
+/** A star rating only when real reviews exist; null otherwise. */
+function foodStoreRating(store: FoodDirectoryStore) {
+  const rating = Number(store.rating_average ?? 0);
+  const count = Number(store.rating_count ?? 0);
+  return rating > 0 && count > 0 ? rating : null;
+}
+
+function FoodStoreCover({ client, store, iconSize }: { client: SupabaseClient; store: FoodDirectoryStore; iconSize: number }) {
+  const cover = foodPublicUrl(client, store.cover_path);
+  return cover ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={cover} alt="" loading="lazy" decoding="async" />
+  ) : <UtensilsCrossed size={iconSize} strokeWidth={1.6} />;
+}
+
+/**
+ * ZOKY Food store row (ZokyFoodStoreRow): 1:1 cover, name, real meta only.
+ * Paid ads remain labelled. No favorite toggle here: customers favorite a
+ * store only from inside that store.
+ */
+function FoodStoreRow({
   client,
   store,
   distance,
@@ -502,40 +491,86 @@ function FoodDirectoryStoreCard({
   distance: number | null;
   onPick: () => void;
 }) {
-  const cover = foodPublicUrl(client, store.cover_path);
-  const rating = Number(store.rating_average ?? 0);
-  const ratingCount = Number(store.rating_count ?? 0);
-  const categories = Array.isArray(store.categories) ? store.categories.slice(0, 2) : [];
-  const eta = foodEstimateDeliveryRange(store, distance);
+  const rating = foodStoreRating(store);
+  const isNew = Number(store.rating_average ?? 0) <= 0;
+  const eta = foodStoreEtaLabel(store, distance);
   const promo = foodPromoLabel(store);
   const distanceLabel = foodDistanceLabel(distance);
+  const category = Array.isArray(store.categories) && store.categories[0] ? store.categories[0] : "อาหาร";
+  const spoken = [
+    store.name,
+    category,
+    rating ? `คะแนน ${rating.toFixed(1)}` : isNew ? "ร้านใหม่" : "",
+    eta ? `ส่งประมาณ ${eta}` : "",
+    distanceLabel ? `ระยะ ${distanceLabel}` : "",
+    `ค่าส่ง ${Number(store.delivery_fee ?? 0)} บาท`,
+    store.is_open ? "" : "ร้านปิดอยู่",
+    promo ? `โปรโมชัน ${promo}` : "",
+    store.is_ad ? "โฆษณา" : "",
+    "ดูเมนู",
+  ].filter(Boolean).join(", ");
   return (
-    <button className={`fx-store-card${store.is_open ? "" : " is-closed"}`} type="button" onClick={onPick}>
-      <span className="fx-store-card-photo">
-        {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" loading="lazy" decoding="async" />
-        ) : <UtensilsCrossed size={30} strokeWidth={1.4} />}
-        {store.is_ad ? <b className="fx-ad-label">โฆษณา</b> : null}
-        {!store.is_open ? <b className="fx-closed-label"><Clock3 size={12} strokeWidth={2.4} />ปิดอยู่</b> : null}
-        {promo ? <b className="fx-promo-tag">{promo}</b> : null}
-        <b className="fx-eta-chip">{eta.min}–{eta.max} นาที</b>
+    <li>
+      <button className={`zk-store-row${store.is_open ? "" : " is-closed"}`} type="button" onClick={onPick} aria-label={spoken}>
+        <span className="zk-store-row-photo"><FoodStoreCover client={client} store={store} iconSize={30} /></span>
+        <span className="zk-store-row-body">
+          <strong className="zk-store-row-name">{store.name}</strong>
+          <span className="zk-meta">
+            <span>{category}</span>
+            {rating ? <span className="zk-meta-rating"><Zoky3DIcon glyph="star" palette="gold" size={16} /><b>{rating.toFixed(1)}</b></span> : isNew ? <span>ร้านใหม่</span> : null}
+            {eta ? <span>{eta}</span> : null}
+            {distanceLabel ? <span>{distanceLabel}</span> : null}
+            <span>ค่าส่ง {foodMoney(store.delivery_fee)}</span>
+          </span>
+          {!store.is_open || promo || store.is_ad ? (
+            <span className="zk-store-row-tags">
+              {!store.is_open ? <b className="zk-tag is-closed"><Clock3 size={13} strokeWidth={2.4} />ปิดอยู่</b> : null}
+              {promo ? <b className="zk-tag is-promo">{promo}</b> : null}
+              {store.is_ad ? <b className="zk-tag is-ad">โฆษณา</b> : null}
+            </span>
+          ) : null}
+          <span className="zk-store-row-cta">ดูเมนู<Zoky3DIcon glyph="arrowRight" size={22} /></span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/** Home horizontal card (ZokyRecommendedStoreCard) used for "ร้านยอดนิยม". */
+function FoodPopularStoreCard({
+  client,
+  store,
+  distance,
+  onPick,
+}: {
+  client: SupabaseClient;
+  store: FoodDirectoryStore;
+  distance: number | null;
+  onPick: () => void;
+}) {
+  const rating = foodStoreRating(store);
+  const eta = foodStoreEtaLabel(store, distance);
+  const spoken = [
+    store.name,
+    rating ? `คะแนน ${rating.toFixed(1)}` : "",
+    eta ? `ส่งประมาณ ${eta}` : "",
+    store.is_open ? "" : "ร้านปิดอยู่",
+    store.is_ad ? "โฆษณา" : "",
+  ].filter(Boolean).join(", ");
+  return (
+    <button className={`zk-pop-card${store.is_open ? "" : " is-closed"}`} type="button" onClick={onPick} aria-label={spoken}>
+      <span className="zk-pop-card-photo">
+        <FoodStoreCover client={client} store={store} iconSize={30} />
+        {store.is_ad ? <b className="zk-tag is-ad">โฆษณา</b> : null}
       </span>
-      <span className="fx-store-card-name">{store.name}</span>
-      <span className="fx-store-card-meta">
-        <Star size={13} fill="#F5A623" strokeWidth={0} />
-        {rating > 0 ? (
-          <>
-            <b>{rating.toFixed(1)}</b>
-            {ratingCount > 0 ? <span>({new Intl.NumberFormat("th-TH").format(ratingCount)})</span> : null}
-          </>
-        ) : <b>ร้านใหม่</b>}
-        {distanceLabel ? <span>· {distanceLabel}</span> : null}
-      </span>
-      <span className="fx-store-card-tags">
-        {categories.length ? categories.map((name) => <span key={name}>{name}</span>) : <span>อาหาร</span>}
-        <span>ค่าส่ง {foodMoney(store.delivery_fee)}</span>
-      </span>
+      <strong className="zk-pop-card-name">{store.name}</strong>
+      {!store.is_open || rating || eta ? (
+        <span className="zk-pop-card-meta">
+          {!store.is_open ? <b>ปิดอยู่</b> : null}
+          {rating ? <span className="zk-meta-rating"><Zoky3DIcon glyph="star" palette="gold" size={16} /><b>{rating.toFixed(1)}</b></span> : null}
+          {eta ? <span>{eta}</span> : null}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -549,60 +584,141 @@ function FoodRecentStoreTile({
   store: FoodDirectoryStore;
   onPick: () => void;
 }) {
-  const cover = foodPublicUrl(client, store.cover_path);
   return (
     <button className="fx-recent-store" type="button" onClick={onPick}>
-      <span>
-        {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" loading="lazy" decoding="async" />
-        ) : <UtensilsCrossed size={26} strokeWidth={1.4} />}
-      </span>
+      <span><FoodStoreCover client={client} store={store} iconSize={24} /></span>
       <strong>{store.name}</strong>
     </button>
   );
 }
 
-function FoodHomeSectionHeader({ title, onAll }: { title: string; onAll?: () => void }) {
+type FoodDirectoryFilter = "all" | "free" | "promo" | "near" | "rating";
+
+// Chip order follows the approved app: ทั้งหมด · ใกล้ฉัน · ส่งฟรี · มีโปรฯ; the rating
+// filter is chosen from the filter sheet and shows as a chip only while selected.
+const FOOD_DIRECTORY_FILTERS: Array<{ key: FoodDirectoryFilter; label: string }> = [
+  { key: "all", label: "ทั้งหมด" },
+  { key: "near", label: "ใกล้ฉัน" },
+  { key: "free", label: "ส่งฟรี" },
+  { key: "promo", label: "มีโปรฯ" },
+  { key: "rating", label: "เรตติ้ง 4.5+" },
+];
+
+/** Directory load state. A failed load is an error, never an endless skeleton. */
+type FoodDirectoryState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; stores: FoodDirectoryStore[] };
+
+function foodPopularStores(stores: FoodDirectoryStore[]) {
+  return [...stores].sort((a, b) => {
+    const ordersDelta = Number(b.delivered_order_count ?? 0) - Number(a.delivered_order_count ?? 0);
+    if (ordersDelta) return ordersDelta;
+    const ratingDelta = Number(b.rating_average ?? 0) - Number(a.rating_average ?? 0);
+    if (ratingDelta) return ratingDelta;
+    return a.name.localeCompare(b.name, "th");
+  });
+}
+
+/**
+ * Founder 2026-11-03 ("เพิ่ม ร้านแนะนำ"): stores the ZOKY team pins in
+ * ZOKY Admin (food_active_featured_stores, by priority) come first, then the
+ * remaining open stores fill in automatically (open first, then popularity).
+ */
+function foodRecommendedStores(stores: FoodDirectoryStore[], featuredIds: string[], limit = 10) {
+  const byId = new Map(stores.map((store) => [store.id, store]));
+  const featured = featuredIds.map((id) => byId.get(id)).filter((store): store is FoodDirectoryStore => Boolean(store));
+  const picked = new Set(featured.map((store) => store.id));
+  const rest = foodPopularStores(stores.filter((store) => !picked.has(store.id)))
+    .sort((a, b) => Number(b.is_open) - Number(a.is_open));
+  return [...featured, ...rest].slice(0, limit);
+}
+
+/** Admin-pinned store ids, in priority order. Empty when none or unavailable. */
+function useFoodFeaturedStoreIds(client: SupabaseClient) {
+  const [ids, setIds] = useState<string[]>([]);
+  useEffect(() => {
+    let live = true;
+    void Promise.resolve(client.rpc("food_active_featured_stores")).then(({ data, error }) => {
+      if (!live || error || !Array.isArray(data)) return;
+      setIds(data.map((row: { store_id?: unknown }) => row?.store_id).filter((id): id is string => typeof id === "string"));
+    }).catch(() => undefined);
+    return () => { live = false; };
+  }, [client]);
+  return ids;
+}
+
+function FoodRowSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="fx-section-head">
-      <h2>{title}</h2>
-      {onAll ? <button type="button" onClick={onAll}>ดูทั้งหมด <ChevronRight size={16} strokeWidth={2.4} /></button> : null}
+    <div className="zk-row-skeletons" aria-hidden="true">
+      {Array.from({ length: rows }, (_, index) => (
+        <div className="zk-row-skeleton" key={index}>
+          <div className="fx-skel zk-skel-photo" />
+          <div className="zk-row-skeleton-lines">
+            <div className="fx-skel" style={{ height: 18 }} />
+            <div className="fx-skel" style={{ height: 14, width: "70%" }} />
+            <div className="fx-skel" style={{ height: 14, width: "35%" }} />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
-type FoodDirectoryFilter = "all" | "free" | "promo" | "near" | "rating";
+function FoodDirectoryError({ onRetry }: { onRetry: () => void }) {
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  return (
+    <section className="fx-state fx-state--error" role="alert">
+      <span className="fx-state-icon">{offline ? <WifiOff size={44} strokeWidth={1.6} /> : <CircleAlert size={44} strokeWidth={1.6} />}</span>
+      <h2>เชื่อมต่อไม่ได้</h2>
+      <div className="fx-state-copy"><p>ตรวจสอบ Wi-Fi หรือเน็ตมือถือ แล้วลองอีกครั้ง ตะกร้าของคุณยังอยู่</p></div>
+      <div className="fx-state-action"><button className="fx-btn fx-btn--primary" type="button" onClick={onRetry}><RefreshCw size={18} />ลองอีกครั้ง</button></div>
+    </section>
+  );
+}
 
-const FOOD_DIRECTORY_FILTERS: Array<{ key: FoodDirectoryFilter; label: string }> = [
-  { key: "all", label: "ทั้งหมด" },
-  { key: "free", label: "ส่งฟรี" },
-  { key: "promo", label: "มีโปรฯ" },
-  { key: "near", label: "ใกล้ฉัน" },
-  { key: "rating", label: "เรตติ้ง 4.5+" },
-];
-
+/**
+ * ZOKY Food page (FoodHomeScreen): pale pink header, sticky search, reorder,
+ * coupons and every store. Search, filters, collected codes and browse sheets
+ * keep the earlier web logic; only the presentation follows the app.
+ */
 function StoreDirectory({
   client,
   userId,
   orders,
   addresses,
+  directory,
+  addressLabel,
+  cartCount,
+  cartSubtotal,
+  onRetry,
   onPick,
   onLocation,
+  onBack,
+  onFavorites,
+  onCart,
 }: {
   client: SupabaseClient;
   userId: string;
   orders: FoodCustomerOrder[];
   addresses: FoodCustomerAddress[];
+  directory: FoodDirectoryState;
+  addressLabel: string;
+  cartCount: number;
+  cartSubtotal: number;
+  onRetry: () => void;
   onPick: (store: FoodDirectoryStore, placement: "home" | "search") => void;
   onLocation: () => void;
+  onBack: () => void;
+  onFavorites: () => void;
+  onCart: () => void;
 }) {
+  useZokyThemeColor("#FFEFF5");
   const [query, setQuery] = useState("");
+  const [search, setSearch] = useState<{ query: string; stores: FoodDirectoryStore[] | null } | null>(null);
+  const [searchAttempt, setSearchAttempt] = useState(0);
   const [filter, setFilter] = useState<FoodDirectoryFilter>("all");
-  const [stores, setStores] = useState<FoodDirectoryStore[] | null>(null);
-  const [homeBanners, setHomeBanners] = useState<FoodHomeBanner[]>([]);
-  const [featuredPlacements,setFeaturedPlacements]=useState<FoodFeaturedPlacement[]>([]);
-  const [browse, setBrowse] = useState<"promos" | "recent" | "nearby" | "popular" | null>(null);
+  const [browse, setBrowse] = useState<"promos" | "recent" | "filters" | null>(null);
   const promoKey = `wynos-food-collected-promos-v1:${userId}`;
   const [collectedPromos, setCollectedPromos] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
@@ -614,31 +730,23 @@ function StoreDirectory({
     }
   });
 
+  const trimmedQuery = query.trim();
   useEffect(() => {
+    if (!trimmedQuery) return;
     let live = true;
     const timer = window.setTimeout(() => {
-      void fetchFoodStoreDirectory(client, query).then((next) => { if (live) setStores(next); });
-    }, query ? 280 : 0);
+      void fetchFoodStoreDirectory(client, trimmedQuery)
+        .catch(() => null)
+        .then((next) => { if (live) setSearch({ query: trimmedQuery, stores: next }); });
+    }, 280);
     return () => { live = false; window.clearTimeout(timer); };
-  }, [client, query]);
-
-  useEffect(() => {
-    let live = true;
-    void fetchFoodHomeBanners(client).then((rows) => { if (live) setHomeBanners(rows); });
-    return () => { live = false; };
-  }, [client]);
+  }, [client, trimmedQuery, searchAttempt]);
 
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const customerLocation = addressLocation(primaryAddress);
-  const directory = stores ?? [];
+  const directoryStores = directory.status === "ready" ? directory.stores : [];
   const distanceFor = (store: FoodDirectoryStore) => foodDistanceKm(customerLocation, store);
-  const storeMap = new Map(directory.map((store) => [store.id, store]));
-
-  useEffect(() => {
-    let live=true;
-    void fetchFoodFeaturedStores(client).then(rows=>{if(live)setFeaturedPlacements(rows);});
-    return ()=>{live=false;};
-  },[client]);
+  const storeMap = new Map(directoryStores.map((store) => [store.id, store]));
 
   const recentStores = Array.from(new Set(
     [...orders]
@@ -657,9 +765,8 @@ function StoreDirectory({
     if (filter === "rating") return Number(store.rating_average ?? 0) >= 4.5;
     return true;
   };
-  const filtered = directory.filter(matchesFilter);
-
-  const nearbyStores = [...filtered].sort((a, b) => {
+  // Open stores first, then nearest (the earlier "ร้านใกล้คุณ" order), every store.
+  const listedStores = directoryStores.filter(matchesFilter).sort((a, b) => {
     const da = distanceFor(a);
     const db = distanceFor(b);
     if (Number(b.is_open) !== Number(a.is_open)) return Number(b.is_open) - Number(a.is_open);
@@ -668,15 +775,7 @@ function StoreDirectory({
     if (db == null) return -1;
     return da - db;
   });
-  const popularStores = [...filtered].sort((a, b) => {
-    const ordersDelta = Number(b.delivered_order_count ?? 0) - Number(a.delivered_order_count ?? 0);
-    if (ordersDelta) return ordersDelta;
-    const ratingDelta = Number(b.rating_average ?? 0) - Number(a.rating_average ?? 0);
-    if (ratingDelta) return ratingDelta;
-    return a.name.localeCompare(b.name, "th");
-  });
-  const promoStores = directory.filter((store) => Boolean(store.promo_name));
-  const featuredStores=featuredPlacements.map(p=>filtered.find(store=>store.id===p.store_id)).filter((store):store is FoodDirectoryStore=>Boolean(store));
+  const promoStores = directoryStores.filter((store) => Boolean(store.promo_name));
 
   const toggleCollected = (store: FoodDirectoryStore) => {
     const id = store.id;
@@ -692,171 +791,291 @@ function StoreDirectory({
     const minimum = Number(store.promo_min_subtotal ?? 0);
     const collected = collectedPromos.includes(store.id);
     return (
-      <article className="fx-deal" key={store.id}>
-        <span className="fx-deal-icon">{store.promo_type === "free_delivery" ? <Bike size={26} /> : <Ticket size={26} />}</span>
-        <span className="fx-deal-copy">
-          <small>{store.name}</small>
-          <strong>{label}</strong>
-          <span>{minimum > 0 ? `เมื่อสั่งครบ ${foodMoney(minimum)}` : store.promo_name}</span>
-        </span>
-        <button type="button" className={collected ? "is-collected" : ""} aria-pressed={collected} onClick={() => toggleCollected(store)}>
-          {collected ? "เก็บแล้ว" : "เก็บโค้ด"}
-        </button>
+      <article className="zk-coupon" key={store.id}>
+        <div className="zk-coupon-inner">
+          <span className="zk-coupon-icon" aria-hidden="true">{store.promo_type === "free_delivery" ? <Bike size={30} strokeWidth={1.9} /> : <Ticket size={30} strokeWidth={1.9} />}</span>
+          <span className="zk-coupon-copy">
+            <strong>{label}</strong>
+            <span>{minimum > 0 ? `${store.name} · เมื่อสั่งครบ ${foodMoney(minimum)}` : `${store.name} · ${store.promo_name}`}</span>
+          </span>
+          <button type="button" className={`zk-collect${collected ? " is-collected" : ""}`} aria-pressed={collected} onClick={() => toggleCollected(store)}>
+            {collected ? <><Check size={18} strokeWidth={2.6} />เก็บแล้ว</> : "เก็บโค้ด"}
+          </button>
+        </div>
       </article>
     );
   };
 
-  const card = (store: FoodDirectoryStore, placement: "home" | "search" = "home") => (
-    <FoodDirectoryStoreCard
-      key={store.id}
-      client={client}
-      store={store}
-      distance={distanceFor(store)}
-      onPick={() => onPick(store, placement)}
-    />
+  const rows = (stores: FoodDirectoryStore[], placement: "home" | "search" = "home") => (
+    <ul className="zk-store-list">
+      {stores.map((store) => (
+        <FoodStoreRow key={store.id} client={client} store={store} distance={distanceFor(store)} onPick={() => onPick(store, placement)} />
+      ))}
+    </ul>
   );
 
-  const searching = Boolean(query.trim());
+  const searching = Boolean(trimmedQuery);
+  const searchResult = search && search.query === trimmedQuery ? search : null;
+  const chipKeys: FoodDirectoryFilter[] = filter === "rating" ? ["all", "near", "free", "promo", "rating"] : ["all", "near", "free", "promo"];
+  const filterLabel = (key: FoodDirectoryFilter) => FOOD_DIRECTORY_FILTERS.find((option) => option.key === key)?.label ?? key;
 
-  return (
-    <section className="fx-directory">
-      <label className="fx-search">
-        <Search size={20} strokeWidth={2} />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="ค้นหาร้านหรือเมนูอาหาร"
-          aria-label="ค้นหาร้านหรือเมนูอาหาร"
-          autoComplete="off"
-          enterKeyHint="search"
-        />
-        {query ? <button type="button" className="fx-search-clear" aria-label="ล้างการค้นหา" onClick={() => setQuery("")}><X size={14} strokeWidth={3} /></button> : null}
-      </label>
+  let body: React.ReactNode;
+  if (searching) {
+    body = (
+      <section className="zk-section">
+        <ZokySectionHeader title={`ผลการค้นหา “${trimmedQuery}”`} />
+        {!searchResult ? <div aria-busy="true" aria-label="กำลังโหลดร้านอาหาร"><FoodRowSkeleton /></div> : searchResult.stores === null ? (
+          <FoodDirectoryError onRetry={() => { setSearch(null); setSearchAttempt((attempt) => attempt + 1); }} />
+        ) : searchResult.stores.length ? rows(searchResult.stores, "search") : (
+          <FoodStateScreen icon={<Search size={44} strokeWidth={1.6} />} title={`ไม่พบ “${trimmedQuery}” ใกล้คุณ`}>
+            <p>ลองค้นด้วยชื่อร้าน ชื่อเมนู หรือคำที่สั้นลง</p>
+          </FoodStateScreen>
+        )}
+      </section>
+    );
+  } else if (directory.status === "loading") {
+    body = (
+      <div className="zk-food-skeleton" aria-busy="true" aria-label="กำลังโหลดร้านอาหาร">
+        <div className="zk-skel-circles" aria-hidden="true">{[0, 1, 2, 3].map((index) => <div key={index}><div className="fx-skel zk-skel-circle" /><div className="fx-skel" style={{ height: 12 }} /></div>)}</div>
+        <div className="fx-skel zk-skel-title" aria-hidden="true" />
+        <div className="fx-skel zk-skel-coupon" aria-hidden="true" />
+        <FoodRowSkeleton />
+      </div>
+    );
+  } else if (directory.status === "error") {
+    body = <FoodDirectoryError onRetry={onRetry} />;
+  } else if (!directoryStores.length) {
+    body = (
+      <FoodStateScreen
+        icon={<Store size={44} strokeWidth={1.6} />}
+        title="ยังไม่มีร้านในพื้นที่นี้"
+        action={<button className="fx-btn fx-btn--primary" type="button" onClick={onLocation}>เปลี่ยนที่อยู่จัดส่ง</button>}
+      >
+        <p>ZOKY กำลังขยายพื้นที่ให้บริการ ลองเปลี่ยนที่อยู่จัดส่ง หรือกลับมาใหม่เร็วๆ นี้</p>
+      </FoodStateScreen>
+    );
+  } else {
+    body = (
+      <>
+        {filter === "all" && recentStores.length ? (
+          <section className="zk-section">
+            <ZokySectionHeader title="สั่งอีกครั้ง" onAll={() => setBrowse("recent")} />
+            <div className="fx-recent-stores">
+              {recentStores.slice(0, 6).map((store) => (
+                <FoodRecentStoreTile key={store.id} client={client} store={store} onPick={() => onPick(store, "home")} />
+              ))}
+            </div>
+          </section>
+        ) : null}
 
+        {promoStores.length ? (
+          <section className="zk-section">
+            <ZokySectionHeader title="โค้ดลดเพิ่มสำหรับคุณ" onAll={() => setBrowse("promos")} />
+            <div className={`zk-coupons${promoStores.length === 1 ? " is-single" : ""}`}>{promoStores.slice(0, 4).map(promoCard)}</div>
+          </section>
+        ) : null}
 
-      {!searching && homeBanners.length > 0 ? (
-        <div className="fx-home-banners" aria-label="แบนเนอร์ WYNOS Food">
-          {homeBanners.map((banner) => {
-            const destination = banner.destination_store_id ? storeMap.get(banner.destination_store_id) : null;
-            const media = (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={foodHomeBannerImage(client, banner.image_path)} alt="" loading="lazy" decoding="async" />
-                <span className="fx-home-banner-copy">
-                  <strong>{banner.title}</strong>
-                  {banner.subtitle ? <small>{banner.subtitle}</small> : null}
-                </span>
-              </>
-            );
-            return destination ? (
-              <button key={banner.id} type="button" className="fx-home-banner" onClick={() => onPick(destination, "home")} aria-label={banner.title}>
-                {media}
-              </button>
-            ) : (
-              <div key={banner.id} className="fx-home-banner" role="group" aria-label={banner.title}>
-                {media}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {stores === null ? (
-        <div className="fx-skel-grid fx-skel-grid--inline" aria-busy="true" aria-label="กำลังโหลดร้านอาหาร">
-          <div><div className="fx-skel fx-skel--card" /><div className="fx-skel fx-skel--line" /></div>
-          <div><div className="fx-skel fx-skel--card" /><div className="fx-skel fx-skel--line" /></div>
-        </div>
-      ) : searching ? (
-        <section className="fx-home-section">
-          <FoodHomeSectionHeader title={`ผลการค้นหา “${query.trim()}”`} />
-          {directory.length ? <div className="fx-store-grid">{directory.map((store) => card(store, "search"))}</div> : (
-            <FoodStateScreen icon={<Search size={44} strokeWidth={1.6} />} title={`ไม่พบ “${query.trim()}” ใกล้คุณ`}>
-              <p>ลองค้นด้วยชื่อร้าน ชื่อเมนู หรือคำที่สั้นลง</p>
-            </FoodStateScreen>
+        <section className="zk-section zk-all-stores">
+          <div className="zk-section-head">
+            <h2>ร้านอาหารทั้งหมด</h2>
+            <button type="button" className="zk-filter-btn" onClick={() => setBrowse("filters")}><SlidersHorizontal size={22} strokeWidth={2} />ตัวกรอง</button>
+          </div>
+          <div className="zk-chips-bar">
+            <div className="zk-chips" role="group" aria-label="ตัวกรองร้านอาหาร">
+              {chipKeys.map((key) => (
+                <button key={key} type="button" className={`zk-chip${filter === key ? " is-active" : ""}`} aria-pressed={filter === key} onClick={() => setFilter(key)}>
+                  {filterLabel(key)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {listedStores.length ? rows(listedStores) : (
+            <FoodStateScreen
+              icon={<SlidersHorizontal size={40} strokeWidth={1.6} />}
+              title="ไม่มีร้านที่ตรงกับตัวกรองนี้"
+              action={<button className="fx-btn fx-btn--primary" type="button" onClick={() => setFilter("all")}>ล้างตัวกรอง</button>}
+            />
           )}
         </section>
-      ) : !directory.length ? (
-        <FoodStateScreen
-          icon={<Store size={46} strokeWidth={1.6} />}
-          title="ยังไม่มีร้านในพื้นที่นี้"
-          action={<button className="fx-btn fx-btn--primary" type="button" onClick={onLocation}>เปลี่ยนที่อยู่จัดส่ง</button>}
-        >
-          <p>WYNOS Food กำลังขยายพื้นที่ให้บริการ ลองเปลี่ยนที่อยู่จัดส่ง หรือกลับมาใหม่เร็วๆ นี้</p>
-        </FoodStateScreen>
-      ) : (
-        <>
-          <div className="fx-chips" role="group" aria-label="ตัวกรองร้านอาหาร">
-            {FOOD_DIRECTORY_FILTERS.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                className={`fx-chip${filter === option.key ? " is-active" : ""}`}
-                aria-pressed={filter === option.key}
-                onClick={() => setFilter(option.key)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+      </>
+    );
+  }
 
-          {filter === "all" && featuredStores.length > 0 ? (
-            <section className="fx-home-section" aria-label="ร้านแนะนำ">
-              <FoodHomeSectionHeader title="ร้านแนะนำ" />
-              <div className="fx-store-grid">{featuredStores.map(store=>card(store))}</div>
-            </section>
-          ) : null}
+  return (
+    <section className="zk-food">
+      <h1 className="zk-sr-only">สั่งอาหาร</h1>
+      <span className="zk-statusbar" aria-hidden="true" />
+      <div className="zk-food-top">
+        <div className="zk-col zk-food-toprow">
+          <button className="zk-back" type="button" aria-label="กลับ" onClick={onBack}><ArrowLeft size={24} strokeWidth={2.1} /></button>
+          <button className="zk-address" type="button" onClick={onLocation} aria-label={`จัดส่งที่ ${addressLabel}`}>
+            <small>จัดส่งที่</small>
+            <strong><span>{addressLabel}</span><ChevronDown size={20} strokeWidth={2.4} /></strong>
+          </button>
+          <ZokyGlossyIconButton size="sm" label="ร้านโปรด" onClick={onFavorites}><Zoky3DIcon glyph="heart" size={22} /></ZokyGlossyIconButton>
+          <ZokyGlossyIconButton size="sm" label="คูปองส่วนลด" onClick={() => setBrowse("promos")}><Zoky3DIcon glyph="ticket" size={26} /></ZokyGlossyIconButton>
+        </div>
+      </div>
+      <div className="zk-food-search">
+        <div className="zk-col">
+          <label className="zk-search">
+            <Search size={24} strokeWidth={2} aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="ค้นหาร้านอาหารหรือเมนู"
+              aria-label="ค้นหาร้านอาหารหรือเมนู"
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+            {query ? <button type="button" className="zk-search-clear" aria-label="ล้างการค้นหา" onClick={() => setQuery("")}><X size={16} strokeWidth={2.6} /></button> : null}
+          </label>
+        </div>
+      </div>
 
-          {filter === "all" && promoStores.length ? (
-            <section className="fx-home-section">
-              <FoodHomeSectionHeader title="รวมโค้ดลดเพิ่ม" onAll={() => setBrowse("promos")} />
-              <div className="fx-deals">{promoStores.slice(0, 4).map(promoCard)}</div>
-            </section>
-          ) : null}
+      <div className="zk-col zk-food-body">{body}</div>
 
-          {filter === "all" && recentStores.length ? (
-            <section className="fx-home-section">
-              <FoodHomeSectionHeader title="สั่งอีกครั้ง" onAll={() => setBrowse("recent")} />
-              <div className="fx-recent-stores">
-                {recentStores.slice(0, 6).map((store) => (
-                  <FoodRecentStoreTile key={store.id} client={client} store={store} onPick={() => onPick(store, "home")} />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          <section className="fx-home-section">
-            <FoodHomeSectionHeader title="ร้านใกล้คุณ" onAll={nearbyStores.length > 4 ? () => setBrowse("nearby") : undefined} />
-            {nearbyStores.length ? <div className="fx-store-grid">{nearbyStores.slice(0, 4).map((store) => card(store))}</div> : (
-              <p className="fx-empty-line">ไม่มีร้านที่ตรงกับตัวกรองนี้</p>
-            )}
-          </section>
-
-          {filter === "all" && popularStores.length > 1 ? (
-            <section className="fx-home-section">
-              <FoodHomeSectionHeader title="ร้านยอดนิยม" onAll={popularStores.length > 4 ? () => setBrowse("popular") : undefined} />
-              <div className="fx-store-grid">{popularStores.slice(0, 4).map((store) => card(store))}</div>
-            </section>
-          ) : null}
-        </>
-      )}
+      <ZokyFoodCartButton count={cartCount} totalLabel={foodMoney(cartSubtotal)} totalSpoken={String(cartSubtotal)} onClick={onCart} />
 
       {browse ? (
         <Sheet
-          title={browse === "promos" ? "รวมโค้ดลดเพิ่ม" : browse === "recent" ? "สั่งอีกครั้ง" : browse === "nearby" ? "ร้านใกล้คุณ" : "ร้านยอดนิยม"}
+          title={browse === "promos" ? "รวมโค้ดลดเพิ่ม" : browse === "recent" ? "สั่งอีกครั้ง" : "ตัวกรอง"}
+          variant={browse === "filters" ? "sheet" : "page"}
           onClose={() => setBrowse(null)}
         >
           {browse === "promos" ? (
-            <div className="fx-deals fx-deals--stack">{promoStores.map(promoCard)}</div>
-          ) : browse === "recent" ? (
-            <div className="fx-store-grid">{recentStores.map((store) => card(store))}</div>
-          ) : browse === "nearby" ? (
-            <div className="fx-store-grid">{nearbyStores.map((store) => card(store))}</div>
-          ) : (
-            <div className="fx-store-grid">{popularStores.map((store) => card(store))}</div>
+            promoStores.length ? <div className="zk-coupons is-stack">{promoStores.map(promoCard)}</div> : (
+              <FoodStateScreen icon={<Ticket size={40} strokeWidth={1.6} />} title="ยังไม่มีโค้ดส่วนลด" />
+            )
+          ) : browse === "recent" ? rows(recentStores) : (
+            <div className="zk-filter-list">
+              {FOOD_DIRECTORY_FILTERS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={filter === option.key ? "is-active" : ""}
+                  aria-pressed={filter === option.key}
+                  onClick={() => { setFilter(option.key); setBrowse(null); }}
+                >
+                  <span>{option.label}</span>
+                  {filter === option.key ? <Check size={20} strokeWidth={2.6} /> : null}
+                </button>
+              ))}
+            </div>
           )}
         </Sheet>
       ) : null}
     </section>
+  );
+}
+
+/** ZOKY Home (Home v1 Phase 1–5): glossy header, hero card, promotions, popular stores. */
+function FoodHomeScreen({
+  client,
+  userId,
+  directory,
+  addresses,
+  cartCount,
+  onCart,
+  onFavorites,
+  onOpenFood,
+  onPick,
+}: {
+  client: SupabaseClient;
+  userId: string;
+  directory: FoodDirectoryState;
+  addresses: FoodCustomerAddress[];
+  cartCount: number;
+  onCart: () => void;
+  onFavorites: () => void;
+  onOpenFood: () => void;
+  onPick: (store: FoodDirectoryStore, placement: "home" | "search") => void;
+}) {
+  const [allPopular, setAllPopular] = useState(false);
+  const [allRecommended, setAllRecommended] = useState(false);
+  const featuredIds = useFoodFeaturedStoreIds(client);
+  const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
+  const customerLocation = addressLocation(primaryAddress);
+  const distanceFor = (store: FoodDirectoryStore) => foodDistanceKm(customerLocation, store);
+  // Founder 2026-10-19 Q2: "ร้านอาหารแนะนำ" uses the real popular order (delivered orders).
+  const popularStores = directory.status === "ready" ? foodPopularStores(directory.stores) : [];
+  const recommendedStores = directory.status === "ready" ? foodRecommendedStores(directory.stores, featuredIds) : [];
+  return (
+    <div className="zk-home">
+      <ZokyHomeHeader
+        actions={(
+          <>
+            {cartCount > 0 ? (
+              <ZokyGlossyIconButton label={`ตะกร้า ${cartCount} รายการ`} onClick={onCart} badge={cartCount}>
+                <ShoppingBag size={22} strokeWidth={2} color="#D61256" aria-hidden="true" />
+              </ZokyGlossyIconButton>
+            ) : null}
+            <ZokyGlossyIconButton label="ร้านโปรด" onClick={onFavorites}><Zoky3DIcon glyph="heart" size={26} /></ZokyGlossyIconButton>
+          </>
+        )}
+      />
+      <ZokyFoodHeroCard onOpen={onOpenFood} />
+      <div className="zk-col zk-home-promos"><FoodPromotionCenter client={client} userId={userId} /></div>
+
+      {directory.status === "loading" ? (
+        <section className="zk-col zk-section" aria-busy="true" aria-label="กำลังโหลดร้านแนะนำ">
+          <ZokySectionHeader title="ร้านแนะนำ" />
+          <div className="zk-pop-row" aria-hidden="true">{[0, 1, 2].map((index) => <div key={index} className="fx-skel zk-skel-pop" />)}</div>
+        </section>
+      ) : recommendedStores.length ? (
+        <section className="zk-col zk-section">
+          <ZokySectionHeader title="ร้านแนะนำ" onAll={popularStores.length > 3 ? () => setAllRecommended(true) : undefined} />
+          <div className="zk-pop-row">
+            {recommendedStores.map((store) => (
+              <FoodPopularStoreCard key={store.id} client={client} store={store} distance={distanceFor(store)} onPick={() => onPick(store, "home")} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {directory.status === "ready" && popularStores.length > 1 ? (
+        <section className="zk-col zk-section">
+          <ZokySectionHeader title="ร้านยอดนิยม" onAll={() => setAllPopular(true)} />
+          <div className="zk-pop-row">
+            {popularStores.slice(0, 10).map((store) => (
+              <FoodPopularStoreCard key={store.id} client={client} store={store} distance={distanceFor(store)} onPick={() => onPick(store, "home")} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <div className="zk-col zk-home-social">
+        <a className="fx-social-promo" href="https://wynos.online/" aria-label="เปิด WYNOS Social">
+          <span className="fx-social-promo-mark">W</span>
+          <span className="fx-social-promo-copy">
+            <strong>WYNOS Social</strong>
+            <small>โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos.online</small>
+          </span>
+          <ChevronRight size={18} />
+        </a>
+      </div>
+
+      {allRecommended ? (
+        <Sheet title="ร้านแนะนำ" onClose={() => setAllRecommended(false)}>
+          <ul className="zk-store-list">
+            {foodRecommendedStores(directory.status === "ready" ? directory.stores : [], featuredIds, 100).map((store) => (
+              <FoodStoreRow key={store.id} client={client} store={store} distance={distanceFor(store)} onPick={() => { setAllRecommended(false); onPick(store, "home"); }} />
+            ))}
+          </ul>
+        </Sheet>
+      ) : null}
+
+      {allPopular ? (
+        <Sheet title="ร้านยอดนิยม" onClose={() => setAllPopular(false)}>
+          <ul className="zk-store-list">
+            {popularStores.map((store) => (
+              <FoodStoreRow key={store.id} client={client} store={store} distance={distanceFor(store)} onPick={() => { setAllPopular(false); onPick(store, "home"); }} />
+            ))}
+          </ul>
+        </Sheet>
+      ) : null}
+    </div>
   );
 }
 
@@ -954,7 +1173,7 @@ function StoreReviewsSection({ client, storeId }: { client: SupabaseClient; stor
             {shown.map((review) => (
               <article key={review.id} className="wf-review-card">
                 <div className="wf-review-card-head">
-                  <div><strong>{review.reviewer_label}</strong><span>สั่งจริงกับ WYNOS Food</span></div>
+                  <div><strong>{review.reviewer_label}</strong><span>สั่งจริงกับ ZOKY</span></div>
                   <ReviewStars rating={review.rating} compact />
                 </div>
                 {review.review_text ? <p>{review.review_text}</p> : null}
@@ -1142,26 +1361,22 @@ function HomePanel({
   store,
   menu,
   onItem,
-  onPickStore,
   onShareStore,
   onBackStorefront,
   storefrontOpen,
-  orders,
   addresses,
-  onLocation,
+  discovery,
 }: {
   client: SupabaseClient;
   userId: string;
   store: FoodCustomerStore | null;
   menu: FoodCustomerMenuItem[];
   onItem: (item: FoodCustomerMenuItem) => void;
-  onPickStore: (store: FoodDirectoryStore, placement: "home" | "search") => void;
   onShareStore: () => void;
   onBackStorefront: () => void;
   storefrontOpen: boolean;
-  orders: FoodCustomerOrder[];
   addresses: FoodCustomerAddress[];
-  onLocation: () => void;
+  discovery: React.ReactNode;
 }) {
   const [category, setCategory] = useState("ทั้งหมด");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1206,33 +1421,15 @@ function HomePanel({
     [category, menu],
   );
 
+  // Store discovery (ZOKY Home or the Food page) is built by the shell, which owns the directory data.
   if (!storefrontOpen) {
-    return (
-      <>
-        <StoreDirectory
-          client={client}
-          userId={userId}
-          orders={orders}
-          addresses={addresses}
-          onPick={onPickStore}
-          onLocation={onLocation}
-        />
-        <a className="fx-social-promo" href="https://wynos.online/" aria-label="เปิด WYNOS Social">
-          <span className="fx-social-promo-mark">W</span>
-          <span className="fx-social-promo-copy">
-            <strong>WYNOS Social</strong>
-            <small>โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos.online</small>
-          </span>
-          <ChevronRight size={18} />
-        </a>
-      </>
-    );
+    return <>{discovery}</>;
   }
 
   if (!store) {
     return (
-      <FoodStateScreen icon={<Store size={46} strokeWidth={1.6} />} title="ยังไม่มีร้านสำหรับ WYNOS Food" action={<button className="fx-btn fx-btn--primary" type="button" onClick={onBackStorefront}>กลับหน้าหลัก</button>}>
-        <p>ร้านค้าสามารถสร้างและตั้งค่าร้านผ่าน WYNOS Merchant เพื่อเริ่มขายบน WYNOS Food</p>
+      <FoodStateScreen icon={<Store size={46} strokeWidth={1.6} />} title="ยังไม่มีร้านสำหรับ ZOKY" action={<button className="fx-btn fx-btn--primary" type="button" onClick={onBackStorefront}>กลับหน้าหลัก</button>}>
+        <p>ร้านค้าสามารถสร้างและตั้งค่าร้านผ่าน WYNOS Merchant เพื่อเริ่มขายบน ZOKY</p>
       </FoodStateScreen>
     );
   }
@@ -1244,7 +1441,9 @@ function HomePanel({
   const primaryAddress = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
   const distance = foodDistanceKm(addressLocation(primaryAddress), store);
   const distanceLabel = foodDistanceLabel(distance);
-  const eta = foodEstimateDeliveryRange(store, distance);
+  // Delivery minutes = prep time + ride time, so only with both a pin and prep times.
+  const etaLabel = distance != null ? foodStoreEtaLabel(store, distance) : null;
+  const busyExtra = foodStoreBusyExtraMinutes(store);
   const hasRating = reviewSummary.storeId === store.id && reviewSummary.count > 0;
   const recommended = category === "ทั้งหมด" ? menu.filter(isOrderable).slice(0, 6) : [];
   const toggleFavorite = () => {
@@ -1277,7 +1476,7 @@ function HomePanel({
           ) : <Store size={46} strokeWidth={1.25} />}
         </div>
         <div className="fx-store-hero-actions">
-          <button className="fx-float-btn" type="button" aria-label="กลับหน้าหลัก WYNOS Food" onClick={onBackStorefront}>
+          <button className="fx-float-btn" type="button" aria-label="กลับหน้าหลัก ZOKY" onClick={onBackStorefront}>
             <ArrowLeft size={21} strokeWidth={2.3} />
           </button>
           <span className="fx-store-hero-right">
@@ -1302,16 +1501,21 @@ function HomePanel({
       </section>
 
       <section className="fx-store-info">
-        <h1>{store.name}</h1>
+        {/* Founder 2026-10-22: address after the name; rating, distance and delivery minutes only (real data). */}
+        <div className="fx-store-title">
+          <h1>{store.name}</h1>
+          {store.address ? <span>· {store.address}</span> : null}
+        </div>
         <p className="fx-store-meta">
           <Star size={14} fill="#F5A623" strokeWidth={0} />
           {hasRating ? <><b>{reviewSummary.average.toFixed(1)}</b> ({new Intl.NumberFormat("th-TH").format(reviewSummary.count)})</> : <b>ร้านใหม่</b>}
-          {distanceLabel ? <> · {distanceLabel}</> : null}
-          {" · "}{eta.min}–{eta.max} นาที · {foodMoney(store.delivery_fee)}
+          {distanceLabel ? <><span aria-hidden="true"> · </span><ZokyScooterIcon /><span>{distanceLabel}</span></> : null}
+          {etaLabel ? <><span aria-hidden="true"> · </span><span>{etaLabel}</span></> : null}
         </p>
-        {open ? (
-          <p className="fx-store-open"><Clock3 size={14} strokeWidth={2.3} />เปิดอยู่{hoursText ? <span>{hoursText}</span> : null}</p>
-        ) : (
+        {open && busyExtra > 0 ? (
+          <p className="fx-store-busy" role="status"><Timer size={16} strokeWidth={2.4} />{`ร้านกำลังยุ่ง อาจรอนานขึ้นประมาณ ${busyExtra} นาที`}</p>
+        ) : null}
+        {open ? null : (
           <div className="fx-store-closed-box" role="status">
             <strong>ปิดรับออเดอร์ชั่วคราว</strong>
             <span>{statusText} · ดูเมนูไว้ก่อนได้</span>
@@ -1320,7 +1524,7 @@ function HomePanel({
         {Number(store.minimum_order) > 0 ? <p className="fx-store-min">สั่งขั้นต่ำ {foodMoney(store.minimum_order)}</p> : null}
         {campaigns.length ? (
           <div className="fx-store-campaigns">
-            {campaigns.map((name) => <span key={name}><Ticket size={16} />{`แคมเปญ WYNOS · ${name}`}</span>)}
+            {campaigns.map((name) => <span key={name}><Ticket size={16} />{`แคมเปญ ZOKY · ${name}`}</span>)}
           </div>
         ) : null}
       </section>
@@ -1339,7 +1543,7 @@ function HomePanel({
           {store.address ? <div><MapPin size={19} /><span><small>ที่อยู่ร้าน</small><strong>{store.address}</strong></span></div> : null}
           {store.phone ? <a href={`tel:${store.phone}`}><Phone size={19} /><span><small>เบอร์ติดต่อ</small><strong>{store.phone}</strong></span></a> : null}
           {hoursText ? <div><Clock3 size={19} /><span><small>เวลาเปิด–ปิด</small><strong>{hoursText}</strong></span></div> : null}
-          <div><Timer size={19} /><span><small>เวลาเตรียมอาหาร</small><strong>ประมาณ {Number(store.prep_time_min_minutes ?? 15)}–{Number(store.prep_time_max_minutes ?? 30)} นาที</strong></span></div>
+          <div><Timer size={19} /><span><small>เวลาเตรียมอาหาร</small><strong>ประมาณ {Number(store.prep_time_min_minutes ?? 15) + busyExtra}–{Number(store.prep_time_max_minutes ?? 30) + busyExtra} นาที</strong></span></div>
           {store.delivery_area ? <div><Bike size={19} /><span><small>พื้นที่จัดส่ง</small><strong>{store.delivery_area}</strong></span></div> : null}
         </section>
       ) : null}
@@ -1551,7 +1755,7 @@ function CartPanel({
 
           <button className="fx-add-more" type="button" onClick={onBrowse}><Plus size={18} strokeWidth={2.6} />เพิ่มเมนูอื่นจากร้านนี้</button>
 
-          {quote?.campaign_name ? <div className="fx-note fx-note--success"><BadgePercent size={18} /><span><strong>ใช้แคมเปญ {quote.campaign_name}</strong><small>WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ</small></span></div> : null}
+          {quote?.campaign_name ? <div className="fx-note fx-note--success"><BadgePercent size={18} /><span><strong>ใช้แคมเปญ {quote.campaign_name}</strong><small>ZOKY เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ</small></span></div> : null}
           {firstOrderOffer ? (
             <div className="fx-note fx-note--success" role="status">
               <Gift size={18} />
@@ -1654,7 +1858,7 @@ function MessagesPanel() {
       <FoodPageHeader title="ข้อความ" />
       <FoodStateScreen icon={<MessageCircle size={48} strokeWidth={1.6} />} title="ยังไม่มีข้อความ">
         <p>การสนทนากับร้านและผู้จัดส่งจะแสดงที่นี่</p>
-        <p>แชท WYNOS Food แยกจากแชท WYNOS</p>
+        <p>แชท ZOKY แยกจากแชท WYNOS</p>
       </FoodStateScreen>
     </div>
   );
@@ -1681,10 +1885,12 @@ function OrderCard({
 }) {
   const count = order.food_order_items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
   const names = (order.food_order_items ?? []).map((item) => item.item_name).slice(0, 2).join(", ");
-  const awaitingPayment = order.status !== "cancelled" && ["pending", "issue"].includes(order.payment_status);
+  // COD orders are paid in cash at the door, so they never wait on a transfer.
+  const awaitingPayment = order.status !== "cancelled" && !foodIsCodOrder(order) && ["pending", "issue"].includes(order.payment_status);
   const label = awaitingPayment ? foodPaymentStatusLabel(order.payment_status)
     : order.payment_status === "submitted" && order.status === "pending_acceptance" ? foodPaymentStatusLabel(order.payment_status)
-      : foodOrderStatusLabel(order.status);
+      : order.cancel_requested_at && order.status !== "cancelled" ? "รอร้านตอบคำขอยกเลิก"
+        : foodOrderStatusLabelFor(order);
   const done = ["delivered", "cancelled"].includes(order.status);
   return (
     <article className="fx-order-card">
@@ -1698,6 +1904,7 @@ function OrderCard({
           <small>{count} รายการ · {foodMoney(order.total)}</small>
           <small>{formatDate(order.created_at)}</small>
           {order.scheduled_for ? <small className="fx-order-scheduled"><Clock3 size={13} />นัดรับ/จัดส่ง {formatDate(order.scheduled_for)}</small> : null}
+          {foodIsPickupOrder(order) && order.pickup_at ? <small className="fx-order-scheduled"><Store size={13} />รับเองที่ร้าน {foodPickupTimeLabel(order.pickup_at)}{order.pickup_code ? ` · รหัส ${order.pickup_code}` : ""}</small> : null}
         </span>
       </button>
       <div className="fx-order-card-actions">
@@ -1754,7 +1961,7 @@ function AccountPanel({
           <span className="fx-avatar" aria-hidden="true">{initial}</span>
           <span className="fx-profile-copy">
             <strong>{primary.recipient_name}</strong>
-            <small>{primary.recipient_phone} · โปรไฟล์ WYNOS Food</small>
+            <small>{primary.recipient_phone} · โปรไฟล์ ZOKY</small>
             <small>ข้อมูลสำหรับการสั่งและจัดส่งอาหารเท่านั้น</small>
           </span>
           <ChevronRight size={20} />
@@ -1811,18 +2018,18 @@ function AccountPanel({
           <ReceiptText size={21} /><span><strong>ประวัติการสั่งอาหาร</strong></span><ChevronRight size={18} />
         </button>
         <button type="button" onClick={onNotifications}>
-          <Bell size={21} /><span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดแล้วสำหรับอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span><ChevronRight size={18} />
+          <Bell size={21} /><span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดอยู่ · แตะเพื่อปิดบนอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span><ChevronRight size={18} />
         </button>
         <a href={lineLinkPath("food")}>
           <MessageCircle size={21} /><span><strong>รับแจ้งเตือนทาง LINE</strong><small>แจ้งสถานะออเดอร์ผ่าน LINE OA ของ ZOKY</small></span><ChevronRight size={18} />
         </a>
         {installPrompt ? (
           <button type="button" onClick={onInstall}>
-            <Download size={21} /><span><strong>ติดตั้ง WYNOS Food</strong><small>เพิ่ม WYNOS Food ไว้บนหน้าจอหลัก</small></span><ChevronRight size={18} />
+            <Download size={21} /><span><strong>ติดตั้ง ZOKY</strong><small>เพิ่ม ZOKY ไว้บนหน้าจอหลัก</small></span><ChevronRight size={18} />
           </button>
         ) : null}
-        <a href="https://lin.ee/SKQAOtm" target="_blank" rel="noreferrer" aria-label="ขายอาหารบน WYNOS Food ติดต่อ LINE @352lvyoi">
-          <Store size={21} /><span><strong>ขายอาหารบน WYNOS Food</strong><small>สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi</small></span><ChevronRight size={18} />
+        <a href="https://lin.ee/SKQAOtm" target="_blank" rel="noreferrer" aria-label="ขายอาหารบน ZOKY ติดต่อ LINE @352lvyoi">
+          <Store size={21} /><span><strong>ขายอาหารบน ZOKY</strong><small>สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi</small></span><ChevronRight size={18} />
         </a>
         <a href="https://wynos.online/login">
           <ArrowLeft size={21} /><span><strong>เปิด WYNOS Social</strong><small>ใช้ WYNOS Account เดิม แล้วค่อยตั้งโปรไฟล์ Social เมื่อต้องการ</small></span><ChevronRight size={18} />
@@ -1870,6 +2077,70 @@ function Sheet({
         {footer ? <footer className="fx-sheet-footer">{footer}</footer> : null}
       </section>
     </div>
+  );
+}
+
+/** The store's QR (opens the store in LINE) with share, copy and save. */
+function StoreShareSheet({
+  store,
+  onClose,
+  onMessage,
+}: {
+  store: FoodCustomerStore;
+  onClose: () => void;
+  onMessage: (message: string) => void;
+}) {
+  const [qr, setQr] = useState<string | null>(null);
+  const [poster, setPoster] = useState<File | null>(null);
+  const share = foodStoreShareData(store);
+  useEffect(() => {
+    let live = true;
+    const target = foodStoreQrTarget(store);
+    void renderZokyQr(target, 560).then((canvas) => { if (live) setQr(canvas.toDataURL("image/png")); }).catch(() => undefined);
+    void renderZokyStorePoster(store, target)
+      .then((blob) => { if (live) setPoster(new File([blob], zokyQrFileName(store), { type: "image/png" })); })
+      .catch(() => undefined);
+    return () => { live = false; };
+  }, [store]);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(share.url);
+      onMessage("คัดลอกลิงก์แล้ว");
+    } catch {
+      onMessage("คัดลอกไม่สำเร็จ");
+    }
+  };
+  const save = () => {
+    if (!poster) return;
+    if (navigator.canShare?.({ files: [poster] })) {
+      void navigator.share({ files: [poster], title: share.title }).catch(() => undefined);
+      return;
+    }
+    const url = URL.createObjectURL(poster);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = poster.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  };
+  return (
+    <Sheet title="แชร์ร้านนี้" variant="sheet" onClose={onClose}>
+      <div className="fx-share-qr">
+        <strong>{store.name}</strong>
+        {qr
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={qr} alt={`QR ร้าน ${store.name}`} width={280} height={280} />
+          : <span className="fx-share-qr-loading" aria-label="กำลังสร้าง QR"><QrCode size={40} /></span>}
+        <small>ให้เพื่อนสแกนจากหน้าจอนี้ได้เลย เปิดร้านใน LINE</small>
+        <button type="button" className="fx-btn fx-btn--primary fx-btn--block" onClick={() => void shareOrCopyLink(share, onMessage)}><Share2 size={18} />แชร์ลิงก์</button>
+        <div className="fx-share-qr-row">
+          <button type="button" className="fx-btn fx-btn--outline-neutral fx-btn--grow" onClick={() => void copy()}><Copy size={18} />คัดลอกลิงก์</button>
+          <button type="button" className="fx-btn fx-btn--outline-neutral fx-btn--grow" disabled={!poster} onClick={save}><Download size={18} />บันทึกรูป QR</button>
+        </div>
+      </div>
+    </Sheet>
   );
 }
 
@@ -2161,14 +2432,14 @@ function AddressEditor({
       : availability.reason === "outside_delivery_area"
         ? `อยู่นอกระยะจัดส่งของร้าน${availability.delivery_radius_km == null ? "" : ` · ร้านส่งได้ประมาณ ${availability.delivery_radius_km} กม.`}`
         : availability.reason === "outside_service_area"
-          ? "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ WYNOS Food"
+          ? "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY"
           : availability.reason === "store_unavailable"
             ? "ร้านนี้ยังไม่พร้อมรับการจัดส่ง"
             : "กรุณาตรวจสอบตำแหน่งจัดส่ง";
   return (
     <Sheet title={form.id ? "แก้ไขข้อมูลจัดส่ง" : "เพิ่มข้อมูลจัดส่ง"} onClose={onClose} variant="page">
       <div className="wf-form wf-address-form">
-        <div className="wf-form-note">ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS</div>
+        <div className="wf-form-note">ข้อมูลนี้เป็นของ ZOKY เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS</div>
 
         <label>ชื่อที่อยู่ <small>เช่น บ้าน / หอพัก / ที่ทำงาน</small>
           <input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="ที่อยู่ของฉัน" />
@@ -2202,7 +2473,7 @@ function AddressEditor({
             };
           })}
         /> : null}
-        {form.placeName ? <div className="wf-form-note">WYNOS Place · {form.placeName}</div> : null}
+        {form.placeName ? <div className="wf-form-note">สถานที่ · {form.placeName}</div> : null}
         {storeId && form.location && deliveryMessage ? (
           <div className={availability?.can_deliver ? "wf-form-note" : "wf-inline-warning"}>{deliveryMessage}</div>
         ) : null}
@@ -2232,7 +2503,7 @@ function AddressEditor({
           <label>ถนน<input value={form.road} onChange={(event) => setForm({ ...form, road: event.target.value })} placeholder="เช่น ถนนนครสวรรค์" /></label>
         </div>
         <label>จังหวัด <b>*</b>
-          <input autoComplete="address-level1" value={form.province} onChange={(event) => setForm({ ...form, province: event.target.value })} placeholder="เช่น มหาสารคาม" />
+          <input autoComplete="address-level1" value={form.province} onChange={(event) => setForm({ ...form, province: event.target.value })} placeholder="เช่น กรุงเทพมหานคร" />
         </label>
         <div className="wf-form-grid">
           <label>อำเภอ / เขต <b>*</b>
@@ -2261,7 +2532,7 @@ function AddressEditor({
         </label>
         <label className="wf-check">
           <input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} />
-          <span><strong>ใช้เป็นที่อยู่หลัก</strong><small>WYNOS Food จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span>
+          <span><strong>ใช้เป็นที่อยู่หลัก</strong><small>ZOKY จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span>
         </label>
 
         {!form.location ? <div className="wf-inline-warning">กรุณาปักหมุดโลเคชั่นก่อนบันทึก เพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</div> : null}
@@ -2269,7 +2540,7 @@ function AddressEditor({
           <div className="wf-inline-warning">กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก</div>
         ) : null}
         <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form)}>
-          {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล WYNOS Food"}
+          {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล ZOKY"}
         </button>
       </div>
     </Sheet>
@@ -2299,8 +2570,26 @@ function CheckoutSheet({
   onClose: () => void;
   onAddAddress: () => void;
   onEditAddress: (address: FoodCustomerAddress) => void;
-  onSubmit: (address: FoodCustomerAddress, note: string, couponCode?: string | null) => void;
+  onSubmit: (address: FoodCustomerAddress | null, note: string, couponCode: string | null, options: FoodCheckoutOptions) => void;
 }) {
+  // ZOKY-FULFILL-001: delivery or pickup, chosen per order from what the store offers.
+  const modes = storeFulfillmentModes(store);
+  const fulfillmentAware = storeHasFulfillmentOptions(store);
+  const [mode, setMode] = useState<FoodFulfillmentType>(modes[0]);
+  const isPickup = mode === "pickup";
+  const [pickupAt, setPickupAt] = useState<string | null>(null);
+  const [payWithCod, setPayWithCod] = useState(false);
+  // null = not edited yet, so the default address fills in; "" stays empty.
+  const [pickupName, setPickupName] = useState<string | null>(null);
+  const [pickupPhone, setPickupPhone] = useState<string | null>(null);
+  // Pickup slots move with the clock: re-quote every minute so a passed slot
+  // drops out of the list instead of failing on submit.
+  const [pickupTick, setPickupTick] = useState(0);
+  useEffect(() => {
+    if (!isPickup) return;
+    const timer = window.setInterval(() => setPickupTick((tick) => tick + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, [isPickup]);
   const initialAddressId = (
     addresses.find((address) => address.is_default && foodCustomerAddressStructuredComplete(address))
     ?? addresses.find((address) => foodCustomerAddressStructuredComplete(address))
@@ -2309,6 +2598,7 @@ function CheckoutSheet({
   )?.id ?? "";
   const [addressId, setAddressId] = useState(initialAddressId);
   const [note, setNote] = useState("");
+  const [couponOpen, setCouponOpen] = useState(false);
   const [couponDraft, setCouponDraft] = useState(() => {
     if (typeof window === "undefined") return "";
     const fromLink = new URLSearchParams(window.location.search).get("promo");
@@ -2337,22 +2627,35 @@ function CheckoutSheet({
   const locationKey = location ? `${location.latitude},${location.longitude}` : "";
   const [addressQuote, setAddressQuote] = useState<{ key: string; quote: FoodOrderQuote | null; error: string } | null>(null);
 
+  const quoteKey = isPickup ? `pickup|${pickupTick}|${couponCode ?? ""}` : `${addressId}|${locationKey}|${couponCode ?? ""}`;
   useEffect(() => {
     let live = true;
-    const key = `${addressId}|${locationKey}|${couponCode ?? ""}`;
-    const loc = zone && locationKey
+    const loc = !isPickup && zone && locationKey
       ? { latitude: Number(locationKey.split(",")[0]), longitude: Number(locationKey.split(",")[1]) }
       : null;
-    if (!addressId || (zone && !loc)) return () => { live = false; };
-    void quoteFoodCustomerOrder(client, store.id, cart, loc, couponCode)
-      .then((next) => { if (live) setAddressQuote({ key, quote: next, error: "" }); })
-      .catch((error) => { if (live) setAddressQuote({ key, quote: null, error: foodCustomerError(error) }); });
+    if (!isPickup && (!addressId || (zone && !loc))) return () => { live = false; };
+    void quoteFoodCustomerOrder(client, store.id, cart, loc, couponCode, fulfillmentAware ? mode : null)
+      .then((next) => { if (live) setAddressQuote({ key: quoteKey, quote: next, error: "" }); })
+      .catch((error) => { if (live) setAddressQuote({ key: quoteKey, quote: null, error: foodCustomerError(error) }); });
     return () => { live = false; };
-  }, [addressId, cart, client, couponCode, locationKey, store.id, zone]);
+  }, [addressId, cart, client, couponCode, fulfillmentAware, isPickup, locationKey, mode, quoteKey, store.id, zone]);
 
-  const current = addressQuote?.key === `${addressId}|${locationKey}|${couponCode ?? ""}` ? addressQuote : null;
-  const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
-  const effectiveQuote = current?.quote ?? quote;
+  // A minute-tick refresh keeps showing the previous pickup slots until the
+  // new ones arrive, so the list does not flash empty.
+  const current = addressQuote?.key === quoteKey
+    || (isPickup && addressQuote?.key.startsWith("pickup|") && addressQuote.key.endsWith(`|${couponCode ?? ""}`))
+    ? addressQuote
+    : null;
+  const quoteLoading = (isPickup || (Boolean(address) && (!zone || Boolean(location)))) && current === null;
+  const effectiveQuote = current?.quote ?? (isPickup ? null : quote);
+  const pickupSlots = isPickup ? current?.quote?.pickup_slots ?? [] : [];
+  // The first offered slot is the earliest; a slot that dropped out of the
+  // list (time passed) falls back to the earliest one still offered.
+  const chosenSlot = pickupAt && pickupSlots.includes(pickupAt) ? pickupAt : pickupSlots[0] ?? null;
+  const codAvailable = !isPickup && current?.quote?.cod_available === true;
+  const useCod = codAvailable && payWithCod;
+  const contactName = pickupName ?? address?.recipient_name ?? "";
+  const contactPhone = pickupPhone ?? address?.recipient_phone ?? "";
 
   const checkoutQuantityByMenu = new Map<string, number>();
   for (const line of cart) {
@@ -2371,7 +2674,7 @@ function CheckoutSheet({
   const couponFailed = Boolean(couponCode && current?.error);
   const quoteError = current?.error && !couponFailed ? current.error : "";
   const quoteAddressError = /ที่อยู่|พื้นที่|ปักหมุด|ตำแหน่ง|จังหวัด/.test(quoteError);
-  const addressProblem = !address
+  const addressProblem = isPickup || !address
     ? ""
     : !foodCustomerAddressStructuredComplete(address)
       ? "ที่อยู่นี้เป็นข้อมูลเก่า กรุณากดแก้ไขและกรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนสั่ง"
@@ -2380,39 +2683,61 @@ function CheckoutSheet({
         : quoteAddressError
           ? quoteError
           : "";
+  const pickupProblem = !isPickup
+    ? ""
+    : current && !current.error && !chosenSlot
+      ? "วันนี้ไม่มีเวลารับที่ว่างแล้ว ลองสั่งแบบให้ร้านจัดส่ง หรือสั่งใหม่พรุ่งนี้"
+      : !contactName.trim() || !/^[0-9+\-\s]{9,15}$/.test(contactPhone.trim())
+        ? "กรอกชื่อและเบอร์โทรผู้มารับ"
+        : "";
   const blockedReason = addressProblem
-    || (quoteError && !quoteAddressError ? quoteError : "")
+    || pickupProblem
+    || (quoteError && (isPickup || !quoteAddressError) ? quoteError : "")
     || (cartUnavailable ? "มีเมนูที่หมดหรือจำนวนเกินสต็อกวันนี้ กรุณากลับไปปรับตะกร้า" : "")
     || (minimumMissing > 0 ? `เพิ่มอีก ${foodMoney(minimumMissing)} เพื่อถึงยอดขั้นต่ำ ${foodMoney(minimum)}` : "")
     || (couponFailed ? "ลบโค้ดที่ใช้ไม่ได้ก่อนยืนยันคำสั่งซื้อ" : "");
 
-  const deliveryFee = Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
+  const deliveryFee = isPickup ? 0 : Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
   const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
   const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
   const total = effectiveQuote?.total ?? serverSubtotal + deliveryFee;
   const eta = foodEstimateDeliveryRange(store, effectiveQuote?.delivery_distance_km);
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
 
-  const confirmDisabled = !address || busy || quoteLoading || Boolean(blockedReason);
+  const confirmDisabled = (!isPickup && !address) || busy || quoteLoading || Boolean(blockedReason);
   const confirmLabel = busy
     ? "กำลังสร้างออเดอร์…"
-    : !address
+    : !isPickup && !address
       ? "เพิ่มที่อยู่ก่อนสั่ง"
       : addressProblem
         ? "เปลี่ยนที่อยู่ก่อนสั่ง"
         : quoteLoading
-          ? "กำลังคำนวณค่าส่ง…"
+          ? isPickup ? "กำลังโหลดเวลารับ…" : "กำลังคำนวณค่าส่ง…"
           : "ยืนยันคำสั่งซื้อ";
 
   const submitOrder = () => {
+    if (isPickup) {
+      if (!chosenSlot) return;
+      onSubmit(address, note, couponCode, {
+        fulfillmentType: "pickup",
+        pickupAt: chosenSlot,
+        paymentMethod: "transfer",
+        contactName: contactName.trim(),
+        contactPhone: contactPhone.trim(),
+      });
+      return;
+    }
     if (!address) return;
-    onSubmit(address, note, couponCode);
+    onSubmit(address, note, couponCode, {
+      fulfillmentType: fulfillmentAware ? "delivery" : null,
+      pickupAt: null,
+      paymentMethod: useCod ? "cod" : "transfer",
+    });
   };
 
   const paymentMethods = [
     store.promptpay_id || store.payment_qr_path ? "สแกน QR พร้อมเพย์" : null,
     store.bank_account_number ? "โอนแล้วแนบสลิป" : null,
-    store.stripe_payments_enabled ? "บัตร" : null,
   ].filter(Boolean);
 
   const applyCoupon = () => {
@@ -2423,6 +2748,7 @@ function CheckoutSheet({
   const removeCoupon = () => {
     setCouponCode(null);
     setCouponDraft("");
+    setCouponOpen(false);
     try { localStorage.removeItem("wynos-food-promo-code-v1"); } catch { /* private mode */ }
   };
 
@@ -2444,6 +2770,61 @@ function CheckoutSheet({
       )}
     >
       <div className="fx-checkout">
+        {modes.length > 1 ? (
+          <div className="fx-segment fx-fulfill-switch" role="radiogroup" aria-label="วิธีรับอาหาร">
+            <button type="button" role="radio" aria-checked={!isPickup} className={!isPickup ? "is-active" : ""} onClick={() => setMode("delivery")}>
+              <Bike size={16} /> ร้านจัดส่ง
+            </button>
+            <button type="button" role="radio" aria-checked={isPickup} className={isPickup ? "is-active" : ""} onClick={() => setMode("pickup")}>
+              <Store size={16} /> รับเองที่ร้าน
+            </button>
+          </div>
+        ) : null}
+
+        {isPickup ? (
+          <>
+            <div className="fx-section-head"><h2>รับเองที่ร้าน</h2></div>
+            <div className="fx-checkout-address">
+              <Store size={20} className="fx-address-pin" />
+              <div className="fx-address-copy">
+                <strong>{store.name}</strong>
+                {store.address ? <p>{store.address}</p> : null}
+                {store.pickup_note ? <small>{store.pickup_note}</small> : null}
+              </div>
+            </div>
+
+            <div className="fx-section-head"><h2>เวลารับวันนี้</h2>{quoteLoading ? <small>กำลังโหลด…</small> : null}</div>
+            {pickupSlots.length ? (
+              <div className="fx-chips fx-chips--wrap fx-pickup-slots" role="radiogroup" aria-label="เลือกเวลารับ">
+                {pickupSlots.map((slot, index) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    role="radio"
+                    aria-checked={chosenSlot === slot}
+                    className={`fx-chip fx-chip--soft${chosenSlot === slot ? " is-active" : ""}`}
+                    onClick={() => setPickupAt(slot)}
+                  >
+                    {foodPickupTimeLabel(slot)}{index === 0 ? " · เร็วสุด" : ""}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <p className="fx-server-note">ร้านจะเตรียมอาหารให้เสร็จตามเวลาที่เลือก มาช้ากว่าเวลาได้ อาหารจะรออยู่ที่ร้าน</p>
+
+            <div className="fx-form-grid">
+              <label className="fx-field">
+                <span className="fx-field-label"><strong>ชื่อผู้มารับ</strong></span>
+                <input type="text" autoComplete="name" maxLength={80} value={contactName} onChange={(event) => setPickupName(event.target.value)} />
+              </label>
+              <label className="fx-field">
+                <span className="fx-field-label"><strong>เบอร์โทร</strong></span>
+                <input type="tel" inputMode="tel" autoComplete="tel" maxLength={15} value={contactPhone} onChange={(event) => setPickupPhone(event.target.value)} />
+              </label>
+            </div>
+          </>
+        ) : (
+          <>
         <div className="fx-section-head">
           <h2>ที่อยู่จัดส่ง</h2>
           <button type="button" onClick={onAddAddress}><Plus size={16} strokeWidth={2.6} /> เพิ่มที่อยู่</button>
@@ -2506,27 +2887,29 @@ function CheckoutSheet({
             <ChevronRight size={18} />
           </button>
         )}
+          </>
+        )}
 
         <label className="fx-field">
-          <span className="fx-field-label"><strong>หมายเหตุถึงผู้จัดส่ง</strong></span>
-          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="เช่น โทรเมื่อถึง, วางไว้หน้าประตู" />
+          <span className="fx-field-label"><strong>{isPickup ? "หมายเหตุถึงร้าน" : "หมายเหตุถึงผู้จัดส่ง"}</strong></span>
+          <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={isPickup ? "เช่น ไม่ใส่ผัก, ขอช้อนส้อม" : "เช่น โทรเมื่อถึง, วางไว้หน้าประตู"} />
         </label>
 
-        <section className="fx-coupon" aria-label="โค้ดส่วนลด">
-          <label htmlFor="wynos-food-coupon" className="fx-field-label"><strong>โค้ดส่วนลด WYNOS Food</strong></label>
-          <div className="fx-coupon-row">
-            <input id="wynos-food-coupon" type="text" autoCapitalize="characters" maxLength={24}
-              placeholder="เช่น FOOD50" value={couponDraft}
-              onChange={(event) => setCouponDraft(event.target.value.toUpperCase())} />
-            {couponCode ? (
-              <button type="button" className="fx-btn fx-btn--outline-neutral fx-btn--sm" onClick={removeCoupon}>ลบ</button>
-            ) : (
-              <button type="button" className="fx-btn fx-btn--outline fx-btn--sm" onClick={applyCoupon} disabled={busy || !couponDraft.trim()}>ใช้โค้ด</button>
-            )}
-          </div>
-          {couponCode && current?.quote?.coupon_applied ? <p role="status" className="fx-coupon-ok"><Check size={15} strokeWidth={3} />ใช้โค้ด {couponCode} สำเร็จ · ยอดสุทธิคำนวณโดยระบบแล้ว</p> : null}
-          {couponFailed ? <p role="alert" className="fx-coupon-error">ใช้โค้ดนี้ไม่ได้: {current?.error} · ลบโค้ดเพื่อใช้โปรโมชันปกติ</p> : null}
-        </section>
+        {codAvailable ? (
+          <section aria-label="วิธีชำระเงิน">
+            <div className="fx-section-head"><h2>วิธีชำระเงิน</h2></div>
+            <div className="fx-address-picker fx-pay-method" role="radiogroup" aria-label="วิธีชำระเงิน">
+              <button type="button" role="radio" aria-checked={!useCod} className={!useCod ? "is-active" : ""} onClick={() => setPayWithCod(false)}>
+                <i className="fx-control is-radio" aria-hidden="true" />
+                <span><strong>โอนเงินเข้าบัญชีร้าน</strong><small>โอนแล้วแนบสลิปภายใน 10 นาที</small></span>
+              </button>
+              <button type="button" role="radio" aria-checked={useCod} className={useCod ? "is-active" : ""} onClick={() => setPayWithCod(true)}>
+                <i className="fx-control is-radio" aria-hidden="true" />
+                <span><strong>เงินสดปลายทาง</strong><small>จ่ายเงินสดให้ร้านตอนรับอาหาร</small></span>
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         <div className="fx-section-head"><h2>สรุปคำสั่งซื้อ</h2><small>{itemCount} รายการ</small></div>
         <div className="fx-checkout-items">
@@ -2547,21 +2930,64 @@ function CheckoutSheet({
           })}
         </div>
 
+        {/* Founder 2026-11-04: one row above the price summary, like the big
+            delivery apps; the field opens only when the customer has a code. */}
+        <section className="fx-coupon" aria-label="โค้ดส่วนลด">
+          {couponCode && !couponFailed ? (
+            <div className="fx-coupon-applied" role="status">
+              <Ticket size={18} />
+              <span><strong>{couponCode}</strong><small>{current?.quote?.coupon_applied ? "ใช้โค้ดแล้ว · ยอดสุทธิคำนวณโดยระบบ" : "กำลังตรวจโค้ด"}</small></span>
+              <button type="button" className="fx-coupon-remove" aria-label={`ยกเลิกโค้ด ${couponCode}`} onClick={removeCoupon}><X size={18} /></button>
+            </div>
+          ) : couponOpen || couponCode ? (
+            <>
+              <label htmlFor="wynos-food-coupon" className="fx-field-label"><strong>โค้ดส่วนลด ZOKY</strong></label>
+              <div className="fx-coupon-row">
+                <input id="wynos-food-coupon" type="text" autoCapitalize="characters" maxLength={24} autoFocus={!couponCode}
+                  placeholder="เช่น FOOD50" value={couponDraft}
+                  onChange={(event) => setCouponDraft(event.target.value.toUpperCase())} />
+                {couponCode ? (
+                  <button type="button" className="fx-btn fx-btn--outline-neutral fx-btn--sm" onClick={removeCoupon}>ลบ</button>
+                ) : (
+                  <button type="button" className="fx-btn fx-btn--outline fx-btn--sm" onClick={applyCoupon} disabled={busy || !couponDraft.trim()}>ใช้โค้ด</button>
+                )}
+              </div>
+              {couponFailed ? <p role="alert" className="fx-coupon-error">ใช้โค้ดนี้ไม่ได้: {current?.error} · ลบโค้ดเพื่อใช้โปรโมชันปกติ</p> : null}
+            </>
+          ) : (
+            <button type="button" className="fx-coupon-open" onClick={() => setCouponOpen(true)}>
+              <Ticket size={18} /><span>ใช้โค้ดส่วนลด</span><ChevronRight size={18} />
+            </button>
+          )}
+        </section>
+
         <div className="fx-summary">
           <div><span>ค่าอาหาร</span><b>{foodMoney(serverSubtotal)}</b></div>
-          <div><span>ค่าจัดส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{addressProblem ? "—" : foodMoney(deliveryFee)}</b></div>
+          {isPickup ? null : <div><span>ค่าจัดส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{addressProblem ? "—" : foodMoney(deliveryFee)}</b></div>}
           {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "ส่วนลด · " + effectiveQuote.campaign_name : "ส่วนลดค่าอาหาร"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
-          {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
-          <div className="is-eta"><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>
+          {deliveryDiscount > 0 && !isPickup ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
+          {isPickup
+            ? <div className="is-eta"><span>เวลารับที่ร้าน</span><b>{chosenSlot ? foodPickupTimeLabel(chosenSlot) : "—"}</b></div>
+            : <div className="is-eta"><span>เวลาถึงโดยประมาณ</span><b>{eta.min}–{eta.max} นาที</b></div>}
         </div>
 
-        <div className="fx-note fx-note--info" role="note">
-          <Timer size={18} />
-          <span>
-            <strong>กรุณาชำระเงินหรือส่งสลิปภายใน 10 นาทีหลังยืนยันออเดอร์</strong>
-            <small>{paymentMethods.length ? `${paymentMethods.join(" · ")} · ` : ""}หากยังไม่ชำระหรือไม่ส่งสลิป ระบบจะยกเลิกออเดอร์อัตโนมัติ</small>
-          </span>
-        </div>
+        {useCod ? (
+          <div className="fx-note fx-note--info" role="note">
+            <Banknote size={18} />
+            <span>
+              <strong>จ่ายเงินสดให้ร้านตอนรับอาหาร</strong>
+              <small>เตรียมเงินให้พอดียอด {foodMoney(total)} ถ้าทำได้</small>
+            </span>
+          </div>
+        ) : (
+          <div className="fx-note fx-note--info" role="note">
+            <Timer size={18} />
+            <span>
+              <strong>กรุณาชำระเงินหรือส่งสลิปภายใน 10 นาทีหลังยืนยันออเดอร์</strong>
+              <small>{paymentMethods.length ? `${paymentMethods.join(" · ")} · ` : ""}หากยังไม่ชำระหรือไม่ส่งสลิป ระบบจะยกเลิกออเดอร์อัตโนมัติ</small>
+            </span>
+          </div>
+        )}
 
         {blockedReason && !addressProblem ? <div className="fx-note fx-note--warn" role="alert">{blockedReason}</div> : null}
         {effectiveQuote?.campaign_name ? (
@@ -2662,7 +3088,7 @@ function ReviewSheet({
           <input type="checkbox" checked={anonymous} onChange={(event) => setAnonymous(event.target.checked)} />
           <span><strong>ไม่ระบุชื่อ</strong><small>ชื่อที่จะแสดง: {reviewerLabel} · ไม่แสดง @username หรือรูปโปรไฟล์</small></span>
         </label>
-        <p className="fx-server-note">รีวิวนี้มาจากออเดอร์ที่ส่งสำเร็จและจะแสดงป้าย “สั่งจริงกับ WYNOS Food”</p>
+        <p className="fx-server-note">รีวิวนี้มาจากออเดอร์ที่ส่งสำเร็จและจะแสดงป้าย “สั่งจริงกับ ZOKY”</p>
       </div>
     </Sheet>
   );
@@ -2674,7 +3100,7 @@ const FOOD_TRACK_SHORT: Record<FoodCustomerOrder["status"], string> = {
   ready_for_delivery: "พร้อมส่ง",
   out_for_delivery: "กำลังส่ง",
   delivered: "ส่งสำเร็จ",
-  cancelled: "ยกเลิก",
+  cancelled: "ยกเลิกแล้ว",
 };
 
 const FOOD_TRACK_DETAIL: Record<FoodCustomerOrder["status"], string> = {
@@ -2684,6 +3110,18 @@ const FOOD_TRACK_DETAIL: Record<FoodCustomerOrder["status"], string> = {
   out_for_delivery: "อาหารกำลังเดินทางไปหาคุณ",
   delivered: "จัดส่งสำเร็จแล้ว",
   cancelled: "ออเดอร์ถูกยกเลิก",
+};
+
+// Pickup reuses the delivery statuses (contract v2) but skips out_for_delivery.
+const PICKUP_TRACK_SHORT: Partial<Record<FoodCustomerOrder["status"], string>> = {
+  ready_for_delivery: "พร้อมให้รับ",
+  delivered: "รับแล้ว",
+};
+
+const PICKUP_TRACK_DETAIL: Partial<Record<FoodCustomerOrder["status"], string>> = {
+  preparing: "ร้านกำลังเตรียมอาหารให้ทันเวลารับ",
+  ready_for_delivery: "อาหารพร้อมแล้ว มารับที่ร้านได้เลย",
+  delivered: "รับอาหารเรียบร้อยแล้ว",
 };
 
 function copyText(value: string, onMessage: (message: string) => void) {
@@ -2752,7 +3190,7 @@ function OrderDetailSheet({
     const timer = window.setTimeout(() => {
       if (!live) return;
       // The QR is built server-side for this order's own store, so it is safe even when another store is open.
-      if ((orderStore && !orderStore.promptpay_id) || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
+      if ((orderStore && !orderStore.promptpay_id) || order.payment_method === "cod" || !["pending", "issue"].includes(order.payment_status) || order.status === "cancelled") {
         setDynamicPaymentQr(null);
         return;
       }
@@ -2764,7 +3202,7 @@ function OrderDetailSheet({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [client, order.id, order.payment_status, order.status, orderStore]);
+  }, [client, order.id, order.payment_method, order.payment_status, order.status, orderStore]);
 
   const selectSlip = (file: File | null) => {
     if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
@@ -2777,17 +3215,6 @@ function OrderDetailSheet({
   const clearSlip = () => {
     selectSlip(null);
     if (slipInputRef.current) slipInputRef.current.value = "";
-  };
-
-  const payWithStripe = async () => {
-    setWorking(true);
-    try {
-      const url = await startFoodStripeCheckout(client, order.id);
-      window.location.assign(url);
-    } catch (error) {
-      onMessage(foodCustomerError(error, "เปิดหน้าชำระเงิน Stripe ไม่สำเร็จ"));
-      setWorking(false);
-    }
   };
 
   const submitSlip = async () => {
@@ -2818,11 +3245,26 @@ function OrderDetailSheet({
     }
   };
 
+  const requestCancel = async () => {
+    const note = window.prompt("ขอยกเลิกออเดอร์นี้? ร้านจะเป็นผู้ตัดสินใจว่าจะยกเลิกและคืนเงินหรือไม่\nเหตุผล (ไม่บังคับ)", "");
+    if (note === null) return;
+    setWorking(true);
+    try {
+      await requestFoodOrderCancel(client, order.id, note);
+      onMessage("ส่งคำขอยกเลิกแล้ว รอร้านตัดสินใจ");
+      await onReload();
+    } catch (error) {
+      onMessage(foodCustomerError(error));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const cancel = async () => {
     if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
     setWorking(true);
     try {
-      await cancelFoodCustomerOrder(client, order.id, "ยกเลิกโดยลูกค้าใน WYNOS Food");
+      await cancelFoodCustomerOrder(client, order.id, "ยกเลิกโดยลูกค้าใน ZOKY");
       onMessage("ยกเลิกออเดอร์แล้ว");
       await onReload();
     } catch (error) {
@@ -2832,13 +3274,27 @@ function OrderDetailSheet({
     }
   };
 
-  const currentIndex = TRACKING_STEPS.findIndex((step) => step.status === order.status);
+  const isPickup = foodIsPickupOrder(order);
+  const isCod = foodIsCodOrder(order);
+  const trackingSteps = isPickup ? TRACKING_STEPS.filter((step) => step.status !== "out_for_delivery") : TRACKING_STEPS;
+  const currentIndex = trackingSteps.findIndex((step) => step.status === order.status);
   const isCancelled = order.status === "cancelled";
   const secondsLeft = order.payment_due_at ? Math.max(0, Math.ceil((new Date(order.payment_due_at).getTime() - clockNow) / 1000)) : null;
   const paymentExpired = secondsLeft === 0;
-  const awaitingPayment = ["pending", "issue"].includes(order.payment_status);
+  const awaitingPayment = !isCod && ["pending", "issue"].includes(order.payment_status);
   const canPay = !isCancelled && !paymentExpired && awaitingPayment;
-  const canCancel = order.status === "pending_acceptance" && awaitingPayment;
+  const canCancel = order.status === "pending_acceptance" && (awaitingPayment || (isCod && order.payment_status === "pending"));
+  // Pickup after payment or acceptance: the customer asks, the store decides (Founder 2026-10-26).
+  const cancelRequested = !isCancelled && Boolean(order.cancel_requested_at);
+  // The server allows one request per paid order (contract v2.1).
+  const canRequestCancel = isPickup && !canCancel && !cancelRequested
+    && ["pending_acceptance", "preparing", "ready_for_delivery"].includes(order.status)
+    && order.payment_status === "paid";
+  const storePinLat = orderStore?.pickup_latitude ?? orderStore?.latitude;
+  const storePinLon = orderStore?.pickup_longitude ?? orderStore?.longitude;
+  const storePin = storePinLat != null && storePinLon != null
+    ? { latitude: Number(storePinLat), longitude: Number(storePinLon) }
+    : null;
   const paymentQr = dynamicPaymentQr ?? foodPublicUrl(client, orderStore?.payment_qr_path);
   const combinedBusy = busy || working;
   const slipUnderReview = !isCancelled && order.payment_status === "submitted";
@@ -2909,18 +3365,10 @@ function OrderDetailSheet({
                   </div>
                 ) : null}
               </div>
-              <small className="fx-pay-qr-note">{orderStore?.stripe_payments_enabled ? "โอนเงินเข้าบัญชีร้านโดยตรงและแนบสลิปเป็นช่องทางสำรอง" : "โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ"}</small>
-              {orderStore && !orderStore.stripe_payments_enabled && !paymentQr && !orderStore.promptpay_id && !orderStore.bank_account_number ? <div className="fx-note fx-note--warn">ร้านยังไม่ได้ตั้งค่าช่องทางรับเงิน กรุณาติดต่อร้าน</div> : null}
+              <small className="fx-pay-qr-note">โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปให้ร้านตรวจสอบ</small>
+              {orderStore && !paymentQr && !orderStore.promptpay_id && !orderStore.bank_account_number ? <div className="fx-note fx-note--warn">ร้านยังไม่ได้ตั้งค่าช่องทางรับเงิน กรุณาติดต่อร้าน</div> : null}
               {!orderStore && !paymentQr ? <div className="fx-note fx-note--warn">เปิดหน้าร้านของออเดอร์นี้เพื่อดูข้อมูลบัญชีรับเงิน</div> : null}
             </section>
-
-            {orderStore?.stripe_payments_enabled ? (
-              <button className="fx-pay-option" type="button" disabled={combinedBusy} onClick={() => void payWithStripe()}>
-                <CreditCard size={22} />
-                <span><strong>{combinedBusy ? "กำลังเปิด Stripe…" : "จ่ายด้วยบัตร"}</strong><small>บัตร หรือพร้อมเพย์ผ่าน Stripe · ยืนยันสถานะอัตโนมัติ</small></span>
-                <ChevronRight size={18} />
-              </button>
-            ) : null}
 
             {slipFile ? (
               <div className="fx-slip">
@@ -2976,21 +3424,21 @@ function OrderDetailSheet({
         ) : !canPay ? (
           <>
             <ol className="fx-track" aria-label="สถานะออเดอร์">
-              {TRACKING_STEPS.map((step, index) => {
+              {trackingSteps.map((step, index) => {
                 const done = currentIndex > index;
                 const current = currentIndex === index;
                 return (
                   <li key={step.status} className={`${done ? "is-done" : ""}${current ? " is-current" : ""}`} aria-current={current ? "step" : undefined}>
                     <span className="fx-track-dot">{done || (current && step.status === "delivered") ? <Check size={14} strokeWidth={3} /> : null}</span>
-                    <small>{FOOD_TRACK_SHORT[step.status]}</small>
+                    <small>{(isPickup ? PICKUP_TRACK_SHORT[step.status] : null) ?? FOOD_TRACK_SHORT[step.status]}</small>
                   </li>
                 );
               })}
             </ol>
             <div className="fx-track-card">
-              <span className="fx-track-card-icon">{order.status === "delivered" ? <PackageCheck size={22} /> : order.status === "out_for_delivery" ? <Bike size={22} /> : <UtensilsCrossed size={22} />}</span>
+              <span className="fx-track-card-icon">{order.status === "delivered" ? <PackageCheck size={22} /> : order.status === "out_for_delivery" ? <Bike size={22} /> : isPickup && order.status === "ready_for_delivery" ? <Store size={22} /> : <UtensilsCrossed size={22} />}</span>
               <span>
-                <strong>{FOOD_TRACK_DETAIL[order.status]}</strong>
+                <strong>{(isPickup ? PICKUP_TRACK_DETAIL[order.status] : null) ?? FOOD_TRACK_DETAIL[order.status]}</strong>
                 <small>{order.status === "preparing" && order.eta_minutes ? `คาดว่าจะเสร็จภายใน ${order.eta_minutes} นาที` : `${foodPaymentStatusLabel(order.payment_status)} · ${formatDate(order.created_at)}`}</small>
               </span>
             </div>
@@ -2999,7 +3447,33 @@ function OrderDetailSheet({
 
         {order.scheduled_for ? <div className="fx-note fx-note--info"><Clock3 size={18} /><span><strong>ออเดอร์ล่วงหน้า</strong><small>{formatDate(order.scheduled_for)}</small></span></div> : null}
 
-        {order.status === "delivered" ? (
+        {isPickup && !isCancelled && !awaitingPayment && order.status !== "delivered" && order.pickup_code ? (
+          <div className="fx-pickup-code" role="status">
+            <small>รหัสรับอาหาร · แจ้งร้านเมื่อมาถึง</small>
+            <b>{order.pickup_code}</b>
+            {order.pickup_at ? <small>นัดรับวันนี้ {foodPickupTimeLabel(order.pickup_at)} น. · มาช้ากว่านี้ได้</small> : null}
+          </div>
+        ) : null}
+
+        {cancelRequested ? (
+          <div className="fx-note fx-note--amber" role="status">
+            <Hourglass size={20} />
+            <span><strong>ส่งคำขอยกเลิกแล้ว</strong><small>รอร้านตัดสินใจว่าจะยกเลิกและคืนเงินหรือไม่</small></span>
+          </div>
+        ) : null}
+
+        {isCod && !isCancelled && order.status !== "delivered" ? (
+          <div className="fx-note fx-note--info" role="note">
+            <Banknote size={18} />
+            <span><strong>จ่ายเงินสดปลายทาง {foodMoney(order.total)}</strong><small>ชำระกับร้านตอนรับอาหาร</small></span>
+          </div>
+        ) : null}
+
+        {isCancelled && order.payment_status === "paid" && order.refund_status === "pending" ? (
+          <div className="fx-note fx-note--info" role="status"><Hourglass size={18} /><span><strong>ร้านจะโอนเงินคืนให้คุณ</strong><small>ร้านจะแนบสลิปเมื่อโอนคืนแล้ว</small></span></div>
+        ) : null}
+
+        {order.status === "delivered" && !isPickup ? (
           <section className="fx-proof">
             <PackageCheck size={26} />
             <div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? formatDate(order.delivered_at) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : <p>{proof?.method === "direct" ? "ส่งให้ผู้รับโดยตรง" : ""}</p>}</div>
@@ -3040,24 +3514,36 @@ function OrderDetailSheet({
           </div>
           <div className="fx-summary">
             <div><span>ค่าอาหาร</span><b>{foodMoney(order.subtotal)}</b></div>
-            <div><span>ค่าจัดส่ง</span><b>{foodMoney(order.delivery_fee)}</b></div>
+            {isPickup ? null : <div><span>ค่าจัดส่ง</span><b>{foodMoney(order.delivery_fee)}</b></div>}
             {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "ส่วนลด · " + order.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(order.campaign_discount)}</b></div> : null}
             {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(order.delivery_discount)}</b></div> : null}
             <div className="is-total"><span>ยอดรวม</span><b>{foodMoney(order.total)}</b></div>
-            <div><span>การชำระเงิน</span><b className={`fx-pay-state is-${order.payment_status}`}>{foodPaymentStatusLabel(order.payment_status)}</b></div>
+            <div><span>การชำระเงิน</span><b className={`fx-pay-state is-${order.payment_status}`}>{isCod && order.payment_status === "pending" ? "เงินสดปลายทาง" : foodPaymentStatusLabel(order.payment_status)}</b></div>
           </div>
         </section>
 
-        <section className="fx-order-block">
-          <div className="fx-section-head"><h2>จัดส่งไปที่</h2></div>
-          <div className="fx-delivery-to"><MapPin size={20} fill="currentColor" strokeWidth={0} /><div><strong>{order.recipient_name}</strong><small>{order.recipient_phone}</small><p>{order.shipping_address}</p>{order.customer_note ? <em>{order.customer_note}</em> : null}</div></div>
-          {orderStore?.phone ? <a className="fx-btn fx-btn--outline fx-btn--block" href={`tel:${orderStore.phone}`}><Phone size={17} />ติดต่อร้าน</a> : null}
-        </section>
+        {isPickup ? (
+          <section className="fx-order-block">
+            <div className="fx-section-head"><h2>รับที่ร้าน</h2></div>
+            <div className="fx-delivery-to"><Store size={20} /><div><strong>{orderStore?.name ?? "ร้านอาหาร"}</strong>{orderStore?.address ? <p>{orderStore.address}</p> : null}<small>ผู้มารับ: {order.recipient_name} · {order.recipient_phone}</small>{order.customer_note ? <em>{order.customer_note}</em> : null}</div></div>
+            {storePin || orderStore?.address ? (
+              <a className="fx-btn fx-btn--outline fx-btn--block" href={foodMapsHref(storePin, orderStore?.address ?? "")} target="_blank" rel="noreferrer"><MapPin size={17} />นำทางไปร้าน</a>
+            ) : null}
+            {orderStore?.phone ? <a className="fx-btn fx-btn--outline fx-btn--block" href={`tel:${orderStore.phone}`}><Phone size={17} />ติดต่อร้าน</a> : null}
+          </section>
+        ) : (
+          <section className="fx-order-block">
+            <div className="fx-section-head"><h2>จัดส่งไปที่</h2></div>
+            <div className="fx-delivery-to"><MapPin size={20} fill="currentColor" strokeWidth={0} /><div><strong>{order.recipient_name}</strong><small>{order.recipient_phone}</small><p>{order.shipping_address}</p>{order.customer_note ? <em>{order.customer_note}</em> : null}</div></div>
+            {orderStore?.phone ? <a className="fx-btn fx-btn--outline fx-btn--block" href={`tel:${orderStore.phone}`}><Phone size={17} />ติดต่อร้าน</a> : null}
+          </section>
+        )}
 
         {["delivered", "cancelled"].includes(order.status) ? (
           <button className="fx-btn fx-btn--primary fx-btn--block" type="button" onClick={onReorder}>สั่งรายการเดิมอีกครั้ง</button>
         ) : null}
         {canCancel ? <button className="fx-btn fx-btn--danger-outline fx-btn--block" type="button" disabled={combinedBusy} onClick={() => void cancel()}>ยกเลิกออเดอร์</button> : null}
+        {canRequestCancel ? <button className="fx-btn fx-btn--danger-outline fx-btn--block" type="button" disabled={combinedBusy} onClick={() => void requestCancel()}>ขอยกเลิกออเดอร์</button> : null}
       </div>
     </Sheet>
   );
@@ -3107,6 +3593,17 @@ function FoodCustomerInner({
   }, [opening, storeKey]);
   const [tab, setTab] = useState<FoodTab>("home");
   const [storefrontOpen, setStorefrontOpen] = useState(() => opening.fromLink && Boolean(opening.storeId));
+  // ZOKY web: discovery has two pages, Home and Food (?view=food, so browser
+  // back / iPad swipe-back returns Home and a reload stays on Food). A store
+  // opened from a shared link goes back to Food.
+  const [homeView, setHomeView] = useState<"home" | "food">(() => {
+    if (typeof window === "undefined") return "home";
+    if (opening.fromLink) return "food";
+    return new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home";
+  });
+  const [directory, setDirectory] = useState<FoodDirectoryState>({ status: "loading" });
+  const directoryRequestRef = useRef(0);
+  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine !== false);
   // Bring an anonymous basket into the signed-in cart only for the store the
   // customer explicitly selected. All actual prices/availability are still
   // validated server-side when the customer submits an order.
@@ -3126,6 +3623,13 @@ function FoodCustomerInner({
   const [selectedOrder, setSelectedOrder] = useState<FoodCustomerOrder | null>(null);
   // A tapped order notification (?order=WF0015) opens that order once loaded.
   const requestedOrderRef = useRef<string | null>(typeof window === "undefined" ? null : requestedOrderNumber(window.location.search));
+  // Founder 2026-11-04: signed in after opening ZOKY from LINE -> finish the
+  // automatic LINE notification link once (via the /line LIFF endpoint).
+  useEffect(() => {
+    if (!isLineInAppBrowser(navigator.userAgent)) return;
+    const destination = takeLineAutoLink();
+    if (destination) window.location.replace(`/line?to=${encodeURIComponent(destination)}`);
+  }, [userId]);
   const [reviewOrder, setReviewOrder] = useState<FoodCustomerOrder | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quote, setQuote] = useState<FoodOrderQuote | null>(null);
@@ -3156,7 +3660,7 @@ function FoodCustomerInner({
       for (const order of next.orders) {
         const prior = previous.get(order.id);
         if (prior && prior !== order.status) {
-          setMessage(`ออเดอร์ #${order.order_number} · ${foodOrderStatusLabel(order.status)}`);
+          setMessage(`ออเดอร์ #${order.order_number} · ${foodOrderStatusLabelFor(order)}`);
           // The backend already emits a Food-scoped Web Push for order events.
           // Keep the in-app toast here, but do not show a second local banner.
         }
@@ -3178,7 +3682,7 @@ function FoodCustomerInner({
       }
       return next;
     } catch (error) {
-      const copy = foodCustomerError(error, "โหลด WYNOS Food ไม่สำเร็จ");
+      const copy = foodCustomerError(error, "โหลด ZOKY ไม่สำเร็จ");
       setLoadError(copy);
       setMessage(copy);
       return null;
@@ -3192,6 +3696,50 @@ function FoodCustomerInner({
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  // fetchFoodStoreDirectory resolves null on failure: that is an error state,
+  // not "still loading". A failed quiet refresh keeps the stores already shown.
+  const loadDirectory = useCallback(async (showSkeleton = false) => {
+    const request = ++directoryRequestRef.current;
+    if (showSkeleton) setDirectory({ status: "loading" });
+    const next = await fetchFoodStoreDirectory(client).catch(() => null);
+    if (request !== directoryRequestRef.current) return true;
+    if (next) {
+      setDirectory({ status: "ready", stores: next });
+      return true;
+    }
+    setDirectory((current) => current.status === "ready" ? current : { status: "error" });
+    return false;
+  }, [client]);
+  const discoveryOpen = tab === "home" && !storefrontOpen && Boolean(snapshot?.allowed);
+  useEffect(() => {
+    if (!discoveryOpen) return;
+    // Refreshed each time discovery is shown, as the directory was before.
+    const timer = window.setTimeout(() => void loadDirectory(), 0);
+    return () => window.clearTimeout(timer);
+  }, [discoveryOpen, loadDirectory]);
+
+  useEffect(() => {
+    // ZOKY-140: an entry pushed when leaving Food (below) records its screen;
+    // any other entry is discovery, so back from cart/store/account lands on Food.
+    const onPop = () => {
+      const screen = window.history.state?.zkScreen as FoodTab | "store" | undefined;
+      setHomeView(new URLSearchParams(window.location.search).get("view") === "food" ? "food" : "home");
+      setTab(screen && screen !== "store" ? screen : "home");
+      setStorefrontOpen(screen === "store");
+      setSelectedItem(null);
+    };
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -3339,27 +3887,33 @@ function FoodCustomerInner({
     }
   };
 
-  // Founder decision (2026-10-10): WYNOS Food offers delivery as soon as possible only; no scheduled orders and no pickup.
-  const createOrder = async (address: FoodCustomerAddress, note: string, couponCode?: string | null) => {
+  // Founder decisions: delivery is as soon as possible only (2026-10-10);
+  // pickup at a time today and store-enabled COD (ZOKY-FULFILL-001, 2026-10-26).
+  const createOrder = async (address: FoodCustomerAddress | null, note: string, couponCode: string | null, options: FoodCheckoutOptions) => {
     if (!store) return;
+    const isPickup = options.fulfillmentType === "pickup";
+    if (!isPickup && !address) return;
     setBusy(true);
     try {
-      const structuredAddress = [
+      const structuredAddress = !address || isPickup ? "" : [
         address.building_name ? `อาคาร/หมู่บ้าน ${address.building_name}` : "",
         address.floor ? `ชั้น ${address.floor}` : "",
         address.room ? `ห้อง ${address.room}` : "",
         address.landmark ? `จุดสังเกต ${address.landmark}` : "",
       ].filter(Boolean).join(" · ");
-      const combinedNote = [structuredAddress, address.delivery_note, note.trim()].filter(Boolean).join(" · ");
+      const combinedNote = [structuredAddress, isPickup ? null : address?.delivery_note, note.trim()].filter(Boolean).join(" · ");
       const orderId = await createFoodCustomerOrder(client, store.id, {
-        recipientName: address.recipient_name,
-        recipientPhone: address.recipient_phone,
-        shippingAddress: address.address,
+        recipientName: isPickup ? options.contactName ?? "" : address!.recipient_name,
+        recipientPhone: isPickup ? options.contactPhone ?? "" : address!.recipient_phone,
+        shippingAddress: isPickup ? "รับเองที่ร้าน" : address!.address,
         customerNote: combinedNote,
         items: cart,
-        location: storeHasDeliveryZone(store) ? addressLocation(address) : null,
+        location: !isPickup && storeHasDeliveryZone(store) ? addressLocation(address) : null,
         scheduledFor: null,
         couponCode: couponCode ?? null,
+        fulfillmentType: options.fulfillmentType,
+        pickupAt: options.pickupAt,
+        paymentMethod: options.paymentMethod,
       });
       // Lets the store see orders that came from its shared link.
       if (hasShareRef(store.id)) void markFoodOrderFromShare(client, orderId).catch(() => undefined);
@@ -3369,7 +3923,7 @@ function FoodCustomerInner({
       const order = next?.orders.find((row) => row.id === orderId);
       if (order) setSelectedOrder(order);
       setTab("orders");
-      setMessage("สร้างออเดอร์แล้ว กรุณาชำระเงินภายใน 10 นาที");
+      setMessage(options.paymentMethod === "cod" ? "สร้างออเดอร์แล้ว จ่ายเงินสดตอนรับอาหาร" : "สร้างออเดอร์แล้ว กรุณาชำระเงินภายใน 10 นาที");
     } catch (error) {
       setMessage(foodCustomerError(error));
     } finally {
@@ -3377,10 +3931,27 @@ function FoodCustomerInner({
     }
   };
 
+  // Settings row toggles Push: on needs a tap (OS permission), off removes this device's token.
   const requestNotifications = async () => {
+    if (isEmbeddedFrame(window)) {
+      setMessage("หน้าต่างนี้เปิดการแจ้งเตือนไม่ได้ กรุณาเปิด ZOKY ในเบราว์เซอร์");
+      return;
+    }
+    if (notificationsEnabled) {
+      const ok = await unsubscribeFromPushNotifications(client);
+      if (!ok) {
+        setMessage("ปิดการแจ้งเตือนไม่สำเร็จ กรุณาลองอีกครั้ง");
+        return;
+      }
+      setPushChosen(userId, false);
+      setNotificationsEnabled(false);
+      setMessage("ปิดการแจ้งเตือน ZOKY บนอุปกรณ์นี้แล้ว");
+      return;
+    }
     const result = await subscribeToPushNotifications(client, userId);
+    if (result.ok) setPushChosen(userId, true);
     setNotificationsEnabled(result.ok);
-    setMessage(result.ok ? "เปิดการแจ้งเตือน WYNOS Food แล้ว" : pushReasonDescription(result.reason));
+    setMessage(result.ok ? "เปิดการแจ้งเตือน ZOKY แล้ว" : pushReasonDescription(result.reason));
   };
 
   const install = async () => {
@@ -3407,9 +3978,10 @@ function FoodCustomerInner({
       if (nextSnapshot?.store?.id === next.id) setStorefrontOpen(true);
     });
   };
+  // Founder 2026-11-04: sharing a store shows its QR (opens in LINE) first.
+  const [shareOpen, setShareOpen] = useState(false);
   const shareStore = () => {
-    if (!store) return;
-    void shareOrCopyLink(foodStoreShareData(store), setMessage);
+    if (store) setShareOpen(true);
   };
   // Rebuilds the cart from a past order. Prices, stock and options are checked again in the cart and on the server.
   const reorder = (order: FoodCustomerOrder) => {
@@ -3443,38 +4015,111 @@ function FoodCustomerInner({
       }
     });
   };
-  const openStoreOrDirectory = () => {
-    setTab("home");
-    setStorefrontOpen(Boolean(store));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const writeViewUrl = (view: "home" | "food", mode: "push" | "replace") => {
+    const url = new URL(window.location.href);
+    if (view === "food") url.searchParams.set("view", "food");
+    else url.searchParams.delete("view");
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    const state = { ...(window.history.state ?? {}), zkView: view === "food" && mode === "push" ? "food" : undefined };
+    if (mode === "push") window.history.pushState(state, "", next);
+    else window.history.replaceState(state, "", next);
   };
+  // ZOKY-140: leaving Food for a store or another tab pushes an entry without
+  // ?view=food, so back returns to Food and a reload does not land on it.
+  // Later moves keep that entry's screen current (none once back on Home).
+  useEffect(() => {
+    const screen = tab === "home" ? (storefrontOpen ? "store" : null) : tab;
+    const url = new URL(window.location.href);
+    if (window.history.state?.zkScreen) {
+      if (window.history.state.zkScreen !== screen) window.history.replaceState(screen ? { zkScreen: screen } : null, "", url.href);
+      return;
+    }
+    if (!screen || url.searchParams.get("view") !== "food") return;
+    url.searchParams.delete("view");
+    window.history.pushState({ zkScreen: screen }, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [tab, storefrontOpen]);
   const openDirectory = () => {
+    if (window.history.state?.zkScreen) {
+      window.history.back();
+      window.scrollTo({ top: 0 });
+      return;
+    }
     setTab("home");
     setStorefrontOpen(false);
+    if (homeView !== "food" && new URLSearchParams(window.location.search).get("view") !== "food") writeViewUrl("food", "push");
+    setHomeView("food");
+    window.scrollTo({ top: 0 });
+  };
+  const backToHome = () => {
+    if (window.history.state?.zkView === "food") {
+      window.history.back();
+      return;
+    }
+    writeViewUrl("home", "replace");
+    setHomeView("home");
+    window.scrollTo({ top: 0 });
+  };
+  const openStoreOrDirectory = () => {
+    if (!store) {
+      openDirectory();
+      return;
+    }
+    setTab("home");
+    setStorefrontOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const pull = usePullToRefresh({ enabled: tab === "home" || tab === "orders", onRefresh: async () => { await load(true); } });
+  // Pull to refresh reloads the snapshot and, on Home/Food, the store directory too.
+  const refreshAll = async () => {
+    const [, directoryOk] = await Promise.all([load(true), discoveryOpen ? loadDirectory() : Promise.resolve(true)]);
+    if (!directoryOk) setMessage("เชื่อมต่อไม่ได้");
+  };
+  const pull = usePullToRefresh({ enabled: tab === "home" || tab === "orders", onRefresh: refreshAll });
 
   useEffect(() => { if (snapshot || loadError) markFoodSplashReady(); }, [snapshot, loadError]);
+
+  const discovery = tab === "home" && !storefrontOpen ? (
+    homeView === "food" ? (
+      <StoreDirectory
+        client={client}
+        userId={userId}
+        orders={orders}
+        addresses={addresses}
+        directory={directory}
+        addressLabel={homeLocationLabel}
+        cartCount={cartCount}
+        cartSubtotal={cartSubtotal}
+        onRetry={() => void loadDirectory(true)}
+        onPick={pickStore}
+        onLocation={() => setTab("account")}
+        onBack={backToHome}
+        onFavorites={() => setFavoritesOpen(true)}
+        onCart={() => setTab("cart")}
+      />
+    ) : (
+      <FoodHomeScreen
+        client={client}
+        userId={userId}
+        directory={directory}
+        addresses={addresses}
+        cartCount={cartCount}
+        onCart={() => setTab("cart")}
+        onFavorites={() => setFavoritesOpen(true)}
+        onOpenFood={openDirectory}
+        onPick={pickStore}
+      />
+    )
+  ) : null;
+  const discoveryView = discovery ? homeView : null;
 
   if (!snapshot) return loadError ? <FoodLoadError message={loadError} onRetry={() => { setLoadError(""); void load(); }} /> : <FoodLoading />;
   if (!snapshot.allowed) return <FoodDenied />;
   return (
-    <main className={`wyn-food fx-app${tab === "home" && storefrontOpen ? " fx-storefront-open" : ""}${tab === "home" && storefrontOpen && cartCount > 0 ? " has-cart-bar" : ""}`}>
-      {tab === "home" && !storefrontOpen ? (
-        <FoodHeader
-          cartCount={cartCount}
-          homeLocationLabel={homeLocationLabel}
-          onCart={() => setTab("cart")}
-          onLocation={() => setTab("account")}
-          onFavorites={() => setFavoritesOpen(true)}
-        />
-      ) : null}
+    <main className={`wyn-food fx-app${discoveryView === "home" ? " is-zk-home" : ""}${discoveryView === "food" ? " is-zk-food" : ""}${tab === "home" && storefrontOpen ? " fx-storefront-open" : ""}${tab === "home" && storefrontOpen && cartCount > 0 ? " has-cart-bar" : ""}`}>
+      {discoveryView && !online ? <div className="fx-offline-bar zk-offline-bar" role="status"><WifiOff size={18} />ไม่มีการเชื่อมต่ออินเทอร์เน็ต</div> : null}
       {message ? <div className="fx-toast" role="status"><span>{message}</span><button type="button" aria-label="ปิด" onClick={() => setMessage("")}><X size={16} /></button></div> : null}
 
-      <PullToRefreshIndicator pull={pull} topOffset="0px" refreshingLabel="กำลังอัปเดต WYNOS Food" />
+      <PullToRefreshIndicator pull={pull} topOffset="0px" refreshingLabel="กำลังอัปเดต ZOKY" />
       <section className="fx-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
-        {tab === "home" && !storefrontOpen && <FoodPromotionCenter client={client} userId={userId} />}
         {tab === "home" ? (
           <HomePanel
             key={`${store?.id ?? "none"}:${storefrontOpen ? "open" : "directory"}`}
@@ -3483,16 +4128,18 @@ function FoodCustomerInner({
             store={store}
             menu={menu}
             onItem={setSelectedItem}
-            onPickStore={pickStore}
             onShareStore={shareStore}
             onBackStorefront={() => {
+              if (window.history.state?.zkScreen) {
+                window.history.back();
+                return;
+              }
               setStorefrontOpen(false);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             storefrontOpen={storefrontOpen}
-            orders={orders}
             addresses={addresses}
-            onLocation={() => setTab("account")}
+            discovery={discovery}
           />
         ) : null}
         {tab === "orders" ? <OrdersPanel orders={orders} reviewedOrderIds={reviewedOrderIds} hasMore={snapshot.has_more_orders} loadingMore={loadingMoreOrders} onLoadMore={() => void loadMoreOrders()} onOrder={setSelectedOrder} onReorder={reorder} onBrowse={openDirectory} /> : null}
@@ -3545,14 +4192,23 @@ function FoodCustomerInner({
         </button>
       ) : null}
 
-      <FoodNav
-        tab={tab}
-        activeCount={activeCount}
-        onTab={(next) => {
-          if (next === "home") setStorefrontOpen(false);
-          setTab(next);
-        }}
-      />
+      {discoveryView !== "food" ? (
+        <FoodNav
+          tab={tab}
+          activeCount={activeCount}
+          onTab={(next) => {
+            if (next === "home") {
+              if (discoveryView === "home") window.scrollTo({ top: 0, behavior: "smooth" });
+              setStorefrontOpen(false);
+              if (homeView !== "home") {
+                writeViewUrl("home", "replace");
+                setHomeView("home");
+              }
+            }
+            setTab(next);
+          }}
+        />
+      ) : null}
 
       {favoritesOpen ? (
         <FavoriteStoresSheet
@@ -3565,6 +4221,8 @@ function FoodCustomerInner({
           }}
         />
       ) : null}
+
+      {shareOpen && store ? <StoreShareSheet store={store} onClose={() => setShareOpen(false)} onMessage={setMessage} /> : null}
 
       {selectedItem && store ? (
         <ItemSheet
@@ -3614,7 +4272,7 @@ function FoodCustomerInner({
             isDefault: address.is_default,
             location: addressLocation(address),
           })}
-          onSubmit={(address, note, couponCode) => void createOrder(address, note, couponCode)}
+          onSubmit={(address, note, couponCode, options) => void createOrder(address, note, couponCode, options)}
         />
       ) : null}
 
