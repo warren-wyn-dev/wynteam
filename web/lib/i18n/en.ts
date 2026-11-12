@@ -3178,6 +3178,7 @@ Object.assign(EN_EXACT, {
   "กดปุ่มแชร์": "Tap the Share button",
   "ใน Safari": "in Safari",
   "เลือก \"เพิ่มไปยังหน้าจอโฮม\"": "Choose \"Add to Home Screen\"",
+  "แตะ \"เพิ่ม\" แล้วเปิด ZOKY จากไอคอนบนหน้าจอ": "Tap \"Add\", then open ZOKY from the icon on your Home Screen",
   "เปิด Zoky ในเบราว์เซอร์": "Open Zoky in your browser",
   "กำลังอัปเดต ZOKY": "Updating ZOKY",
   "เปิดการแจ้งเตือน ZOKY": "Turn on ZOKY notifications",
