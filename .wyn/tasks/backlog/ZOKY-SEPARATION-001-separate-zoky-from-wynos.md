@@ -102,3 +102,11 @@ Change-control triggers: major architecture change, cloud/infra cost, production
 
 - **โดเมน Maps อยู่ฝั่ง WYNOS ตามร่าง:** `maps.`, `tiles.`, `geo.`, `routing.` (รวม `wynos.online`, `www.`) อยู่ project เดิม; Zoky project ใหม่ได้ `zoky.`, `food.`, `merchant.`
 - **ประเด็นที่ยังเปิดอยู่ (ต้องตัดสินก่อนลงมือระดับ 1):** `components/food/food-delivery-map-picker.tsx:735` เรียก `/api/maps/route` แบบ relative บน origin ของตัวเอง ดังนั้นถ้าแยก project แล้ว Zoky project ต้องยังให้บริการ `/api/maps/*` (ซึ่งใช้ `WYNOS_ORS_API_KEY`, `WYNOS_GEO_ORIGIN`, `WYNOS_ROUTING_ORIGIN`, `WYNOS_MAPS_UPSTREAM_TOKEN`) หรือต้องแก้โค้ดให้ชี้ไป origin ฝั่ง WYNOS ตัวเลือก: (ก) ให้ Zoky project มี env ฝั่ง Maps ด้วย (เร็วสุด แต่ secret ซ้ำสองที่) (ข) เพิ่ม rewrite ใน Zoky project ส่ง `/api/maps/*` ไป WYNOS (secret อยู่ที่เดียว ต้องตรวจ rate limit/โฮสต์) (ค) แก้โค้ดเรียก origin WYNOS (ต้อง CORS + allowlist) — แนะนำ (ข) แต่ยังไม่ได้ออกแบบละเอียด
+
+## 12. อัปเดต Maps (2026-11-12) — Founder: แอปแผนที่จะทำใหม่เป็นอีกโปรเจกต์ที่กำลังทำอยู่
+
+- ข้อ 11 ถูกปรับ: Maps ใน project `web` ปัจจุบันเป็น**ชั่วคราว** ไม่ใช่บ้านถาวรของ Maps จึง**ไม่ตัดสิน ก/ข/ค ตอนนี้**
+- ระดับ 1 ไม่ต้องรอโปรเจกต์ Maps ใหม่: ใช้ทางเลือกชั่วคราว (ข) คือให้ project Zoky ส่งต่อ `/api/maps/*` ไป Maps เดิมของ WYNOS เมื่อโปรเจกต์ใหม่พร้อมค่อยเปลี่ยนปลายทางที่จุดเดียว (ไม่แก้ UI)
+- ข้อเสนอเชิงออกแบบ: ให้ Zoky เรียก Maps ผ่าน origin ที่ตั้งค่าได้ (env เดียว) แทนการฝัง path/โฮสต์ เพื่อไม่ผูกกับ project ใดโดยตรง (ยังไม่ได้ implement)
+- ข้อมูลที่ต้องการจากโปรเจกต์ Maps ใหม่ก่อนออกแบบปลายทาง: โดเมน/origin, รูปแบบ API (route/search/reverse), การยืนยันตัวตน/rate limit, กำหนดการ — ยังไม่ทราบ
+- ผลต่อ runbook ข้อ 2: โดเมน `maps.`, `tiles.`, `geo.`, `routing.` อยู่ project เดิมไปก่อน และย้ายไปโปรเจกต์ Maps ใหม่เมื่อพร้อม (เป็นงานแยก ไม่รวมในระดับ 1)
