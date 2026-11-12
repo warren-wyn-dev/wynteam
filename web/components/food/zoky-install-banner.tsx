@@ -136,13 +136,19 @@ export function ZokyInstallBanner() {
         </button>
       </div>
       {mode === "ios" ? (
-        <ol className="install-prompt-steps">
-          <li><span className="install-prompt-step-index">1</span>กดปุ่มแชร์ <WynosIcon name="share" size={14} strokeWidth={2} /> ใน Safari</li>
-          <li><span className="install-prompt-step-index">2</span>เลือก &quot;เพิ่มไปยังหน้าจอโฮม&quot;</li>
-        </ol>
+        <>
+          <ol className="install-prompt-steps">
+            <li><span className="install-prompt-step-index">1</span><span>กดปุ่มแชร์ <WynosIcon name="share" size={16} strokeWidth={2} /> ใน Safari</span></li>
+            <li><span className="install-prompt-step-index">2</span><span>เลือก &quot;เพิ่มไปยังหน้าจอโฮม&quot;</span></li>
+            <li><span className="install-prompt-step-index">3</span><span>แตะ &quot;เพิ่ม&quot; แล้วเปิด ZOKY จากไอคอนบนหน้าจอ</span></li>
+          </ol>
+          <div className="install-prompt-actions">
+            <button type="button" className="install-prompt-primary" onClick={dismiss}>เข้าใจแล้ว</button>
+            <button type="button" className="install-prompt-ghost" onClick={dismiss}>ไว้ทีหลัง</button>
+          </div>
+        </>
       ) : (
         <div className="install-prompt-actions">
-          <button type="button" className="install-prompt-ghost" onClick={dismiss}>ไม่ใช่ตอนนี้</button>
           {mode === "open-browser" ? (
             <a className="install-prompt-primary" href={ZOKY_OPEN_URL} target="_blank" rel="noopener noreferrer" onClick={dismiss}>
               เปิด Zoky ในเบราว์เซอร์
@@ -150,6 +156,7 @@ export function ZokyInstallBanner() {
           ) : (
             <button type="button" className="install-prompt-primary" onClick={() => void install()}>ติดตั้ง</button>
           )}
+          <button type="button" className="install-prompt-ghost" onClick={dismiss}>ไว้ทีหลัง</button>
         </div>
       )}
     </div>

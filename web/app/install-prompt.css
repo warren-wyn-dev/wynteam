@@ -252,3 +252,56 @@ a.install-prompt-primary {
   place-items: center;
   text-decoration: none;
 }
+
+/* ZOKY install card (Founder example 2026-11-12): centered card, icon, title,
+   steps in a soft grey box, full-width primary pill and a quiet "later" link.
+   Placed last so it wins over the generic modal rules above. */
+.install-prompt-banner.zoky-install-banner {
+  top: 50%;
+  bottom: auto;
+  height: auto;
+  max-height: calc(100dvh - 32px);
+  transform: translateY(-50%);
+  padding: 32px 20px 20px;
+  gap: 20px;
+  justify-content: flex-start;
+}
+
+.zoky-install-banner .install-prompt-steps {
+  padding: 4px 16px;
+  border-radius: 18px;
+  background: var(--wyn-surface);
+  gap: 0;
+}
+
+.zoky-install-banner .install-prompt-steps li {
+  align-items: flex-start;
+  line-height: 1.45;
+}
+
+.zoky-install-banner .install-prompt-steps li svg {
+  vertical-align: -3px;
+  color: #1d7cf2;
+}
+
+.zoky-install-banner .install-prompt-actions {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zoky-install-banner .install-prompt-primary {
+  flex: 0 0 auto;
+  height: 54px;
+  border-radius: 999px;
+  background: #e11d74;
+  color: #fff;
+}
+
+.zoky-install-banner .install-prompt-ghost {
+  flex: 0 0 auto;
+  height: 48px;
+}
+
+.zoky-install-banner .install-prompt-step-index {
+  background: var(--wyn-bg);
+}
