@@ -23,6 +23,21 @@ const merchantFlutterLegacyRewrites = (() => {
   }
 })();
 
+// ZOKY-SEPARATION-001 level 1: when ZOKY runs as its own Vercel project it does
+// not hold the Maps secrets. Setting ZOKY_MAPS_UPSTREAM_ORIGIN (https only, on
+// that project only) forwards /api/maps/* to the WYNOS project. Unset = no
+// change, so the existing WYNOS project keeps serving Maps itself.
+const zokyMapsUpstreamOrigin = (() => {
+  const raw = process.env.ZOKY_MAPS_UPSTREAM_ORIGIN?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" ? url.origin : null;
+  } catch {
+    return null;
+  }
+})();
+
 // /_next/image is a public, unauthenticated route on wynos.online, and
 // remotePatterns is the only gate on what it will fetch on a caller's
 // behalf -- a wildcard hostname here would turn it into an open image proxy
@@ -114,6 +129,9 @@ const nextConfig: NextConfig = {
         // redirected to ZOKY by proxy.ts in phase 2 (ZOKY_LEGACY_FOOD_REDIRECT).
         { source: "/s/:code", has: [{ type: "host", value: "zoky.wynos.online" }], destination: "/food/s/:code" },
         { source: "/s/:code", has: [{ type: "host", value: "food.wynos.online" }], destination: "/food/s/:code" },
+        ...(zokyMapsUpstreamOrigin
+          ? [{ source: "/api/maps/:path*", destination: `${zokyMapsUpstreamOrigin}/api/maps/:path*` }]
+          : []),
       ],
       afterFiles: [
         ...merchantFlutterLegacyRewrites,

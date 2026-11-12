@@ -190,3 +190,10 @@ test("Maps uses real labeled road tiles and distinct icons for hospitals, fuel a
     assert.ok(source.includes(`kind === "${kind}"`), `missing marker glyph ${kind}`);
   }
 });
+
+test("ZOKY project forwards /api/maps only when ZOKY_MAPS_UPSTREAM_ORIGIN is set to an https origin", () => {
+  const config = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+  assert.match(config, /process\.env\.ZOKY_MAPS_UPSTREAM_ORIGIN\?\.trim\(\)/);
+  assert.match(config, /url\.protocol === "https:" \? url\.origin : null/);
+  assert.match(config, /zokyMapsUpstreamOrigin\s*\? \[\{ source: "\/api\/maps\/:path\*", destination: `\$\{zokyMapsUpstreamOrigin\}\/api\/maps\/:path\*` \}\]\s*: \[\]/);
+});
