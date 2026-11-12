@@ -1,6 +1,6 @@
 # ZOKY-SEPARATION-001 — แยก Zoky ออกจาก WYNOS (ข้อเสนอ Change Control)
 
-Status: **Proposed — รอ Founder อนุมัติรายระดับ ยังไม่เริ่มลงมือ**
+Status: **Deferred (Founder เลือก C, 2026-11-12) — ไม่แยกตอนนี้ เพราะไม่มีงบ; ทบทวนเมื่อมีงบ/รายได้**
 Requested: Founder, 2026-11-12 ("เราแยกออกจากกันได้ไหม เป็น zoky.wynos.online" → "ทำทุกข้อเลย" = ครบ 3 ระดับ)
 Change-control triggers: major architecture change, cloud/infra cost, production deployment, (ระดับ 3) destructive/major data migration + authentication architecture change
 เอกสารนี้เป็นข้อเสนอเท่านั้น ไม่ใช่การอนุมัติให้ deploy, ย้ายโดเมน, สร้างโปรเจกต์ Vercel/Supabase หรือย้ายข้อมูล
@@ -110,3 +110,15 @@ Change-control triggers: major architecture change, cloud/infra cost, production
 - ข้อเสนอเชิงออกแบบ: ให้ Zoky เรียก Maps ผ่าน origin ที่ตั้งค่าได้ (env เดียว) แทนการฝัง path/โฮสต์ เพื่อไม่ผูกกับ project ใดโดยตรง (ยังไม่ได้ implement)
 - ข้อมูลที่ต้องการจากโปรเจกต์ Maps ใหม่ก่อนออกแบบปลายทาง: โดเมน/origin, รูปแบบ API (route/search/reverse), การยืนยันตัวตน/rate limit, กำหนดการ — ยังไม่ทราบ
 - ผลต่อ runbook ข้อ 2: โดเมน `maps.`, `tiles.`, `geo.`, `routing.` อยู่ project เดิมไปก่อน และย้ายไปโปรเจกต์ Maps ใหม่เมื่อพร้อม (เป็นงานแยก ไม่รวมในระดับ 1)
+
+## 13. สรุปคำตัดสินล่าสุด (2026-11-12): เลื่อนการแยก — เลือกทาง C
+
+- Founder: **ไม่มีงบ → ยังไม่แยก** (ระดับ 1–3 เลื่อนทั้งหมด; ไม่ย้ายไปโฮสต์อื่น — การเปลี่ยนโฮสต์/คลาวด์เป็น major change ต้องอนุมัติแยก)
+- ทางเลือกที่ถูกเสนอและไม่เลือก: A (project Hobby ฟรีแยก — ยังติดข้อกังวลเรื่องเงื่อนไขเชิงพาณิชย์ซึ่งยังไม่ได้ตรวจกับบัญชีจริง), B (ย้ายโฮสต์ฟรีเจ้าอื่น)
+- แพ็กเกจ Vercel ของทีม `warren14` ยัง**ไม่ยืนยัน**; Zoky รับชำระเงิน — ควรตรวจหน้า Billing/Terms แยกต่างหากจากเรื่องการแยก
+- มาตรการลดความเสี่ยงที่ไม่มีค่าใช้จ่าย (รอ Founder สั่งเริ่มรายข้อ ยังไม่ได้ทำ):
+  1. คงขั้นตอน release เดิม: build ไม่ย้ายโดเมน → ตรวจ → promote พร้อมจุด rollback
+  2. รวม `main` กับ lineage production ให้เป็นสายเดียว
+  3. ให้ทดสอบ Zoky บน preview ได้ (allowlist โฮสต์ preview) — เป็นการแก้โค้ดเล็กน้อย ต้องผ่าน QA
+- Rollback ปัจจุบัน: `dpl_7B62FanBFc9pmqqzH2sK4xcDZuVa` (production ก่อน build PWA); build PWA ปัจจุบัน `dpl_5Z1Uk1fNNG1dBcJDN5ZzWWsnTGUv`
+- Maps: โปรเจกต์แผนที่ใหม่แยกต่างหาก (ดูข้อ 12) — ไม่เกี่ยวกับการเลื่อนนี้
