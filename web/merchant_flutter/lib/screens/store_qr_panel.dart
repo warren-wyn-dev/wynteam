@@ -181,7 +181,7 @@ class _StoreQrPanelState extends State<StoreQrPanel> {
         const Text(
           'ลูกค้าสแกนแล้วเปิดร้านคุณใน ZOKY สั่งได้ทันที',
           textAlign: TextAlign.center,
-          style: const TextStyle(color: _sub, fontSize: 13),
+          style: TextStyle(color: _sub, fontSize: 13),
         ),
         const SizedBox(height: 14),
         Row(
