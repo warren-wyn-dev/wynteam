@@ -1,14 +1,7 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { LineEntry } from "@/components/line/line-entry";
-
-import "./line.css";
-
-export const metadata: Metadata = {
-  title: "รับแจ้งเตือนทาง LINE — ZOKY",
-  robots: { index: false, follow: false },
-};
-
+// LINE notifications and LIFF entry were removed from ZOKY (Founder 2026-11-12).
+// Old LINE message buttons and bookmarks land on ZOKY instead of a dead page.
 export default function LinePage() {
-  return <LineEntry />;
+  redirect("/food");
 }

@@ -131,7 +131,6 @@ class FakeRepository extends MerchantRepository {
       'image':
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
       'linkUrl': 'https://zoky.wynos.online/s/kbs7xa',
-      'opensInLine': true,
       'published': true,
       'stats': {'opens': 128, 'orders': 23, 'sales': 2870},
     };

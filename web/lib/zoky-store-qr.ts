@@ -1,11 +1,9 @@
 // Founder 2026-11-04 ("ทำ ก+ข", "สแกนแล้ว ต้องเด้ง สั่งในไลน์"): one ZOKY
 // store QR for the Merchant poster and the customer share sheet. The QR
-// opens the store inside LINE (LIFF) when the ZOKY LIFF is configured, and
-// the plain web share link otherwise. Browser-only (canvas).
+// opens the plain ZOKY web share link (LINE removed 2026-11-12). Browser-only (canvas).
 import QRCode from "qrcode";
 
 import { foodStoreShareUrl } from "@/lib/food-share";
-import { configuredLiffIds, liffIdFor } from "@/lib/line-liff";
 
 type QrStore = { id: string; name: string; share_code?: string | null; delivery_enabled?: boolean | null; pickup_enabled?: boolean | null };
 
@@ -14,16 +12,9 @@ const INK = "#16161a";
 const SUB = "#6b6b76";
 const FONT = "Anuphan, 'Noto Sans Thai', 'Thonburi', system-ui, -apple-system, sans-serif";
 
-/** The in-app path the LIFF entry opens for this store (see safeLineDestination). */
-export function foodStoreLinePath(store: Pick<QrStore, "id" | "share_code">): string {
-  const web = new URL(foodStoreShareUrl(store));
-  return web.pathname === "/" ? `/food${web.search}` : web.pathname;
-}
-
-/** What the QR opens: the store in LINE when the ZOKY LIFF exists, else the web link. */
-export function foodStoreQrTarget(store: Pick<QrStore, "id" | "share_code">, liffId = liffIdFor("food", configuredLiffIds())): string {
-  if (!liffId) return foodStoreShareUrl(store);
-  return `https://liff.line.me/${liffId}?to=${encodeURIComponent(foodStoreLinePath(store))}`;
+/** What the QR opens: the store's plain web share link. */
+export function foodStoreQrTarget(store: Pick<QrStore, "id" | "share_code">): string {
+  return foodStoreShareUrl(store);
 }
 
 export function foodStoreQrSubtitle(store: Pick<QrStore, "delivery_enabled" | "pickup_enabled">): string {
@@ -130,7 +121,7 @@ export async function renderZokyStorePoster(store: QrStore, qrUrl = foodStoreQrT
   context.font = `500 36px ${FONT}`;
   context.fillText(foodStoreShareUrl(store).replace(/^https:\/\//, ""), width / 2, 1330);
   context.font = `400 30px ${FONT}`;
-  context.fillText(qrUrl.startsWith("https://liff.line.me/") ? "สแกนด้วยกล้องมือถือ เปิดร้านใน LINE" : "เปิดกล้องมือถือ แล้วสแกน QR นี้", width / 2, 1388);
+  context.fillText("เปิดกล้องมือถือ แล้วสแกน QR นี้", width / 2, 1388);
 
   return await new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("poster_failed"))), "image/png"));
 }

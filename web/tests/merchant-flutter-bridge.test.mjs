@@ -93,7 +93,7 @@ function harness(options={}) {
       if(path==='@/lib/merchant-menu-image')return {merchantMenuThumbnailUrl:url=>url};
       if(path==='@/lib/food-store-availability')return availability;
       if(path==='@/lib/food-share')return {foodStoreShareData:(store)=>({title:store.name+' | ZOKY',text:'สั่ง',url:'https://zoky.wynos.online/s/'+(store.share_code??'abcdef')})};
-      if(path==='@/lib/zoky-store-qr')return {foodStoreQrTarget:(store)=>'https://liff.line.me/1234567890-AbCdEfGh?to=%2Fs%2F'+store.share_code,renderZokyStorePoster:async(store,url)=>{calls.push({name:'renderZokyStorePoster',store,url});return new Blob(['png'],{type:'image/png'});},zokyQrFileName:()=>'zoky-qr.png'};
+      if(path==='@/lib/zoky-store-qr')return {foodStoreQrTarget:(store)=>'https://zoky.wynos.online/s/'+store.share_code,renderZokyStorePoster:async(store,url)=>{calls.push({name:'renderZokyStorePoster',store,url});return new Blob(['png'],{type:'image/png'});},zokyQrFileName:()=>'zoky-qr.png'};
       if(path==='@/lib/merchant-core')return {...merchantCore,fetchMerchantStaff:async()=>state.staffMembers??[],addMerchantStaff:async(...args)=>{calls.push({name:'addMerchantStaff',args});},updateMerchantStaff:async(...args)=>{calls.push({name:'updateMerchantStaff',args});}};
       if(path==='@/lib/food-delivery-proof')return {orderDeliveryProof:o=>Array.isArray(o.food_delivery_proofs)?o.food_delivery_proofs[0]:o.food_delivery_proofs};
       if(path==='@/lib/merchant-finance')return {periodRange:(p)=>({from:'2026-10-'+(p==='month'?'01':'27'),to:'2026-10-27'}),fetchFinanceSummary:async(...args)=>{calls.push({name:'fetchFinanceSummary',args});return {sales_net:500,orders:3,days:[]};}};
@@ -840,8 +840,8 @@ test('store QR renders the ZOKY poster for an accessible store and shares inside
   assert.equal(qr.ok,true);
   assert.equal(qr.data.image,'data:image/png;base64,cG5n');
   assert.equal(qr.data.linkUrl,'https://zoky.wynos.online/s/kbs7xa');
-  assert.equal(qr.data.opensInLine,true);
-  assert.equal(h.calls.find(c=>c.name==='renderZokyStorePoster').url,'https://liff.line.me/1234567890-AbCdEfGh?to=%2Fs%2Fkbs7xa');
+  assert.equal(qr.data.opensInLine,undefined);
+  assert.equal(h.calls.find(c=>c.name==='renderZokyStorePoster').url,'https://zoky.wynos.online/s/kbs7xa');
   assert.ok(h.calls.some(c=>c.name==='food_share_stats'&&c.args.p_store_id===STORE));
   assert.equal((await h.request('saveStoreQr',{storeId:STORE})).data,'shared');
   assert.equal(shared[0].files.length,1);

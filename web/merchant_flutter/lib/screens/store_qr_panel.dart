@@ -10,8 +10,8 @@ const _brand = Color(0xFFD61256);
 const _sub = Color(0xFF6B6B76);
 const _soft = Color(0xFFFFEFF5);
 
-/// Founder 2026-11-04 ("ทำ ก+ข", "สแกนแล้ว ต้องเด้ง สั่งในไลน์"): the store's
-/// ZOKY QR poster. The QR opens the store in LINE; the poster is rendered by
+/// Founder 2026-11-04 ("ทำ ก+ข"): the store's ZOKY QR poster. The QR opens
+/// the store's ZOKY web link (LINE removed 2026-11-12); the poster is rendered by
 /// the web host so ZOKY and Merchant print the same design.
 class StoreQrPanel extends StatefulWidget {
   const StoreQrPanel({
@@ -178,12 +178,10 @@ class _StoreQrPanelState extends State<StoreQrPanel> {
           ),
         ),
         const SizedBox(height: 10),
-        Text(
-          current['opensInLine'] == true
-              ? 'ลูกค้าสแกนแล้วเปิดร้านคุณใน LINE สั่งได้ทันที'
-              : 'ลูกค้าสแกนแล้วเปิดร้านคุณใน ZOKY สั่งได้ทันที',
+        const Text(
+          'ลูกค้าสแกนแล้วเปิดร้านคุณใน ZOKY สั่งได้ทันที',
           textAlign: TextAlign.center,
-          style: const TextStyle(color: _sub, fontSize: 13),
+          style: TextStyle(color: _sub, fontSize: 13),
         ),
         const SizedBox(height: 14),
         Row(

@@ -1759,7 +1759,7 @@ class _MerchantHomeState extends State<MerchantHome>
         'QR ร้าน',
         () => navigate(14),
         icon: Icons.qr_code_2,
-        hint: 'ลูกค้าสแกนแล้วสั่งผ่าน LINE',
+        hint: 'ลูกค้าสแกนแล้วสั่งผ่าน ZOKY',
       ),
       moreRow(
         'เวลาเปิด-ปิด',
@@ -1817,7 +1817,7 @@ class _MerchantHomeState extends State<MerchantHome>
 
   /// Founder 2026-11-01: reviews inside the new Merchant (was the legacy page).
   List<Widget> storeQrPage() => [
-    heading('QR ร้าน', 'พิมพ์แปะหน้าร้าน หรือส่งให้ลูกค้าสแกนสั่งผ่าน LINE'),
+    heading('QR ร้าน', 'พิมพ์แปะหน้าร้าน หรือส่งให้ลูกค้าสแกนสั่งผ่าน ZOKY'),
     box(
       StoreQrPanel(
         key: ValueKey(c.storeId),
@@ -1909,7 +1909,7 @@ class _MerchantHomeState extends State<MerchantHome>
           children: [
             tip(
               'ออเดอร์ไม่ดัง',
-              'ตรวจว่าเปิดการแจ้งเตือน (เพิ่มเติม → การแจ้งเตือน) หรือ LINE และมือถือไม่ได้ปิดเสียง',
+              'ตรวจว่าเปิดการแจ้งเตือน (เพิ่มเติม → การแจ้งเตือน) และมือถือไม่ได้ปิดเสียง',
             ),
             tip(
               'สลิปไม่ขึ้น',

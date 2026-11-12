@@ -16,7 +16,6 @@ import {
   isRetryableFcmStatus,
   type FcmServiceAccount,
   messageFor,
-  orderNumberInReason,
   pushAppForNotification,
   pushMessageForApp,
   pushPreferenceCategory,
@@ -29,16 +28,6 @@ import {
   type WebhookPayload,
   webPushTopic,
 } from "./_lib.ts";
-import {
-  type LineAudience,
-  type LineConfig,
-  lineConfigFor,
-  lineDestination,
-  type LineSendOutcome,
-  sendLinePush,
-} from "./_line.ts";
-import { lineCardMessages, lineEventFor, type LineOrder, lineOrderFrom, shouldSendLine } from "./_line_card.ts";
-
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -63,71 +52,6 @@ async function pushTokensFor(recipientId: string): Promise<unknown[]> {
   });
   if (response.ok) return await response.json();
   return await supabaseRestGet(base);
-}
-
-// ZOKY-LINE-001: the recipient's linked LINE userId for this OA. Links known
-// to have left the OA are skipped; any read failure means no LINE delivery.
-async function lineRecipientFor(recipientId: string, audience: LineAudience): Promise<string | null> {
-  const rows = await supabaseRestGet(
-    `line_links?user_id=eq.${encodeURIComponent(recipientId)}&audience=eq.${audience}` +
-      "&friend_status=neq.not_friend&select=line_user_id",
-  );
-  const id = (rows[0] as { line_user_id?: unknown } | undefined)?.line_user_id;
-  return typeof id === "string" && /^U[0-9a-f]{32}$/.test(id) ? id : null;
-}
-
-// ZOKY-LINE-001 v2: order details for the LINE card. Never selects the
-// customer's name, phone or address. A missing ZOKY-FULFILL-001 column or any
-// read failure falls back to fewer details, never to no message.
-async function lineOrderFor(orderNumber: string): Promise<LineOrder | null> {
-  const base = "order_number,total,payment_status,payment_slip_path,customer_note,food_stores(name),food_order_items(item_name,quantity,unit_price)";
-  for (const select of [`${base},payment_method,fulfillment_type`, base]) {
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/food_orders?order_number=eq.${encodeURIComponent(orderNumber)}&select=${select}&limit=1`,
-      { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` } },
-    ).catch(() => null);
-    if (!response?.ok) {
-      await response?.body?.cancel();
-      continue;
-    }
-    const rows = await response.json().catch(() => []);
-    return lineOrderFrom(Array.isArray(rows) ? rows[0] : null);
-  }
-  return null;
-}
-
-// LINE gets only the first "รอรับ" reminder of an order; Web Push keeps all.
-// Any read failure counts as "no earlier reminder" so the alert still goes out.
-async function earlierReminderFor(row: NotificationRow, orderNumber: string): Promise<boolean> {
-  const prefix = `WYNOS Merchant · ออเดอร์ #${orderNumber} รอรับ `;
-  const rows = await supabaseRestGet(
-    `notifications?recipient_id=eq.${encodeURIComponent(row.recipient_id)}` +
-      `&reason=like.${encodeURIComponent(`${prefix}*`)}` +
-      `&id=neq.${encodeURIComponent(row.id)}&select=id&limit=1`,
-  );
-  return rows.length > 0;
-}
-
-async function deliverLine(
-  line: LineConfig,
-  lineUserId: string,
-  row: NotificationRow,
-  text: string,
-  lang: PushLanguage,
-): Promise<LineSendOutcome> {
-  try {
-    const event = lineEventFor(line.audience, text);
-    const orderNumber = event.orderNumber ?? orderNumberInReason(row.reason);
-    const order = orderNumber ? await lineOrderFor(orderNumber) : null;
-    const earlier = event.kind === "reminder" && orderNumber
-      ? await earlierReminderFor(row, orderNumber)
-      : false;
-    if (!shouldSendLine(line.audience, event, order, earlier)) return "line_filtered";
-    const url = lineDestination(line, orderNumber);
-    return await sendLinePush(fetch, line, lineUserId, lineCardMessages(line.audience, event, order, url, lang), row.id);
-  } catch {
-    return "line_error";
-  }
 }
 
 async function supabaseRestWrite(
@@ -312,28 +236,24 @@ async function handleWebhook(req: Request): Promise<Response> {
   // Send only to the app this notification belongs to (Social, Food or
   // Merchant), so one order event is not repeated in every installed app.
   const app = pushAppForNotification(row);
-  // ZOKY-LINE-001: Food/Merchant notifications also go to a linked LINE OA.
-  const line = lineConfigFor(app, (name) => Deno.env.get(name));
-
   const serviceAccountRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
-  if (!serviceAccountRaw && !line) {
+  if (!serviceAccountRaw) {
     return new Response("FCM not configured", { status: 200 });
   }
 
-  const [actorRows, tokenRows, lang, webPolicy, lineUserId] = await Promise.all([
+  const [actorRows, tokenRows, lang, webPolicy] = await Promise.all([
     row.actor_id
       ? supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`)
       : Promise.resolve([]),
     serviceAccountRaw ? pushTokensFor(row.recipient_id) : Promise.resolve([]),
     recipientLanguage(row.recipient_id),
     webPushPolicy(row),
-    line ? lineRecipientFor(row.recipient_id, line.audience) : Promise.resolve(null),
   ]);
   const typedTokens = tokensForApp(
     tokenRows as { id: string; token: string; platform: string; app?: string | null }[],
     app,
   );
-  if (typedTokens.length === 0 && !lineUserId) {
+  if (typedTokens.length === 0) {
     return new Response("No registered devices", { status: 200 });
   }
 
@@ -362,23 +282,8 @@ async function handleWebhook(req: Request): Promise<Response> {
   const data = buildDataPayload(row);
   const collapseKey = collapseKeyFor(row);
 
-  // LINE follows the same category/Quiet Hours preferences as Web Push and
-  // runs alongside FCM. sendLinePush never throws.
-  const lineOutcome: Promise<LineSendOutcome | null> = line && lineUserId
-    ? webPolicy.allowed
-      ? deliverLine(line, lineUserId, row, pushBody.trim() || title.trim(), lang)
-      : Promise.resolve("line_skipped")
-    : Promise.resolve(null);
-  const withLine = async (summary: string) => {
-    const outcome = await lineOutcome;
-    if (outcome && outcome !== "line_sent" && outcome !== "line_skipped" && outcome !== "line_filtered") {
-      console.error("send-push-notification LINE delivery:", outcome);
-    }
-    return outcome ? `${summary} ${outcome}` : summary;
-  };
-
   if (!serviceAccountRaw || typedTokens.length === 0) {
-    return new Response(await withLine("OK sent=0"), { status: 200 });
+    return new Response("OK sent=0", { status: 200 });
   }
   const serviceAccount: FcmServiceAccount = JSON.parse(serviceAccountRaw);
 
@@ -479,7 +384,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     }),
   );
 
-  return new Response(await withLine(summariseOutcomes(outcomes)), { status: 200 });
+  return new Response(summariseOutcomes(outcomes), { status: 200 });
 }
 
 Deno.serve(async (req) => {

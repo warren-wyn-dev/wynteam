@@ -87,7 +87,6 @@ import {
   unsubscribeFromPushNotifications,
 } from "@/lib/push-notifications";
 import { isEmbeddedFrame } from "@/lib/zoky-pwa";
-import { isLineInAppBrowser, lineLinkPath, takeLineAutoLink } from "@/lib/line-liff";
 import { foodStoreQrTarget, renderZokyQr, renderZokyStorePoster, zokyQrFileName } from "@/lib/zoky-store-qr";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
@@ -2023,17 +2022,11 @@ function AccountPanel({
         <button type="button" onClick={onNotifications}>
           <Bell size={21} /><span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดอยู่ · แตะเพื่อปิดบนอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span><ChevronRight size={18} />
         </button>
-        <a href={lineLinkPath("food")}>
-          <MessageCircle size={21} /><span><strong>รับแจ้งเตือนทาง LINE</strong><small>แจ้งสถานะออเดอร์ผ่าน LINE OA ของ ZOKY</small></span><ChevronRight size={18} />
-        </a>
         {installPrompt ? (
           <button type="button" onClick={onInstall}>
             <Download size={21} /><span><strong>ติดตั้ง ZOKY</strong><small>เพิ่ม ZOKY ไว้บนหน้าจอหลัก</small></span><ChevronRight size={18} />
           </button>
         ) : null}
-        <a href="https://lin.ee/SKQAOtm" target="_blank" rel="noreferrer" aria-label="ขายอาหารบน ZOKY ติดต่อ LINE @352lvyoi">
-          <Store size={21} /><span><strong>ขายอาหารบน ZOKY</strong><small>สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi</small></span><ChevronRight size={18} />
-        </a>
         <a href="https://wynos.online/login">
           <ArrowLeft size={21} /><span><strong>เปิด WYNOS Social</strong><small>ใช้ WYNOS Account เดิม แล้วค่อยตั้งโปรไฟล์ Social เมื่อต้องการ</small></span><ChevronRight size={18} />
         </a>
@@ -2083,7 +2076,7 @@ function Sheet({
   );
 }
 
-/** The store's QR (opens the store in LINE) with share, copy and save. */
+/** The store's QR (opens the store's web link) with share, copy and save. */
 function StoreShareSheet({
   store,
   onClose,
@@ -2136,7 +2129,7 @@ function StoreShareSheet({
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={qr} alt={`QR ร้าน ${store.name}`} width={280} height={280} />
           : <span className="fx-share-qr-loading" aria-label="กำลังสร้าง QR"><QrCode size={40} /></span>}
-        <small>ให้เพื่อนสแกนจากหน้าจอนี้ได้เลย เปิดร้านใน LINE</small>
+        <small>ให้เพื่อนสแกนจากหน้าจอนี้ได้เลย</small>
         <button type="button" className="fx-btn fx-btn--primary fx-btn--block" onClick={() => void shareOrCopyLink(share, onMessage)}><Share2 size={18} />แชร์ลิงก์</button>
         <div className="fx-share-qr-row">
           <button type="button" className="fx-btn fx-btn--outline-neutral fx-btn--grow" onClick={() => void copy()}><Copy size={18} />คัดลอกลิงก์</button>
@@ -3683,13 +3676,6 @@ function FoodCustomerInner({
   const [selectedOrder, setSelectedOrder] = useState<FoodCustomerOrder | null>(null);
   // A tapped order notification (?order=WF0015) opens that order once loaded.
   const requestedOrderRef = useRef<string | null>(typeof window === "undefined" ? null : requestedOrderNumber(window.location.search));
-  // Founder 2026-11-04: signed in after opening ZOKY from LINE -> finish the
-  // automatic LINE notification link once (via the /line LIFF endpoint).
-  useEffect(() => {
-    if (!isLineInAppBrowser(navigator.userAgent)) return;
-    const destination = takeLineAutoLink();
-    if (destination) window.location.replace(`/line?to=${encodeURIComponent(destination)}`);
-  }, [userId]);
   const [reviewOrder, setReviewOrder] = useState<FoodCustomerOrder | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quote, setQuote] = useState<FoodOrderQuote | null>(null);
