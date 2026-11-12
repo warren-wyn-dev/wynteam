@@ -150,7 +150,7 @@ export function InstallPromptBanner() {
   if (isZokyInstallExcluded(window.location.hostname, pathname)) return null;
 
   return (
-    <div className="install-prompt-banner" role="dialog" aria-label="เพิ่ม WYNOS ไว้ที่หน้าจอหลัก">
+    <div className="install-prompt-banner" role="dialog" aria-modal="true" aria-label="เพิ่ม WYNOS ไว้ที่หน้าจอหลัก">
       <div className="install-prompt-row">
         <Image className="install-prompt-icon" src="/icons/icon-192.png" alt="" width={44} height={44} />
         <div className="install-prompt-copy">

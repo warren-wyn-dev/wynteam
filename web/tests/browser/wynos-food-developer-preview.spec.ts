@@ -73,13 +73,21 @@ test("WYNOS Food hides the persistent Social bottom navigation", () => {
   expect(host).toContain("if (hideForFood || !navState?.visible || !navState.userId) return null;");
 });
 
-test("WYNOS Food delivery address uses an interactive map pin flow", () => {
+test("WYNOS Food delivery address uses GPS with a place-search fallback and no map pin", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
   const map = read("components/food/food-delivery-map-picker.tsx");
   const data = read("lib/food-customer.ts");
 
-  expect(app).toContain("ค้นหาและปักหมุดบนแผนที่");
-  expect(app).toContain("<FoodDeliveryMapPicker");
+  // ZOKY delivery addresses no longer open the pin map (Founder, 2026-11-12).
+  // The map picker module itself stays: Wyn Maps still uses it.
+  expect(app).toContain("ใช้ตำแหน่งปัจจุบัน");
+  expect(app).toContain("freshGpsLocation()");
+  expect(app).toContain("GPS_ACCURACY_WARN_METERS = 100");
+  expect(app).toContain("searchFoodPlaces(client, trimmed, location)");
+  expect(app).toContain("กรุณาเลือกตำแหน่งจัดส่งก่อนบันทึก");
+  expect(app).not.toContain("<FoodDeliveryMapPicker");
+  expect(app).not.toContain("ค้นหาและปักหมุดบนแผนที่");
+  expect(app).not.toContain("ปักหมุด");
   const css = read("app/food/food.css");
   const mapsCss = read("app/maps/maps.css");
   const mapsV2Css = read("app/maps/maps.css");
@@ -157,7 +165,7 @@ test("WYNOS Food profile is delivery-specific and separate from Social profile",
   expect(app).toContain("ชื่อผู้รับ");
   expect(app).toContain("เบอร์โทร");
   expect(app).toContain("ที่อยู่หลัก");
-  expect(app).toContain("โลเคชั่น");
+  expect(app).toContain("ได้ตำแหน่งแล้ว");
   expect(app).toContain("รายละเอียดเพิ่มเติม");
   expect(app).toContain("ขายอาหารบน ZOKY");
   expect(app).toContain("สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi");
@@ -454,7 +462,7 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(app).toContain("disabled={confirmDisabled}");
   expect(map).toContain('aria-label={standalone ? "ค้นหาใน Wyn Maps" : "ค้นหาสถานที่หรือที่อยู่"}');
   expect(merchant).toContain("Math.ceil(");
-  expect(app).toContain("<DeliveryPinPicker");
+  expect(app).toContain("<DeliveryLocationPicker");
   expect(merchant).toContain("delivery_fee_per_km: Number(form.delivery_fee_per_km || 0)");
   expect(merchant).toContain("const zoneReady = store.delivery_radius_km !== undefined;");
   expect(lib).toContain("...pinParams(input.location)");

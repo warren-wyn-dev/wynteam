@@ -12,7 +12,7 @@ const compiled = ts.transpileModule(readFileSync(new URL("../lib/zoky-pwa.ts", i
 }).outputText;
 const exports = {};
 runInNewContext(compiled, { exports, Number, Date });
-const { zokyInstallMode, isEmbeddedFrame, isIosDevice, readZokyDismissedAt, writeZokyDismissedAt, ZOKY_INSTALL_COOLDOWN_MS, ZOKY_INSTALL_DISMISS_KEY } = exports;
+const { zokyInstallMode, isZokyPreviewHost, isEmbeddedFrame, isIosDevice, readZokyDismissedAt, writeZokyDismissedAt, ZOKY_INSTALL_COOLDOWN_MS, ZOKY_INSTALL_DISMISS_KEY } = exports;
 
 const now = 1_800_000_000_000;
 const base = { standalone: false, embedded: false, ios: false, hasInstallEvent: true, dismissedAt: null, now };
@@ -69,4 +69,18 @@ test("storage helpers survive blocked storage and bad values", () => {
   writeZokyDismissedAt(storage, now);
   assert.equal(map.get(ZOKY_INSTALL_DISMISS_KEY), String(now));
   assert.equal(readZokyDismissedAt(storage), now);
+});
+
+test("the card also shows on this team's Vercel preview hosts, and nowhere else", () => {
+  assert.equal(isZokyPreviewHost("wynteam-gesb-git-claude-affectionate-davinci-47faff-warren14.vercel.app"), true);
+  assert.equal(isZokyPreviewHost("zoky-web-warren14.vercel.app"), true);
+  assert.equal(isZokyPreviewHost("zoky-j0k2j5crf-warren14.vercel.app"), true);
+  assert.equal(isZokyPreviewHost("WYNTEAM-warren14.VERCEL.APP"), true);
+  // Other teams, look-alike hosts and the real domains are not preview hosts.
+  assert.equal(isZokyPreviewHost("evil-other.vercel.app"), false);
+  assert.equal(isZokyPreviewHost("evil-warren14.vercel.app.attacker.com"), false);
+  assert.equal(isZokyPreviewHost("attacker.com/-warren14.vercel.app"), false);
+  assert.equal(isZokyPreviewHost("zoky.wynos.online"), false);
+  assert.equal(isZokyPreviewHost("wynos.online"), false);
+  assert.equal(isZokyPreviewHost(""), false);
 });

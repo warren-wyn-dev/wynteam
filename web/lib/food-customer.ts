@@ -1122,8 +1122,8 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("store is outside the service area")) return "ร้านนี้ยังไม่เปิดให้บริการในพื้นที่";
   if (message.includes("outside service area")) return "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ ZOKY";
   if (message.includes("outside delivery area")) return "ที่อยู่นี้อยู่นอกพื้นที่จัดส่งของร้าน";
-  if (message.includes("delivery location required")) return "กรุณาปักหมุดตำแหน่งที่อยู่จัดส่งก่อนสั่ง";
-  if (message.includes("invalid delivery location")) return "ตำแหน่งที่อยู่ไม่ถูกต้อง ลองปักหมุดใหม่";
+  if (message.includes("delivery location required")) return "กรุณาเลือกตำแหน่งที่อยู่จัดส่งก่อนสั่ง";
+  if (message.includes("invalid delivery location")) return "ตำแหน่งที่อยู่ไม่ถูกต้อง ลองเลือกตำแหน่งใหม่";
   return message || fallback;
 }
 

@@ -7,8 +7,7 @@ import { isFoodAppHost } from "@/lib/food-origin";
 import {
   isEmbeddedFrame,
   isIosDevice,
-  readZokyDismissedAt,
-  writeZokyDismissedAt,
+  isZokyPreviewHost,
   ZOKY_INSTALL_SHOW_DELAY_MS,
   ZOKY_OPEN_URL,
   zokyInstallMode,
@@ -29,21 +28,14 @@ function isStandalone() {
   }
 }
 
-function safeStorage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 /** "Add ZOKY to the Home Screen" card. Only on ZOKY hosts (the WYNOS card stays excluded there). */
 export function ZokyInstallBanner() {
   const [event, setEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [mode, setMode] = useState<ZokyInstallMode | null>(null);
 
   useEffect(() => {
-    if (!isFoodAppHost(window.location.hostname)) return;
+    const host = window.location.hostname;
+    if (!isFoodAppHost(host) && !isZokyPreviewHost(host)) return;
     const embedded = isEmbeddedFrame(window);
     const ios = isIosDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints ?? 0);
     let saved: BeforeInstallPromptEvent | null = null;
@@ -54,7 +46,8 @@ export function ZokyInstallBanner() {
         embedded,
         ios,
         hasInstallEvent: saved !== null,
-        dismissedAt: readZokyDismissedAt(safeStorage()),
+        // Shown on every visit (Founder decision 2026-11-12): no dismissal cooldown.
+        dismissedAt: null,
         now: Date.now(),
       }));
     };
@@ -67,7 +60,6 @@ export function ZokyInstallBanner() {
     const onInstalled = () => {
       saved = null;
       setEvent(null);
-      writeZokyDismissedAt(safeStorage(), Date.now());
       setMode(null);
     };
 
@@ -87,7 +79,7 @@ export function ZokyInstallBanner() {
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
     window.addEventListener("wynos:open-install", onOpenRequested);
-    // Wait a moment so the card never covers the first screen.
+    // Shown right away (Founder decision 2026-11-12); 0 still lets the install event listener attach first.
     const timer = window.setTimeout(evaluate, ZOKY_INSTALL_SHOW_DELAY_MS);
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
@@ -100,7 +92,7 @@ export function ZokyInstallBanner() {
   if (!mode) return null;
 
   const dismiss = () => {
-    writeZokyDismissedAt(safeStorage(), Date.now());
+    // Closes for this visit only; the card returns on the next page load.
     setMode(null);
   };
   const install = async () => {
@@ -136,13 +128,18 @@ export function ZokyInstallBanner() {
         </button>
       </div>
       {mode === "ios" ? (
-        <ol className="install-prompt-steps">
-          <li><span className="install-prompt-step-index">1</span>กดปุ่มแชร์ <WynosIcon name="share" size={14} strokeWidth={2} /> ใน Safari</li>
-          <li><span className="install-prompt-step-index">2</span>เลือก &quot;เพิ่มไปยังหน้าจอโฮม&quot;</li>
-        </ol>
+        <>
+          <ol className="install-prompt-steps">
+            <li><span className="install-prompt-step-index">1</span><span>กดปุ่มแชร์ <WynosIcon name="share" size={16} strokeWidth={2} /> ใน Safari</span></li>
+            <li><span className="install-prompt-step-index">2</span><span>เลือก &quot;เพิ่มไปยังหน้าจอโฮม&quot;</span></li>
+            <li><span className="install-prompt-step-index">3</span><span>แตะ &quot;เพิ่ม&quot; แล้วเปิด ZOKY จากไอคอนบนหน้าจอ</span></li>
+          </ol>
+          <div className="install-prompt-actions">
+            <button type="button" className="install-prompt-ghost" onClick={dismiss}>ไว้ทีหลัง</button>
+          </div>
+        </>
       ) : (
         <div className="install-prompt-actions">
-          <button type="button" className="install-prompt-ghost" onClick={dismiss}>ไม่ใช่ตอนนี้</button>
           {mode === "open-browser" ? (
             <a className="install-prompt-primary" href={ZOKY_OPEN_URL} target="_blank" rel="noopener noreferrer" onClick={dismiss}>
               เปิด Zoky ในเบราว์เซอร์
@@ -150,6 +147,7 @@ export function ZokyInstallBanner() {
           ) : (
             <button type="button" className="install-prompt-primary" onClick={() => void install()}>ติดตั้ง</button>
           )}
+          <button type="button" className="install-prompt-ghost" onClick={dismiss}>ไว้ทีหลัง</button>
         </div>
       )}
     </div>

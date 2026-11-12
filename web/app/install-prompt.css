@@ -146,8 +146,72 @@
 
 /* The Settings route has no bottom navigation. Keep the manual install
    sheet anchored to the safe area rather than leaving a phantom nav gap. */
-body:not(:has(.route-bottom-nav)) .install-prompt-banner {
+body:not(:has(.route-bottom-nav)) .install-prompt-banner.push-prompt-banner {
   bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+/* Install prompt only (not the push prompt): large modal, ~85% of the
+   screen, with a dimmed backdrop so users notice and add to Home Screen. */
+.install-prompt-banner:not(.push-prompt-banner) {
+  top: auto;
+  bottom: calc(7.5dvh + env(safe-area-inset-bottom));
+  height: 85dvh;
+  max-height: calc(100dvh - 24px);
+  max-width: 460px;
+  padding: 24px 20px;
+  justify-content: center;
+  gap: 24px;
+  overflow-y: auto;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5);
+}
+
+.install-prompt-banner:not(.push-prompt-banner) .install-prompt-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+}
+
+.install-prompt-banner:not(.push-prompt-banner) .install-prompt-row {
+  flex-direction: column;
+  text-align: center;
+  gap: 16px;
+  position: relative;
+}
+
+.install-prompt-banner:not(.push-prompt-banner) .install-prompt-close {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  width: 36px;
+  height: 36px;
+}
+
+.install-prompt-banner:not(.push-prompt-banner) .install-prompt-copy strong {
+  font-size: 22px;
+}
+
+.install-prompt-banner:not(.push-prompt-banner) .install-prompt-copy small {
+  font-size: 15px;
+  margin-top: 6px;
+}
+
+.install-prompt-banner:not(.push-prompt-banner) .install-prompt-steps li {
+  font-size: 16px;
+  padding: 14px 0;
+  gap: 14px;
+}
+
+.install-prompt-banner:not(.push-prompt-banner) .install-prompt-step-index {
+  flex-basis: 30px;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+}
+
+.install-prompt-banner:not(.push-prompt-banner) .install-prompt-primary,
+.install-prompt-banner:not(.push-prompt-banner) .install-prompt-ghost {
+  height: 52px;
+  font-size: 16px;
 }
 
 /* Push prompt (Founder decision 2026-09-27): same card as the install
@@ -187,4 +251,57 @@ a.install-prompt-primary {
   display: grid;
   place-items: center;
   text-decoration: none;
+}
+
+/* ZOKY install card (Founder example 2026-11-12): centered card, icon, title,
+   steps in a soft grey box, full-width primary pill and a quiet "later" link.
+   Placed last so it wins over the generic modal rules above. */
+.install-prompt-banner.zoky-install-banner {
+  top: 50%;
+  bottom: auto;
+  height: auto;
+  max-height: calc(100dvh - 32px);
+  transform: translateY(-50%);
+  padding: 32px 20px 20px;
+  gap: 20px;
+  justify-content: flex-start;
+}
+
+.zoky-install-banner .install-prompt-steps {
+  padding: 4px 16px;
+  border-radius: 18px;
+  background: var(--wyn-surface);
+  gap: 0;
+}
+
+.zoky-install-banner .install-prompt-steps li {
+  align-items: flex-start;
+  line-height: 1.45;
+}
+
+.zoky-install-banner .install-prompt-steps li svg {
+  vertical-align: -3px;
+  color: #1d7cf2;
+}
+
+.zoky-install-banner .install-prompt-actions {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zoky-install-banner .install-prompt-primary {
+  flex: 0 0 auto;
+  height: 54px;
+  border-radius: 999px;
+  background: #e11d74;
+  color: #fff;
+}
+
+.zoky-install-banner .install-prompt-ghost {
+  flex: 0 0 auto;
+  height: 48px;
+}
+
+.zoky-install-banner .install-prompt-step-index {
+  background: var(--wyn-bg);
 }
