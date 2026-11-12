@@ -90,8 +90,8 @@ test("WYNOS Food delivery address uses GPS with a place-search fallback and no m
   expect(app).not.toContain("ปักหมุด");
   const css = read("app/food/food.css");
   const mapsCss = read("app/maps/maps.css");
-  const mapsV2Css = read("app/maps/maps-v2.css");
-  const mapsV4Css = read("app/maps/maps-v4.css");
+  const mapsV2Css = read("app/maps/maps.css");
+  const mapsV4Css = read("app/maps/maps.css");
   const serviceArea = JSON.parse(read("public/maps/food-service-area-thailand.json")) as {
     geometry?: { coordinates?: number[][][] };
   };
@@ -165,7 +165,7 @@ test("WYNOS Food profile is delivery-specific and separate from Social profile",
   expect(app).toContain("ชื่อผู้รับ");
   expect(app).toContain("เบอร์โทร");
   expect(app).toContain("ที่อยู่หลัก");
-  expect(app).toContain("โลเคชั่น");
+  expect(app).toContain("ได้ตำแหน่งแล้ว");
   expect(app).toContain("รายละเอียดเพิ่มเติม");
   expect(app).toContain("ขายอาหารบน ZOKY");
   expect(app).toContain("สนใจเปิดร้าน ติดต่อทีมงานผ่าน LINE · @352lvyoi");
@@ -249,8 +249,8 @@ test("Wyn Maps Places enriches saved addresses without exposing customer homes",
   expect(map).toContain('wf-map-confirm-tool-label">เส้นทาง');
   expect(map).toContain('wf-map-confirm-tool-label">บันทึก');
   expect(map).toContain('wf-map-confirm-tool-label">แชร์');
-  expect(read("app/maps/maps-v5.css")).toContain("v5.3 — match the approved premium-minimal Maps visual direction");
-  expect(read("app/maps/maps-v5.css")).toContain("background: rgb(255 59 48 / 10%)");
+  expect(read("app/maps/maps.css")).toContain("v5.3 — match the approved premium-minimal Maps visual direction");
+  expect(read("app/maps/maps.css")).toContain("background: rgb(255 59 48 / 10%)");
   expect(map).toContain("เพิ่มสถานที่ที่หายไป");
   expect(map).toContain("submitWynosPlaceSuggestion");
   expect(data).toContain('client.rpc("submit_wynos_place_suggestion"');
@@ -462,7 +462,7 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(app).toContain("disabled={confirmDisabled}");
   expect(map).toContain('aria-label={standalone ? "ค้นหาใน Wyn Maps" : "ค้นหาสถานที่หรือที่อยู่"}');
   expect(merchant).toContain("Math.ceil(");
-  expect(app).toContain("<DeliveryPinPicker");
+  expect(app).toContain("<DeliveryLocationPicker");
   expect(merchant).toContain("delivery_fee_per_km: Number(form.delivery_fee_per_km || 0)");
   expect(merchant).toContain("const zoneReady = store.delivery_radius_km !== undefined;");
   expect(lib).toContain("...pinParams(input.location)");
@@ -640,7 +640,7 @@ test("WYNOS Food item sheet matches the approved native ordering layout", () => 
 test("standalone Wyn Maps stays independent from Food-only chrome and service-area blocking", () => {
   const shell = read("app/maps/wynos-maps-address-picker.tsx");
   const map = read("components/food/food-delivery-map-picker.tsx");
-  const polish = read("app/maps/maps-v5.css");
+  const polish = read("app/maps/maps.css");
 
   expect(shell).not.toContain("wynos-maps-brand-rail");
   expect(shell).not.toContain('router.push("/food")');
