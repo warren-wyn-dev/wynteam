@@ -3,7 +3,7 @@
 
 export const ZOKY_INSTALL_DISMISS_KEY = "zoky-install-dismissed-at.v1";
 export const ZOKY_INSTALL_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
-export const ZOKY_INSTALL_SHOW_DELAY_MS = 8000;
+export const ZOKY_INSTALL_SHOW_DELAY_MS = 0; // Founder 2026-11-12: show immediately
 export const ZOKY_OPEN_URL = "https://zoky.wynos.online/";
 
 export type ZokyInstallMode = "android-prompt" | "android-manual" | "ios" | "open-browser";

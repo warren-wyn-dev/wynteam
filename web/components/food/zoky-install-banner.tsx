@@ -77,7 +77,7 @@ export function ZokyInstallBanner() {
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
     window.addEventListener("wynos:open-install", onOpenRequested);
-    // Wait a moment so the card never covers the first screen.
+    // Shown right away (Founder decision 2026-11-12); 0 still lets the install event listener attach first.
     const timer = window.setTimeout(evaluate, ZOKY_INSTALL_SHOW_DELAY_MS);
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
