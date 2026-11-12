@@ -7,8 +7,6 @@ import { isFoodAppHost } from "@/lib/food-origin";
 import {
   isEmbeddedFrame,
   isIosDevice,
-  readZokyDismissedAt,
-  writeZokyDismissedAt,
   ZOKY_INSTALL_SHOW_DELAY_MS,
   ZOKY_OPEN_URL,
   zokyInstallMode,
@@ -29,14 +27,6 @@ function isStandalone() {
   }
 }
 
-function safeStorage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 /** "Add ZOKY to the Home Screen" card. Only on ZOKY hosts (the WYNOS card stays excluded there). */
 export function ZokyInstallBanner() {
   const [event, setEvent] = useState<BeforeInstallPromptEvent | null>(null);
@@ -54,7 +44,8 @@ export function ZokyInstallBanner() {
         embedded,
         ios,
         hasInstallEvent: saved !== null,
-        dismissedAt: readZokyDismissedAt(safeStorage()),
+        // Shown on every visit (Founder decision 2026-11-12): no dismissal cooldown.
+        dismissedAt: null,
         now: Date.now(),
       }));
     };
@@ -67,7 +58,6 @@ export function ZokyInstallBanner() {
     const onInstalled = () => {
       saved = null;
       setEvent(null);
-      writeZokyDismissedAt(safeStorage(), Date.now());
       setMode(null);
     };
 
@@ -100,7 +90,7 @@ export function ZokyInstallBanner() {
   if (!mode) return null;
 
   const dismiss = () => {
-    writeZokyDismissedAt(safeStorage(), Date.now());
+    // Closes for this visit only; the card returns on the next page load.
     setMode(null);
   };
   const install = async () => {
@@ -143,7 +133,6 @@ export function ZokyInstallBanner() {
             <li><span className="install-prompt-step-index">3</span><span>แตะ &quot;เพิ่ม&quot; แล้วเปิด ZOKY จากไอคอนบนหน้าจอ</span></li>
           </ol>
           <div className="install-prompt-actions">
-            <button type="button" className="install-prompt-primary" onClick={dismiss}>เข้าใจแล้ว</button>
             <button type="button" className="install-prompt-ghost" onClick={dismiss}>ไว้ทีหลัง</button>
           </div>
         </>
