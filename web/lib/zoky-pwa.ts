@@ -6,6 +6,16 @@ export const ZOKY_INSTALL_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 export const ZOKY_INSTALL_SHOW_DELAY_MS = 0; // Founder 2026-11-12: show immediately
 export const ZOKY_OPEN_URL = "https://zoky.wynos.online/";
 
+/**
+ * Vercel preview/deployment hosts of this team (*-warren14.vercel.app). The
+ * install card also shows there so it can be tested on a phone before release.
+ * It only controls whether the card shows: Food auth/origin rules keep using
+ * isFoodAppHost, so previews are not treated as ZOKY origins anywhere else.
+ */
+export function isZokyPreviewHost(hostname: string): boolean {
+  return /^[a-z0-9-]+-warren14\.vercel\.app$/i.test(hostname);
+}
+
 export type ZokyInstallMode = "android-prompt" | "android-manual" | "ios" | "open-browser";
 
 /** True when this page runs inside another page's frame (e.g. the WynChat mini app). */

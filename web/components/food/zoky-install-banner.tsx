@@ -7,6 +7,7 @@ import { isFoodAppHost } from "@/lib/food-origin";
 import {
   isEmbeddedFrame,
   isIosDevice,
+  isZokyPreviewHost,
   ZOKY_INSTALL_SHOW_DELAY_MS,
   ZOKY_OPEN_URL,
   zokyInstallMode,
@@ -33,7 +34,8 @@ export function ZokyInstallBanner() {
   const [mode, setMode] = useState<ZokyInstallMode | null>(null);
 
   useEffect(() => {
-    if (!isFoodAppHost(window.location.hostname)) return;
+    const host = window.location.hostname;
+    if (!isFoodAppHost(host) && !isZokyPreviewHost(host)) return;
     const embedded = isEmbeddedFrame(window);
     const ios = isIosDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints ?? 0);
     let saved: BeforeInstallPromptEvent | null = null;
