@@ -269,3 +269,10 @@ test("Food auth warns in-app browsers about Google and keeps signup short", asyn
   assert.doesNotMatch(source, /confirmPassword|ยืนยันรหัสผ่าน/);
   assert.match(source, /password\.length < MIN_SIGNUP_PASSWORD_LENGTH/);
 });
+
+test("the address form names the required fields that are still empty", async () => {
+  const source = await read("components/food/wynos-food-developer-app.tsx");
+  // Founder 2026-11-13 funnel review: a disabled save button gave no reason for name/phone/street.
+  assert.match(source, /const contactMissing = \[/);
+  assert.match(source, /ยังขาด: \{contactMissing\.join\(", "\)\}/);
+});
