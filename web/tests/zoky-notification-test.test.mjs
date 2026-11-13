@@ -64,3 +64,23 @@ test("the ZOKY settings page has the test button wired to the helper", () => {
   assert.match(app, /onTestNotification=\{\(\) => void testNotification\(\)\}/);
   assert.match(app, /zokyNotificationTestMessage\(await showZokyTestNotification\(\)\)/);
 });
+
+test("ZOKY settings: one notification card with an on/off switch and the test button; no Open WYNOS Social row", () => {
+  const app = readFileSync(new URL("../components/food/wynos-food-developer-app.tsx", import.meta.url), "utf8");
+  const start = app.indexOf('<div className="fx-menu-list-settings">');
+  const end = app.indexOf("</div>\n\n      <button className=\"fx-btn fx-btn--soft fx-btn--block fx-signout\"", start);
+  assert.ok(start > 0 && end > start);
+  const settings = app.slice(start, end);
+  // One card holding the switch (a real button with role=switch) and the test button.
+  assert.equal(settings.split('className="fx-notification-card"').length - 1, 1);
+  assert.match(settings, /role="switch" aria-checked=\{notificationsEnabled\}/);
+  assert.match(settings, /className="fx-switch" onClick=\{onNotifications\}/);
+  assert.match(settings, /className="fx-notification-test" onClick=\{onTestNotification\}/);
+  // The old separate rows are gone.
+  assert.doesNotMatch(settings, /<button type="button" onClick=\{onNotifications\}>/);
+  assert.doesNotMatch(settings, /เปิด WYNOS Social/);
+  assert.doesNotMatch(settings, /wynos\.online\/login/);
+  const css = readFileSync(new URL("../app/food/food-app.css", import.meta.url), "utf8");
+  assert.match(css, /\.fx-switch\[aria-checked="true"\]::before/);
+  assert.match(css, /\.fx-switch \{[^}]*height: 44px/);
+});

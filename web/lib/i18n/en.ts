@@ -4,12 +4,14 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "การแจ้งเตือน ZOKY": "ZOKY notifications",
+  "ปิดอยู่ · แจ้งสถานะคำสั่งซื้อและการจัดส่ง": "Off · order and delivery updates",
+  "เปิดอยู่บนอุปกรณ์นี้": "On for this device",
   "ทดสอบการแจ้งเตือน: ถ้าเห็นข้อความนี้ แจ้งเตือนของ ZOKY ทำงานปกติ": "Test: if you see this, ZOKY notifications are working.",
   "ทดสอบการแจ้งเตือนไม่สำเร็จ กรุณาลองใหม่": "The notification test failed. Please try again.",
   "ยังไม่ได้อนุญาตการแจ้งเตือน กรุณาเปิดการแจ้งเตือนก่อน แล้วลองทดสอบอีกครั้ง": "Notifications are not allowed yet. Turn them on first, then try the test again.",
   "เครื่องหรือเบราว์เซอร์นี้ยังไม่รองรับการแจ้งเตือน บน iPhone ให้เพิ่ม ZOKY ไปยังหน้าจอโฮมก่อน": "This device or browser does not support notifications. On iPhone, add ZOKY to the Home Screen first.",
   "ส่งแจ้งเตือนทดสอบแล้ว ถ้าเห็นข้อความที่ด้านบนหน้าจอ แปลว่าเครื่องนี้แสดงการแจ้งเตือนได้ปกติ": "Test notification sent. If you see it at the top of the screen, this device shows notifications normally.",
-  "ส่งแจ้งเตือนทดสอบมาที่เครื่องนี้": "Send a test notification to this device",
   "ให้เพื่อนสแกนจากหน้าจอนี้ได้เลย": "Let friends scan this screen",
   "กรุณาเข้าสู่ระบบ ZOKY ใหม่อีกครั้ง": "Please sign in to ZOKY again.",
   "เปิดในเบราว์เซอร์": "Open in browser",
