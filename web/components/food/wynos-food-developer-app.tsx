@@ -87,6 +87,7 @@ import {
   unsubscribeFromPushNotifications,
 } from "@/lib/push-notifications";
 import { isEmbeddedFrame } from "@/lib/zoky-pwa";
+import { showZokyTestNotification, zokyNotificationTestMessage } from "@/lib/zoky-notification-test";
 import { foodStoreQrTarget, renderZokyQr, renderZokyStorePoster, zokyQrFileName } from "@/lib/zoky-store-qr";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
@@ -1937,6 +1938,7 @@ function AccountPanel({
   onDeleteAddress,
   onInstall,
   onNotifications,
+  onTestNotification,
   onSignOut,
   onOrders,
 }: {
@@ -1948,6 +1950,7 @@ function AccountPanel({
   onDeleteAddress: (id: string) => void;
   onInstall: () => void;
   onNotifications: () => void;
+  onTestNotification: () => void;
   onSignOut: () => void;
   onOrders: () => void;
 }) {
@@ -2021,6 +2024,9 @@ function AccountPanel({
         </button>
         <button type="button" onClick={onNotifications}>
           <Bell size={21} /><span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดอยู่ · แตะเพื่อปิดบนอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span><ChevronRight size={18} />
+        </button>
+        <button type="button" onClick={onTestNotification}>
+          <Bell size={21} /><span><strong>ทดสอบการแจ้งเตือน</strong><small>ส่งแจ้งเตือนทดสอบมาที่เครื่องนี้</small></span><ChevronRight size={18} />
         </button>
         {installPrompt ? (
           <button type="button" onClick={onInstall}>
@@ -3977,6 +3983,10 @@ function FoodCustomerInner({
     }
   };
 
+  // Founder 2026-11-13: show a test notification on this device (no server involved).
+  const testNotification = async () => {
+    setMessage(zokyNotificationTestMessage(await showZokyTestNotification()));
+  };
   // Settings row toggles Push: on needs a tap (OS permission), off removes this device's token.
   const requestNotifications = async () => {
     if (isEmbeddedFrame(window)) {
@@ -4224,6 +4234,7 @@ function FoodCustomerInner({
             onDeleteAddress={(id) => void deleteAddress(id)}
             onInstall={() => void install()}
             onNotifications={() => void requestNotifications()}
+            onTestNotification={() => void testNotification()}
             onSignOut={() => void signOut()}
             onOrders={() => setTab("orders")}
           />

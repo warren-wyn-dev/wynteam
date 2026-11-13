@@ -18,6 +18,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const SHOW_DELAY_MS = 4000;
 const HIGH_INTENT_SHOW_DELAY_MS = 1200;
+// Founder 2026-11-13: in ZOKY the card is big, centered, appears at once and
+// on every visit until notifications are on ("ไว้ทีหลัง" never starts a cooldown).
+const ZOKY_SHOW_DELAY_MS = 0;
 // Same event the Settings install row uses to open the install instructions.
 const OPEN_INSTALL_EVENT = "wynos:open-install";
 
@@ -71,9 +74,11 @@ export function PushPrompt() {
     // WynChat mini app); the ZOKY card offers "open in browser" there.
     if (!userId || isEmbeddedFrame(window)) return;
     let cancelled = false;
-    const delay = /^\/(chat|notifications)(\/|$)/.test(promptPath)
-      ? HIGH_INTENT_SHOW_DELAY_MS
-      : SHOW_DELAY_MS;
+    const delay = foodPrompt
+      ? ZOKY_SHOW_DELAY_MS
+      : /^\/(chat|notifications)(\/|$)/.test(promptPath)
+        ? HIGH_INTENT_SHOW_DELAY_MS
+        : SHOW_DELAY_MS;
     const timer = window.setTimeout(async () => {
       const permission = typeof Notification === "undefined" ? "unsupported" : Notification.permission;
       // Granted needs no prompt. Denied skips Firebase loading but can still
@@ -83,14 +88,15 @@ export function PushPrompt() {
         ? ({ available: false, reason: "denied" } as const)
         : await getPushAvailability();
       if (cancelled) return;
-      const next = pushPromptKind({ path: promptPath, permission, availability, dismissedAt: readDismissedAt(), now: Date.now() });
-      setPrompt(next ? { userId, kind: next } : null);
+      const next = pushPromptKind({ path: promptPath, permission, availability, dismissedAt: foodPrompt ? null : readDismissedAt(), now: Date.now() });
+      // ZOKY: the install card already explains "add to Home Screen", so do not stack a second card.
+      setPrompt(next && !(foodPrompt && next === "install") ? { userId, kind: next } : null);
     }, delay);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [userId, promptPath]);
+  }, [userId, promptPath, foodPrompt]);
 
   // While the card is open, the install banner waits behind it (install-prompt.css).
   useEffect(() => {
@@ -104,7 +110,7 @@ export function PushPrompt() {
   if (!kind || !userId) return null;
 
   const dismiss = () => {
-    writeDismissedAt();
+    if (!foodPrompt) writeDismissedAt();
     setPrompt(null);
   };
 
@@ -121,7 +127,7 @@ export function PushPrompt() {
       return;
     }
     // Not now in the OS popup: ask again in a week, not on every page.
-    if (result.reason === "dismissed") writeDismissedAt();
+    if (result.reason === "dismissed" && !foodPrompt) writeDismissedAt();
     setError(pushReasonDescription(result.reason));
   };
 
@@ -134,14 +140,14 @@ export function PushPrompt() {
   };
 
   const showPermissionHelp = () => {
-    writeDismissedAt();
+    if (!foodPrompt) writeDismissedAt();
     window.location.assign("/settings");
   };
 
   return (
-    <div className="install-prompt-banner push-prompt-banner" role="dialog" aria-label={foodPrompt ? "เปิดการแจ้งเตือน ZOKY" : "เปิดการแจ้งเตือน"}>
+    <div className={`install-prompt-banner push-prompt-banner${foodPrompt ? " zoky-push-card" : ""}`} role="dialog" aria-modal={foodPrompt ? "true" : undefined} aria-label={foodPrompt ? "เปิดการแจ้งเตือน ZOKY" : "เปิดการแจ้งเตือน"}>
       <div className="install-prompt-row">
-        <span className="push-prompt-icon" aria-hidden="true"><WynosIcon name="notifications" size={22} strokeWidth={2} /></span>
+        <span className="push-prompt-icon" aria-hidden="true"><WynosIcon name="notifications" size={foodPrompt ? 34 : 22} strokeWidth={2} /></span>
         <div className="install-prompt-copy">
           <strong>{kind === "settings"
             ? (foodPrompt ? "เปิดการแจ้งเตือน ZOKY อีกครั้ง" : "เปิดการแจ้งเตือนอีกครั้ง")
@@ -164,7 +170,7 @@ export function PushPrompt() {
       </div>
       {error ? <p className="route-error push-prompt-error" role="alert">{error}</p> : null}
       <div className="install-prompt-actions">
-        <button type="button" className="install-prompt-ghost" onClick={dismiss}>ไม่ใช่ตอนนี้</button>
+        <button type="button" className="install-prompt-ghost" onClick={dismiss}>{foodPrompt ? "ไว้ทีหลัง" : "ไม่ใช่ตอนนี้"}</button>
         {kind === "install" ?
           <button type="button" className="install-prompt-primary" onClick={showInstall}>วิธีเพิ่มไปยังหน้าจอโฮม</button> :
           kind === "settings" ?

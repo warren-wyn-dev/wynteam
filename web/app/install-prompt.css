@@ -305,3 +305,73 @@ a.install-prompt-primary {
 .zoky-install-banner .install-prompt-step-index {
   background: var(--wyn-bg);
 }
+
+/* ZOKY notification card (Founder 2026-11-13): same look as the install card,
+   large and centered, shown at once on every visit until notifications are on.
+   Higher specificity than the push-prompt rules above so it wins. */
+html body .install-prompt-banner.push-prompt-banner.zoky-push-card {
+  top: 50%;
+  bottom: auto;
+  height: auto;
+  max-height: calc(100dvh - 32px);
+  max-width: 460px;
+  transform: translateY(-50%);
+  padding: 32px 20px 20px;
+  gap: 20px;
+  justify-content: flex-start;
+  overflow-y: auto;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5);
+}
+
+.zoky-push-card .install-prompt-row {
+  flex-direction: column;
+  text-align: center;
+  gap: 16px;
+  position: relative;
+}
+
+.zoky-push-card .install-prompt-close {
+  position: absolute;
+  top: -20px;
+  right: -8px;
+  width: 36px;
+  height: 36px;
+}
+
+.zoky-push-card .push-prompt-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  background: #fde8f1;
+  color: #e11d74;
+}
+
+.zoky-push-card .install-prompt-copy strong {
+  font-size: 22px;
+}
+
+.zoky-push-card .install-prompt-copy small {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.zoky-push-card .install-prompt-actions {
+  flex-direction: column-reverse;
+  gap: 4px;
+}
+
+.zoky-push-card .install-prompt-primary {
+  flex: 0 0 auto;
+  height: 54px;
+  border-radius: 999px;
+  background: #e11d74;
+  color: #fff;
+  font-size: 16px;
+}
+
+.zoky-push-card .install-prompt-ghost {
+  flex: 0 0 auto;
+  height: 48px;
+  font-size: 16px;
+}
