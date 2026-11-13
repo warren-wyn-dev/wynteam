@@ -18,7 +18,7 @@ export const ADMIN_SYSTEM_LABEL: Record<AdminSystem, string> = {
   social: "WYNOS Social",
   food: "WYNOS Food",
   merchant: "WYNOS Merchant",
-  maps: "Wyn Maps",
+  maps: "Norswor Maps",
 };
 
 export const ADMIN_LEVEL_LABEL: Record<AdminLevel, string> = {

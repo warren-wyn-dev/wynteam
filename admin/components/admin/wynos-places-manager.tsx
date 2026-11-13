@@ -138,7 +138,7 @@ export function WynosPlacesManager({
   const reviewSuggestion = (suggestionId: string, approve: boolean) => startTransition(async () => {
     try {
       await reviewWynosPlaceSuggestion(suggestionId, approve);
-      setMessage(approve ? "อนุมัติสถานที่และเพิ่มลง Wyn Maps แล้ว" : "ปฏิเสธคำขอแล้ว");
+      setMessage(approve ? "อนุมัติสถานที่และเพิ่มลง Norswor Maps แล้ว" : "ปฏิเสธคำขอแล้ว");
       router.refresh();
     } catch (error) {
       setMessage(adminWynosPlaceError(error));
@@ -176,7 +176,7 @@ export function WynosPlacesManager({
       <section className="flex flex-col gap-3 rounded-xl border p-4">
         <div>
           <h3 className="font-semibold">คำขอเพิ่มสถานที่</h3>
-          <p className="text-xs text-muted-foreground">ผู้ใช้ส่งจากหมุดบน Wyn Maps สถานที่จะไม่ขึ้นสาธารณะจนกว่า Admin อนุมัติ</p>
+          <p className="text-xs text-muted-foreground">ผู้ใช้ส่งจากหมุดบน Norswor Maps สถานที่จะไม่ขึ้นสาธารณะจนกว่า Admin อนุมัติ</p>
         </div>
         {suggestions.length === 0 ? (
           <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">ไม่มีคำขอที่รอตรวจสอบ</div>
@@ -204,7 +204,7 @@ export function WynosPlacesManager({
 
       <section className="flex flex-col gap-3 rounded-xl border p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h3 className="font-semibold">Places</h3><p className="text-xs text-muted-foreground">Active Places ใช้ใน Search และ Nearby ของ Wyn Maps</p></div>
+          <div><h3 className="font-semibold">Places</h3><p className="text-xs text-muted-foreground">Active Places ใช้ใน Search และ Nearby ของ Norswor Maps</p></div>
           <button type="button" className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" onClick={() => setDraft({ ...EMPTY_DRAFT })}>
             <Plus className="size-4" /> เพิ่มสถานที่
           </button>
@@ -264,7 +264,7 @@ export function WynosPlacesManager({
               <label className="grid gap-1 text-sm">Entrance longitude<input className="h-10 rounded-md border px-3 font-mono" inputMode="decimal" value={draft.entranceLongitude} onChange={(e) => setDraft({ ...draft, entranceLongitude: e.target.value })} /></label></div>
             <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm">Source<select className="h-10 rounded-md border bg-background px-3" value={draft.source} onChange={(e) => setDraft({ ...draft, source: e.target.value as Draft["source"] })}><option value="wynos">WYNOS</option><option value="osm">OpenStreetMap</option><option value="overture">Overture</option><option value="user_report">User report</option></select></label>
               <label className="grid gap-1 text-sm">Source reference<input className="h-10 rounded-md border px-3" value={draft.sourceRef} onChange={(e) => setDraft({ ...draft, sourceRef: e.target.value })} /></label></div>
-            <label className="flex items-center gap-3 rounded-lg border p-3 text-sm"><input type="checkbox" checked={draft.isActive} onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })} /><span><strong className="block">แสดงบน Wyn Maps</strong><small className="text-muted-foreground">ปิดไว้ได้ระหว่างตรวจสอบข้อมูล</small></span></label>
+            <label className="flex items-center gap-3 rounded-lg border p-3 text-sm"><input type="checkbox" checked={draft.isActive} onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })} /><span><strong className="block">แสดงบน Norswor Maps</strong><small className="text-muted-foreground">ปิดไว้ได้ระหว่างตรวจสอบข้อมูล</small></span></label>
             <div className="flex justify-end gap-2 pt-2"><button type="button" className="h-10 rounded-md border px-4 text-sm" onClick={() => setDraft(null)}>ยกเลิก</button>
               <button type="button" disabled={pending} className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50" onClick={submit}><CheckCircle2 className="size-4" /> บันทึก</button></div>
           </div>

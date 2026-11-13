@@ -33,7 +33,7 @@ export const ADMIN_NAV_GROUPS = [
   { id: "account", label: "WYNOS Account", icon: Users, description: "บัญชีผู้ใช้ส่วนกลาง สิทธิ์ และความปลอดภัย" },
   { id: "social", label: "WYNOS Social", icon: MessageCircle, description: "จัดการเนื้อหา รายงาน และประกาศ" },
   { id: "zoky", label: "ZOKY Food & Merchant", icon: UtensilsCrossed, description: "ย้ายไปที่ ZOKY Admin แล้ว" },
-  { id: "maps", label: "Wyn Maps", icon: MapIcon, description: "สถานที่และความถูกต้องของข้อมูลแผนที่" },
+  { id: "maps", label: "Norswor Maps", icon: MapIcon, description: "สถานที่และความถูกต้องของข้อมูลแผนที่" },
   { id: "other", label: "ส่วนกลางและระบบ", icon: Settings, description: "ฟังก์ชันที่ครอบคลุมหลายบริการ: การตลาดระดับแพลตฟอร์ม สิทธิ์ Audit Log และการตั้งค่า" },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; icon: LucideIcon; description: string }>;
 
