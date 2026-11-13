@@ -3,6 +3,9 @@
 // checks the permission and that the phone can display ZOKY notifications.
 // It does not go through the server, so it does not prove delivery from ZOKY.
 
+/** Sent by the ZOKY notification card so the Account page refreshes its switch. */
+export const ZOKY_PUSH_ENABLED_EVENT = "zoky:push-enabled";
+
 export type ZokyNotificationTestResult =
   | { ok: true }
   | { ok: false; reason: "unsupported" | "not-granted" | "failed" };

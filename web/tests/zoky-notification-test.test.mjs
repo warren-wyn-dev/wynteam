@@ -75,7 +75,7 @@ test("ZOKY settings: one notification card with an on/off switch and the test bu
   assert.equal(settings.split('className="fx-notification-card"').length - 1, 1);
   assert.match(settings, /role="switch" aria-checked=\{notificationsEnabled\}/);
   assert.match(settings, /className="fx-switch" onClick=\{onNotifications\}/);
-  assert.match(settings, /className="fx-notification-test" onClick=\{onTestNotification\}/);
+  assert.match(settings, /className="fx-notification-test" disabled=\{!notificationsEnabled\} onClick=\{onTestNotification\}/);
   // The old separate rows are gone.
   assert.doesNotMatch(settings, /<button type="button" onClick=\{onNotifications\}>/);
   assert.doesNotMatch(settings, /เปิด WYNOS Social/);
@@ -83,4 +83,13 @@ test("ZOKY settings: one notification card with an on/off switch and the test bu
   const css = readFileSync(new URL("../app/food/food-app.css", import.meta.url), "utf8");
   assert.match(css, /\.fx-switch\[aria-checked="true"\]::before/);
   assert.match(css, /\.fx-switch \{[^}]*height: 44px/);
+});
+
+test("the test button is disabled while notifications are off and the Account page listens for the card", () => {
+  const app = readFileSync(new URL("../components/food/wynos-food-developer-app.tsx", import.meta.url), "utf8");
+  assert.match(app, /className="fx-notification-test" disabled=\{!notificationsEnabled\} onClick=\{onTestNotification\}/);
+  assert.match(app, /เปิดการแจ้งเตือนก่อน จึงจะทดสอบได้/);
+  assert.match(app, /window\.addEventListener\(ZOKY_PUSH_ENABLED_EVENT, check\)/);
+  const css = readFileSync(new URL("../app/food/food-app.css", import.meta.url), "utf8");
+  assert.match(css, /\.fx-notification-test:disabled/);
 });
