@@ -95,3 +95,27 @@ test("Chat and Notifications use the faster high-intent prompt delay", () => {
   assert.match(source, /HIGH_INTENT_SHOW_DELAY_MS\s*=\s*1200/);
   assert.match(source, /\^\\\/\(chat\|notifications\)/);
 });
+
+test("ZOKY notification card is large, centered, immediate and shown on every visit", () => {
+  const source = readFileSync(new URL("../components/push-prompt.tsx", import.meta.url), "utf8");
+  // Immediate in ZOKY, and no seven-day cooldown read or written there.
+  assert.match(source, /ZOKY_SHOW_DELAY_MS = 0/);
+  assert.match(source, /dismissedAt: foodPrompt \? null : readDismissedAt\(\)/);
+  assert.match(source, /const dismiss = \(\) => \{\n\s+if \(!foodPrompt\) writeDismissedAt\(\);/);
+  assert.match(source, /result\.reason === "dismissed" && !foodPrompt/);
+  // The install card already covers "add to Home Screen": no second card on top of it.
+  assert.match(source, /foodPrompt && next === "install"/);
+  assert.match(source, /zoky-push-card/);
+  assert.match(source, /"ไว้ทีหลัง"/);
+  const css = readFileSync(new URL("../app/install-prompt.css", import.meta.url), "utf8");
+  const rule = css.slice(css.indexOf("html body .install-prompt-banner.push-prompt-banner.zoky-push-card"));
+  assert.match(rule, /top: 50%;/);
+  assert.match(rule, /transform: translateY\(-50%\);/);
+  assert.match(rule, /box-shadow: 0 0 0 100vmax rgba\(0, 0, 0, 0\.5\)/);
+});
+
+test("outside ZOKY the notification card keeps its seven-day cooldown", () => {
+  const source = readFileSync(new URL("../components/push-prompt.tsx", import.meta.url), "utf8");
+  assert.match(source, /if \(!foodPrompt\) writeDismissedAt\(\)/);
+  assert.match(source, /SHOW_DELAY_MS = 4000/);
+});
