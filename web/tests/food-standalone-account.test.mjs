@@ -257,3 +257,15 @@ test("Supabase browser clients retry a just-issued session the database sees as 
   }
   assert.match(await read("lib/supabase/browser.ts"), /global: \{ fetch: skewFetch \}[\s\S]*global: \{ fetch: skewFetch \}/);
 });
+
+test("Food auth warns in-app browsers about Google and keeps signup short", async () => {
+  const source = await read("components/food/food-auth.tsx");
+  // Founder 2026-11-13: 16 visitors from a Facebook post, 0 orders; Google OAuth is refused in in-app browsers.
+  assert.match(source, /detectInAppBrowser\(navigator\.userAgent\)/);
+  assert.equal(source.match(/<InAppBrowserNotice \/>/g)?.length, 2);
+  assert.match(source, /data-testid="in-app-browser-notice"/);
+  // Password visibility toggle replaces the confirm-password field; the length policy stays.
+  assert.match(source, /aria-label=\{visible \? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"\}/);
+  assert.doesNotMatch(source, /confirmPassword|ยืนยันรหัสผ่าน/);
+  assert.match(source, /password\.length < MIN_SIGNUP_PASSWORD_LENGTH/);
+});
