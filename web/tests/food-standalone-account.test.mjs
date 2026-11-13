@@ -9,7 +9,8 @@ test("Food signed-out users stay in the Food auth flow", async () => {
   const source = await read("components/food/wynos-food-developer-app.tsx");
   assert.match(source, /DeveloperRouteGate signedOutPath="\/food\/login" afterSignOutPath="\/food\/login"/);
   assert.match(source, /onSignOut=\{\(\) => void signOut\(\)\}/);
-  assert.match(source, /href="https:\/\/wynos\.online\/login"/);
+  // Founder 2026-11-13: the "เปิด WYNOS Social" row was removed from ZOKY account settings.
+  assert.doesNotMatch(source, /href="https:\/\/wynos\.online\/login"/);
 });
 
 test("Food signup creates only the central auth account", async () => {

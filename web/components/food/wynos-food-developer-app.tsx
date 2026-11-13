@@ -2022,20 +2022,19 @@ function AccountPanel({
         <button type="button" onClick={onOrders}>
           <ReceiptText size={21} /><span><strong>ประวัติการสั่งอาหาร</strong></span><ChevronRight size={18} />
         </button>
-        <button type="button" onClick={onNotifications}>
-          <Bell size={21} /><span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดอยู่ · แตะเพื่อปิดบนอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span><ChevronRight size={18} />
-        </button>
-        <button type="button" onClick={onTestNotification}>
-          <Bell size={21} /><span><strong>ทดสอบการแจ้งเตือน</strong><small>ส่งแจ้งเตือนทดสอบมาที่เครื่องนี้</small></span><ChevronRight size={18} />
-        </button>
+        <div className="fx-notification-card">
+          <div className="fx-notification-row">
+            <Bell size={21} />
+            <span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดอยู่บนอุปกรณ์นี้" : "ปิดอยู่ · แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span>
+            <button type="button" role="switch" aria-checked={notificationsEnabled} aria-label="การแจ้งเตือน ZOKY" className="fx-switch" onClick={onNotifications} />
+          </div>
+          <button type="button" className="fx-notification-test" onClick={onTestNotification}>ทดสอบการแจ้งเตือน</button>
+        </div>
         {installPrompt ? (
           <button type="button" onClick={onInstall}>
             <Download size={21} /><span><strong>ติดตั้ง ZOKY</strong><small>เพิ่ม ZOKY ไว้บนหน้าจอหลัก</small></span><ChevronRight size={18} />
           </button>
         ) : null}
-        <a href="https://wynos.online/login">
-          <ArrowLeft size={21} /><span><strong>เปิด WYNOS Social</strong><small>ใช้ WYNOS Account เดิม แล้วค่อยตั้งโปรไฟล์ Social เมื่อต้องการ</small></span><ChevronRight size={18} />
-        </a>
       </div>
 
       <button className="fx-btn fx-btn--soft fx-btn--block fx-signout" type="button" onClick={onSignOut}>
