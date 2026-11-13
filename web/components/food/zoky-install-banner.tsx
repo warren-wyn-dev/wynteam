@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { isFoodAppHost } from "@/lib/food-origin";
+import { detectInAppBrowser } from "@/lib/in-app-browser";
 import {
   isEmbeddedFrame,
   isIosDevice,
@@ -37,6 +38,7 @@ export function ZokyInstallBanner() {
     const host = window.location.hostname;
     if (!isFoodAppHost(host) && !isZokyPreviewHost(host)) return;
     const embedded = isEmbeddedFrame(window);
+    const inApp = detectInAppBrowser(navigator.userAgent) !== null;
     const ios = isIosDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints ?? 0);
     let saved: BeforeInstallPromptEvent | null = null;
 
@@ -44,6 +46,7 @@ export function ZokyInstallBanner() {
       setMode(zokyInstallMode({
         standalone: isStandalone(),
         embedded,
+        inApp,
         ios,
         hasInstallEvent: saved !== null,
         // Shown on every visit (Founder decision 2026-11-12): no dismissal cooldown.
@@ -69,6 +72,7 @@ export function ZokyInstallBanner() {
       setMode(zokyInstallMode({
         standalone: isStandalone(),
         embedded,
+        inApp,
         ios,
         hasInstallEvent: saved !== null,
         dismissedAt: null,
@@ -106,6 +110,19 @@ export function ZokyInstallBanner() {
     setEvent(null);
     dismiss();
   };
+
+  if (mode === "in-app-bar") {
+    // Small top bar: the menu stays visible and nothing here needs a decision.
+    const ios = isIosDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints ?? 0);
+    return (
+      <div className="zoky-inapp-bar" role="note" data-testid="zoky-inapp-bar">
+        <span>เปิดใน {ios ? "Safari" : "Chrome"} เพื่อติดตั้งและรับแจ้งเตือน</span>
+        <button type="button" aria-label="ปิด" onClick={dismiss}>
+          <WynosIcon name="close" size={14} strokeWidth={2} />
+        </button>
+      </div>
+    );
+  }
 
   const title = mode === "open-browser" ? "เปิด ZOKY ในเบราว์เซอร์" : "เพิ่ม ZOKY ไว้ที่หน้าจอหลัก";
   const hint = mode === "open-browser"

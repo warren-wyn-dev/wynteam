@@ -16,7 +16,7 @@ export function isZokyPreviewHost(hostname: string): boolean {
   return /^[a-z0-9-]+-warren14\.vercel\.app$/i.test(hostname);
 }
 
-export type ZokyInstallMode = "android-prompt" | "android-manual" | "ios" | "open-browser";
+export type ZokyInstallMode = "android-prompt" | "android-manual" | "ios" | "open-browser" | "in-app-bar";
 
 /** True when this page runs inside another page's frame (e.g. the WynChat mini app). */
 export function isEmbeddedFrame(win: { top: unknown; self?: unknown } | null | undefined): boolean {
@@ -38,12 +38,16 @@ export function isIosDevice(userAgent: string, platform: string, touchPoints: nu
 /**
  * What the card should offer, or null when it must stay hidden.
  * - standalone (already installed): never.
+ * - inside Facebook/Messenger/LINE/etc. in-app browsers: a small top bar only
+ *   (Founder 2026-11-13: the big card hid the menu and cannot install there).
  * - embedded: install and Push cannot work in a frame, so offer the browser.
  * - dismissed within the cooldown: hidden (the embedded card included).
  */
 export function zokyInstallMode(state: {
   standalone: boolean;
   embedded: boolean;
+  /** Facebook, Messenger, LINE, Instagram, TikTok in-app browser. */
+  inApp?: boolean;
   ios: boolean;
   hasInstallEvent: boolean;
   dismissedAt: number | null;
@@ -51,6 +55,7 @@ export function zokyInstallMode(state: {
 }): ZokyInstallMode | null {
   if (state.standalone) return null;
   if (state.dismissedAt !== null && state.now - state.dismissedAt < ZOKY_INSTALL_COOLDOWN_MS) return null;
+  if (state.inApp) return "in-app-bar";
   if (state.embedded) return "open-browser";
   if (state.ios) return "ios";
   return state.hasInstallEvent ? "android-prompt" : null;

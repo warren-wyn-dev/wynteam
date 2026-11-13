@@ -84,3 +84,13 @@ test("the card also shows on this team's Vercel preview hosts, and nowhere else"
   assert.equal(isZokyPreviewHost("wynos.online"), false);
   assert.equal(isZokyPreviewHost(""), false);
 });
+
+test("in-app browsers get only the small top bar; installed apps get nothing", () => {
+  const base = { standalone: false, embedded: false, inApp: true, ios: true, hasInstallEvent: false, dismissedAt: null, now: Date.now() };
+  assert.equal(zokyInstallMode(base), "in-app-bar");
+  assert.equal(zokyInstallMode({ ...base, ios: false, hasInstallEvent: true }), "in-app-bar");
+  assert.equal(zokyInstallMode({ ...base, embedded: true }), "in-app-bar");
+  assert.equal(zokyInstallMode({ ...base, standalone: true }), null);
+  // Safari/Chrome keep the big card.
+  assert.equal(zokyInstallMode({ ...base, inApp: false }), "ios");
+});
