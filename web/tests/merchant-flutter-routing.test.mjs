@@ -80,9 +80,10 @@ test("installed Flutter Merchant launches the authenticated host and keeps the e
 
 test("login returns and installed Merchant entries open Flutter with a deliberate legacy escape", () => {
   const proxy = router("1");
+  assert.equal(proxy(request("merchant.wynos.online", "/merchant?order=abc&store=xyz")).kind, "rewrite");
   assert.equal(proxy(request("merchant.wynos.online", "/merchant?order=abc&store=xyz")).url,
     "https://merchant.wynos.online/merchant/flutter?order=abc&store=xyz");
-  assert.equal(proxy(request("merchant.wynos.online", "/merchant")).code, 307);
+  assert.equal(proxy(request("merchant.wynos.online", "/merchant")).kind, "rewrite");
   for (const path of ["/merchant?legacy=1", "/merchant?payments=return", "/merchant?payments=refresh"]) {
     assert.equal(proxy(request("merchant.wynos.online", path)).kind, "next");
   }
