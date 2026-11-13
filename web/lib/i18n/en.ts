@@ -4,6 +4,8 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "บ้านเลขที่/ถนน": "House no./street",
+  "ยังขาด:": "Still missing:",
   "เปิดใน": "Open in",
   "เพื่อติดตั้งและรับแจ้งเตือน": "to install and get notifications",
   "เปิดในเบราว์เซอร์ของแอป": "In the in-app browser of",

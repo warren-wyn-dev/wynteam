@@ -2474,6 +2474,13 @@ function AddressEditor({
       && /^\d{5}$/.test(form.postalCode.trim())
       && form.location,
   );
+  // The save button stays disabled until these are filled; name which ones are
+  // missing so the customer does not have to guess (the map/admin parts have their own notes).
+  const contactMissing = [
+    form.recipientName.trim() ? null : "ชื่อผู้รับ",
+    form.recipientPhone.trim() ? null : "เบอร์โทร",
+    form.addressLine1.trim() || form.address.trim() ? null : "บ้านเลขที่/ถนน",
+  ].filter((value): value is string => value !== null);
   const deliveryMessage = !availability
     ? ""
     : availability.can_deliver
@@ -2583,6 +2590,7 @@ function AddressEditor({
           <span><strong>ใช้เป็นที่อยู่หลัก</strong><small>ZOKY จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span>
         </label>
 
+        {contactMissing.length ? <div className="wf-inline-warning" role="status">ยังขาด: {contactMissing.join(", ")}</div> : null}
         {!form.location ? <div className="wf-inline-warning">กรุณาเลือกตำแหน่งจัดส่งก่อนบันทึก เพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</div> : null}
         {form.location && (!form.subdistrict.trim() || !form.district.trim() || !form.province.trim() || !/^\d{5}$/.test(form.postalCode.trim())) ? (
           <div className="wf-inline-warning">กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก</div>
