@@ -4,6 +4,10 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "เปิดในเบราว์เซอร์ของแอป": "In the in-app browser of",
+  "อยู่ Google ไม่ให้เข้าสู่ระบบจากที่นี่": "— Google does not allow sign-in from here",
+  "แตะ ⋯ แล้วเลือก “เปิดใน": "Tap ⋯ and choose “Open in",
+  "” หรือสมัครด้วยอีเมลด้านล่างได้เลย": "” or sign up with email below",
   "เปิดการแจ้งเตือนก่อน จึงจะทดสอบได้": "Turn notifications on first to run the test",
   "การแจ้งเตือน ZOKY": "ZOKY notifications",
   "ปิดอยู่ · แจ้งสถานะคำสั่งซื้อและการจัดส่ง": "Off · order and delivery updates",
