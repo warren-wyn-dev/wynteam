@@ -6,6 +6,8 @@
 export const EN_EXACT: Record<string, string> = {
   "ลูกค้าใหม่ · ค่าอาหารครบ ฿100 ลดทันที ฿40": "New customers · ฿40 off when food reaches ฿100",
   "ระบบตรวจสิทธิ์ให้ตอนสั่งจริง ไม่ต้องใส่โค้ด": "Eligibility is checked when you order. No code needed.",
+  "บ้านเลขที่/ถนน": "House no./street",
+  "ยังขาด:": "Still missing:",
   "เปิดใน": "Open in",
   "เพื่อติดตั้งและรับแจ้งเตือน": "to install and get notifications",
   "เปิดในเบราว์เซอร์ของแอป": "In the in-app browser of",

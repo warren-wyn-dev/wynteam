@@ -278,3 +278,10 @@ test("guests see the first-order offer before signing up, and the cart no longer
   assert.match(guest, /ระบบตรวจสิทธิ์ให้ตอนสั่งจริง/);
   assert.match(app, /เพื่อรับส่วนลด ฿40/);
 });
+
+test("the address form names the required fields that are still empty", async () => {
+  const source = await read("components/food/wynos-food-developer-app.tsx");
+  // Founder 2026-11-13 funnel review: a disabled save button gave no reason for name/phone/street.
+  assert.match(source, /const contactMissing = \[/);
+  assert.match(source, /ยังขาด: \{contactMissing\.join\(", "\)\}/);
+});
