@@ -2227,7 +2227,6 @@ Object.assign(EN_EXACT, {
   "เปิด": "Open",
   "เปิด WYNOS Social": "Open WYNOS Social",
   "กลับหน้าหลัก WYNOS Food": "Back to WYNOS Food Home",
-  "โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos.online": "Post, chat, follow and discover content on wynos.online",
   "ใช้ WYNOS Account เดิม แล้วค่อยตั้งโปรไฟล์ Social เมื่อคุณต้องการ": "Use the same WYNOS Account and set up Social only when you want it",
   "ออกจาก WYNOS Account บนอุปกรณ์นี้": "Sign out of the WYNOS Account on this device",
   "กลับไป WYNOS": "Back to WYNOS",

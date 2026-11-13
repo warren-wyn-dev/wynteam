@@ -85,13 +85,14 @@ test("Food menu card photos stay square at every responsive width", async () => 
   assert.doesNotMatch(css, /\.wf-menu-image\s*\{\s*height:\s*(?:120|170)px;/);
 });
 
-test("Food Home removes preview UI, promotes Social and hides the back button", async () => {
+test("Food Home removes preview UI, drops the Social promo and hides the back button", async () => {
   const source = await read("components/food/wynos-food-developer-app.tsx");
   const css = await read("app/food/food-app.css");
   assert.doesNotMatch(source, /<small>Developer Preview<\/small>/);
   assert.doesNotMatch(source, /Developer Preview เท่านั้น/);
-  assert.match(source, /className="fx-social-promo" href="https:\/\/wynos\.online\/" aria-label="เปิด WYNOS Social"/);
-  assert.match(source, /โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos\.online/);
+  // Founder 2026-11-13: the "เปิด WYNOS Social" promo card was removed from ZOKY Home.
+  assert.doesNotMatch(source, /fx-social-promo/);
+  assert.doesNotMatch(source, /โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos\.online/);
   // ZOKY web (2026-10-19): Home and Food discovery only while no storefront is open;
   // inner pages use FoodPageHeader with a back button.
   assert.match(source, /const discovery = tab === "home" && !storefrontOpen \? \(/);

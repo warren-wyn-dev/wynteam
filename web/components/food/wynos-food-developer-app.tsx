@@ -1048,17 +1048,6 @@ function FoodHomeScreen({
         </section>
       ) : null}
 
-      <div className="zk-col zk-home-social">
-        <a className="fx-social-promo" href="https://wynos.online/" aria-label="เปิด WYNOS Social">
-          <span className="fx-social-promo-mark">W</span>
-          <span className="fx-social-promo-copy">
-            <strong>WYNOS Social</strong>
-            <small>โพสต์ พูดคุย ติดตาม และค้นหาคอนเทนต์บน wynos.online</small>
-          </span>
-          <ChevronRight size={18} />
-        </a>
-      </div>
-
       {allRecommended ? (
         <Sheet title="ร้านแนะนำ" onClose={() => setAllRecommended(false)}>
           <ul className="zk-store-list">
