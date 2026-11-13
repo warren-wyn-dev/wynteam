@@ -4,6 +4,8 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "ลูกค้าใหม่ · ค่าอาหารครบ ฿100 ลดทันที ฿40": "New customers · ฿40 off when food reaches ฿100",
+  "ระบบตรวจสิทธิ์ให้ตอนสั่งจริง ไม่ต้องใส่โค้ด": "Eligibility is checked when you order. No code needed.",
   "เปิดใน": "Open in",
   "เพื่อติดตั้งและรับแจ้งเตือน": "to install and get notifications",
   "เปิดในเบราว์เซอร์ของแอป": "In the in-app browser of",
@@ -3295,6 +3297,7 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["คาดว่าจะเสร็จภายใน {0} นาที", "Expected within {0} minutes"],
   ["ดูตะกร้า {0} รายการ {1}", "View cart, {0} items, {1}"],
   ["เพิ่มค่าอาหารอีก {0} เพื่อถึงยอดขั้นต่ำ", "Add {0} more in food to reach the minimum"],
+  ["เพิ่มค่าอาหารอีก {0} เพื่อรับส่วนลด ฿40", "Add {0} more in food to get ฿40 off"],
   ["บันทึกโค้ด {0} แล้ว เปิดตะกร้าเพื่อใช้ส่วนลด", "Saved code {0}. Open your cart to apply the discount"],
   ["กรุณาชำระเงินหรือส่งสลิปภายใน {0}:{1} นาที", "Please pay or submit your slip within {0}:{1} minutes"],
   ["±{0} เมตร", "±{0} m"],
