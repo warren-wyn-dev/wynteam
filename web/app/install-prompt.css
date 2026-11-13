@@ -375,3 +375,35 @@ html body .install-prompt-banner.push-prompt-banner.zoky-push-card {
   height: 48px;
   font-size: 16px;
 }
+
+/* ZOKY in-app browser bar (Founder 2026-11-13): small, sticky at the top, and
+   leaves the menu usable. Replaces the big install card inside Facebook/Messenger. */
+.zoky-inapp-bar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 6px 4px 14px;
+  background: #fff0f6;
+  color: #9b0f4f;
+  border-bottom: 1px solid #f6c5da;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.zoky-inapp-bar button {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
