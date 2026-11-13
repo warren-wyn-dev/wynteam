@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, LockKeyhole, Mail } from "lucide-react";
+import { Check, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { GoogleGlyph } from "@/components/auth-flow/screens";
+import { detectInAppBrowser, type InAppBrowser } from "@/lib/in-app-browser";
 import { markFoodSplashReady } from "@/lib/food-splash";
 
 import {
@@ -19,6 +20,36 @@ import { GOOGLE_PWA_CODE_MESSAGE, GOOGLE_PWA_COMPLETED_CHANNEL, GOOGLE_PWA_TIMEO
 import { FOOD_PRODUCTION_ORIGIN, foodAuthOriginFor } from "@/lib/food-origin";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
+
+const subscribeNever = () => () => {};
+
+/** Google refuses OAuth inside the Facebook/LINE/etc. in-app browser, so say so before the visitor taps it. */
+function InAppBrowserNotice() {
+  const app = useSyncExternalStore<InAppBrowser | null>(subscribeNever, () => detectInAppBrowser(navigator.userAgent), () => null);
+  if (!app) return null;
+  const ios = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
+  return (
+    <p className="wf-auth-inapp" role="note" data-testid="in-app-browser-notice">
+      <strong>เปิดในเบราว์เซอร์ของแอป {app} อยู่ Google ไม่ให้เข้าสู่ระบบจากที่นี่</strong>
+      <span>แตะ ⋯ แล้วเลือก “เปิดใน {ios ? "Safari" : "Chrome"}” หรือสมัครด้วยอีเมลด้านล่างได้เลย</span>
+    </p>
+  );
+}
+
+function PasswordField({ label, value, onChange, autoComplete, placeholder }: { label: string; value: string; onChange: (value: string) => void; autoComplete: string; placeholder: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <label>
+      <span><LockKeyhole size={16} /> {label}</span>
+      <span className="wf-auth-password">
+        <input type={visible ? "text" : "password"} autoComplete={autoComplete} autoCapitalize="none" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+        <button type="button" aria-label={visible ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"} aria-pressed={visible} onClick={() => setVisible((v) => !v)}>
+          {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </span>
+    </label>
+  );
+}
 
 function FoodAuthBrand() {
   return (
@@ -331,6 +362,7 @@ export function FoodLoginScreen() {
         <h1>เข้าสู่ระบบ ZOKY</h1>
         <p>สั่งอาหารและติดตามออเดอร์ด้วย WYNOS Account ของคุณ</p>
       </div>
+      <InAppBrowserNotice />
       <button className="wf-auth-google" type="button" disabled={loading || googleLoading} onClick={() => void google()}>
         {googleLoading ? <span className="wf-mini-loader" aria-hidden="true" /> : <GoogleGlyph />}
         {googleLoading ? "กำลังเชื่อมต่อ Google…" : "เข้าสู่ระบบด้วย Google"}
@@ -338,7 +370,7 @@ export function FoodLoginScreen() {
       <div className="wf-auth-divider" aria-hidden="true"><span>หรือ</span></div>
       <div className="wf-auth-form">
         <label><span><Mail size={16} /> อีเมล</span><input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
-        <label><span><LockKeyhole size={16} /> รหัสผ่าน</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" /></label>
+        <PasswordField label="รหัสผ่าน" value={password} onChange={setPassword} autoComplete="current-password" placeholder="รหัสผ่านของคุณ" />
         <div className="wf-auth-inline"><Link href="/forgot-password?returnTo=%2Ffood%2Flogin">ลืมรหัสผ่าน?</Link></div>
         {message ? <p className="wf-auth-error" role="alert">{message}</p> : null}
         <button className="wf-auth-primary" type="button" disabled={loading || googleLoading} onClick={() => void submit()}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
@@ -357,7 +389,6 @@ export function FoodSignupScreen() {
   const [checking, setChecking] = useState(() => Boolean(client));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -392,10 +423,6 @@ export function FoodSignupScreen() {
       setMessage(`รหัสผ่านต้องมีอย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`);
       return;
     }
-    if (password !== confirmPassword) {
-      setMessage("รหัสผ่านไม่ตรงกัน");
-      return;
-    }
     if (!client) {
       setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ ZOKY");
       return;
@@ -405,7 +432,6 @@ export function FoodSignupScreen() {
     try {
       const result = await signUpWithEmail(client, normalized, password, "/food");
       setPassword("");
-      setConfirmPassword("");
       if (!result.session) {
         setAwaitingConfirmation(normalized);
         return;
@@ -451,6 +477,7 @@ export function FoodSignupScreen() {
         <h1>สมัคร ZOKY</h1>
         <p>สร้าง WYNOS Account เพื่อสั่งอาหารได้เลย โดยไม่ต้องเปิดใช้ WYNOS Social</p>
       </div>
+      <InAppBrowserNotice />
       <div className="wf-auth-benefits">
         <span><Check size={17} />ไม่ต้องตั้งชื่อผู้ใช้</span>
         <span><Check size={17} />ไม่ต้องสร้างโปรไฟล์ WYNOS Social</span>
@@ -458,8 +485,7 @@ export function FoodSignupScreen() {
       </div>
       <div className="wf-auth-form">
         <label><span><Mail size={16} /> อีเมล</span><input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
-        <label><span><LockKeyhole size={16} /> รหัสผ่าน</span><input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} /></label>
-        <label><span><LockKeyhole size={16} /> ยืนยันรหัสผ่าน</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="พิมพ์รหัสผ่านอีกครั้ง" /></label>
+        <PasswordField label="รหัสผ่าน" value={password} onChange={setPassword} autoComplete="new-password" placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} />
         {message ? <p className="wf-auth-error" role="alert">{message}</p> : null}
         <button className="wf-auth-primary" type="button" disabled={loading} onClick={() => void submit()}>{loading ? "กำลังสร้างบัญชี…" : "สมัคร ZOKY"}</button>
       </div>
