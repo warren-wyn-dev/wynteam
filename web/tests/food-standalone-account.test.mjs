@@ -270,6 +270,15 @@ test("Food auth warns in-app browsers about Google and keeps signup short", asyn
   assert.match(source, /password\.length < MIN_SIGNUP_PASSWORD_LENGTH/);
 });
 
+test("guests see the first-order offer before signing up, and the cart no longer calls it a minimum", async () => {
+  const guest = await read("components/food/food-guest-browse.tsx");
+  const app = await read("components/food/wynos-food-developer-app.tsx");
+  // Founder 2026-11-13: the ฿100/฿40 offer is on; eligibility is still checked server-side at order time.
+  assert.match(guest, /ค่าอาหารครบ ฿100 ลดทันที ฿40/);
+  assert.match(guest, /ระบบตรวจสิทธิ์ให้ตอนสั่งจริง/);
+  assert.match(app, /เพื่อรับส่วนลด ฿40/);
+});
+
 test("the address form names the required fields that are still empty", async () => {
   const source = await read("components/food/wynos-food-developer-app.tsx");
   // Founder 2026-11-13 funnel review: a disabled save button gave no reason for name/phone/street.

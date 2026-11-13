@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, Clock3, Info, Minus, Plus, Search, ShoppingBag, Store, Trash2, UtensilsCrossed, X } from "lucide-react";
+import { ArrowLeft, Check, Clock3, Gift, Info, Minus, Plus, Search, ShoppingBag, Store, Trash2, UtensilsCrossed, X } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -516,6 +516,10 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                     </article>
                   );
                 })}
+              </div>
+              <div className="fx-note fx-note--success" role="note">
+                <Gift size={18} />
+                <span><strong>ลูกค้าใหม่ · ค่าอาหารครบ ฿100 ลดทันที ฿40</strong><small>ระบบตรวจสิทธิ์ให้ตอนสั่งจริง ไม่ต้องใส่โค้ด</small></span>
               </div>
               <div className="fx-note fx-note--info" role="note">
                 <Info size={18} />
