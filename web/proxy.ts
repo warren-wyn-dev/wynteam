@@ -86,9 +86,11 @@ export function proxy(request: NextRequest) {
       && process.env.ZOKY_MERCHANT_FLUTTER_ENABLED === "1"
       && request.nextUrl.searchParams.get("legacy") !== "1"
       && !["return", "refresh"].includes(request.nextUrl.searchParams.get("payments") ?? "")) {
+    // Rewrite (not redirect): installed Merchant icons that still open /merchant
+    // skip an extra network round trip on every launch; the query is preserved.
     const target = request.nextUrl.clone();
     target.pathname = "/merchant/flutter";
-    return NextResponse.redirect(target, 307);
+    return NextResponse.rewrite(target);
   }
 
   if (pathname !== "/") return NextResponse.next();
