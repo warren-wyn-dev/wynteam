@@ -87,7 +87,7 @@ import {
   unsubscribeFromPushNotifications,
 } from "@/lib/push-notifications";
 import { isEmbeddedFrame } from "@/lib/zoky-pwa";
-import { showZokyTestNotification, zokyNotificationTestMessage } from "@/lib/zoky-notification-test";
+import { showZokyTestNotification, ZOKY_PUSH_ENABLED_EVENT, zokyNotificationTestMessage } from "@/lib/zoky-notification-test";
 import { foodStoreQrTarget, renderZokyQr, renderZokyStorePoster, zokyQrFileName } from "@/lib/zoky-store-qr";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
@@ -2028,7 +2028,8 @@ function AccountPanel({
             <span><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดอยู่บนอุปกรณ์นี้" : "ปิดอยู่ · แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></span>
             <button type="button" role="switch" aria-checked={notificationsEnabled} aria-label="การแจ้งเตือน ZOKY" className="fx-switch" onClick={onNotifications} />
           </div>
-          <button type="button" className="fx-notification-test" onClick={onTestNotification}>ทดสอบการแจ้งเตือน</button>
+          <button type="button" className="fx-notification-test" disabled={!notificationsEnabled} onClick={onTestNotification}>ทดสอบการแจ้งเตือน</button>
+          {notificationsEnabled ? null : <small className="fx-notification-hint">เปิดการแจ้งเตือนก่อน จึงจะทดสอบได้</small>}
         </div>
         {installPrompt ? (
           <button type="button" onClick={onInstall}>
@@ -3836,10 +3837,18 @@ function FoodCustomerInner({
 
   useEffect(() => {
     let live = true;
-    void isCurrentDevicePushEnabled(client, userId).then((enabled) => {
-      if (live && enabled != null) setNotificationsEnabled(enabled);
-    });
-    return () => { live = false; };
+    const check = () => {
+      void isCurrentDevicePushEnabled(client, userId).then((enabled) => {
+        if (live && enabled != null) setNotificationsEnabled(enabled);
+      });
+    };
+    check();
+    // The notification card can turn notifications on while this page is open.
+    window.addEventListener(ZOKY_PUSH_ENABLED_EVENT, check);
+    return () => {
+      live = false;
+      window.removeEventListener(ZOKY_PUSH_ENABLED_EVENT, check);
+    };
   }, [client, userId]);
 
   useEffect(() => {

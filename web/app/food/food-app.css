@@ -1733,3 +1733,5 @@ html:has(.fx-app.is-zk-home) body, html:has(.fx-app.is-zk-food) body { backgroun
 .fx-switch:focus-visible { outline: 3px solid var(--fx-red); outline-offset: 2px; border-radius: 12px; }
 .fx-notification-test { min-height: 44px; border: 1px solid var(--fx-red); border-radius: 999px; background: #fff; color: var(--fx-red); font: inherit; font-size: 14px; font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { .fx-switch::before, .fx-switch::after { transition: none; } }
+.fx-notification-test:disabled { border-color: #d4d4dc; color: #a3a6ad; background: #f7f7f9; cursor: not-allowed; }
+.fx-notification-hint { color: var(--fx-sub); font-size: 12.5px; text-align: center; }

@@ -4,6 +4,7 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "เปิดการแจ้งเตือนก่อน จึงจะทดสอบได้": "Turn notifications on first to run the test",
   "การแจ้งเตือน ZOKY": "ZOKY notifications",
   "ปิดอยู่ · แจ้งสถานะคำสั่งซื้อและการจัดส่ง": "Off · order and delivery updates",
   "เปิดอยู่บนอุปกรณ์นี้": "On for this device",

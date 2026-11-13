@@ -119,3 +119,16 @@ test("outside ZOKY the notification card keeps its seven-day cooldown", () => {
   assert.match(source, /if \(!foodPrompt\) writeDismissedAt\(\)/);
   assert.match(source, /SHOW_DELAY_MS = 4000/);
 });
+
+test("ZOKY asks again when the browser still allows notifications but this device is switched off", () => {
+  const source = readFileSync(new URL("../components/push-prompt.tsx", import.meta.url), "utf8");
+  // "granted" only ends the prompt outside ZOKY.
+  assert.match(source, /if \(permission === "granted" && !foodPrompt\) return;/);
+  // In ZOKY it checks this device and asks only when it is known to be off (not when unknown).
+  assert.match(source, /isCurrentDevicePushEnabled\(client, userId\)/);
+  assert.match(source, /if \(cancelled \|\| enabled !== false\) return;/);
+  // The shared kind helper still says "never ask" for granted; ZOKY decides itself.
+  assert.match(source, /foodPrompt && permission === "granted"\s*\? \(availability\.available \? "ask" : null\)/);
+  // Turning it on from the card refreshes the Account switch.
+  assert.match(source, /window\.dispatchEvent\(new Event\(ZOKY_PUSH_ENABLED_EVENT\)\)/);
+});

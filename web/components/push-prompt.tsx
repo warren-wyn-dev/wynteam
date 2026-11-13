@@ -8,6 +8,7 @@ import { isFoodAppHost } from "@/lib/food-origin";
 import { isEmbeddedFrame } from "@/lib/zoky-pwa";
 import {
   getPushAvailability,
+  isCurrentDevicePushEnabled,
   isPushPromptPath,
   PUSH_PROMPT_DISMISS_KEY,
   pushPromptKind,
@@ -15,6 +16,7 @@ import {
   subscribeToPushNotifications,
 } from "@/lib/push-notifications";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { ZOKY_PUSH_ENABLED_EVENT } from "@/lib/zoky-notification-test";
 
 const SHOW_DELAY_MS = 4000;
 const HIGH_INTENT_SHOW_DELAY_MS = 1200;
@@ -83,12 +85,22 @@ export function PushPrompt() {
       const permission = typeof Notification === "undefined" ? "unsupported" : Notification.permission;
       // Granted needs no prompt. Denied skips Firebase loading but can still
       // show a recovery card on Chat/Notifications.
-      if (permission === "granted") return;
+      if (permission === "granted" && !foodPrompt) return;
+      if (permission === "granted") {
+        // ZOKY: the browser keeps "allowed" after the Account switch is turned off,
+        // so permission alone does not mean this device gets notifications. Ask
+        // again only when it is known to be off; unknown (offline/error) stays quiet.
+        const client = getSupabaseBrowserClient();
+        const enabled = client ? await isCurrentDevicePushEnabled(client, userId) : null;
+        if (cancelled || enabled !== false) return;
+      }
       const availability = permission === "denied"
         ? ({ available: false, reason: "denied" } as const)
         : await getPushAvailability();
       if (cancelled) return;
-      const next = pushPromptKind({ path: promptPath, permission, availability, dismissedAt: foodPrompt ? null : readDismissedAt(), now: Date.now() });
+      const next = foodPrompt && permission === "granted"
+        ? (availability.available ? "ask" : null)
+        : pushPromptKind({ path: promptPath, permission, availability, dismissedAt: foodPrompt ? null : readDismissedAt(), now: Date.now() });
       // ZOKY: the install card already explains "add to Home Screen", so do not stack a second card.
       setPrompt(next && !(foodPrompt && next === "install") ? { userId, kind: next } : null);
     }, delay);
@@ -124,6 +136,7 @@ export function PushPrompt() {
     setBusy(false);
     if (result.ok) {
       setPrompt(null);
+      window.dispatchEvent(new Event(ZOKY_PUSH_ENABLED_EVENT));
       return;
     }
     // Not now in the OS popup: ask again in a week, not on every page.
