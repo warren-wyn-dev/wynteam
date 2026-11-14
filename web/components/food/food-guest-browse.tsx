@@ -294,8 +294,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
           <section className={`fx-store-hero${store.is_open ? "" : " is-closed"}`}>
             <div className="fx-store-cover">
               {storeCover ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={storeCover} alt="" decoding="async" fetchPriority="high" />
+                <FoodPhoto src={storeCover} width={750} fetchPriority="high" />
               ) : <Store size={46} strokeWidth={1.25} />}
             </div>
             <div className="fx-store-hero-actions">
@@ -604,8 +603,7 @@ function GuestFoodList({
                     <button type="button" className={`zk-store-row${entry.is_open ? "" : " is-closed"}`} onClick={() => onPick(entry)} aria-label={spoken}>
                       <span className="zk-store-row-photo">
                         {cover ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={cover} alt="" loading="lazy" decoding="async" />
+                          <FoodPhoto src={cover} width={256} loading="lazy" />
                         ) : <UtensilsCrossed size={30} strokeWidth={1.6} />}
                       </span>
                       <span className="zk-store-row-body">

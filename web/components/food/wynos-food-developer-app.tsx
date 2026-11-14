@@ -473,8 +473,7 @@ function foodStoreRating(store: FoodDirectoryStore) {
 function FoodStoreCover({ client, store, iconSize }: { client: SupabaseClient; store: FoodDirectoryStore; iconSize: number }) {
   const cover = foodPublicUrl(client, store.cover_path);
   return cover ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={cover} alt="" loading="lazy" decoding="async" />
+    <FoodPhoto src={cover} width={384} loading="lazy" />
   ) : <UtensilsCrossed size={iconSize} strokeWidth={1.6} />;
 }
 
@@ -1107,8 +1106,7 @@ function FavoriteStoresSheet({
             return (
               <button key={store.id} type="button" onClick={() => onPick(store)}>
                 <span>{logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logo} alt="" loading="lazy" decoding="async" />
+                  <FoodPhoto src={logo} width={128} loading="lazy" />
                 ) : <Store size={20} />}</span>
                 <div><strong>{store.name}</strong><small>{store.address || (store.is_open ? "เปิดรับออเดอร์" : "ปิดอยู่")}</small></div>
                 <ChevronRight size={18} />
@@ -1463,8 +1461,7 @@ function HomePanel({
       <section className={`fx-store-hero${open ? "" : " is-closed"}`}>
         <div className="fx-store-cover">
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover} alt="" decoding="async" fetchPriority="high" />
+            <FoodPhoto src={cover} width={750} fetchPriority="high" />
           ) : <Store size={46} strokeWidth={1.25} />}
         </div>
         <div className="fx-store-hero-actions">
@@ -1699,8 +1696,7 @@ function CartPanel({
             <div className="fx-cart-store">
               <span className="fx-cart-store-logo">
                 {logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logo} alt="" />
+                  <FoodPhoto src={logo} width={128} />
                 ) : <Store size={22} />}
               </span>
               <span>

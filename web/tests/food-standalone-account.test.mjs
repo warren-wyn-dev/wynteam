@@ -298,3 +298,18 @@ test("ZOKY menu photos use the optimizer at small widths with an original-URL fa
   assert.match(guest, /<FoodPhoto src=\{photo\} width=\{256\}/);
   assert.match(guest, /<FoodPhoto src=\{photo\} width=\{128\}/);
 });
+
+test("ZOKY store covers and logos also use the optimizer; private images stay untouched", async () => {
+  const app = await read("components/food/wynos-food-developer-app.tsx");
+  const guest = await read("components/food/food-guest-browse.tsx");
+  // Founder 2026-11-14 screen recording: home store-card cover stayed a grey box for many seconds.
+  assert.match(app, /<FoodPhoto src=\{cover\} width=\{384\} loading="lazy" \/>/);
+  assert.match(app, /<FoodPhoto src=\{cover\} width=\{750\} fetchPriority="high" \/>/);
+  assert.match(app, /<FoodPhoto src=\{logo\} width=\{128\}/);
+  assert.match(guest, /<FoodPhoto src=\{storeCover\} width=\{750\}/);
+  assert.match(guest, /<FoodPhoto src=\{cover\} width=\{256\}/);
+  // Payment QR, slips and delivery proof are never routed through the public optimizer.
+  assert.match(app, /<img src=\{paymentQr\}/);
+  assert.match(app, /<img src=\{slipPreviewUrl\}/);
+  assert.match(app, /<img src=\{proofUrl\}/);
+});

@@ -31,7 +31,7 @@ test('private, signed, external, SVG and malformed images are never proxied', ()
   assert.equal(thumbnail(image, 'invalid'), image);
 });
 test('ZOKY widths use the same optimizer; unsupported widths keep the original URL', () => {
-  for (const width of [128, 256, 750]) {
+  for (const width of [128, 256, 384, 750]) {
     const url = new URL(thumbnail(image, project, width), 'https://zoky.wynos.online');
     assert.equal(url.pathname, '/_next/image');
     assert.equal(url.searchParams.get('w'), String(width));
