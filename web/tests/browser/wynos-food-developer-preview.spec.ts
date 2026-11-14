@@ -570,7 +570,9 @@ test("WYNOS Food storefront uses compact search and keeps favorite off the categ
   expect(app).not.toContain('>ร้านโปรด</button>');
   expect(app).toContain('aria-label="กลับหน้าหลัก ZOKY" onClick={onBackStorefront}');
   expect(app).toContain('className="fx-store-menu"');
-  expect(app).toContain('loading="lazy" decoding="async"');
+  // Photos go through FoodPhoto (lazy where off-screen, decoding async inside the component).
+  expect(app).toContain('<FoodPhoto src={url} width={256} loading="lazy" />');
+  expect(read("components/food/food-photo.tsx")).toContain('decoding="async"');
   expect(app).toContain('" has-cart-bar"');
   expect(css).toContain(".fx-store-hero");
   expect(css).toContain(".fx-float-btn");

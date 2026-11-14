@@ -5,7 +5,7 @@ import { useState } from "react";
 import { merchantMenuThumbnailUrl } from "@/lib/merchant-menu-image";
 
 /**
- * Customer-facing food photo. Public Supabase images go through the project's
+ * Customer-facing food/store photo (menu items, store covers and logos). Public Supabase images go through the project's
  * existing /_next/image optimizer at a small width (originals are full camera
  * photos); if the optimizer fails, the original URL is used instead.
  */
@@ -16,7 +16,7 @@ export function FoodPhoto({
   fetchPriority,
 }: {
   src: string;
-  width: 128 | 256 | 750;
+  width: 128 | 256 | 384 | 750;
   loading?: "lazy" | "eager";
   fetchPriority?: "high" | "low" | "auto";
 }) {
