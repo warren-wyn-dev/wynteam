@@ -1,5 +1,6 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
+import { compressPhoto } from "@/lib/compress-image";
 import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 import type { FoodBusinessSchedule } from "@/lib/food-store-availability";
@@ -651,16 +652,27 @@ export async function setMenuAvailability(client: SupabaseClient, storeId: strin
   if (error) throw new Error(error.message);
 }
 
-async function foodImageBlob(file: File) {
+async function foodImageBlob(file: File, compress = false) {
   const { contentType, extension } = imageUploadType(file, 8 * 1024 * 1024);
   if (!SUPPORTED_FOOD_IMAGE_TYPES.has(contentType)) {
     throw new Error("WYNOS Merchant รองรับรูป JPG, PNG และ WebP");
   }
+  if (compress) {
+    // Menu photos and store covers: shrink to at most 1600 px / ~900 KB JPEG (also drops EXIF/GPS).
+    // Falls back to the original when it cannot be decoded here or is already smaller.
+    try {
+      const { blob } = await compressPhoto(file);
+      if (blob.size < file.size) return { contentType: "image/jpeg", extension: "jpg", blob };
+    } catch {
+      // Keep the validated original below.
+    }
+  }
   return { contentType, extension, blob: await withoutLocation(file, contentType) };
 }
 
-export async function uploadFoodPublicImage(client: SupabaseClient, file: File, folder: string) {
-  const { contentType, extension, blob } = await foodImageBlob(file);
+/** `compress` is for photos shown to customers (menu, cover); never for payment QR codes or logos with transparency. */
+export async function uploadFoodPublicImage(client: SupabaseClient, file: File, folder: string, options: { compress?: boolean } = {}) {
+  const { contentType, extension, blob } = await foodImageBlob(file, options.compress === true);
   const path = `${folder}/${crypto.randomUUID()}.${extension}`;
   const { error } = await client.storage.from(FOOD_PUBLIC).upload(path, blob, {
     upsert: false,

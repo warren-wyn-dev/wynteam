@@ -2557,7 +2557,7 @@ function MenuEditor({
       let imagePath = form.image_path ?? null;
       if (file) {
         setImageState("uploading");
-        imagePath = await uploadFoodPublicImage(client, file, `stores/${store.id}/menu`);
+        imagePath = await uploadFoodPublicImage(client, file, `stores/${store.id}/menu`, { compress: true });
         setImageState("uploaded");
       }
       await saveMenuItem(client, store.id, { ...form, image_path: imagePath });
@@ -2835,7 +2835,7 @@ function StoreEditor({
       if (coverFile) {
         activeBrandUpload = "cover";
         setCoverState("uploading");
-        cover = await uploadFoodPublicImage(client, coverFile, `stores/${store.id}/cover`);
+        cover = await uploadFoodPublicImage(client, coverFile, `stores/${store.id}/cover`, { compress: true });
         setCoverState("uploaded");
         activeBrandUpload = null;
       }

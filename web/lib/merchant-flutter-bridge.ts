@@ -754,7 +754,7 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         const file = await picked;
         if (!file) return null;
         await validateImage(file); await ensureSession();
-        const path = await uploadFoodPublicImage(client, file, `stores/${storeId}/${kind === "logo" ? "profile" : "cover"}`);
+        const path = await uploadFoodPublicImage(client, file, `stores/${storeId}/${kind === "logo" ? "profile" : "cover"}`, { compress: kind === "cover" });
         await ensureSession();
         const column = kind === "logo" ? "logo_path" : "cover_path";
         await updateFoodStore(client, storeId, { [column]: path });
