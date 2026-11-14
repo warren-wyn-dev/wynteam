@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { foodCartLineKey, foodCartLineOptionsValid, foodCartLineUnitPrice, foodMoney, foodPublicUrl, type FoodCartLine, type FoodMenuOptionGroup } from "@/lib/food-customer";
+import { FoodPhoto } from "@/components/food/food-photo";
 import { markFoodSplashReady } from "@/lib/food-splash";
 import { rememberSharedFoodStore, sharedFoodStoreId } from "@/lib/food-share";
 import { Zoky3DIcon, ZokyFoodCartButton, ZokyFoodHeroCard, ZokyGlossyIconButton, ZokyHomeHeader, useZokyThemeColor } from "@/components/food/zoky-web-ui";
@@ -341,8 +342,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                         <span className="fx-menu-row-photo">
                           <span className="fx-menu-image">
                             {photo ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={photo} alt="" loading="lazy" decoding="async" />
+                              <FoodPhoto src={photo} width={256} loading="lazy" />
                             ) : <UtensilsCrossed size={26} strokeWidth={1.45} />}
                           </span>
                           {!available(item) ? <span className="fx-soldout-tag">สินค้าหมด</span> : null}
@@ -416,8 +416,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
             <div className="fx-item-scroll">
               <div className="fx-item-photo">
                 {foodPublicUrl(client, selectedItem.image_path) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={foodPublicUrl(client, selectedItem.image_path) ?? ""} alt="" />
+                  <FoodPhoto src={foodPublicUrl(client, selectedItem.image_path) ?? ""} width={750} fetchPriority="high" />
                 ) : <UtensilsCrossed size={48} strokeWidth={1.35} />}
               </div>
               <div className="fx-item-head">
@@ -496,8 +495,7 @@ export function FoodGuestBrowse({ client }: { client: SupabaseClient }) {
                     <article className="fx-cart-line" key={index}>
                       <span className="fx-menu-image fx-cart-thumb">
                         {photo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={photo} alt="" loading="lazy" decoding="async" />
+                          <FoodPhoto src={photo} width={128} loading="lazy" />
                         ) : <UtensilsCrossed size={22} />}
                       </span>
                       <div className="fx-cart-line-copy">
