@@ -15,6 +15,12 @@ export const APPROVED_MERCHANT_THAI_FONTS = {
   "assets/fonts/NotoSansThai-Bold.ttf": { weight: 700, sha256: "fd475b89dca5b9b2ad5f294944c6c82a1641c29b0a30bc1b771227250fb826a8" },
 };
 
+// Founder 2026-11-14 approved self-hosting Anuphan for ZOKY only (Google Fonts download made builds fail).
+// The exact file is pinned by SHA-256; any other text font, or a changed file, still fails.
+export const APPROVED_ZOKY_FONTS = {
+  "app/food/fonts/Anuphan-thai-latin.woff2": "85b1fd1e50ead1db19021446d1514d255c58ca7fc7d52a6cffeb33c26ae8f34c",
+};
+
 function isMaterialIcons(entry) {
   return entry?.family === "MaterialIcons" && Array.isArray(entry.fonts) && entry.fonts.length === 1 &&
     entry.fonts[0]?.asset === "fonts/MaterialIcons-Regular.otf" && Object.keys(entry.fonts[0]).length === 1;
@@ -66,7 +72,9 @@ export function checkWebFontPolicy(root) {
           readFileSync(path.join(root, relative)).subarray(0, 4).toString("ascii") === "OTTO";
         const isApprovedThai = reviewedThai.has(relative) &&
           createHash("sha256").update(readFileSync(path.join(root, relative))).digest("hex") === reviewedThai.get(relative);
-        if (!isGeneratedIcon && !isApprovedThai) errors.push(`Consumer web must use system text fonts: ${relative}`);
+        const isApprovedZoky = relative in APPROVED_ZOKY_FONTS &&
+          createHash("sha256").update(readFileSync(path.join(root, relative))).digest("hex") === APPROVED_ZOKY_FONTS[relative];
+        if (!isGeneratedIcon && !isApprovedThai && !isApprovedZoky) errors.push(`Consumer web must use system text fonts: ${relative}`);
       }
       if (/\.css$/i.test(entry.name) && /^(?:app|components|public)\//.test(relative) &&
           /@font-face/i.test(readFileSync(path.join(root, relative), "utf8"))) {
@@ -81,5 +89,5 @@ export function checkWebFontPolicy(root) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const errors = checkWebFontPolicy(process.cwd());
   if (errors.length) { console.error(errors.join("\n")); process.exitCode = 1; }
-  else console.log("PASS web font policy (MaterialIcons glyphs and the approved Merchant NotoSansThai only)");
+  else console.log("PASS web font policy (MaterialIcons glyphs, the approved Merchant NotoSansThai and the approved ZOKY Anuphan only)");
 }

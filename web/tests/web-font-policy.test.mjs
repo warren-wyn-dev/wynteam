@@ -84,3 +84,20 @@ test("the Thai files are rejected without the approved manifest entry or outside
   h.write(`${base}/assets/FontManifest.json`, JSON.stringify([...icons, { ...thaiFamily, fonts: [...thaiFamily.fonts, { asset: "assets/fonts/Extra.ttf" }] }]));
   assert.ok(checkWebFontPolicy(h.root).some((e) => e.includes("approved NotoSansThai")));
 });
+
+test("only the pinned ZOKY Anuphan file is allowed under app/food/fonts", async (t) => {
+  const { createHash } = await import("node:crypto");
+  const { APPROVED_ZOKY_FONTS } = await import("../scripts/check-web-fonts.mjs");
+  const [relative, sha] = Object.entries(APPROVED_ZOKY_FONTS)[0];
+  const real = readFileSync(new URL("../" + relative, import.meta.url));
+  assert.equal(createHash("sha256").update(real).digest("hex"), sha);
+  // The committed file passes the guard in a copy of the tree.
+  const ok = fixture(t); ok.write(relative, real);
+  assert.deepEqual(checkWebFontPolicy(ok.root), []);
+  // A changed file with the same name fails.
+  const changed = fixture(t); changed.write(relative, Buffer.concat([real, Buffer.from("x")]));
+  assert.ok(checkWebFontPolicy(changed.root).some((error) => error.includes("Anuphan-thai-latin.woff2")));
+  // Any other text font, even beside the approved one, still fails.
+  const other = fixture(t); other.write(relative, real); other.write("app/food/fonts/Other.woff2", "font");
+  assert.ok(checkWebFontPolicy(other.root).some((error) => error.includes("Other.woff2")));
+});
