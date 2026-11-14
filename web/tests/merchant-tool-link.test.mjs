@@ -57,6 +57,7 @@ test("legacy entry resolves the preference through the existing snapshot, then c
 });
 
 const snapshotModule = compile("../lib/food-merchant.ts", {
+  "@/lib/compress-image": {},
   "@/lib/image-location": {},
   "@/lib/upload-image": {},
   "@/lib/food-store-availability": {},
