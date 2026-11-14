@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Image from "next/image";
-import { Anuphan } from "next/font/google";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
 
 import { WynChatReady } from "@/components/food/wynchat-ready";
@@ -11,12 +11,14 @@ import "./food-app.css";
 
 import { FOOD_PRODUCTION_ORIGIN } from "@/lib/food-origin";
 
-// Thai loopless face for the redesigned Food app; self-hosted by next/font at build time.
-const anuphan = Anuphan({
-  subsets: ["thai", "latin"],
-  weight: ["400", "500", "600", "700"],
+// Thai loopless face for the redesigned Food app. Self-hosted (SIL OFL, see ./fonts) so the build
+// never needs Google Fonts; the file is a Thai+Latin subset, weights 400-700.
+const anuphan = localFont({
+  src: "./fonts/Anuphan-thai-latin.woff2",
+  weight: "400 700",
   display: "swap",
   variable: "--font-anuphan",
+  fallback: ["Noto Sans Thai", "system-ui", "-apple-system", "sans-serif"],
 });
 
 // ZOKY-113: ZOKY icons are new versioned files; the old /icons/food/* files
