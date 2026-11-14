@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import { FoodPhoto } from "@/components/food/food-photo";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -415,8 +416,7 @@ function MenuImage({
   return (
     <span className={`fx-menu-image ${className}`}>
       {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" loading="lazy" decoding="async" />
+        <FoodPhoto src={url} width={256} loading="lazy" />
       ) : <UtensilsCrossed size={26} strokeWidth={1.45} />}
     </span>
   );
@@ -2220,8 +2220,7 @@ function ItemSheet({
         <div className="fx-item-scroll">
           <div className="fx-item-photo">
             {image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={image} alt="" />
+              <FoodPhoto src={image} width={750} fetchPriority="high" />
             ) : <UtensilsCrossed size={48} strokeWidth={1.35} />}
             {!itemAvailable || quantityLimit <= 0 ? <span className="fx-soldout-tag fx-soldout-tag--lg">สินค้าหมด</span> : null}
           </div>

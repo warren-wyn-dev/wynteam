@@ -285,3 +285,16 @@ test("the address form names the required fields that are still empty", async ()
   assert.match(source, /const contactMissing = \[/);
   assert.match(source, /ยังขาด: \{contactMissing\.join\(", "\)\}/);
 });
+
+test("ZOKY menu photos use the optimizer at small widths with an original-URL fallback", async () => {
+  const photo = await read("components/food/food-photo.tsx");
+  const app = await read("components/food/wynos-food-developer-app.tsx");
+  const guest = await read("components/food/food-guest-browse.tsx");
+  // Founder 2026-11-14: menu photos loaded slowly (full camera originals were sent for ~100px thumbnails).
+  assert.match(photo, /merchantMenuThumbnailUrl\(src, process\.env\.NEXT_PUBLIC_SUPABASE_URL, width\)/);
+  assert.match(photo, /onError=\{\(\) => \{ if \(!failed && optimized !== src\) setFailed\(true\); \}\}/);
+  assert.match(app, /<FoodPhoto src=\{url\} width=\{256\}/);
+  assert.match(app, /<FoodPhoto src=\{image\} width=\{750\}/);
+  assert.match(guest, /<FoodPhoto src=\{photo\} width=\{256\}/);
+  assert.match(guest, /<FoodPhoto src=\{photo\} width=\{128\}/);
+});
