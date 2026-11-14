@@ -21,6 +21,6 @@
 ## สถานะการย้าย
 
 - **คัดลอกแล้ว** — `web/` ส่วนโซเชียล (ตัด Food, Merchant, Maps, LINE ออก) ผ่าน lint, typecheck, unit tests และ build
-- **ยังไม่ลบ** โค้ดโซเชียลใน `web/` ของ repo นี้ — `web/` ยังเป็นโปรเจกต์ที่ deploy `wynos.online` และบริการอื่นอยู่ จึงรอ Founder อนุมัติ cutover
-- **ยังไม่ย้าย** Supabase migrations/Edge Functions (ฐานข้อมูลใช้ร่วมกับบริการอื่น และเป็น production) และ Vercel deploy/โดเมน
+- **เตรียม branch ลบโค้ดโซเชียลแล้ว แต่ยังไม่ merge:** `claude/remove-social-from-web` (ลบ 187 ไฟล์จาก `web/`; ผ่าน tsc, eslint, `next build`, Playwright 99 specs) **ห้าม merge จนกว่า cutover จะได้รับอนุมัติและ `wynos.online` ถูกเสิร์ฟจาก repo ใหม่แล้ว** เพราะ `web/` ปัจจุบันยัง deploy `wynos.online`
+- **ยังไม่ย้าย** Supabase migrations/Edge Functions และ Vercel deploy/โดเมน — มีแผนฉบับร่างรอ Founder อนุมัติที่ `docs/SUPABASE_SEPARATION_PLAN.md` และ `docs/CUTOVER_PLAN.md` ใน Norswor-WYNOS
 - ช่วง production freeze (ดู `WYNOS-ADMIN-COMPLETE-BEFORE-DEPLOY.md`) ยังมีผล: ไม่มีการ deploy หรือเปลี่ยน production จากงานนี้
