@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.3";
+import { storePaymentPolicyRefusal } from "../food-payment-qr/_lib.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -76,6 +77,11 @@ Deno.serve(async (req: Request) => {
 
   if (orderError || !order || order.buyer_id !== user.id) return json({ error: "order_not_found" }, 404);
   if (["delivered", "cancelled"].includes(order.status)) return json({ error: "order_closed" }, 409);
+
+  // ZOKY-157: no slip verification while Stripe-only is on, or when the policy cannot be read.
+  const refusal = storePaymentPolicyRefusal(await admin.rpc("food_payment_policy_public"));
+  if (refusal) return json({ error: refusal.error }, refusal.status);
+
   if (!order.payment_slip_path || order.payment_status !== "submitted") {
     return json({ error: "slip_not_submitted" }, 409);
   }
