@@ -20,6 +20,9 @@ function moduleExports(path) {
 const availability=moduleExports('../lib/food-store-availability.ts');
 const merchantCore=moduleExports('../lib/merchant-core.ts');
 
+const TAX_KEYS=['tax_invoice_enabled','tax_legal_name','tax_id','tax_branch','tax_address'];
+const taxOf=(store)=>Object.fromEntries(TAX_KEYS.filter(key=>key in store).map(key=>[key,store[key]]));
+
 function harness(options={}) {
   const calls=[];
   const state={events:[],memberships:[{merchant_account_id:ACCOUNT}],staff:[],completeFailures:0,user:'merchant-a',access:true,manage:true,noOp:false,store:{id:STORE,merchant_account_id:ACCOUNT,is_published:true,name:'ร้านเรา',phone:'0811111111',address:'มหาสารคาม',is_open:true},order:{id:ORDER,store_id:STORE,status:'out_for_delivery',payment_provider:null,payment_slip_path:'buyer/slips/slip.jpg'}, disposedChannels:0, orderEvent:null, injectRead:null};
@@ -76,6 +79,12 @@ function harness(options={}) {
     uploadFoodPublicImage:async(...args)=>{calls.push({name:'uploadFoodPublicImage',args});return `${args[2]}/qr.png`;},
     subscribeMerchantOrders:(_client,_store,callback)=>{state.orderEvent=callback;return {};},
     fetchMerchantSalesReport:async()=>({today_sales:200}),
+    // Owner-only tax details: the real module reads them through food_store_tax_get.
+    FOOD_STORE_COLUMNS:'id,name',
+    FOOD_STORE_TAX_COLUMNS:['tax_invoice_enabled','tax_legal_name','tax_id','tax_branch','tax_address'],
+    isUndefinedColumnError:(error)=>error?.code==='42703',
+    fetchFoodStoreTax:async(_client,storeId)=>{calls.push({name:'fetchFoodStoreTax',storeId});return storeId===state.store.id?taxOf(state.store):null;},
+    attachFoodStoreTax:async(_client,rows)=>rows.map(row=>row.id===state.store.id?{...row,...taxOf(state.store)}:row),
   };
   let picked=null;
   const input={files:null,style:{},listeners:{},addEventListener(name,callback){this.listeners[name]=callback;},remove(){},click(){this.files=picked?[picked]:[];this.listeners[picked?'change':'cancel']();}};
@@ -850,4 +859,25 @@ test('store QR renders the ZOKY poster for an accessible store and shares inside
   const other=harness({navigator});
   assert.equal((await other.request('storeQr',{storeId:OTHER})).ok,false);
   assert.equal(other.calls.some(c=>c.name==='renderZokyStorePoster'),false);
+});
+
+// Tax details (a national ID for sole proprietors) are owner-only data.
+test('tax fields are read back through the owner-checked function, never selected from the table',async()=>{
+  const h=harness();
+  const result=await h.request('saveStore',{storeId:STORE,values:{tax_invoice_enabled:true,tax_legal_name:'บริษัท',tax_id:'1234567890123',description:'x'}});
+  assert.equal(result.ok,true,JSON.stringify(result));
+  assert.ok(h.calls.some(c=>c.name==='fetchFoodStoreTax'&&c.storeId===STORE));
+  const selects=h.calls.filter(c=>c.table==='food_stores'&&c.name==='select');
+  assert.ok(selects.length>0);
+  for(const call of selects)assert.equal(/tax_/.test(String(call.args[0])),false,String(call.args[0]));
+  // A tax value that did not persist is still detected.
+  const lost=harness();lost.state.noOp=true;
+  assert.equal((await lost.request('saveStore',{storeId:STORE,values:{tax_id:'1234567890123'}})).ok,false);
+});
+test('the store list carries tax details for the team but the snapshot never stores them',async()=>{
+  const localStorage=memoryStorage();
+  const h=harness({localStorage});h.state.store.tax_id='1234567890123';h.state.store.tax_address='ที่อยู่ภาษี';
+  const listed=(await h.request('stores')).data.find(s=>s.id===STORE);
+  assert.equal(listed.tax_id,'1234567890123');
+  assert.equal([...localStorage.map.values()].some(value=>/1234567890123|ที่อยู่ภาษี|tax_id|tax_address/.test(value)),false);
 });

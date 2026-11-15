@@ -68,7 +68,11 @@ function snapshotClient(accessible, permittedStores) {
   const scopedReads = [];
   let reads = 0;
   const client = {
-    async rpc(name, args) { assert.equal(name, "food_has_merchant_access"); assert.equal(args.p_store_id, null); return { data: accessible, error: null }; },
+    async rpc(name, args) {
+      // Owner-only tax details are read through their own function (one call per store).
+      if (name === "food_store_tax_get") return { data: [{ tax_id: null }], error: null };
+      assert.equal(name, "food_has_merchant_access"); assert.equal(args.p_store_id, null); return { data: accessible, error: null };
+    },
     from(table) {
       reads++;
       const response = { data: table === "food_stores" ? permittedStores : [], error: null };

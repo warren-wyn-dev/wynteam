@@ -454,6 +454,60 @@ export async function fetchMerchantSalesReport(client: SupabaseClient, storeId: 
   return merchantSalesReportFromOrders(rows);
 }
 
+/**
+ * Tax details of a store (a sole proprietor's tax id is a national ID number).
+ * They are owner-only: customers can read every other column of a published
+ * store, so the store team reads these through food_store_tax_get, which checks
+ * the caller, and the owner-only columns are never part of FOOD_STORE_COLUMNS.
+ */
+export const FOOD_STORE_TAX_COLUMNS = ["tax_invoice_enabled", "tax_legal_name", "tax_id", "tax_branch", "tax_address"] as const;
+export type FoodStoreTax = Pick<FoodStore, (typeof FOOD_STORE_TAX_COLUMNS)[number]>;
+
+/** Columns of food_stores that the Merchant apps read (production list on 2026-11-15, without the tax columns). */
+export const FOOD_STORE_COLUMNS = [
+  "id", "slug", "name", "description", "phone", "address", "logo_path", "cover_path", "business_hours",
+  "delivery_area", "delivery_fee", "minimum_order", "promptpay_name", "promptpay_id", "bank_name",
+  "bank_account_name", "bank_account_number", "payment_qr_path", "is_open", "is_published", "created_at",
+  "updated_at", "merchant_account_id", "latitude", "longitude", "delivery_radius_km", "delivery_base_km",
+  "delivery_fee_per_km", "admin_suspended_at", "admin_suspended_reason", "admin_suspended_by",
+  "pickup_latitude", "pickup_longitude", "pickup_note", "business_schedule", "special_closed_dates",
+  "temporary_closed_until", "temporary_closed_reason", "prep_time_min_minutes", "prep_time_max_minutes",
+  "menu_category_order", "share_code", "scheduled_orders_enabled", "scheduled_min_notice_minutes",
+  "scheduled_max_days", "stripe_payments_enabled", "pickup_enabled", "delivery_enabled", "cod_enabled",
+  "pickup_prep_minutes", "busy_extra_minutes", "busy_until",
+].join(",");
+
+/** Postgres answers 42703 for a column the database does not have (an older environment). */
+export function isUndefinedColumnError(error: { code?: string } | null | undefined) {
+  return error?.code === "42703";
+}
+
+/**
+ * Reads the tax details of one store for its team. Returns null when the caller
+ * may not see them (a low role) or the read fails. While food_store_tax_get is
+ * not installed yet (PGRST202 / 42883) it falls back to the direct columns,
+ * which still work until customers lose access to them.
+ */
+export async function fetchFoodStoreTax(client: SupabaseClient, storeId: string): Promise<FoodStoreTax | null> {
+  const { data, error } = await client.rpc("food_store_tax_get", { p_store_id: storeId });
+  if (!error) {
+    const row = (Array.isArray(data) ? data[0] : data) as FoodStoreTax | null | undefined;
+    return row ?? null;
+  }
+  if (error.code === "PGRST202" || error.code === "42883") {
+    const direct = await client.from("food_stores").select(FOOD_STORE_TAX_COLUMNS.join(",")).eq("id", storeId).maybeSingle();
+    return direct.error ? null : ((direct.data as unknown as FoodStoreTax | null) ?? null);
+  }
+  return null;
+}
+
+export async function attachFoodStoreTax<T extends { id: string }>(client: SupabaseClient, stores: T[]): Promise<T[]> {
+  return await Promise.all(stores.map(async (store) => {
+    const tax = await fetchFoodStoreTax(client, store.id);
+    return tax ? { ...store, ...tax } : store;
+  }));
+}
+
 export async function fetchMerchantSnapshot(
   client: SupabaseClient,
   preferredStoreId?: string | null,
@@ -464,12 +518,15 @@ export async function fetchMerchantSnapshot(
   if (!access) return { access: false, stores: [], store: null, menu: [], orders: [], has_more_orders: false };
 
   // RLS limits this list to stores the signed-in Merchant member may access.
-  const storesResult = await client
+  let storesResult = await client
     .from("food_stores")
-    .select("*")
+    .select(FOOD_STORE_COLUMNS)
     .order("created_at", { ascending: true });
+  if (isUndefinedColumnError(storesResult.error)) {
+    storesResult = await client.from("food_stores").select("*").order("created_at", { ascending: true });
+  }
   if (storesResult.error) throw new Error(storesResult.error.message);
-  const stores = (storesResult.data ?? []) as FoodStore[];
+  const stores = await attachFoodStoreTax(client, (storesResult.data ?? []) as unknown as FoodStore[]);
   const store = stores.find((item) => item.id === preferredStoreId) ?? stores[0] ?? null;
   if (!store) return { access: true, stores: [], store: null, menu: [], orders: [], has_more_orders: false };
 
