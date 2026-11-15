@@ -780,6 +780,13 @@ export async function createFoodCustomerOrder(
     fulfillmentType?: FoodFulfillmentType | null;
     pickupAt?: string | null;
     paymentMethod?: FoodPaymentMethod;
+    /**
+     * One id per order attempt (newOrderRequestId). With it the server refuses a
+     * second order for the same attempt (a retry after a timeout, a tap while the
+     * first request is still running) and returns the first order instead.
+     * Without it, or while the database functions are not installed, nothing changes.
+     */
+    requestId?: string | null;
   },
 ) {
   const couponCode = input.couponCode?.trim().toUpperCase() || null;
@@ -799,6 +806,7 @@ export async function createFoodCustomerOrder(
   };
   // Keep the original no-code RPC paths intact, including their browser QA
   // contracts. Coupon requests opt into v2 without changing ordinary orders.
+  const create = async () => {
   const { data, error } = input.fulfillmentType
     ? await client.rpc("food_create_order_v3", {
       ...params,
@@ -816,6 +824,78 @@ export async function createFoodCustomerOrder(
       : await client.rpc("food_create_order", params);
   if (error) throw new Error(error.message);
   return String(data);
+  };
+  if (!input.requestId) return create();
+  return await withOrderRequest(client, storeId, input.requestId, {
+    recipientName: input.recipientName,
+    recipientPhone: input.recipientPhone,
+    shippingAddress: input.shippingAddress,
+    customerNote: input.customerNote || null,
+    items: params.p_items,
+    location: input.location,
+    scheduledFor: input.scheduledFor ?? null,
+    couponCode,
+    fulfillmentType: input.fulfillmentType ?? null,
+    pickupAt: input.pickupAt ?? null,
+    paymentMethod: input.paymentMethod ?? null,
+  }, create);
+}
+
+const ORDER_REQUEST_POLL_MS = 1500;
+const ORDER_REQUEST_POLL_TRIES = 14;
+
+export function newOrderRequestId() {
+  return crypto.randomUUID();
+}
+
+/** True when the server refused a request id that was reused for a different order. */
+export function isOrderRequestReusedError(error: unknown) {
+  return error instanceof Error && /request id reused for a different order/i.test(error.message);
+}
+
+async function payloadHash(payload: unknown) {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Duplicate-order protection (migration 20261115120000_food_order_requests_idempotency):
+ * claim the request id, create the order once, record it. While the database
+ * functions are not installed (PGRST202 / 42883) the order is created as before.
+ */
+async function withOrderRequest(
+  client: SupabaseClient,
+  storeId: string,
+  requestId: string,
+  payload: unknown,
+  create: () => Promise<string>,
+): Promise<string> {
+  const hash = await payloadHash(payload);
+  for (let attempt = 0; ; attempt++) {
+    const claim = await client.rpc("food_order_request_claim", { p_request_id: requestId, p_store_id: storeId, p_payload_hash: hash });
+    if (claim.error) {
+      if (claim.error.code === "PGRST202" || claim.error.code === "42883") return await create();
+      throw new Error(claim.error.message);
+    }
+    const state = claim.data as { status?: string; order_id?: string } | null;
+    if (state?.status === "done" && state.order_id) return String(state.order_id);
+    if (state?.status === "pending") {
+      if (attempt >= ORDER_REQUEST_POLL_TRIES) throw new Error("กำลังสร้างออเดอร์อยู่ กรุณาตรวจที่หน้าออเดอร์ก่อนกดสั่งซ้ำ");
+      await new Promise((resolve) => setTimeout(resolve, ORDER_REQUEST_POLL_MS));
+      continue;
+    }
+    break;
+  }
+  let orderId: string;
+  try {
+    orderId = await create();
+  } catch (error) {
+    await client.rpc("food_order_request_release", { p_request_id: requestId }).then(() => undefined, () => undefined);
+    throw error;
+  }
+  await client.rpc("food_order_request_done", { p_request_id: requestId, p_order_id: orderId }).then(() => undefined, () => undefined);
+  return orderId;
 }
 
 export async function uploadFoodPaymentSlip(
