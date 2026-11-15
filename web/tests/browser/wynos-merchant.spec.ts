@@ -176,13 +176,8 @@ test("Merchant uses interactive maps for store, pickup and frequent delivery pla
   const sql = read("../supabase/migrations_wynos_food_store_pickup_point_v1.sql");
 
   expect(layout).toContain('import "../food/food.css"');
-  expect(app).toContain("FoodLocationMapPreview");
-  expect(app).toContain("FoodDeliveryMapPicker");
   expect(app).toContain("checkFoodServiceArea");
-  expect(app).toContain('setMapTarget("store")');
-  expect(app).toContain('setMapTarget("pickup")');
   expect(app).toContain("จุดรับอาหาร / ทางเข้าร้านสำหรับไรเดอร์");
-  expect(app).toContain("ค้นหาและเลือกบนแผนที่");
   expect(app).toContain("ร้านอยู่นอกพื้นที่ให้บริการปัจจุบัน");
   expect(data).toContain("pickup_latitude: patch.pickup_latitude");
   expect(data).toContain("pickup_longitude: patch.pickup_longitude");

@@ -75,7 +75,6 @@ test("WYNOS Food hides the persistent Social bottom navigation", () => {
 
 test("WYNOS Food delivery address uses GPS with a place-search fallback and no map pin", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
-  const map = read("components/food/food-delivery-map-picker.tsx");
   const data = read("lib/food-customer.ts");
 
   // ZOKY delivery addresses no longer open the pin map (Founder, 2026-11-12).
@@ -89,70 +88,14 @@ test("WYNOS Food delivery address uses GPS with a place-search fallback and no m
   expect(app).not.toContain("ค้นหาและปักหมุดบนแผนที่");
   expect(app).not.toContain("ปักหมุด");
   const css = read("app/food/food.css");
-  const mapsCss = read("app/maps/maps.css");
-  const mapsV2Css = read("app/maps/maps.css");
-  const mapsV4Css = read("app/maps/maps.css");
   const serviceArea = JSON.parse(read("public/maps/food-service-area-thailand.json")) as {
     geometry?: { coordinates?: number[][][] };
   };
 
-  expect(map).toContain('const MAP_STYLE = "/maps/wynos-green.json";');
-  expect(map).toContain("maplibre-gl@");
-  expect(map).toContain("/dist/maplibre-gl.js");
-  expect(map).toContain("https://tile.openstreetmap.org/{z}/{x}/{y}.png");
-  expect(map).toContain("map.setStyle(FALLBACK_MAP_STYLE)");
-  expect(map).toContain("dragPan: true");
-  expect(map).toContain("touchZoomRotate: true");
-  expect(map).toContain('addEventListener("touchmove", preventPagePan, { passive: false })');
-  expect(mapsCss).toContain("touch-action: none !important");
-  expect(mapsCss).toContain("overscroll-behavior: none");
-  expect(map).toContain('map.on("style.load", markReady)');
-  expect(map).toContain("map.project([nearbyPlace.longitude, nearbyPlace.latitude])");
-  expect(map).toContain("wf-map-place-symbol");
-  expect(map).toContain("wf-map-user-location");
-  expect(map).toContain('anchor: selected ? "bottom" : "center"');
-  expect(map).toContain("mapZoom >= 17 ? 18 : mapZoom >= 15.5 ? 12 : mapZoom >= 13.5 ? 8 : 5");
-  expect(map).toContain("mapZoom >= 17 ? 46 : mapZoom >= 15.5 ? 58 : 70");
-  expect(map).toContain("return aSelected ? -1 : 1");
-  expect(map).toContain("wf-map-place-marker is-${kind}");
-  expect(mapsV2Css).toContain(".wf-map-place-marker.is-cafe");
-  expect(mapsV2Css).toContain(".wf-map-user-location");
 
-  expect(map).toContain('const SERVICE_AREA_URL = "/maps/food-service-area-thailand.json";');
-  expect(map).toContain("pointInServiceAreas(location, serviceAreaBoundary)");
-  expect(map).toContain('client.rpc("food_service_area_boundaries")');
-  expect(map).toContain("map.addSource(SERVICE_AREA_SOURCE");
-  expect(map).toContain("SERVICE_AREA_FILL_LAYER");
-  expect(map).toContain("SERVICE_AREA_LINE_LAYER");
-  expect(map).toContain('serviceAreaState === "outside"');
-  expect(map).toContain('activeNearbyPlace?.merchantStoreId && serviceAreaState === "outside"');
-  expect(map).not.toContain("ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ");
-  expect(mapsCss).toContain(".wf-map-service-area");
-  expect(mapsCss).toContain(".wf-map-service-area-warning");
   expect(serviceArea.geometry?.coordinates?.[0]?.length ?? 0).toBeGreaterThan(1000);
-  expect(map).toContain("แผนที่ยังโหลดไม่สำเร็จ");
   expect(css).toContain(".wf-map-canvas.maplibregl-map");
   expect(css).toContain(".wf-map-loading--error");
-  expect(map).toContain("Geocoding by Photon");
-  expect(map).toContain("เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร");
-  expect(map).toContain("currentFoodLocation()");
-  expect(map).toContain("searchFoodPlaces(client, trimmed, location)");
-  expect(map).toContain("reverseFoodPlace(client, next)");
-  expect(map).toContain("กำลังค้นหาชื่อสถานที่…");
-  expect(map).toContain("ไม่พบชื่อสถานที่");
-  expect(map).toContain("wf-map-confirm-address");
-  expect(map).toContain("wf-map-confirm-coordinates");
-  expect(map).not.toContain("function placeText(");
-  expect(map).toContain("autoLocate = false");
-  expect(map).toContain("FoodLocationMapPreview");
-  expect(map).toContain("fetchWynosPlaceDetails");
-  expect(map).toContain("wf-map-store-cover");
-  expect(map).toContain("wf-map-entrance-marker");
-  expect(map).toContain("ดูจุดรับอาหารบนแผนที่");
-  expect(map).toContain("เลื่อนแผนที่เพื่อปรับหมุดให้ตรงตำแหน่งจริง");
-  expect(map).toContain('if (standalone) setSheetDetent("half");');
-  expect(mapsV4Css).toContain(".wf-map-sheet.is-searching");
-  expect(mapsV4Css).toContain("max-height: min(52dvh, 430px)");
   expect(data).toContain('body: { mode: "reverse", lat: location.latitude, lon: location.longitude }');
 });
 
@@ -198,10 +141,8 @@ test("Wyn Maps Places enriches saved addresses without exposing customer homes",
   const osmFallbackSql = read("../supabase/migrations_wynos_maps_osm_reverse_fallback_v1.sql");
   const photonFallbackSql = read("../supabase/migrations_wynos_maps_photon_fallback_v1.sql");
   const suggestionSql = read("../supabase/migrations_wynos_maps_place_suggestions_v1.sql");
-  const overtureWorkflow = read("../.github/workflows/wynos-maps-import-overture-places.yml");
   const overtureImporter = read("../.github/scripts/import-overture-places.py");
   const publicGeocoder = read("../supabase/functions/wynos-maps-geocode/index.ts");
-  const map = read("components/food/food-delivery-map-picker.tsx");
 
   expect(sql).toContain("create table if not exists public.wynos_places");
   expect(sql).toContain("alter table public.wynos_places enable row level security");
@@ -229,41 +170,16 @@ test("Wyn Maps Places enriches saved addresses without exposing customer homes",
   expect(publicGeocoder).toContain("WYNOSMaps/1.0");
   expect(publicGeocoder).toContain('X-WYNOS-Maps-Provider');
   expect(publicGeocoder).toContain("LOCATIONIQ_API_KEY");
-  expect(map).toContain("Geocoding by Photon");
-  expect(map).toContain("© OpenStreetMap contributors");
-  expect(map).toContain("Places: Overture Maps Foundation");
-  expect(map).toContain("wf-map-attribution-button");
-  expect(map).toContain("wf-map-attribution-panel");
-  expect(map).toContain("ข้อมูลแผนที่และแหล่งข้อมูล");
-  expect(map).toContain("attributionControl: false");
-  expect(map).not.toContain("wf-map-geocoder-credit");
   expect(nearbySql).toContain("create or replace function public.wynos_nearby_places");
   expect(nearbySql).toContain("to anon, authenticated");
   expect(nearbyRankingSql).toContain("internal.food_distance_km(p_latitude, p_longitude, p.latitude, p.longitude)");
   expect(nearbyRankingSql).toContain("when p.category = 'residence' then 0");
-  expect(map).toContain("nearbyRadiusForZoom");
-  expect(map).toContain("fetchNearbyWynosPlaces");
-  expect(map).toContain("wf-map-place-label");
-  expect(map).toContain("mapZoom >= 16.6 && index < 4");
-  expect(map).toContain('wf-map-confirm-tool-label">เส้นทาง');
-  expect(map).toContain('wf-map-confirm-tool-label">บันทึก');
-  expect(map).toContain('wf-map-confirm-tool-label">แชร์');
-  expect(read("app/maps/maps.css")).toContain("v5.3 — match the approved premium-minimal Maps visual direction");
-  expect(read("app/maps/maps.css")).toContain("background: rgb(255 59 48 / 10%)");
-  expect(map).toContain("เพิ่มสถานที่ที่หายไป");
-  expect(map).toContain("submitWynosPlaceSuggestion");
   expect(data).toContain('client.rpc("submit_wynos_place_suggestion"');
   expect(suggestionSql).toContain("create table if not exists public.wynos_place_suggestions");
   expect(suggestionSql).toContain("admin_review_wynos_place_suggestion");
   expect(suggestionSql).toContain("daily suggestion limit reached");
-  expect(overtureWorkflow).toContain("overturemaps download");
-  expect(overtureWorkflow).toContain("activate_confidence");
   expect(overtureImporter).toContain("source_ref");
   expect(overtureImporter).toContain("activate-confidence");
-  expect(map).toContain("สั่งอาหารได้ใน ZOKY");
-  expect(map).toContain("wf-map-food-action");
-  expect(map).toContain("> สั่งอาหาร</a>");
-  expect(map).toContain("${FOOD_SITE_URL}/?store=");
   expect(app).toContain("sharedFoodStoreId(window.location.search)");
   expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
   expect(app).toContain("หมายเหตุถึงผู้จัดส่ง");
@@ -440,7 +356,6 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   const sql = read("../supabase/migrations_wynos_food_delivery_zone_v1.sql");
   const lib = read("lib/food-customer.ts");
   const app = read("components/food/wynos-food-developer-app.tsx");
-  const map = read("components/food/food-delivery-map-picker.tsx");
   const merchant = read("components/merchant/wynos-merchant-app.tsx");
 
   // Server owns the fee and the radius; old signatures cannot bypass them.
@@ -459,7 +374,6 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(app).toContain("location: !isPickup && storeHasDeliveryZone(store) ? addressLocation(address) : null");
   expect(app).toContain("const confirmDisabled = (!isPickup && !address) || busy || quoteLoading || Boolean(blockedReason);");
   expect(app).toContain("disabled={confirmDisabled}");
-  expect(map).toContain('aria-label={standalone ? "ค้นหาใน Wyn Maps" : "ค้นหาสถานที่หรือที่อยู่"}');
   expect(merchant).toContain("Math.ceil(");
   expect(app).toContain("<DeliveryLocationPicker");
   expect(merchant).toContain("delivery_fee_per_km: Number(form.delivery_fee_per_km || 0)");
@@ -472,7 +386,6 @@ test("WYN-197 free place search uses the store's own place list", () => {
   const sql = read("../supabase/migrations_wynos_food_store_places_v1.sql");
   const lib = read("lib/food-customer.ts");
   const merchantLib = read("lib/food-merchant.ts");
-  const map = read("components/food/food-delivery-map-picker.tsx");
   const merchant = read("components/merchant/wynos-merchant-app.tsx");
 
   // Only the store's managers write; customers read through a scoped RPC.
@@ -485,8 +398,6 @@ test("WYN-197 free place search uses the store's own place list", () => {
 
   // Food searches the store list first; the geocoder is only a fallback.
   expect(lib).toContain('client.rpc("food_search_store_places"');
-  expect(map).toContain("let next = storeId ? (await searchStorePlaces(client, storeId, trimmed)) ?? [] : [];");
-  expect(map).toContain("if (!next.length) next = await searchFoodPlaces(client, trimmed, location);");
 
   // Merchant manages the list and hides it until the table exists.
   expect(merchantLib).toContain('.from("food_store_places")');
@@ -637,23 +548,6 @@ test("WYNOS Food item sheet matches the approved native ordering layout", () => 
   expect(css).toContain(".fx-control");
 });
 
-
-test("standalone Wyn Maps stays independent from Food-only chrome and service-area blocking", () => {
-  const shell = read("app/maps/wynos-maps-address-picker.tsx");
-  const map = read("components/food/food-delivery-map-picker.tsx");
-  const polish = read("app/maps/maps.css");
-
-  expect(shell).not.toContain("wynos-maps-brand-rail");
-  expect(shell).not.toContain('router.push("/food")');
-  expect(shell).toContain('window.location.assign("https://wynos.online/")');
-  expect(shell).toContain("กลับ WYNOS");
-  expect(map).toContain('activeNearbyPlace?.merchantStoreId && serviceAreaState === "outside"');
-  expect(map).toContain("disabled={!chosen || !location}");
-  expect(map).not.toContain("ยืนยันไม่ได้ · นอกพื้นที่ให้บริการ");
-  expect(polish).toContain(".wf-map-sheet.is-half .wf-map-place-card");
-  expect(polish).toContain(":has(.wf-map-place-card) .wf-map-confirm-copy");
-  expect(polish).toContain(":has(.wf-map-directions) .wf-map-confirm-copy");
-});
 
 test("ZOKY web Home + Food follow the app design with real data only (2026-10-19)", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");

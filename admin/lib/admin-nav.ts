@@ -8,10 +8,8 @@ import {
   ScrollText,
   Megaphone,
   UtensilsCrossed,
-  MapPinned,
   Map as MapIcon,
   MessageCircle,
-  MapPinOff,
   Bot,
   Settings,
   ExternalLink,
@@ -112,9 +110,6 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // redirect there from next.config.ts.
   { id: "zoky-admin", href: zokyAdminUrl("/"), label: "เปิด ZOKY Admin", icon: ExternalLink, group: "zoky", requires: { systems: ["food", "merchant"] } },
 
-  systemDashboard("maps"),
-  { id: "places", href: "/maps/places", label: "Place Management", icon: MapPinned, group: "maps", requires: { systems: ["maps"] } },
-  { id: "map-reports", label: "Map Reports", icon: MapPinOff, group: "maps", requires: { systems: ["maps"] } },
 
   { id: "ai-secretary", label: "AI Secretary", icon: Bot, group: "other", requires: "any" },
   { id: "platform-marketing", label: "Platform Marketing", icon: Megaphone, group: "other", requires: "any" },

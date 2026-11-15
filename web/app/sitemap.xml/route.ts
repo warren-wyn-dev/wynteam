@@ -7,7 +7,6 @@ const URL_BY_HOST: Record<string, string> = {
   "www.wynos.online": "https://wynos.online/",
   "zoky.wynos.online": "https://zoky.wynos.online/",
   "merchant.wynos.online": "https://merchant.wynos.online/",
-  "maps.wynos.online": "https://maps.wynos.online/",
 };
 
 export async function GET() {

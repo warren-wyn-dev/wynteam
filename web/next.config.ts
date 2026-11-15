@@ -114,16 +114,6 @@ const nextConfig: NextConfig = {
         // application data work.
         { source: "/og-image.png", destination: "/icons/icon-512.png" },
         { source: "/favicon.ico", destination: "/icons/icon-192.png" },
-        // Host-specific WYNOS Maps routes must run before filesystem routes
-        // such as the Social /search page.
-        { source: "/", has: [{ type: "host", value: "maps.wynos.online" }], destination: "/maps" },
-        { source: "/", has: [{ type: "host", value: "geo.wynos.online" }], destination: "/api/maps/health" },
-        { source: "/health", has: [{ type: "host", value: "geo.wynos.online" }], destination: "/api/maps/health" },
-        { source: "/search", has: [{ type: "host", value: "geo.wynos.online" }], destination: "/api/maps/search" },
-        { source: "/reverse", has: [{ type: "host", value: "geo.wynos.online" }], destination: "/api/maps/reverse" },
-        { source: "/", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/health" },
-        { source: "/health", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/health" },
-        { source: "/route", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/route" },
         // ZOKY (Food) short share links: zoky.wynos.online/s/<code>. Old
         // food.wynos.online/s/<code> links work here in phase 1 and are
         // redirected to ZOKY by proxy.ts in phase 2 (ZOKY_LEGACY_FOOD_REDIRECT).

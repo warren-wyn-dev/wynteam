@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, Camera, Flag, MapPinPlus, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Flag, ShieldAlert } from "lucide-react";
 
 import { NoAccess } from "@/components/admin/no-access";
 import { RefreshButton } from "@/components/admin/refresh-button";
 import { StatCard } from "@/components/admin/stat-card";
 import { ADMIN_NAV_GROUPS, adminNavItemsForRole, isAdminNavItemAvailable, systemDashboardHref, type WynosDashboardSystem } from "@/lib/admin-nav";
-import { fetchAdminWynosPlacePhotos, fetchAdminWynosPlaceSuggestions } from "@/lib/admin-maps";
 import { fetchQueue } from "@/lib/admin-reports";
 import { ADMIN_SYSTEM_LABEL, isAdminSystem, type AdminSystem } from "@/lib/admin-systems";
 import { adminCan, requireAdminRole } from "@/lib/auth";
@@ -118,33 +117,8 @@ async function SystemStats({ system }: { system: WynosDashboardSystem }) {
       );
     }
 
-    case "maps": {
-      const [suggestions, photos] = await Promise.all([
-        settle(fetchAdminWynosPlaceSuggestions("pending")),
-        settle(fetchAdminWynosPlacePhotos()),
-      ]);
-      if (!suggestions.ok && !photos.ok) return <LoadFailed />;
-      return (
-        <StatGrid>
-          {suggestions.ok ? (
-            <StatCard
-              label="สถานที่ที่ผู้ใช้เสนอ รอตรวจ"
-              value={suggestions.value.length}
-              icon={MapPinPlus}
-              sublabel={suggestions.value.length >= 200 ? "นับได้สูงสุด 200 รายการ" : undefined}
-            />
-          ) : null}
-          {photos.ok ? (
-            <StatCard
-              label="รูปสถานที่ รอตรวจ"
-              value={photos.value.length}
-              icon={Camera}
-              sublabel={photos.value.length >= 100 ? "นับได้สูงสุด 100 รายการ" : undefined}
-            />
-          ) : null}
-        </StatGrid>
-      );
-    }
+    case "maps":
+      return <Notice>Wyn Maps เดิมถูกยกเลิกแล้ว</Notice>;
   }
 }
 
