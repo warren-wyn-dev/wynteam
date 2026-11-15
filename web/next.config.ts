@@ -27,6 +27,12 @@ const merchantFlutterLegacyRewrites = (() => {
 // not hold the Maps secrets. Setting ZOKY_MAPS_UPSTREAM_ORIGIN (https only, on
 // that project only) forwards /api/maps/* to the WYNOS project. Unset = no
 // change, so the existing WYNOS project keeps serving Maps itself.
+// Founder 2026-11-15: place search and reverse lookup move to Norswor Maps.
+// When WYNOS_GEO_ORIGIN is set (the Norswor Maps geo API, see its
+// docs/GEO_API.md), /api/maps/search and /reverse are answered by this project
+// itself; only routing keeps going to the upstream until it has its own engine.
+const zokyServesGeoLocally = Boolean(process.env.WYNOS_GEO_ORIGIN?.trim());
+
 const zokyMapsUpstreamOrigin = (() => {
   const raw = process.env.ZOKY_MAPS_UPSTREAM_ORIGIN?.trim();
   if (!raw) return null;
@@ -130,7 +136,12 @@ const nextConfig: NextConfig = {
         { source: "/s/:code", has: [{ type: "host", value: "zoky.wynos.online" }], destination: "/food/s/:code" },
         { source: "/s/:code", has: [{ type: "host", value: "food.wynos.online" }], destination: "/food/s/:code" },
         ...(zokyMapsUpstreamOrigin
-          ? [{ source: "/api/maps/:path*", destination: `${zokyMapsUpstreamOrigin}/api/maps/:path*` }]
+          ? [{
+              source: zokyServesGeoLocally ? "/api/maps/route" : "/api/maps/:path*",
+              destination: zokyServesGeoLocally
+                ? `${zokyMapsUpstreamOrigin}/api/maps/route`
+                : `${zokyMapsUpstreamOrigin}/api/maps/:path*`,
+            }]
           : []),
       ],
       afterFiles: [
