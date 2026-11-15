@@ -102,6 +102,8 @@ import {
 import {
   cancelFoodCustomerOrder,
   createFoodCustomerOrder,
+  isOrderRequestReusedError,
+  newOrderRequestId,
   deleteFoodCustomerAddress,
   fetchFoodCustomerSnapshot,
   fetchFoodCustomerOrdersPage,
@@ -3941,6 +3943,9 @@ function FoodCustomerInner({
 
   // Founder decisions: delivery is as soon as possible only (2026-10-10);
   // pickup at a time today and store-enabled COD (ZOKY-FULFILL-001, 2026-10-26).
+  // One id per order attempt: kept after a failure so a retry cannot create a second order,
+  // cleared once the order exists (see createFoodCustomerOrder / food_order_requests).
+  const orderRequestRef = useRef<string | null>(null);
   const createOrder = async (address: FoodCustomerAddress | null, note: string, couponCode: string | null, options: FoodCheckoutOptions) => {
     if (!store) return;
     const isPickup = options.fulfillmentType === "pickup";
@@ -3954,7 +3959,7 @@ function FoodCustomerInner({
         address.landmark ? `จุดสังเกต ${address.landmark}` : "",
       ].filter(Boolean).join(" · ");
       const combinedNote = [structuredAddress, isPickup ? null : address?.delivery_note, note.trim()].filter(Boolean).join(" · ");
-      const orderId = await createFoodCustomerOrder(client, store.id, {
+      const orderInput = {
         recipientName: isPickup ? options.contactName ?? "" : address!.recipient_name,
         recipientPhone: isPickup ? options.contactPhone ?? "" : address!.recipient_phone,
         shippingAddress: isPickup ? "รับเองที่ร้าน" : address!.address,
@@ -3966,7 +3971,18 @@ function FoodCustomerInner({
         fulfillmentType: options.fulfillmentType,
         pickupAt: options.pickupAt,
         paymentMethod: options.paymentMethod,
-      });
+      };
+      orderRequestRef.current ??= newOrderRequestId();
+      let orderId: string;
+      try {
+        orderId = await createFoodCustomerOrder(client, store.id, { ...orderInput, requestId: orderRequestRef.current });
+      } catch (error) {
+        // The cart or address changed since the failed attempt: it is a new order, so a new id.
+        if (!isOrderRequestReusedError(error)) throw error;
+        orderRequestRef.current = newOrderRequestId();
+        orderId = await createFoodCustomerOrder(client, store.id, { ...orderInput, requestId: orderRequestRef.current });
+      }
+      orderRequestRef.current = null;
       // Lets the store see orders that came from its shared link.
       if (hasShareRef(store.id)) void markFoodOrderFromShare(client, orderId).catch(() => undefined);
       setCart([]);

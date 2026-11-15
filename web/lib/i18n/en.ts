@@ -4,6 +4,7 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "กำลังสร้างออเดอร์อยู่ กรุณาตรวจที่หน้าออเดอร์ก่อนกดสั่งซ้ำ": "Your order is still being created. Check the Orders page before ordering again.",
   "ลูกค้าใหม่ · ค่าอาหารครบ ฿100 ลดทันที ฿40": "New customers · ฿40 off when food reaches ฿100",
   "ระบบตรวจสิทธิ์ให้ตอนสั่งจริง ไม่ต้องใส่โค้ด": "Eligibility is checked when you order. No code needed.",
   "บ้านเลขที่/ถนน": "House no./street",
