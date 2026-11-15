@@ -3,8 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   completeFoodDelivery, fetchMerchantSalesReport, foodPrivateSignedUrl, foodPublicUrl,
   setFoodPaymentStatus, subscribeMerchantOrders, transitionFoodOrder, updateFoodStore,
-  uploadFoodPrivateImage, uploadFoodPublicImage, type FoodMenuItem, type FoodOrder, type FoodStore,
-} from "@/lib/food-merchant";
+  uploadFoodPrivateImage, uploadFoodPublicImage, type FoodMenuItem, type FoodOrder, type FoodStore, FOOD_STORE_COLUMNS, FOOD_STORE_TAX_COLUMNS, attachFoodStoreTax, fetchFoodStoreTax, isUndefinedColumnError } from "@/lib/food-merchant";
 import { orderDeliveryProof } from "@/lib/food-delivery-proof";
 import { FOOD_DAY_KEYS, foodSoldOutUntilTomorrowBangkok, foodStoreIsEffectivelyOpen, foodStoreStatusText, type FoodBusinessSchedule } from "@/lib/food-store-availability";
 import { addMerchantStaff, fetchMerchantStaff, fetchMerchantStoreReviews, replyMerchantStoreReview, setMerchantStorePublished, updateMerchantStaff } from "@/lib/merchant-core";
@@ -211,7 +210,11 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     const store = storage();
     if (!store || disposed) return;
     try {
-      const json = JSON.stringify({ at: Date.now(), data });
+      // Tax details (a national ID for sole proprietors) are never kept in browser storage.
+      const kept = method === "stores" && Array.isArray(data)
+        ? data.map((row) => Object.fromEntries(Object.entries(row as Record<string, unknown>).filter(([key]) => !(FOOD_STORE_TAX_COLUMNS as readonly string[]).includes(key))))
+        : data;
+      const json = JSON.stringify({ at: Date.now(), data: kept });
       if (json.length > 400_000) return;
       if (method === "stores") store.setItem(snapshotKey("stores"), json);
       else if (typeof args.storeId === "string" && UUID.test(args.storeId)) {
@@ -319,16 +322,19 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
     for (const [column, values] of [["merchant_account_id", accounts], ["id", staffStores]] as const) {
       for (let batch = 0; batch < values.length; batch += 100) {
         for (let offset = 0; ; offset += 500) {
-          const { data, error } = await client.from("food_stores").select("*").in(column, values.slice(batch, batch + 100)).order("created_at").order("id").range(offset, offset + 499);
+          const page = (columns: string) => client.from("food_stores").select(columns).in(column, values.slice(batch, batch + 100)).order("created_at").order("id").range(offset, offset + 499);
+          let { data, error } = await page(FOOD_STORE_COLUMNS);
+          if (isUndefinedColumnError(error)) ({ data, error } = await page("*"));
           if (error) throw error;
-          const rows = (data ?? []) as FoodStore[];
+          const rows = (data ?? []) as unknown as FoodStore[];
           rows.forEach((store) => stores.set(store.id, store));
           if (rows.length < 500) break;
         }
       }
     }
     const at = new Date();
-    return [...stores.values()]
+    // Tax details are owner-only and come from an owner-checked function.
+    return (await attachFoodStoreTax(client, [...stores.values()]))
       .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "") || a.id.localeCompare(b.id))
       .map((store) => {
         const suspended = Boolean(store.admin_suspended_at);
@@ -741,10 +747,19 @@ export function createMerchantFlutterBridge({ client, userId, signOut, onOrderCh
         if (!Object.keys(patch).length) throw new BridgeInputError();
         await requireManageRole(storeId);
         await updateFoodStore(client, storeId, patch);
-        const { data, error } = await client.from("food_stores").select(`id,${Object.keys(patch).join(",")}`).eq("id", storeId).single();
+        // Tax columns are owner-only: read them back through the owner-checked function.
+        const taxKeys = Object.keys(patch).filter((key) => (FOOD_STORE_TAX_COLUMNS as readonly string[]).includes(key));
+        const plainKeys = Object.keys(patch).filter((key) => !taxKeys.includes(key));
+        const pick = (keys: string[]) => Object.fromEntries(keys.map((key) => [key, (patch as Args)[key]])) as Args;
+        const { data, error } = await client.from("food_stores").select(["id", ...plainKeys].join(",")).eq("id", storeId).single();
         if (error) throw error;
         if (!data) throw new Error("write_not_applied");
-        verifyPatch(data, patch);
+        verifyPatch(data, pick(plainKeys));
+        if (taxKeys.length) {
+          const tax = await fetchFoodStoreTax(client, storeId);
+          if (!tax) throw new Error("write_not_applied");
+          verifyPatch(tax, pick(taxKeys));
+        }
         return null;
       }
       case "pickStoreImage": {
