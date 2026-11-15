@@ -44,7 +44,6 @@ const nextConfig: NextConfig = {
   // bookmarks working; the query string (?q=, ?category=) is carried over.
   async redirects() {
     return [
-      { source: "/food/places", destination: "/maps/places", permanent: false },
       // ZOKY-ADMIN-001: Food and Merchant moved to ZOKY Admin. Order matters
       // (first match wins); query strings are carried over. Temporary (307)
       // so a rollback is not stuck in browsers' redirect caches.

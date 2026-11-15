@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Ban, Gift, MapPinned, Megaphone, ReceiptText, ShoppingBag, Store, Wallet } from "lucide-react";
+import { Ban, Gift, Megaphone, ReceiptText, ShoppingBag, Store, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/admin/stat-card";
@@ -12,7 +12,6 @@ import {
 } from "@/lib/admin-food";
 import { adminCan, requireAdminRole } from "@/lib/auth";
 import { NoAccess } from "@/components/admin/no-access";
-import { wynosAdminUrl } from "@/lib/app-urls";
 
 function storeStatus(store: AdminFoodStore) {
   if (store.admin_suspended_at) return <Badge variant="destructive">ระงับโดย WYNOS</Badge>;
@@ -72,9 +71,6 @@ export default async function FoodStoresPage({
             <button type="submit" className="h-11 rounded-md border px-4 text-sm font-medium hover:bg-accent">ค้นหา</button>
           </form>
           <div className="flex flex-wrap gap-2">
-            <Link href={wynosAdminUrl("/maps/places")} className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
-              <MapPinned className="size-4" /> WYNOS Places
-            </Link>
             <Link href="/merchant/campaigns" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
               <Gift className="size-4" /> แคมเปญ WYNOS
             </Link>

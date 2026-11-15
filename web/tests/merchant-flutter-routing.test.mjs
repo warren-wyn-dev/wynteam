@@ -46,7 +46,6 @@ test("enabling Merchant Flutter does not switch Food, Social or Maps", () => {
     assert.deepEqual(router("1", "1")(request("food.wynos.online", path)), router("0", "1")(request("food.wynos.online", path)));
   }
   assert.equal(proxy(request("wynos.online")).kind, "next");
-  assert.equal(proxy(request("maps.wynos.online")).url, "https://wynos.online/maps");
   assert.equal(proxy(request("food.wynos.online", "/login")).url, "https://food.wynos.online/food/login");
 });
 test("the embedded page keeps the existing JS auth owner and has a working legacy fallback", () => {
