@@ -3,7 +3,7 @@
 import { useId } from "react";
 
 /**
- * WYN-204: Wynos Merchant's own 3D icon set, drawn as SVG (no third-party
+ * WYN-204: Zoky Merchant's own 3D icon set, drawn as SVG (no third-party
  * artwork). Each icon is one object lit from the top-left: a light-to-base
  * top face, a base-to-dark body, a soft white highlight and a floor shadow.
  */

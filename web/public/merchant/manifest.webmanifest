@@ -1,8 +1,8 @@
 {
   "id": "/merchant",
-  "name": "Wynos Merchant",
-  "short_name": "Wynos Merchant",
-  "description": "จัดการร้าน WYNOS Food",
+  "name": "Zoky Merchant",
+  "short_name": "Zoky Merchant",
+  "description": "จัดการร้านของคุณบน ZOKY",
   "start_url": "/merchant",
   "scope": "/merchant",
   "display": "standalone",

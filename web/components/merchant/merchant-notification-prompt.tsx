@@ -151,7 +151,7 @@ export function MerchantNotificationPrompt({
         <h2 id="wm-notify-title">เปิดการแจ้งเตือนออเดอร์</h2>
         {state.kind === "ask" ? (
           <>
-            <p>ให้ Wynos Merchant แจ้งเตือนทันทีเมื่อมีออเดอร์ใหม่หรือลูกค้าส่งสลิป แม้ไม่ได้เปิดแอปอยู่</p>
+            <p>ให้ Zoky Merchant แจ้งเตือนทันทีเมื่อมีออเดอร์ใหม่หรือลูกค้าส่งสลิป แม้ไม่ได้เปิดแอปอยู่</p>
             {error ? <small role="alert">{error}</small> : null}
             <button ref={allowRef} className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void allow()}>
               {busy ? "กำลังเปิด…" : "อนุญาตการแจ้งเตือน"}
@@ -162,7 +162,7 @@ export function MerchantNotificationPrompt({
         ) : (
           <>
             <p>{state.reason === "denied"
-              ? "มือถือปิดการแจ้งเตือนของแอปนี้อยู่ ไปที่การตั้งค่าของมือถือหรือเบราว์เซอร์ แล้วอนุญาตการแจ้งเตือนให้ Wynos Merchant จากนั้นเปิดแอปใหม่"
+              ? "มือถือปิดการแจ้งเตือนของแอปนี้อยู่ ไปที่การตั้งค่าของมือถือหรือเบราว์เซอร์ แล้วอนุญาตการแจ้งเตือนให้ Zoky Merchant จากนั้นเปิดแอปใหม่"
               : pushReasonDescription(state.reason)}</p>
             <button className="wm-secondary wm-full" type="button" onClick={close}>เข้าใจแล้ว</button>
           </>

@@ -3,9 +3,9 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/merchant",
-    name: "Wynos Merchant",
-    short_name: "Wynos Merchant",
-    description: "จัดการร้าน WYNOS Food",
+    name: "Zoky Merchant",
+    short_name: "Zoky Merchant",
+    description: "จัดการร้าน ZOKY",
     start_url: "/merchant",
     scope: "/merchant",
     display: "standalone",

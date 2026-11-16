@@ -113,7 +113,7 @@ export function MerchantAds({ client, store, onMessage }: { client: SupabaseClie
       <section className="wm-section">
         <div className="wm-section-title"><h2>โฆษณาแสดงที่ไหน</h2></div>
         <ul className="wm-ads-where">
-          <li>ร้านแนะนำบนหน้าแรก WYNOS Food</li>
+          <li>ร้านแนะนำบนหน้าแรก ZOKY</li>
           <li>อันดับบนสุดตอนลูกค้าค้นหาร้าน</li>
           <li>ทุกที่มีป้าย “โฆษณา” · คิดเงินเมื่อลูกค้ากดเข้าร้าน คนเดิมกดซ้ำในวันเดียวกันคิดครั้งเดียว</li>
         </ul>

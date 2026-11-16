@@ -605,7 +605,7 @@ class _FeedbackPanelState extends State<FeedbackPanel>
                       children: [
                         Expanded(
                           child: Text(
-                            '${r['reviewer_label'] ?? 'ลูกค้า WYNOS Food'}',
+                            '${r['reviewer_label'] ?? 'ลูกค้า ZOKY'}',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),

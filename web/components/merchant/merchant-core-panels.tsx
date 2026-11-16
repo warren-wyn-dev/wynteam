@@ -273,7 +273,7 @@ export function MerchantStoreTools({
               {reviews.reviews.map((review) => (
                 <article className="wm-review-card" key={review.id}>
                   <div className="wm-review-card-head">
-                    <span><strong>{review.reviewer_label}</strong><small>สั่งจริงกับ WYNOS Food · {shortDate(review.created_at)}</small></span>
+                    <span><strong>{review.reviewer_label}</strong><small>สั่งจริงกับ ZOKY · {shortDate(review.created_at)}</small></span>
                     <MerchantReviewStars rating={review.rating} />
                   </div>
                   {review.review_text ? <p>{review.review_text}</p> : null}
@@ -414,7 +414,7 @@ export function MerchantStoreTools({
               <span className="wm-activity-icon"><Clock3 size={15} /></span>
               <span>
                 <strong>{ACTION_LABELS[item.action] ?? item.action}</strong>
-                <small>{activityDetail(item) || "WYNOS Merchant"} · {item.actor_username_snapshot ? `@${item.actor_username_snapshot}` : "ระบบ"} · {shortDate(item.created_at)}</small>
+                <small>{activityDetail(item) || "Zoky Merchant"} · {item.actor_username_snapshot ? `@${item.actor_username_snapshot}` : "ระบบ"} · {shortDate(item.created_at)}</small>
               </span>
             </div>
           )) : <p className="wm-core-empty">ยังไม่มีกิจกรรมที่บันทึกไว้</p>}

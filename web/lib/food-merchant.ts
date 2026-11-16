@@ -712,7 +712,7 @@ export async function setMenuAvailability(client: SupabaseClient, storeId: strin
 async function foodImageBlob(file: File, compress = false) {
   const { contentType, extension } = imageUploadType(file, 8 * 1024 * 1024);
   if (!SUPPORTED_FOOD_IMAGE_TYPES.has(contentType)) {
-    throw new Error("WYNOS Merchant รองรับรูป JPG, PNG และ WebP");
+    throw new Error("Zoky Merchant รองรับรูป JPG, PNG และ WebP");
   }
   if (compress) {
     // Menu photos and store covers: shrink to at most 1600 px / ~900 KB JPEG (also drops EXIF/GPS).

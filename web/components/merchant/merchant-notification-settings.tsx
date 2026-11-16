@@ -89,7 +89,7 @@ export function MerchantNotificationSettings({
         setPushChosen(userId, true);
         setPushEnabled(true);
         onPushChange(true);
-        onMessage("เปิด Web Push สำหรับ WYNOS Merchant แล้ว");
+        onMessage("เปิด Web Push สำหรับ Zoky Merchant แล้ว");
       } else {
         const ok = await unsubscribeFromPushNotifications(client);
         if (!ok) {
@@ -113,7 +113,7 @@ export function MerchantNotificationSettings({
 
   return (
     <>
-      <div className="wm-page-heading"><div><small>WYNOS Merchant</small><h1>การแจ้งเตือน</h1></div></div>
+      <div className="wm-page-heading"><div><small>Zoky Merchant</small><h1>การแจ้งเตือน</h1></div></div>
 
       <section className="wm-notification-card">
         <div className="wm-notification-card-head">
@@ -153,7 +153,7 @@ export function MerchantNotificationSettings({
           <li>iPhone: เพิ่มเสียงให้ดัง (iOS 17 ขึ้นไป เสียง WYNOS ดังได้แม้เปิดโหมดเงียบ ตอนเปิด Merchant อยู่)</li>
           <li>เสียบชาร์จไว้ และอย่าปัดปิดแอป Merchant ทิ้ง</li>
           <li>เปิด Web Push ด้านบนไว้ ออเดอร์ที่ยังไม่มีใครรับ ระบบจะเตือนซ้ำทุก 1 นาที สูงสุด 5 ครั้ง</li>
-          <li>ติดตั้ง WYNOS Merchant ไว้บนหน้าจอโฮม</li>
+          <li>ติดตั้ง Zoky Merchant ไว้บนหน้าจอโฮม</li>
         </ul>
       </section>
 
@@ -169,7 +169,7 @@ export function MerchantNotificationSettings({
         </a>
         <ol className="wm-notification-tips">
           <li>กดดาวน์โหลดเสียง WYNOS ด้านบน</li>
-          <li>เปิดตั้งค่าของเครื่อง → แอป → WYNOS Merchant (ถ้าติดตั้งไว้บนหน้าจอโฮม) หรือ Chrome</li>
+          <li>เปิดตั้งค่าของเครื่อง → แอป → Zoky Merchant (ถ้าติดตั้งไว้บนหน้าจอโฮม) หรือ Chrome</li>
           <li>เลือก การแจ้งเตือน → หมวดของ merchant.wynos.online → เสียง</li>
           <li>กด เพิ่ม (+) แล้วเลือกไฟล์ WYNOS-Merchant จากโฟลเดอร์ดาวน์โหลด</li>
         </ol>

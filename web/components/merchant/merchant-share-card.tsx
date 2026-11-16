@@ -40,7 +40,7 @@ async function renderQrPoster(storeName: string, url: string): Promise<string> {
   context.textAlign = "center";
   context.fillStyle = "#ffffff";
   context.font = `700 44px ${font}`;
-  context.fillText("WYNOS Food", width / 2, 80);
+  context.fillText("ZOKY", width / 2, 80);
   context.font = `500 32px ${font}`;
   context.fillText("สแกนเพื่อสั่งอาหาร", width / 2, 135);
 

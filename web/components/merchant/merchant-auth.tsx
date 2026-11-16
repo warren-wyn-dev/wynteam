@@ -54,7 +54,7 @@ function MerchantAuthShell({ children, login = false }: { children: ReactNode; l
 
 function BackToMerchant() {
   return (
-    <Link className="wm-auth-back" href="/merchant" aria-label="กลับ WYNOS Merchant">
+    <Link className="wm-auth-back" href="/merchant" aria-label="กลับ Zoky Merchant">
       <ArrowLeft size={20} strokeWidth={1.8} />
     </Link>
   );
@@ -94,7 +94,7 @@ export function MerchantLoginScreen() {
       return;
     }
     if (!client) {
-      setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS Merchant");
+      setMessage("ยังไม่ได้ตั้งค่าการเชื่อมต่อ Zoky Merchant");
       return;
     }
 
@@ -157,7 +157,7 @@ function statusContent(application: MerchantApplication) {
     return {
       icon: <CheckCircle2 size={34} strokeWidth={1.7} />,
       title: "คำขอได้รับการอนุมัติแล้ว",
-      detail: "บัญชีของคุณได้รับอนุมัติสำหรับ WYNOS Merchant แล้ว หากร้านถูกผูกกับบัญชีเรียบร้อย คุณสามารถเข้า Dashboard ได้ทันที",
+      detail: "บัญชีของคุณได้รับอนุมัติสำหรับ Zoky Merchant แล้ว หากร้านถูกผูกกับบัญชีเรียบร้อย คุณสามารถเข้า Dashboard ได้ทันที",
       tone: "approved",
     };
   }
@@ -253,7 +253,7 @@ export function MerchantSignupScreen() {
       const next = await fetchMerchantApplication(client, userId);
       setApplication(next);
       setEditingRejected(false);
-      setMessage("ส่งคำขอ WYNOS Merchant เรียบร้อยแล้ว");
+      setMessage("ส่งคำขอ Zoky Merchant เรียบร้อยแล้ว");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "ส่งคำขอไม่สำเร็จ กรุณาลองใหม่");
     } finally {
@@ -262,7 +262,7 @@ export function MerchantSignupScreen() {
   }
 
   if (!hasSupabaseBrowserConfig()) {
-    return <MerchantAuthShell><div className="wm-auth-state"><MerchantAuthBrand /><h1>ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h1><p>WYNOS Merchant ยังเชื่อมต่อระบบบัญชีไม่ได้</p></div></MerchantAuthShell>;
+    return <MerchantAuthShell><div className="wm-auth-state"><MerchantAuthBrand /><h1>ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h1><p>Zoky Merchant ยังเชื่อมต่อระบบบัญชีไม่ได้</p></div></MerchantAuthShell>;
   }
 
   if (checking) {
@@ -275,7 +275,7 @@ export function MerchantSignupScreen() {
         <div className="wm-auth-top"><BackToMerchant /><MerchantAuthBrand /><span className="wm-auth-top-spacer" /></div>
         <div className="wm-auth-hero">
           <div className="wm-auth-mark"><Store size={30} strokeWidth={1.7} /></div>
-          <h1>สมัคร WYNOS Merchant</h1>
+          <h1>สมัคร Zoky Merchant</h1>
           <p>เปิดร้านบน WYNOS ด้วยบัญชีเดียวกับ WYNOS ปกติ แต่มีพื้นที่สมัครและจัดการ Merchant แยกโดยเฉพาะ</p>
         </div>
         <div className="wm-auth-benefits">
@@ -306,7 +306,7 @@ export function MerchantSignupScreen() {
           <span><small>ส่งคำขอเมื่อ</small><strong>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(new Date(application.created_at))}</strong></span>
         </div>
         {message ? <p className="wm-auth-success" role="status">{message}</p> : null}
-        <Link className="wm-primary wm-full wm-link-button" href="/merchant">ไป WYNOS Merchant</Link>
+        <Link className="wm-primary wm-full wm-link-button" href="/merchant">ไป Zoky Merchant</Link>
       </MerchantAuthShell>
     );
   }
@@ -332,7 +332,7 @@ export function MerchantSignupScreen() {
         <>
           <div className="wm-auth-heading">
             <h1>{application ? "แก้ไขคำขอ Merchant" : "ข้อมูลร้านของคุณ"}</h1>
-            <p>ข้อมูลนี้ใช้สำหรับตรวจสอบและเปิดสิทธิ์ WYNOS Merchant</p>
+            <p>ข้อมูลนี้ใช้สำหรับตรวจสอบและเปิดสิทธิ์ Zoky Merchant</p>
           </div>
           <div className="wm-auth-form">
             <label>ชื่อร้าน / ชื่อธุรกิจ<input value={draft.businessName} onChange={(event) => setDraft({ ...draft, businessName: event.target.value })} placeholder="เช่น ร้าน WYNOS Cafe" /></label>

@@ -86,7 +86,7 @@ export function MerchantFeedbackPanel({ client, store, userId, onMessage }: {
 
   return (
     <>
-      <div className="wm-page-heading"><div><small>ความคิดเห็นจากลูกค้า WYNOS Food ที่สั่งจริง</small><h1>ฟีดแบ็ก</h1></div></div>
+      <div className="wm-page-heading"><div><small>ความคิดเห็นจากลูกค้า ZOKY ที่สั่งจริง</small><h1>ฟีดแบ็ก</h1></div></div>
       <section className="wm-feedback-summary">
         <div><MessageSquareText size={23} /><strong>{feed ? feed.count : "–"}</strong><small>รีวิวทั้งหมด</small></div>
         <div><Star size={23} /><strong>{feed?.count ? feed.average.toFixed(1) : "–"}</strong><small>คะแนนเฉลี่ย / 5</small></div>
@@ -109,7 +109,7 @@ export function MerchantFeedbackPanel({ client, store, userId, onMessage }: {
           {reviews.map((review) => (
             <article className="wm-review-card" key={review.id}>
               <div className="wm-review-card-head">
-                <span><strong>{review.reviewer_label}</strong><small>สั่งจริงกับ WYNOS Food · {reviewDate(review.created_at)}</small></span>
+                <span><strong>{review.reviewer_label}</strong><small>สั่งจริงกับ ZOKY · {reviewDate(review.created_at)}</small></span>
                 <Stars rating={review.rating} />
               </div>
               {review.review_text ? <p>{review.review_text}</p> : null}
