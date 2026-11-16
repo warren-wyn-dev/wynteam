@@ -1,5 +1,5 @@
 /**
- * WYN-208: Wynos Merchant's own bottom-bar icons. Each one has two states:
+ * WYN-208: Zoky Merchant's own bottom-bar icons. Each one has two states:
  * an outline while not selected, and a solid Wynos-red shape with white
  * details when selected, so the current tab reads at a glance.
  */

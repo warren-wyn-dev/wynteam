@@ -1423,7 +1423,7 @@ function HomePanel({
   if (!store) {
     return (
       <FoodStateScreen icon={<Store size={46} strokeWidth={1.6} />} title="ยังไม่มีร้านสำหรับ ZOKY" action={<button className="fx-btn fx-btn--primary" type="button" onClick={onBackStorefront}>กลับหน้าหลัก</button>}>
-        <p>ร้านค้าสามารถสร้างและตั้งค่าร้านผ่าน WYNOS Merchant เพื่อเริ่มขายบน ZOKY</p>
+        <p>ร้านค้าสามารถสร้างและตั้งค่าร้านผ่าน Zoky Merchant เพื่อเริ่มขายบน ZOKY</p>
       </FoodStateScreen>
     );
   }

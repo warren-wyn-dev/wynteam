@@ -277,9 +277,9 @@ function PaymentStatus({ order }: { order: FoodOrder }) {
 
 function MerchantLoading() {
   return (
-    <main className="wm-loading" aria-label="กำลังโหลด WYNOS Merchant">
+    <main className="wm-loading" aria-label="กำลังโหลด Zoky Merchant">
       <div className="wm-loader" />
-      <strong>WYNOS <b>Merchant</b></strong>
+      <strong>Zoky <b>Merchant</b></strong>
     </main>
   );
 }
@@ -288,9 +288,9 @@ function MerchantBlocked({ signOut }: { signOut: () => Promise<void> }) {
   return (
     <main className="wm-blocked">
       <div className="wm-blocked-mark"><Store size={34} strokeWidth={1.7} /></div>
-      <h1>WYNOS Merchant</h1>
+      <h1>Zoky Merchant</h1>
       <p>บัญชีนี้ยังไม่ได้เปิดสิทธิ์ Merchant</p>
-      <Link className="wm-primary wm-link-button" href="/merchant/signup">สมัคร WYNOS Merchant</Link>
+      <Link className="wm-primary wm-link-button" href="/merchant/signup">สมัคร Zoky Merchant</Link>
       <button className="wm-auth-secondary" type="button" onClick={() => void signOut()}>ออกจากระบบ</button>
       <Link className="wm-secondary-link" href="/">กลับ WYNOS</Link>
     </main>
@@ -327,7 +327,7 @@ function OrderCard({
       <div className="wm-order-card-top">
         <span>
           <strong>#{order.order_number}</strong>
-          <small>{shortTime(order.created_at)} · {order.source === "manual" ? "ร้านสร้าง" : order.source === "social" ? "WYNOS Social" : "WYNOS Food"}</small>
+          <small>{shortTime(order.created_at)} · {order.source === "manual" ? "ร้านสร้าง" : order.source === "social" ? "WYNOS Social" : "ZOKY"}</small>
         </span>
         <b>{money(order.total)}</b>
       </div>
@@ -882,7 +882,7 @@ function MerchantInner({
         ) : null}
       </section>
 
-      <nav className="wm-nav" aria-label="WYNOS Merchant">
+      <nav className="wm-nav" aria-label="Zoky Merchant">
         <NavButton active={tab === "home"} label="หน้าหลัก" icon={<MerchantNavIcon name="home" active={tab === "home"} />} onClick={() => setTab("home")} />
         <NavButton active={tab === "orders"} label="รับออเดอร์" icon={<MerchantNavIcon name="orders" active={tab === "orders"} />} badge={activeOrderCount} onClick={() => setTab("orders")} />
         <NavButton active={tab === "menu"} label="เมนู" icon={<MerchantNavIcon name="menu" active={tab === "menu"} />} onClick={() => setTab("menu")} />
@@ -1056,7 +1056,7 @@ function HomePanel({
     { key: "info", label: "ใส่เบอร์ ที่อยู่ เวลาเปิด และพื้นที่ส่ง", done: filled(store.phone) && filled(store.address) && filled(store.business_hours) && filled(store.delivery_area), action: "แก้ไขร้าน", onGo: onEditStore },
     { key: "payment", label: "ตั้งช่องทางรับเงิน", done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
     { key: "menu", label: "เปิดขายเมนูอย่างน้อย 1 รายการ", done: availableMenu > 0, action: "ไปที่เมนู", onGo: () => onOpenTab("menu") },
-    { key: "publish", label: "เผยแพร่ร้านบน WYNOS Food", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
+    { key: "publish", label: "เผยแพร่ร้านบน ZOKY", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
   ];
   const checklistDone = checklist.filter((item) => item.done).length;
   const readyPercent = Math.round((checklistDone / checklist.length) * 100);
@@ -1070,7 +1070,7 @@ function HomePanel({
         <div className="wm-hero-top">
           <div><small>ร้านของคุณ</small><h1>{store.name}</h1></div>
           <span className="wm-hero-actions">
-            {/* Only a published store is visible to customers on WYNOS Food. */}
+            {/* Only a published store is visible to customers on ZOKY. */}
             {store.is_published && !store.admin_suspended_at ? (
               <button className="wm-hero-edit" type="button" aria-label="แชร์ลิงก์ร้านให้ลูกค้าสั่งอาหาร" onClick={() => void shareOrCopyLink(foodStoreShareData(store), onMessage)}><Share2 size={19} /></button>
             ) : null}
@@ -1110,7 +1110,7 @@ function HomePanel({
         <button type="button" onClick={() => onOpenTab("promotions")}><MerchantIcon3D name="promotion" size={52} />โปรโมชั่น</button>
       </nav>
 
-      {/* Only a published store is visible to customers on WYNOS Food. */}
+      {/* Only a published store is visible to customers on ZOKY. */}
       <MerchantOrderScreenCard onMessage={onMessage} />
 
       {store.is_published && !store.admin_suspended_at ? <MerchantShareCard client={client} store={store} onMessage={onMessage} /> : null}
@@ -1140,7 +1140,7 @@ function HomePanel({
       {installPrompt ? (
         <button className="wm-install-card" type="button" onClick={onInstall}>
           <span className="wm-install-icon"><Store size={22} /></span>
-          <span><strong>ติดตั้ง WYNOS Merchant</strong><small>เปิดใช้งานเหมือนแอปแยกจาก WYNOS</small></span>
+          <span><strong>ติดตั้ง Zoky Merchant</strong><small>เปิดใช้งานเหมือนแอปแยกจาก WYNOS</small></span>
           <ChevronRight size={18} />
         </button>
       ) : null}
@@ -1166,10 +1166,10 @@ function MorePanel({
 }) {
   return (
     <>
-      <div className="wm-page-heading"><div><small>Wynos Merchant</small><h1>เพิ่มเติม</h1></div></div>
+      <div className="wm-page-heading"><div><small>Zoky Merchant</small><h1>เพิ่มเติม</h1></div></div>
       <button className="wm-store-card wm-store-card--link" type="button" onClick={() => onOpenTab("store")}>
         <span className="wm-store-avatar">{store.logo_path ? <img src={foodPublicUrl(client, store.logo_path) ?? ""} alt="" /> : <Store size={30} strokeWidth={1.6} />}</span>
-        <span><strong>{store.name}</strong><small>{store.is_published ? "เผยแพร่บน WYNOS Food แล้ว" : "ร้านยังไม่เผยแพร่"}</small></span>
+        <span><strong>{store.name}</strong><small>{store.is_published ? "เผยแพร่บน ZOKY แล้ว" : "ร้านยังไม่เผยแพร่"}</small></span>
         <ChevronRight size={19} />
       </button>
       <section className="wm-section">
@@ -1217,7 +1217,7 @@ function MorePanel({
 function HelpPanel({ store, onMessage }: { store: FoodStore; onMessage: (message: string) => void }) {
   const copyDiagnostics = async () => {
     const detail = [
-      "WYNOS Merchant",
+      "Zoky Merchant",
       `ร้าน: ${store.name}`,
       `Store ID: ${store.id}`,
       `สถานะ: ${store.is_open ? "เปิดร้าน" : "ปิดร้าน"} / ${store.is_published ? "เผยแพร่แล้ว" : "ยังไม่เผยแพร่"}`,
@@ -1244,9 +1244,9 @@ function HelpPanel({ store, onMessage }: { store: FoodStore; onMessage: (message
         <small>Store ID: {store.id}</small>
       </section>
       <section className="wm-settings-list wm-help-list">
-        <div><span><strong>ออเดอร์ไม่ดัง</strong><small>ตรวจว่าเปิดการแจ้งเตือนของ WYNOS Merchant และมือถือไม่ได้ปิดเสียง</small></span></div>
+        <div><span><strong>ออเดอร์ไม่ดัง</strong><small>ตรวจว่าเปิดการแจ้งเตือนของ Zoky Merchant และมือถือไม่ได้ปิดเสียง</small></span></div>
         <div><span><strong>สลิปไม่ขึ้น</strong><small>ปิดออเดอร์แล้วเปิดใหม่ หากยังไม่ขึ้นให้คัดลอกข้อมูลร้านส่งทีม WYNOS</small></span></div>
-        <div><span><strong>ร้านไม่ขึ้น WYNOS Food</strong><small>ตรวจความพร้อมร้าน ช่องทางรับเงิน เมนู ตำแหน่ง และสถานะเผยแพร่</small></span></div>
+        <div><span><strong>ร้านไม่ขึ้น ZOKY</strong><small>ตรวจความพร้อมร้าน ช่องทางรับเงิน เมนู ตำแหน่ง และสถานะเผยแพร่</small></span></div>
         <div><span><strong>ยอดขายหรือการเงินไม่ตรง</strong><small>ใช้หน้า “การเงิน” เลือกช่วงวันที่และดาวน์โหลด CSV เพื่อตรวจรายการ</small></span></div>
       </section>
     </>
@@ -1804,13 +1804,13 @@ function StorePanel({
 
       <section className="wm-settings-list">
         <button type="button" onClick={() => void togglePublished()} disabled={busy || Boolean(store.admin_suspended_at) || (!store.is_published && readiness !== null && !readiness.ready)}>
-          <span><strong>เผยแพร่ WYNOS Food</strong><small>{store.is_published ? "ลูกค้าเห็นร้านได้แล้ว" : readiness?.ready ? "พร้อมเปิดร้านให้ลูกค้าเห็น" : "ต้องตั้งค่าร้านให้ครบก่อน"}</small></span>
+          <span><strong>เผยแพร่ ZOKY</strong><small>{store.is_published ? "ลูกค้าเห็นร้านได้แล้ว" : readiness?.ready ? "พร้อมเปิดร้านให้ลูกค้าเห็น" : "ต้องตั้งค่าร้านให้ครบก่อน"}</small></span>
           <span className={`wm-switch ${store.is_published ? "is-on" : ""}`}><i /></span>
         </button>
         <button type="button" onClick={() => setPreviewOpen(true)}><span><strong>ดูแบบลูกค้า</strong><small>Preview หน้าร้านก่อนเผยแพร่จริง</small></span><Eye size={19} /></button>
         <button type="button" onClick={onEdit}><span><strong>ข้อมูลร้านและการจัดส่ง</strong><small>เวลาเปิด · ETA · ตำแหน่ง · ค่าส่ง</small></span><ChevronRight size={19} /></button>
         <button type="button" onClick={onEdit}><span><strong>รับชำระเงิน</strong><small>บัตร · PromptPay · บัญชีธนาคาร · QR</small></span><ChevronRight size={19} /></button>
-        {installPrompt ? <button type="button" onClick={onInstall}><span><strong>ติดตั้งเป็นแอป</strong><small>เพิ่ม WYNOS Merchant ไว้บนหน้าจอหลัก</small></span><ChevronRight size={19} /></button> : null}
+        {installPrompt ? <button type="button" onClick={onInstall}><span><strong>ติดตั้งเป็นแอป</strong><small>เพิ่ม Zoky Merchant ไว้บนหน้าจอหลัก</small></span><ChevronRight size={19} /></button> : null}
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><ChevronRight size={19} /></button>
       </section>
 
@@ -2076,11 +2076,11 @@ function OrderSheet({
             <div className="is-total"><span>ยอดสุทธิ</span><b>{money(order.total)}</b></div>
           </div>
           <div className="wm-print-customer"><strong>{order.recipient_name}</strong><span>{order.recipient_phone}</span><span>{order.shipping_address}</span></div>
-          <small className="wm-print-foot">พิมพ์จาก WYNOS Merchant · โปรดตรวจสอบข้อมูลภาษีของร้านก่อนใช้เป็นเอกสารทางบัญชี</small>
+          <small className="wm-print-foot">พิมพ์จาก Zoky Merchant · โปรดตรวจสอบข้อมูลภาษีของร้านก่อนใช้เป็นเอกสารทางบัญชี</small>
         </section>
       ) : (
         <section className="wm-print-document wm-print-document--address" aria-hidden="true">
-          <div className="wm-address-label-head"><strong>WYNOS Merchant</strong><span>ออเดอร์ #{order.order_number}</span></div>
+          <div className="wm-address-label-head"><strong>Zoky Merchant</strong><span>ออเดอร์ #{order.order_number}</span></div>
           <div className="wm-address-label-recipient">
             <small>ผู้รับ</small>
             <strong>{order.recipient_name}</strong>
@@ -2918,7 +2918,7 @@ function StoreEditor({
         <section className="wm-settings-category" id="wm-store-section-media">
           <div className="wm-settings-category-head">
             <span className="wm-settings-category-icon"><ImagePlus size={20} /></span>
-            <span><strong>รูปภาพร้าน</strong><small>รูปโปรไฟล์และรูปปกที่ลูกค้าจะเห็นบน WYNOS Food</small></span>
+            <span><strong>รูปภาพร้าน</strong><small>รูปโปรไฟล์และรูปปกที่ลูกค้าจะเห็นบน ZOKY</small></span>
           </div>
           <div className="wm-settings-category-body">
             <section className="wm-store-brand-editor">
@@ -3027,7 +3027,7 @@ function StoreEditor({
           {serviceAreaState !== "idle" ? (
             <div className={`wm-service-area-state is-${serviceAreaState}`} role="status">
               {serviceAreaState === "checking" ? "กำลังตรวจพื้นที่ให้บริการ…" : null}
-              {serviceAreaState === "inside" ? "ตำแหน่งร้านอยู่ในพื้นที่ให้บริการ WYNOS Food ✓" : null}
+              {serviceAreaState === "inside" ? "ตำแหน่งร้านอยู่ในพื้นที่ให้บริการ ZOKY ✓" : null}
               {serviceAreaState === "outside" ? "ร้านอยู่นอกพื้นที่ให้บริการปัจจุบัน — ยังบันทึกข้อมูลร้านได้ แต่การจัดส่งจะยังไม่เปิดให้ลูกค้า" : null}
               {serviceAreaState === "error" ? "ตรวจพื้นที่ให้บริการไม่สำเร็จ แต่ยังบันทึกตำแหน่งร้านได้" : null}
             </div>
@@ -3078,7 +3078,7 @@ function StoreEditor({
             </details>
 
             <div className="wm-tax-settings">
-              <label className="wm-check-row"><input type="checkbox" checked={form.tax_invoice_enabled} onChange={(e) => setForm({ ...form, tax_invoice_enabled: e.target.checked })} /><span><strong>แสดงข้อมูลภาษีในใบเสร็จ</strong><small>ใช้สำหรับเอกสารที่พิมพ์จาก WYNOS Merchant</small></span></label>
+              <label className="wm-check-row"><input type="checkbox" checked={form.tax_invoice_enabled} onChange={(e) => setForm({ ...form, tax_invoice_enabled: e.target.checked })} /><span><strong>แสดงข้อมูลภาษีในใบเสร็จ</strong><small>ใช้สำหรับเอกสารที่พิมพ์จาก Zoky Merchant</small></span></label>
               {form.tax_invoice_enabled ? (
                 <>
                   <label>ชื่อกิจการ / ชื่อนิติบุคคล<input value={form.tax_legal_name} onChange={(e) => setForm({ ...form, tax_legal_name: e.target.value })} maxLength={200} /></label>

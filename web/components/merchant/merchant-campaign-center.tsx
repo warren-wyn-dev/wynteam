@@ -196,7 +196,7 @@ export function MerchantCampaignCenter({
           <span className="wm-campaign-icon"><Megaphone size={21} /></span>
           <span>
             <strong>โปรโมชั่นของร้าน</strong>
-            <small>{activeCount ? `${activeCount} โปรโมชั่นกำลังใช้งาน` : "ลดราคาเองเพื่อดึงลูกค้าบน WYNOS Food"}</small>
+            <small>{activeCount ? `${activeCount} โปรโมชั่นกำลังใช้งาน` : "ลดราคาเองเพื่อดึงลูกค้าบน ZOKY"}</small>
           </span>
         </div>
         <div className="wm-campaign-head-actions">
@@ -214,7 +214,7 @@ export function MerchantCampaignCenter({
       {expanded ? (
         <>
           <p className="wm-campaign-note">
-            WYNOS Food จะเลือกโปรโมชั่นที่ลูกค้าประหยัดได้มากที่สุดให้อัตโนมัติ 1 โปรโมชั่นต่อออเดอร์ และไม่ซ้อนส่วนลด
+            ZOKY จะเลือกโปรโมชั่นที่ลูกค้าประหยัดได้มากที่สุดให้อัตโนมัติ 1 โปรโมชั่นต่อออเดอร์ และไม่ซ้อนส่วนลด
           </p>
 
           {draft ? (

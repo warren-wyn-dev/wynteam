@@ -42,7 +42,7 @@ test("Merchant core completion adds staff roles, refunds, readiness, notificatio
 
 test("Merchant can view sanitized verified reviews and reply from store settings", () => {
   assert.match(core, /รีวิวร้าน/);
-  assert.match(core, /สั่งจริงกับ WYNOS Food/);
+  assert.match(core, /สั่งจริงกับ ZOKY/);
   assert.match(core, /ตอบกลับรีวิว/);
   assert.match(coreData, /merchant_store_reviews/);
   assert.match(coreData, /food_reply_store_review/);

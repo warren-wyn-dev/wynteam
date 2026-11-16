@@ -85,13 +85,13 @@ export function MerchantRouteGate({
   }, [client]);
 
   if (state === "loading" || state === "signed-out" || state === "invalid") {
-    return <main className="wm-loading"><div className="wm-loader" /><strong>WYNOS <b>Merchant</b></strong></main>;
+    return <main className="wm-loading"><div className="wm-loader" /><strong>Zoky <b>Merchant</b></strong></main>;
   }
   if (state === "missing-config") {
-    return <main className="wm-blocked"><h1>WYNOS Merchant</h1><p>ยังไม่ได้ตั้งค่าการเชื่อมต่อระบบ</p></main>;
+    return <main className="wm-blocked"><h1>Zoky Merchant</h1><p>ยังไม่ได้ตั้งค่าการเชื่อมต่อระบบ</p></main>;
   }
   if (state === "error" || !client || !session) {
-    return <main className="wm-blocked"><h1>WYNOS Merchant</h1><p>ตรวจสอบบัญชี Merchant ไม่สำเร็จ กรุณาลองใหม่</p></main>;
+    return <main className="wm-blocked"><h1>Zoky Merchant</h1><p>ตรวจสอบบัญชี Merchant ไม่สำเร็จ กรุณาลองใหม่</p></main>;
   }
 
   return <>{children({ client, session, userId: session.user.id, signOut })}</>;

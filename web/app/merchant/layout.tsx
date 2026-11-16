@@ -10,17 +10,17 @@ const MERCHANT_ICON_512 = "/icons/merchant/v16-512.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://merchant.wynos.online"),
-  title: "WYNOS Merchant | ระบบร้านอาหาร WYNOS",
-  applicationName: "WYNOS Merchant",
+  title: "Zoky Merchant | ระบบร้านอาหาร ZOKY",
+  applicationName: "Zoky Merchant",
   description:
-    "WYNOS Merchant (wynosmerchant) ระบบสำหรับร้านอาหารและ Merchant ของ WYNOS จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
+    "Zoky Merchant (wynosmerchant) ระบบสำหรับร้านอาหารและ Merchant ของ ZOKY จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ ZOKY",
   keywords: [
-    "WYNOS Merchant",
+    "Zoky Merchant",
     "wynosmerchant",
     "wynos merchant",
-    "ร้านอาหาร WYNOS",
+    "ร้านอาหาร ZOKY",
     "ระบบร้านอาหาร",
-    "WYNOS Food Merchant",
+    "ZOKY Merchant",
   ],
   alternates: {
     canonical: "https://merchant.wynos.online/",
@@ -28,14 +28,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "https://merchant.wynos.online/",
-    siteName: "WYNOS Merchant",
-    title: "WYNOS Merchant | ระบบร้านอาหาร WYNOS",
-    description: "ระบบสำหรับร้านอาหารและ Merchant ของ WYNOS ที่ merchant.wynos.online",
+    siteName: "Zoky Merchant",
+    title: "Zoky Merchant | ระบบร้านอาหาร ZOKY",
+    description: "ระบบสำหรับร้านอาหารและ Merchant ของ ZOKY ที่ merchant.wynos.online",
   },
   twitter: {
     card: "summary",
-    title: "WYNOS Merchant | ระบบร้านอาหาร WYNOS",
-    description: "ระบบสำหรับร้านอาหารและ Merchant ของ WYNOS ที่ merchant.wynos.online",
+    title: "Zoky Merchant | ระบบร้านอาหาร ZOKY",
+    description: "ระบบสำหรับร้านอาหารและ Merchant ของ ZOKY ที่ merchant.wynos.online",
   },
   manifest: "/merchant/manifest.webmanifest?v=16",
   icons: {
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Wynos Merchant",
+    title: "Zoky Merchant",
   },
   robots: { index: true, follow: true },
 };

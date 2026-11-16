@@ -492,7 +492,7 @@ class _MerchantHomeState extends State<MerchantHome>
               ),
               TextButton(
                 onPressed: openOriginal,
-                child: const Text('เปิด WYNOS Merchant'),
+                child: const Text('เปิด Zoky Merchant'),
               ),
             ],
           ),

@@ -15,7 +15,7 @@ test("Merchant is a separate installable app surface with the red WYNOS identity
   expect(page).toContain("<WynosMerchantApp />");
   // The manifest URL may carry an icon cache-busting query (?v=…).
   expect(layout).toMatch(/manifest: "\/merchant\/manifest\.webmanifest(\?v=[^"]+)?"/);
-  expect(layout).toContain('title: "Wynos Merchant"');
+  expect(layout).toContain('title: "Zoky Merchant"');
   expect(manifest).toContain('start_url: "/merchant"');
   expect(manifest).toContain('scope: "/merchant"');
   expect(manifest).toContain('theme_color: "#ee1228"');
@@ -58,7 +58,7 @@ test("Merchant reports use complete server-side aggregation in Bangkok time", ()
 test("Merchant public auth surface is interactive", async ({ page }) => {
   await page.goto("/merchant/login");
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบร้านค้าของคุณ" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "กลับ WYNOS Merchant" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "กลับ Zoky Merchant" })).toHaveCount(0);
 
   await page.getByLabel("อีเมล").fill("merchant@example.com");
   const password = page.getByLabel("รหัสผ่าน", { exact: true });

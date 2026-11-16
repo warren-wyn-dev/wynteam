@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-export const metadata = { title: "ตั้งรหัสผ่านใหม่ — WYNOS Merchant" };
+export const metadata = { title: "ตั้งรหัสผ่านใหม่ — Zoky Merchant" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
