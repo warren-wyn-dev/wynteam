@@ -4519,3 +4519,12 @@
 .wf-guest-basket-line small { color: #777; font-size: 11px; }
 .wf-guest-basket-line b { font-size: 12px; }
 @media (max-width: 600px) { .wf-guest-intro { margin: 0 12px; } .wf-guest-header { padding: 0 16px; } .wf-guest-shop-photo { flex-basis: 72px; height: 72px; } }
+
+/* Opt-in offer of a dorm's name and pin to the map (address form). Neutral, not a warning. */
+.wf-dorm-pin { display: grid; gap: 4px; }
+.wf-dorm-pin details { font-size: 11px; line-height: 1.55; color: var(--wf-secondary); }
+.wf-dorm-pin summary { min-height: 40px; display: flex; align-items: center; color: var(--wf-text); font-weight: 600; cursor: pointer; }
+.wf-dorm-pin details p { margin: 2px 0 10px; }
+.wf-dorm-pin details .wf-secondary { min-height: 40px; padding: 0 16px; width: auto; }
+.wf-dorm-pin details small { display: block; margin-top: 6px; }
+.wf-dorm-pin summary::after { content: " ▾"; margin-left: 6px; color: var(--wf-secondary); }
