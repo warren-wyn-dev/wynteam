@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { dormPinNoticeComplete, type DormPinNotice } from "@/lib/dorm-pin-notice";
+
 /**
  * Opt-in: a customer who saved a delivery address in a dorm can offer the dorm's name and the pin
  * of that address so the map can learn where the dorm is. Only the name and one position are sent
@@ -25,9 +27,13 @@ export function inDormPinArea(location: { latitude: number; longitude: number } 
     && location!.longitude >= LNG_MIN && location!.longitude <= LNG_MAX;
 }
 
-/** The checkbox is offered only with a building name and a pin inside the collecting area. */
-export function dormPinOffered(buildingName: string | null | undefined, location: { latitude: number; longitude: number } | null | undefined): boolean {
-  return dormPinName(buildingName) !== null && inDormPinArea(location);
+/** The checkbox is offered only with a building name, a pin inside the collecting area and a complete notice (controller and contact). */
+export function dormPinOffered(
+  buildingName: string | null | undefined,
+  location: { latitude: number; longitude: number } | null | undefined,
+  notice?: DormPinNotice,
+): boolean {
+  return dormPinName(buildingName) !== null && inDormPinArea(location) && dormPinNoticeComplete(notice);
 }
 
 function missingFunction(error: { code?: string; message?: string } | null): boolean {

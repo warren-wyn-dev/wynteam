@@ -163,6 +163,7 @@ import {
   type FoodStoreReviewFeed,
   type FoodCustomerStore,
 } from "@/lib/food-customer";
+import { DORM_PIN_CONTACT, DORM_PIN_CONTROLLER } from "@/lib/dorm-pin-notice";
 import { dormPinOffered, suggestDormPin, withdrawDormPins } from "@/lib/dorm-pin-suggest";
 
 type FoodTab = "home" | "orders" | "messages" | "cart" | "account";
@@ -2560,6 +2561,8 @@ function AddressEditor({
               <summary>รายละเอียดการแชร์ตำแหน่งหอพัก</summary>
               <p>เมื่อคุณเลือกและบันทึกที่อยู่นี้ เราจะนำชื่อหอพักและตำแหน่งหมุดที่คุณเลือกไปเพิ่มใน Norswor Maps เพื่อให้ผู้ใช้งานคนอื่นค้นหาหอพักและเดินทางมาถึงได้สะดวกขึ้น โดยจะไม่แสดงเลขห้อง ชื่อ หรือเบอร์โทรศัพท์ของคุณ</p>
               <p>ตำแหน่งจะแสดงบนแผนที่หลังจากผู้ดูแลตรวจแล้ว ข้อมูลผูกกับบัญชีของคุณเพื่อให้คุณถอนการแชร์ได้ทุกเมื่อ</p>
+              <p>เราเก็บข้อมูลนี้จนกว่าคุณจะถอนการแชร์ ข้อเสนอที่ผู้ดูแลไม่รับจะถูกลบภายใน 90 วัน</p>
+              <p><strong>ผู้ควบคุมข้อมูล</strong> {DORM_PIN_CONTROLLER}<br /><strong>ติดต่อ</strong> {DORM_PIN_CONTACT}</p>
               <button
                 type="button"
                 disabled={busy}

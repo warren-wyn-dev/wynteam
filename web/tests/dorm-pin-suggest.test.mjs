@@ -1,19 +1,35 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import test from "node:test";
 
+// resolve the "@/..." alias used by app code
+registerHooks({
+  resolve(specifier, context, next) {
+    if (specifier.startsWith("@/")) return next(new URL(`../${specifier.slice(2)}.ts`, import.meta.url).href, context);
+    return next(specifier, context);
+  },
+});
+
 const { DORM_PIN_CONSENT_VERSION, dormPinName, dormPinOffered, inDormPinArea, suggestDormPin, withdrawDormPins } = await import("../lib/dorm-pin-suggest.ts");
+const { DORM_PIN_CONTACT, DORM_PIN_CONTROLLER, dormPinNoticeComplete } = await import("../lib/dorm-pin-notice.ts");
+const NOTICE = { controller: "ผู้ควบคุมทดสอบ", contact: "test@example.org" };
 
 const MSU = { latitude: 16.250903, longitude: 103.256132 };
 const client = (handler) => { const calls = []; return { calls, async rpc(name, args) { calls.push({ name, args }); return handler(name, args); } }; };
 
-test("the box is offered only with a building name and a pin inside the collecting area", () => {
-  assert.equal(dormPinOffered("หอพักธาราทิพย์", MSU), true);
-  assert.equal(dormPinOffered("", MSU), false);
-  assert.equal(dormPinOffered("ก", MSU), false);
-  assert.equal(dormPinOffered(null, MSU), false);
-  assert.equal(dormPinOffered("หอพักธาราทิพย์", null), false);
-  assert.equal(dormPinOffered("คอนโด A", { latitude: 13.75, longitude: 100.5 }), false, "Bangkok is outside the area");
+test("the box is offered only with a building name, a pin inside the collecting area and a complete notice", () => {
+  assert.equal(dormPinOffered("หอพักธาราทิพย์", MSU, NOTICE), true);
+  assert.equal(dormPinOffered("", MSU, NOTICE), false);
+  assert.equal(dormPinOffered("ก", MSU, NOTICE), false);
+  assert.equal(dormPinOffered(null, MSU, NOTICE), false);
+  assert.equal(dormPinOffered("หอพักธาราทิพย์", null, NOTICE), false);
+  assert.equal(dormPinOffered("คอนโด A", { latitude: 13.75, longitude: 100.5 }, NOTICE), false, "Bangkok is outside the area");
+  // without the controller and the contact the box is never shown
+  assert.equal(dormPinOffered("หอพักธาราทิพย์", MSU, { controller: null, contact: "a@b.c" }), false);
+  assert.equal(dormPinOffered("หอพักธาราทิพย์", MSU, { controller: "ก", contact: " " }), false);
+  assert.equal(dormPinOffered("หอพักธาราทิพย์", MSU), dormPinNoticeComplete(), "the shipped notice decides");
+  assert.equal(dormPinNoticeComplete(), Boolean(DORM_PIN_CONTROLLER?.trim()) && Boolean(DORM_PIN_CONTACT?.trim()));
   assert.equal(inDormPinArea({ latitude: Number.NaN, longitude: 103.2 }), false);
   assert.equal(inDormPinArea({ latitude: 15.5, longitude: 102.8 }), true);
   assert.equal(inDormPinArea({ latitude: 16.9, longitude: 103.2 }), false);
@@ -67,4 +83,11 @@ test("the app: the box is never pre-ticked, the offer is sent only after the add
   assert.match(saveAddress, /extras\?\.shareDormPin \? await suggestDormPin/);
   // the room, floor, name and phone are never part of the offer
   assert.doesNotMatch(saveAddress.slice(saveAddress.indexOf("suggestDormPin(")), /room|floor|recipient|phone|landmark/);
+});
+
+test("the detail text states the retention and names the controller and contact", () => {
+  const source = readFileSync(new URL("../components/food/wynos-food-developer-app.tsx", import.meta.url), "utf8");
+  assert.match(source, /เราเก็บข้อมูลนี้จนกว่าคุณจะถอนการแชร์ ข้อเสนอที่ผู้ดูแลไม่รับจะถูกลบภายใน 90 วัน/);
+  assert.match(source, /\{DORM_PIN_CONTROLLER\}/);
+  assert.match(source, /\{DORM_PIN_CONTACT\}/);
 });
