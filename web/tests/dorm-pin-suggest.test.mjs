@@ -29,6 +29,9 @@ test("the box is offered only with a building name, a pin inside the collecting 
   assert.equal(dormPinOffered("หอพักธาราทิพย์", MSU, { controller: null, contact: "a@b.c" }), false);
   assert.equal(dormPinOffered("หอพักธาราทิพย์", MSU, { controller: "ก", contact: " " }), false);
   assert.equal(dormPinOffered("หอพักธาราทิพย์", MSU), dormPinNoticeComplete(), "the shipped notice decides");
+  assert.equal(DORM_PIN_CONTROLLER, "Norswor Maps");
+  assert.equal(DORM_PIN_CONTACT, "WynChat");
+  assert.equal(dormPinNoticeComplete(), true, "controller and contact are set, so the box is shown");
   assert.equal(dormPinNoticeComplete(), Boolean(DORM_PIN_CONTROLLER?.trim()) && Boolean(DORM_PIN_CONTACT?.trim()));
   assert.equal(inDormPinArea({ latitude: Number.NaN, longitude: 103.2 }), false);
   assert.equal(inDormPinArea({ latitude: 15.5, longitude: 102.8 }), true);
