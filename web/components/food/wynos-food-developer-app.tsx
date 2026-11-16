@@ -2554,11 +2554,12 @@ function AddressEditor({
           <div className="wf-dorm-pin">
             <label className="wf-check">
               <input type="checkbox" checked={shareDormPin} onChange={(event) => setShareDormPin(event.target.checked)} />
-              <span><strong>ช่วยยืนยันตำแหน่งหอพักนี้ให้คนอื่นหาเจอ</strong><small>ส่งเฉพาะชื่อหอและตำแหน่งหมุด ไม่ส่งห้อง ชื่อ หรือเบอร์โทร</small></span>
+              <span><strong>ช่วยเพิ่มหมุดหอพักนี้บน Norswor Maps</strong><small>ช่วยให้ลูกค้าและไรเดอร์คนอื่นค้นหาหอพักนี้เจอได้ง่ายขึ้น</small></span>
             </label>
             <details>
               <summary>รายละเอียดการแชร์ตำแหน่งหอพัก</summary>
-              <p>เมื่อคุณติ๊กและบันทึกที่อยู่ เราจะเก็บ &quot;ชื่ออาคาร/หมู่บ้าน&quot; ที่คุณกรอกและ &quot;ตำแหน่งหมุดที่คุณเลือก&quot; เพื่อรวมกับของผู้ใช้คนอื่น ให้แผนที่รู้ตำแหน่งหอพัก ตำแหน่งจะแสดงบนแผนที่ก็ต่อเมื่อผู้ดูแลตรวจและอนุมัติแล้ว ข้อมูลผูกกับบัญชีของคุณเพื่อให้คุณถอนความยินยอมได้เท่านั้น ไม่แสดงให้ผู้ใช้คนอื่นเห็น</p>
+              <p>เมื่อคุณเลือกและบันทึกที่อยู่นี้ เราจะนำชื่อหอพักและตำแหน่งหมุดที่คุณเลือกไปเพิ่มใน Norswor Maps เพื่อให้ผู้ใช้งานคนอื่นค้นหาหอพักและเดินทางมาถึงได้สะดวกขึ้น โดยจะไม่แสดงเลขห้อง ชื่อ หรือเบอร์โทรศัพท์ของคุณ</p>
+              <p>ตำแหน่งจะแสดงบนแผนที่หลังจากผู้ดูแลตรวจแล้ว ข้อมูลผูกกับบัญชีของคุณเพื่อให้คุณถอนการแชร์ได้ทุกเมื่อ</p>
               <button
                 type="button"
                 disabled={busy}
@@ -3947,7 +3948,7 @@ function FoodCustomerInner({
       try { window.localStorage.removeItem(WYNOS_MAPS_PIN_STORAGE_KEY); } catch { /* private mode */ }
       // Only after the address is saved, only when the customer ticked the box, and never an error for the customer.
       const dormPin = extras?.shareDormPin ? await suggestDormPin(client, { buildingName: draft.buildingName, location: draft.location }) : "skipped";
-      setMessage(dormPin === "sent" ? "บันทึกที่อยู่แล้ว · ขอบคุณที่ช่วยยืนยันตำแหน่งหอ" : "บันทึกที่อยู่แล้ว");
+      setMessage(dormPin === "sent" ? "บันทึกที่อยู่แล้ว · ขอบคุณที่ช่วยเพิ่มหมุดหอพัก" : "บันทึกที่อยู่แล้ว");
       setAddressDraft(null);
       await load(true);
     } catch (error) {
