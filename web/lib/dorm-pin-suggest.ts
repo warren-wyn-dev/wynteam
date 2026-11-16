@@ -84,3 +84,43 @@ export async function withdrawDormPins(client: Pick<SupabaseClient, "rpc">): Pro
     return { result: "failed", count: 0 };
   }
 }
+
+// ---- the question after saving: asked once per dorm name, not again for 30 days ----
+export const DORM_PIN_PROMPT_STORAGE_KEY = "zoky:dorm-pin-prompt";
+export const DORM_PIN_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+const DORM_PIN_PROMPT_MAX_ENTRIES = 100;
+
+type PromptStorage = Pick<Storage, "getItem" | "setItem">;
+
+/** The same dorm under another spelling of spaces or punctuation is the same question. */
+export function dormPinPromptKey(name: string | null | undefined): string | null {
+  const clean = dormPinName(name);
+  if (clean === null) return null;
+  const key = clean.toLowerCase().replace(/[\s!-/:-@[-`{-~]/g, "");
+  return key.length >= 2 ? key : null;
+}
+
+function readPromptLog(storage: PromptStorage | null): Record<string, number> {
+  try {
+    const parsed: unknown = JSON.parse(storage?.getItem(DORM_PIN_PROMPT_STORAGE_KEY) ?? "{}");
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed as Record<string, unknown>).filter(([, value]) => typeof value === "number" && Number.isFinite(value))) as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
+export function dormPinPromptAllowed(storage: PromptStorage | null, name: string | null | undefined, now: number = Date.now()): boolean {
+  const key = dormPinPromptKey(name);
+  if (key === null) return false;
+  const asked = readPromptLog(storage)[key];
+  return asked === undefined || now - asked >= DORM_PIN_PROMPT_COOLDOWN_MS;
+}
+
+export function rememberDormPinPrompt(storage: PromptStorage | null, name: string | null | undefined, now: number = Date.now()): void {
+  const key = dormPinPromptKey(name);
+  if (key === null || !storage) return;
+  const log = { ...readPromptLog(storage), [key]: now };
+  const newest = Object.entries(log).sort((a, b) => b[1] - a[1]).slice(0, DORM_PIN_PROMPT_MAX_ENTRIES);
+  try { storage.setItem(DORM_PIN_PROMPT_STORAGE_KEY, JSON.stringify(Object.fromEntries(newest))); } catch { /* private mode: asked again next time */ }
+}

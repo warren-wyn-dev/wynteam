@@ -11,7 +11,7 @@ registerHooks({
   },
 });
 
-const { DORM_PIN_CONSENT_VERSION, DORM_PIN_MAX_GPS_ACCURACY_M, dormPinGpsUsable, dormPinName, dormPinOffered, inDormPinArea, suggestDormPin, withdrawDormPins } = await import("../lib/dorm-pin-suggest.ts");
+const { DORM_PIN_CONSENT_VERSION, DORM_PIN_MAX_GPS_ACCURACY_M, DORM_PIN_PROMPT_COOLDOWN_MS, DORM_PIN_PROMPT_STORAGE_KEY, dormPinGpsUsable, dormPinName, dormPinOffered, dormPinPromptAllowed, dormPinPromptKey, inDormPinArea, rememberDormPinPrompt, suggestDormPin, withdrawDormPins } = await import("../lib/dorm-pin-suggest.ts");
 const { DORM_PIN_CONTACT, DORM_PIN_CONTROLLER, dormPinNoticeComplete } = await import("../lib/dorm-pin-notice.ts");
 const NOTICE = { controller: "ผู้ควบคุมทดสอบ", contact: "test@example.org" };
 
@@ -94,7 +94,7 @@ test("withdrawing reports how many offers were stopped and never throws", async 
 test("the app: the box is never pre-ticked, the offer is sent only after the address is saved and only when ticked", () => {
   const source = readFileSync(new URL("../components/food/wynos-food-developer-app.tsx", import.meta.url), "utf8");
   assert.match(source, /const \[shareDormPin, setShareDormPin\] = useState\(false\)/);
-  assert.match(source, /onSave\(form, \{ shareDormPin: dormPinChoice && shareDormPin, accuracyM: dormPinGpsUsable\(pinSource\) \? pinSource\.accuracyM : null \}\)/);
+  assert.match(source, /onSave\(form, \{ shareDormPin: dormPinChoice && shareDormPin, accuracyM: dormPinGpsUsable\(pinSource\) \? pinSource\.accuracyM : null, offerable: dormPinChoice \}\)/);
   // the box needs a pin that came from "use my current location", never one picked from the place search
   assert.match(source, /const dormPinChoice = showPin && dormPinGpsUsable\(pinSource\) && dormPinOffered/);
   assert.match(source, /\{ kind: "gps", accuracyM: Number\.isFinite\(fix\.accuracyMeters\) \? fix\.accuracyMeters : null \}/);
@@ -111,4 +111,50 @@ test("the detail text states the retention and names the controller and contact"
   assert.match(source, /เราเก็บข้อมูลนี้จนกว่าคุณจะถอนการแชร์ ข้อเสนอที่ผู้ดูแลไม่รับจะถูกลบภายใน 90 วัน/);
   assert.match(source, /\{DORM_PIN_CONTROLLER\}/);
   assert.match(source, /\{DORM_PIN_CONTACT\}/);
+});
+
+const memory = () => { const data = new Map(); return { data, getItem: (key) => data.get(key) ?? null, setItem: (key, value) => { data.set(key, value); } }; };
+
+test("the question after saving is asked once per dorm and not again for 30 days", () => {
+  const storage = memory();
+  const t0 = 1_800_000_000_000;
+  assert.equal(dormPinPromptAllowed(storage, "หอพัก ธาราทิพย์", t0), true);
+  rememberDormPinPrompt(storage, "หอพัก ธาราทิพย์", t0);
+  assert.equal(dormPinPromptAllowed(storage, "หอพัก ธาราทิพย์", t0 + 1000), false);
+  assert.equal(dormPinPromptAllowed(storage, " หอพัก-ธาราทิพย์. ", t0 + 1000), false, "another spelling of spaces or punctuation is the same dorm");
+  assert.equal(dormPinPromptAllowed(storage, "หอพัก ธาราทิพย์", t0 + DORM_PIN_PROMPT_COOLDOWN_MS - 1), false);
+  assert.equal(dormPinPromptAllowed(storage, "หอพัก ธาราทิพย์", t0 + DORM_PIN_PROMPT_COOLDOWN_MS), true);
+  assert.equal(dormPinPromptAllowed(storage, "ไดมอนด์เพลส", t0 + 1000), true, "another dorm is a new question");
+});
+
+test("the question log is safe with bad, missing or full storage and stays small", () => {
+  assert.equal(dormPinPromptAllowed(null, "หอพัก ก"), true, "no storage: allowed (asked once per save)");
+  assert.equal(dormPinPromptAllowed(memory(), ""), false);
+  assert.equal(dormPinPromptAllowed(memory(), "ก"), false);
+  assert.equal(dormPinPromptKey("  Dorm   A! "), "dorma");
+  for (const bad of ["not json", "[]", "null", "3", '{"x":"y"}']) {
+    const storage = memory(); storage.data.set(DORM_PIN_PROMPT_STORAGE_KEY, bad);
+    assert.equal(dormPinPromptAllowed(storage, "หอพัก ก"), true, bad);
+    rememberDormPinPrompt(storage, "หอพัก ก");
+    assert.equal(dormPinPromptAllowed(storage, "หอพัก ก"), false, bad);
+  }
+  rememberDormPinPrompt(null, "หอพัก ก");
+  const failing = { getItem: () => null, setItem: () => { throw new Error("quota"); } };
+  assert.doesNotThrow(() => rememberDormPinPrompt(failing, "หอพัก ก"));
+  const storage = memory();
+  for (let i = 0; i < 150; i += 1) rememberDormPinPrompt(storage, `หอพัก ${i}`, 1_000 + i);
+  assert.equal(Object.keys(JSON.parse(storage.data.get(DORM_PIN_PROMPT_STORAGE_KEY))).length, 100);
+});
+
+test("the app asks once after saving only when the box was offered and not ticked, and closing counts as no", () => {
+  const source = readFileSync(new URL("../components/food/wynos-food-developer-app.tsx", import.meta.url), "utf8");
+  const saveAddress = source.slice(source.indexOf("const saveAddress = async"), source.indexOf("const deleteAddress = async"));
+  assert.match(saveAddress, /!extras\?\.shareDormPin && extras\?\.offerable && draft\.location && dormPinPromptAllowed\(dormPinStorage\(\), draft\.buildingName\)/);
+  assert.match(source, /const closeDormPinPrompt = \(\) => \{\s*if \(dormPinPrompt\) rememberDormPinPrompt\(/);
+  assert.match(source, /<DormPinPrompt client=\{client\} busy=\{busy\} onYes=\{\(\) => void acceptDormPinPrompt\(\)\} onNo=\{closeDormPinPrompt\} \/>/);
+  // the question shows the same consent text and withdraw button as the box
+  const prompt = source.slice(source.indexOf("function DormPinPrompt"), source.indexOf("function AddressEditor"));
+  assert.match(prompt, /<DormPinDetails client=\{client\} busy=\{busy\} \/>/);
+  // the box and the question never send without the customer saying yes
+  assert.doesNotMatch(prompt, /suggestDormPin/);
 });
