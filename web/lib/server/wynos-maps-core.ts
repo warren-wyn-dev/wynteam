@@ -164,10 +164,41 @@ export function wynosMapsCoreStatus() {
   };
 }
 
+// Place names in OSM rarely contain the province or area ("โลตัส ขอนแก่น" is
+// the shop name plus where it is), so a full phrase can find nothing while its
+// parts do. Only when the whole phrase has no result, try the phrase without its
+// last word, then the last word alone (at most two extra calls, in this order).
+function searchFallbackQueries(query: string): string[] {
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return [];
+  const fallbacks = [words.slice(0, -1).join(" "), words[words.length - 1]];
+  return fallbacks.filter((value, index) => value.length >= 2 && fallbacks.indexOf(value) === index);
+}
+
 export async function searchWynosGeo(query: string) {
   const origin = serviceOrigin(process.env.WYNOS_GEO_ORIGIN);
   if (!origin) return null;
 
+  const first = await searchWynosGeoOnce(origin, query);
+  if (first.length) return first;
+
+  const merged: GeoPlace[] = [];
+  const seen = new Set<string>();
+  for (const fallback of searchFallbackQueries(query)) {
+    // A failed retry must not turn an empty answer into an error.
+    const found = await searchWynosGeoOnce(origin, fallback).catch(() => [] as GeoPlace[]);
+    for (const place of found) {
+      const key = `${place.name}|${place.lat}|${place.lon}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(place);
+    }
+    if (merged.length >= 8) break;
+  }
+  return merged.slice(0, 8);
+}
+
+async function searchWynosGeoOnce(origin: string, query: string): Promise<GeoPlace[]> {
   const url = new URL(`${origin}/search`);
   url.searchParams.set("q", query.slice(0, 200));
   url.searchParams.set("format", "jsonv2");
