@@ -164,7 +164,7 @@ import {
   type FoodCustomerStore,
 } from "@/lib/food-customer";
 import { DORM_PIN_CONTACT, DORM_PIN_CONTROLLER } from "@/lib/dorm-pin-notice";
-import { dormPinGpsUsable, dormPinOffered, suggestDormPin, withdrawDormPins, type DeliveryPinSource } from "@/lib/dorm-pin-suggest";
+import { dormPinGpsUsable, dormPinOffered, dormPinPromptAllowed, rememberDormPinPrompt, suggestDormPin, withdrawDormPins, type DeliveryPinSource } from "@/lib/dorm-pin-suggest";
 
 type FoodTab = "home" | "orders" | "messages" | "cart" | "account";
 
@@ -2425,6 +2425,45 @@ function DeliveryLocationPicker({
   );
 }
 
+/** The consent text of the dorm-pin offer, with the withdraw button. Shown in the address form and in the after-save question. */
+function DormPinDetails({ client, busy }: { client: SupabaseClient; busy: boolean }) {
+  const [dormPinNote, setDormPinNote] = useState("");
+  return (
+    <details>
+      <summary>รายละเอียดการแชร์ตำแหน่งหอพัก</summary>
+      <p>เมื่อคุณเลือกและบันทึกที่อยู่นี้ เราจะนำชื่อหอพักและตำแหน่งหมุดที่คุณเลือกไปเพิ่มใน Norswor Maps เพื่อให้ผู้ใช้งานคนอื่นค้นหาหอพักและเดินทางมาถึงได้สะดวกขึ้น โดยจะไม่แสดงเลขห้อง ชื่อ หรือเบอร์โทรศัพท์ของคุณ</p>
+      <p>ตำแหน่งจะแสดงบนแผนที่หลังจากผู้ดูแลตรวจแล้ว ข้อมูลที่เก็บคือชื่อหอ ตำแหน่งหมุด และความแม่นยำของ GPS ผูกกับบัญชีของคุณเพื่อให้คุณถอนการแชร์ได้ทุกเมื่อ</p>
+      <p>เราเก็บข้อมูลนี้จนกว่าคุณจะถอนการแชร์ ข้อเสนอที่ผู้ดูแลไม่รับจะถูกลบภายใน 90 วัน</p>
+      <p><strong>ผู้ควบคุมข้อมูล</strong> {DORM_PIN_CONTROLLER}<br /><strong>ติดต่อ</strong> {DORM_PIN_CONTACT}</p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => {
+          void withdrawDormPins(client).then(({ result, count }) => setDormPinNote(
+            result === "done" ? (count > 0 ? "ถอนการแชร์แล้ว" : "ไม่มีรายการที่เคยแชร์") : "ถอนการแชร์ไม่สำเร็จ ลองใหม่อีกครั้ง",
+          ));
+        }}
+        className="wf-secondary"
+      >ถอนการแชร์ที่เคยส่ง</button>
+      {dormPinNote ? <small role="status">{dormPinNote}</small> : null}
+    </details>
+  );
+}
+
+/** Asked once after the address is saved when the customer could have offered the dorm pin but did not tick the box. */
+function DormPinPrompt({ client, busy, onYes, onNo }: { client: SupabaseClient; busy: boolean; onYes: () => void; onNo: () => void }) {
+  return (
+    <Sheet title="ช่วยเพิ่มหมุดหอพักนี้บน Norswor Maps ไหม?" variant="sheet" onClose={onNo}>
+      <div className="wf-dorm-pin">
+        <p>ช่วยให้ลูกค้าและไรเดอร์คนอื่นค้นหาหอพักนี้เจอได้ง่ายขึ้น</p>
+        <DormPinDetails client={client} busy={busy} />
+        <button className="wf-primary wf-full" type="button" disabled={busy} onClick={onYes}>ช่วยเพิ่มหมุดหอพัก</button>
+        <button className="wf-secondary wf-full" type="button" disabled={busy} onClick={onNo}>ไม่ ขอบคุณ</button>
+      </div>
+    </Sheet>
+  );
+}
+
 function AddressEditor({
   client,
   storeId,
@@ -2440,13 +2479,12 @@ function AddressEditor({
   showPin: boolean;
   draft: FoodAddressDraft;
   onClose: () => void;
-  onSave: (draft: FoodAddressDraft, extras?: { shareDormPin: boolean; accuracyM: number | null }) => void;
+  onSave: (draft: FoodAddressDraft, extras?: { shareDormPin: boolean; accuracyM: number | null; offerable: boolean }) => void;
   busy: boolean;
 }) {
   const [form, setForm] = useState(() => draftWithLastWynosMapsPin(draft));
   // Opt-in, never ticked for the customer: offer this dorm's name and pin to the map (norswor-backend dorm_pin_suggestions).
   const [shareDormPin, setShareDormPin] = useState(false);
-  const [dormPinNote, setDormPinNote] = useState("");
   // Only a pin taken with "use my current location" (a GPS reading of 50 m or better) can be offered:
   // a place picked from the search (a shop, say) is not where the dorm is.
   const [pinSource, setPinSource] = useState<DeliveryPinSource | null>(null);
@@ -2560,24 +2598,7 @@ function AddressEditor({
               <input type="checkbox" checked={shareDormPin} onChange={(event) => setShareDormPin(event.target.checked)} />
               <span><strong>ช่วยเพิ่มหมุดหอพักนี้บน Norswor Maps</strong><small>ช่วยให้ลูกค้าและไรเดอร์คนอื่นค้นหาหอพักนี้เจอได้ง่ายขึ้น</small></span>
             </label>
-            <details>
-              <summary>รายละเอียดการแชร์ตำแหน่งหอพัก</summary>
-              <p>เมื่อคุณเลือกและบันทึกที่อยู่นี้ เราจะนำชื่อหอพักและตำแหน่งหมุดที่คุณเลือกไปเพิ่มใน Norswor Maps เพื่อให้ผู้ใช้งานคนอื่นค้นหาหอพักและเดินทางมาถึงได้สะดวกขึ้น โดยจะไม่แสดงเลขห้อง ชื่อ หรือเบอร์โทรศัพท์ของคุณ</p>
-              <p>ตำแหน่งจะแสดงบนแผนที่หลังจากผู้ดูแลตรวจแล้ว ข้อมูลที่เก็บคือชื่อหอ ตำแหน่งหมุด และความแม่นยำของ GPS ผูกกับบัญชีของคุณเพื่อให้คุณถอนการแชร์ได้ทุกเมื่อ</p>
-              <p>เราเก็บข้อมูลนี้จนกว่าคุณจะถอนการแชร์ ข้อเสนอที่ผู้ดูแลไม่รับจะถูกลบภายใน 90 วัน</p>
-              <p><strong>ผู้ควบคุมข้อมูล</strong> {DORM_PIN_CONTROLLER}<br /><strong>ติดต่อ</strong> {DORM_PIN_CONTACT}</p>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  void withdrawDormPins(client).then(({ result, count }) => setDormPinNote(
-                    result === "done" ? (count > 0 ? "ถอนการแชร์แล้ว" : "ไม่มีรายการที่เคยแชร์") : "ถอนการแชร์ไม่สำเร็จ ลองใหม่อีกครั้ง",
-                  ));
-                }}
-                className="wf-secondary"
-              >ถอนการแชร์ที่เคยส่ง</button>
-              {dormPinNote ? <small role="status">{dormPinNote}</small> : null}
-            </details>
+            <DormPinDetails client={client} busy={busy} />
           </div>
         ) : null}
         <div className="wf-form-grid wf-form-grid--3">
@@ -2627,7 +2648,7 @@ function AddressEditor({
         {form.location && (!form.subdistrict.trim() || !form.district.trim() || !form.province.trim() || !/^\d{5}$/.test(form.postalCode.trim())) ? (
           <div className="wf-inline-warning">กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก</div>
         ) : null}
-        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form, { shareDormPin: dormPinChoice && shareDormPin, accuracyM: dormPinGpsUsable(pinSource) ? pinSource.accuracyM : null })}>
+        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form, { shareDormPin: dormPinChoice && shareDormPin, accuracyM: dormPinGpsUsable(pinSource) ? pinSource.accuracyM : null, offerable: dormPinChoice })}>
           {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล ZOKY"}
         </button>
       </div>
@@ -3715,8 +3736,26 @@ function FoodCustomerInner({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quote, setQuote] = useState<FoodOrderQuote | null>(null);
   const [addressDraft, setAddressDraft] = useState<FoodAddressDraft | null>(null);
+  const [dormPinPrompt, setDormPinPrompt] = useState<{ buildingName: string; location: FoodLocation; accuracyM: number | null } | null>(null);
   const [message, setMessage] = useState(() => opening.cartCleared ? "เปิดร้านจากลิงก์ที่แชร์ ตะกร้าเดิมถูกล้างแล้ว" : "");
   const [busy, setBusy] = useState(false);
+  const dormPinStorage = () => { try { return window.localStorage; } catch { return null; } };
+  const closeDormPinPrompt = () => {
+    if (dormPinPrompt) rememberDormPinPrompt(dormPinStorage(), dormPinPrompt.buildingName);
+    setDormPinPrompt(null);
+  };
+  const acceptDormPinPrompt = async () => {
+    const asked = dormPinPrompt;
+    if (!asked) return;
+    setBusy(true);
+    try {
+      const result = await suggestDormPin(client, { buildingName: asked.buildingName, location: asked.location, accuracyM: asked.accuracyM });
+      setMessage(result === "sent" ? "ขอบคุณที่ช่วยเพิ่มหมุดหอพัก" : "ยังส่งตำแหน่งหอพักไม่ได้ ลองใหม่ภายหลัง");
+    } finally {
+      setBusy(false);
+      closeDormPinPrompt();
+    }
+  };
   const [, setRefreshing] = useState(false);
   const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
@@ -3947,7 +3986,7 @@ function FoodCustomerInner({
     }
   };
 
-  const saveAddress = async (draft: FoodAddressDraft, extras?: { shareDormPin: boolean; accuracyM: number | null }) => {
+  const saveAddress = async (draft: FoodAddressDraft, extras?: { shareDormPin: boolean; accuracyM: number | null; offerable: boolean }) => {
     setBusy(true);
     try {
       await saveFoodCustomerAddress(client, draft);
@@ -3955,6 +3994,10 @@ function FoodCustomerInner({
       // Only after the address is saved, only when the customer ticked the box, and never an error for the customer.
       const dormPin = extras?.shareDormPin ? await suggestDormPin(client, { buildingName: draft.buildingName, location: draft.location, accuracyM: extras.accuracyM }) : "skipped";
       setMessage(dormPin === "sent" ? "บันทึกที่อยู่แล้ว · ขอบคุณที่ช่วยเพิ่มหมุดหอพัก" : "บันทึกที่อยู่แล้ว");
+      // Could have offered but did not tick: ask once (not again for the same dorm for 30 days).
+      if (!extras?.shareDormPin && extras?.offerable && draft.location && dormPinPromptAllowed(dormPinStorage(), draft.buildingName)) {
+        setDormPinPrompt({ buildingName: draft.buildingName, location: draft.location, accuracyM: extras.accuracyM });
+      }
       setAddressDraft(null);
       await load(true);
     } catch (error) {
@@ -4389,6 +4432,8 @@ function FoodCustomerInner({
       {addressDraft ? (
         <AddressEditor client={client} storeId={store?.id ?? null} showPin={true} draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft, extras) => void saveAddress(draft, extras)} />
       ) : null}
+
+      {dormPinPrompt ? <DormPinPrompt client={client} busy={busy} onYes={() => void acceptDormPinPrompt()} onNo={closeDormPinPrompt} /> : null}
 
       {reviewOrder ? (
         <ReviewSheet
