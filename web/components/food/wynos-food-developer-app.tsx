@@ -2551,14 +2551,14 @@ function AddressEditor({
           <input value={form.buildingName} onChange={(event) => setForm({ ...form, buildingName: event.target.value })} placeholder="เช่น หอพักธาราทิพย์ / คอนโด A" />
         </label>
         {dormPinChoice ? (
-          <div className="wf-form-note">
+          <div className="wf-dorm-pin">
             <label className="wf-check">
               <input type="checkbox" checked={shareDormPin} onChange={(event) => setShareDormPin(event.target.checked)} />
               <span><strong>ช่วยยืนยันตำแหน่งหอพักนี้ให้คนอื่นหาเจอ</strong><small>ส่งเฉพาะชื่อหอและตำแหน่งหมุด ไม่ส่งห้อง ชื่อ หรือเบอร์โทร</small></span>
             </label>
             <details>
               <summary>รายละเอียดการแชร์ตำแหน่งหอพัก</summary>
-              <p>เมื่อคุณติ๊กและบันทึกที่อยู่ เราจะเก็บ &quot;ชื่ออาคาร/หมู่บ้าน&quot; ที่คุณกรอกและ &quot;ตำแหน่งหมุดที่คุณเลือก&quot; เพื่อรวมกับของผู้ใช้คนอื่น ให้แผนที่รู้ตำแหน่งหอพัก ตำแหน่งจะแสดงบนแผนที่ก็ต่อเมื่อมีผู้ใช้ตั้งแต่ 2 คนขึ้นไปยืนยันตรงกันและผู้ดูแลตรวจแล้ว ข้อมูลผูกกับบัญชีของคุณเพื่อให้คุณถอนความยินยอมได้เท่านั้น ไม่แสดงให้ผู้ใช้คนอื่นเห็น</p>
+              <p>เมื่อคุณติ๊กและบันทึกที่อยู่ เราจะเก็บ &quot;ชื่ออาคาร/หมู่บ้าน&quot; ที่คุณกรอกและ &quot;ตำแหน่งหมุดที่คุณเลือก&quot; เพื่อรวมกับของผู้ใช้คนอื่น ให้แผนที่รู้ตำแหน่งหอพัก ตำแหน่งจะแสดงบนแผนที่ก็ต่อเมื่อผู้ดูแลตรวจและอนุมัติแล้ว ข้อมูลผูกกับบัญชีของคุณเพื่อให้คุณถอนความยินยอมได้เท่านั้น ไม่แสดงให้ผู้ใช้คนอื่นเห็น</p>
               <button
                 type="button"
                 disabled={busy}
@@ -2567,6 +2567,7 @@ function AddressEditor({
                     result === "done" ? (count > 0 ? "ถอนการแชร์แล้ว" : "ไม่มีรายการที่เคยแชร์") : "ถอนการแชร์ไม่สำเร็จ ลองใหม่อีกครั้ง",
                   ));
                 }}
+                className="wf-secondary"
               >ถอนการแชร์ที่เคยส่ง</button>
               {dormPinNote ? <small role="status">{dormPinNote}</small> : null}
             </details>
