@@ -3,5 +3,6 @@ import { redirect } from "next/navigation";
 export const metadata = { title: "ลืมรหัสผ่าน — WYNOS Merchant" };
 
 export default function MerchantForgotPasswordPage() {
-  redirect("/forgot-password");
+  // Keep the merchant on the Merchant sign-in once the new password is set.
+  redirect("/forgot-password?returnTo=%2Fmerchant%2Flogin");
 }

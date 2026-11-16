@@ -33,3 +33,11 @@ test("explicit safe Merchant, callback and deep-link returns win over the new de
     assert.equal(consumeReturnPath() ?? merchantDefaultReturnPath("merchant.wynos.online"), path);
   }
 });
+
+test("Merchant forgot-password returns the merchant to the Merchant sign-in, not the WYNOS one", async () => {
+  const { readFileSync } = await import("node:fs");
+  const auth = readFileSync(new URL("../components/merchant/merchant-auth.tsx", import.meta.url), "utf8");
+  const screens = readFileSync(new URL("../components/auth-flow/screens.tsx", import.meta.url), "utf8");
+  assert.match(auth, /\/forgot-password\?returnTo=%2Fmerchant%2Flogin/);
+  assert.match(screens, /value === "\/food\/login" \|\| value === "\/merchant\/login"/);
+});

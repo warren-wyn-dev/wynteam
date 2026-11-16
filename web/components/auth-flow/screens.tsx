@@ -39,10 +39,13 @@ import {
 
 const MIN_ONBOARDING_AGE = 13;
 
-function passwordRecoveryReturnPath(url?: string): "/login" | "/food/login" {
+type RecoveryReturnPath = "/login" | "/food/login" | "/merchant/login";
+
+function passwordRecoveryReturnPath(url?: string): RecoveryReturnPath {
   if (!url) return "/login";
   try {
-    return new URL(url).searchParams.get("returnTo") === "/food/login" ? "/food/login" : "/login";
+    const value = new URL(url).searchParams.get("returnTo");
+    return value === "/food/login" || value === "/merchant/login" ? value : "/login";
   } catch {
     return "/login";
   }
@@ -1020,7 +1023,7 @@ export function ForgotPasswordScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
-  const [returnTo] = useState<"/login" | "/food/login">(() =>
+  const [returnTo] = useState<RecoveryReturnPath>(() =>
     passwordRecoveryReturnPath(typeof window !== "undefined" ? window.location.href : undefined),
   );
 
@@ -1083,7 +1086,7 @@ export function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [returnTo] = useState<"/login" | "/food/login">(() =>
+  const [returnTo] = useState<RecoveryReturnPath>(() =>
     passwordRecoveryReturnPath(typeof window !== "undefined" ? window.location.href : undefined),
   );
 
@@ -1219,7 +1222,7 @@ export function ResetPasswordScreen() {
             <p role="alert" style={{ fontSize: 14, lineHeight: 1.6 }}>ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุ กรุณาขอลิงก์ใหม่</p>
             <Button
               className="btn-primary"
-              onClick={() => router.replace(returnTo === "/food/login" ? "/forgot-password?returnTo=%2Ffood%2Flogin" : "/forgot-password")}
+              onClick={() => router.replace(returnTo === "/login" ? "/forgot-password" : `/forgot-password?returnTo=${encodeURIComponent(returnTo)}`)}
             >ขอลิงก์ใหม่</Button>
           </>
         ) : null}

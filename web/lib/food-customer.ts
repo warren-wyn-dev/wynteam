@@ -822,7 +822,7 @@ export async function createFoodCustomerOrder(
     : couponCode
       ? await client.rpc("food_create_order_v2", { ...params, p_coupon_code: couponCode })
       : await client.rpc("food_create_order", params);
-  if (error) throw new Error(error.message);
+  if (error) throw orderRpcError(error);
   return String(data);
   };
   if (!input.requestId) return create();
@@ -843,6 +843,23 @@ export async function createFoodCustomerOrder(
 
 const ORDER_REQUEST_POLL_MS = 1500;
 const ORDER_REQUEST_POLL_TRIES = 14;
+
+/** Keeps the database error code on the Error so callers can tell a server refusal from a lost connection. */
+function orderRpcError(error: { message: string; code?: string | null }) {
+  const failure = new Error(error.message) as Error & { code?: string };
+  if (error.code) failure.code = error.code;
+  return failure;
+}
+
+/**
+ * True only when the database answered and refused the order (it carries a Postgres/PostgREST
+ * code), so no order exists. A timeout or dropped connection has no code: the order may already
+ * be saved, so its request id must stay claimed and a retry must not create a second order.
+ */
+function orderRefusedByServer(error: unknown) {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "string" && code.length > 0;
+}
 
 export function newOrderRequestId() {
   return crypto.randomUUID();
@@ -891,7 +908,9 @@ async function withOrderRequest(
   try {
     orderId = await create();
   } catch (error) {
-    await client.rpc("food_order_request_release", { p_request_id: requestId }).then(() => undefined, () => undefined);
+    if (orderRefusedByServer(error)) {
+      await client.rpc("food_order_request_release", { p_request_id: requestId }).then(() => undefined, () => undefined);
+    }
     throw error;
   }
   await client.rpc("food_order_request_done", { p_request_id: requestId, p_order_id: orderId }).then(() => undefined, () => undefined);

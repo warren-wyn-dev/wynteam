@@ -142,7 +142,7 @@ export function MerchantLoginScreen() {
             </button>
           </span>
         </div>
-        <div className="wm-auth-inline"><Link href="/forgot-password">ลืมรหัสผ่าน?</Link></div>
+        <div className="wm-auth-inline"><Link href="/forgot-password?returnTo=%2Fmerchant%2Flogin">ลืมรหัสผ่าน?</Link></div>
         {message ? <p className="wm-auth-error" role="alert">{message}</p> : null}
         <button className="wm-primary wm-full wm-auth-submit" type="submit" disabled={checking || loading}>{checking ? "กำลังตรวจสอบบัญชี…" : loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
       </form>

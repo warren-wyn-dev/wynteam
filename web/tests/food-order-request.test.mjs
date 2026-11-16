@@ -75,12 +75,21 @@ test("a pending request waits for the first attempt and returns its order", asyn
 test("a failed order releases the claim and rethrows, so the next try can create it", async () => {
   const c = client({
     food_order_request_claim: () => ({ data: { status: "new" }, error: null }),
-    food_create_order: () => ({ data: null, error: { message: "store is closed" } }),
+    food_create_order: () => ({ data: null, error: { message: "store is closed", code: "P0001" } }),
   });
   const id = newOrderRequestId();
   await assert.rejects(() => createFoodCustomerOrder(c, STORE, input({ requestId: id })), /store is closed/);
   assert.deepEqual(c.calls.map((call) => call.name), ["food_order_request_claim", "food_create_order", "food_order_request_release"]);
   assert.deepEqual(c.calls[2].args, { p_request_id: id });
+});
+
+test("a lost connection keeps the claim, because the order may already exist", async () => {
+  const c = client({
+    food_order_request_claim: () => ({ data: { status: "new" }, error: null }),
+    food_create_order: () => ({ data: null, error: { message: "TypeError: Failed to fetch", code: "" } }),
+  });
+  await assert.rejects(() => createFoodCustomerOrder(c, STORE, input({ requestId: newOrderRequestId() })), /Failed to fetch/);
+  assert.deepEqual(c.calls.map((call) => call.name), ["food_order_request_claim", "food_create_order"]);
 });
 
 test("while the database functions are missing the order is created as before", async () => {

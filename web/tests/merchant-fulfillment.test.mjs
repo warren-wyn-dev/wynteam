@@ -30,7 +30,7 @@ test('legacy refund uploads validate size and file content instead of trusting M
   assert.equal(calls.length, 1);
 });
 test('push listeners invalidate only the active account and are removed with the host', () => {
-  const host = readFileSync(new URL('../components/merchant/merchant-flutter-app.tsx', import.meta.url), 'utf8');
+  const host = readFileSync(new URL('../components/merchant/merchant-flutter-authenticated.tsx', import.meta.url), 'utf8');
   assert.match(host, /event\.data\.recipientId !== userId/);
   assert.match(host, /removeEventListener\("message", wake\)/);
   assert.match(host, /zoky-merchant-order-change/);
