@@ -163,6 +163,7 @@ import {
   type FoodStoreReviewFeed,
   type FoodCustomerStore,
 } from "@/lib/food-customer";
+import { dormPinOffered, suggestDormPin, withdrawDormPins } from "@/lib/dorm-pin-suggest";
 
 type FoodTab = "home" | "orders" | "messages" | "cart" | "account";
 
@@ -2438,10 +2439,14 @@ function AddressEditor({
   showPin: boolean;
   draft: FoodAddressDraft;
   onClose: () => void;
-  onSave: (draft: FoodAddressDraft) => void;
+  onSave: (draft: FoodAddressDraft, extras?: { shareDormPin: boolean }) => void;
   busy: boolean;
 }) {
   const [form, setForm] = useState(() => draftWithLastWynosMapsPin(draft));
+  // Opt-in, never ticked for the customer: offer this dorm's name and pin to the map (norswor-backend dorm_pin_suggestions).
+  const [shareDormPin, setShareDormPin] = useState(false);
+  const [dormPinNote, setDormPinNote] = useState("");
+  const dormPinChoice = showPin && dormPinOffered(form.buildingName, form.location);
   const locationKey = form.location ? `${form.location.latitude},${form.location.longitude}` : "";
   const [availabilityState, setAvailabilityState] = useState<{
     key: string;
@@ -2545,6 +2550,28 @@ function AddressEditor({
         <label>ชื่ออาคาร / หมู่บ้าน
           <input value={form.buildingName} onChange={(event) => setForm({ ...form, buildingName: event.target.value })} placeholder="เช่น หอพักธาราทิพย์ / คอนโด A" />
         </label>
+        {dormPinChoice ? (
+          <div className="wf-form-note">
+            <label className="wf-check">
+              <input type="checkbox" checked={shareDormPin} onChange={(event) => setShareDormPin(event.target.checked)} />
+              <span><strong>ช่วยยืนยันตำแหน่งหอพักนี้ให้คนอื่นหาเจอ</strong><small>ส่งเฉพาะชื่อหอและตำแหน่งหมุด ไม่ส่งห้อง ชื่อ หรือเบอร์โทร</small></span>
+            </label>
+            <details>
+              <summary>รายละเอียดการแชร์ตำแหน่งหอพัก</summary>
+              <p>เมื่อคุณติ๊กและบันทึกที่อยู่ เราจะเก็บ &quot;ชื่ออาคาร/หมู่บ้าน&quot; ที่คุณกรอกและ &quot;ตำแหน่งหมุดที่คุณเลือก&quot; เพื่อรวมกับของผู้ใช้คนอื่น ให้แผนที่รู้ตำแหน่งหอพัก ตำแหน่งจะแสดงบนแผนที่ก็ต่อเมื่อมีผู้ใช้ตั้งแต่ 2 คนขึ้นไปยืนยันตรงกันและผู้ดูแลตรวจแล้ว ข้อมูลผูกกับบัญชีของคุณเพื่อให้คุณถอนความยินยอมได้เท่านั้น ไม่แสดงให้ผู้ใช้คนอื่นเห็น</p>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  void withdrawDormPins(client).then(({ result, count }) => setDormPinNote(
+                    result === "done" ? (count > 0 ? "ถอนการแชร์แล้ว" : "ไม่มีรายการที่เคยแชร์") : "ถอนการแชร์ไม่สำเร็จ ลองใหม่อีกครั้ง",
+                  ));
+                }}
+              >ถอนการแชร์ที่เคยส่ง</button>
+              {dormPinNote ? <small role="status">{dormPinNote}</small> : null}
+            </details>
+          </div>
+        ) : null}
         <div className="wf-form-grid wf-form-grid--3">
           <label>หมู่ที่<input value={form.moo} onChange={(event) => setForm({ ...form, moo: event.target.value })} placeholder="เช่น 11" /></label>
           <label>ชั้น<input value={form.floor} onChange={(event) => setForm({ ...form, floor: event.target.value })} placeholder="เช่น 5" /></label>
@@ -2592,7 +2619,7 @@ function AddressEditor({
         {form.location && (!form.subdistrict.trim() || !form.district.trim() || !form.province.trim() || !/^\d{5}$/.test(form.postalCode.trim())) ? (
           <div className="wf-inline-warning">กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก</div>
         ) : null}
-        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form)}>
+        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form, { shareDormPin: dormPinChoice && shareDormPin })}>
           {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล ZOKY"}
         </button>
       </div>
@@ -3912,12 +3939,14 @@ function FoodCustomerInner({
     }
   };
 
-  const saveAddress = async (draft: FoodAddressDraft) => {
+  const saveAddress = async (draft: FoodAddressDraft, extras?: { shareDormPin: boolean }) => {
     setBusy(true);
     try {
       await saveFoodCustomerAddress(client, draft);
       try { window.localStorage.removeItem(WYNOS_MAPS_PIN_STORAGE_KEY); } catch { /* private mode */ }
-      setMessage("บันทึกที่อยู่แล้ว");
+      // Only after the address is saved, only when the customer ticked the box, and never an error for the customer.
+      const dormPin = extras?.shareDormPin ? await suggestDormPin(client, { buildingName: draft.buildingName, location: draft.location }) : "skipped";
+      setMessage(dormPin === "sent" ? "บันทึกที่อยู่แล้ว · ขอบคุณที่ช่วยยืนยันตำแหน่งหอ" : "บันทึกที่อยู่แล้ว");
       setAddressDraft(null);
       await load(true);
     } catch (error) {
@@ -4350,7 +4379,7 @@ function FoodCustomerInner({
       ) : null}
 
       {addressDraft ? (
-        <AddressEditor client={client} storeId={store?.id ?? null} showPin={true} draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft) => void saveAddress(draft)} />
+        <AddressEditor client={client} storeId={store?.id ?? null} showPin={true} draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft, extras) => void saveAddress(draft, extras)} />
       ) : null}
 
       {reviewOrder ? (
