@@ -97,7 +97,7 @@ export async function signInWithEmail(client: SupabaseClient, email: string, pas
 export async function resetPasswordForEmail(
   client: SupabaseClient,
   email: string,
-  returnTo: "/login" | "/food/login" = "/login",
+  returnTo: "/login" | "/food/login" | "/merchant/login" = "/login",
 ): Promise<void> {
   const redirectTo = typeof window !== "undefined"
     ? `${window.location.origin}/reset-password?returnTo=${encodeURIComponent(returnTo)}`
