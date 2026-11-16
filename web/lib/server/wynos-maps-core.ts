@@ -164,10 +164,62 @@ export function wynosMapsCoreStatus() {
   };
 }
 
+// Place names in OSM rarely contain the province or area ("โลตัส ขอนแก่น" is
+// the shop name plus where it is), so a full phrase can find nothing while its
+// parts do. Only when the whole phrase has no result (and has two or more words)
+// the last word is searched as the area and the rest as the name (two extra
+// calls). The area comes first (at most 2 rows); name matches follow, nearest to
+// that area first, and matches farther than FALLBACK_NAME_RADIUS_KM from it are
+// dropped, so a shop with the same name in another city is never offered. If the
+// area is not a known place, the name matches are returned as they are.
+const FALLBACK_NAME_RADIUS_KM = 80;
+
+function distanceKm(a: GeoPlace, b: GeoPlace) {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 export async function searchWynosGeo(query: string) {
   const origin = serviceOrigin(process.env.WYNOS_GEO_ORIGIN);
   if (!origin) return null;
 
+  const first = await searchWynosGeoOnce(origin, query);
+  if (first.length) return first;
+
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return [];
+  const areaQuery = words[words.length - 1];
+  const nameQuery = words.slice(0, -1).join(" ");
+  // A failed retry must not turn an empty answer into an error.
+  const [area, names] = await Promise.all([
+    areaQuery.length >= 2 ? searchWynosGeoOnce(origin, areaQuery).catch(() => [] as GeoPlace[]) : Promise.resolve([] as GeoPlace[]),
+    nameQuery.length >= 2 ? searchWynosGeoOnce(origin, nameQuery).catch(() => [] as GeoPlace[]) : Promise.resolve([] as GeoPlace[]),
+  ]);
+
+  const anchor = area[0];
+  const nearNames = anchor
+    ? names
+        .map((place) => ({ place, km: distanceKm(anchor, place) }))
+        .filter((entry) => entry.km <= FALLBACK_NAME_RADIUS_KM)
+        .sort((a, b) => a.km - b.km)
+        .map((entry) => entry.place)
+    : names;
+
+  const merged: GeoPlace[] = [];
+  const seen = new Set<string>();
+  for (const place of [...area.slice(0, 2), ...nearNames]) {
+    const key = `${place.name}|${place.lat}|${place.lon}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(place);
+  }
+  return merged.slice(0, 8);
+}
+
+async function searchWynosGeoOnce(origin: string, query: string): Promise<GeoPlace[]> {
   const url = new URL(`${origin}/search`);
   url.searchParams.set("q", query.slice(0, 200));
   url.searchParams.set("format", "jsonv2");
