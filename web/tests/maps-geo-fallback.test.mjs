@@ -19,6 +19,7 @@ const rows = {
     { lat: "13.75", lon: "100.50", name: "โลตัส พระราม 4", display_name: "โลตัส พระราม 4" },
   ],
   "ขอนแก่น": [{ lat: "16.44", lon: "102.84", name: "ขอนแก่น", display_name: "ขอนแก่น" }],
+  "ร้านเดียว": [{ lat: "13.75", lon: "100.50", name: "ร้านเดียว กรุงเทพ", display_name: "ร้านเดียว กรุงเทพ" }],
   "ศรีนครินทร์": [{ lat: "16.47", lon: "102.82", name: "โรงพยาบาลศรีนครินทร์", display_name: "โรงพยาบาลศรีนครินทร์" }],
   "ล่ม": "fail",
 };
@@ -43,11 +44,19 @@ test("a phrase that matches is answered with one call (nothing changes for it)",
   assert.deepEqual(calls, ["ศรีนครินทร์"]);
 });
 
-test("name plus area finds the name, then the area, when the whole phrase finds nothing", async () => {
+test("name plus area: the area first, then only the name matches near it (not the same name in another city)", async () => {
   calls.length = 0;
   const places = await core.searchWynosGeo("โลตัส ขอนแก่น");
-  assert.deepEqual(calls, ["โลตัส ขอนแก่น", "โลตัส", "ขอนแก่น"]);
-  assert.deepEqual(places.map((place) => place.name), ["โลตัส ขอนแก่น", "โลตัส พระราม 4", "ขอนแก่น"]);
+  assert.equal(calls[0], "โลตัส ขอนแก่น");
+  assert.deepEqual([...calls.slice(1)].sort(), ["ขอนแก่น", "โลตัส"]);
+  assert.deepEqual(places.map((place) => place.name), ["ขอนแก่น", "โลตัส ขอนแก่น"]);
+  assert.ok(!places.some((place) => place.name === "โลตัส พระราม 4"));
+});
+
+test("when the area is not a known place the name matches are returned as they are", async () => {
+  calls.length = 0;
+  const places = await core.searchWynosGeo("ร้านเดียว ที่ไหนไม่รู้");
+  assert.deepEqual(places.map((place) => place.name), ["ร้านเดียว กรุงเทพ"]);
 });
 
 test("a single unknown word is not retried", async () => {
@@ -59,7 +68,8 @@ test("a single unknown word is not retried", async () => {
 test("nothing found at all returns an empty list after at most two extra calls", async () => {
   calls.length = 0;
   assert.deepEqual(await core.searchWynosGeo("ไม่มี คำนี้ เลย"), []);
-  assert.deepEqual(calls, ["ไม่มี คำนี้ เลย", "ไม่มี คำนี้", "เลย"]);
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0], "ไม่มี คำนี้ เลย");
 });
 
 test("a failing retry does not turn an empty answer into an error, a failing first call still does", async () => {
