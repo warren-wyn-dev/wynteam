@@ -4,7 +4,7 @@
  * live with an incomplete notice. Retention (stated in the same text): kept until the customer withdraws,
  * offers the reviewer rejects are deleted after 90 days (norswor-backend `dorm_pin_prune`).
  */
-export const DORM_PIN_CONTROLLER: string | null = null;
+export const DORM_PIN_CONTROLLER: string | null = "Norswor Maps"; // Founder, 2026-11-16 (a product name: check with the legal reviewer whether a company name is needed)
 export const DORM_PIN_CONTACT: string | null = null;
 
 export type DormPinNotice = { controller: string | null; contact: string | null };
