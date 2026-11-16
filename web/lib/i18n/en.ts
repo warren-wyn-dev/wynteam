@@ -2572,7 +2572,7 @@ Object.assign(EN_EXACT, {
   "ช่วยเพิ่มหมุดหอพักนี้บน Norswor Maps": "Help add this dorm's pin on Norswor Maps",
   "ช่วยให้ลูกค้าและไรเดอร์คนอื่นค้นหาหอพักนี้เจอได้ง่ายขึ้น": "Help other customers and riders find this dorm more easily",
   "เมื่อคุณเลือกและบันทึกที่อยู่นี้ เราจะนำชื่อหอพักและตำแหน่งหมุดที่คุณเลือกไปเพิ่มใน Norswor Maps เพื่อให้ผู้ใช้งานคนอื่นค้นหาหอพักและเดินทางมาถึงได้สะดวกขึ้น โดยจะไม่แสดงเลขห้อง ชื่อ หรือเบอร์โทรศัพท์ของคุณ": "When you choose this and save the address, we will add the dorm name and the pin position you chose to Norswor Maps so other users can search for the dorm and find their way there more easily. Your room number, name and phone number will not be shown.",
-  "ตำแหน่งจะแสดงบนแผนที่หลังจากผู้ดูแลตรวจแล้ว ข้อมูลผูกกับบัญชีของคุณเพื่อให้คุณถอนการแชร์ได้ทุกเมื่อ": "A position appears on the map only after an admin has checked it. The data is linked to your account so that you can withdraw your sharing at any time.",
+  "ตำแหน่งจะแสดงบนแผนที่หลังจากผู้ดูแลตรวจแล้ว ข้อมูลที่เก็บคือชื่อหอ ตำแหน่งหมุด และความแม่นยำของ GPS ผูกกับบัญชีของคุณเพื่อให้คุณถอนการแชร์ได้ทุกเมื่อ": "A position appears on the map only after an admin has checked it. We keep the dorm name, the pin position and the GPS accuracy, linked to your account so that you can withdraw your sharing at any time.",
   "เราเก็บข้อมูลนี้จนกว่าคุณจะถอนการแชร์ ข้อเสนอที่ผู้ดูแลไม่รับจะถูกลบภายใน 90 วัน": "We keep this data until you withdraw your sharing. Offers the admin does not accept are deleted within 90 days.",
   "ผู้ควบคุมข้อมูล": "Data controller",
   "ติดต่อ": "Contact",

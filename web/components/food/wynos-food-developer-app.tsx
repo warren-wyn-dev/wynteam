@@ -164,7 +164,7 @@ import {
   type FoodCustomerStore,
 } from "@/lib/food-customer";
 import { DORM_PIN_CONTACT, DORM_PIN_CONTROLLER } from "@/lib/dorm-pin-notice";
-import { dormPinOffered, suggestDormPin, withdrawDormPins } from "@/lib/dorm-pin-suggest";
+import { dormPinGpsUsable, dormPinOffered, suggestDormPin, withdrawDormPins, type DeliveryPinSource } from "@/lib/dorm-pin-suggest";
 
 type FoodTab = "home" | "orders" | "messages" | "cart" | "account";
 
@@ -2333,7 +2333,7 @@ function DeliveryLocationPicker({
 }: {
   client: SupabaseClient;
   location: FoodLocation | null;
-  onChange: (location: FoodLocation | null, place?: FoodPlace) => void;
+  onChange: (location: FoodLocation | null, place?: FoodPlace, source?: DeliveryPinSource) => void;
 }) {
   const [locating, setLocating] = useState(false);
   const [message, setMessage] = useState("");
@@ -2351,7 +2351,7 @@ function DeliveryLocationPicker({
       const place = await reverseFoodPlace(client, fix.location).catch(() => null);
       setFromGps(true);
       setAccuracyMeters(Number.isFinite(fix.accuracyMeters) ? Math.round(fix.accuracyMeters) : null);
-      onChange(fix.location, place ?? undefined);
+      onChange(fix.location, place ?? undefined, { kind: "gps", accuracyM: Number.isFinite(fix.accuracyMeters) ? fix.accuracyMeters : null });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "หาตำแหน่งปัจจุบันไม่สำเร็จ กรุณาลองอีกครั้ง");
     } finally {
@@ -2378,7 +2378,7 @@ function DeliveryLocationPicker({
     setAccuracyMeters(null);
     setResults(null);
     setQuery("");
-    onChange({ latitude: place.latitude, longitude: place.longitude }, place);
+    onChange({ latitude: place.latitude, longitude: place.longitude }, place, { kind: "search" });
   };
 
   const weakGps = Boolean(location) && fromGps && (accuracyMeters === null || accuracyMeters > GPS_ACCURACY_WARN_METERS);
@@ -2440,14 +2440,17 @@ function AddressEditor({
   showPin: boolean;
   draft: FoodAddressDraft;
   onClose: () => void;
-  onSave: (draft: FoodAddressDraft, extras?: { shareDormPin: boolean }) => void;
+  onSave: (draft: FoodAddressDraft, extras?: { shareDormPin: boolean; accuracyM: number | null }) => void;
   busy: boolean;
 }) {
   const [form, setForm] = useState(() => draftWithLastWynosMapsPin(draft));
   // Opt-in, never ticked for the customer: offer this dorm's name and pin to the map (norswor-backend dorm_pin_suggestions).
   const [shareDormPin, setShareDormPin] = useState(false);
   const [dormPinNote, setDormPinNote] = useState("");
-  const dormPinChoice = showPin && dormPinOffered(form.buildingName, form.location);
+  // Only a pin taken with "use my current location" (a GPS reading of 50 m or better) can be offered:
+  // a place picked from the search (a shop, say) is not where the dorm is.
+  const [pinSource, setPinSource] = useState<DeliveryPinSource | null>(null);
+  const dormPinChoice = showPin && dormPinGpsUsable(pinSource) && dormPinOffered(form.buildingName, form.location);
   const locationKey = form.location ? `${form.location.latitude},${form.location.longitude}` : "";
   const [availabilityState, setAvailabilityState] = useState<{
     key: string;
@@ -2517,7 +2520,7 @@ function AddressEditor({
         {showPin || form.location ? <DeliveryLocationPicker
           client={client}
           location={form.location}
-          onChange={(location, place) => setForm((current) => {
+          onChange={(location, place, source) => { setPinSource(location ? source ?? null : null); setForm((current) => {
             const parts = structuredAddressPartsFromPlace(place);
             return {
               ...current,
@@ -2529,7 +2532,7 @@ function AddressEditor({
               province: location ? current.province || parts.province : current.province,
               postalCode: location ? current.postalCode || parts.postalCode : current.postalCode,
             };
-          })}
+          }); }}
         /> : null}
         {form.placeName ? <div className="wf-form-note">สถานที่ · {form.placeName}</div> : null}
         {storeId && form.location && deliveryMessage ? (
@@ -2560,7 +2563,7 @@ function AddressEditor({
             <details>
               <summary>รายละเอียดการแชร์ตำแหน่งหอพัก</summary>
               <p>เมื่อคุณเลือกและบันทึกที่อยู่นี้ เราจะนำชื่อหอพักและตำแหน่งหมุดที่คุณเลือกไปเพิ่มใน Norswor Maps เพื่อให้ผู้ใช้งานคนอื่นค้นหาหอพักและเดินทางมาถึงได้สะดวกขึ้น โดยจะไม่แสดงเลขห้อง ชื่อ หรือเบอร์โทรศัพท์ของคุณ</p>
-              <p>ตำแหน่งจะแสดงบนแผนที่หลังจากผู้ดูแลตรวจแล้ว ข้อมูลผูกกับบัญชีของคุณเพื่อให้คุณถอนการแชร์ได้ทุกเมื่อ</p>
+              <p>ตำแหน่งจะแสดงบนแผนที่หลังจากผู้ดูแลตรวจแล้ว ข้อมูลที่เก็บคือชื่อหอ ตำแหน่งหมุด และความแม่นยำของ GPS ผูกกับบัญชีของคุณเพื่อให้คุณถอนการแชร์ได้ทุกเมื่อ</p>
               <p>เราเก็บข้อมูลนี้จนกว่าคุณจะถอนการแชร์ ข้อเสนอที่ผู้ดูแลไม่รับจะถูกลบภายใน 90 วัน</p>
               <p><strong>ผู้ควบคุมข้อมูล</strong> {DORM_PIN_CONTROLLER}<br /><strong>ติดต่อ</strong> {DORM_PIN_CONTACT}</p>
               <button
@@ -2624,7 +2627,7 @@ function AddressEditor({
         {form.location && (!form.subdistrict.trim() || !form.district.trim() || !form.province.trim() || !/^\d{5}$/.test(form.postalCode.trim())) ? (
           <div className="wf-inline-warning">กรอกจังหวัด อำเภอ/เขต ตำบล/แขวง และรหัสไปรษณีย์ให้ครบก่อนบันทึก</div>
         ) : null}
-        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form, { shareDormPin: dormPinChoice && shareDormPin })}>
+        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form, { shareDormPin: dormPinChoice && shareDormPin, accuracyM: dormPinGpsUsable(pinSource) ? pinSource.accuracyM : null })}>
           {busy ? "กำลังบันทึก…" : "บันทึกข้อมูล ZOKY"}
         </button>
       </div>
@@ -3944,13 +3947,13 @@ function FoodCustomerInner({
     }
   };
 
-  const saveAddress = async (draft: FoodAddressDraft, extras?: { shareDormPin: boolean }) => {
+  const saveAddress = async (draft: FoodAddressDraft, extras?: { shareDormPin: boolean; accuracyM: number | null }) => {
     setBusy(true);
     try {
       await saveFoodCustomerAddress(client, draft);
       try { window.localStorage.removeItem(WYNOS_MAPS_PIN_STORAGE_KEY); } catch { /* private mode */ }
       // Only after the address is saved, only when the customer ticked the box, and never an error for the customer.
-      const dormPin = extras?.shareDormPin ? await suggestDormPin(client, { buildingName: draft.buildingName, location: draft.location }) : "skipped";
+      const dormPin = extras?.shareDormPin ? await suggestDormPin(client, { buildingName: draft.buildingName, location: draft.location, accuracyM: extras.accuracyM }) : "skipped";
       setMessage(dormPin === "sent" ? "บันทึกที่อยู่แล้ว · ขอบคุณที่ช่วยเพิ่มหมุดหอพัก" : "บันทึกที่อยู่แล้ว");
       setAddressDraft(null);
       await load(true);

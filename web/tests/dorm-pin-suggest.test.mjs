@@ -11,7 +11,7 @@ registerHooks({
   },
 });
 
-const { DORM_PIN_CONSENT_VERSION, dormPinName, dormPinOffered, inDormPinArea, suggestDormPin, withdrawDormPins } = await import("../lib/dorm-pin-suggest.ts");
+const { DORM_PIN_CONSENT_VERSION, DORM_PIN_MAX_GPS_ACCURACY_M, dormPinGpsUsable, dormPinName, dormPinOffered, inDormPinArea, suggestDormPin, withdrawDormPins } = await import("../lib/dorm-pin-suggest.ts");
 const { DORM_PIN_CONTACT, DORM_PIN_CONTROLLER, dormPinNoticeComplete } = await import("../lib/dorm-pin-notice.ts");
 const NOTICE = { controller: "ผู้ควบคุมทดสอบ", contact: "test@example.org" };
 
@@ -44,29 +44,43 @@ test("the name is cleaned the same way the database does it", () => {
   assert.equal(dormPinName(" ก "), null);
 });
 
-test("an offer sends only the name, the position, no accuracy and the consent version", async () => {
+test("an offer sends only the name, the position, the GPS accuracy and the consent version", async () => {
   const c = client(() => ({ data: { status: "recorded" }, error: null }));
-  assert.equal(await suggestDormPin(c, { buildingName: " หอพัก ธาราทิพย์ ", location: MSU }), "sent");
+  assert.equal(await suggestDormPin(c, { buildingName: " หอพัก ธาราทิพย์ ", location: MSU, accuracyM: 4.84 }), "sent");
   assert.deepEqual(c.calls, [{ name: "dorm_pin_suggest", args: {
-    p_name: "หอพัก ธาราทิพย์", p_latitude: MSU.latitude, p_longitude: MSU.longitude, p_accuracy_m: null, p_consent_version: DORM_PIN_CONSENT_VERSION,
+    p_name: "หอพัก ธาราทิพย์", p_latitude: MSU.latitude, p_longitude: MSU.longitude, p_accuracy_m: 4.8, p_consent_version: DORM_PIN_CONSENT_VERSION,
   } }]);
   assert.deepEqual(Object.keys(c.calls[0].args).sort(), ["p_accuracy_m", "p_consent_version", "p_latitude", "p_longitude", "p_name"]);
 });
 
-test("nothing is sent without a usable name or a pin in the area", async () => {
+test("only a GPS reading of 50 m or better may be offered", () => {
+  assert.equal(dormPinGpsUsable({ kind: "gps", accuracyM: 4.8 }), true);
+  assert.equal(dormPinGpsUsable({ kind: "gps", accuracyM: DORM_PIN_MAX_GPS_ACCURACY_M }), true);
+  assert.equal(dormPinGpsUsable({ kind: "gps", accuracyM: DORM_PIN_MAX_GPS_ACCURACY_M + 1 }), false);
+  assert.equal(dormPinGpsUsable({ kind: "gps", accuracyM: null }), false, "no accuracy: not offered");
+  assert.equal(dormPinGpsUsable({ kind: "gps", accuracyM: Number.NaN }), false);
+  assert.equal(dormPinGpsUsable({ kind: "gps", accuracyM: -1 }), false);
+  assert.equal(dormPinGpsUsable({ kind: "search" }), false, "a place picked from the search is not where the dorm is");
+  assert.equal(dormPinGpsUsable(null), false);
+  assert.equal(dormPinGpsUsable(undefined), false);
+});
+
+test("nothing is sent without a usable name, a pin in the area or a good GPS reading", async () => {
   const c = client(() => ({ data: null, error: null }));
-  assert.equal(await suggestDormPin(c, { buildingName: "", location: MSU }), "skipped");
-  assert.equal(await suggestDormPin(c, { buildingName: "หอพัก", location: null }), "skipped");
-  assert.equal(await suggestDormPin(c, { buildingName: "หอพัก", location: { latitude: 0, longitude: 0 } }), "skipped");
+  assert.equal(await suggestDormPin(c, { buildingName: "", location: MSU, accuracyM: 5 }), "skipped");
+  assert.equal(await suggestDormPin(c, { buildingName: "หอพัก", location: null, accuracyM: 5 }), "skipped");
+  assert.equal(await suggestDormPin(c, { buildingName: "หอพัก", location: { latitude: 0, longitude: 0 }, accuracyM: 5 }), "skipped");
+  assert.equal(await suggestDormPin(c, { buildingName: "หอพัก", location: MSU }), "skipped", "no accuracy");
+  assert.equal(await suggestDormPin(c, { buildingName: "หอพัก", location: MSU, accuracyM: 80 }), "skipped", "too inaccurate");
   assert.equal(c.calls.length, 0);
 });
 
 test("a missing database function is 'unavailable', any other error 'failed', and none is thrown", async () => {
   for (const error of [{ code: "PGRST202", message: "x" }, { code: "42883", message: "x" }, { message: "Could not find the function public.dorm_pin_suggest" }]) {
-    assert.equal(await suggestDormPin(client(() => ({ data: null, error })), { buildingName: "หอพัก", location: MSU }), "unavailable");
+    assert.equal(await suggestDormPin(client(() => ({ data: null, error })), { buildingName: "หอพัก", location: MSU, accuracyM: 5 }), "unavailable");
   }
-  assert.equal(await suggestDormPin(client(() => ({ data: null, error: { code: "P0001", message: "too many suggestions" } })), { buildingName: "หอพัก", location: MSU }), "failed");
-  assert.equal(await suggestDormPin(client(() => { throw new Error("network"); }), { buildingName: "หอพัก", location: MSU }), "failed");
+  assert.equal(await suggestDormPin(client(() => ({ data: null, error: { code: "P0001", message: "too many suggestions" } })), { buildingName: "หอพัก", location: MSU, accuracyM: 5 }), "failed");
+  assert.equal(await suggestDormPin(client(() => { throw new Error("network"); }), { buildingName: "หอพัก", location: MSU, accuracyM: 5 }), "failed");
 });
 
 test("withdrawing reports how many offers were stopped and never throws", async () => {
@@ -80,7 +94,11 @@ test("withdrawing reports how many offers were stopped and never throws", async 
 test("the app: the box is never pre-ticked, the offer is sent only after the address is saved and only when ticked", () => {
   const source = readFileSync(new URL("../components/food/wynos-food-developer-app.tsx", import.meta.url), "utf8");
   assert.match(source, /const \[shareDormPin, setShareDormPin\] = useState\(false\)/);
-  assert.match(source, /onSave\(form, \{ shareDormPin: dormPinChoice && shareDormPin \}\)/);
+  assert.match(source, /onSave\(form, \{ shareDormPin: dormPinChoice && shareDormPin, accuracyM: dormPinGpsUsable\(pinSource\) \? pinSource\.accuracyM : null \}\)/);
+  // the box needs a pin that came from "use my current location", never one picked from the place search
+  assert.match(source, /const dormPinChoice = showPin && dormPinGpsUsable\(pinSource\) && dormPinOffered/);
+  assert.match(source, /\{ kind: "gps", accuracyM: Number\.isFinite\(fix\.accuracyMeters\) \? fix\.accuracyMeters : null \}/);
+  assert.match(source, /place, \{ kind: "search" \}\)/);
   const saveAddress = source.slice(source.indexOf("const saveAddress = async"), source.indexOf("const deleteAddress = async"));
   assert.ok(saveAddress.indexOf("saveFoodCustomerAddress(client, draft)") < saveAddress.indexOf("suggestDormPin("), "offer comes after the address is saved");
   assert.match(saveAddress, /extras\?\.shareDormPin \? await suggestDormPin/);
