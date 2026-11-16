@@ -15,6 +15,17 @@ const LAT_MIN = 15.5, LAT_MAX = 16.8, LNG_MIN = 102.8, LNG_MAX = 103.6;
 
 export type DormPinResult = "sent" | "skipped" | "unavailable" | "failed";
 
+/** Where the delivery pin came from. Only a reading of the device GPS may be offered to the map. */
+export type DeliveryPinSource = { kind: "gps"; accuracyM: number | null } | { kind: "search" };
+
+// A reading worse than this cannot tell one dorm from the next, so the box is not offered.
+export const DORM_PIN_MAX_GPS_ACCURACY_M = 50;
+
+export function dormPinGpsUsable(source: DeliveryPinSource | null | undefined): source is { kind: "gps"; accuracyM: number } {
+  return source?.kind === "gps" && typeof source.accuracyM === "number" && Number.isFinite(source.accuracyM)
+    && source.accuracyM >= 0 && source.accuracyM <= DORM_PIN_MAX_GPS_ACCURACY_M;
+}
+
 export function dormPinName(raw: string | null | undefined): string | null {
   const text = (raw ?? "").replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim();
   return text.length >= 2 ? text.slice(0, 80) : null;
@@ -42,16 +53,18 @@ function missingFunction(error: { code?: string; message?: string } | null): boo
 
 export async function suggestDormPin(
   client: Pick<SupabaseClient, "rpc">,
-  input: { buildingName: string | null | undefined; location: { latitude: number; longitude: number } | null | undefined },
+  input: { buildingName: string | null | undefined; location: { latitude: number; longitude: number } | null | undefined; accuracyM?: number | null },
 ): Promise<DormPinResult> {
   const name = dormPinName(input.buildingName);
   if (name === null || !input.location || !inDormPinArea(input.location)) return "skipped";
+  // Only a usable GPS reading is sent, with its accuracy (the database keeps it for the reviewer).
+  if (!dormPinGpsUsable({ kind: "gps", accuracyM: input.accuracyM ?? null })) return "skipped";
   try {
     const { error } = await client.rpc("dorm_pin_suggest", {
       p_name: name,
       p_latitude: input.location.latitude,
       p_longitude: input.location.longitude,
-      p_accuracy_m: null, // a pin chosen on the map has no GPS accuracy
+      p_accuracy_m: Math.round((input.accuracyM as number) * 10) / 10,
       p_consent_version: DORM_PIN_CONSENT_VERSION,
     });
     if (!error) return "sent";
