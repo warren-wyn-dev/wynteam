@@ -7,6 +7,19 @@ import { sessionErrorCopy } from "@/lib/supabase/clock-skew-fetch";
 
 export { orderDeliveryProof } from "@/lib/food-delivery-proof";
 
+// R-03: never `select("*")` on food_stores. The tax identity columns (tax_id, tax_legal_name, tax_address, tax_branch)
+// are not readable by customers once the store tax privacy migration is applied, and `select *` would then fail.
+// Keep this list in step with FoodCustomerStore.
+const FOOD_CUSTOMER_STORE_COLUMNS = [
+  "id", "slug", "share_code", "name", "description", "phone", "address", "logo_path", "cover_path",
+  "business_hours", "business_schedule", "special_closed_dates", "temporary_closed_until", "temporary_closed_reason",
+  "prep_time_min_minutes", "prep_time_max_minutes", "menu_category_order", "delivery_area", "delivery_fee", "minimum_order",
+  "latitude", "longitude", "pickup_latitude", "pickup_longitude", "pickup_note", "delivery_radius_km", "delivery_base_km", "delivery_fee_per_km",
+  "promptpay_name", "promptpay_id", "bank_name", "bank_account_name", "bank_account_number", "payment_qr_path",
+  "stripe_payments_enabled", "scheduled_orders_enabled", "scheduled_min_notice_minutes", "scheduled_max_days",
+  "is_open", "is_published", "created_at", "updated_at",
+].join(",");
+
 export type FoodCustomerStore = {
   id: string;
   slug: string;
@@ -454,13 +467,13 @@ export async function fetchFoodCustomerSnapshot(
   // WYN-207: the customer can pick a store from the directory; without a
   // pick (or if it is no longer visible) Food opens the first store.
   const picked = storeId
-    ? await client.from("food_stores").select("*").eq("id", storeId).maybeSingle()
+    ? await client.from("food_stores").select(FOOD_CUSTOMER_STORE_COLUMNS).eq("id", storeId).maybeSingle()
     : { data: null, error: null };
   const storeResult = picked.data
     ? picked
     : await client
       .from("food_stores")
-      .select("*")
+      .select(FOOD_CUSTOMER_STORE_COLUMNS)
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
